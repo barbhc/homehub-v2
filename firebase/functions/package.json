@@ -5,11 +5,12 @@
   "engines": {
     "node": "20"
   },
-  "main": "lib/firebase/functions/src/index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "serve": "npm run build && firebase emulators:start --only functions --project demo-homehub",
+    "bundle": "npm run typecheck && node esbuild.config.mjs",
+    "serve": "npm run bundle && firebase emulators:start --only functions --project demo-homehub",
     "deploy": "firebase deploy --only functions"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
     "firebase-functions": "^6.3.0"
   },
   "devDependencies": {
+    "esbuild": "^0.25.0",
     "typescript": "^5.9.0"
   }
 }

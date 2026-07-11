@@ -11,7 +11,7 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 | 1 — scaffold + Firebase + emulators | **code complete; owner console steps pending** | see "Phase 1 remainder" below |
 | 2 — Firestore model + rules | **code complete; verified on emulator** | model doc 19/19 + rules 19 tests green + indexes schema-valid |
 | 3 — parse worker + trust arc | **worker + seed + client trust arc (fix B) done** | 3.1+3.2 done; 3.3 watch-stages/snapshot tooling optional-remaining |
-| 4 — remaining backend + FCM | not started | |
+| 4 — remaining backend + FCM | **deploy packaging + rollForward + FCM scaffold done; callable ports remaining** | esbuild bundle solves shared/; rollForward emulator-tested; chat/proxy/detect/etc. ports need v1 source + API keys |
 | 5 — service swap + fixes A/C/D | not started | |
 | 6 — import + re-parse | not started | needs Phase 0 owner scripts run |
 | 7 — done checklist + switch | not started | |
@@ -120,14 +120,29 @@ All service files currently compile against the shim (status: `stub`).
   is gated on the Phase 5 manual-creation + auth→homeId swap. The service + mapping are
   correct now; the worker path itself is already proven by `worker.emu.test.mjs`.
 
-## ⚠ Deploy-packaging TODO (Phase 4, owner deploy)
-`shared/parse/*` lives at the REPO ROOT (shared by client + functions + harness per plan).
-`firebase deploy` uploads only the `firebase/functions` dir, so the compiled shared files
-(imported as `../../../../shared/parse/*.js`, which resolve fine for tsc + the local emulator)
-will NOT be in the deployed package as-is. Before the first real `firebase deploy --only
-functions`, add a bundling step — recommended: esbuild-bundle the entry (inlines shared), OR a
-predeploy copy of `shared/parse` into `firebase/functions/`. The EMULATOR path (what validates
-logic) is unaffected; this is strictly a cloud-deploy packaging step and is the owner's to run.
+## Verified — Phase 4 (partial: scheduler + FCM + deploy packaging)
+- **Deploy packaging RESOLVED** — `firebase/functions/esbuild.config.mjs` bundles the entry to
+  `dist/index.js`, INLINING repo-root `shared/parse/*` while keeping node_modules external.
+  `main` → `dist/index.js`; `firebase.json` predeploy runs `npm run bundle` (= typecheck + esbuild).
+  Verified the bundle inlines `planTaskReconciliation`/`titleSimilarity` and exports all 6 fns.
+  (`npm run build` = tsc still emits `lib/` for the emulator tests.)
+- **rollForwardNeverStarted** (onSchedule 30 5 * * * LA) + pure `addCadence` — collection-group
+  sweep re-anchors never-started recurring past-due instances; keeps lapsed (has-done) + non-recurring
+  untouched. **4/4 emulator tests green** (in `rollForward.emu.test.mjs`).
+- **FCM**: `sendTestPush` (callable) + `sendPushDaily` (onSchedule 0 15 * * * LA) + token pruning;
+  tokens at `users/{uid}/private/fcmTokens`. Compile-verified — **owner must verify a real push on
+  desktop + iOS PWA** (no FCM emulator; plan Phase 4 gate).
+- All 9 functions emulator tests green (`npm run test:worker:emu`); typecheck + bundle green.
+
+### Phase 4 remaining (callable ports — need v1 source + live API keys)
+Port from v1 `supabase/functions/` as direct callables / HTTPS fns (defineSecret for keys):
+`chat-query` (2nd-gen HTTPS, **keep SSE streaming + PDF citations**), `proxy-pdf` (keep isAllowedUrl),
+`detect-doc-type`, `generate-tasks`/`ingest-reference` (worker pattern, same queue),
+`troubleshoot-synthesize`, `classify-existing-tasks`, `suggest-care-notes`, `import-care-url`,
+`product-lookup`, `check-recalls`, `search-product-images`, `ocr` (verify live callers first).
+Do NOT port: `manual-search`, `search-manual`, `identify-diagram-pages`, `backfill-diagram-pages`.
+Best done alongside the Phase 5 services that call them (client contract in hand) or as a dedicated
+keys-in-hand pass. `completeTask` callable (model §9) lands with the Phase 5 taskService swap.
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now

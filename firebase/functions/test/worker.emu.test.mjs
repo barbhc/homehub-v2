@@ -12,13 +12,13 @@
  */
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { initializeApp } from "firebase-admin/app"
+import { getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { runParse } from "../lib/firebase/functions/src/parse/runParse.js"
 
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be set (run via emulators:exec)")
 
-initializeApp({ projectId: "demo-homehub" })
+if (getApps().length === 0) initializeApp({ projectId: "demo-homehub" })
 const db = getFirestore()
 const NOW = new Date("2026-06-23T00:00:00Z")
 
