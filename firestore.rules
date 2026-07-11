@@ -1,13 +1,148 @@
 rules_version = '2';
 
-// Phase 1 placeholder — DENY ALL. The real membership-based rules are Phase 2
-// (docs/firestore-model.md is written first; rules mirror v1's 78 RLS policies
-// via the homes/{homeId}/members/{uid} primitive). Deny-all is the safe default
-// until then; the emulator overrides nothing.
+// Homehub v2 security rules — derived from docs/firestore-model.md §6.
+//
+// v1 had 78 RLS policies, but the effective model is simple: the near-universal
+// data-table policy is `FOR ALL USING (home_id IN members-of(auth.uid()))` — any
+// member of a home gets full CRUD on the home's data, with NO owner/admin/member
+// distinction on data tables. Roles gate only member management. This file mirrors
+// that: membership at homes/{homeId}/members/{uid} grants read+write to the home's
+// subtree; role gates member writes; assignee-must-be-member is enforced inline.
+//
+// Rules do auth + shape ONLY, never joins (Firestore rules can't join or count docs;
+// the last-owner guard and invite-token validation live in Phase 5 callables — see
+// docs/firestore-model.md "Divergences from v1").
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    // ---- helpers ----
+    function isSignedIn() {
+      return request.auth != null;
     }
+    function isMember(homeId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/homes/$(homeId)/members/$(request.auth.uid));
+    }
+    function memberRole(homeId) {
+      return get(/databases/$(database)/documents/homes/$(homeId)/members/$(request.auth.uid)).data.role;
+    }
+    function isOwner(homeId) {
+      return isMember(homeId) && memberRole(homeId) == 'owner';
+    }
+    // assignee (if present & non-null) must be a member of this home.
+    function assigneeIsMember(homeId, field) {
+      return !(field in request.resource.data)
+        || request.resource.data[field] == null
+        || exists(/databases/$(database)/documents/homes/$(homeId)/members/$(request.resource.data[field]));
+    }
+
+    // ---- users (profiles + private prefs/tokens) ----
+    match /users/{uid} {
+      // Public profile fields readable by any signed-in user (co-member display);
+      // writable only by the owner of the doc.
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid;
+
+      // Private subtree: preferences (interface_level), FCM tokens — self only.
+      match /private/{document=**} {
+        allow read, write: if isSignedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // ---- homes ----
+    match /homes/{homeId} {
+      // A signed-in user may create a home (they must then create their own owner
+      // member doc — see members create). Members read/update/delete the home.
+      allow create: if isSignedIn();
+      allow read, update, delete: if isMember(homeId);
+
+      // ---- members (the rules primitive) ----
+      match /members/{memberUid} {
+        allow read: if isMember(homeId);
+        // Self-create: home bootstrap (first owner) and invite self-join both create
+        // the caller's own member row. Creating another user's row requires owner.
+        allow create: if isSignedIn()
+          && (request.auth.uid == memberUid || isOwner(homeId));
+        // Self-update (e.g. isPrimary) but NOT self-escalating role; owner may update
+        // any member. Role changes are owner-only (blocks self-escalation).
+        allow update: if isOwner(homeId)
+          || (request.auth.uid == memberUid
+              && request.resource.data.role == resource.data.role);
+        // Self-leave or owner-removes-member. The last-owner guard is enforced in the
+        // removeMember callable (rules can't count docs).
+        allow delete: if request.auth.uid == memberUid || isOwner(homeId);
+      }
+
+      // ---- invites ----
+      match /invites/{inviteId} {
+        // Any signed-in user may read (invitee looks up by token to accept); members
+        // create/delete; the invitee marks acceptance to themselves only. Token/expiry
+        // validation belt-and-suspenders in the acceptInvite callable.
+        allow read: if isSignedIn();
+        allow create, delete: if isMember(homeId);
+        allow update: if isMember(homeId)
+          || (isSignedIn() && request.resource.data.acceptedBy == request.auth.uid);
+      }
+
+      // ---- task instances (assignee guard) ----
+      match /taskInstances/{instId} {
+        allow read: if isMember(homeId);
+        allow create, update: if isMember(homeId) && assigneeIsMember(homeId, 'assignedTo');
+        allow delete: if isMember(homeId);
+      }
+
+      // ---- task templates (defaultAssignee guard) ----
+      match /taskTemplates/{tplId} {
+        allow read: if isMember(homeId);
+        allow create, update: if isMember(homeId) && assigneeIsMember(homeId, 'defaultAssignee');
+        allow delete: if isMember(homeId);
+      }
+
+      // ---- manuals + chunks + entities (path-tenanted subtree) ----
+      match /manuals/{manualId} {
+        allow read, write: if isMember(homeId);
+        match /{document=**} {
+          allow read, write: if isMember(homeId);
+        }
+      }
+
+      // ---- collections with child subcollections (nested wildcard, membership-gated) ----
+      match /cleaningSessions/{sessionId} {
+        allow read, write: if isMember(homeId);
+        match /{document=**} { allow read, write: if isMember(homeId); }
+      }
+      match /chatConversations/{conversationId} {
+        allow read, write: if isMember(homeId);
+        match /{document=**} { allow read, write: if isMember(homeId); }
+      }
+      match /troubleshootingCases/{caseId} {
+        allow read, write: if isMember(homeId);
+        match /{document=**} { allow read, write: if isMember(homeId); }
+      }
+
+      // ---- flat member-CRUD collections ----
+      match /rooms/{roomId}            { allow read, write: if isMember(homeId); }
+      match /items/{itemUnitId}        { allow read, write: if isMember(homeId); }
+      match /careNotes/{noteId}        { allow read, write: if isMember(homeId); }
+      match /chatFaqs/{faqId}          { allow read, write: if isMember(homeId); }
+      match /shoppingList/{itemId}     { allow read, write: if isMember(homeId); }
+      match /tierChangeLog/{logId}     { allow read, write: if isMember(homeId); }
+      match /serviceProviders/{provId} { allow read, write: if isMember(homeId); }
+    }
+
+    // ---- global catalog: read authed, write server-only (Admin SDK) ----
+    match /supplyCatalog/{supplyItemId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+      match /options/{optionId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+    }
+
+    // ---- global server-only caches (Admin SDK reads/writes; clients get nothing) ----
+    match /webRetrievals/{id}      { allow read, write: if false; }
+    match /productLookupCache/{id} { allow read, write: if false; }
   }
 }

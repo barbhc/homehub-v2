@@ -9,8 +9,8 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 |---|---|---|
 | 0 — v1 data repairs | code merged (v1 #194) | owner still runs dedupe/breadcrumb/hygiene on prod (blocks Phase 6 only) |
 | 1 — scaffold + Firebase + emulators | **code complete; owner console steps pending** | see "Phase 1 remainder" below |
-| 2 — Firestore model + rules | not started | model doc FIRST |
-| 3 — parse worker + trust arc | not started | |
+| 2 — Firestore model + rules | **code complete; verified on emulator** | model doc 19/19 + rules 19 tests green + indexes schema-valid |
+| 3 — parse worker + trust arc | not started | starts with the Firestore emulator seed (deferred from Phase 1) |
 | 4 — remaining backend + FCM | not started | |
 | 5 — service swap + fixes A/C/D | not started | |
 | 6 — import + re-parse | not started | needs Phase 0 owner scripts run |
@@ -50,8 +50,35 @@ All service files currently compile against the shim (status: `stub`).
 | knowledge | parseManualService (Phase 3 rewrite), manualDocumentService, knowledgeService, chatService, conversationService, detectDocTypeService, diagramRenderService; previewManualService + saveManualParseService = DELETE (worker modes) | stub |
 | lib | dashboard.ts, cleanSession.ts, userPreferences.ts, nativePush.ts/pushNotifications.ts (Phase 4 FCM) | stub |
 
-## Verified this phase
+## Verified — Phase 1
 - `npm run build` green (tsc -b + vite build) — first compile after sweeps.
 - vitest 104/104 (13 files) incl. `shared/parse` parseCore suite; verbatim diff-gate vs v1 passed.
 - Boot: `/`, `/signin`, `/home`-gate render with ZERO page errors on the inert shim (no env).
 - Smoke e2e 3/3 (sandbox browser override; CI uses its own installed browsers).
+
+## Verified — Phase 2
+- `docs/firestore-model.md` — all 19 core tables + link/aux tables mapped; §3 coverage
+  checklist 19/19; every read-model join (dashboard/weekAgenda/taskService/cleanSession/
+  homeUpkeep/careNote) resolved to a v2 composition; denorm set (§5) enumerated; parse
+  state-machine contract frozen (§8); complete_task/roll-forward/chunk-swap specs (§7,§9);
+  6 deliberate divergences from v1 documented.
+- `firestore.rules` — membership model mirroring v1's effective RLS; assignee-must-be-member
+  guard; self-only users; role/member-management gates; global catalog server-write lock.
+- `firebase/rules.test.ts` — **19/19 green on the Firestore emulator** (JAR v1.21.0 downloaded
+  in-sandbox; Java 21 present). Covers tenant isolation, manual/chunk subtree, assignee guard,
+  users self-ownership, global catalog read/server-write, member self-join/role/removal.
+  Run: `npm run test:rules:emu` (wraps `firebase emulators:exec --only firestore`). Kept OUT of
+  default `npm test` (separate `vitest.rules.config.ts`, node env) so unit runs never need a JAR.
+- `firestore.indexes.json` — 12 composite indexes derived from the inventoried queries (§10),
+  incl. one COLLECTION_GROUP index for the roll-forward sweep. Schema-valid; actual
+  `firebase deploy --only firestore:indexes` needs the OWNER's project (Phase 1 remainder).
+- tsc -b green; vitest 104/104 still green (rules test not collected).
+- New devDeps: `@firebase/rules-unit-testing@^5.0.1` (firebase 12 peer), `firebase-admin@^13.0.2`
+  (also the seed-emulator dep). firebase-tools installed ad-hoc in sandbox for the emulator run
+  (NOT added to package.json — owner/CI supply their own).
+
+## Phase 2 → Phase 3 deferral
+- **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now
+  frozen, so the deterministic Firestore dataset (mirroring `e2e/seed-config.ts`) is the FIRST
+  Phase 3 task — it's the precondition for the parse-slice emulator e2e and the re-enabled
+  chromium/mobile Playwright projects.

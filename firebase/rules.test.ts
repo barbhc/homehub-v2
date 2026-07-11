@@ -1,0 +1,190 @@
+/**
+ * Firestore security-rules unit tests (Phase 2).
+ *
+ * Verifies the membership model in docs/firestore-model.md §6 against the emulator:
+ * tenant isolation, the assignee-must-be-member guard, role/self-management rules,
+ * and the global-catalog server-write lock.
+ *
+ * Requires the Firestore emulator. Run with:
+ *   firebase emulators:exec --only firestore --project demo-homehub-rules 'npm run test:rules'
+ * (the `test:rules:emu` npm script wraps this). NOT collected by the default `npm test`
+ * (vitest include is scoped to src/**), so a green unit run never depends on a JAR download.
+ */
+import { readFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
+import { dirname, resolve } from "node:path"
+import { afterAll, beforeAll, beforeEach, describe, it } from "vitest"
+import {
+  assertFails,
+  assertSucceeds,
+  initializeTestEnvironment,
+  type RulesTestEnvironment,
+} from "@firebase/rules-unit-testing"
+import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+const HOME = "home-1"
+const OWNER = "owner-uid"
+const MEMBER = "member-uid"
+const OUTSIDER = "outsider-uid"
+
+let testEnv: RulesTestEnvironment
+
+beforeAll(async () => {
+  testEnv = await initializeTestEnvironment({
+    projectId: "demo-homehub-rules",
+    firestore: {
+      rules: readFileSync(resolve(__dirname, "../firestore.rules"), "utf8"),
+      host: "127.0.0.1",
+      port: 8080,
+    },
+  })
+})
+
+afterAll(async () => {
+  await testEnv?.cleanup()
+})
+
+beforeEach(async () => {
+  await testEnv.clearFirestore()
+  // Seed: HOME with OWNER (role owner) and MEMBER (role member). OUTSIDER is in no home.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, `homes/${HOME}`), { name: "Test", timezone: "America/Los_Angeles", deletedAt: null })
+    await setDoc(doc(db, `homes/${HOME}/members/${OWNER}`), { role: "owner", isPrimary: true })
+    await setDoc(doc(db, `homes/${HOME}/members/${MEMBER}`), { role: "member", isPrimary: false })
+  })
+})
+
+const asOwner = () => testEnv.authenticatedContext(OWNER).firestore()
+const asMember = () => testEnv.authenticatedContext(MEMBER).firestore()
+const asOutsider = () => testEnv.authenticatedContext(OUTSIDER).firestore()
+const asAnon = () => testEnv.unauthenticatedContext().firestore()
+
+describe("tenant isolation", () => {
+  it("member reads and writes home data", async () => {
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/items/i1`), { displayName: "Fridge", deletedAt: null }))
+    await assertSucceeds(getDoc(doc(asMember(), `homes/${HOME}/items/i1`)))
+  })
+
+  it("outsider cannot read or write another home's data", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `homes/${HOME}/items/i1`), { displayName: "Fridge", deletedAt: null })
+    })
+    await assertFails(getDoc(doc(asOutsider(), `homes/${HOME}/items/i1`)))
+    await assertFails(setDoc(doc(asOutsider(), `homes/${HOME}/items/i2`), { displayName: "x", deletedAt: null }))
+  })
+
+  it("anonymous is denied everywhere", async () => {
+    await assertFails(getDoc(doc(asAnon(), `homes/${HOME}/items/i1`)))
+  })
+
+  it("membership gates the manual/chunk subtree", async () => {
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/manuals/m1/chunks/c1`), { content: "x", deletedAt: null }))
+    await assertFails(setDoc(doc(asOutsider(), `homes/${HOME}/manuals/m1/chunks/c2`), { content: "x", deletedAt: null }))
+  })
+})
+
+describe("assignee-must-be-member guard", () => {
+  it("allows a taskInstance assigned to a member", async () => {
+    await assertSucceeds(
+      setDoc(doc(asMember(), `homes/${HOME}/taskInstances/t1`), {
+        taskTemplateId: "tpl", status: "scheduled", dueDate: null, assignedTo: MEMBER, deletedAt: null,
+      })
+    )
+  })
+
+  it("allows an unassigned taskInstance (assignedTo null)", async () => {
+    await assertSucceeds(
+      setDoc(doc(asMember(), `homes/${HOME}/taskInstances/t2`), {
+        taskTemplateId: "tpl", status: "scheduled", dueDate: null, assignedTo: null, deletedAt: null,
+      })
+    )
+  })
+
+  it("rejects a taskInstance assigned to a non-member", async () => {
+    await assertFails(
+      setDoc(doc(asMember(), `homes/${HOME}/taskInstances/t3`), {
+        taskTemplateId: "tpl", status: "scheduled", dueDate: null, assignedTo: OUTSIDER, deletedAt: null,
+      })
+    )
+  })
+
+  it("rejects a taskTemplate defaultAssignee who is not a member", async () => {
+    await assertFails(
+      setDoc(doc(asMember(), `homes/${HOME}/taskTemplates/tpl1`), {
+        title: "x", isActive: true, defaultAssignee: OUTSIDER, deletedAt: null,
+      })
+    )
+  })
+})
+
+describe("users self-ownership", () => {
+  it("a user writes their own profile but not another's", async () => {
+    await assertSucceeds(setDoc(doc(asMember(), `users/${MEMBER}`), { fullName: "Me" }))
+    await assertFails(setDoc(doc(asMember(), `users/${OWNER}`), { fullName: "Not me" }))
+  })
+
+  it("private prefs are self-only for read", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `users/${OWNER}/private/preferences`), { interfaceLevel: 2 })
+    })
+    await assertSucceeds(getDoc(doc(asOwner(), `users/${OWNER}/private/preferences`)))
+    await assertFails(getDoc(doc(asMember(), `users/${OWNER}/private/preferences`)))
+  })
+})
+
+describe("global catalog", () => {
+  it("is readable by any signed-in user but not client-writable", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `supplyCatalog/s1`), { name: "Filter", category: "filter" })
+    })
+    await assertSucceeds(getDoc(doc(asMember(), `supplyCatalog/s1`)))
+    await assertFails(setDoc(doc(asMember(), `supplyCatalog/s2`), { name: "x", category: "other" }))
+  })
+
+  it("server-only caches deny client access entirely", async () => {
+    await assertFails(getDoc(doc(asMember(), `webRetrievals/w1`)))
+    await assertFails(setDoc(doc(asMember(), `webRetrievals/w1`), { query: "x" }))
+  })
+})
+
+describe("member management + roles", () => {
+  it("a user self-joins (creates own member row)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `homes/${HOME}/invites/inv1`), { token: "tok", role: "member" })
+    })
+    await assertSucceeds(setDoc(doc(asOutsider(), `homes/${HOME}/members/${OUTSIDER}`), { role: "member", isPrimary: false }))
+  })
+
+  it("a non-owner cannot create another user's member row", async () => {
+    await assertFails(setDoc(doc(asMember(), `homes/${HOME}/members/${OUTSIDER}`), { role: "member", isPrimary: false }))
+  })
+
+  it("owner can add another member", async () => {
+    await assertSucceeds(setDoc(doc(asOwner(), `homes/${HOME}/members/${OUTSIDER}`), { role: "member", isPrimary: false }))
+  })
+
+  it("a member cannot self-escalate their role", async () => {
+    await assertFails(updateDoc(doc(asMember(), `homes/${HOME}/members/${MEMBER}`), { role: "owner" }))
+  })
+
+  it("a member can update non-role fields on their own row", async () => {
+    await assertSucceeds(updateDoc(doc(asMember(), `homes/${HOME}/members/${MEMBER}`), { isPrimary: true }))
+  })
+
+  it("owner can change another member's role", async () => {
+    await assertSucceeds(updateDoc(doc(asOwner(), `homes/${HOME}/members/${MEMBER}`), { role: "admin" }))
+  })
+
+  it("self-leave is allowed; removing another member requires owner", async () => {
+    await assertSucceeds(deleteDoc(doc(asMember(), `homes/${HOME}/members/${MEMBER}`)))
+    // re-seed the removed member for the outsider check
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `homes/${HOME}/members/${MEMBER}`), { role: "member", isPrimary: false })
+    })
+    await assertFails(deleteDoc(doc(asOutsider(), `homes/${HOME}/members/${MEMBER}`)))
+    await assertSucceeds(deleteDoc(doc(asOwner(), `homes/${HOME}/members/${MEMBER}`)))
+  })
+})
