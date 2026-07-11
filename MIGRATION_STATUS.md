@@ -190,6 +190,23 @@ First service module off the shim.
 - Remaining in the home module: `homeProfileService`, `inviteService`, `HomeOnboarding.tsx` still
   on the shim (next).
 
+## Verified — emulator-seeded e2e harness (wiring)
+Real end-to-end verification against a seeded Firestore/Auth emulator — every future module
+swap adds a spec here instead of relying on boot smoke.
+- **`auth.setup.ts`** signs the seeded user into the Auth emulator and saves storage state with
+  **`indexedDB: true`** (Firebase auth persists to IndexedDB, not localStorage).
+- **`playwright.emu.config.ts`** — webServer `npm run dev:emu` (VITE_USE_EMULATORS=true); `setup` +
+  `emu` projects; `PW_CHROMIUM_PATH` override for sandboxes, CI uses its own browser.
+- **`e2e/emu/auth-home.spec.ts`** — 2 specs (home gate passes; Settings lists seeded rooms →
+  `getRooms` end-to-end). **3/3 green** (setup + 2) on the emulator.
+- **`npm run test:e2e:emu`** = `firebase emulators:exec --only auth,firestore "seed + playwright"`.
+- **Rules fix (root cause of the first red run)**: `getPrimaryHome`/`getHomes` run
+  `collectionGroup("members").where("uid","==",me)`; a parent-path `isMember(homeId)` check can't be
+  statically proven for a collection-group LIST → denied. Added a dedicated, analyzable
+  `match /{path=**}/members/{memberUid} { allow read: if resource.data.uid == request.auth.uid }`.
+  Member docs now carry a `uid` field (seed + createHome). Rules unit tests still 19/19.
+- **CI**: new `emulator` job runs rules + worker + seeded e2e (setup-java + firebase-tools + chromium).
+
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now
   frozen, so the deterministic Firestore dataset (mirroring `e2e/seed-config.ts`) is the FIRST

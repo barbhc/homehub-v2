@@ -72,3 +72,40 @@ jobs:
           node-version: 20
       - run: npm install --no-audit --no-fund
       - run: npm run typecheck
+
+  # Emulator-backed suites: security rules, the parse worker, and the seeded
+  # end-to-end (auth + home so far, growing per migrated module). Needs Java (the
+  # Firestore emulator) + firebase-tools + a browser for the e2e.
+  emulator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci
+      - run: npm ci --prefix firebase/functions
+      - run: npm i -g firebase-tools
+      - name: Security-rules tests
+        run: npm run test:rules:emu
+      - name: Parse-worker integration tests
+        run: npm run test:worker:emu
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Seeded e2e (auth + home)
+        run: npm run test:e2e:emu
+      - name: Upload e2e report on failure
+        if: ${{ failure() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: emu-e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

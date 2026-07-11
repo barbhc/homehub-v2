@@ -59,6 +59,9 @@ service cloud.firestore {
 
       // ---- members (the rules primitive) ----
       match /members/{memberUid} {
+        // Co-member reads within a home. The "find all my memberships"
+        // collectionGroup query is served by a DEDICATED rule below (a mixed
+        // condition here isn't statically provable for a LIST → denied).
         allow read: if isMember(homeId);
         // Self-create: home bootstrap (first owner) and invite self-join both create
         // the caller's own member row. Creating another user's row requires owner.
@@ -144,5 +147,15 @@ service cloud.firestore {
     // ---- global server-only caches (Admin SDK reads/writes; clients get nothing) ----
     match /webRetrievals/{id}      { allow read, write: if false; }
     match /productLookupCache/{id} { allow read, write: if false; }
+
+    // Collection-group read for "find all MY memberships"
+    // (homeService.getPrimaryHome/getHomes run
+    // collectionGroup("members").where("uid","==",me)). A clean, statically
+    // provable field check — the where-clause guarantees resource.data.uid ==
+    // request.auth.uid, so the LIST is allowed. Writes/co-member reads stay on the
+    // path-scoped /homes/{homeId}/members rule above.
+    match /{path=**}/members/{memberUid} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
   }
 }
