@@ -1,4 +1,7 @@
 import { supabase } from "@/integrations/shim/client"
+import { callable, docRef } from "@/integrations/firebase"
+import { onSnapshot, type Unsubscribe } from "firebase/firestore"
+import type { ParseProgressState } from "@/components/smart-add/ParseProgressStep"
 
 /**
  * Shape returned by the parse-manual edge function under `confidence`.
@@ -122,4 +125,132 @@ export async function parseManual(manualId: string, opts?: { rescan?: boolean; f
     }
     return { ok: false, error: err instanceof Error ? err.message : "Request failed", transient: true }
   }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Firebase-native trust arc (Phase 3.2, fix B). The worker owns the parse in
+// Firestore; the client STARTS it (enqueueParse callable) then WATCHES
+// `parse.stage` via onSnapshot, advancing the UI to review ONLY on `done` (the
+// worker reaches done only after commit → an empty review is impossible). State
+// lives in Firestore, so the wizard survives a tab refresh mid-parse.
+//
+// NOTE (migration state): the surrounding manual-creation + home-context
+// services are still on the shim; this arc becomes end-to-end functional once
+// Phase 5 lands those on Firebase. The service + mapping are correct now and
+// unit-tested (toUiStage); the emulator e2e demonstration is gated on Phase 5.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** The worker's Firestore parse.stage values (docs/firestore-model.md §8). */
+export type ParseStage =
+  | "queued"
+  | "started"
+  | "pdf_fetched"
+  | "claude_call"
+  | "claude_responded"
+  | "committing"
+  | "done"
+  | "error"
+
+/** Map a worker stage to the UI progress state (ParseProgressStep). */
+export function toUiStage(stage: ParseStage): ParseProgressState {
+  switch (stage) {
+    case "queued":
+      return "queued"
+    case "started":
+    case "pdf_fetched":
+      return "reading"
+    case "claude_call":
+    case "claude_responded":
+      return "extracting"
+    case "committing":
+      return "saving"
+    case "done":
+      return "done"
+    case "error":
+      return "error"
+  }
+}
+
+export type ParseMode = "commit" | "preview" | "fill_gaps"
+export interface StartParseOpts {
+  homeId: string
+  mode?: ParseMode
+}
+
+const enqueueParseCallable = callable<
+  { homeId: string; manualId: string; mode: ParseMode },
+  { ok: true; requestId: string }
+>("enqueueParse")
+
+/** Kick off a parse. Returns the requestId the worker claims; the manual's
+ *  parse.stage becomes "queued" immediately. */
+export async function startParse(
+  manualId: string,
+  opts: StartParseOpts
+): Promise<{ ok: true; requestId: string } | { ok: false; error: string }> {
+  try {
+    const res = await enqueueParseCallable({ homeId: opts.homeId, manualId, mode: opts.mode ?? "commit" })
+    return { ok: true, requestId: res.requestId }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not start parsing." }
+  }
+}
+
+interface ManualParseSnapshot {
+  stage?: ParseStage
+  requestId?: string
+  error?: { message?: string } | null
+  summary?: { chunks?: number; tasks?: number; confidence?: unknown } | null
+}
+
+/** Subscribe to a manual's parse.stage. Returns an unsubscribe fn. */
+export function watchParse(
+  homeId: string,
+  manualId: string,
+  onStage: (stage: ParseStage, parse: ManualParseSnapshot) => void
+): Unsubscribe {
+  return onSnapshot(docRef(`homes/${homeId}/manuals/${manualId}`), (snap) => {
+    const data = snap.data() as { parse?: ManualParseSnapshot } | undefined
+    const parse = data?.parse
+    if (parse?.stage) onStage(parse.stage, parse)
+  })
+}
+
+/** Start + watch to a terminal state. Resolves on `done` (with real committed
+ *  counts) or `error`. `onStage` streams UI progress the whole way. */
+export async function parseManualAndWait(
+  manualId: string,
+  opts: StartParseOpts,
+  onStage?: (ui: ParseProgressState) => void
+): Promise<ParseManualResult> {
+  onStage?.("uploading")
+  const started = await startParse(manualId, opts)
+  if (!started.ok) {
+    onStage?.("error")
+    return { ok: false, error: started.error }
+  }
+  return new Promise<ParseManualResult>((resolve) => {
+    let settled = false
+    const unsub = watchParse(opts.homeId, manualId, (stage, parse) => {
+      // Only react to OUR run — ignore a superseding requestId's transitions.
+      if (parse.requestId && parse.requestId !== started.requestId) return
+      onStage?.(toUiStage(stage))
+      if (settled) return
+      if (stage === "done") {
+        settled = true
+        unsub()
+        resolve({
+          ok: true,
+          chunks: parse.summary?.chunks ?? 0,
+          tasks: parse.summary?.tasks ?? 0,
+          committed: opts.mode !== "preview",
+          confidence: coerceConfidence(parse.summary?.confidence),
+        })
+      } else if (stage === "error") {
+        settled = true
+        unsub()
+        resolve({ ok: false, error: parse.error?.message ?? "Parse failed" })
+      }
+    })
+  })
 }

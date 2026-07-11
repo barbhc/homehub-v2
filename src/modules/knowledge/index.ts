@@ -40,7 +40,18 @@ export {
   type PersistedMessage,
 } from "./services/conversationService"
 
-export { parseManual, type ParseManualResult, type ParsedConfidence } from "./services/parseManualService"
+export {
+  parseManual,
+  startParse,
+  watchParse,
+  parseManualAndWait,
+  toUiStage,
+  type ParseManualResult,
+  type ParsedConfidence,
+  type ParseStage,
+  type ParseMode,
+  type StartParseOpts,
+} from "./services/parseManualService"
 export { detectDocType, type DocType, type DocTypeResult } from "./services/detectDocTypeService"
 
 export { previewManual } from "./services/previewManualService"

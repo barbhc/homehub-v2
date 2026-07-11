@@ -20,7 +20,7 @@ import { createItem } from "@/modules/inventory/services/inventoryService"
 import { createTasksFromEditable } from "@/modules/care"
 import { uploadManualPdf, removeManualPdf } from "@/modules/inventory/services/storageService"
 import { deleteManualDocument } from "@/modules/knowledge/services/manualDocumentService"
-import { createManualDocument, parseManual, getChunksByItem, detectDocType, type DocType, type ParsedConfidence } from "@/modules/knowledge"
+import { createManualDocument, parseManualAndWait, getChunksByItem, detectDocType, type DocType, type ParsedConfidence } from "@/modules/knowledge"
 import { getTaskTemplatesWithSchedulesByItem, type TaskTemplateWithSchedule } from "@/modules/care"
 import type { KnowledgeChunk } from "@/integrations/types"
 import {
@@ -214,23 +214,32 @@ export default function SmartAddItem() {
 
       try {
         setManualUrl(firstUrl)
-        setParseProgress("reading")
-        setSavingMessage("Reading manual…")
-        const parseResult = await parseManual(firstManualId)
+        setSavingMessage(undefined)
+        // Trust arc (fix B): stream the worker's live stages and resolve ONLY at
+        // a terminal state. The worker reaches "done" only after committing to
+        // Firestore, so the review below can never be empty. State lives in
+        // Firestore → the wizard survives a tab refresh mid-parse.
+        const parseResult = await parseManualAndWait(
+          firstManualId,
+          { homeId: propertyId },
+          (ui) => {
+            if (isMountedRef.current) setParseProgress(ui)
+          }
+        )
 
         if (!parseResult.ok) {
-          setParseProgress("error")
+          // onStage already set "error"; fall back to the manual plan step.
           setStep("plan")
           updateWizardSession({ step: "plan" })
           setHasTasks(false)
-          setSavingMessage(undefined)
           return
         }
 
         const nextConfidence: ParsedConfidence | null = parseResult.confidence ?? null
         setParseConfidence(nextConfidence)
 
-        setParseProgress("extracting")
+        // done → the commit has already happened server-side; now the fetched
+        // chunks/tasks are guaranteed populated (no more fire-and-forget race).
         const [chunksRes, tasksRes] = await Promise.all([
           getChunksByItem(itemId),
           getTaskTemplatesWithSchedulesByItem(propertyId, itemId),

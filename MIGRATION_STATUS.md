@@ -10,7 +10,7 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 | 0 — v1 data repairs | code merged (v1 #194) | owner still runs dedupe/breadcrumb/hygiene on prod (blocks Phase 6 only) |
 | 1 — scaffold + Firebase + emulators | **code complete; owner console steps pending** | see "Phase 1 remainder" below |
 | 2 — Firestore model + rules | **code complete; verified on emulator** | model doc 19/19 + rules 19 tests green + indexes schema-valid |
-| 3 — parse worker + trust arc | **worker + seed done; client trust arc (3.2) next** | 3.1 worker verified on emulator; 3.2 SmartAddItem/parseManualService pending |
+| 3 — parse worker + trust arc | **worker + seed + client trust arc (fix B) done** | 3.1+3.2 done; 3.3 watch-stages/snapshot tooling optional-remaining |
 | 4 — remaining backend + FCM | not started | |
 | 5 — service swap + fixes A/C/D | not started | |
 | 6 — import + re-parse | not started | needs Phase 0 owner scripts run |
@@ -47,7 +47,7 @@ All service files currently compile against the shim (status: `stub`).
 | inventory | inventoryService, manualSourcesService, storageService, ocrService, planGenerationService, productLookupService | stub |
 | items / supplies | itemService, supplyService | stub |
 | care | taskService, weekAgenda, taskScheduleService, homeUpkeep, careNoteService, scheduleService, shoppingListService, + pure helpers (port untouched) | stub |
-| knowledge | parseManualService (Phase 3 rewrite), manualDocumentService, knowledgeService, chatService, conversationService, detectDocTypeService, diagramRenderService; previewManualService + saveManualParseService = DELETE (worker modes) | stub |
+| knowledge | parseManualService — trust-arc API (startParse/watchParse/parseManualAndWait/toUiStage) on Firebase = **ported**; shim `parseManual` still present for 5 callers (Phase 5); manualDocumentService, knowledgeService, chatService, conversationService, detectDocTypeService, diagramRenderService = stub; previewManualService + saveManualParseService = DELETE (worker modes) | mixed |
 | lib | dashboard.ts, cleanSession.ts, userPreferences.ts, nativePush.ts/pushNotifications.ts (Phase 4 FCM) | stub |
 
 ## Verified — Phase 1
@@ -95,6 +95,30 @@ All service files currently compile against the shim (status: `stub`).
   (no delete/insert churn); malformed→error, no partial chunk swap; stale delivery no-op;
   preview writes previewDraft only. Run: `npm run test:worker:emu`.
 - functions `npm run typecheck` green; @anthropic-ai/sdk added to functions deps.
+
+## Verified — Phase 3.2 (client trust arc, fix B)
+- **parseManualService** gains the Firebase-native arc: `startParse` (enqueueParse
+  callable) / `watchParse` (onSnapshot on `parse.stage`) / `parseManualAndWait`
+  (start + watch to done/error, guards on requestId) / `toUiStage`. The shim
+  `parseManual` is kept intact for its 5 other callers (Phase 5 migrates them).
+- **SmartAddItem.runParseAfterManualUpload** now advances to review **only on `done`**
+  (worker reaches done only after commit → empty-review bug impossible); streams live
+  stages via onStage; error → plan fallback.
+- **ParseProgressStep**: honest 2–4 min stage-aware copy (was the "20–40 seconds" fib),
+  added `queued`/`saving` stages + per-stage microcopy, an elapsed timer after 60s, and
+  a calm error state.
+- **toUiStage** unit-tested (9 cases incl. "no pre-commit stage maps to done").
+- tsc green; vitest 113/113; `lint:new` gate green (the 2 react-hooks findings in
+  SmartAddItem are PRE-EXISTING v1 `src/pages/` debt, unchanged by this edit, outside the
+  gate — Phase 5 module swaps clear them).
+
+### 3.2 deferrals (coherent with the shim migration state)
+- `Settings.runRescan` + the 4 `useManualManagement`/`ItemDetailPage` callers stay on the
+  shim `parseManual` until Phase 5 (manual-creation + home-context on Firebase). Wiring them
+  to the Firebase arc now would be incoherent while manual data is shim-backed.
+- **The 3.2 emulator e2e demonstration** (stages streaming in the real UI over seeded data)
+  is gated on the Phase 5 manual-creation + auth→homeId swap. The service + mapping are
+  correct now; the worker path itself is already proven by `worker.emu.test.mjs`.
 
 ## ⚠ Deploy-packaging TODO (Phase 4, owner deploy)
 `shared/parse/*` lives at the REPO ROOT (shared by client + functions + harness per plan).
