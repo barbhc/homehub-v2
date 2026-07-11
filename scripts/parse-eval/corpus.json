@@ -1,0 +1,9 @@
+{
+  "comment": "Golden corpus for the parse-manual eval harness. manual_id refers to prod manual_document rows; the runner resolves each PDF from source_type/source_ref. model mirrors pickParseModel (gas/safety-critical items escalate to Opus).",
+  "manuals": [
+    { "name": "range-ge-gas", "manual_id": "27bf5e43-d076-4b7a-a0a4-850fca93d385", "model": "claude-opus-4-8", "note": "Gas range — safety-critical, escalated model" },
+    { "name": "microwave-drawer", "manual_id": "9a053574-c4ad-4e15-9913-30a6bb4251b2", "model": "claude-sonnet-4-6", "note": "Drawer microwave" },
+    { "name": "washer-lg", "manual_id": "150399bc-c86c-40f5-83cf-25b3bd5fc1fd", "model": "claude-sonnet-4-6", "note": "Large appliance manual (english-only upload)" },
+    { "name": "foodcycler", "manual_id": "3dd6282d-4cad-4f45-b5db-d9521a58a34d", "model": "claude-sonnet-4-6", "note": "Small appliance" }
+  ]
+}

@@ -1,0 +1,235 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// ---------------------------------------------------------------------------
+// CORS
+// ---------------------------------------------------------------------------
+
+const PROD_ORIGIN = "https://homehub-pied.vercel.app";
+
+function getAllowedOrigin(origin: string | null): string {
+  if (!origin) return PROD_ORIGIN;
+  if (origin === PROD_ORIGIN) return origin;
+  // Allow every Vercel deployment for this project: production alias plus all
+  // preview / branch deploys (e.g. homehub-git-<branch>-barbhc.vercel.app).
+  if (/^https:\/\/homehub[a-z0-9-]*\.vercel\.app$/.test(origin)) return origin;
+  // Local development (vite dev server on any port).
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return origin;
+  return PROD_ORIGIN;
+}
+
+function corsHeadersFor(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin": getAllowedOrigin(origin),
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  };
+}
+
+/** Static headers for cases where the request isn't available */
+export const corsHeaders = corsHeadersFor(null);
+
+// ---------------------------------------------------------------------------
+// Response helpers
+// ---------------------------------------------------------------------------
+
+export function jsonResponse(body: unknown, status = 200, req?: Request): Response {
+  const origin = req?.headers.get("origin") ?? null;
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeadersFor(origin), "Content-Type": "application/json" },
+  });
+}
+
+export function corsResponse(req?: Request): Response {
+  const origin = req?.headers.get("origin") ?? null;
+  return new Response("ok", { headers: corsHeadersFor(origin) });
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+export async function requireAuth(
+  req: Request,
+): Promise<
+  | { user: { id: string }; error?: undefined }
+  | { user?: undefined; error: Response }
+> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { error: jsonResponse({ error: "Missing Authorization header" }, 401, req) };
+  }
+
+  const jwt = authHeader.replace("Bearer ", "");
+  if (!jwt) {
+    return { error: jsonResponse({ error: "Malformed Authorization header" }, 401, req) };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(jwt);
+
+  if (error || !user) {
+    return { error: jsonResponse({ error: "Invalid or expired token" }, 401, req) };
+  }
+
+  return { user: { id: user.id } };
+}
+
+// ---------------------------------------------------------------------------
+// Rate limiting (in-memory)
+// ---------------------------------------------------------------------------
+
+const rateLimitMap = new Map<string, number[]>();
+
+export function rateLimit(
+  key: string,
+  limit: number,
+  windowSeconds: number,
+): boolean {
+  const now = Date.now();
+  const windowMs = windowSeconds * 1000;
+
+  let timestamps = rateLimitMap.get(key) ?? [];
+
+  // Remove entries outside the current window
+  timestamps = timestamps.filter((ts) => now - ts < windowMs);
+
+  if (timestamps.length >= limit) {
+    rateLimitMap.set(key, timestamps);
+    return true; // rate limited
+  }
+
+  timestamps.push(now);
+  rateLimitMap.set(key, timestamps);
+  return false;
+}
+
+/**
+ * Extract a best-effort client IP from upstream proxy headers for use as a
+ * pre-auth rate-limit key. Falls back to "unknown" if no header is present
+ * (treated as a shared bucket so abuse is still capped).
+ */
+export function getClientIp(req: Request): string {
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+  const cf = req.headers.get("cf-connecting-ip");
+  if (cf) return cf.trim();
+  return "unknown";
+}
+
+// ---------------------------------------------------------------------------
+// SSRF protection
+// ---------------------------------------------------------------------------
+
+const PRIVATE_IP_PATTERNS = [
+  /^127\./,
+  /^10\./,
+  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+  /^192\.168\./,
+  /^0\.0\.0\.0/,
+  /^169\.254\./,
+];
+
+// ---------------------------------------------------------------------------
+// Manual-parse model selection
+// ---------------------------------------------------------------------------
+
+/**
+ * Default parsing model. Sonnet 4.6 replaced Haiku 4.5 after the model eval:
+ * Haiku was the most run-to-run inconsistent (count drift, same-task
+ * reclassification, confidence swings) and weakest on edge judgment. Sonnet is
+ * the steady baseline that handles the vast majority of manuals correctly.
+ */
+export const PARSE_MODEL_DEFAULT = "claude-sonnet-4-6";
+/**
+ * Escalation model for combustion / gas / safety-critical manuals. Opus 4.8
+ * showed the best edge judgment in the eval (setup vs recurring, off-enum
+ * cadences, refusing to write hazardous homeowner DIY steps) — worth its
+ * ~1.67× cost only on these manuals, which are a small slice of the catalog.
+ */
+export const PARSE_MODEL_ESCALATED = "claude-opus-4-8";
+
+/** Categories whose manuals are inherently combustion/safety-critical (HVAC,
+ *  furnace, boiler, water heater, etc. all live under `system`). */
+const ESCALATE_CATEGORIES = new Set(["system"]);
+/** Gas/combustion/safety signals in free-text item fields that escalate an
+ *  otherwise-default item (e.g. a gas range or gas dryer under
+ *  `major_appliance`). Word-boundaried to avoid matching "glass", "elpaso", … */
+const ESCALATE_SIGNAL_RE =
+  /\b(gas|propane|lp|combustion|furnace|boiler|burner|flame|water[ -]?heater|hvac|fireplace|generator|woodstove|pellet)\b/i;
+
+/**
+ * Choose the parsing model for an item. Defaults to Sonnet 4.6; escalates to
+ * Opus 4.8 for combustion/gas/safety-critical items — identified by item
+ * category (`system`) or a gas/combustion signal in any free-text field
+ * (sub_type / display_name / model). Everything else parses fine, and cheaper,
+ * on Sonnet, so the blended cost stays close to Sonnet-only.
+ */
+export function pickParseModel(item: {
+  item_category?: string | null;
+  sub_type?: string | null;
+  display_name?: string | null;
+  model?: string | null;
+}): string {
+  if (item.item_category && ESCALATE_CATEGORIES.has(item.item_category)) {
+    return PARSE_MODEL_ESCALATED;
+  }
+  const haystack = [item.sub_type, item.display_name, item.model]
+    .filter((s): s is string => typeof s === "string" && s.length > 0)
+    .join(" ");
+  if (haystack && ESCALATE_SIGNAL_RE.test(haystack)) {
+    return PARSE_MODEL_ESCALATED;
+  }
+  return PARSE_MODEL_DEFAULT;
+}
+
+export function isAllowedUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  // Only allow http and https
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return false;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Block localhost variants
+  if (
+    hostname === "localhost" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".local")
+  ) {
+    return false;
+  }
+
+  // Block metadata endpoint
+  if (hostname === "169.254.169.254") {
+    return false;
+  }
+
+  // Block private IP ranges
+  for (const pattern of PRIVATE_IP_PATTERNS) {
+    if (pattern.test(hostname)) {
+      return false;
+    }
+  }
+
+  return true;
+}

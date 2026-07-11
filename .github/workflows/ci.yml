@@ -1,0 +1,74 @@
+name: CI
+
+# Phase 1 gate: typecheck + lint + unit tests + build + boot smoke.
+# The full Playwright suite (flows/visual/a11y) needs the emulator seed —
+# it re-enables in Phase 2/3 as a separate job running against
+# `firebase emulators:exec` with scripts/seed-emulator.ts.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b
+      # Full-tree `npm run lint` carries pre-existing v1 app-code debt (newer
+      # react-hooks plugin rules). CI gates NEW v2 code only; each Phase 5
+      # module swap widens the scope until full-tree is green (MIGRATION_STATUS.md).
+      - run: npm run lint:new
+      - run: npx vitest run
+      - run: npx vite build
+
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install Playwright OS deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Boot smoke (no seed/emulators needed)
+        run: npx playwright test e2e/smoke/boot.spec.ts --project=smoke
+
+      # Report only on failure; continue-on-error so artifact-storage quota
+      # problems can never fail a green run (lesson from v1).
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  functions:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firebase/functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck

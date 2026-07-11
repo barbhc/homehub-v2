@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "financial-statements": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "ffe3cbfc46fc4086ce9ee9692d31fb6367a8ba156e5db5d7424db11097acc7b0"
+    }
+  }
+}

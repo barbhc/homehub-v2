@@ -1,0 +1,63 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+.env
+*.local
+
+# Supabase local temp files (contain project ref, connection URLs)
+supabase/.temp/
+supabase/supabase/.temp/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Claude Code / Cursor / AI tool files
+.claude/
+.cursor/
+.agents/
+memory/
+
+# Playwright
+e2e/.auth/
+playwright-report/
+test-results/
+e2e/prototype-reference/
+
+# E2E test env (holds the service-role key for the seed script — NEVER commit)
+.env.test
+.env.test.local
+
+# Loose design assets (committed versions are in git already)
+homehub_Logo.png
+logo-canva.png
+.vercel
+
+# Loose dashboard design mockups (not app code)
+dashboard-layouts.html
+public/dashboard-layouts.html
+scripts/parse-eval/results/
+
+# Functions build output
+firebase/functions/lib
+# Firebase emulator state
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

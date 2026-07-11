@@ -1,0 +1,176 @@
+{
+  "stats": {
+    "chunks": {
+      "total": 34,
+      "byType": {
+        "specs": 2,
+        "safety": 7,
+        "how_to": 20,
+        "troubleshooting": 5
+      },
+      "withSourcePages": 100
+    },
+    "tasks": {
+      "total": 15,
+      "recurring": 5,
+      "setup": 5,
+      "habits": 5,
+      "coverage": {
+        "instructions": 100,
+        "source_page": 100,
+        "justification": 100,
+        "minutes": 100,
+        "validSchedule": 100
+      },
+      "essentialShare": 40
+    },
+    "hasCleaningGuide": true,
+    "hasWarranty": true,
+    "confidence": 0.92
+  },
+  "taskTitles": [
+    "Remove Shipping Bolts",
+    "Connect Water Supply Hoses",
+    "Connect and Secure Drain Hose",
+    "Level the Washer",
+    "Run Installation Test Cycle",
+    "Run Tub Clean Cycle",
+    "Clean the Detergent Dispenser Drawer",
+    "Clean the Door Seal",
+    "Clean the Water Inlet Filters",
+    "Clean the Drain Pump Filter",
+    "Wipe Washer Exterior",
+    "Care After Each Wash Cycle",
+    "Replace Water Inlet Hoses",
+    "Winterize Washer for Storage",
+    "Remove Mineral Buildup from Drum"
+  ],
+  "taskIndex": [
+    {
+      "title": "Remove Shipping Bolts",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Connect Water Supply Hoses",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Connect and Secure Drain Hose",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Level the Washer",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Run Installation Test Cycle",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Run Tub Clean Cycle",
+      "schedule": "monthly",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Detergent Dispenser Drawer",
+      "schedule": "weekly",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Door Seal",
+      "schedule": "monthly",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Water Inlet Filters",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Drain Pump Filter",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Wipe Washer Exterior",
+      "schedule": "as_needed",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Care After Each Wash Cycle",
+      "schedule": "after_each_use",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Replace Water Inlet Hoses",
+      "schedule": "every_n_days",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Winterize Washer for Storage",
+      "schedule": "seasonal",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Remove Mineral Buildup from Drum",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    }
+  ],
+  "chunkTitles": [
+    "Product Specifications",
+    "Parts and Accessories Overview",
+    "Fire and Explosion Hazards",
+    "Hydrogen Gas Explosion Risk",
+    "Electrical Safety and Grounding",
+    "Steam Cycle Safety",
+    "Chemical Mixing Warning",
+    "Child Safety and Supervision",
+    "Waterproof Items Warning",
+    "Basic Wash Cycle Operation",
+    "Loading the Detergent Dispenser",
+    "Installation: Unpack and Remove Shipping Bolts",
+    "Connect Water Lines",
+    "Connect Drain Hose",
+    "Level the Washer",
+    "Test the Washer After Installation",
+    "Run Tub Clean Cycle",
+    "Clean the Drain Pump Filter",
+    "Clean the Water Inlet Filters",
+    "Clean the Door Seal",
+    "Clean the Detergent Dispenser Drawer",
+    "Store Washer in Cold Climate",
+    "Use Smart Diagnosis via Phone",
+    "Use Remote Start via SmartThinQ App",
+    "Sort Laundry Properly",
+    "Add Garments Mid-Cycle",
+    "Use Control Lock Feature",
+    "Thaw Frozen Water or Drain Lines",
+    "Noise Troubleshooting",
+    "Operation Troubleshooting",
+    "Performance Troubleshooting",
+    "Error Codes",
+    "Wi-Fi Connection Troubleshooting",
+    "Wash Cycles Guide"
+  ]
+}

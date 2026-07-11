@@ -1,0 +1,190 @@
+{
+  "stats": {
+    "chunks": {
+      "total": 26,
+      "byType": {
+        "safety": 7,
+        "how_to": 10,
+        "care": 5,
+        "specs": 1,
+        "troubleshooting": 3
+      },
+      "withSourcePages": 100
+    },
+    "tasks": {
+      "total": 18,
+      "recurring": 0,
+      "setup": 4,
+      "habits": 14,
+      "coverage": {
+        "instructions": 100,
+        "source_page": 100,
+        "justification": 100,
+        "minutes": 100,
+        "validSchedule": 100
+      },
+      "essentialShare": 11
+    },
+    "hasCleaningGuide": true,
+    "hasWarranty": true,
+    "confidence": 0.9
+  },
+  "taskTitles": [
+    "Clean the Control Panel",
+    "Wipe Up Acidic Spills Promptly",
+    "Clean the Stainless Steel Exterior",
+    "Clean the Oven Interior Manually",
+    "Run the Steam Clean Cycle",
+    "Run the Self-Clean Cycle",
+    "Clean the Surface Burner Caps and Heads",
+    "Clean the Burner Grates",
+    "Clean Under the Griddle",
+    "Clean the Oven Door Glass",
+    "Inspect the Oven Door Gasket",
+    "Clean the Oven Probe",
+    "Lubricate the Oven Racks",
+    "Replace the Oven Light Bulb",
+    "Verify Anti-Tip Bracket Engagement",
+    "Connect the Range to WiFi",
+    "Set the Oven Clock",
+    "Remove Packing Film and Tape"
+  ],
+  "taskIndex": [
+    {
+      "title": "Clean the Control Panel",
+      "schedule": "after_each_use",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Wipe Up Acidic Spills Promptly",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "cleaning"
+    },
+    {
+      "title": "Clean the Stainless Steel Exterior",
+      "schedule": "as_needed",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Clean the Oven Interior Manually",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Run the Steam Clean Cycle",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Run the Self-Clean Cycle",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Surface Burner Caps and Heads",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Burner Grates",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "cleaning"
+    },
+    {
+      "title": "Clean Under the Griddle",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Oven Door Glass",
+      "schedule": "as_needed",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Inspect the Oven Door Gasket",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Oven Probe",
+      "schedule": "as_needed",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Lubricate the Oven Racks",
+      "schedule": "as_needed",
+      "tier": "optional",
+      "care": "maintenance"
+    },
+    {
+      "title": "Replace the Oven Light Bulb",
+      "schedule": "as_needed",
+      "tier": "optional",
+      "care": "maintenance"
+    },
+    {
+      "title": "Verify Anti-Tip Bracket Engagement",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Connect the Range to WiFi",
+      "schedule": "setup",
+      "tier": "optional",
+      "care": "maintenance"
+    },
+    {
+      "title": "Set the Oven Clock",
+      "schedule": "setup",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Remove Packing Film and Tape",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    }
+  ],
+  "chunkTitles": [
+    "If You Smell Gas",
+    "Grease or Oil Fire on Cooktop",
+    "Fire During Self-Clean Cycle",
+    "Anti-Tip Bracket",
+    "General Range Safety",
+    "Oven and Foil Safety",
+    "Self-Cleaning Oven Precautions",
+    "Lighting a Surface Burner",
+    "Selecting Flame Size and Cookware",
+    "Using the Cast Iron Griddle",
+    "Oven Controls Overview",
+    "Baking and Broiling Modes",
+    "Convection and Specialty Cooking Modes",
+    "Using the Oven Probe",
+    "WiFi Connect and Remote Enable",
+    "Sabbath Mode",
+    "Removing and Replacing Oven Racks",
+    "Oven Settings Adjustments",
+    "Cookware Guidelines",
+    "Models and Fuel",
+    "Oven Light Replacement",
+    "Removing the Oven Door",
+    "Oven Cooking and Display Problems",
+    "Self-Clean and Error Code Problems",
+    "Burner and Cooktop Problems",
+    "Cleaning the Range Exterior"
+  ]
+}

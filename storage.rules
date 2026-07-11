@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Phase 1 placeholder — DENY ALL. Real rules land with Phase 2 (membership
+// checks mirroring the Manuals/photos path conventions).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

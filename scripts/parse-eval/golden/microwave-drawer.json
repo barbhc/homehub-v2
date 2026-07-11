@@ -1,0 +1,160 @@
+{
+  "stats": {
+    "chunks": {
+      "total": 31,
+      "byType": {
+        "safety": 8,
+        "specs": 2,
+        "how_to": 12,
+        "care": 6,
+        "troubleshooting": 3
+      },
+      "withSourcePages": 100
+    },
+    "tasks": {
+      "total": 13,
+      "recurring": 5,
+      "setup": 4,
+      "habits": 4,
+      "coverage": {
+        "instructions": 100,
+        "source_page": 100,
+        "justification": 100,
+        "minutes": 100,
+        "validSchedule": 100
+      },
+      "essentialShare": 46
+    },
+    "hasCleaningGuide": true,
+    "hasWarranty": true,
+    "confidence": 0.9
+  },
+  "taskTitles": [
+    "Set Up Grounding Connection",
+    "Set the Clock",
+    "Inspect Drawer for Damage",
+    "Clean the Interior Surfaces",
+    "Clean the Waveguide Cover",
+    "Clean the Drawer Guides",
+    "Clean the Exterior Surfaces",
+    "Polish the Stainless Steel Surface",
+    "Clean the Touch Control Panel",
+    "Clean the Front Drawer Window",
+    "Remove Cooking Odors",
+    "Wipe Vent Area After Use",
+    "Register the Product"
+  ],
+  "taskIndex": [
+    {
+      "title": "Set Up Grounding Connection",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Set the Clock",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Inspect Drawer for Damage",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Interior Surfaces",
+      "schedule": "after_each_use",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Waveguide Cover",
+      "schedule": "after_each_use",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Drawer Guides",
+      "schedule": "weekly",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Exterior Surfaces",
+      "schedule": "weekly",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Polish the Stainless Steel Surface",
+      "schedule": "weekly",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Clean the Touch Control Panel",
+      "schedule": "weekly",
+      "tier": "recommended",
+      "care": "cleaning"
+    },
+    {
+      "title": "Clean the Front Drawer Window",
+      "schedule": "weekly",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Remove Cooking Odors",
+      "schedule": "as_needed",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Wipe Vent Area After Use",
+      "schedule": "after_each_use",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Register the Product",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    }
+  ],
+  "chunkTitles": [
+    "Do Not Operate with Door Open",
+    "Fire in the Appliance Cavity",
+    "Superheated Liquid Hazard",
+    "Grounding Requirements",
+    "Foods and Containers That Can Explode",
+    "Child Safety Around the Microwave",
+    "Drawer Guide Finger Safety",
+    "Safe Internal Food Temperatures",
+    "Model Overview and Finishes",
+    "Power Levels",
+    "Initial Setup and Clock Setting",
+    "Opening and Closing the Drawer",
+    "Time Cooking and Power Level",
+    "Sensor Cooking (Popcorn, Reheat, Potatoes, Vegetables, Cook)",
+    "Defrost Feature",
+    "Beverage Feature",
+    "Melt/Soften Feature",
+    "Keep Warm Feature",
+    "Control Lock (Child Lock)",
+    "Help/Settings Menu Options",
+    "Multiple Sequence Cooking",
+    "Utensils and Coverings Guide",
+    "Cleaning the Interior",
+    "Cleaning the Waveguide Cover",
+    "Cleaning the Exterior and Stainless Steel",
+    "Cleaning the Touch Control Panel",
+    "Cleaning the Drawer Guides",
+    "Odor Removal",
+    "Common Problems and Solutions",
+    "Sensor Cooking Errors",
+    "Radio or TV Interference"
+  ]
+}
