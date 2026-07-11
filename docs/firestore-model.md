@@ -23,8 +23,19 @@ Source of truth for v1: `../homehub/src/integrations/supabase/types.ts` (curated
   a stored field — except where a child needs to reference itself for a collection-group
   query, noted inline). The import (Phase 6) **preserves v1 UUIDs as doc IDs** so storage
   paths and cross-references survive unchanged.
-- **Timestamps:** stored as Firestore `Timestamp`. Services convert to/from ISO strings at
-  the edge (v1 components traffic in ISO strings). `createdAt`/`updatedAt` on every doc.
+- **Timestamps vs. calendar dates — two representations, deliberately:**
+  - **Instants** (a moment in time) are stored as Firestore `Timestamp`: `createdAt`, `updatedAt`,
+    `completedAt`, `parsedAt`, `parse.stageAt`, `recallCheckedAt`, `startedAt`/`endedAt`,
+    `acceptedAt`, `expiresAt`, `userModifiedAt`, `careTypeOverriddenAt`, `setupRevealedAt`,
+    `warrantyRegisteredAt`. Services convert to/from ISO strings at the edge (v1 components
+    traffic in ISO strings).
+  - **Calendar dates** (a day, no time/zone) stay **`"YYYY-MM-DD"` strings**, exactly as v1's
+    Postgres `date` columns: `dueDate`, `windowStart`/`windowEnd`, `snoozedUntil`, `purchaseDate`,
+    `installDate`, `anchorDate`, `warrantyExpiryDate`. This is what keeps the `SEED_TODAY` agenda/
+    overdue math and the visual baselines deterministic (string date comparison, no TZ drift) and
+    matches how components already consume these fields. **The emulator seed and the Phase 6 import
+    both follow this split; the Phase 5 services read to it.**
+  - `createdAt`/`updatedAt` on every doc.
 - **Soft delete:** every soft-deletable collection carries `deletedAt: Timestamp | null`.
   **Always write `null`, never omit** — every list query filters `deletedAt == null`, and
   Firestore only matches `== null` when the field is present. Hard deletes are reserved for
