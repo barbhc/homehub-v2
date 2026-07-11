@@ -1,4 +1,18 @@
-import { supabase } from "@/integrations/shim/client"
+import {
+  collection,
+  collectionGroup,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+  writeBatch,
+  Timestamp,
+  type DocumentData,
+} from "firebase/firestore"
+import { db, auth } from "@/integrations/firebase"
 import type { Home, Room } from "@/integrations/types"
 
 export type ServiceResult<T> =
@@ -17,231 +31,194 @@ const DEFAULT_ROOMS = [
   "Utility Room",
 ]
 
-export type CreateHomeInput = {
-  name: string
-  timezone?: string
-  userId: string
+// ── Edge mappers: Firestore camelCase → the curated snake_case types the
+//    components consume (firestore-model.md §0; instants → ISO strings). ──
+function iso(v: unknown): string {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : ""
+}
+function isoOrNull(v: unknown): string | null {
+  return v == null ? null : iso(v)
+}
+function toHome(id: string, d: DocumentData): Home {
+  return {
+    home_id: id,
+    name: d.name ?? "",
+    timezone: d.timezone ?? "America/Los_Angeles",
+    created_at: iso(d.createdAt),
+    updated_at: iso(d.updatedAt),
+    deleted_at: isoOrNull(d.deletedAt),
+  }
+}
+function toRoom(id: string, homeId: string, d: DocumentData): Room {
+  return {
+    room_id: id,
+    home_id: homeId,
+    name: d.name ?? "",
+    created_at: iso(d.createdAt),
+    updated_at: iso(d.updatedAt),
+    deleted_at: isoOrNull(d.deletedAt),
+  }
 }
 
+function err(e: unknown): { data: null; error: { message: string } } {
+  return { data: null, error: { message: e instanceof Error ? e.message : "Request failed" } }
+}
+
+export type CreateHomeInput = { name: string; timezone?: string; userId: string }
 export type CreateHomeResult =
   | { data: { homeId: string }; error: null }
   | { data: null; error: { message: string } }
 
-/**
- * Creates a home, adds the user as owner, and seeds default rooms.
- */
+/** Creates a home, adds the user as owner, and seeds default rooms. */
 export async function createHome(input: CreateHomeInput): Promise<CreateHomeResult> {
-  const { data: home, error: homeErr } = await supabase
-    .from("home")
-    .insert({
+  try {
+    const homeRef = doc(collection(db, "homes"))
+    // Batch 1: home + membership. Rooms must wait — the rules gate room writes on
+    // isMember(homeId), which only becomes true once the member doc is committed.
+    const b1 = writeBatch(db)
+    b1.set(homeRef, {
       name: input.name,
       timezone: input.timezone ?? "America/Los_Angeles",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      deletedAt: null,
     })
-    .select("home_id")
-    .single()
+    b1.set(doc(db, `homes/${homeRef.id}/members/${input.userId}`), {
+      uid: input.userId,
+      role: "owner",
+      isPrimary: true,
+      joinedAt: serverTimestamp(),
+    })
+    await b1.commit()
 
-  if (homeErr) return { data: null, error: { message: homeErr.message } }
-  const homeId = (home as { home_id: string }).home_id
+    // Batch 2: default rooms (now that membership exists).
+    const b2 = writeBatch(db)
+    for (const name of DEFAULT_ROOMS) {
+      b2.set(doc(collection(db, `homes/${homeRef.id}/rooms`)), {
+        name,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        deletedAt: null,
+      })
+    }
+    await b2.commit()
 
-  const rollback = async () => {
-    await supabase.from("home").delete().eq("home_id", homeId)
+    return { data: { homeId: homeRef.id }, error: null }
+  } catch (e) {
+    return err(e)
   }
-
-  const { error: memberErr } = await supabase.from("home_members").insert({
-    home_id: homeId,
-    user_id: input.userId,
-    role: "owner",
-    is_primary: true,
-  })
-
-  if (memberErr) {
-    await rollback()
-    return { data: null, error: { message: memberErr.message } }
-  }
-
-  const roomRows = DEFAULT_ROOMS.map((name) => ({ home_id: homeId, name }))
-  const { error: roomErr } = await supabase.from("room").insert(roomRows)
-  if (roomErr) {
-    await rollback()
-    return { data: null, error: { message: roomErr.message } }
-  }
-
-  return { data: { homeId }, error: null }
 }
 
-/**
- * Fetches homes the user belongs to.
- */
+/** The homeIds the current user belongs to (via their membership docs). */
+async function myMemberships(): Promise<{ homeId: string; isPrimary: boolean }[]> {
+  const uid = auth.currentUser?.uid
+  if (!uid) return []
+  const snap = await getDocs(query(collectionGroup(db, "members"), where("uid", "==", uid)))
+  return snap.docs
+    .map((d) => {
+      const homeId = d.ref.parent.parent?.id
+      return homeId ? { homeId, isPrimary: !!d.get("isPrimary") } : null
+    })
+    .filter((m): m is { homeId: string; isPrimary: boolean } => m !== null)
+}
+
+/** Fetches homes the user belongs to. */
 export async function getHomes(): Promise<ServiceResult<Home[]>> {
-  const { error, data } = await supabase
-    .from("home")
-    .select("*")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as Home[], error: null }
+  try {
+    const memberships = await myMemberships()
+    const homes: Home[] = []
+    for (const m of memberships) {
+      const snap = await getDoc(doc(db, `homes/${m.homeId}`))
+      if (snap.exists() && snap.get("deletedAt") == null) homes.push(toHome(snap.id, snap.data()))
+    }
+    homes.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    return { data: homes, error: null }
+  } catch (e) {
+    return err(e)
+  }
 }
 
-/**
- * Fetches the user's primary or first home.
- */
+/** Fetches the user's primary (or first) home. */
 export async function getPrimaryHome(): Promise<ServiceResult<Home | null>> {
-  const { data: user } = await supabase.auth.getUser()
-  const userId = user.user?.id ?? ""
-  if (!userId) {
-    console.debug("[getPrimaryHome] No authenticated user")
-    return { data: null, error: null }
+  try {
+    const memberships = await myMemberships()
+    if (memberships.length === 0) return { data: null, error: null }
+    const chosen = memberships.find((m) => m.isPrimary) ?? memberships[0]
+    const snap = await getDoc(doc(db, `homes/${chosen.homeId}`))
+    if (!snap.exists() || snap.get("deletedAt") != null) return { data: null, error: null }
+    return { data: toHome(snap.id, snap.data()), error: null }
+  } catch (e) {
+    return err(e)
   }
-
-  const { data: member, error: memberErr } = await supabase
-    .from("home_members")
-    .select("home_id")
-    .eq("user_id", userId)
-    .eq("is_primary", true)
-    .maybeSingle()
-
-  if (memberErr) {
-    console.debug("[getPrimaryHome] home_members (primary) error:", memberErr.message)
-  }
-
-  if (!member) {
-    const { data: first, error: firstErr } = await supabase
-      .from("home_members")
-      .select("home_id")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle()
-
-    if (firstErr) {
-      console.debug("[getPrimaryHome] home_members (any) error:", firstErr.message)
-    }
-    if (!first) {
-      console.debug("[getPrimaryHome] No home_members row for user", userId)
-      return { data: null, error: null }
-    }
-    const homeId = (first as { home_id: string }).home_id
-    const { data: h, error } = await supabase
-      .from("home")
-      .select("*")
-      .eq("home_id", homeId)
-      .is("deleted_at", null)
-      .single()
-    if (error) {
-      console.debug("[getPrimaryHome] home fetch error for", homeId, error.message)
-      return { data: null, error: { message: error.message } }
-    }
-    console.debug("[getPrimaryHome] Found home (fallback):", homeId, (h as Home)?.name)
-    return { data: h as Home, error: null }
-  }
-
-  const homeId = (member as { home_id: string }).home_id
-  const { data: h, error } = await supabase
-    .from("home")
-    .select("*")
-    .eq("home_id", homeId)
-    .is("deleted_at", null)
-    .single()
-
-  if (error) {
-    console.debug("[getPrimaryHome] home fetch error for primary", homeId, error.message)
-    return { data: null, error: { message: error.message } }
-  }
-  console.debug("[getPrimaryHome] Found primary home:", homeId, (h as Home)?.name)
-  return { data: h as Home, error: null }
 }
 
-/**
- * Fetches a single home by id.
- */
+/** Fetches a single home by id. */
 export async function getHome(homeId: string): Promise<ServiceResult<Home | null>> {
-  const { error, data } = await supabase
-    .from("home")
-    .select("*")
-    .eq("home_id", homeId)
-    .is("deleted_at", null)
-    .single()
-
-  if (error) {
-    if (error.code === "PGRST116") return { data: null, error: null }
-    return { data: null, error: { message: error.message } }
+  try {
+    const snap = await getDoc(doc(db, `homes/${homeId}`))
+    if (!snap.exists() || snap.get("deletedAt") != null) return { data: null, error: null }
+    return { data: toHome(snap.id, snap.data()), error: null }
+  } catch (e) {
+    return err(e)
   }
-  return { data: data as Home, error: null }
 }
 
-/**
- * Fetches rooms for a home.
- */
+/** Fetches rooms for a home. */
 export async function getRooms(homeId: string): Promise<ServiceResult<Room[]>> {
-  const { error, data } = await supabase
-    .from("room")
-    .select("*")
-    .eq("home_id", homeId)
-    .is("deleted_at", null)
-    .order("name")
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as Room[], error: null }
-}
-
-export type CreateRoomInput = {
-  home_id: string
-  name: string
-}
-
-/**
- * Creates a room.
- */
-export async function createRoom(input: CreateRoomInput): Promise<ServiceResult<Room>> {
-  const { error, data } = await supabase
-    .from("room")
-    .insert(input)
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as Room, error: null }
-}
-
-/**
- * Renames a room.
- */
-export async function renameRoom(roomId: string, name: string): Promise<ServiceResult<Room>> {
-  const { error, data } = await supabase
-    .from("room")
-    .update({ name })
-    .eq("room_id", roomId)
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as Room, error: null }
-}
-
-/**
- * Soft-deletes a room and nullifies room_id on related records.
- */
-export async function deleteRoom(roomId: string): Promise<ServiceResult<true>> {
-  // Soft-delete the room
-  const { error: roomErr } = await supabase
-    .from("room")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("room_id", roomId)
-
-  if (roomErr) return { data: null, error: { message: roomErr.message } }
-
-  // Nullify room_id on related tables
-  const [itemRes, taskRes, sessionRes, noteRes] = await Promise.all([
-    supabase.from("item_unit").update({ room_id: null }).eq("room_id", roomId),
-    supabase.from("task_template").update({ room_id: null }).eq("room_id", roomId),
-    supabase.from("cleaning_session").update({ room_id: null }).eq("room_id", roomId),
-    supabase.from("care_note").update({ room_id: null }).eq("room_id", roomId),
-  ])
-
-  const firstError = [itemRes, taskRes, sessionRes, noteRes].find((r) => r.error)
-  if (firstError?.error) {
-    console.warn("[deleteRoom] Failed to nullify room_id on related records:", firstError.error.message)
+  try {
+    const snap = await getDocs(
+      query(collection(db, `homes/${homeId}/rooms`), where("deletedAt", "==", null), orderBy("name"))
+    )
+    return { data: snap.docs.map((d) => toRoom(d.id, homeId, d.data())), error: null }
+  } catch (e) {
+    return err(e)
   }
+}
 
-  return { data: true, error: null }
+export type CreateRoomInput = { home_id: string; name: string }
+
+/** Creates a room. */
+export async function createRoom(input: CreateRoomInput): Promise<ServiceResult<Room>> {
+  try {
+    const ref = doc(collection(db, `homes/${input.home_id}/rooms`))
+    await writeBatch(db)
+      .set(ref, { name: input.name, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), deletedAt: null })
+      .commit()
+    const snap = await getDoc(ref)
+    return { data: toRoom(ref.id, input.home_id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return err(e)
+  }
+}
+
+/** Renames a room. */
+export async function renameRoom(homeId: string, roomId: string, name: string): Promise<ServiceResult<Room>> {
+  try {
+    const ref = doc(db, `homes/${homeId}/rooms/${roomId}`)
+    await writeBatch(db).set(ref, { name, updatedAt: serverTimestamp() }, { merge: true }).commit()
+    const snap = await getDoc(ref)
+    return { data: toRoom(ref.id, homeId, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return err(e)
+  }
+}
+
+/** Soft-deletes a room and nullifies roomId on related records. */
+export async function deleteRoom(homeId: string, roomId: string): Promise<ServiceResult<true>> {
+  try {
+    const now = serverTimestamp()
+    const batch = writeBatch(db)
+    batch.set(doc(db, `homes/${homeId}/rooms/${roomId}`), { deletedAt: now, updatedAt: now }, { merge: true })
+
+    // Nullify roomId on related subcollections within the home.
+    for (const col of ["items", "taskTemplates", "cleaningSessions", "careNotes"]) {
+      const rel = await getDocs(query(collection(db, `homes/${homeId}/${col}`), where("roomId", "==", roomId)))
+      for (const d of rel.docs) batch.set(d.ref, { roomId: null, updatedAt: now }, { merge: true })
+    }
+    await batch.commit()
+    return { data: true, error: null }
+  } catch (e) {
+    return err(e)
+  }
 }

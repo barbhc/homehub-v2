@@ -43,7 +43,7 @@ All service files currently compile against the shim (status: `stub`).
 | Module | Files | Status |
 |---|---|---|
 | auth | AuthProvider.tsx (Firebase: email/pw, magic link, reset via oobCode, **Apple/fix D**), ResetPassword.tsx, types/auth.ts | **ported** |
-| home | homeService, homeProfileService, inviteService | stub |
+| home | **homeService = ported** (create/get/primary/rooms via Firestore; camelCase→curated-type edge mappers; membership via collectionGroup(members).uid); homeProfileService, inviteService, HomeOnboarding = stub | mixed |
 | inventory | inventoryService, manualSourcesService, storageService, ocrService, planGenerationService, productLookupService | stub |
 | items / supplies | itemService, supplyService | stub |
 | care | taskService, weekAgenda, taskScheduleService, homeUpkeep, careNoteService, scheduleService, shoppingListService, + pure helpers (port untouched) | stub |
@@ -175,6 +175,20 @@ First service module off the shim.
 - **Owner config** (DEPLOY.md): Apple Services ID + Firebase provider; reset-email action URL → /reset-password.
 - Verified: tsc + build green; vitest 123/123; **boot smoke 3/3** (pre-login renders under Firebase auth,
   no crash); zero `@/integrations/shim` imports in the auth module.
+
+## Verified — Phase 5 home read path (homeService)
+- **homeService** → Firestore: `createHome` (two batches — home+member first, then rooms, because
+  the rules gate room writes on `isMember`), `getPrimaryHome`/`getHomes` (via
+  `collectionGroup("members").where("uid","==",…)` — needs the `uid` field on member docs; seed
+  updated), `getHome`, `getRooms`, `createRoom`, `renameRoom`, `deleteRoom` (soft-delete + nullify
+  roomId on items/taskTemplates/cleaningSessions/careNotes).
+- **Edge mappers** translate Firestore camelCase + Timestamps → the curated snake_case `Home`/`Room`
+  types, so consumers are unchanged.
+- **Signature note**: `renameRoom`/`deleteRoom` gained a leading `homeId` (Firestore path needs it);
+  the only callers (Settings.tsx) updated. `createRoom` already carried `home_id`.
+- Verified: tsc + build green; boot smoke 3/3 (HomeProvider → Firebase getPrimaryHome, no crash).
+- Remaining in the home module: `homeProfileService`, `inviteService`, `HomeOnboarding.tsx` still
+  on the shim (next).
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now

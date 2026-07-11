@@ -70,6 +70,7 @@ async function seedHome(uid: string): Promise<void> {
     deletedAt: null,
   })
   await db.doc(`homes/${HOME_ID}/members/${uid}`).set({
+    uid, // enables the collectionGroup("members").where("uid","==",…) lookup in homeService
     role: "owner",
     isPrimary: true,
     joinedAt: NOW,

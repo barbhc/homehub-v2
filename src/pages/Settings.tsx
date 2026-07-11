@@ -395,9 +395,10 @@ export default function Settings() {
       setEditingRoomId(null)
       return
     }
+    if (!homeId) return
     setSavingRoom(true)
     try {
-      const res = await renameRoom(editingRoomId, editingName.trim())
+      const res = await renameRoom(homeId, editingRoomId, editingName.trim())
       if (res.data) {
         setRooms((prev) => prev.map((r) => (r.room_id === editingRoomId ? res.data! : r)))
       }
@@ -405,7 +406,7 @@ export default function Settings() {
       setSavingRoom(false)
       setEditingRoomId(null)
     }
-  }, [editingRoomId, editingName, rooms])
+  }, [homeId, editingRoomId, editingName, rooms])
 
   const handleAddRoom = useCallback(async () => {
     if (!homeId || !newRoomName.trim()) return
@@ -423,10 +424,10 @@ export default function Settings() {
   }, [homeId, newRoomName])
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!deleteConfirmRoom) return
+    if (!deleteConfirmRoom || !homeId) return
     setDeletingRoom(true)
     try {
-      const res = await deleteRoom(deleteConfirmRoom.room_id)
+      const res = await deleteRoom(homeId, deleteConfirmRoom.room_id)
       if (res.data) {
         setRooms((prev) => prev.filter((r) => r.room_id !== deleteConfirmRoom.room_id))
         setRoomItemCounts((prev) => {
@@ -439,7 +440,7 @@ export default function Settings() {
       setDeletingRoom(false)
       setDeleteConfirmRoom(null)
     }
-  }, [deleteConfirmRoom])
+  }, [deleteConfirmRoom, homeId])
 
   const handleAdd = useCallback(async () => {
     if (!homeId || !newTitle.trim()) return
