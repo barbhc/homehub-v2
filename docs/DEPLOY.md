@@ -99,6 +99,25 @@ FCM has no emulator, so verify on a real device after deploy:
 
 ---
 
+## Apple sign-in (Fix D — owner, when ready)
+The client is wired (popup flow) behind `VITE_APPLE_SIGNIN_ENABLED`; it's a no-op stub until
+you complete this. You already have a Team ID + `.p8` key + Key ID from SkinIQ — **reuse them**.
+1. **Apple Developer** → Identifiers → create a NEW **Services ID** (e.g. `com.homehub.web`).
+   Enable "Sign in with Apple", configure it, and add the **Return URL**:
+   `https://homehub-2068d.firebaseapp.com/__/auth/handler`
+   (and your custom domain's `/__/auth/handler` too, if you use one).
+2. **Firebase console** → Authentication → Sign-in method → **Apple** → enable, and fill in:
+   **Services ID** (from step 1), **Apple Team ID**, **Key ID**, and the **`.p8`** private key.
+3. In `.env` set `VITE_APPLE_SIGNIN_ENABLED=true` and redeploy hosting.
+4. Test on **desktop Safari + iOS** (installed PWA). Gotchas: private-relay emails ARE the account
+   email; the user's name arrives only on the FIRST sign-in; with Firebase there's **no 6-month
+   secret rotation** (Firebase signs from the key).
+
+## Reset-password email handler (one console setting)
+The in-app `/reset-password` page consumes Firebase's `oobCode`. Point the reset email at it:
+Firebase console → Authentication → **Templates** → Password reset → edit → **Customize action URL**
+→ `https://<your-domain>/reset-password`. (Email-link sign-in uses the same action-handler concept.)
+
 ## Per-change deploys (after setup)
 ```bash
 firebase deploy --only functions                              # code changes to functions

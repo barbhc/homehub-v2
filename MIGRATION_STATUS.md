@@ -12,7 +12,7 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 | 2 — Firestore model + rules | **code complete; verified on emulator** | model doc 19/19 + rules 19 tests green + indexes schema-valid |
 | 3 — parse worker + trust arc | **worker + seed + client trust arc (fix B) done** | 3.1+3.2 done; 3.3 watch-stages/snapshot tooling optional-remaining |
 | 4 — remaining backend + FCM | **deploy packaging + rollForward + FCM scaffold done; callable ports remaining** | esbuild bundle solves shared/; rollForward emulator-tested; chat/proxy/detect/etc. ports need v1 source + API keys |
-| 5 — service swap + fixes A/C/D | **started: fix A (calm-by-default) done**; service swap + C/D pending | fix A is pure UI/logic, landed ahead of the service swap (changes pixels → re-bake baselines after) |
+| 5 — service swap + fixes A/C/D | **fix A + auth module (fix D) done**; home/items/tasks/knowledge/chat swaps + fix C pending | auth is the first module off the shim; Apple owner-config in DEPLOY.md |
 | 6 — import + re-parse | not started | needs Phase 0 owner scripts run |
 | 7 — done checklist + switch | not started | |
 
@@ -42,7 +42,7 @@ All service files currently compile against the shim (status: `stub`).
 
 | Module | Files | Status |
 |---|---|---|
-| auth | AuthProvider.tsx | stub |
+| auth | AuthProvider.tsx (Firebase: email/pw, magic link, reset via oobCode, **Apple/fix D**), ResetPassword.tsx, types/auth.ts | **ported** |
 | home | homeService, homeProfileService, inviteService | stub |
 | inventory | inventoryService, manualSourcesService, storageService, ocrService, planGenerationService, productLookupService | stub |
 | items / supplies | itemService, supplyService | stub |
@@ -158,6 +158,23 @@ Addresses the #1 owner complaint ("still overwhelming — too many non-essential
 - **Pixels changed by design** → the Phase 5 canonical visual baselines bake AFTER fix A (fix E).
   e2e assertions (default = Focus, All count, one-tap reveal, Home cap + more-link) land with the
   emulator-seeded suite at the Phase 5 gate.
+
+## Verified — Phase 5 auth module (fix D)
+First service module off the shim.
+- **AuthProvider** → Firebase Auth, `AuthState` signatures frozen. email/pw
+  (`signInWithEmailAndPassword` / `createUserWithEmailAndPassword` + `updateProfile`); magic
+  link (`sendSignInLinkToEmail` + localStorage email stash + on-load `isSignInWithEmailLink` →
+  `signInWithEmailLink`); reset (`sendPasswordResetEmail`); `updatePassword` handles
+  `auth/requires-recent-login`; **Apple = `OAuthProvider("apple.com")` + `signInWithPopup`** behind
+  `VITE_APPLE_SIGNIN_ENABLED` (stub path when off).
+- **`user` contract preserved**: `AuthUser = { id, email, user_metadata.full_name }` mapped from the
+  Firebase user (id = uid) → the ~60 `user.id` / `user.email` / `user_metadata.full_name` reads across
+  the app compile unchanged.
+- **ResetPassword.tsx** → Firebase `oobCode` flow (`verifyPasswordResetCode` → `confirmPasswordReset`),
+  routes to /signin after (reset creates no session). UI pixel-frozen — service logic only.
+- **Owner config** (DEPLOY.md): Apple Services ID + Firebase provider; reset-email action URL → /reset-password.
+- Verified: tsc + build green; vitest 123/123; **boot smoke 3/3** (pre-login renders under Firebase auth,
+  no crash); zero `@/integrations/shim` imports in the auth module.
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now

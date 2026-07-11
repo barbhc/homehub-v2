@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { LockIcon, EyeIcon, EyeOffIcon, CheckIcon, MailCheckIcon } from "lucide-react"
-import { supabase } from "@/integrations/shim/client"
-import { useAuth } from "@/modules/auth"
+import { verifyPasswordResetCode, confirmPasswordReset } from "firebase/auth"
+import { auth } from "@/integrations/firebase"
 import { AuthScreen, AuthCTA, AUTH } from "@/modules/auth/components/authUi"
 
 /** Password field with reveal toggle, matching the auth mockup's AuthInput. */
@@ -28,7 +28,10 @@ function PwField({ label, value, onChange }: { label: string; value: string; onC
 
 export default function ResetPassword() {
   const navigate = useNavigate()
-  const { updatePassword } = useAuth()
+  const [params] = useSearchParams()
+  // Firebase's password-reset link lands here with ?mode=resetPassword&oobCode=…
+  // (set the Auth email action handler to this page in the console).
+  const oobCode = params.get("oobCode")
   const [ready, setReady] = useState(false)
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
@@ -37,12 +40,15 @@ export default function ResetPassword() {
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    // Supabase exchanges the token from the URL hash and fires PASSWORD_RECOVERY
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setReady(true)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
+    // Validate the one-time code before showing the form (proves the link is real
+    // and unexpired). No sign-in happens — confirmPasswordReset uses the code directly.
+    if (!oobCode) return
+    let cancelled = false
+    void verifyPasswordResetCode(auth, oobCode)
+      .then(() => { if (!cancelled) setReady(true) })
+      .catch(() => { if (!cancelled) setError("This reset link is invalid or has expired.") })
+    return () => { cancelled = true }
+  }, [oobCode])
 
   const match = password.length >= 8 && password === confirm
 
@@ -50,12 +56,17 @@ export default function ResetPassword() {
     e.preventDefault()
     setError(null)
     if (!match) { setError("Passwords don't match yet."); return }
+    if (!oobCode) { setError("This reset link is invalid or has expired."); return }
     setLoading(true)
-    const { error: err } = await updatePassword(password)
-    setLoading(false)
-    if (err) { setError(err.message); return }
-    setDone(true)
-    setTimeout(() => navigate("/home"), 1800)
+    try {
+      await confirmPasswordReset(auth, oobCode, password)
+      setLoading(false)
+      setDone(true)
+      setTimeout(() => navigate("/signin"), 1800)
+    } catch (err) {
+      setLoading(false)
+      setError(err instanceof Error ? err.message : "Couldn't update your password.")
+    }
   }
 
   if (done) {
