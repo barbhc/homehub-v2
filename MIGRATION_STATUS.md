@@ -12,7 +12,7 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 | 2 — Firestore model + rules | **code complete; verified on emulator** | model doc 19/19 + rules 19 tests green + indexes schema-valid |
 | 3 — parse worker + trust arc | **worker + seed + client trust arc (fix B) done** | 3.1+3.2 done; 3.3 watch-stages/snapshot tooling optional-remaining |
 | 4 — remaining backend + FCM | **deploy packaging + rollForward + FCM scaffold done; callable ports remaining** | esbuild bundle solves shared/; rollForward emulator-tested; chat/proxy/detect/etc. ports need v1 source + API keys |
-| 5 — service swap + fixes A/C/D | not started | |
+| 5 — service swap + fixes A/C/D | **started: fix A (calm-by-default) done**; service swap + C/D pending | fix A is pure UI/logic, landed ahead of the service swap (changes pixels → re-bake baselines after) |
 | 6 — import + re-parse | not started | needs Phase 0 owner scripts run |
 | 7 — done checklist + switch | not started | |
 
@@ -143,6 +143,21 @@ Port from v1 `supabase/functions/` as direct callables / HTTPS fns (defineSecret
 Do NOT port: `manual-search`, `search-manual`, `identify-diagram-pages`, `backfill-diagram-pages`.
 Best done alongside the Phase 5 services that call them (client contract in hand) or as a dedicated
 keys-in-hand pass. `completeTask` callable (model §9) lands with the Phase 5 taskService swap.
+
+## Verified — Phase 5 fix A (calm-by-default surfacing)
+Addresses the #1 owner complaint ("still overwhelming — too many non-essential tasks").
+- **`tasks/shared.ts`**: `applyTierFilter` (+ `isFocusTask`, `useTierFilter`). "Focus" =
+  essential OR overdue (any tier); the universal DEFAULT (not level-keyed). `useTierFilter`
+  persists the choice in sessionStorage but resets to focus each new session.
+- **RefinedWeek (mobile) + DesktopTasks (desktop)**: default to Focus; leading teal **Focus**
+  chip; **All · N** chip shows the true total (nothing feels hidden); calm empty-focus state
+  with a one-tap "Show N other tasks →" link.
+- **RefinedHome**: `UPCOMING_CAP = 4` on the Upcoming list + a quiet "{n} more this week →"
+  link to /tasks when truncated.
+- **10 unit tests** (`shared.test.ts`); vitest 123/123; tsc + full build green.
+- **Pixels changed by design** → the Phase 5 canonical visual baselines bake AFTER fix A (fix E).
+  e2e assertions (default = Focus, All count, one-tap reveal, Home cap + more-link) land with the
+  emulator-seeded suite at the Phase 5 gate.
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now

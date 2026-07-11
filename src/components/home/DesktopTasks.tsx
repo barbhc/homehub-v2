@@ -8,7 +8,7 @@ import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
-  addDays, applyFilters, computeInsight, dayLabel, groupTasks, itemOptions, monthCalendar,
+  addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, itemOptions, monthCalendar,
   tasksDueOnDay, todayStr, useTaskDetail, whenLabel, type Lens, CLAY, TEAL,
 } from "./tasks/shared"
 
@@ -196,7 +196,7 @@ function TierPill({ active, color, onClick, children, dot }: {
 
 export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const navigate = useNavigate()
-  const [tier, setTier] = useState("all")
+  const [tier, setTier] = useTierFilter()
   const [item, setItem] = useState("all")
   const [lens, setLens] = useState<Lens>("urgency")
   const [openId, setOpenId] = useState<string | null>(null)
@@ -233,10 +233,12 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
     if (res.success) setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
   }, [homeId])
 
-  const all = useMemo(() => applyFilters(items, tier, item), [items, tier, item])
+  const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
   const insight = useMemo(() => computeInsight(all), [all])
   const itemList = useMemo(() => itemOptions(items), [items])
+  // Total ignoring the tier filter (for the "All · N" chip + empty-focus link).
+  const totalAll = useMemo(() => applyTierFilter(items, "all", item).length, [items, item])
 
   const total = all.length
   const totalMins = all.reduce((a, t) => a + (t.estimatedMinutes ?? 0), 0)
@@ -246,7 +248,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const openGuide = (t: WeekAgendaItem) => navigate(`/tasks/${t.taskInstanceId}`)
 
   const tierChips: [string, string, string][] = [
-    ["all", "All", TEAL],
+    ["focus", "Focus", TEAL],
+    ["all", `All · ${totalAll}`, TEAL],
     ["essential", "Essential", TIER.essential.dot],
     ["recommended", "Recommended", TIER.recommended.dot],
     ["optional", "Optional", TIER.optional.dot],
@@ -298,7 +301,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
       <div className="mb-[22px] flex flex-wrap items-center gap-3.5">
         <div className="flex gap-2">
           {tierChips.map(([k, l, c]) => (
-            <TierPill key={k} active={tier === k} color={c} dot={k !== "all"} onClick={() => setTier(k)}>{l}</TierPill>
+            <TierPill key={k} active={tier === k} color={c} dot={k !== "all" && k !== "focus"} onClick={() => setTier(k)}>{l}</TierPill>
           ))}
         </div>
         <div className="flex-1" />
@@ -341,7 +344,21 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
           {loading ? (
             <div className="py-16 text-center text-[15px]" style={{ color: SUB }}>Loading…</div>
           ) : groups.length === 0 ? (
-            <div className="py-16 text-center text-[15px]" style={{ color: SUB }}>Nothing matches these filters.</div>
+            tier === "focus" && totalAll > 0 ? (
+              <div className="py-16 text-center">
+                <div className="text-[15px] font-semibold" style={{ color: INK }}>You're all caught up on the essentials.</div>
+                <button
+                  type="button"
+                  onClick={() => setTier("all")}
+                  className="mt-2 text-[13.5px] font-bold"
+                  style={{ color: TEAL }}
+                >
+                  Show {totalAll} {totalAll === 1 ? "other task" : "other tasks"} →
+                </button>
+              </div>
+            ) : (
+              <div className="py-16 text-center text-[15px]" style={{ color: SUB }}>Nothing matches these filters.</div>
+            )
           ) : (
             groups.map((g) => (
               <div key={g.key}>

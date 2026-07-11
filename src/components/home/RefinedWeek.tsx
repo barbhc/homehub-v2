@@ -9,7 +9,7 @@ import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
-  addDays, applyFilters, computeInsight, dayLabel, groupTasks, itemOptions, monthCalendar,
+  addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, itemOptions, monthCalendar,
   tasksDueOnDay, todayStr, useTaskDetail, whenLabel, type Lens, CLAY, TEAL,
 } from "./tasks/shared"
 
@@ -228,22 +228,32 @@ function Segmented<T extends string>({
 
 // ── Filters: tier chips + item sheet ──────────────────────────────────────────
 function Filters({
-  tier, setTier, item, setItem, items,
+  tier, setTier, item, setItem, items, total,
 }: {
   tier: string
   setTier: (t: string) => void
   item: string
   setItem: (i: string) => void
   items: string[]
+  total: number
 }) {
   const [sheet, setSheet] = useState(false)
-  const tiers: [string, string][] = [["all", "All"], ["essential", "Essential"], ["recommended", "Recommended"], ["optional", "Optional"]]
+  // Leading calm "Focus" chip (teal, the default); "All · N" shows the true total
+  // so nothing feels hidden.
+  const tiers: [string, string][] = [
+    ["focus", "Focus"],
+    ["all", `All · ${total}`],
+    ["essential", "Essential"],
+    ["recommended", "Recommended"],
+    ["optional", "Optional"],
+  ]
+  const isTierDot = (k: string) => k !== "all" && k !== "focus"
   return (
     <>
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar" style={{ padding: `0 ${PAD}px` }}>
         {tiers.map(([k, l]) => {
           const on = tier === k
-          const c = k === "all" ? TEAL : TIER[k as Tier].dot
+          const c = isTierDot(k) ? TIER[k as Tier].dot : TEAL
           return (
             <button
               key={k}
@@ -252,7 +262,7 @@ function Filters({
               className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[13.5px] font-bold"
               style={{ border: `1.5px solid ${on ? "transparent" : "var(--hh-line2)"}`, background: on ? c : SURFACE, color: on ? "#fff" : INK }}
             >
-              {k !== "all" && <span className="size-1.5 rounded-full" style={{ background: on ? "#fff" : TIER[k as Tier].dot }} />}
+              {isTierDot(k) && <span className="size-1.5 rounded-full" style={{ background: on ? "#fff" : TIER[k as Tier].dot }} />}
               {l}
             </button>
           )
@@ -369,7 +379,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const navigate = useNavigate()
   const [view, setView] = useState<View>("list")
   const [lens, setLens] = useState<Lens>("urgency")
-  const [tier, setTier] = useState("all")
+  const [tier, setTier] = useTierFilter()
   const [item, setItem] = useState("all")
   const [openId, setOpenId] = useState<string | null>(null)
   const [selDay, setSelDay] = useState<number | null>(null)
@@ -405,10 +415,12 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
     if (res.success) setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
   }, [homeId])
 
-  const all = useMemo(() => applyFilters(items, tier, item), [items, tier, item])
+  const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
   const insight = useMemo(() => computeInsight(all), [all])
   const itemList = useMemo(() => itemOptions(items), [items])
+  // Total ignoring the tier filter (for the "All · N" chip + the empty-focus link).
+  const totalAll = useMemo(() => applyTierFilter(items, "all", item).length, [items, item])
 
   const total = all.length
   const totalMins = all.reduce((a, t) => a + (t.estimatedMinutes ?? 0), 0)
@@ -480,7 +492,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
           />
         </div>
         <div className="h-3.5" />
-        <Filters tier={tier} setTier={setTier} item={item} setItem={setItem} items={itemList} />
+        <Filters tier={tier} setTier={setTier} item={item} setItem={setItem} items={itemList} total={totalAll} />
         {view === "list" && (
           <div className="flex items-center gap-2" style={{ padding: `14px ${PAD}px 0` }}>
             <span className="shrink-0 text-[13.5px] font-semibold" style={{ color: SUB }}>Group by</span>
@@ -502,7 +514,22 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
         ) : view === "list" ? (
           <div style={{ padding: `17px ${PAD}px 0` }}>
             {groups.length === 0 && (
-              <div className="py-10 text-center text-[15px]" style={{ color: SUB }}>Nothing matches these filters.</div>
+              tier === "focus" && totalAll > 0 ? (
+                // Calm empty-focus state — never a blank page; one tap reveals the rest.
+                <div className="py-10 text-center">
+                  <div className="text-[15px] font-semibold" style={{ color: INK }}>You're all caught up on the essentials.</div>
+                  <button
+                    type="button"
+                    onClick={() => setTier("all")}
+                    className="mt-2 text-[13.5px] font-bold"
+                    style={{ color: TEAL }}
+                  >
+                    Show {totalAll} {totalAll === 1 ? "other task" : "other tasks"} →
+                  </button>
+                </div>
+              ) : (
+                <div className="py-10 text-center text-[15px]" style={{ color: SUB }}>Nothing matches these filters.</div>
+              )
             )}
             {groups.map((g) => (
               <div key={g.key} className="mb-4">

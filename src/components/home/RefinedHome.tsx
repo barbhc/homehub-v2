@@ -348,7 +348,12 @@ export function RefinedHome({
 
   const sorted = [...tasks].sort((a, b) => dueDays(a) - dueDays(b))
   const hero = sorted[0]
-  const upcoming = sorted.slice(1)
+  // Fix A: cap the Home "Upcoming" list so it stays calm; the rest is one tap
+  // away via a quiet "N more this week →" link to the full Tasks screen.
+  const UPCOMING_CAP = 4
+  const upcomingAll = sorted.slice(1)
+  const upcoming = upcomingAll.slice(0, UPCOMING_CAP)
+  const moreThisWeek = upcomingAll.length - upcoming.length
 
   const showUpkeep = level !== "essentials"
   const showClean = level === "power"
@@ -367,7 +372,7 @@ export function RefinedHome({
         {hero ? (
           <>
             <div className="flex flex-col gap-2.5">
-              <SectionLabel right={upcoming.length > 0 ? <span className="whitespace-nowrap pl-2.5 text-[12.5px] font-medium" style={{ color: SUB }}>{upcoming.length} more this week</span> : undefined}>
+              <SectionLabel right={upcomingAll.length > 0 ? <span className="whitespace-nowrap pl-2.5 text-[12.5px] font-medium" style={{ color: SUB }}>{upcomingAll.length} more this week</span> : undefined}>
                 Due today
               </SectionLabel>
               <TaskHero d={d} task={hero} homeId={homeId} completing={completingId === hero.id} onComplete={onComplete} />
@@ -391,6 +396,11 @@ export function RefinedHome({
                     />
                   ))}
                 </div>
+                {moreThisWeek > 0 && (
+                  <Link to="/tasks" className="mt-2 block pl-6 text-[13px] font-semibold" style={{ color: SUB }}>
+                    {moreThisWeek} more this week →
+                  </Link>
+                )}
               </div>
             )}
           </>

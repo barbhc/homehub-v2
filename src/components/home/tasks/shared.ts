@@ -114,6 +114,63 @@ export function applyFilters(tasks: WeekAgendaItem[], tier: string, item: string
   return tasks.filter((t) => (tier === "all" || t.priorityTier === tier) && (item === "all" || itemOf(t) === item))
 }
 
+// ── Fix A: calm-by-default surfacing ────────────────────────────────────────
+// The task list defaults to a "Focus" view — essential work OR anything overdue
+// (any tier) — so a long tail of optional/recommended tasks never makes the list
+// feel overwhelming. "All" is always one tap away and shows the true total, so
+// nothing feels hidden. Universal default (NOT level-keyed): volume calming
+// protects everyone; power users get the one-tap escape hatch.
+
+export type TierFilter = "focus" | "all" | "essential" | "recommended" | "optional"
+
+/** True when a task belongs in the Focus view: essential OR overdue (any tier). */
+export function isFocusTask(t: WeekAgendaItem): boolean {
+  return t.priorityTier === "essential" || t.isOverdue
+}
+
+/**
+ * Tier + item filter. `tier` accepts a TierFilter; "focus" = essential OR overdue
+ * (any tier), "all" = everything. Supersedes applyFilters for the task screens.
+ */
+export function applyTierFilter(tasks: WeekAgendaItem[], tier: string, item: string): WeekAgendaItem[] {
+  return tasks.filter((t) => {
+    const tierOk =
+      tier === "all"
+        ? true
+        : tier === "focus"
+          ? isFocusTask(t)
+          : t.priorityTier === tier
+    const itemOk = item === "all" || itemOf(t) === item
+    return tierOk && itemOk
+  })
+}
+
+const TIER_STORAGE_KEY = "homehub:tasks-tier"
+
+/**
+ * Tier-filter state that persists within a session but resets to "focus" each
+ * NEW session (sessionStorage is per-tab-session by design). Shared by mobile
+ * RefinedWeek and desktop DesktopTasks so the behavior can't drift.
+ */
+export function useTierFilter(): [string, (t: string) => void] {
+  const [tier, setTierState] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem(TIER_STORAGE_KEY) || "focus"
+    } catch {
+      return "focus"
+    }
+  })
+  const setTier = (t: string) => {
+    try {
+      sessionStorage.setItem(TIER_STORAGE_KEY, t)
+    } catch {
+      /* storage unavailable (private mode / SSR) — in-memory only */
+    }
+    setTierState(t)
+  }
+  return [tier, setTier]
+}
+
 // ── "Start here" insight ────────────────────────────────────────────────────
 
 export type Insight = { kind: "start" | "calm"; label: string; text: string; tone: string }
