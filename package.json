@@ -19,6 +19,7 @@
     "seed:emu": "tsx scripts/seed-emulator.ts",
     "test:rules": "vitest run --config vitest.rules.config.ts",
     "test:rules:emu": "firebase emulators:exec --only firestore --project demo-homehub-rules \"npm run test:rules\"",
+    "test:worker:emu": "npm --prefix firebase/functions run build && firebase emulators:exec --only firestore --project demo-homehub \"node --test firebase/functions/test/worker.emu.test.mjs\"",
     "lint:new": "eslint src/integrations shared e2e/smoke scripts/seed-emulator.ts firebase/functions/src"
   },
   "dependencies": {

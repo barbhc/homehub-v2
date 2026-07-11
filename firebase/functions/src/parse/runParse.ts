@@ -1,0 +1,153 @@
+/**
+ * runParse — the worker CORE, a plain async function with injected dependencies
+ * (Claude call + PDF fetch). This is what the integration test drives directly
+ * (Cloud Tasks emulator has gaps; the core does not need it). It writes
+ * `parse.stage` on every transition and reaches `done` ONLY after the commit —
+ * so the client, which advances to review on `done`, can never land on an empty
+ * review (the v1 fire-and-forget bug, killed by construction).
+ */
+import { Timestamp, type Firestore } from "firebase-admin/firestore"
+import { buildPrompt, extractParsedResult } from "../../../../shared/parse/parsePrompt.js"
+import { normalizeChunkRow, normalizeTaskRow, type ParsedChunk, type ParsedTask } from "../../../../shared/parse/parseCore.js"
+import { pickParseModel } from "../../../../shared/parse/pickParseModel.js"
+import { commitDraft } from "./commitDraft.js"
+import type { CallClaude, FetchPdf, ParseMode, ParseStage, ExtractionResult, ParseItemFacts } from "./parseTypes.js"
+
+export interface RunParseDeps {
+  callClaude: CallClaude
+  fetchPdf: FetchPdf
+}
+
+export interface RunParseInput {
+  homeId: string
+  manualId: string
+  requestId: string
+  mode: ParseMode
+  /** "today" anchor — injectable for deterministic tests. */
+  now?: Date
+  existingTitles?: string[]
+}
+
+export interface RunParseOutcome {
+  stage: ParseStage
+  stale?: boolean
+  summary?: { chunks: number; tasks: number }
+  error?: string
+}
+
+export async function runParse(db: Firestore, deps: RunParseDeps, input: RunParseInput): Promise<RunParseOutcome> {
+  const { homeId, manualId, requestId, mode } = input
+  const now = input.now ?? new Date()
+  const manualRef = db.doc(`homes/${homeId}/manuals/${manualId}`)
+
+  const setStage = async (stage: ParseStage, extra?: Record<string, unknown>) => {
+    await manualRef.set(
+      { parse: { stage, stageAt: Timestamp.fromDate(now), ...extra }, updatedAt: Timestamp.fromDate(now) },
+      { merge: true }
+    )
+  }
+
+  let stage: ParseStage = "queued"
+  try {
+    // ── Claim: ignore stale deliveries (a newer enqueue superseded this one) ──
+    const manualSnap = await manualRef.get()
+    if (!manualSnap.exists) throw new Error(`manual ${manualId} not found`)
+    const claimedRequestId = manualSnap.get("parse.requestId")
+    if (claimedRequestId && claimedRequestId !== requestId) {
+      return { stage: "queued", stale: true }
+    }
+    const itemUnitId: string = manualSnap.get("itemUnitId")
+    const sourceType: string = manualSnap.get("sourceType")
+    const sourceRef: string = manualSnap.get("sourceRef")
+
+    const itemSnap = await db.doc(`homes/${homeId}/items/${itemUnitId}`).get()
+    const item: ParseItemFacts = {
+      itemUnitId,
+      item_category: itemSnap.get("itemCategory") ?? null,
+      sub_type: itemSnap.get("subType") ?? null,
+      display_name: itemSnap.get("displayName") ?? null,
+      model: itemSnap.get("model") ?? null,
+      accessories: itemSnap.get("accessories") ?? [],
+    }
+    const model = pickParseModel(item)
+
+    stage = "started"
+    await setStage("started", { requestId, mode, model, attempt: (manualSnap.get("parse.attempt") ?? 0) + 1, error: null })
+
+    // ── Fetch PDF ──
+    const pdfBase64 = await deps.fetchPdf(sourceType, sourceRef)
+    stage = "pdf_fetched"
+    await setStage("pdf_fetched")
+
+    // ── Claude extraction (forced tool + sampling params inside callClaude) ──
+    stage = "claude_call"
+    await setStage("claude_call")
+    const prompt = buildPrompt(item.accessories, undefined, mode === "fill_gaps" ? input.existingTitles : undefined)
+    const claudeData = await deps.callClaude({ model, pdfBase64, prompt, existingTitles: input.existingTitles })
+    stage = "claude_responded"
+    await setStage("claude_responded")
+
+    const result = extractParsedResult(claudeData) as ExtractionResult
+    // Commitable-draft guard (invariant 5): real extraction arrays required.
+    if (!result || !Array.isArray(result.chunks) || !Array.isArray(result.tasks)) {
+      throw new Error("malformed extraction: chunks/tasks not arrays")
+    }
+    const normChunks = (result.chunks as ParsedChunk[]).map((c) => normalizeChunkRow(c, manualId))
+    const normTasks = (result.tasks as ParsedTask[]).map((t) => normalizeTaskRow(t))
+    const confidence = result.confidence ?? null
+
+    if (mode === "preview") {
+      // Preview NEVER commits — it writes previewDraft only.
+      await manualRef.set(
+        {
+          previewDraft: { chunks: normChunks, tasks: normTasks, confidence },
+          parse: {
+            stage: "done",
+            stageAt: Timestamp.fromDate(now),
+            summary: { chunks: normChunks.length, tasks: normTasks.length, confidence },
+          },
+          updatedAt: Timestamp.fromDate(now),
+        },
+        { merge: true }
+      )
+      return { stage: "done", summary: { chunks: normChunks.length, tasks: normTasks.length } }
+    }
+
+    // ── Commit (commit | fill_gaps) ──
+    stage = "committing"
+    await setStage("committing")
+    const res = await commitDraft(db, {
+      homeId,
+      manualId,
+      item,
+      requestId,
+      chunks: normChunks,
+      tasks: normTasks,
+      now,
+    })
+
+    await manualRef.set(
+      {
+        parse: {
+          stage: "done",
+          stageAt: Timestamp.fromDate(now),
+          summary: { chunks: res.chunks, tasks: res.tasks, confidence },
+        },
+        updatedAt: Timestamp.fromDate(now),
+      },
+      { merge: true }
+    )
+    return { stage: "done", summary: { chunks: res.chunks, tasks: res.tasks } }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    // Record the dying stage; breadcrumbs survive for diagnosis + retry.
+    await manualRef.set(
+      {
+        parse: { stage: "error", stageAt: Timestamp.fromDate(now), error: { message, stage, at: Timestamp.fromDate(now) } },
+        updatedAt: Timestamp.fromDate(now),
+      },
+      { merge: true }
+    )
+    return { stage: "error", error: message }
+  }
+}

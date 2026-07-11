@@ -10,7 +10,7 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 | 0 — v1 data repairs | code merged (v1 #194) | owner still runs dedupe/breadcrumb/hygiene on prod (blocks Phase 6 only) |
 | 1 — scaffold + Firebase + emulators | **code complete; owner console steps pending** | see "Phase 1 remainder" below |
 | 2 — Firestore model + rules | **code complete; verified on emulator** | model doc 19/19 + rules 19 tests green + indexes schema-valid |
-| 3 — parse worker + trust arc | not started | starts with the Firestore emulator seed (deferred from Phase 1) |
+| 3 — parse worker + trust arc | **worker + seed done; client trust arc (3.2) next** | 3.1 worker verified on emulator; 3.2 SmartAddItem/parseManualService pending |
 | 4 — remaining backend + FCM | not started | |
 | 5 — service swap + fixes A/C/D | not started | |
 | 6 — import + re-parse | not started | needs Phase 0 owner scripts run |
@@ -76,6 +76,34 @@ All service files currently compile against the shim (status: `stub`).
 - New devDeps: `@firebase/rules-unit-testing@^5.0.1` (firebase 12 peer), `firebase-admin@^13.0.2`
   (also the seed-emulator dep). firebase-tools installed ad-hoc in sandbox for the emulator run
   (NOT added to package.json — owner/CI supply their own).
+
+## Verified — Phase 3.1 (parse worker)
+- **Worker core `runParse`** (firebase/functions/src/parse/): drives the frozen state
+  machine (queued→…→committing→done/error), claims requestId (ignores stale deliveries),
+  commitable-draft guard (invariant 5), preview/commit/fill_gaps modes. Injectable
+  `callClaude`/`fetchPdf` → directly testable without Cloud Tasks.
+- **commitDraft**: chunk swap (hard delete+reinsert, one batch) + `planTaskReconciliation`
+  execution (match=update-in-place+re-stamp externalKey, insert=new template + initial
+  recurring instance w/ denorm §5, flag=missed_scans++, delete=soft, never completion-bearing);
+  idempotent by requestId.
+- **enqueueParse** (onCall): membership check + per-home in-flight cap + requestId claim +
+  Cloud Task enqueue. **parseWorker** (onTaskDispatched, timeoutSeconds 1800,
+  maxConcurrentDispatches 2, maxAttempts 2) — thin wrapper over runParse.
+- Ported VERBATIM to shared/parse: `pickParseModel.ts`, `ssrf.ts` (invariants 4 & 8).
+- **worker.emu.test.mjs — 5/5 green on the Firestore emulator** (fixture Claude response, no
+  API): commit→done writes chunks+templates+instances w/ denorm; fuzzy rescan UPDATES in place
+  (no delete/insert churn); malformed→error, no partial chunk swap; stale delivery no-op;
+  preview writes previewDraft only. Run: `npm run test:worker:emu`.
+- functions `npm run typecheck` green; @anthropic-ai/sdk added to functions deps.
+
+## ⚠ Deploy-packaging TODO (Phase 4, owner deploy)
+`shared/parse/*` lives at the REPO ROOT (shared by client + functions + harness per plan).
+`firebase deploy` uploads only the `firebase/functions` dir, so the compiled shared files
+(imported as `../../../../shared/parse/*.js`, which resolve fine for tsc + the local emulator)
+will NOT be in the deployed package as-is. Before the first real `firebase deploy --only
+functions`, add a bundling step — recommended: esbuild-bundle the entry (inlines shared), OR a
+predeploy copy of `shared/parse` into `firebase/functions/`. The EMULATOR path (what validates
+logic) is unaffected; this is strictly a cloud-deploy packaging step and is the owner's to run.
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now
