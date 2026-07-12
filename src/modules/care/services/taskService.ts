@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/shim/client"
+import { doc, getDoc, serverTimestamp, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
+import { db, callable } from "@/integrations/firebase"
 import type {
   TaskTemplate,
   TaskInstance,
@@ -9,6 +11,39 @@ import type {
   ScheduleType,
   Season,
 } from "@/integrations/types"
+
+// ── Firestore taskInstance doc (camelCase) → curated TaskInstance (snake_case) ──
+function tiIso(v: unknown): string | null {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : null
+}
+function toTaskInstance(homeId: string, id: string, d: DocumentData): TaskInstance {
+  return {
+    task_instance_id: id,
+    home_id: homeId,
+    task_template_id: d.taskTemplateId ?? "",
+    item_unit_id: d.itemUnitId ?? null,
+    status: (d.status ?? "scheduled") as TaskInstanceStatus,
+    due_date: d.dueDate ?? "",
+    window_start: d.windowStart ?? null,
+    window_end: d.windowEnd ?? null,
+    snoozed_until: d.snoozedUntil ?? null,
+    priority_score: d.priorityScore ?? 0,
+    is_safety_critical: d.isSafetyCritical ?? false,
+    completed_at: tiIso(d.completedAt),
+    completion_notes: d.completionNotes ?? null,
+    completion_photos: d.completionPhotos ?? [],
+    assigned_to: d.assignedTo ?? null,
+    created_at: tiIso(d.createdAt) ?? "",
+    updated_at: tiIso(d.updatedAt) ?? "",
+    deleted_at: tiIso(d.deletedAt),
+  }
+}
+
+const completeTaskCallable = callable<
+  { homeId: string; taskInstanceId: string; completedOn?: string; nextDueOverride?: string | null; completionNotes?: string | null },
+  { completedInstanceId: string; nextInstanceId: string | null }
+>("completeTask")
 
 export type ServiceResult<T> =
   | { data: T; error: null }
@@ -516,34 +551,25 @@ export async function markTaskInstanceDone(
   completionNotes?: string | null,
   opts?: { completedOn?: string; nextDueOverride?: string | null }
 ): Promise<MarkDoneResult & { nextInstanceId?: string | null }> {
-  const { data, error } = await supabase.rpc("complete_task_instance", {
-    p_home_id: homeId,
-    p_task_instance_id: taskInstanceId,
-    p_completed_on: opts?.completedOn ?? todayStr(),
-    p_next_due_override: opts?.nextDueOverride ?? null,
-  })
-  if (error) return { success: false, error: error.message }
-
-  const row = Array.isArray(data) ? data[0] : data
-  const nextInstanceId = (row as { next_instance_id?: string | null } | null)?.next_instance_id ?? null
-
-  // Attach completion notes to the now-done instance, if provided.
-  if (completionNotes) {
-    await supabase
-      .from("task_instance")
-      .update({ completion_notes: completionNotes, updated_at: new Date().toISOString() })
-      .eq("home_id", homeId)
-      .eq("task_instance_id", taskInstanceId)
+  // Firestore: the complete_task_instance RPC is now the completeTask callable
+  // (Admin transaction — dup-suppression needs a query-in-transaction; model §9).
+  let nextInstanceId: string | null = null
+  try {
+    const res = await completeTaskCallable({
+      homeId,
+      taskInstanceId,
+      completedOn: opts?.completedOn ?? todayStr(),
+      nextDueOverride: opts?.nextDueOverride ?? null,
+      completionNotes: completionNotes ?? null,
+    })
+    nextInstanceId = res.nextInstanceId
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Failed to complete task" }
   }
 
-  const { data: done } = await supabase
-    .from("task_instance")
-    .select("*")
-    .eq("home_id", homeId)
-    .eq("task_instance_id", taskInstanceId)
-    .single()
-
-  return { success: true, data: done as TaskInstance, nextInstanceId }
+  const snap = await getDoc(doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`))
+  if (!snap.exists()) return { success: false, error: "Task instance not found after completion" }
+  return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), nextInstanceId }
 }
 
 export type DeleteTaskTemplateResult =
@@ -779,10 +805,16 @@ export async function snoozeTaskInstance(
   taskInstanceId: string,
   snoozedUntil: string
 ): Promise<SnoozeResult> {
-  const result = await updateTaskInstance(homeId, taskInstanceId, {
-    status: "snoozed",
-    snoozed_until: snoozedUntil,
-  })
-  if (result.error) return { success: false, error: result.error.message }
-  return { success: true, data: result.data }
+  // Direct Firestore field update (matches v1: status snoozed + snoozed_until).
+  try {
+    const ref = doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`)
+    await writeBatch(db)
+      .set(ref, { status: "snoozed", snoozedUntil, updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return { success: false, error: "Task instance not found" }
+    return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()) }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Failed to snooze task" }
+  }
 }

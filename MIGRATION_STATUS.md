@@ -228,9 +228,14 @@ swap adds a spec here instead of relying on boot smoke.
   inventory + tasks). Note: the page renders 3 list copies (mobile/desktop/hidden-legacy) so specs
   filter to `{ visible: true }`.
 - vitest 123/123; tsc + build green.
-- Remaining in tasks/care: task actions (markTaskInstanceDone/snooze → **completeTask callable**,
-  model §9), getTaskDetail, cleanSession.ts, homeUpkeep.ts, the rest of dashboard.ts (Home feed),
-  and **Fix C** (the nudge — diagnose on the emulator harness now that tasks render).
+- **Task actions done**: `markTaskInstanceDone` → **completeTask callable** (Admin transaction:
+  mark done + next-occurrence w/ denorm + dup-suppression + member-validated assignee inheritance;
+  seasonal anchor + cadence); `snoozeTaskInstance` → direct Firestore update. completeTask core has
+  **4 emulator tests** (functions suite now 13/13). Client wired (tsc green); the browser calls the
+  callable, so a full click-through needs the functions emulator in e2e (deferred — the callable core
+  is emulator-tested directly).
+- Remaining in tasks/care: getTaskDetail, cleanSession.ts, homeUpkeep.ts, the rest of dashboard.ts
+  (Home feed), and **Fix C** (the nudge — diagnose on the emulator harness now that tasks render).
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now
