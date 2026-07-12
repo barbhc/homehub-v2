@@ -50,6 +50,7 @@ const LABEL_PRESETS = [
 ]
 
 interface ManualSectionProps {
+  homeId: string
   manuals: ManualDocument[]
   onManualUpdated: (updated: ManualDocument) => void
   // Manual management hook values
@@ -90,6 +91,7 @@ interface ManualSectionProps {
 }
 
 export function ManualSection({
+  homeId,
   manuals,
   onManualUpdated,
   addManualOpen,
@@ -151,7 +153,7 @@ export function ManualSection({
   const saveLabel = async (manualId: string, valueOverride?: string) => {
     const value = (valueOverride !== undefined ? valueOverride : labelDraft).trim() || null
     setSavingLabelId(manualId)
-    const result = await updateManualLabel(manualId, value)
+    const result = await updateManualLabel(homeId, manualId, value)
     setSavingLabelId(null)
     if (result.data) onManualUpdated(result.data)
     cancelEditLabel()

@@ -114,8 +114,8 @@ export default function ItemDetailPage() {
     Promise.all([
       getItemUnit(home.home_id, id),
       getTaskTemplatesWithSchedulesByItem(home.home_id, id),
-      getChunksByItem(id),
-      getManualsByItem(id),
+      getChunksByItem(home.home_id, id),
+      getManualsByItem(home.home_id, id),
       getRooms(home.home_id),
       getFaqsByItem(home.home_id, id),
     ]).then(([itemRes, tasksRes, chunksRes, manualsRes, roomsRes, faqsRes]) => {
@@ -151,7 +151,7 @@ export default function ItemDetailPage() {
           }
           if (result.ok) {
             const [chunksRes2, tasksRes2] = await Promise.all([
-              getChunksByItem(id),
+              getChunksByItem(home.home_id, id),
               getTaskTemplatesWithSchedulesByItem(home.home_id, id),
             ])
             if (!cancelled && chunksRes2.data) setChunks(chunksRes2.data)
@@ -266,6 +266,7 @@ export default function ItemDetailPage() {
   const troubleshootingChunks = chunks.filter((c) => c.chunk_type === "troubleshooting")
 
   const manualSectionProps = {
+    homeId: home?.home_id ?? "",
     manuals,
     onManualUpdated: (updated: ManualDocument) =>
       setManuals((prev) => prev.map((m) => (m.manual_id === updated.manual_id ? updated : m))),

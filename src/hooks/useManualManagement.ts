@@ -104,7 +104,7 @@ export function useManualManagement({
         title = titleInput.trim() || file.name
       }
 
-      const res = await createManualDocument({
+      const res = await createManualDocument(homeId, {
         item_unit_id: itemId,
         title,
         source_type: sourceType,
@@ -124,12 +124,12 @@ export function useManualManagement({
 
       // 2. Branch on role: reference docs get light ingestion, primary gets full parse
       if (addRole === "reference") {
-        const ingestRes = await ingestReference(manualId)
+        const ingestRes = await ingestReference(homeId, manualId)
         if (ingestRes.error) {
           setParseError(`Document saved, but ingestion failed: ${ingestRes.error.message}`)
         } else {
           // Refresh chunks (reference chunks now in DB)
-          const chunksRes = await getChunksByItem(itemId)
+          const chunksRes = await getChunksByItem(homeId, itemId)
           if (chunksRes.data) setChunks(chunksRes.data)
           setManuals((prev) =>
             prev.map((m) => (m.manual_id === manualId ? { ...m, parsed_at: new Date().toISOString() } : m)),
@@ -139,7 +139,7 @@ export function useManualManagement({
         const parseRes = await parseManual(manualId)
         if (parseRes.ok && homeId) {
           const [chunksRes, tasksRes] = await Promise.all([
-            getChunksByItem(itemId),
+            getChunksByItem(homeId, itemId),
             getTaskTemplatesWithSchedulesByItem(homeId, itemId),
           ])
           if (chunksRes.data) setChunks(chunksRes.data)
@@ -163,7 +163,7 @@ export function useManualManagement({
   // dropped connection. Rather than report a false failure, poll for the parse
   // to land (parsed_at advances) before giving up.
   const fetchManuals = async (): Promise<ManualDocument[]> =>
-    (await getManualsByItem(itemId)).data ?? []
+    (await getManualsByItem(homeId, itemId)).data ?? []
   const currentParsedAt = async (manualId: string): Promise<string | null> =>
     (await fetchManuals()).find((m) => m.manual_id === manualId)?.parsed_at ?? null
   // Poll up to ~3 min: the parse runs as a background task, so it can take well
@@ -202,7 +202,7 @@ export function useManualManagement({
     const refresh = async (manuals?: ManualDocument[]) => {
       const [taskRes, manualRes] = await Promise.all([
         getTaskTemplatesWithSchedulesByItem(homeId, itemId),
-        manuals ? Promise.resolve({ data: manuals }) : getManualsByItem(itemId),
+        manuals ? Promise.resolve({ data: manuals }) : getManualsByItem(homeId, itemId),
       ])
       if (taskRes.data) setTasks(taskRes.data)
       if (manualRes.data) setManuals(() => manualRes.data!)
@@ -261,9 +261,9 @@ export function useManualManagement({
 
     const refresh = async (manuals?: ManualDocument[]) => {
       const [chunkRes, taskRes, manualRes] = await Promise.all([
-        getChunksByItem(itemId),
+        getChunksByItem(homeId, itemId),
         getTaskTemplatesWithSchedulesByItem(homeId, itemId),
-        manuals ? Promise.resolve({ data: manuals }) : getManualsByItem(itemId),
+        manuals ? Promise.resolve({ data: manuals }) : getManualsByItem(homeId, itemId),
       ])
       if (chunkRes.data) setChunks(chunkRes.data)
       if (taskRes.data) setTasks(taskRes.data)
@@ -311,7 +311,7 @@ export function useManualManagement({
 
   const handleDeleteManual = async (manualId: string) => {
     setDeletingManualId(manualId)
-    const result = await deleteManualDocument(manualId)
+    const result = await deleteManualDocument(homeId, manualId)
     setDeletingManualId(null)
     if (result.error) {
       setParseError(`Could not delete manual: ${result.error.message}`)
@@ -343,7 +343,7 @@ export function useManualManagement({
     setParsedManualId(null)
     if (homeId && itemId) {
       const [chunksRes, tasksRes] = await Promise.all([
-        getChunksByItem(itemId),
+        getChunksByItem(homeId, itemId),
         getTaskTemplatesWithSchedulesByItem(homeId, itemId),
       ])
       if (chunksRes.data) setChunks(chunksRes.data)

@@ -279,6 +279,70 @@ async function seedTasks(items: Record<string, { id: string; name: string; room:
   }
 }
 
+// ── 5b. Manuals + knowledge chunks (parse output) ─────────────────────────────
+// One parsed manual for the furnace with a couple of knowledge chunks, so the
+// knowledge reads (getChunksByItem/ByManual/searchChunks/getKnowledgeChunksByHome)
+// have real data. Shapes mirror the parse worker's commitDraft output.
+async function seedManuals(items: Record<string, { id: string; name: string }>): Promise<void> {
+  const manualId = "manual-furnace"
+  await db.doc(`homes/${HOME_ID}/manuals/${manualId}`).set({
+    itemUnitId: items.furnace.id,
+    title: "Carrier Infinity Furnace — Owner's Manual",
+    label: null,
+    sourceType: "upload",
+    sourceRef: `${HOME_ID}/furnace/owners-manual.pdf`,
+    role: "primary",
+    version: null,
+    language: "en",
+    parsedAt: NOW,
+    parse: { stage: "done", stageAt: NOW, requestId: "seed", mode: "commit", model: "seed", attempt: 1, error: null },
+    createdAt: NOW,
+    updatedAt: NOW,
+    deletedAt: null,
+  })
+
+  const chunks = [
+    {
+      id: "chunk-howto-filter",
+      chunkType: "how_to",
+      contentLevel: "basic",
+      title: "Replacing the furnace filter",
+      content:
+        "Turn off the furnace at the thermostat. Slide out the filter door on the return-air side. Note the airflow arrow, insert the new 20x25x5 media filter with the arrow pointing toward the blower, then close the door.",
+      sourcePages: [12],
+    },
+    {
+      id: "chunk-care-seasonal",
+      chunkType: "care",
+      contentLevel: "basic",
+      title: "Seasonal maintenance",
+      content:
+        "Before each heating season, inspect the flame sensor and vent for obstructions. Have a professional verify combustion and CO levels annually.",
+      sourcePages: [14, 15],
+    },
+  ]
+  for (const c of chunks) {
+    await db.doc(`homes/${HOME_ID}/manuals/${manualId}/chunks/${c.id}`).set({
+      manualId,
+      chunkType: c.chunkType,
+      contentLevel: c.contentLevel,
+      title: c.title,
+      content: c.content,
+      tags: [],
+      scenarios: null,
+      sourcePages: c.sourcePages,
+      appliesTo: [],
+      sectionCategory: null,
+      externalKey: null,
+      embeddingRef: null,
+      metadata: {},
+      createdAt: NOW,
+      updatedAt: NOW,
+      deletedAt: null,
+    })
+  }
+}
+
 // ── 6. Service providers ──────────────────────────────────────────────────────
 async function seedProviders(): Promise<void> {
   const providers = [
@@ -342,6 +406,7 @@ async function main(): Promise<void> {
   await seedHome(uid)
   const rooms = await seedRooms()
   const items = await seedItems(rooms)
+  await seedManuals(items)
   await seedTasks(items)
   await seedProviders()
   await seedFaqs(items)

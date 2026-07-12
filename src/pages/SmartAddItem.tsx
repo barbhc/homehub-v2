@@ -241,7 +241,7 @@ export default function SmartAddItem() {
         // done → the commit has already happened server-side; now the fetched
         // chunks/tasks are guaranteed populated (no more fire-and-forget race).
         const [chunksRes, tasksRes] = await Promise.all([
-          getChunksByItem(itemId),
+          getChunksByItem(propertyId, itemId),
           getTaskTemplatesWithSchedulesByItem(propertyId, itemId),
         ])
 
@@ -303,7 +303,7 @@ export default function SmartAddItem() {
             uploadFilename = sourceRef
           }
 
-          const manualRes = await createManualDocument({
+          const manualRes = await createManualDocument(propertyId, {
             item_unit_id: itemId,
             title: choice.type === "upload" ? choice.file.name : sourceRef,
             source_type: sourceType,
@@ -382,7 +382,7 @@ export default function SmartAddItem() {
     setSavingMessage("Removing previous upload…")
     try {
       // Soft-delete manual_document rows so they don't appear as active docs on the item.
-      const rowResults = await Promise.all(g.manualIds.map((id) => deleteManualDocument(id)))
+      const rowResults = await Promise.all(g.manualIds.map((id) => deleteManualDocument(propertyId ?? "", id)))
       const rowFailure = rowResults.find((r) => r.error)
       if (rowFailure?.error) {
         throw new Error(rowFailure.error.message)

@@ -161,7 +161,7 @@ export function TaskSection({
     // Remove task from local state
     onTasksChange(tasks.filter((t) => t.task_template_id !== taskTemplateId))
     // Refresh chunks so the new one shows up in the right tab
-    const chunksRes = await getChunksByItem(itemId)
+    const chunksRes = await getChunksByItem(homeId, itemId)
     if (chunksRes.data) {
       const ht = chunksRes.data.filter((c) => c.chunk_type === "how_to")
       const ts = chunksRes.data.filter((c) => c.chunk_type === "troubleshooting")

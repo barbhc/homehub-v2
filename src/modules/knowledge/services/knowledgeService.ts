@@ -37,6 +37,35 @@ function toFaq(homeId: string, id: string, d: DocumentData): ChatFaq {
   }
 }
 
+// ── Firestore chunk doc (camelCase) → curated KnowledgeChunk (snake_case) ──────
+function toChunk(id: string, d: DocumentData): KnowledgeChunk {
+  return {
+    chunk_id: id,
+    manual_id: d.manualId ?? "",
+    chunk_type: (d.chunkType ?? "reference") as ChunkType,
+    content_level: d.contentLevel ?? null,
+    title: d.title ?? null,
+    content: d.content ?? "",
+    tags: d.tags ?? [],
+    scenarios: d.scenarios ?? null,
+    source_pages: d.sourcePages ?? null,
+    metadata: d.metadata ?? {},
+    section_category: d.sectionCategory ?? null,
+    applies_to: Array.isArray(d.appliesTo) ? d.appliesTo : [],
+    external_key: d.externalKey ?? null,
+    embedding_ref: d.embeddingRef ?? null,
+    created_at: faqIso(d.createdAt),
+    updated_at: faqIso(d.updatedAt),
+    deleted_at: d.deletedAt == null ? null : faqIso(d.deletedAt),
+  }
+}
+
+function sortChunks(list: KnowledgeChunk[]): KnowledgeChunk[] {
+  return [...list].sort(
+    (a, b) => (a.chunk_type ?? "").localeCompare(b.chunk_type ?? "") || (b.created_at ?? "").localeCompare(a.created_at ?? "")
+  )
+}
+
 export type ServiceResult<T> =
   | { data: T; error: null }
   | { data: null; error: { message: string } }
@@ -45,59 +74,49 @@ export type ServiceResult<T> =
  * Fetches knowledge_chunks for a manual. Used for RAG and display.
  */
 export async function getChunksByManual(
+  homeId: string,
   manualId: string,
   chunkTypeFilter?: ChunkType[]
 ): Promise<ServiceResult<KnowledgeChunk[]>> {
-  let query = supabase
-    .from("knowledge_chunk")
-    .select("*")
-    .eq("manual_id", manualId)
-    .is("deleted_at", null)
-    .order("chunk_type")
-    .order("created_at", { ascending: false })
-
-  if (chunkTypeFilter && chunkTypeFilter.length > 0) {
-    query = query.in("chunk_type", chunkTypeFilter)
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/manuals/${manualId}/chunks`))
+    let list = snap.docs.filter((d) => d.data().deletedAt == null).map((d) => toChunk(d.id, d.data()))
+    if (chunkTypeFilter && chunkTypeFilter.length > 0) {
+      list = list.filter((c) => chunkTypeFilter.includes(c.chunk_type))
+    }
+    return { data: sortChunks(list), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load chunks" } }
   }
-
-  const { error, data } = await query
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as KnowledgeChunk[], error: null }
 }
 
 /**
  * Fetches knowledge_chunks for an item_unit (via manual_document). Groups by chunk_type.
  */
 export async function getChunksByItem(
+  homeId: string,
   itemUnitId: string,
   chunkTypeFilter?: ChunkType[]
 ): Promise<ServiceResult<KnowledgeChunk[]>> {
-  const { data: manuals, error: manualErr } = await supabase
-    .from("manual_document")
-    .select("manual_id")
-    .eq("item_unit_id", itemUnitId)
-    .is("deleted_at", null)
-
-  if (manualErr) return { data: null, error: { message: manualErr.message } }
-  if (!manuals || manuals.length === 0) return { data: [], error: null }
-
-  const manualIds = (manuals as { manual_id: string }[]).map((m) => m.manual_id)
-
-  let query = supabase
-    .from("knowledge_chunk")
-    .select("*")
-    .in("manual_id", manualIds)
-    .is("deleted_at", null)
-    .order("chunk_type")
-    .order("created_at", { ascending: false })
-
-  if (chunkTypeFilter && chunkTypeFilter.length > 0) {
-    query = query.in("chunk_type", chunkTypeFilter)
+  try {
+    // Manuals for this item → their chunks.
+    const manualSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/manuals`), where("itemUnitId", "==", itemUnitId))
+    )
+    const manualIds = manualSnap.docs.filter((m) => m.data().deletedAt == null).map((m) => m.id)
+    if (manualIds.length === 0) return { data: [], error: null }
+    const perManual = await Promise.all(
+      manualIds.map((mid) => getDocs(collection(db, `homes/${homeId}/manuals/${mid}/chunks`)))
+    )
+    let list: KnowledgeChunk[] = []
+    perManual.forEach((snap) => snap.docs.forEach((d) => { if (d.data().deletedAt == null) list.push(toChunk(d.id, d.data())) }))
+    if (chunkTypeFilter && chunkTypeFilter.length > 0) {
+      list = list.filter((c) => chunkTypeFilter.includes(c.chunk_type))
+    }
+    return { data: sortChunks(list), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load chunks" } }
   }
-
-  const { error, data } = await query
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as KnowledgeChunk[], error: null }
 }
 
 /**
@@ -105,38 +124,21 @@ export async function getChunksByItem(
  * For full RAG, use embedding_ref + vector search when embeddings are available.
  */
 export async function searchChunks(
+  homeId: string,
   itemUnitId: string,
-  query: string,
+  queryText: string,
   preferTypes?: ChunkType[]
 ): Promise<ServiceResult<KnowledgeChunk[]>> {
-  const { data: manuals, error: manualErr } = await supabase
-    .from("manual_document")
-    .select("manual_id")
-    .eq("item_unit_id", itemUnitId)
-    .is("deleted_at", null)
-
-  if (manualErr) return { data: null, error: { message: manualErr.message } }
-  if (!manuals || manuals.length === 0) return { data: [], error: null }
-
-  const manualIds = (manuals as { manual_id: string }[]).map((m) => m.manual_id)
-
-  let dbQuery = supabase
-    .from("knowledge_chunk")
-    .select("*")
-    .in("manual_id", manualIds)
-    .is("deleted_at", null)
-    .ilike("content", `%${query}%`)
-
-  if (preferTypes && preferTypes.length > 0) {
-    dbQuery = dbQuery.in("chunk_type", preferTypes)
+  try {
+    const res = await getChunksByItem(homeId, itemUnitId, preferTypes)
+    if (res.error) return res
+    const needle = queryText.toLowerCase()
+    // Client-side substring match (v1 used ilike; full RAG is a later pass).
+    const list = (res.data ?? []).filter((c) => (c.content ?? "").toLowerCase().includes(needle))
+    return { data: list, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to search chunks" } }
   }
-
-  const { error, data } = await dbQuery
-    .order("chunk_type")
-    .order("created_at", { ascending: false })
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as KnowledgeChunk[], error: null }
 }
 
 // --- Chat FAQ (saved Q&A) ---
@@ -207,81 +209,56 @@ export async function getKnowledgeChunksByHome(
   homeId: string,
   types: ChunkType[] = ["care", "how_to", "troubleshooting"]
 ): Promise<ServiceResult<ChunkWithItemMeta[]>> {
-  const { data: items, error: itemsErr } = await supabase
-    .from("item_unit")
-    .select("item_unit_id, display_name, room_id, category")
-    .eq("home_id", homeId)
-    .is("deleted_at", null)
-  if (itemsErr) return { data: null, error: { message: itemsErr.message } }
-  if (!items?.length) return { data: [], error: null }
+  try {
+    const [itemSnap, manualSnap, roomSnap] = await Promise.all([
+      getDocs(collection(db, `homes/${homeId}/items`)),
+      getDocs(collection(db, `homes/${homeId}/manuals`)),
+      getDocs(collection(db, `homes/${homeId}/rooms`)),
+    ])
 
-  const itemIds = items.map((i) => i.item_unit_id)
-  const itemByManual = new Map<string, string>()
-  const itemNames = new Map<string, string>()
-  const itemCategories = new Map<string, string | null>()
-  const roomIdByItem = new Map<string, string | null>()
+    const itemNames = new Map<string, string>()
+    const itemCategories = new Map<string, string | null>()
+    const roomIdByItem = new Map<string, string | null>()
+    itemSnap.docs
+      .filter((d) => d.data().deletedAt == null)
+      .forEach((d) => {
+        const x = d.data()
+        itemNames.set(d.id, x.displayName ?? "Unknown")
+        itemCategories.set(d.id, x.category ?? null)
+        roomIdByItem.set(d.id, x.roomId ?? null)
+      })
+    const roomNamesById = new Map<string, string>()
+    roomSnap.docs.forEach((d) => roomNamesById.set(d.id, d.data().name ?? ""))
 
-  for (const i of items as Array<{ item_unit_id: string; display_name: string; room_id: string | null; category: string }>) {
-    itemNames.set(i.item_unit_id, i.display_name)
-    itemCategories.set(i.item_unit_id, i.category ?? null)
-    roomIdByItem.set(i.item_unit_id, i.room_id ?? null)
-  }
+    const liveManuals = manualSnap.docs.filter((m) => m.data().deletedAt == null)
+    const itemByManual = new Map<string, string>()
+    liveManuals.forEach((m) => itemByManual.set(m.id, m.data().itemUnitId ?? ""))
+    if (liveManuals.length === 0) return { data: [], error: null }
 
-  const { data: manuals, error: manualsErr } = await supabase
-    .from("manual_document")
-    .select("manual_id, item_unit_id")
-    .in("item_unit_id", itemIds)
-    .is("deleted_at", null)
-  if (manualsErr) return { data: null, error: { message: manualsErr.message } }
-  if (!manuals?.length) return { data: [], error: null }
+    const perManual = await Promise.all(
+      liveManuals.map((m) =>
+        getDocs(collection(db, `homes/${homeId}/manuals/${m.id}/chunks`)).then((snap) => ({ manualId: m.id, snap }))
+      )
+    )
 
-  const manualIds = manuals.map((m) => m.manual_id)
-  for (const m of manuals as Array<{ manual_id: string; item_unit_id: string }>) {
-    itemByManual.set(m.manual_id, m.item_unit_id)
-  }
-
-  const roomIds = [...new Set(
-    items
-      .filter((i) => (i as { room_id?: string | null }).room_id)
-      .map((i) => (i as { room_id: string }).room_id)
-  )] as string[]
-  let roomNamesById = new Map<string, string>()
-  if (roomIds.length > 0) {
-    const { data: rooms } = await supabase
-      .from("room")
-      .select("room_id, name")
-      .in("room_id", roomIds)
-    roomNamesById = new Map((rooms ?? []).map((r) => [(r as { room_id: string; name: string }).room_id, (r as { name: string }).name]))
-  }
-
-  const query = supabase
-    .from("knowledge_chunk")
-    .select("*")
-    .in("manual_id", manualIds)
-    .is("deleted_at", null)
-    .in("chunk_type", types)
-    .order("chunk_type")
-    .order("created_at", { ascending: false })
-
-  const { data: chunks, error } = await query
-  if (error) return { data: null, error: { message: error.message } }
-
-  const withItemMeta = (chunks ?? []).map((c) => {
-    const manualId = (c as KnowledgeChunk).manual_id
-    const iuId = itemByManual.get(manualId) ?? ""
-    const roomId = iuId ? roomIdByItem.get(iuId) ?? null : null
-    const room_name = iuId && roomId ? roomNamesById.get(roomId) ?? null : null
-    const item_name = iuId ? itemNames.get(iuId) ?? "Unknown" : "Unknown"
-    const item_category = iuId ? (itemCategories.get(iuId) ?? null) : null
-    return {
-      ...(c as KnowledgeChunk),
-      item_name,
-      item_unit_id: iuId,
-      item_category,
-      room_name,
+    const withItemMeta: ChunkWithItemMeta[] = []
+    for (const { manualId, snap } of perManual) {
+      const iuId = itemByManual.get(manualId) ?? ""
+      const roomId = iuId ? roomIdByItem.get(iuId) ?? null : null
+      const room_name = iuId && roomId ? roomNamesById.get(roomId) ?? null : null
+      const item_name = iuId ? itemNames.get(iuId) ?? "Unknown" : "Unknown"
+      const item_category = iuId ? itemCategories.get(iuId) ?? null : null
+      for (const d of snap.docs) {
+        if (d.data().deletedAt != null) continue
+        const c = toChunk(d.id, d.data())
+        if (!types.includes(c.chunk_type)) continue
+        withItemMeta.push({ ...c, item_name, item_unit_id: iuId, item_category, room_name })
+      }
     }
-  })
-  return { data: withItemMeta, error: null }
+    return { data: sortChunks(withItemMeta) as ChunkWithItemMeta[], error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load knowledge" } }
+  }
 }
 
 /**
