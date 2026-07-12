@@ -1,4 +1,18 @@
-import { supabase } from "@/integrations/shim/client"
+import {
+  collection,
+  collectionGroup,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  where,
+  writeBatch,
+  Timestamp,
+  type DocumentData,
+} from "firebase/firestore"
+import { db, callable } from "@/integrations/firebase"
 import type { ServiceResult } from "./homeService"
 
 export type HomeInvite = {
@@ -32,104 +46,143 @@ export type InviteDetails = {
   creator: { full_name: string | null } | null
 }
 
+function invIso(v: unknown): string {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : ""
+}
+function toInvite(homeId: string, id: string, d: DocumentData): HomeInvite {
+  return {
+    invite_id: id,
+    home_id: homeId,
+    token: d.token ?? "",
+    role: d.role ?? "member",
+    created_by: d.createdBy ?? "",
+    accepted_by: d.acceptedBy ?? null,
+    accepted_at: d.acceptedAt == null ? null : invIso(d.acceptedAt),
+    expires_at: invIso(d.expiresAt),
+    created_at: invIso(d.createdAt),
+  }
+}
+
+const acceptInviteCallable = callable<{ token: string }, { success: boolean; home_id?: string; home_name?: string; role?: string; error?: string }>(
+  "acceptInvite"
+)
+const removeMemberCallable = callable<{ homeId: string; userId: string }, { success: boolean; error?: string }>("removeMember")
+
+/** Unguessable invite token. */
+function newToken(): string {
+  return (globalThis.crypto?.randomUUID?.() ?? `tok-${Math.abs(Date.now())}`).replace(/-/g, "")
+}
+
 /**
- * Creates an invite link for the given home.
+ * Creates an invite link for the given home (7-day expiry).
  */
 export async function createInvite(
   homeId: string,
   userId: string,
   role: "admin" | "member" | "guest" = "admin"
 ): Promise<ServiceResult<HomeInvite>> {
-  const { data, error } = await supabase
-    .from("home_invite")
-    .insert({ home_id: homeId, created_by: userId, role })
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as HomeInvite, error: null }
+  try {
+    const ref = doc(collection(db, `homes/${homeId}/invites`))
+    const expires = new Date()
+    expires.setDate(expires.getDate() + 7)
+    await writeBatch(db)
+      .set(ref, {
+        token: newToken(),
+        role,
+        createdBy: userId,
+        acceptedBy: null,
+        acceptedAt: null,
+        expiresAt: Timestamp.fromDate(expires),
+        createdAt: serverTimestamp(),
+      })
+      .commit()
+    const snap = await getDoc(ref)
+    return { data: toInvite(homeId, ref.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to create invite" } }
+  }
 }
 
 /**
  * Lists active (non-expired, non-accepted) invites for a home.
  */
 export async function getActiveInvites(homeId: string): Promise<ServiceResult<HomeInvite[]>> {
-  const { data, error } = await supabase
-    .from("home_invite")
-    .select("*")
-    .eq("home_id", homeId)
-    .is("accepted_by", null)
-    .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false })
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as HomeInvite[], error: null }
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/invites`))
+    const nowIso = new Date().toISOString()
+    const rows = snap.docs
+      .map((d) => toInvite(homeId, d.id, d.data()))
+      .filter((i) => i.accepted_by == null && i.expires_at > nowIso)
+      .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    return { data: rows, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load invites" } }
+  }
 }
 
 /**
  * Revokes (deletes) an invite.
  */
-export async function revokeInvite(inviteId: string): Promise<ServiceResult<true>> {
-  const { error } = await supabase
-    .from("home_invite")
-    .delete()
-    .eq("invite_id", inviteId)
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: true, error: null }
-}
-
-/**
- * Fetches invite details by token (for the accept page).
- */
-export async function getInviteByToken(token: string): Promise<ServiceResult<InviteDetails>> {
-  const { data, error } = await supabase
-    .from("home_invite")
-    .select("invite_id, home_id, token, role, expires_at, accepted_by, created_at")
-    .eq("token", token)
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-
-  const invite = data as HomeInvite
-
-  // Fetch home name and creator name separately
-  const [homeRes, creatorRes] = await Promise.all([
-    supabase.from("home").select("name").eq("home_id", invite.home_id).single(),
-    supabase.from("profiles").select("full_name").eq("id", invite.created_by).single(),
-  ])
-
-  return {
-    data: {
-      ...invite,
-      home: homeRes.data as { name: string } | null,
-      creator: creatorRes.data as { full_name: string | null } | null,
-    } as InviteDetails,
-    error: null,
+export async function revokeInvite(homeId: string, inviteId: string): Promise<ServiceResult<true>> {
+  try {
+    await deleteDoc(doc(db, `homes/${homeId}/invites/${inviteId}`))
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to revoke invite" } }
   }
 }
 
 /**
- * Accepts an invite using the server-side RPC function.
+ * Fetches invite details by token (for the accept page). Uses a collection-group
+ * query since the accepter doesn't know the homeId. (Requires the invites
+ * collection-group read rule — part of the deferred sharing enablement.)
+ */
+export async function getInviteByToken(token: string): Promise<ServiceResult<InviteDetails>> {
+  try {
+    const snap = await getDocs(query(collectionGroup(db, "invites"), where("token", "==", token)))
+    const docSnap = snap.docs[0]
+    if (!docSnap) return { data: null, error: { message: "Invite not found" } }
+    const homeId = docSnap.ref.parent.parent?.id ?? ""
+    const invite = toInvite(homeId, docSnap.id, docSnap.data())
+
+    const [homeSnap, creatorSnap] = await Promise.all([
+      getDoc(doc(db, `homes/${homeId}`)),
+      getDoc(doc(db, `users/${invite.created_by}`)),
+    ])
+    return {
+      data: {
+        invite_id: invite.invite_id,
+        home_id: homeId,
+        token: invite.token,
+        role: invite.role,
+        expires_at: invite.expires_at,
+        accepted_by: invite.accepted_by,
+        home: homeSnap.exists() ? { name: homeSnap.data().name ?? "" } : null,
+        creator: creatorSnap.exists() ? { full_name: creatorSnap.data().fullName ?? null } : null,
+      },
+      error: null,
+    }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load invite" } }
+  }
+}
+
+/**
+ * Accepts an invite. A new member can't write their own membership doc under the
+ * security rules, so acceptance runs through an Admin-SDK callable that validates
+ * the token/expiry and creates homes/{homeId}/members/{uid} (model §Divergences).
  */
 export async function acceptInvite(token: string): Promise<
   { success: true; home_id: string; home_name: string; role: string } |
   { success: false; error: string }
 > {
-  const { data, error } = await supabase.rpc("accept_home_invite", {
-    invite_token: token,
-  })
-
-  if (error) return { success: false, error: error.message }
-
-  const result = data as { success?: boolean; error?: string; home_id?: string; home_name?: string; role?: string }
-  if (result.error) return { success: false, error: result.error }
-
-  return {
-    success: true,
-    home_id: result.home_id!,
-    home_name: result.home_name!,
-    role: result.role!,
+  try {
+    const res = await acceptInviteCallable({ token })
+    if (!res.success || res.error) return { success: false, error: res.error ?? "Failed to accept invite" }
+    return { success: true, home_id: res.home_id!, home_name: res.home_name!, role: res.role! }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Failed to accept invite" }
   }
 }
 
@@ -137,53 +190,36 @@ export async function acceptInvite(token: string): Promise<
  * Fetches members of a home with their profile info.
  */
 export async function getHomeMembers(homeId: string): Promise<ServiceResult<HomeMember[]>> {
-  const { data, error } = await supabase
-    .from("home_members")
-    .select("home_id, user_id, role, is_primary")
-    .eq("home_id", homeId)
-
-  if (error) return { data: null, error: { message: error.message } }
-
-  const members = (data ?? []) as HomeMember[]
-
-  // Fetch profiles for all members
-  const userIds = members.map((m) => m.user_id)
-  if (userIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url")
-      .in("id", userIds)
-
-    const profileMap = new Map(
-      (profiles ?? []).map((p: { id: string; full_name: string | null; avatar_url: string | null }) => [
-        p.id,
-        { full_name: p.full_name, avatar_url: p.avatar_url },
-      ])
-    )
-
-    for (const member of members) {
-      member.profile = profileMap.get(member.user_id)
-    }
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/members`))
+    const members: HomeMember[] = snap.docs.map((d) => {
+      const x = d.data()
+      return { home_id: homeId, user_id: x.uid ?? d.id, role: x.role ?? "member", is_primary: !!x.isPrimary }
+    })
+    // Attach profiles from users/{uid}.
+    const profiles = await Promise.all(members.map((m) => getDoc(doc(db, `users/${m.user_id}`))))
+    profiles.forEach((p, i) => {
+      if (p.exists()) members[i].profile = { full_name: p.data().fullName ?? null, avatar_url: p.data().avatarUrl ?? null }
+    })
+    return { data: members, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load members" } }
   }
-
-  return { data: members, error: null }
 }
 
 /**
- * Removes a member from a home (only owner can do this).
+ * Removes a member from a home. Owner-driven removal of another member isn't
+ * permitted by the self-only members rule, so it runs through an owner-gated
+ * Admin-SDK callable (mirrors v1's SECURITY DEFINER RPC).
  */
 export async function removeMember(homeId: string, userId: string): Promise<ServiceResult<true>> {
-  // Owner-driven removal goes through an RPC (SECURITY DEFINER) because the
-  // home_members RLS policy is self-only DELETE. The RPC enforces:
-  //   - caller is the owner of the home, OR caller is removing themselves
-  //   - cannot remove the last owner
-  const { error } = await supabase.rpc("remove_home_member", {
-    p_home_id: homeId,
-    p_user_id: userId,
-  })
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: true, error: null }
+  try {
+    const res = await removeMemberCallable({ homeId, userId })
+    if (!res.success) return { data: null, error: { message: res.error ?? "Failed to remove member" } }
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to remove member" } }
+  }
 }
 
 /**

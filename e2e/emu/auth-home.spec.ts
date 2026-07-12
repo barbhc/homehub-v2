@@ -34,4 +34,12 @@ test.describe("emulator e2e — auth + home", () => {
     await expect(page.getByText("Home profile").first()).toBeVisible({ timeout: 15_000 })
     await expect(page.getByRole("combobox").filter({ hasText: "House" }).first()).toBeVisible({ timeout: 10_000 })
   })
+
+  test("Settings lists the seeded home member (inviteService.getHomeMembers end-to-end)", async ({ page }) => {
+    await page.goto("/settings")
+    // Home Members reads homes/{homeId}/members + the users/{uid} profile — the
+    // seeded owner surfaces by full name.
+    await expect(page.getByText("Home Members").first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText("E2E Tester").first()).toBeVisible({ timeout: 10_000 })
+  })
 })

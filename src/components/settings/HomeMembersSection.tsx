@@ -111,7 +111,7 @@ export function HomeMembersSection({ homeId }: Props) {
   }, [])
 
   const handleRevokeInvite = useCallback(async (inviteId: string) => {
-    await revokeInvite(inviteId)
+    await revokeInvite(homeId, inviteId)
     setInvites((prev) => prev.filter((i) => i.invite_id !== inviteId))
   }, [])
 
