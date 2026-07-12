@@ -376,7 +376,7 @@ export function ParseReviewStep({
       const prevChunks = chunks
       onChunksChange(chunks.filter((c) => c.chunk_id !== chunkId))
 
-      const result = await convertChunkToTask(chunkId, homeId, itemUnitId, target)
+      const result = await convertChunkToTask(homeId, chunk.manual_id, chunkId, itemUnitId, target)
       if (result.error) {
         onChunksChange(prevChunks)
         setMutationError("Couldn't move item. Please try again.")
@@ -450,9 +450,11 @@ export function ParseReviewStep({
   }
 
   const removeChunk = async (chunkId: string) => {
+    const chunk = chunks.find((c) => c.chunk_id === chunkId)
+    if (!chunk) return
     const prev = chunks
     onChunksChange(chunks.filter((c) => c.chunk_id !== chunkId))
-    const result = await archiveChunk(chunkId)
+    const result = await archiveChunk(homeId, chunk.manual_id, chunkId)
     if (result.error) {
       onChunksChange(prev)
       setMutationError("Couldn't remove item. Please try again.")

@@ -104,7 +104,7 @@ export async function renderAndStoreDiagrams(
       .filter((x): x is DiagramImageUrl => x !== null)
 
     if (target.type === "chunk") {
-      await updateChunkDiagramUrls(target.id, imageUrls)
+      await updateChunkDiagramUrls(homeId, manualId, target.id, imageUrls)
     } else {
       await updateTaskDiagramUrls(homeId, target.id, imageUrls)
     }

@@ -124,8 +124,10 @@ export function TaskSection({
   }
 
   const handleDeleteChunk = async (chunkId: string) => {
+    const chunk = [...howToChunks, ...troubleshootingChunks].find((c) => c.chunk_id === chunkId)
+    if (!chunk) return
     setDeletingChunkId(chunkId)
-    const result = await archiveChunk(chunkId)
+    const result = await archiveChunk(homeId, chunk.manual_id, chunkId)
     setDeletingChunkId(null)
     if (result.error) {
       onError(`Could not delete: ${result.error.message}`)

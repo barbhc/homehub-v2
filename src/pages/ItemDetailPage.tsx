@@ -531,7 +531,8 @@ export default function ItemDetailPage() {
           size={manualDockSize}
           onSizeChange={setManualDockSize}
           onSetPage={knowledgeChunkId ? async (newPage) => {
-            await updateChunkSourcePages(knowledgeChunkId, [newPage])
+            const chunk = chunks.find((c) => c.chunk_id === knowledgeChunkId)
+            if (home && chunk) await updateChunkSourcePages(home.home_id, chunk.manual_id, knowledgeChunkId, [newPage])
             setChunks((prev) =>
               prev.map((c) =>
                 c.chunk_id === knowledgeChunkId

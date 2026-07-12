@@ -1,5 +1,5 @@
-import { supabase } from "@/integrations/shim/client"
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -13,6 +13,7 @@ import {
   type DocumentData,
 } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
+import { archiveTaskTemplate, createTaskTemplate } from "@/modules/care/services/taskService"
 import type {
   KnowledgeChunk,
   ChunkType,
@@ -20,6 +21,29 @@ import type {
   ChatFaq,
   ChatFaqInsert,
 } from "@/integrations/types"
+
+/** A fresh chunk doc under homes/{homeId}/manuals/{manualId}/chunks. */
+function chunkDoc(manualId: string, chunkType: ChunkType, title: string | null, content: string): DocumentData {
+  const now = serverTimestamp()
+  return {
+    manualId,
+    chunkType,
+    contentLevel: null,
+    title: title ?? null,
+    content,
+    tags: [],
+    scenarios: null,
+    sourcePages: null,
+    appliesTo: [],
+    sectionCategory: null,
+    externalKey: null,
+    embeddingRef: null,
+    metadata: {},
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  }
+}
 
 // ── Firestore chatFaqs doc (camelCase) → curated ChatFaq (snake_case) ──────────
 function faqIso(v: unknown): string {
@@ -271,67 +295,25 @@ export async function reclassifyTaskAsChunk(
   itemUnitId: string,
   targetType: "how_to" | "troubleshooting"
 ): Promise<ServiceResult<KnowledgeChunk>> {
-  // 1. Fetch the task template
-  const { data: task, error: taskErr } = await supabase
-    .from("task_template")
-    .select("*")
-    .eq("task_template_id", taskTemplateId)
-    .single()
+  try {
+    const taskSnap = await getDoc(doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`))
+    if (!taskSnap.exists()) return { data: null, error: { message: "Task not found" } }
+    const task = taskSnap.data()
 
-  if (taskErr || !task) {
-    return { data: null, error: { message: taskErr?.message ?? "Task not found" } }
+    // Find the item's first (live) manual to host the new chunk.
+    const manualSnap = await getDocs(query(collection(db, `homes/${homeId}/manuals`), where("itemUnitId", "==", itemUnitId)))
+    const manual = manualSnap.docs.find((m) => m.data().deletedAt == null)
+    if (!manual) return { data: null, error: { message: "Item has no manual — cannot reclassify" } }
+
+    const content = (task.instructionsOverride as string | null) ?? (task.description as string | null) ?? ""
+    const chunkRef = doc(collection(db, `homes/${homeId}/manuals/${manual.id}/chunks`))
+    await writeBatch(db).set(chunkRef, chunkDoc(manual.id, targetType, task.title ?? null, content)).commit()
+    await archiveTaskTemplate(homeId, taskTemplateId)
+    const snap = await getDoc(chunkRef)
+    return { data: toChunk(chunkRef.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to reclassify" } }
   }
-
-  // 2. Find the item's first manual (for manual_id FK)
-  const { data: manuals, error: manualErr } = await supabase
-    .from("manual_document")
-    .select("manual_id")
-    .eq("item_unit_id", itemUnitId)
-    .is("deleted_at", null)
-    .limit(1)
-
-  if (manualErr) return { data: null, error: { message: manualErr.message } }
-  if (!manuals || manuals.length === 0) {
-    return { data: null, error: { message: "Item has no manual — cannot reclassify" } }
-  }
-
-  const manualId = (manuals[0] as { manual_id: string }).manual_id
-  const content = (task as Record<string, unknown>).instructions_override as string | null
-    ?? (task as Record<string, unknown>).description as string | null
-    ?? ""
-
-  // 3. Create the knowledge chunk
-  const { data: chunk, error: chunkErr } = await supabase
-    .from("knowledge_chunk")
-    .insert({
-      manual_id: manualId,
-      chunk_type: targetType as ChunkType,
-      title: (task as Record<string, unknown>).title as string,
-      content,
-      tags: [],
-      metadata: {},
-    })
-    .select()
-    .single()
-
-  if (chunkErr) return { data: null, error: { message: chunkErr.message } }
-
-  // 4. Archive the task template (deactivate + soft-delete instances)
-  const now = new Date().toISOString()
-  await supabase
-    .from("task_instance")
-    .update({ deleted_at: now, updated_at: now })
-    .eq("home_id", homeId)
-    .eq("task_template_id", taskTemplateId)
-    .in("status", ["scheduled", "snoozed"])
-    .is("deleted_at", null)
-
-  await supabase
-    .from("task_template")
-    .update({ is_active: false, updated_at: now })
-    .eq("task_template_id", taskTemplateId)
-
-  return { data: chunk as KnowledgeChunk, error: null }
 }
 
 /**
@@ -344,15 +326,18 @@ export async function logParseCorrection(
   itemTitle: string,
   itemContent?: string | null
 ): Promise<ServiceResult<true>> {
-  const { error } = await supabase.from("parse_correction").insert({
-    home_id: homeId,
-    original_type: originalType,
-    corrected_type: correctedType,
-    item_title: itemTitle,
-    item_content: itemContent ?? null,
-  })
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: true, error: null }
+  try {
+    await addDoc(collection(db, `homes/${homeId}/parseCorrections`), {
+      originalType,
+      correctedType,
+      itemTitle,
+      itemContent: itemContent ?? null,
+      createdAt: serverTimestamp(),
+    })
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to log correction" } }
+  }
 }
 
 /**
@@ -362,14 +347,22 @@ export async function getParseCorrections(
   homeId: string,
   limit = 30
 ): Promise<ServiceResult<Array<{ original_type: string; corrected_type: string; item_title: string; item_content: string | null }>>> {
-  const { data, error } = await supabase
-    .from("parse_correction")
-    .select("original_type, corrected_type, item_title, item_content")
-    .eq("home_id", homeId)
-    .order("created_at", { ascending: false })
-    .limit(limit)
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as Array<{ original_type: string; corrected_type: string; item_title: string; item_content: string | null }>, error: null }
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/parseCorrections`))
+    const rows = snap.docs
+      .map((d) => d.data())
+      .sort((a, b) => faqIso(b.createdAt).localeCompare(faqIso(a.createdAt)))
+      .slice(0, limit)
+      .map((x) => ({
+        original_type: x.originalType ?? "",
+        corrected_type: x.correctedType ?? "",
+        item_title: x.itemTitle ?? "",
+        item_content: x.itemContent ?? null,
+      }))
+    return { data: rows, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load corrections" } }
+  }
 }
 
 /**
@@ -383,179 +376,118 @@ export async function convertTaskToChunk(
   targetType: "how_to" | "troubleshooting",
   manualId: string
 ): Promise<ServiceResult<KnowledgeChunk>> {
-  // Fetch the task
-  const { data: task, error: taskErr } = await supabase
-    .from("task_template")
-    .select("*")
-    .eq("task_template_id", taskTemplateId)
-    .single()
-
-  if (taskErr || !task) {
-    return { data: null, error: { message: taskErr?.message ?? "Task not found" } }
+  try {
+    const taskSnap = await getDoc(doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`))
+    if (!taskSnap.exists()) return { data: null, error: { message: "Task not found" } }
+    const task = taskSnap.data()
+    const content = (task.instructionsOverride as string | null) ?? (task.description as string | null) ?? ""
+    const chunkRef = doc(collection(db, `homes/${homeId}/manuals/${manualId}/chunks`))
+    await writeBatch(db).set(chunkRef, chunkDoc(manualId, targetType, task.title ?? null, content)).commit()
+    await archiveTaskTemplate(homeId, taskTemplateId)
+    const snap = await getDoc(chunkRef)
+    return { data: toChunk(chunkRef.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to convert task" } }
   }
-
-  const content = (task as Record<string, unknown>).instructions_override as string | null
-    ?? (task as Record<string, unknown>).description as string | null
-    ?? ""
-
-  // Create the knowledge chunk
-  const { data: chunk, error: chunkErr } = await supabase
-    .from("knowledge_chunk")
-    .insert({
-      manual_id: manualId,
-      chunk_type: targetType as ChunkType,
-      title: (task as Record<string, unknown>).title as string,
-      content,
-      tags: [],
-      metadata: {},
-    })
-    .select()
-    .single()
-
-  if (chunkErr) return { data: null, error: { message: chunkErr.message } }
-
-  // Archive the task template
-  const now = new Date().toISOString()
-  await supabase
-    .from("task_instance")
-    .update({ deleted_at: now, updated_at: now })
-    .eq("home_id", homeId)
-    .eq("task_template_id", taskTemplateId)
-    .in("status", ["scheduled", "snoozed"])
-    .is("deleted_at", null)
-
-  await supabase
-    .from("task_template")
-    .update({ is_active: false, updated_at: now })
-    .eq("task_template_id", taskTemplateId)
-
-  return { data: chunk as KnowledgeChunk, error: null }
 }
 
 /**
- * Converts a knowledge_chunk into a task_template during parse review.
+ * Converts a knowledge_chunk into a task_template during parse review. The chunk
+ * lives under its manual, so the caller passes the owning manualId.
  */
 export async function convertChunkToTask(
-  chunkId: string,
   homeId: string,
+  manualId: string,
+  chunkId: string,
   itemUnitId: string,
   targetCareType: "maintenance" | "cleaning"
 ): Promise<ServiceResult<{ task_template_id: string; title: string }>> {
-  // Fetch the chunk
-  const { data: chunk, error: chunkErr } = await supabase
-    .from("knowledge_chunk")
-    .select("*")
-    .eq("chunk_id", chunkId)
-    .single()
+  try {
+    const chunkSnap = await getDoc(doc(db, `homes/${homeId}/manuals/${manualId}/chunks/${chunkId}`))
+    if (!chunkSnap.exists()) return { data: null, error: { message: "Chunk not found" } }
+    const c = chunkSnap.data()
+    const content = (c.content as string | null) ?? ""
 
-  if (chunkErr || !chunk) {
-    return { data: null, error: { message: chunkErr?.message ?? "Chunk not found" } }
-  }
-
-  const c = chunk as KnowledgeChunk
-
-  // Create task template
-  const { data: task, error: taskErr } = await supabase
-    .from("task_template")
-    .insert({
+    // Reuse the verified template writer (inlines an as_needed schedule).
+    const tplRes = await createTaskTemplate({
       home_id: homeId,
-      scope_type: "item_unit" as const,
+      scope_type: "item_unit",
       item_unit_id: itemUnitId,
-      source: "manual" as const,
-      supplies_mode: "none" as const,
-      is_user_editable: true,
-      is_active: true,
       title: c.title ?? "Untitled task",
-      description: c.content?.slice(0, 1000) ?? null,
+      description: content.slice(0, 1000) || null,
       care_type: targetCareType,
-      priority_tier: "recommended" as const,
-      risk_level: "comfort" as const,
-      instructions_override: c.content?.slice(0, 2000) ?? null,
+      priority_tier: "recommended",
+      risk_level: "comfort",
+      instructions_override: content.slice(0, 2000) || null,
+      supplies_mode: "none",
+      source: "manual",
     })
-    .select("task_template_id, title")
-    .single()
+    if (tplRes.error || !tplRes.data) return { data: null, error: { message: tplRes.error?.message ?? "Task creation failed" } }
 
-  if (taskErr || !task) {
-    return { data: null, error: { message: taskErr?.message ?? "Task creation failed" } }
+    // Archive the chunk.
+    await writeBatch(db)
+      .set(chunkSnap.ref, { deletedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+
+    return { data: { task_template_id: tplRes.data.task_template_id, title: tplRes.data.title }, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to convert chunk" } }
   }
-
-  // Create a default schedule rule
-  await supabase.from("schedule_rule").insert({
-    task_template_id: (task as { task_template_id: string }).task_template_id,
-    schedule_type: "as_needed",
-    window_days_before: 7,
-    window_days_after: 14,
-  })
-
-  // Archive the chunk
-  await supabase
-    .from("knowledge_chunk")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("chunk_id", chunkId)
-
-  return { data: task as { task_template_id: string; title: string }, error: null }
 }
 
 /**
  * Soft-deletes a knowledge_chunk by setting deleted_at.
  */
-export async function archiveChunk(chunkId: string): Promise<ServiceResult<true>> {
-  const { error } = await supabase
-    .from("knowledge_chunk")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("chunk_id", chunkId)
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: true, error: null }
+export async function archiveChunk(homeId: string, manualId: string, chunkId: string): Promise<ServiceResult<true>> {
+  try {
+    await writeBatch(db)
+      .set(doc(db, `homes/${homeId}/manuals/${manualId}/chunks/${chunkId}`), { deletedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to archive chunk" } }
+  }
 }
 
 /**
- * Merges `diagram_image_urls` into knowledge_chunk.metadata while preserving other keys.
+ * Merges `diagram_image_urls` into the chunk's metadata, preserving other keys.
  */
 export async function updateChunkDiagramUrls(
+  homeId: string,
+  manualId: string,
   chunkId: string,
   imageUrls: DiagramImageUrl[]
 ): Promise<ServiceResult<void>> {
-  const { data: row, error: fetchErr } = await supabase
-    .from("knowledge_chunk")
-    .select("metadata")
-    .eq("chunk_id", chunkId)
-    .is("deleted_at", null)
-    .single()
-
-  if (fetchErr) return { data: null, error: { message: fetchErr.message } }
-
-  const existingMeta =
-    row?.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
-      ? (row.metadata as Record<string, unknown>)
-      : {}
-
-  const nextMeta = {
-    ...existingMeta,
-    diagram_image_urls: imageUrls,
+  try {
+    const ref = doc(db, `homes/${homeId}/manuals/${manualId}/chunks/${chunkId}`)
+    const snap = await getDoc(ref)
+    if (!snap.exists() || snap.data().deletedAt != null) return { data: null, error: { message: "Chunk not found" } }
+    const meta = snap.data().metadata
+    const existingMeta = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {}
+    await writeBatch(db)
+      .set(ref, { metadata: { ...existingMeta, diagram_image_urls: imageUrls }, updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    return { data: undefined, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update diagrams" } }
   }
-
-  const { error: updateErr } = await supabase
-    .from("knowledge_chunk")
-    .update({ metadata: nextMeta })
-    .eq("chunk_id", chunkId)
-    .is("deleted_at", null)
-
-  if (updateErr) return { data: null, error: { message: updateErr.message } }
-  return { data: undefined, error: null }
 }
 
 /**
- * Updates a knowledge chunk's source_pages array.
+ * Updates a knowledge chunk's sourcePages array.
  */
 export async function updateChunkSourcePages(
+  homeId: string,
+  manualId: string,
   chunkId: string,
   sourcePages: number[]
 ): Promise<ServiceResult<true>> {
-  const { error } = await supabase
-    .from("knowledge_chunk")
-    .update({ source_pages: sourcePages })
-    .eq("chunk_id", chunkId)
-    .is("deleted_at", null)
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: true, error: null }
+  try {
+    await writeBatch(db)
+      .set(doc(db, `homes/${homeId}/manuals/${manualId}/chunks/${chunkId}`), { sourcePages, updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update source pages" } }
+  }
 }
