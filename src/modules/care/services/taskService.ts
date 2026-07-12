@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/shim/client"
-import { doc, getDoc, serverTimestamp, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import type {
   TaskTemplate,
@@ -400,92 +400,99 @@ export async function getTaskDetail(
   homeId: string,
   taskInstanceId: string
 ): Promise<ServiceResult<TaskDetail | null>> {
-  const { data, error } = await supabase
-    .from("task_instance")
-    .select(
-      `
-      task_instance_id, task_template_id, due_date, assigned_to, item_unit_id,
-      task_template:task_template_id(
-        title, priority_tier, care_type, justification, instructions_override, estimated_minutes, steps, metadata, source_page,
-        schedule_rule(schedule_type, interval_days, season, created_at),
-        task_template_supply(supply_item(name)),
-        knowledge_chunk:instructions_chunk_id(source_pages)
-      ),
-      item_unit:item_unit_id(display_name, room:room_id(name))
-    `
-    )
-    .eq("home_id", homeId)
-    .eq("task_instance_id", taskInstanceId)
-    .is("deleted_at", null)
-    .maybeSingle()
+  try {
+    // 1. The instance carries the denormalized display fields (item/room name,
+    //    tier, due date — firestore-model.md §5). Absent/soft-deleted → null.
+    const instSnap = await getDoc(doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`))
+    if (!instSnap.exists()) return { data: null, error: null }
+    const inst = instSnap.data()
+    if (inst.deletedAt != null) return { data: null, error: null }
 
-  if (error) return { data: null, error: { message: error.message } }
-  if (!data) return { data: null, error: null }
+    const taskTemplateId: string = inst.taskTemplateId ?? ""
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r = data as any
-  const tmpl = Array.isArray(r.task_template) ? r.task_template[0] : r.task_template
-  const itemUnit = Array.isArray(r.item_unit) ? r.item_unit[0] : r.item_unit
-  const room = itemUnit && (Array.isArray(itemUnit.room) ? itemUnit.room[0] : itemUnit.room)
-  const rules = (tmpl?.schedule_rule ?? []) as Array<{ schedule_type: ScheduleType; interval_days: number | null; season: Season | null; created_at: string }>
-  const rule = rules.slice().sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0]
+    // 2. The template inlines schedule + supplies (1:1 in v1 → no join): the
+    //    why/how, structured steps, cited supplies, source page, recurrence.
+    const tmplSnap = taskTemplateId
+      ? await getDoc(doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`))
+      : null
+    const tmpl = tmplSnap?.exists() ? tmplSnap.data() : null
 
-  // Structured steps from the column; null tells the UI to parse `notes`.
-  const rawSteps = Array.isArray(tmpl?.steps)
-    ? (tmpl.steps as unknown[]).map((s) => String(s).trim()).filter(Boolean)
-    : null
-  const steps = rawSteps && rawSteps.length > 0 ? rawSteps : null
+    // Structured steps from the column; null tells the UI to parse `notes`.
+    const rawSteps = Array.isArray(tmpl?.steps)
+      ? (tmpl!.steps as unknown[]).map((s) => String(s).trim()).filter(Boolean)
+      : null
+    const steps = rawSteps && rawSteps.length > 0 ? rawSteps : null
 
-  // Cited supply names from the task_template_supply → supply_item join.
-  const supplyRows = (tmpl?.task_template_supply ?? []) as Array<{ supply_item: { name: string } | { name: string }[] | null }>
-  const supplies = supplyRows
-    .map((s) => (Array.isArray(s.supply_item) ? s.supply_item[0]?.name : s.supply_item?.name))
-    .map((n) => (n ?? "").trim())
-    .filter(Boolean)
+    // Cited supply names from the inlined supplies array ({ name, category,
+    // partNumber } — commitDraft.ts). Empty → the "You'll need" row self-hides.
+    const supplyRows = (tmpl?.supplies ?? []) as Array<{ name?: string }>
+    const supplies = supplyRows
+      .map((s) => (s.name ?? "").trim())
+      .filter(Boolean)
 
-  // Has this cadence ever been completed? A never-completed past-due task is
-  // "start anytime", not a lapse (mirrors the dashboard's calm framing).
-  const { count: doneCount } = await supabase
-    .from("task_instance")
-    .select("task_instance_id", { count: "exact", head: true })
-    .eq("home_id", homeId)
-    .eq("task_template_id", r.task_template_id)
-    .eq("status", "done")
-  const neverCompleted = (doneCount ?? 0) === 0
+    // 3. Has this cadence ever been completed? A never-completed past-due task is
+    //    "start anytime", not a lapse (mirrors the dashboard's calm framing).
+    let neverCompleted = true
+    if (taskTemplateId) {
+      const doneSnap = await getDocs(
+        query(
+          collection(db, `homes/${homeId}/taskInstances`),
+          where("taskTemplateId", "==", taskTemplateId),
+          where("status", "==", "done"),
+          limit(1)
+        )
+      )
+      neverCompleted = doneSnap.empty
+    }
 
-  // Manual citation: prefer the task's diagram_pages, else the instructions
-  // chunk's source_pages.
-  const meta = (tmpl?.metadata ?? null) as { diagram_pages?: Array<{ page?: number }> } | null
-  const chunk = Array.isArray(tmpl?.knowledge_chunk) ? tmpl.knowledge_chunk[0] : tmpl?.knowledge_chunk
-  // Prefer the dedicated source_page column (populated by the parse pipeline);
-  // fall back to a diagram page or the instructions chunk's source page.
-  const manualPage =
-    (typeof tmpl?.source_page === "number" ? tmpl.source_page : null) ??
-    meta?.diagram_pages?.[0]?.page ??
-    (chunk?.source_pages?.[0] ?? null)
+    // 4. Manual citation: prefer the dedicated sourcePage, else a diagram page,
+    //    else the instructions chunk's source page (chunk lives under the
+    //    template's manual — firestore-model.md; skipped when unlinked).
+    const meta = (tmpl?.metadata ?? null) as { diagram_pages?: Array<{ page?: number }> } | null
+    let chunkPage: number | null = null
+    if (tmpl?.instructionsChunkId && tmpl?.manualId) {
+      const chunkSnap = await getDoc(
+        doc(db, `homes/${homeId}/manuals/${tmpl.manualId}/chunks/${tmpl.instructionsChunkId}`)
+      )
+      const sp = chunkSnap.exists() ? (chunkSnap.data().sourcePages as number[] | undefined) : undefined
+      chunkPage = Array.isArray(sp) && typeof sp[0] === "number" ? sp[0] : null
+    }
+    const manualPage =
+      (typeof tmpl?.sourcePage === "number" ? tmpl.sourcePage : null) ??
+      (typeof meta?.diagram_pages?.[0]?.page === "number" ? meta.diagram_pages[0].page : null) ??
+      chunkPage
 
-  return {
-    data: {
-      taskInstanceId: r.task_instance_id,
-      taskTemplateId: r.task_template_id,
-      title: tmpl?.title ?? "Task",
-      tier: tmpl?.priority_tier ?? "optional",
-      careType: tmpl?.care_type ?? null,
-      justification: tmpl?.justification ?? null,
-      estimatedMinutes: tmpl?.estimated_minutes ?? null,
-      dueDate: r.due_date,
-      assignedTo: r.assigned_to ?? null,
-      notes: tmpl?.instructions_override ?? null,
-      steps,
-      supplies,
-      neverCompleted,
-      manualPage,
-      itemUnitId: r.item_unit_id ?? null,
-      itemName: itemUnit?.display_name ?? null,
-      roomName: room?.name ?? null,
-      schedule: rule ? { scheduleType: rule.schedule_type, intervalDays: rule.interval_days, season: rule.season } : null,
-    },
-    error: null,
+    const sched = (tmpl?.schedule ?? null) as
+      | { scheduleType?: ScheduleType; intervalDays?: number | null; season?: Season | null }
+      | null
+
+    return {
+      data: {
+        taskInstanceId: instSnap.id,
+        taskTemplateId,
+        title: tmpl?.title ?? inst.title ?? "Task",
+        tier: (tmpl?.priorityTier ?? inst.priorityTier ?? "optional") as PriorityTier,
+        careType: tmpl?.careType ?? inst.careType ?? null,
+        justification: tmpl?.justification ?? null,
+        estimatedMinutes: tmpl?.estimatedMinutes ?? inst.estimatedMinutes ?? null,
+        dueDate: inst.dueDate ?? "",
+        assignedTo: inst.assignedTo ?? null,
+        notes: tmpl?.instructionsOverride ?? null,
+        steps,
+        supplies,
+        neverCompleted,
+        manualPage,
+        itemUnitId: inst.itemUnitId ?? null,
+        itemName: inst.itemName ?? null,
+        roomName: inst.roomName ?? null,
+        schedule: sched
+          ? { scheduleType: sched.scheduleType as ScheduleType, intervalDays: sched.intervalDays ?? null, season: sched.season ?? null }
+          : null,
+      },
+      error: null,
+    }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load task detail" } }
   }
 }
 
