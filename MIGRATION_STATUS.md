@@ -250,6 +250,34 @@ swap adds a spec here instead of relying on boot smoke.
 - Remaining in tasks/care: getTaskDetail, cleanSession.ts, homeUpkeep.ts, the rest of dashboard.ts
   (Home feed).
 
+## Phase 5 remaining inventory (resume here)
+~40 files still import `@/integrations/shim` (all NON-crashing now — the inert shim returns empty).
+Three buckets:
+
+**A. Tractable pure-Firestore swaps (no blockers) — continue these:**
+- care: `careNoteService` (thread homeId into getCareNotesByItem/update/delete), `shoppingListService`,
+  `scheduleService`, `taskScheduleService`, `getTaskDetail`+`getTaskInstances`+`getTaskTemplates`
+  (rest of taskService), `cleanSession.ts`.
+- home tail: `homeProfileService`, `inviteService` (+ AcceptInvite callable for cross-boundary join),
+  `HomeOnboarding.tsx`.
+- knowledge: `manualDocumentService`, `knowledgeService`, `conversationService` (reads).
+- supplies: `supplyService`. lib: `userPreferences`, `useUserLevel` (interface_level → users/{uid}/private),
+  `useServiceProviders`. inventory: `storageService` (Cloud Storage), legacy `inventoryService`.
+- misc components/pages reading the above (drop shim import once their service is swapped).
+
+**B. Blocked on Phase 4 callable ports (need v1 edge-fn source + live API keys):**
+- `chatService` (chat-query SSE), `ocrService`, `productLookupService`, `detectDocTypeService`,
+  `planGenerationService`, `manualSourcesService`. Port the edge fns as callables first (plan Phase 4
+  table), then repoint these.
+- `nativePush`/`pushNotifications` → FCM web SDK (Phase 4 FCM).
+
+**C. DELETE (superseded by the worker modes):** `previewManualService`, `saveManualParseService`
+(rewire `ParseReviewStep` to the worker's preview/commit modes).
+
+**Phase 5 gate:** zero `@/integrations/shim` imports; re-bake visual baselines after fix A (fix E).
+**Then Phases 6–7 (OWNER-gated):** prod data + auth + storage import, re-parse ~19 manuals, Apple
+prod config, domain cutover — need real prod data/creds and can't run in the sandbox.
+
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now
   frozen, so the deterministic Firestore dataset (mirroring `e2e/seed-config.ts`) is the FIRST
