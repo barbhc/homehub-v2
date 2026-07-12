@@ -46,7 +46,8 @@ All service files currently compile against the shim (status: `stub`).
 | home | **homeService = ported** (create/get/primary/rooms via Firestore; camelCase→curated-type edge mappers; membership via collectionGroup(members).uid); homeProfileService, inviteService, HomeOnboarding = stub | mixed |
 | inventory | manualSourcesService, storageService, ocrService (→callable), planGenerationService, productLookupService (→callable), legacy inventoryService | stub |
 | items / supplies | **itemService = ported** (getItemUnits/getItemUnit/create/update/softDelete on Firestore; camelCase→ItemUnit edge mapper); supplyService = stub | mixed |
-| care | taskService, weekAgenda, taskScheduleService, homeUpkeep, careNoteService, scheduleService, shoppingListService, + pure helpers (port untouched) | stub |
+| care | **weekAgenda.getWeekAgenda = ported** (single denormalized read, no joins); taskService (mark/snooze/detail → next), taskScheduleService, homeUpkeep, careNoteService, scheduleService, shoppingListService = stub | mixed |
+| lib (dashboard) | **getDashboardStats + getAllMaintenanceTasks = ported** (denorm reads; unblock /maintenance); getDashboardTasks/getUpcomingTasks/getExpiringWarranties/getHomeNotices = stub | mixed |
 | knowledge | parseManualService — trust-arc API (startParse/watchParse/parseManualAndWait/toUiStage) on Firebase = **ported**; shim `parseManual` still present for 5 callers (Phase 5); manualDocumentService, knowledgeService, chatService, conversationService, detectDocTypeService, diagramRenderService = stub; previewManualService + saveManualParseService = DELETE (worker modes) | mixed |
 | lib | dashboard.ts, cleanSession.ts, userPreferences.ts, nativePush.ts/pushNotifications.ts (Phase 4 FCM) | stub |
 
@@ -215,6 +216,21 @@ swap adds a spec here instead of relying on boot smoke.
   (getItemUnits end-to-end). **Full emu suite now 4/4** (setup + auth-home ×2 + inventory).
 - Remaining in items/inventory: add-item support services (storage/ocr/product-lookup → callables),
   supplyService, legacy inventoryService.
+
+## Verified — Phase 5 tasks/care read path (partial) + Fix A on real data
+- **weekAgenda.getWeekAgenda** → Firestore: the 3-way join collapses to ONE denormalized
+  taskInstances read (firestore-model.md §5) + client-side status/dueDate/cleaning filtering.
+- **dashboard.ts** partial: `getDashboardStats` + `getAllMaintenanceTasks` swapped (denorm reads)
+  to unblock /maintenance's vestigial legacy loader (its `error` gate was blocking the redesign).
+- **e2e/emu/tasks.spec.ts**: on /maintenance (DesktopTasks), default **Focus** shows the 2 seeded
+  essentials + "All · 7"; recommended "Flush the water heater" is calmed out until All is tapped —
+  **Fix A verified end-to-end on seeded data**. Emu suite now **5/5** (setup + auth-home ×2 +
+  inventory + tasks). Note: the page renders 3 list copies (mobile/desktop/hidden-legacy) so specs
+  filter to `{ visible: true }`.
+- vitest 123/123; tsc + build green.
+- Remaining in tasks/care: task actions (markTaskInstanceDone/snooze → **completeTask callable**,
+  model §9), getTaskDetail, cleanSession.ts, homeUpkeep.ts, the rest of dashboard.ts (Home feed),
+  and **Fix C** (the nudge — diagnose on the emulator harness now that tasks render).
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now

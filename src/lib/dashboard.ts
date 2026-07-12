@@ -4,6 +4,8 @@
  */
 
 import { supabase } from "@/integrations/shim/client"
+import { collection, getDocs, query, where, Timestamp } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { TopConcernKey } from "@/modules/home/services/homeProfileService"
 import type { CareType, RiskLevel } from "@/integrations/types"
 
@@ -439,47 +441,33 @@ export async function getDashboardStats(propertyId: string): Promise<DashboardSt
   const dueSoonEnd = addDays(todayStr, DUE_SOON_DAYS)
   const monthStart = todayStr.slice(0, 7) + "-01"
 
-  const [itemsRes, instancesRes, completedRes] = await Promise.all([
-    supabase
-      .from("item_unit")
-      .select("item_unit_id", { count: "exact", head: true })
-      .eq("home_id", propertyId)
-      .eq("status", "active")
-      .is("deleted_at", null),
-    supabase
-      .from("task_instance")
-      .select("task_instance_id, due_date, task_template:task_template_id(care_type, priority_tier)")
-      .eq("home_id", propertyId)
-      .eq("status", "scheduled")
-      .is("deleted_at", null),
-    supabase
-      .from("task_instance")
-      .select("task_instance_id", { count: "exact", head: true })
-      .eq("home_id", propertyId)
-      .eq("status", "done")
-      .gte("completed_at", monthStart)
-      .is("deleted_at", null),
+  // Firestore: item count (client-filter status) + one taskInstances read; the
+  // denormalized careType/priorityTier on each instance replace the template join.
+  const [itemsSnap, instSnap] = await Promise.all([
+    getDocs(query(collection(db, `homes/${propertyId}/items`), where("deletedAt", "==", null))),
+    getDocs(query(collection(db, `homes/${propertyId}/taskInstances`), where("deletedAt", "==", null))),
   ])
 
-  const totalItems = itemsRes.count ?? 0
-  const completedThisMonth = completedRes.count ?? 0
+  const totalItems = itemsSnap.docs.filter((d) => d.get("status") === "active").length
 
   let overdueTaskCount = 0
   let dueSoonCount = 0
-  for (const row of (instancesRes.data ?? []) as unknown as Array<{
-    due_date: string
-    task_template: { care_type: string | null; priority_tier: string | null } | { care_type: string | null; priority_tier: string | null }[] | null
-  }>) {
-    const d = row.due_date
+  let completedThisMonth = 0
+  for (const doc of instSnap.docs) {
+    const r = doc.data() as Record<string, unknown>
+    if (r.status === "done") {
+      const c = r.completedAt instanceof Timestamp ? r.completedAt.toDate().toISOString().slice(0, 10) : null
+      if (c && c >= monthStart) completedThisMonth++
+      continue
+    }
+    if (r.status !== "scheduled") continue
+    if (r.careType === "cleaning") continue // route to Deep Clean, not the feed
+    const d = r.dueDate as string | undefined
     if (!d) continue
-    // Supabase may return the FK join as an object or single-element array depending on version
-    const tmpl = Array.isArray(row.task_template) ? row.task_template[0] : row.task_template
-    // Exclude cleaning tasks — they route to Deep Clean, not the task feed
-    if (tmpl?.care_type === "cleaning") continue
-    // Only Essential tasks carry a hard overdue deadline — count them in the stat chip.
-    // Recommended / Optional past-due tasks are cadence suggestions, not deadlines.
+    // Only Essential tasks carry a hard overdue deadline; Recommended/Optional
+    // past-due are cadence suggestions, not deadlines.
     if (d < todayStr) {
-      if (tmpl?.priority_tier === "essential") overdueTaskCount++
+      if (r.priorityTier === "essential") overdueTaskCount++
     } else if (d <= dueSoonEnd) {
       dueSoonCount++
     }
@@ -590,47 +578,47 @@ export async function getUpcomingTasks(propertyId: string): Promise<MaintenanceT
 export async function getAllMaintenanceTasks(propertyId: string): Promise<MaintenanceTaskFull[]> {
   const todayStr = today()
 
-  const [scheduledRes, completionRes] = await Promise.all([
-    supabase
-      .from("task_instance")
-      .select(`
-        task_instance_id,
-        task_template_id,
-        due_date,
-        item_unit_id,
-        task_template:task_template_id(title, priority_tier, notes, care_type),
-        item_unit:item_unit_id(display_name, room_id, room:room_id(name))
-      `)
-      .eq("home_id", propertyId)
-      .in("status", ["scheduled", "snoozed"])
-      .is("deleted_at", null)
-      .order("due_date", { ascending: true, nullsFirst: false }),
-    supabase
-      .from("task_instance")
-      .select("task_template_id, completed_at")
-      .eq("home_id", propertyId)
-      .eq("status", "done")
-      .not("completed_at", "is", null)
-      .order("completed_at", { ascending: false }),
-  ])
+  // One taskInstances read (denorm fields replace the template/item joins);
+  // scheduled/snoozed + completion map computed client-side.
+  const snap = await getDocs(query(collection(db, `homes/${propertyId}/taskInstances`), where("deletedAt", "==", null)))
+  const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
 
-  if (scheduledRes.error) throw new Error(`Failed to load tasks: ${scheduledRes.error.message}`)
-
-  // Build per-template completion map: templateId → { lastDate, count }
+  // Per-template completion map: templateId → { lastDate, count }.
   type CompletionEntry = { lastDate: string; count: number }
   const completionMap = new Map<string, CompletionEntry>()
-  for (const row of (completionRes.data ?? []) as Array<{ task_template_id: string; completed_at: string }>) {
-    const existing = completionMap.get(row.task_template_id)
-    if (!existing) {
-      completionMap.set(row.task_template_id, { lastDate: row.completed_at.slice(0, 10), count: 1 })
-    } else {
-      existing.count++
-    }
+  const completedRows = all
+    .filter((r) => r.status === "done" && r.completedAt instanceof Timestamp)
+    .map((r) => ({ tpl: r.taskTemplateId as string, at: (r.completedAt as Timestamp).toDate().toISOString() }))
+    .sort((a, b) => b.at.localeCompare(a.at))
+  for (const row of completedRows) {
+    const existing = completionMap.get(row.tpl)
+    if (!existing) completionMap.set(row.tpl, { lastDate: row.at.slice(0, 10), count: 1 })
+    else existing.count++
   }
 
-  return ((scheduledRes.data ?? []) as unknown as TaskInstanceFull[]).map((r) => {
-    const completion = completionMap.get(r.task_template_id)
-    return toMaintenanceTaskFull(r, todayStr, completion?.lastDate ?? null, completion?.count ?? 0)
+  const scheduled = all
+    .filter((r) => r.status === "scheduled" || r.status === "snoozed")
+    .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
+
+  return scheduled.map((r) => {
+    // Reconstruct the joined shape toMaintenanceTaskFull expects from denorm fields.
+    const row: TaskInstanceFull = {
+      task_instance_id: r.id,
+      task_template_id: (r.taskTemplateId as string) ?? "",
+      due_date: (r.dueDate as string) ?? todayStr,
+      item_unit_id: (r.itemUnitId as string | null) ?? null,
+      task_template: {
+        title: (r.title as string) ?? "Task",
+        priority_tier: (r.priorityTier as string) ?? "optional",
+        notes: null,
+        care_type: (r.careType as CareType | null) ?? null,
+      },
+      item_unit: r.itemUnitId
+        ? { display_name: (r.itemName as string) ?? "", room_id: null, room: r.roomName ? { name: r.roomName as string } : null }
+        : null,
+    }
+    const completion = completionMap.get(row.task_template_id)
+    return toMaintenanceTaskFull(row, todayStr, completion?.lastDate ?? null, completion?.count ?? 0)
   })
 }
 

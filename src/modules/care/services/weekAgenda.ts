@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/shim/client"
+import { collection, getDocs, query, where } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { MaintenanceFreqUnit, PriorityTier } from "@/integrations/types"
 import type { ServiceResult } from "./taskService"
 import { createTaskTemplate } from "./taskService"
@@ -59,88 +60,58 @@ export async function getWeekAgenda(
   const today = todayStr()
   const horizon = addDaysStr(today, opts?.days ?? 7)
 
-  const { data, error } = await supabase
-    .from("task_instance")
-    .select(
-      `
-      task_instance_id,
-      task_template_id,
-      due_date,
-      item_unit_id,
-      task_template:task_template_id(title, scope_type, care_type, priority_tier, estimated_minutes),
-      item_unit:item_unit_id(display_name, room:room_id(name))
-    `
+  try {
+    // Single-collection read — the joins are gone: taskInstances carry the
+    // denormalized display fields (firestore-model.md §5). One equality filter
+    // (deletedAt == null); status/dueDate filtering + sort happen client-side
+    // (the collection is small and this avoids a multi-inequality query the
+    // emulator rejects). Composite index still declared for prod scale.
+    const col = collection(db, `homes/${homeId}/taskInstances`)
+    const snap = await getDocs(query(col, where("deletedAt", "==", null)))
+
+    const all = snap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>
     )
-    .eq("home_id", homeId)
-    .in("status", ["scheduled", "snoozed"])
-    .is("deleted_at", null)
-    .lte("due_date", horizon)
-    .order("due_date", { ascending: true })
 
-  if (error) return { data: null, error: { message: error.message } }
+    // Templates with at least one completed instance — distinguishes a lapsed
+    // essential cadence (genuinely overdue) from a never-started one (calm backlog).
+    const completedTemplates = new Set(
+      all.filter((r) => r.status === "done").map((r) => r.taskTemplateId as string)
+    )
 
-  // Templates with at least one completed instance — used to tell a lapsed
-  // cadence (genuinely overdue) apart from a never-started one (calm backlog).
-  const { data: doneData } = await supabase
-    .from("task_instance")
-    .select("task_template_id")
-    .eq("home_id", homeId)
-    .eq("status", "done")
-    .not("completed_at", "is", null)
-  const completedTemplates = new Set(
-    ((doneData ?? []) as Array<{ task_template_id: string }>).map((r) => r.task_template_id),
-  )
+    const items: WeekAgendaItem[] = all
+      .filter((r) => r.status === "scheduled" || r.status === "snoozed")
+      .filter((r) => (r.dueDate as string) <= horizon)
+      .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
+      // Curated feed, not a flatten of per-item cleaning steps: drop item-scoped
+      // cleaning (lives in the Deep-Clean guide); keep maintenance + HOME cleaning.
+      .filter((r) => !(r.careType === "cleaning" && r.scopeType === "item_unit"))
+      .map((r) => {
+        const tier = (r.priorityTier as PriorityTier) ?? "optional"
+        const dueDate = (r.dueDate as string) ?? today
+        const templateId = (r.taskTemplateId as string) ?? ""
+        const pastDue = dueDate < today
+        const isOverdue = pastDue && tier === "essential" && completedTemplates.has(templateId)
+        return {
+          taskInstanceId: r.id as string,
+          taskTemplateId: templateId,
+          title: (r.title as string) ?? "Task",
+          source: taskSource((r.scopeType as "home" | "item_unit") ?? "item_unit", (r.careType as string) ?? null),
+          priorityTier: tier,
+          estimatedMinutes: (r.estimatedMinutes as number | null) ?? null,
+          dueDate,
+          isOverdue,
+          pastDue,
+          itemUnitId: (r.itemUnitId as string | null) ?? null,
+          itemName: (r.itemName as string | null) ?? null,
+          roomName: (r.roomName as string | null) ?? null,
+        }
+      })
 
-  type Row = {
-    task_instance_id: string
-    task_template_id: string
-    due_date: string
-    item_unit_id: string | null
-    task_template: {
-      title: string
-      scope_type: "home" | "item_unit"
-      care_type: string | null
-      priority_tier: PriorityTier
-      estimated_minutes: number | null
-    } | null
-    item_unit: { display_name: string; room: { name: string } | null } | null
+    return { data: items, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Request failed" } }
   }
-
-  const items: WeekAgendaItem[] = ((data ?? []) as unknown as Row[])
-    // Binding fix (see design/data-binding-pattern.md): the agenda is a curated
-    // maintenance/upkeep feed, NOT a flatten of every per-item cleaning step.
-    // Drop item-scoped cleaning sub-steps ("Clean Oven Door Exterior", "Wipe
-    // Drawer Window"…) — those live inside a Deep-Clean guide. KEEP all
-    // maintenance and HOME-scoped cleaning routines ("Clean range-hood
-    // filters"), which are real recurring upkeep. Mirrors getDashboardTasks.
-    .filter(
-      (r) =>
-        !(r.task_template?.care_type === "cleaning" && r.task_template?.scope_type === "item_unit")
-    )
-    .map((r) => {
-      const tier = r.task_template?.priority_tier ?? "optional"
-      const pastDue = r.due_date < today
-      // Only an essential cadence that was previously completed and then
-      // lapsed counts as genuinely "overdue". Never-started work and all
-      // recommended/optional past-due work stay calm (Start anytime).
-      const isOverdue = pastDue && tier === "essential" && completedTemplates.has(r.task_template_id)
-      return {
-        taskInstanceId: r.task_instance_id,
-        taskTemplateId: r.task_template_id,
-        title: r.task_template?.title ?? "Task",
-        source: taskSource(r.task_template?.scope_type ?? "item_unit", r.task_template?.care_type),
-        priorityTier: tier,
-        estimatedMinutes: r.task_template?.estimated_minutes ?? null,
-        dueDate: r.due_date,
-        isOverdue,
-        pastDue,
-        itemUnitId: r.item_unit_id,
-        itemName: r.item_unit?.display_name ?? null,
-        roomName: r.item_unit?.room?.name ?? null,
-      }
-    })
-
-  return { data: items, error: null }
 }
 
 /** A user-entered/parsed task from the add-item "Plan" step, framework-agnostic. */
