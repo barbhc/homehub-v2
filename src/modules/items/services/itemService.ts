@@ -30,6 +30,7 @@ export type CreateItemUnitInput = {
   serial_number?: string | null
   purchase_date?: string | null
   install_date?: string | null
+  price_paid?: number | null
   notes?: string | null
 }
 
@@ -154,6 +155,7 @@ export async function createItemUnit(input: CreateItemUnitInput): Promise<Servic
         serialNumber: input.serial_number ?? null,
         purchaseDate: input.purchase_date ?? null,
         installDate: input.install_date ?? null,
+        pricePaid: input.price_paid ?? null,
         notes: input.notes ?? null,
         status: "active",
         tags: [],

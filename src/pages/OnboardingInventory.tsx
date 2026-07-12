@@ -8,7 +8,6 @@ import {
   useCreateItem,
   type AddItemFormValues,
 } from "@/modules/inventory"
-import { subTypeToLegacyApplianceTypeId } from "@/modules/inventory/constants/itemCategories"
 
 /**
  * Post-property onboarding: add your first items (appliances, electronics).
@@ -24,14 +23,14 @@ export default function OnboardingInventory() {
 
   const handleAddItemSubmit = async (values: AddItemFormValues) => {
     const result = await createItem({
-      name: values.name,
+      display_name: values.name,
+      category: values.subType ?? "other",
       brand: values.brand || null,
       model: values.model || null,
-      location_id: values.locationId,
+      room_id: values.locationId,
       item_category: values.itemCategory,
       sub_type: values.subType,
       category_fields: values.categoryFields,
-      specs: { applianceTypeId: subTypeToLegacyApplianceTypeId(values.subType) },
     })
     if (result.error) return
     await refresh()

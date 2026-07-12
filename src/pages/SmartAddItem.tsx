@@ -16,7 +16,7 @@ import { ParseProgressStep, type ParseProgressState } from "@/components/smart-a
 import { ParseReviewStep } from "@/components/smart-add/ParseReviewStep"
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
-import { createItem } from "@/modules/inventory/services/inventoryService"
+import { createItemUnit } from "@/modules/items"
 import { createTasksFromEditable } from "@/modules/care"
 import { uploadManualPdf, removeManualPdf } from "@/modules/inventory/services/storageService"
 import { storageDownloadUrl } from "@/integrations/firebase"
@@ -175,20 +175,21 @@ export default function SmartAddItem() {
     if (!propertyId) return
     setError(null)
     setActionLoading(true)
-    const legacyType = subTypeToLegacyApplianceTypeId(identifyData.subType)
-    const result = await createItem({
-      property_id: propertyId,
-      name: identifyData.name.trim(),
-      brand: identifyData.brand.trim() || null,
-      model: identifyData.model.trim() || null,
-      serial_number: identifyData.serialNumber.trim() || null,
-      location_id: identifyData.locationId,
+    // Firestore item (homes/{homeId}/items): `category` is the specific type
+    // slug (matches sub_type); the RoomSelector's locationId is a room id.
+    const result = await createItemUnit({
+      home_id: propertyId,
+      room_id: identifyData.locationId,
+      display_name: identifyData.name.trim(),
+      category: identifyData.subType ?? "other",
       item_category: identifyData.itemCategory,
       sub_type: identifyData.subType,
       category_fields: identifyData.categoryFields,
+      brand: identifyData.brand.trim() || null,
+      model: identifyData.model.trim() || null,
+      serial_number: identifyData.serialNumber.trim() || null,
       purchase_date: identifyData.purchaseDate?.trim() || null,
-      purchase_price: identifyData.purchasePrice,
-      specs: { applianceTypeId: legacyType },
+      price_paid: identifyData.purchasePrice,
     })
     setActionLoading(false)
     if (result.error) {
@@ -201,7 +202,7 @@ export default function SmartAddItem() {
       return
     }
     clearWizardSession()
-    navigate(`/items/${created.id}`)
+    navigate(`/items/${created.item_unit_id}`)
   }, [propertyId, identifyData, navigate])
 
   const runParseAfterManualUpload = useCallback(

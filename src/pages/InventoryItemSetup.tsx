@@ -9,7 +9,9 @@ import { PlanStep, type EditableTask } from "@/components/smart-add/PlanStep"
 import { useItem } from "@/modules/inventory"
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
-import { updateItem } from "@/modules/inventory/services/inventoryService"
+import { updateItemUnit } from "@/modules/items"
+import { createManualDocument } from "@/modules/knowledge"
+import { mapApplianceTypeIdToCategory, subTypeToLegacyApplianceTypeId } from "@/modules/inventory/constants/itemCategories"
 import { uploadManualPdfWithUrl, MAX_UPLOAD_BYTES } from "@/modules/inventory/services/storageService"
 import { createTasksFromEditable } from "@/modules/care"
 import { APPLIANCE_TYPES } from "@/modules/inventory/constants/applianceTypes"
@@ -39,20 +41,21 @@ export default function InventoryItemSetup() {
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const propertyId = property?.id ?? item?.property_id ?? DASHBOARD_PROPERTY_ID
+  const propertyId = property?.id ?? item?.home_id ?? DASHBOARD_PROPERTY_ID
 
   // Seed confirm data from item once on first load
-  const itemId = item?.id
+  const itemId = item?.item_unit_id
   /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- one-time sync from prop */
   useEffect(() => {
     if (!item) return
     setConfirmData((prev) =>
       prev.name ? prev : {
-        name: item.name,
+        name: item.display_name,
         brand: item.brand ?? "",
         model: item.model ?? "",
-        applianceTypeId: (item.specs as { applianceTypeId?: string } | null)?.applianceTypeId ?? "",
-        locationId: item.location_id ?? null,
+        // The legacy appliance-type grid id derives from the typed sub_type.
+        applianceTypeId: subTypeToLegacyApplianceTypeId(item.sub_type) ?? "",
+        locationId: item.room_id ?? null,
       }
     )
   }, [itemId])
@@ -66,13 +69,16 @@ export default function InventoryItemSetup() {
     if (!item || !propertyId) return
     setError(null)
     setActionLoading(true)
-    const specs = { ...(item.specs as Record<string, unknown> ?? {}), applianceTypeId: confirmData.applianceTypeId || null }
-    const result = await updateItem(propertyId, item.id, {
-      name: confirmData.name.trim(),
+    // The legacy appliance-type grid pick maps onto the typed category fields.
+    const mapped = mapApplianceTypeIdToCategory(confirmData.applianceTypeId || null)
+    const result = await updateItemUnit(propertyId, item.item_unit_id, {
+      display_name: confirmData.name.trim(),
       brand: confirmData.brand.trim() || null,
       model: confirmData.model.trim() || null,
-      location_id: confirmData.locationId,
-      specs: Object.keys(specs).length ? specs : null,
+      room_id: confirmData.locationId,
+      ...(mapped.subType
+        ? { category: mapped.subType, item_category: mapped.itemCategory, sub_type: mapped.subType }
+        : {}),
     })
     setActionLoading(false)
     if (result.error) {
@@ -91,8 +97,14 @@ export default function InventoryItemSetup() {
     if (!item || !propertyId) return
     setError(null)
     setActionLoading(true)
-    const specs = { ...(item.specs as Record<string, unknown> ?? {}), manualUrl: url }
-    const result = await updateItem(propertyId, item.id, { specs })
+    // v2: the manual is a first-class document (homes/{homeId}/manuals), not a
+    // specs breadcrumb — this is what the parse worker + item page read.
+    const result = await createManualDocument(propertyId, {
+      item_unit_id: item.item_unit_id,
+      title: url,
+      source_type: "url",
+      source_ref: url,
+    })
     setActionLoading(false)
     if (result.error) {
       setError(result.error.message)
@@ -106,10 +118,10 @@ export default function InventoryItemSetup() {
     if (!item || !propertyId) return
     setError(null)
     setActionLoading(true)
-    const effPropertyId = item.property_id ?? propertyId ?? DASHBOARD_PROPERTY_ID
+    const effPropertyId = item.home_id ?? propertyId ?? DASHBOARD_PROPERTY_ID
     const result = await createTasksFromEditable(
       effPropertyId,
-      item.id,
+      item.item_unit_id,
       tasks.map((t) => ({
         title: t.title,
         instructions: t.instructions || null,
@@ -125,7 +137,7 @@ export default function InventoryItemSetup() {
       setError(result.error)
       return
     }
-    navigate(`/inventory/${item.id}`, { state: { smartAddSuccess: true } })
+    navigate(`/inventory/${item.item_unit_id}`, { state: { smartAddSuccess: true } })
   }, [item, propertyId, navigate])
 
   if (itemLoading) {
@@ -272,19 +284,21 @@ export default function InventoryItemSetup() {
             if (!item || !propertyId) return
             setError(null)
             setActionLoading(true)
-            const uploadResult = await uploadManualPdfWithUrl(item.id, file, user?.id)
+            const uploadResult = await uploadManualPdfWithUrl(item.item_unit_id, file, user?.id)
             if (uploadResult.error) {
               setError(uploadResult.error.message)
               setActionLoading(false)
               return
             }
             const url = uploadResult.data!.url
-            const specs = {
-              ...(item.specs as Record<string, unknown> ?? {}),
-              manualUrl: url,
-              manualStoragePath: uploadResult.data!.path,
-            }
-            const result = await updateItem(propertyId, item.id, { specs })
+            // v2: register the upload as a first-class manual document so the
+            // parse worker + item page can find it (no specs breadcrumbs).
+            const result = await createManualDocument(propertyId, {
+              item_unit_id: item.item_unit_id,
+              title: file.name,
+              source_type: "upload",
+              source_ref: uploadResult.data!.path,
+            })
             setActionLoading(false)
             if (result.error) {
               setError(result.error.message)
