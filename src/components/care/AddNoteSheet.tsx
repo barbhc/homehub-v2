@@ -189,7 +189,7 @@ export function AddNoteSheet({
           },
         })
         if (!taskRes.error && taskRes.data) {
-          await updateCareNote(note.note_id, {
+          await updateCareNote(note.home_id, note.note_id, {
             task_template_id: taskRes.data.taskTemplateId,
           })
           onSaved({ ...note, task_template_id: taskRes.data.taskTemplateId })

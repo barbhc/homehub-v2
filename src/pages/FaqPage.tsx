@@ -488,7 +488,7 @@ export default function FaqPage() {
   }
 
   const handleDeleteItemCareNote = (itemUnitId: string, noteId: string) => {
-    deleteCareNote(noteId).then((r) => {
+    deleteCareNote(homeId, noteId).then((r) => {
       if (!r.error) {
         setItemCareNotes((prev) => ({
           ...prev,
@@ -718,7 +718,7 @@ export default function FaqPage() {
                       variant="ghost"
                       className="text-destructive hover:text-destructive shrink-0"
                       onClick={async () => {
-                        const r = await deleteCareNote(n.note_id)
+                        const r = await deleteCareNote(homeId, n.note_id)
                         if (!r.error)
                           setHouseNotes((prev) => prev.filter((x) => x.note_id !== n.note_id))
                       }}
@@ -833,7 +833,7 @@ export default function FaqPage() {
                                 type="button"
                                 className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
                                 onClick={async () => {
-                                  const r = await deleteCareNote(n.note_id)
+                                  const r = await deleteCareNote(homeId, n.note_id)
                                   if (!r.error)
                                     setRoomNotes((prev) =>
                                       prev.filter((x) => x.note_id !== n.note_id)

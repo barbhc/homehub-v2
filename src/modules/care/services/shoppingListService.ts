@@ -1,14 +1,47 @@
-import { supabase } from "@/integrations/shim/client"
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  where,
+  writeBatch,
+  Timestamp,
+  type DocumentData,
+} from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { ShoppingListItem, ShoppingStatus } from "@/integrations/types"
 import type { ServiceResult } from "./taskService"
 
 /**
- * Shopping list (Phase 6). Powers the Task-detail "Add to list" action and the
- * standalone shopping surface. Home-scoped (RLS via home_members); rows are
- * soft-deleted. The pure `toggleShoppingStatus` lives in ./shoppingStatus.
+ * Shopping list. Home-scoped (`homes/{homeId}/shoppingList`); rows soft-deleted.
+ * The pure `toggleShoppingStatus` lives in ./shoppingStatus.
  */
-
 export { toggleShoppingStatus } from "./shoppingStatus"
+
+function iso(v: unknown): string {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : ""
+}
+function toItem(homeId: string, id: string, d: DocumentData): ShoppingListItem {
+  return {
+    id,
+    home_id: homeId,
+    supply_item_id: d.supplyItemId ?? null,
+    name: d.name ?? "",
+    quantity: d.quantity ?? null,
+    status: (d.status ?? "needed") as ShoppingStatus,
+    source_task_instance_id: d.sourceTaskInstanceId ?? null,
+    created_at: iso(d.createdAt),
+    updated_at: iso(d.updatedAt),
+    deleted_at: d.deletedAt == null ? null : iso(d.deletedAt),
+  }
+}
+function err(e: unknown): { data: null; error: { message: string } } {
+  return { data: null, error: { message: e instanceof Error ? e.message : "Request failed" } }
+}
+const listCol = (homeId: string) => collection(db, `homes/${homeId}/shoppingList`)
 
 export type AddShoppingItemInput = {
   name: string
@@ -17,76 +50,63 @@ export type AddShoppingItemInput = {
   sourceTaskInstanceId?: string | null
 }
 
-/** Adds an item to the home's shopping list (defaults to status 'needed'). */
-export async function addShoppingItem(
-  homeId: string,
-  input: AddShoppingItemInput
-): Promise<ServiceResult<ShoppingListItem>> {
-  const { data, error } = await supabase
-    .from("shopping_list_item")
-    .insert({
-      home_id: homeId,
-      name: input.name.trim(),
-      quantity: input.quantity ?? null,
-      supply_item_id: input.supplyItemId ?? null,
-      source_task_instance_id: input.sourceTaskInstanceId ?? null,
-      status: "needed",
-      deleted_at: null,
-    })
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as ShoppingListItem, error: null }
+export async function addShoppingItem(homeId: string, input: AddShoppingItemInput): Promise<ServiceResult<ShoppingListItem>> {
+  try {
+    const ref = doc(listCol(homeId))
+    const now = serverTimestamp()
+    await writeBatch(db)
+      .set(ref, {
+        name: input.name.trim(),
+        quantity: input.quantity ?? null,
+        supplyItemId: input.supplyItemId ?? null,
+        sourceTaskInstanceId: input.sourceTaskInstanceId ?? null,
+        status: "needed",
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })
+      .commit()
+    const snap = await getDoc(ref)
+    return { data: toItem(homeId, ref.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return err(e)
+  }
 }
 
-/** Lists the home's shopping items, newest first. Excludes bought by default. */
 export async function listShoppingItems(
   homeId: string,
   opts?: { includeBought?: boolean }
 ): Promise<ServiceResult<ShoppingListItem[]>> {
-  let query = supabase
-    .from("shopping_list_item")
-    .select("*")
-    .eq("home_id", homeId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-
-  if (!opts?.includeBought) query = query.neq("status", "bought")
-
-  const { data, error } = await query
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as ShoppingListItem[], error: null }
+  try {
+    const snap = await getDocs(query(listCol(homeId), where("deletedAt", "==", null)))
+    const items = snap.docs
+      .map((d) => toItem(homeId, d.id, d.data()))
+      .filter((i) => (opts?.includeBought ? true : i.status !== "bought"))
+      .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    return { data: items, error: null }
+  } catch (e) {
+    return err(e)
+  }
 }
 
-/** Sets an item's status (needed / have / bought). */
-export async function setShoppingItemStatus(
-  homeId: string,
-  id: string,
-  status: ShoppingStatus
-): Promise<ServiceResult<ShoppingListItem>> {
-  const { data, error } = await supabase
-    .from("shopping_list_item")
-    .update({ status })
-    .eq("home_id", homeId)
-    .eq("id", id)
-    .is("deleted_at", null)
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as ShoppingListItem, error: null }
+export async function setShoppingItemStatus(homeId: string, id: string, status: ShoppingStatus): Promise<ServiceResult<ShoppingListItem>> {
+  try {
+    const ref = doc(db, `homes/${homeId}/shoppingList/${id}`)
+    await writeBatch(db).set(ref, { status, updatedAt: serverTimestamp() }, { merge: true }).commit()
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return { data: null, error: { message: "Item not found" } }
+    return { data: toItem(homeId, ref.id, snap.data()), error: null }
+  } catch (e) {
+    return err(e)
+  }
 }
 
-/** Soft-removes an item from the list. */
 export async function removeShoppingItem(homeId: string, id: string): Promise<ServiceResult<true>> {
-  const { error } = await supabase
-    .from("shopping_list_item")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("home_id", homeId)
-    .eq("id", id)
-    .is("deleted_at", null)
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: true, error: null }
+  try {
+    const now = serverTimestamp()
+    await writeBatch(db).set(doc(db, `homes/${homeId}/shoppingList/${id}`), { deletedAt: now, updatedAt: now }, { merge: true }).commit()
+    return { data: true, error: null }
+  } catch (e) {
+    return err(e)
+  }
 }
