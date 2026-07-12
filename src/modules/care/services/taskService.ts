@@ -40,6 +40,46 @@ function toTaskInstance(homeId: string, id: string, d: DocumentData): TaskInstan
   }
 }
 
+// ── Firestore taskTemplate doc (camelCase) → curated TaskTemplate (snake_case) ──
+// Schedule + supplies are inlined on the template (firestore-model.md §1).
+function toTaskTemplate(homeId: string, id: string, d: DocumentData): TaskTemplate {
+  return {
+    task_template_id: id,
+    home_id: homeId,
+    room_id: d.roomId ?? null,
+    scope_type: (d.scopeType ?? "item_unit") as TaskTemplate["scope_type"],
+    item_unit_id: d.itemUnitId ?? null,
+    title: d.title ?? "",
+    description: d.description ?? null,
+    care_type: (d.careType ?? "maintenance") as TaskTemplate["care_type"],
+    care_type_overridden_at: tiIso(d.careTypeOverriddenAt),
+    justification: d.justification ?? null,
+    symptom_tags: Array.isArray(d.symptomTags) ? d.symptomTags : [],
+    re_check_triggers: d.reCheckTriggers ?? [],
+    priority_tier: (d.priorityTier ?? "recommended") as PriorityTier,
+    risk_level: (d.riskLevel ?? "comfort") as RiskLevel,
+    estimated_minutes: d.estimatedMinutes ?? null,
+    default_assignee: d.defaultAssignee ?? null,
+    instructions_chunk_id: d.instructionsChunkId ?? null,
+    instructions_override: d.instructionsOverride ?? null,
+    steps: Array.isArray(d.steps) ? d.steps : (d.steps ?? null),
+    source_page: typeof d.sourcePage === "number" ? d.sourcePage : null,
+    supplies_mode: (d.suppliesMode ?? "none") as TaskTemplate["supplies_mode"],
+    source: (d.source ?? "manual") as TaskTemplate["source"],
+    is_user_editable: d.isUserEditable ?? true,
+    user_modified_at: tiIso(d.userModifiedAt),
+    is_active: d.isActive ?? true,
+    metadata: d.metadata ?? {},
+    section_category: d.sectionCategory ?? null,
+    applies_to: Array.isArray(d.appliesTo) ? d.appliesTo : [],
+    external_key: d.externalKey ?? null,
+    manual_id: d.manualId ?? null,
+    created_at: tiIso(d.createdAt) ?? "",
+    updated_at: tiIso(d.updatedAt) ?? "",
+    deleted_at: tiIso(d.deletedAt),
+  }
+}
+
 const completeTaskCallable = callable<
   { homeId: string; taskInstanceId: string; completedOn?: string; nextDueOverride?: string | null; completionNotes?: string | null },
   { completedInstanceId: string; nextInstanceId: string | null }
@@ -153,16 +193,16 @@ export async function createTaskTemplate(
  * Fetches task_templates for a home.
  */
 export async function getTaskTemplates(homeId: string): Promise<ServiceResult<TaskTemplate[]>> {
-  const { error, data } = await supabase
-    .from("task_template")
-    .select("*")
-    .eq("home_id", homeId)
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as TaskTemplate[], error: null }
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/taskTemplates`))
+    const list = snap.docs
+      .map((d) => toTaskTemplate(homeId, d.id, d.data()))
+      .filter((t) => t.is_active && t.deleted_at == null)
+      .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    return { data: list, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load task templates" } }
+  }
 }
 
 /**
@@ -172,17 +212,20 @@ export async function getTaskTemplatesByItem(
   homeId: string,
   itemUnitId: string
 ): Promise<ServiceResult<TaskTemplate[]>> {
-  const { error, data } = await supabase
-    .from("task_template")
-    .select("*")
-    .eq("home_id", homeId)
-    .eq("item_unit_id", itemUnitId)
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as TaskTemplate[], error: null }
+  try {
+    // Equality on itemUnitId; is_active/deleted_at filtered client-side to avoid
+    // a composite index.
+    const snap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskTemplates`), where("itemUnitId", "==", itemUnitId))
+    )
+    const list = snap.docs
+      .map((d) => toTaskTemplate(homeId, d.id, d.data()))
+      .filter((t) => t.is_active && t.deleted_at == null)
+      .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    return { data: list, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load task templates" } }
+  }
 }
 
 export type TaskSupplyEmbed = {
@@ -202,17 +245,37 @@ export async function getTaskTemplatesWithSchedulesByItem(
   homeId: string,
   itemUnitId: string
 ): Promise<ServiceResult<TaskTemplateWithSchedule[]>> {
-  const { error, data } = await supabase
-    .from("task_template")
-    .select("*, schedule_rule(schedule_type, interval_days), task_template_supply(quantity, supply_item(name, category, oem_part_number))")
-    .eq("home_id", homeId)
-    .eq("item_unit_id", itemUnitId)
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as TaskTemplateWithSchedule[], error: null }
+  try {
+    const snap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskTemplates`), where("itemUnitId", "==", itemUnitId))
+    )
+    const list = snap.docs
+      .filter((d) => {
+        const x = d.data()
+        return (x.isActive ?? true) && x.deletedAt == null
+      })
+      .map((d) => {
+        const x = d.data()
+        const base = toTaskTemplate(homeId, d.id, x)
+        // Compose the v1 join shapes from the inlined schedule + supplies.
+        const sched = x.schedule as { scheduleType?: string; intervalDays?: number | null } | null
+        const supplies = (x.supplies ?? []) as Array<{ name?: string; category?: string; partNumber?: string | null }>
+        return {
+          ...base,
+          schedule_rule: sched
+            ? [{ schedule_type: sched.scheduleType ?? "as_needed", interval_days: sched.intervalDays ?? null }]
+            : [],
+          task_template_supply: supplies.map((s) => ({
+            quantity: null,
+            supply_item: { name: s.name ?? "", category: s.category ?? "other", oem_part_number: s.partNumber ?? null },
+          })),
+        } as TaskTemplateWithSchedule
+      })
+      .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    return { data: list, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load task templates" } }
+  }
 }
 
 /**
@@ -318,47 +381,46 @@ export async function getTaskInstances(
     priority_tier?: PriorityTier
   }
 ): Promise<ServiceResult<TaskInstanceWithDetails[]>> {
-  const { error, data } = await supabase
-    .from("task_instance")
-    .select(
-      `
-      *,
-      task_template:task_template_id(title, care_type, priority_tier),
-      item_unit:item_unit_id(display_name, room_id, room:room_id(name))
-    `
-    )
-    .eq("home_id", homeId)
-    .is("deleted_at", null)
-    .order("priority_score", { ascending: false })
-    .order("due_date", { ascending: true })
+  try {
+    // Single denormalized read — the instance carries title/careType/priorityTier
+    // /itemName/roomName (firestore-model.md §5), so the v1 template+item+room
+    // joins are already inlined. No caller filters by room_id.
+    const snap = await getDocs(collection(db, `homes/${homeId}/taskInstances`))
+    let instances: TaskInstanceWithDetails[] = snap.docs
+      .filter((d) => d.data().deletedAt == null)
+      .map((d) => {
+        const x = d.data()
+        return {
+          ...toTaskInstance(homeId, d.id, x),
+          task_template: { title: x.title ?? "", care_type: x.careType ?? "", priority_tier: x.priorityTier ?? "" },
+          item_unit: x.itemUnitId
+            ? { display_name: x.itemName ?? "", room_id: null, room: x.roomName ? { name: x.roomName } : null }
+            : null,
+        }
+      })
+      .sort(
+        (a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0) || (a.due_date ?? "").localeCompare(b.due_date ?? "")
+      )
 
-  if (error) return { data: null, error: { message: error.message } }
-  let instances = (data ?? []) as TaskInstanceWithDetails[]
+    if (filters?.status && filters.status.length > 0) {
+      instances = instances.filter((i) => filters.status!.includes(i.status))
+    }
+    if (filters?.item_unit_id) {
+      instances = instances.filter((i) => i.item_unit_id === filters!.item_unit_id)
+    }
+    if (filters?.care_type) {
+      instances = instances.filter((i) => (i.task_template as { care_type?: string })?.care_type === filters!.care_type)
+    }
+    if (filters?.priority_tier) {
+      instances = instances.filter(
+        (i) => (i.task_template as { priority_tier?: string })?.priority_tier === filters!.priority_tier
+      )
+    }
 
-  if (filters?.status && filters.status.length > 0) {
-    instances = instances.filter((i) => filters.status!.includes(i.status))
+    return { data: instances, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load task instances" } }
   }
-  if (filters?.item_unit_id) {
-    instances = instances.filter((i) => i.item_unit_id === filters!.item_unit_id)
-  }
-  if (filters?.room_id) {
-    instances = instances.filter(
-      (i) => (i.item_unit as { room_id?: string } | undefined)?.room_id === filters!.room_id
-    )
-  }
-  if (filters?.care_type) {
-    instances = instances.filter(
-      (i) => (i.task_template as { care_type?: string } | undefined)?.care_type === filters!.care_type
-    )
-  }
-  if (filters?.priority_tier) {
-    instances = instances.filter(
-      (i) =>
-        (i.task_template as { priority_tier?: string } | undefined)?.priority_tier === filters!.priority_tier
-    )
-  }
-
-  return { data: instances, error: null }
 }
 
 export type TaskDetail = {
@@ -680,44 +742,37 @@ export async function getTierChangeHistory(
   itemUnitId: string,
   limit?: number
 ): Promise<ServiceResult<TierChangeHistoryEntry[]>> {
-  const { data, error } = await supabase
-    .from("task_tier_change_log")
-    .select(
-      `
-      id,
-      task_template_id,
-      old_tier,
-      new_tier,
-      source,
-      created_at,
-      task_template:task_template_id(title, item_unit_id)
-    `
-    )
-    .eq("home_id", homeId)
-    .order("created_at", { ascending: false })
-    .limit(limit ?? 20)
+  try {
+    // tierChangeLog docs (homes/{homeId}/tierChangeLog) carry the template ref;
+    // resolve title + item scope from the template to filter to this item.
+    const snap = await getDocs(collection(db, `homes/${homeId}/tierChangeLog`))
+    const logs = snap.docs
+      .map((d) => ({ id: d.id, data: d.data() }))
+      .sort((a, b) => (tiIso(b.data.createdAt) ?? "").localeCompare(tiIso(a.data.createdAt) ?? ""))
 
-  if (error) return { data: null, error: { message: error.message } }
-
-  const entries: TierChangeHistoryEntry[] = []
-  for (const row of data ?? []) {
-    const tpl = row.task_template as unknown as {
-      title: string
-      item_unit_id: string | null
-    } | null
-    if (!tpl || tpl.item_unit_id !== itemUnitId) continue
-    entries.push({
-      id: row.id,
-      taskTemplateId: row.task_template_id,
-      taskTitle: tpl.title,
-      oldTier: row.old_tier as PriorityTier,
-      newTier: row.new_tier as PriorityTier,
-      source: row.source ?? "manual",
-      changedAt: row.created_at ?? "",
-    })
+    const entries: TierChangeHistoryEntry[] = []
+    for (const { id, data: row } of logs) {
+      const tplId: string = row.taskTemplateId ?? ""
+      if (!tplId) continue
+      const tplSnap = await getDoc(doc(db, `homes/${homeId}/taskTemplates/${tplId}`))
+      if (!tplSnap.exists()) continue
+      const tpl = tplSnap.data()
+      if ((tpl.itemUnitId ?? null) !== itemUnitId) continue
+      entries.push({
+        id,
+        taskTemplateId: tplId,
+        taskTitle: tpl.title ?? "",
+        oldTier: row.oldTier as PriorityTier,
+        newTier: row.newTier as PriorityTier,
+        source: row.source ?? "manual",
+        changedAt: tiIso(row.createdAt) ?? "",
+      })
+      if (entries.length >= (limit ?? 20)) break
+    }
+    return { data: entries, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load tier history" } }
   }
-
-  return { data: entries, error: null }
 }
 
 /**
@@ -729,43 +784,34 @@ export async function getCompletionHistory(
   itemUnitId: string,
   limit?: number
 ): Promise<ServiceResult<CompletionHistoryEntry[]>> {
-  const { error, data } = await supabase
-    .from("task_instance")
-    .select(
-      `
-      task_instance_id,
-      completed_at,
-      completion_notes,
-      task_template:task_template_id(title, priority_tier, item_unit_id)
-    `
+  try {
+    // Done instances carry denorm title/priorityTier + itemUnitId — no template
+    // join needed. Equality on status only (avoids a composite index); the item
+    // scope + ordering are applied client-side.
+    const snap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskInstances`), where("status", "==", "done"))
     )
-    .eq("home_id", homeId)
-    .eq("status", "done")
-    .is("deleted_at", null)
-    .order("completed_at", { ascending: false })
-    .limit(limit ?? 20)
-
-  if (error) return { data: null, error: { message: error.message } }
-
-  // Filter to entries whose task_template belongs to this item
-  const entries: CompletionHistoryEntry[] = []
-  for (const row of data ?? []) {
-    const tpl = row.task_template as unknown as {
-      title: string
-      priority_tier: PriorityTier
-      item_unit_id: string | null
-    } | null
-    if (!tpl || tpl.item_unit_id !== itemUnitId) continue
-    entries.push({
-      instanceId: row.task_instance_id,
-      taskTitle: tpl.title,
-      priorityTier: tpl.priority_tier,
-      completedAt: row.completed_at ?? "",
-      completionNotes: row.completion_notes ?? null,
-    })
+    const entries: CompletionHistoryEntry[] = snap.docs
+      .filter((d) => {
+        const x = d.data()
+        return x.deletedAt == null && (x.itemUnitId ?? null) === itemUnitId
+      })
+      .sort((a, b) => (tiIso(b.data().completedAt) ?? "").localeCompare(tiIso(a.data().completedAt) ?? ""))
+      .slice(0, limit ?? 20)
+      .map((d) => {
+        const x = d.data()
+        return {
+          instanceId: d.id,
+          taskTitle: x.title ?? "",
+          priorityTier: (x.priorityTier ?? "recommended") as PriorityTier,
+          completedAt: tiIso(x.completedAt) ?? "",
+          completionNotes: x.completionNotes ?? null,
+        }
+      })
+    return { data: entries, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load completion history" } }
   }
-
-  return { data: entries, error: null }
 }
 
 /**
