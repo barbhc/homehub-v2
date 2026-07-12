@@ -24,8 +24,13 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 
 ## Phase 1 adaptations (deliberate, documented)
 - **Shim instead of per-service stubs:** v1 services compile UNCHANGED against
-  `src/integrations/shim/client.ts` (inert Supabase-shaped client). Rationale: zero churn in 47
-  service files that Phase 5 rewrites anyway; boot verified. Phase 5 gate = zero `@/integrations/shim` imports.
+  `src/integrations/shim/client.ts`. Phase 5 gate = zero `@/integrations/shim` imports.
+  **Phase 5 update:** the shim is now a genuinely INERT hand-written stub (was a real supabase-js
+  client against a placeholder URL, which made unmigrated reads throw "Failed to fetch" and blank
+  whole pages). It resolves every query to `{data:null,error:null}` with no I/O, cast to
+  `SupabaseClient` so call-site typing is unchanged → partially-migrated pages render (empty
+  unmigrated sections) instead of crashing. This is what lets Home/Maintenance render while their
+  secondary loaders are still shimmed.
 - **Seed:** auth-only for now; Firestore writes land with the Phase 2 model doc (seeding before
   the model would freeze a guessed schema). Dataset must stay identical to v1's `e2e/seed-config.ts`.
 - **e2e:** full flow/visual/a11y suites parked until emulator auth+seed (Phase 2/3); `smoke`
@@ -47,7 +52,7 @@ All service files currently compile against the shim (status: `stub`).
 | inventory | manualSourcesService, storageService, ocrService (→callable), planGenerationService, productLookupService (→callable), legacy inventoryService | stub |
 | items / supplies | **itemService = ported** (getItemUnits/getItemUnit/create/update/softDelete on Firestore; camelCase→ItemUnit edge mapper); supplyService = stub | mixed |
 | care | **weekAgenda.getWeekAgenda = ported** (single denormalized read, no joins); taskService (mark/snooze/detail → next), taskScheduleService, homeUpkeep, careNoteService, scheduleService, shoppingListService = stub | mixed |
-| lib (dashboard) | **getDashboardStats + getAllMaintenanceTasks = ported** (denorm reads; unblock /maintenance); getDashboardTasks/getUpcomingTasks/getExpiringWarranties/getHomeNotices = stub | mixed |
+| lib (dashboard) | **getDashboardStats + getAllMaintenanceTasks + getDashboardTasks = ported** (denorm reads; power /maintenance + the Home feed w/ Fix A cap); getUpcomingTasks/getExpiringWarranties/getHomeNotices/getInsights = inert-shim (empty, non-crashing) → swap later | mixed |
 | knowledge | parseManualService — trust-arc API (startParse/watchParse/parseManualAndWait/toUiStage) on Firebase = **ported**; shim `parseManual` still present for 5 callers (Phase 5); manualDocumentService, knowledgeService, chatService, conversationService, detectDocTypeService, diagramRenderService = stub; previewManualService + saveManualParseService = DELETE (worker modes) | mixed |
 | lib | dashboard.ts, cleanSession.ts, userPreferences.ts, nativePush.ts/pushNotifications.ts (Phase 4 FCM) | stub |
 

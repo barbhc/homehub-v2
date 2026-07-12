@@ -325,44 +325,45 @@ export async function getDashboardTasks(
 ): Promise<DashboardTasksResult> {
   const todayStr = today()
 
-  // Fetch scheduled tasks + snoozed tasks whose snooze has expired
-  const { data: instances, error } = await supabase
-    .from("task_instance")
-    .select(`
-      task_instance_id,
-      task_template_id,
-      due_date,
-      task_template:task_template_id(title, priority_tier, risk_level, care_type),
-      item_unit:item_unit_id(display_name, item_unit_id, room:room_id(name))
-    `)
-    .eq("home_id", propertyId)
-    .eq("status", "scheduled")
-    .is("deleted_at", null)
-    .order("priority_score", { ascending: false })
-    .order("due_date", { ascending: true })
+  // One taskInstances read; scheduled rows + completion history derived client-
+  // side from the denormalized fields (§5). risk_level isn't denormed (only used
+  // for a suggested-ordering boost) → null is a safe degrade.
+  const snap = await getDocs(query(collection(db, `homes/${propertyId}/taskInstances`), where("deletedAt", "==", null)))
+  const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
 
-  if (error) throw new Error(`Failed to load tasks: ${error.message}`)
+  const rows: TaskInstanceRow[] = docs
+    .filter((r) => r.status === "scheduled")
+    .sort(
+      (a, b) =>
+        ((b.priorityScore as number) ?? 0) - ((a.priorityScore as number) ?? 0) ||
+        ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? "")
+    )
+    .map((r) => ({
+      task_instance_id: r.id,
+      task_template_id: (r.taskTemplateId as string) ?? "",
+      due_date: (r.dueDate as string) ?? todayStr,
+      task_template: {
+        title: (r.title as string) ?? "Task",
+        priority_tier: (r.priorityTier as string) ?? "optional",
+        risk_level: (r.riskLevel as RiskLevel | null) ?? null,
+        care_type: (r.careType as CareType | null) ?? null,
+      },
+      item_unit: r.itemUnitId
+        ? { display_name: (r.itemName as string) ?? "", item_unit_id: r.itemUnitId as string, room: r.roomName ? { name: r.roomName as string } : undefined }
+        : null,
+    }))
 
-  const rows = (instances ?? []) as unknown as TaskInstanceRow[]
-
-  // Completed-instance history per template, fetched up front: it drives both
-  // the "never started" calm-framing flag on every task and the staleness
-  // ranking for the suggested list below.
-  const { data: doneData } = await supabase
-    .from("task_instance")
-    .select("task_template_id, completed_at")
-    .eq("home_id", propertyId)
-    .eq("status", "done")
-    .not("completed_at", "is", null)
-    .order("completed_at", { ascending: false })
-
+  // Completion history per template — drives the "never started" calm framing +
+  // the staleness ranking for the suggested list.
   const lastByTemplate = new Map<string, string>()
   const completedTemplateIds = new Set<string>()
-  for (const row of (doneData ?? []) as Array<{ task_template_id: string; completed_at: string }>) {
-    completedTemplateIds.add(row.task_template_id)
-    if (!lastByTemplate.has(row.task_template_id)) {
-      lastByTemplate.set(row.task_template_id, row.completed_at.slice(0, 10))
-    }
+  const done = docs
+    .filter((r) => r.status === "done" && r.completedAt instanceof Timestamp)
+    .map((r) => ({ tpl: r.taskTemplateId as string, at: (r.completedAt as Timestamp).toDate().toISOString() }))
+    .sort((a, b) => b.at.localeCompare(a.at))
+  for (const row of done) {
+    completedTemplateIds.add(row.tpl)
+    if (!lastByTemplate.has(row.tpl)) lastByTemplate.set(row.tpl, row.at.slice(0, 10))
   }
 
   const all = rows.map((r) => toDashboardTask(r, todayStr, completedTemplateIds))
