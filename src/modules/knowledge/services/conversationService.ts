@@ -1,15 +1,24 @@
-import { supabase } from "@/integrations/shim/client"
+import {
+  addDoc,
+  collection,
+  doc,
+  getDocs,
+  serverTimestamp,
+  updateDoc,
+  Timestamp,
+  type DocumentData,
+} from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { ChatSource, ChatMessage } from "./chatService"
 
 /**
- * Conversation history for Ask. Backed by the `conversation` /
- * `conversation_message` tables (migration 20260623000001).
+ * Conversation history for Ask. Backed by `homes/{homeId}/chatConversations`
+ * and its `messages` subcollection (firestore-model.md).
  *
- * GRACEFUL DEGRADATION: this feature is optional. If the migration has not been
- * applied to the database yet, every call here returns a "missing" signal
- * instead of throwing, so the Ask page silently falls back to its existing
- * in-memory single-thread behavior. Callers must treat `null` / `unavailable`
- * results as "persistence is off" and never surface an error.
+ * GRACEFUL DEGRADATION: this feature is optional. Every call returns a "missing"
+ * signal (`null` / `false`) instead of throwing on any error, so the Ask page
+ * silently falls back to its in-memory single-thread behavior. Callers must
+ * treat those results as "persistence is off" and never surface an error.
  */
 
 export type ConversationSummary = {
@@ -27,41 +36,55 @@ export type PersistedMessage = {
   created_at: string
 }
 
-/** PostgREST codes that mean "the table/relation isn't there". */
-function isMissingTable(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false
-  // 42P01 = undefined_table (Postgres), PGRST205 = table not found in schema cache.
-  const code = error.code ?? ""
-  if (code === "42P01" || code === "PGRST205" || code === "PGRST204") return true
-  const msg = (error.message ?? "").toLowerCase()
-  return (
-    msg.includes("does not exist") ||
-    msg.includes("not found") ||
-    msg.includes("schema cache")
-  )
+function convoIso(v: unknown): string {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : ""
+}
+
+/** Stored sources are camelCase (seed + our writes); curate to snake_case. */
+function toSources(raw: unknown): ChatSource[] | null {
+  if (!Array.isArray(raw)) return null
+  return raw.map((s: DocumentData) => ({
+    title: s.title ?? "",
+    item_name: s.itemName ?? s.item_name ?? "",
+    source_type: (s.sourceType ?? s.source_type ?? "manual") as ChatSource["source_type"],
+    ...(s.url ? { url: s.url as string } : {}),
+  }))
+}
+
+/** Curated ChatSource → stored camelCase shape. */
+function fromSources(sources: ChatSource[] | null | undefined): DocumentData[] | null {
+  if (!sources || sources.length === 0) return null
+  return sources.map((s) => ({
+    title: s.title,
+    itemName: s.item_name,
+    sourceType: s.source_type,
+    url: s.url ?? null,
+  }))
 }
 
 /**
- * Lists conversations for a home, most-recent first. Returns `null` when
- * persistence is unavailable (table missing or any query error) so the caller
- * can fall back to in-memory mode.
+ * Lists conversations for a home, most-recent first. Returns `null` on any
+ * error so the caller falls back to in-memory mode.
  */
 export async function listConversations(
   homeId: string
 ): Promise<ConversationSummary[] | null> {
   if (!homeId) return null
   try {
-    const { data, error } = await supabase
-      .from("conversation")
-      .select("id, title, created_at, updated_at")
-      .eq("home_id", homeId)
-      .order("updated_at", { ascending: false })
-      .limit(50)
-    if (error) {
-      if (isMissingTable(error)) return null
-      return null
-    }
-    return (data ?? []) as ConversationSummary[]
+    const snap = await getDocs(collection(db, `homes/${homeId}/chatConversations`))
+    return snap.docs
+      .map((d) => {
+        const x = d.data()
+        return {
+          id: d.id,
+          title: x.title ?? "New question",
+          created_at: convoIso(x.createdAt),
+          updated_at: convoIso(x.updatedAt),
+        }
+      })
+      .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
+      .slice(0, 50)
   } catch {
     return null
   }
@@ -72,17 +95,26 @@ export async function listConversations(
  * if persistence is unavailable.
  */
 export async function getConversationMessages(
+  homeId: string,
   conversationId: string
 ): Promise<PersistedMessage[] | null> {
-  if (!conversationId) return null
+  if (!homeId || !conversationId) return null
   try {
-    const { data, error } = await supabase
-      .from("conversation_message")
-      .select("id, role, content, sources, created_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true })
-    if (error) return null
-    return (data ?? []) as PersistedMessage[]
+    const snap = await getDocs(
+      collection(db, `homes/${homeId}/chatConversations/${conversationId}/messages`)
+    )
+    return snap.docs
+      .map((d) => {
+        const x = d.data()
+        return {
+          id: d.id,
+          role: (x.role ?? "user") as "user" | "assistant",
+          content: x.content ?? "",
+          sources: toSources(x.sources),
+          created_at: convoIso(x.createdAt),
+        }
+      })
+      .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))
   } catch {
     return null
   }
@@ -99,13 +131,14 @@ export async function createConversation(
 ): Promise<string | null> {
   if (!homeId) return null
   try {
-    const { data, error } = await supabase
-      .from("conversation")
-      .insert({ home_id: homeId, user_id: userId, title: title.slice(0, 120) || "New question" })
-      .select("id")
-      .single()
-    if (error) return null
-    return (data as { id: string }).id
+    const now = serverTimestamp()
+    const ref = await addDoc(collection(db, `homes/${homeId}/chatConversations`), {
+      userId: userId ?? null,
+      title: title.slice(0, 120) || "New question",
+      createdAt: now,
+      updatedAt: now,
+    })
+    return ref.id
   } catch {
     return null
   }
@@ -116,20 +149,20 @@ export async function createConversation(
  * false (without throwing) when persistence is unavailable.
  */
 export async function appendMessage(
+  homeId: string,
   conversationId: string,
   msg: { role: "user" | "assistant"; content: string; sources?: ChatSource[] | null }
 ): Promise<boolean> {
-  if (!conversationId) return false
+  if (!homeId || !conversationId) return false
   try {
-    const { error } = await supabase.from("conversation_message").insert({
-      conversation_id: conversationId,
+    await addDoc(collection(db, `homes/${homeId}/chatConversations/${conversationId}/messages`), {
       role: msg.role,
       content: msg.content,
-      sources: msg.sources ?? null,
+      sources: fromSources(msg.sources),
+      createdAt: serverTimestamp(),
     })
-    if (error) return false
     // Touch the parent so it sorts to the top of the rail.
-    await touchConversation(conversationId)
+    await touchConversation(homeId, conversationId)
     return true
   } catch {
     return false
@@ -138,29 +171,29 @@ export async function appendMessage(
 
 /** Renames a conversation. Best-effort. */
 export async function renameConversation(
+  homeId: string,
   conversationId: string,
   title: string
 ): Promise<boolean> {
-  if (!conversationId) return false
+  if (!homeId || !conversationId) return false
   try {
-    const { error } = await supabase
-      .from("conversation")
-      .update({ title: title.slice(0, 120) || "New question" })
-      .eq("id", conversationId)
-    return !error
+    await updateDoc(doc(db, `homes/${homeId}/chatConversations/${conversationId}`), {
+      title: title.slice(0, 120) || "New question",
+      updatedAt: serverTimestamp(),
+    })
+    return true
   } catch {
     return false
   }
 }
 
-/** Bumps updated_at so the conversation sorts to the top. Best-effort. */
-export async function touchConversation(conversationId: string): Promise<void> {
-  if (!conversationId) return
+/** Bumps updatedAt so the conversation sorts to the top. Best-effort. */
+export async function touchConversation(homeId: string, conversationId: string): Promise<void> {
+  if (!homeId || !conversationId) return
   try {
-    await supabase
-      .from("conversation")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", conversationId)
+    await updateDoc(doc(db, `homes/${homeId}/chatConversations/${conversationId}`), {
+      updatedAt: serverTimestamp(),
+    })
   } catch {
     /* ignore — persistence optional */
   }

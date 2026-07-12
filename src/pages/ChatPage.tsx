@@ -129,7 +129,7 @@ export default function ChatPage() {
   // became unavailable between listing and selecting.
   const handleSelectConversation = useCallback(async (id: string) => {
     if (isStreaming) return
-    const rows = await getConversationMessages(id)
+    const rows = await getConversationMessages(homeId, id)
     if (!rows) return
     setMessages(toChatMessages(rows))
     setActiveConvoId(id)
@@ -173,7 +173,7 @@ export default function ChatPage() {
           }
         }
         if (convoId) {
-          await appendMessage(convoId, { role: "user", content: text })
+          await appendMessage(homeId, convoId, { role: "user", content: text })
         }
         return convoId
       }
@@ -207,7 +207,7 @@ export default function ChatPage() {
           setIsStreaming(false)
           void persistPromise.then(async (convoId) => {
             if (!convoId) return
-            await appendMessage(convoId, { role: "assistant", content: finalContent, sources })
+            await appendMessage(homeId, convoId, { role: "assistant", content: finalContent, sources })
             void refreshConversations()
           })
         },
