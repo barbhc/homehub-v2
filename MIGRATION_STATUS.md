@@ -255,15 +255,16 @@ swap adds a spec here instead of relying on boot smoke.
 Three buckets:
 
 **A. Tractable pure-Firestore swaps (no blockers) — continue these:**
-- care: `careNoteService` (thread homeId into getCareNotesByItem/update/delete), `shoppingListService`,
-  `scheduleService`, `taskScheduleService`, `getTaskDetail`+`getTaskInstances`+`getTaskTemplates`
-  (rest of taskService), `cleanSession.ts`.
-- home tail: `homeProfileService`, `inviteService` (+ AcceptInvite callable for cross-boundary join),
-  `HomeOnboarding.tsx`.
-- knowledge: `manualDocumentService`, `knowledgeService`, `conversationService` (reads).
-- supplies: `supplyService`. lib: `userPreferences`, `useUserLevel` (interface_level → users/{uid}/private),
-  `useServiceProviders`. inventory: `storageService` (Cloud Storage), legacy `inventoryService`.
-- misc components/pages reading the above (drop shim import once their service is swapped).
+- DONE this pass: `careNoteService`, `shoppingListService`, `homeUpkeep`, `userPreferences`,
+  `useUserLevel`, `useServiceProviders`, `supplyService`, dashboard Home reads.
+- STILL TODO: `scheduleService`, `taskScheduleService`, `getTaskDetail`+`getTaskInstances`+
+  `getTaskTemplates` (rest of taskService), `cleanSession.ts`; home tail `homeProfileService`,
+  `inviteService` (+ AcceptInvite callable), `HomeOnboarding.tsx`; knowledge reads
+  `manualDocumentService` (thread homeId; manuals now under homes/{homeId}/manuals),
+  `knowledgeService` (large, multi-table — getChunksByManual/ByItem, FAQs, getKnowledgeChunksByHome;
+  reclassify/convert touch schedule + parse_correction), `conversationService`; inventory
+  `storageService` (Cloud Storage), legacy `inventoryService`; misc components/pages + `TaskDetailSheet`,
+  `AddNoteSheet` (create paths), `ParseReviewStep`.
 
 **B. Blocked on Phase 4 callable ports (need v1 edge-fn source + live API keys):**
 - `chatService` (chat-query SSE), `ocrService`, `productLookupService`, `detectDocTypeService`,
