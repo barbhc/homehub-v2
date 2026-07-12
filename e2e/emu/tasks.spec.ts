@@ -37,4 +37,13 @@ test.describe("emulator e2e — tasks (getWeekAgenda + Fix A)", () => {
       page.getByText("Flush the water heater").filter(visible)
     ).toBeVisible({ timeout: 10_000 })
   })
+
+  test("Fix C — the 'Start here' banner renders for a genuinely overdue essential", async ({ page }) => {
+    await page.goto("/maintenance")
+    // The seeded furnace filter has a PRIOR completion, so its past-due instance
+    // is genuinely overdue → computeInsight surfaces the "Start here" nudge.
+    // (A never-completed essential would be calm "Start anytime" — no banner.)
+    await expect(page.getByText("Start here").filter(visible)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(/essential task is overdue/i).filter(visible)).toBeVisible()
+  })
 })

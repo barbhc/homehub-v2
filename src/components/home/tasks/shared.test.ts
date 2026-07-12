@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { applyTierFilter, isFocusTask } from "./shared"
+import { applyTierFilter, isFocusTask, computeInsight } from "./shared"
 import type { WeekAgendaItem } from "@/modules/care"
 
 /** Minimal WeekAgendaItem factory — only the fields the tier filter reads. */
@@ -64,5 +64,42 @@ describe("applyTierFilter", () => {
     const calmOnly = [recommended, optional]
     expect(applyTierFilter(calmOnly, "focus", "all")).toHaveLength(0)
     expect(applyTierFilter(calmOnly, "all", "all")).toHaveLength(2)
+  })
+})
+
+// Fix C: the "Start here" banner surfaces ONLY for genuinely-overdue essentials.
+// A never-completed essential is calm "Start anytime" (isOverdue false), NOT
+// overdue — so the banner correctly stays hidden for it. The root cause of the
+// stale v1 spec was expecting "Start here" with essentials that were never
+// overdue (no completion history).
+describe("computeInsight (Fix C — Start here nudge)", () => {
+  it("2 overdue essentials → kind: start, 'Start here'", () => {
+    const tasks = [
+      task({ priorityTier: "essential", isOverdue: true }),
+      task({ priorityTier: "essential", isOverdue: true }),
+    ]
+    const insight = computeInsight(tasks)
+    expect(insight.kind).toBe("start")
+    expect(insight.label).toBe("Start here")
+    expect(insight.text).toMatch(/2 essential tasks are overdue/)
+  })
+
+  it("1 overdue essential → 'Start here' (singular copy)", () => {
+    const insight = computeInsight([task({ priorityTier: "essential", isOverdue: true })])
+    expect(insight.kind).toBe("start")
+    expect(insight.text).toMatch(/1 essential task is overdue/)
+  })
+
+  it("essentials that are past-due but NEVER completed are NOT overdue → calm", () => {
+    // isOverdue is false (the calm default for never-started work), so no banner.
+    const tasks = [
+      task({ priorityTier: "essential", isOverdue: false, pastDue: true }),
+      task({ priorityTier: "essential", isOverdue: false, pastDue: true }),
+    ]
+    expect(computeInsight(tasks).kind).toBe("calm")
+  })
+
+  it("no overdue essentials → calm 'Good to know'", () => {
+    expect(computeInsight([task({ priorityTier: "recommended", isOverdue: true })]).kind).toBe("calm")
   })
 })

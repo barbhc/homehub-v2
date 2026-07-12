@@ -142,10 +142,15 @@ type TaskSeed = {
   schedule: "weekly" | "monthly" | "quarterly" | "semiannual" | "annual" | "seasonal" | "every_n_days"
   season?: "spring" | "summer" | "fall" | "winter"; intervalDays?: number
   dueOffset: number; status?: "scheduled" | "done"; safety?: boolean; justification?: string
+  /** Seed a PRIOR completed instance for this template so its current past-due
+   *  instance reads as genuinely OVERDUE (isOverdue needs a completed sibling —
+   *  a never-started essential is calm "Start anytime", not overdue). Drives the
+   *  "Start here" insight banner (fix C). */
+  priorCompletion?: boolean
 }
 async function seedTasks(items: Record<string, { id: string; name: string; room: string }>): Promise<void> {
   const tasks: TaskSeed[] = [
-    { title: "Replace HVAC furnace filter", scope: "item_unit", itemKey: "furnace", care: "maintenance", tier: "essential", risk: "prevent_damage", minutes: 10, schedule: "monthly", dueOffset: -5, justification: "A clogged filter strains the blower and cuts efficiency." },
+    { title: "Replace HVAC furnace filter", scope: "item_unit", itemKey: "furnace", care: "maintenance", tier: "essential", risk: "prevent_damage", minutes: 10, schedule: "monthly", dueOffset: -5, priorCompletion: true, justification: "A clogged filter strains the blower and cuts efficiency." },
     { title: "Test smoke & CO detectors", scope: "home", care: "maintenance", tier: "essential", risk: "safety", minutes: 10, schedule: "semiannual", dueOffset: -2, safety: true, justification: "Working detectors are your first warning in a fire or CO leak." },
     { title: "Flush the water heater", scope: "item_unit", itemKey: "waterheater", care: "maintenance", tier: "recommended", risk: "prevent_damage", minutes: 45, schedule: "annual", dueOffset: 4, justification: "Sediment buildup shortens tank life and raises energy use." },
     { title: "Service AC before summer", scope: "item_unit", itemKey: "furnace", care: "maintenance", tier: "recommended", risk: "performance", minutes: 60, schedule: "seasonal", season: "summer", dueOffset: 6, justification: "A pre-season check keeps cooling reliable through the heat." },
@@ -238,6 +243,38 @@ async function seedTasks(items: Record<string, { id: string; name: string; room:
       updatedAt: NOW,
       deletedAt: null,
     })
+
+    // Prior completed instance → the current past-due one becomes genuinely
+    // OVERDUE (getWeekAgenda's isOverdue needs a completed sibling), driving the
+    // "Start here" insight banner (fix C).
+    if (t.priorCompletion) {
+      await db.doc(`homes/${HOME_ID}/taskInstances/done-${String(i - 1).padStart(2, "0")}-${slug(t.title)}`).set({
+        taskTemplateId: tplId,
+        itemUnitId: item?.id ?? null,
+        status: "done",
+        dueDate: dayOffset(t.dueOffset - 30), // previous cycle
+        windowStart: null,
+        windowEnd: null,
+        snoozedUntil: null,
+        priorityScore,
+        isSafetyCritical: t.safety ?? false,
+        completedAt: Timestamp.fromDate(new Date(`${dayOffset(t.dueOffset - 30)}T17:00:00Z`)),
+        completionNotes: null,
+        completionPhotos: [],
+        assignedTo: null,
+        title: t.title,
+        priorityTier: t.tier,
+        careType: t.care,
+        scopeType: t.scope,
+        estimatedMinutes: t.minutes,
+        scheduleType: t.schedule,
+        itemName,
+        roomName,
+        createdAt: NOW,
+        updatedAt: NOW,
+        deletedAt: null,
+      })
+    }
   }
 }
 

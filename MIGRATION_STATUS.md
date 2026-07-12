@@ -234,8 +234,16 @@ swap adds a spec here instead of relying on boot smoke.
   **4 emulator tests** (functions suite now 13/13). Client wired (tsc green); the browser calls the
   callable, so a full click-through needs the functions emulator in e2e (deferred — the callable core
   is emulator-tested directly).
+- **Fix C DONE (root cause: test-stale)**: the "Start here" banner shows only for
+  `isOverdue && essential`, and `isOverdue` (getWeekAgenda) requires a PRIOR completion — by the
+  calm design a never-started essential is "Start anytime", not overdue. The v1 seed gave its
+  essentials no completion history, so `computeInsight` correctly returned "calm" and the banner
+  correctly hid; the old spec's "2 overdue essentials" premise was never true. Fix: seed a prior
+  completion for the furnace filter (`priorCompletion`) so one essential is genuinely overdue →
+  banner surfaces for a real reason. Added `computeInsight` unit tests (4) + an emu spec asserting
+  the banner. Emu suite now **6/6**; vitest 127/127.
 - Remaining in tasks/care: getTaskDetail, cleanSession.ts, homeUpkeep.ts, the rest of dashboard.ts
-  (Home feed), and **Fix C** (the nudge — diagnose on the emulator harness now that tasks render).
+  (Home feed).
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now
