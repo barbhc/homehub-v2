@@ -1,5 +1,6 @@
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { splitCautions, type SplitSteps } from "@/lib/cautions"
+import { storageDownloadUrl } from "@/integrations/firebase"
 
 export type EditableField =
   | "display_name"
@@ -61,9 +62,7 @@ export const tierTextStyles = {
 export type TierKey = "essential" | "recommended" | "optional"
 
 export function getPhotoUrl(photoStorageRef: string | null): string | null {
-  if (!photoStorageRef) return null
-  const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? ""
-  return base ? `${base}/storage/v1/object/public/Manuals/${photoStorageRef.replace(/^\//, "")}` : null
+  return storageDownloadUrl(photoStorageRef)
 }
 
 export function formatDate(iso: string | null): string | null {

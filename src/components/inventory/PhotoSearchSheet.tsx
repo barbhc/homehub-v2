@@ -19,6 +19,7 @@ interface PhotoSearchSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   defaultQuery: string
+  homeId: string
   itemId: string
   userId?: string | null
   onPhotoSaved: (path: string) => void
@@ -28,6 +29,7 @@ export function PhotoSearchSheet({
   open,
   onOpenChange,
   defaultQuery,
+  homeId,
   itemId,
   userId,
   onPhotoSaved,
@@ -64,6 +66,7 @@ export function PhotoSearchSheet({
     setError(null)
 
     const result = await saveProductPhotoFromUrl(
+      homeId,
       itemId,
       images[selectedIdx].imageUrl,
       userId

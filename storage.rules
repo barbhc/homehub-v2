@@ -1,11 +1,23 @@
 rules_version = '2';
 
-// Phase 1 placeholder — DENY ALL. Real rules land with Phase 2 (membership
-// checks mirroring the Manuals/photos path conventions).
+// v2 Storage rules. v1's `Manuals` bucket was PUBLIC-read (the app + parse edge
+// functions fetched manuals/photos by public URL), so we mirror that posture:
+// public read, authenticated write. The parse worker fetches upload PDFs via the
+// Admin SDK (bypasses rules), so reads here are only for client display.
+//
+// Path conventions (preserved from v1):
+//   {userId}/{itemId}/manual_*.{ext}     — manual PDFs
+//   photos/{userId}/{itemId}/photo.{ext} — item photos
+//   receipts/{itemUnitId}/*              — receipts
+//   images/{manualId}/page_*.jpg         — rendered diagram pages
+//
+// Follow-up (deferred): tighten write to per-user / per-home path scoping once
+// the sharing model is enabled.
 service firebase.storage {
   match /b/{bucket}/o {
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }

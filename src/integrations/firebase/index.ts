@@ -1,5 +1,5 @@
 export { firebaseApp, USE_EMULATORS } from "./app"
 export { auth } from "./auth"
 export { db, collRef, docRef } from "./firestore"
-export { storage } from "./storage"
+export { storage, storageDownloadUrl } from "./storage"
 export { functions, callable } from "./functions"

@@ -208,7 +208,7 @@ export function HeroCard({
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const res = await uploadItemPhoto(item.item_unit_id, file, userId ?? null)
+    const res = await uploadItemPhoto(homeId, item.item_unit_id, file, userId ?? null)
     if (res.data) {
       onItemUpdate({ ...item, photo_storage_ref: res.data.path })
     }
@@ -710,6 +710,7 @@ export function HeroCard({
         open={photoSearchOpen}
         onOpenChange={setPhotoSearchOpen}
         defaultQuery={photoSearchQuery}
+        homeId={homeId}
         itemId={item.item_unit_id}
         userId={userId}
         onPhotoSaved={handlePhotoSearchSaved}

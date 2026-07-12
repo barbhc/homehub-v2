@@ -16,15 +16,13 @@ import {
 } from "@/modules/care"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { uploadManualPdfWithUrl } from "@/modules/inventory/services/storageService"
+import { storageDownloadUrl } from "@/integrations/firebase"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import type { KnowledgeChunk, ManualDocument } from "@/integrations/types"
 
 export function getManualUrl(sourceType: string, sourceRef: string): string | null {
   if (sourceType === "url") return sourceRef
-  if (sourceType === "upload" && sourceRef) {
-    const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? ""
-    return base ? `${base}/storage/v1/object/public/Manuals/${sourceRef.replace(/^\//, "")}` : null
-  }
+  if (sourceType === "upload" && sourceRef) return storageDownloadUrl(sourceRef)
   return null
 }
 

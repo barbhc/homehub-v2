@@ -19,6 +19,7 @@ import { useAuth } from "@/modules/auth"
 import { createItem } from "@/modules/inventory/services/inventoryService"
 import { createTasksFromEditable } from "@/modules/care"
 import { uploadManualPdf, removeManualPdf } from "@/modules/inventory/services/storageService"
+import { storageDownloadUrl } from "@/integrations/firebase"
 import { deleteManualDocument } from "@/modules/knowledge/services/manualDocumentService"
 import { createManualDocument, parseManualAndWait, getChunksByItem, detectDocType, type DocType, type ParsedConfidence } from "@/modules/knowledge"
 import { getTaskTemplatesWithSchedulesByItem, type TaskTemplateWithSchedule } from "@/modules/care"
@@ -292,10 +293,7 @@ export default function SmartAddItem() {
             sourceRef = uploadRes.data.path
             sourceType = "upload"
             uploadFilename = choice.file.name
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "")
-            if (supabaseUrl) {
-              firstUrl = `${supabaseUrl}/storage/v1/object/public/Manuals/${sourceRef}`
-            }
+            firstUrl = storageDownloadUrl(sourceRef) ?? firstUrl
             uploadPaths.push(sourceRef)
           } else {
             sourceRef = choice.url
