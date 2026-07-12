@@ -554,26 +554,29 @@ export async function getUpcomingTasks(propertyId: string): Promise<MaintenanceT
   const todayStr = today()
   const in30Days = addDays(todayStr, 30)
 
-  const { data, error } = await supabase
-    .from("task_instance")
-    .select(`
-      task_instance_id,
-      task_template_id,
-      due_date,
-      item_unit_id,
-      task_template:task_template_id(title, priority_tier, notes, care_type),
-      item_unit:item_unit_id(display_name, room_id, room:room_id(name))
-    `)
-    .eq("home_id", propertyId)
-    .eq("status", "scheduled")
-    .gte("due_date", todayStr)
-    .lte("due_date", in30Days)
-    .is("deleted_at", null)
-    .order("due_date", { ascending: true })
-
-  if (error) throw new Error(`Failed to load upcoming tasks: ${error.message}`)
-
-  return ((data ?? []) as unknown as TaskInstanceFull[]).map((r) => toMaintenanceTaskFull(r, todayStr, null, 0))
+  const snap = await getDocs(query(collection(db, `homes/${propertyId}/taskInstances`), where("deletedAt", "==", null)))
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
+    .filter((r) => r.status === "scheduled" && (r.dueDate as string) >= todayStr && (r.dueDate as string) <= in30Days)
+    .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
+    .map((r) => {
+      const row: TaskInstanceFull = {
+        task_instance_id: r.id,
+        task_template_id: (r.taskTemplateId as string) ?? "",
+        due_date: (r.dueDate as string) ?? todayStr,
+        item_unit_id: (r.itemUnitId as string | null) ?? null,
+        task_template: {
+          title: (r.title as string) ?? "Task",
+          priority_tier: (r.priorityTier as string) ?? "optional",
+          notes: null,
+          care_type: (r.careType as CareType | null) ?? null,
+        },
+        item_unit: r.itemUnitId
+          ? { display_name: (r.itemName as string) ?? "", room_id: null, room: r.roomName ? { name: r.roomName as string } : null }
+          : null,
+      }
+      return toMaintenanceTaskFull(row, todayStr, null, 0)
+    })
 }
 
 export async function getAllMaintenanceTasks(propertyId: string): Promise<MaintenanceTaskFull[]> {
@@ -638,29 +641,21 @@ export async function getExpiringWarranties(homeId: string): Promise<ExpiringWar
   const todayStr = today()
   const cutoffEnd = addDays(todayStr, WARRANTY_UPCOMING_DAYS)
 
-  const { data, error } = await supabase
-    .from("item_unit")
-    .select("item_unit_id, display_name, warranty_expiry_date")
-    .eq("home_id", homeId)
-    .is("deleted_at", null)
-    .not("warranty_expiry_date", "is", null)
-    .gte("warranty_expiry_date", todayStr)
-    .lte("warranty_expiry_date", cutoffEnd)
-    .order("warranty_expiry_date", { ascending: true })
-
-  if (error) throw new Error(`Failed to load expiring warranties: ${error.message}`)
-
-  return ((data ?? []) as Array<{ item_unit_id: string; display_name: string; warranty_expiry_date: string }>).map(
-    (row) => ({
-      item_unit_id: row.item_unit_id,
-      display_name: row.display_name,
-      warranty_expiry_date: row.warranty_expiry_date,
-      days_remaining: (() => {
-        const [y, m, d] = row.warranty_expiry_date.split("-").map(Number)
-        return Math.ceil((new Date(y, m - 1, d).getTime() - Date.now()) / 86400000)
-      })(),
+  const snap = await getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null)))
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
+    .filter((r) => typeof r.warrantyExpiryDate === "string" && r.warrantyExpiryDate >= todayStr && r.warrantyExpiryDate <= cutoffEnd)
+    .sort((a, b) => (a.warrantyExpiryDate as string).localeCompare(b.warrantyExpiryDate as string))
+    .map((r) => {
+      const expiry = r.warrantyExpiryDate as string
+      const [y, m, d] = expiry.split("-").map(Number)
+      return {
+        item_unit_id: r.id,
+        display_name: (r.displayName as string) ?? "Item",
+        warranty_expiry_date: expiry,
+        days_remaining: Math.ceil((new Date(y, m - 1, d).getTime() - Date.now()) / 86400000),
+      }
     })
-  )
 }
 
 /**
@@ -685,45 +680,21 @@ export interface HomeNotices {
 }
 
 export async function getHomeNotices(homeId: string): Promise<HomeNotices> {
-  const { data, error } = await supabase
-    .from("item_unit")
-    .select(
-      "item_unit_id, display_name, recall_status, recall_notes, purchase_date, warranty_expiry_date, warranty_duration_months"
-    )
-    .eq("home_id", homeId)
-    .is("deleted_at", null)
-
-  if (error) throw new Error(`Failed to load home notices: ${error.message}`)
-
-  type Row = {
-    item_unit_id: string
-    display_name: string | null
-    recall_status: string | null
-    recall_notes: string | null
-    purchase_date: string | null
-    warranty_expiry_date: string | null
-    warranty_duration_months: number | null
-  }
-  const rows = (data ?? []) as Row[]
+  const snap = await getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null)))
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
 
   const recalls: RecallNotice[] = rows
-    .filter((r) => r.recall_status === "found")
+    .filter((r) => r.recallStatus === "found")
     .map((r) => ({
-      item_unit_id: r.item_unit_id,
-      display_name: r.display_name ?? "Item",
-      recall_notes: r.recall_notes,
+      item_unit_id: r.id,
+      display_name: (r.displayName as string) ?? "Item",
+      recall_notes: (r.recallNotes as string | null) ?? null,
     }))
 
   // Missing purchase details = no purchase date AND no warranty info on file.
-  // These are the items that can't yet power warranty tracking / recall checks.
   const missingDetails: ItemMissingDetails[] = rows
-    .filter(
-      (r) =>
-        !r.purchase_date &&
-        !r.warranty_expiry_date &&
-        r.warranty_duration_months == null
-    )
-    .map((r) => ({ item_unit_id: r.item_unit_id, display_name: r.display_name ?? "Item" }))
+    .filter((r) => !r.purchaseDate && !r.warrantyExpiryDate && r.warrantyDurationMonths == null)
+    .map((r) => ({ item_unit_id: r.id, display_name: (r.displayName as string) ?? "Item" }))
 
   return { recalls, missingDetails }
 }
@@ -732,29 +703,18 @@ export async function getHomeNotices(homeId: string): Promise<HomeNotices> {
 export async function getItemIdsWithTasks(homeId: string): Promise<Set<string>> {
   const ids = new Set<string>()
 
-  const [instancesRes, templatesRes] = await Promise.all([
-    supabase
-      .from("task_instance")
-      .select("item_unit_id")
-      .eq("home_id", homeId)
-      .in("status", ["scheduled", "snoozed"])
-      .is("deleted_at", null)
-      .not("item_unit_id", "is", null),
-    supabase
-      .from("task_template")
-      .select("item_unit_id")
-      .eq("home_id", homeId)
-      .eq("scope_type", "item_unit")
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .not("item_unit_id", "is", null),
+  const [instSnap, tplSnap] = await Promise.all([
+    getDocs(query(collection(db, `homes/${homeId}/taskInstances`), where("deletedAt", "==", null))),
+    getDocs(query(collection(db, `homes/${homeId}/taskTemplates`), where("deletedAt", "==", null))),
   ])
 
-  for (const row of (instancesRes.data ?? []) as Array<{ item_unit_id: string }>) {
-    if (row.item_unit_id) ids.add(row.item_unit_id)
+  for (const d of instSnap.docs) {
+    const r = d.data()
+    if ((r.status === "scheduled" || r.status === "snoozed") && r.itemUnitId) ids.add(r.itemUnitId as string)
   }
-  for (const row of (templatesRes.data ?? []) as Array<{ item_unit_id: string }>) {
-    if (row.item_unit_id) ids.add(row.item_unit_id)
+  for (const d of tplSnap.docs) {
+    const r = d.data()
+    if (r.scopeType === "item_unit" && r.isActive !== false && r.itemUnitId) ids.add(r.itemUnitId as string)
   }
   return ids
 }
