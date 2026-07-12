@@ -369,7 +369,7 @@ export default function Maintenance() {
         const errors: string[] = []
         await Promise.all(
           templateIds.map(async (templateId) => {
-            const r = await updateTaskSchedule(templateId, { priorityTier })
+            const r = await updateTaskSchedule(propertyId ?? "", templateId, { priorityTier })
             if (r.error) errors.push(r.error.message)
           })
         )
@@ -703,6 +703,7 @@ export default function Maintenance() {
 
       <TaskDetailSheet
         task={detailTask}
+        homeId={propertyId ?? ""}
         open={detailOpen}
         startEdit={detailStartEdit}
         onOpenChange={(next) => {

@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/shim/client"
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore"
+import { db, auth } from "@/integrations/firebase"
 import type {
   PriorityTier,
   RiskLevel,
@@ -53,154 +54,186 @@ function computeDueDate(schedule: ScheduleInput): string {
 export async function createTaskFromNote(
   input: CreateTaskFromNoteInput
 ): Promise<ServiceResult<{ taskTemplateId: string }>> {
-  const { data: tmpl, error: tmplErr } = await supabase
-    .from("task_template")
-    .insert({
-      home_id: input.homeId,
-      room_id: input.roomId ?? null,
-      item_unit_id: input.itemUnitId ?? null,
-      scope_type: input.itemUnitId ? "item_unit" : "home",
+  try {
+    const scopeType = input.itemUnitId ? "item_unit" : "home"
+    const careType = input.careType ?? "cleaning"
+    const intervalDays =
+      input.schedule.scheduleType === "every_n_days" ? (input.schedule.intervalDays ?? 30) : null
+
+    // Denormalize item/room onto the instance (firestore-model.md §5).
+    let itemName: string | null = null
+    let roomName: string | null = null
+    if (input.itemUnitId) {
+      const itemSnap = await getDoc(doc(db, `homes/${input.homeId}/items/${input.itemUnitId}`))
+      if (itemSnap.exists()) {
+        itemName = itemSnap.data().displayName ?? null
+        const roomId = itemSnap.data().roomId
+        if (roomId) {
+          const roomSnap = await getDoc(doc(db, `homes/${input.homeId}/rooms/${roomId}`))
+          roomName = roomSnap.exists() ? (roomSnap.data().name ?? null) : null
+        }
+      }
+    }
+
+    const now = serverTimestamp()
+    const tplRef = doc(collection(db, `homes/${input.homeId}/taskTemplates`))
+    const instRef = doc(collection(db, `homes/${input.homeId}/taskInstances`))
+    const dueDate = computeDueDate(input.schedule)
+    const priorityScore =
+      input.priorityTier === "essential" ? 100 : input.priorityTier === "recommended" ? 60 : 30
+
+    const batch = writeBatch(db)
+    batch.set(tplRef, {
+      scopeType,
+      itemUnitId: input.itemUnitId ?? null,
+      roomId: input.roomId ?? null,
       title: input.title,
       description: input.description ?? null,
-      care_type: input.careType ?? "cleaning",
-      priority_tier: input.priorityTier,
-      risk_level: "comfort",
+      careType,
+      careTypeOverriddenAt: null,
+      justification: null,
+      symptomTags: [],
+      reCheckTriggers: [],
+      priorityTier: input.priorityTier,
+      riskLevel: "comfort",
+      estimatedMinutes: null,
+      defaultAssignee: null,
+      instructionsChunkId: null,
+      instructionsOverride: null,
+      steps: null,
+      sourcePage: null,
+      suppliesMode: "none",
+      supplies: [],
       source: "user",
-      supplies_mode: "none",
-      is_user_editable: true,
-      is_active: true,
+      isUserEditable: true,
+      userModifiedAt: null,
+      isActive: true,
+      metadata: {},
+      manualId: null,
+      externalKey: null,
+      schedule: {
+        scheduleType: input.schedule.scheduleType,
+        intervalDays,
+        anchorDate: new Date().toISOString().slice(0, 10),
+        season: null,
+        windowDaysBefore: 7,
+        windowDaysAfter: 14,
+      },
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
     })
-    .select("task_template_id")
-    .single()
-  if (tmplErr || !tmpl)
-    return { data: null, error: { message: tmplErr?.message ?? "Failed to create task" } }
-
-  const { error: schedErr } = await supabase.from("schedule_rule").insert({
-    task_template_id: tmpl.task_template_id,
-    schedule_type: input.schedule.scheduleType,
-    interval_days:
-      input.schedule.scheduleType === "every_n_days"
-        ? (input.schedule.intervalDays ?? 30)
-        : null,
-    window_days_before: 7,
-    window_days_after: 14,
-  })
-  if (schedErr) return { data: null, error: { message: schedErr.message } }
-
-  const dueDate = computeDueDate(input.schedule)
-  const priorityScore =
-    input.priorityTier === "essential"
-      ? 100
-      : input.priorityTier === "recommended"
-        ? 60
-        : 30
-  const { error: instErr } = await supabase.from("task_instance").insert({
-    home_id: input.homeId,
-    task_template_id: tmpl.task_template_id,
-    item_unit_id: input.itemUnitId ?? null,
-    status: "scheduled",
-    due_date: dueDate,
-    priority_score: priorityScore,
-    is_safety_critical: false,
-  })
-  if (instErr) return { data: null, error: { message: instErr.message } }
-
-  return { data: { taskTemplateId: tmpl.task_template_id }, error: null }
+    batch.set(instRef, {
+      taskTemplateId: tplRef.id,
+      itemUnitId: input.itemUnitId ?? null,
+      status: "scheduled",
+      dueDate,
+      windowStart: null,
+      windowEnd: null,
+      snoozedUntil: null,
+      priorityScore,
+      isSafetyCritical: false,
+      completedAt: null,
+      completionNotes: null,
+      completionPhotos: [],
+      assignedTo: null,
+      title: input.title,
+      priorityTier: input.priorityTier,
+      careType,
+      scopeType,
+      estimatedMinutes: null,
+      scheduleType: input.schedule.scheduleType,
+      itemName,
+      roomName,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
+    await batch.commit()
+    return { data: { taskTemplateId: tplRef.id }, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to create task" } }
+  }
 }
 
 export async function updateTaskSchedule(
+  homeId: string,
   taskTemplateId: string,
   updates: { priorityTier?: PriorityTier; schedule?: ScheduleInput; estimatedMinutes?: number | null; riskLevel?: RiskLevel },
   source: string = "manual"
 ): Promise<ServiceResult<true>> {
-  if (updates.priorityTier) {
-    // Fetch current tier + home_id before updating so we can log the change
-    const { data: current } = await supabase
-      .from("task_template")
-      .select("priority_tier, home_id")
-      .eq("task_template_id", taskTemplateId)
-      .single()
+  try {
+    const tplRef = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const snap = await getDoc(tplRef)
+    if (!snap.exists()) return { data: null, error: { message: "Task template not found" } }
+    const current = snap.data()
 
-    const { error } = await supabase
-      .from("task_template")
-      .update({
-        priority_tier: updates.priorityTier,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("task_template_id", taskTemplateId)
-    if (error) return { data: null, error: { message: error.message } }
+    const batch = writeBatch(db)
+    const fields: Record<string, unknown> = { updatedAt: serverTimestamp() }
+    if (updates.priorityTier) fields.priorityTier = updates.priorityTier
+    if (updates.estimatedMinutes !== undefined) fields.estimatedMinutes = updates.estimatedMinutes
+    if (updates.riskLevel) fields.riskLevel = updates.riskLevel
+    if (updates.schedule) {
+      const existing = (current.schedule ?? {}) as Record<string, unknown>
+      fields.schedule = {
+        ...existing,
+        scheduleType: updates.schedule.scheduleType,
+        intervalDays:
+          updates.schedule.scheduleType === "every_n_days" ? (updates.schedule.intervalDays ?? 30) : null,
+      }
+    }
+    batch.set(tplRef, fields, { merge: true })
 
-    // Log tier change if the tier actually changed
-    if (current && current.priority_tier !== updates.priorityTier) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user && current.home_id) {
-        await supabase.from("task_tier_change_log").insert({
-          task_template_id: taskTemplateId,
-          home_id: current.home_id,
-          changed_by: user.id,
-          old_tier: current.priority_tier,
-          new_tier: updates.priorityTier,
+    // Log a tier change (homes/{homeId}/tierChangeLog) when it actually changes.
+    if (updates.priorityTier && current.priorityTier !== updates.priorityTier) {
+      const uid = auth.currentUser?.uid
+      if (uid) {
+        const logRef = doc(collection(db, `homes/${homeId}/tierChangeLog`))
+        batch.set(logRef, {
+          taskTemplateId,
+          changedBy: uid,
+          oldTier: current.priorityTier,
+          newTier: updates.priorityTier,
           source,
+          createdAt: serverTimestamp(),
         })
       }
     }
+
+    // Re-anchor open instances' due date when the cadence changed.
+    if (updates.schedule) {
+      const newDue = computeDueDate(updates.schedule)
+      const openSnap = await getDocs(
+        query(collection(db, `homes/${homeId}/taskInstances`), where("taskTemplateId", "==", taskTemplateId))
+      )
+      for (const d of openSnap.docs) {
+        const st = d.data().status
+        if ((st === "scheduled" || st === "snoozed") && d.data().deletedAt == null) {
+          batch.set(d.ref, { dueDate: newDue, scheduleType: updates.schedule.scheduleType, updatedAt: serverTimestamp() }, { merge: true })
+        }
+      }
+    }
+
+    await batch.commit()
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update schedule" } }
   }
-
-  if (updates.estimatedMinutes !== undefined) {
-    const { error: minErr } = await supabase
-      .from("task_template")
-      .update({ estimated_minutes: updates.estimatedMinutes, updated_at: new Date().toISOString() })
-      .eq("task_template_id", taskTemplateId)
-    if (minErr) return { data: null, error: { message: minErr.message } }
-  }
-
-  if (updates.riskLevel) {
-    const { error: riskErr } = await supabase
-      .from("task_template")
-      .update({ risk_level: updates.riskLevel, updated_at: new Date().toISOString() })
-      .eq("task_template_id", taskTemplateId)
-    if (riskErr) return { data: null, error: { message: riskErr.message } }
-  }
-
-  if (updates.schedule) {
-    const { error: schedErr } = await supabase
-      .from("schedule_rule")
-      .update({
-        schedule_type: updates.schedule.scheduleType,
-        interval_days:
-          updates.schedule.scheduleType === "every_n_days"
-            ? (updates.schedule.intervalDays ?? 30)
-            : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("task_template_id", taskTemplateId)
-    if (schedErr) return { data: null, error: { message: schedErr.message } }
-
-    const newDue = computeDueDate(updates.schedule)
-    await supabase
-      .from("task_instance")
-      .update({
-        due_date: newDue,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("task_template_id", taskTemplateId)
-      .in("status", ["scheduled", "snoozed"])
-  }
-
-  return { data: true, error: null }
 }
 
 export async function updateTaskNotes(
+  homeId: string,
   taskTemplateId: string,
   notes: string | null
 ): Promise<ServiceResult<void>> {
   // task_template has no free-form `notes` column; the redesign's editable
   // "Notes" maps to the existing instructions_override field.
-  const { error } = await supabase
-    .from("task_template")
-    .update({ instructions_override: notes, updated_at: new Date().toISOString() })
-    .eq("task_template_id", taskTemplateId)
-
-  if (error) return { data: null, error }
-  return { data: undefined as unknown as void, error: null }
+  try {
+    await writeBatch(db)
+      .set(doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`), { instructionsOverride: notes, updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    return { data: undefined as unknown as void, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update notes" } }
+  }
 }

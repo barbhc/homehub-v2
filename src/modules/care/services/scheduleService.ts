@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/shim/client"
+import { collection, doc, getDoc, serverTimestamp, writeBatch, type DocumentData } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { ScheduleRule, ScheduleType, Season } from "@/integrations/types"
 import { computePriorityScore } from "./taskService"
 
@@ -78,18 +79,36 @@ function resolveDueDate(
 /**
  * Fetches schedule_rules for a task_template.
  */
+/** The template's inlined `schedule` object → a v1-shaped ScheduleRule. */
+function scheduleToRule(taskTemplateId: string, s: DocumentData | null | undefined): ScheduleRule | null {
+  if (!s) return null
+  return {
+    schedule_rule_id: taskTemplateId,
+    task_template_id: taskTemplateId,
+    schedule_type: (s.scheduleType ?? "as_needed") as ScheduleType,
+    interval_days: s.intervalDays ?? null,
+    anchor_date: s.anchorDate ?? null,
+    season: (s.season ?? null) as Season | null,
+    window_days_before: s.windowDaysBefore ?? 7,
+    window_days_after: s.windowDaysAfter ?? 14,
+    created_at: "",
+    updated_at: "",
+    deleted_at: null,
+  }
+}
+
 export async function getScheduleRulesByTemplate(
+  homeId: string,
   taskTemplateId: string
 ): Promise<ServiceResult<ScheduleRule[]>> {
-  const { error, data } = await supabase
-    .from("schedule_rule")
-    .select("*")
-    .eq("task_template_id", taskTemplateId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as ScheduleRule[], error: null }
+  try {
+    const snap = await getDoc(doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`))
+    if (!snap.exists() || snap.data().deletedAt != null) return { data: [], error: null }
+    const rule = scheduleToRule(taskTemplateId, snap.data().schedule)
+    return { data: rule ? [rule] : [], error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load schedule" } }
+  }
 }
 
 export type CreateScheduleRuleInput = {
@@ -106,20 +125,26 @@ export type CreateScheduleRuleInput = {
  * Creates a schedule_rule.
  */
 export async function createScheduleRule(
+  homeId: string,
   input: CreateScheduleRuleInput
 ): Promise<ServiceResult<ScheduleRule>> {
-  const { error, data } = await supabase
-    .from("schedule_rule")
-    .insert({
-      ...input,
-      window_days_before: input.window_days_before ?? 7,
-      window_days_after: input.window_days_after ?? 14,
-    })
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as ScheduleRule, error: null }
+  try {
+    // The schedule is inlined on the template — "creating a rule" sets that field.
+    const schedule = {
+      scheduleType: input.schedule_type,
+      intervalDays: input.interval_days ?? null,
+      anchorDate: input.anchor_date ?? todayStr(),
+      season: input.season ?? null,
+      windowDaysBefore: input.window_days_before ?? 7,
+      windowDaysAfter: input.window_days_after ?? 14,
+    }
+    await writeBatch(db)
+      .set(doc(db, `homes/${homeId}/taskTemplates/${input.task_template_id}`), { schedule, updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    return { data: scheduleToRule(input.task_template_id, schedule) as ScheduleRule, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to create schedule" } }
+  }
 }
 
 export type GenerateInstancesInput = {
@@ -141,71 +166,81 @@ export async function generateTaskInstances(
   const today = input.from_date ?? todayStr()
   const toDate = input.to_date ?? addDays(today, 365)
 
-  const { data: template, error: templateErr } = await supabase
-    .from("task_template")
-    .select("*")
-    .eq("task_template_id", input.task_template_id)
-    .eq("home_id", input.home_id)
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .single()
+  try {
+    const tplSnap = await getDoc(doc(db, `homes/${input.home_id}/taskTemplates/${input.task_template_id}`))
+    if (!tplSnap.exists()) return { data: null, error: { message: "Task template not found" } }
+    const tpl = tplSnap.data()
+    if (!(tpl.isActive ?? true) || tpl.deletedAt != null) return { data: null, error: { message: "Task template not found" } }
 
-  if (templateErr || !template) {
-    return { data: null, error: { message: templateErr?.message ?? "Task template not found" } }
-  }
+    const rule = scheduleToRule(input.task_template_id, tpl.schedule)
+    if (!rule) return { data: null, error: { message: "No schedule rules" } }
 
-  const { data: rules, error: rulesErr } = await getScheduleRulesByTemplate(input.task_template_id)
-  if (rulesErr || !rules || rules.length === 0) {
-    return { data: null, error: { message: "No schedule rules" } }
-  }
-
-  const instances: Array<{
-    home_id: string
-    task_template_id: string
-    item_unit_id: string | null
-    status: "scheduled"
-    due_date: string
-    window_start: string | null
-    window_end: string | null
-    priority_score: number
-    is_safety_critical: boolean
-  }> = []
-
-  for (const rule of rules) {
-    const dueDate = resolveDueDate(rule as ScheduleRule, today)
-    if (!dueDate || dueDate < today) continue
-    if (dueDate > toDate) continue
+    const dueDate = resolveDueDate(rule, today)
+    if (!dueDate || dueDate < today || dueDate > toDate) {
+      // Non-recurring types (as_needed/after_each_use/setup) legitimately
+      // produce no scheduled instance — success with count 0.
+      return { data: { count: 0 }, error: null }
+    }
 
     const windowStart = addDays(dueDate, -(rule.window_days_before ?? 7))
     const windowEnd = addDays(dueDate, rule.window_days_after ?? 14)
-
     const { priorityScore, isSafetyCritical } = computePriorityScore(
-      template.priority_tier,
-      template.risk_level,
+      tpl.priorityTier,
+      tpl.riskLevel,
       dueDate,
       windowStart,
       windowEnd,
-      template.estimated_minutes
+      tpl.estimatedMinutes ?? null
     )
 
-    instances.push({
-      home_id: input.home_id,
-      task_template_id: input.task_template_id,
-      item_unit_id: input.item_unit_id ?? template.item_unit_id ?? null,
-      status: "scheduled",
-      due_date: dueDate,
-      window_start: windowStart,
-      window_end: windowEnd,
-      priority_score: priorityScore,
-      is_safety_critical: isSafetyCritical,
-    })
-  }
+    // Denormalize item/room for the instance display set (firestore-model.md §5).
+    const iuId: string | null = input.item_unit_id ?? tpl.itemUnitId ?? null
+    let itemName: string | null = null
+    let roomName: string | null = null
+    if (iuId) {
+      const itemSnap = await getDoc(doc(db, `homes/${input.home_id}/items/${iuId}`))
+      if (itemSnap.exists()) {
+        itemName = itemSnap.data().displayName ?? null
+        const roomId = itemSnap.data().roomId
+        if (roomId) {
+          const roomSnap = await getDoc(doc(db, `homes/${input.home_id}/rooms/${roomId}`))
+          roomName = roomSnap.exists() ? (roomSnap.data().name ?? null) : null
+        }
+      }
+    }
 
-  if (instances.length === 0) {
-    return { data: { count: 0 }, error: null }
+    const now = serverTimestamp()
+    const ref = doc(collection(db, `homes/${input.home_id}/taskInstances`))
+    await writeBatch(db)
+      .set(ref, {
+        taskTemplateId: input.task_template_id,
+        itemUnitId: iuId,
+        status: "scheduled",
+        dueDate,
+        windowStart,
+        windowEnd,
+        snoozedUntil: null,
+        priorityScore,
+        isSafetyCritical,
+        completedAt: null,
+        completionNotes: null,
+        completionPhotos: [],
+        assignedTo: null,
+        title: tpl.title ?? "",
+        priorityTier: tpl.priorityTier ?? "recommended",
+        careType: tpl.careType ?? null,
+        scopeType: tpl.scopeType ?? (iuId ? "item_unit" : "home"),
+        estimatedMinutes: tpl.estimatedMinutes ?? null,
+        scheduleType: rule.schedule_type,
+        itemName,
+        roomName,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })
+      .commit()
+    return { data: { count: 1 }, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to generate instances" } }
   }
-
-  const { error: insertErr } = await supabase.from("task_instance").insert(instances)
-  if (insertErr) return { data: null, error: { message: insertErr.message } }
-  return { data: { count: instances.length }, error: null }
 }

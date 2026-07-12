@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 
 interface TaskDetailSheetProps {
   task: MaintenanceTaskFull | null
+  homeId: string
   open: boolean
   onOpenChange: (open: boolean) => void
   startEdit?: boolean
@@ -31,6 +32,7 @@ function priorityToTier(priority: MaintenanceTaskFull["priority"]): PriorityTier
 
 export function TaskDetailSheet({
   task,
+  homeId,
   open,
   onOpenChange,
   startEdit = false,
@@ -97,7 +99,7 @@ export function TaskDetailSheet({
   const handleNotesSave = async () => {
     if (!task || notesValue === savedNotes) return
     const trimmed = notesValue.trim() || null
-    await updateTaskNotes(task.task_template_id, trimmed)
+    await updateTaskNotes(homeId, task.task_template_id, trimmed)
     setSavedNotes(notesValue)
     setShowSaved(true)
     setTimeout(() => setShowSaved(false), 1500)
@@ -204,6 +206,7 @@ export function TaskDetailSheet({
               <TaskEditPopover
                 open={editPopoverOpen}
                 onOpenChange={setEditPopoverOpen}
+                homeId={homeId}
                 taskTemplateId={task.task_template_id}
                 currentTier={currentTier}
                 currentSchedule={currentSchedule ?? { scheduleType: "as_needed" as ScheduleType }}

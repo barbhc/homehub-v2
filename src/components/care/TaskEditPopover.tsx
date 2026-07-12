@@ -47,6 +47,7 @@ const RISK_OPTIONS: { value: RiskLevel; label: string }[] = [
 interface TaskEditPopoverProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  homeId: string
   taskTemplateId: string
   currentTier: PriorityTier
   currentSchedule: { scheduleType: ScheduleType; intervalDays?: number }
@@ -58,6 +59,7 @@ interface TaskEditPopoverProps {
 export function TaskEditPopover({
   open,
   onOpenChange,
+  homeId,
   taskTemplateId,
   currentTier,
   currentSchedule,
@@ -99,7 +101,7 @@ export function TaskEditPopover({
           ? parseInt(intervalDays, 10) || 30
           : undefined,
     }
-    const res = await updateTaskSchedule(taskTemplateId, {
+    const res = await updateTaskSchedule(homeId, taskTemplateId, {
       priorityTier: tier,
       schedule,
       estimatedMinutes: minutes === "" ? null : Number(minutes),

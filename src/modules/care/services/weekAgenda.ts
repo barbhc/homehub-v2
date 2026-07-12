@@ -162,7 +162,7 @@ export async function createTasksFromEditable(
     }
 
     const sched = frequencyToSchedule(t)
-    const ruleRes = await createScheduleRule({
+    const ruleRes = await createScheduleRule(homeId, {
       task_template_id: tmpl.data.task_template_id,
       schedule_type: sched.schedule_type,
       interval_days: sched.interval_days,

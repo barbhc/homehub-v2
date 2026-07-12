@@ -321,7 +321,7 @@ export function ParseReviewStep({
   const updateTaskTier = async (taskId: string, tier: "essential" | "recommended" | "optional") => {
     const prev = tasks
     onTasksChange(tasks.map((t) => (t.task_template_id === taskId ? { ...t, priority_tier: tier } : t)))
-    const result = await updateTaskSchedule(taskId, { priorityTier: tier }, "import")
+    const result = await updateTaskSchedule(homeId, taskId, { priorityTier: tier }, "import")
     if (result.error) {
       onTasksChange(prev)
       setMutationError("Couldn't update tier. Please try again.")
@@ -342,7 +342,7 @@ export function ParseReviewStep({
           : t
       )
     )
-    const result = await updateTaskSchedule(taskId, { schedule: { scheduleType } })
+    const result = await updateTaskSchedule(homeId, taskId, { schedule: { scheduleType } })
     if (result.error) {
       onTasksChange(prev)
       setMutationError("Couldn't update schedule. Please try again.")

@@ -643,6 +643,7 @@ export function TaskSection({
             <TaskEditPopover
               open={true}
               onOpenChange={(open) => { if (!open) setEditingTaskId(null) }}
+              homeId={homeId}
               taskTemplateId={editingTaskId}
               currentTier={editTask.priority_tier}
               currentSchedule={{
