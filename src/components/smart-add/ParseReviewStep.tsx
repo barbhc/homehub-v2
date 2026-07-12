@@ -278,7 +278,7 @@ export function ParseReviewStep({
     const careType = newBucket === "cleaning" ? "cleaning" : "maintenance"
     const prev = tasks
     onTasksChange(tasks.map((t) => (t.task_template_id === taskId ? { ...t, care_type: careType } : t)))
-    const result = await updateTaskCareType(taskId, careType)
+    const result = await updateTaskCareType(homeId, taskId, careType)
     if (result.error) {
       onTasksChange(prev)
       setMutationError("Couldn't update task type. Please try again.")

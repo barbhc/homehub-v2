@@ -50,6 +50,7 @@ function getCorsProxiedUrl(pdfUrl: string): string {
 }
 
 export async function renderAndStoreDiagrams(
+  homeId: string,
   pdfUrl: string,
   manualId: string,
   targets: DiagramTarget[],
@@ -105,7 +106,7 @@ export async function renderAndStoreDiagrams(
     if (target.type === "chunk") {
       await updateChunkDiagramUrls(target.id, imageUrls)
     } else {
-      await updateTaskDiagramUrls(target.id, imageUrls)
+      await updateTaskDiagramUrls(homeId, target.id, imageUrls)
     }
   }
 }

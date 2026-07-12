@@ -668,7 +668,7 @@ export function TaskSection({
           pdfUrl={manualPdfUrl}
           pageNumber={manualPageNumber}
           onSetPage={manualPageTaskId ? async (newPage) => {
-            const result = await updateTaskDiagramPages(manualPageTaskId, [
+            const result = await updateTaskDiagramPages(homeId, manualPageTaskId, [
               { page: newPage, caption: "" },
             ])
             if (result.error) {

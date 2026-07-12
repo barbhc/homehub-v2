@@ -1,4 +1,3 @@
-import { supabase } from "@/integrations/shim/client"
 import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import type {
@@ -175,18 +174,59 @@ export type UpdateTaskInstanceInput = {
 export async function createTaskTemplate(
   input: CreateTaskTemplateInput
 ): Promise<ServiceResult<TaskTemplate>> {
-  const { error, data } = await supabase
-    .from("task_template")
-    .insert({
-      ...input,
-      item_unit_id: input.item_unit_id ?? null,
-      supplies_mode: input.supplies_mode ?? "none",
-    })
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as TaskTemplate, error: null }
+  try {
+    const ref = doc(collection(db, `homes/${input.home_id}/taskTemplates`))
+    const now = serverTimestamp()
+    // schedule is inlined on the template (firestore-model.md §1). The caller
+    // sets the real cadence via createScheduleRule; default to as_needed so a
+    // template that's never scheduled still has a well-formed schedule object.
+    await writeBatch(db)
+      .set(ref, {
+        scopeType: input.scope_type,
+        itemUnitId: input.item_unit_id ?? null,
+        roomId: null,
+        title: input.title,
+        description: input.description ?? null,
+        careType: input.care_type,
+        careTypeOverriddenAt: null,
+        justification: null,
+        symptomTags: [],
+        reCheckTriggers: [],
+        priorityTier: input.priority_tier,
+        riskLevel: input.risk_level,
+        estimatedMinutes: input.estimated_minutes ?? null,
+        defaultAssignee: null,
+        instructionsChunkId: input.instructions_chunk_id ?? null,
+        instructionsOverride: input.instructions_override ?? null,
+        steps: null,
+        sourcePage: null,
+        suppliesMode: input.supplies_mode ?? "none",
+        supplies: [],
+        source: input.source,
+        isUserEditable: true,
+        userModifiedAt: null,
+        isActive: true,
+        metadata: {},
+        manualId: null,
+        externalKey: null,
+        schedule: {
+          scheduleType: "as_needed",
+          intervalDays: null,
+          anchorDate: todayStr(),
+          season: null,
+          windowDaysBefore: 7,
+          windowDaysAfter: 14,
+        },
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })
+      .commit()
+    const snap = await getDoc(ref)
+    return { data: toTaskTemplate(input.home_id, ref.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to create task template" } }
+  }
 }
 
 /**
@@ -282,51 +322,46 @@ export async function getTaskTemplatesWithSchedulesByItem(
  * Updates the care_type of a task_template (e.g. reclassify maintenance ↔ cleaning).
  */
 export async function updateTaskCareType(
+  homeId: string,
   taskTemplateId: string,
   careType: "cleaning" | "maintenance"
 ): Promise<ServiceResult<true>> {
-  const { error } = await supabase
-    .from("task_template")
-    .update({ care_type: careType, updated_at: new Date().toISOString() })
-    .eq("task_template_id", taskTemplateId)
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: true, error: null }
+  try {
+    await writeBatch(db)
+      .set(
+        doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
+        { careType, careTypeOverriddenAt: serverTimestamp(), updatedAt: serverTimestamp() },
+        { merge: true }
+      )
+      .commit()
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update care type" } }
+  }
 }
 
 /**
  * Merges `diagram_image_urls` into task_template.metadata while preserving other keys.
  */
 export async function updateTaskDiagramUrls(
+  homeId: string,
   taskTemplateId: string,
   imageUrls: DiagramImageUrl[]
 ): Promise<ServiceResult<void>> {
-  const { data: row, error: fetchErr } = await supabase
-    .from("task_template")
-    .select("metadata")
-    .eq("task_template_id", taskTemplateId)
-    .is("deleted_at", null)
-    .single()
-
-  if (fetchErr) return { data: null, error: { message: fetchErr.message } }
-
-  const existingMeta =
-    row?.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
-      ? (row.metadata as Record<string, unknown>)
-      : {}
-
-  const nextMeta = {
-    ...existingMeta,
-    diagram_image_urls: imageUrls,
+  try {
+    const ref = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const snap = await getDoc(ref)
+    if (!snap.exists() || snap.data().deletedAt != null)
+      return { data: null, error: { message: "Task template not found" } }
+    const meta = snap.data().metadata
+    const existingMeta = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {}
+    await writeBatch(db)
+      .set(ref, { metadata: { ...existingMeta, diagram_image_urls: imageUrls }, updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    return { data: undefined, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update diagrams" } }
   }
-
-  const { error: updateErr } = await supabase
-    .from("task_template")
-    .update({ metadata: nextMeta })
-    .eq("task_template_id", taskTemplateId)
-    .is("deleted_at", null)
-
-  if (updateErr) return { data: null, error: { message: updateErr.message } }
-  return { data: undefined, error: null }
 }
 
 /**
@@ -334,33 +369,24 @@ export async function updateTaskDiagramUrls(
  * Used when a user corrects the manual page reference for a task.
  */
 export async function updateTaskDiagramPages(
+  homeId: string,
   taskTemplateId: string,
   diagramPages: Array<{ page: number; caption: string }>
 ): Promise<ServiceResult<void>> {
-  const { data: row, error: fetchErr } = await supabase
-    .from("task_template")
-    .select("metadata")
-    .eq("task_template_id", taskTemplateId)
-    .is("deleted_at", null)
-    .single()
-
-  if (fetchErr) return { data: null, error: { message: fetchErr.message } }
-
-  const existingMeta =
-    row?.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
-      ? (row.metadata as Record<string, unknown>)
-      : {}
-
-  const nextMeta = { ...existingMeta, diagram_pages: diagramPages }
-
-  const { error: updateErr } = await supabase
-    .from("task_template")
-    .update({ metadata: nextMeta })
-    .eq("task_template_id", taskTemplateId)
-    .is("deleted_at", null)
-
-  if (updateErr) return { data: null, error: { message: updateErr.message } }
-  return { data: undefined, error: null }
+  try {
+    const ref = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const snap = await getDoc(ref)
+    if (!snap.exists() || snap.data().deletedAt != null)
+      return { data: null, error: { message: "Task template not found" } }
+    const meta = snap.data().metadata
+    const existingMeta = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {}
+    await writeBatch(db)
+      .set(ref, { metadata: { ...existingMeta, diagram_pages: diagramPages }, updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    return { data: undefined, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update diagram pages" } }
+  }
 }
 
 export type TaskInstanceWithDetails = TaskInstance & {
@@ -566,23 +592,24 @@ export async function updateTaskInstance(
   taskInstanceId: string,
   input: UpdateTaskInstanceInput
 ): Promise<ServiceResult<TaskInstance>> {
-  const updates = { ...input, updated_at: new Date().toISOString() }
-  if (input.status === "done") {
-    ;(updates as Record<string, unknown>).completed_at =
-      (updates as Record<string, unknown>).completed_at ?? new Date().toISOString()
+  try {
+    const ref = doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`)
+    const fields: DocumentData = { updatedAt: serverTimestamp() }
+    if (input.status !== undefined) fields.status = input.status
+    if (input.completion_notes !== undefined) fields.completionNotes = input.completion_notes
+    if (input.snoozed_until !== undefined) fields.snoozedUntil = input.snoozed_until
+    if (input.assigned_to !== undefined) fields.assignedTo = input.assigned_to
+    if (input.completed_at !== undefined)
+      fields.completedAt = input.completed_at ? Timestamp.fromDate(new Date(input.completed_at)) : null
+    if (input.status === "done" && input.completed_at === undefined) fields.completedAt = serverTimestamp()
+
+    await writeBatch(db).set(ref, fields, { merge: true }).commit()
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return { data: null, error: { message: "Task instance not found" } }
+    return { data: toTaskInstance(homeId, snap.id, snap.data()), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update task instance" } }
   }
-
-  const { error, data } = await supabase
-    .from("task_instance")
-    .update(updates)
-    .eq("home_id", homeId)
-    .eq("task_instance_id", taskInstanceId)
-    .is("deleted_at", null)
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as TaskInstance, error: null }
 }
 
 /**
@@ -655,64 +682,55 @@ export async function archiveTaskTemplate(
   homeId: string,
   taskTemplateId: string
 ): Promise<ArchiveTaskTemplateResult> {
-  const now = new Date().toISOString()
-
-  const { error: instanceErr } = await supabase
-    .from("task_instance")
-    .update({ deleted_at: now, updated_at: now })
-    .eq("home_id", homeId)
-    .eq("task_template_id", taskTemplateId)
-    .in("status", ["scheduled", "snoozed"])
-    .is("deleted_at", null)
-
-  if (instanceErr) return { success: false, error: instanceErr.message }
-
-  const { error: templateErr } = await supabase
-    .from("task_template")
-    .update({ is_active: false, updated_at: now })
-    .eq("home_id", homeId)
-    .eq("task_template_id", taskTemplateId)
-    .is("deleted_at", null)
-
-  if (templateErr) return { success: false, error: templateErr.message }
-
-  return { success: true }
+  try {
+    const now = serverTimestamp()
+    const batch = writeBatch(db)
+    // Soft-delete open instances (status filtered client-side to avoid a
+    // composite index on taskTemplateId + status).
+    const openSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskInstances`), where("taskTemplateId", "==", taskTemplateId))
+    )
+    for (const d of openSnap.docs) {
+      const x = d.data()
+      if ((x.status === "scheduled" || x.status === "snoozed") && x.deletedAt == null) {
+        batch.set(d.ref, { deletedAt: now, updatedAt: now }, { merge: true })
+      }
+    }
+    // Deactivate the template (kept for history).
+    batch.set(doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`), { isActive: false, updatedAt: now }, { merge: true })
+    await batch.commit()
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Failed to archive task" }
+  }
 }
 
 /**
- * Soft-deletes a task_template and hard-deletes its task_instances and schedule_rules.
+ * Soft-deletes a task_template and hard-deletes its task_instances. The schedule
+ * is inlined on the template, so there's no separate schedule_rule to remove.
  */
 export async function deleteTaskTemplate(
   homeId: string,
   taskTemplateId: string
 ): Promise<DeleteTaskTemplateResult> {
-  // Hard-delete instances first (they have no deleted_at)
-  const { error: instanceErr } = await supabase
-    .from("task_instance")
-    .delete()
-    .eq("home_id", homeId)
-    .eq("task_template_id", taskTemplateId)
-
-  if (instanceErr) return { success: false, error: instanceErr.message }
-
-  // Hard-delete schedule_rules
-  const { error: ruleErr } = await supabase
-    .from("schedule_rule")
-    .delete()
-    .eq("task_template_id", taskTemplateId)
-
-  if (ruleErr) return { success: false, error: ruleErr.message }
-
-  // Soft-delete the template
-  const { error: templateErr } = await supabase
-    .from("task_template")
-    .update({ deleted_at: new Date().toISOString(), is_active: false })
-    .eq("home_id", homeId)
-    .eq("task_template_id", taskTemplateId)
-
-  if (templateErr) return { success: false, error: templateErr.message }
-
-  return { success: true }
+  try {
+    const batch = writeBatch(db)
+    // Hard-delete every instance of this template.
+    const instSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskInstances`), where("taskTemplateId", "==", taskTemplateId))
+    )
+    for (const d of instSnap.docs) batch.delete(d.ref)
+    // Soft-delete the template.
+    batch.set(
+      doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
+      { deletedAt: serverTimestamp(), isActive: false, updatedAt: serverTimestamp() },
+      { merge: true }
+    )
+    await batch.commit()
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Failed to delete task" }
+  }
 }
 
 export interface CompletionHistoryEntry {
@@ -825,25 +843,47 @@ export async function logTaskCompletion(
   completedAt: string,
   completionNotes?: string | null
 ): Promise<ServiceResult<TaskInstance>> {
-  const { data, error } = await supabase
-    .from("task_instance")
-    .insert({
-      home_id: homeId,
-      task_template_id: taskTemplateId,
-      item_unit_id: itemUnitId,
-      status: "done" as TaskInstanceStatus,
-      due_date: completedAt.slice(0, 10),
-      priority_score: 0,
-      is_safety_critical: false,
-      completed_at: completedAt,
-      completion_notes: completionNotes ?? null,
-      completion_photos: [],
-    })
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as TaskInstance, error: null }
+  try {
+    // Denormalize the template's display fields onto the done instance so it
+    // shows in completion history (getCompletionHistory reads the denorm set).
+    const tplSnap = await getDoc(doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`))
+    const tpl = tplSnap.exists() ? tplSnap.data() : {}
+    const sched = tpl.schedule as { scheduleType?: string } | null
+    const ref = doc(collection(db, `homes/${homeId}/taskInstances`))
+    const now = serverTimestamp()
+    await writeBatch(db)
+      .set(ref, {
+        taskTemplateId,
+        itemUnitId: itemUnitId ?? null,
+        status: "done",
+        dueDate: completedAt.slice(0, 10),
+        windowStart: null,
+        windowEnd: null,
+        snoozedUntil: null,
+        priorityScore: 0,
+        isSafetyCritical: false,
+        completedAt: Timestamp.fromDate(new Date(completedAt)),
+        completionNotes: completionNotes ?? null,
+        completionPhotos: [],
+        assignedTo: null,
+        title: tpl.title ?? "",
+        priorityTier: tpl.priorityTier ?? "recommended",
+        careType: tpl.careType ?? null,
+        scopeType: tpl.scopeType ?? (itemUnitId ? "item_unit" : "home"),
+        estimatedMinutes: tpl.estimatedMinutes ?? null,
+        scheduleType: sched?.scheduleType ?? null,
+        itemName: null,
+        roomName: null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })
+      .commit()
+    const snap = await getDoc(ref)
+    return { data: toTaskInstance(homeId, ref.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to log completion" } }
+  }
 }
 
 export type SnoozeResult =
