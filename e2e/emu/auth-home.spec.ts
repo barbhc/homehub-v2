@@ -26,4 +26,12 @@ test.describe("emulator e2e — auth + home", () => {
     await expect(page.getByText("Garage").first()).toBeVisible()
     await expect(page.getByText("Laundry Room").first()).toBeVisible()
   })
+
+  test("Settings shows the seeded home profile (homeProfileService.getHomeProfile end-to-end)", async ({ page }) => {
+    await page.goto("/settings")
+    // The Home profile section reads the folded home doc — the seeded home_type
+    // "house" surfaces as the "House" selection in its combobox.
+    await expect(page.getByText("Home profile").first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole("combobox").filter({ hasText: "House" }).first()).toBeVisible({ timeout: 10_000 })
+  })
 })

@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/shim/client"
+import { doc, getDoc, runTransaction, serverTimestamp, Timestamp, type DocumentData } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { ServiceResult } from "./homeService"
 
 export type HomeType = "house" | "condo" | "townhouse" | "apartment" | "other"
@@ -54,24 +55,46 @@ export type HomeProfileUpsert = {
   completed_at?: string | null
 }
 
-export async function getHomeProfile(homeId: string): Promise<ServiceResult<HomeProfile | null>> {
-  // Typed as unknown table until supabase types are regenerated; cast narrowly.
-  const { data, error } = await (supabase as unknown as {
-    from: (name: string) => {
-      select: (cols: string) => {
-        eq: (col: string, val: string) => {
-          maybeSingle: () => Promise<{ data: HomeProfile | null; error: { message: string } | null }>
-        }
-      }
-    }
-  })
-    .from("home_profile")
-    .select("*")
-    .eq("home_id", homeId)
-    .maybeSingle()
+// home_profile is folded onto the home doc (firestore-model.md §2).
+function hpIso(v: unknown): string | null {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : null
+}
+function toHomeProfile(homeId: string, d: DocumentData): HomeProfile {
+  return {
+    home_id: homeId,
+    home_type: (d.homeType ?? null) as HomeType | null,
+    ownership: (d.ownership ?? null) as Ownership | null,
+    ownership_duration: (d.ownershipDuration ?? null) as OwnershipDuration | null,
+    top_concerns: sanitizeTopConcerns(d.topConcerns),
+    preferred_mode: (d.preferredMode ?? "unset") as PreferredMode,
+    completed_at: hpIso(d.profileCompletedAt),
+    created_at: hpIso(d.createdAt) ?? "",
+    updated_at: hpIso(d.updatedAt) ?? "",
+  }
+}
 
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data ?? null, error: null }
+/** Maps a curated upsert patch to the home doc's camelCase fields. */
+function patchToFields(patch: HomeProfileUpsert): DocumentData {
+  const f: DocumentData = {}
+  if (patch.home_type !== undefined) f.homeType = patch.home_type
+  if (patch.ownership !== undefined) f.ownership = patch.ownership
+  if (patch.ownership_duration !== undefined) f.ownershipDuration = patch.ownership_duration
+  if (patch.top_concerns !== undefined) f.topConcerns = sanitizeTopConcerns(patch.top_concerns)
+  if (patch.preferred_mode !== undefined) f.preferredMode = patch.preferred_mode
+  if (patch.completed_at !== undefined)
+    f.profileCompletedAt = patch.completed_at ? Timestamp.fromDate(new Date(patch.completed_at)) : null
+  return f
+}
+
+export async function getHomeProfile(homeId: string): Promise<ServiceResult<HomeProfile | null>> {
+  try {
+    const snap = await getDoc(doc(db, `homes/${homeId}`))
+    if (!snap.exists()) return { data: null, error: null }
+    return { data: toHomeProfile(homeId, snap.data()), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load home profile" } }
+  }
 }
 
 export async function upsertHomeProfile(
@@ -88,83 +111,35 @@ export async function upsertHomeProfile(
    */
   knownUpdatedAt?: string,
 ): Promise<ServiceResult<HomeProfile>> {
-  // Defense in depth: strip any unknown keys before they reach Postgres.
-  // The DB CHECK constraint is the final guard, but cleaning here gives a
-  // better error path (silent normalization vs a 500 from an RLS violation).
-  const cleaned: HomeProfileUpsert = {
-    ...patch,
-    ...(patch.top_concerns !== undefined
-      ? { top_concerns: sanitizeTopConcerns(patch.top_concerns) }
-      : {}),
-  }
+  const fields = patchToFields(patch)
+  const ref = doc(db, `homes/${homeId}`)
 
-  // ── CAS update path ────────────────────────────────────────────────────────
-  // When the caller knows the current updated_at, use a conditional UPDATE so
-  // a concurrent write from another tab/member doesn't silently win.
-  if (knownUpdatedAt !== undefined) {
-    const updatePayload = {
-      ...cleaned,
-      updated_at: new Date().toISOString(),
-    }
-    const { data, error } = await (supabase as unknown as {
-      from: (name: string) => {
-        update: (row: Record<string, unknown>) => {
-          eq: (col: string, val: string) => {
-            eq: (col: string, val: string) => {
-              select: (cols: string) => {
-                maybeSingle: () => Promise<{
-                  data: HomeProfile | null
-                  error: { message: string } | null
-                }>
-              }
-            }
-          }
+  try {
+    // ── CAS update path ──────────────────────────────────────────────────────
+    // When the caller knows the current updated_at, a transaction compares the
+    // stored timestamp so a concurrent write from another tab/member can't
+    // silently win.
+    if (knownUpdatedAt !== undefined) {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref)
+        const current = snap.exists() ? hpIso(snap.data().updatedAt) : null
+        if (current !== knownUpdatedAt) {
+          throw new Error(
+            "Your home profile was updated by another session. Please refresh and try again."
+          )
         }
-      }
-    })
-      .from("home_profile")
-      .update(updatePayload as Record<string, unknown>)
-      .eq("home_id", homeId)
-      .eq("updated_at", knownUpdatedAt)
-      .select("*")
-      .maybeSingle()
-
-    if (error) return { data: null, error: { message: error.message } }
-    if (!data) {
-      // 0 rows matched — another write landed between our fetch and this save.
-      return {
-        data: null,
-        error: {
-          message:
-            "Your home profile was updated by another session. " +
-            "Please refresh and try again.",
-        },
-      }
+        tx.set(ref, { ...fields, updatedAt: serverTimestamp() }, { merge: true })
+      })
+    } else {
+      // ── Upsert path (initial creation / onboarding) ──────────────────────────
+      await runTransaction(db, async (tx) => {
+        tx.set(ref, { ...fields, updatedAt: serverTimestamp() }, { merge: true })
+      })
     }
-    return { data, error: null }
-  }
 
-  // ── Upsert path (initial creation / onboarding) ────────────────────────────
-  const payload = { home_id: homeId, ...cleaned }
-  const { data, error } = await (supabase as unknown as {
-    from: (name: string) => {
-      upsert: (
-        row: Record<string, unknown>,
-        opts: { onConflict: string },
-      ) => {
-        select: (cols: string) => {
-          single: () => Promise<{ data: HomeProfile | null; error: { message: string } | null }>
-        }
-      }
-    }
-  })
-    .from("home_profile")
-    .upsert(payload as Record<string, unknown>, { onConflict: "home_id" })
-    .select("*")
-    .single()
-
-  if (error || !data) {
-    return { data: null, error: { message: error?.message ?? "Failed to save home profile" } }
+    const snap = await getDoc(ref)
+    return { data: toHomeProfile(homeId, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to save home profile" } }
   }
-  return { data, error: null }
 }
