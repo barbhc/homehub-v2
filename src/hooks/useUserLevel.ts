@@ -1,5 +1,6 @@
 import useSWR from "swr"
-import { supabase } from "@/integrations/shim/client"
+import { collection, collectionGroup, doc, getDoc, getDocs, query, where } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import { useCurrentHome } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import { useInterfaceOverride, type InterfaceOverride } from "@/lib/interfaceLevel"
@@ -39,22 +40,16 @@ export function applyOverride(derived: UserLevel, override: InterfaceOverride): 
 }
 
 async function fetchSignals(homeId: string, userId: string): Promise<LevelSignals> {
-  const [items, homes, profile] = await Promise.all([
-    supabase
-      .from("item_unit")
-      .select("item_unit_id", { count: "exact", head: true })
-      .eq("home_id", homeId)
-      .is("deleted_at", null),
-    supabase
-      .from("home_members")
-      .select("home_id", { count: "exact", head: true })
-      .eq("user_id", userId),
-    supabase.from("home_profile").select("completed_at").eq("home_id", homeId).maybeSingle(),
+  const [itemsSnap, membersSnap, homeSnap] = await Promise.all([
+    getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))),
+    getDocs(query(collectionGroup(db, "members"), where("uid", "==", userId))),
+    getDoc(doc(db, `homes/${homeId}`)),
   ])
   return {
-    itemCount: items.count ?? 0,
-    homeCount: homes.count ?? 0,
-    profileCompleted: !!(profile.data as { completed_at?: string | null } | null)?.completed_at,
+    itemCount: itemsSnap.size,
+    homeCount: membersSnap.size,
+    // home_profile.completed_at is folded onto the home doc as profileCompletedAt.
+    profileCompleted: homeSnap.get("profileCompletedAt") != null,
   }
 }
 

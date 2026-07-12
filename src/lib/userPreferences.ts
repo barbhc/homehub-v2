@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/shim/client"
+import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import {
   PREF_NOTIFICATIONS,
   normalizeNotificationPrefs,
@@ -10,39 +11,22 @@ export const PREF_TOUR_COMPLETED = "tour_completed"
 export const PREF_DASHBOARD_TIERS = "dashboard_tier_filter"
 export const PREF_INTERFACE_LEVEL = "interface_level"
 
-export async function getPreference<T = unknown>(
-  userId: string,
-  key: string
-): Promise<T | null> {
-  const { data, error } = await supabase
-    .from("user_preferences")
-    .select("preference_value")
-    .eq("user_id", userId)
-    .eq("preference_key", key)
-    .maybeSingle()
+// v1's (user_id, preference_key) → preference_value table collapses to a single
+// prefs doc at users/{uid}/private/preferences, with each preference key as a
+// field (firestore-model.md §1). Values are stored verbatim (JSON-compatible).
+const prefsRef = (userId: string) => doc(db, `users/${userId}/private/preferences`)
 
-  if (error) throw new Error(`Failed to load preference: ${error.message}`)
-  return data ? (data.preference_value as T) : null
+export async function getPreference<T = unknown>(userId: string, key: string): Promise<T | null> {
+  const snap = await getDoc(prefsRef(userId))
+  if (!snap.exists()) return null
+  const v = (snap.data() as Record<string, unknown>)[key]
+  return v == null ? null : (v as T)
 }
 
-export async function setPreference(
-  userId: string,
-  key: string,
-  value: unknown
-): Promise<void> {
-  const { error } = await supabase
-    .from("user_preferences")
-    .upsert(
-      {
-        user_id: userId,
-        preference_key: key,
-        preference_value: value,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,preference_key" }
-    )
-
-  if (error) throw new Error(`Failed to save preference: ${error.message}`)
+export async function setPreference(userId: string, key: string, value: unknown): Promise<void> {
+  await writeBatch(db)
+    .set(prefsRef(userId), { [key]: value, updatedAt: serverTimestamp() }, { merge: true })
+    .commit()
 }
 
 /** Loads a user's notification prefs, normalized (safety locked on, defaults applied). */

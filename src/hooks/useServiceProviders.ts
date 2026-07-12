@@ -1,6 +1,27 @@
 import { useCallback, useEffect, useState } from "react"
-import { supabase } from "@/integrations/shim/client"
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { ServiceProvider } from "@/integrations/types"
+
+function providerIso(v: unknown): string {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : ""
+}
+function toProvider(homeId: string, id: string, d: DocumentData): ServiceProvider {
+  return {
+    provider_id: id,
+    home_id: homeId,
+    name: d.name ?? "",
+    category: d.category ?? "other",
+    phone: d.phone ?? null,
+    email: d.email ?? null,
+    website: d.website ?? null,
+    notes: d.notes ?? null,
+    created_at: providerIso(d.createdAt),
+    updated_at: providerIso(d.updatedAt),
+    deleted_at: d.deletedAt == null ? null : providerIso(d.deletedAt),
+  }
+}
 
 // ── Category config (shared by Settings + the Providers page) ──────────────────
 
@@ -73,15 +94,9 @@ export function useServiceProviders(homeId: string) {
   const load = useCallback(async (signal?: { cancelled: boolean }) => {
     setLoading(true)
     try {
-      const { data } = await supabase
-        .from("service_provider")
-        .select("*")
-        .eq("home_id", homeId)
-        .is("deleted_at", null)
-        .order("category", { ascending: true })
-        .order("name", { ascending: true })
+      const snap = await getDocs(query(collection(db, `homes/${homeId}/serviceProviders`), where("deletedAt", "==", null)))
       if (signal?.cancelled) return
-      setProviders((data ?? []) as ServiceProvider[])
+      setProviders(sortProviders(snap.docs.map((d) => toProvider(homeId, d.id, d.data()))))
     } finally {
       if (!signal?.cancelled) setLoading(false)
     }
@@ -102,46 +117,34 @@ export function useServiceProviders(homeId: string) {
       const name = form.name.trim()
       if (!name) return { error: "Name is required." }
 
-      const payload = {
-        home_id: homeId,
+      const fields = {
         name,
         category: form.category,
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         website: form.website.trim() || null,
         notes: form.notes.trim() || null,
-        updated_at: new Date().toISOString(),
+        updatedAt: serverTimestamp(),
       }
 
-      if (editingId) {
-        const { error } = await supabase
-          .from("service_provider")
-          .update(payload)
-          .eq("provider_id", editingId)
-          .eq("home_id", homeId)
-        if (error) return { error: error.message }
-        let saved: ServiceProvider | undefined
-        setProviders((prev) =>
-          sortProviders(
-            prev.map((p) => {
-              if (p.provider_id !== editingId) return p
-              saved = { ...p, ...payload }
-              return saved
-            })
-          )
-        )
+      try {
+        if (editingId) {
+          const ref = doc(db, `homes/${homeId}/serviceProviders/${editingId}`)
+          await writeBatch(db).set(ref, fields, { merge: true }).commit()
+          const snap = await getDoc(ref)
+          const saved = toProvider(homeId, ref.id, snap.data() ?? {})
+          setProviders((prev) => sortProviders(prev.map((p) => (p.provider_id === editingId ? saved : p))))
+          return { provider: saved }
+        }
+        const ref = doc(collection(db, `homes/${homeId}/serviceProviders`))
+        await writeBatch(db).set(ref, { ...fields, createdAt: serverTimestamp(), deletedAt: null }).commit()
+        const snap = await getDoc(ref)
+        const saved = toProvider(homeId, ref.id, snap.data() ?? {})
+        setProviders((prev) => sortProviders([...prev, saved]))
         return { provider: saved }
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : "Could not save provider" }
       }
-
-      const { data, error } = await supabase
-        .from("service_provider")
-        .insert(payload)
-        .select()
-        .single()
-      if (error || !data) return { error: error?.message ?? "Could not save provider" }
-      const saved = data as ServiceProvider
-      setProviders((prev) => sortProviders([...prev, saved]))
-      return { provider: saved }
     },
     [homeId]
   )
@@ -149,11 +152,10 @@ export function useServiceProviders(homeId: string) {
   const remove = useCallback(
     async (providerId: string) => {
       setDeletingId(providerId)
-      await supabase
-        .from("service_provider")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("provider_id", providerId)
-        .eq("home_id", homeId)
+      const now = serverTimestamp()
+      await writeBatch(db)
+        .set(doc(db, `homes/${homeId}/serviceProviders/${providerId}`), { deletedAt: now, updatedAt: now }, { merge: true })
+        .commit()
       setProviders((prev) => prev.filter((p) => p.provider_id !== providerId))
       setDeletingId(null)
     },

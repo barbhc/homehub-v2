@@ -1,10 +1,17 @@
-import { supabase } from "@/integrations/shim/client"
-import type {
-  SupplyItem,
-  SupplyOption,
-  SupplyCategory,
-  SupplyOptionType,
-} from "@/integrations/types"
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  where,
+  writeBatch,
+  Timestamp,
+  type DocumentData,
+} from "firebase/firestore"
+import { db } from "@/integrations/firebase"
+import type { SupplyItem, SupplyOption, SupplyCategory, SupplyOptionType } from "@/integrations/types"
 
 export type ServiceResult<T> =
   | { data: T; error: null }
@@ -18,7 +25,6 @@ export type CreateSupplyItemInput = {
   model?: string | null
   spec?: string | null
 }
-
 export type CreateSupplyOptionInput = {
   supply_item_id: string
   option_type: SupplyOptionType
@@ -28,69 +34,109 @@ export type CreateSupplyOptionInput = {
   notes?: string | null
 }
 
-/**
- * Creates a supply_item.
- */
-export async function createSupplyItem(
-  input: CreateSupplyItemInput
-): Promise<ServiceResult<SupplyItem>> {
-  const { error, data } = await supabase
-    .from("supply_item")
-    .insert(input)
-    .select()
-    .single()
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as SupplyItem, error: null }
+function iso(v: unknown): string {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : ""
+}
+function toItem(id: string, d: DocumentData): SupplyItem {
+  return {
+    supply_item_id: id,
+    name: d.name ?? "",
+    category: (d.category ?? "other") as SupplyCategory,
+    oem_part_number: d.oemPartNumber ?? null,
+    brand: d.brand ?? null,
+    model: d.model ?? null,
+    spec: d.spec ?? null,
+    created_at: iso(d.createdAt),
+    updated_at: iso(d.updatedAt),
+    deleted_at: d.deletedAt == null ? null : iso(d.deletedAt),
+  }
+}
+function toOption(supplyItemId: string, id: string, d: DocumentData): SupplyOption {
+  return {
+    supply_option_id: id,
+    supply_item_id: supplyItemId,
+    option_type: (d.optionType ?? "search") as SupplyOptionType,
+    seller: d.seller ?? null,
+    url: d.url ?? null,
+    is_preferred: !!d.isPreferred,
+    notes: d.notes ?? null,
+    created_at: iso(d.createdAt),
+    updated_at: iso(d.updatedAt),
+    deleted_at: d.deletedAt == null ? null : iso(d.deletedAt),
+  }
+}
+function err(e: unknown): { data: null; error: { message: string } } {
+  return { data: null, error: { message: e instanceof Error ? e.message : "Request failed" } }
 }
 
-/**
- * Fetches supply_items.
- */
+// supplyCatalog is GLOBAL and server-write-only (firestore.rules). Client reads
+// are allowed; create* helpers write via a batch (rules gate them — the catalog
+// is populated by parse/import server-side).
 export async function getSupplyItems(): Promise<ServiceResult<SupplyItem[]>> {
-  const { error, data } = await supabase
-    .from("supply_item")
-    .select("*")
-    .is("deleted_at", null)
-    .order("name")
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as SupplyItem[], error: null }
+  try {
+    const snap = await getDocs(query(collection(db, "supplyCatalog"), where("deletedAt", "==", null)))
+    return { data: snap.docs.map((d) => toItem(d.id, d.data())).sort((a, b) => a.name.localeCompare(b.name)), error: null }
+  } catch (e) {
+    return err(e)
+  }
 }
 
-/**
- * Fetches supply_options for a supply_item.
- */
-export async function getSupplyOptions(
-  supplyItemId: string
-): Promise<ServiceResult<SupplyOption[]>> {
-  const { error, data } = await supabase
-    .from("supply_option")
-    .select("*")
-    .eq("supply_item_id", supplyItemId)
-    .is("deleted_at", null)
-    .order("is_preferred", { ascending: false })
-    .order("created_at", { ascending: false })
-
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as SupplyOption[], error: null }
+export async function getSupplyOptions(supplyItemId: string): Promise<ServiceResult<SupplyOption[]>> {
+  try {
+    const snap = await getDocs(query(collection(db, `supplyCatalog/${supplyItemId}/options`), where("deletedAt", "==", null)))
+    const opts = snap.docs
+      .map((d) => toOption(supplyItemId, d.id, d.data()))
+      .sort((a, b) => Number(b.is_preferred) - Number(a.is_preferred) || (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    return { data: opts, error: null }
+  } catch (e) {
+    return err(e)
+  }
 }
 
-/**
- * Creates a supply_option.
- */
-export async function createSupplyOption(
-  input: CreateSupplyOptionInput
-): Promise<ServiceResult<SupplyOption>> {
-  const { error, data } = await supabase
-    .from("supply_option")
-    .insert({
-      ...input,
-      is_preferred: input.is_preferred ?? false,
-    })
-    .select()
-    .single()
+export async function createSupplyItem(input: CreateSupplyItemInput): Promise<ServiceResult<SupplyItem>> {
+  try {
+    const ref = doc(collection(db, "supplyCatalog"))
+    const now = serverTimestamp()
+    await writeBatch(db)
+      .set(ref, {
+        name: input.name,
+        category: input.category,
+        oemPartNumber: input.oem_part_number ?? null,
+        brand: input.brand ?? null,
+        model: input.model ?? null,
+        spec: input.spec ?? null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })
+      .commit()
+    const snap = await getDoc(ref)
+    return { data: toItem(ref.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return err(e)
+  }
+}
 
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as SupplyOption, error: null }
+export async function createSupplyOption(input: CreateSupplyOptionInput): Promise<ServiceResult<SupplyOption>> {
+  try {
+    const ref = doc(collection(db, `supplyCatalog/${input.supply_item_id}/options`))
+    const now = serverTimestamp()
+    await writeBatch(db)
+      .set(ref, {
+        optionType: input.option_type,
+        seller: input.seller ?? null,
+        url: input.url ?? null,
+        isPreferred: input.is_preferred ?? false,
+        notes: input.notes ?? null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })
+      .commit()
+    const snap = await getDoc(ref)
+    return { data: toOption(input.supply_item_id, ref.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return err(e)
+  }
 }
