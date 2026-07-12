@@ -44,8 +44,8 @@ All service files currently compile against the shim (status: `stub`).
 |---|---|---|
 | auth | AuthProvider.tsx (Firebase: email/pw, magic link, reset via oobCode, **Apple/fix D**), ResetPassword.tsx, types/auth.ts | **ported** |
 | home | **homeService = ported** (create/get/primary/rooms via Firestore; camelCase→curated-type edge mappers; membership via collectionGroup(members).uid); homeProfileService, inviteService, HomeOnboarding = stub | mixed |
-| inventory | inventoryService, manualSourcesService, storageService, ocrService, planGenerationService, productLookupService | stub |
-| items / supplies | itemService, supplyService | stub |
+| inventory | manualSourcesService, storageService, ocrService (→callable), planGenerationService, productLookupService (→callable), legacy inventoryService | stub |
+| items / supplies | **itemService = ported** (getItemUnits/getItemUnit/create/update/softDelete on Firestore; camelCase→ItemUnit edge mapper); supplyService = stub | mixed |
 | care | taskService, weekAgenda, taskScheduleService, homeUpkeep, careNoteService, scheduleService, shoppingListService, + pure helpers (port untouched) | stub |
 | knowledge | parseManualService — trust-arc API (startParse/watchParse/parseManualAndWait/toUiStage) on Firebase = **ported**; shim `parseManual` still present for 5 callers (Phase 5); manualDocumentService, knowledgeService, chatService, conversationService, detectDocTypeService, diagramRenderService = stub; previewManualService + saveManualParseService = DELETE (worker modes) | mixed |
 | lib | dashboard.ts, cleanSession.ts, userPreferences.ts, nativePush.ts/pushNotifications.ts (Phase 4 FCM) | stub |
@@ -206,6 +206,15 @@ swap adds a spec here instead of relying on boot smoke.
   `match /{path=**}/members/{memberUid} { allow read: if resource.data.uid == request.auth.uid }`.
   Member docs now carry a `uid` field (seed + createHome). Rules unit tests still 19/19.
 - **CI**: new `emulator` job runs rules + worker + seeded e2e (setup-java + firebase-tools + chromium).
+
+## Verified — Phase 5 items read path (itemService)
+- **itemService** → Firestore `homes/{homeId}/items`: `getItemUnits` (two equality-class filters
+  + client-side sort, no composite index), `getItemUnit`, `createItemUnit`, `updateItemUnit`
+  (snake→camel field map), `softDeleteItemUnit`. Edge mapper → curated `ItemUnit`.
+- **e2e/emu/inventory.spec.ts**: Inventory shows "6 items across 3 rooms" + the seeded item cards
+  (getItemUnits end-to-end). **Full emu suite now 4/4** (setup + auth-home ×2 + inventory).
+- Remaining in items/inventory: add-item support services (storage/ocr/product-lookup → callables),
+  supplyService, legacy inventoryService.
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now
