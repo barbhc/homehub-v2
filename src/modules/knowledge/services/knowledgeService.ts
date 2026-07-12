@@ -1,4 +1,18 @@
 import { supabase } from "@/integrations/shim/client"
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  where,
+  writeBatch,
+  Timestamp,
+  type DocumentData,
+} from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type {
   KnowledgeChunk,
   ChunkType,
@@ -6,6 +20,22 @@ import type {
   ChatFaq,
   ChatFaqInsert,
 } from "@/integrations/types"
+
+// ── Firestore chatFaqs doc (camelCase) → curated ChatFaq (snake_case) ──────────
+function faqIso(v: unknown): string {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : ""
+}
+function toFaq(homeId: string, id: string, d: DocumentData): ChatFaq {
+  return {
+    faq_id: id,
+    home_id: homeId,
+    item_unit_id: d.itemUnitId ?? null,
+    question: d.question ?? "",
+    answer: d.answer ?? "",
+    created_at: faqIso(d.createdAt),
+  }
+}
 
 export type ServiceResult<T> =
   | { data: T; error: null }
@@ -111,40 +141,57 @@ export async function searchChunks(
 
 // --- Chat FAQ (saved Q&A) ---
 
+/** Sorts FAQs newest-first (client-side — avoids a composite index on the
+ *  item-scoped query, which pairs an equality filter with the order). */
+function sortFaqs(list: ChatFaq[]): ChatFaq[] {
+  return [...list].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+}
+
 export async function saveFaq(input: ChatFaqInsert): Promise<ServiceResult<ChatFaq>> {
-  const { data, error } = await supabase
-    .from("chat_faq")
-    .insert(input)
-    .select()
-    .single()
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: data as ChatFaq, error: null }
+  try {
+    const ref = doc(collection(db, `homes/${input.home_id}/chatFaqs`))
+    await writeBatch(db)
+      .set(ref, {
+        itemUnitId: input.item_unit_id ?? null,
+        question: input.question,
+        answer: input.answer,
+        createdAt: serverTimestamp(),
+      })
+      .commit()
+    const snap = await getDoc(ref)
+    return { data: toFaq(input.home_id, ref.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to save Q&A" } }
+  }
 }
 
 export async function getFaqsByHome(homeId: string): Promise<ServiceResult<ChatFaq[]>> {
-  const { data, error } = await supabase
-    .from("chat_faq")
-    .select("*")
-    .eq("home_id", homeId)
-    .order("created_at", { ascending: false })
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as ChatFaq[], error: null }
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/chatFaqs`))
+    return { data: sortFaqs(snap.docs.map((d) => toFaq(homeId, d.id, d.data()))), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load Q&A" } }
+  }
 }
 
-export async function getFaqsByItem(itemUnitId: string): Promise<ServiceResult<ChatFaq[]>> {
-  const { data, error } = await supabase
-    .from("chat_faq")
-    .select("*")
-    .eq("item_unit_id", itemUnitId)
-    .order("created_at", { ascending: false })
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as ChatFaq[], error: null }
+export async function getFaqsByItem(homeId: string, itemUnitId: string): Promise<ServiceResult<ChatFaq[]>> {
+  try {
+    const snap = await getDocs(
+      query(collection(db, `homes/${homeId}/chatFaqs`), where("itemUnitId", "==", itemUnitId))
+    )
+    return { data: sortFaqs(snap.docs.map((d) => toFaq(homeId, d.id, d.data()))), error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load Q&A" } }
+  }
 }
 
-export async function deleteFaq(faqId: string): Promise<ServiceResult<true>> {
-  const { error } = await supabase.from("chat_faq").delete().eq("faq_id", faqId)
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: true, error: null }
+export async function deleteFaq(homeId: string, faqId: string): Promise<ServiceResult<true>> {
+  try {
+    await deleteDoc(doc(db, `homes/${homeId}/chatFaqs/${faqId}`))
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to delete Q&A" } }
+  }
 }
 
 /** Chunk with item metadata for FAQ display. */

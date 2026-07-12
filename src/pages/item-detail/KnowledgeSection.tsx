@@ -50,7 +50,7 @@ export function KnowledgeSection({
                         size="sm"
                         className="mt-2 min-h-11 min-w-11 text-destructive hover:text-destructive"
                         onClick={async () => {
-                          const result = await deleteFaq(faq.faq_id)
+                          const result = await deleteFaq(faq.home_id, faq.faq_id)
                           if (!result.error) onFaqsChange(faqs.filter((f) => f.faq_id !== faq.faq_id))
                         }}
                         aria-label="Delete saved Q&A"

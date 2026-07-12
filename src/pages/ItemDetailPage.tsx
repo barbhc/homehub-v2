@@ -117,7 +117,7 @@ export default function ItemDetailPage() {
       getChunksByItem(id),
       getManualsByItem(id),
       getRooms(home.home_id),
-      getFaqsByItem(id),
+      getFaqsByItem(home.home_id, id),
     ]).then(([itemRes, tasksRes, chunksRes, manualsRes, roomsRes, faqsRes]) => {
       if (cancelled) return
       setLoading(false)

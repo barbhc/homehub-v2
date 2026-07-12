@@ -483,7 +483,7 @@ export default function FaqPage() {
   }, [groupBy, filteredChunks])
 
   const handleDeleteFaq = async (faqId: string) => {
-    const result = await deleteFaq(faqId)
+    const result = await deleteFaq(homeId, faqId)
     if (!result.error) setFaqs((prev) => prev.filter((f) => f.faq_id !== faqId))
   }
 
