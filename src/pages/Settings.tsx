@@ -466,7 +466,7 @@ export default function Settings() {
     async (templateId: string) => {
       setDeletingId(templateId)
       try {
-        const result = await deleteRoutineTask(templateId)
+        const result = await deleteRoutineTask(homeId ?? "", templateId)
         if (result.ok) {
           setRoutines((prev) => prev.filter((r) => r.task_template_id !== templateId))
         }

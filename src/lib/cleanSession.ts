@@ -3,9 +3,27 @@
  * Cleaning tasks from task_instance (includes routine templates after instance generation)
  */
 
-import { supabase } from "@/integrations/shim/client"
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  where,
+  writeBatch,
+  Timestamp,
+  type DocumentData,
+} from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { ScheduleType } from "@/integrations/types"
 import { generateTaskInstances } from "@/modules/care"
+
+/** Timestamp | ISO string → ISO string ("" when absent). */
+function clnIso(v: unknown): string {
+  if (v instanceof Timestamp) return v.toDate().toISOString()
+  return typeof v === "string" ? v : ""
+}
 
 export type CleanSessionMode = "cleaning" | "maintenance"
 
@@ -64,30 +82,6 @@ export function computeCleanScore(task: Omit<CleanTask, "priorityScore">): numbe
   return overdueDays * 4 + staleness * 0.5 + freq
 }
 
-type TaskInstanceRow = {
-  task_instance_id: string
-  task_template_id: string
-  due_date: string
-  item_unit_id: string | null
-  task_template: {
-    title: string
-    scope_type: string
-    item_unit_id: string | null
-    care_type?: string
-    priority_tier: string
-    estimated_minutes: number | null
-    schedule_rule: Array<{ schedule_type: string }> | { schedule_type: string } | null
-    description: string | null
-    instructions_override: string | null
-    knowledge_chunk: { content: string } | null
-  } | null
-  item_unit: {
-    display_name: string
-    room_id: string | null
-    room: { name: string } | null
-  } | null
-}
-
 /**
  * Fetches tasks for a clean session: task_instance filtered by care_type (cleaning+mixed or maintenance+mixed) + routine templates.
  * Routine = scope_type home, item_unit_id null, source user (user-created home tasks).
@@ -97,105 +91,82 @@ export async function getCleaningTasks(
   mode: CleanSessionMode = "cleaning"
 ): Promise<CleanTask[]> {
   const today = todayStr()
-  const templateCareTypes = mode === "cleaning" ? ["cleaning", "mixed"] : ["maintenance", "mixed"]
+  const careTypes = mode === "cleaning" ? ["cleaning", "mixed"] : ["maintenance", "mixed"]
 
-  // 1. Fetch completion map: template_id -> last completed date
-  const { data: doneData } = await supabase
-    .from("task_instance")
-    .select("task_template_id, completed_at")
-    .eq("home_id", homeId)
-    .eq("status", "done")
-    .not("completed_at", "is", null)
-    .order("completed_at", { ascending: false })
+  // One pass over the home's instances, templates, and items. The instance
+  // carries the denormalized display set (title/careType/scopeType/scheduleType/
+  // itemName/roomName); the template map adds description + instructions, the
+  // item map adds room_id (not denormalized onto the instance).
+  const [doneSnap, tplSnap, instSnap, itemSnap] = await Promise.all([
+    getDocs(query(collection(db, `homes/${homeId}/taskInstances`), where("status", "==", "done"))),
+    getDocs(collection(db, `homes/${homeId}/taskTemplates`)),
+    getDocs(collection(db, `homes/${homeId}/taskInstances`)),
+    getDocs(collection(db, `homes/${homeId}/items`)),
+  ])
 
+  // 1. Completion map: templateId → last completed calendar date.
   const lastByTemplate = new Map<string, string>()
-  for (const row of (doneData ?? []) as Array<{ task_template_id: string; completed_at: string }>) {
-    if (!lastByTemplate.has(row.task_template_id)) {
-      lastByTemplate.set(row.task_template_id, row.completed_at.slice(0, 10))
+  doneSnap.docs
+    .map((d) => d.data())
+    .filter((x) => x.completedAt != null)
+    .sort((a, b) => clnIso(b.completedAt).localeCompare(clnIso(a.completedAt)))
+    .forEach((x) => {
+      if (!lastByTemplate.has(x.taskTemplateId)) lastByTemplate.set(x.taskTemplateId, clnIso(x.completedAt).slice(0, 10))
+    })
+
+  // 2. Template + item maps.
+  const tplById = new Map<string, DocumentData>()
+  const activeTpls: Array<{ id: string; itemUnitId: string | null }> = []
+  tplSnap.docs.forEach((d) => {
+    const x = d.data()
+    tplById.set(d.id, x)
+    if ((x.isActive ?? true) && x.deletedAt == null && careTypes.includes(x.careType)) {
+      activeTpls.push({ id: d.id, itemUnitId: x.itemUnitId ?? null })
     }
+  })
+  const roomIdByItem = new Map<string, string | null>()
+  itemSnap.docs.forEach((d) => roomIdByItem.set(d.id, d.data().roomId ?? null))
+
+  // 3. Ensure every active template has a scheduled instance (best-effort;
+  // generateTaskInstances is a no-op until the create subsystem lands, and the
+  // seed already carries one instance per template).
+  const scheduledTemplateIds = new Set(
+    instSnap.docs.filter((d) => d.data().status === "scheduled" && d.data().deletedAt == null).map((d) => d.data().taskTemplateId)
+  )
+  const needInstances = activeTpls.filter((t) => !scheduledTemplateIds.has(t.id))
+  if (needInstances.length > 0) {
+    await Promise.all(
+      needInstances.map((t) =>
+        generateTaskInstances({ task_template_id: t.id, home_id: homeId, item_unit_id: t.itemUnitId ?? undefined })
+      )
+    )
   }
 
-  // 2. Ensure all active templates have at least one scheduled instance
-  const [{ data: allTpls }, { data: existingInst }] = await Promise.all([
-    supabase
-      .from("task_template")
-      .select("task_template_id, item_unit_id")
-      .eq("home_id", homeId)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .in("care_type", templateCareTypes),
-    supabase
-      .from("task_instance")
-      .select("task_template_id")
-      .eq("home_id", homeId)
-      .eq("status", "scheduled")
-      .is("deleted_at", null),
-  ])
-  const templatesWithInstances = new Set((existingInst ?? []).map((r) => r.task_template_id))
-  const needInstances = (allTpls ?? []).filter((t) => !templatesWithInstances.has(t.task_template_id))
-  await Promise.all(
-    needInstances.map((t) =>
-      generateTaskInstances({
-        task_template_id: t.task_template_id,
-        home_id: homeId,
-        item_unit_id: t.item_unit_id ?? undefined,
-      })
-    )
-  )
-
-  // 4. Fetch task_instance rows (scheduled/snoozed); filter by template.care_type for mode
-  const { data: instances, error: instErr } = await supabase
-    .from("task_instance")
-    .select(`
-      task_instance_id,
-      task_template_id,
-      due_date,
-      item_unit_id,
-      task_template:task_template_id(title, scope_type, item_unit_id, care_type, priority_tier, estimated_minutes, schedule_rule(schedule_type), description, instructions_override, knowledge_chunk:instructions_chunk_id(content)),
-      item_unit:item_unit_id(display_name, room_id, room:room_id(name))
-    `)
-    .eq("home_id", homeId)
-    .in("status", ["scheduled", "snoozed"])
-    .is("deleted_at", null)
-
-  if (instErr) throw new Error(`Failed to load tasks: ${instErr.message}`)
-
-  const careTypes = mode === "cleaning" ? ["cleaning", "mixed"] : ["maintenance", "mixed"]
-  const instanceRows = ((instances ?? []) as unknown as TaskInstanceRow[]).filter((r) => {
-    const ct = r.task_template?.care_type
-    return ct != null && careTypes.includes(ct)
-  })
-  const instanceTasks: CleanTask[] = instanceRows.map((r) => {
-    const isRoutine = r.task_template?.scope_type === "home" && r.task_template?.item_unit_id == null
-    return { ...r, _isRoutine: isRoutine }
-  })
-    .map((r) => {
-      const due = r.due_date
-      const lastDone = lastByTemplate.get(r.task_template_id) ?? null
+  // 4. Compose from scheduled/snoozed instances whose (denorm) care_type matches.
+  const instanceTasks: CleanTask[] = instSnap.docs
+    .map((d) => ({ id: d.id, x: d.data() }))
+    .filter(({ x }) => (x.status === "scheduled" || x.status === "snoozed") && x.deletedAt == null && careTypes.includes(x.careType))
+    .map(({ id, x }) => {
+      const tpl = tplById.get(x.taskTemplateId)
+      const isRoutine = x.scopeType === "home" && (x.itemUnitId ?? null) == null
+      const due: string = x.dueDate ?? ""
+      const lastDone = lastByTemplate.get(x.taskTemplateId) ?? null
       const staleDays = lastDone ? daysBetween(lastDone, today) : 9999
-      const isOverdue = due < today
-      const scheduleRuleRaw = r.task_template?.schedule_rule
-      const scheduleType = (Array.isArray(scheduleRuleRaw) ? scheduleRuleRaw[0]?.schedule_type : (scheduleRuleRaw as { schedule_type: string } | null)?.schedule_type) ?? null
-      const roomId = (r as { _isRoutine?: boolean })._isRoutine ? null : (r.item_unit?.room_id ?? null)
-      const roomName = (r as { _isRoutine?: boolean })._isRoutine ? "Routine" : (r.item_unit?.room?.name ?? null)
-      const source: CleanTaskSource = (r as { _isRoutine?: boolean })._isRoutine ? "routine" : "instance"
-      const instructions =
-        r.task_template?.instructions_override ??
-        (r.task_template?.knowledge_chunk as { content?: string } | null)?.content ??
-        null
+      const isOverdue = due !== "" && due < today
+      const instructions = tpl?.instructionsOverride ?? null
       const t: Omit<CleanTask, "priorityScore"> = {
-        id: r.task_instance_id,
-        source,
-        title: r.task_template?.title ?? "Task",
-        description: r.task_template?.description ?? null,
+        id,
+        source: isRoutine ? "routine" : "instance",
+        title: x.title ?? tpl?.title ?? "Task",
+        description: tpl?.description ?? null,
         instructions,
-        itemUnitId: (r as { _isRoutine?: boolean })._isRoutine ? null : (r.item_unit_id ?? r.task_template?.item_unit_id ?? null),
-        itemName: (r as { _isRoutine?: boolean })._isRoutine ? null : (r.item_unit?.display_name ?? null),
-        roomId,
-        roomName,
+        itemUnitId: isRoutine ? null : (x.itemUnitId ?? tpl?.itemUnitId ?? null),
+        itemName: isRoutine ? null : (x.itemName ?? null),
+        roomId: isRoutine ? null : (x.itemUnitId ? roomIdByItem.get(x.itemUnitId) ?? null : null),
+        roomName: isRoutine ? "Routine" : (x.roomName ?? null),
         dueDate: due,
-        estimatedMinutes: r.task_template?.estimated_minutes ?? null,
-        scheduleType,
+        estimatedMinutes: x.estimatedMinutes ?? tpl?.estimatedMinutes ?? null,
+        scheduleType: x.scheduleType ?? (tpl?.schedule as { scheduleType?: string } | null)?.scheduleType ?? null,
         lastCompletedDate: lastDone,
         staleDays,
         isOverdue,
@@ -217,39 +188,28 @@ export type RoutineTemplate = {
  * Returns task_templates where scope_type=home, item_unit_id=null (routine tasks).
  */
 export async function getRoutineTemplates(homeId: string): Promise<RoutineTemplate[]> {
-  const { data, error } = await supabase
-    .from("task_template")
-    .select(`
-      task_template_id,
-      title,
-      estimated_minutes,
-      schedule_rule(schedule_type)
-    `)
-    .eq("home_id", homeId)
-    .eq("scope_type", "home")
-    .is("item_unit_id", null)
-    .eq("source", "user")
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-
-  if (error) throw new Error(`Failed to load routine templates: ${error.message}`)
-
-  const rows = (data ?? []) as Array<{
-    task_template_id: string
-    title: string
-    estimated_minutes: number | null
-    schedule_rule: { schedule_type: string }[] | { schedule_type: string } | null
-  }>
-  return rows.map((r) => {
-    const rule = Array.isArray(r.schedule_rule) ? r.schedule_rule[0] : r.schedule_rule
-    return {
-      task_template_id: r.task_template_id,
-      title: r.title,
-      schedule_type: rule?.schedule_type ?? "monthly",
-      estimated_minutes: r.estimated_minutes,
-    }
-  })
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/taskTemplates`))
+    return snap.docs
+      .map((d) => ({ id: d.id, x: d.data() }))
+      .filter(
+        ({ x }) =>
+          x.scopeType === "home" &&
+          (x.itemUnitId ?? null) == null &&
+          x.source === "user" &&
+          (x.isActive ?? true) &&
+          x.deletedAt == null
+      )
+      .sort((a, b) => clnIso(b.x.createdAt).localeCompare(clnIso(a.x.createdAt)))
+      .map(({ id, x }) => ({
+        task_template_id: id,
+        title: x.title ?? "",
+        schedule_type: (x.schedule as { scheduleType?: string } | null)?.scheduleType ?? "monthly",
+        estimated_minutes: x.estimatedMinutes ?? null,
+      }))
+  } catch (e) {
+    throw new Error(`Failed to load routine templates: ${e instanceof Error ? e.message : "unknown"}`)
+  }
 }
 
 /** A short, guide-level deep-clean entry for the desktop Home rail. */
@@ -344,59 +304,51 @@ export async function getItemCleanGuide(
   homeId: string,
   itemUnitId: string
 ): Promise<ItemCleanGuide | null> {
-  const { data, error } = await supabase
-    .from("task_template")
-    .select(`
-      task_template_id, title, instructions_override, steps, estimated_minutes,
-      item_unit:item_unit_id(display_name, room:room_id(name)),
-      task_template_supply(supply_item(name))
-    `)
-    .eq("home_id", homeId)
-    .eq("item_unit_id", itemUnitId)
-    .in("care_type", ["cleaning", "mixed"])
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: true })
+  try {
+    // Cleaning templates for the item (care_type/active filtered client-side to
+    // avoid a composite index). steps + supplies are inlined on the template.
+    const [tplSnap, itemSnap] = await Promise.all([
+      getDocs(query(collection(db, `homes/${homeId}/taskTemplates`), where("itemUnitId", "==", itemUnitId))),
+      getDoc(doc(db, `homes/${homeId}/items/${itemUnitId}`)),
+    ])
+    const rows = tplSnap.docs
+      .map((d) => ({ id: d.id, x: d.data() }))
+      .filter(({ x }) => ["cleaning", "mixed"].includes(x.careType) && (x.isActive ?? true) && x.deletedAt == null)
+      .sort((a, b) => clnIso(a.x.createdAt).localeCompare(clnIso(b.x.createdAt)))
+    if (rows.length === 0) return null
 
-  if (error) throw new Error(`Failed to load clean guide: ${error.message}`)
-
-  type GuideRow = {
-    task_template_id: string
-    title: string | null
-    instructions_override: string | null
-    steps: string[] | null
-    estimated_minutes: number | null
-    item_unit: { display_name: string; room: { name: string } | null } | { display_name: string; room: { name: string } | null }[] | null
-    task_template_supply: Array<{ supply_item: { name: string } | { name: string }[] | null }>
-  }
-  const rows = (data ?? []) as unknown as GuideRow[]
-  if (rows.length === 0) return null
-
-  const firstItem = Array.isArray(rows[0].item_unit) ? rows[0].item_unit[0] : rows[0].item_unit
-  const room = firstItem && (Array.isArray(firstItem.room) ? firstItem.room[0] : firstItem.room)
-
-  const tasks: CleanGuideStep[] = rows.map((r) => {
-    const rawSteps = Array.isArray(r.steps) ? r.steps.map((s) => String(s).trim()).filter(Boolean) : null
-    const supplies = (r.task_template_supply ?? [])
-      .map((s) => (Array.isArray(s.supply_item) ? s.supply_item[0]?.name : s.supply_item?.name))
-      .map((n) => (n ?? "").trim())
-      .filter(Boolean)
-    return {
-      taskTemplateId: r.task_template_id,
-      title: r.title ?? "Cleaning step",
-      instructions: r.instructions_override ?? null,
-      steps: rawSteps && rawSteps.length > 0 ? rawSteps : null,
-      supplies,
-      estimatedMinutes: r.estimated_minutes ?? null,
+    // Item name + room from the item doc (+ its room), not the template.
+    const itemData = itemSnap.exists() ? itemSnap.data() : null
+    let roomName: string | null = null
+    if (itemData?.roomId) {
+      const roomSnap = await getDoc(doc(db, `homes/${homeId}/rooms/${itemData.roomId}`))
+      roomName = roomSnap.exists() ? (roomSnap.data().name ?? null) : null
     }
-  })
 
-  return {
-    itemUnitId,
-    itemName: firstItem?.display_name ?? "Item",
-    roomName: room?.name ?? null,
-    totalMinutes: tasks.reduce((a, t) => a + (t.estimatedMinutes ?? 0), 0),
-    tasks,
+    const tasks: CleanGuideStep[] = rows.map(({ id, x }) => {
+      const rawSteps = Array.isArray(x.steps) ? x.steps.map((s: unknown) => String(s).trim()).filter(Boolean) : null
+      const supplies = ((x.supplies ?? []) as Array<{ name?: string }>)
+        .map((s) => (s.name ?? "").trim())
+        .filter(Boolean)
+      return {
+        taskTemplateId: id,
+        title: x.title ?? "Cleaning step",
+        instructions: x.instructionsOverride ?? null,
+        steps: rawSteps && rawSteps.length > 0 ? rawSteps : null,
+        supplies,
+        estimatedMinutes: x.estimatedMinutes ?? null,
+      }
+    })
+
+    return {
+      itemUnitId,
+      itemName: itemData?.displayName ?? "Item",
+      roomName,
+      totalMinutes: tasks.reduce((a, t) => a + (t.estimatedMinutes ?? 0), 0),
+      tasks,
+    }
+  } catch (e) {
+    throw new Error(`Failed to load clean guide: ${e instanceof Error ? e.message : "unknown"}`)
   }
 }
 
@@ -421,36 +373,69 @@ export async function saveRoutineTask(
     ? (scheduleType as ScheduleType)
     : "monthly"
 
-  const { data: tmpl, error: tmplErr } = await supabase
-    .from("task_template")
-    .insert({
-      home_id: homeId,
-      scope_type: "home",
-      item_unit_id: null,
-      title: title.trim(),
-      care_type: "cleaning",
-      priority_tier: "recommended",
-      risk_level: "comfort",
-      estimated_minutes: estimatedMinutes,
-      supplies_mode: "none",
-      source: "user",
-      is_user_editable: true,
-      is_active: true,
-    })
-    .select("task_template_id")
-    .single()
+  try {
+    const ref = doc(collection(db, `homes/${homeId}/taskTemplates`))
+    await writeBatch(db)
+      .set(ref, {
+        ...routineTemplateDoc({ title: title.trim(), careType: "cleaning", priorityTier: "recommended", estimatedMinutes, roomId: null, scheduleType: st }),
+      })
+      .commit()
+    return { task_template_id: ref.id }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to create template" }
+  }
+}
 
-  if (tmplErr || !tmpl) return { error: tmplErr?.message ?? "Failed to create template" }
-
-  const { error: ruleErr } = await supabase.from("schedule_rule").insert({
-    task_template_id: tmpl.task_template_id,
-    schedule_type: st,
-    window_days_before: 7,
-    window_days_after: 14,
-  })
-
-  if (ruleErr) return { error: ruleErr.message }
-  return { task_template_id: tmpl.task_template_id }
+/** Shared home-scoped template doc (inlined schedule) for the two save helpers. */
+function routineTemplateDoc(o: {
+  title: string
+  careType: "cleaning" | "maintenance" | "mixed"
+  priorityTier: "essential" | "recommended" | "optional"
+  estimatedMinutes: number | null
+  roomId: string | null
+  scheduleType: ScheduleType
+}): DocumentData {
+  const now = serverTimestamp()
+  return {
+    scopeType: "home",
+    itemUnitId: null,
+    roomId: o.roomId,
+    title: o.title,
+    description: null,
+    careType: o.careType,
+    careTypeOverriddenAt: null,
+    justification: null,
+    symptomTags: [],
+    reCheckTriggers: [],
+    priorityTier: o.priorityTier,
+    riskLevel: "comfort",
+    estimatedMinutes: o.estimatedMinutes,
+    defaultAssignee: null,
+    instructionsChunkId: null,
+    instructionsOverride: null,
+    steps: null,
+    sourcePage: null,
+    suppliesMode: "none",
+    supplies: [],
+    source: "user",
+    isUserEditable: true,
+    userModifiedAt: null,
+    isActive: true,
+    metadata: {},
+    manualId: null,
+    externalKey: null,
+    schedule: {
+      scheduleType: o.scheduleType,
+      intervalDays: null,
+      anchorDate: todayStr(),
+      season: null,
+      windowDaysBefore: 7,
+      windowDaysAfter: 14,
+    },
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  }
 }
 
 /**
@@ -480,48 +465,34 @@ export async function saveStandaloneTask(
     ? (opts.scheduleType as ScheduleType)
     : "monthly"
 
-  const { data: tmpl, error: tmplErr } = await supabase
-    .from("task_template")
-    .insert({
-      home_id: homeId,
-      scope_type: "home",
-      item_unit_id: null,
-      room_id: opts.roomId,
-      title: opts.title.trim(),
-      care_type: opts.careType,
-      priority_tier: opts.priorityTier,
-      risk_level: "comfort",
-      estimated_minutes: opts.estimatedMinutes,
-      supplies_mode: "none",
-      source: "user",
-      is_user_editable: true,
-      is_active: true,
-    })
-    .select("task_template_id")
-    .single()
-
-  if (tmplErr || !tmpl) return { error: tmplErr?.message ?? "Failed to create template" }
-
-  const { error: ruleErr } = await supabase.from("schedule_rule").insert({
-    task_template_id: tmpl.task_template_id,
-    schedule_type: st,
-    window_days_before: 7,
-    window_days_after: 14,
-  })
-
-  if (ruleErr) return { error: ruleErr.message }
-  return { task_template_id: tmpl.task_template_id }
+  try {
+    const ref = doc(collection(db, `homes/${homeId}/taskTemplates`))
+    await writeBatch(db)
+      .set(ref, routineTemplateDoc({
+        title: opts.title.trim(),
+        careType: opts.careType,
+        priorityTier: opts.priorityTier,
+        estimatedMinutes: opts.estimatedMinutes,
+        roomId: opts.roomId,
+        scheduleType: st,
+      }))
+      .commit()
+    return { task_template_id: ref.id }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to create template" }
+  }
 }
 
 /**
  * Soft-deletes a task_template.
  */
-export async function deleteRoutineTask(templateId: string): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await supabase
-    .from("task_template")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("task_template_id", templateId)
-
-  if (error) return { ok: false, error: error.message }
-  return { ok: true }
+export async function deleteRoutineTask(homeId: string, templateId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await writeBatch(db)
+      .set(doc(db, `homes/${homeId}/taskTemplates/${templateId}`), { deletedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to delete template" }
+  }
 }
