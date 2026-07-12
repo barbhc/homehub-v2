@@ -3,7 +3,6 @@
  * CHO Data Model v1.1: uses task_instance, task_template, item_unit, room
  */
 
-import { supabase } from "@/integrations/shim/client"
 import { collection, getDocs, query, where, Timestamp } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { TopConcernKey } from "@/modules/home/services/homeProfileService"
@@ -155,15 +154,13 @@ export async function getInsights(
   // Appliance tips must match a real owned item; universal tips always pass.
   let ownedText: string[] = []
   if (monthSuggestions.some((s) => s.match !== null)) {
-    const { data } = await supabase
-      .from("item_unit")
-      .select("sub_type, display_name")
-      .eq("home_id", homeId)
-      .is("deleted_at", null)
-    ownedText = (data ?? []).map(
-      (r: { sub_type: string | null; display_name: string | null }) =>
-        `${r.sub_type ?? ""} ${r.display_name ?? ""}`
-    )
+    // v1 matched on sub_type + display_name; v2 items carry `category`
+    // (e.g. "furnace", "water_heater") + `displayName`, which the regexes hit.
+    const snap = await getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null)))
+    ownedText = snap.docs.map((d) => {
+      const x = d.data()
+      return `${x.category ?? ""} ${x.displayName ?? ""}`
+    })
   }
 
   const matched = monthSuggestions.filter(
