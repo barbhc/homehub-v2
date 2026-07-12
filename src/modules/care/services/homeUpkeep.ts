@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/shim/client"
+import { collection, getDocs, query, where } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { PriorityTier, ScheduleType, Season } from "@/integrations/types"
 import type { ServiceResult } from "./taskService"
 
@@ -43,80 +44,44 @@ export async function getHomeUpkeep(
 ): Promise<ServiceResult<HomeUpkeepItem[]>> {
   const today = todayStr()
 
-  const { data, error } = await supabase
-    .from("task_instance")
-    .select(
-      `
-      task_instance_id,
-      task_template_id,
-      due_date,
-      item_unit_id,
-      task_template:task_template_id!inner(
-        title,
-        scope_type,
-        item_unit_id,
-        care_type,
-        priority_tier,
-        estimated_minutes,
-        schedule_rule(schedule_type, season, interval_days)
-      )
-    `
-    )
-    .eq("home_id", homeId)
-    .is("item_unit_id", null)
-    .in("status", ["scheduled", "snoozed"])
-    .is("deleted_at", null)
-    .order("due_date", { ascending: true })
+  try {
+    // Instances carry the denorm display fields; season/intervalDays live on the
+    // template's inlined schedule, so read templates once into a lookup.
+    const [instSnap, tplSnap] = await Promise.all([
+      getDocs(query(collection(db, `homes/${homeId}/taskInstances`), where("deletedAt", "==", null))),
+      getDocs(query(collection(db, `homes/${homeId}/taskTemplates`), where("deletedAt", "==", null))),
+    ])
+    const scheduleByTpl = new Map<string, { season: Season | null; intervalDays: number | null }>()
+    for (const d of tplSnap.docs) {
+      const sched = (d.get("schedule") as { season?: Season | null; intervalDays?: number | null } | undefined) ?? {}
+      scheduleByTpl.set(d.id, { season: sched.season ?? null, intervalDays: sched.intervalDays ?? null })
+    }
 
-  if (error) return { data: null, error: { message: error.message } }
+    const items: HomeUpkeepItem[] = instSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
+      // Whole-home recurring jobs only: home-scoped + no item.
+      .filter((r) => (r.status === "scheduled" || r.status === "snoozed") && r.itemUnitId == null && r.scopeType === "home")
+      .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
+      .map((r) => {
+        const sched = scheduleByTpl.get(r.taskTemplateId as string) ?? { season: null, intervalDays: null }
+        const dueDate = (r.dueDate as string) ?? today
+        return {
+          taskInstanceId: r.id,
+          taskTemplateId: (r.taskTemplateId as string) ?? "",
+          title: (r.title as string) ?? "Task",
+          dueDate,
+          isOverdue: dueDate < today,
+          priorityTier: (r.priorityTier as PriorityTier) ?? "optional",
+          scheduleType: (r.scheduleType as ScheduleType) ?? "monthly",
+          season: sched.season,
+          intervalDays: sched.intervalDays,
+          careType: (r.careType as string | null) ?? null,
+          estimatedMinutes: (r.estimatedMinutes as number | null) ?? null,
+        }
+      })
 
-  type ScheduleRuleRow = {
-    schedule_type: ScheduleType
-    season: Season | null
-    interval_days: number | null
+    return { data: items, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Request failed" } }
   }
-  type Row = {
-    task_instance_id: string
-    task_template_id: string
-    due_date: string
-    item_unit_id: string | null
-    task_template: {
-      title: string
-      scope_type: "home" | "item_unit"
-      item_unit_id: string | null
-      care_type: string | null
-      priority_tier: PriorityTier
-      estimated_minutes: number | null
-      schedule_rule: ScheduleRuleRow[] | ScheduleRuleRow | null
-    } | null
-  }
-
-  const items: HomeUpkeepItem[] = ((data ?? []) as unknown as Row[])
-    // Belt-and-braces: enforce home scope + null item even though the query
-    // already filters item_unit_id. (The instance and template item_unit_id can
-    // diverge in malformed data; we want truly whole-home jobs only.)
-    .filter(
-      (r) =>
-        r.task_template?.scope_type === "home" &&
-        r.task_template?.item_unit_id == null
-    )
-    .map((r) => {
-      const ruleRaw = r.task_template?.schedule_rule
-      const rule = Array.isArray(ruleRaw) ? ruleRaw[0] : ruleRaw
-      return {
-        taskInstanceId: r.task_instance_id,
-        taskTemplateId: r.task_template_id,
-        title: r.task_template?.title ?? "Task",
-        dueDate: r.due_date,
-        isOverdue: r.due_date < today,
-        priorityTier: r.task_template?.priority_tier ?? "optional",
-        scheduleType: rule?.schedule_type ?? "monthly",
-        season: rule?.season ?? null,
-        intervalDays: rule?.interval_days ?? null,
-        careType: r.task_template?.care_type ?? null,
-        estimatedMinutes: r.task_template?.estimated_minutes ?? null,
-      }
-    })
-
-  return { data: items, error: null }
 }
