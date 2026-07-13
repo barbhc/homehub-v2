@@ -188,3 +188,27 @@ describe("member management + roles", () => {
     await assertSucceeds(deleteDoc(doc(asOwner(), `homes/${HOME}/members/${MEMBER}`)))
   })
 })
+
+describe("invites (hardened: members-only; acceptance is server-side)", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `homes/${HOME}/invites/inv1`), {
+        token: "tok", role: "member", createdBy: OWNER, acceptedBy: null,
+      })
+    })
+  })
+
+  it("a member can create, read, and delete invites", async () => {
+    await assertSucceeds(getDoc(doc(asMember(), `homes/${HOME}/invites/inv1`)))
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/invites/inv2`), { token: "t2", role: "member" }))
+    await assertSucceeds(deleteDoc(doc(asMember(), `homes/${HOME}/invites/inv2`)))
+  })
+
+  it("a signed-in NON-member cannot read invites (no token harvesting)", async () => {
+    await assertFails(getDoc(doc(asOutsider(), `homes/${HOME}/invites/inv1`)))
+  })
+
+  it("a non-member cannot self-accept by writing acceptedBy (acceptance is the callable's job)", async () => {
+    await assertFails(updateDoc(doc(asOutsider(), `homes/${HOME}/invites/inv1`), { acceptedBy: OUTSIDER }))
+  })
+})

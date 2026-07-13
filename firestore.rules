@@ -79,13 +79,15 @@ service cloud.firestore {
 
       // ---- invites ----
       match /invites/{inviteId} {
-        // Any signed-in user may read (invitee looks up by token to accept); members
-        // create/delete; the invitee marks acceptance to themselves only. Token/expiry
-        // validation belt-and-suspenders in the acceptInvite callable.
-        allow read: if isSignedIn();
-        allow create, delete: if isMember(homeId);
-        allow update: if isMember(homeId)
-          || (isSignedIn() && request.resource.data.acceptedBy == request.auth.uid);
+        // Members-only: owners/admins manage invites from Settings (they're
+        // members). Acceptance is NOT a client write — the acceptInvite callable
+        // (Admin SDK) validates token+expiry and creates the member doc, so a
+        // non-member never touches this collection directly. Restricting read to
+        // members closes the token-harvesting hole (a signed-in non-member could
+        // previously LIST /homes/{homeId}/invites given a homeId).
+        // (A collection-group read rule for the accept-page token lookup is
+        // deliberately deferred until sharing ships — see the checkpoint plan.)
+        allow read, create, update, delete: if isMember(homeId);
       }
 
       // ---- task instances (assignee guard) ----
