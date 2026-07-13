@@ -2,9 +2,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/modules/auth"
-import { createHome } from "../services/homeService"
+import { createHome, getPrimaryHome } from "../services/homeService"
 import { cn } from "@/lib/utils"
-import { supabase } from "@/integrations/shim/client"
 
 type HomeOnboardingProps = {
   onComplete: () => void
@@ -23,16 +22,14 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
     setError(null)
     setLoading(true)
 
-    const { data: existing, error: existingErr } = await supabase
-      .from("home_members")
-      .select("home_id")
-      .eq("user_id", user.id)
-      .limit(1)
-    if (existingErr) {
-      console.debug("[HomeOnboarding] Check existing home_members error:", existingErr.message)
+    // "Do I already have a home?" — same membership lookup the home gate uses
+    // (collectionGroup(members).where uid == me, via homeService).
+    const existing = await getPrimaryHome()
+    if (existing.error) {
+      console.debug("[HomeOnboarding] Check existing membership error:", existing.error.message)
     }
-    if (existing?.length) {
-      console.debug("[HomeOnboarding] User already has home:", existing[0]?.home_id)
+    if (existing.data) {
+      console.debug("[HomeOnboarding] User already has home:", existing.data.home_id)
       setLoading(false)
       onComplete()
       return
@@ -51,7 +48,7 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
       }
       setError(
         msg === "Failed to fetch"
-          ? "Unable to connect. Check your internet connection and that your Supabase project is active."
+          ? "Unable to connect. Check your internet connection and try again."
           : msg
       )
       setLoading(false)

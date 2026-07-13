@@ -49,7 +49,10 @@ import {
   type NotificationEventKey,
   type NotificationPrefs,
 } from "@/lib/notificationPreferences"
-import { supabase } from "@/integrations/shim/client"
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore"
+import { db, callable } from "@/integrations/firebase"
+
+const sendTestPushCallable = callable<void, { ok: boolean; sent?: number }>("sendTestPush")
 import type { ManualDocument, Room } from "@/integrations/types"
 
 type ManualWithName = ManualDocument & { display_name: string }
@@ -136,20 +139,17 @@ export default function Settings() {
     if (!user?.id) return
     let cancelled = false
     ;(async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle()
-      if (cancelled) return
-      if (error) {
-        setProfileError(error.message)
-      } else {
-        const name = data?.full_name ?? ""
+      try {
+        // Public profile lives on users/{uid} (fullName).
+        const snap = await getDoc(doc(db, `users/${user.id}`))
+        if (cancelled) return
+        const name = (snap.exists() ? (snap.get("fullName") as string | null) : null) ?? ""
         setProfileName(name)
         setProfileNameDraft(name)
+      } catch (e) {
+        if (!cancelled) setProfileError(e instanceof Error ? e.message : "Failed to load profile")
       }
-      setProfileLoading(false)
+      if (!cancelled) setProfileLoading(false)
     })()
     return () => {
       cancelled = true
@@ -164,22 +164,16 @@ export default function Settings() {
     setProfileError(null)
     setProfileSaved(false)
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .update({ full_name: trimmed || null, updated_at: new Date().toISOString() })
-        .eq("id", user.id)
-        .select("id")
-      if (error) {
-        setProfileError(error.message)
-      } else if (!data || data.length === 0) {
-        // RLS mismatch or missing profiles row — update affected 0 rows.
-        // Report explicitly instead of silently claiming success.
-        setProfileError("Profile record not found or not writable. Please sign out and back in.")
-      } else {
-        setProfileName(trimmed)
-        setProfileSaved(true)
-        setTimeout(() => setProfileSaved(false), 2000)
-      }
+      // Upsert-style merge on users/{uid} — creates the doc if it's missing
+      // (v1's 0-rows RLS failure mode doesn't exist here).
+      await setDoc(
+        doc(db, `users/${user.id}`),
+        { fullName: trimmed || null, updatedAt: serverTimestamp() },
+        { merge: true }
+      )
+      setProfileName(trimmed)
+      setProfileSaved(true)
+      setTimeout(() => setProfileSaved(false), 2000)
     } catch (err) {
       setProfileError(err instanceof Error ? err.message : "Failed to save profile")
     } finally {
@@ -212,16 +206,18 @@ export default function Settings() {
     setPushTesting(true)
     setPushTestMsg(null)
     try {
-      const { data, error } = await supabase.functions.invoke("send-test-push")
-      if (error) {
-        setPushTestMsg("Couldn't send — please try again.")
-      } else if ((data?.sent ?? 0) > 0) {
+      const res = await sendTestPushCallable()
+      if ((res.sent ?? 0) > 0) {
         setPushTestMsg("Sent! Check your phone in a second.")
       } else {
-        setPushTestMsg(data?.message ?? "No device registered yet.")
+        setPushTestMsg("No device registered yet.")
       }
-    } catch {
-      setPushTestMsg("Couldn't send — please try again.")
+    } catch (e) {
+      // failed-precondition = no registered devices; anything else is transient.
+      const msg = e instanceof Error && e.message.includes("No registered devices")
+        ? "No device registered yet."
+        : "Couldn't send — please try again."
+      setPushTestMsg(msg)
     } finally {
       setPushTesting(false)
     }
@@ -356,17 +352,15 @@ export default function Settings() {
       setRooms(res.data ?? [])
 
       // Fetch item counts per room
-      const { data: counts } = await supabase
-        .from("item_unit")
-        .select("room_id")
-        .eq("home_id", homeId)
-        .is("deleted_at", null)
-        .not("room_id", "is", null)
+      const countsSnap = await getDocs(
+        query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))
+      )
 
       const countMap: Record<string, number> = {}
-      for (const row of counts ?? []) {
-        if (row.room_id) {
-          countMap[row.room_id] = (countMap[row.room_id] ?? 0) + 1
+      for (const d of countsSnap.docs) {
+        const roomId = d.data().roomId as string | null | undefined
+        if (roomId) {
+          countMap[roomId] = (countMap[roomId] ?? 0) + 1
         }
       }
       setRoomItemCounts(countMap)

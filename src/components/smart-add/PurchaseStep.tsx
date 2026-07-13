@@ -4,16 +4,20 @@ import { SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+// Shim retained ONLY for the check-recalls edge invoke (Bucket B — callable
+// port lands in a later increment); all item reads/writes are Firestore.
 import { supabase } from "@/integrations/shim/client"
+import { getItemUnit, updateItemUnit, type UpdateItemUnitInput } from "@/modules/items"
 import { uploadReceiptImage } from "@/modules/inventory/services/storageService"
 
 interface PurchaseStepProps {
+  homeId: string
   itemUnitId: string
   onComplete: () => void
   onSkip: () => void
 }
 
-export function PurchaseStep({ itemUnitId, onComplete, onSkip }: PurchaseStepProps) {
+export function PurchaseStep({ homeId, itemUnitId, onComplete, onSkip }: PurchaseStepProps) {
   const [purchaseDate, setPurchaseDate] = useState("")
   const [storeName, setStoreName] = useState("")
   const [priceStr, setPriceStr] = useState("")
@@ -34,37 +38,28 @@ export function PurchaseStep({ itemUnitId, onComplete, onSkip }: PurchaseStepPro
       receiptPath = result.data!.path
     }
 
-    const updates: Record<string, unknown> = {}
+    const updates: UpdateItemUnitInput = {}
     if (purchaseDate.trim()) updates.purchase_date = purchaseDate.trim()
     if (storeName.trim()) updates.store_name = storeName.trim()
     const parsedPrice = priceStr.replace(/[^0-9.]/g, "")
     if (parsedPrice) updates.price_paid = parseFloat(parsedPrice)
     if (receiptPath) updates.receipt_storage_path = receiptPath
 
-    if (Object.keys(updates).length > 0) {
-      updates.updated_at = new Date().toISOString()
-      await supabase.from("item_unit").update(updates).eq("item_unit_id", itemUnitId)
-    }
-
+    // Derive the warranty expiry from purchase date + the item's warranty
+    // months, folded into the same update.
     if (purchaseDate.trim()) {
-      const { data: item } = await supabase
-        .from("item_unit")
-        .select("warranty_duration_months")
-        .eq("item_unit_id", itemUnitId)
-        .single()
-      const months = (item as { warranty_duration_months?: number | null } | null)?.warranty_duration_months
+      const itemRes = await getItemUnit(homeId, itemUnitId)
+      const months = itemRes.data?.warranty_duration_months
       if (months != null && months > 0) {
         const [ey, em, ed] = purchaseDate.trim().split("-").map(Number)
         const expiry = new Date(ey, em - 1, ed)
         expiry.setMonth(expiry.getMonth() + months)
-        await supabase
-          .from("item_unit")
-          .update({
-            warranty_expiry_date: expiry.toISOString().split("T")[0],
-            updated_at: new Date().toISOString(),
-          })
-          .eq("item_unit_id", itemUnitId)
+        updates.warranty_expiry_date = expiry.toISOString().split("T")[0]
       }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await updateItemUnit(homeId, itemUnitId, updates)
     }
 
     supabase.functions.invoke("check-recalls", { body: { item_unit_id: itemUnitId } })

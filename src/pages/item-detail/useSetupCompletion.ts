@@ -7,7 +7,9 @@
  * behavior stays identical.
  */
 import { useEffect, useState } from "react"
-import { supabase } from "@/integrations/shim/client"
+import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where, Timestamp } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
+import { logTaskCompletion } from "@/modules/care"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 
 export interface SetupCompletion {
@@ -32,33 +34,44 @@ export function useSetupCompletion(
   const taskKey = tasks.map((t) => t.task_template_id).join(",")
 
   useEffect(() => {
-    if (tasks.length === 0) {
+    if (tasks.length === 0 || !homeId) {
       setInstanceMap(new Map())
       return
     }
+    // Setup checklists are far below Firestore's 30-value `in` cap.
     const taskIds = tasks.map((t) => t.task_template_id)
     let cancelled = false
-    supabase
-      .from("task_instance")
-      .select("task_instance_id, task_template_id")
-      .in("task_template_id", taskIds)
-      .eq("status", "done")
-      .is("deleted_at", null)
-      .order("completed_at", { ascending: false })
-      .then(({ data }) => {
-        if (cancelled || !data) return
+    getDocs(
+      query(
+        collection(db, `homes/${homeId}/taskInstances`),
+        where("taskTemplateId", "in", taskIds),
+        where("status", "==", "done")
+      )
+    )
+      .then((snap) => {
+        if (cancelled) return
+        const rows = snap.docs
+          .filter((d) => d.data().deletedAt == null)
+          .map((d) => {
+            const completedAt = d.data().completedAt
+            return {
+              id: d.id,
+              tplId: d.data().taskTemplateId as string,
+              completedAt: completedAt instanceof Timestamp ? completedAt.toDate().toISOString() : "",
+            }
+          })
+          .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
         const map = new Map<string, string>()
-        for (const row of data as Array<{ task_instance_id: string; task_template_id: string }>) {
-          if (!map.has(row.task_template_id)) {
-            map.set(row.task_template_id, row.task_instance_id)
-          }
+        for (const row of rows) {
+          if (!map.has(row.tplId)) map.set(row.tplId, row.id)
         }
         setInstanceMap(map)
       })
+      .catch(() => { /* non-fatal — checklist renders unchecked */ })
     return () => { cancelled = true }
     // taskKey captures the set of task ids without re-running on array identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskKey])
+  }, [taskKey, homeId])
 
   const toggleDone = async (task: TaskTemplateWithSchedule) => {
     const taskId = task.task_template_id
@@ -67,39 +80,23 @@ export function useSetupCompletion(
 
     if (wasDone) {
       const instanceId = instanceMap.get(taskId)!
-      const { error } = await supabase
-        .from("task_instance")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("task_instance_id", instanceId)
-      if (!error) {
+      try {
+        await updateDoc(doc(db, `homes/${homeId}/taskInstances/${instanceId}`), {
+          deletedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
         setInstanceMap((prev) => {
           const next = new Map(prev)
           next.delete(taskId)
           return next
         })
-      }
+      } catch { /* leave checked; the next toggle retries */ }
     } else {
-      const today = new Date().toISOString().split("T")[0]
-      const { data, error } = await supabase
-        .from("task_instance")
-        .insert({
-          home_id: homeId,
-          task_template_id: taskId,
-          item_unit_id: itemId,
-          status: "done",
-          due_date: today,
-          completed_at: new Date().toISOString(),
-          priority_score: 0,
-          is_safety_critical: false,
-          completion_notes: null,
-          completion_photos: [],
-        })
-        .select("task_instance_id")
-        .single()
-      if (!error && data) {
-        setInstanceMap((prev) =>
-          new Map([...prev, [taskId, (data as { task_instance_id: string }).task_instance_id]]),
-        )
+      // logTaskCompletion writes the done instance WITH the template's denorm
+      // display set (title/tier/careType — firestore-model.md §5).
+      const result = await logTaskCompletion(homeId, taskId, itemId, new Date().toISOString())
+      if (!result.error && result.data) {
+        setInstanceMap((prev) => new Map([...prev, [taskId, result.data!.task_instance_id]]))
       }
     }
 

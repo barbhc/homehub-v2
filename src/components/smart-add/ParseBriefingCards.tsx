@@ -7,7 +7,8 @@ import {
   AlertCircleIcon,
   CalendarIcon,
 } from "lucide-react"
-import { supabase } from "@/integrations/shim/client"
+import { doc, getDoc } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import { cn } from "@/lib/utils"
 import type { KnowledgeChunk, RiskLevel } from "@/integrations/types"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
@@ -49,6 +50,7 @@ const RISK_WEIGHT: Record<RiskLevel, number> = {
 }
 
 interface ParseBriefingCardsProps {
+  homeId: string
   itemUnitId?: string
   chunks: KnowledgeChunk[]
   tasks: TaskTemplateWithSchedule[]
@@ -187,6 +189,7 @@ function Card({
 /* ─── Main component ──────────────────────────────────────────────── */
 
 export function ParseBriefingCards({
+  homeId,
   itemUnitId,
   chunks,
   tasks,
@@ -205,23 +208,17 @@ export function ParseBriefingCards({
         }
         return
       }
-      const { data, error } = await supabase
-        .from("item_unit")
-        .select(
-          "warranty_duration_months, warranty_coverage, purchase_date, warranty_expiry_date, manufactured_year"
-        )
-        .eq("item_unit_id", itemUnitId)
-        .maybeSingle()
+      const snap = await getDoc(doc(db, `homes/${homeId}/items/${itemUnitId}`)).catch(() => null)
       if (cancelled) return
-      if (error || !data) {
+      if (!snap?.exists()) {
         setWarranty(null)
       } else {
         setWarranty({
-          durationMonths: data.warranty_duration_months ?? null,
-          coverage: data.warranty_coverage ?? null,
-          purchaseDate: data.purchase_date ?? null,
-          expiryDate: data.warranty_expiry_date ?? null,
-          manufacturedYear: data.manufactured_year ?? null,
+          durationMonths: (snap.get("warrantyDurationMonths") as number | null) ?? null,
+          coverage: (snap.get("warrantyCoverage") as string | null) ?? null,
+          purchaseDate: (snap.get("purchaseDate") as string | null) ?? null,
+          expiryDate: (snap.get("warrantyExpiryDate") as string | null) ?? null,
+          manufacturedYear: (snap.get("manufacturedYear") as number | null) ?? null,
         })
       }
       setWarrantyLoading(false)
@@ -230,7 +227,7 @@ export function ParseBriefingCards({
     return () => {
       cancelled = true
     }
-  }, [itemUnitId])
+  }, [homeId, itemUnitId])
 
   const lowConfidence = isLowConfidence(confidence)
   const tipChunk = lowConfidence ? null : pickTopTroubleshootingChunk(chunks)

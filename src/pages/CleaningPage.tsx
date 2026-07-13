@@ -5,7 +5,8 @@ import { useCurrentHome } from "@/modules/home"
 import { getRooms } from "@/modules/home"
 import { getItemUnits } from "@/modules/items"
 import { getTaskInstances } from "@/modules/care"
-import { supabase } from "@/integrations/shim/client"
+import { addDoc, collection, serverTimestamp } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type { CleaningSession, Room, ItemUnit } from "@/integrations/types"
 import type { TaskInstanceWithDetails } from "@/modules/care"
 import { Check } from "lucide-react"
@@ -40,12 +41,30 @@ export default function CleaningPage() {
 
   const startSession = async () => {
     if (!home) return
-    const { data } = await supabase
-      .from("cleaning_session")
-      .insert({ home_id: home.home_id, room_id: selectedRoomId })
-      .select()
-      .single()
-    if (data) setSession(data as CleaningSession)
+    try {
+      const ref = await addDoc(collection(db, `homes/${home.home_id}/cleaningSessions`), {
+        roomId: selectedRoomId,
+        name: null,
+        startedAt: serverTimestamp(),
+        endedAt: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        deletedAt: null,
+      })
+      setSession({
+        session_id: ref.id,
+        home_id: home.home_id,
+        room_id: selectedRoomId,
+        name: null,
+        started_at: new Date().toISOString(),
+        ended_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        deleted_at: null,
+      } satisfies CleaningSession)
+    } catch {
+      /* non-fatal — the check-off flow works without a persisted session row */
+    }
   }
 
   const handleNext = () => {

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { PencilIcon } from "lucide-react"
 
-import { supabase } from "@/integrations/shim/client"
+import { doc, getDoc } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import { updateTaskNotes } from "@/modules/care"
 import type { ScheduleType, PriorityTier } from "@/integrations/types"
 import type { MaintenanceTaskFull } from "@/lib/dashboard"
@@ -67,28 +68,26 @@ export function TaskDetailSheet({
     if (!open || !taskId) return
     let cancelled = false
 
-    supabase
-      .from("task_template")
-      .select("estimated_minutes, schedule_rule(schedule_type, interval_days)")
-      .eq("task_template_id", taskId)
-      .single()
-      .then(({ data }) => {
-        if (cancelled || !data) return
-        const row = data as { estimated_minutes?: number | null; schedule_rule?: Array<{ schedule_type: string; interval_days?: number | null }> | null }
-        setEstimatedMinutes(row.estimated_minutes ?? null)
-        const rule = row.schedule_rule?.[0]
-        if (rule) {
+    // The schedule is inlined on the template doc (firestore-model.md §1) —
+    // v1's schedule_rule join collapses to fields on one get().
+    getDoc(doc(db, `homes/${homeId}/taskTemplates/${taskId}`))
+      .then((snap) => {
+        if (cancelled || !snap.exists()) return
+        setEstimatedMinutes((snap.get("estimatedMinutes") as number | null) ?? null)
+        const sched = snap.get("schedule") as { scheduleType?: string; intervalDays?: number | null } | null
+        if (sched?.scheduleType) {
           setCurrentSchedule({
-            scheduleType: rule.schedule_type as ScheduleType,
-            intervalDays: rule.interval_days ?? undefined,
+            scheduleType: sched.scheduleType as ScheduleType,
+            intervalDays: sched.intervalDays ?? undefined,
           })
         } else {
           setCurrentSchedule(null)
         }
       })
+      .catch(() => { /* non-fatal — the sheet renders without schedule info */ })
 
     return () => { cancelled = true }
-  }, [open, taskId])
+  }, [open, taskId, homeId])
 
   const dueLabel = useMemo(() => {
     if (!task || !task.next_due_date) return "No due date"

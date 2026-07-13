@@ -17,7 +17,10 @@ import {
   updateChunkSourcePages,
 } from "@/modules/knowledge"
 import { useManualManagement, getManualUrl } from "@/hooks/useManualManagement"
+// Shim retained ONLY for the check-recalls edge invoke (Bucket B — later increment).
 import { supabase } from "@/integrations/shim/client"
+import { collection, getDocs, query, where } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import type {
   ItemUnit,
   KnowledgeChunk,
@@ -83,16 +86,13 @@ export default function ItemDetailPage() {
   useEffect(() => {
     if (!home) return
     let cancelled = false
-    supabase
-      .from("item_unit")
-      .select("tags")
-      .eq("home_id", home.home_id)
-      .is("deleted_at", null)
-      .then(({ data }) => {
-        if (cancelled || !data) return
-        const all = data.flatMap((r) => (r.tags as string[]) ?? [])
+    getDocs(query(collection(db, `homes/${home.home_id}/items`), where("deletedAt", "==", null)))
+      .then((snap) => {
+        if (cancelled) return
+        const all = snap.docs.flatMap((d) => (d.data().tags as string[] | undefined) ?? [])
         setAllHomeTags([...new Set(all)].sort())
       })
+      .catch(() => { /* non-fatal — autocomplete just stays empty */ })
     return () => { cancelled = true }
   }, [home])
 

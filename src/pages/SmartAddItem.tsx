@@ -566,6 +566,7 @@ export default function SmartAddItem() {
 
       {step === "purchase" && itemId && (
         <PurchaseStep
+          homeId={propertyId}
           itemUnitId={itemId}
           onComplete={() => {
             clearWizardSession()

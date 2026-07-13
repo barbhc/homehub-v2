@@ -35,6 +35,13 @@ test.describe("emulator e2e — auth + home", () => {
     await expect(page.getByRole("combobox").filter({ hasText: "House" }).first()).toBeVisible({ timeout: 10_000 })
   })
 
+  test("Settings account name loads from users/{uid} (profile read end-to-end)", async ({ page }) => {
+    await page.goto("/settings")
+    // The Account display-name input hydrates from users/{uid}.fullName —
+    // the seeded profile is "E2E Tester".
+    await expect(page.locator("#profile-name").first()).toHaveValue("E2E Tester", { timeout: 15_000 })
+  })
+
   test("Settings lists the seeded home member (inviteService.getHomeMembers end-to-end)", async ({ page }) => {
     await page.goto("/settings")
     // Home Members reads homes/{homeId}/members + the users/{uid} profile — the

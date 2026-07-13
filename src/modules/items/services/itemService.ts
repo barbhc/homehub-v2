@@ -52,6 +52,7 @@ export type UpdateItemUnitInput = {
   store_name?: string | null
   price_paid?: number | null
   receipt_storage_path?: string | null
+  warranty_expiry_date?: string | null
   tags?: string[]
   setup_revealed_at?: string | null
   variant_tags?: string[]
@@ -127,6 +128,7 @@ const UPDATE_FIELD_MAP: Record<string, string> = {
   store_name: "storeName",
   price_paid: "pricePaid",
   receipt_storage_path: "receiptPath",
+  warranty_expiry_date: "warrantyExpiryDate",
   tags: "tags",
   setup_revealed_at: "setupRevealedAt",
   variant_tags: "variantTags",

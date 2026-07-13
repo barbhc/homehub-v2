@@ -433,13 +433,15 @@ export function ParseReviewStep({
         )
       )
 
-      // Update in DB
-      const { error } = await (await import("@/integrations/shim/client")).supabase
-        .from("knowledge_chunk")
-        .update({ chunk_type: target })
-        .eq("chunk_id", chunkId)
-
-      if (error) {
+      // Update in DB — the chunk lives under its manual (nested path).
+      try {
+        const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore")
+        const { db } = await import("@/integrations/firebase")
+        await updateDoc(doc(db, `homes/${homeId}/manuals/${chunk.manual_id}/chunks/${chunkId}`), {
+          chunkType: target,
+          updatedAt: serverTimestamp(),
+        })
+      } catch {
         onChunksChange(prevChunks)
         setMutationError("Couldn't update chunk type. Please try again.")
         return
@@ -470,6 +472,7 @@ export function ParseReviewStep({
       </p>
 
       <ParseBriefingCards
+        homeId={homeId}
         itemUnitId={itemUnitId}
         chunks={chunks}
         tasks={tasks}

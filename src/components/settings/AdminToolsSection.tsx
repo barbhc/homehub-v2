@@ -3,7 +3,11 @@ import { Loader2Icon, SparklesIcon, AlertCircleIcon, CheckCircle2Icon, DownloadI
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+// Shim retained ONLY for the classify-existing-tasks edge invoke (Bucket B —
+// callable port lands in a later increment); the CSV export read is Firestore.
 import { supabase } from "@/integrations/shim/client"
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import { cn } from "@/lib/utils"
 
 // ---------------------------------------------------------------------------
@@ -157,28 +161,34 @@ export function AdminToolsSection({ homeId }: Props) {
     try {
       // Pull every task_template for this home — active and inactive — so the
       // user can see the full corpus including rows the classifier deactivated.
-      // Joins item display_name + the canonical schedule_rule (first row wins).
-      const { data, error: fetchErr } = await supabase
-        .from("task_template")
-        .select(`
-          task_template_id,
-          title,
-          description,
-          instructions_override,
-          care_type,
-          is_active,
-          justification,
-          item_unit:item_unit_id(display_name),
-          schedule_rule(schedule_type, interval_days)
-        `)
-        .eq("home_id", homeId)
-        .is("deleted_at", null)
-        .order("title", { ascending: true })
-      if (fetchErr) {
-        setExportError(fetchErr.message)
-        return
-      }
-      const rows = (data ?? []) as unknown as ExportRow[]
+      // The schedule is inlined on the template; item display_name joins via an
+      // items map (both single reads on the home's subcollections).
+      const [tplSnap, itemSnap] = await Promise.all([
+        getDocs(collection(db, `homes/${homeId}/taskTemplates`)),
+        getDocs(collection(db, `homes/${homeId}/items`)),
+      ])
+      const nameById = new Map<string, string>()
+      itemSnap.docs.forEach((d) => nameById.set(d.id, (d.data().displayName as string) ?? ""))
+      const rows: ExportRow[] = tplSnap.docs
+        .filter((d) => d.data().deletedAt == null)
+        .map((d) => {
+          const x = d.data()
+          const sched = x.schedule as { scheduleType?: string; intervalDays?: number | null } | null
+          return {
+            task_template_id: d.id,
+            title: (x.title as string) ?? "",
+            description: (x.description as string | null) ?? null,
+            instructions_override: (x.instructionsOverride as string | null) ?? null,
+            care_type: (x.careType as string) ?? "",
+            is_active: (x.isActive as boolean) ?? true,
+            justification: (x.justification as string | null) ?? null,
+            item_unit: x.itemUnitId ? { display_name: nameById.get(x.itemUnitId as string) ?? "" } : null,
+            schedule_rule: sched?.scheduleType
+              ? [{ schedule_type: sched.scheduleType, interval_days: sched.intervalDays ?? null }]
+              : [],
+          }
+        })
+        .sort((a, b) => a.title.localeCompare(b.title))
       if (rows.length === 0) {
         setExportError("No tasks to export.")
         return
