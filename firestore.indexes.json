@@ -113,6 +113,14 @@
         { "fieldPath": "chunkType", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "chunks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deletedAt", "order": "ASCENDING" },
+        { "fieldPath": "chunkType", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

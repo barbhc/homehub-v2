@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/shim/client"
+import { auth, functionUrl } from "@/integrations/firebase"
 
 export type ChatFilter = {
   type: "all" | "item" | "room" | "category"
@@ -35,7 +35,7 @@ export type ChatMessage = {
 }
 
 /**
- * Streams a chat query from the chat-query edge function.
+ * Streams a chat query from the chatQuery Cloud Function (onRequest + SSE).
  * Calls onDelta for each text chunk, onDone when complete.
  */
 export async function streamChatQuery(params: {
@@ -49,27 +49,18 @@ export async function streamChatQuery(params: {
   onError: (message: string) => void
 }): Promise<void> {
   const { question, history, filter, homeId, allowWebSearch, onDelta, onDone, onError } = params
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-  // getSession() auto-refreshes if the access token is expired
-  let { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
-    const { data } = await supabase.auth.refreshSession()
-    session = data.session
-  }
-  const token = session?.access_token
-
-  if (!supabaseUrl || !anonKey || !token) {
+  // getIdToken() auto-refreshes if the token is expired.
+  const token = await auth.currentUser?.getIdToken().catch(() => undefined)
+  if (!token) {
     onError("Authentication required. Please sign in again.")
     return
   }
 
-  const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/chat-query`, {
+  const res = await fetch(functionUrl("chatQuery"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      apikey: anonKey,
     },
     body: JSON.stringify({
       question,
