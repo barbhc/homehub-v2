@@ -41,21 +41,21 @@ export {
 } from "./services/conversationService"
 
 export {
-  parseManual,
   startParse,
   watchParse,
   parseManualAndWait,
+  previewManualParse,
+  commitReviewedDraft,
   toUiStage,
   type ParseManualResult,
+  type PreviewManualResult,
+  type CommitReviewedResult,
   type ParsedConfidence,
   type ParseStage,
   type ParseMode,
   type StartParseOpts,
 } from "./services/parseManualService"
 export { detectDocType, type DocType, type DocTypeResult } from "./services/detectDocTypeService"
-
-export { previewManual } from "./services/previewManualService"
-export { saveManualParse } from "./services/saveManualParseService"
 
 export type {
   PreviewChunk,

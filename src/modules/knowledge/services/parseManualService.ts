@@ -1,7 +1,7 @@
-import { supabase } from "@/integrations/shim/client"
 import { callable, docRef } from "@/integrations/firebase"
-import { onSnapshot, type Unsubscribe } from "firebase/firestore"
+import { onSnapshot, getDoc, type Unsubscribe } from "firebase/firestore"
 import type { ParseProgressState } from "@/components/smart-add/ParseProgressStep"
+import type { PreviewChunk, PreviewResult, PreviewTask } from "../types/previewTypes"
 
 /**
  * Shape returned by the parse-manual edge function under `confidence`.
@@ -42,89 +42,6 @@ function coerceConfidence(raw: unknown): ParsedConfidence | undefined {
   // Return undefined if nothing usable came through, rather than an empty object.
   const hasAny = Object.values(result).some((v) => v !== undefined)
   return hasAny ? result : undefined
-}
-
-/**
- * Triggers the parse-manual edge function to extract knowledge chunks
- * and task templates from a manual PDF.
- *
- * When `rescan` is true, old chunks/tasks are deleted before re-parsing.
- *
- * Uses a raw fetch with a 3-minute timeout because large PDFs can take
- * well over the default 60s supabase.functions.invoke timeout.
- */
-export async function parseManual(manualId: string, opts?: { rescan?: boolean; fillGaps?: boolean }): Promise<ParseManualResult> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-  let { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
-    const { data } = await supabase.auth.refreshSession()
-    session = data.session
-  }
-  const token = session?.access_token
-
-  if (!supabaseUrl || !anonKey || !token) {
-    return { ok: false, error: "Authentication required. Please sign in again." }
-  }
-
-  try {
-    const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/parse-manual`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        apikey: anonKey,
-      },
-      body: JSON.stringify({
-        manual_id: manualId,
-        commit: true, // always commit — the review step is the human review layer
-        rescan: opts?.rescan ?? false,
-        fill_gaps: opts?.fillGaps ?? false,
-      }),
-      signal: AbortSignal.timeout(180_000), // 3 minutes
-    })
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "")
-      try {
-        const j = JSON.parse(text)
-        if (typeof j?.error === "string") return { ok: false, error: j.error }
-      } catch { /* not JSON */ }
-      return { ok: false, error: `Edge function error (HTTP ${res.status})` }
-    }
-
-    const data = await res.json()
-
-    if (data?.ok === true) {
-      // Handle both committed (chunks/tasks at top level) and draft (summary.chunks/tasks) responses
-      const chunks = typeof data.chunks === "number" ? data.chunks : data.summary?.chunks ?? 0
-      const tasks = typeof data.tasks === "number" ? data.tasks : data.summary?.tasks ?? 0
-      return {
-        ok: true,
-        chunks,
-        tasks,
-        committed: data.committed ?? true,
-        draft: data.draft ?? false,
-        // The function now parses in the background and returns immediately with
-        // processing:true; the caller polls manual_document.parsed_at.
-        processing: data.processing === true,
-        confidence: coerceConfidence(data.confidence),
-      }
-    }
-
-    const errMsg = typeof data?.error === "string" ? data.error : "Parse failed"
-    return { ok: false, error: errMsg }
-  } catch (err) {
-    // Network drop / client timeout: the edge gateway often closes the
-    // connection at its wall-clock limit while the function keeps running and
-    // commits server-side. Mark these transient so the caller can poll for the
-    // result instead of reporting a false failure.
-    if (err instanceof DOMException && err.name === "TimeoutError") {
-      return { ok: false, error: "Timed out — PDF may be too large. Try rescanning individually.", transient: true }
-    }
-    return { ok: false, error: err instanceof Error ? err.message : "Request failed", transient: true }
-  }
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -253,4 +170,74 @@ export async function parseManualAndWait(
       }
     })
   })
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Re-review flow (replaces the v1 preview-manual + save-parsed-manual edge fns).
+// previewManualParse runs the worker in PREVIEW mode (writes previewDraft, never
+// commits), then reads that draft back as the snake_case PreviewResult the review
+// UI edits. commitReviewedDraft sends the user-edited chunks/tasks to the
+// commitManualDraft callable, which re-normalizes + commits (seeding instances).
+// ───────────────────────────────────────────────────────────────────────────
+
+export type PreviewManualResult = PreviewResult | { ok: false; error: string }
+
+/** The worker's normalized previewDraft is snake_case already; the only rename
+ *  the review UI needs is instructions_override → instructions_text. */
+function draftToPreview(draft: { chunks?: unknown[]; tasks?: unknown[] }): PreviewResult {
+  const chunks = (Array.isArray(draft.chunks) ? draft.chunks : []).map((raw) => {
+    const c = (raw ?? {}) as Record<string, unknown>
+    return {
+      chunk_type: c.chunk_type,
+      title: (c.title ?? null) as string | null,
+      content: String(c.content ?? ""),
+      tags: Array.isArray(c.tags) ? (c.tags as string[]) : [],
+      source_pages: Array.isArray(c.source_pages) ? (c.source_pages as number[]) : null,
+      applies_to: Array.isArray(c.applies_to) ? (c.applies_to as string[]) : [],
+    } as PreviewChunk
+  })
+  const tasks = (Array.isArray(draft.tasks) ? draft.tasks : []).map((raw) => {
+    const t = (raw ?? {}) as Record<string, unknown>
+    return {
+      ...t,
+      instructions_text: (t.instructions_override ?? t.instructions_text ?? null) as string | null,
+    } as unknown as PreviewTask
+  })
+  return { ok: true, chunks, tasks }
+}
+
+/** Parse an existing manual to an editable preview (no commit). */
+export async function previewManualParse(homeId: string, manualId: string): Promise<PreviewManualResult> {
+  const res = await parseManualAndWait(manualId, { homeId, mode: "preview" })
+  if (!res.ok) return { ok: false, error: res.error }
+  const snap = await getDoc(docRef(`homes/${homeId}/manuals/${manualId}`))
+  const draft = snap.data()?.previewDraft as { chunks?: unknown[]; tasks?: unknown[] } | undefined
+  if (!draft) return { ok: false, error: "Preview produced no draft" }
+  return draftToPreview(draft)
+}
+
+export type CommitReviewedResult =
+  | { ok: true; chunks: number; tasks: number }
+  | { ok: false; error: string }
+
+const commitManualDraftCallable = callable<
+  { homeId: string; manualId: string; chunks: PreviewChunk[]; tasks: PreviewTask[] },
+  { ok: boolean; chunks?: number; tasks?: number; error?: string }
+>("commitManualDraft")
+
+/** Commit the user-reviewed (possibly edited) chunks + tasks. commitDraft seeds
+ *  recurring instances server-side — no follow-up generateTaskInstances needed. */
+export async function commitReviewedDraft(
+  homeId: string,
+  manualId: string,
+  chunks: PreviewChunk[],
+  tasks: PreviewTask[]
+): Promise<CommitReviewedResult> {
+  try {
+    const data = await commitManualDraftCallable({ homeId, manualId, chunks, tasks })
+    if (!data?.ok) return { ok: false, error: data?.error ?? "Save failed" }
+    return { ok: true, chunks: data.chunks ?? 0, tasks: data.tasks ?? 0 }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Save failed" }
+  }
 }

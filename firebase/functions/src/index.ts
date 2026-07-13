@@ -16,6 +16,7 @@ export const healthCheck = onCall({ region: "us-central1" }, () => {
 
 export { enqueueParse } from "./parse/enqueueParse.js"
 export { parseWorker } from "./parse/parseWorker.js"
+export { commitManualDraft } from "./parse/commitManualDraft.js"
 export { rollForwardNeverStarted } from "./schedule/rollForward.js"
 export { sendTestPush, sendPushDaily } from "./push/sendPush.js"
 export { completeTask } from "./tasks/completeTask.js"

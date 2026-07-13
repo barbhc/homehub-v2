@@ -12,13 +12,14 @@ import {
 import {
   getChunksByItem,
   getManualsByItem,
-  parseManual,
+  parseManualAndWait,
   getFaqsByItem,
   updateChunkSourcePages,
 } from "@/modules/knowledge"
 import { useManualManagement, getManualUrl } from "@/hooks/useManualManagement"
-// Shim retained ONLY for the check-recalls edge invoke (Bucket B — later increment).
-import { supabase } from "@/integrations/shim/client"
+import { callable } from "@/integrations/firebase"
+
+const checkRecallsCallable = callable<{ homeId: string; itemUnitId: string }, unknown>("checkRecalls")
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type {
@@ -143,7 +144,7 @@ export default function ItemDetailPage() {
       )
       for (const manual of unparsed) {
         manualMgmt.setParsingManualId(manual.manual_id)
-        parseManual(manual.manual_id).then(async (result) => {
+        parseManualAndWait(manual.manual_id, { homeId: home.home_id, mode: "commit" }).then(async (result) => {
           if (cancelled) return
           manualMgmt.setParsingManualId(null)
           if (!result.ok) {
@@ -213,7 +214,7 @@ export default function ItemDetailPage() {
     if (!id || !home) return
     setIsCheckingRecalls(true)
     try {
-      await supabase.functions.invoke("check-recalls", { body: { item_unit_id: id } })
+      await checkRecallsCallable({ homeId: home.home_id, itemUnitId: id }).catch(() => {})
       const res = await getItemUnit(home.home_id, id)
       if (res.data) setItem(res.data)
     } finally {

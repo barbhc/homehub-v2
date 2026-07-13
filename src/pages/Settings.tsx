@@ -38,7 +38,7 @@ import {
   deleteRoutineTask,
   type RoutineTemplate,
 } from "@/lib/cleanSession"
-import { getManualsByHome, parseManual, getKnowledgeChunksByHome, getFaqsByHome } from "@/modules/knowledge"
+import { getManualsByHome, parseManualAndWait, getKnowledgeChunksByHome, getFaqsByHome } from "@/modules/knowledge"
 import { getItemUnits } from "@/modules/items"
 import { getTaskTemplates } from "@/modules/care"
 import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
@@ -487,7 +487,7 @@ export default function Settings() {
     for (let i = 0; i < targets.length; i++) {
       const m = targets[i]
       setManualStates((prev) => ({ ...prev, [m.manual_id]: { status: "scanning" } }))
-      const result = await parseManual(m.manual_id, { rescan: true })
+      const result = await parseManualAndWait(m.manual_id, { homeId, mode: "commit" })
       if (result.ok) {
         setManualStates((prev) => ({
           ...prev,
