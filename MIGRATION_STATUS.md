@@ -13,8 +13,8 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 | 3 — parse worker + trust arc | **worker + seed + client trust arc (fix B) done** | 3.1+3.2 done; 3.3 watch-stages/snapshot tooling optional-remaining |
 | 4 — remaining backend + FCM | **deploy packaging + rollForward + FCM scaffold + ALL 12 Bucket B fn ports done; FCM device verify + client FCM swap remaining** | esbuild bundle solves shared/; rollForward emulator-tested; every v1 edge fn now ported (see Bucket B section) |
 | 5 — service swap + fixes A/C/D | **GATE CLOSED — zero shim imports, shim deleted**; fixes A/B/C/D landed; fix E (visual re-bake) is the only open item | every service on Firebase; parse-legacy retired; FCM swapped |
-| 6 — import + re-parse | not started | needs Phase 0 owner scripts run |
-| 7 — done checklist + switch | not started | |
+| 6 — import + re-parse | **scripts drafted (owner-run)** | `scripts/import/` — dry-run-default, idempotent; auth/firestore/storage/re-parse + runbook. Owner runs against prod creds |
+| 7 — done checklist + switch | **runbook drafted** | `docs/DEFINITION_OF_DONE.md` — deploy → FCM → import → verify → mobile re-bake → Apple + cutover |
 
 ## Phase 1 remainder (owner console; sandbox couldn't do these)
 - [ ] Create GitHub repo `barbhc/homehub-v2` (private) and push this tree (or add repo to a Claude session and have it push).
