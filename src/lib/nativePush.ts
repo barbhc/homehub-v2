@@ -1,46 +1,43 @@
 import { PushNotifications } from "@capacitor/push-notifications"
-import { supabase } from "@/integrations/shim/client"
-import { isNativePlatform, getNativePlatform } from "./native"
+import { doc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
+import { isNativePlatform } from "./native"
 
 export { isNativePlatform }
 
 /**
- * Native push (APNs on iOS) registration.
+ * Native push registration (Capacitor). The device token is stored in the SAME
+ * users/{uid}/private/fcmTokens array the web FCM path uses; the sendPush Cloud
+ * Function delivers to it. Replaces the v1 `push_subscription` (Supabase) table.
  *
- * Reuses the `push_subscription` table the web-push path already uses: a native
- * row stores the device token in `endpoint` with `platform="ios"` and no web
- * keys (p256dh/auth are null). The send-push-notifications edge function
- * branches on `platform` to deliver via APNs instead of the Web Push protocol.
- *
- * Requires the Xcode "Push Notifications" capability + an APNs auth key
- * configured server-side — see IOS_SETUP.md. No-op on the web.
+ * NOTE (owner, post-switch): on iOS this token must be an FCM registration token
+ * for the server's FCM multicast to reach it — the native app needs the Firebase
+ * Messaging SDK + APNs key wired at build time (see IOS_SETUP.md). No-op on web.
  */
 
 // The token listener fires asynchronously after register(); keep the latest
-// user/home so a home switch re-targets the stored row without re-adding the
+// user so a re-register re-targets the stored row without re-adding the
 // (process-global) Capacitor listeners.
 let currentUserId = ""
-let currentHomeId = ""
 let listenersReady = false
+let lastToken = ""
+
+const tokensDoc = (uid: string) => doc(db, `users/${uid}/private/fcmTokens`)
 
 async function persistToken(token: string): Promise<void> {
-  if (!currentUserId || !currentHomeId) return
-  const { error } = await supabase.from("push_subscription").upsert(
-    {
-      user_id: currentUserId,
-      home_id: currentHomeId,
-      endpoint: token,
-      platform: getNativePlatform(),
-    },
-    { onConflict: "user_id,endpoint" }
-  )
-  if (error) console.error("[nativePush] failed to store token:", error.message)
+  if (!currentUserId) return
+  try {
+    await setDoc(tokensDoc(currentUserId), { tokens: arrayUnion(token) }, { merge: true })
+  } catch (err) {
+    console.error("[nativePush] failed to store token:", err instanceof Error ? err.message : err)
+  }
 }
 
 async function ensureListeners(): Promise<void> {
   if (listenersReady) return
   listenersReady = true
   await PushNotifications.addListener("registration", (token) => {
+    lastToken = token.value
     void persistToken(token.value)
   })
   await PushNotifications.addListener("registrationError", (err) => {
@@ -59,11 +56,10 @@ async function ensureListeners(): Promise<void> {
  */
 export async function registerNativePush(
   userId: string,
-  homeId: string
+  _homeId: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!isNativePlatform()) return { success: false, error: "Not a native platform" }
   currentUserId = userId
-  currentHomeId = homeId
   try {
     const perm = await PushNotifications.requestPermissions()
     if (perm.receive !== "granted") return { success: false, error: "Permission denied" }
@@ -92,11 +88,10 @@ export async function unregisterNativePush(userId: string): Promise<void> {
   try {
     await PushNotifications.removeAllListeners()
     listenersReady = false
-    await supabase
-      .from("push_subscription")
-      .delete()
-      .eq("user_id", userId)
-      .eq("platform", getNativePlatform())
+    if (lastToken) {
+      await setDoc(tokensDoc(userId), { tokens: arrayRemove(lastToken) }, { merge: true })
+      lastToken = ""
+    }
   } catch {
     // best-effort
   }
