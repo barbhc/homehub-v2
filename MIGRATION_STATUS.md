@@ -12,7 +12,7 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 | 2 — Firestore model + rules | **code complete; verified on emulator** | model doc 19/19 + rules 19 tests green + indexes schema-valid |
 | 3 — parse worker + trust arc | **worker + seed + client trust arc (fix B) done** | 3.1+3.2 done; 3.3 watch-stages/snapshot tooling optional-remaining |
 | 4 — remaining backend + FCM | **deploy packaging + rollForward + FCM scaffold + ALL 12 Bucket B fn ports done; FCM device verify + client FCM swap remaining** | esbuild bundle solves shared/; rollForward emulator-tested; every v1 edge fn now ported (see Bucket B section) |
-| 5 — service swap + fixes A/C/D | **fix A + auth module (fix D) done**; home/items/tasks/knowledge/chat swaps + fix C pending | auth is the first module off the shim; Apple owner-config in DEPLOY.md |
+| 5 — service swap + fixes A/C/D | **GATE CLOSED — zero shim imports, shim deleted**; fixes A/B/C/D landed; fix E (visual re-bake) is the only open item | every service on Firebase; parse-legacy retired; FCM swapped |
 | 6 — import + re-parse | not started | needs Phase 0 owner scripts run |
 | 7 — done checklist + switch | not started | |
 
@@ -327,6 +327,35 @@ Cloud Function; all client `supabase.functions.invoke(...)` calls are gone.
 **Client shim imports now 6** (all in Increment 6–9 scope): `parseManualService`,
 `previewManualService`, `saveManualParseService`, `ItemDetailPage` (parse-legacy
 retirement); `nativePush`, `pushNotifications` (FCM).
+
+## Verified — Increment 6 (parse-legacy retirement) + 8/9 (FCM + gate close)
+
+- **Parse-legacy DELETED:** the shim `parseManual` (raw fetch to the old parse-manual
+  edge fn) + `previewManualService` + `saveManualParseService` are gone. New
+  `commitManualDraft` callable commits a client-REVIEWED draft: re-runs the edited
+  PreviewChunk/PreviewTask through the worker's normalizeChunkRow/normalizeTaskRow,
+  then commitDraft (which already seeds recurring instances → no client
+  generateTaskInstances). parseManualService adds `previewManualParse` (worker PREVIEW
+  mode → previewDraft → snake_case PreviewResult) + `commitReviewedDraft`. Callers
+  (useManualManagement add/rescan/fill-gaps/re-review, ItemDetailPage auto-parse,
+  Settings rescan) now use worker modes; the dead dropped-connection polling machinery
+  is removed (worker owns state; watchParse resolves only on done/error).
+  `commitManualDraft.emu.test.mjs` proves edited client rows normalize + commit + seed
+  an instance + derive steps.
+- **FCM (Increment 8):** `src/integrations/firebase/messaging.ts` (getFcmToken +
+  firebase-messaging-sw.js). pushNotifications + nativePush now store tokens in
+  `users/{uid}/private/fcmTokens` (arrayUnion/arrayRemove) — the doc sendPush reads.
+  Public API unchanged. Owner: set VITE_FIREBASE_VAPID_KEY + real config in the SW +
+  verify a device push (Phase 4 gate).
+- **Phase 5 GATE CLOSED (Increment 9):** zero `@/integrations/shim/client` imports →
+  `src/integrations/shim` DELETED. Every service runs on Firebase.
+- **Verified:** tsc + build green; vitest 127/127; functions suite 60/60 under the
+  emulator; emu e2e 17/18 (the 18th is the first-navigation auth-home webServer-warmup
+  flake — passes 6/6 in isolation).
+
+**Only open Phase-5 item:** Fix E — re-bake the 18 visual baselines (still byte-identical
+v1 copies) against the emulator seed post-fix-A, then wire the visual project into CI or
+record a Phase-7 deferral.
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now

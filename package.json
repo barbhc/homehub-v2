@@ -21,6 +21,8 @@
     "test:rules:emu": "firebase emulators:exec --only firestore --project demo-homehub-rules \"npm run test:rules\"",
     "test:worker:emu": "npm --prefix firebase/functions run build && firebase emulators:exec --only firestore --project demo-homehub \"node --test firebase/functions/test/*.test.mjs\"",
     "test:e2e:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.emu.config.ts\"",
+    "test:e2e:visual:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.visual.config.ts\"",
+    "test:e2e:visual:update": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.visual.config.ts --update-snapshots\"",
     "lint:new": "eslint src/integrations shared e2e/smoke scripts/seed-emulator.ts firebase/functions/src"
   },
   "dependencies": {
