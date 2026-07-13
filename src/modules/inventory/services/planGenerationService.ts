@@ -2,9 +2,22 @@
  * Plan generation service — create maintenance tasks from manual content.
  * Calls the generate-tasks Supabase Edge Function (Anthropic Claude API).
  */
-import { supabase } from "@/integrations/shim/client"
+import { callable } from "@/integrations/firebase"
 import type { MaintenanceFreqUnit } from "@/integrations/types"
 import type { ItemCategoryId } from "@/modules/inventory/constants/itemCategories"
+
+const generateTasksCallable = callable<
+  {
+    itemName: string
+    brand: string
+    applianceTypeId: string
+    manualUrl: string | null
+    itemCategory: string | null
+    subType: string | null
+    categoryFields: Record<string, unknown> | null
+  },
+  { tasks?: GeneratedTask[] }
+>("generateTasks")
 
 export type GeneratedTask = {
   id: string
@@ -53,11 +66,9 @@ export async function generateTasksFromManual(
   void _manualText
 
   try {
-    const { data: invokeData, error: invokeError } = await supabase.functions.invoke<{
-      tasks?: GeneratedTask[]
-      error?: string
-    }>("generate-tasks", {
-      body: {
+    let data: { tasks?: GeneratedTask[] }
+    try {
+      data = await generateTasksCallable({
         itemName: itemName || "Appliance",
         brand: brand ?? "",
         applianceTypeId: applianceTypeId ?? "other",
@@ -65,18 +76,9 @@ export async function generateTasksFromManual(
         itemCategory: itemCategory ?? null,
         subType: subType ?? null,
         categoryFields: categoryFields ?? null,
-      },
-    })
-
-    if (invokeError) {
+      })
+    } catch {
       return { data: null, error: { message: "Task generation service unavailable. Try again in a moment, or skip and add tasks later from the item page." } }
-    }
-
-    const data = invokeData ?? {}
-
-    const err = data?.error
-    if (err) {
-      return { data: null, error: { message: err } }
     }
 
     const VALID_PRIORITIES: Array<"essential" | "recommended" | "optional"> = ["essential", "recommended", "optional"]
