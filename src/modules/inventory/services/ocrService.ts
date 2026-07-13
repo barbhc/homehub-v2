@@ -26,57 +26,22 @@ export type OcrResult =
   | { data: OcrExtraction; error: null }
   | { data: null; error: { message: string } }
 
-export async function extractFromImage(_file: File): Promise<OcrResult> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const { supabase } = await import("@/integrations/shim/client")
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY
+import { callable } from "@/integrations/firebase"
 
-  if (!supabaseUrl || !token) {
-    return { data: null, error: { message: "OCR not configured" } }
-  }
+const ocrCallable = callable<{ image: string }, OcrExtraction & { error?: string }>("ocr")
 
+/** Reads the file → base64 → the `ocr` Cloud Function (Vision + Claude). */
+export async function extractFromImage(file: File): Promise<OcrResult> {
   try {
     const reader = new FileReader()
     const base64 = await new Promise<string>((resolve, reject) => {
-      reader.onload = () => {
-        const result = reader.result as string
-        const base64 = result?.split(",")[1] ?? ""
-        resolve(base64)
-      }
+      reader.onload = () => resolve(((reader.result as string) ?? "").split(",")[1] ?? "")
       reader.onerror = () => reject(reader.error)
-      reader.readAsDataURL(_file)
+      reader.readAsDataURL(file)
     })
 
-    const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/ocr`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ image: base64 }),
-    })
-
-    // Try to parse JSON; fall back to raw text so we don't mask the true error.
-    const rawText = await res.text().catch(() => "")
-    let data: (OcrExtraction & { error?: string }) | null = null
-    try {
-      data = rawText ? JSON.parse(rawText) as OcrExtraction & { error?: string } : null
-    } catch {
-      // Non-JSON body — keep rawText as the surfaced message.
-    }
-
-    if (!res.ok) {
-      const body = data?.error ?? (rawText ? rawText.slice(0, 200) : "")
-      const msg = body ? `OCR failed (HTTP ${res.status}): ${body}` : `OCR failed (HTTP ${res.status})`
-      return { data: null, error: { message: msg } }
-    }
-    if (data?.error) {
-      return { data: null, error: { message: data.error } }
-    }
-    if (!data) {
-      return { data: null, error: { message: "OCR returned an empty response" } }
-    }
+    const data = await ocrCallable({ image: base64 })
+    if (data?.error) return { data: null, error: { message: data.error } }
     return { data: data as OcrExtraction, error: null }
   } catch (err) {
     const message = err instanceof Error ? err.message : "OCR failed"

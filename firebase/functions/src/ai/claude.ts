@@ -34,6 +34,35 @@ export function makeCallClaudeText(apiKey: string): CallClaudeText {
   }
 }
 
+/**
+ * A forced tool-use Claude call: returns the `input` object of the first
+ * tool_use block matching `tool.name`, or null if the model returned none.
+ */
+export type CallClaudeTool = (args: {
+  model: string
+  maxTokens: number
+  tool: Record<string, unknown>
+  content: Array<Record<string, unknown>>
+}) => Promise<Record<string, unknown> | null>
+
+/** Real CallClaudeTool bound to an API key (forces tool_choice on `tool.name`). */
+export function makeCallClaudeTool(apiKey: string): CallClaudeTool {
+  const client = new Anthropic({ apiKey })
+  return async ({ model, maxTokens, tool, content }) => {
+    const res = await client.messages.create({
+      model,
+      max_tokens: maxTokens,
+      tools: [tool as unknown as Anthropic.Tool],
+      tool_choice: { type: "tool", name: String(tool.name) },
+      messages: [{ role: "user", content: content as unknown as Anthropic.MessageParam["content"] }],
+    })
+    const block = res.content.find(
+      (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === String(tool.name),
+    )
+    return (block?.input as Record<string, unknown>) ?? null
+  }
+}
+
 /** Pull the first {...} JSON object out of a model response (tolerates fences). */
 export function extractJsonObject(text: string): string {
   const m = text.match(/\{[\s\S]*\}/)

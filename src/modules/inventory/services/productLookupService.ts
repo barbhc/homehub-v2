@@ -14,9 +14,10 @@
  *                 silently overwrite a filter size — hallucinated specs can
  *                 cause the user to buy the wrong part.
  *
- * See supabase/functions/product-lookup/index.ts for the server side.
+ * See firebase/functions/src/ai/productLookup.ts for the server side.
  */
 
+import { callable } from "@/integrations/firebase"
 import type { ItemCategoryId } from "@/modules/inventory/constants/itemCategories"
 
 export type ProductLookupCategory = ItemCategoryId
@@ -55,6 +56,11 @@ export type ProductLookupInput = {
   subType?: string | null
 }
 
+const lookupProductCallable = callable<
+  { brand: string; model: string; category: string | null; subType: string | null },
+  ProductLookupResult
+>("productLookup")
+
 export async function lookupProduct(input: ProductLookupInput): Promise<ProductLookupResponse> {
   const brand = input.brand.trim()
   const model = input.model.trim()
@@ -62,53 +68,17 @@ export async function lookupProduct(input: ProductLookupInput): Promise<ProductL
     return { data: null, error: { message: "brand and model required (min 2 chars)" } }
   }
 
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const { supabase } = await import("@/integrations/shim/client")
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !token) {
-    return { data: null, error: { message: "Product lookup not configured" } }
-  }
-
   try {
-    const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/product-lookup`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        brand,
-        model,
-        category: input.category ?? null,
-        subType: input.subType ?? null,
-      }),
+    const data = await lookupProductCallable({
+      brand,
+      model,
+      category: input.category ?? null,
+      subType: input.subType ?? null,
     })
-
-    const rawText = await res.text().catch(() => "")
-    let parsed: (ProductLookupResult & { error?: string }) | { error?: string } | null = null
-    try {
-      parsed = rawText ? JSON.parse(rawText) : null
-    } catch {
-      // non-JSON body
-    }
-
-    if (!res.ok) {
-      const msg =
-        (parsed as { error?: string } | null)?.error ??
-        (rawText ? rawText.slice(0, 200) : `HTTP ${res.status}`)
-      return { data: null, error: { message: msg, status: res.status } }
-    }
-    if (parsed && "error" in parsed && parsed.error) {
-      return { data: null, error: { message: parsed.error } }
-    }
-    if (!parsed || typeof parsed !== "object" || !("safe" in parsed)) {
+    if (!data || typeof data !== "object" || !("safe" in data)) {
       return { data: null, error: { message: "Empty or malformed response" } }
     }
-    return { data: parsed as ProductLookupResult, error: null }
+    return { data, error: null }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Product lookup failed"
     return { data: null, error: { message } }

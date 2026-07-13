@@ -321,7 +321,7 @@ export default function SmartAddItem() {
         setManualUrl(firstUrl)
         updateWizardSession({ hasManual: true })
 
-        const det = await detectDocType(firstManualId)
+        const det = await detectDocType(propertyId, firstManualId)
         const d = det.data
         if (d && shouldPromptDocClassification(d.docType, d.confidence)) {
           setManualDocGate({
