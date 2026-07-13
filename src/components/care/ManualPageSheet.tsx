@@ -14,6 +14,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"
+import { pdfProxySource } from "@/integrations/firebase"
 
 interface ManualPageSheetProps {
   open: boolean
@@ -36,22 +37,6 @@ function cacheKey(url: string, page: number): string {
 
 // Cache for total page counts per PDF URL
 const totalPagesCache = new Map<string, number>()
-
-// ---------------------------------------------------------------------------
-// CORS proxy helper (copied from diagramRenderService to avoid coupling)
-// ---------------------------------------------------------------------------
-function getCorsProxiedUrl(pdfUrl: string): string {
-  try {
-    const parsed = new URL(pdfUrl)
-    const supabaseUrl =
-      import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? ""
-    const isSameOrigin = supabaseUrl && pdfUrl.startsWith(supabaseUrl)
-    if (isSameOrigin || parsed.origin === window.location.origin) return pdfUrl
-    return `${supabaseUrl}/functions/v1/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`
-  } catch {
-    return pdfUrl
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -126,9 +111,8 @@ export function ManualPageSheet({
           )
           pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
-          const fetchUrl = getCorsProxiedUrl(pdfUrl)
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          pdf = (await pdfjsLib.getDocument({ url: fetchUrl }).promise) as any
+          pdf = (await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise) as any
           pdfDocRef.current = pdf
         }
 

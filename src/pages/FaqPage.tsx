@@ -32,7 +32,7 @@ import {
 } from "@/modules/knowledge"
 import type { ChatFaq, CareNote, CareNoteScope } from "@/integrations/types"
 import { AddNoteSheet } from "@/components/care/AddNoteSheet"
-import { supabase } from "@/integrations/shim/client"
+import { callable } from "@/integrations/firebase"
 import { cn } from "@/lib/utils"
 
 type Tab = "house" | "rooms" | "items" | "saved"
@@ -45,6 +45,10 @@ type SuggestionItem = {
   chunk_type: string
   category?: string
 }
+const suggestCareNotesCallable = callable<
+  { scope: string; context: Record<string, unknown> },
+  { suggestions?: Array<Omit<SuggestionItem, "id">> }
+>("suggestCareNotes")
 type AddNoteContext = {
   scope: CareNoteScope
   roomId?: string | null
@@ -521,18 +525,7 @@ export default function FaqPage() {
     setSuggestErrors((prev) => { const next = { ...prev }; delete next[scopeKey]; return next })
     setSuggestions((prev) => ({ ...prev, [scopeKey]: [] }))
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      const res = await supabase.functions.invoke("suggest-care-notes", {
-        body: { scope, context },
-        headers: session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined,
-      })
-      if (res.error) throw new Error(res.error.message ?? "Function error")
-      const body = res.data as { error?: string; suggestions?: Array<Omit<SuggestionItem, "id">> }
-      if (body?.error) throw new Error(body.error)
+      const body = await suggestCareNotesCallable({ scope, context })
       const withIds = (Array.isArray(body?.suggestions) ? body.suggestions : []).map(
         (s, i) => ({ ...s, id: `${Date.now()}-${i}` })
       )

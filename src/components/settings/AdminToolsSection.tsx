@@ -3,11 +3,8 @@ import { Loader2Icon, SparklesIcon, AlertCircleIcon, CheckCircle2Icon, DownloadI
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-// Shim retained ONLY for the classify-existing-tasks edge invoke (Bucket B —
-// callable port lands in a later increment); the CSV export read is Firestore.
-import { supabase } from "@/integrations/shim/client"
 import { collection, getDocs } from "firebase/firestore"
-import { db } from "@/integrations/firebase"
+import { db, callable } from "@/integrations/firebase"
 import { cn } from "@/lib/utils"
 
 // ---------------------------------------------------------------------------
@@ -136,6 +133,11 @@ interface ClassifierResponse {
   error?: string
 }
 
+const classifyExistingTasksCallable = callable<
+  { homeId: string; dryRun: boolean; results?: ClassifierResult[] },
+  ClassifierResponse
+>("classifyExistingTasks")
+
 interface Props {
   homeId: string
 }
@@ -212,29 +214,14 @@ export function AdminToolsSection({ homeId }: Props) {
       // function so it can skip the Claude API phase entirely. This avoids
       // re-running classification (which could hit rate limits or transient
       // errors) and makes apply significantly faster.
-      const body: Record<string, unknown> = { home_id: homeId, dry_run: dryRun }
+      const body: { homeId: string; dryRun: boolean; results?: ClassifierResult[] } = {
+        homeId,
+        dryRun,
+      }
       if (!dryRun && report?.results) {
         body.results = report.results
       }
-      const { data, error: fnErr } = await supabase.functions.invoke<ClassifierResponse>(
-        "classify-existing-tasks",
-        { body },
-      )
-      if (fnErr) {
-        // fnErr.context is the raw Response — try to extract the actual error
-        // body for a more actionable message than the generic "non-2xx" string.
-        let detail = fnErr.message
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const ctx = (fnErr as any).context
-          if (ctx && typeof ctx.json === "function") {
-            const parsed = await ctx.json()
-            if (parsed?.error) detail = parsed.error
-          }
-        } catch { /* ignore — fall back to fnErr.message */ }
-        setError(detail)
-        return
-      }
+      const data = await classifyExistingTasksCallable(body)
       if (!data?.ok) {
         setError(data?.error ?? "Classifier returned an error")
         return

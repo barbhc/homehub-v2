@@ -4,11 +4,15 @@ import { SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-// Shim retained ONLY for the check-recalls edge invoke (Bucket B — callable
-// port lands in a later increment); all item reads/writes are Firestore.
-import { supabase } from "@/integrations/shim/client"
+import { callable } from "@/integrations/firebase"
 import { getItemUnit, updateItemUnit, type UpdateItemUnitInput } from "@/modules/items"
 import { uploadReceiptImage } from "@/modules/inventory/services/storageService"
+
+// Fire-and-forget recall check (CPSC). Errors are swallowed — a failed recall
+// lookup must never block the Smart Add flow.
+const checkRecallsCallable = callable<{ homeId: string; itemUnitId: string }, unknown>("checkRecalls")
+const fireRecallCheck = (homeId: string, itemUnitId: string) =>
+  void checkRecallsCallable({ homeId, itemUnitId }).catch(() => {})
 
 interface PurchaseStepProps {
   homeId: string
@@ -62,13 +66,13 @@ export function PurchaseStep({ homeId, itemUnitId, onComplete, onSkip }: Purchas
       await updateItemUnit(homeId, itemUnitId, updates)
     }
 
-    supabase.functions.invoke("check-recalls", { body: { item_unit_id: itemUnitId } })
+    fireRecallCheck(homeId, itemUnitId)
     setSaving(false)
     onComplete()
   }
 
   const handleSkip = () => {
-    supabase.functions.invoke("check-recalls", { body: { item_unit_id: itemUnitId } })
+    fireRecallCheck(homeId, itemUnitId)
     onSkip()
   }
 

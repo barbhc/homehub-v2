@@ -19,8 +19,14 @@ import {
 import { createCareNote, updateCareNote, createTaskFromNote } from "@/modules/care"
 import type { CareNote, CareNoteScope } from "@/integrations/types"
 import type { ScheduleType } from "@/integrations/types"
-import { supabase } from "@/integrations/shim/client"
+import { callable } from "@/integrations/firebase"
 import { Loader2Icon } from "lucide-react"
+
+type ImportSuggestion = { title: string; content: string; chunk_type: string; category?: string }
+const importCareUrlCallable = callable<
+  { url: string; scope: string; context: Record<string, unknown> },
+  { suggestions?: ImportSuggestion[] }
+>("importCareUrl")
 
 const CHUNK_TYPES = [
   { value: "care" as const, label: "Care" },
@@ -114,20 +120,11 @@ export function AddNoteSheet({
     setImportError(null)
     setImportSuggestions([])
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await supabase.functions.invoke("import-care-url", {
-        body: {
-          url: importUrl.trim(),
-          scope,
-          context: roomId ? { room_name: roomName } : itemUnitId ? { item_name: itemName } : {},
-        },
-        headers: session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined,
+      const body = await importCareUrlCallable({
+        url: importUrl.trim(),
+        scope,
+        context: roomId ? { room_name: roomName } : itemUnitId ? { item_name: itemName } : {},
       })
-      if (res.error) throw new Error(res.error.message ?? "Import failed")
-      const body = res.data as { error?: string; suggestions?: typeof importSuggestions }
-      if (body?.error) throw new Error(body.error)
       setImportSuggestions(Array.isArray(body?.suggestions) ? body.suggestions : [])
     } catch (e) {
       setImportError(e instanceof Error ? e.message : "Could not fetch URL")

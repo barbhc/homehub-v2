@@ -3,6 +3,8 @@
 // one implementation. Renders at high resolution so zooming stays crisp; the
 // display size is controlled by CSS in the viewer.
 
+import { pdfProxySource } from "@/integrations/firebase"
+
 const pageBlobCache = new Map<string, string>()
 const totalPagesCache = new Map<string, number>()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -10,19 +12,6 @@ const pdfDocCache = new Map<string, any>()
 
 function cacheKey(url: string, page: number): string {
   return `${url}::${page}`
-}
-
-/** Route cross-origin PDFs through the SSRF-guarded proxy-pdf function. */
-function getCorsProxiedUrl(pdfUrl: string): string {
-  try {
-    const parsed = new URL(pdfUrl)
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? ""
-    const isSameOrigin = supabaseUrl && pdfUrl.startsWith(supabaseUrl)
-    if (isSameOrigin || parsed.origin === window.location.origin) return pdfUrl
-    return `${supabaseUrl}/functions/v1/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`
-  } catch {
-    return pdfUrl
-  }
 }
 
 export type RenderedPage = { blobUrl: string; totalPages: number; page: number }
@@ -34,7 +23,7 @@ export async function renderManualPage(pdfUrl: string, page: number): Promise<Re
     const pdfjsLib = await import("pdfjs-dist")
     const { default: pdfWorkerUrl } = await import("pdfjs-dist/build/pdf.worker.mjs?url")
     pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
-    pdf = await pdfjsLib.getDocument({ url: getCorsProxiedUrl(pdfUrl) }).promise
+    pdf = await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise
     pdfDocCache.set(pdfUrl, pdf)
   }
 

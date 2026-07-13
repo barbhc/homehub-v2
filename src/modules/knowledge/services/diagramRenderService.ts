@@ -1,3 +1,4 @@
+import { pdfProxySource } from "@/integrations/firebase"
 import { uploadDiagramImage } from "@/modules/inventory/services/storageService"
 import { updateChunkDiagramUrls } from "./knowledgeService"
 import { updateTaskDiagramUrls } from "@/modules/care/services/taskService"
@@ -31,24 +32,6 @@ async function canvasToJpegBlob(canvas: HTMLCanvasElement, quality = 0.85): Prom
   })
 }
 
-/**
- * Returns a URL that the browser can fetch without CORS restrictions.
- * For same-origin or Supabase Storage URLs, the original URL is used.
- * For external URLs (e.g. Amazon CDN), we route through the proxy-pdf edge function.
- */
-function getCorsProxiedUrl(pdfUrl: string): string {
-  try {
-    const parsed = new URL(pdfUrl)
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? ""
-    const isSameOrigin = supabaseUrl && pdfUrl.startsWith(supabaseUrl)
-    if (isSameOrigin || parsed.origin === window.location.origin) return pdfUrl
-    // External URL — proxy through our edge function to avoid CORS
-    return `${supabaseUrl}/functions/v1/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`
-  } catch {
-    return pdfUrl
-  }
-}
-
 export async function renderAndStoreDiagrams(
   homeId: string,
   pdfUrl: string,
@@ -66,8 +49,7 @@ export async function renderAndStoreDiagrams(
   const { default: pdfWorkerUrl } = await import("pdfjs-dist/build/pdf.worker.mjs?url")
   pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
-  const fetchUrl = getCorsProxiedUrl(pdfUrl)
-  const pdf = await pdfjsLib.getDocument({ url: fetchUrl }).promise
+  const pdf = await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise
 
   const pageUrlMap = new Map<number, string>()
 
