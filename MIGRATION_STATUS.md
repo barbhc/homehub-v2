@@ -11,7 +11,7 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 | 1 — scaffold + Firebase + emulators | **code complete; owner console steps pending** | see "Phase 1 remainder" below |
 | 2 — Firestore model + rules | **code complete; verified on emulator** | model doc 19/19 + rules 19 tests green + indexes schema-valid |
 | 3 — parse worker + trust arc | **worker + seed + client trust arc (fix B) done** | 3.1+3.2 done; 3.3 watch-stages/snapshot tooling optional-remaining |
-| 4 — remaining backend + FCM | **deploy packaging + rollForward + FCM scaffold done; callable ports remaining** | esbuild bundle solves shared/; rollForward emulator-tested; chat/proxy/detect/etc. ports need v1 source + API keys |
+| 4 — remaining backend + FCM | **deploy packaging + rollForward + FCM scaffold + ALL 12 Bucket B fn ports done; FCM device verify + client FCM swap remaining** | esbuild bundle solves shared/; rollForward emulator-tested; every v1 edge fn now ported (see Bucket B section) |
 | 5 — service swap + fixes A/C/D | **fix A + auth module (fix D) done**; home/items/tasks/knowledge/chat swaps + fix C pending | auth is the first module off the shim; Apple owner-config in DEPLOY.md |
 | 6 — import + re-parse | not started | needs Phase 0 owner scripts run |
 | 7 — done checklist + switch | not started | |
@@ -290,6 +290,43 @@ byte-identical v1 copies); decide CI wiring.
 **Phase 5 gate:** zero `@/integrations/shim/client` imports → delete the shim; all suites green.
 **Phases 6–7 (OWNER-gated):** prod data/auth/storage import, re-parse ~19 manuals, Apple prod
 config, domain cutover — need real prod creds; can't run in the sandbox.
+
+## Verified — Bucket B complete (all 12 edge functions ported; Increments 4–5)
+
+Every v1 `supabase/functions/` edge function the client references is now a Firebase
+Cloud Function; all client `supabase.functions.invoke(...)` calls are gone.
+
+- **Smart Add core (onCall):** `generateTasks` (generate-tasks, Sonnet, PDF doc block +
+  SSRF), `detectDocType` (detect-doc-type; reads manual, reuses worker storagePdf),
+  `ocr` (Google Vision → Claude Haiku extraction; degrades to raw text), `productLookup`
+  (forced tool-use two-tier safe/candidate; `productLookupCache` Firestore cache +
+  per-user daily quota txn).
+- **Ask (SSE):** `chatQuery` is an **onRequest v2 HTTPS fn** (streams SSE; verifies the
+  Firebase ID token itself). ≤2 manuals → full-PDF answer, else preferred-type chunks;
+  optional Brave web search. Client `chatService` uses `getIdToken()` + `functionUrl()`.
+- **Tail (onCall unless noted):** `suggestCareNotes` + `importCareUrl` (shared
+  parseSuggestions; importCareUrl SSRF-guarded), `ingestReference` (reference PDF →
+  chunkType='reference' chunks), `classifyExistingTasks` (4-axis reclassifier; schedule
+  inlined on template; txn apply w/ idempotency guard), `searchProductImages` (Brave),
+  `checkRecalls` (CPSC → writes recall* on item), **`proxyPdf` (onRequest** byte proxy,
+  ID-token auth, isAllowedUrl).
+- **Shared helpers:** `ai/claude.ts` gained `CallClaudeTool`/`makeCallClaudeTool`; client
+  `functionUrl()` + `pdfProxySource()` (replaces 3 copies of getCorsProxiedUrl; passes the
+  ID token via pdfjs httpHeaders).
+- **Injectable-core pattern** everywhere: **40 fixture tests** (generateTasks 4,
+  detectDocType 4, ocr 5, productLookup 6, careSuggestions 5, checkRecalls 5,
+  classifyExistingTasks 5, ingestReference 4, + prior). Full functions suite **59/59 green
+  under the Firestore emulator**; tsc + client build green.
+- **New Firestore index:** `chunks(deletedAt, chunkType)` for the chat chunk retrieval.
+- **Owner secrets** already set: ANTHROPIC_API_KEY, GOOGLE_VISION_API_KEY,
+  BRAVE_SEARCH_API_KEY. Owner still needs `firebase deploy --only functions,firestore:indexes`.
+- **Live UI verification deferred to owner deploy:** chat SSE + a real Vision/Claude/Brave
+  round-trip need live keys; the pure cores are fixture-verified. (Cloud Run backs gen2
+  onRequest → SSE streaming is supported.)
+
+**Client shim imports now 6** (all in Increment 6–9 scope): `parseManualService`,
+`previewManualService`, `saveManualParseService`, `ItemDetailPage` (parse-legacy
+retirement); `nativePush`, `pushNotifications` (FCM).
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now
