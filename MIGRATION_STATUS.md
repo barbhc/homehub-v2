@@ -48,8 +48,8 @@ All service files currently compile against the shim (status: `stub`).
 | Module | Files | Status |
 |---|---|---|
 | auth | AuthProvider.tsx (Firebase: email/pw, magic link, reset via oobCode, **Apple/fix D**), ResetPassword.tsx, types/auth.ts | **ported** |
-| home | **homeService + homeProfileService + inviteService = ported** (invites at homes/{homeId}/invites, members at homes/{homeId}/members + users/{uid} profile, emu-verified; acceptInvite/removeMember → Admin callables [deferred sharing]; getInviteByToken → collectionGroup, needs a read rule); HomeOnboarding = stub | mixed |
-| inventory | **itemService + supplyService + useServiceProviders + storageService = ported** (storageService → Firebase Storage: uploadBytes/deleteObject, public-read storage.rules mirroring v1's public Manuals bucket, sync storageDownloadUrl helper feeding getPhotoUrl/getManualUrl [no render refactor], uploadItemPhoto persists photoPath [+homeId], searchProductImages→callable; Storage emulator wired into test:e2e:emu + upload round-trip emu-verified on /items/furnace); manualSourcesService/ocrService/planGenerationService/productLookupService = Bucket B callables; legacy inventoryService = stub | mixed |
+| home | **homeService + homeProfileService + inviteService + HomeOnboarding = ported**; acceptInvite/removeMember Admin callables **IMPLEMENTED** (firebase/functions/src/invites/inviteActions.ts, 8 fn emu tests) + invites rules hardened to members-only (3 rules tests); getInviteByToken collectionGroup read rule still deferred until sharing ships; member self-create bootstrap hole flagged for Phase 7 | ported |
+| inventory | **itemService + supplyService + useServiceProviders + storageService = ported**; **legacy inventoryService + manualSourcesService DELETED** (Increment 1 — Smart Add now creates via createItemUnit; hooks/OnboardingInventory/InventoryItemSetup re-pointed, emu-verified); ocrService/planGenerationService/productLookupService = Bucket B callables | mixed |
 | items / supplies | **itemService = ported** (getItemUnits/getItemUnit/create/update/softDelete on Firestore; camelCase→ItemUnit edge mapper); supplyService = stub | mixed |
 | care | **weekAgenda.getWeekAgenda = ported**; **taskService = FULLY ported off shim** (reads: getTaskInstances/getTaskTemplates/ByItem/WithSchedules/getTaskDetail/getCompletionHistory/getTierChangeHistory — emu-verified; writes: createTaskTemplate [inlined default schedule]/updateTaskCareType/updateTaskDiagram{Urls,Pages}/updateTaskInstance/assignTaskInstance/archiveTaskTemplate/deleteTaskTemplate/logTaskCompletion/markDone/snooze — verified by pattern + tsc/build, UI write-path e2e = follow-up); updateTaskCareType/updateTaskDiagram* gained leading homeId; **conversationService = ported** (chatConversations + messages, emu-verified). **scheduleService + taskScheduleService = ported** (the task-create subsystem: createScheduleRule/getScheduleRulesByTemplate write/read the template's inlined schedule; generateTaskInstances resolves due date + writes an instance with the full denorm set — exercised live via /clean's backfill; createTaskFromNote writes template+instance; updateTaskSchedule/updateTaskNotes gained homeId + write tierChangeLog via Firebase auth; TaskEditPopover/TaskDetailSheet gained homeId props). homeUpkeep, careNoteService, shoppingListService = ported | mixed |
 | lib (dashboard) | **getDashboardStats + getAllMaintenanceTasks + getDashboardTasks = ported** (denorm reads; power /maintenance + the Home feed w/ Fix A cap); getUpcomingTasks/getExpiringWarranties/getHomeNotices/getInsights = inert-shim (empty, non-crashing) → swap later | mixed |
@@ -250,34 +250,46 @@ swap adds a spec here instead of relying on boot smoke.
 - Remaining in tasks/care: getTaskDetail, cleanSession.ts, homeUpkeep.ts, the rest of dashboard.ts
   (Home feed).
 
-## Phase 5 remaining inventory (resume here)
-~40 files still import `@/integrations/shim` (all NON-crashing now — the inert shim returns empty).
-Three buckets:
+## Phase 5 remaining inventory (resume here — updated 2026-07-12, HEAD after Increment 3)
 
-**A. Tractable pure-Firestore swaps (no blockers) — continue these:**
-- DONE this pass: `careNoteService`, `shoppingListService`, `homeUpkeep`, `userPreferences`,
-  `useUserLevel`, `useServiceProviders`, `supplyService`, dashboard Home reads.
-- STILL TODO: `scheduleService`, `taskScheduleService`, `getTaskDetail`+`getTaskInstances`+
-  `getTaskTemplates` (rest of taskService), `cleanSession.ts`; home tail `homeProfileService`,
-  `inviteService` (+ AcceptInvite callable), `HomeOnboarding.tsx`; knowledge reads
-  `manualDocumentService` (thread homeId; manuals now under homes/{homeId}/manuals),
-  `knowledgeService` (large, multi-table — getChunksByManual/ByItem, FAQs, getKnowledgeChunksByHome;
-  reclassify/convert touch schedule + parse_correction), `conversationService`; inventory
-  `storageService` (Cloud Storage), legacy `inventoryService`; misc components/pages + `TaskDetailSheet`,
-  `AddNoteSheet` (create paths), `ParseReviewStep`.
+The forward plan + full evidence audit live in `/root/.claude/plans/modular-baking-meadow.md`
+(checkpoint). **15 files still import `@/integrations/shim/client`** (all non-crashing).
+Increments 1–3 DONE this session (all emu-verified): P0 Smart Add un-break + legacy
+inventoryService/manualSourcesService deleted; inline-portable sweep (10 files); acceptInvite/
+removeMember callables + invites-rules hardening. Suites: vitest 127, rules 22, functions 21,
+emu e2e 18.
 
-**B. Blocked on Phase 4 callable ports (need v1 edge-fn source + live API keys):**
-- `chatService` (chat-query SSE), `ocrService`, `productLookupService`, `detectDocTypeService`,
-  `planGenerationService`, `manualSourcesService`. Port the edge fns as callables first (plan Phase 4
-  table), then repoint these.
-- `nativePush`/`pushNotifications` → FCM web SDK (Phase 4 FCM).
+**Remaining 15 shim files, by bucket:**
 
-**C. DELETE (superseded by the worker modes):** `previewManualService`, `saveManualParseService`
-(rewire `ParseReviewStep` to the worker's preview/commit modes).
+**B. Bucket B callable ports (Increments 4–5) — v1 source IS available at
+`/home/user/homehub/supabase/functions/` (premise falsified — NOT blocked on source; only some
+need owner secrets):**
+- Core: `chatService` (chat-query 424 LOC → **HTTPS SSE**, keep streaming), `ocrService` (ocr 222,
+  needs GOOGLE_VISION_API_KEY), `productLookupService` (product-lookup 480), `detectDocTypeService`
+  (detect-doc-type 225), `planGenerationService` (generate-tasks 416).
+- Tail: `AddNoteSheet` (import-care-url 152), `FaqPage` (suggest-care-notes 119), `PurchaseStep` +
+  `ItemDetailPage` (check-recalls 164), `AdminToolsSection` (classify-existing-tasks 684).
+- Also folded in: `ingestReference` (ingest-reference 209 — manualDocumentService), `searchProductImages`
+  (search-product-images 94 — needs BRAVE_SEARCH_API_KEY). Both referenced client-side; implement as
+  callables here.
+- Port each edge fn as an onCall v2 fn (fixture-based emulator test per worker pattern) BEFORE
+  repointing its client service. Owner secrets: BRAVE_SEARCH_API_KEY, GOOGLE_VISION_API_KEY.
 
-**Phase 5 gate:** zero `@/integrations/shim` imports; re-bake visual baselines after fix A (fix E).
-**Then Phases 6–7 (OWNER-gated):** prod data + auth + storage import, re-parse ~19 manuals, Apple
-prod config, domain cutover — need real prod data/creds and can't run in the sandbox.
+**FCM (Increment 8, Phase 4 remainder):** `nativePush`, `pushNotifications` → FCM web SDK +
+`users/{uid}/private/fcmTokens` + `firebase-messaging-sw.js`. (Settings send-test-push already
+swapped to the `sendTestPush` callable.)
+
+**Parse-legacy retirement (Increment 6):** `parseManualService` shim `parseManual` (3 caller files:
+Settings rescan, ItemDetailPage auto-parse, useManualManagement) → startParse/parseManualAndWait;
+then DELETE `previewManualService` + `saveManualParseService` after moving useManualManagement's
+preview/save to worker modes.
+
+**Fix E (Increment 7):** re-bake the 18 visual baselines against the emulator seed (currently
+byte-identical v1 copies); decide CI wiring.
+
+**Phase 5 gate:** zero `@/integrations/shim/client` imports → delete the shim; all suites green.
+**Phases 6–7 (OWNER-gated):** prod data/auth/storage import, re-parse ~19 manuals, Apple prod
+config, domain cutover — need real prod creds; can't run in the sandbox.
 
 ## Phase 2 → Phase 3 deferral
 - **Firestore emulator seed** (`scripts/seed-emulator.ts`) is still auth-only. The model is now
