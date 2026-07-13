@@ -566,7 +566,7 @@ export function HeroCard({
             <div className="flex items-center gap-2 flex-1">
               {item.receipt_storage_path ? (
                 <a
-                  href={`${import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "")}/storage/v1/object/public/Manuals/${item.receipt_storage_path.replace(/^\//, "")}`}
+                  href={getPhotoUrl(item.receipt_storage_path) ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-primary underline underline-offset-2 truncate max-w-[160px]"
