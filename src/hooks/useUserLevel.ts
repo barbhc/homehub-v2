@@ -42,6 +42,8 @@ export function applyOverride(derived: UserLevel, override: InterfaceOverride): 
 async function fetchSignals(homeId: string, userId: string): Promise<LevelSignals> {
   const [itemsSnap, membersSnap, homeSnap] = await Promise.all([
     getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))),
+    // Needs the members.uid COLLECTION_GROUP fieldOverride (firestore.indexes.json);
+    // the emulator does not enforce indexes — prod-smoke.ts is the check.
     getDocs(query(collectionGroup(db, "members"), where("uid", "==", userId))),
     getDoc(doc(db, `homes/${homeId}`)),
   ])

@@ -7,8 +7,10 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
+import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, extractJsonObject, type CallClaudeText } from "./claude.js"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { requireAnyMembership } from "../lib/membership.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -84,6 +86,7 @@ Generate 5-8 unique care tip suggestions. Return ONLY valid JSON: { "suggestions
 
 export const suggestCareNotes = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60 }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
+  await requireAnyMembership(getFirestore(), request.auth.uid)
   const { scope, context } = (request.data ?? {}) as { scope?: string; context?: Record<string, unknown> }
   if (!scope || !["home", "room", "item_unit"].includes(scope)) {
     throw new HttpsError("invalid-argument", "scope is required and must be one of: home, room, item_unit")
@@ -121,6 +124,7 @@ Generate 3-8 actionable tips. chunk_type: care for general care, how_to for step
 
 export const importCareUrl = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60 }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
+  await requireAnyMembership(getFirestore(), request.auth.uid)
   const { url, scope = "home", context } = (request.data ?? {}) as { url?: string; scope?: string; context?: Record<string, unknown> }
   const trimmed = typeof url === "string" ? url.trim() : ""
   if (!trimmed || !trimmed.startsWith("http")) throw new HttpsError("invalid-argument", "url is required and must be a valid URL")

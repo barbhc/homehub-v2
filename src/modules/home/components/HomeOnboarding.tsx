@@ -26,7 +26,12 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
     // (collectionGroup(members).where uid == me, via homeService).
     const existing = await getPrimaryHome()
     if (existing.error) {
-      console.debug("[HomeOnboarding] Check existing membership error:", existing.error.message)
+      // HARD STOP: if the membership lookup failed we cannot know whether a home
+      // already exists — creating one anyway is how duplicate homes get minted.
+      console.error("[HomeOnboarding] membership pre-check failed:", existing.error.message)
+      setError("We couldn't check your account just now. Please try again in a moment — don't create a new home.")
+      setLoading(false)
+      return
     }
     if (existing.data) {
       console.debug("[HomeOnboarding] User already has home:", existing.data.home_id)

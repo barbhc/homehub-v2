@@ -25,5 +25,8 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // indexCoverage.test.ts is a node-API static guard (fs scan of the repo) —
+  // vitest runs it fine, but this browser-lib config can't type node:fs.
+  "exclude": ["src/test/indexCoverage.test.ts"]
 }

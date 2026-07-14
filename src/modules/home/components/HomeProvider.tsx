@@ -6,6 +6,11 @@ import type { Home } from "@/integrations/types"
 type HomeState = {
   home: Home | null
   loading: boolean
+  /** Set when the membership/home LOOKUP FAILED (network, missing index, rules).
+   *  Distinct from "loaded fine and the user has no home" (home=null, error=null).
+   *  Consumers must NOT route to onboarding while this is set — treating a failed
+   *  lookup as "no home" is what minted duplicate homes in the launch incident. */
+  error: string | null
   refresh: () => Promise<void>
 }
 
@@ -14,6 +19,7 @@ const HomeContext = createContext<HomeState | null>(null)
 export function HomeProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth()
   const [home, setHome] = useState<Home | null>(null)
+  const [error, setError] = useState<string | null>(null)
   // Track which user id we've completed a home fetch for. `loading` is derived
   // from this (below) so it stays true from the moment `user` resolves until
   // that user's home has actually been fetched — closing a deep-link race where
@@ -26,6 +32,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       console.debug("[HomeProvider] No user, clearing home")
       setHome(null)
+      setError(null)
       setLoadedFor(null)
       return
     }
@@ -34,14 +41,20 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
       const result = await getPrimaryHome()
       setHome(result.data ?? null)
       if (result.error) {
-        console.debug("[HomeProvider] getPrimaryHome error:", result.error.message)
-      }
-      if (!result.data) {
-        console.debug("[HomeProvider] No home found — user will see onboarding")
+        // A FAILED lookup (missing index, offline, rules) must be visible and must
+        // not read as "no home" — see the error field's contract on HomeState.
+        console.error("[HomeProvider] getPrimaryHome failed:", result.error.message)
+        setError(result.error.message)
+      } else {
+        setError(null)
+        if (!result.data) {
+          console.debug("[HomeProvider] No home found — user will see onboarding")
+        }
       }
     } catch (err) {
-      console.debug("[HomeProvider] load failed:", err)
+      console.error("[HomeProvider] load failed:", err)
       setHome(null)
+      setError(err instanceof Error ? err.message : "Could not load your home.")
     } finally {
       setLoadedFor(user.id)
     }
@@ -56,7 +69,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
   const loading = authLoading || (!!user && loadedFor !== user.id)
 
   return (
-    <HomeContext.Provider value={{ home, loading, refresh: load }}>
+    <HomeContext.Provider value={{ home, loading, error, refresh: load }}>
       {children}
     </HomeContext.Provider>
   )

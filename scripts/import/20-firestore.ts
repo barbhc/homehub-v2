@@ -124,9 +124,14 @@ async function main(): Promise<void> {
     const uid = req(m.user_id, "home_members.user_id")
     await put("members", `homes/${hid}/members/${uid}`, {
       uid, // enables the collectionGroup("members").where("uid","==",…) lookup
+      // v1 had no is_primary column; getPrimaryHome picks find(isPrimary) ?? first,
+      // so stamp owners as primary (client-created homes stamp it too).
+      isPrimary: String(m.role ?? "") === "owner",
       ...mapRow(m, { drop: ["home_id", "user_id"] }),
     })
   }
+  // NOTE: re-running this import resurrects any homes deleted by
+  // scripts/ops/cleanup-homes.ts (upserts by v1 ids). Only 40-reparse is re-runnable.
   for (const iv of invites) {
     const hid = req(iv.home_id, "home_invite.home_id")
     await put("invites", `homes/${hid}/invites/${req(iv.invite_id, "home_invite")}`, withStamps(mapRow(iv, { drop: ["home_id", "invite_id"] }), NOW))

@@ -8,9 +8,14 @@
  */
 import { onRequest } from "firebase-functions/v2/https"
 import { getAuth } from "firebase-admin/auth"
+import { getFirestore } from "firebase-admin/firestore"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { hasAnyMembership } from "../lib/membership.js"
 
 const REGION = "us-central1"
+/** Response cap — matches the client's MAX_UPLOAD_BYTES; stops the proxy being
+ *  used to relay arbitrarily large files. */
+const MAX_BYTES = 50 * 1024 * 1024
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -29,10 +34,16 @@ export const proxyPdf = onRequest({ region: REGION, timeoutSeconds: 60, memory: 
     res.status(401).json({ error: "Authentication required." })
     return
   }
+  let uid: string
   try {
-    await getAuth().verifyIdToken(token)
+    uid = (await getAuth().verifyIdToken(token)).uid
   } catch {
     res.status(401).json({ error: "Invalid or expired session." })
+    return
+  }
+  // Member-of-any-home gate (onRequest → plain 403, not HttpsError).
+  if (!(await hasAnyMembership(getFirestore(), uid))) {
+    res.status(403).json({ error: "Forbidden" })
     return
   }
 
@@ -52,10 +63,27 @@ export const proxyPdf = onRequest({ region: REGION, timeoutSeconds: 60, memory: 
       res.status(502).json({ error: `Upstream returned ${upstream.status}` })
       return
     }
-    const buf = Buffer.from(await upstream.arrayBuffer())
+    const declared = Number(upstream.headers.get("content-length") ?? 0)
+    if (declared > MAX_BYTES) {
+      res.status(413).json({ error: "File too large to proxy." })
+      return
+    }
+    // Stream with a running total — Content-Length can lie or be absent.
+    const chunks: Buffer[] = []
+    let total = 0
+    if (upstream.body) {
+      for await (const chunk of upstream.body as unknown as AsyncIterable<Uint8Array>) {
+        total += chunk.byteLength
+        if (total > MAX_BYTES) {
+          res.status(413).json({ error: "File too large to proxy." })
+          return
+        }
+        chunks.push(Buffer.from(chunk))
+      }
+    }
     res.set("Content-Type", upstream.headers.get("content-type") ?? "application/pdf")
     res.set("Cache-Control", "public, max-age=86400")
-    res.status(200).send(buf)
+    res.status(200).send(Buffer.concat(chunks))
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : "Fetch failed" })
   }

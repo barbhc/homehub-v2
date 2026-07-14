@@ -15,6 +15,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { createHash } from "node:crypto"
 import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
+import { requireAnyMembership } from "../lib/membership.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -220,6 +221,9 @@ export const productLookup = onCall(
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
     const uid = request.auth.uid
+    // Before the quota check — the per-uid quota is meaningless for identities
+    // that can be minted freely (anonymous); membership is the real gate.
+    await requireAnyMembership(getFirestore(), uid)
     const b = (request.data ?? {}) as Record<string, unknown>
     const brand = sanitizeInput(b.brand)
     const model = sanitizeInput(b.model)

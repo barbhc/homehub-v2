@@ -15,15 +15,18 @@ export type UploadWithUrlResult =
 
 /**
  * Upload a PDF to Cloud Storage. Path (v1 convention preserved):
- *   {userId}/{itemId}/manual_{ts}.{ext}  (or {itemId}/… when no userId).
+ *   {userId}/{itemId}/manual_{ts}.{ext}
+ * userId is REQUIRED: storage rules scope manual writes to the caller's own
+ * uid prefix, so the old unscoped `{itemId}/…` fallback would be denied anyway.
  */
 export async function uploadManualPdf(
   itemId: string,
   file: File,
   userId?: string | null
 ): Promise<UploadResult> {
+  if (!userId) return { data: null, error: { message: "Not signed in." } }
   const ext = file.name.split(".").pop() || "pdf"
-  const path = userId ? `${userId}/${itemId}/manual_${Date.now()}.${ext}` : `${itemId}/manual_${Date.now()}.${ext}`
+  const path = `${userId}/${itemId}/manual_${Date.now()}.${ext}`
   try {
     await uploadBytes(ref(storage, path), file, { contentType: file.type || "application/pdf" })
     return { data: { path }, error: null }
@@ -51,7 +54,8 @@ export async function removeManualPdf(
 
 /**
  * Upload an item photo under photos/ and persist its path onto the item doc.
- * Path: photos/{userId}/{itemId}/photo.{ext} (or photos/{itemId}/… ).
+ * Path: photos/{userId}/{itemId}/photo.{ext}. userId is REQUIRED (rules scope
+ * photo writes to the caller's own uid prefix).
  */
 export async function uploadItemPhoto(
   homeId: string,
@@ -59,8 +63,9 @@ export async function uploadItemPhoto(
   file: File,
   userId?: string | null
 ): Promise<UploadWithUrlResult> {
+  if (!userId) return { data: null, error: { message: "Not signed in." } }
   const ext = file.name.split(".").pop() ?? "jpg"
-  const path = userId ? `photos/${userId}/${itemId}/photo.${ext}` : `photos/${itemId}/photo.${ext}`
+  const path = `photos/${userId}/${itemId}/photo.${ext}`
   try {
     await uploadBytes(ref(storage, path), file, { contentType: file.type || "image/jpeg" })
     // Persist the storage ref onto the item (v1 did this inside the upload).

@@ -14,7 +14,7 @@ export default function Index() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, loading: authLoading } = useAuth()
-  const { home, loading: homeLoading, refresh } = useCurrentHome()
+  const { home, loading: homeLoading, error: homeError, refresh } = useCurrentHome()
 
   const returnTo = searchParams.get("returnTo")
 
@@ -38,6 +38,28 @@ export default function Index() {
 
   if (!user) {
     return <Landing />
+  }
+
+  // A FAILED home lookup is not "no home" — never route to onboarding here, or a
+  // transient error mints a duplicate home (the launch-day incident).
+  if (homeError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="w-full max-w-md mx-auto text-center">
+          <h1 className="text-2xl font-display font-normal mb-2">We couldn't load your home</h1>
+          <p className="text-muted-foreground mb-6">
+            Something went wrong while looking up your account. Check your connection and try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (!home) {

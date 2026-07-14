@@ -9,7 +9,9 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
+import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, extractJsonObject, fetchPdfBase64, type CallClaudeText } from "./claude.js"
+import { requireAnyMembership } from "../lib/membership.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -240,6 +242,7 @@ export async function runGenerateTasks(
 
 export const generateTasks = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 120 }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
+  await requireAnyMembership(getFirestore(), request.auth.uid)
   try {
     return await runGenerateTasks(makeCallClaudeText(ANTHROPIC_API_KEY.value()), (request.data ?? {}) as GenerateTasksInput)
   } catch (e) {

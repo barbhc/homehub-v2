@@ -1,23 +1,53 @@
 rules_version = '2';
 
-// v2 Storage rules. v1's `Manuals` bucket was PUBLIC-read (the app + parse edge
-// functions fetched manuals/photos by public URL), so we mirror that posture:
-// public read, authenticated write. The parse worker fetches upload PDFs via the
-// Admin SDK (bypasses rules), so reads here are only for client display.
+// v2 Storage rules. Reads stay PUBLIC everywhere (v1 parity: the app builds
+// tokenless public URLs via storageDownloadUrl, and imported v1 objects must
+// keep resolving regardless of shape). Writes are granted ONLY by the scoped
+// blocks below — the old catch-all `write: request.auth != null` let any
+// signed-in token (incl. anonymous, provider temporarily enabled) overwrite
+// any object with no size limit. Overlapping matches OR together, so a path
+// matching several blocks is writable if ANY block grants it.
 //
-// Path conventions (preserved from v1):
-//   {userId}/{itemId}/manual_*.{ext}     — manual PDFs
-//   photos/{userId}/{itemId}/photo.{ext} — item photos
-//   receipts/{itemUnitId}/*              — receipts
-//   images/{manualId}/page_*.jpg         — rendered diagram pages
-//
-// Follow-up (deferred): tighten write to per-user / per-home path scoping once
-// the sharing model is enabled.
+// Client write shapes (src/modules/inventory/services/storageService.ts):
+//   {userId}/{itemId}/manual_{ts}.{ext}      — manual PDFs (uid-scoped)
+//   photos/{userId}/{itemId}/photo.{ext}     — item photos (uid-scoped)
+//   receipts/{itemUnitId}/{ts}-{name}.{ext}  — receipts (no uid in path)
+//   images/{manualId}/page_{n}.jpg           — rendered diagram pages
+// The parse worker reads uploads via the Admin SDK (bypasses rules).
 service firebase.storage {
   match /b/{bucket}/o {
+    // Public read, everywhere (incl. legacy/imported shapes). No writes here.
     match /{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null;
+    }
+
+    // Manual PDFs — only the owner's own uid prefix; delete needs its own
+    // clause (request.resource is null on deletes; a size condition on a
+    // combined `write` would deny every delete and break removeManualPdf).
+    match /{userId}/{itemId}/{fileName} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Item photos — uid-scoped.
+    match /photos/{userId}/{itemId}/{fileName} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 50 * 1024 * 1024;
+    }
+
+    // Receipts — no uid in the path (v1 convention): any authed, size-capped.
+    match /receipts/{itemUnitId}/{fileName} {
+      allow create, update: if request.auth != null
+        && request.resource.size < 50 * 1024 * 1024;
+    }
+
+    // Diagram page renders — any authed, smaller cap (JPEG pages).
+    match /images/{manualId}/{fileName} {
+      allow create, update: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024;
     }
   }
 }

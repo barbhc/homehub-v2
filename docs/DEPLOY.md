@@ -42,9 +42,9 @@ Firebase console → **Project settings** (gear) → **General** → scroll to *
 **Web app** (`</>`) if none exists → copy the config values into **`.env`** (copy from `.env.example`):
 ```
 VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=homehub-v2-4a1b.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=homehub-v2-4a1b
-VITE_FIREBASE_STORAGE_BUCKET=homehub-v2-4a1b.appspot.com
+VITE_FIREBASE_AUTH_DOMAIN=homehub-2068d.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=homehub-2068d
+VITE_FIREBASE_STORAGE_BUCKET=homehub-2068d.firebasestorage.app  # console → Storage shows the exact gs:// name
 VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
 VITE_USE_EMULATORS=false

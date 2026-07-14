@@ -39,9 +39,12 @@ service cloud.firestore {
 
     // ---- users (profiles + private prefs/tokens) ----
     match /users/{uid} {
-      // Public profile fields readable by any signed-in user (co-member display);
-      // writable only by the owner of the doc.
-      allow read: if isSignedIn();
+      // Profile fields readable by any signed-in user ONLY as single-doc gets
+      // (co-member display reads by uid). `list` stays closed — a collection
+      // list would let any token (incl. anonymous) enumerate every user's
+      // name + avatar. The app performs zero users-collection lists.
+      allow get: if isSignedIn();
+      allow list: if false;
       allow write: if isSignedIn() && request.auth.uid == uid;
 
       // Private subtree: preferences (interface_level), FCM tokens — self only.

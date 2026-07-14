@@ -5,6 +5,8 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
+import { getFirestore } from "firebase-admin/firestore"
+import { requireAnyMembership } from "../lib/membership.js"
 
 const BRAVE_SEARCH_API_KEY = defineSecret("BRAVE_SEARCH_API_KEY")
 const REGION = "us-central1"
@@ -13,6 +15,7 @@ export type ProductImage = { title: string; thumbnailUrl: string; imageUrl: stri
 
 export const searchProductImages = onCall({ region: REGION, secrets: [BRAVE_SEARCH_API_KEY], timeoutSeconds: 30 }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
+  await requireAnyMembership(getFirestore(), request.auth.uid)
   const braveKey = BRAVE_SEARCH_API_KEY.value()
   if (!braveKey) throw new HttpsError("failed-precondition", "Image search not configured (BRAVE_SEARCH_API_KEY unset).")
 

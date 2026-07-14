@@ -114,6 +114,9 @@ export async function createHome(input: CreateHomeInput): Promise<CreateHomeResu
 async function myMemberships(): Promise<{ homeId: string; isPrimary: boolean }[]> {
   const uid = auth.currentUser?.uid
   if (!uid) return []
+  // collectionGroup queries need a fieldOverride in firestore.indexes.json
+  // (members.uid, COLLECTION_GROUP scope). The EMULATOR does not enforce
+  // indexes — a missing one fails only in prod; scripts/ops/prod-smoke.ts checks.
   const snap = await getDocs(query(collectionGroup(db, "members"), where("uid", "==", uid)))
   return snap.docs
     .map((d) => {

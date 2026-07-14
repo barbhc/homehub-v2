@@ -20,7 +20,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing"
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore"
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc } from "firebase/firestore"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -210,5 +210,28 @@ describe("invites (hardened: members-only; acceptance is server-side)", () => {
 
   it("a non-member cannot self-accept by writing acceptedBy (acceptance is the callable's job)", async () => {
     await assertFails(updateDoc(doc(asOutsider(), `homes/${HOME}/invites/inv1`), { acceptedBy: OUTSIDER }))
+  })
+})
+
+describe("users profile access (get-only; list closed against enumeration)", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `users/${OWNER}`), { fullName: "Owner O.", avatarUrl: null })
+      await setDoc(doc(ctx.firestore(), `users/${MEMBER}`), { fullName: "Member M.", avatarUrl: null })
+    })
+  })
+
+  it("any signed-in user can GET another user's profile doc (co-member display)", async () => {
+    await assertSucceeds(getDoc(doc(asOutsider(), `users/${OWNER}`)))
+  })
+
+  it("LISTING the users collection is denied for everyone (no name/avatar enumeration)", async () => {
+    await assertFails(getDocs(collection(asOutsider(), "users")))
+    await assertFails(getDocs(collection(asOwner(), "users")))
+  })
+
+  it("self-write allowed; writing another user's profile denied", async () => {
+    await assertSucceeds(setDoc(doc(asOwner(), `users/${OWNER}`), { fullName: "New Name" }))
+    await assertFails(setDoc(doc(asMember(), `users/${OWNER}`), { fullName: "Hijack" }))
   })
 })

@@ -9,7 +9,9 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
+import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, type CallClaudeText } from "./claude.js"
+import { requireAnyMembership } from "../lib/membership.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY")
@@ -106,6 +108,7 @@ export const ocr = onCall(
   { region: REGION, secrets: [ANTHROPIC_API_KEY, GOOGLE_VISION_API_KEY], timeoutSeconds: 120, memory: "512MiB" },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
+    await requireAnyMembership(getFirestore(), request.auth.uid)
     const image = (request.data ?? {}).image
     if (!image || typeof image !== "string") throw new HttpsError("invalid-argument", "Missing image (base64).")
     const base64 = image.replace(/^data:image\/\w+;base64,/, "")

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { LockIcon, EyeIcon, EyeOffIcon, CheckIcon, MailCheckIcon } from "lucide-react"
-import { verifyPasswordResetCode, confirmPasswordReset } from "firebase/auth"
+import { LockIcon, EyeIcon, EyeOffIcon, CheckIcon, MailCheckIcon, AlertCircleIcon } from "lucide-react"
+import { verifyPasswordResetCode, confirmPasswordReset, isSignInWithEmailLink } from "firebase/auth"
 import { auth } from "@/integrations/firebase"
+import { useAuth } from "@/modules/auth"
 import { AuthScreen, AuthCTA, AUTH } from "@/modules/auth/components/authUi"
 
 /** Password field with reveal toggle, matching the auth mockup's AuthInput. */
@@ -26,29 +27,69 @@ function PwField({ label, value, onChange }: { label: string; value: string; onC
   )
 }
 
+/**
+ * Explicit phases replace the old `ready` boolean, whose failure paths (no
+ * oobCode, or verifyPasswordResetCode rejecting) left the page stuck on
+ * "Verifying your link…" forever with the error never rendered.
+ *
+ * "signin-handoff" exists because Firebase uses ONE email-action URL for every
+ * template — pointing the reset template here means magic SIGN-IN links land
+ * here too (mode=signIn). AuthProvider (mounted above the router) completes
+ * those itself; this page just waits for the session and forwards home.
+ */
+type Phase = "verifying" | "form" | "done" | "signin-handoff" | "link-error"
+
 export default function ResetPassword() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  // Firebase's password-reset link lands here with ?mode=resetPassword&oobCode=…
-  // (set the Auth email action handler to this page in the console).
+  const { user } = useAuth()
+  // Firebase's action link lands here with ?mode=resetPassword|signIn&oobCode=…
   const oobCode = params.get("oobCode")
-  const [ready, setReady] = useState(false)
+  const mode = params.get("mode")
+  const isSignInLink = mode === "signIn" || isSignInWithEmailLink(auth, window.location.href)
+
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (isSignInLink) return "signin-handoff"
+    if (!oobCode) return "link-error"
+    return "verifying"
+  })
+  const [linkError, setLinkError] = useState<string>(
+    !isSignInLink && !oobCode ? "This reset link is incomplete or has expired." : ""
+  )
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState(false)
 
+  // Reset-code verification (proves the link is real and unexpired before the form).
   useEffect(() => {
-    // Validate the one-time code before showing the form (proves the link is real
-    // and unexpired). No sign-in happens — confirmPasswordReset uses the code directly.
-    if (!oobCode) return
+    if (phase !== "verifying" || !oobCode) return
     let cancelled = false
     void verifyPasswordResetCode(auth, oobCode)
-      .then(() => { if (!cancelled) setReady(true) })
-      .catch(() => { if (!cancelled) setError("This reset link is invalid or has expired.") })
+      .then(() => { if (!cancelled) setPhase("form") })
+      .catch(() => {
+        if (!cancelled) {
+          setLinkError("This reset link is invalid or has expired.")
+          setPhase("link-error")
+        }
+      })
     return () => { cancelled = true }
-  }, [oobCode])
+  }, [phase, oobCode])
+
+  // Sign-in handoff: AuthProvider completes the email link; when the session
+  // appears, go home. If nothing happens in 10s the link was bad/consumed.
+  useEffect(() => {
+    if (phase !== "signin-handoff") return
+    if (user) {
+      navigate("/", { replace: true })
+      return
+    }
+    const timer = setTimeout(() => {
+      setLinkError("This sign-in link is invalid or has expired.")
+      setPhase("link-error")
+    }, 10_000)
+    return () => clearTimeout(timer)
+  }, [phase, user, navigate])
 
   const match = password.length >= 8 && password === confirm
 
@@ -61,7 +102,7 @@ export default function ResetPassword() {
     try {
       await confirmPasswordReset(auth, oobCode, password)
       setLoading(false)
-      setDone(true)
+      setPhase("done")
       setTimeout(() => navigate("/signin"), 1800)
     } catch (err) {
       setLoading(false)
@@ -69,7 +110,7 @@ export default function ResetPassword() {
     }
   }
 
-  if (done) {
+  if (phase === "done") {
     return (
       <AuthScreen>
         <div className="flex flex-col items-center text-center">
@@ -83,10 +124,44 @@ export default function ResetPassword() {
     )
   }
 
-  if (!ready) {
+  if (phase === "link-error") {
     return (
       <AuthScreen>
         <div className="flex flex-col items-center text-center">
+          <div className="flex items-center justify-center mb-[18px]" style={{ width: 74, height: 74, borderRadius: "50%", background: "var(--hh-teal-wash)" }}>
+            <AlertCircleIcon size={32} style={{ color: AUTH.gold }} />
+          </div>
+          <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>That link didn't work</h1>
+          <p className="text-[15px] mt-2 max-w-[300px]" style={{ color: AUTH.sub }}>{linkError}</p>
+          <div className="mt-6 flex flex-col items-center gap-3 w-full max-w-[280px]">
+            <AuthCTA type="button" onClick={() => navigate("/reset")}>Request a new link</AuthCTA>
+            <button type="button" onClick={() => navigate("/signin")} className="text-sm underline underline-offset-2" style={{ color: AUTH.sub }}>
+              Back to sign in
+            </button>
+          </div>
+        </div>
+      </AuthScreen>
+    )
+  }
+
+  if (phase === "signin-handoff") {
+    return (
+      <AuthScreen>
+        <div className="flex flex-col items-center text-center" aria-busy="true">
+          <div className="flex items-center justify-center mb-[18px]" style={{ width: 74, height: 74, borderRadius: "50%", background: "var(--hh-teal-wash)" }}>
+            <MailCheckIcon size={32} style={{ color: AUTH.teal }} />
+          </div>
+          <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>Finishing sign-in…</h1>
+          <p className="text-[15px] mt-2 max-w-[280px]" style={{ color: AUTH.sub }}>One moment while we confirm your link.</p>
+        </div>
+      </AuthScreen>
+    )
+  }
+
+  if (phase === "verifying") {
+    return (
+      <AuthScreen>
+        <div className="flex flex-col items-center text-center" aria-busy="true">
           <div className="flex items-center justify-center mb-[18px]" style={{ width: 74, height: 74, borderRadius: "50%", background: "var(--hh-teal-wash)" }}>
             <MailCheckIcon size={32} style={{ color: AUTH.teal }} />
           </div>

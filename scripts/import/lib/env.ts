@@ -13,7 +13,7 @@
  *     GOOGLE_APPLICATION_CREDENTIALS   path to a service-account JSON with Firestore
  *                                      + Auth + Storage admin (firebase-admin reads it)
  *     FIREBASE_PROJECT_ID          e.g. homehub-2068d
- *     FIREBASE_STORAGE_BUCKET      e.g. homehub-2068d.appspot.com (for 30-storage)
+ *     FIREBASE_STORAGE_BUCKET      e.g. homehub-2068d.firebasestorage.app (for 30-storage)
  *   Re-parse only (40-reparse):
  *     FIREBASE_WEB_API_KEY         Web API key (Firebase console → Project settings)
  *     OWNER_UID                    a member uid of every home to re-parse (usually you)
