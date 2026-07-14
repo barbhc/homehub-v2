@@ -55,6 +55,44 @@ export async function runAcceptInvite(db: Firestore, uid: string, token: string)
   return { success: true, home_id: homeId, home_name: (home.get("name") as string) ?? "", role }
 }
 
+export interface InviteDetailsResult {
+  found: boolean
+  home_id?: string
+  home_name?: string
+  role?: string
+  expires_at?: string
+  accepted?: boolean
+  creator_name?: string | null
+}
+
+/** Read-only, sanitized invite lookup for the accept page. The accepter is not a
+ *  member yet, so the members-only invites read rule denies a client query — this
+ *  runs server-side (Admin SDK) instead. Auth-gated, keyed on the unguessable
+ *  token; returns only what the page shows (never the accepter uid or raw doc). */
+export async function runGetInviteDetails(db: Firestore, token: string): Promise<InviteDetailsResult> {
+  const snap = await db.collectionGroup("invites").where("token", "==", token).limit(1).get()
+  const inviteDoc = snap.docs[0]
+  if (!inviteDoc) return { found: false }
+  const homeId = inviteDoc.ref.parent.parent?.id
+  if (!homeId) return { found: false }
+  const inv = inviteDoc.data()
+
+  const [home, creator] = await Promise.all([
+    db.doc(`homes/${homeId}`).get(),
+    inv.createdBy ? db.doc(`users/${inv.createdBy}`).get() : Promise.resolve(null),
+  ])
+  const expiresAt = inv.expiresAt as Timestamp | undefined
+  return {
+    found: true,
+    home_id: homeId,
+    home_name: (home.get("name") as string) ?? "",
+    role: (inv.role as string) ?? "member",
+    expires_at: expiresAt ? expiresAt.toDate().toISOString() : "",
+    accepted: !!inv.acceptedBy,
+    creator_name: creator && creator.exists ? ((creator.get("fullName") as string) ?? null) : null,
+  }
+}
+
 export interface RemoveMemberResult {
   success: boolean
   error?: string
@@ -97,6 +135,18 @@ export const acceptInvite = onCall({ region: REGION }, async (request) => {
     return await runAcceptInvite(getFirestore(), uid, token)
   } catch (e) {
     throw new HttpsError("internal", e instanceof Error ? e.message : "acceptInvite failed")
+  }
+})
+
+export const getInviteDetails = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
+  const { token } = (request.data ?? {}) as { token?: string }
+  if (!token) throw new HttpsError("invalid-argument", "token is required.")
+  try {
+    return await runGetInviteDetails(getFirestore(), token)
+  } catch (e) {
+    throw new HttpsError("internal", e instanceof Error ? e.message : "getInviteDetails failed")
   }
 })
 

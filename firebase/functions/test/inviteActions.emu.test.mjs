@@ -7,7 +7,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore"
-import { runAcceptInvite, runRemoveMember } from "../lib/firebase/functions/src/invites/inviteActions.js"
+import { runAcceptInvite, runRemoveMember, runGetInviteDetails } from "../lib/firebase/functions/src/invites/inviteActions.js"
 
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be set (run via emulators:exec)")
 if (getApps().length === 0) initializeApp({ projectId: "demo-homehub" })
@@ -73,6 +73,37 @@ test("accept: expired invite is rejected", async () => {
   await seedInvite(H, "i1", { token: "tok-exp", expiresInMs: -1000 })
   const res = await runAcceptInvite(db, "newuser", "tok-exp")
   assert.equal(res.success, false)
+})
+
+// ── getInviteDetails ────────────────────────────────────────────────────────────
+
+test("details: valid token returns sanitized home + creator + role", async () => {
+  const H = "inv-details"
+  await seedHome(H, { name: "Cliffside" })
+  await db.doc(`users/owner`).set({ fullName: "Barb C" })
+  await seedInvite(H, "i1", { token: "tok-details", role: "admin" })
+
+  const res = await runGetInviteDetails(db, "tok-details")
+  assert.equal(res.found, true)
+  assert.equal(res.home_id, H)
+  assert.equal(res.home_name, "Cliffside")
+  assert.equal(res.role, "admin")
+  assert.equal(res.accepted, false)
+  assert.equal(res.creator_name, "Barb C")
+})
+
+test("details: unknown token returns not-found (no throw)", async () => {
+  const res = await runGetInviteDetails(db, "nope")
+  assert.equal(res.found, false)
+})
+
+test("details: an accepted invite reports accepted:true", async () => {
+  const H = "inv-details-used"
+  await seedHome(H)
+  await seedInvite(H, "i1", { token: "tok-details-used", acceptedBy: "someone" })
+  const res = await runGetInviteDetails(db, "tok-details-used")
+  assert.equal(res.found, true)
+  assert.equal(res.accepted, true)
 })
 
 // ── removeMember ────────────────────────────────────────────────────────────────

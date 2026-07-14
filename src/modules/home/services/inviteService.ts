@@ -1,13 +1,10 @@
 import {
   collection,
-  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
-  query,
   serverTimestamp,
-  where,
   writeBatch,
   Timestamp,
   type DocumentData,
@@ -68,6 +65,10 @@ const acceptInviteCallable = callable<{ token: string }, { success: boolean; hom
   "acceptInvite"
 )
 const removeMemberCallable = callable<{ homeId: string; userId: string }, { success: boolean; error?: string }>("removeMember")
+const getInviteDetailsCallable = callable<
+  { token: string },
+  { found: boolean; home_id?: string; home_name?: string; role?: string; expires_at?: string; accepted?: boolean; creator_name?: string | null }
+>("getInviteDetails")
 
 /** Unguessable invite token. */
 function newToken(): string {
@@ -134,32 +135,25 @@ export async function revokeInvite(homeId: string, inviteId: string): Promise<Se
 }
 
 /**
- * Fetches invite details by token (for the accept page). Uses a collection-group
- * query since the accepter doesn't know the homeId. (Requires the invites
- * collection-group read rule — part of the deferred sharing enablement.)
+ * Fetches invite details by token (for the accept page). The accepter isn't a
+ * member yet, so a client collection-group read of invites is denied by the
+ * members-only rule — this goes through the `getInviteDetails` Admin-SDK callable
+ * (auth-gated, keyed on the unguessable token). Shape is unchanged for callers.
  */
 export async function getInviteByToken(token: string): Promise<ServiceResult<InviteDetails>> {
   try {
-    const snap = await getDocs(query(collectionGroup(db, "invites"), where("token", "==", token)))
-    const docSnap = snap.docs[0]
-    if (!docSnap) return { data: null, error: { message: "Invite not found" } }
-    const homeId = docSnap.ref.parent.parent?.id ?? ""
-    const invite = toInvite(homeId, docSnap.id, docSnap.data())
-
-    const [homeSnap, creatorSnap] = await Promise.all([
-      getDoc(doc(db, `homes/${homeId}`)),
-      getDoc(doc(db, `users/${invite.created_by}`)),
-    ])
+    const res = await getInviteDetailsCallable({ token })
+    if (!res.found) return { data: null, error: { message: "Invite not found" } }
     return {
       data: {
-        invite_id: invite.invite_id,
-        home_id: homeId,
-        token: invite.token,
-        role: invite.role,
-        expires_at: invite.expires_at,
-        accepted_by: invite.accepted_by,
-        home: homeSnap.exists() ? { name: homeSnap.data().name ?? "" } : null,
-        creator: creatorSnap.exists() ? { full_name: creatorSnap.data().fullName ?? null } : null,
+        invite_id: "",
+        home_id: res.home_id ?? "",
+        token,
+        role: res.role ?? "member",
+        expires_at: res.expires_at ?? "",
+        accepted_by: res.accepted ? "used" : null,
+        home: res.home_name ? { name: res.home_name } : null,
+        creator: { full_name: res.creator_name ?? null },
       },
       error: null,
     }
