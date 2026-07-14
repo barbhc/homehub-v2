@@ -50,7 +50,7 @@ _Spike concluded: **Capacitor 8** (SPM, no CocoaPods). Running on device; web ap
 - [ ] **App Store prep** - Icon/launch assets, privacy nutrition labels (Anthropic + Supabase data), TestFlight, Guideline 4.2 (native camera + push already help).
 
 ## Bugs
-- [ ] _None_
+- [ ] **Push enable fails with generic "An error has occurred." (web; reproduced in Safari, 2026-07-14)** - Settings → Notifications → **Enable** throws and shows a generic alert; the real cause is swallowed. The Enable `onClick` (`src/pages/Settings.tsx:1043`) awaits `subscribeToPush()` with **no try/catch**, so `pushToggling` can stick on "…" and the underlying error (notification permission denied / FCM `getToken` failure / Safari web-push + VAPID limitation) is never surfaced. Fix: wrap in try/catch, reset `pushToggling` in a `finally`, and show the actual error. Then re-diagnose the Safari `getToken` failure with the real message. **Related gap:** the "Send test notification" button is gated to the native iOS shell only (`isNative && pushSubscribed`, `Settings.tsx:1067`), so there is **no way to self-test push on desktop web** — consider exposing it for `pushSubscribed` web users too.
 
 ## Later
 - [ ] **Offline support via service worker** - Enable offline use of the app; high effort
