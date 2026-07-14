@@ -36,9 +36,12 @@ export SUPABASE_URL="https://<ref>.supabase.co"
 export SUPABASE_SERVICE_ROLE_KEY="<service-role key>"
 
 # Target (v2 Firebase)
-export GOOGLE_APPLICATION_CREDENTIALS="/abs/path/to/serviceAccount.json"
+export GOOGLE_APPLICATION_CREDENTIALS="/abs/path/to/serviceAccount.json"   # use the FULL path, not ~
 export FIREBASE_PROJECT_ID="homehub-2068d"
-export FIREBASE_STORAGE_BUCKET="homehub-2068d.appspot.com"
+# Storage bucket: projects created after ~late-2024 use <project>.firebasestorage.app,
+# older ones use <project>.appspot.com. Confirm the exact name in Firebase console →
+# Storage (the gs:// name at the top) and use it WITHOUT the gs:// prefix.
+export FIREBASE_STORAGE_BUCKET="homehub-2068d.firebasestorage.app"
 
 # Re-parse only (40)
 export FIREBASE_WEB_API_KEY="<web api key>"     # console → Project settings → General

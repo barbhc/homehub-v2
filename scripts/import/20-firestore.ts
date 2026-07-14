@@ -4,7 +4,11 @@
  *
  * Design:
  *   - v1 UUIDs are PRESERVED as v2 doc ids → every FK reference (itemUnitId,
- *     taskTemplateId, assignedTo, …) stays valid with no id remapping.
+ *     taskTemplateId, assignedTo, …) stays valid with no id remapping. v1 PKs are
+ *     `<table>_id` (home_id, item_unit_id, manual_id, task_template_id, …) with a
+ *     few `id` exceptions — see PK usage per section below. `req()` throws if any
+ *     id resolves to undefined, so a schema mismatch fails loudly (never writes to
+ *     a `.../undefined` path).
  *   - schedule_rule is collapsed to the latest row and INLINED as `schedule` on
  *     the template; task_template_supply is INLINED as `supplies[]` (with the
  *     supply name denormalized).
@@ -25,6 +29,13 @@ type Row = Record<string, unknown>
 const NOW = Timestamp.now()
 const counts: Record<string, number> = {}
 
+/** Doc-id / path-segment guard: a v1 PK must be present, or the import would
+ *  silently collapse rows onto a `.../undefined` path. Fail loudly instead. */
+function req(val: unknown, what: string): string {
+  if (val == null || val === "") throw new Error(`missing id for ${what} — check the v1 primary-key column name`)
+  return String(val)
+}
+
 // ── batched writer (flush at 450 ops; dry-run just counts) ───────────────────
 let batch: WriteBatch | null = null
 let ops = 0
@@ -40,7 +51,7 @@ async function put(coll: string, path: string, body: Row): Promise<void> {
   batch.set(db().doc(path), body)
   if (++ops >= 450) await flush()
 }
-const byId = <T extends Row>(rows: T[], key = "id") => new Map(rows.map((r) => [String(r[key]), r]))
+const mapByKey = <T extends Row>(rows: T[], key: string) => new Map(rows.map((r) => [String(r[key]), r]))
 const groupBy = <T extends Row>(rows: T[], key: string) => {
   const m = new Map<string, T[]>()
   for (const r of rows) {
@@ -69,12 +80,12 @@ async function main(): Promise<void> {
     fetchAll("troubleshooting_case"), fetchAll("troubleshooting_step"), fetchAll("task_tier_change_log"), fetchAll("user_preferences"),
   ])
 
-  // ── Lookup maps ──────────────────────────────────────────────────────────────
-  const roomName = new Map(rooms.map((r) => [String(r.id), String(r.name ?? "")]))
-  const itemHome = new Map(items.map((i) => [String(i.id), String(i.home_id ?? "")]))
-  const itemInfo = new Map(items.map((i) => [String(i.id), { displayName: String(i.display_name ?? ""), roomName: roomName.get(String(i.room_id)) ?? null }]))
-  const manualHome = new Map(manuals.map((m) => [String(m.id), String(m.home_id ?? itemHome.get(String(m.item_unit_id)) ?? "")]))
-  const homeProfileByHome = byId(homeProfiles, "home_id")
+  // ── Lookup maps (keyed by v1 PK) ─────────────────────────────────────────────
+  const roomName = new Map(rooms.map((r) => [String(r.room_id), String(r.name ?? "")]))
+  const itemHome = new Map(items.map((i) => [String(i.item_unit_id), String(i.home_id ?? "")]))
+  const itemInfo = new Map(items.map((i) => [String(i.item_unit_id), { displayName: String(i.display_name ?? ""), roomName: roomName.get(String(i.room_id)) ?? null }]))
+  const manualHome = new Map(manuals.map((m) => [String(m.manual_id), String(m.home_id ?? itemHome.get(String(m.item_unit_id)) ?? "")]))
+  const homeProfileByHome = mapByKey(homeProfiles, "home_id")
   // schedule_rule: latest per template (v1 is effectively 1:1; take newest created_at).
   const schedByTemplate = new Map<string, Row>()
   for (const s of scheduleRules) {
@@ -83,16 +94,15 @@ async function main(): Promise<void> {
     if (!prev || String(s.created_at ?? "") > String(prev.created_at ?? "")) schedByTemplate.set(tid, s)
   }
   const suppliesByTemplate = groupBy(templateSupplies, "task_template_id")
-  const supplyItemName = new Map(supplyItems.map((s) => [String(s.id), String(s.name ?? "")]))
-  const templateInfo = byId(templates)
+  const supplyItemName = new Map(supplyItems.map((s) => [String(s.supply_item_id), String(s.name ?? "")]))
+  const templateInfo = mapByKey(templates, "task_template_id")
 
   // ── Users (profiles + prefs) ─────────────────────────────────────────────────
   for (const p of profiles) {
-    await put("users", `users/${p.id}`, withStamps(mapRow(p, { drop: ["id"] }), NOW))
+    await put("users", `users/${req(p.id, "profile")}`, withStamps(mapRow(p, { drop: ["id"] }), NOW))
   }
   for (const pr of prefs) {
-    const uid = String(pr.user_id)
-    if (!uid) continue
+    const uid = req(pr.user_id, "user_preferences")
     const level = pr.interface_level
     await put("users/private", `users/${uid}/private/preferences`, {
       interface_level: level && typeof level === "object" ? level : { level: level ?? "guided" },
@@ -103,29 +113,34 @@ async function main(): Promise<void> {
 
   // ── Homes (+ folded home_profile) + members + invites + rooms ─────────────────
   for (const h of homes) {
-    const profile = homeProfileByHome.get(String(h.id))
-    const body = withStamps(mapRow(h, { drop: ["id"] }), NOW)
+    const hid = req(h.home_id, "home")
+    const profile = homeProfileByHome.get(hid)
+    const body = withStamps(mapRow(h, { drop: ["home_id"] }), NOW)
     if (profile) Object.assign(body, mapRow(profile, { drop: ["id", "home_id", "created_at", "updated_at"] }))
-    await put("homes", `homes/${h.id}`, body)
+    await put("homes", `homes/${hid}`, body)
   }
   for (const m of members) {
-    const uid = String(m.user_id)
-    await put("members", `homes/${m.home_id}/members/${uid}`, {
+    const hid = req(m.home_id, "home_members.home_id")
+    const uid = req(m.user_id, "home_members.user_id")
+    await put("members", `homes/${hid}/members/${uid}`, {
       uid, // enables the collectionGroup("members").where("uid","==",…) lookup
-      ...mapRow(m, { drop: ["home_id", "user_id", "id"] }),
+      ...mapRow(m, { drop: ["home_id", "user_id"] }),
     })
   }
   for (const iv of invites) {
-    await put("invites", `homes/${iv.home_id}/invites/${iv.id}`, withStamps(mapRow(iv, { drop: ["home_id", "id"] }), NOW))
+    const hid = req(iv.home_id, "home_invite.home_id")
+    await put("invites", `homes/${hid}/invites/${req(iv.invite_id, "home_invite")}`, withStamps(mapRow(iv, { drop: ["home_id", "invite_id"] }), NOW))
   }
   for (const r of rooms) {
-    await put("rooms", `homes/${r.home_id}/rooms/${r.id}`, withStamps(mapRow(r, { drop: ["home_id", "id"] }), NOW))
+    const hid = req(r.home_id, "room.home_id")
+    await put("rooms", `homes/${hid}/rooms/${req(r.room_id, "room")}`, withStamps(mapRow(r, { drop: ["home_id", "room_id"] }), NOW))
   }
 
   // ── Items ──────────────────────────────────────────────────────────────────
   for (const it of items) {
-    await put("items", `homes/${it.home_id}/items/${it.id}`, withStamps(mapRow(it, {
-      drop: ["home_id", "id"],
+    const hid = req(it.home_id, "item_unit.home_id")
+    await put("items", `homes/${hid}/items/${req(it.item_unit_id, "item_unit")}`, withStamps(mapRow(it, {
+      drop: ["home_id", "item_unit_id"],
       dates: ["purchase_date", "warranty_expiry_date"],
       renames: { photo_storage_ref: "photoPath", receipt_storage_path: "receiptPath" },
     }), NOW))
@@ -133,35 +148,38 @@ async function main(): Promise<void> {
 
   // ── Manuals (+ chunks, entities) ─────────────────────────────────────────────
   for (const m of manuals) {
-    const home = manualHome.get(String(m.id))
-    if (!home) { console.warn(`  · manual ${m.id}: no home — skipping`); continue }
-    const body = withStamps(mapRow(m, { drop: ["home_id", "id"] }), NOW)
+    const mid = req(m.manual_id, "manual_document")
+    const home = manualHome.get(mid)
+    if (!home) { console.warn(`  · manual ${mid}: no home — skipping`); continue }
+    const body = withStamps(mapRow(m, { drop: ["home_id", "manual_id"] }), NOW)
     // Imported manuals were already parsed in v1 → mark done so the UI shows them
     // as parsed; 40-reparse overwrites this to re-extract with the v2 worker.
     body.parse = { stage: "done", stageAt: ts(m.parsed_at) ?? NOW, requestId: "import", mode: "commit", model: "import", attempt: 1, error: null }
-    await put("manuals", `homes/${home}/manuals/${m.id}`, body)
+    await put("manuals", `homes/${home}/manuals/${mid}`, body)
   }
   for (const c of chunks) {
     const home = manualHome.get(String(c.manual_id))
     if (!home) continue
-    await put("chunks", `homes/${home}/manuals/${c.manual_id}/chunks/${c.id}`, withStamps(mapRow(c, { drop: ["id"] }), NOW))
+    await put("chunks", `homes/${home}/manuals/${c.manual_id}/chunks/${req(c.chunk_id, "knowledge_chunk")}`, withStamps(mapRow(c, { drop: ["chunk_id"] }), NOW))
   }
   for (const e of entities) {
     const home = manualHome.get(String(e.manual_id))
     if (!home) continue
-    await put("entities", `homes/${home}/manuals/${e.manual_id}/entities/${e.id}`, withStamps(mapRow(e, { drop: ["id"] }), NOW))
+    await put("entities", `homes/${home}/manuals/${e.manual_id}/entities/${req(e.entity_id, "manual_entity")}`, withStamps(mapRow(e, { drop: ["entity_id"] }), NOW))
   }
 
   // ── Task templates (inline schedule + supplies) ──────────────────────────────
   for (const t of templates) {
-    const sched = schedByTemplate.get(String(t.id))
-    const supplies = (suppliesByTemplate.get(String(t.id)) ?? []).map((s) => ({
+    const hid = req(t.home_id, "task_template.home_id")
+    const tid = req(t.task_template_id, "task_template")
+    const sched = schedByTemplate.get(tid)
+    const supplies = (suppliesByTemplate.get(tid) ?? []).map((s) => ({
       supplyItemId: s.supply_item_id ?? null,
       name: supplyItemName.get(String(s.supply_item_id)) ?? s.name ?? null,
       quantity: s.quantity ?? null,
       notes: s.notes ?? null,
     }))
-    const body = withStamps(mapRow(t, { drop: ["home_id", "id"] }), NOW)
+    const body = withStamps(mapRow(t, { drop: ["home_id", "task_template_id"] }), NOW)
     body.schedule = sched
       ? {
           scheduleType: sched.schedule_type ?? "as_needed",
@@ -173,16 +191,17 @@ async function main(): Promise<void> {
         }
       : { scheduleType: "as_needed", intervalDays: null, anchorDate: null, season: null, windowDaysBefore: 7, windowDaysAfter: 14 }
     body.supplies = supplies
-    await put("taskTemplates", `homes/${t.home_id}/taskTemplates/${t.id}`, body)
+    await put("taskTemplates", `homes/${hid}/taskTemplates/${tid}`, body)
   }
 
   // ── Task instances (denorm §5) ───────────────────────────────────────────────
   for (const inst of instances) {
+    const hid = req(inst.home_id, "task_instance.home_id")
     const tpl = templateInfo.get(String(inst.task_template_id))
-    const sched = tpl ? schedByTemplate.get(String(tpl.id)) : null
+    const sched = tpl ? schedByTemplate.get(String(tpl.task_template_id)) : null
     const item = inst.item_unit_id ? itemInfo.get(String(inst.item_unit_id)) : null
     const body = withStamps(mapRow(inst, {
-      drop: ["home_id", "id"],
+      drop: ["home_id", "task_instance_id"],
       dates: ["due_date", "window_start", "window_end"],
       instants: ["snoozed_until"],
     }), NOW)
@@ -195,48 +214,48 @@ async function main(): Promise<void> {
     body.scheduleType = sched?.schedule_type ?? null
     body.itemName = item?.displayName ?? null
     body.roomName = item?.roomName ?? null
-    await put("taskInstances", `homes/${inst.home_id}/taskInstances/${inst.id}`, body)
+    await put("taskInstances", `homes/${hid}/taskInstances/${req(inst.task_instance_id, "task_instance")}`, body)
   }
 
   // ── Global supply catalog (+ options) ────────────────────────────────────────
   for (const s of supplyItems) {
-    await put("supplyCatalog", `supplyCatalog/${s.id}`, withStamps(mapRow(s, { drop: ["id"] }), NOW))
+    await put("supplyCatalog", `supplyCatalog/${req(s.supply_item_id, "supply_item")}`, withStamps(mapRow(s, { drop: ["supply_item_id"] }), NOW))
   }
   for (const o of supplyOptions) {
-    await put("supplyOptions", `supplyCatalog/${o.supply_item_id}/options/${o.id}`, withStamps(mapRow(o, { drop: ["id"] }), NOW))
+    await put("supplyOptions", `supplyCatalog/${o.supply_item_id}/options/${req(o.supply_option_id, "supply_option")}`, withStamps(mapRow(o, { drop: ["supply_option_id"] }), NOW))
   }
 
   // ── Home-scoped aux collections ──────────────────────────────────────────────
-  for (const n of careNotes) await put("careNotes", `homes/${n.home_id}/careNotes/${n.id}`, withStamps(mapRow(n, { drop: ["home_id", "id"] }), NOW))
-  for (const f of faqs) await put("chatFaqs", `homes/${f.home_id}/chatFaqs/${f.id}`, withStamps(mapRow(f, { drop: ["home_id", "id"] }), NOW))
-  for (const s of shopping) await put("shoppingList", `homes/${s.home_id}/shoppingList/${s.id}`, withStamps(mapRow(s, { drop: ["home_id", "id"] }), NOW))
-  for (const p of providers) await put("serviceProviders", `homes/${p.home_id}/serviceProviders/${p.id}`, withStamps(mapRow(p, { drop: ["home_id", "id"] }), NOW))
-  for (const l of tierLog) await put("tierChangeLog", `homes/${l.home_id}/tierChangeLog/${l.id}`, withStamps(mapRow(l, { drop: ["home_id", "id"] }), NOW))
+  for (const n of careNotes) await put("careNotes", `homes/${req(n.home_id, "care_note.home_id")}/careNotes/${req(n.note_id, "care_note")}`, withStamps(mapRow(n, { drop: ["home_id", "note_id"] }), NOW))
+  for (const f of faqs) await put("chatFaqs", `homes/${req(f.home_id, "chat_faq.home_id")}/chatFaqs/${req(f.faq_id, "chat_faq")}`, withStamps(mapRow(f, { drop: ["home_id", "faq_id"] }), NOW))
+  for (const s of shopping) await put("shoppingList", `homes/${req(s.home_id, "shopping.home_id")}/shoppingList/${req(s.shopping_list_item_id ?? s.id, "shopping_list_item")}`, withStamps(mapRow(s, { drop: ["home_id", "shopping_list_item_id", "id"] }), NOW))
+  for (const p of providers) await put("serviceProviders", `homes/${req(p.home_id, "service_provider.home_id")}/serviceProviders/${req(p.provider_id, "service_provider")}`, withStamps(mapRow(p, { drop: ["home_id", "provider_id"] }), NOW))
+  for (const l of tierLog) await put("tierChangeLog", `homes/${req(l.home_id, "tier_log.home_id")}/tierChangeLog/${req(l.id, "task_tier_change_log")}`, withStamps(mapRow(l, { drop: ["home_id", "id"] }), NOW))
 
-  const sessionHome = new Map(cleaningSessions.map((s) => [String(s.id), String(s.home_id ?? "")]))
-  for (const s of cleaningSessions) await put("cleaningSessions", `homes/${s.home_id}/cleaningSessions/${s.id}`, withStamps(mapRow(s, { drop: ["home_id", "id"] }), NOW))
+  const sessionHome = new Map(cleaningSessions.map((s) => [String(s.session_id), String(s.home_id ?? "")]))
+  for (const s of cleaningSessions) await put("cleaningSessions", `homes/${req(s.home_id, "cleaning_session.home_id")}/cleaningSessions/${req(s.session_id, "cleaning_session")}`, withStamps(mapRow(s, { drop: ["home_id", "session_id"] }), NOW))
   for (const t of cleaningTasks) {
-    const home = sessionHome.get(String(t.cleaning_session_id ?? t.session_id))
+    const sid = String(t.session_id)
+    const home = sessionHome.get(sid)
     if (!home) continue
-    const sid = String(t.cleaning_session_id ?? t.session_id)
-    await put("cleaningSessionTasks", `homes/${home}/cleaningSessions/${sid}/tasks/${t.id}`, withStamps(mapRow(t, { drop: ["id"] }), NOW))
+    await put("cleaningSessionTasks", `homes/${home}/cleaningSessions/${sid}/tasks/${req(t.session_task_id, "cleaning_session_task")}`, withStamps(mapRow(t, { drop: ["session_task_id"] }), NOW))
   }
 
   const convoHome = new Map(conversations.map((c) => [String(c.id), String(c.home_id ?? "")]))
-  for (const c of conversations) await put("chatConversations", `homes/${c.home_id}/chatConversations/${c.id}`, withStamps(mapRow(c, { drop: ["home_id", "id"] }), NOW))
+  for (const c of conversations) await put("chatConversations", `homes/${req(c.home_id, "conversation.home_id")}/chatConversations/${req(c.id, "conversation")}`, withStamps(mapRow(c, { drop: ["home_id", "id"] }), NOW))
   for (const msg of messages) {
     const home = convoHome.get(String(msg.conversation_id))
     if (!home) continue
-    await put("conversationMessages", `homes/${home}/chatConversations/${msg.conversation_id}/messages/${msg.id}`, withStamps(mapRow(msg, { drop: ["id"] }), NOW))
+    await put("conversationMessages", `homes/${home}/chatConversations/${msg.conversation_id}/messages/${req(msg.id, "conversation_message")}`, withStamps(mapRow(msg, { drop: ["id"] }), NOW))
   }
 
-  const caseHome = new Map(tsCases.map((c) => [String(c.id), String(c.home_id ?? "")]))
-  for (const c of tsCases) await put("troubleshootingCases", `homes/${c.home_id}/troubleshootingCases/${c.id}`, withStamps(mapRow(c, { drop: ["home_id", "id"] }), NOW))
+  const caseHome = new Map(tsCases.map((c) => [String(c.case_id), String(c.home_id ?? "")]))
+  for (const c of tsCases) await put("troubleshootingCases", `homes/${req(c.home_id, "troubleshooting_case.home_id")}/troubleshootingCases/${req(c.case_id, "troubleshooting_case")}`, withStamps(mapRow(c, { drop: ["home_id", "case_id"] }), NOW))
   for (const st of tsSteps) {
-    const home = caseHome.get(String(st.troubleshooting_case_id ?? st.case_id))
+    const cid = String(st.case_id)
+    const home = caseHome.get(cid)
     if (!home) continue
-    const cid = String(st.troubleshooting_case_id ?? st.case_id)
-    await put("troubleshootingSteps", `homes/${home}/troubleshootingCases/${cid}/steps/${st.id}`, withStamps(mapRow(st, { drop: ["id"] }), NOW))
+    await put("troubleshootingSteps", `homes/${home}/troubleshootingCases/${cid}/steps/${req(st.step_id, "troubleshooting_step")}`, withStamps(mapRow(st, { drop: ["step_id"] }), NOW))
   }
 
   await flush()
