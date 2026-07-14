@@ -9,6 +9,10 @@
  * call sites, extracts the queried field(s) from the surrounding statement,
  * and asserts each is covered by a fieldOverride or composite index with
  * COLLECTION_GROUP scope.
+ *
+ * A SECOND guard covers plain-collection `where(...) + orderBy(<other field>)`
+ * queries (e.g. rooms deletedAt+name — the Items-page incident), which require a
+ * COLLECTION-scope composite that neither the emulator nor the guard above catches.
  */
 import { describe, expect, it } from "vitest"
 import { readFileSync, readdirSync, statSync } from "node:fs"
@@ -54,6 +58,42 @@ function extractQueries(sourcePath: string): Array<{ coll: string; fields: strin
   return out
 }
 
+/**
+ * Plain-collection composite guard. `query(collection(db, "…/rooms"),
+ * where("deletedAt","==",null), orderBy("name"))` needs a COLLECTION-scope
+ * composite [deletedAt, name] — a shape neither the emulator nor the
+ * collectionGroup guard above catches (the Items-page rooms incident).
+ * Anchors on each orderBy("field") and walks back to the nearest collection(…)
+ * in the same statement, collecting the where() equality fields in between.
+ * Skips: pure orderBy (single-field is automatic), orderBy on an already-filtered
+ * field (no extra index), and collectionGroup() queries (handled above).
+ */
+function extractCompositeQueries(sourcePath: string): Array<{ coll: string; fields: string[]; order: string; at: string }> {
+  const text = readFileSync(sourcePath, "utf8")
+  const out: Array<{ coll: string; fields: string[]; order: string; at: string }> = []
+  const at = sourcePath.replace(ROOT + "/", "")
+  const obRe = /orderBy\(\s*["'`]([\w.]+)["'`]/g
+  let m: RegExpExecArray | null
+  while ((m = obRe.exec(text))) {
+    const order = m[1]
+    const back = text.slice(Math.max(0, m.index - 600), m.index)
+    const colls = [...back.matchAll(/collection\(\s*(?:db(?:\(\))?\s*,\s*)?["'`]([^"'`]+)["'`]\s*\)/g)]
+    const lastColl = colls[colls.length - 1]
+    if (!lastColl) continue // collection path built from a variable — not statically resolvable
+    const cgs = [...back.matchAll(/collectionGroup\(/g)]
+    const lastCg = cgs[cgs.length - 1]
+    if (lastCg && (lastCg.index ?? 0) > (lastColl.index ?? 0)) continue // a collectionGroup query — the CG guard owns it
+    const coll = lastColl[1].split("/").filter((s) => s && !s.includes("${")).pop() ?? ""
+    if (!coll) continue
+    const between = back.slice((lastColl.index ?? 0) + lastColl[0].length)
+    const fields = [...between.matchAll(/where\(\s*["'`]([\w.]+)["'`]/g)].map((w) => w[1])
+    if (fields.length === 0) continue // pure orderBy → automatic single-field index
+    if (fields.includes(order)) continue // orderBy on a filtered field → no extra composite needed
+    out.push({ coll, fields, order, at })
+  }
+  return out
+}
+
 describe("collectionGroup index coverage (firestore.indexes.json)", () => {
   const indexes = JSON.parse(readFileSync(join(ROOT, "firestore.indexes.json"), "utf8")) as IndexesFile
 
@@ -87,6 +127,38 @@ describe("collectionGroup index coverage (firestore.indexes.json)", () => {
         `${q.at}: collectionGroup("${q.coll}") on [${q.fields.join(", ")}] has no COLLECTION_GROUP ` +
           `fieldOverride/composite in firestore.indexes.json — this WILL fail in prod ` +
           `(the emulator does not enforce indexes).`
+      ).toBe(true)
+    }
+  )
+})
+
+describe("plain-collection composite index coverage (firestore.indexes.json)", () => {
+  const indexes = JSON.parse(readFileSync(join(ROOT, "firestore.indexes.json"), "utf8")) as IndexesFile
+
+  const collComposite = (coll: string, needed: string[]) =>
+    indexes.indexes.some(
+      (i) =>
+        i.collectionGroup === coll &&
+        i.queryScope === "COLLECTION" &&
+        needed.every((f) => i.fields.some((x) => x.fieldPath === f))
+    )
+
+  const queries = SCAN_DIRS.flatMap((d) => walk(join(ROOT, d))).flatMap(extractCompositeQueries)
+
+  it("found the known plain-collection composite query (rooms deletedAt+name)", () => {
+    // Sanity: the scanner must at least see the Items-page rooms query — if this
+    // fails, the regex drifted and this guard is blind.
+    expect(queries.some((q) => q.coll === "rooms" && q.fields.includes("deletedAt") && q.order === "name")).toBe(true)
+  })
+
+  it.each(queries.map((q) => [q.coll, [...q.fields, q.order].join("+"), q] as const))(
+    "collection(%s) where+orderBy on [%s] has a COLLECTION composite",
+    (_coll, _fields, q) => {
+      expect(
+        collComposite(q.coll, [...q.fields, q.order]),
+        `${q.at}: collection("${q.coll}") with where(${q.fields.join(", ")}) + orderBy("${q.order}") has no ` +
+          `COLLECTION composite in firestore.indexes.json covering [${[...q.fields, q.order].join(", ")}] — ` +
+          `this WILL fail in prod (the emulator does not enforce indexes).`
       ).toBe(true)
     }
   )

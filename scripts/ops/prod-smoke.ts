@@ -14,7 +14,10 @@
  *   2. Home inventory: names, item counts, member isPrimary flags.
  *   3. Replicates getPrimaryHome's pick for OWNER_EMAIL and prints the result.
  *   4. Probes the invites.token + manuals.role collection-group indexes.
- *   5. Flags manual sourceRef paths that don't match the storage-rules shapes.
+ *   5. Probes the rooms(deletedAt,name) COLLECTION composite — the Items page
+ *      group-by-room query; a plain-collection composite that the collectionGroup
+ *      guard and the emulator both miss (the second launch index gap).
+ *   6. Flags manual sourceRef paths that don't match the storage-rules shapes.
  *
  * Env: GOOGLE_APPLICATION_CREDENTIALS + FIREBASE_PROJECT_ID (+ OWNER_EMAIL).
  *   npx tsx scripts/ops/prod-smoke.ts
@@ -107,8 +110,26 @@ async function main(): Promise<void> {
     fail(`manuals.role: ${isIndexBuilding(e) ? "index missing/building" : e}`)
   }
 
-  // 5. Storage path shapes (manual sourceRefs must be writable/readable under the rules).
-  console.log("\n5. Manual storage paths vs rules shapes:")
+  // 5. Plain-collection composite indexes (equality + orderBy on another field).
+  //    rooms(deletedAt,name) backs the Items page group-by-room query — a composite
+  //    the collectionGroup guard and the emulator both miss (the second launch gap).
+  console.log("\n5. Plain-collection composite indexes:")
+  {
+    const chosen = memberships.find((m) => m.isPrimary)?.homeId ?? memberships[0]?.homeId
+    if (!chosen) {
+      console.log("  · owner has no membership — skipping rooms composite probe")
+    } else {
+      try {
+        await db().collection(`homes/${chosen}/rooms`).where("deletedAt", "==", null).orderBy("name").limit(1).get()
+        ok("rooms(deletedAt,name) composite queryable")
+      } catch (e) {
+        fail(`rooms(deletedAt,name): ${isIndexBuilding(e) ? "index missing/building" : e}`)
+      }
+    }
+  }
+
+  // 6. Storage path shapes (manual sourceRefs must be writable/readable under the rules).
+  console.log("\n6. Manual storage paths vs rules shapes:")
   const RULE_SHAPES = [
     /^[^/]+\/[^/]+\/[^/]+$/, //   {userId}/{itemId}/{file}
     /^photos\/[^/]+\/[^/]+\/[^/]+$/,
