@@ -19,6 +19,7 @@ import { getAuth } from "firebase-admin/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
+import { rankChunks } from "./chunkRanking.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const BRAVE_SEARCH_API_KEY = defineSecret("BRAVE_SEARCH_API_KEY")
@@ -38,6 +39,7 @@ type WebResult = { title: string; url: string; snippet: string }
 const PREFERRED_TYPES = ["care", "how_to", "troubleshooting", "reference"]
 const MAX_PDF_MANUALS = 2
 const MAX_CHUNKS = 30
+const CANDIDATES_PER_MANUAL = 40 // per-manual read cap; ranked down to MAX_CHUNKS
 const MAX_HISTORY_TURNS = 10
 
 const CORS = {
@@ -195,21 +197,37 @@ export const chatQuery = onRequest(
     const chunks: ChunkRow[] = []
     const chunkSourceKeys = new Map<string, ChatSource>()
     if (pdfDocs.length === 0) {
-      for (const m of manuals) {
-        if (chunks.length >= MAX_CHUNKS) break
-        const cs = await db
-          .collection(`homes/${homeId}/manuals/${m.manualId}/chunks`)
-          .where("deletedAt", "==", null)
-          .where("chunkType", "in", PREFERRED_TYPES)
-          .limit(MAX_CHUNKS)
-          .get()
-        for (const c of cs.docs) {
-          if (chunks.length >= MAX_CHUNKS) break
+      // Gather chunk candidates from ALL in-scope manuals (in parallel), then rank
+      // by relevance to the question and keep the top MAX_CHUNKS. v1 pulled first-N
+      // in manual order, so a home-wide question only ever saw the earliest,
+      // chunk-heavy manuals (washer/Nespresso) and never read the Furnace etc.
+      type Candidate = ChunkRow & { id: string; strong: string; body: string }
+      const perManual = await Promise.all(
+        manuals.map(async (m): Promise<Candidate[]> => {
+          const cs = await db
+            .collection(`homes/${homeId}/manuals/${m.manualId}/chunks`)
+            .where("deletedAt", "==", null)
+            .where("chunkType", "in", PREFERRED_TYPES)
+            .limit(CANDIDATES_PER_MANUAL)
+            .get()
           const displayName = nameByItem.get(m.itemUnitId) ?? "Unknown"
-          const title = (c.get("title") as string | null) ?? null
-          chunks.push({ title, content: (c.get("content") as string) ?? "", displayName })
-          chunkSourceKeys.set(c.id, { title: title ?? "Manual excerpt", item_name: displayName, source_type: "manual" })
-        }
+          return cs.docs.map((c) => {
+            const title = (c.get("title") as string | null) ?? null
+            const content = (c.get("content") as string) ?? ""
+            const tags = (c.get("tags") as string[] | undefined) ?? []
+            const scenarios = (c.get("scenarios") as string[] | undefined) ?? []
+            const appliesTo = (c.get("appliesTo") as string[] | undefined) ?? []
+            const sectionCategory = (c.get("sectionCategory") as string | null) ?? ""
+            const strong = [displayName, title ?? "", sectionCategory, ...tags, ...scenarios, ...appliesTo]
+              .join(" ")
+              .toLowerCase()
+            return { id: c.id, title, content, displayName, strong, body: content.toLowerCase() }
+          })
+        })
+      )
+      for (const c of rankChunks(question, perManual.flat(), MAX_CHUNKS)) {
+        chunks.push({ title: c.title, content: c.content, displayName: c.displayName })
+        chunkSourceKeys.set(c.id, { title: c.title ?? "Manual excerpt", item_name: c.displayName, source_type: "manual" })
       }
     }
     const chunkSources = [...chunkSourceKeys.values()]
