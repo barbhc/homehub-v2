@@ -12,12 +12,12 @@ importScripts("https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js"
 importScripts("https://www.gstatic.com/firebasejs/12.9.0/firebase-messaging-compat.js")
 
 firebase.initializeApp({
-  apiKey: "demo-api-key",
-  authDomain: "demo-homehub.firebaseapp.com",
-  projectId: "demo-homehub",
-  storageBucket: "demo-homehub.appspot.com",
-  messagingSenderId: "0",
-  appId: "demo-app-id",
+  apiKey: "AIzaSyAe0ilNrLqqLMmUwmiATYXQOpUl5Oh8IQU",
+  authDomain: "homehub-2068d.firebaseapp.com",
+  projectId: "homehub-2068d",
+  storageBucket: "homehub-2068d.firebasestorage.app",
+  messagingSenderId: "793197604559",
+  appId: "1:793197604559:web:b587e42c487e2d99df91ba",
 })
 
 const messaging = firebase.messaging()
