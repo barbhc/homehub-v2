@@ -58,7 +58,9 @@ export default function SmartAddItem() {
   const { user } = useAuth()
 
   const [step, setStep] = useState<WizardStep>("identify")
-  const [identifyMode, setIdentifyMode] = useState<IdentifyMode>("choice")
+  // Default to name-first for the fastest add — the Name field is the only required
+  // input; photo/OCR stays one tap away ("Snap label photo" / Back → choice screen).
+  const [identifyMode, setIdentifyMode] = useState<IdentifyMode>("manual")
   const [identifyData, setIdentifyData] = useState<IdentifyData>({ ...DEFAULT_IDENTIFY_DATA })
   const [manualDocGate, setManualDocGate] = useState<ManualClassificationGate | null>(null)
   const [manualStepKey, setManualStepKey] = useState(0)
@@ -156,7 +158,7 @@ export default function SmartAddItem() {
     clearWizardSession()
     setResumePrompt(false)
     setItemId(null)
-    setIdentifyMode("choice")
+    setIdentifyMode("manual")
     setIdentifyData({ ...DEFAULT_IDENTIFY_DATA })
     setManualDocGate(null)
     setManualStepKey((k) => k + 1)

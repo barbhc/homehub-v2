@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react"
-import { Camera, ChevronDown, Loader2, ShieldCheckIcon, BookOpenCheck, BellRingIcon } from "lucide-react"
+import { Camera, ChevronDown, Loader2, ShieldCheckIcon, BookOpenCheck, BellRingIcon, Sparkles, MapPin } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,8 +17,12 @@ import { ProductSuggestionCard } from "@/components/smart-add/ProductSuggestionC
 import {
   mapApplianceTypeIdToCategory,
   mapOcrCategoryToTyped,
+  getSubTypeLabel,
+  legacyCategoryLabelFromItemCategory,
+  suggestedRoomForSubType,
   type ItemCategoryId,
 } from "@/modules/inventory/constants/itemCategories"
+import { useCurrentHome, getRooms } from "@/modules/home"
 import { cn } from "@/lib/utils"
 
 export type IdentifyMode = "choice" | "photo" | "manual"
@@ -106,6 +110,31 @@ export function IdentifyStep({
   const [ocrError, setOcrError] = useState<string | null>(null)
   const [moreDetailsOpen, setMoreDetailsOpen] = useState(false)
   const [labelPreviewUrl, setLabelPreviewUrl] = useState<string | null>(null)
+
+  // Name-first quick add: infer category + a room hint from the typed name (reuses
+  // the same text→category mapper as OCR) and surface them as one-tap chips.
+  const { home } = useCurrentHome()
+  const [quickRooms, setQuickRooms] = useState<Array<{ room_id: string; name: string }>>([])
+  useEffect(() => {
+    if (!home?.home_id) return
+    getRooms(home.home_id).then((r) => setQuickRooms(r.data ?? []))
+  }, [home?.home_id])
+  const nameInference = useMemo(
+    () => (data.name.trim().length >= 3 ? mapOcrCategoryToTyped(data.name) : { itemCategory: null, subType: null }),
+    [data.name]
+  )
+  const suggestedRoom = useMemo(() => {
+    const hint = suggestedRoomForSubType(nameInference.subType)
+    if (!hint) return null
+    const h = hint.toLowerCase()
+    return quickRooms.find((r) => {
+      const rn = r.name.toLowerCase()
+      return rn.includes(h) || h.includes(rn)
+    }) ?? null
+  }, [nameInference.subType, quickRooms])
+  // One-tap chips, only while the field they'd fill is still empty.
+  const catChip: ItemCategoryId | null = !data.itemCategory ? nameInference.itemCategory : null
+  const roomChip = !data.locationId ? suggestedRoom : null
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const extraImageRef = useRef<HTMLInputElement>(null)
@@ -440,6 +469,34 @@ export function IdentifyStep({
             aria-invalid={data.name.trim().length === 0}
           />
         </div>
+
+        {(catChip || roomChip) && (
+          <div className="flex flex-wrap items-center gap-2 -mt-1">
+            <span className="text-xs text-muted-foreground">Suggested</span>
+            {catChip && (
+              <button
+                type="button"
+                onClick={() =>
+                  onDataChange({ ...data, itemCategory: catChip, subType: nameInference.subType, categoryFields: {} })
+                }
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                <Sparkles className="size-3.5" aria-hidden />
+                {getSubTypeLabel(catChip, nameInference.subType) ?? legacyCategoryLabelFromItemCategory(catChip)}
+              </button>
+            )}
+            {roomChip && (
+              <button
+                type="button"
+                onClick={() => onDataChange({ ...data, locationId: roomChip.room_id })}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                <MapPin className="size-3.5" aria-hidden />
+                {roomChip.name}
+              </button>
+            )}
+          </div>
+        )}
 
         <div>
           <RoomSelector

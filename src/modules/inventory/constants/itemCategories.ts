@@ -593,7 +593,13 @@ export function mapOcrCategoryToTyped(
     return { itemCategory: "major_appliance", subType: "refrigerator" }
   }
   if (raw.includes("dishwasher")) return { itemCategory: "major_appliance", subType: "dishwasher" }
-  if (raw.includes("washing machine") || raw.includes("clothes washer") || raw.includes("laundry washer") || raw === "washer" || raw.includes("laundry")) {
+  if (
+    raw.includes("washing machine") ||
+    raw.includes("clothes washer") ||
+    raw.includes("laundry washer") ||
+    (raw.includes("washer") && !raw.includes("power") && !raw.includes("pressure")) ||
+    raw.includes("laundry")
+  ) {
     return { itemCategory: "major_appliance", subType: "washing-machine" }
   }
   if (raw.includes("dryer")) return { itemCategory: "major_appliance", subType: "dryer" }
@@ -718,6 +724,27 @@ export function mapApplianceTypeIdToCategory(
     return { itemCategory: "major_appliance", subType: applianceTypeId }
   }
   return { itemCategory: null, subType: null }
+}
+
+/**
+ * Suggests a canonical room-name hint for a detected sub-type, for name-first quick
+ * add. Returned hint is matched case-insensitively (substring both ways) against the
+ * home's actual rooms — so "Laundry" matches a "Laundry Room". Returns null for
+ * sub-types with no strong room association (systems, structure, smart home, etc.).
+ */
+export function suggestedRoomForSubType(subType: string | null | undefined): string | null {
+  if (!subType) return null
+  const KITCHEN = new Set(["refrigerator", "wine-fridge", "dishwasher", "oven-range", "microwave", "range-hood", "garbage-disposal", "coffee-maker", "toaster", "blender", "air-fryer", "instant-pot"])
+  const LAUNDRY = new Set(["washing-machine", "dryer"])
+  const BATHROOM = new Set(["faucet", "toilet", "showerhead", "hair-dryer", "flat-iron", "electric-shaver", "electric-toothbrush", "smart-toilet"])
+  const OUTDOOR = new Set(["lawn-mower", "snow-blower", "irrigation-system", "grill", "pool-hot-tub", "power-washer", "chainsaw"])
+  const LIVING = new Set(["television", "soundbar", "speakers", "projector", "receiver-avr", "streaming-device", "game-console"])
+  if (KITCHEN.has(subType)) return "Kitchen"
+  if (LAUNDRY.has(subType)) return "Laundry"
+  if (BATHROOM.has(subType)) return "Bathroom"
+  if (OUTDOOR.has(subType)) return "Outdoor"
+  if (LIVING.has(subType)) return "Living"
+  return null
 }
 
 export function legacyCategoryLabelFromItemCategory(id: ItemCategoryId | null | undefined): string {
