@@ -201,6 +201,7 @@ export default function Settings() {
   const [pushToggling, setPushToggling] = useState(false)
   const [pushTesting, setPushTesting] = useState(false)
   const [pushTestMsg, setPushTestMsg] = useState<string | null>(null)
+  const [pushError, setPushError] = useState<string | null>(null)
 
   const handleTestPush = async () => {
     setPushTesting(true)
@@ -1043,17 +1044,24 @@ export default function Settings() {
                 onClick={async () => {
                   if (!user?.id || !homeId) return
                   setPushToggling(true)
-                  if (pushSubscribed) {
-                    if (isNative) await unregisterNativePush(user.id)
-                    else await unsubscribeFromPush(user.id)
-                    setPushSubscribed(false)
-                  } else {
-                    const result = isNative
-                      ? await registerNativePush(user.id, homeId)
-                      : await subscribeToPush(user.id, homeId)
-                    if (result.success) setPushSubscribed(true)
+                  setPushError(null)
+                  try {
+                    if (pushSubscribed) {
+                      if (isNative) await unregisterNativePush(user.id)
+                      else await unsubscribeFromPush(user.id)
+                      setPushSubscribed(false)
+                    } else {
+                      const result = isNative
+                        ? await registerNativePush(user.id, homeId)
+                        : await subscribeToPush(user.id, homeId)
+                      if (result.success) setPushSubscribed(true)
+                      else setPushError(result.error ?? "Couldn't enable notifications.")
+                    }
+                  } catch (e) {
+                    setPushError(e instanceof Error ? e.message : "Couldn't enable notifications.")
+                  } finally {
+                    setPushToggling(false)
                   }
-                  setPushToggling(false)
                 }}
               >
                 {pushToggling ? "..." : pushSubscribed ? "Disable" : "Enable"}
@@ -1064,6 +1072,11 @@ export default function Settings() {
                 ? "You'll receive reminders for due and overdue tasks."
                 : "Enable push notifications to get reminders when tasks are due."}
             </p>
+            {pushError && (
+              <p className="text-sm text-destructive mt-1.5" role="alert">
+                {pushError}
+              </p>
+            )}
             {isNative && pushSubscribed && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button
