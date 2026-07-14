@@ -121,6 +121,14 @@
         { "fieldPath": "deletedAt", "order": "ASCENDING" },
         { "fieldPath": "chunkType", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "rooms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deletedAt", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

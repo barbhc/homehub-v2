@@ -44,6 +44,12 @@ e2e/prototype-reference/
 .env.test
 .env.test.local
 
+# Firebase Admin service-account keys — grant full prod access, NEVER commit
+*firebase-adminsdk*.json
+
+# Git bundles (session-handoff artifacts, large binaries)
+*.bundle
+
 # Loose design assets (committed versions are in git already)
 homehub_Logo.png
 logo-canva.png
