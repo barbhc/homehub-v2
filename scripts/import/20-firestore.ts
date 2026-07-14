@@ -23,7 +23,7 @@ import { Timestamp, type WriteBatch } from "firebase-admin/firestore"
 import { banner, DRY_RUN } from "./lib/env.js"
 import { fetchAll } from "./lib/source.js"
 import { db } from "./lib/target.js"
-import { mapRow, withStamps, ts, ymd } from "./lib/transform.js"
+import { mapRow, withStamps, ts, ymd, firestoreSafe } from "./lib/transform.js"
 
 type Row = Record<string, unknown>
 const NOW = Timestamp.now()
@@ -48,7 +48,7 @@ async function put(coll: string, path: string, body: Row): Promise<void> {
   counts[coll] = (counts[coll] ?? 0) + 1
   if (DRY_RUN) return
   if (!batch) batch = db().batch()
-  batch.set(db().doc(path), body)
+  batch.set(db().doc(path), firestoreSafe(body) as Row)
   if (++ops >= 450) await flush()
 }
 const mapByKey = <T extends Row>(rows: T[], key: string) => new Map(rows.map((r) => [String(r[key]), r]))

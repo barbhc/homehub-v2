@@ -176,7 +176,15 @@ export function normalizeChunkRow(c: ParsedChunk, manualId: string) {
   const scenarios = Array.isArray(c.scenarios) && c.scenarios.length > 0 ? c.scenarios : null
   const sourcePages = Array.isArray(c.source_pages) ? c.source_pages : []
   const diagramPages = Array.isArray(c.diagram_pages) ? c.diagram_pages : []
-  const tableData = Array.isArray(c.table_data) && c.table_data.length > 0 ? c.table_data : undefined
+  // Firestore forbids arrays-of-arrays, and table_data.rows is string[][]. Wrap
+  // each row as { cells } so the (write-only, never-read) table data is storable.
+  const tableData = Array.isArray(c.table_data) && c.table_data.length > 0
+    ? c.table_data.map((t) => ({
+        ...(t.table_title ? { table_title: t.table_title } : {}),
+        ...(Array.isArray(t.columns) ? { columns: t.columns } : {}),
+        ...(Array.isArray(t.rows) ? { rows: t.rows.map((r) => ({ cells: Array.isArray(r) ? r : [r] })) } : {}),
+      }))
+    : undefined
 
   const metadata: Record<string, unknown> = { diagram_pages: diagramPages }
   if (tableData) metadata.table_data = tableData

@@ -25,6 +25,7 @@ function init(): void {
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
     })
   }
+  getFirestore().settings({ ignoreUndefinedProperties: true })
   ready = true
 }
 

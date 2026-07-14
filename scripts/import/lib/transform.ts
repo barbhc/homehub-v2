@@ -63,6 +63,38 @@ export function mapRow(row: Record<string, unknown>, opts: MapOpts = {}): Record
   return out
 }
 
+/**
+ * Make an arbitrary (jsonb-sourced) value safe for Firestore:
+ *   - `undefined` in a map → dropped; in an array → null
+ *   - non-finite numbers (NaN / ±Infinity) → null (Firestore rejects them)
+ *   - a NESTED ARRAY (an array directly containing another array — e.g. a chunk's
+ *     `metadata.table_data` 2-D grid) → the inner array is wrapped as `{ _list }`,
+ *     which is Firestore-legal and lossless. Nothing in the app reads table_data.
+ * Timestamps/Dates are returned untouched (never recursed into).
+ */
+export function firestoreSafe(v: unknown): unknown {
+  if (v === undefined) return undefined
+  if (v === null) return null
+  if (typeof v === "number") return Number.isFinite(v) ? v : null
+  if (v instanceof Timestamp || v instanceof Date) return v
+  if (Array.isArray(v)) {
+    return v.map((el) => {
+      const s = firestoreSafe(el)
+      if (Array.isArray(s)) return { _list: s }
+      return s === undefined ? null : s
+    })
+  }
+  if (typeof v === "object") {
+    const out: Record<string, unknown> = {}
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      const s = firestoreSafe(val)
+      if (s !== undefined) out[k] = s
+    }
+    return out
+  }
+  return v
+}
+
 /** Default createdAt/updatedAt/deletedAt if the source row omitted them. */
 export function withStamps(doc: Record<string, unknown>, now: Timestamp): Record<string, unknown> {
   if (doc.createdAt == null) doc.createdAt = now
