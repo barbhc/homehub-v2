@@ -13,8 +13,9 @@ friction. Read this top to bottom before starting Wave 1.
   is **committed and verified on the emulator**. Nothing is deployed yet from Wave 1.
 - **What to do first:** confirm the repo is at commit `5cc6f04`, then execute the **Wave 1
   runbook in §4** in the exact order given (ordering is load-bearing — see §5 gotchas).
-- **Authoritative plan:** `~/.claude/plans/modular-baking-meadow.md` (full status assessment +
-  Waves 1–4). This doc is the pointer + the "why the workflow changed" note; the plan is the detail.
+- **Authoritative plan:** `docs/PRODUCTION_PLAN.md` (full status assessment + Waves 1–4), now
+  committed into the repo. This doc is the pointer + the "why the workflow changed" note; the
+  plan is the detail.
 - **Owner Firebase/Homehub account:** app data belongs to `bcworkrelated@gmail.com` (owner of
   "SF Condo", 25 items). `barb.chang@gmail.com` is Claude's contact email, not the app owner.
 
@@ -167,7 +168,7 @@ catches this.
 
 ## 7. Pointers
 
-- **Plan (authoritative):** `~/.claude/plans/modular-baking-meadow.md`
+- **Plan (authoritative):** `docs/PRODUCTION_PLAN.md`
 - **Migration ledger:** `MIGRATION_STATUS.md`
 - **Definition of Done / verification checklist:** `docs/DEFINITION_OF_DONE.md`
 - **Ops scripts:** `scripts/ops/cleanup-homes.ts`, `scripts/ops/prod-smoke.ts`
