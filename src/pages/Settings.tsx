@@ -209,7 +209,7 @@ export default function Settings() {
     try {
       const res = await sendTestPushCallable()
       if ((res.sent ?? 0) > 0) {
-        setPushTestMsg("Sent! Check your phone in a second.")
+        setPushTestMsg("Sent! Check your notifications (background this tab to see it).")
       } else {
         setPushTestMsg("No device registered yet.")
       }
@@ -1077,7 +1077,7 @@ export default function Settings() {
                 {pushError}
               </p>
             )}
-            {isNative && pushSubscribed && (
+            {pushSubscribed && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
