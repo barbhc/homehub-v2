@@ -1,82 +1,73 @@
-# Scope — "Continue with Apple" sign-in
+# Scope — "Continue with Apple" sign-in (v2 · Firebase)
 
-**Status: the code is wired** (`signInWithApple` in `AuthProvider`, button in
-`SignInForm`). It's gated behind a feature flag so it stays a disabled "coming
-soon" button until the Apple/Supabase config below is done — then you flip the
-flag and it goes live. No further code changes needed.
+**Status: the code is wired and gated behind a flag.** `signInWithApple()` in
+`AuthProvider` uses Firebase `OAuthProvider("apple.com")` + `signInWithPopup`;
+`SignInForm` shows a live Apple button when `VITE_APPLE_SIGNIN_ENABLED === "true"`,
+otherwise a disabled "coming soon" stub. **No further code changes needed** — do
+the Apple + Firebase config below, then flip the flag and redeploy.
+
+> ⚠️ This supersedes the old v1 version of this doc, which described **Supabase**
+> providers + a `…supabase.co/auth/v1/callback` return URL + Vercel envs. v2 is
+> **Firebase** — ignore any Supabase/Vercel instructions.
+
+## No custom domain required
+
+Configure Apple against the default Firebase auth domain
+`homehub-2068d.firebaseapp.com`. A custom domain (when you get one) is for
+**Hosting only** — keep auth on `firebaseapp.com` and Apple Sign-In needs no
+rework. (Only if you later adopt the custom domain *for auth* would you add it to
+the Services ID return URLs.)
 
 ## 1. Code — DONE (gated by a flag)
 
-Implemented:
-- `AuthProvider.signInWithApple()` → `supabase.auth.signInWithOAuth({ provider: "apple", options: { redirectTo: \`${window.location.origin}/\` } })`. `supabase-js` has `detectSessionInUrl` on by default, so the redirect back to `/` is consumed automatically and `onAuthStateChange` picks up the session — no new callback route on web.
-- `SignInForm` renders a live Apple button when `VITE_APPLE_SIGNIN_ENABLED === "true"`, otherwise the disabled "coming soon" stub.
+- `AuthProvider.signInWithApple()` → `signInWithPopup(auth, new OAuthProvider("apple.com"))`
+  (popup, not redirect — avoids third-party-storage partitioning when the auth
+  domain isn't same-origin). Behind `VITE_APPLE_SIGNIN_ENABLED`.
+- **Turn on after config:** set `VITE_APPLE_SIGNIN_ENABLED=true` in `.env`, run
+  `npm run build`, `firebase deploy --only hosting`.
 
-**To turn it on after config:** set `VITE_APPLE_SIGNIN_ENABLED=true` in the
-Vercel project env (Production + Preview), redeploy. That's the only switch.
+## 2. Apple Developer portal (account owner)
 
-## 1b. Reusing your SkinIQ Apple setup
+1. **App ID** with the *Sign in with Apple* capability.
+2. **Services ID** (this is the OAuth `client_id`, e.g. `app.homehub.web`):
+   - Enable *Sign in with Apple*, click *Configure*.
+   - **Domains and Subdomains:** `homehub-2068d.firebaseapp.com`
+   - **Return URLs:** `https://homehub-2068d.firebaseapp.com/__/auth/handler`
+   - Apple will ask you to verify the domain by hosting
+     `apple-developer-domain-association.txt` under
+     `https://homehub-2068d.firebaseapp.com/.well-known/`. **Send me that file's
+     contents** — I'll serve it via Firebase Hosting (`public/.well-known/`) and
+     redeploy so you can click Verify.
+3. **Sign in with Apple key (.p8):** a key is *team-level*, so if you already
+   made one (e.g. for another app on the same team) **reuse it**. Note the
+   **Key ID** and your **Team ID** (10 chars).
 
-I can't read the SkinIQ repo from this session, but here's what carries over
-from an existing Sign in with Apple setup vs. what must be Homehub-specific:
+## 3. Firebase console (account owner)
 
-**Reusable from SkinIQ (if it's the same Apple Developer team):**
-- **Team ID** (10 chars) — same across all your apps.
-- **The Sign in with Apple key (.p8) + its Key ID** — a key is *team-level*, so
-  the same key/secret-generation works for Homehub. No need to make a new one.
-- Any **client-secret generation script** SkinIQ uses (the JWT signed with the
-  .p8). Reuse it verbatim, just changing the `sub`/`client_id` to Homehub's
-  Services ID.
+Firebase console → **Authentication → Sign-in method → Apple → Enable**:
+- **Services ID** = the ID from step 2.2 (`app.homehub.web`).
+- **OAuth code flow configuration:** Apple **Team ID**, **Key ID**, and the
+  **.p8 private key** contents. Firebase mints AND auto-rotates the Apple OAuth
+  client secret itself — **no manual 6-month JWT rotation** to manage (unlike the
+  old Supabase path).
+- Confirm the handler URL Firebase shows matches what you put in the Services ID
+  return URL: `https://homehub-2068d.firebaseapp.com/__/auth/handler`.
+- **Authentication → Settings → Authorized domains:** ensure
+  `homehub-2068d.web.app` and `homehub-2068d.firebaseapp.com` are listed
+  (usually there by default).
 
-**Must be Homehub-specific:**
-- A **Services ID** (the web OAuth `client_id`). Either create a new one for
-  Homehub, or add Homehub's redirect to SkinIQ's existing Services ID (cleaner
-  to make a separate one). Its *Return URL* must include Homehub's Supabase
-  callback: `https://mpvhwuigpyrqdmjdkdjy.supabase.co/auth/v1/callback`.
-- The **Supabase Apple provider** config lives on *Homehub's* project
-  (`mpvhwuigpyrqdmjdkdjy`) — SkinIQ's Supabase project config does not transfer.
+## 4. Me (code/hosting), once you kick off step 2
 
-**Web vs native — important:** if SkinIQ's Apple sign-in is the **native iOS**
-flow (Sign in with Apple sheet → `signInWithIdToken`), that path uses the *App
-ID / bundle id* as the client and does **not** need a Services ID. Homehub today
-is a **web** app, which needs the **Services ID + OAuth redirect** flow above.
-The .p8 key still reuses; the Services ID is the web-only piece SkinIQ may not
-have. If you tell me whether SkinIQ is web or native (and your Team ID), I can
-tailor these steps exactly.
+- Host the `apple-developer-domain-association.txt` you get in step 2.2.
+- Flip `VITE_APPLE_SIGNIN_ENABLED=true`, rebuild, redeploy hosting.
+- Verify the "Continue with Apple" button goes live (no more "coming soon").
 
-## 2. Apple Developer setup (account owner — needs a paid Apple Developer membership, $99/yr)
+## 5. Gotchas
 
-1. **App ID** with the *Sign in with Apple* capability enabled.
-2. **Services ID** — this is the OAuth `client_id`. Configure its *Return URLs*
-   to include the Supabase callback: `https://mpvhwuigpyrqdmjdkdjy.supabase.co/auth/v1/callback`.
-3. **Sign in with Apple key** — create a key (.p8), note the **Key ID** and your
-   **Team ID**. Supabase uses these + the .p8 to mint the OAuth **client secret**
-   (a JWT). Note: that secret JWT has a **max 6-month lifetime** → it must be
-   rotated before expiry, or sign-in starts failing. Set a reminder.
-
-## 3. Supabase config (account owner)
-
-1. Dashboard → **Authentication → Providers → Apple** → enable.
-2. Set **Client ID** = the Services ID, and the **Secret** (the generated JWT,
-   or let Supabase build it from Team ID / Key ID / .p8).
-3. Dashboard → **Authentication → URL Configuration** → add the redirect URLs the
-   button uses: production (`https://homehub-pied.vercel.app/`), Vercel preview
-   domains, and `http://localhost:*` for dev. Apple is strict about exact
-   redirect URLs.
-
-## 4. Gotchas
-
-- **Apple private email relay.** Many users hide their email; you receive a
-  `@privaterelay.appleid.com` address. Treat it as the account email; don't
-  assume it's reachable from anything other than Apple's relay.
-- **Name is only sent once.** Apple returns the user's name only on the *first*
-  authorization. If you want to store it, capture it on first sign-in.
-- **Native iOS (future).** When the wrapped/native app exists, use the native
-  Apple sign-in sheet + `supabase.auth.signInWithIdToken({ provider: "apple", token })`
-  instead of the web OAuth redirect. The App Store **requires** Sign in with
-  Apple if you offer other third-party logins — relevant once any social login
-  ships.
-
-## Effort summary
-- Code: ~30 min (one method + un-disable the button).
-- Apple + Supabase config: ~1–2 hrs, plus the Apple Developer membership.
-- Ongoing: rotate the client-secret JWT before its ≤6-month expiry.
+- **Private email relay:** many users hide their email → you get a
+  `@privaterelay.appleid.com` address. Treat it as their account email.
+- **Name only on first auth:** Apple returns the name only on the *first*
+  authorization — capture it then if you want to store it.
+- **App Store rule (future native):** if any other third-party login is offered,
+  the App Store *requires* Sign in with Apple. Native iOS would use the Apple
+  sheet + `signInWithCredential`, not the web popup.
