@@ -24,6 +24,7 @@ type AuthState = {
   signOut: () => Promise<void>
   signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>
   signInWithMagicLink: (email: string) => Promise<{ error: Error | null }>
+  completeMagicLink: (email: string) => Promise<{ error: Error | null }>
   signInWithApple: () => Promise<{ error: Error | null }>
   resetPassword: (email: string) => Promise<{ error: Error | null }>
   updatePassword: (password: string) => Promise<{ error: Error | null }>
@@ -34,6 +35,9 @@ const AuthContext = createContext<AuthState | null>(null)
 const APPLE_ENABLED = import.meta.env.VITE_APPLE_SIGNIN_ENABLED === "true"
 /** localStorage key for the email-link flow (Firebase can't read it back from the link). */
 const EMAIL_LINK_KEY = "homehub:emailForSignIn"
+/** Full magic-link URL, stashed for cross-device completion (the link isn't in the
+ *  URL anymore once we redirect to the confirm-email form). */
+const EMAIL_LINK_URL_KEY = "homehub:emailLinkUrl"
 
 /** Firebase user → the app's minimal AuthUser (id = uid). */
 function toAuthUser(u: FirebaseUser | null): AuthUser | null {
@@ -55,16 +59,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Complete a magic-link sign-in if we arrived on one (state survives the
     // round-trip via localStorage — Firebase can't recover the email from the link).
     if (isSignInWithEmailLink(auth, window.location.href)) {
-      const stored = window.localStorage.getItem(EMAIL_LINK_KEY)
-      const email = stored ?? window.prompt("Confirm your email to finish signing in") ?? ""
-      if (email) {
-        void signInWithEmailLink(auth, email, window.location.href)
+      const storedEmail = window.localStorage.getItem(EMAIL_LINK_KEY)
+      if (storedEmail) {
+        // Same device: we already know the email — complete the sign-in inline.
+        void signInWithEmailLink(auth, storedEmail, window.location.href)
           .then(() => {
             window.localStorage.removeItem(EMAIL_LINK_KEY)
-            // Strip the one-time link params from the URL.
-            window.history.replaceState({}, "", window.location.pathname)
+            window.history.replaceState({}, "", window.location.pathname) // strip one-time params
           })
-          .catch(() => { /* listener stays on the unauthenticated path; UI shows sign-in */ })
+          .catch(() => { /* listener stays unauthenticated; UI shows sign-in */ })
+      } else if (!window.location.pathname.startsWith("/signin")) {
+        // Different device / storage cleared: the email can't be recovered from the
+        // link. Stash the link and send the user to a real confirm-email form
+        // instead of window.prompt (blocked by some browsers, and poor UX).
+        window.localStorage.setItem(EMAIL_LINK_URL_KEY, window.location.href)
+        window.location.replace("/signin?completeLink=1")
       }
     }
 
@@ -107,6 +116,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         handleCodeInApp: true,
       })
       window.localStorage.setItem(EMAIL_LINK_KEY, email)
+      return { error: null }
+    } catch (err) {
+      return { error: toError(err) }
+    }
+  }, [])
+
+  const completeMagicLink = useCallback(async (email: string) => {
+    try {
+      const linkUrl = window.localStorage.getItem(EMAIL_LINK_URL_KEY) ?? window.location.href
+      if (!isSignInWithEmailLink(auth, linkUrl)) {
+        return { error: new Error("This sign-in link is invalid or has expired. Request a new one.") }
+      }
+      await signInWithEmailLink(auth, email, linkUrl)
+      window.localStorage.removeItem(EMAIL_LINK_KEY)
+      window.localStorage.removeItem(EMAIL_LINK_URL_KEY)
       return { error: null }
     } catch (err) {
       return { error: toError(err) }
@@ -156,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const value: AuthState = { user, loading, signIn, signOut, signUp, signInWithMagicLink, signInWithApple, resetPassword, updatePassword }
+  const value: AuthState = { user, loading, signIn, signOut, signUp, signInWithMagicLink, completeMagicLink, signInWithApple, resetPassword, updatePassword }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
