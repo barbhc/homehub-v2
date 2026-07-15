@@ -33,11 +33,11 @@ the Services ID return URLs.)
    - Enable *Sign in with Apple*, click *Configure*.
    - **Domains and Subdomains:** `homehub-2068d.firebaseapp.com`
    - **Return URLs:** `https://homehub-2068d.firebaseapp.com/__/auth/handler`
-   - Apple will ask you to verify the domain by hosting
-     `apple-developer-domain-association.txt` under
-     `https://homehub-2068d.firebaseapp.com/.well-known/`. **Send me that file's
-     contents** — I'll serve it via Firebase Hosting (`public/.well-known/`) and
-     redeploy so you can click Verify.
+   - Register them, then **Continue → Save**. That's it — **no
+     `apple-developer-domain-association.txt` / `.well-known` file is needed** for
+     the OAuth web sign-in flow Firebase uses. (That association file is only for
+     *"Sign in with Apple for Email Communication"* — Apple's private email relay,
+     a separate, optional feature we're not using.)
 3. **Sign in with Apple key (.p8):** a key is *team-level*, so if you already
    made one (e.g. for another app on the same team) **reuse it**. Note the
    **Key ID** and your **Team ID** (10 chars).
@@ -56,9 +56,8 @@ Firebase console → **Authentication → Sign-in method → Apple → Enable**:
   `homehub-2068d.web.app` and `homehub-2068d.firebaseapp.com` are listed
   (usually there by default).
 
-## 4. Me (code/hosting), once you kick off step 2
+## 4. Me (code/hosting), once you finish steps 2–3
 
-- Host the `apple-developer-domain-association.txt` you get in step 2.2.
 - Flip `VITE_APPLE_SIGNIN_ENABLED=true`, rebuild, redeploy hosting.
 - Verify the "Continue with Apple" button goes live (no more "coming soon").
 
