@@ -13,6 +13,7 @@ import {
   type ReconcileExisting,
 } from "../../../../shared/parse/parseCore.js"
 import type { ParseItemFacts } from "./parseTypes.js"
+import { seasonForTask, seasonalNextDue } from "../schedule/cadence.js"
 
 /** normalizeChunkRow output (snake_case) → Firestore chunk doc (camelCase). */
 type NormalizedChunk = ReturnType<typeof import("../../../../shared/parse/parseCore.js").normalizeChunkRow>
@@ -157,7 +158,7 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
       scheduleType: t.schedule_type,
       intervalDays: t.interval_days,
       anchorDate: today,
-      season: null,
+      season: seasonForTask(t),
       windowDaysBefore: 7,
       windowDaysAfter: 14,
     },
@@ -177,12 +178,18 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     const tplRef = templatesCol.doc()
     batch.set(tplRef, { ...templateDoc(t), createdAt: nowTs, userModifiedAt: null, deletedAt: null })
     inserted++
-    if (RECURRING.has(t.schedule_type)) {
+    // Seasonal tasks anchor to their season (winterize → next fall), NOT the
+    // parse date — else a winterize task lands "due today" in July. Unknown-season
+    // seasonal tasks get no due-now instance (the template still exists; it can be
+    // scheduled once the season/feedback is known) rather than being dumped on today.
+    const initialDue: string | null =
+      t.schedule_type === "seasonal" ? seasonalNextDue(seasonForTask(t) ?? "", today) : today
+    if (RECURRING.has(t.schedule_type) && initialDue) {
       batch.set(instancesCol.doc(), {
         taskTemplateId: tplRef.id,
         itemUnitId: item.itemUnitId,
         status: "scheduled",
-        dueDate: today,
+        dueDate: initialDue,
         windowStart: null,
         windowEnd: null,
         snoozedUntil: null,

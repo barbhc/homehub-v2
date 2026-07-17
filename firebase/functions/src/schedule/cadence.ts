@@ -61,3 +61,44 @@ export function addCadence(from: string, scheduleType: ScheduleType, intervalDay
       return null
   }
 }
+
+export const SEASONS = ["spring", "summer", "fall", "winter"] as const
+export type Season = (typeof SEASONS)[number]
+
+/** Anchor month-day for the window each season's task is ACTED in. */
+const SEASON_ANCHOR: Record<Season, string> = { spring: "04-15", summer: "07-15", fall: "10-15", winter: "01-15" }
+
+/**
+ * Next occurrence of a season's anchor date on/after `from` (rolls to next year
+ * if already passed). Null for an unknown/empty season. Shared by commitDraft
+ * (initial schedule) and completeTask (next cycle) so a "winterize" task lands in
+ * fall, not on the parse/completion date.
+ */
+export function seasonalNextDue(season: string, from: string): string | null {
+  const md = SEASON_ANCHOR[season as Season]
+  if (!md) return null
+  const year = Number(from.slice(0, 4))
+  const candidate = `${year}-${md}`
+  return candidate > from ? candidate : `${year + 1}-${md}`
+}
+
+/**
+ * Deterministic season for a seasonal task. Uses an explicit `season` if the
+ * extractor ever provides one, else infers from title/tags. Maps to the season
+ * the task is ACTED in — winterize / cold-storage prep is a FALL job (before
+ * winter), not the winter it guards against. Returns null when it can't tell, so
+ * the caller leaves the task unscheduled rather than dumping it on "today".
+ * (A future parsePrompt change can emit `season` directly; this stays the fallback.)
+ */
+export function seasonForTask(t: { title?: string | null; tags?: string[] | null; season?: string | null }): Season | null {
+  const explicit = (t.season ?? "").toLowerCase()
+  if ((SEASONS as readonly string[]).includes(explicit)) return explicit as Season
+  const hay = `${t.title ?? ""} ${(t.tags ?? []).join(" ")}`.toLowerCase()
+  if (/winteri[sz]|cold[- ]?storage|freeze[- ]?protect|frost[- ]?protect/.test(hay)) return "fall"
+  if (/summeri[sz]|de[- ]?winteri[sz]|spring (?:prep|start|open|startup)/.test(hay)) return "spring"
+  if (/\bwinter\b/.test(hay)) return "winter"
+  if (/\bsummer\b/.test(hay)) return "summer"
+  if (/\bspring\b/.test(hay)) return "spring"
+  if (/\bfall\b|\bautumn\b|gutter|leaves|leaf drop/.test(hay)) return "fall"
+  return null
+}

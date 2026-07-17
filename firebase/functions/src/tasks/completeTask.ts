@@ -13,7 +13,7 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
-import { addCadence, type ScheduleType } from "../schedule/cadence.js"
+import { addCadence, seasonalNextDue, type ScheduleType } from "../schedule/cadence.js"
 
 const REGION = "us-central1"
 const NO_NEXT: ReadonlySet<string> = new Set(["after_each_use", "as_needed", "setup"])
@@ -32,17 +32,6 @@ export interface CompleteTaskResult {
 
 function priorityScoreForTier(tier: string): number {
   return tier === "essential" ? 100 : tier === "recommended" ? 50 : 10
-}
-
-/** Seasonal anchor for `season`, on/after `from` (rolls to next year if passed). */
-function seasonalNextDue(season: string, from: string): string | null {
-  const anchors: Record<string, string> = { spring: "04-15", summer: "07-15", fall: "10-15", winter: "01-15" }
-  const md = anchors[season]
-  if (!md) return null
-  const year = Number(from.slice(0, 4))
-  let candidate = `${year}-${md}`
-  if (candidate <= from) candidate = `${year + 1}-${md}`
-  return candidate
 }
 
 function addDaysYmd(ymd: string, days: number): string {
