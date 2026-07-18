@@ -59,6 +59,7 @@ logo-canva.png
 dashboard-layouts.html
 public/dashboard-layouts.html
 scripts/parse-eval/results/
+scripts/parse-eval/candidates/
 
 # Functions build output
 firebase/functions/lib

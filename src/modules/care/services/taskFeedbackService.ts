@@ -20,6 +20,7 @@ import { archiveTaskTemplate } from "./taskService"
 import { updateTaskSchedule } from "./taskScheduleService"
 import type { ServiceResult } from "./careNoteService"
 import { ruleMatchFor, matchLabel, findSimilar, type RuleMatch, type TaskLike } from "@/lib/taskSimilarity"
+import { patternKeyOf, type FeedbackPattern } from "../../../../shared/tasks/graduation"
 
 export type { RuleMatch } from "@/lib/taskSimilarity"
 
@@ -274,6 +275,18 @@ export async function submitTaskFeedback(input: SubmitFeedbackInput): Promise<Se
       })
     }
 
+    // Cross-home graduation signature (Phase D): the home-independent pattern of
+    // this feedback, so a scheduled job can spot the same correction recurring
+    // across many homes. patternKey is null for home-specific/one-off feedback.
+    const pattern: FeedbackPattern = {
+      chip,
+      action: resolution.action,
+      match,
+      toTier: resolution.action === "tier_remap" ? resolution.toTier : null,
+      scheduleType: resolution.action === "cadence" ? resolution.scheduleType : null,
+      season: resolution.action === "reschedule_season" ? resolution.season : null,
+    }
+
     await setDoc(fbRef, {
       taskTemplateId: primary.taskTemplateId,
       taskInstanceId: primary.taskInstanceId ?? null,
@@ -286,6 +299,9 @@ export async function submitTaskFeedback(input: SubmitFeedbackInput): Promise<Se
       },
       via: input.via ?? "chip",
       hazardOverride: input.hazardOverride ?? false,
+      pattern,
+      patternKey: patternKeyOf(pattern),
+      title: primary.title,
       createdBy: uid,
       createdAt: serverTimestamp(),
       deletedAt: null,

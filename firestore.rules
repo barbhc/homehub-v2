@@ -162,6 +162,10 @@ service cloud.firestore {
     // ---- global server-only caches (Admin SDK reads/writes; clients get nothing) ----
     match /webRetrievals/{id}      { allow read, write: if false; }
     match /productLookupCache/{id} { allow read, write: if false; }
+    // Phase-D graduation candidates: written by the graduateFeedback scheduler,
+    // read by the maintainer eval script — both Admin SDK. Never client-visible
+    // (they aggregate cross-home feedback).
+    match /parseEvalCandidates/{id} { allow read, write: if false; }
 
     // Collection-group read for "find all MY memberships"
     // (homeService.getPrimaryHome/getHomes run

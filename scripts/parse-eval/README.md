@@ -58,6 +58,27 @@ This variance is also why prod's exact-title rescan reconciliation causes the
 Run the eval UNPIPED (`npx vite-node scripts/parse-eval/run.ts`) — piping
 through grep masks the non-zero exit code.
 
+## Global graduation (task-feedback → eval candidates)
+
+`graduation.ts` closes the loop the other way: it reads task-feedback across ALL
+homes and surfaces patterns where the SAME generalizable correction (e.g. "hide
+winterizing tasks") has recurred across ≥3 distinct homes — a signal the parser
+is systematically over/under-generating something.
+
+```bash
+# Prod (GOOGLE_APPLICATION_CREDENTIALS + FIREBASE_PROJECT_ID) or the emulator:
+npx tsx scripts/parse-eval/graduation.ts
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 GCLOUD_PROJECT=demo-homehub npx tsx scripts/parse-eval/graduation.ts
+npx tsx scripts/parse-eval/graduation.ts -- --emit   # write candidate stubs to ./candidates/ (gitignored)
+```
+
+The `graduateFeedback` scheduled function does the same aggregation weekly and
+persists candidates to the server-only `parseEvalCandidates` collection (with a
+`status` a maintainer can triage). **Feedback never edits the prompt.** Each
+candidate is a prompt to a human: add/strengthen a golden here, tune
+`shared/parse/parsePrompt.ts`, then run the harness above and review the diff
+BEFORE deploying — the same gate as every other prompt change.
+
 ## Notes
 
 - `golden/` snapshots are committed; `results/` (full raw outputs) is gitignored.
