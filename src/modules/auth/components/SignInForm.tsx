@@ -9,8 +9,16 @@ import {
   WandSparklesIcon,
   ChevronLeftIcon,
 } from "lucide-react"
-import { useAuth } from "./AuthProvider"
+import { useAuth, APPLE_REDIRECT_ERROR_KEY } from "./AuthProvider"
 import { cn } from "@/lib/utils"
+
+/** An Apple redirect sign-in (native shell) reports failures on the return load,
+ *  not inline — pick up any stashed message once and clear it. */
+function takeAppleRedirectError(): string | null {
+  const stashed = window.sessionStorage.getItem(APPLE_REDIRECT_ERROR_KEY)
+  if (stashed) window.sessionStorage.removeItem(APPLE_REDIRECT_ERROR_KEY)
+  return stashed
+}
 
 type Mode = "signin" | "signup" | "reset"
 
@@ -144,7 +152,7 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
   const [email, setEmail] = useState(prefillEmail ?? "")
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(takeAppleRedirectError)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 

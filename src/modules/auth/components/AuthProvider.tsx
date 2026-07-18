@@ -12,9 +12,12 @@ import {
   signOut as fbSignOut,
   OAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   type User as FirebaseUser,
 } from "firebase/auth"
 import { auth } from "@/integrations/firebase"
+import { isNativePlatform } from "@/lib/native"
 import type { AuthUser } from "@/modules/auth/types/auth"
 
 type AuthState = {
@@ -38,6 +41,9 @@ const EMAIL_LINK_KEY = "homehub:emailForSignIn"
 /** Full magic-link URL, stashed for cross-device completion (the link isn't in the
  *  URL anymore once we redirect to the confirm-email form). */
 const EMAIL_LINK_URL_KEY = "homehub:emailLinkUrl"
+/** An Apple sign-in via redirect (the native shell — WKWebView blocks popups) reports
+ *  failures only on the return page load. Stash the message so SignInForm can show it. */
+export const APPLE_REDIRECT_ERROR_KEY = "homehub:appleRedirectError"
 
 /** Firebase user → the app's minimal AuthUser (id = uid). */
 function toAuthUser(u: FirebaseUser | null): AuthUser | null {
@@ -76,6 +82,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.location.replace("/signin?completeLink=1")
       }
     }
+
+    // Complete a pending Apple sign-in that used the redirect flow (native shell).
+    // The happy path lands via onAuthStateChanged below; getRedirectResult only
+    // matters here to surface an error across the full-page round-trip.
+    void getRedirectResult(auth).catch((err) => {
+      window.sessionStorage.setItem(APPLE_REDIRECT_ERROR_KEY, toError(err).message)
+    })
 
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(toAuthUser(u))
@@ -138,18 +151,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signInWithApple = useCallback(async () => {
-    // Fix D. Popup (not redirect) — third-party-storage partitioning breaks the
-    // redirect flow unless authDomain is same-origin. Behind VITE_APPLE_SIGNIN_ENABLED;
-    // stub path returns a clear error until the owner completes the Services-ID config.
+    // Behind VITE_APPLE_SIGNIN_ENABLED; stub path returns a clear error until the
+    // owner completes the Services-ID config.
     if (!APPLE_ENABLED) {
       return { error: new Error("Apple sign-in isn't enabled yet.") }
     }
+    const provider = new OAuthProvider("apple.com")
+    provider.addScope("email")
+    provider.addScope("name")
     try {
-      const provider = new OAuthProvider("apple.com")
-      provider.addScope("email")
-      provider.addScope("name")
-      await signInWithPopup(auth, provider)
-      return { error: null }
+      // The native WKWebView blocks popups (auth/popup-blocked), so the iOS/Android
+      // shell must use a full-page redirect. On the web we keep the popup — its
+      // in-page return avoids the third-party-storage partitioning that breaks the
+      // redirect flow (authDomain isn't same-origin) — and fall back to redirect only
+      // if the browser itself blocks the popup.
+      if (isNativePlatform()) {
+        await signInWithRedirect(auth, provider)
+        return { error: null } // completes on the return load via getRedirectResult
+      }
+      try {
+        await signInWithPopup(auth, provider)
+        return { error: null }
+      } catch (err) {
+        const code = (err as { code?: string })?.code
+        if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
+          await signInWithRedirect(auth, provider)
+          return { error: null }
+        }
+        throw err
+      }
     } catch (err) {
       return { error: toError(err) }
     }
