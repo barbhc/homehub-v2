@@ -90,12 +90,17 @@ export function seasonalNextDue(season: string, from: string): string | null {
  * the caller leaves the task unscheduled rather than dumping it on "today".
  * (A future parsePrompt change can emit `season` directly; this stays the fallback.)
  */
-export function seasonForTask(t: { title?: string | null; tags?: string[] | null; season?: string | null }): Season | null {
+export function seasonForTask(t: {
+  title?: string | null
+  tags?: string[] | null
+  description?: string | null
+  season?: string | null
+}): Season | null {
   const explicit = (t.season ?? "").toLowerCase()
   if ((SEASONS as readonly string[]).includes(explicit)) return explicit as Season
-  const hay = `${t.title ?? ""} ${(t.tags ?? []).join(" ")}`.toLowerCase()
-  if (/winteri[sz]|cold[- ]?storage|freeze[- ]?protect|frost[- ]?protect/.test(hay)) return "fall"
-  if (/summeri[sz]|de[- ]?winteri[sz]|spring (?:prep|start|open|startup)/.test(hay)) return "spring"
+  const hay = `${t.title ?? ""} ${(t.tags ?? []).join(" ")} ${t.description ?? ""}`.toLowerCase()
+  if (/winteri[sz]|cold[- ]?storage|freeze[- ]?protect|frost[- ]?protect|heating season|before winter|pre[- ]?winter/.test(hay)) return "fall"
+  if (/summeri[sz]|de[- ]?winteri[sz]|cooling season|spring (?:prep|start|open|startup)/.test(hay)) return "spring"
   if (/\bwinter\b/.test(hay)) return "winter"
   if (/\bsummer\b/.test(hay)) return "summer"
   if (/\bspring\b/.test(hay)) return "spring"

@@ -13,6 +13,16 @@ test("seasonForTask: winterize / cold storage → fall (prep before winter)", ()
   assert.equal(seasonForTask({ title: "Clean gutters", tags: ["seasonal"] }), "fall")
 })
 
+test("seasonForTask: reads description too — 'each heating season' → fall (furnace vent)", () => {
+  assert.equal(
+    seasonForTask({ title: "Inspect Vent and Intake Terminations", description: "Confirm the outdoor vent and combustion air terminals are unobstructed each heating season." }),
+    "fall",
+  )
+  assert.equal(seasonForTask({ title: "Service AC", description: "Do this before each cooling season." }), "spring")
+  // A vacation task has no season signal anywhere → null (it's not seasonal at all).
+  assert.equal(seasonForTask({ title: "Prepare Dishwasher for Vacation", description: "Shut off the water supply when leaving for an extended period." }), null)
+})
+
 test("seasonForTask: explicit season wins; other seasons infer; unknown → null", () => {
   assert.equal(seasonForTask({ title: "whatever", season: "summer" }), "summer")
   assert.equal(seasonForTask({ title: "Spring startup for irrigation" }), "spring")
