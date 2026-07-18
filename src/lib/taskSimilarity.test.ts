@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { seasonalFamily, ruleMatchFor, matchesRule, findSimilar, matchLabel, type TaskLike } from "./taskSimilarity"
+import { applyHouseRules, type HouseRuleLike, type RuleTaskFields } from "../../shared/tasks/houseRules"
 
 function task(partial: Partial<TaskLike> & { taskTemplateId: string; title: string }): TaskLike {
   return { symptomTags: [], scheduleType: null, season: null, ...partial }
@@ -79,5 +80,55 @@ describe("matchLabel — readable provenance", () => {
     expect(matchLabel({ by: "season", season: "fall" })).toBe("fall tasks")
     expect(matchLabel({ by: "template", taskTemplateId: "a" })).toBe("this task")
     expect(matchLabel({ by: "symptomTags", tags: ["leaking"] })).toContain("leaking")
+  })
+})
+
+describe("applyHouseRules — parse-time application (Phase B)", () => {
+  function row(partial: Partial<RuleTaskFields> & { title: string }): RuleTaskFields {
+    return { symptom_tags: [], schedule_type: "annual", interval_days: null, priority_tier: "recommended", ...partial }
+  }
+  const winterizeRows = [
+    row({ title: "Winterize the outdoor faucet" }),
+    row({ title: "Winterize the washer for cold storage" }),
+    row({ title: "Descale the coffee maker" }),
+  ]
+
+  it("suppress rule drops matching rows, keeps the rest", () => {
+    const rules: HouseRuleLike[] = [{ kind: "suppress", match: { by: "seasonalFamily", family: "freeze_prep" } }]
+    const out = applyHouseRules(winterizeRows, rules)
+    expect(out.suppressed.sort()).toEqual(["Winterize the outdoor faucet", "Winterize the washer for cold storage"])
+    expect(out.kept.map((r) => r.title)).toEqual(["Descale the coffee maker"])
+  })
+
+  it("freezeRiskFalse suppresses the whole freeze_prep family without an explicit rule", () => {
+    const out = applyHouseRules(winterizeRows, [], { freezeRiskFalse: true })
+    expect(out.kept.map((r) => r.title)).toEqual(["Descale the coffee maker"])
+  })
+
+  it("tier_remap rewrites priority in place; season sets the row's season", () => {
+    const rows = [row({ title: "Service the AC", symptom_tags: [] })]
+    const rules: HouseRuleLike[] = [
+      { kind: "tier_remap", match: { by: "template", taskTemplateId: "" }, toTier: "optional" },
+    ]
+    // template match applies to rows whose (empty) taskTemplateId equals "" — used here to force a hit
+    const out = applyHouseRules(rows, rules)
+    expect(out.retiered).toBe(1)
+    expect(out.kept[0].priority_tier).toBe("optional")
+  })
+
+  it("cadence rule overrides schedule_type + interval_days", () => {
+    const rows = [row({ title: "Clean gutters", symptom_tags: ["drainage"], schedule_type: "monthly" })]
+    const rules: HouseRuleLike[] = [
+      { kind: "cadence", match: { by: "symptomTags", tags: ["drainage"] }, scheduleType: "semiannual", intervalDays: null },
+    ]
+    const out = applyHouseRules(rows, rules)
+    expect(out.recadenced).toBe(1)
+    expect(out.kept[0].schedule_type).toBe("semiannual")
+  })
+
+  it("no rules → rows pass through untouched", () => {
+    const out = applyHouseRules(winterizeRows, [])
+    expect(out.kept).toHaveLength(3)
+    expect(out.suppressed).toHaveLength(0)
   })
 })

@@ -49,7 +49,14 @@ function taskText(task: TaskTemplateWithSchedule): string {
  * authoritatively at the source.
  */
 export function classifyTaskActor(task: TaskTemplateWithSchedule): TaskActor {
-  const text = taskText(task)
+  return classifyActorFromText(taskText(task))
+}
+
+/**
+ * Classify from already-joined task text — for callers (the feedback sheet's
+ * safety pushback) that hold loose fields rather than a full task row.
+ */
+export function classifyActorFromText(text: string): TaskActor {
   if (HAZARD_PATTERN.test(text)) return "hazardous"
   if (PRO_PATTERN.test(text)) return "pro"
   return "diy"

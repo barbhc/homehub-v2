@@ -19,6 +19,7 @@ import {
   type Ownership,
   type OwnershipDuration,
   type PreferredMode,
+  type Climate,
   type TopConcernKey,
 } from "@/modules/home"
 
@@ -53,6 +54,19 @@ const CONCERNS: { value: TopConcernKey; label: string }[] = [
   { value: "not_sure", label: "Not sure yet" },
 ]
 
+const CLIMATES: { value: Climate; label: string }[] = [
+  { value: "mild", label: "Mild — rarely freezes" },
+  { value: "moderate", label: "Moderate — some frost" },
+  { value: "cold", label: "Cold — hard freezes" },
+  { value: "hot", label: "Hot / arid" },
+]
+
+/** Climate → whether pipes can freeze here. Drives winterizing suppression. */
+function freezeRiskFor(climate: Climate | ""): boolean | null {
+  if (!climate) return null
+  return climate === "mild" || climate === "hot" ? false : true
+}
+
 const MODES: { value: PreferredMode; label: string; hint: string }[] = [
   { value: "ask_first", label: "Ask-first", hint: "Chat hero on Home" },
   { value: "inventory_first", label: "Inventory-first", hint: "Items & tasks hero on Home" },
@@ -68,6 +82,7 @@ export function HomeProfileSection({ homeId }: Props) {
   const [homeType, setHomeType] = useState<HomeType | "">("")
   const [ownership, setOwnership] = useState<Ownership | "">("")
   const [duration, setDuration] = useState<OwnershipDuration | "">("")
+  const [climate, setClimate] = useState<Climate | "">("")
   const [concerns, setConcerns] = useState<TopConcernKey[]>([])
   const [mode, setMode] = useState<PreferredMode>("unset")
   const [completedAt, setCompletedAt] = useState<string | null>(null)
@@ -78,6 +93,7 @@ export function HomeProfileSection({ homeId }: Props) {
     setHomeType(p?.home_type ?? "")
     setOwnership(p?.ownership ?? "")
     setDuration(p?.ownership_duration ?? "")
+    setClimate(p?.climate ?? "")
     setConcerns(p?.top_concerns ?? [])
     setMode(p?.preferred_mode ?? "unset")
     setCompletedAt(p?.completed_at ?? null)
@@ -118,6 +134,8 @@ export function HomeProfileSection({ homeId }: Props) {
         home_type: homeType || null,
         ownership: ownership || null,
         ownership_duration: duration || null,
+        climate: climate || null,
+        freeze_risk: freezeRiskFor(climate),
         top_concerns: concerns,
         preferred_mode: mode,
         // Promote to "completed" once user fills in the basics from Settings.
@@ -211,6 +229,28 @@ export function HomeProfileSection({ homeId }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Climate — drives winterizing (freeze-prep) suppression during parsing */}
+            <div className="space-y-1.5">
+              <label htmlFor="hp-climate" className="text-sm font-medium">
+                Local climate
+              </label>
+              <Select value={climate} onValueChange={(v) => setClimate(v as Climate)}>
+                <SelectTrigger id="hp-climate" className="w-full sm:w-72">
+                  <SelectValue placeholder="Select…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CLIMATES.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                A mild climate skips winterizing tasks when new manuals are scanned.
+              </p>
             </div>
 
             {/* Concerns */}

@@ -14,6 +14,7 @@ import {
 } from "../../../../shared/parse/parseCore.js"
 import type { ParseItemFacts } from "./parseTypes.js"
 import { seasonForTask, seasonalNextDue } from "../schedule/cadence.js"
+import { applyHouseRules, type HouseRuleLike } from "../../../../shared/tasks/houseRules.js"
 
 /** normalizeChunkRow output (snake_case) → Firestore chunk doc (camelCase). */
 type NormalizedChunk = ReturnType<typeof import("../../../../shared/parse/parseCore.js").normalizeChunkRow>
@@ -52,7 +53,7 @@ function priorityScoreFor(tier: string): number {
 }
 
 export async function commitDraft(db: Firestore, input: CommitInput): Promise<CommitResult> {
-  const { homeId, manualId, item, requestId, chunks, tasks, now } = input
+  const { homeId, manualId, item, requestId, chunks, now } = input
   const manualRef = db.doc(`homes/${homeId}/manuals/${manualId}`)
 
   // Idempotency: a redelivered task whose requestId already committed is a no-op.
@@ -62,6 +63,25 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     const s = manualSnap.get("parse.summary") as { chunks?: number; tasks?: number } | undefined
     return { chunks: s?.chunks ?? 0, tasks: s?.tasks ?? 0, matched: 0, inserted: 0, flagged: 0, deleted: 0 }
   }
+
+  // ── Apply the home's learned house rules + climate to the extracted rows,
+  // BEFORE reconciliation (Phase B). Suppressed titles never become templates;
+  // tier/cadence/season rules rewrite the row in place. planTaskReconciliation
+  // stays pure — it only ever sees the post-rule task set. ───────────────────
+  const rulesSnap = await db.collection(`homes/${homeId}/houseRules`).get()
+  const activeRules: HouseRuleLike[] = rulesSnap.docs
+    .filter((d) => d.get("isActive") !== false && d.get("deletedAt") == null && d.get("match"))
+    .map((d) => ({
+      kind: d.get("kind"),
+      match: d.get("match"),
+      toTier: d.get("toTier") ?? null,
+      scheduleType: d.get("scheduleType") ?? null,
+      intervalDays: d.get("intervalDays") ?? null,
+      season: d.get("season") ?? null,
+    }))
+  const freezeRiskFalse = (await db.doc(`homes/${homeId}`).get()).get("freezeRisk") === false
+  const ruled = applyHouseRules(input.tasks, activeRules, { freezeRiskFalse })
+  const tasks = ruled.kept
 
   const nowTs = Timestamp.fromDate(now)
   const today = ymd(now)

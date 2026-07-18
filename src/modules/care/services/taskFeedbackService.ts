@@ -13,7 +13,7 @@
  * Template) — no new composite index required.
  */
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
-import { db } from "@/integrations/firebase"
+import { db, callable } from "@/integrations/firebase"
 import type { PriorityTier, ScheduleType, Season } from "@/integrations/types"
 import { computeNextDueDate } from "./nextDueDate"
 import { archiveTaskTemplate } from "./taskService"
@@ -76,6 +76,10 @@ export interface SubmitFeedbackInput {
   sweepTemplateIds: string[]
   /** The rule predicate computed from the primary (null → no rule; e.g. duplicate). */
   match: RuleMatch | null
+  /** How the decision was reached — a chip, or the AI "Discuss" conversation. */
+  via?: "chip" | "discuss"
+  /** True when the user overrode a hazard-task safety warning; logged, never silent. */
+  hazardOverride?: boolean
 }
 
 export interface SubmitFeedbackResult {
@@ -280,6 +284,8 @@ export async function submitTaskFeedback(input: SubmitFeedbackInput): Promise<Se
         sweptTemplateIds: sweepTemplateIds,
         ruleId: ruleRef?.id ?? null,
       },
+      via: input.via ?? "chip",
+      hazardOverride: input.hazardOverride ?? false,
       createdBy: uid,
       createdAt: serverTimestamp(),
       deletedAt: null,
@@ -336,5 +342,57 @@ export async function deleteHouseRule(homeId: string, ruleId: string): Promise<S
     return { data: true, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to delete rule" } }
+  }
+}
+
+// ── Discuss (Phase C — AI) ───────────────────────────────────────────────────
+
+export interface DiscussMessage {
+  role: "user" | "assistant"
+  content: string
+}
+export interface DiscussProposal {
+  action: "suppress" | "tier_remap" | "cadence" | "reschedule_season"
+  toTier?: PriorityTier
+  scheduleType?: ScheduleType
+  season?: Season
+  rationale: string
+}
+export interface DiscussResult {
+  explanation: string
+  proposal: DiscussProposal | null
+}
+
+const discussTaskCallable = callable<
+  { homeId: string; taskTemplateId: string; question: string; history: DiscussMessage[] },
+  DiscussResult
+>("discussTask")
+
+/** Ask the assistant about a task (grounded in its manual + the home profile). */
+export async function discussTask(
+  homeId: string,
+  taskTemplateId: string,
+  question: string,
+  history: DiscussMessage[],
+): Promise<ServiceResult<DiscussResult>> {
+  try {
+    const res = await discussTaskCallable({ homeId, taskTemplateId, question, history })
+    return { data: res, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "The assistant is unavailable right now." } }
+  }
+}
+
+/** Map an AI proposal onto the deterministic Resolution the sheet already applies. */
+export function proposalToResolution(p: DiscussProposal): Resolution | null {
+  switch (p.action) {
+    case "suppress":
+      return { action: "suppress" }
+    case "tier_remap":
+      return p.toTier ? { action: "tier_remap", toTier: p.toTier } : null
+    case "cadence":
+      return p.scheduleType ? { action: "cadence", scheduleType: p.scheduleType, intervalDays: null } : null
+    case "reschedule_season":
+      return p.season ? { action: "reschedule_season", season: p.season } : null
   }
 }

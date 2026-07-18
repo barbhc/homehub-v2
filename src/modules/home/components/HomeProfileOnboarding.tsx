@@ -7,6 +7,7 @@ import {
   type Ownership,
   type OwnershipDuration,
   type PreferredMode,
+  type Climate,
   type TopConcernKey,
 } from "../services/homeProfileService"
 
@@ -58,8 +59,21 @@ const MODE_OPTIONS: { value: PreferredMode; label: string; hint: string }[] = [
   { value: "unset", label: "Not sure — show me both", hint: "Default Home with everything" },
 ]
 
-type Step = 0 | 1 | 2 | 3
-const TOTAL_STEPS = 4
+const CLIMATE_OPTIONS: { value: Climate; label: string; hint: string }[] = [
+  { value: "mild", label: "Mild", hint: "Rarely freezes — no winterizing needed" },
+  { value: "moderate", label: "Moderate", hint: "Some frost in winter" },
+  { value: "cold", label: "Cold", hint: "Hard freezes — pipes can burst" },
+  { value: "hot", label: "Hot / arid", hint: "Hot summers, mild winters" },
+]
+
+/** Climate → whether pipes can freeze here. Drives winterizing suppression. */
+function freezeRiskFor(climate: Climate | null): boolean | null {
+  if (!climate) return null
+  return climate === "mild" || climate === "hot" ? false : true
+}
+
+type Step = 0 | 1 | 2 | 3 | 4
+const TOTAL_STEPS = 5
 
 export function HomeProfileOnboarding({
   homeId,
@@ -71,6 +85,7 @@ export function HomeProfileOnboarding({
   const [homeType, setHomeType] = useState<HomeType | null>(null)
   const [ownership, setOwnership] = useState<Ownership | null>(null)
   const [duration, setDuration] = useState<OwnershipDuration | null>(null)
+  const [climate, setClimate] = useState<Climate | null>(null)
   const [concerns, setConcerns] = useState<TopConcernKey[]>([])
   const [mode, setMode] = useState<PreferredMode>("unset")
   const [saving, setSaving] = useState(false)
@@ -90,8 +105,9 @@ export function HomeProfileOnboarding({
   const canAdvance = (() => {
     if (step === 0) return homeType !== null
     if (step === 1) return ownership !== null && duration !== null
-    if (step === 2) return concerns.length > 0
-    if (step === 3) return true // mode always has a value (default "unset")
+    if (step === 2) return climate !== null
+    if (step === 3) return concerns.length > 0
+    if (step === 4) return true // mode always has a value (default "unset")
     return false
   })()
 
@@ -102,6 +118,8 @@ export function HomeProfileOnboarding({
       home_type: homeType,
       ownership,
       ownership_duration: duration,
+      climate,
+      freeze_risk: freezeRiskFor(climate),
       top_concerns: concerns,
       preferred_mode: mode,
       completed_at: markComplete ? new Date().toISOString() : null,
@@ -115,7 +133,7 @@ export function HomeProfileOnboarding({
   }
 
   const handleNext = async () => {
-    if (step < 3) {
+    if (step < 4) {
       setStep((step + 1) as Step)
       return
     }
@@ -212,6 +230,30 @@ export function HomeProfileOnboarding({
       {step === 2 && (
         <div>
           <h2 className="text-xl sm:text-2xl font-display font-normal mb-2">
+            What's the climate where you live?
+          </h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            So we only schedule seasonal tasks that apply — a mild climate skips winterizing.
+          </p>
+          <div className="space-y-2" role="radiogroup" aria-label="Climate">
+            {CLIMATE_OPTIONS.map((opt) => (
+              <OptionRow
+                key={opt.value}
+                selected={climate === opt.value}
+                onClick={() => setClimate(opt.value)}
+                label={opt.label}
+                hint={opt.hint}
+                role="radio"
+                ariaChecked={climate === opt.value}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div>
+          <h2 className="text-xl sm:text-2xl font-display font-normal mb-2">
             What matters most to you?
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
@@ -236,7 +278,7 @@ export function HomeProfileOnboarding({
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div>
           <h2 className="text-xl sm:text-2xl font-display font-normal mb-2">
             How do you like to use apps like this?
@@ -282,7 +324,7 @@ export function HomeProfileOnboarding({
             </Button>
           )}
           <Button onClick={handleNext} disabled={!canAdvance || saving}>
-            {saving ? "Saving..." : step === 3 ? "Finish" : "Next"}
+            {saving ? "Saving..." : step === 4 ? "Finish" : "Next"}
           </Button>
         </div>
       </div>

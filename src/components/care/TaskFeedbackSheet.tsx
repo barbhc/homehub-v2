@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState } from "react"
-import { CheckIcon, SparklesIcon, MessageCircleIcon } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { CheckIcon, SparklesIcon, MessageCircleIcon, ShieldAlertIcon, PhoneIcon } from "lucide-react"
 import { useAuth } from "@/modules/auth"
 import {
-  getFeedbackContext, submitTaskFeedback,
+  getFeedbackContext, submitTaskFeedback, discussTask, proposalToResolution,
   type FeedbackChip, type Resolution, type FeedbackContext, type SubmitFeedbackResult,
+  type DiscussMessage, type DiscussProposal,
 } from "@/modules/care"
+import { upsertHomeProfile } from "@/modules/home"
+import { ChatInput } from "@/components/chat/ChatInput"
 import type { PriorityTier, ScheduleType, Season } from "@/integrations/types"
 
-const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)"
+const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)", CLAY = "var(--hh-clay)"
 
 const CHIPS: { key: FeedbackChip; label: string; hint: string }[] = [
   { key: "not_relevant", label: "Not relevant to my home", hint: "Hide it (and similar tasks)" },
@@ -34,6 +38,11 @@ const SEASON_OPTS: { key: Season; label: string }[] = [
   { key: "winter", label: "Winter" },
 ]
 
+/** A resolution that reduces the task's attention — the safety-pushback trigger. */
+function isDowngrade(r: Resolution): boolean {
+  return r.action === "suppress" || r.action === "archive_duplicate" || (r.action === "tier_remap" && r.toTier === "optional")
+}
+
 function Choice({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
   return (
     <button
@@ -50,29 +59,43 @@ function Choice({ label, selected, onClick }: { label: string; selected: boolean
 }
 
 export function TaskFeedbackSheet({
-  homeId, taskTemplateId, taskInstanceId, title, tier, onClose, onApplied,
+  homeId, taskTemplateId, taskInstanceId, title, tier, justification, manualPage, hazardous,
+  onClose, onApplied,
 }: {
   homeId: string
   taskTemplateId: string
   taskInstanceId: string | null
   title: string
   tier: PriorityTier
+  justification?: string | null
+  manualPage?: number | null
+  hazardous?: boolean
   onClose: () => void
   onApplied: (r: SubmitFeedbackResult) => void
 }) {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [chip, setChip] = useState<FeedbackChip | null>(null)
   const [tierChoice, setTierChoice] = useState<PriorityTier | null>(null)
   const [cadenceChoice, setCadenceChoice] = useState<ScheduleType | null>(null)
   const [seasonChoice, setSeasonChoice] = useState<Season | null>(null)
   const [note, setNote] = useState("")
-  const [step, setStep] = useState<"choose" | "confirm">("choose")
+  const [step, setStep] = useState<"choose" | "discuss" | "pushback" | "confirm">("choose")
+  const [via, setVia] = useState<"chip" | "discuss">("chip")
   const [ctx, setCtx] = useState<FeedbackContext | null>(null)
   const [sweep, setSweep] = useState<Set<string>>(new Set())
+  const [freezeFree, setFreezeFree] = useState(false)
   const [loadingCtx, setLoadingCtx] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SubmitFeedbackResult | null>(null)
+
+  // Discuss (Phase C) state
+  const [messages, setMessages] = useState<DiscussMessage[]>([])
+  const [discussLoading, setDiscussLoading] = useState(false)
+  const [discussProposal, setDiscussProposal] = useState<DiscussProposal | null>(null)
+  const [discussError, setDiscussError] = useState<string | null>(null)
+  const threadRef = useRef<HTMLDivElement>(null)
 
   const resolution: Resolution | null = useMemo(() => {
     switch (chip) {
@@ -86,6 +109,7 @@ export function TaskFeedbackSheet({
   }, [chip, tierChoice, cadenceChoice, seasonChoice])
 
   const sweepEligible = chip !== null && chip !== "duplicate"
+  const isFreezePrep = ctx?.match.by === "seasonalFamily" && ctx.match.family === "freeze_prep"
 
   // On entering confirm for a sweep-eligible chip, load similar tasks (default all checked).
   useEffect(() => {
@@ -101,6 +125,10 @@ export function TaskFeedbackSheet({
     return () => { cancelled = true }
   }, [step, sweepEligible, homeId, taskTemplateId])
 
+  useEffect(() => {
+    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight })
+  }, [messages, discussLoading])
+
   const planSummary = useMemo(() => {
     switch (resolution?.action) {
       case "suppress": return `Hide "${title}"`
@@ -114,6 +142,37 @@ export function TaskFeedbackSheet({
 
   const affectedCount = 1 + (sweepEligible ? sweep.size : 0)
 
+  /** Route a fully-specified resolution to the safety gate (hazard downgrade) or confirm. */
+  function proceed() {
+    if (!resolution) return
+    setError(null)
+    if (hazardous && isDowngrade(resolution)) setStep("pushback")
+    else setStep("confirm")
+  }
+
+  function acceptProposal(p: DiscussProposal) {
+    const r = proposalToResolution(p)
+    if (!r) return
+    setVia("discuss")
+    if (p.action === "suppress") setChip("not_relevant")
+    else if (p.action === "tier_remap") { setChip("wrong_priority"); setTierChoice(p.toTier ?? null) }
+    else if (p.action === "cadence") { setChip("too_often"); setCadenceChoice(p.scheduleType ?? null) }
+    else if (p.action === "reschedule_season") { setChip("wrong_season"); setSeasonChoice(p.season ?? null) }
+    if (hazardous && isDowngrade(r)) setStep("pushback")
+    else setStep("confirm")
+  }
+
+  async function sendDiscuss(text: string) {
+    const history = messages
+    setMessages((m) => [...m, { role: "user", content: text }])
+    setDiscussLoading(true); setDiscussProposal(null); setDiscussError(null)
+    const res = await discussTask(homeId, taskTemplateId, text, history)
+    setDiscussLoading(false)
+    if (res.error) { setDiscussError(res.error.message); return }
+    setMessages((m) => [...m, { role: "assistant", content: res.data.explanation }])
+    setDiscussProposal(res.data.proposal)
+  }
+
   async function apply() {
     if (!resolution || !user) return
     setSubmitting(true); setError(null)
@@ -126,7 +185,13 @@ export function TaskFeedbackSheet({
       note: note.trim() || null,
       sweepTemplateIds: sweepEligible ? [...sweep] : [],
       match: sweepEligible ? (ctx?.match ?? null) : null,
+      via,
+      hazardOverride: !!hazardous && isDowngrade(resolution),
     })
+    if (!res.error && freezeFree && isFreezePrep) {
+      // Backfill the home profile so future parses skip winterizing too (the loop).
+      await upsertHomeProfile(homeId, { climate: "mild", freeze_risk: false })
+    }
     setSubmitting(false)
     if (res.error) { setError(res.error.message); return }
     setResult(res.data)
@@ -143,13 +208,16 @@ export function TaskFeedbackSheet({
     <>
       <div onClick={onClose} className="absolute inset-0 z-40" style={{ background: "rgba(8,12,11,0.4)" }} />
       <div
-        className="absolute inset-x-0 bottom-0 z-[41] max-h-[85%] overflow-y-auto rounded-t-[20px] px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)]"
+        className="absolute inset-x-0 bottom-0 z-[41] flex max-h-[88%] flex-col overflow-hidden rounded-t-[20px] shadow-[0_-8px_30px_rgba(0,0,0,0.18)]"
         style={{ background: "var(--hh-surface)" }}
         role="dialog"
         aria-label="Tune this task"
       >
-        <div className="mx-auto mb-4 h-1 w-9 rounded-full" style={{ background: "rgba(15,23,42,0.15)" }} />
+        <div className="shrink-0 px-5 pt-4">
+          <div className="mx-auto mb-3 h-1 w-9 rounded-full" style={{ background: "rgba(15,23,42,0.15)" }} />
+        </div>
 
+        <div className="flex-1 overflow-y-auto px-5 pb-[calc(18px+env(safe-area-inset-bottom))]" style={{ display: step === "discuss" ? "flex" : "block", flexDirection: "column" }}>
         {/* ── SUCCESS ── */}
         {result ? (
           <div className="pb-2">
@@ -178,7 +246,7 @@ export function TaskFeedbackSheet({
                 <button
                   key={c.key}
                   type="button"
-                  onClick={() => { setChip(c.key); setTierChoice(null); setCadenceChoice(null); setSeasonChoice(null) }}
+                  onClick={() => { setChip(c.key); setTierChoice(null); setCadenceChoice(null); setSeasonChoice(null); setVia("chip") }}
                   className="flex items-center justify-between rounded-[12px] px-3.5 py-3 text-left"
                   style={chip === c.key
                     ? { border: "1.5px solid var(--hh-teal)", background: "var(--hh-teal-wash)" }
@@ -191,15 +259,21 @@ export function TaskFeedbackSheet({
                   {chip === c.key && <CheckIcon className="size-[18px]" strokeWidth={2.6} style={{ color: TEAL }} />}
                 </button>
               ))}
-              {/* Discuss — AI negotiation, Phase C */}
-              <div className="flex items-center gap-2 rounded-[12px] px-3.5 py-3" style={{ border: "1px dashed var(--hh-line2)", opacity: 0.65 }}>
-                <MessageCircleIcon className="size-[16px]" style={{ color: FAINT }} />
-                <span className="flex-1 text-[13.5px] font-semibold" style={{ color: SUB }}>Discuss with the assistant</span>
-                <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.4px]" style={{ background: "var(--hh-surface2)", color: FAINT }}>Soon</span>
-              </div>
+              {/* Discuss — AI conversation (Phase C) */}
+              <button
+                type="button"
+                onClick={() => setStep("discuss")}
+                className="flex items-center gap-2 rounded-[12px] px-3.5 py-3 text-left"
+                style={{ border: "1px solid var(--hh-line2)", background: "var(--hh-surface)" }}
+              >
+                <MessageCircleIcon className="size-[16px]" style={{ color: TEAL }} />
+                <span className="flex-1">
+                  <span className="block text-[14.5px] font-bold" style={{ color: INK }}>Discuss with the assistant</span>
+                  <span className="block text-[12px]" style={{ color: SUB }}>Ask why it's here, or talk it through</span>
+                </span>
+              </button>
             </div>
 
-            {/* Sub-choice for chips that need one */}
             {chip === "wrong_priority" && (
               <SubPicker label="Set priority to">
                 {TIER_OPTS.filter((t) => t.key !== tier).map((t) => (
@@ -224,15 +298,89 @@ export function TaskFeedbackSheet({
 
             <button
               disabled={!resolution}
-              onClick={() => setStep("confirm")}
+              onClick={proceed}
               className="mt-5 w-full rounded-[14px] py-3.5 text-[15px] font-bold text-white disabled:opacity-40"
               style={{ background: TEAL }}
             >
               Continue
             </button>
           </>
+        ) : step === "discuss" ? (
+          /* ── DISCUSS: AI conversation ── */
+          <>
+            <div className="shrink-0 text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Discuss</div>
+            <p className="shrink-0 mb-3 mt-0.5 text-[13px] leading-snug" style={{ color: SUB }}>
+              About <span className="font-semibold" style={{ color: INK }}>{title}</span>. Grounded in your manual and home profile.
+            </p>
+            <div ref={threadRef} className="min-h-[120px] flex-1 space-y-2.5 overflow-y-auto">
+              {messages.length === 0 && !discussLoading && (
+                <div className="rounded-xl px-3.5 py-3 text-[13.5px] leading-snug" style={{ background: "var(--hh-surface2)", color: SUB }}>
+                  Try: "Why is this Essential?" · "We're in a mild climate — does this apply?" · "Can I do this less often?"
+                </div>
+              )}
+              {messages.map((m, i) => (
+                <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
+                  <div
+                    className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-snug"
+                    style={m.role === "user"
+                      ? { background: TEAL, color: "white" }
+                      : { background: "var(--hh-surface2)", color: INK }}
+                  >
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {discussLoading && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl px-3.5 py-2.5 text-[13.5px]" style={{ background: "var(--hh-surface2)", color: FAINT }}>Thinking…</div>
+                </div>
+              )}
+              {discussProposal && !discussLoading && (
+                <div className="rounded-xl p-3" style={{ border: "1.5px solid var(--hh-teal)", background: "var(--hh-teal-wash)" }}>
+                  <div className="flex items-start gap-2">
+                    <SparklesIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
+                    <span className="text-[13px] leading-snug" style={{ color: "#3A4A45" }}>{discussProposal.rationale}</span>
+                  </div>
+                  <button onClick={() => acceptProposal(discussProposal)} className="mt-2.5 w-full rounded-[12px] py-2.5 text-[13.5px] font-bold text-white" style={{ background: TEAL }}>
+                    Apply this change
+                  </button>
+                </div>
+              )}
+              {discussError && <p className="text-[13px] font-semibold" style={{ color: CLAY }}>{discussError}</p>}
+            </div>
+            <div className="shrink-0 pt-2">
+              <ChatInput onSend={sendDiscuss} disabled={discussLoading} />
+              <button onClick={() => setStep("choose")} className="mt-2 text-[13px] font-semibold" style={{ color: SUB }}>← Back to options</button>
+            </div>
+          </>
+        ) : step === "pushback" ? (
+          /* ── SAFETY PUSHBACK (hazard downgrade) ── */
+          <>
+            <div className="mb-1 flex items-center gap-2.5">
+              <span className="flex size-[30px] items-center justify-center rounded-full" style={{ background: "var(--hh-clay-soft)" }}>
+                <ShieldAlertIcon className="size-[18px]" style={{ color: CLAY }} />
+              </span>
+              <div className="text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>A safety check first</div>
+            </div>
+            <div className="mt-3 rounded-xl px-3.5 py-3 text-[13.5px] leading-relaxed text-pretty" style={{ background: "var(--hh-surface2)", color: "#3A4A45" }}>
+              {justification?.trim() || "This task guards against a gas, combustion, or electrical hazard."}
+              {manualPage != null && <> The manual covers the full procedure and warnings on p.{manualPage}.</>}
+              <div className="mt-2 font-semibold" style={{ color: INK }}>Gas, combustion, and electrical work is best left to a licensed professional.</div>
+            </div>
+            <button
+              onClick={() => { onClose(); navigate("/providers") }}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-bold text-white"
+              style={{ background: TEAL }}
+            >
+              <PhoneIcon className="size-[16px]" /> Talk to a pro
+            </button>
+            <div className="mt-2.5 flex gap-2.5">
+              <button onClick={onClose} className="flex-1 rounded-[14px] py-3 text-[14px] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>Keep the task</button>
+              <button onClick={() => setStep("confirm")} className="flex-1 rounded-[14px] py-3 text-[14px] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}>Continue anyway</button>
+            </div>
+          </>
         ) : (
-          /* ── STEP 2: confirm + sweep ── */
+          /* ── CONFIRM + sweep ── */
           <>
             <div className="text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Confirm</div>
             <div className="mt-3 flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: "var(--hh-surface2)" }}>
@@ -275,6 +423,20 @@ export function TaskFeedbackSheet({
               </div>
             )}
 
+            {isFreezePrep && chip === "not_relevant" && (
+              <button
+                type="button"
+                onClick={() => setFreezeFree((v) => !v)}
+                className="mt-4 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left"
+                style={{ border: freezeFree ? "1.5px solid var(--hh-teal)" : "1px solid var(--hh-line2)", background: freezeFree ? "var(--hh-teal-wash)" : "var(--hh-surface)" }}
+              >
+                <span className="flex size-[20px] shrink-0 items-center justify-center rounded-[6px]" style={{ border: freezeFree ? "none" : "1.5px solid var(--hh-line2)", background: freezeFree ? TEAL : "transparent" }}>
+                  {freezeFree && <CheckIcon className="size-[13px] text-white" strokeWidth={3} />}
+                </span>
+                <span className="text-[13px] font-semibold leading-snug" style={{ color: INK }}>My home doesn't freeze — skip winterizing on future scans too</span>
+              </button>
+            )}
+
             <div className="mt-4">
               <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>Add a note (optional)</div>
               <textarea
@@ -287,7 +449,7 @@ export function TaskFeedbackSheet({
               />
             </div>
 
-            {error && <p className="mt-3 text-[13px] font-semibold" style={{ color: "var(--hh-clay)" }}>{error}</p>}
+            {error && <p className="mt-3 text-[13px] font-semibold" style={{ color: CLAY }}>{error}</p>}
 
             <div className="mt-5 flex gap-2.5">
               <button onClick={() => { setStep("choose"); setError(null) }} className="rounded-[14px] px-4 py-3.5 text-[14px] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>Back</button>
@@ -302,6 +464,7 @@ export function TaskFeedbackSheet({
             </div>
           </>
         )}
+        </div>
       </div>
     </>
   )

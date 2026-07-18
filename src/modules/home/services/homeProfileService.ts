@@ -6,6 +6,8 @@ export type HomeType = "house" | "condo" | "townhouse" | "apartment" | "other"
 export type Ownership = "own" | "rent"
 export type OwnershipDuration = "new_under_1yr" | "1_to_5yr" | "5_plus"
 export type PreferredMode = "ask_first" | "inventory_first" | "unset"
+/** Local climate — read by house-rule application (freeze_prep suppression) and tiering. */
+export type Climate = "mild" | "moderate" | "cold" | "hot"
 
 /**
  * Concerns keys are stable strings; labels live in the UI.
@@ -40,6 +42,11 @@ export type HomeProfile = {
   ownership_duration: OwnershipDuration | null
   top_concerns: TopConcernKey[]
   preferred_mode: PreferredMode
+  /** Local climate (mild/moderate/cold/hot); null until the owner answers. */
+  climate: Climate | null
+  /** True if pipes/appliances can freeze here. `false` suppresses winterizing
+   *  (freeze_prep) tasks during a parse; null = unknown (no effect). */
+  freeze_risk: boolean | null
   completed_at: string | null
   created_at: string
   updated_at: string
@@ -51,6 +58,8 @@ export type HomeProfileUpsert = {
   ownership_duration?: OwnershipDuration | null
   top_concerns?: TopConcernKey[]
   preferred_mode?: PreferredMode
+  climate?: Climate | null
+  freeze_risk?: boolean | null
   /** When omitted, caller hasn't finished the flow. Pass `new Date().toISOString()` on completion. */
   completed_at?: string | null
 }
@@ -68,6 +77,8 @@ function toHomeProfile(homeId: string, d: DocumentData): HomeProfile {
     ownership_duration: (d.ownershipDuration ?? null) as OwnershipDuration | null,
     top_concerns: sanitizeTopConcerns(d.topConcerns),
     preferred_mode: (d.preferredMode ?? "unset") as PreferredMode,
+    climate: (d.climate ?? null) as Climate | null,
+    freeze_risk: typeof d.freezeRisk === "boolean" ? d.freezeRisk : null,
     completed_at: hpIso(d.profileCompletedAt),
     created_at: hpIso(d.createdAt) ?? "",
     updated_at: hpIso(d.updatedAt) ?? "",
@@ -82,6 +93,8 @@ function patchToFields(patch: HomeProfileUpsert): DocumentData {
   if (patch.ownership_duration !== undefined) f.ownershipDuration = patch.ownership_duration
   if (patch.top_concerns !== undefined) f.topConcerns = sanitizeTopConcerns(patch.top_concerns)
   if (patch.preferred_mode !== undefined) f.preferredMode = patch.preferred_mode
+  if (patch.climate !== undefined) f.climate = patch.climate
+  if (patch.freeze_risk !== undefined) f.freezeRisk = patch.freeze_risk
   if (patch.completed_at !== undefined)
     f.profileCompletedAt = patch.completed_at ? Timestamp.fromDate(new Date(patch.completed_at)) : null
   return f

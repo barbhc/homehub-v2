@@ -63,6 +63,8 @@ export {
   submitTaskFeedback,
   listHouseRules,
   deleteHouseRule,
+  discussTask,
+  proposalToResolution,
   type FeedbackChip,
   type Resolution,
   type HouseRule,
@@ -72,6 +74,9 @@ export {
   type SubmitFeedbackInput,
   type SubmitFeedbackResult,
   type RuleMatch,
+  type DiscussMessage,
+  type DiscussProposal,
+  type DiscussResult,
 } from "./services/taskFeedbackService"
 
 export { assignTaskInstance } from "./services/taskService"

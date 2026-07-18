@@ -78,3 +78,54 @@ test("commitManualDraft path: edited PreviewTask/Chunk normalize + commit", asyn
   assert.equal(tpl.get("schedule").scheduleType, "monthly")
   assert.ok(Array.isArray(tpl.get("steps")) && tpl.get("steps").length === 3, "instructions → 3 structured steps")
 })
+
+// ── Phase B: learned house rules applied during commit ───────────────────────
+function previewTask(over) {
+  return {
+    title: "Task", description: null, care_type: "maintenance", priority_tier: "essential",
+    risk_level: "comfort", estimated_minutes: 10, schedule_type: "annual", interval_days: null,
+    instructions_text: null, symptom_tags: [], re_check_triggers: [], applies_to: [], supplies: [],
+    ...over,
+  }
+}
+
+test("houseRules apply during commit: suppress drops, tier_remap rewrites, others pass", async () => {
+  const H = "home-rules"
+  await db.doc(`homes/${H}`).set({ name: "Rules Home", freezeRisk: true })
+  await db.doc(`homes/${H}/manuals/m1`).set({ itemUnitId: "item1", title: "Manual" })
+  await db.doc(`homes/${H}/houseRules/r1`).set({ kind: "suppress", match: { by: "symptomTags", tags: ["odor"] }, isActive: true, deletedAt: null })
+  await db.doc(`homes/${H}/houseRules/r2`).set({ kind: "tier_remap", match: { by: "seasonalFamily", family: "freeze_prep" }, toTier: "optional", isActive: true, deletedAt: null })
+
+  const tasks = [
+    previewTask({ title: "Clean the drain trap", symptom_tags: ["odor"] }),           // suppressed
+    previewTask({ title: "Winterize the outdoor faucet", schedule_type: "seasonal" }), // → optional
+    previewTask({ title: "Test smoke & CO detectors", risk_level: "safety" }),         // untouched
+  ]
+  const item = { itemUnitId: "item1", item_category: "major_appliance", sub_type: null, display_name: "X", model: null, accessories: [] }
+  const res = await commitDraft(db, { homeId: H, manualId: "m1", item, requestId: "rules-1", chunks: [], tasks: tasks.map((t) => normalizeTaskRow(t)), now: NOW })
+
+  assert.equal(res.tasks, 2, "suppressed row is not committed")
+  const tpls = (await db.collection(`homes/${H}/taskTemplates`).get()).docs
+  const byTitle = Object.fromEntries(tpls.map((d) => [d.get("title"), d]))
+  assert.equal(tpls.length, 2)
+  assert.ok(!byTitle["Clean the drain trap"], "odor task suppressed")
+  assert.equal(byTitle["Winterize the outdoor faucet"].get("priorityTier"), "optional", "freeze_prep retiered")
+  assert.equal(byTitle["Test smoke & CO detectors"].get("priorityTier"), "essential", "untouched task keeps its tier")
+})
+
+test("climate: freezeRisk=false suppresses winterizing at parse time", async () => {
+  const H = "home-climate"
+  await db.doc(`homes/${H}`).set({ name: "Mild Home", freezeRisk: false })
+  await db.doc(`homes/${H}/manuals/m1`).set({ itemUnitId: "item1", title: "Manual" })
+
+  const tasks = [
+    previewTask({ title: "Winterize the sprinkler line", schedule_type: "seasonal" }), // suppressed by climate
+    previewTask({ title: "Vacuum the refrigerator coils" }),                            // kept
+  ]
+  const item = { itemUnitId: "item1", item_category: "major_appliance", sub_type: null, display_name: "X", model: null, accessories: [] }
+  const res = await commitDraft(db, { homeId: H, manualId: "m1", item, requestId: "climate-1", chunks: [], tasks: tasks.map((t) => normalizeTaskRow(t)), now: NOW })
+
+  assert.equal(res.tasks, 1, "winterizing suppressed for a freeze-free home")
+  const titles = (await db.collection(`homes/${H}/taskTemplates`).get()).docs.map((d) => d.get("title"))
+  assert.deepEqual(titles, ["Vacuum the refrigerator coils"])
+})

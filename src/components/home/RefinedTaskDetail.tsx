@@ -12,6 +12,7 @@ import {
 import { getHomeMembers, type HomeMember } from "@/modules/home"
 import { canAssignTasks } from "@/modules/care"
 import { TaskFeedbackSheet } from "@/components/care/TaskFeedbackSheet"
+import { classifyActorFromText } from "@/lib/taskActor"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
@@ -307,6 +308,9 @@ export function RefinedTaskDetail({
           taskInstanceId={detail.taskInstanceId}
           title={detail.title}
           tier={detail.tier}
+          justification={detail.justification}
+          manualPage={detail.manualPage}
+          hazardous={classifyActorFromText([detail.title, detail.notes, detail.justification].filter(Boolean).join(" ")) === "hazardous"}
           onClose={() => setFeedbackOpen(false)}
           onApplied={() => { setFeedbackOpen(false); onBack() }}
         />
