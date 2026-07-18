@@ -58,6 +58,22 @@ export {
 
 export { computeNextDueDate } from "./services/nextDueDate"
 
+export {
+  getFeedbackContext,
+  submitTaskFeedback,
+  listHouseRules,
+  deleteHouseRule,
+  type FeedbackChip,
+  type Resolution,
+  type HouseRule,
+  type HouseRuleKind,
+  type SimilarTask,
+  type FeedbackContext,
+  type SubmitFeedbackInput,
+  type SubmitFeedbackResult,
+  type RuleMatch,
+} from "./services/taskFeedbackService"
+
 export { assignTaskInstance } from "./services/taskService"
 
 export {

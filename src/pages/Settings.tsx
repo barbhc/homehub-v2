@@ -26,6 +26,7 @@ import { HomeProfileSection } from "@/components/settings/HomeProfileSection"
 import { InterfaceLevelSection } from "@/components/settings/InterfaceLevelSection"
 import { ServiceProvidersSection } from "@/components/settings/ServiceProvidersSection"
 import { AdminToolsSection } from "@/components/settings/AdminToolsSection"
+import { HouseRulesSection } from "@/components/settings/HouseRulesSection"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useUserLevel } from "@/hooks/useUserLevel"
 import { useAppearance, type Appearance } from "@/lib/theme"
@@ -108,6 +109,7 @@ const SETTINGS_NAV: [string, string][] = [
   ["appearance", "Appearance"],
   ["tasks", "Custom tasks"],
   ["rooms", "Rooms"],
+  ["house-rules", "House rules"],
   ["home-profile", "Home profile"],
   ["providers", "Service providers"],
   ["members", "Members"],
@@ -885,6 +887,8 @@ export default function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {homeId && <HouseRulesSection homeId={homeId} />}
 
       {homeId && <div id="home-profile" className="scroll-mt-6"><HomeProfileSection homeId={homeId} /></div>}
 

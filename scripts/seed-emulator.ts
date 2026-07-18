@@ -163,6 +163,11 @@ async function seedTasks(items: Record<string, { id: string; name: string; room:
     { title: "Clean oven door glass", scope: "item_unit", itemKey: "range", care: "cleaning", tier: "optional", risk: "comfort", minutes: 15, schedule: "quarterly", dueOffset: 3 },
     { title: "Descale the dishwasher", scope: "item_unit", itemKey: "dishwasher", care: "cleaning", tier: "recommended", risk: "performance", minutes: 30, schedule: "monthly", dueOffset: 8 },
     { title: "Wipe refrigerator shelves", scope: "item_unit", itemKey: "fridge", care: "cleaning", tier: "optional", risk: "comfort", minutes: 20, schedule: "monthly", dueOffset: 9 },
+    // A winterize cluster — same freeze-prep family, so task-feedback's
+    // confirm-first sweep has something to find (the product's motivating case).
+    { title: "Winterize the outdoor faucet", scope: "home", care: "maintenance", tier: "recommended", risk: "prevent_damage", minutes: 15, schedule: "seasonal", season: "fall", dueOffset: 20, justification: "Draining the line before a freeze prevents a burst pipe." },
+    { title: "Winterize the washer for cold storage", scope: "item_unit", itemKey: "washer", care: "maintenance", tier: "recommended", risk: "prevent_damage", minutes: 20, schedule: "seasonal", season: "fall", dueOffset: 22, justification: "Water left inside can freeze and crack the pump." },
+    { title: "Freeze-protect the irrigation backflow", scope: "home", care: "maintenance", tier: "recommended", risk: "prevent_damage", minutes: 25, schedule: "seasonal", season: "fall", dueOffset: 25, justification: "An unprotected backflow preventer splits when it freezes." },
   ]
 
   let i = 0

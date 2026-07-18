@@ -129,6 +129,16 @@ service cloud.firestore {
         match /{document=**} { allow read, write: if isMember(homeId); }
       }
 
+      // ---- task feedback (append-only ledger) + learned house rules ----
+      // taskFeedback is the immutable audit trail: members append, nobody edits
+      // or deletes (a correction is a new entry). houseRules are the machine-
+      // applicable learned decisions — full member CRUD (soft-delete = isActive).
+      match /taskFeedback/{feedbackId} {
+        allow read, create: if isMember(homeId);
+        allow update, delete: if false;
+      }
+      match /houseRules/{ruleId}       { allow read, write: if isMember(homeId); }
+
       // ---- flat member-CRUD collections ----
       match /rooms/{roomId}            { allow read, write: if isMember(homeId); }
       match /items/{itemUnitId}        { allow read, write: if isMember(homeId); }

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
   RepeatIcon, InfoIcon, ClockIcon, MapPinIcon, CalendarIcon, PackageIcon, MinusIcon, PlusIcon,
-  BookOpenIcon, ArrowUpRightIcon,
+  BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon,
 } from "lucide-react"
 import {
   getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate,
@@ -11,6 +11,7 @@ import {
 } from "@/modules/care"
 import { getHomeMembers, type HomeMember } from "@/modules/home"
 import { canAssignTasks } from "@/modules/care"
+import { TaskFeedbackSheet } from "@/components/care/TaskFeedbackSheet"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
@@ -66,6 +67,7 @@ export function RefinedTaskDetail({
   const [loading, setLoading] = useState(true)
   const [assignOpen, setAssignOpen] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [done, setDone] = useState<{ nextDue: string | null } | null>(null)
 
   useEffect(() => {
@@ -206,6 +208,16 @@ export function RefinedTaskDetail({
               {assignControl}
             </div>
           )}
+
+          {/* Feedback — "this task isn't right for my home". Opens the tune sheet
+              (archive / re-tier / re-cadence / re-season + confirm-first sweep). */}
+          <button
+            onClick={() => setFeedbackOpen(true)}
+            className="inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
+            style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}
+          >
+            <SlidersHorizontalIcon className="size-[15px]" /> Not quite right? Tune this task
+          </button>
         </div>
 
         {/* ── STICKY RIGHT RAIL (desktop only) ── */}
@@ -285,6 +297,18 @@ export function RefinedTaskDetail({
             await markTaskInstanceDone(homeId, detail.taskInstanceId, null, { completedOn, nextDueOverride: nextDue })
             setDone({ nextDue })
           }}
+        />
+      )}
+
+      {homeId && feedbackOpen && (
+        <TaskFeedbackSheet
+          homeId={homeId}
+          taskTemplateId={detail.taskTemplateId}
+          taskInstanceId={detail.taskInstanceId}
+          title={detail.title}
+          tier={detail.tier}
+          onClose={() => setFeedbackOpen(false)}
+          onApplied={() => { setFeedbackOpen(false); onBack() }}
         />
       )}
     </div>
