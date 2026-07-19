@@ -355,6 +355,13 @@ export function RefinedHome({
   const upcoming = upcomingAll.slice(0, UPCOMING_CAP)
   const moreThisWeek = upcomingAll.length - upcoming.length
 
+  // The hero is simply the SOONEST task — it is often NOT due today. Hardcoding
+  // "Due today" above a card that reads "In 3 days" looks like a bug, so the
+  // label follows the actual due date. (Same for the count: these aren't
+  // guaranteed to fall inside this week.)
+  const heroDays = hero ? dueDays(hero) : 0
+  const heroLabel = heroDays < 0 ? "Overdue" : heroDays === 0 ? "Due today" : "Next up"
+
   const showUpkeep = level !== "essentials"
   const showClean = level === "power"
 
@@ -372,8 +379,8 @@ export function RefinedHome({
         {hero ? (
           <>
             <div className="flex flex-col gap-2.5">
-              <SectionLabel right={upcomingAll.length > 0 ? <span className="whitespace-nowrap pl-2.5 text-[12.5px] font-medium" style={{ color: SUB }}>{upcomingAll.length} more this week</span> : undefined}>
-                Due today
+              <SectionLabel right={upcomingAll.length > 0 ? <span className="whitespace-nowrap pl-2.5 text-[12.5px] font-medium" style={{ color: SUB }}>{upcomingAll.length} more</span> : undefined}>
+                {heroLabel}
               </SectionLabel>
               <TaskHero d={d} task={hero} homeId={homeId} completing={completingId === hero.id} onComplete={onComplete} />
             </div>

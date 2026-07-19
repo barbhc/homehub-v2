@@ -232,13 +232,44 @@ export async function getItemUnit(homeId: string, itemUnitId: string): Promise<S
 
 export type SoftDeleteResult = { success: true } | { success: false; error: string }
 
-/** Soft-deletes an item_unit (sets deletedAt). */
+/**
+ * Soft-deletes an item_unit AND cascades to the work it generated.
+ *
+ * Without the cascade, deleting an item left its task templates + scheduled
+ * instances live forever — they kept surfacing on Home/Tasks for an appliance
+ * the owner had removed (observed in prod: a deleted duplicate "Cafe Range"
+ * still driving 9 tasks, which read as duplicates of the kept item's tasks).
+ *
+ * COMPLETED instances are deliberately preserved: they're real history of work
+ * that was actually done, and the completion timeline should keep showing them.
+ */
 export async function softDeleteItemUnit(homeId: string, itemUnitId: string): Promise<SoftDeleteResult> {
   try {
     const now = serverTimestamp()
-    await writeBatch(db)
-      .set(doc(db, `homes/${homeId}/items/${itemUnitId}`), { deletedAt: now, updatedAt: now }, { merge: true })
-      .commit()
+    const batch = writeBatch(db)
+    batch.set(doc(db, `homes/${homeId}/items/${itemUnitId}`), { deletedAt: now, updatedAt: now }, { merge: true })
+
+    // The item's task templates.
+    const tplSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskTemplates`), where("itemUnitId", "==", itemUnitId))
+    )
+    for (const d of tplSnap.docs) {
+      if (d.get("deletedAt") != null) continue
+      batch.set(d.ref, { isActive: false, deletedAt: now, updatedAt: now }, { merge: true })
+    }
+
+    // Their still-open instances (status filtered client-side to avoid a composite index).
+    const instSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskInstances`), where("itemUnitId", "==", itemUnitId))
+    )
+    for (const d of instSnap.docs) {
+      const status = d.get("status")
+      if (d.get("deletedAt") == null && (status === "scheduled" || status === "snoozed")) {
+        batch.set(d.ref, { deletedAt: now, updatedAt: now }, { merge: true })
+      }
+    }
+
+    await batch.commit()
     return { success: true }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Request failed" }
