@@ -160,12 +160,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     provider.addScope("email")
     provider.addScope("name")
     try {
-      // The native WKWebView blocks popups (auth/popup-blocked), so the iOS/Android
-      // shell must use a full-page redirect. On the web we keep the popup — its
-      // in-page return avoids the third-party-storage partitioning that breaks the
-      // redirect flow (authDomain isn't same-origin) — and fall back to redirect only
-      // if the browser itself blocks the popup.
+      // Native iOS/Android: use the OS-native Apple sheet (no Safari bounce), then
+      // exchange the identity token for a Firebase session. If the native plugin
+      // isn't in this build yet (pre-rebuild), fall back to the web redirect so
+      // sign-in still works.
       if (isNativePlatform()) {
+        try {
+          const { signInWithAppleNative, AppleNativeUnavailable, AppleNativeCancelled } = await import("@/lib/nativeAppleAuth")
+          try {
+            await signInWithAppleNative()
+            return { error: null }
+          } catch (nativeErr) {
+            if (nativeErr instanceof AppleNativeCancelled) return { error: new Error(nativeErr.message) }
+            if (!(nativeErr instanceof AppleNativeUnavailable)) throw nativeErr
+            // plugin not synced into this build yet → graceful fallback below
+          }
+        } catch (importErr) {
+          void importErr // module/plugin unavailable → fall through to redirect
+        }
         await signInWithRedirect(auth, provider)
         return { error: null } // completes on the return load via getRedirectResult
       }
