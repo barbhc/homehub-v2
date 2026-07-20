@@ -22,10 +22,15 @@ describe("seasonalFamily", () => {
   })
 })
 
-describe("ruleMatchFor — most-general signal wins", () => {
-  it("prefers symptomTags when present", () => {
-    const m = ruleMatchFor(task({ taskTemplateId: "a", title: "Winterize pump", symptomTags: ["leaking"] }))
-    expect(m).toEqual({ by: "symptomTags", tags: ["leaking"] })
+describe("ruleMatchFor — most-specific signal wins", () => {
+  it("ignores symptomTags for grouping (they over-match across appliances)", () => {
+    // A winterize title still groups by seasonalFamily, regardless of its tags.
+    expect(ruleMatchFor(task({ taskTemplateId: "a", title: "Winterize pump", symptomTags: ["leaking"] })))
+      .toEqual({ by: "seasonalFamily", family: "freeze_prep" })
+    // The prod bug: a tagged but non-seasonal task must be SELF-ONLY (no sweep),
+    // not grouped with every task sharing "odor"/"performance_drop".
+    expect(ruleMatchFor(task({ taskTemplateId: "nespresso", title: "Replace Water in the Tank", symptomTags: ["odor", "performance_drop"] })))
+      .toEqual({ by: "template", taskTemplateId: "nespresso" })
   })
   it("falls back to seasonalFamily from the title", () => {
     const m = ruleMatchFor(task({ taskTemplateId: "a", title: "Winterize Washer" }))

@@ -42,12 +42,18 @@ export function seasonalFamily(title: string): string | null {
 }
 
 /**
- * The best available match predicate for a task, most-general first:
- *   symptomTags (problem family) › seasonalFamily (winterize kin) › season ›
- *   the single template (nothing groupable — feedback still applies to it alone).
+ * The best available match predicate for a task, most-specific first:
+ *   seasonalFamily (winterize kin) › season › the single template (nothing
+ *   groupable — feedback still applies to it alone).
+ *
+ * symptomTags are deliberately NOT used to group the sweep. They're
+ * troubleshooting tags — which PROBLEM a task addresses (e.g. "performance_drop"
+ * lands on a quarter of all tasks) — so matching on a shared generic tag pulled
+ * dozens of unrelated tasks across every appliance into one "similar" set. The
+ * sweep now groups only on title-specific (winterize) / schedule (season)
+ * signals. (`matchesRule` still honors any pre-existing symptomTags rule.)
  */
 export function ruleMatchFor(task: TaskLike): RuleMatch {
-  if (task.symptomTags.length > 0) return { by: "symptomTags", tags: [...task.symptomTags] }
   const fam = seasonalFamily(task.title)
   if (fam) return { by: "seasonalFamily", family: fam }
   if (task.scheduleType === "seasonal" && task.season) return { by: "season", season: task.season }
