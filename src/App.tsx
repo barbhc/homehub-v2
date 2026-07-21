@@ -1,14 +1,28 @@
 // Deploy re-trigger 2026-06-17: the Phase A merge (d30a027) did not fire a
 // Vercel production build automatically; this no-op forces a fresh deploy.
-import { Suspense } from "react"
+import { Suspense, useEffect } from "react"
 import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from "react-router-dom"
-import { AuthProvider, AuthGate } from "@/modules/auth"
+import { AuthProvider, AuthGate, useAuth } from "@/modules/auth"
 import { HomeProvider, HomeGate } from "@/modules/home"
 import { AppLayout } from "@/components/AppLayout"
 import { ErrorBoundary } from "@/components/layout"
 import { lazyWithRetry } from "@/lib/lazyWithRetry"
+import { hideBootSplash } from "@/lib/bootSplash"
 import Index from "@/pages/Index"
 import NotFound from "@/pages/NotFound"
+
+/**
+ * Dismisses the instant boot splash (painted by index.html) the moment auth
+ * resolves — at which point the app is rendering either the landing page or a
+ * redirect to /home, so real branded content is behind the fade.
+ */
+function BootSplashGate() {
+  const { loading } = useAuth()
+  useEffect(() => {
+    if (!loading) hideBootSplash()
+  }, [loading])
+  return null
+}
 
 // All routes use lazyWithRetry so stale-chunk errors after a deploy force a
 // single hard reload instead of crashing the ErrorBoundary. See the helper
@@ -60,6 +74,7 @@ function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
+          <BootSplashGate />
           <HomeProvider>
             <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading…</div>}>
             <Routes>
