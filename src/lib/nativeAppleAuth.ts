@@ -36,20 +36,33 @@ export class AppleNativeUnavailable extends Error {}
 /** Raised when the user dismisses the Apple sheet → caller shows a benign message. */
 export class AppleNativeCancelled extends Error {}
 
+/** Reject after `ms` so a hung native/Firebase call surfaces instead of freezing. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} (no response after ${ms / 1000}s)`)), ms)),
+  ])
+}
+
 export async function signInWithAppleNative(): Promise<void> {
   const rawNonce = randomNonce()
   const hashedNonce = await sha256Hex(rawNonce)
+  console.log("[apple-native] 1/4 requesting native Apple authorization")
 
-  let result
+  let result: Awaited<ReturnType<typeof SignInWithApple.authorize>>
   try {
-    result = await SignInWithApple.authorize({
-      // clientId/redirectURI are ignored on native iOS (it uses the app's own
-      // "Sign in with Apple" entitlement) but are required by the option type.
-      clientId: "com.bc.homehub",
-      redirectURI: "https://homehub-2068d.web.app",
-      scopes: "email name",
-      nonce: hashedNonce,
-    })
+    result = await withTimeout(
+      SignInWithApple.authorize({
+        // clientId/redirectURI are ignored on native iOS (it uses the app's own
+        // "Sign in with Apple" entitlement) but are required by the option type.
+        clientId: "com.bc.homehub",
+        redirectURI: "https://homehub-2068d.web.app",
+        scopes: "email name",
+        nonce: hashedNonce,
+      }),
+      60000,
+      "Apple didn't return a credential",
+    )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const code = (err as { code?: string })?.code
@@ -66,8 +79,11 @@ export async function signInWithAppleNative(): Promise<void> {
   }
 
   const idToken = result.response?.identityToken
+  console.log("[apple-native] 2/4 got Apple response — identityToken present:", !!idToken)
   if (!idToken) throw new Error("Apple didn't return an identity token.")
 
+  console.log("[apple-native] 3/4 exchanging for a Firebase session")
   const credential = new OAuthProvider("apple.com").credential({ idToken, rawNonce })
-  await signInWithCredential(auth, credential)
+  await withTimeout(signInWithCredential(auth, credential), 25000, "Firebase sign-in stalled")
+  console.log("[apple-native] 4/4 signed in")
 }
