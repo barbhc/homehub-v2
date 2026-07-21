@@ -47,7 +47,6 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 export async function signInWithAppleNative(): Promise<void> {
   const rawNonce = randomNonce()
   const hashedNonce = await sha256Hex(rawNonce)
-  console.log("[apple-native] 1/4 requesting native Apple authorization")
 
   let result: Awaited<ReturnType<typeof SignInWithApple.authorize>>
   try {
@@ -79,11 +78,8 @@ export async function signInWithAppleNative(): Promise<void> {
   }
 
   const idToken = result.response?.identityToken
-  console.log("[apple-native] 2/4 got Apple response — identityToken present:", !!idToken)
   if (!idToken) throw new Error("Apple didn't return an identity token.")
 
-  console.log("[apple-native] 3/4 exchanging for a Firebase session")
   const credential = new OAuthProvider("apple.com").credential({ idToken, rawNonce })
   await withTimeout(signInWithCredential(auth, credential), 25000, "Firebase sign-in stalled")
-  console.log("[apple-native] 4/4 signed in")
 }

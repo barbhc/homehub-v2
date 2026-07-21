@@ -17,8 +17,68 @@
       // Set theme class before paint to avoid a flash of the wrong appearance.
       (function(){try{var k='hh-appearance';var p=localStorage.getItem(k);if(p!=='light'&&p!=='dark'&&p!=='system')p='light';var d=p==='dark'||(p==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();
     </script>
+    <style>
+      /* Instant boot splash — painted before the JS bundle parses and before
+         web fonts load, so the ~3-5s cold start (iOS WebView launch + 1MB bundle
+         parse + auth restore) shows the brand instead of a blank white screen.
+         Uses only inline markup + system fonts so it needs zero network. React
+         fades it out via hideBootSplash() once auth resolves (src/lib/bootSplash.ts);
+         a safety timeout removes it even if that never fires. */
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        background: linear-gradient(155deg, #1B6B5A 0%, #2D9B82 100%);
+        opacity: 1;
+        transition: opacity 0.45s ease;
+      }
+      #boot-splash.boot-splash--hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #boot-splash .bs-mark {
+        width: 84px;
+        height: 84px;
+        animation: bs-breathe 1.7s ease-in-out infinite;
+        filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.18));
+      }
+      #boot-splash .bs-word {
+        font-family: "DM Serif Display", Georgia, "Times New Roman", serif;
+        font-size: 27px;
+        letter-spacing: 0.01em;
+        color: #ffffff;
+        opacity: 0.96;
+      }
+      @keyframes bs-breathe {
+        0%, 100% { transform: scale(0.93); opacity: 0.82; }
+        50%      { transform: scale(1);    opacity: 1;    }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash .bs-mark { animation: none; }
+      }
+    </style>
   </head>
   <body>
+    <div id="boot-splash" aria-hidden="true">
+      <svg class="bs-mark" viewBox="0 0 84 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M42 11 L71 35 V66 a5 5 0 0 1 -5 5 H18 a5 5 0 0 1 -5 -5 V35 Z" fill="#ffffff"/>
+        <path d="M30 48 l8 8 l16 -17" stroke="#1B6B5A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="bs-word">Homehub</div>
+    </div>
+    <script>
+      // Safety net: never trap the user on the splash if the app fails to signal
+      // ready (offline auth hang, JS error). Force-remove after 9s.
+      window.setTimeout(function () {
+        var el = document.getElementById("boot-splash");
+        if (el) { el.classList.add("boot-splash--hide"); window.setTimeout(function () { el.remove(); }, 500); }
+      }, 9000);
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
