@@ -1,9 +1,10 @@
 {
-  "comment": "Golden corpus for the parse-manual eval harness. manual_id refers to prod manual_document rows; the runner resolves each PDF from source_type/source_ref. model mirrors pickParseModel (gas/safety-critical items escalate to Opus).",
+  "comment": "Golden corpus for the parse-manual eval harness. home_id + manual_id refer to v2 Firestore docs (homes/{home_id}/manuals/{manual_id}); the runner resolves each PDF from sourceType/sourceRef (upload → Firebase Storage, url → fetch). model mirrors pickParseModel (gas/safety-critical escalate to Opus). Re-pointed from the deleted v1 Supabase to v2 Firebase; corpus rebuilt around live upload manuals in SF Condo, chosen to exercise the curate change (usage/config/unboxing offenders + genuine-maintenance baselines).",
   "manuals": [
-    { "name": "range-ge-gas", "manual_id": "27bf5e43-d076-4b7a-a0a4-850fca93d385", "model": "claude-opus-4-8", "note": "Gas range — safety-critical, escalated model" },
-    { "name": "microwave-drawer", "manual_id": "9a053574-c4ad-4e15-9913-30a6bb4251b2", "model": "claude-sonnet-4-6", "note": "Drawer microwave" },
-    { "name": "washer-lg", "manual_id": "150399bc-c86c-40f5-83cf-25b3bd5fc1fd", "model": "claude-sonnet-4-6", "note": "Large appliance manual (english-only upload)" },
-    { "name": "foodcycler", "manual_id": "3dd6282d-4cad-4f45-b5db-d9521a58a34d", "model": "claude-sonnet-4-6", "note": "Small appliance" }
+    { "name": "nespresso-vertuo", "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f", "manual_id": "24c0358b-83cc-4daa-8406-f9d819b3a970", "model": "claude-sonnet-4-6", "note": "Espresso machine — source of the 'Replace Water in the Tank' usage task (curate offender)" },
+    { "name": "ninja-creami", "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f", "manual_id": "39e02a6e-8b29-4904-aa70-20f4292d7069", "model": "claude-sonnet-4-6", "note": "Ice cream maker — 'Run a Processing Cycle' / 'Add Mix-Ins' usage-task offender" },
+    { "name": "foodcycler", "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f", "manual_id": "3dd6282d-4cad-4f45-b5db-d9521a58a34d", "model": "claude-sonnet-4-6", "note": "Compost appliance — bucket/sticker unboxing offenders + genuine bucket/filter maintenance" },
+    { "name": "washer-lg", "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f", "manual_id": "150399bc-c86c-40f5-83cf-25b3bd5fc1fd", "model": "claude-sonnet-4-6", "note": "LG washer — genuine-maintenance baseline (filters, seals, drain pump)" },
+    { "name": "furnace-york", "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f", "manual_id": "3720005b-303e-4e69-b269-1b91f3e66c9f", "model": "claude-opus-4-8", "note": "Gas furnace — install/service manual; validates essential tightening + pro-only handling" }
   ]
 }

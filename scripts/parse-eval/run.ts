@@ -17,8 +17,10 @@
  * review the diff report → only then deploy parse-manual. When an intentional
  * improvement changes the snapshot, re-baseline with --update-golden.
  */
-import { createClient } from "@supabase/supabase-js"
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
+import { initializeApp, cert } from "firebase-admin/app"
+import { getFirestore } from "firebase-admin/firestore"
+import { getStorage } from "firebase-admin/storage"
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { buildPrompt, samplingParamsFor, EXTRACTION_TOOL, extractParsedResult } from "../../shared/parse/parsePrompt"
@@ -34,17 +36,27 @@ const env = Object.fromEntries(
     .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
     .map((l) => {
       const i = l.indexOf("=")
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()]
+      // Strip surrounding quotes — some .env files quote values ("https://…"),
+      // and an unstripped quote yields a malformed URL → "fetch failed".
+      const val = l.slice(i + 1).trim().replace(/^(['"])(.*)\1$/, "$2")
+      return [l.slice(0, i).trim(), val]
     })
 )
-const SUPABASE_URL = env.VITE_SUPABASE_URL
-const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY
 const ANTHROPIC_KEY = env.ANTHROPIC_API_KEY
-if (!SUPABASE_URL || !SERVICE_KEY || !ANTHROPIC_KEY) {
-  console.error("Missing VITE_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / ANTHROPIC_API_KEY in .env")
+const STORAGE_BUCKET = env.VITE_FIREBASE_STORAGE_BUCKET || "homehub-2068d.firebasestorage.app"
+// PDFs now live in v2 Firebase Storage (the v1 Supabase project was deleted).
+// Auth with the admin service-account JSON — GOOGLE_APPLICATION_CREDENTIALS, else
+// auto-detect the firebase-adminsdk key sitting in the repo root.
+const saHit = readdirSync(ROOT).find((f) => /firebase-adminsdk.*\.json$/.test(f))
+const SA_KEY_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || (saHit ? join(ROOT, saHit) : null)
+if (!ANTHROPIC_KEY || !SA_KEY_PATH) {
+  console.error("Missing ANTHROPIC_API_KEY in .env, or no service-account JSON (set GOOGLE_APPLICATION_CREDENTIALS or drop the firebase-adminsdk key in the repo root)")
   process.exit(1)
 }
-const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+const sa = JSON.parse(readFileSync(SA_KEY_PATH, "utf8"))
+initializeApp({ credential: cert(sa), projectId: sa.project_id, storageBucket: STORAGE_BUCKET })
+const db = getFirestore()
+const bucket = getStorage().bucket()
 
 // ── Types (loose on purpose — we're scoring raw model output) ────────────────
 type RawTask = {
@@ -173,7 +185,7 @@ async function main() {
   const only = args.find((a) => a.startsWith("--only="))?.slice(7)
   const updateGolden = args.includes("--update-golden")
   const corpus = JSON.parse(readFileSync(join(HERE, "corpus.json"), "utf8")) as {
-    manuals: Array<{ name: string; manual_id: string; model: string; note?: string }>
+    manuals: Array<{ name: string; home_id: string; manual_id: string; model: string; note?: string }>
   }
   if (args.includes("--list")) {
     for (const m of corpus.manuals) console.log(`${m.name.padEnd(20)} ${m.model.padEnd(20)} ${m.manual_id}  ${m.note ?? ""}`)
@@ -188,15 +200,25 @@ async function main() {
 
   for (const m of targets) {
     console.log(`\n━━ ${m.name} (${m.model}) ━━`)
-    // Resolve PDF from prod manual_document (read-only)
-    const { data: doc, error } = await sb.from("manual_document").select("source_type, source_ref").eq("manual_id", m.manual_id).single()
-    if (error || !doc) { console.error(`  manual_document not found: ${error?.message}`); failures++; continue }
-    const pdfUrl = doc.source_type === "url"
-      ? String(doc.source_ref)
-      : `${SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/public/Manuals/${String(doc.source_ref).replace(/^\//, "")}`
-    const pdfRes = await fetch(pdfUrl, { redirect: "follow" })
-    if (!pdfRes.ok) { console.error(`  PDF fetch failed: HTTP ${pdfRes.status}`); failures++; continue }
-    const pdfBase64 = Buffer.from(await pdfRes.arrayBuffer()).toString("base64")
+    // Resolve PDF from v2 Firestore/Storage (read-only). Uploads → Storage object
+    // at sourceRef; url → direct fetch (some old refs point at the dead Supabase).
+    const manualSnap = await db.doc(`homes/${m.home_id}/manuals/${m.manual_id}`).get()
+    if (!manualSnap.exists) { console.error(`  manual not found: homes/${m.home_id}/manuals/${m.manual_id}`); failures++; continue }
+    const sourceType = String(manualSnap.get("sourceType") ?? "")
+    const sourceRef = String(manualSnap.get("sourceRef") ?? "")
+    let pdfBase64: string
+    try {
+      if (sourceType === "url") {
+        const r = await fetch(sourceRef, { redirect: "follow" })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        pdfBase64 = Buffer.from(await r.arrayBuffer()).toString("base64")
+      } else {
+        const [buf] = await bucket.file(sourceRef).download()
+        pdfBase64 = buf.toString("base64")
+      }
+    } catch (e) {
+      console.error(`  PDF fetch failed (${sourceType}): ${e instanceof Error ? e.message : e}`); failures++; continue
+    }
     console.log(`  pdf: ${Math.round(pdfBase64.length * 0.75 / 1024)} KB · extracting…`)
 
     let parsed: RawParse, meta: Awaited<ReturnType<typeof extract>>["meta"]
