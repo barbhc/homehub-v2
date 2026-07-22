@@ -41,6 +41,7 @@ export function makeCallClaudeText(apiKey: string): CallClaudeText {
 export type CallClaudeTool = (args: {
   model: string
   maxTokens: number
+  system?: string
   tool: Record<string, unknown>
   content: Array<Record<string, unknown>>
 }) => Promise<Record<string, unknown> | null>
@@ -48,10 +49,11 @@ export type CallClaudeTool = (args: {
 /** Real CallClaudeTool bound to an API key (forces tool_choice on `tool.name`). */
 export function makeCallClaudeTool(apiKey: string): CallClaudeTool {
   const client = new Anthropic({ apiKey })
-  return async ({ model, maxTokens, tool, content }) => {
+  return async ({ model, maxTokens, system, tool, content }) => {
     const res = await client.messages.create({
       model,
       max_tokens: maxTokens,
+      ...(system ? { system } : {}),
       tools: [tool as unknown as Anthropic.Tool],
       tool_choice: { type: "tool", name: String(tool.name) },
       messages: [{ role: "user", content: content as unknown as Anthropic.MessageParam["content"] }],

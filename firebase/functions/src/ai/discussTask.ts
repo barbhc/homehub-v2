@@ -152,7 +152,7 @@ ${manualExcerpt}`
     },
   ]
 
-  const out = await callClaudeTool({ model: MODEL, maxTokens: 700, tool: DISCUSS_TOOL, content })
+  const out = await callClaudeTool({ model: MODEL, maxTokens: 700, system, tool: DISCUSS_TOOL, content })
   const explanation = str(out?.explanation).slice(0, 1500) || "Sorry — I couldn't answer that. Try rephrasing."
   return { explanation, proposal: parseProposal(out?.proposal) }
 }
