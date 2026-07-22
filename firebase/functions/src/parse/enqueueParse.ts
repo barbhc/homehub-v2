@@ -9,6 +9,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { getFunctions } from "firebase-admin/functions"
 import type { ParseMode } from "./parseTypes.js"
+import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const REGION = "us-central1"
 /** Per-home cap on simultaneously in-flight parses (queue drains a bulk rescan
@@ -37,6 +38,10 @@ export const enqueueParse = onCall({ region: REGION }, async (request) => {
   const manualRef = db.doc(`homes/${homeId}/manuals/${manualId}`)
   const manual = await manualRef.get()
   if (!manual.exists) throw new HttpsError("not-found", "Manual not found.")
+
+  // The parse worker is the most expensive Claude call in the app — charge the
+  // enqueuing user's daily quota here (the worker itself has no caller context).
+  await consumeDailyAiQuota(db, uid, "enqueueParse")
 
   // In-flight cap.
   const inFlight = await db

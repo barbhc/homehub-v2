@@ -12,7 +12,7 @@
  * Retrieval + prompt wording are ported verbatim from v1 (answer quality depends
  * on the exact system prompts).
  */
-import { onRequest } from "firebase-functions/v2/https"
+import { onRequest, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
@@ -20,6 +20,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
 import { rankChunks } from "./chunkRanking.js"
+import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const BRAVE_SEARCH_API_KEY = defineSecret("BRAVE_SEARCH_API_KEY")
@@ -121,6 +122,14 @@ export const chatQuery = onRequest(
     const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
     if (!member.exists) {
       res.status(403).json({ error: "Forbidden" })
+      return
+    }
+
+    // Daily AI quota — not an onCall, so surface it as a plain 429 before SSE.
+    try {
+      await consumeDailyAiQuota(db, uid, "chatQuery")
+    } catch (e) {
+      res.status(429).json({ error: e instanceof HttpsError ? e.message : "Daily AI limit reached. Please try again tomorrow." })
       return
     }
 
