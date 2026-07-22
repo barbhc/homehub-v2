@@ -11,13 +11,31 @@ import { initializeApp, type FirebaseApp } from "firebase/app"
  */
 export const USE_EMULATORS = import.meta.env.VITE_USE_EMULATORS === "true"
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "demo-api-key",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? "demo-homehub.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "demo-homehub",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? "demo-homehub.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "0",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID ?? "demo-app-id",
+export const DEMO_PROJECT_ID = "demo-homehub"
+
+const DEMO_CONFIG = {
+  apiKey: "demo-api-key",
+  authDomain: `${DEMO_PROJECT_ID}.firebaseapp.com`,
+  projectId: DEMO_PROJECT_ID,
+  storageBucket: `${DEMO_PROJECT_ID}.appspot.com`,
+  messagingSenderId: "0",
+  appId: "demo-app-id",
 }
+
+// Emulator mode pins the demo config WHOLESALE. A developer .env holding real
+// VITE_FIREBASE_* values (kept around for prod deploys) must never leak into
+// emulator runs: the Emulator Suite namespaces data by projectId, so a real
+// projectId reads an empty namespace and every seeded fixture silently
+// "disappears" (auth succeeds, memberships come back empty, e2e dies in setup).
+const firebaseConfig = USE_EMULATORS
+  ? DEMO_CONFIG
+  : {
+      apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? DEMO_CONFIG.apiKey,
+      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? DEMO_CONFIG.authDomain,
+      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? DEMO_CONFIG.projectId,
+      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? DEMO_CONFIG.storageBucket,
+      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? DEMO_CONFIG.messagingSenderId,
+      appId: import.meta.env.VITE_FIREBASE_APP_ID ?? DEMO_CONFIG.appId,
+    }
 
 export const firebaseApp: FirebaseApp = initializeApp(firebaseConfig)

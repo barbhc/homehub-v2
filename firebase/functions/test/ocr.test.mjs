@@ -5,7 +5,7 @@
  */
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { runOcrExtract } from "../lib/firebase/functions/src/ai/ocr.js"
+import { runOcrExtract, runOcrImageExtract, isEmptyExtraction } from "../lib/firebase/functions/src/ai/ocr.js"
 
 test("empty text short-circuits without calling Claude", async () => {
   let called = false
@@ -60,4 +60,44 @@ test("non-JSON model output degrades to empty extraction (never throws)", async 
   assert.equal(res.docType, "unknown")
   assert.equal(res.confidence, 0)
   assert.equal(res.brand, null)
+})
+
+test("image fallback sends the image block + pinned model and parses the reply", async () => {
+  let seen = null
+  const call = async (args) => {
+    seen = args
+    return JSON.stringify({
+      brand: "Bosch", model: "SHEM63W55N", name: "Bosch SHEM63W55N", serialNumber: null,
+      category: "dishwasher", purchaseDate: null, purchasePrice: null,
+      docType: "nameplate", confidence: 0.8,
+    })
+  }
+  const res = await runOcrImageExtract(call, "aGVsbG8=", "image/jpeg")
+  assert.equal(res.brand, "Bosch")
+  assert.equal(res.docType, "nameplate")
+  assert.equal(seen.model, "claude-3-5-haiku-20241022")
+  const imageBlock = seen.content.find((b) => b.type === "image")
+  assert.ok(imageBlock, "expected an image content block")
+  assert.equal(imageBlock.source.media_type, "image/jpeg")
+  assert.equal(imageBlock.source.data, "aGVsbG8=")
+  const textBlock = seen.content.find((b) => b.type === "text")
+  assert.ok(textBlock?.text.includes("docType"), "image prompt carries the shared schema")
+})
+
+test("image fallback degrades to empty extraction on non-JSON output", async () => {
+  const call = async () => "The label is too blurry to read."
+  const res = await runOcrImageExtract(call, "aGVsbG8=", "image/jpeg")
+  assert.equal(isEmptyExtraction(res), true)
+})
+
+test("isEmptyExtraction: any single useful field makes it non-empty", () => {
+  const empty = {
+    brand: null, model: null, name: null, serialNumber: null, category: null,
+    purchaseDate: null, purchasePrice: null, docType: "unknown", confidence: 0,
+  }
+  assert.equal(isEmptyExtraction(empty), true)
+  assert.equal(isEmptyExtraction({ ...empty, model: "AP-1512HH" }), false)
+  assert.equal(isEmptyExtraction({ ...empty, purchasePrice: 0 }), false)
+  // docType/confidence alone don't count — nothing a form field could use.
+  assert.equal(isEmptyExtraction({ ...empty, docType: "nameplate", confidence: 0.4 }), true)
 })
