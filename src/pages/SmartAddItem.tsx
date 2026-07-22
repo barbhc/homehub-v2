@@ -18,7 +18,7 @@ import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import { createItemUnit } from "@/modules/items"
 import { createTasksFromEditable } from "@/modules/care"
-import { uploadManualPdf, removeManualPdf } from "@/modules/inventory/services/storageService"
+import { uploadManualPdf, removeManualPdf, uploadItemPhoto } from "@/modules/inventory/services/storageService"
 import { resolveStorageUrl } from "@/integrations/firebase"
 import { deleteManualDocument } from "@/modules/knowledge/services/manualDocumentService"
 import { createManualDocument, parseManualAndWait, getChunksByItem, detectDocType, type DocType, type ParsedConfidence } from "@/modules/knowledge"
@@ -62,6 +62,10 @@ export default function SmartAddItem() {
   // input; photo/OCR stays one tap away ("Snap label photo" / Back → choice screen).
   const [identifyMode, setIdentifyMode] = useState<IdentifyMode>("manual")
   const [identifyData, setIdentifyData] = useState<IdentifyData>({ ...DEFAULT_IDENTIFY_DATA })
+  // Downscaled nameplate photo from IdentifyStep — attached as the item photo
+  // after creation. Not persisted in the wizard session (a File can't be), so
+  // a resumed session simply starts without one.
+  const [labelPhotoFile, setLabelPhotoFile] = useState<File | null>(null)
   const [manualDocGate, setManualDocGate] = useState<ManualClassificationGate | null>(null)
   const [manualStepKey, setManualStepKey] = useState(0)
   const [itemId, setItemId] = useState<string | null>(null)
@@ -160,6 +164,7 @@ export default function SmartAddItem() {
     setItemId(null)
     setIdentifyMode("manual")
     setIdentifyData({ ...DEFAULT_IDENTIFY_DATA })
+    setLabelPhotoFile(null)
     setManualDocGate(null)
     setManualStepKey((k) => k + 1)
     setHasManual(false)
@@ -203,9 +208,17 @@ export default function SmartAddItem() {
       setError("Could not create item")
       return
     }
+    // Attach the snapped nameplate as the item photo. Fire-and-forget: the
+    // upload survives the route change below, and a failure only costs the
+    // photo — never the item.
+    if (labelPhotoFile && user?.id) {
+      uploadItemPhoto(propertyId, created.item_unit_id, labelPhotoFile, user.id).then((r) => {
+        if (r.error) console.warn("[smart-add] label photo attach failed:", r.error.message)
+      })
+    }
     clearWizardSession()
     navigate(`/items/${created.item_unit_id}`)
-  }, [propertyId, identifyData, navigate])
+  }, [propertyId, identifyData, labelPhotoFile, user?.id, navigate])
 
   const runParseAfterManualUpload = useCallback(
     async (firstManualId: string, firstUrl: string | null) => {
@@ -502,6 +515,7 @@ export default function SmartAddItem() {
           isCreating={actionLoading}
           error={error}
           onRetry={() => setError(null)}
+          onLabelPhoto={setLabelPhotoFile}
         />
       )}
 

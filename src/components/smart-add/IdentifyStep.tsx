@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input"
 import { RoomSelector } from "@/components/smart-add/RoomSelector"
 import { CategoryPicker } from "@/modules/inventory/components/CategoryPicker"
 import { CategoryFields } from "@/modules/inventory/components/CategoryFields"
-import { extractFromImage, type OcrExtraction } from "@/modules/inventory/services/ocrService"
+import { extractFromImage, isEmptyOcrExtraction, type OcrExtraction } from "@/modules/inventory/services/ocrService"
 import { isNativePlatform, captureNativePhoto } from "@/lib/nativeCamera"
+import { downscaleImage } from "@/lib/downscaleImage"
+import { track } from "@/lib/analytics"
 import {
   lookupProduct,
   type ProductLookupCandidate,
@@ -50,6 +52,9 @@ type IdentifyStepProps = {
   isCreating: boolean
   error: string | null
   onRetry?: () => void
+  /** Latest snapped label photo (downscaled), or null when cleared — the
+   *  parent attaches it to the item after creation. */
+  onLabelPhoto?: (file: File | null) => void
 }
 
 export const DEFAULT_IDENTIFY_DATA: IdentifyData = {
@@ -105,9 +110,15 @@ export function IdentifyStep({
   isCreating,
   error,
   onRetry,
+  onLabelPhoto,
 }: IdentifyStepProps) {
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrError, setOcrError] = useState<string | null>(null)
+  // "success" | "empty" (call worked but nothing extractable) | null (no call
+  // yet / failed — ocrError carries failures). Drives the honest thumbnail copy.
+  const [ocrOutcome, setOcrOutcome] = useState<"success" | "empty" | null>(null)
+  const [ocrFilledCount, setOcrFilledCount] = useState(0)
+  const [ocrRawText, setOcrRawText] = useState<string | null>(null)
   const [moreDetailsOpen, setMoreDetailsOpen] = useState(false)
   const [labelPreviewUrl, setLabelPreviewUrl] = useState<string | null>(null)
 
@@ -260,21 +271,40 @@ export function IdentifyStep({
   const processImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return
     setOcrError(null)
+    setOcrOutcome(null)
+    setOcrRawText(null)
     if (labelPreviewUrl) URL.revokeObjectURL(labelPreviewUrl)
     const url = URL.createObjectURL(file)
     setLabelPreviewUrl(url)
     const requestId = ++ocrRequestIdRef.current
     setOcrLoading(true)
-    const result = await extractFromImage(file)
+    const startedAt = performance.now()
+    track("label_ocr_attempted", { bytes: file.size })
+    // One downscale, two consumers: the OCR payload and the pending item photo
+    // handed up to SmartAddItem (camera originals are 4–12MB; sending them raw
+    // is what silently killed this call pre-fix).
+    const small = await downscaleImage(file)
+    onLabelPhoto?.(small)
+    const result = await extractFromImage(small)
+    const ms = Math.round(performance.now() - startedAt)
     // If a newer request started while this one was in flight, discard the
     // stale result entirely — don't clear loading, don't mutate form state.
     if (requestId !== ocrRequestIdRef.current) return
     setOcrLoading(false)
     if (result.error) {
       setOcrError(result.error.message)
+      track("label_ocr_failed", { message: result.error.message, ms })
       return
     }
     const r = result.data as OcrExtraction
+    if (isEmptyOcrExtraction(r)) {
+      // Vision and the Claude-vision fallback both came up empty. Surface the
+      // raw OCR text (if any) so the user can copy a serial/model by hand.
+      setOcrOutcome("empty")
+      setOcrRawText(r.text?.trim() ? r.text.trim() : null)
+      track("label_ocr_empty", { ms, hasText: !!r.text?.trim(), engine: r.engine ?? null })
+      return
+    }
     const { itemCategory, subType } = mergeOcrCategory(r.category)
     // Preserve any values the user has already typed; OCR only fills blanks.
     // Receipt scans typically set purchaseDate/purchasePrice; nameplate scans
@@ -296,7 +326,19 @@ export function IdentifyStep({
       purchasePrice:
         data.purchasePrice ?? (typeof r.purchasePrice === "number" ? r.purchasePrice : null),
     }
+    // Count what OCR actually changed so the UI can say so honestly.
+    let filled = 0
+    if (!data.brand && next.brand) filled++
+    if (!data.model && next.model) filled++
+    if (!data.name && next.name) filled++
+    if (!data.serialNumber && next.serialNumber) filled++
+    if (data.itemCategory == null && next.itemCategory != null) filled++
+    if (!data.purchaseDate && next.purchaseDate) filled++
+    if (data.purchasePrice == null && next.purchasePrice != null) filled++
     onDataChange(next)
+    setOcrOutcome("success")
+    setOcrFilledCount(filled)
+    track("label_ocr_succeeded", { filled, docType: r.docType ?? "unknown", engine: r.engine ?? null, ms })
     if (hasHiddenAutofill(next)) setMoreDetailsOpen(true)
     onModeChange("photo")
     // If OCR gave us a purchase date or price (receipt scan), log a telemetry-
@@ -327,6 +369,27 @@ export function IdentifyStep({
     } else {
       cameraInputRef.current?.click()
     }
+  }
+
+  // In-form snap/re-snap (manual/photo branch) — same native/web split, but
+  // wired to the always-rendered extraImageRef input.
+  const handleSnapLabel = async () => {
+    if (ocrLoading) return
+    if (isNativePlatform()) {
+      const file = await captureNativePhoto()
+      if (file) await processImageFile(file)
+    } else {
+      extraImageRef.current?.click()
+    }
+  }
+
+  const clearOcrState = () => {
+    setOcrError(null)
+    setOcrOutcome(null)
+    setOcrRawText(null)
+    if (labelPreviewUrl) URL.revokeObjectURL(labelPreviewUrl)
+    setLabelPreviewUrl(null)
+    onLabelPhoto?.(null)
   }
 
   const setCategory = (id: ItemCategoryId) => {
@@ -391,8 +454,7 @@ export function IdentifyStep({
                 type="button"
                 className="underline underline-offset-2 hover:text-foreground"
                 onClick={() => {
-                  if (labelPreviewUrl) URL.revokeObjectURL(labelPreviewUrl)
-                  setLabelPreviewUrl(null)
+                  clearOcrState()
                   onDataChange({ ...DEFAULT_IDENTIFY_DATA })
                   onModeChange("manual")
                 }}
@@ -424,13 +486,63 @@ export function IdentifyStep({
     <div className="flex flex-col gap-6 max-w-xl mx-auto">
       <SectionCard className="p-5 sm:p-6 space-y-5 transition-all duration-200">
         {labelPreviewUrl && (
-          <div className="flex items-center gap-3">
-            <img
-              src={labelPreviewUrl}
-              alt="Label preview"
-              className="h-14 w-14 rounded-lg object-cover border border-border shrink-0"
-            />
-            <p className="text-xs text-muted-foreground">From your photo — tap Add more details to edit extracted fields.</p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <img
+                src={labelPreviewUrl}
+                alt="Label preview"
+                className="h-14 w-14 rounded-lg object-cover border border-border shrink-0"
+              />
+              {ocrLoading ? (
+                <div
+                  className="flex items-center gap-2 text-muted-foreground"
+                  aria-busy="true"
+                  aria-label="Reading label"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  <span className="text-sm">Reading label…</span>
+                </div>
+              ) : (
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground">
+                    {ocrOutcome === "success"
+                      ? ocrFilledCount > 0
+                        ? `Filled ${ocrFilledCount} field${ocrFilledCount === 1 ? "" : "s"} from your photo — tap Add more details to review.`
+                        : "Photo read — everything you'd typed was kept."
+                      : ocrOutcome === "empty"
+                        ? "Couldn't read details from this photo. Try a straight-on shot in good light."
+                        : ocrError
+                          ? "Reading the label didn't work."
+                          : "Photo attached."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSnapLabel}
+                    className="text-xs text-primary underline underline-offset-2 hover:no-underline mt-0.5"
+                  >
+                    Re-snap photo
+                  </button>
+                </div>
+              )}
+            </div>
+            {!ocrLoading && ocrOutcome === "empty" && ocrRawText && (
+              <details className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                <summary className="text-xs font-medium text-foreground cursor-pointer">
+                  Show text found on the label
+                </summary>
+                <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+                  {ocrRawText}
+                </pre>
+              </details>
+            )}
+            {!ocrLoading && ocrError && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {ocrError}
+                <Button variant="ghost" size="sm" className="mt-2" onClick={handleSnapLabel}>
+                  Try again
+                </Button>
+              </div>
+            )}
           </div>
         )}
         {!labelPreviewUrl && (mode === "manual" || mode === "photo") && (
@@ -440,19 +552,28 @@ export function IdentifyStep({
               variant="outline"
               size="sm"
               className="text-xs"
-              onClick={() => extraImageRef.current?.click()}
+              onClick={handleSnapLabel}
+              disabled={ocrLoading}
             >
               Snap label photo
             </Button>
-            <input
-              ref={extraImageRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleImageInput}
-            />
+            {ocrLoading && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                Reading label…
+              </span>
+            )}
           </div>
+        )}
+        {(mode === "manual" || mode === "photo") && (
+          <input
+            ref={extraImageRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleImageInput}
+          />
         )}
 
         <div>
@@ -691,8 +812,7 @@ export function IdentifyStep({
           <Button
             variant="outline"
             onClick={() => {
-              if (labelPreviewUrl) URL.revokeObjectURL(labelPreviewUrl)
-              setLabelPreviewUrl(null)
+              clearOcrState()
               onModeChange("choice")
             }}
             disabled={isCreating}

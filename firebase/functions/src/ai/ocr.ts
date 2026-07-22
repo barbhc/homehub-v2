@@ -1,11 +1,15 @@
 /**
  * ocr — port of v1 supabase/functions/ocr (Google Vision text detection →
- * Claude structured extraction of appliance nameplate / receipt metadata).
+ * Claude structured extraction of appliance nameplate / receipt metadata),
+ * plus a Claude-vision fallback: when Vision reads no/insufficient text (dim
+ * or low-contrast internal labels) — or the Vision API itself fails — Claude
+ * looks at the image directly. One quota charge covers the whole request.
  *
- * Needs GOOGLE_VISION_API_KEY + ANTHROPIC_API_KEY. The extraction prompt (Haiku)
- * is ported verbatim. `runOcrExtract` (OCR text → Extraction) is the fixture-
- * testable core; the onCall wrapper does the Vision call → text → core, and
- * degrades gracefully (returns raw text so the user can fill fields manually).
+ * Needs GOOGLE_VISION_API_KEY + ANTHROPIC_API_KEY. `runOcrExtract` (OCR text →
+ * Extraction) and `runOcrImageExtract` (image → Extraction) are the fixture-
+ * testable cores; the onCall wrapper orchestrates Vision → text core →
+ * image-fallback core, and degrades gracefully (returns raw text so the user
+ * can fill fields manually).
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
@@ -17,6 +21,12 @@ import { consumeDailyAiQuota } from "../lib/quota.js"
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY")
 const REGION = "us-central1"
+// Haiku 3.5 is multimodal — same pinned snapshot for both the text parse and
+// the image fallback keeps cost and behavior consistent.
+const OCR_MODEL = "claude-3-5-haiku-20241022"
+// Anthropic rejects images over ~5MB binary (~6.7MB base64); the client sends
+// ~1600px JPEGs (100s of KB), so hitting this means an unpatched client.
+const MAX_FALLBACK_BASE64 = 6_500_000
 
 type DocType = "nameplate" | "receipt" | "unknown"
 export interface Extraction {
@@ -35,15 +45,16 @@ const EMPTY_EXTRACTION: Extraction = {
   purchaseDate: null, purchasePrice: null, docType: "unknown", confidence: 0,
 }
 
-function buildPrompt(text: string): string {
-  return `You extract structured appliance metadata from OCR text. The image is ONE of: a product nameplate/spec label photographed directly on an appliance, OR a purchase receipt for an appliance. Decide which and extract fields accordingly.
+/** Nothing a form field could use — triggers the image fallback. */
+export function isEmptyExtraction(e: Extraction): boolean {
+  return (
+    !e.brand && !e.model && !e.name && !e.serialNumber && !e.category &&
+    !e.purchaseDate && e.purchasePrice == null
+  )
+}
 
-OCR TEXT:
-"""
-${text.slice(0, 4000)}
-"""
-
-Heuristics for docType:
+/** Field schema shared by the text prompt and the image-fallback prompt. */
+const SCHEMA_INSTRUCTIONS = `Heuristics for docType:
 - "nameplate": contains electrical specs (volts, amps, watts, Hz), agency marks (UL, ETL, CSA, FCC, Energy Star), model/part numbers, serial numbers, country of origin. Usually NO dollar amounts and NO store names.
 - "receipt": contains a store name at top (Home Depot, Lowe's, Best Buy, Costco, Amazon), a transaction date, line items with prices, a total. Brand/model may still appear in the line item description.
 - "unknown": use only if truly ambiguous.
@@ -60,14 +71,26 @@ Return a JSON object with these fields (use null when not confidently present):
 - confidence: number 0.0–1.0 reflecting confidence in brand+model. 0 if nothing extracted.
 
 Respond with ONLY the JSON object, no prose, no code fences.`
+
+function buildPrompt(text: string): string {
+  return `You extract structured appliance metadata from OCR text. The image is ONE of: a product nameplate/spec label photographed directly on an appliance, OR a purchase receipt for an appliance. Decide which and extract fields accordingly.
+
+OCR TEXT:
+"""
+${text.slice(0, 4000)}
+"""
+
+${SCHEMA_INSTRUCTIONS}`
 }
 
-/** Pure core: OCR text → validated Extraction (Claude Haiku). Empty text → empty
- *  extraction (no Claude call). Throws only on a Claude transport failure so the
- *  wrapper can degrade to raw-text-only. */
-export async function runOcrExtract(callClaude: CallClaudeText, text: string): Promise<Extraction> {
-  if (!text.trim()) return EMPTY_EXTRACTION
-  const content = await callClaude({ model: "claude-3-5-haiku-20241022", maxTokens: 400, content: [{ type: "text", text: buildPrompt(text) }] })
+function buildImagePrompt(): string {
+  return `You are looking at a photo that is ONE of: a product nameplate/spec label photographed directly on an appliance, OR a purchase receipt for an appliance. Read the text in the image, decide which it is, and extract fields accordingly.
+
+${SCHEMA_INSTRUCTIONS}`
+}
+
+/** Validate a model response into a strict Extraction (never throws). */
+function parseExtraction(content: string): Extraction {
   const cleaned = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "")
   try {
     const parsed = JSON.parse(cleaned)
@@ -93,6 +116,34 @@ export async function runOcrExtract(callClaude: CallClaudeText, text: string): P
   }
 }
 
+/** Pure core: OCR text → validated Extraction (Claude Haiku). Empty text → empty
+ *  extraction (no Claude call). Throws only on a Claude transport failure so the
+ *  wrapper can degrade to raw-text-only. */
+export async function runOcrExtract(callClaude: CallClaudeText, text: string): Promise<Extraction> {
+  if (!text.trim()) return EMPTY_EXTRACTION
+  const content = await callClaude({ model: OCR_MODEL, maxTokens: 400, content: [{ type: "text", text: buildPrompt(text) }] })
+  return parseExtraction(content)
+}
+
+/** Pure core: image → validated Extraction (Claude Haiku vision). The fallback
+ *  when Vision text detection reads nothing usable. Throws only on a Claude
+ *  transport failure. */
+export async function runOcrImageExtract(
+  callClaude: CallClaudeText,
+  base64: string,
+  mediaType: string
+): Promise<Extraction> {
+  const content = await callClaude({
+    model: OCR_MODEL,
+    maxTokens: 400,
+    content: [
+      { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+      { type: "text", text: buildImagePrompt() },
+    ],
+  })
+  return parseExtraction(content)
+}
+
 /** Google Vision TEXT_DETECTION → full text. */
 async function visionText(apiKey: string, base64: string): Promise<string> {
   const res = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
@@ -112,23 +163,55 @@ export const ocr = onCall(
     await requireAnyMembership(getFirestore(), request.auth.uid)
     const image = (request.data ?? {}).image
     if (!image || typeof image !== "string") throw new HttpsError("invalid-argument", "Missing image (base64).")
+    const rawMediaType = (request.data ?? {}).mediaType
+    const mediaType =
+      typeof rawMediaType === "string" && /^image\/(jpeg|png|webp|gif)$/.test(rawMediaType)
+        ? rawMediaType
+        : "image/jpeg"
+    // One charge covers the whole request, image fallback included.
     await consumeDailyAiQuota(getFirestore(), request.auth.uid, "ocr")
     const base64 = image.replace(/^data:image\/\w+;base64,/, "")
+    const callClaude = makeCallClaudeText(ANTHROPIC_API_KEY.value())
 
-    let text: string
+    let text = ""
+    let visionError: string | null = null
     try {
       text = await visionText(GOOGLE_VISION_API_KEY.value(), base64)
     } catch (e) {
-      throw new HttpsError("unavailable", e instanceof Error ? e.message : "OCR failed")
+      // Vision down is no longer fatal — the image fallback below still gets a shot.
+      visionError = e instanceof Error ? e.message : "OCR failed"
     }
-    if (!text.trim()) return { ...EMPTY_EXTRACTION, text: "" }
 
-    // Degrade: if Claude parse fails, still return the raw OCR text.
-    try {
-      const extraction = await runOcrExtract(makeCallClaudeText(ANTHROPIC_API_KEY.value()), text)
-      return { ...extraction, text }
-    } catch (e) {
-      return { ...EMPTY_EXTRACTION, text, parseWarning: e instanceof Error ? e.message : "Claude parse failed" }
+    let extraction: Extraction = EMPTY_EXTRACTION
+    let engine: "vision" | "claude-vision" = "vision"
+    let parseWarning: string | undefined
+    if (text.trim()) {
+      try {
+        extraction = await runOcrExtract(callClaude, text)
+      } catch (e) {
+        parseWarning = e instanceof Error ? e.message : "Claude parse failed"
+      }
     }
+
+    if (isEmptyExtraction(extraction) && base64.length <= MAX_FALLBACK_BASE64) {
+      try {
+        const viaImage = await runOcrImageExtract(callClaude, base64, mediaType)
+        if (!isEmptyExtraction(viaImage)) {
+          extraction = viaImage
+          engine = "claude-vision"
+          parseWarning = undefined
+        }
+      } catch (e) {
+        parseWarning ??= e instanceof Error ? e.message : "Image extraction failed"
+      }
+    }
+
+    // Both engines struck out AND Vision itself errored: that's an outage, not
+    // an unreadable label — surface it as one so the client shows a real error.
+    if (visionError && engine === "vision" && isEmptyExtraction(extraction) && !text.trim()) {
+      throw new HttpsError("unavailable", visionError)
+    }
+
+    return { ...extraction, text, engine, ...(parseWarning ? { parseWarning } : {}) }
   }
 )
