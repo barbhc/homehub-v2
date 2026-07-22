@@ -190,6 +190,7 @@ export const ocr = onCall(
         extraction = await runOcrExtract(callClaude, text)
       } catch (e) {
         parseWarning = e instanceof Error ? e.message : "Claude parse failed"
+        console.warn("[ocr] text extraction failed, degrading:", parseWarning)
       }
     }
 
@@ -203,6 +204,7 @@ export const ocr = onCall(
         }
       } catch (e) {
         parseWarning ??= e instanceof Error ? e.message : "Image extraction failed"
+        console.warn("[ocr] image fallback failed, degrading:", e instanceof Error ? e.message : e)
       }
     }
 

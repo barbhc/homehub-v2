@@ -99,6 +99,27 @@ test.describe("emulator e2e — smart add label OCR states", () => {
     await expect(page.locator("#identify-name")).toHaveValue("")
   })
 
+  test("extraction outage (parseWarning): copy blames the reader, not the photo", async ({ page }) => {
+    await page.route("**/ocr", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          result: {
+            ...EMPTY_FIELDS,
+            docType: "unknown", confidence: 0,
+            text: "BOSCH MODEL SHPM65Z55N/01", engine: "vision",
+            parseWarning: "credit balance is too low",
+          },
+        }),
+      })
+    )
+    await snapLabelPhoto(page)
+    await expect(page.getByText("Our label reader is having trouble right now", { exact: false })).toBeVisible({ timeout: 10_000 })
+    await page.getByText("Show text found on the label").click()
+    await expect(page.getByText("SHPM65Z55N/01", { exact: false })).toBeVisible()
+  })
+
   test("failure: visible error box with retry, no silent no-op", async ({ page }) => {
     await page.route("**/ocr", (route) =>
       route.fulfill({

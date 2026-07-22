@@ -114,9 +114,10 @@ export function IdentifyStep({
 }: IdentifyStepProps) {
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrError, setOcrError] = useState<string | null>(null)
-  // "success" | "empty" (call worked but nothing extractable) | null (no call
-  // yet / failed — ocrError carries failures). Drives the honest thumbnail copy.
-  const [ocrOutcome, setOcrOutcome] = useState<"success" | "empty" | null>(null)
+  // "success" | "empty" (readable call, nothing extractable) | "extract_failed"
+  // (the AI extraction call itself failed — not the photo's fault) | null (no
+  // call yet / failed — ocrError carries failures). Drives the honest copy.
+  const [ocrOutcome, setOcrOutcome] = useState<"success" | "empty" | "extract_failed" | null>(null)
   const [ocrFilledCount, setOcrFilledCount] = useState(0)
   const [ocrRawText, setOcrRawText] = useState<string | null>(null)
   const [moreDetailsOpen, setMoreDetailsOpen] = useState(false)
@@ -310,9 +311,16 @@ export function IdentifyStep({
     if (isEmptyOcrExtraction(r)) {
       // Vision and the Claude-vision fallback both came up empty. Surface the
       // raw OCR text (if any) so the user can copy a serial/model by hand.
-      setOcrOutcome("empty")
+      // parseWarning = the AI extraction call itself failed (outage/billing),
+      // which is NOT the user's photo's fault — don't tell them to reshoot.
+      setOcrOutcome(r.parseWarning ? "extract_failed" : "empty")
       setOcrRawText(r.text?.trim() ? r.text.trim() : null)
-      track("label_ocr_empty", { ms, hasText: !!r.text?.trim(), engine: r.engine ?? null })
+      track("label_ocr_empty", {
+        ms,
+        hasText: !!r.text?.trim(),
+        engine: r.engine ?? null,
+        parseWarning: r.parseWarning ?? null,
+      })
       return
     }
     const { itemCategory, subType } = mergeOcrCategory(r.category)
@@ -538,9 +546,11 @@ export function IdentifyStep({
                         : "Photo read — everything you'd typed was kept."
                       : ocrOutcome === "empty"
                         ? "Couldn't read details from this photo. Try a straight-on shot in good light."
-                        : ocrError
-                          ? "Reading the label didn't work."
-                          : "Photo attached."}
+                        : ocrOutcome === "extract_failed"
+                          ? "Our label reader is having trouble right now — not your photo. The text we could read is below."
+                          : ocrError
+                            ? "Reading the label didn't work."
+                            : "Photo attached."}
                   </p>
                   <button
                     type="button"
@@ -552,7 +562,7 @@ export function IdentifyStep({
                 </div>
               )}
             </div>
-            {!ocrLoading && ocrOutcome === "empty" && ocrRawText && (
+            {!ocrLoading && (ocrOutcome === "empty" || ocrOutcome === "extract_failed") && ocrRawText && (
               <details className="rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <summary className="text-xs font-medium text-foreground cursor-pointer">
                   Show text found on the label
