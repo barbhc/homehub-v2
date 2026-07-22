@@ -1,4 +1,4 @@
-import { getStorage, connectStorageEmulator } from "firebase/storage"
+import { getStorage, connectStorageEmulator, ref, getDownloadURL } from "firebase/storage"
 import { firebaseApp, USE_EMULATORS } from "./app"
 
 export const storage = getStorage(firebaseApp)
@@ -7,17 +7,34 @@ if (USE_EMULATORS) {
   connectStorageEmulator(storage, "127.0.0.1", 9199)
 }
 
+/** Matches a Firebase Storage download URL (prod host or the local emulator). */
+const STORAGE_URL_RE = /^(?:https:\/\/firebasestorage\.googleapis\.com|http:\/\/127\.0\.0\.1:9199)\/v0\/b\/([^/]+)\/o\/([^?]+)/
+
 /**
- * Synchronous public download URL for a storage object path. Relies on the
- * public-read Storage rules (mirroring v1's public Manuals bucket), so it needs
- * no async getDownloadURL/token — usable directly at render time. Points at the
- * emulator when VITE_USE_EMULATORS is set.
+ * Extract the object path from a Firebase Storage download URL pointing at THIS
+ * app's bucket. Returns null for external URLs (and other buckets).
  */
-export function storageDownloadUrl(path: string | null | undefined): string | null {
-  if (!path) return null
-  const bucket = storage.app.options.storageBucket
-  if (!bucket) return null
-  const encoded = encodeURIComponent(path.replace(/^\//, ""))
-  const host = USE_EMULATORS ? "http://127.0.0.1:9199" : "https://firebasestorage.googleapis.com"
-  return `${host}/v0/b/${bucket}/o/${encoded}?alt=media`
+export function storagePathFromUrl(url: string): string | null {
+  const m = url.match(STORAGE_URL_RE)
+  if (!m) return null
+  if (m[1] !== storage.app.options.storageBucket) return null
+  return decodeURIComponent(m[2])
+}
+
+/**
+ * Resolve a Storage object path — or a legacy tokenless download URL persisted
+ * before the public-read rules were closed (launch-readiness P0) — to a
+ * token-bearing download URL via getDownloadURL. Token URLs work in plain
+ * <img>/<a>/fetch (which send no auth header), regardless of Storage rules.
+ * External non-Storage URLs and URLs that already carry a token pass through.
+ */
+export async function resolveStorageUrl(pathOrUrl: string | null | undefined): Promise<string | null> {
+  if (!pathOrUrl) return null
+  if (/^https?:\/\//.test(pathOrUrl)) {
+    if (new URL(pathOrUrl).searchParams.has("token")) return pathOrUrl
+    const path = storagePathFromUrl(pathOrUrl)
+    if (!path) return pathOrUrl // external URL — not ours to resolve
+    return getDownloadURL(ref(storage, path))
+  }
+  return getDownloadURL(ref(storage, pathOrUrl))
 }

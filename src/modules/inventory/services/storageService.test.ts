@@ -11,6 +11,7 @@ vi.mock("firebase/storage", () => ({
   ref: vi.fn(() => ({})),
   uploadBytes: (...a: unknown[]) => uploadBytes(...a),
   deleteObject: vi.fn(),
+  getDownloadURL: vi.fn(async () => "https://x/token-url"),
 }))
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn(),
@@ -21,7 +22,6 @@ vi.mock("@/integrations/firebase", () => ({
   storage: {},
   db: {},
   callable: () => async () => ({ ok: true, images: [] }),
-  storageDownloadUrl: (p: string) => `https://x/${p}`,
 }))
 
 import { uploadManualPdf, uploadItemPhoto } from "./storageService"

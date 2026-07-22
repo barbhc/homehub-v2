@@ -1,6 +1,6 @@
-import { ref, uploadBytes, deleteObject } from "firebase/storage"
+import { ref, uploadBytes, deleteObject, getDownloadURL } from "firebase/storage"
 import { doc, serverTimestamp, writeBatch } from "firebase/firestore"
-import { storage, storageDownloadUrl, db, callable } from "@/integrations/firebase"
+import { storage, db, callable } from "@/integrations/firebase"
 
 /** Max upload size in bytes. */
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 // 50 MB
@@ -67,12 +67,13 @@ export async function uploadItemPhoto(
   const ext = file.name.split(".").pop() ?? "jpg"
   const path = `photos/${userId}/${itemId}/photo.${ext}`
   try {
-    await uploadBytes(ref(storage, path), file, { contentType: file.type || "image/jpeg" })
+    const objectRef = ref(storage, path)
+    await uploadBytes(objectRef, file, { contentType: file.type || "image/jpeg" })
     // Persist the storage ref onto the item (v1 did this inside the upload).
     await writeBatch(db)
       .set(doc(db, `homes/${homeId}/items/${itemId}`), { photoPath: path, updatedAt: serverTimestamp() }, { merge: true })
       .commit()
-    return { data: { path, url: storageDownloadUrl(path) ?? "" }, error: null }
+    return { data: { path, url: await getDownloadURL(objectRef) }, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Upload failed" } }
   }
@@ -163,7 +164,11 @@ export async function uploadManualPdfWithUrl(
   const result = await uploadManualPdf(itemId, file, userId)
   if (result.error) return result
   const path = result.data!.path
-  return { data: { path, url: storageDownloadUrl(path) ?? "" }, error: null }
+  try {
+    return { data: { path, url: await getDownloadURL(ref(storage, path)) }, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Upload failed" } }
+  }
 }
 
 /**
@@ -177,8 +182,11 @@ export async function uploadDiagramImage(
 ): Promise<UploadWithUrlResult> {
   const path = `images/${manualId}/page_${pageNum}.jpg`
   try {
-    await uploadBytes(ref(storage, path), blob, { contentType: "image/jpeg" })
-    return { data: { path, url: storageDownloadUrl(path) ?? "" }, error: null }
+    const objectRef = ref(storage, path)
+    await uploadBytes(objectRef, blob, { contentType: "image/jpeg" })
+    // Token URL — it gets PERSISTED into Firestore (diagram_image_urls) and must
+    // stay renderable in a plain <img> under the no-public-read Storage rules.
+    return { data: { path, url: await getDownloadURL(objectRef) }, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Upload failed" } }
   }

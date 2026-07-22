@@ -34,7 +34,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ManualParseProgress } from "@/components/manuals/ManualParseProgress"
 import { ManualParseReviewSheet } from "@/components/manuals/ManualParseReviewSheet"
-import { getManualUrl } from "@/hooks/useManualManagement"
+import { useManualUrls } from "@/hooks/useManualManagement"
 import { updateManualLabel } from "@/modules/knowledge"
 import type { ManualDocument } from "@/integrations/types"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
@@ -131,6 +131,7 @@ export function ManualSection({
 }: ManualSectionProps) {
   const primaryManuals = manuals.filter((m) => m.role !== "reference")
   const referenceManuals = manuals.filter((m) => m.role === "reference")
+  const manualUrls = useManualUrls(manuals)
 
   // Inline label editing state
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null)
@@ -160,7 +161,7 @@ export function ManualSection({
   }
 
   const renderManualRow = (m: ManualDocument) => {
-    const url = getManualUrl(m.source_type, m.source_ref)
+    const url = manualUrls[m.manual_id] ?? null
     const isRef = m.role === "reference"
     const Icon = isRef ? BookOpenIcon : FileTextIcon
     const isEditingLabel = editingLabelId === m.manual_id

@@ -19,7 +19,7 @@ import { useAuth } from "@/modules/auth"
 import { createItemUnit } from "@/modules/items"
 import { createTasksFromEditable } from "@/modules/care"
 import { uploadManualPdf, removeManualPdf } from "@/modules/inventory/services/storageService"
-import { storageDownloadUrl } from "@/integrations/firebase"
+import { resolveStorageUrl } from "@/integrations/firebase"
 import { deleteManualDocument } from "@/modules/knowledge/services/manualDocumentService"
 import { createManualDocument, parseManualAndWait, getChunksByItem, detectDocType, type DocType, type ParsedConfidence } from "@/modules/knowledge"
 import { getTaskTemplatesWithSchedulesByItem, type TaskTemplateWithSchedule } from "@/modules/care"
@@ -296,7 +296,7 @@ export default function SmartAddItem() {
             sourceRef = uploadRes.data.path
             sourceType = "upload"
             uploadFilename = choice.file.name
-            firstUrl = storageDownloadUrl(sourceRef) ?? firstUrl
+            firstUrl = (await resolveStorageUrl(sourceRef).catch(() => null)) ?? firstUrl
             uploadPaths.push(sourceRef)
           } else {
             sourceRef = choice.url
