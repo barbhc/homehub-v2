@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/modules/auth"
 import { createHome, getPrimaryHome } from "../services/homeService"
+import { track } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
 
 type HomeOnboardingProps = {
@@ -43,6 +44,9 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
     const result = await createHome({ name: name.trim(), userId: user.id })
     if (result.data) {
       console.debug("[HomeOnboarding] Created home:", result.data.homeId)
+      // True-creation branch only — the already-has-home early return above must
+      // not fire the funnel event.
+      track("home_created", { home_id: result.data.homeId })
     }
     if (result.error) {
       const msg = result.error.message

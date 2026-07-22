@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client"
 import * as Sentry from "@sentry/react"
 import "./index.css"
 import App from "./App.tsx"
+import { initAnalytics } from "@/lib/analytics"
+
+initAnalytics()
 
 const dsn = import.meta.env.VITE_SENTRY_DSN
 if (dsn) {

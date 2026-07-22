@@ -1,7 +1,8 @@
 // Deploy re-trigger 2026-06-17: the Phase A merge (d30a027) did not fire a
 // Vercel production build automatically; this no-op forces a fresh deploy.
 import { Suspense, useEffect } from "react"
-import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from "react-router-dom"
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom"
+import { trackPageview } from "@/lib/analytics"
 import { AuthProvider, AuthGate, useAuth } from "@/modules/auth"
 import { HomeProvider, HomeGate } from "@/modules/home"
 import { AppLayout } from "@/components/AppLayout"
@@ -21,6 +22,15 @@ function BootSplashGate() {
   useEffect(() => {
     if (!loading) hideBootSplash()
   }, [loading])
+  return null
+}
+
+/** Manual SPA pageviews (PostHog init sets capture_pageview: false). */
+function PageviewTracker() {
+  const location = useLocation()
+  useEffect(() => {
+    trackPageview(location.pathname)
+  }, [location.pathname])
   return null
 }
 
@@ -75,6 +85,7 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <BootSplashGate />
+          <PageviewTracker />
           <HomeProvider>
             <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading…</div>}>
             <Routes>
