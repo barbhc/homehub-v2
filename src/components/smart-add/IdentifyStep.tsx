@@ -280,12 +280,22 @@ export function IdentifyStep({
     setOcrLoading(true)
     const startedAt = performance.now()
     track("label_ocr_attempted", { bytes: file.size })
-    // One downscale, two consumers: the OCR payload and the pending item photo
-    // handed up to SmartAddItem (camera originals are 4–12MB; sending them raw
-    // is what silently killed this call pre-fix).
-    const small = await downscaleImage(file)
-    onLabelPhoto?.(small)
-    const result = await extractFromImage(small)
+    let result: Awaited<ReturnType<typeof extractFromImage>>
+    try {
+      // One downscale, two consumers: the OCR payload and the pending item photo
+      // handed up to SmartAddItem (camera originals are 4–12MB; sending them raw
+      // is what silently killed this call pre-fix).
+      const small = await downscaleImage(file)
+      onLabelPhoto?.(small)
+      result = await extractFromImage(small)
+    } catch (err) {
+      // extractFromImage never throws; this guards the downscale/canvas layer
+      // so no device quirk can strand the spinner.
+      result = {
+        data: null,
+        error: { message: err instanceof Error ? err.message : "Couldn't process that photo." },
+      }
+    }
     const ms = Math.round(performance.now() - startedAt)
     // If a newer request started while this one was in flight, discard the
     // stale result entirely — don't clear loading, don't mutate form state.
@@ -360,12 +370,30 @@ export function IdentifyStep({
     await processImageFile(file)
   }
 
+  // Native capture with a real failure path: a denied camera permission or a
+  // stale installed binary missing the Camera plugin used to collapse into
+  // "return null" → zero UI — the exact silent no-op this feature shipped to
+  // kill. On error we say so AND fall back to the in-page <input capture>,
+  // which WKWebView supports natively, so the feature still works.
+  const handleNativeCapture = async (fallbackInput: HTMLInputElement | null) => {
+    const result = await captureNativePhoto()
+    if (result.kind === "photo") {
+      await processImageFile(result.file)
+      return
+    }
+    if (result.kind === "cancelled") return
+    track("label_ocr_native_capture_failed", { message: result.message })
+    setOcrError(
+      "Couldn't open the native camera — using the photo picker instead. If nothing opens, check Settings → Homehub → Camera."
+    )
+    fallbackInput?.click()
+  }
+
   // "Take photo": native camera in the iOS/Android shell; the hidden file
   // input (which opens the camera in mobile Safari) on the web.
   const handleTakePhoto = async () => {
     if (isNativePlatform()) {
-      const file = await captureNativePhoto()
-      if (file) await processImageFile(file)
+      await handleNativeCapture(cameraInputRef.current)
     } else {
       cameraInputRef.current?.click()
     }
@@ -376,8 +404,7 @@ export function IdentifyStep({
   const handleSnapLabel = async () => {
     if (ocrLoading) return
     if (isNativePlatform()) {
-      const file = await captureNativePhoto()
-      if (file) await processImageFile(file)
+      await handleNativeCapture(extraImageRef.current)
     } else {
       extraImageRef.current?.click()
     }
