@@ -14,10 +14,13 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
+  getAdditionalUserInfo,
+  type UserCredential,
   type User as FirebaseUser,
 } from "firebase/auth"
 import { auth } from "@/integrations/firebase"
 import { isNativePlatform } from "@/lib/native"
+import { track, identifyUser, resetAnalyticsIdentity } from "@/lib/analytics"
 import type { AuthUser } from "@/modules/auth/types/auth"
 
 type AuthState = {
@@ -57,6 +60,12 @@ function toError(err: unknown): Error {
   return new Error(typeof err === "string" ? err : "Authentication failed")
 }
 
+/** Funnel: fire sign_up only for a NEW account (email-link/Apple also sign in
+ *  returning users through the same credential calls). */
+function trackSignUpIfNew(cred: UserCredential, method: string): void {
+  if (getAdditionalUserInfo(cred)?.isNewUser) track("sign_up", { method })
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
@@ -69,7 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (storedEmail) {
         // Same device: we already know the email — complete the sign-in inline.
         void signInWithEmailLink(auth, storedEmail, window.location.href)
-          .then(() => {
+          .then((cred) => {
+            trackSignUpIfNew(cred, "email_link")
             window.localStorage.removeItem(EMAIL_LINK_KEY)
             window.history.replaceState({}, "", window.location.pathname) // strip one-time params
           })
@@ -84,13 +94,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Complete a pending Apple sign-in that used the redirect flow (native shell).
-    // The happy path lands via onAuthStateChanged below; getRedirectResult only
-    // matters here to surface an error across the full-page round-trip.
-    void getRedirectResult(auth).catch((err) => {
-      window.sessionStorage.setItem(APPLE_REDIRECT_ERROR_KEY, toError(err).message)
-    })
+    // The happy path lands via onAuthStateChanged below; getRedirectResult here
+    // surfaces errors across the full-page round-trip + the new-account signal.
+    void getRedirectResult(auth)
+      .then((cred) => {
+        if (cred) trackSignUpIfNew(cred, "apple")
+      })
+      .catch((err) => {
+        window.sessionStorage.setItem(APPLE_REDIRECT_ERROR_KEY, toError(err).message)
+      })
 
+    let lastUid: string | null = null
     const unsub = onAuthStateChanged(auth, (u) => {
+      // Tie analytics to the uid; reset only on a real sign-out (not the initial
+      // signed-out emission, which would churn the anonymous id every cold load).
+      if (u) identifyUser(u.uid)
+      else if (lastUid) resetAnalyticsIdentity()
+      lastUid = u?.uid ?? null
       setUser(toAuthUser(u))
       setLoading(false)
     })
@@ -113,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = useCallback(async (email: string, password: string, name?: string) => {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
+      track("sign_up", { method: "password" })
       if (name?.trim()) await updateProfile(cred.user, { displayName: name.trim() })
       // Re-emit so the freshly-set displayName reaches consumers.
       setUser(toAuthUser(cred.user))
@@ -141,7 +162,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!isSignInWithEmailLink(auth, linkUrl)) {
         return { error: new Error("This sign-in link is invalid or has expired. Request a new one.") }
       }
-      await signInWithEmailLink(auth, email, linkUrl)
+      const cred = await signInWithEmailLink(auth, email, linkUrl)
+      trackSignUpIfNew(cred, "email_link")
       window.localStorage.removeItem(EMAIL_LINK_KEY)
       window.localStorage.removeItem(EMAIL_LINK_URL_KEY)
       return { error: null }
@@ -182,7 +204,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: null } // completes on the return load via getRedirectResult
       }
       try {
-        await signInWithPopup(auth, provider)
+        const cred = await signInWithPopup(auth, provider)
+        trackSignUpIfNew(cred, "apple")
         return { error: null }
       } catch (err) {
         const code = (err as { code?: string })?.code

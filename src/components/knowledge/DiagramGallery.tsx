@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, ZoomInIcon, ZoomOutIcon } from "lucide-react"
 import type { DiagramImageUrl } from "@/integrations/types"
 import { cn } from "@/lib/utils"
+import { useResolvedDiagramImages } from "@/hooks/useStorageUrl"
 
 export interface DiagramGalleryProps {
   images: DiagramImageUrl[]
@@ -230,12 +231,16 @@ export function DiagramGallery({
   onClose,
 }: DiagramGalleryProps) {
   const isControlled = controlledImages !== undefined
-  const openImages = isControlled ? controlledImages ?? null : null
+  // Persisted diagram URLs from before the no-public-read Storage rules are
+  // tokenless — swap them for token URLs a plain <img> can fetch.
+  const resolvedImages = useResolvedDiagramImages(images)
+  const resolvedControlled = useResolvedDiagramImages(controlledImages)
+  const openImages = isControlled ? (controlledImages ? resolvedControlled : null) : null
 
   // Deduplicate by URL — multiple chunks can reference the same PDF page
   const dedupedImages = useMemo(
-    () => images.filter((img, i, arr) => arr.findIndex((x) => x.url === img.url) === i),
-    [images]
+    () => resolvedImages.filter((img, i, arr) => arr.findIndex((x) => x.url === img.url) === i),
+    [resolvedImages]
   )
 
   const [internalLightboxImages, setInternalLightboxImages] = useState<DiagramImageUrl[] | null>(null)

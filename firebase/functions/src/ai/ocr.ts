@@ -12,6 +12,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, type CallClaudeText } from "./claude.js"
 import { requireAnyMembership } from "../lib/membership.js"
+import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY")
@@ -111,6 +112,7 @@ export const ocr = onCall(
     await requireAnyMembership(getFirestore(), request.auth.uid)
     const image = (request.data ?? {}).image
     if (!image || typeof image !== "string") throw new HttpsError("invalid-argument", "Missing image (base64).")
+    await consumeDailyAiQuota(getFirestore(), request.auth.uid, "ocr")
     const base64 = image.replace(/^data:image\/\w+;base64,/, "")
 
     let text: string

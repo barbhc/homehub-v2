@@ -11,6 +11,7 @@ import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, extractJsonObject, type CallClaudeText } from "./claude.js"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { requireAnyMembership } from "../lib/membership.js"
+import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -91,6 +92,7 @@ export const suggestCareNotes = onCall({ region: REGION, secrets: [ANTHROPIC_API
   if (!scope || !["home", "room", "item_unit"].includes(scope)) {
     throw new HttpsError("invalid-argument", "scope is required and must be one of: home, room, item_unit")
   }
+  await consumeDailyAiQuota(getFirestore(), request.auth.uid, "suggestCareNotes")
   try {
     const suggestions = await runSuggestCareNotes(makeCallClaudeText(ANTHROPIC_API_KEY.value()), scope, context ?? {})
     return { suggestions }
@@ -129,6 +131,7 @@ export const importCareUrl = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
   const trimmed = typeof url === "string" ? url.trim() : ""
   if (!trimmed || !trimmed.startsWith("http")) throw new HttpsError("invalid-argument", "url is required and must be a valid URL")
   if (!isAllowedUrl(trimmed)) throw new HttpsError("permission-denied", "URL not allowed: private or internal addresses are blocked")
+  await consumeDailyAiQuota(getFirestore(), request.auth.uid, "importCareUrl")
 
   let html: string
   try {

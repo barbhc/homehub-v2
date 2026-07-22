@@ -16,13 +16,13 @@ import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { createHash } from "node:crypto"
 import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
 import { requireAnyMembership } from "../lib/membership.js"
+import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
 
 /** Bump when prompt/schema/model change in a way that invalidates cache. */
 const PROMPT_VERSION = 1
-const DAILY_LIMIT = 50
 const CACHE_TTL_DAYS = 30
 
 const CATEGORY_IDS = [
@@ -202,20 +202,6 @@ export async function runProductLookup(
   return parseToolInput(input)
 }
 
-/** Atomic per-user daily quota via a Firestore transaction. Returns true if allowed. */
-async function checkDailyQuota(uid: string, dayKey: string): Promise<boolean> {
-  const db = getFirestore()
-  const ref = db.collection("productLookupCache").doc(`quota__${uid}__${dayKey}`)
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref)
-    const count = snap.exists ? Number(snap.get("count") ?? 0) : 0
-    if (count >= DAILY_LIMIT) return false
-    // Quota docs self-expire after 2 days via a TTL policy on expiresAt (best-effort).
-    tx.set(ref, { count: count + 1, expiresAt: Timestamp.fromMillis(Date.now() + 2 * 86400_000) }, { merge: true })
-    return true
-  })
-}
-
 export const productLookup = onCall(
   { region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60 },
   async (request) => {
@@ -244,17 +230,13 @@ export const productLookup = onCall(
       const expiresAt = cachedSnap.get("expiresAt") as Timestamp | undefined
       const stored = cachedSnap.get("result") as ProductLookupCore | undefined
       if (stored && (!expiresAt || expiresAt.toMillis() > now)) {
-        const dayKey = new Date(now).toISOString().slice(0, 10)
-        if (!(await checkDailyQuota(uid, dayKey)))
-          throw new HttpsError("resource-exhausted", "Daily product-lookup quota reached. Try again tomorrow.")
+        await consumeDailyAiQuota(db, uid, "productLookup")
         return { ...stored, source: "cache", cacheHit: true } satisfies ProductLookupResult
       }
     }
 
     // Miss → quota-check BEFORE the paid Claude call.
-    const dayKey = new Date(now).toISOString().slice(0, 10)
-    if (!(await checkDailyQuota(uid, dayKey)))
-      throw new HttpsError("resource-exhausted", "Daily product-lookup quota reached. Try again tomorrow.")
+    await consumeDailyAiQuota(db, uid, "productLookup")
 
     let core: ProductLookupCore
     try {

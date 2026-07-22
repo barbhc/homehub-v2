@@ -14,6 +14,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
 import { rankChunks } from "./chunkRanking.js"
+import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -151,7 +152,7 @@ ${manualExcerpt}`
     },
   ]
 
-  const out = await callClaudeTool({ model: MODEL, maxTokens: 700, tool: DISCUSS_TOOL, content })
+  const out = await callClaudeTool({ model: MODEL, maxTokens: 700, system, tool: DISCUSS_TOOL, content })
   const explanation = str(out?.explanation).slice(0, 1500) || "Sorry — I couldn't answer that. Try rephrasing."
   return { explanation, proposal: parseProposal(out?.proposal) }
 }
@@ -188,6 +189,7 @@ export const discussTask = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY]
   const db = getFirestore()
   const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
   if (!member.exists) throw new HttpsError("permission-denied", "Not a member of this home.")
+  await consumeDailyAiQuota(db, uid, "discussTask")
   try {
     return await runDiscussTask(makeCallClaudeTool(ANTHROPIC_API_KEY.value()), db, {
       homeId,

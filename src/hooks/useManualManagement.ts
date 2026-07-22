@@ -13,14 +13,36 @@ import {
 import { getTaskTemplatesWithSchedulesByItem } from "@/modules/care"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { uploadManualPdfWithUrl } from "@/modules/inventory/services/storageService"
-import { storageDownloadUrl } from "@/integrations/firebase"
+import { resolveStorageUrl } from "@/integrations/firebase"
+import useSWR from "swr"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import type { KnowledgeChunk, ManualDocument } from "@/integrations/types"
 
-export function getManualUrl(sourceType: string, sourceRef: string): string | null {
+/**
+ * Resolve a manual's viewable URL. External URLs pass through; uploads resolve
+ * their Storage path to a token-bearing download URL (the no-public-read rules
+ * mean a tokenless URL is no longer fetchable by the PDF viewer/proxy).
+ */
+export async function resolveManualUrl(sourceType: string, sourceRef: string): Promise<string | null> {
   if (sourceType === "url") return sourceRef
-  if (sourceType === "upload" && sourceRef) return storageDownloadUrl(sourceRef)
+  if (sourceType === "upload" && sourceRef) return resolveStorageUrl(sourceRef)
   return null
+}
+
+/** Resolved viewable URL per manual_id (null while resolving / on failure). */
+export function useManualUrls(manuals: ManualDocument[]): Record<string, string | null> {
+  const key = manuals.length > 0 ? ["manual-urls", manuals.map((m) => `${m.manual_id}:${m.source_ref}`).join("|")] : null
+  const { data } = useSWR(
+    key,
+    async () => {
+      const entries = await Promise.all(
+        manuals.map(async (m) => [m.manual_id, await resolveManualUrl(m.source_type, m.source_ref).catch(() => null)] as const),
+      )
+      return Object.fromEntries(entries) as Record<string, string | null>
+    },
+    { revalidateOnFocus: false, revalidateIfStale: false, revalidateOnReconnect: false },
+  )
+  return data ?? {}
 }
 
 interface UseManualManagementParams {

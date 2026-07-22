@@ -25,7 +25,8 @@ import {
   uploadReceiptImage,
 } from "@/modules/inventory/services/storageService"
 import { PhotoSearchSheet } from "@/components/inventory/PhotoSearchSheet"
-import { type EditableField, ROOM_NONE, formatDate, getPhotoUrl } from "./utils"
+import { type EditableField, ROOM_NONE, formatDate } from "./utils"
+import { useStorageUrl } from "@/hooks/useStorageUrl"
 
 interface EditableRowProps {
   field: EditableField
@@ -133,7 +134,8 @@ export function HeroCard({
     }
   }, [editingField])
 
-  const photoUrl = getPhotoUrl(item.photo_storage_ref ?? null)
+  const photoUrl = useStorageUrl(item.photo_storage_ref)
+  const receiptUrl = useStorageUrl(item.receipt_storage_path)
   const roomName = rooms.find((r) => r.room_id === item.room_id)?.name ?? "No room"
 
   // Build a search query from brand + model, falling back to display name
@@ -566,7 +568,7 @@ export function HeroCard({
             <div className="flex items-center gap-2 flex-1">
               {item.receipt_storage_path ? (
                 <a
-                  href={getPhotoUrl(item.receipt_storage_path) ?? undefined}
+                  href={receiptUrl ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-primary underline underline-offset-2 truncate max-w-[160px]"

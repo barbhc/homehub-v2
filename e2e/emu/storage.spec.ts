@@ -3,9 +3,10 @@ import { test, expect } from "@playwright/test"
 /**
  * Storage round-trip against the seeded emulator — proves storageService's
  * uploadItemPhoto works end-to-end: the file lands in the Storage emulator, the
- * item doc's photoPath is persisted, and getPhotoUrl (storageDownloadUrl) builds
- * an emulator URL the <img> renders from. Requires the storage emulator (wired
- * into test:e2e:emu) + the public-read storage.rules.
+ * item doc's photoPath is persisted, and useStorageUrl resolves a token-bearing
+ * emulator URL the <img> renders from (reads are signed-in-only now — the token
+ * is what lets a plain <img> fetch). Requires the storage emulator (wired into
+ * test:e2e:emu).
  */
 
 // 1x1 transparent PNG.

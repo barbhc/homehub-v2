@@ -1,6 +1,6 @@
 export { firebaseApp, USE_EMULATORS } from "./app"
 export { auth } from "./auth"
 export { db, collRef, docRef } from "./firestore"
-export { storage, storageDownloadUrl } from "./storage"
+export { storage, resolveStorageUrl, storagePathFromUrl } from "./storage"
 export { functions, callable, functionUrl } from "./functions"
 export { pdfProxySource } from "./pdfProxy"

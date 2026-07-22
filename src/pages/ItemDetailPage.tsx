@@ -16,7 +16,8 @@ import {
   getFaqsByItem,
   updateChunkSourcePages,
 } from "@/modules/knowledge"
-import { useManualManagement, getManualUrl } from "@/hooks/useManualManagement"
+import { useManualManagement, resolveManualUrl } from "@/hooks/useManualManagement"
+import { track } from "@/lib/analytics"
 import { callable } from "@/integrations/firebase"
 
 const checkRecallsCallable = callable<{ homeId: string; itemUnitId: string }, unknown>("checkRecalls")
@@ -119,7 +120,7 @@ export default function ItemDetailPage() {
       getManualsByItem(home.home_id, id),
       getRooms(home.home_id),
       getFaqsByItem(home.home_id, id),
-    ]).then(([itemRes, tasksRes, chunksRes, manualsRes, roomsRes, faqsRes]) => {
+    ]).then(async ([itemRes, tasksRes, chunksRes, manualsRes, roomsRes, faqsRes]) => {
       if (cancelled) return
       setLoading(false)
       setItem(itemRes.data ?? null)
@@ -129,11 +130,25 @@ export default function ItemDetailPage() {
       setRooms(roomsRes.data ?? [])
       setFaqs(faqsRes.data ?? [])
 
+      // AHA-candidate funnel event: the user is looking at an item's content.
+      // Props let analysis distinguish "opened an empty item" from "saw parsed
+      // manual/care content" without a second event.
+      if (itemRes.data) {
+        track("item_content_viewed", {
+          home_id: home.home_id,
+          item_id: id,
+          chunk_count: chunksRes.data?.length ?? 0,
+          manual_count: manualsRes.data?.length ?? 0,
+          task_count: tasksRes.data?.length ?? 0,
+          faq_count: faqsRes.data?.length ?? 0,
+        })
+      }
+
       // Resolve PDF URL for "See page X" links
       const firstManual = (manualsRes.data ?? [])[0]
       if (firstManual) {
-        const url = getManualUrl(firstManual.source_type, firstManual.source_ref)
-        if (url) setManualPdfUrl(url)
+        const url = await resolveManualUrl(firstManual.source_type, firstManual.source_ref).catch(() => null)
+        if (url && !cancelled) setManualPdfUrl(url)
       }
 
       // Auto-parse manuals that haven't been parsed yet AND were created

@@ -14,6 +14,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
 import { makeCallClaudeText, type CallClaudeText } from "./claude.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
+import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -81,6 +82,7 @@ export const ingestReference = onCall({ region: REGION, secrets: [ANTHROPIC_API_
   const manualRef = db.doc(`homes/${homeId}/manuals/${manualId}`)
   const manual = await manualRef.get()
   if (!manual.exists) throw new HttpsError("not-found", "Manual not found")
+  await consumeDailyAiQuota(db, uid, "ingestReference")
 
   let pdfBase64: string
   try {

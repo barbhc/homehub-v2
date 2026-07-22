@@ -1,12 +1,13 @@
 /**
- * Storage security-rules tests (Wave 1 hardening).
+ * Storage security-rules tests (Wave 1 hardening + launch-readiness P0).
  *
- * The old rules were catch-all `read: true; write: request.auth != null` — any
- * signed-in token (incl. anonymous, provider temporarily enabled) could
- * overwrite ANY object. New rules: public read everywhere (v1 parity for
- * imported objects + public download URLs), writes only via per-prefix blocks
- * (uid-scoped for manuals/photos), size-capped. The 50MB cap itself isn't
- * exercised here (it would need a >50MB buffer) — covered by review.
+ * Reads: `get` only, for signed-in NON-anonymous users — no public read, no
+ * `list` (bucket enumeration) anywhere. Legacy/imported v1 objects at any path
+ * shape stay gettable by signed-in users; anything rendered via plain <img>
+ * uses token-bearing getDownloadURL URLs (see resolveStorageUrl). Writes only
+ * via per-prefix blocks (uid-scoped for manuals/photos), size-capped. The 50MB
+ * cap itself isn't exercised here (it would need a >50MB buffer) — covered by
+ * review.
  *
  * Requires the Storage emulator:
  *   firebase emulators:exec --only firestore,storage --project demo-homehub-rules 'npm run test:rules'
@@ -21,7 +22,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing"
-import { ref, uploadBytes, deleteObject, getBytes } from "firebase/storage"
+import { ref, uploadBytes, deleteObject, getBytes, getDownloadURL, listAll } from "firebase/storage"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -98,11 +99,39 @@ describe("catch-all removal — unmatched shapes are write-denied", () => {
   })
 })
 
-describe("public read (v1 parity — imported objects at any shape keep resolving)", () => {
-  it("anyone can read any existing object, even unauthenticated", async () => {
+describe("reads — signed-in get only (no public read, no anonymous, no list)", () => {
+  beforeAll(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await uploadBytes(ref(ctx.storage(), "legacy-item/manual_old.pdf"), BYTES)
+      await uploadBytes(ref(ctx.storage(), `photos/${ME}/item1/seeded.jpg`), BYTES)
     })
-    await assertSucceeds(getBytes(ref(asAnon(), "legacy-item/manual_old.pdf")))
+  })
+
+  it("unauthenticated reads are denied everywhere", async () => {
+    await assertFails(getBytes(ref(asAnon(), "legacy-item/manual_old.pdf")))
+    await assertFails(getBytes(ref(asAnon(), `photos/${ME}/item1/seeded.jpg`)))
+  })
+
+  it("signed-in users can get objects at any shape (legacy v1 imports included)", async () => {
+    await assertSucceeds(getBytes(ref(asMe(), "legacy-item/manual_old.pdf")))
+    // Cross-uid get too: co-members render each other's uploads via paths from
+    // membership-gated Firestore docs.
+    await assertSucceeds(getBytes(ref(asOther(), `photos/${ME}/item1/seeded.jpg`)))
+  })
+
+  it("getDownloadURL works for signed-in users (token URLs feed <img>/<a>)", async () => {
+    await assertSucceeds(getDownloadURL(ref(asMe(), `photos/${ME}/item1/seeded.jpg`)))
+  })
+
+  it("anonymous-provider tokens cannot read (throwaway uids stay locked out)", async () => {
+    const anonProvider = testEnv
+      .authenticatedContext("anon-uid", { firebase: { sign_in_provider: "anonymous" } })
+      .storage()
+    await assertFails(getBytes(ref(anonProvider, "legacy-item/manual_old.pdf")))
+  })
+
+  it("list is denied even signed-in (no bucket enumeration)", async () => {
+    await assertFails(listAll(ref(asMe(), `photos/${ME}/item1`)))
+    await assertFails(listAll(ref(asMe(), "")))
   })
 })

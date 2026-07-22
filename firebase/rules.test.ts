@@ -235,3 +235,21 @@ describe("users profile access (get-only; list closed against enumeration)", () 
     await assertFails(setDoc(doc(asMember(), `users/${OWNER}`), { fullName: "Hijack" }))
   })
 })
+
+describe("AI usage quota docs (usage/{uid}/daily/{day}) — Admin-SDK-only", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `usage/${OWNER}/daily/2026-07-21`), { count: 50 })
+    })
+  })
+
+  it("a user cannot read or reset their own quota counter (no cap bypass)", async () => {
+    await assertFails(getDoc(doc(asOwner(), `usage/${OWNER}/daily/2026-07-21`)))
+    await assertFails(setDoc(doc(asOwner(), `usage/${OWNER}/daily/2026-07-21`), { count: 0 }))
+  })
+
+  it("other users cannot touch it either", async () => {
+    await assertFails(getDoc(doc(asMember(), `usage/${OWNER}/daily/2026-07-21`)))
+    await assertFails(setDoc(doc(asOutsider(), `usage/${OWNER}/daily/2026-07-21`), { count: 0 }))
+  })
+})

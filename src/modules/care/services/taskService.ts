@@ -1,5 +1,6 @@
 import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
+import { track } from "@/lib/analytics"
 import type {
   TaskTemplate,
   TaskInstance,
@@ -662,6 +663,8 @@ export async function markTaskInstanceDone(
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Failed to complete task" }
   }
+  // Single choke point for every check-off surface (Home, Tasks, Care, bulk…).
+  track("task_checked", { home_id: homeId, task_instance_id: taskInstanceId })
 
   const snap = await getDoc(doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`))
   if (!snap.exists()) return { success: false, error: "Task instance not found after completion" }

@@ -1,24 +1,36 @@
 rules_version = '2';
 
-// v2 Storage rules. Reads stay PUBLIC everywhere (v1 parity: the app builds
-// tokenless public URLs via storageDownloadUrl, and imported v1 objects must
-// keep resolving regardless of shape). Writes are granted ONLY by the scoped
-// blocks below — the old catch-all `write: request.auth != null` let any
-// signed-in token (incl. anonymous, provider temporarily enabled) overwrite
-// any object with no size limit. Overlapping matches OR together, so a path
-// matching several blocks is writable if ANY block grants it.
+// v2 Storage rules (launch-readiness P0: the public-read hole is closed).
+//
+// READS: `get` only, for signed-in NON-anonymous users — there is no public
+// read and no `list` anywhere (no bucket enumeration). Object paths are only
+// discoverable through membership-gated Firestore docs (photoPath, sourceRef,
+// receiptPath, diagram URLs), so path knowledge is effectively member-scoped;
+// true per-home rules aren't expressible here because no path family carries a
+// homeId and legacy v1-imported objects exist at arbitrary shapes. Anything
+// rendered via plain <img>/<a>/fetch (no auth header) uses token-bearing
+// getDownloadURL URLs — see src/integrations/firebase/storage.ts
+// (resolveStorageUrl). The parse worker reads via the Admin SDK (bypasses
+// rules).
+//
+// WRITES: granted ONLY by the scoped blocks below — the old catch-all
+// `write: request.auth != null` let any signed-in token (incl. anonymous,
+// provider temporarily enabled) overwrite any object with no size limit.
+// Overlapping matches OR together, so a path matching several blocks is
+// writable if ANY block grants it.
 //
 // Client write shapes (src/modules/inventory/services/storageService.ts):
 //   {userId}/{itemId}/manual_{ts}.{ext}      — manual PDFs (uid-scoped)
 //   photos/{userId}/{itemId}/photo.{ext}     — item photos (uid-scoped)
 //   receipts/{itemUnitId}/{ts}-{name}.{ext}  — receipts (no uid in path)
 //   images/{manualId}/page_{n}.jpg           — rendered diagram pages
-// The parse worker reads uploads via the Admin SDK (bypasses rules).
 service firebase.storage {
   match /b/{bucket}/o {
-    // Public read, everywhere (incl. legacy/imported shapes). No writes here.
+    // Signed-in (non-anonymous) users may GET objects at any shape (incl.
+    // legacy/imported v1 paths). No list, no public read, no writes here.
     match /{allPaths=**} {
-      allow read: if true;
+      allow get: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
     // Manual PDFs — only the owner's own uid prefix; delete needs its own

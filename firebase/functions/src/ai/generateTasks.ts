@@ -12,6 +12,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, extractJsonObject, fetchPdfBase64, type CallClaudeText } from "./claude.js"
 import { requireAnyMembership } from "../lib/membership.js"
+import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -243,6 +244,7 @@ export async function runGenerateTasks(
 export const generateTasks = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 120 }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
   await requireAnyMembership(getFirestore(), request.auth.uid)
+  await consumeDailyAiQuota(getFirestore(), request.auth.uid, "generateTasks")
   try {
     return await runGenerateTasks(makeCallClaudeText(ANTHROPIC_API_KEY.value()), (request.data ?? {}) as GenerateTasksInput)
   } catch (e) {
