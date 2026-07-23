@@ -1,5 +1,19 @@
+/**
+ * IdentifyStep — step 1 of add-item, redesigned as Flow A ("two-lane start").
+ *
+ *   choice     "What are you adding?" — Appliance/device vs Everything else
+ *   appliance  brand + model lead; the layered identity lookup fills the rest
+ *              ("We found this" card — explicit apply, undoable, never a gate)
+ *   simple     name-first quick add for items without a nameplate
+ *
+ * The label photo is an ASSIST, not a lane: "Snap label instead" in the
+ * appliance lane runs the same Vision→Haiku OCR as before. Receipt scans keep
+ * filling purchase fields. Nothing the user typed is ever overwritten by any
+ * automation — identity apply fills blanks (and the auto-composed placeholder
+ * name) only, and Undo restores exactly what it changed.
+ */
 import { useState, useRef, useEffect, useMemo } from "react"
-import { Camera, ChevronDown, Loader2, ShieldCheckIcon, BookOpenCheck, BellRingIcon, Sparkles, MapPin } from "lucide-react"
+import { Camera, ChevronDown, Loader2, ShieldCheckIcon, BookOpenCheck, BellRingIcon, Sparkles, MapPin, Refrigerator, Armchair } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,9 +27,13 @@ import { track } from "@/lib/analytics"
 import {
   lookupProduct,
   type ProductLookupCandidate,
+  type ProductIdentity,
+  type VariantCandidate,
   type KnowledgeConfidence,
 } from "@/modules/inventory/services/productLookupService"
 import { ProductSuggestionCard } from "@/components/smart-add/ProductSuggestionCard"
+import { IdentityCard, type IdentityCardState } from "@/components/smart-add/IdentityCard"
+import { applyIdentity, undoIdentity, type IdentitySnapshot } from "@/components/smart-add/identityApply"
 import {
   mapApplianceTypeIdToCategory,
   mapOcrCategoryToTyped,
@@ -27,7 +45,7 @@ import {
 import { useCurrentHome, getRooms } from "@/modules/home"
 import { cn } from "@/lib/utils"
 
-export type IdentifyMode = "choice" | "photo" | "manual"
+export type IdentifyMode = "choice" | "appliance" | "simple"
 
 export type IdentifyData = {
   brand: string
@@ -85,15 +103,18 @@ function mergeOcrCategory(raw: string | null | undefined): {
   return fromTyped
 }
 
-function hasHiddenAutofill(d: IdentifyData): boolean {
+/** Fields hidden inside "Add more details" that autofill may have populated —
+ *  auto-expands the section so nothing lands invisibly. In the appliance lane
+ *  brand/model are top-level, so only the genuinely hidden fields count. */
+function hasHiddenAutofill(d: IdentifyData, mode: IdentifyMode): boolean {
   const cf = d.categoryFields
   const cfKeys = cf && typeof cf === "object" ? Object.keys(cf).filter((k) => {
     const v = (cf as Record<string, unknown>)[k]
     return v !== null && v !== undefined && v !== ""
   }) : []
+  const hiddenBrandModel = mode === "simple" && (d.brand.trim().length > 0 || d.model.trim().length > 0)
   return (
-    d.brand.trim().length > 0 ||
-    d.model.trim().length > 0 ||
+    hiddenBrandModel ||
     d.serialNumber.trim().length > 0 ||
     (d.purchaseDate ?? "").trim().length > 0 ||
     d.purchasePrice != null ||
@@ -123,8 +144,8 @@ export function IdentifyStep({
   const [moreDetailsOpen, setMoreDetailsOpen] = useState(false)
   const [labelPreviewUrl, setLabelPreviewUrl] = useState<string | null>(null)
 
-  // Name-first quick add: infer category + a room hint from the typed name (reuses
-  // the same text→category mapper as OCR) and surface them as one-tap chips.
+  // Name-first inference (simple lane) + room hint: infer category + room from
+  // the typed name / applied subType and surface them as one-tap chips.
   const { home } = useCurrentHome()
   const [quickRooms, setQuickRooms] = useState<Array<{ room_id: string; name: string }>>([])
   useEffect(() => {
@@ -136,42 +157,64 @@ export function IdentifyStep({
     [data.name]
   )
   const suggestedRoom = useMemo(() => {
-    const hint = suggestedRoomForSubType(nameInference.subType)
+    // Applied identity (data.subType) beats name inference — after "Use this"
+    // the room chip should reflect the resolved product.
+    const hint = suggestedRoomForSubType(data.subType ?? nameInference.subType)
     if (!hint) return null
     const h = hint.toLowerCase()
     return quickRooms.find((r) => {
       const rn = r.name.toLowerCase()
       return rn.includes(h) || h.includes(rn)
     }) ?? null
-  }, [nameInference.subType, quickRooms])
+  }, [data.subType, nameInference.subType, quickRooms])
   // One-tap chips, only while the field they'd fill is still empty.
   const catChip: ItemCategoryId | null = !data.itemCategory ? nameInference.itemCategory : null
   const roomChip = !data.locationId ? suggestedRoom : null
-  const cameraInputRef = useRef<HTMLInputElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const extraImageRef = useRef<HTMLInputElement>(null)
   // Monotonic request id — protects against stale OCR responses overwriting
   // newer extractions when users retry quickly.
   const ocrRequestIdRef = useRef(0)
 
-  // Product-lookup (brand+model → Claude spec suggestions) state.
-  // Numeric specs from Claude are NEVER silently merged into the form —
-  // the user must tap "Apply" per candidate in the ProductSuggestionCard.
+  // ── Product lookup (identity card + spec candidates) ──────────────────────
+  // Identity: the layered resolver's answer for the CURRENT brand+model key.
+  // Specs: the existing per-field review card. Numeric specs from Claude are
+  // NEVER silently merged — the user taps Apply per candidate. Identity is the
+  // same contract: "Use this" is the only write, and it's undoable.
+  const [lookupResult, setLookupResult] = useState<{
+    key: string
+    identity: ProductIdentity | null
+    variants: VariantCandidate[]
+  } | null>(null)
+  const [identityApplied, setIdentityApplied] = useState<{
+    key: string
+    snapshot: IdentitySnapshot
+    identity: ProductIdentity
+  } | null>(null)
+  // "Not my product" / "None of these" per brand+model key — session-scoped.
+  const [dismissedIdentityKeys, setDismissedIdentityKeys] = useState<Set<string>>(new Set())
   const [lookupCandidates, setLookupCandidates] = useState<ProductLookupCandidate[]>([])
   const [lookupConfidence, setLookupConfidence] = useState<KnowledgeConfidence>("low")
   const [appliedCandidateKeys, setAppliedCandidateKeys] = useState<Set<string>>(new Set())
   const [lookupLoading, setLookupLoading] = useState(false)
-  const [dismissedLookupKey, setDismissedLookupKey] = useState<string | null>(null)
+  const [dismissedSpecKey, setDismissedSpecKey] = useState<string | null>(null)
   const lookupRequestIdRef = useRef(0)
   const lastLookupKeyRef = useRef<string>("")
-  // Keep a ref to the latest data so the debounced lookup callback can read
-  // fresh values without forcing a re-subscribe on every keystroke.
+  // Keep a ref to the latest data so debounced/apply callbacks read fresh
+  // values without re-subscribing on every keystroke.
   const dataRef = useRef(data)
   useEffect(() => {
     dataRef.current = data
   })
+  // Every placeholder name this mount has auto-composed ("LG WM4000HWA", …).
+  // A name in this set is OURS to replace (recompose on brand/model change,
+  // upgrade on identity apply); anything else is user-typed and untouchable.
+  // A set — not "the last one" — so a raced state update can never strand a
+  // stale placeholder outside our tracking.
+  const placeholderNamesRef = useRef<Set<string>>(new Set())
 
-  const wantAutoExpand = useMemo(() => hasHiddenAutofill(data), [data])
+  const currentKey = `${data.brand.trim().toLowerCase()}::${data.model.trim().toLowerCase()}`
+
+  const wantAutoExpand = useMemo(() => hasHiddenAutofill(data, mode), [data, mode])
 
   useEffect(() => {
     if (wantAutoExpand) setMoreDetailsOpen(true)
@@ -183,23 +226,35 @@ export function IdentifyStep({
     }
   }, [labelPreviewUrl])
 
-  // Debounced brand+model → product-lookup edge function.
-  // Fires 800ms after brand and model have both settled at ≥2 chars, skipped
-  // while OCR is still running so we don't race the nameplate extraction.
+  // Appliance lane: keep the Name synced to "<brand> <model>" while the user
+  // hasn't named it themselves. Once they type their own name (or identity
+  // apply sets the product name), the placeholder never touches it again.
+  useEffect(() => {
+    if (mode !== "appliance") return
+    const composed = `${data.brand.trim()} ${data.model.trim()}`.trim()
+    if (!composed) return
+    const current = dataRef.current
+    if (current.name === "" || placeholderNamesRef.current.has(current.name)) {
+      if (current.name !== composed) onDataChange({ ...current, name: composed })
+      placeholderNamesRef.current.add(composed)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, data.brand, data.model])
+
+  // Debounced brand+model → product lookup (identity + spec candidates).
+  // Fires 800ms after both have settled at ≥2 chars, skipped while OCR is
+  // running so we don't race the nameplate extraction. Transport errors leave
+  // lookupResult null — no card at all; an error is NOT a product miss.
   useEffect(() => {
     const brand = data.brand.trim()
     const model = data.model.trim()
     const key = `${brand.toLowerCase()}::${model.toLowerCase()}`
 
     if (brand.length < 2 || model.length < 2) {
-      // Clear stale suggestions when inputs are too short. Don't touch
-      // lastLookupKeyRef — we only update it on a successful fetch so the
-      // next full entry can re-fire.
       if (lookupCandidates.length > 0) setLookupCandidates([])
       return
     }
     if (ocrLoading) return
-    if (dismissedLookupKey === key) return
     if (lastLookupKeyRef.current === key) return
 
     const handle = window.setTimeout(async () => {
@@ -214,33 +269,82 @@ export function IdentifyStep({
       if (requestId !== lookupRequestIdRef.current) return
       setLookupLoading(false)
       if (result.error) {
-        // Soft-fail — user can still fill fields by hand.
+        // Soft-fail — the form stays fully usable; typed data is the data.
         console.warn("[product-lookup] error:", result.error.message)
         return
       }
       lastLookupKeyRef.current = key
       const r = result.data
-      const current = dataRef.current
-      // Auto-apply SAFE fields only (category/subType) — these are low-harm:
-      // getting an item mis-categorized is trivially correctable. Numeric
-      // specs always require explicit per-field approval.
-      const nextCategory = current.itemCategory ?? r.safe.category
-      const nextSubType = current.subType ?? r.safe.subType
-      if (nextCategory !== current.itemCategory || nextSubType !== current.subType) {
-        onDataChange({
-          ...current,
-          itemCategory: nextCategory,
-          subType: nextSubType,
-        })
-      }
+      setLookupResult({ key, identity: r.identity, variants: r.variantCandidates })
       setLookupCandidates(r.candidates)
       setLookupConfidence(r.knowledgeConfidence)
       setAppliedCandidateKeys(new Set())
+      track("identity_lookup_done", {
+        outcome: r.identity ? "found" : r.variantCandidates.length > 0 ? "fuzzy" : "miss",
+        source: r.identity?.source ?? null,
+        cacheHit: r.cacheHit,
+      })
     }, 800)
 
     return () => window.clearTimeout(handle)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.brand, data.model, ocrLoading, dismissedLookupKey])
+  }, [data.brand, data.model, ocrLoading])
+
+  // ── Identity card state machine ───────────────────────────────────────────
+  const identityCardState: IdentityCardState | null = (() => {
+    if (mode !== "appliance") return null
+    if (lookupLoading) return "loading"
+    if (identityApplied && identityApplied.key === currentKey) return "applied"
+    if (!lookupResult || lookupResult.key !== currentKey) return null
+    if (dismissedIdentityKeys.has(currentKey)) return "miss"
+    if (lookupResult.identity) return "found"
+    if (lookupResult.variants.length > 0) return "fuzzy"
+    return "miss"
+  })()
+
+  const identityCategoryLabel = useMemo(() => {
+    const identity = lookupResult?.identity
+    if (!identity) return null
+    const mapped = mergeOcrCategory(identity.rawCategory)
+    if (!mapped.itemCategory) return null
+    return getSubTypeLabel(mapped.itemCategory, mapped.subType) ?? legacyCategoryLabelFromItemCategory(mapped.itemCategory)
+  }, [lookupResult?.identity])
+
+  const handleUseIdentity = () => {
+    const identity = lookupResult?.identity
+    if (!identity || lookupResult?.key !== currentKey) return
+    const { next, snapshot } = applyIdentity(dataRef.current, identity, {
+      nameIsPlaceholder: placeholderNamesRef.current.has(dataRef.current.name),
+    })
+    onDataChange(next)
+    setIdentityApplied({ key: currentKey, snapshot, identity })
+    track("identity_applied", { source: identity.source })
+  }
+
+  const handleUndoIdentity = () => {
+    if (!identityApplied) return
+    onDataChange(undoIdentity(dataRef.current, identityApplied.snapshot))
+    setIdentityApplied(null)
+    track("identity_undone")
+  }
+
+  const handleNotMyProduct = () => {
+    if (identityApplied) onDataChange(undoIdentity(dataRef.current, identityApplied.snapshot))
+    setIdentityApplied(null)
+    setDismissedIdentityKeys((prev) => new Set(prev).add(currentKey))
+    track("identity_rejected", { source: lookupResult?.identity?.source ?? null })
+  }
+
+  const handlePickVariant = (model: string) => {
+    // Setting the full model refires the debounced lookup → found state.
+    onDataChange({ ...dataRef.current, model })
+    track("identity_variant_picked")
+  }
+
+  const handleNoneOfThese = () => {
+    setDismissedIdentityKeys((prev) => new Set(prev).add(currentKey))
+    track("identity_variants_rejected")
+  }
 
   const handleApplyCandidate = (c: ProductLookupCandidate) => {
     const nextFields = { ...(data.categoryFields ?? {}), [c.key]: c.value }
@@ -264,8 +368,7 @@ export function IdentifyStep({
   }
 
   const handleDismissLookup = () => {
-    const key = `${data.brand.trim().toLowerCase()}::${data.model.trim().toLowerCase()}`
-    setDismissedLookupKey(key)
+    setDismissedSpecKey(currentKey)
     setLookupCandidates([])
   }
 
@@ -331,9 +434,9 @@ export function IdentifyStep({
       brand: data.brand || (r.brand ?? ""),
       model: data.model || (r.model ?? ""),
       name:
-        data.name ||
-        (r.name ?? `${r.brand ?? ""} ${r.model ?? ""}`.trim()) ||
-        "Appliance",
+        data.name && !placeholderNamesRef.current.has(data.name)
+          ? data.name
+          : (r.name ?? `${r.brand ?? ""} ${r.model ?? ""}`.trim()) || data.name || "Appliance",
       serialNumber: data.serialNumber || (r.serialNumber ?? ""),
       itemCategory: data.itemCategory ?? itemCategory,
       subType: data.subType ?? subType,
@@ -348,7 +451,7 @@ export function IdentifyStep({
     let filled = 0
     if (!data.brand && next.brand) filled++
     if (!data.model && next.model) filled++
-    if (!data.name && next.name) filled++
+    if (data.name !== next.name) filled++
     if (!data.serialNumber && next.serialNumber) filled++
     if (data.itemCategory == null && next.itemCategory != null) filled++
     if (!data.purchaseDate && next.purchaseDate) filled++
@@ -357,8 +460,7 @@ export function IdentifyStep({
     setOcrOutcome("success")
     setOcrFilledCount(filled)
     track("label_ocr_succeeded", { filled, docType: r.docType ?? "unknown", engine: r.engine ?? null, ms })
-    if (hasHiddenAutofill(next)) setMoreDetailsOpen(true)
-    onModeChange("photo")
+    if (hasHiddenAutofill(next, mode)) setMoreDetailsOpen(true)
     // If OCR gave us a purchase date or price (receipt scan), log a telemetry-
     // friendly console line so we can eyeball receipt-extraction quality in
     // prod without needing full analytics.
@@ -397,18 +499,8 @@ export function IdentifyStep({
     fallbackInput?.click()
   }
 
-  // "Take photo": native camera in the iOS/Android shell; the hidden file
-  // input (which opens the camera in mobile Safari) on the web.
-  const handleTakePhoto = async () => {
-    if (isNativePlatform()) {
-      await handleNativeCapture(cameraInputRef.current)
-    } else {
-      cameraInputRef.current?.click()
-    }
-  }
-
-  // In-form snap/re-snap (manual/photo branch) — same native/web split, but
-  // wired to the always-rendered extraImageRef input.
+  // "Snap label instead": native camera in the iOS/Android shell; the hidden
+  // file input (which opens the camera in mobile Safari) on the web.
   const handleSnapLabel = async () => {
     if (ocrLoading) return
     if (isNativePlatform()) {
@@ -440,87 +532,70 @@ export function IdentifyStep({
     onDataChange({ ...data, subType: id })
   }
 
-  const isValid = data.name.trim().length > 0
+  const isValid =
+    mode === "appliance"
+      ? data.brand.trim().length >= 2 && data.model.trim().length >= 1 && data.name.trim().length > 0
+      : data.name.trim().length > 0
 
+  // ── Lane chooser ──────────────────────────────────────────────────────────
   if (mode === "choice") {
     return (
-      <div className="flex flex-col gap-6 max-w-lg mx-auto">
-        <SectionCard className="p-8 border-border/80 bg-gradient-to-b from-muted/40 to-background">
-          <div className="flex flex-col items-center text-center gap-5">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-              <Camera className="h-10 w-10" strokeWidth={1.25} aria-hidden />
+      <div className="flex flex-col gap-4 max-w-lg mx-auto">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">What are you adding?</h2>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            track("add_lane_selected", { lane: "appliance" })
+            onModeChange("appliance")
+          }}
+          className="group text-left rounded-2xl border border-border bg-card p-5 shadow-sm hover:border-primary/50 hover:bg-primary/[0.02] transition-colors"
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Refrigerator className="h-6 w-6" strokeWidth={1.5} aria-hidden />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-foreground">Snap a photo of the label</h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-                (or the receipt — we&apos;ll read what we can)
+              <p className="font-semibold text-foreground">Appliance or device</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Has a brand &amp; model — washer, fridge, thermostat, TV…
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:justify-center">
-              <Button
-                type="button"
-                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={handleTakePhoto}
-              >
-                <Camera className="h-4 w-4" aria-hidden />
-                Take photo
-              </Button>
-              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                Choose file
-              </Button>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            track("add_lane_selected", { lane: "simple" })
+            onModeChange("simple")
+          }}
+          className="group text-left rounded-2xl border border-border bg-card p-5 shadow-sm hover:border-primary/50 hover:bg-primary/[0.02] transition-colors"
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <Armchair className="h-6 w-6" strokeWidth={1.5} aria-hidden />
             </div>
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleImageInput}
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageInput}
-            />
-            <p className="text-xs text-muted-foreground pt-2">
-              <button
-                type="button"
-                className="underline underline-offset-2 hover:text-foreground"
-                onClick={() => {
-                  clearOcrState()
-                  onDataChange({ ...DEFAULT_IDENTIFY_DATA })
-                  onModeChange("manual")
-                }}
-              >
-                Enter manually
-              </button>
-            </p>
+            <div>
+              <p className="font-semibold text-foreground">Everything else</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Faucet, toilet, sofa, deck, houseplant — just name it.
+              </p>
+            </div>
           </div>
-        </SectionCard>
-        {ocrLoading && (
-          <div className="flex items-center gap-2 text-muted-foreground justify-center" aria-busy="true" aria-label="Processing image">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            <span className="text-sm">Reading label…</span>
-          </div>
-        )}
-        {ocrError && (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive max-w-lg mx-auto">
-            {ocrError}
-            <Button variant="ghost" size="sm" className="mt-2" onClick={handleTakePhoto}>
-              Try again
-            </Button>
-          </div>
-        )}
+        </button>
+        <p className="text-xs text-muted-foreground text-center">
+          Photo of a label? You can snap it inside the appliance form.
+        </p>
       </div>
     )
   }
 
+  // ── Form lanes (appliance / simple) ───────────────────────────────────────
   return (
     <div className="flex flex-col gap-6 max-w-xl mx-auto">
       <SectionCard className="p-5 sm:p-6 space-y-5 transition-all duration-200">
-        {labelPreviewUrl && (
+        {mode === "appliance" && labelPreviewUrl && (
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <img
@@ -582,27 +657,15 @@ export function IdentifyStep({
             )}
           </div>
         )}
-        {!labelPreviewUrl && (mode === "manual" || mode === "photo") && (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={handleSnapLabel}
-              disabled={ocrLoading}
-            >
-              Snap label photo
+        {mode === "appliance" && !labelPreviewUrl && ocrError && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {ocrError}
+            <Button variant="ghost" size="sm" className="mt-2" onClick={handleSnapLabel}>
+              Try again
             </Button>
-            {ocrLoading && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                Reading label…
-              </span>
-            )}
           </div>
         )}
-        {(mode === "manual" || mode === "photo") && (
+        {mode === "appliance" && (
           <input
             ref={extraImageRef}
             type="file"
@@ -611,6 +674,86 @@ export function IdentifyStep({
             className="hidden"
             onChange={handleImageInput}
           />
+        )}
+
+        {mode === "appliance" && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="identify-brand" className="text-sm font-medium text-foreground block mb-1.5">
+                  Brand <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="identify-brand"
+                  value={data.brand}
+                  onChange={(e) => onDataChange({ ...data, brand: e.target.value })}
+                  placeholder="e.g., LG"
+                  maxLength={100}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="identify-model" className="text-sm font-medium text-foreground block mb-1.5">
+                  Model <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="identify-model"
+                  value={data.model}
+                  onChange={(e) => onDataChange({ ...data, model: e.target.value })}
+                  placeholder="e.g., WM4000HWA"
+                  maxLength={100}
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  On the nameplate — usually inside the door or on the back
+                </p>
+              </div>
+            </div>
+
+            {!labelPreviewUrl && (
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5"
+                  onClick={handleSnapLabel}
+                  disabled={ocrLoading}
+                >
+                  <Camera className="size-3.5" aria-hidden />
+                  Snap label instead
+                </Button>
+                {ocrLoading && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                    Reading label…
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onModeChange("simple")}
+                  className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  No model number?
+                </button>
+              </div>
+            )}
+
+            {identityCardState && (
+              <IdentityCard
+                state={identityCardState}
+                identity={identityCardState === "applied" ? identityApplied?.identity : lookupResult?.identity}
+                categoryLabel={identityCategoryLabel}
+                variants={lookupResult?.variants ?? []}
+                onUse={handleUseIdentity}
+                onUndo={handleUndoIdentity}
+                onNotMine={handleNotMyProduct}
+                onPickVariant={handlePickVariant}
+                onNoneOfThese={handleNoneOfThese}
+                onSnapLabel={labelPreviewUrl ? undefined : handleSnapLabel}
+              />
+            )}
+          </>
         )}
 
         <div>
@@ -704,10 +847,12 @@ export function IdentifyStep({
                 <ShieldCheckIcon className="size-3.5 text-emerald-600 shrink-0" aria-hidden />
                 <span><span className="font-medium text-foreground">Purchase date</span> → warranty tracking &amp; age-based reminders</span>
               </li>
-              <li className="flex items-center gap-1.5">
-                <BookOpenCheck className="size-3.5 text-sky-600 shrink-0" aria-hidden />
-                <span><span className="font-medium text-foreground">Brand &amp; model</span> → better manual matches</span>
-              </li>
+              {mode === "simple" && (
+                <li className="flex items-center gap-1.5">
+                  <BookOpenCheck className="size-3.5 text-sky-600 shrink-0" aria-hidden />
+                  <span><span className="font-medium text-foreground">Brand &amp; model</span> → better manual matches</span>
+                </li>
+              )}
               <li className="flex items-center gap-1.5">
                 <BellRingIcon className="size-3.5 text-amber-600 shrink-0" aria-hidden />
                 <span><span className="font-medium text-foreground">Serial number</span> → recall alerts &amp; warranty claims</span>
@@ -727,34 +872,36 @@ export function IdentifyStep({
         >
           <div className="overflow-hidden min-h-0">
             <div className="space-y-4 pt-1 border-t border-border/60">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="identify-brand" className="text-sm font-medium text-foreground block mb-1.5">
-                    Brand
-                  </label>
-                  <Input
-                    id="identify-brand"
-                    value={data.brand}
-                    onChange={(e) => onDataChange({ ...data, brand: e.target.value })}
-                    placeholder="e.g., Samsung"
-                    maxLength={100}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">helps find the right manual online</p>
+              {mode === "simple" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="identify-brand" className="text-sm font-medium text-foreground block mb-1.5">
+                      Brand
+                    </label>
+                    <Input
+                      id="identify-brand"
+                      value={data.brand}
+                      onChange={(e) => onDataChange({ ...data, brand: e.target.value })}
+                      placeholder="e.g., Samsung"
+                      maxLength={100}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">helps find the right manual online</p>
+                  </div>
+                  <div>
+                    <label htmlFor="identify-model" className="text-sm font-medium text-foreground block mb-1.5">
+                      Model
+                    </label>
+                    <Input
+                      id="identify-model"
+                      value={data.model}
+                      onChange={(e) => onDataChange({ ...data, model: e.target.value })}
+                      placeholder="e.g., RF28R7551SR"
+                      maxLength={100}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">helps find the right manual online</p>
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="identify-model" className="text-sm font-medium text-foreground block mb-1.5">
-                    Model
-                  </label>
-                  <Input
-                    id="identify-model"
-                    value={data.model}
-                    onChange={(e) => onDataChange({ ...data, model: e.target.value })}
-                    placeholder="e.g., RF28R7551SR"
-                    maxLength={100}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">helps find the right manual online</p>
-                </div>
-              </div>
+              )}
               <div>
                 <label htmlFor="identify-serial" className="text-sm font-medium text-foreground block mb-1.5">
                   Serial number
@@ -817,7 +964,7 @@ export function IdentifyStep({
                   />
                 </div>
               )}
-              {(lookupLoading || lookupCandidates.length > 0) && (
+              {dismissedSpecKey !== currentKey && (lookupLoading || lookupCandidates.length > 0) && (
                 <ProductSuggestionCard
                   candidates={lookupCandidates}
                   knowledgeConfidence={lookupConfidence}
@@ -845,18 +992,16 @@ export function IdentifyStep({
       )}
 
       <div className="flex gap-3">
-        {(mode === "photo" || mode === "manual") && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              clearOcrState()
-              onModeChange("choice")
-            }}
-            disabled={isCreating}
-          >
-            Back
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          onClick={() => {
+            clearOcrState()
+            onModeChange("choice")
+          }}
+          disabled={isCreating}
+        >
+          Back
+        </Button>
         <Button onClick={onConfirm} disabled={!isValid || isCreating} className="gap-2">
           {isCreating ? (
             <>

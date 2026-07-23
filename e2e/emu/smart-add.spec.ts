@@ -6,16 +6,17 @@ import { test, expect, type Page } from "@playwright/test"
  * homes/{homeId}/items) instead of dead-ending on the legacy inventoryService
  * ("Could not create item" on the inert shim, the audit's P0 bug).
  *
- * Drives the manual-entry path: /inventory/add (name-first — the form opens in
- * manual mode since 4ca3db4) → name → "Add item" → lands on the detail page.
+ * Drives the simple lane (Flow A two-lane start): /inventory/add opens the lane
+ * chooser → "Everything else" → name → "Add item" → lands on the detail page.
  */
 const visible = { visible: true } as const
 
 test.describe("emulator e2e — smart add (createItemUnit P0)", () => {
-  test("manual-entry add creates an item and lands on its detail page", async ({ page }) => {
+  test("simple-lane add creates an item and lands on its detail page", async ({ page }) => {
     await page.goto("/inventory/add")
 
-    // Name is the only required field (the form opens in manual mode).
+    // Lane chooser → "Everything else" (name-only quick add).
+    await page.getByRole("button", { name: /Everything else/ }).click()
     await page.locator("#identify-name").fill("Emu Test Toaster")
     await page.getByRole("button", { name: /^Add item$/ }).filter(visible).first().click()
 
@@ -27,11 +28,11 @@ test.describe("emulator e2e — smart add (createItemUnit P0)", () => {
 })
 
 /**
- * "Snap label photo" OCR states — the callable is stubbed at the network layer
+ * "Snap label instead" OCR states — the callable is stubbed at the network layer
  * (real Vision/Claude need live secrets the emulator doesn't have) so the spec
  * pins the CLIENT contract that was broken in prod: every outcome must be
- * visible in manual mode (spinner → filled-count copy / honest empty copy with
- * raw text / error box with retry), never a silent no-op.
+ * visible in the appliance lane (spinner → filled-count copy / honest empty copy
+ * with raw text / error box with retry), never a silent no-op.
  */
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -45,7 +46,9 @@ const EMPTY_FIELDS = {
 
 async function snapLabelPhoto(page: Page) {
   await page.goto("/inventory/add")
-  await expect(page.getByRole("button", { name: "Snap label photo" }).filter(visible).first()).toBeVisible()
+  // Flow A: the label photo is an assist inside the appliance lane.
+  await page.getByRole("button", { name: /Appliance or device/ }).click()
+  await expect(page.getByRole("button", { name: "Snap label instead" }).filter(visible).first()).toBeVisible()
   await page.setInputFiles('input[type="file"]', {
     name: "label.png",
     mimeType: "image/png",

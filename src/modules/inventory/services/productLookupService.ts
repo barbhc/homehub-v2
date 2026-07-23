@@ -37,10 +37,28 @@ export type ProductLookupCandidate = {
   rationale: string | null
 }
 
+/** Layered identity resolution (server: Icecat → Brave → Haiku). */
+export type ProductIdentity = {
+  name: string
+  /** Free-text category hint — map with mapOcrCategoryToTyped client-side. */
+  rawCategory: string | null
+  source: "icecat" | "brave" | "claude"
+  confidence: KnowledgeConfidence
+}
+
+/** Full model numbers a partial model might be ("WM4000H" → "WM4000HWA"). */
+export type VariantCandidate = {
+  model: string
+  differentiator: string | null
+}
+
 export type ProductLookupResult = {
   safe: ProductLookupSafeFields
   candidates: ProductLookupCandidate[]
   knowledgeConfidence: KnowledgeConfidence
+  /** null = genuine miss (every layer struck out). */
+  identity: ProductIdentity | null
+  variantCandidates: VariantCandidate[]
   source: "llm" | "cache"
   cacheHit: boolean
 }
@@ -78,7 +96,16 @@ export async function lookupProduct(input: ProductLookupInput): Promise<ProductL
     if (!data || typeof data !== "object" || !("safe" in data)) {
       return { data: null, error: { message: "Empty or malformed response" } }
     }
-    return { data, error: null }
+    // Normalize fields older deployed functions won't send yet — the client
+    // must treat "identity unknown" as absent, not crash on undefined.
+    return {
+      data: {
+        ...data,
+        identity: data.identity ?? null,
+        variantCandidates: Array.isArray(data.variantCandidates) ? data.variantCandidates : [],
+      },
+      error: null,
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Product lookup failed"
     return { data: null, error: { message } }
