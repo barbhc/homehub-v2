@@ -6,7 +6,7 @@
  */
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { runProductLookup, cacheKey } from "../lib/firebase/functions/src/ai/productLookup.js"
+import { runProductLookup, cacheKey, haikuIdentity } from "../lib/firebase/functions/src/ai/productLookup.js"
 
 test("high-confidence result passes safe fields + valid candidates", async () => {
   const call = async () => ({
@@ -78,4 +78,52 @@ test("cacheKey is stable + case/whitespace-insensitive", () => {
   const b = cacheKey("  coway ", "ap-1512hh", "SMALL_APPLIANCE", null)
   assert.equal(a, b)
   assert.equal(a.length, 64) // sha-256 hex
+})
+
+test("variant candidates: extends-only validation, dedupe, cap 3, kept at low confidence", async () => {
+  const call = async () => ({
+    category: null,
+    sub_type: null,
+    knowledge_confidence: "low", // knows the family, not the exact model — the fuzzy case
+    candidate_fields: [],
+    variant_candidates: [
+      { model: "WM4000HWA", differentiator: "White" },
+      { model: "wm4000hwa", differentiator: "dupe (case)" }, // dedupe vs above
+      { model: "WM4000HBA", differentiator: null },
+      { model: "RF28R7551SR", differentiator: "wrong family" }, // doesn't extend → dropped
+      { model: "WM4000H", differentiator: "same as typed" }, // no extension → dropped
+      { model: "WM4000HVA", differentiator: "third" },
+      { model: "WM4000HZA", differentiator: "fourth — over cap" },
+    ],
+  })
+  const res = await runProductLookup(call, "LG", "WM4000H", null)
+  assert.equal(res.variantCandidates.length, 3)
+  assert.deepEqual(
+    res.variantCandidates.map((v) => v.model),
+    ["WM4000HWA", "WM4000HBA", "WM4000HVA"],
+  )
+  assert.equal(res.variantCandidates[0].differentiator, "White")
+})
+
+test("variant candidates absent from tool input → empty array (legacy fixture shape)", async () => {
+  const call = async () => ({ category: null, sub_type: null, knowledge_confidence: "high", candidate_fields: [] })
+  const res = await runProductLookup(call, "GE", "XYZ123", null)
+  assert.deepEqual(res.variantCandidates, [])
+})
+
+test("haikuIdentity: null at low confidence, composed identity otherwise", () => {
+  const low = { safe: { category: null, subType: null }, candidates: [], knowledgeConfidence: "low", variantCandidates: [] }
+  assert.equal(haikuIdentity(low, "Nomad", "ZZZ-999"), null)
+
+  const high = {
+    safe: { category: "small_appliance", subType: "air-purifier" },
+    candidates: [],
+    knowledgeConfidence: "high",
+    variantCandidates: [],
+  }
+  const id = haikuIdentity(high, "Coway", "AP-1512HH")
+  assert.equal(id.name, "Coway AP-1512HH")
+  assert.equal(id.rawCategory, "air-purifier")
+  assert.equal(id.source, "claude")
+  assert.equal(id.confidence, "high")
 })

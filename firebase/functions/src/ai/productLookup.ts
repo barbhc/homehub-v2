@@ -11,18 +11,30 @@
  * is the injectable, emulator-testable core (fixture tool input → validated result).
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
-import { defineSecret } from "firebase-functions/params"
+import { defineSecret, defineString } from "firebase-functions/params"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { createHash } from "node:crypto"
 import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
+import {
+  resolveExternalIdentity,
+  normalizeModel,
+  type ProductIdentity,
+  type VariantCandidate,
+} from "./identityResolver.js"
 import { requireAnyMembership } from "../lib/membership.js"
 import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
+// Identity-layer credentials as string params (default "" = layer dormant, no
+// deploy friction). Free-tier keys; if either graduates to a paid tier, move it
+// to defineSecret. Values live in firebase/functions/.env.<project> (gitignored).
+const ICECAT_USERNAME = defineString("ICECAT_USERNAME", { default: "" })
+const BRAVE_SEARCH_API_KEY = defineString("BRAVE_SEARCH_API_KEY", { default: "" })
 const REGION = "us-central1"
 
-/** Bump when prompt/schema/model change in a way that invalidates cache. */
-const PROMPT_VERSION = 1
+/** Bump when prompt/schema/model change in a way that invalidates cache.
+ *  v2: identity layers + variant candidates added to the payload. */
+const PROMPT_VERSION = 2
 const CACHE_TTL_DAYS = 30
 
 const CATEGORY_IDS = [
@@ -43,8 +55,12 @@ export type ProductLookupCore = {
   safe: SafeFields
   candidates: CandidateField[]
   knowledgeConfidence: KnowledgeConfidence
+  /** Full model numbers this partial model might be (family variants). */
+  variantCandidates: VariantCandidate[]
 }
 export type ProductLookupResult = ProductLookupCore & {
+  /** Layered identity resolution (Icecat → Brave → Haiku); null = genuine miss. */
+  identity: ProductIdentity | null
   source: "llm" | "cache"
   cacheHit: boolean
 }
@@ -95,8 +111,25 @@ const CLAIM_TOOL = {
         description:
           "Overall confidence that you have recognized this exact product. 'low' means you don't actually recognize the model; return no candidate_fields in that case.",
       },
+      variant_candidates: {
+        type: "array",
+        description:
+          "ONLY when the given model looks like a PARTIAL model-family prefix (e.g. 'WM4000H' for LG's WM4000HWA/WM4000HBA): up to 3 full model numbers you know from that family, each with a short differentiator (color/finish/size). Empty array when the model is complete or you don't recognize the family.",
+        items: {
+          type: "object",
+          properties: {
+            model: { type: "string", description: "Full model number, e.g. 'WM4000HWA'." },
+            differentiator: {
+              type: ["string", "null"],
+              description: "Short human difference, e.g. 'White' or 'Black steel'. Null if unknown.",
+            },
+          },
+          required: ["model", "differentiator"],
+          additionalProperties: false,
+        },
+      },
     },
-    required: ["category", "sub_type", "candidate_fields", "knowledge_confidence"],
+    required: ["category", "sub_type", "candidate_fields", "knowledge_confidence", "variant_candidates"],
     additionalProperties: false,
   },
 } as const
@@ -141,8 +174,9 @@ function sanitizeInput(s: unknown, maxLen = 100): string | null {
 }
 
 /** Validate the tool_use input into the two-tier core payload. */
-function parseToolInput(input: Record<string, unknown> | null): ProductLookupCore {
-  if (!input) return { safe: { category: null, subType: null }, candidates: [], knowledgeConfidence: "low" }
+function parseToolInput(input: Record<string, unknown> | null, typedModel: string): ProductLookupCore {
+  if (!input)
+    return { safe: { category: null, subType: null }, candidates: [], knowledgeConfidence: "low", variantCandidates: [] }
 
   const rawCategory = input.category
   const category =
@@ -177,12 +211,39 @@ function parseToolInput(input: Record<string, unknown> | null): ProductLookupCor
     }
   }
 
+  // Variant candidates: must genuinely EXTEND the typed model (same normalized
+  // prefix, longer) — anything else is a hallucinated family. Deduped, cap 3.
+  // Allowed even at low confidence: "I know the family but not this exact model"
+  // is precisely the fuzzy case the variants exist for.
+  const typedNorm = normalizeModel(typedModel)
+  const variantCandidates: VariantCandidate[] = []
+  const seenVariants = new Set<string>()
+  const rawVariants = input.variant_candidates
+  if (Array.isArray(rawVariants) && typedNorm.length >= 4) {
+    for (const raw of rawVariants) {
+      const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null
+      const vModel = typeof r?.model === "string" ? r.model.trim().slice(0, 40) : ""
+      if (!vModel) continue
+      const vNorm = normalizeModel(vModel)
+      if (!vNorm.startsWith(typedNorm) || vNorm.length <= typedNorm.length) continue
+      if (vNorm.length > typedNorm.length + 8 || seenVariants.has(vNorm)) continue
+      seenVariants.add(vNorm)
+      const differentiator =
+        typeof r?.differentiator === "string" && r.differentiator.trim()
+          ? r.differentiator.trim().slice(0, 60)
+          : null
+      variantCandidates.push({ model: vModel, differentiator })
+      if (variantCandidates.length >= 3) break
+    }
+  }
+
   // Low confidence → refuse candidates + subType (they would be fabricated).
   const finalCandidates = confidence === "low" ? [] : candidates
   return {
     safe: { category, subType: confidence === "low" ? null : subType },
     candidates: finalCandidates,
     knowledgeConfidence: confidence,
+    variantCandidates,
   }
 }
 
@@ -199,7 +260,22 @@ export async function runProductLookup(
     tool: CLAIM_TOOL as unknown as Record<string, unknown>,
     content: [{ type: "text", text: buildPrompt(brand, model, category) }],
   })
-  return parseToolInput(input)
+  return parseToolInput(input, model)
+}
+
+/**
+ * Haiku-derived identity — the last layer. Only when the spec lookup actually
+ * recognized the product (medium/high): name composes from what the user typed,
+ * category hint from the safe fields.
+ */
+export function haikuIdentity(core: ProductLookupCore, brand: string, model: string): ProductIdentity | null {
+  if (core.knowledgeConfidence === "low") return null
+  return {
+    name: `${brand} ${model}`.slice(0, 120),
+    rawCategory: core.safe.subType ?? core.safe.category,
+    source: "claude",
+    confidence: core.knowledgeConfidence,
+  }
 }
 
 export const productLookup = onCall(
@@ -224,6 +300,8 @@ export const productLookup = onCall(
     const cacheRef = db.collection("productLookupCache").doc(key)
 
     // Cache hit → still counts against quota (stops runaway cached pulls).
+    // Misses are cached too (identity:null) — "we don't recognize this" is an
+    // answer worth not re-asking three data sources for on every keystroke.
     const cachedSnap = await cacheRef.get()
     const now = Date.now()
     if (cachedSnap.exists) {
@@ -231,12 +309,33 @@ export const productLookup = onCall(
       const stored = cachedSnap.get("result") as ProductLookupCore | undefined
       if (stored && (!expiresAt || expiresAt.toMillis() > now)) {
         await consumeDailyAiQuota(db, uid, "productLookup")
-        return { ...stored, source: "cache", cacheHit: true } satisfies ProductLookupResult
+        const identity = (cachedSnap.get("identity") as ProductIdentity | null | undefined) ?? null
+        return {
+          ...stored,
+          variantCandidates: stored.variantCandidates ?? [],
+          identity,
+          source: "cache",
+          cacheHit: true,
+        } satisfies ProductLookupResult
       }
     }
 
     // Miss → quota-check BEFORE the paid Claude call.
     await consumeDailyAiQuota(db, uid, "productLookup")
+
+    // Identity layers (Icecat → Brave, sequential first-hit-wins; dormant
+    // without keys) run in parallel with the Haiku spec lookup — Haiku's
+    // candidates are wanted either way, and it doubles as the last identity
+    // source. External layers are fail-open (null), never fatal.
+    const externalPromise = resolveExternalIdentity(
+      {
+        fetchJson: fetch,
+        icecatUsername: ICECAT_USERNAME.value().trim() || null,
+        braveApiKey: BRAVE_SEARCH_API_KEY.value().trim() || null,
+      },
+      brand,
+      model,
+    )
 
     let core: ProductLookupCore
     try {
@@ -244,18 +343,36 @@ export const productLookup = onCall(
     } catch (e) {
       throw new HttpsError("unavailable", e instanceof Error ? e.message : "Product lookup failed")
     }
+    const external = await externalPromise
+
+    const identity = external.identity ?? haikuIdentity(core, brand, model)
+    // Variants only matter when no exact identity resolved — merge external
+    // mining with Haiku's family knowledge, dedupe by normalized model, cap 3.
+    const variantCandidates: VariantCandidate[] = []
+    if (!identity) {
+      const seen = new Set<string>()
+      for (const v of [...external.variants, ...core.variantCandidates]) {
+        const norm = normalizeModel(v.model)
+        if (seen.has(norm)) continue
+        seen.add(norm)
+        variantCandidates.push(v)
+        if (variantCandidates.length >= 3) break
+      }
+    }
+    const enrichedCore: ProductLookupCore = { ...core, variantCandidates }
 
     // Persist (best-effort; a failed write just means the next request retries).
     try {
       await cacheRef.set({
         brand, model, category, subType, promptVersion: PROMPT_VERSION,
-        result: core,
+        result: enrichedCore,
+        identity,
         expiresAt: Timestamp.fromMillis(now + CACHE_TTL_DAYS * 86400_000),
       })
     } catch {
       /* non-fatal */
     }
 
-    return { ...core, source: "llm", cacheHit: false } satisfies ProductLookupResult
+    return { ...enrichedCore, identity, source: "llm", cacheHit: false } satisfies ProductLookupResult
   },
 )
