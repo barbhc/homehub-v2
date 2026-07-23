@@ -58,9 +58,10 @@ export default function SmartAddItem() {
   const { user } = useAuth()
 
   const [step, setStep] = useState<WizardStep>("identify")
-  // Default to name-first for the fastest add — the Name field is the only required
-  // input; photo/OCR stays one tap away ("Snap label photo" / Back → choice screen).
-  const [identifyMode, setIdentifyMode] = useState<IdentifyMode>("manual")
+  // Flow A: every add starts at the lane chooser ("Appliance or device" vs
+  // "Everything else") — brand+model lead in the appliance lane, name leads in
+  // the simple lane. The label photo is an assist inside the appliance lane.
+  const [identifyMode, setIdentifyMode] = useState<IdentifyMode>("choice")
   const [identifyData, setIdentifyData] = useState<IdentifyData>({ ...DEFAULT_IDENTIFY_DATA })
   // Downscaled nameplate photo from IdentifyStep — attached as the item photo
   // after creation. Not persisted in the wizard session (a File can't be), so
@@ -140,7 +141,10 @@ export default function SmartAddItem() {
           : (session.step as WizardStep)
     setStep(safeStep)
     if (session.step === "identify") {
-      setIdentifyMode("manual")
+      // Resume into the lane that matches the saved data (legacy sessions from
+      // the manual/photo modes land in "simple" unless they carried a brand or
+      // model, which belongs to the appliance lane).
+      setIdentifyMode(session.brand?.trim() || session.model?.trim() ? "appliance" : "simple")
     }
     setResumePrompt(false)
     setLoading(false)
@@ -162,7 +166,7 @@ export default function SmartAddItem() {
     clearWizardSession()
     setResumePrompt(false)
     setItemId(null)
-    setIdentifyMode("manual")
+    setIdentifyMode("choice")
     setIdentifyData({ ...DEFAULT_IDENTIFY_DATA })
     setLabelPhotoFile(null)
     setManualDocGate(null)

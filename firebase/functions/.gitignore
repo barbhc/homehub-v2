@@ -1,0 +1,4 @@
+# Per-project param files can carry real API keys (Icecat/Brave) — never commit.
+# .env.demo-homehub (emulator, empty values) IS committed intentionally.
+.env.homehub-2068d
+.env.local
