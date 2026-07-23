@@ -25,11 +25,15 @@ import { requireAnyMembership } from "../lib/membership.js"
 import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
-// Identity-layer credentials as string params (default "" = layer dormant, no
-// deploy friction). Free-tier keys; if either graduates to a paid tier, move it
-// to defineSecret. Values live in firebase/functions/.env.<project> (gitignored).
+// Brave is a SECRET, matching chatQuery + searchProductImages, which already
+// declare this exact name via defineSecret — it lives in Secret Manager, not an
+// .env file. Declaring the same name as a defineString param here would read
+// empty and silently disable the layer.
+const BRAVE_SEARCH_API_KEY = defineSecret("BRAVE_SEARCH_API_KEY")
+// Icecat username is not a credential (and Open Icecat's free catalog turned out
+// to be too thin for home appliances), so it stays a plain param, default "" =
+// layer dormant. Value would live in firebase/functions/.env.<project>.
 const ICECAT_USERNAME = defineString("ICECAT_USERNAME", { default: "" })
-const BRAVE_SEARCH_API_KEY = defineString("BRAVE_SEARCH_API_KEY", { default: "" })
 const REGION = "us-central1"
 
 /** Bump when prompt/schema/model change in a way that invalidates cache.
@@ -279,7 +283,7 @@ export function haikuIdentity(core: ProductLookupCore, brand: string, model: str
 }
 
 export const productLookup = onCall(
-  { region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60 },
+  { region: REGION, secrets: [ANTHROPIC_API_KEY, BRAVE_SEARCH_API_KEY], timeoutSeconds: 60 },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
     const uid = request.auth.uid
