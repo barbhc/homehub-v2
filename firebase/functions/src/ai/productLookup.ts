@@ -37,8 +37,10 @@ const ICECAT_USERNAME = defineString("ICECAT_USERNAME", { default: "" })
 const REGION = "us-central1"
 
 /** Bump when prompt/schema/model change in a way that invalidates cache.
- *  v2: identity layers + variant candidates added to the payload. */
-const PROMPT_VERSION = 2
+ *  v2: identity layers + variant candidates added to the payload.
+ *  v3: partial-model lookups prefer variants over token-exact retailer-page
+ *      hits — invalidates junk "found" entries cached while v2 was live. */
+const PROMPT_VERSION = 3
 const CACHE_TTL_DAYS = 30
 /** Lookups fire on every typing pause (~$0.001 each, cache hits charged too),
  *  so the shared 50/day pool starves fast during real add sessions. Higher

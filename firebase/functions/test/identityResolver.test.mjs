@@ -75,6 +75,23 @@ test("brave: partial model → no identity, mined family variants instead", asyn
   assert.deepEqual(models, ["WM4000HBA", "WM4000HWA"])
 })
 
+test("brave: token-exact hit on a PARTIAL model (extensions present) → variants, not identity", async () => {
+  // The prod failure this pins: typing "SMD24" matched a retailer search page
+  // literally titled "Smd24 at US Appliance" and confidently called it the
+  // product. When longer family models are mined from the same results, the
+  // typed model is a partial and the pick must win.
+  const fetchJson = jsonResponse(
+    braveBody([
+      { title: "Smd24 at US Appliance", description: "Shop Sharp SMD2470AS and SMD2470ASY drawer microwaves" },
+      { title: "Sharp SMD2470AS Microwave Drawer", description: "" },
+    ]),
+  )
+  const { identity, variants } = await braveIdentity(fetchJson, "key", "Sharp", "SMD24")
+  assert.equal(identity, null)
+  const models = variants.map((v) => v.model).sort()
+  assert.deepEqual(models, ["SMD2470AS", "SMD2470ASY"])
+})
+
 test("brave: HTTP error / empty results / thrown fetch → fail-open empty", async () => {
   assert.deepEqual(await braveIdentity(httpError(429), "k", "B", "MODEL1"), { identity: null, variants: [] })
   assert.deepEqual(await braveIdentity(jsonResponse(braveBody([])), "k", "B", "MODEL1"), {

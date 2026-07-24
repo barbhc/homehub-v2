@@ -175,7 +175,12 @@ export async function braveIdentity(
     const haystacks = items.flatMap((r) => [r.title, r.description])
     const variants = mineVariants(model, haystacks)
 
-    if (!exact) return { identity: null, variants }
+    // If the results ALSO contain longer models extending the typed one, the
+    // user typed a PARTIAL — and a token-exact title hit for a partial is
+    // almost always a retailer search/category page ("Smd24 at US Appliance"),
+    // not the product. The "which one is yours?" pick is the honest answer.
+    // A true full model has no mined extensions, so exact still wins there.
+    if (!exact || variants.length > 0) return { identity: null, variants }
     return {
       identity: {
         name: cleanResultTitle(exact.title),
@@ -183,7 +188,6 @@ export async function braveIdentity(
         source: "brave",
         confidence: "medium",
       },
-      // An exact hit answers the question — variants would only add noise.
       variants: [],
     }
   } catch {
