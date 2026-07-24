@@ -18,8 +18,16 @@ test.describe("emulator e2e — storage (uploadItemPhoto)", () => {
     await page.goto("/items/furnace")
     await expect(page.getByText("Carrier Infinity Furnace").filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
 
-    // Drive the hidden photo file input (image/* only — not the receipt input).
-    const input = page.locator('input[type="file"][accept="image/*"]').first()
+    // Photo upload lives in HeroCard, which mounts only inside the Edit dialog.
+    // This used to pass by driving a file input in the legacy layout — markup
+    // that was `display:none` and unreachable by any user, so the test proved
+    // the service worked through a path nobody could take. Drive the real one.
+    await page.getByRole("button", { name: /^Edit$/ }).first().click()
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toBeVisible({ timeout: 10_000 })
+
+    // The photo input (image/* only — not the receipt input).
+    const input = dialog.locator('input[type="file"][accept="image/*"]').first()
     await input.setInputFiles({ name: "furnace.png", mimeType: "image/png", buffer: Buffer.from(PNG_BASE64, "base64") })
 
     // uploadItemPhoto → Storage emulator + item.photoPath persisted → getPhotoUrl

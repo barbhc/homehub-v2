@@ -118,7 +118,6 @@ export function HeroCard({
   const [editValue, setEditValue] = useState("")
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [receiptUploading, setReceiptUploading] = useState(false)
   const [receiptError, setReceiptError] = useState<string | null>(null)
   const [editingTags, setEditingTags] = useState(false)
@@ -384,38 +383,19 @@ export function HeroCard({
                 <span className="text-lg font-semibold truncate leading-tight">{item.display_name || "Untitled"}</span>
                 <PencilIcon className="size-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0" />
               </div>
-              {deleteConfirm ? (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-xs text-muted-foreground">Delete?</span>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="h-11 md:h-6 px-3 md:px-2 text-sm md:text-xs"
-                    disabled={deleting}
-                    onClick={onDelete}
-                  >
-                    {deleting ? <Loader2Icon className="size-3 animate-spin" /> : "Yes"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-11 md:h-6 px-3 md:px-2 text-sm md:text-xs"
-                    onClick={() => setDeleteConfirm(false)}
-                  >
-                    No
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-11 w-11 md:h-6 md:w-6 p-0 text-muted-foreground/50 hover:text-destructive shrink-0 -mr-2 md:mr-0"
-                  onClick={() => setDeleteConfirm(true)}
-                  aria-label="Delete item"
-                >
-                  <Trash2Icon className="size-3.5" />
-                </Button>
-              )}
+              {/* onDelete opens the page-level confirm sheet, which names the
+                  item and states the task consequence — the old inline
+                  "Delete? Yes/No" here would just be a weaker double-confirm. */}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-11 w-11 md:h-6 md:w-6 p-0 text-muted-foreground/50 hover:text-destructive shrink-0 -mr-2 md:mr-0"
+                disabled={deleting}
+                onClick={onDelete}
+                aria-label="Delete item"
+              >
+                <Trash2Icon className="size-3.5" />
+              </Button>
             </div>
           )}
 

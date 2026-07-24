@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
+import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { PageContainer, EmptyState } from "@/components/layout"
 import { useAuth } from "@/modules/auth"
 import { useCurrentHome } from "@/modules/home"
@@ -18,9 +18,6 @@ import {
 } from "@/modules/knowledge"
 import { useManualManagement, resolveManualUrl } from "@/hooks/useManualManagement"
 import { track } from "@/lib/analytics"
-import { callable } from "@/integrations/firebase"
-
-const checkRecallsCallable = callable<{ homeId: string; itemUnitId: string }, unknown>("checkRecalls")
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type {
@@ -30,30 +27,25 @@ import type {
   Room,
   ChatFaq,
 } from "@/integrations/types"
-import {
-  RecallBanner,
-  WarrantyCard,
-} from "@/components/knowledge"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { DesktopItemDetail } from "@/components/home/DesktopItemDetail"
+import { Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
   HeroCard,
-  TaskSection,
   ManualSection,
   KnowledgeSection,
   SpecsSection,
   HistorySection,
-  NotesCard,
-  SidebarActions,
-  SetupChecklistSection,
-  HabitsSection,
 } from "./item-detail"
 
 export default function ItemDetailPage() {
@@ -73,15 +65,17 @@ export default function ItemDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [manualPdfUrl, setManualPdfUrl] = useState<string | null>(null)
   const [allHomeTags, setAllHomeTags] = useState<string[]>([])
-  const [isCheckingRecalls, setIsCheckingRecalls] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [knowledgeManualPageOpen, setKnowledgeManualPageOpen] = useState(false)
   const [knowledgeManualPage, setKnowledgeManualPage] = useState(1)
   const [knowledgeChunkId, setKnowledgeChunkId] = useState<string | null>(null)
   // Resizable manual dock (design option 4): size is vw on desktop, vh on mobile.
   const [manualDockSize, setManualDockSize] = useState(42)
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches)
-  const [historyKey, setHistoryKey] = useState(0)
+  // Bump to force HistorySection to refetch. Nothing triggers it since the
+  // legacy layout was removed; kept as the section's refreshKey input.
+  const [historyKey] = useState(0)
   const [editOpen, setEditOpen] = useState(false)
 
   // Fetch all tags used across home items for autocomplete suggestions
@@ -213,27 +207,20 @@ export default function ItemDetailPage() {
     return () => mq.removeEventListener("change", on)
   }, [])
 
-  const handleDelete = async () => {
+  /** Deleting is destructive and cascades to the item's tasks — every entry
+   *  point opens the confirm sheet first; only the sheet calls the service. */
+  const handleConfirmDelete = async () => {
     if (!home || !id) return
     setDeleting(true)
     const result = await softDeleteItemUnit(home.home_id, id)
     setDeleting(false)
     if (result.success) {
+      track("item_deleted", { hasManual: manuals.length > 0, taskCount: tasks.length })
+      setConfirmDeleteOpen(false)
       navigate("/inventory")
     } else {
+      // Keep the sheet open so the error is visible next to the action that failed.
       setError(`Could not delete item: ${result.error}`)
-    }
-  }
-
-  const handleCheckRecalls = async () => {
-    if (!id || !home) return
-    setIsCheckingRecalls(true)
-    try {
-      await checkRecallsCallable({ homeId: home.home_id, itemUnitId: id }).catch(() => {})
-      const res = await getItemUnit(home.home_id, id)
-      if (res.data) setItem(res.data)
-    } finally {
-      setIsCheckingRecalls(false)
     }
   }
 
@@ -256,30 +243,9 @@ export default function ItemDetailPage() {
   const specsChunks = chunks.filter((c) => c.chunk_type === "specs")
   const hasParsedManual = manuals.some((m) => m.parsed_at !== null)
 
-  // Split tasks by schedule_type into three surfaces:
-  //   setup   → SetupChecklistSection (install-time, one-off)
-  //   habit   → HabitsSection (as_needed / after_each_use — no due date, not in task feed)
-  //   regular → TaskSection (recurring scheduled tasks)
-  const HABIT_TYPES = new Set(["as_needed", "after_each_use"])
-
-  const setupTasks = tasks.filter(
-    (t) => t.schedule_rule?.[0]?.schedule_type === "setup",
-  )
-  const habitTasks = tasks.filter(
-    (t) => HABIT_TYPES.has(t.schedule_rule?.[0]?.schedule_type ?? ""),
-  )
-  const regularTasks = tasks.filter((t) => {
-    const st = t.schedule_rule?.[0]?.schedule_type ?? ""
-    return st !== "setup" && !HABIT_TYPES.has(st)
-  })
-
-  // When TaskSection updates its slice, preserve setup + habit tasks in the unified state.
-  const handleRegularTasksChange = (updated: typeof tasks) => {
-    setTasks([...setupTasks, ...habitTasks, ...updated])
-  }
-
-  const howToChunks = chunks.filter((c) => c.chunk_type === "how_to")
-  const troubleshootingChunks = chunks.filter((c) => c.chunk_type === "troubleshooting")
+  // Task splitting (setup / habit / regular) moved into RefinedItemDetail's
+  // CareBlock and DesktopItemDetail when the legacy layout was retired — this
+  // page just passes `tasks` through.
 
   const manualSectionProps = {
     homeId: home?.home_id ?? "",
@@ -380,6 +346,18 @@ export default function ItemDetailPage() {
             {manuals.length > 0 && (
               <HistorySection homeId={home!.home_id} itemId={id!} refreshKey={historyKey} />
             )}
+
+            {/* Delete — quiet, last, and never one-tap destructive. Until now
+                there was NO way to remove an item on mobile (the only delete
+                lived in the desktop-only edit dialog). */}
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteOpen(true)}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors"
+            >
+              <Trash2 className="size-4" aria-hidden />
+              Delete item
+            </button>
           </div>
         </div>
       </div>
@@ -416,126 +394,60 @@ export default function ItemDetailPage() {
             allHomeTags={allHomeTags}
             onItemUpdate={setItem}
             onTagsChange={setAllHomeTags}
-            onDelete={handleDelete}
+            onDelete={() => setConfirmDeleteOpen(true)}
             deleting={deleting}
             sidebarMode
           />
         </DialogContent>
       </Dialog>
 
-      {/* Old item detail kept hidden until the desktop redesign lands */}
-      <div className="hidden">
-      {/* Desktop: sidebar + main | Mobile: single column */}
-      <div className="lg:grid lg:grid-cols-[320px_1fr] lg:gap-6 lg:items-start">
-        {/* ── Sidebar (sticky on desktop) ── */}
-        <div className="lg:sticky lg:top-6 space-y-4 mb-6 lg:mb-0">
-          <HeroCard
-            item={item}
-            rooms={rooms}
-            homeId={home!.home_id}
-            userId={user?.id}
-            allHomeTags={allHomeTags}
-            onItemUpdate={setItem}
-            onTagsChange={setAllHomeTags}
-            onDelete={handleDelete}
-            deleting={deleting}
-            sidebarMode
-          />
 
-          {/* Notes — visible on desktop sidebar, hidden on mobile (shown later) */}
-          <NotesCard
-            item={item}
-            homeId={home!.home_id}
-            onItemUpdate={setItem}
-            className="hidden lg:block"
-          />
+      </div>
 
-          {/* Quick actions — desktop sidebar only */}
-          <SidebarActions
-            onOpenManual={() => manualMgmt.setAddManualOpen(true)}
-            onRescan={hasParsedManual ? () => manualMgmt.handleRescanManual(manuals[0].manual_id) : undefined}
-            onTroubleshoot={id ? () => navigate(`/chat?item=${id}`) : undefined}
-          />
-        </div>
-
-        {/* ── Main column ── */}
-        <div className="space-y-6">
-          <SetupChecklistSection
-            tasks={setupTasks}
-            homeId={home!.home_id}
-            itemId={id!}
-          />
-
-          {/* Mobile troubleshoot entry — hidden on desktop where SidebarActions has it */}
-          {id && (
-            <Link
-              to={`/chat?item=${id}`}
-              className="lg:hidden flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground hover:border-foreground/20 hover:bg-accent/50 transition-colors"
-            >
-              <span className="text-base">🔧</span>
-              Fix a problem
-            </Link>
+      {/* Delete confirmation — the ONLY path that actually deletes. Names the
+          item and states the task consequence, because softDeleteItemUnit
+          cascades: task templates are archived and open instances soft-deleted
+          (completed history is preserved). */}
+      <Dialog
+        open={confirmDeleteOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleting) {
+            setConfirmDeleteOpen(false)
+            setError(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {item.display_name}?</DialogTitle>
+            <DialogDescription>
+              {tasks.length > 0
+                ? `Its ${tasks.length} task${tasks.length === 1 ? "" : "s"} will be archived, and it will no longer appear in your items. Completed history is kept.`
+                : "It will no longer appear in your items. Completed history is kept."}
+            </DialogDescription>
+          </DialogHeader>
+          {error && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
           )}
-
-          <TaskSection
-            tasks={regularTasks}
-            homeId={home!.home_id}
-            itemId={id!}
-            manualPdfUrl={manualPdfUrl}
-            onTasksChange={handleRegularTasksChange}
-            onError={setError}
-            howToChunks={howToChunks}
-            troubleshootingChunks={troubleshootingChunks}
-            onOpenManualPage={openManualPage}
-            hasManual={hasParsedManual}
-            onChunksChange={(ht, ts) => {
-              setChunks((prev) => {
-                // Replace how_to and troubleshooting chunks, keep everything else
-                const other = prev.filter((c) => c.chunk_type !== "how_to" && c.chunk_type !== "troubleshooting")
-                return [...other, ...ht, ...ts]
-              })
-            }}
-            onHistoryRefresh={() => setHistoryKey((k) => k + 1)}
-          />
-
-          {/* Habits & Reminders — habit-type tasks (as_needed / after_each_use) */}
-          <HabitsSection tasks={habitTasks} />
-
-          {/* Notes — mobile only (below tasks) */}
-          <NotesCard
-            item={item}
-            homeId={home!.home_id}
-            onItemUpdate={setItem}
-            className="lg:hidden"
-          />
-
-          <HistorySection homeId={home!.home_id} itemId={id!} refreshKey={historyKey} />
-
-          <KnowledgeSection
-            chunks={chunks}
-            faqs={faqs}
-            hasParsedManual={hasParsedManual}
-            onFaqsChange={setFaqs}
-          />
-
-          <SpecsSection
-            specsChunks={specsChunks}
-            hasBrandOrModel={!!(item.brand || item.model)}
-          />
-
-          <ManualSection {...manualSectionProps} />
-
-          <RecallBanner
-            item={item}
-            onCheckNow={handleCheckRecalls}
-            isChecking={isCheckingRecalls}
-          />
-          <WarrantyCard item={item} />
-        </div>
-      </div>
-      </div>
-
-      </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirmDeleteOpen(false)
+                setError(null)
+              }}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {manualPdfUrl && (
         <ManualDockPanel
