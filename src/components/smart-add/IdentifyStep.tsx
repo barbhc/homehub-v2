@@ -34,7 +34,7 @@ import {
 import { ProductSuggestionCard } from "@/components/smart-add/ProductSuggestionCard"
 import { IdentityCard, type IdentityCardState } from "@/components/smart-add/IdentityCard"
 import { applyIdentity, undoIdentity, type IdentitySnapshot } from "@/components/smart-add/identityApply"
-import { COMMON_BRANDS } from "@/modules/inventory/constants/brands"
+import { BrandAutocomplete } from "@/components/smart-add/BrandAutocomplete"
 import {
   mapApplianceTypeIdToCategory,
   mapOcrCategoryToTyped,
@@ -595,14 +595,6 @@ export function IdentifyStep({
   // ── Form lanes (appliance / simple) ───────────────────────────────────────
   return (
     <div className="flex flex-col gap-6 max-w-xl mx-auto">
-      {/* Native brand autocomplete — the browser filters COMMON_BRANDS as the
-          user types ("Sha…" → "Sharp"). Offline, zero API cost, and it never
-          restricts input: any brand can still be typed in full. */}
-      <datalist id="brand-suggestions">
-        {COMMON_BRANDS.map((b) => (
-          <option key={b} value={b} />
-        ))}
-      </datalist>
       <SectionCard className="p-5 sm:p-6 space-y-5 transition-all duration-200">
         {mode === "appliance" && labelPreviewUrl && (
           <div className="space-y-2">
@@ -692,13 +684,11 @@ export function IdentifyStep({
                 <label htmlFor="identify-brand" className="text-sm font-medium text-foreground block mb-1.5">
                   Brand <span className="text-destructive">*</span>
                 </label>
-                <Input
+                <BrandAutocomplete
                   id="identify-brand"
-                  list="brand-suggestions"
                   value={data.brand}
-                  onChange={(e) => onDataChange({ ...data, brand: e.target.value })}
+                  onChange={(brand) => onDataChange({ ...dataRef.current, brand })}
                   placeholder="e.g., LG"
-                  maxLength={100}
                   required
                 />
               </div>
@@ -713,6 +703,13 @@ export function IdentifyStep({
                   placeholder="e.g., WM4000HWA"
                   maxLength={100}
                   required
+                  // Model numbers are uppercase alphanumerics — stop the iOS
+                  // keyboard fighting the user (lowercase default, autocorrect
+                  // "SMD2470" → words, spellcheck red squiggles).
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   On the nameplate — usually inside the door or on the back
@@ -888,13 +885,11 @@ export function IdentifyStep({
                     <label htmlFor="identify-brand" className="text-sm font-medium text-foreground block mb-1.5">
                       Brand
                     </label>
-                    <Input
+                    <BrandAutocomplete
                       id="identify-brand"
-                      list="brand-suggestions"
                       value={data.brand}
-                      onChange={(e) => onDataChange({ ...data, brand: e.target.value })}
+                      onChange={(brand) => onDataChange({ ...dataRef.current, brand })}
                       placeholder="e.g., Samsung"
-                      maxLength={100}
                     />
                     <p className="text-xs text-muted-foreground mt-1">helps find the right manual online</p>
                   </div>
@@ -908,6 +903,10 @@ export function IdentifyStep({
                       onChange={(e) => onDataChange({ ...data, model: e.target.value })}
                       placeholder="e.g., RF28R7551SR"
                       maxLength={100}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="characters"
+                      spellCheck={false}
                     />
                     <p className="text-xs text-muted-foreground mt-1">helps find the right manual online</p>
                   </div>
