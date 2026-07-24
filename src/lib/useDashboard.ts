@@ -35,28 +35,39 @@ interface DashboardData {
   homeUpkeep: HomeUpkeepItem[]
 }
 
+/** Non-essential query → never fail the whole dashboard on it. A flaky
+ *  warranties/insights/notices fetch should degrade to empty, not blank Home. */
+function soft<T>(p: Promise<T>, fallback: T, label: string): Promise<T> {
+  return p.catch((e) => {
+    console.warn(`[dashboard] ${label} soft-failed:`, e instanceof Error ? e.message : e)
+    return fallback
+  })
+}
+
+const EMPTY_NOTICES: HomeNotices = { recalls: [], missingDetails: [] }
+
 async function fetchDashboard(homeId: string): Promise<DashboardData> {
-  // Round 1: fetch profile and supporting data in parallel.
-  // Profile is needed to extract top_concerns for task ordering.
+  // Round 1. Only stats is core (below); every supplementary query fails soft so
+  // one hiccup can't blank the whole Home. Profile drives task ordering only.
   const [profileRes, stats, upcoming, expiringWarranties, notices, cleaningGuides, homeUpkeepRes] =
     await Promise.all([
-      getHomeProfile(homeId),
-      getDashboardStats(homeId),
-      getUpcomingTasks(homeId),
-      getExpiringWarranties(homeId),
-      getHomeNotices(homeId),
+      soft(getHomeProfile(homeId), { data: null, error: null } as Awaited<ReturnType<typeof getHomeProfile>>, "profile"),
+      getDashboardStats(homeId), // core — a real failure here surfaces the retry card
+      soft(getUpcomingTasks(homeId), [], "upcoming"),
+      soft(getExpiringWarranties(homeId), [], "warranties"),
+      soft(getHomeNotices(homeId), EMPTY_NOTICES, "notices"),
       // Powers the desktop "Deep-clean guides" rail (advanced/power level only).
       // Curated, guide-level + capped — NOT the full per-step cleaning feed.
-      getDeepCleanGuides(homeId),
+      soft(getDeepCleanGuides(homeId), [], "cleaningGuides"),
       // Powers the desktop "Home upkeep" list: home-scoped recurring tasks.
-      getHomeUpkeep(homeId),
+      soft(getHomeUpkeep(homeId), { data: [], error: null } as Awaited<ReturnType<typeof getHomeUpkeep>>, "homeUpkeep"),
     ])
   const topConcerns = profileRes.data?.top_concerns ?? []
 
-  // Round 2: fetch tasks (needs topConcerns) and insights (needs warranties) in parallel.
+  // Round 2: tasks (core) + insights (supplementary).
   const [tasks, insights] = await Promise.all([
-    getDashboardTasks(homeId, topConcerns),
-    getInsights(homeId, expiringWarranties),
+    getDashboardTasks(homeId, topConcerns), // core
+    soft(getInsights(homeId, expiringWarranties), [], "insights"),
   ])
   return {
     tasks,
@@ -70,14 +81,28 @@ async function fetchDashboard(homeId: string): Promise<DashboardData> {
   }
 }
 
+/** Reject after `ms` so a hung Firestore query surfaces the retry card instead
+ *  of trapping the user on the loading skeleton forever (no default SWR timeout). */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Loading your home timed out. Check your connection and try again.")), ms)
+    ),
+  ])
+}
+
 export function useDashboard(homeId: string | null) {
   const { data, error, isLoading, mutate } = useSWR(
     homeId ? `dashboard:${homeId}` : null,
-    () => fetchDashboard(homeId!),
+    () => withTimeout(fetchDashboard(homeId!), 20_000),
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       dedupingInterval: 5000,
+      // With a persisted cache (App.tsx SWRConfig), reopen shows the last Home
+      // instantly; keepPreviousData avoids a skeleton flash while it revalidates.
+      keepPreviousData: true,
     }
   )
 
