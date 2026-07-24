@@ -40,6 +40,10 @@ const REGION = "us-central1"
  *  v2: identity layers + variant candidates added to the payload. */
 const PROMPT_VERSION = 2
 const CACHE_TTL_DAYS = 30
+/** Lookups fire on every typing pause (~$0.001 each, cache hits charged too),
+ *  so the shared 50/day pool starves fast during real add sessions. Higher
+ *  allowance on the SAME counter — chat/OCR still cap at the default 50. */
+const LOOKUP_DAILY_LIMIT = 150
 
 const CATEGORY_IDS = [
   "major_appliance", "small_appliance", "fixture", "system", "structure",
@@ -259,7 +263,10 @@ export async function runProductLookup(
   category: string | null,
 ): Promise<ProductLookupCore> {
   const input = await callTool({
-    model: "claude-3-5-haiku-20241022",
+    // Haiku 4.5 — same pin as classifyExistingTasks. The previous
+    // claude-3-5-haiku-20241022 was RETIRED by Anthropic and 404'd every
+    // lookup in prod (surfaced as a silent 503 → no identity card, ever).
+    model: "claude-haiku-4-5-20251001",
     maxTokens: 800,
     tool: CLAIM_TOOL as unknown as Record<string, unknown>,
     content: [{ type: "text", text: buildPrompt(brand, model, category) }],
@@ -312,7 +319,7 @@ export const productLookup = onCall(
       const expiresAt = cachedSnap.get("expiresAt") as Timestamp | undefined
       const stored = cachedSnap.get("result") as ProductLookupCore | undefined
       if (stored && (!expiresAt || expiresAt.toMillis() > now)) {
-        await consumeDailyAiQuota(db, uid, "productLookup")
+        await consumeDailyAiQuota(db, uid, "productLookup", LOOKUP_DAILY_LIMIT)
         const identity = (cachedSnap.get("identity") as ProductIdentity | null | undefined) ?? null
         return {
           ...stored,
@@ -325,7 +332,7 @@ export const productLookup = onCall(
     }
 
     // Miss → quota-check BEFORE the paid Claude call.
-    await consumeDailyAiQuota(db, uid, "productLookup")
+    await consumeDailyAiQuota(db, uid, "productLookup", LOOKUP_DAILY_LIMIT)
 
     // Identity layers (Icecat → Brave, sequential first-hit-wins; dormant
     // without keys) run in parallel with the Haiku spec lookup — Haiku's
