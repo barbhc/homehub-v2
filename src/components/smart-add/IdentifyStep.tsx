@@ -197,6 +197,8 @@ export function IdentifyStep({
   const [lookupConfidence, setLookupConfidence] = useState<KnowledgeConfidence>("low")
   const [appliedCandidateKeys, setAppliedCandidateKeys] = useState<Set<string>>(new Set())
   const [lookupLoading, setLookupLoading] = useState(false)
+  /** Actionable lookup-failure notice (quota) — shown quietly under the fields. */
+  const [lookupNotice, setLookupNotice] = useState<string | null>(null)
   const [dismissedSpecKey, setDismissedSpecKey] = useState<string | null>(null)
   const lookupRequestIdRef = useRef(0)
   const lastLookupKeyRef = useRef<string>("")
@@ -271,9 +273,17 @@ export function IdentifyStep({
       setLookupLoading(false)
       if (result.error) {
         // Soft-fail — the form stays fully usable; typed data is the data.
+        // But never SILENTLY: track every failure (a retired model 404'd every
+        // lookup for days and nothing surfaced), and tell the user about quota
+        // exhaustion, which is actionable.
         console.warn("[product-lookup] error:", result.error.message)
+        track("identity_lookup_error", { message: result.error.message.slice(0, 120) })
+        if (/limit reached/i.test(result.error.message)) {
+          setLookupNotice("Daily lookup limit reached — the form still works, fill it in manually.")
+        }
         return
       }
+      setLookupNotice(null)
       lastLookupKeyRef.current = key
       const r = result.data
       setLookupResult({ key, identity: r.identity, variants: r.variantCandidates })
@@ -746,6 +756,9 @@ export function IdentifyStep({
               </div>
             )}
 
+            {lookupNotice && !identityCardState && (
+              <p className="text-xs text-muted-foreground">{lookupNotice}</p>
+            )}
             {identityCardState && (
               <IdentityCard
                 state={identityCardState}

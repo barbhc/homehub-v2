@@ -21,9 +21,11 @@ import { consumeDailyAiQuota } from "../lib/quota.js"
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY")
 const REGION = "us-central1"
-// Haiku 3.5 is multimodal — same pinned snapshot for both the text parse and
-// the image fallback keeps cost and behavior consistent.
-const OCR_MODEL = "claude-3-5-haiku-20241022"
+// Haiku 4.5 (multimodal) — same pinned snapshot for both the text parse and
+// the image fallback keeps cost and behavior consistent. The previous
+// claude-3-5-haiku-20241022 was RETIRED by Anthropic — every OCR call 404'd
+// at the API and surfaced as "label reader is having trouble".
+const OCR_MODEL = "claude-haiku-4-5-20251001"
 // Anthropic rejects images over ~5MB binary (~6.7MB base64); the client sends
 // ~1600px JPEGs (100s of KB), so hitting this means an unpatched client.
 const MAX_FALLBACK_BASE64 = 6_500_000
