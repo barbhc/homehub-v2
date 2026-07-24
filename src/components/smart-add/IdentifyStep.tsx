@@ -34,6 +34,7 @@ import {
 import { ProductSuggestionCard } from "@/components/smart-add/ProductSuggestionCard"
 import { IdentityCard, type IdentityCardState } from "@/components/smart-add/IdentityCard"
 import { applyIdentity, undoIdentity, type IdentitySnapshot } from "@/components/smart-add/identityApply"
+import { COMMON_BRANDS } from "@/modules/inventory/constants/brands"
 import {
   mapApplianceTypeIdToCategory,
   mapOcrCategoryToTyped,
@@ -594,6 +595,14 @@ export function IdentifyStep({
   // ── Form lanes (appliance / simple) ───────────────────────────────────────
   return (
     <div className="flex flex-col gap-6 max-w-xl mx-auto">
+      {/* Native brand autocomplete — the browser filters COMMON_BRANDS as the
+          user types ("Sha…" → "Sharp"). Offline, zero API cost, and it never
+          restricts input: any brand can still be typed in full. */}
+      <datalist id="brand-suggestions">
+        {COMMON_BRANDS.map((b) => (
+          <option key={b} value={b} />
+        ))}
+      </datalist>
       <SectionCard className="p-5 sm:p-6 space-y-5 transition-all duration-200">
         {mode === "appliance" && labelPreviewUrl && (
           <div className="space-y-2">
@@ -685,6 +694,7 @@ export function IdentifyStep({
                 </label>
                 <Input
                   id="identify-brand"
+                  list="brand-suggestions"
                   value={data.brand}
                   onChange={(e) => onDataChange({ ...data, brand: e.target.value })}
                   placeholder="e.g., LG"
@@ -880,6 +890,7 @@ export function IdentifyStep({
                     </label>
                     <Input
                       id="identify-brand"
+                      list="brand-suggestions"
                       value={data.brand}
                       onChange={(e) => onDataChange({ ...data, brand: e.target.value })}
                       placeholder="e.g., Samsung"

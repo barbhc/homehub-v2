@@ -2,7 +2,9 @@
 // Vercel production build automatically; this no-op forces a fresh deploy.
 import { Suspense, useEffect } from "react"
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom"
+import { SWRConfig } from "swr"
 import { trackPageview } from "@/lib/analytics"
+import { localStorageDashboardProvider } from "@/lib/swrPersist"
 import { AuthProvider, AuthGate, useAuth } from "@/modules/auth"
 import { HomeProvider, HomeGate } from "@/modules/home"
 import { AppLayout } from "@/components/AppLayout"
@@ -82,6 +84,9 @@ function TroubleshootRedirect() {
 function App() {
   return (
     <ErrorBoundary>
+      {/* Persist the dashboard cache across app restarts so reopening Home
+          paints the last-known dashboard instantly instead of a blank skeleton. */}
+      <SWRConfig value={{ provider: localStorageDashboardProvider }}>
       <BrowserRouter>
         <AuthProvider>
           <BootSplashGate />
@@ -150,6 +155,7 @@ function App() {
           </HomeProvider>
         </AuthProvider>
       </BrowserRouter>
+      </SWRConfig>
     </ErrorBoundary>
   )
 }
