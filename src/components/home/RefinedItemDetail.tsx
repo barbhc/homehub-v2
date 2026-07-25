@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { Link } from "react-router-dom"
 import {
-  ChevronLeftIcon, ChevronRightIcon, CameraIcon, MapPinIcon, ShieldCheckIcon, ShieldIcon,
+  ChevronLeftIcon, ChevronRightIcon, MapPinIcon, ShieldCheckIcon, ShieldIcon,
   MegaphoneIcon, WrenchIcon, TagIcon,
   WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, type LucideIcon,
 } from "lucide-react"
@@ -10,6 +10,7 @@ import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { dens } from "@/lib/redesign/tokens"
 import { CareBlock } from "@/components/item-care/CareBlock"
 import { WarrantyPanel } from "@/components/item-care/WarrantyPanel"
+import { ItemPhoto } from "./ItemPhoto"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 
@@ -87,12 +88,14 @@ export function RefinedItemDetail({
       <div className="flex-1 px-5 pb-10" style={{ paddingInline: d.pad, display: "flex", flexDirection: "column", gap: d.stack }}>
         {/* Photo + identity */}
         <div>
-          <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-[20px]" style={{ background: "linear-gradient(135deg,var(--hh-teal-wash),#DCE9E4)" }}>
-            <Glyph className="size-16 opacity-85" strokeWidth={1.3} style={{ color: TEAL }} />
-            <button className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold" style={{ background: "color-mix(in srgb, var(--hh-surface) 92%, transparent)", color: INK }}>
-              <CameraIcon className="size-[15px]" /> Add photo
-            </button>
-          </div>
+          <ItemPhoto
+            item={item}
+            homeId={homeId}
+            Glyph={Glyph}
+            onItemUpdate={onItemUpdate}
+            className="h-[150px] w-full rounded-[20px]"
+            glyphClassName="size-16"
+          />
           <h1 className="mt-3.5 text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
           {(item.brand || item.model) && <div className="mt-1 text-[15px]" style={{ color: SUB }}>{[item.brand, item.model].filter(Boolean).join(" · ")}</div>}
           <div className="mt-3 flex flex-wrap gap-2">

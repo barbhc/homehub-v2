@@ -16,6 +16,7 @@ import { parseSteps } from "@/pages/item-detail/utils"
 import { CareBlock } from "@/components/item-care/CareBlock"
 import { WarrantyPanel } from "@/components/item-care/WarrantyPanel"
 import { StepList, InfoBlurb, ManualBlurb, ProEscalate } from "@/components/tasks/TaskHowTo"
+import { ItemPhoto } from "./ItemPhoto"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)", FAINT = "var(--hh-faint)"
 const SLATE = "var(--hh-slate)", SLATE_SOFT = "var(--hh-slate-soft)", TEAL_WASH = "var(--hh-teal-wash)", LINE = "var(--hh-line)"
@@ -372,9 +373,14 @@ export function DesktopItemDetail({
       {/* Header card */}
       <Card pad={22} className="mb-6">
         <div className="flex gap-5">
-          <div className="grid size-[132px] shrink-0 place-items-center rounded-2xl" style={{ background: "linear-gradient(135deg,#EEF3F1,#E0EAE5)", color: TEAL }}>
-            <Glyph className="size-[58px]" strokeWidth={1.5} />
-          </div>
+          <ItemPhoto
+            item={item}
+            homeId={homeId}
+            Glyph={Glyph}
+            onItemUpdate={onItemUpdate}
+            className="size-[132px] shrink-0 rounded-2xl"
+            glyphClassName="size-[58px]"
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2.5">
               <h1 className="m-0 text-[25px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
