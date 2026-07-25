@@ -35,4 +35,27 @@ test.describe("emulator e2e — storage (uploadItemPhoto)", () => {
     // DOM (the page renders mobile+desktop copies; only one is visible).
     await expect(page.locator('img[src*="127.0.0.1:9199"]').first()).toBeAttached({ timeout: 15_000 })
   })
+
+  test("mobile: tapping Add photo uploads and renders the image", async ({ page }) => {
+    // Below the lg breakpoint the desktop view (and its Edit dialog) is
+    // display:none, so the phone's ONLY photo path is RefinedItemDetail's inline
+    // "Add photo" tile. That button used to be inert markup — no input, no
+    // handler — so adding a photo on a phone was impossible. Drive the real tile.
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.goto("/items/fridge")
+    await expect(
+      page.getByRole("heading", { name: "LG French Door Refrigerator" }).filter({ visible: true }).first()
+    ).toBeVisible({ timeout: 20_000 })
+
+    // The empty-state tile is a <label> whose visible "Add photo" caption opens
+    // the native file chooser (the desktop copy renders too, but display:none).
+    const chooserPromise = page.waitForEvent("filechooser")
+    await page.getByText("Add photo", { exact: true }).filter({ visible: true }).first().click()
+    const chooser = await chooserPromise
+    await chooser.setFiles({ name: "fridge.png", mimeType: "image/png", buffer: Buffer.from(PNG_BASE64, "base64") })
+
+    // Same round-trip as above: uploadItemPhoto → Storage emulator + persisted
+    // photoPath → useStorageUrl resolves the token URL the <img> renders from.
+    await expect(page.locator('img[src*="127.0.0.1:9199"]').first()).toBeAttached({ timeout: 15_000 })
+  })
 })
