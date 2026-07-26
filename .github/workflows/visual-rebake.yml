@@ -1,20 +1,27 @@
 name: Visual baseline re-bake
 
-# Re-bakes the emulator-backed visual-regression baselines (e2e/__screenshots__/**)
+# Re-bakes emulator-backed visual-regression baselines (e2e/__screenshots__/**)
 # on the Linux CI runner, so committed pixels match the environment the visual
 # suite compares in. Baselines are browser/OS-sensitive — they must never be the
 # local-platform pixels of a dev machine (see e2e/visual/README.md and CLAUDE.md).
-# Run this after an intentional UI change to any snapshotted surface.
+#
+# Scope is a Playwright title filter (default: "item detail"). A full re-bake is
+# NOT yet possible: the mobile (iPhone/WebKit) project times out on several pages
+# (pre-existing — mobile was never re-baked for v2, per e2e/visual/README.md), so
+# an unscoped run aborts before committing. Widen `grep` once that is fixed.
 #
 # workflow_dispatch is the normal entry point once this file is on the default
-# branch. The push trigger bootstraps the very first run from its own branch,
-# because workflow_dispatch is only available for workflows already on main.
-#
-# The job pushes the re-baked PNGs to a branch (never to main); open a PR from
-# that branch and merge it through the normal gate.
+# branch; the push trigger bootstraps the first run from its own branch. The job
+# pushes re-baked PNGs to a branch (never to main) — open a PR and merge via the
+# normal gate.
 
 on:
   workflow_dispatch:
+    inputs:
+      grep:
+        description: "Playwright -g title filter for the re-bake."
+        required: false
+        default: "item detail"
   push:
     branches: [chore/rebake-visual-baselines]
 
@@ -42,16 +49,28 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
       - name: Re-bake baselines against the seeded emulator
-        run: npm run test:e2e:visual:update
+        id: bake
+        continue-on-error: true
+        env:
+          # push events carry no inputs → fall back to the item-detail scope.
+          GREP: ${{ github.event.inputs.grep || 'item detail' }}
+        run: |
+          # Always include the auth setup ("authenticate") so the chromium/mobile
+          # projects that depend on it stay signed in under the grep filter.
+          firebase emulators:exec --only auth,firestore,storage --project demo-homehub \
+            "npm run seed:emu && npx playwright test --config playwright.visual.config.ts --update-snapshots -g '(${GREP})|authenticate'"
       - name: Commit and push re-baked baselines
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add e2e/__screenshots__
           if git diff --cached --quiet; then
-            echo "No baseline changes to commit."
-            exit 0
+            echo "::error::No baselines were re-generated (re-bake outcome: ${{ steps.bake.outcome }}). Nothing to commit."
+            exit 1
           fi
+          echo "### Re-baked baselines" >> "$GITHUB_STEP_SUMMARY"
+          git diff --cached --name-only | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+          echo "Re-bake step outcome: ${{ steps.bake.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           # Never push straight to main: when dispatched there, land on a new
           # branch so the change still goes through a PR + the CI gate.
           TARGET="${{ github.ref_name }}"
@@ -59,6 +78,6 @@ jobs:
             TARGET="visual-baselines/rebake-${{ github.run_id }}"
             git checkout -b "$TARGET"
           fi
-          git commit -m "test(visual): re-bake baselines on CI runner"
+          git commit -m "test(visual): re-bake item-detail baselines on CI runner"
           git push origin "HEAD:$TARGET"
           echo "Pushed re-baked baselines to $TARGET"
