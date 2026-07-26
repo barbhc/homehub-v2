@@ -1,0 +1,64 @@
+name: Visual baseline re-bake
+
+# Re-bakes the emulator-backed visual-regression baselines (e2e/__screenshots__/**)
+# on the Linux CI runner, so committed pixels match the environment the visual
+# suite compares in. Baselines are browser/OS-sensitive — they must never be the
+# local-platform pixels of a dev machine (see e2e/visual/README.md and CLAUDE.md).
+# Run this after an intentional UI change to any snapshotted surface.
+#
+# workflow_dispatch is the normal entry point once this file is on the default
+# branch. The push trigger bootstraps the very first run from its own branch,
+# because workflow_dispatch is only available for workflows already on main.
+#
+# The job pushes the re-baked PNGs to a branch (never to main); open a PR from
+# that branch and merge it through the normal gate.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [chore/rebake-visual-baselines]
+
+permissions:
+  contents: write
+
+jobs:
+  rebake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # Java runs the Firestore/Storage emulators (mirrors the `emulator` CI job).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci
+      - run: npm i -g firebase-tools
+      # Desktop project is Chromium; the mobile project spreads the iPhone 14
+      # device descriptor, which runs on WebKit — install both engines.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Re-bake baselines against the seeded emulator
+        run: npm run test:e2e:visual:update
+      - name: Commit and push re-baked baselines
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add e2e/__screenshots__
+          if git diff --cached --quiet; then
+            echo "No baseline changes to commit."
+            exit 0
+          fi
+          # Never push straight to main: when dispatched there, land on a new
+          # branch so the change still goes through a PR + the CI gate.
+          TARGET="${{ github.ref_name }}"
+          if [ "$TARGET" = "main" ]; then
+            TARGET="visual-baselines/rebake-${{ github.run_id }}"
+            git checkout -b "$TARGET"
+          fi
+          git commit -m "test(visual): re-bake baselines on CI runner"
+          git push origin "HEAD:$TARGET"
+          echo "Pushed re-baked baselines to $TARGET"
