@@ -4,6 +4,7 @@ import {
   CheckIcon,
   FileTextIcon,
   FileUpIcon,
+  FileXIcon,
   LinkIcon,
   Loader2Icon,
   MoreHorizontalIcon,
@@ -34,7 +35,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ManualParseProgress } from "@/components/manuals/ManualParseProgress"
 import { ManualParseReviewSheet } from "@/components/manuals/ManualParseReviewSheet"
-import { useManualUrls } from "@/hooks/useManualManagement"
+import { useManualUrls, isDeadLegacyManualUrl } from "@/hooks/useManualManagement"
 import { updateManualLabel } from "@/modules/knowledge"
 import type { ManualDocument } from "@/integrations/types"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
@@ -162,6 +163,9 @@ export function ManualSection({
 
   const renderManualRow = (m: ManualDocument) => {
     const url = manualUrls[m.manual_id] ?? null
+    // A v1 upload whose Supabase file died in the migration — the PDF is gone
+    // (tapping through used to dead-end in Safari), but parsed chunks survived.
+    const isDeadManual = isDeadLegacyManualUrl(m.source_type, m.source_ref)
     const isRef = m.role === "reference"
     const Icon = isRef ? BookOpenIcon : FileTextIcon
     const isEditingLabel = editingLabelId === m.manual_id
@@ -275,8 +279,32 @@ export function ManualSection({
           </DropdownMenu>
         </div>
 
-        {/* Full-width primary "Open manual" button */}
-        {url && (
+        {/* Full-width primary "Open manual" button — or an honest "file gone"
+            notice for v1 manuals whose Supabase upload didn't survive the
+            migration (linking to it just dead-ends in the browser). */}
+        {isDeadManual ? (
+          <div
+            className="mt-3 flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-xs"
+            style={{ borderColor: "var(--hh-line)", color: "var(--hh-sub)" }}
+          >
+            <FileXIcon className="mt-0.5 size-4 shrink-0" style={{ color: "var(--hh-faint)" }} />
+            <div className="min-w-0">
+              <p className="font-semibold" style={{ color: "var(--hh-ink)" }}>Original file unavailable</p>
+              <p className="mt-0.5 leading-snug">
+                This PDF was lost in an earlier system migration. Its saved details still power chat and care tips —
+                re-upload the file to reopen it here.
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenAddManual}
+                className="mt-1.5 font-semibold underline underline-offset-2"
+                style={{ color: "var(--hh-teal-deep)" }}
+              >
+                Re-upload PDF
+              </button>
+            </div>
+          </div>
+        ) : url ? (
           <a
             href={url}
             target="_blank"
@@ -287,7 +315,7 @@ export function ManualSection({
             <BookOpenIcon className="size-4" />
             Open manual
           </a>
-        )}
+        ) : null}
 
         {/* Inline label editor */}
         {isEditingLabel && (

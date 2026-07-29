@@ -19,11 +19,33 @@ import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowled
 import type { KnowledgeChunk, ManualDocument } from "@/integrations/types"
 
 /**
- * Resolve a manual's viewable URL. External URLs pass through; uploads resolve
- * their Storage path to a token-bearing download URL (the no-public-read rules
- * mean a tokenless URL is no longer fetchable by the PDF viewer/proxy).
+ * True when a manual points at a file lost in the v1→v2 migration. v1 stored
+ * manual PDFs in Supabase Storage; that project is deleted, so any supabase.co
+ * URL a manual still carries is dead (ERR_NAME_NOT_RESOLVED — the exact Safari
+ * error dogfooding hit). v2 stores everything in Firebase Storage and never
+ * mints a supabase.co URL, so that host is an unambiguous "the file is gone"
+ * signal. The parsed chunks survived the migration, so chat/care keep working —
+ * only the original PDF is unrecoverable, and the UI offers a re-upload.
+ */
+export function isDeadLegacyManualUrl(sourceType: string, sourceRef: string): boolean {
+  if (sourceType !== "url" || !sourceRef) return false
+  try {
+    const host = new URL(sourceRef).hostname.toLowerCase()
+    return host === "supabase.co" || host.endsWith(".supabase.co")
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Resolve a manual's viewable URL. Dead v1 Supabase uploads resolve to null so
+ * the UI shows an "unavailable" state instead of a link that dead-ends in the
+ * browser. External URLs pass through; uploads resolve their Storage path to a
+ * token-bearing download URL (the no-public-read rules mean a tokenless URL is
+ * no longer fetchable by the PDF viewer/proxy).
  */
 export async function resolveManualUrl(sourceType: string, sourceRef: string): Promise<string | null> {
+  if (isDeadLegacyManualUrl(sourceType, sourceRef)) return null
   if (sourceType === "url") return sourceRef
   if (sourceType === "upload" && sourceRef) return resolveStorageUrl(sourceRef)
   return null

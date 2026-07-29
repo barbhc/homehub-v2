@@ -210,12 +210,18 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
             <WrenchIcon className="size-[17px]" style={{ color: safety ? CLAY : TEALD }} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="size-[7px] shrink-0 rounded-full" style={{ background: TIER[tier].dot }} />
-              <span className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
-              {safety && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: CLAY_SOFT, color: CLAY }}>Safety</span>}
-              {(actor === "pro" || actor === "hazardous") && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>Pro</span>}
-              {variantTag && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}><GitBranchIcon className="size-2.5" />{variantTag}</span>}
+            {/* Tier dot pinned to the FIRST line of the title (mt aligns it to
+                the 14px line's optical center). Previously the dot + title were
+                siblings in a flex-wrap row, so a title long enough to wrap got
+                pushed to its own line, orphaning the dot above it. */}
+            <div className="flex items-start gap-2">
+              <span className="mt-[6px] size-[7px] shrink-0 rounded-full" style={{ background: TIER[tier].dot }} />
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
+                {safety && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: CLAY_SOFT, color: CLAY }}>Safety</span>}
+                {(actor === "pro" || actor === "hazardous") && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>Pro</span>}
+                {variantTag && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}><GitBranchIcon className="size-2.5" />{variantTag}</span>}
+              </div>
             </div>
             <div className="mt-0.5 text-[12px]" style={{ color: SUB }}>
               {freqLabel(t)}{t.estimated_minutes ? ` · ${t.estimated_minutes} min` : ""}
