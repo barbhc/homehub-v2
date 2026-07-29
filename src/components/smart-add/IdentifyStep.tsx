@@ -223,6 +223,15 @@ export function IdentifyStep({
     if (wantAutoExpand) setMoreDetailsOpen(true)
   }, [wantAutoExpand])
 
+  // A found product's specs (capacity, wattage, filter size…) live in the
+  // ProductSuggestionCard inside "Add more details". Surface them automatically
+  // when the lookup returns candidates — otherwise a match appears to fill only
+  // the category, when there was more to apply one tap away.
+  useEffect(() => {
+    if (lookupCandidates.length > 0) setMoreDetailsOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookupCandidates.length])
+
   useEffect(() => {
     return () => {
       if (labelPreviewUrl) URL.revokeObjectURL(labelPreviewUrl)
@@ -727,6 +736,27 @@ export function IdentifyStep({
               </div>
             </div>
 
+            {/* The lookup result sits DIRECTLY under the fields that produced
+                it — cause then effect. The snap/no-model row (a fallback for
+                when typing didn't get you there) follows below. */}
+            {lookupNotice && !identityCardState && (
+              <p className="text-xs text-muted-foreground">{lookupNotice}</p>
+            )}
+            {identityCardState && (
+              <IdentityCard
+                state={identityCardState}
+                identity={identityCardState === "applied" ? identityApplied?.identity : lookupResult?.identity}
+                categoryLabel={identityCategoryLabel}
+                variants={lookupResult?.variants ?? []}
+                onUse={handleUseIdentity}
+                onUndo={handleUndoIdentity}
+                onNotMine={handleNotMyProduct}
+                onPickVariant={handlePickVariant}
+                onNoneOfThese={handleNoneOfThese}
+                onSnapLabel={labelPreviewUrl ? undefined : handleSnapLabel}
+              />
+            )}
+
             {!labelPreviewUrl && (
               <div className="flex items-center gap-3">
                 <Button
@@ -754,24 +784,6 @@ export function IdentifyStep({
                   No model number?
                 </button>
               </div>
-            )}
-
-            {lookupNotice && !identityCardState && (
-              <p className="text-xs text-muted-foreground">{lookupNotice}</p>
-            )}
-            {identityCardState && (
-              <IdentityCard
-                state={identityCardState}
-                identity={identityCardState === "applied" ? identityApplied?.identity : lookupResult?.identity}
-                categoryLabel={identityCategoryLabel}
-                variants={lookupResult?.variants ?? []}
-                onUse={handleUseIdentity}
-                onUndo={handleUndoIdentity}
-                onNotMine={handleNotMyProduct}
-                onPickVariant={handlePickVariant}
-                onNoneOfThese={handleNoneOfThese}
-                onSnapLabel={labelPreviewUrl ? undefined : handleSnapLabel}
-              />
             )}
           </>
         )}
