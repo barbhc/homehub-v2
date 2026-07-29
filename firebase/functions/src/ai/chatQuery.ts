@@ -275,12 +275,14 @@ export const chatQuery = onRequest(
 Rules:
 - Give exact details from the manual: precise button names, sequences, temperatures, settings, part numbers.
 - Use numbered steps for procedures.
+- Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
 - If the manual doesn't cover the specific question, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
 - Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}`
       : `You are a helpful home assistant. Answer questions about the user's home appliances using the provided manual excerpts.
 
 Rules:
 - Only state specific details (button names, sequences, settings) if they appear explicitly in the excerpts. Never use vague placeholders like "the relevant buttons" — if the exact detail isn't in the excerpts, say so directly.
+- Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
 - If the answer isn't in the excerpts, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
 - Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}`
 

@@ -135,6 +135,24 @@ body {
   min-height: 100vh;
 }
 
+/* ── Horizontal-overflow guard ────────────────────────────────────────────────
+   Dogfooding on iOS (WKWebView) hit content "too big for the iPhone" — the page
+   panned sideways into cut-off content. A stray element wider than the viewport
+   (a flex child without min-width:0, an unbroken token, min-width:320px on a
+   Display-Zoom viewport) makes the whole document horizontally scrollable. Clip
+   it at the root so nothing pans off-screen. `clip` (not `hidden`) is deliberate:
+   `overflow-x:hidden` promotes the other axis to `auto`, turning body into a
+   scroll container and breaking position:sticky — `clip` establishes no scroll
+   container, so sticky headers and the fixed bottom nav keep working. The
+   `hidden` line is only a fallback for engines without `clip` (pre-iOS-16). */
+html {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+body {
+  overflow-x: clip;
+}
+
 /* ── Status-bar / notch inset ─────────────────────────────────────────────────
    env(safe-area-inset-top) is reliable in an installed PWA but resolves to 0 in
    some iOS standalone contexts (WebKit quirk), which lets the app header collide
