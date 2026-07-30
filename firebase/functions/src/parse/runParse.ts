@@ -10,6 +10,7 @@ import { Timestamp, type Firestore } from "firebase-admin/firestore"
 import { buildPrompt, extractParsedResult } from "../../../../shared/parse/parsePrompt.js"
 import { normalizeChunkRow, normalizeTaskRow, type ParsedChunk, type ParsedTask } from "../../../../shared/parse/parseCore.js"
 import { pickParseModel } from "../../../../shared/parse/pickParseModel.js"
+import { applyTaskTaxonomy, usageTipToChunk } from "../../../../shared/tasks/taxonomy.js"
 import { commitDraft } from "./commitDraft.js"
 import type { CallClaude, FetchPdf, ParseMode, ParseStage, ExtractionResult, ParseItemFacts } from "./parseTypes.js"
 
@@ -92,8 +93,24 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
     if (!result || !Array.isArray(result.chunks) || !Array.isArray(result.tasks)) {
       throw new Error("malformed extraction: chunks/tasks not arrays")
     }
-    const normChunks = (result.chunks as ParsedChunk[]).map((c) => normalizeChunkRow(c, manualId))
-    const normTasks = (result.tasks as ParsedTask[]).map((t) => normalizeTaskRow(t))
+    const rawChunks = (result.chunks as ParsedChunk[]).map((c) => normalizeChunkRow(c, manualId))
+    const rawTasks = (result.tasks as ParsedTask[]).map((t) => normalizeTaskRow(t))
+
+    // ── Taxonomy (deterministic curation) ───────────────────────────────────
+    // Runs HERE, at normalization, not in commitDraft: the preview draft must
+    // show the user the same curated list that would be committed, and rows the
+    // user then edits in the review sheet must NOT be re-classified behind their
+    // back (commitManualDraft commits reviewed rows as-is). Operational steps
+    // ("Add Detergent", "Replace Water in the Tank") leave the task set and come
+    // back as usage-tip chunks, so the advice survives without a reminder.
+    // House rules still apply after this, inside commitDraft — a user's learned
+    // rule outranks the taxonomy's default.
+    const taxonomy = applyTaskTaxonomy(rawTasks)
+    const normTasks = taxonomy.tasks
+    const normChunks = [
+      ...rawChunks,
+      ...taxonomy.tips.map((tip) => normalizeChunkRow(usageTipToChunk(tip) as ParsedChunk, manualId)),
+    ]
     const confidence = result.confidence ?? null
 
     if (mode === "preview") {

@@ -28,6 +28,7 @@ import { ProTaskNotice } from "@/components/tasks/ProTaskNotice"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
 import { useSetupCompletion } from "@/pages/item-detail/useSetupCompletion"
 import { SYMPTOM_TAGS, type ReCheckTrigger } from "@/lib/symptomTaxonomy"
+import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { updateItemUnit } from "@/modules/items/services/itemService"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
@@ -270,6 +271,119 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
 }
 
 // ── Setup band ───────────────────────────────────────────────────────────────
+/**
+ * "Using it well" — operational advice (add detergent, refill the water tank,
+ * app pairing) that the taxonomy converted from tasks into usage-tip chunks.
+ * Deliberately NOT task-shaped: no dot, no due date, no Mark done — it exists so
+ * the manual's usage guidance stays findable without becoming a reminder.
+ */
+function UsageTipsBand({ tips, onOpenManualPage }: {
+  tips: KnowledgeChunk[]
+  onOpenManualPage?: (page: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="overflow-hidden rounded-[14px] border" style={{ borderColor: LINE, background: "#FBFCFC" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+      >
+        <SlidersHorizontalIcon className="size-4 shrink-0" style={{ color: FAINT }} />
+        <span className="min-w-0 flex-1">
+          <span className="text-[13.5px] font-semibold" style={{ color: SUB }}>Using it well</span>
+          <span className="ml-1.5 text-[12.5px]" style={{ color: FAINT }}>· {tips.length} tip{tips.length === 1 ? "" : "s"}</span>
+        </span>
+        {open
+          ? <ChevronUpIcon className="size-[17px] shrink-0" style={{ color: FAINT }} />
+          : <ChevronDownIcon className="size-[17px] shrink-0" style={{ color: FAINT }} />}
+      </button>
+      {open && (
+        <ul className="border-t px-4 py-3.5" style={{ borderColor: LINE }}>
+          {tips.map((tip) => {
+            const page = tip.source_pages?.[0] ?? null
+            return (
+              <li key={tip.chunk_id} className="border-b py-2.5 first:pt-0 last:border-b-0 last:pb-0" style={{ borderColor: LINE }}>
+                <p className="text-[13px] font-semibold" style={{ color: INK }}>{tip.title}</p>
+                <p className="mt-0.5 text-[12.5px] leading-snug" style={{ color: SUB }}>{tip.content}</p>
+                {page != null && onOpenManualPage && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenManualPage(page)}
+                    className="mt-1 text-[11.5px] font-bold"
+                    style={{ color: TEAL }}
+                  >
+                    Manual p.{page}
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Cleaning band — scheduled tasks whose careType is "cleaning", split out of the
+ * maintenance hero and collapsed by default. Cleaning is genuine upkeep but not a
+ * deadline: mixing wipe-downs into the tracked schedule is what made the item
+ * page read as noise (2026-07-29 dogfooding). Same rows, calmer container.
+ */
+function CleaningBand({ tasks, dueByTemplate, completedTemplates, activeVariant, showAll, hasManual, onOpenManualPage }: {
+  tasks: TaskTemplateWithSchedule[]
+  dueByTemplate: Map<string, { due: string | null; instanceId: string | null }>
+  completedTemplates: Set<string>
+  activeVariant: string | null
+  showAll: boolean
+  hasManual: boolean
+  onOpenManualPage?: (page: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const navigate = useNavigate()
+
+  return (
+    <div className="overflow-hidden rounded-[14px] border" style={{ borderColor: LINE, background: "#FBFCFC" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+      >
+        <SparklesIcon className="size-4 shrink-0" style={{ color: FAINT }} />
+        <span className="min-w-0 flex-1">
+          <span className="text-[13.5px] font-semibold" style={{ color: SUB }}>Cleaning</span>
+          <span className="ml-1.5 text-[12.5px]" style={{ color: FAINT }}>· {tasks.length} task{tasks.length === 1 ? "" : "s"}</span>
+        </span>
+        {open
+          ? <ChevronUpIcon className="size-[17px] shrink-0" style={{ color: FAINT }} />
+          : <ChevronDownIcon className="size-[17px] shrink-0" style={{ color: FAINT }} />}
+      </button>
+      {open && (
+        <div className="border-t" style={{ borderColor: LINE }}>
+          {tasks.map((t, i) => (
+            <ScheduleRow
+              key={t.task_template_id}
+              t={t}
+              due={dueByTemplate.get(t.task_template_id)?.due ?? null}
+              completed={completedTemplates.has(t.task_template_id)}
+              instanceId={dueByTemplate.get(t.task_template_id)?.instanceId ?? null}
+              onOpenTask={(iid) => navigate(`/tasks/${iid}`)}
+              hasManual={hasManual}
+              onOpenManualPage={onOpenManualPage}
+              last={i === tasks.length - 1}
+              variantTag={variantTagFor(t, activeVariant, showAll)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SetupBand({ tasks, homeId, item, revealed, onItemUpdate, m }: {
   tasks: TaskTemplateWithSchedule[]
   homeId: string
@@ -470,6 +584,15 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
     [chunks],
   )
 
+  // "Using it well" — operational steps the taxonomy kept OUT of the task list
+  // (adding detergent, refilling the water tank). They're real advice, just not
+  // things to remind someone about, so they read as tips instead of tasks.
+  // `tags` is typed Json on KnowledgeChunk, so narrow before matching.
+  const usageTips = useMemo(
+    () => chunks.filter((c) => Array.isArray(c.tags) && c.tags.includes(USAGE_TIP_TAG)),
+    [chunks],
+  )
+
   // Which scheduled task(s) the critical safety warning is about, by keyword
   // overlap — so it renders in that task's "See how" instead of a generic note.
   const criticalTaskIds = useMemo(() => {
@@ -516,11 +639,18 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
   }
   const isNeverStarted = (t: TaskTemplateWithSchedule) =>
     !completedTemplates.has(t.task_template_id) && dueDaysOf(t) < 0
-  const fScheduled = scheduled.filter(vis).sort((a, b) => {
+  const byDue = (a: TaskTemplateWithSchedule, b: TaskTemplateWithSchedule) => {
     const na = isNeverStarted(a), nb = isNeverStarted(b)
     if (na !== nb) return na ? 1 : -1
     return dueDaysOf(a) - dueDaysOf(b) || a.title.localeCompare(b.title)
-  })
+  }
+  const allScheduled = scheduled.filter(vis).sort(byDue)
+  // Cleaning is split out of the schedule hero: it's real upkeep, but it's not a
+  // deadline, and mixing wipe-downs into the maintenance list is what made the
+  // item page feel like noise (2026-07-29). Maintenance stays open and tracked;
+  // cleaning collapses into its own group, still one tap away.
+  const fScheduled = allScheduled.filter((t) => t.care_type !== "cleaning")
+  const fCleaning = allScheduled.filter((t) => t.care_type === "cleaning")
 
   const nothing = tasks.length === 0
   if (nothing && !critical) {
@@ -589,10 +719,28 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
           </Card>
         ) : (
           <div className="rounded-[14px] border border-dashed px-4 py-3 text-[12.5px] italic" style={{ borderColor: LINE, color: FAINT, background: "#FBFCFC" }}>
-            No scheduled upkeep found in this manual.
+            {/* Don't claim "nothing found" when the manual DID yield upkeep and it
+                all landed in the cleaning group — that reads as a parse failure. */}
+            {fCleaning.length > 0
+              ? "No scheduled maintenance — this item's upkeep is all cleaning (below)."
+              : "No scheduled upkeep found in this manual."}
           </div>
         )}
       </section>
+
+      {usageTips.length > 0 && <UsageTipsBand tips={usageTips} onOpenManualPage={onOpenManualPage} />}
+
+      {fCleaning.length > 0 && (
+        <CleaningBand
+          tasks={fCleaning}
+          dueByTemplate={dueByTemplate}
+          completedTemplates={completedTemplates}
+          activeVariant={activeVariant}
+          showAll={showAll}
+          hasManual={hasManual}
+          onOpenManualPage={onOpenManualPage}
+        />
+      )}
 
       {fSetup.length > 0 && (
         <SetupBand tasks={fSetup} homeId={homeId} item={item} revealed={item.setup_revealed_at != null} onItemUpdate={onItemUpdate} m={m} />

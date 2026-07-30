@@ -249,6 +249,10 @@ export function normalizeTaskRow(t: ParsedTask) {
       ? t.justification.trim().slice(0, 500)
       : null,
     priority_tier: VALID_PRIORITY_TIERS.includes(t.priority_tier as PriorityTier) ? t.priority_tier as PriorityTier : "recommended",
+    // Stamped later by applyTaskTaxonomy (shared/tasks/taxonomy.ts) when a
+    // model-marked "essential" misses the safety/prevent-damage floor, so the
+    // user can promote it back per-task. The model never sets this itself.
+    essential_candidate: null as "hygiene" | "manual_emphasis" | null,
     risk_level: VALID_RISK_LEVELS.includes(t.risk_level as RiskLevel) ? t.risk_level as RiskLevel : "comfort",
     estimated_minutes: typeof t.estimated_minutes === "number" ? t.estimated_minutes : null,
     instructions_override: typeof t.instructions_text === "string" ? t.instructions_text.slice(0, 2000) : null,
