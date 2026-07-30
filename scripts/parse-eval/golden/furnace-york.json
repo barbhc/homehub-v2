@@ -1,0 +1,176 @@
+{
+  "stats": {
+    "chunks": {
+      "total": 33,
+      "byType": {
+        "safety": 9,
+        "specs": 5,
+        "how_to": 13,
+        "troubleshooting": 4,
+        "care": 2
+      },
+      "withSourcePages": 100
+    },
+    "tasks": {
+      "total": 15,
+      "recurring": 6,
+      "setup": 8,
+      "habits": 1,
+      "coverage": {
+        "instructions": 100,
+        "source_page": 100,
+        "justification": 100,
+        "minutes": 100,
+        "validSchedule": 100
+      },
+      "essentialShare": 80
+    },
+    "hasCleaningGuide": true,
+    "hasWarranty": false,
+    "confidence": 0.88
+  },
+  "taskTitles": [
+    "Replace Air Filter",
+    "Inspect and Clear Condensate Drain",
+    "Inspect Vent and Combustion Air Pipes",
+    "Annual Professional Furnace Tune-Up",
+    "Clean Flame Sensor",
+    "Reset Manual Rollout Switch",
+    "Verify Furnace is Level",
+    "Connect and Verify Gas Piping",
+    "Connect Electrical Supply and Verify Polarity",
+    "Install and Connect Vent and Combustion Air Pipes",
+    "Perform Initial Gas Piping Leak Check",
+    "Verify Furnace Input Rate at Startup",
+    "Set Thermostat Heat Anticipator",
+    "Install and Verify Air Filter at Setup",
+    "Prime Condensate Drain at Heating Season Start"
+  ],
+  "taskIndex": [
+    {
+      "title": "Replace Air Filter",
+      "schedule": "monthly",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Inspect and Clear Condensate Drain",
+      "schedule": "seasonal",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Inspect Vent and Combustion Air Pipes",
+      "schedule": "seasonal",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Annual Professional Furnace Tune-Up",
+      "schedule": "annual",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean Flame Sensor",
+      "schedule": "annual",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Reset Manual Rollout Switch",
+      "schedule": "as_needed",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Verify Furnace is Level",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Connect and Verify Gas Piping",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Connect Electrical Supply and Verify Polarity",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Install and Connect Vent and Combustion Air Pipes",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Perform Initial Gas Piping Leak Check",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Verify Furnace Input Rate at Startup",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Set Thermostat Heat Anticipator",
+      "schedule": "setup",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Install and Verify Air Filter at Setup",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Prime Condensate Drain at Heating Season Start",
+      "schedule": "seasonal",
+      "tier": "recommended",
+      "care": "maintenance"
+    }
+  ],
+  "chunkTitles": [
+    "Gas Leak Detection – Never Use Open Flame",
+    "Carbon Monoxide Poisoning Hazard – Venting Check",
+    "Overpressure Protection – Gas Valve Limit",
+    "Combustion Air Contaminants – Outdoor Air Required",
+    "Propane and High-Altitude Conversion Kits – Danger",
+    "Temperature Rise Must Stay Within Rating Plate Range",
+    "Freezing Temperature Installation Warnings",
+    "Massachusetts Sidewall Vent Requirements",
+    "Storage Prohibition Near Furnace",
+    "Ratings and Electrical Data – TG9S Series",
+    "Unit Clearances to Combustibles",
+    "Gas Pressure Requirements",
+    "Recommended Filter Sizes",
+    "Maximum Equivalent Vent Pipe Length",
+    "Furnace Location and Clearance Selection",
+    "Ductwork Installation and Plenum Connection",
+    "Gas Piping Installation",
+    "Electrical Power Connections",
+    "Thermostat and Low-Voltage Wiring",
+    "Combustion Air and Vent Pipe Assembly",
+    "Condensate Drain Installation",
+    "Twinning Two Furnaces",
+    "Ignition System Startup Sequence",
+    "Adjusting Manifold Gas Pressure and Input Rate",
+    "Adjusting Temperature Rise and Blower Speed",
+    "Adjusting Blower Off Delay Timer",
+    "Retrieving Diagnostic Fault Codes",
+    "LED Diagnostic Fault Code Reference",
+    "Pressure Switch and Venting Problems",
+    "Ignition and Flame Failure Troubleshooting",
+    "Limit Switch and Overheating Troubleshooting",
+    "Air Filter Replacement",
+    "Condensate Drain System Maintenance"
+  ]
+}
