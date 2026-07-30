@@ -4,7 +4,26 @@ Regression harness for the manual-extraction pipeline. It runs the **exact
 production prompt** (imported from `shared/parse/parsePrompt.ts`
 — the single source of truth) over a golden corpus of real manuals, scores the
 output, and diffs it against committed snapshots. **Zero DB writes** — it reads
-PDF refs from prod, calls Anthropic locally, and writes local files only.
+manual metadata from Firestore and downloads the PDF from Firebase Storage
+(read-only), calls Anthropic locally, and writes local files only.
+
+## Setup
+
+Needs `ANTHROPIC_API_KEY` and `GOOGLE_APPLICATION_CREDENTIALS` (path to an admin
+service-account JSON) in `.env`. Downloaded PDFs are cached in
+`.pdf-cache/` (gitignored) — a corpus manual runs up to 12MB, and a before/after
+comparison reads every one of them twice, so the cache matters.
+
+> Corpus rebuilt 2026-07-30. It previously addressed **v1 Supabase**
+> `manual_document` rows; that project was deleted, so every PDF fetch failed
+> with `ERR_NAME_NOT_RESOLVED` and this harness was un-runnable — which is why the
+> prompt-curation work stalled. Entries are now `home_id` + `manual_id` against
+> v2 Firestore. Two original manuals (the GE gas range and Sharp microwave
+> drawer) plus the Bosch dishwasher are **permanently unrecoverable** — their
+> `sourceRef` still points at the dead Supabase host. Their goldens remain in
+> `golden/` for reference but cannot be reproduced. **Coverage gap:** no gas
+> manual survives, so `pickParseModel`'s Opus escalation path is no longer
+> exercised; add one when a gas manual is re-uploaded.
 
 ## Why
 
@@ -28,9 +47,20 @@ npx vite-node scripts/parse-eval/run.ts
 npx vite-node scripts/parse-eval/run.ts -- --update-golden
 ```
 
-The rule: **change `_shared/parsePrompt.ts` → run the harness → review the
-diff → only then `supabase functions deploy parse-manual`.** A "MISSING task"
+The rule: **change `shared/parse/parsePrompt.ts` → run the harness → review the
+diff → only then deploy `parseWorker` / `commitManualDraft`.** A "MISSING task"
 in the report is exactly the "things disappeared" bug — caught pre-deploy.
+
+### ⚠ Never edit the prompt while a baseline is running
+
+Each `vite-node` invocation re-reads `parsePrompt.ts` from disk, so a
+per-manual loop (`for n in …; do … --only=$n --update-golden; done`) picks up
+whatever the file says **at the moment that manual starts**. Editing the prompt
+mid-loop silently produces a baseline where some manuals used the old prompt and
+some the new one — a corrupt "before" that makes the diff meaningless while
+looking perfectly healthy. Baseline first, confirm it finished, and only then
+touch the prompt (`git stash push -- shared/parse/parsePrompt.ts` is a cheap way
+to hold a change while the baseline runs).
 
 ## What it checks
 
@@ -40,6 +70,11 @@ in the report is exactly the "things disappeared" bug — caught pre-deploy.
   (instructions, `source_page`, justification, minutes, valid schedule)
 - Tier inflation warning (>40% essential)
 - Fuzzy title diff vs golden (token Jaccard ≥ 0.5): matched / **missing** / added
+- **Reclassification of surviving tasks** — `tier`, `care_type`, and `schedule`
+  changes on fuzzy-matched titles. Title-only diffing is blind to the change that
+  matters most for curation: a task that stays but moves `essential → recommended`
+  or `maintenance → cleaning` is not "missing", it IS the improvement. Without
+  this a tier/care-type prompt change reads as a clean no-op diff.
 
 ## Reading the diff — churn vs regression
 

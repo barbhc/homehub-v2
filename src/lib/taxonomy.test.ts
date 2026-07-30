@@ -41,6 +41,30 @@ describe("classifyTaskKind — operational (the flagged noise)", () => {
     expect(classifyTaskKind(row({ title }))).toBe("operational")
   })
 
+  // These are real titles the CURRENT production prompt emitted for the Nespresso
+  // in the eval baseline (2026-07-30) — two of them as ESSENTIAL maintenance.
+  it.each([
+    "Fill and Position Water Tank",
+    "Replace Water Between Uses",
+    "Empty and Rinse Capsule Container",
+    "Program Custom Cup Volume",
+    "Position Water Tank Arm",
+  ])("%s → operational (from the live eval baseline)", (title) => {
+    expect(classifyTaskKind(row({ title }))).toBe("operational")
+  })
+
+  it("emptying a FUNCTIONAL part is still maintenance (no consumable object)", () => {
+    // The object gate is what makes the `empty` verb safe to include.
+    expect(classifyTaskKind(row({ title: "Empty the lint trap" }))).toBe("maintenance")
+    expect(classifyTaskKind(row({ title: "Empty the drain pan" }))).toBe("maintenance")
+    expect(classifyTaskKind(row({ title: "Empty System Before Storage" }))).toBe("maintenance")
+  })
+
+  it("re-seating a FUNCTIONAL part is maintenance, not assembly", () => {
+    expect(classifyTaskKind(row({ title: "Reattach the filter housing" }))).toBe("maintenance")
+    expect(classifyTaskKind(row({ title: "Reposition the vent duct" }))).toBe("maintenance")
+  })
+
   it("maintenance consumables are NOT operational (filter ≠ detergent)", () => {
     expect(classifyTaskKind(row({ title: "Replace Water Filter" }))).toBe("maintenance")
     expect(classifyTaskKind(row({ title: "Replace the water filter cartridge" }))).toBe("maintenance")
