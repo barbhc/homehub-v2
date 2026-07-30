@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useState } from "react"
+import useSWR, { preload } from "swr"
 import { getTaskDetail, type TaskDetail } from "@/modules/care"
 import type { ScheduleType, Season } from "@/integrations/types"
 
@@ -56,38 +57,57 @@ export function cadenceLabel(
   return CADENCE_LABEL[t] ?? "On a schedule"
 }
 
+/** SWR key for one task's expand detail — shared by the hook and the prefetcher. */
+function detailKey(homeId: string, taskInstanceId: string): string {
+  return `task-detail:${homeId}:${taskInstanceId}`
+}
+
+async function fetchDetail(homeId: string, taskInstanceId: string): Promise<TaskDetail | null> {
+  // Failures are non-fatal: the panel still renders its meta + "Open full view",
+  // so a transient data error never breaks the card.
+  try {
+    const res = await getTaskDetail(homeId, taskInstanceId)
+    return res.data ?? null
+  } catch {
+    return null
+  }
+}
+
 /**
- * Lazily fetches the full TaskDetail the first time a Home card is expanded,
- * then caches it for the lifetime of the card. The hook owns the open/loading
- * state so both the desktop FocusCard and the mobile TaskHero share identical
- * behavior: toggle "See how" → fetch once → expand the inline panel.
+ * Warm a task's detail before the user asks for it. Home calls this for the rows
+ * it has just rendered, so tapping "See how" usually finds the data already in
+ * SWR's cache instead of showing "Loading details…" (the lag reported 2026-07-29).
+ * Safe to call repeatedly — SWR dedupes by key.
+ */
+export function prefetchTaskDetail(homeId: string | null, taskInstanceId: string): void {
+  if (!homeId || !taskInstanceId) return
+  preload(detailKey(homeId, taskInstanceId), () => fetchDetail(homeId, taskInstanceId))
+}
+
+/**
+ * Fetches the full TaskDetail for an expandable Home card. The hook owns the
+ * open/loading state so the desktop FocusCard and the mobile TaskHero behave
+ * identically: toggle "See how" → expand the inline panel.
  *
- * Fetch failures are non-fatal — the panel still renders its meta + "Open full
- * view" link, so the card never breaks on a transient data error.
+ * Backed by SWR rather than local state, which buys two things over the previous
+ * fetch-once-per-card version: the result is shared across cards and survives
+ * navigation (the app's persistent cache provider), and `prefetchTaskDetail` can
+ * fill the same cache entry ahead of the tap.
  */
 export function useTaskExpandDetail(homeId: string | null, taskInstanceId: string) {
   const [open, setOpen] = useState(false)
-  const [detail, setDetail] = useState<TaskDetail | null>(null)
-  const [loading, setLoading] = useState(false)
-  const fetchedRef = useRef(false)
 
   // Pure toggle — no side effects in the state updater (calling setState/async
   // work inside an updater can crash under React's prod reconciliation).
   const toggle = useCallback(() => setOpen((o) => !o), [])
 
-  // Lazy-fetch the detail the first time the panel opens. Side effects belong
-  // in an effect, not the updater above.
-  useEffect(() => {
-    if (!open || fetchedRef.current || !homeId) return
-    fetchedRef.current = true
-    setLoading(true)
-    let cancelled = false
-    getTaskDetail(homeId, taskInstanceId)
-      .then((res) => { if (!cancelled) setDetail(res.data ?? null) })
-      .catch(() => { if (!cancelled) setDetail(null) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [open, homeId, taskInstanceId])
+  // Keyed only while open, so a collapsed card costs nothing; a prefetched entry
+  // is already in cache by then and renders without a loading flash.
+  const { data, isLoading } = useSWR(
+    open && homeId ? detailKey(homeId, taskInstanceId) : null,
+    () => fetchDetail(homeId!, taskInstanceId),
+    { revalidateOnFocus: false, revalidateIfStale: false, keepPreviousData: true },
+  )
 
-  return { open, toggle, detail, loading }
+  return { open, toggle, detail: data ?? null, loading: isLoading && !data }
 }

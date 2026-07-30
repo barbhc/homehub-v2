@@ -155,15 +155,24 @@ body {
 
 /* ── Status-bar / notch inset ─────────────────────────────────────────────────
    env(safe-area-inset-top) is reliable in an installed PWA but resolves to 0 in
-   some iOS standalone contexts (WebKit quirk), which lets the app header collide
-   with the status bar / Dynamic Island. Fall back to a sane minimum ONLY in
-   standalone mode — in mobile Safari the browser insets content itself, so we
-   don't want to add a phantom gap there. Reset to 0 at md+ (desktop has its own
-   top header). */
+   some iOS contexts (WebKit quirk), which lets page content collide with the
+   status bar / Dynamic Island. Fall back to a sane minimum in the two app-like
+   contexts — an installed PWA (display-mode: standalone) and the Capacitor
+   native shell ([data-native], stamped at boot by markNativePlatform).
+
+   The native shell is NOT display-mode: standalone, so gating on that media
+   query alone left the iOS app with padding-top: 0 and content sliding under the
+   clock (reported 2026-07-29). Mobile Safari deliberately gets neither branch —
+   the browser insets content itself, and a fixed inset would add a phantom gap.
+   Reset to 0 at md+ (desktop has its own top header). */
 .pt-safe-top { padding-top: env(safe-area-inset-top); }
 @media (display-mode: standalone) {
   .pt-safe-top { padding-top: max(env(safe-area-inset-top), 44px); }
 }
+:root[data-native="true"] .pt-safe-top {
+  padding-top: max(env(safe-area-inset-top), 44px);
+}
 @media (min-width: 768px) {
   .pt-safe-top { padding-top: 0; }
+  :root[data-native="true"] .pt-safe-top { padding-top: 0; }
 }

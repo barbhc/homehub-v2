@@ -5,6 +5,7 @@ import type { ServiceResult } from "./taskService"
 import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
 import { taskSource, effortToMinutes, frequencyToSchedule, type TaskSource } from "./taskMapping"
+import { isAgendaEligible } from "@/lib/agendaEligibility"
 
 /**
  * Unified "This week" agenda read model (Phase 2) and the v1.1 task-creation
@@ -85,7 +86,7 @@ export async function getWeekAgenda(
       .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
       // Curated feed, not a flatten of per-item cleaning steps: drop item-scoped
       // cleaning (lives in the Deep-Clean guide); keep maintenance + HOME cleaning.
-      .filter((r) => !(r.careType === "cleaning" && r.scopeType === "item_unit"))
+      .filter((r) => isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }))
       .map((r) => {
         const tier = (r.priorityTier as PriorityTier) ?? "optional"
         const dueDate = (r.dueDate as string) ?? today

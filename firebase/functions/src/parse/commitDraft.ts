@@ -157,6 +157,10 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     symptomTags: t.symptom_tags,
     reCheckTriggers: t.re_check_triggers,
     priorityTier: t.priority_tier,
+    // Set when the taxonomy demoted a model-marked "essential" that missed the
+    // safety/prevent-damage floor ("hygiene" | "manual_emphasis"). The user can
+    // promote it back to Essential per-task; null means no pending suggestion.
+    essentialCandidate: t.essential_candidate ?? null,
     riskLevel: t.risk_level,
     estimatedMinutes: t.estimated_minutes,
     defaultAssignee: null,

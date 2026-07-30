@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { collection, getDocs } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import { cn } from "@/lib/utils"
+import { TaskCleanupSweep } from "./TaskCleanupSweep"
 
 // ---------------------------------------------------------------------------
 // CSV export helpers
@@ -274,6 +275,11 @@ export function AdminToolsSection({ homeId }: Props) {
                 <p className="text-xs">{exportError}</p>
               </div>
             )}
+          </div>
+
+          {/* ── Deterministic task-cleanup sweep (taxonomy + dedupe) ───────────── */}
+          <div className="pb-3 border-b border-border">
+            <TaskCleanupSweep homeId={homeId} />
           </div>
 
           {/* ── Classify pending tasks ──────────────────────────────────────────── */}

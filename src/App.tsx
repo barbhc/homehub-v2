@@ -4,7 +4,7 @@ import { Suspense, useEffect } from "react"
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom"
 import { SWRConfig } from "swr"
 import { trackPageview } from "@/lib/analytics"
-import { localStorageDashboardProvider } from "@/lib/swrPersist"
+import { readPersistedDashboardFallback } from "@/lib/swrPersist"
 import { AuthProvider, AuthGate, useAuth } from "@/modules/auth"
 import { HomeProvider, HomeGate } from "@/modules/home"
 import { AppLayout } from "@/components/AppLayout"
@@ -35,6 +35,14 @@ function PageviewTracker() {
   }, [location.pathname])
   return null
 }
+
+/**
+ * Warm-start data, read from localStorage ONCE at module scope (before the first
+ * render, so Home never flashes a skeleton it doesn't need) and kept in a stable
+ * config object — a fresh object literal on every render would hand SWR a new
+ * `fallback` identity each time.
+ */
+const SWR_CONFIG = { fallback: readPersistedDashboardFallback() }
 
 // All routes use lazyWithRetry so stale-chunk errors after a deploy force a
 // single hard reload instead of crashing the ErrorBoundary. See the helper
@@ -84,9 +92,11 @@ function TroubleshootRedirect() {
 function App() {
   return (
     <ErrorBoundary>
-      {/* Persist the dashboard cache across app restarts so reopening Home
-          paints the last-known dashboard instantly instead of a blank skeleton. */}
-      <SWRConfig value={{ provider: localStorageDashboardProvider }}>
+      {/* Warm start: the last dashboard, read from localStorage once at module
+          scope, is handed to SWR as `fallback` so reopening Home paints instantly
+          instead of a blank skeleton. Deliberately NOT a custom cache `provider`
+          — see swrPersist.ts for the StrictMode teardown that wedged Home. */}
+      <SWRConfig value={SWR_CONFIG}>
       <BrowserRouter>
         <AuthProvider>
           <BootSplashGate />

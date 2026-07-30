@@ -7,6 +7,7 @@ import { collection, getDocs, query, where, Timestamp } from "firebase/firestore
 import { db } from "@/integrations/firebase"
 import type { TopConcernKey } from "@/modules/home/services/homeProfileService"
 import type { CareType, RiskLevel } from "@/integrations/types"
+import { isAgendaEligible } from "@/lib/agendaEligibility"
 
 /** Due-soon window: tasks due within this many days count as "urgent". */
 export const DUE_SOON_DAYS = 7
@@ -555,6 +556,10 @@ export async function getUpcomingTasks(propertyId: string): Promise<MaintenanceT
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
     .filter((r) => r.status === "scheduled" && (r.dueDate as string) >= todayStr && (r.dueDate as string) <= in30Days)
+    // Home is a MAINTENANCE agenda — item-scoped cleaning lives on the Cleaning
+    // page + the item's own Cleaning group. weekAgenda already did this; this
+    // path didn't, which is how "Clean Interior Surfaces" reached Due Today.
+    .filter((r) => isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }))
     .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
     .map((r) => {
       const row: TaskInstanceFull = {
