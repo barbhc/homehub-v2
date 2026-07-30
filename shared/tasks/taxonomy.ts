@@ -108,6 +108,13 @@ const CONFIG_PATTERN = /\b(wi[- ]?fi|bluetooth|pair(?:ing)?\b|connect (?:to )?(?
 const CLEANING_VERB = /\b(clean|wipe|polish|dust|vacuum|scrub)\b/i
 const APPEARANCE_OBJECT = /\b(exterior|outside|outer|surfaces?|shelv(?:es|ing)|drawers?|bins?|stainless(?: steel)?|control panel|door panels?|door (?:glass|window)|glass|interior|racks?|touchscreen|display)\b/i
 const FUNCTIONAL_OBJECT = /\b(filters?|coils?|pumps?|drains?|vents?|ducts?|traps?|hoses?|sensors?|probes?|burners?|igniters?|elements?|condensers?|compressors?|spray arms?|impellers?|anodes?|valves?|nozzles?|jets?)\b/i
+/**
+ * Actions that are function-preserving whatever the label says. These OVERRIDE a
+ * "cleaning" care_type: descaling a dishwasher or flushing a line is maintenance,
+ * and leaving it labeled cleaning hides genuine upkeep from the agenda — the
+ * mirror image of the noise problem, and just as bad for trust.
+ */
+const FUNCTIONAL_ACTION = /\b(descal\w*|de[- ]?lim\w*|delim\w*|flush|purge|bleed|lubricat\w*|calibrat\w*|tighten|realign|inspect|test|replace|service)\b/i
 
 // ── Essential candidates ─────────────────────────────────────────────────────
 const HYGIENE_SIGNAL = /\b(mold|mildew|bacteri\w*|hygien\w*|saniti[sz]\w*|food[- ]saf\w*|contaminat\w*|odors?|smells?)\b/i
@@ -125,13 +132,18 @@ export function classifyTaskKind(t: TaxonomyTaskFields): TaskKind {
     CONSUMABLE_VERB.test(title) && CONSUMABLE_OBJECT.test(title) && !MAINTENANCE_CONSUMABLE.test(title)
   if (consumable || CONFIG_PATTERN.test(title)) return "operational"
 
-  // Cleaning: an appearance surface with no functional part in play. Applies to
-  // rows the model labeled maintenance/mixed too — mislabeled wipe-downs are
-  // exactly the agenda noise this exists to stop.
+  // Function-preserving work wins over ANY label, including an existing
+  // "cleaning" one — descaling / filters / vents are maintenance even when the
+  // manual (or an earlier parse) filed them under cleaning.
+  if (FUNCTIONAL_ACTION.test(title) || FUNCTIONAL_OBJECT.test(title)) return "maintenance"
+
+  // Cleaning: an appearance surface. Applies to rows the model labeled
+  // maintenance/mixed too — mislabeled wipe-downs are exactly the agenda noise
+  // this exists to stop.
+  if (CLEANING_VERB.test(title) && APPEARANCE_OBJECT.test(title)) return "cleaning"
+  // Otherwise trust an explicit cleaning label (generic chores like "Wipe down
+  // kitchen surfaces" have no functional or appearance keyword to key off).
   if (t.care_type === "cleaning") return "cleaning"
-  if (CLEANING_VERB.test(title) && APPEARANCE_OBJECT.test(title) && !FUNCTIONAL_OBJECT.test(title)) {
-    return "cleaning"
-  }
 
   return "maintenance"
 }
