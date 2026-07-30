@@ -23,6 +23,7 @@ import {
 import { getDeepCleanGuides, type DeepCleanGuide } from "./cleanSession"
 import { getHomeProfile } from "@/modules/home/services/homeProfileService"
 import { getHomeUpkeep, type HomeUpkeepItem } from "@/modules/care"
+import { persistDashboardSnapshot } from "./swrPersist"
 
 interface DashboardData {
   tasks: DashboardTasksResult
@@ -100,9 +101,14 @@ export function useDashboard(homeId: string | null) {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       dedupingInterval: 5000,
-      // With a persisted cache (App.tsx SWRConfig), reopen shows the last Home
-      // instantly; keepPreviousData avoids a skeleton flash while it revalidates.
+      // App.tsx seeds the last dashboard as SWR `fallback`, so reopen paints the
+      // previous Home instantly; keepPreviousData avoids a skeleton flash while
+      // it revalidates.
       keepPreviousData: true,
+      // Write the snapshot on every success rather than on unload: iOS can kill a
+      // backgrounded WebView without firing beforeunload/visibilitychange, which
+      // is exactly the reopen the warm start exists for.
+      onSuccess: (fresh, key) => persistDashboardSnapshot(key, fresh),
     }
   )
 

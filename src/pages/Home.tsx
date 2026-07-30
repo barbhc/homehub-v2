@@ -19,6 +19,7 @@ import { markTaskInstanceDone, snoozeTaskInstance } from "@/modules/care"
 import type { DashboardTask, MaintenanceTaskFull, InsightCard, ExpiringWarrantyItem, DashboardStats } from "@/lib/dashboard"
 import { computeHealthScore } from "@/lib/dashboard"
 import { useDashboard } from "@/lib/useDashboard"
+import { shouldShowHomeSkeleton } from "@/lib/homeLoadingGate"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useAuth } from "@/modules/auth"
 import { useCurrentHome, useHomeProfile } from "@/modules/home"
@@ -788,7 +789,9 @@ export default function Home() {
     return combined
   }, [upcoming, overdueEssential])
 
-  if (isLoading) return <HomeSkeleton />
+  // Skeleton ONLY when there is genuinely nothing to paint — see
+  // shouldShowHomeSkeleton for why `isLoading` alone was the wrong gate.
+  if (shouldShowHomeSkeleton(isLoading, !!stats)) return <HomeSkeleton />
 
   // Surface dashboard load failures explicitly. Without this, a failed fetch
   // falls through to `stats?.totalItems ?? 0 === 0` and renders the new-user
