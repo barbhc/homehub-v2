@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import {
   SparklesIcon,
@@ -20,7 +20,7 @@ import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { InfoIcon, ClockIcon, CalendarIcon } from "lucide-react"
 import { TIER, dens, dueLabel, greeting, shortDate, effortMins, priorityTier, type Tier } from "@/lib/redesign/tokens"
-import { useTaskExpandDetail, recurLabel, isRecurring } from "@/components/home/useTaskExpandDetail"
+import { useTaskExpandDetail, prefetchTaskDetail, recurLabel, isRecurring } from "@/components/home/useTaskExpandDetail"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
 
 // Calm palette (design/hh-home2.jsx)
@@ -241,7 +241,11 @@ function AgendaRow({
         <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-3 text-left" style={{ padding: `${d.rowPy}px ${d.cardPad}px` }}>
           <ItemGlyph size={d.tap + 4} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{task.name}</div>
+            {/* Two lines, not `truncate`: a one-line clamp turned real tasks into
+                "Clean door window and s…", so the agenda couldn't be read at a
+                glance. Titles are 3-6 words by parse rule, so 2 lines fits them
+                at 375px while still bounding the row height. */}
+            <div className="line-clamp-2 text-[15px] font-semibold tracking-[-0.2px] [text-wrap:pretty]" style={{ color: INK }}>{task.name}</div>
             <div className="mt-0.5 text-[12.5px]" style={{ color: SUB }}>
               {[task.itemName, neverStarted ? null : dueLabel(days), mins != null ? `${mins} min` : null].filter(Boolean).join(" · ")}
             </div>
@@ -354,6 +358,26 @@ export function RefinedHome({
   const upcomingAll = sorted.slice(1)
   const upcoming = upcomingAll.slice(0, UPCOMING_CAP)
   const moreThisWeek = upcomingAll.length - upcoming.length
+
+  // Warm the detail for every card actually on screen (hero + the capped
+  // upcoming list) so "See how" opens instantly instead of flashing "Loading
+  // details…". Deferred to idle so it never competes with first paint, and
+  // deduped by SWR, so re-renders cost nothing.
+  const visibleIds = [hero?.id, ...upcoming.map((t) => t.id)].filter((x): x is string => !!x)
+  const prefetchKey = visibleIds.join(",")
+  useEffect(() => {
+    if (!homeId || visibleIds.length === 0) return
+    const warm = () => visibleIds.forEach((id) => prefetchTaskDetail(homeId, id))
+    const idle = window.requestIdleCallback?.bind(window)
+    if (idle) {
+      const handle = idle(warm, { timeout: 1500 })
+      return () => window.cancelIdleCallback?.(handle)
+    }
+    const t = window.setTimeout(warm, 300)
+    return () => window.clearTimeout(t)
+    // visibleIds is rebuilt each render; prefetchKey is its stable identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeId, prefetchKey])
 
   // The hero is simply the SOONEST task — it is often NOT due today. Hardcoding
   // "Due today" above a card that reads "In 3 days" looks like a bug, so the
