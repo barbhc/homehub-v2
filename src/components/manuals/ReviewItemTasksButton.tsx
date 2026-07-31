@@ -4,6 +4,7 @@ import { TaskReviewSheet } from "./TaskReviewSheet"
 import { loadItemTasksForReview, saveItemTaskReview, type ExistingTaskReview } from "@/modules/care/services/taskReviewService"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import type { PreviewChunk, PreviewTask } from "@/modules/knowledge/types/previewTypes"
+import type { ReviewEditSummary } from "./TaskReviewFeedback"
 
 /**
  * "Review tasks" on the item page — the same wizard used after a parse, pointed
@@ -48,7 +49,7 @@ export function ReviewItemTasksButton({
     setOpen(true)
   }
 
-  const handleSave = async (tasks: PreviewTask[], chunks: PreviewChunk[]): Promise<string | null> => {
+  const handleSave = async (tasks: PreviewTask[], chunks: PreviewChunk[], edits: ReviewEditSummary): Promise<string | null> => {
     if (!review) return "Nothing to save"
     setSaving(true)
     const res = await saveItemTaskReview({
@@ -61,6 +62,19 @@ export function ReviewItemTasksButton({
     })
     setSaving(false)
     if (res.error) return res.error.message
+    // Every correction is parser feedback, not only explicit complaints. Fire and
+    // forget — recordParseFeedback never blocks or fails a save.
+    if (edits.total > 0) {
+      void recordParseFeedback(homeId, {
+        manualId: null,
+        itemUnitId,
+        source: "review_save",
+        reasons: [],
+        note: "",
+        edits,
+        rescanRequested: false,
+      })
+    }
     setOpen(false)
     setReview(null)
     onDone()
