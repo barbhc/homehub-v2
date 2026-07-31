@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import {
   HouseIcon,
   MailIcon,
@@ -327,7 +328,9 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
 
           {mode === "signup" && (
             <p className="text-center text-[12.5px] leading-relaxed mt-2.5 px-2" style={{ color: SUB }}>
-              By continuing you agree to our Terms and Privacy Policy.
+              By continuing you agree to our{" "}
+              <Link to="/terms" className="underline underline-offset-2">Terms</Link> and{" "}
+              <Link to="/privacy" className="underline underline-offset-2">Privacy Policy</Link>.
             </p>
           )}
         </>

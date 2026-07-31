@@ -47,6 +47,10 @@ const SWR_CONFIG = { fallback: readPersistedDashboardFallback() }
 // All routes use lazyWithRetry so stale-chunk errors after a deploy force a
 // single hard reload instead of crashing the ErrorBoundary. See the helper
 // for details.
+// Public, and deliberately OUTSIDE AuthGate: App Store Connect requires a
+// reachable Privacy Policy URL and a reviewer opens it signed out.
+const Privacy = lazyWithRetry(() => import("@/pages/legal/Privacy"))
+const Terms = lazyWithRetry(() => import("@/pages/legal/Terms"))
 const OnboardingInventory = lazyWithRetry(() => import("@/pages/OnboardingInventory"))
 const OnboardingProfile = lazyWithRetry(() => import("@/pages/OnboardingProfile"))
 const Home = lazyWithRetry(() => import("@/pages/Home"))
@@ -110,6 +114,8 @@ function App() {
               <Route path="/reset" element={<AuthPage />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
               <Route
                 path="/onboarding/profile"
                 element={
