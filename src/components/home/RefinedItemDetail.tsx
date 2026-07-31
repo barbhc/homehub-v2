@@ -109,11 +109,14 @@ export function RefinedItemDetail({
               <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={{ background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}>
                 <MegaphoneIcon className="size-[13px]" /> Safety notice
               </span>
-            ) : (
+            ) : item.recall_status === "none_found" ? (
+              // Only claim "no recalls" when a check ACTUALLY ran. A null status
+              // means we never looked, and saying otherwise is asserting a safety
+              // fact we haven't verified.
               <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>
                 <ShieldCheckIcon className="size-[13px]" /> No recalls
               </span>
-            )}
+            ) : null}
           </div>
           {item.tags?.length > 0 && (
             <div className="mt-2.5 flex flex-wrap gap-2">

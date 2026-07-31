@@ -11,6 +11,7 @@ import {
   willNotify,
   sortWithinBucket,
   summarize,
+  isSafetyCritical,
   type ReviewTaskLike,
 } from "../../shared/tasks/reviewBuckets"
 
@@ -114,5 +115,34 @@ describe("summarize — drives the lead-in and the primary button", () => {
       ...Array.from({ length: 2 }, () => t({ care_type: "operating", schedule_type: "after_each_use" })),
     ]
     expect(summarize(rows)).toEqual({ scheduled: 1, unscheduled: 5, tips: 2, total: 8 })
+  })
+})
+
+describe("safety work is never auto-demoted to a tip", () => {
+  it("a per-use SAFETY task goes to 'when needed', not tips", () => {
+    // Real regression: "Furnace Combustion Cycle Testing" arrived as
+    // after_each_use and was filed as a tip on a GAS FURNACE.
+    expect(reviewBucketFor({ schedule_type: "after_each_use", risk_level: "safety" })).toBe("whenNeeded")
+  })
+
+  it("a per-use PRO/HAZARDOUS task goes to 'when needed', not tips", () => {
+    expect(reviewBucketFor({ schedule_type: "after_each_use", actor: "pro" })).toBe("whenNeeded")
+    expect(reviewBucketFor({ schedule_type: "after_each_use", actor: "hazardous" })).toBe("whenNeeded")
+  })
+
+  it("ordinary per-use habits are still tips — the lint filter case still works", () => {
+    expect(reviewBucketFor({ schedule_type: "after_each_use", actor: "diy", risk_level: "performance" })).toBe("tip")
+  })
+
+  it("safety work keeps its priority visible instead of vanishing", () => {
+    const b = reviewBucketFor({ schedule_type: "after_each_use", risk_level: "safety", priority_tier: "essential" })
+    expect(b).toBe("whenNeeded")
+    expect(isScheduled(b)).toBe(false) // no cadence to fire on — but it IS shown
+  })
+
+  it("isSafetyCritical identifies what must not be demoted", () => {
+    expect(isSafetyCritical({ risk_level: "safety" })).toBe(true)
+    expect(isSafetyCritical({ actor: "hazardous" })).toBe(true)
+    expect(isSafetyCritical({ risk_level: "performance", actor: "diy" })).toBe(false)
   })
 })

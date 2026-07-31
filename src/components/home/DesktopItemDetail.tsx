@@ -388,11 +388,13 @@ export function DesktopItemDetail({
                 <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-bold" style={{ background: SLATE_SOFT, color: SLATE }}>
                   <MegaphoneIcon className="size-3" /> Safety notice
                 </span>
-              ) : (
+              ) : item.recall_status === "none_found" ? (
+                // Only after a check actually ran — a null status means we never
+                // looked, and claiming otherwise asserts an unverified safety fact.
                 <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-bold" style={{ background: TEAL_WASH, color: TEAL }}>
                   <ShieldCheckIcon className="size-3" /> No recalls
                 </span>
-              )}
+              ) : null}
             </div>
             {(item.brand || item.model) && (
               <div className="mb-4 mt-1 text-[13.5px]" style={{ color: SUB }}>{[item.brand, item.model].filter(Boolean).join(" · ")}</div>

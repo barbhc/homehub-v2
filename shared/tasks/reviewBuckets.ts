@@ -39,6 +39,16 @@ export interface ReviewTaskLike {
   schedule_type?: string | null
   /** Set when the user explicitly chose to keep an operating step as a real task. */
   keep_as_task?: boolean | null
+  /** "safety" risk, or a pro/hazardous actor. Such work is NEVER auto-demoted to a
+   *  tip, however the manual phrased its cadence. */
+  risk_level?: string | null
+  actor?: string | null
+}
+
+/** Combustion checks, gas leak tests and the like. A per-use cadence must not be
+ *  allowed to turn one of these into "just a tip". */
+export function isSafetyCritical(t: ReviewTaskLike): boolean {
+  return t.risk_level === "safety" || t.actor === "pro" || t.actor === "hazardous"
 }
 
 /**
@@ -52,8 +62,15 @@ export function reviewBucketFor(t: ReviewTaskLike): ReviewBucket {
   const schedule = t.schedule_type ?? "monthly"
   const keepAsTask = t.keep_as_task === true
 
-  // Operating steps and per-use habits are tips unless the user overrode it.
-  if (!keepAsTask && (t.care_type === "operating" || schedule === "after_each_use")) return "tip"
+  // Operating steps and per-use habits are tips unless the user overrode it —
+  // EXCEPT when the work is safety-critical. "Furnace Combustion Cycle Testing"
+  // arrived as after_each_use and was silently filed as a tip on a gas furnace,
+  // which is exactly the failure this product cannot afford. Safety work with no
+  // real cadence goes to "when needed": unscheduled, but visible and carrying its
+  // priority, so the user decides rather than never seeing it.
+  if (!keepAsTask && (t.care_type === "operating" || schedule === "after_each_use")) {
+    return isSafetyCritical(t) ? "whenNeeded" : "tip"
+  }
   if (schedule === "setup") return "setup"
   if (!isRecurring(schedule)) return "whenNeeded"
 

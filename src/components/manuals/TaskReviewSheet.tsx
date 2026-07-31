@@ -13,6 +13,7 @@ import {
   type ReviewBucket,
 } from "../../../shared/tasks/reviewBuckets"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
+import { classifyActorFromText } from "@/lib/taskActor"
 import type {
   PreviewChunk, PreviewResult, PreviewTask, PriorityTier, ScheduleType,
 } from "@/modules/knowledge/types/previewTypes"
@@ -61,6 +62,8 @@ const originLabel = (s: ScheduleType) =>
 
 interface ReviewRow {
   id: string
+  riskLevel: string | null
+  actor: string
   origin: "task" | "tip"
   title: string
   description: string | null
@@ -85,9 +88,16 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
     justification: t.justification ?? null,
     minutes: t.estimated_minutes,
     origSchedule: t.schedule_type,
-    // A per-use habit is a tip: you do it at the machine, and a calendar
-    // reminder for it is noise.
-    kind: t.schedule_type === "after_each_use" ? "tip" : t.care_type === "cleaning" ? "cleaning" : "maintenance",
+    riskLevel: t.risk_level ?? null,
+    actor: classifyActorFromText([t.title, t.description ?? "", t.instructions_text ?? ""].join(" ")),
+    // A per-use habit is a tip: you do it at the machine, and a calendar reminder
+    // for it is noise — unless it's safety work, which never auto-demotes.
+    kind:
+      t.schedule_type === "after_each_use" &&
+      t.risk_level !== "safety" &&
+      classifyActorFromText([t.title, t.description ?? "", t.instructions_text ?? ""].join(" ")) === "diy"
+        ? "tip"
+        : t.care_type === "cleaning" ? "cleaning" : "maintenance",
     tier: t.priority_tier,
     schedule: t.schedule_type,
     scheduleSuggested: false,
@@ -104,6 +114,8 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
       justification: null,
       minutes: null,
       origSchedule: "after_each_use" as ScheduleType,
+      riskLevel: null,
+      actor: "diy",
       kind: "tip" as RowKind,
       tier: "optional" as PriorityTier,
       schedule: "after_each_use" as ScheduleType,
@@ -120,6 +132,8 @@ const bucketOfRow = (r: ReviewRow): ReviewBucket =>
     priority_tier: r.tier,
     schedule_type: r.schedule,
     keep_as_task: r.kind !== "tip",
+    risk_level: r.riskLevel,
+    actor: r.actor,
   })
 
 interface TaskReviewSheetProps {
@@ -246,13 +260,32 @@ export function TaskReviewSheet({
     const onSched = isScheduled(bucketOfRow(r))
     return (
       <div data-expanded="true" className="rounded-2xl border-[1.5px] p-4 mb-2 bg-card" style={{ borderColor: "var(--hh-teal, #1B6B5A)" }}>
-        <div className="text-[17px] font-extrabold tracking-[-0.02em] leading-tight text-balance">{r.title}</div>
-        {r.justification && <div className="text-[12.5px] text-muted-foreground mt-1.5">{r.justification}</div>}
-        <div className="text-[10.5px] font-mono text-muted-foreground/70 mt-1.5">
-          from the manual · {originLabel(r.origSchedule)}{r.minutes ? ` · ${r.minutes} min` : ""}
+        <div className="flex items-start gap-2">
+          <div className="flex-1 text-[17px] font-extrabold tracking-[-0.02em] leading-tight text-balance">{r.title}</div>
+        </div>
+        {/* Badges the rest of the app already shows. Without them this screen asked
+            "what is it?" while withholding the two facts that answer it. */}
+        {(r.riskLevel === "safety" || r.actor !== "diy") && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {r.riskLevel === "safety" && (
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}>Safety</span>
+            )}
+            {(r.actor === "pro" || r.actor === "hazardous") && (
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}>Pro</span>
+            )}
+          </div>
+        )}
+        {/* The WHY. Previously only `justification` rendered, so any task carrying
+            only a description showed no explanation at all — which is precisely
+            when the user can't tell how to categorise it. */}
+        {(r.justification || r.description) && (
+          <div className="text-[13px] text-muted-foreground mt-2 leading-snug">{r.justification || r.description}</div>
+        )}
+        <div className="text-[11.5px] text-muted-foreground/80 mt-2">
+          From the manual · {originLabel(r.origSchedule)}{r.minutes ? ` · about ${r.minutes} min` : ""}
         </div>
 
-        <div className="text-[9.5px] font-mono uppercase tracking-[0.09em] text-muted-foreground/70 mt-3.5 mb-1.5">What is it?</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">What is it?</div>
         <div className="flex gap-1.5">
           {KINDS.map((k) => (
             <button key={k.id} type="button" aria-pressed={r.kind === k.id}
@@ -260,7 +293,7 @@ export function TaskReviewSheet({
               className={`flex-1 flex flex-col items-center gap-1 rounded-xl border py-2 px-1 text-[11px] font-semibold transition-colors ${
                 r.kind === k.id ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground"}`}>
               <span className="text-[17px] leading-none">{k.icon}</span>{k.label}
-              <span className="text-[9.5px] font-semibold text-muted-foreground/70">{k.hint}</span>
+              <span className="text-[10.5px] font-semibold text-muted-foreground">{k.hint}</span>
             </button>
           ))}
         </div>
@@ -281,7 +314,7 @@ export function TaskReviewSheet({
                 {onSched ? "Take off schedule" : "Put on a schedule"}
               </button>
             </div>
-            <div className="text-[9.5px] font-mono uppercase tracking-[0.09em] text-muted-foreground/70 mt-3.5 mb-1.5">How important?</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">How important?</div>
             <div className="flex gap-1.5">
               {TIERS.map((tier) => (
                 <button key={tier.id} type="button" aria-pressed={r.tier === tier.id}
@@ -291,7 +324,7 @@ export function TaskReviewSheet({
                       ? tier.id === "essential" ? "border-[#C2410C] bg-[#C2410C]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
                       : "border-border bg-background text-muted-foreground"}`}>
                   <PriorityDot tier={tier.id} />{tier.label}
-                  <span className="text-[9.5px] font-semibold text-muted-foreground/70">{onSched ? tier.onSched : tier.offSched}</span>
+                  <span className="text-[10.5px] font-semibold text-muted-foreground">{onSched ? tier.onSched : tier.offSched}</span>
                 </button>
               ))}
             </div>
@@ -335,7 +368,7 @@ export function TaskReviewSheet({
         <SheetHeader className="px-4 pt-3 pb-2 border-b">
           <SheetTitle className="text-[17px] font-extrabold tracking-[-0.02em]">{itemName}</SheetTitle>
           <div className="text-[10.5px] font-mono text-muted-foreground/70">
-            {guideRow ? "One by one" : step === 1 ? "Step 1 of 2 · What each task is" : "Step 2 of 2 · How often"}
+            {guideRow ? `Deciding each task · ${(guideIndex ?? 0) + 1} of ${rows.length}` : step === 1 ? "Step 1 of 2 · What each task is" : "Step 2 of 2 · How often"}
           </div>
         </SheetHeader>
 
