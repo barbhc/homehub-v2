@@ -403,6 +403,13 @@ export interface TaskTemplate {
    */
   re_check_triggers: Json
   priority_tier: PriorityTier
+  /**
+   * Whether this task reminds the user when it comes due. Independent of
+   * priority_tier: any scheduled task can carry a reminder. `null` (the state of
+   * every task written before this field existed) means the user never chose,
+   * so `willNotify` in shared/tasks/reviewBuckets applies the tier default.
+   */
+  remind_enabled?: boolean | null
   risk_level: RiskLevel
   estimated_minutes: number | null
   /** Default assignee inherited by generated occurrences (Phase 3); guarded to home_members. */

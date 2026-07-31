@@ -1,8 +1,8 @@
 import { useMemo } from "react"
 import { Link } from "react-router-dom"
 import {
-  ChevronLeftIcon, ChevronRightIcon, MapPinIcon, ShieldCheckIcon, ShieldIcon,
-  MegaphoneIcon, WrenchIcon, TagIcon,
+  ChevronLeftIcon, ChevronRightIcon, MapPinIcon, ShieldCheckIcon,
+  MegaphoneIcon, MessageCircleQuestionIcon, TagIcon,
   WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, type LucideIcon,
 } from "lucide-react"
 import type { ItemUnit, Room, KnowledgeChunk } from "@/integrations/types"
@@ -33,9 +33,26 @@ function fmtDate(s: string | null): string | null {
 
 function Pill({ children, active }: { children: React.ReactNode; active?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={{ background: active ? "var(--hh-teal-wash)" : "#EEF2F1", color: active ? TEAL : INK }}>
+    // Token, not a literal: #EEF2F1 stayed light in dark mode, so the ink-coloured
+    // label sat on a near-white pill and vanished.
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={{ background: active ? "var(--hh-teal-wash)" : "var(--hh-surface2)", color: active ? TEAL : INK }}>
       {children}
     </span>
+  )
+}
+
+/**
+ * The page's two top-level headings. Until now the item page was a flat stack of
+ * thirteen cards with no hierarchy, so nothing told you where "what do I do" ended
+ * and "what is this thing" began.
+ */
+function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="text-[17px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{children}</span>
+      <span className="h-px flex-1" style={{ background: "var(--hh-line)" }} />
+      {action}
+    </div>
   )
 }
 
@@ -50,6 +67,7 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
 
 export function RefinedItemDetail({
   item, rooms, homeId, tasks, chunks, hasManual, onBack, onOpenManualPage, onItemUpdate, density = "cozy",
+  reviewAction, recordsSlot,
 }: {
   item: ItemUnit
   rooms: Room[]
@@ -62,12 +80,16 @@ export function RefinedItemDetail({
   onOpenManualPage?: (page: number) => void
   onItemUpdate?: (item: ItemUnit) => void
   density?: "spacious" | "cozy" | "compact"
+  /** "Review these tasks" — sits in the Upkeep heading, where the decision it
+   *  changes actually lives, instead of eight cards further down. */
+  reviewAction?: React.ReactNode
+  /** Manual, specs, saved answers, history, delete — the reference half of the
+   *  page, rendered by the caller under one heading. */
+  recordsSlot?: React.ReactNode
 }) {
   const d = dens(density)
   const Glyph = glyphFor(item)
   const roomName = useMemo(() => rooms.find((r) => r.room_id === item.room_id)?.name ?? null, [rooms, item.room_id])
-  const warrantyActive = !!item.warranty_expiry_date && new Date(item.warranty_expiry_date) >= new Date()
-
   const fields: [string, string | null, boolean?][] = [
     ["Room", roomName],
     ["Category", item.category],
@@ -93,6 +115,7 @@ export function RefinedItemDetail({
             homeId={homeId}
             Glyph={Glyph}
             onItemUpdate={onItemUpdate}
+            emptyVariant="cta"
             className="h-[150px] w-full rounded-[20px]"
             glyphClassName="size-16"
           />
@@ -101,10 +124,10 @@ export function RefinedItemDetail({
           <div className="mt-3 flex flex-wrap gap-2">
             {roomName && <Pill><MapPinIcon className="size-[13px]" style={{ color: TEAL }} /> {roomName}</Pill>}
             {item.category && <Pill>{item.category}</Pill>}
-            <Pill active={warrantyActive}>
-              {warrantyActive ? <ShieldCheckIcon className="size-[13px]" /> : <ShieldIcon className="size-[13px]" />}
-              {warrantyActive ? "Under warranty" : "Warranty ended"}
-            </Pill>
+            {/* Warranty is NOT a chip here. "Warranty ended" at the top of the page
+                is a small piece of bad news about a thing you own, delivered before
+                anything useful — and it's the state of most items most of the time.
+                It lives in Details & records, where you go to look it up. */}
             {item.recall_status === "found" ? (
               <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={{ background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}>
                 <MegaphoneIcon className="size-[13px]" /> Safety notice
@@ -145,7 +168,28 @@ export function RefinedItemDetail({
           </div>
         )}
 
-        {/* Care by rhythm — habits, scheduled upkeep, setup */}
+        {/* "I have a question / something's wrong" — high on the page, phrased the
+            way a person phrases it. It used to be a link called "Fix a problem"
+            at the very bottom, below every reference section, which is the last
+            place someone with a broken appliance will look. */}
+        <Link
+          to={`/chat?item=${item.item_unit_id}`}
+          className="flex items-center gap-3 rounded-2xl border px-3.5 py-3"
+          style={{ background: "var(--hh-teal-wash)", borderColor: "color-mix(in srgb, var(--hh-teal) 22%, transparent)" }}
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "var(--hh-surface)" }}>
+            <MessageCircleQuestionIcon className="size-[18px]" style={{ color: TEAL }} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>Have a question or a problem?</span>
+            <span className="block text-[11.5px]" style={{ color: SUB }}>
+              {hasManual ? "Ask about this item — answers come from your manual" : "Ask about this item"}
+            </span>
+          </span>
+          <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: TEAL, opacity: 0.6 }} />
+        </Link>
+
+        <SectionLabel action={reviewAction}>Upkeep</SectionLabel>
         <CareBlock
           item={item}
           homeId={homeId}
@@ -157,7 +201,7 @@ export function RefinedItemDetail({
           m
         />
 
-        {/* Key fields */}
+        <SectionLabel>Details &amp; records</SectionLabel>
         {shownFields.length > 0 && (
           <div className="rounded-2xl px-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
             {shownFields.map(([k, v, mono], i) => <KV key={k} k={k} v={v} mono={mono} last={i === shownFields.length - 1} />)}
@@ -167,18 +211,7 @@ export function RefinedItemDetail({
         {/* Warranty — status-first; self-hides when nothing is tracked */}
         <WarrantyPanel item={item} homeId={homeId} onItemUpdate={onItemUpdate} m />
 
-        {/* Fix a problem */}
-        <Link
-          to={`/chat?item=${item.item_unit_id}`}
-          className="flex items-center gap-3 rounded-2xl border border-[var(--hh-line2)] px-4 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-          style={{ background: "var(--hh-surface)" }}
-        >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "var(--hh-teal-wash)" }}>
-            <WrenchIcon className="size-[18px]" style={{ color: TEAL }} />
-          </span>
-          <span className="flex-1 text-[15px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>Fix a problem</span>
-          <ChevronRightIcon className="size-[18px] text-[#C2CBD4]" />
-        </Link>
+        {recordsSlot}
       </div>
     </div>
   )

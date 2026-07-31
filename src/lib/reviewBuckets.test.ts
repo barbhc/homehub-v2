@@ -60,12 +60,38 @@ describe("reviewBucketFor — schedule decides the section, not priority", () =>
 })
 
 describe("willNotify — the promise the UI makes", () => {
-  it("only scheduled essentials notify", () => {
+  it("defaults: scheduled essentials remind, nothing else does", () => {
     expect(willNotify(t({ schedule_type: "monthly", priority_tier: "essential" }))).toBe(true)
     expect(willNotify(t({ schedule_type: "monthly", priority_tier: "recommended" }))).toBe(false)
     expect(willNotify(t({ schedule_type: "as_needed", priority_tier: "essential" }))).toBe(false)
     expect(willNotify(t({ schedule_type: "setup", priority_tier: "essential" }))).toBe(false)
     expect(willNotify(t({ schedule_type: "after_each_use", priority_tier: "essential" }))).toBe(false)
+  })
+
+  it("a Recommended task can be given a reminder without inflating its priority", () => {
+    // The owner's case: they want to be reminded to descale, but descaling is not
+    // safety work and calling it Essential would corrupt every tier-based sort.
+    const descale = t({ schedule_type: "quarterly", priority_tier: "recommended", remind_enabled: true })
+    expect(willNotify(descale)).toBe(true)
+    expect(reviewBucketFor(descale)).toBe("recommended")
+    expect(willNotify(t({ schedule_type: "annual", priority_tier: "optional", remind_enabled: true }))).toBe(true)
+  })
+
+  it("an Essential reminder can be switched off — the default is reversible", () => {
+    expect(willNotify(t({ schedule_type: "monthly", priority_tier: "essential", remind_enabled: false }))).toBe(false)
+  })
+
+  it("null means 'never chose', so the default still applies", () => {
+    expect(willNotify(t({ schedule_type: "monthly", priority_tier: "essential", remind_enabled: null }))).toBe(true)
+    expect(willNotify(t({ schedule_type: "monthly", priority_tier: "recommended", remind_enabled: null }))).toBe(false)
+  })
+
+  it("an unscheduled task NEVER reminds, flag or not — there is no due date to fire on", () => {
+    for (const schedule_type of ["setup", "as_needed", "after_each_use"]) {
+      expect(willNotify(t({ schedule_type, priority_tier: "essential", remind_enabled: true })), schedule_type).toBe(false)
+    }
+    // Including the safety escape hatch, which is visible but still unscheduled.
+    expect(willNotify(t({ schedule_type: "after_each_use", risk_level: "safety", remind_enabled: true }))).toBe(false)
   })
 })
 

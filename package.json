@@ -15,7 +15,7 @@
     "test:e2e:report": "playwright show-report",
     "test:watch": "vitest",
     "emu": "firebase emulators:start --project demo-homehub",
-    "dev:emu": "VITE_USE_EMULATORS=true vite",
+    "dev:emu": "VITE_USE_EMULATORS=true VITE_FIREBASE_PROJECT_ID=demo-homehub vite",
     "seed:emu": "tsx scripts/seed-emulator.ts",
     "test:rules": "vitest run --config vitest.rules.config.ts",
     "test:rules:emu": "firebase emulators:exec --only firestore,storage --project demo-homehub-rules \"npm run test:rules\"",

@@ -70,6 +70,10 @@
   --hh-gold-soft:  #FBF3E2;
   --hh-slate:      #5B748F;
   --hh-slate-soft: #F1F5F8;
+  /* Reference/advice accent — the item page's Tips band. Distinct from slate so
+     Tips and First-time setup don't read as the same kind of thing. */
+  --hh-violet:      #7C5CBF;
+  --hh-violet-soft: #EFEAF8;
   --hh-line:       rgba(15,23,42,0.07);
   --hh-line2:      rgba(15,23,42,0.12);
 }
@@ -113,6 +117,8 @@
   --hh-gold-soft:  rgba(217,185,120,0.16);
   --hh-slate:      #8FB0CC;
   --hh-slate-soft: rgba(143,176,204,0.14);
+  --hh-violet:      #A88BE0;
+  --hh-violet-soft: rgba(168,139,224,0.16);
   --hh-line:       rgba(255,255,255,0.09);
   --hh-line2:      rgba(255,255,255,0.14);
 }
