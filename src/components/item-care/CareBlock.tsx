@@ -665,13 +665,6 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
 
   return (
     <div className="flex flex-col" style={{ gap: m ? 16 : 20 }}>
-      {hasManual && (
-        <div className="flex items-center gap-2.5 rounded-[12px] border px-3.5 py-2.5" style={{ background: "#F1F5F4", borderColor: LINE }}>
-          <SparklesIcon className="size-[15px] shrink-0" style={{ color: TEAL }} />
-          <span className="text-[12.5px] leading-snug" style={{ color: SUB }}>These tasks were generated from your manual. Tap any one to edit or remove it.</span>
-        </div>
-      )}
-
       {supportsVariant && (
         <VariantArea
           options={availableVariants}
@@ -684,18 +677,6 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
         />
       )}
 
-      {fPerUse.length > 0 && (
-        <section>
-          <BandLabel icon={RepeatIcon} hint="every use">After each use</BandLabel>
-          <HabitList tasks={fPerUse} variant={activeVariant} showAll={showAll} />
-        </section>
-      )}
-      {fAsNeeded.length > 0 && (
-        <section>
-          <BandLabel icon={CircleDashedIcon} hint="only when needed">As needed</BandLabel>
-          <HabitList tasks={fAsNeeded} variant={activeVariant} showAll={showAll} />
-        </section>
-      )}
 
       <section>
         <BandLabel icon={CalendarClockIcon}>On a schedule</BandLabel>
@@ -728,7 +709,13 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
         )}
       </section>
 
-      {usageTips.length > 0 && <UsageTipsBand tips={usageTips} onOpenManualPage={onOpenManualPage} />}
+
+      {fAsNeeded.length > 0 && (
+        <section>
+          <BandLabel icon={CircleDashedIcon} hint="only when needed">As needed</BandLabel>
+          <HabitList tasks={fAsNeeded} variant={activeVariant} showAll={showAll} />
+        </section>
+      )}
 
       {fCleaning.length > 0 && (
         <CleaningBand
@@ -746,12 +733,22 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
         <SetupBand tasks={fSetup} homeId={homeId} item={item} revealed={item.setup_revealed_at != null} onItemUpdate={onItemUpdate} m={m} />
       )}
 
+      {fPerUse.length > 0 && (
+        <section>
+          <BandLabel icon={RepeatIcon} hint="every use">After each use</BandLabel>
+          <HabitList tasks={fPerUse} variant={activeVariant} showAll={showAll} />
+        </section>
+      )}
+
       {/* Habits & setup are intentionally calm — habits carry no due date and setup is one-time. */}
       {(fPerUse.length > 0 || fAsNeeded.length > 0) && (
         <div className="flex items-center gap-1.5 pl-0.5 text-[11px]" style={{ color: FAINT }}>
           <BellRingIcon className="size-3" /> Habits have no due date — do them as part of normal use.
         </div>
       )}
+
+      {usageTips.length > 0 && <UsageTipsBand tips={usageTips} onOpenManualPage={onOpenManualPage} />}
+
 
       {/* Safety note fallback — only when we couldn't attach the critical
           warning to a specific task (otherwise it shows in that task's "See
