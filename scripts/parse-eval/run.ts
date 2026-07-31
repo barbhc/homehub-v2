@@ -20,6 +20,7 @@
 import { initializeApp, cert } from "firebase-admin/app"
 import { getFirestore } from "firebase-admin/firestore"
 import { getStorage } from "firebase-admin/storage"
+import { createHash } from "node:crypto"
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -63,6 +64,19 @@ initializeApp({
 })
 const db = getFirestore()
 const bucket = getStorage().bucket()
+
+/**
+ * Fingerprint of the prompt THIS process loaded, stamped on every result.
+ *
+ * Each vite-node invocation re-reads parsePrompt.ts, so a per-manual loop picks up
+ * whatever the file says when that manual starts — editing the prompt, or merely
+ * switching branches, mid-run yields a "baseline" where some manuals used one
+ * prompt and some another. That is the worst failure this tool has: it looks
+ * perfectly healthy and silently invalidates every conclusion drawn from it. (I
+ * hit it twice in one session.) With the hash recorded per manual, a contaminated
+ * run is detectable after the fact instead of merely regrettable.
+ */
+const PROMPT_HASH = createHash("sha256").update(buildPrompt()).digest("hex").slice(0, 12)
 
 /**
  * Corpus PDF → base64, cached on disk. Reads are strictly read-only against the
@@ -288,7 +302,7 @@ async function main() {
   let failures = 0
 
   for (const m of targets) {
-    console.log(`\n━━ ${m.name} (${m.model}) ━━`)
+    console.log(`\n━━ ${m.name} (${m.model}) · prompt ${PROMPT_HASH} ━━`)
     // Resolve PDF from v2 Firestore/Storage (read-only, disk-cached)
     let pdfBase64: string
     try {
@@ -318,6 +332,7 @@ async function main() {
 
     // Snapshot for goldens: titles + key classifications (stable, reviewable)
     const snapshot = {
+      promptHash: PROMPT_HASH,
       stats: s,
       taskTitles: (parsed.tasks ?? []).map((t) => t.title ?? "?"),
       taskIndex: (parsed.tasks ?? []).map((t) => ({ title: t.title, schedule: t.schedule_type, tier: t.priority_tier, care: t.care_type })),
@@ -359,7 +374,7 @@ async function main() {
     }
 
     const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)
-    writeFileSync(join(HERE, "results", `${m.name}.${stamp}.json`), JSON.stringify({ meta, stats: s, parsed }, null, 2))
+    writeFileSync(join(HERE, "results", `${m.name}.${stamp}.json`), JSON.stringify({ promptHash: PROMPT_HASH, meta, stats: s, parsed }, null, 2))
   }
 
   console.log(`\n${failures === 0 ? "✓ eval passed" : `✗ eval finished with ${failures} failure(s)`}`)

@@ -94,6 +94,27 @@ describe("classifyTaskKind — cleaning reclass (mislabeled wipe-downs)", () => 
     expect(classifyTaskKind(row({ title }))).toBe("cleaning")
   })
 
+  // Real titles still on the owner's Home agenda after a full sweep (2026-07-30).
+  it.each([
+    "Clean Burner Grates",        // /burners?/ matched → wrongly kept as maintenance
+    "Clean the Door Seal",        // hygiene on a gasket, not leak repair
+    "Wipe Door Seal and Interior",
+    "Clean the Coffee Outlet",
+    "Clean Cabinet Surround and Rear",
+    "Clean the Drawer Guides",
+  ])("%s → cleaning (was showing on Home)", (title) => {
+    expect(classifyTaskKind(row({ title }))).toBe("cleaning")
+  })
+
+  it("burner CAPS stay maintenance — they have gas ports, unlike grates", () => {
+    expect(classifyTaskKind(row({ title: "Clean Surface Burner Caps" }))).toBe("maintenance")
+  })
+
+  it("REPLACING a seal is still maintenance — the verb gate protects it", () => {
+    expect(classifyTaskKind(row({ title: "Replace the door seal" }))).toBe("maintenance")
+    expect(classifyTaskKind(row({ title: "Inspect the door gasket for tears" }))).toBe("maintenance")
+  })
+
   it("cleaning a FUNCTIONAL part stays maintenance", () => {
     expect(classifyTaskKind(row({ title: "Clean the Filter System" }))).toBe("maintenance")
     expect(classifyTaskKind(row({ title: "Clean filter system (light to average use)" }))).toBe("maintenance")
@@ -106,7 +127,8 @@ describe("classifyTaskKind — cleaning reclass (mislabeled wipe-downs)", () => 
 
   it("non-cleaning maintenance is untouched", () => {
     expect(classifyTaskKind(row({ title: "Descale the dishwasher" }))).toBe("maintenance")
-    expect(classifyTaskKind(row({ title: "Clean the Door Seal" }))).toBe("maintenance")
+    // "Clean the Door Seal" moved to cleaning deliberately (2026-07-30): wiping a
+    // gasket is hygiene. REPLACING/INSPECTING one is still maintenance — asserted above.
     expect(classifyTaskKind(row({ title: "Prepare Dishwasher for Vacation" }))).toBe("maintenance")
     expect(classifyTaskKind(row({ title: "Winterize the outdoor faucet" }))).toBe("maintenance")
   })
@@ -208,7 +230,7 @@ describe("applyTaskTaxonomy — the dishwasher screenshot end-to-end", () => {
     // Exterior wipe → cleaning; functional cleans stay maintenance
     const byTitle = Object.fromEntries(res.tasks.map((t) => [t.title, t]))
     expect(byTitle["Clean the Dishwasher Exterior"].care_type).toBe("cleaning")
-    expect(byTitle["Clean the Door Seal"].care_type).toBe("maintenance")
+    expect(byTitle["Clean the Door Seal"].care_type).toBe("cleaning")
     expect(byTitle["Clean filter system (light to average use)"].care_type).toBe("maintenance")
     expect(byTitle["Descale the dishwasher"].priority_tier).toBe("essential")
   })
