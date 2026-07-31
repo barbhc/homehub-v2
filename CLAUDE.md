@@ -31,6 +31,18 @@ npx playwright test e2e/smoke/boot.spec.ts --project=smoke   # Phase 1 boot smok
 - `firebase/functions/` — Functions workspace (health check now; parse worker in Phase 3)
 - `firestore.rules` / `storage.rules` — DENY-ALL placeholders until Phase 2
 
+## Product principles (apply to everything, not just tasks)
+
+1. **Relevant, Useful, Timely** — every item surfaced anywhere must pass all three.
+   Comprehensiveness is not a goal; noise the user learns to ignore is the failure.
+2. **Suggest, never assume** — Homehub proposes, the homeowner decides. Personalize
+   hard (home type, climate, owner/renter, what they own) but never conclude that the
+   user *should* do something. Four tests: every default is **visible and reversible**;
+   nothing is scheduled/notified without agreement to that class of thing; **never
+   assert what we haven't verified** (silence beats a confident wrong answer, especially
+   on safety); and "this isn't right" is **always one tap away**, carrying the
+   corrections the user already made.
+
 ## Non-negotiables (full list + rationale in the implementation plan)
 1. One matcher: `titleSimilarity`/`TITLE_MATCH_THRESHOLD` imported from `shared/parse/parseCore`.
 2. Extraction = forced tool call (`EXTRACTION_TOOL`) + `samplingParamsFor(model)` — always.

@@ -34,7 +34,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ManualParseProgress } from "@/components/manuals/ManualParseProgress"
-import { ManualParseReviewSheet } from "@/components/manuals/ManualParseReviewSheet"
+import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
+import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useManualUrls, isDeadLegacyManualUrl } from "@/hooks/useManualManagement"
 import { updateManualLabel } from "@/modules/knowledge"
 import type { ManualDocument } from "@/integrations/types"
@@ -52,6 +53,10 @@ const LABEL_PRESETS = [
 
 interface ManualSectionProps {
   homeId: string
+  /** Item context — the review sheet titles itself with the item, and feedback is
+   *  attributed to it so patterns can be aggregated per product. */
+  itemName?: string
+  itemUnitId?: string | null
   manuals: ManualDocument[]
   onManualUpdated: (updated: ManualDocument) => void
   // Manual management hook values
@@ -93,6 +98,8 @@ interface ManualSectionProps {
 
 export function ManualSection({
   homeId,
+  itemName,
+  itemUnitId,
   manuals,
   onManualUpdated,
   addManualOpen,
@@ -609,7 +616,7 @@ export function ManualSection({
 
       {/* Parse review sheet */}
       {previewResult && (
-        <ManualParseReviewSheet
+        <TaskReviewSheet
           open={reviewOpen}
           onOpenChange={(open) => {
             setReviewOpen(open)
@@ -618,10 +625,20 @@ export function ManualSection({
               setParsedManualId(null)
             }
           }}
-          manualTitle={manuals.find((m) => m.manual_id === parsedManualId)?.title ?? "Manual"}
+          itemName={itemName ?? manuals.find((m) => m.manual_id === parsedManualId)?.title ?? "Manual"}
           previewData={previewResult}
           onSave={handleSave}
           saving={saving}
+          onFeedback={(p) => {
+            void recordParseFeedback(homeId, {
+              manualId: parsedManualId,
+              itemUnitId: itemUnitId ?? null,
+              reasons: p.reasons,
+              note: p.note,
+              edits: p.edits,
+              rescanRequested: p.rescan,
+            })
+          }}
         />
       )}
     </>

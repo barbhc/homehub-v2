@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { ReviewItemTasksButton } from "@/components/manuals/ReviewItemTasksButton"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { PageContainer, EmptyState } from "@/components/layout"
 import { useAuth } from "@/modules/auth"
@@ -249,6 +250,8 @@ export default function ItemDetailPage() {
 
   const manualSectionProps = {
     homeId: home?.home_id ?? "",
+    itemName: item ? `${item.brand ?? ""} ${item.display_name ?? ""}`.trim() || item.display_name : undefined,
+    itemUnitId: id ?? null,
     manuals,
     onManualUpdated: (updated: ManualDocument) =>
       setManuals((prev) => prev.map((m) => (m.manual_id === updated.manual_id ? updated : m))),
@@ -342,6 +345,19 @@ export default function ItemDetailPage() {
               specsChunks={specsChunks}
               hasBrandOrModel={!!(item.brand || item.model)}
             />
+            {home && id && tasks.length > 0 && (
+              <ReviewItemTasksButton
+                homeId={home.home_id}
+                itemUnitId={id}
+                itemName={manualSectionProps.itemName ?? "This item"}
+                taskCount={tasks.length}
+                onDone={() => {
+                  void getTaskTemplatesWithSchedulesByItem(home.home_id, id).then((r) => {
+                    if (r.data) setTasks(r.data)
+                  })
+                }}
+              />
+            )}
             <ManualSection {...manualSectionProps} />
             {manuals.length > 0 && (
               <HistorySection homeId={home!.home_id} itemId={id!} refreshKey={historyKey} />
