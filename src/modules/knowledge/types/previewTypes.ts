@@ -59,6 +59,10 @@ export interface PreviewTask {
   re_check_triggers: PreviewReCheckTrigger[]
   /** Per-task parse confidence 0–1 ("Sort it right" review). Low → "Check this". */
   confidence?: number | null
+  /** The user's reminder choice from the review screen, independent of tier.
+   *  Never set by the parser — null means "they didn't choose", and the tier
+   *  default in shared/tasks/reviewBuckets applies. Forwarded to save. */
+  remind_enabled?: boolean | null
   /** Variant tags this task is specific to; [] = all configs. Forwarded to save. */
   applies_to?: string[]
   /** Cited supplies for the "You'll need" chips; [] = none. Forwarded to save. */

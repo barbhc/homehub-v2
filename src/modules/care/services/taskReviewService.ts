@@ -57,6 +57,10 @@ export async function loadItemTasksForReview(homeId: string, itemUnitId: string)
         description: (d.get("description") as string | null) ?? null,
         care_type: asCareType(d.get("careType")),
         priority_tier: asTier(d.get("priorityTier")),
+        // undefined on every task written before reminders were their own switch;
+        // normalized to null so the wizard reads it as "never chose" rather than
+        // as an explicit "off".
+        remind_enabled: (d.get("remindEnabled") as boolean | null | undefined) ?? null,
         risk_level: asRisk(d.get("riskLevel")),
         estimated_minutes: (d.get("estimatedMinutes") as number | null) ?? null,
         schedule_type: (String(d.get("schedule.scheduleType") ?? "monthly")) as ScheduleType,
@@ -104,6 +108,7 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
         {
           careType: t.care_type,
           priorityTier: t.priority_tier,
+          remindEnabled: t.remind_enabled ?? null,
           "schedule.scheduleType": t.schedule_type,
           "schedule.intervalDays": t.interval_days ?? null,
           isActive: true,

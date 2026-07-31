@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { Loader2Icon } from "lucide-react"
+import { Loader2Icon, BellRingIcon } from "lucide-react"
 import {
   reviewBucketFor,
   isScheduled,
+  willNotify,
+  remindsByDefault,
   sortWithinBucket,
   summarize,
   isRecurring,
@@ -42,10 +44,13 @@ const KINDS = [
 ] as const
 type RowKind = (typeof KINDS)[number]["id"]
 
+// Priority answers "how much does this matter" only. Whether it interrupts you
+// is the separate Remind switch below, so these hints must not promise anything
+// about reminders.
 const TIERS: { id: PriorityTier; label: string; onSched: string; offSched: string }[] = [
-  { id: "essential", label: "Essential", onSched: "reminds you", offSched: "act promptly" },
-  { id: "recommended", label: "Recommended", onSched: "no reminders", offSched: "worth doing" },
-  { id: "optional", label: "Optional", onSched: "quiet", offSched: "if you like" },
+  { id: "essential", label: "Essential", onSched: "don't skip", offSched: "act promptly" },
+  { id: "recommended", label: "Recommended", onSched: "worth doing", offSched: "worth doing" },
+  { id: "optional", label: "Optional", onSched: "if you like", offSched: "if you like" },
 ]
 
 const CADENCES: { id: ScheduleType; label: string }[] = [
@@ -74,6 +79,9 @@ interface ReviewRow {
   tier: PriorityTier
   schedule: ScheduleType
   scheduleSuggested: boolean
+  /** null until the user touches the Remind switch — then the tier default no
+   *  longer applies to this task, in either direction. */
+  remindEnabled: boolean | null
   included: boolean
   task?: PreviewTask
   chunk?: PreviewChunk
@@ -101,6 +109,7 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
     tier: t.priority_tier,
     schedule: t.schedule_type,
     scheduleSuggested: false,
+    remindEnabled: t.remind_enabled ?? null,
     included: true,
     task: t,
   }))
@@ -120,21 +129,25 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
       tier: "optional" as PriorityTier,
       schedule: "after_each_use" as ScheduleType,
       scheduleSuggested: false,
+      remindEnabled: null,
       included: true,
       chunk: c,
     }))
   return [...taskRows, ...tipRows]
 }
 
-const bucketOfRow = (r: ReviewRow): ReviewBucket =>
-  reviewBucketFor({
-    care_type: r.kind === "tip" ? "operating" : r.kind,
-    priority_tier: r.tier,
-    schedule_type: r.schedule,
-    keep_as_task: r.kind !== "tip",
-    risk_level: r.riskLevel,
-    actor: r.actor,
-  })
+const taskLikeOf = (r: ReviewRow) => ({
+  care_type: r.kind === "tip" ? "operating" : r.kind,
+  priority_tier: r.tier,
+  schedule_type: r.schedule,
+  keep_as_task: r.kind !== "tip",
+  risk_level: r.riskLevel,
+  actor: r.actor,
+  remind_enabled: r.remindEnabled,
+})
+const bucketOfRow = (r: ReviewRow): ReviewBucket => reviewBucketFor(taskLikeOf(r))
+/** Single source of truth for the bell — the same function the item page uses. */
+const remindsOfRow = (r: ReviewRow): boolean => willNotify(taskLikeOf(r))
 
 interface TaskReviewSheetProps {
   open: boolean
@@ -247,6 +260,7 @@ export function TaskReviewSheet({
         care_type: r.kind === "cleaning" ? "cleaning" : "maintenance",
         priority_tier: r.tier,
         schedule_type: r.schedule,
+        remind_enabled: r.remindEnabled,
       })
     }
     const err = await onSave(keptTasks, keptChunks)
@@ -328,6 +342,32 @@ export function TaskReviewSheet({
                 </button>
               ))}
             </div>
+
+            {/* The reminder, asked separately from priority. Only offered when the
+                task is actually scheduled — off the schedule there is no due date
+                to remind against, and offering the switch would promise a
+                notification that can never fire. */}
+            {onSched && (
+              <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-xl border border-border bg-background px-2.5 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={remindsOfRow(r)}
+                  onChange={(e) => patch(r.id, { remindEnabled: e.target.checked })}
+                  className="size-[18px] shrink-0 accent-[var(--hh-teal,#1B6B5A)]"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12.5px] font-semibold">Remind me when it&apos;s due</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    {r.remindEnabled == null
+                      ? remindsByDefault(bucketOfRow(r))
+                        ? "On by default for Essential — you can turn it off"
+                        : "Off by default — turn it on if you want one"
+                      : remindsOfRow(r) ? "You turned this on" : "You turned this off"}
+                  </span>
+                </span>
+                {remindsOfRow(r) && <BellRingIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} />}
+              </label>
+            )}
           </>
         )}
 
@@ -352,6 +392,9 @@ export function TaskReviewSheet({
           r.included ? "bg-card border-border" : "border-dashed border-border opacity-50"}`}>
         <span className="text-[14px] shrink-0 opacity-85" aria-label={r.kind}>{KINDS.find((k) => k.id === r.kind)?.icon}</span>
         <span className={`flex-1 min-w-0 text-[14px] font-semibold tracking-[-0.005em] ${r.included ? "" : "line-through text-muted-foreground"}`}>{r.title}</span>
+        {r.included && remindsOfRow(r) && (
+          <BellRingIcon className="size-[13px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Reminds you" />
+        )}
         {r.included && isScheduled(b) && <span className="text-[10px] font-mono text-muted-foreground/70 whitespace-nowrap">{cadLabel(r.schedule)}</span>}
         {r.included && r.kind !== "tip" && <PriorityDot tier={r.tier} />}
         <span role="button" tabIndex={-1}

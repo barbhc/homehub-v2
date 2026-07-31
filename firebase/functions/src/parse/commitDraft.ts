@@ -25,7 +25,10 @@ export interface CommitInput {
   item: ParseItemFacts
   requestId: string
   chunks: NormalizedChunk[]
-  tasks: NormalizedTaskRow[]
+  /** The reviewer's per-task reminder choice rides alongside the normalized row;
+   *  absent on the worker path (a fresh parse never sets it), which correctly
+   *  leaves it null so the tier default applies. */
+  tasks: (NormalizedTaskRow & { remind_enabled?: boolean | null })[]
   /** "today" anchor for schedules/instances — injectable for deterministic tests. */
   now: Date
 }
@@ -145,7 +148,7 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
 
   const batch = db.batch()
 
-  const templateDoc = (t: NormalizedTaskRow) => ({
+  const templateDoc = (t: NormalizedTaskRow & { remind_enabled?: boolean | null }) => ({
     scopeType: "item_unit" as const,
     itemUnitId: item.itemUnitId,
     roomId: null,
@@ -157,6 +160,13 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     symptomTags: t.symptom_tags,
     reCheckTriggers: t.re_check_triggers,
     priorityTier: t.priority_tier,
+    // Whether this task reminds you — independent of priorityTier, so a
+    // Recommended task can be given a reminder without inflating its priority.
+    // null = the user never chose; shared/tasks/reviewBuckets applies the tier
+    // default. Deliberately NOT denormalized onto taskInstances: nothing reads it
+    // there yet, and an unread denorm copy is precisely how the agenda drifted
+    // out of sync with its templates before.
+    remindEnabled: t.remind_enabled ?? null,
     // Set when the taxonomy demoted a model-marked "essential" that missed the
     // safety/prevent-damage floor ("hygiene" | "manual_emphasis"). The user can
     // promote it back to Essential per-task; null means no pending suggestion.

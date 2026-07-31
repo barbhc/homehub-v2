@@ -24,7 +24,8 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
     homeId?: string
     manualId?: string
     chunks?: ParsedChunk[]
-    tasks?: ParsedTask[]
+    // remind_enabled is the reviewer's own switch, not a parser field — see below.
+    tasks?: (ParsedTask & { remind_enabled?: boolean | null })[]
   }
   if (!homeId || !manualId) throw new HttpsError("invalid-argument", "homeId and manualId required")
   if (!Array.isArray(chunks) || !Array.isArray(tasks)) {
@@ -51,7 +52,15 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   }
 
   const normChunks = chunks.map((c) => normalizeChunkRow(c, manualId))
-  const normTasks = tasks.map((t) => normalizeTaskRow(t))
+  // normalizeTaskRow validates the MODEL's output and rebuilds the row from
+  // known fields, so anything it doesn't know about is dropped. The reminder
+  // switch is the user's decision rather than something the parser produces, so
+  // it rides alongside the normalized row instead of being added to parseCore
+  // (which stays a verbatim port of v1).
+  const normTasks = tasks.map((t) => ({
+    ...normalizeTaskRow(t),
+    remind_enabled: typeof t.remind_enabled === "boolean" ? t.remind_enabled : null,
+  }))
 
   // Fresh requestId per save — a distinct user intent (commitDraft is idempotent
   // per requestId, so a double-click still commits at most once).

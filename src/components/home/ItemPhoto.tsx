@@ -23,6 +23,14 @@ interface ItemPhotoProps {
   className?: string
   /** Glyph size class for the empty-state placeholder. */
   glyphClassName?: string
+  /**
+   * How to render when there's no photo yet.
+   *   "tile" — a full-size placeholder holding the photo's eventual footprint.
+   *   "cta"  — a compact invitation the height of a row.
+   * The item page uses "cta": a 150px empty block at the top of the page reads as
+   * a broken image rather than as something you're being asked to add.
+   */
+  emptyVariant?: "tile" | "cta"
 }
 
 /**
@@ -38,7 +46,7 @@ interface ItemPhotoProps {
  * Controls are always visible rather than hover-revealed: the primary target is
  * touch, where there is no hover to reveal them.
  */
-export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphClassName }: ItemPhotoProps) {
+export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphClassName, emptyVariant = "tile" }: ItemPhotoProps) {
   const { user } = useAuth()
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -63,6 +71,56 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
 
   // Brand + model make the best product-image query; fall back to the name.
   const searchQuery = [item.brand, item.model].filter(Boolean).join(" ").trim() || item.display_name || ""
+
+  const photoSearch = (
+    <PhotoSearchSheet
+      open={searchOpen}
+      onOpenChange={setSearchOpen}
+      defaultQuery={searchQuery}
+      homeId={homeId}
+      itemId={item.item_unit_id}
+      userId={user?.id}
+      onPhotoSaved={(path) => onItemUpdate?.({ ...item, photo_storage_ref: path })}
+    />
+  )
+
+  // Compact empty state: an invitation sized like the row it is, not a slab of
+  // nothing where a photo should be.
+  if (!photoUrl && emptyVariant === "cta") {
+    return (
+      <>
+        <div
+          className="flex items-center gap-3 rounded-2xl border-[1.5px] border-dashed px-3.5 py-3"
+          style={{ borderColor: "color-mix(in srgb, var(--hh-teal) 35%, var(--hh-line2))", background: "color-mix(in srgb, var(--hh-teal-wash) 55%, transparent)" }}
+        >
+          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+            <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} disabled={uploading} />
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "var(--hh-surface)" }}>
+              {uploading
+                ? <Loader2Icon className="size-[17px] animate-spin" style={{ color: TEAL }} />
+                : <CameraIcon className="size-[17px]" style={{ color: TEAL }} />}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[14px] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>
+                {uploading ? "Uploading…" : "Add a photo"}
+              </span>
+              <span className="block text-[11.5px]" style={{ color: "var(--hh-sub)" }}>Makes this easier to spot in your item list</span>
+            </span>
+          </label>
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="shrink-0 rounded-full border px-2.5 py-1 text-[11.5px] font-bold"
+            style={{ borderColor: TEAL, color: TEAL }}
+          >
+            Find one
+          </button>
+        </div>
+        {error && <p className="mt-1.5 text-[11.5px] font-medium" style={{ color: "var(--hh-clay)" }} role="alert">{error}</p>}
+        {photoSearch}
+      </>
+    )
+  }
 
   return (
     <div
@@ -118,15 +176,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
         </div>
       )}
 
-      <PhotoSearchSheet
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        defaultQuery={searchQuery}
-        homeId={homeId}
-        itemId={item.item_unit_id}
-        userId={user?.id}
-        onPhotoSaved={(path) => onItemUpdate?.({ ...item, photo_storage_ref: path })}
-      />
+      {photoSearch}
     </div>
   )
 }

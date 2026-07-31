@@ -329,52 +329,53 @@ export default function ItemDetailPage() {
             onBack={() => navigate("/inventory")}
             onOpenManualPage={(page) => openManualPage(page)}
             onItemUpdate={setItem}
+            reviewAction={
+              home && id && tasks.length > 0 ? (
+                <ReviewItemTasksButton
+                  homeId={home.home_id}
+                  itemUnitId={id}
+                  itemName={manualSectionProps.itemName ?? "This item"}
+                  taskCount={tasks.length}
+                  compact
+                  onDone={() => {
+                    void getTaskTemplatesWithSchedulesByItem(home.home_id, id).then((r) => {
+                      if (r.data) setTasks(r.data)
+                    })
+                  }}
+                />
+              ) : null
+            }
+            recordsSlot={
+              // The reference half of the page, now under one heading instead of
+              // trailing off the bottom as four unrelated cards.
+              <>
+                <SpecsSection
+                  specsChunks={specsChunks}
+                  hasBrandOrModel={!!(item.brand || item.model)}
+                />
+                <KnowledgeSection
+                  chunks={chunks}
+                  faqs={faqs}
+                  hasParsedManual={hasParsedManual}
+                  onFaqsChange={setFaqs}
+                />
+                <ManualSection {...manualSectionProps} />
+                {manuals.length > 0 && (
+                  <HistorySection homeId={home!.home_id} itemId={id!} refreshKey={historyKey} />
+                )}
+
+                {/* Delete — quiet, last, and never one-tap destructive. */}
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors"
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                  Delete item
+                </button>
+              </>
+            }
           />
-
-          {/* Mobile gap-fill — data-bearing sections that RefinedItemDetail omits.
-              Care (habits / scheduled / setup) is handled inside RefinedItemDetail's
-              CareBlock; each section below self-guards on empty data. */}
-          <div className="px-5 pb-10 space-y-4">
-            <KnowledgeSection
-              chunks={chunks}
-              faqs={faqs}
-              hasParsedManual={hasParsedManual}
-              onFaqsChange={setFaqs}
-            />
-            <SpecsSection
-              specsChunks={specsChunks}
-              hasBrandOrModel={!!(item.brand || item.model)}
-            />
-            {home && id && tasks.length > 0 && (
-              <ReviewItemTasksButton
-                homeId={home.home_id}
-                itemUnitId={id}
-                itemName={manualSectionProps.itemName ?? "This item"}
-                taskCount={tasks.length}
-                onDone={() => {
-                  void getTaskTemplatesWithSchedulesByItem(home.home_id, id).then((r) => {
-                    if (r.data) setTasks(r.data)
-                  })
-                }}
-              />
-            )}
-            <ManualSection {...manualSectionProps} />
-            {manuals.length > 0 && (
-              <HistorySection homeId={home!.home_id} itemId={id!} refreshKey={historyKey} />
-            )}
-
-            {/* Delete — quiet, last, and never one-tap destructive. Until now
-                there was NO way to remove an item on mobile (the only delete
-                lived in the desktop-only edit dialog). */}
-            <button
-              type="button"
-              onClick={() => setConfirmDeleteOpen(true)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors"
-            >
-              <Trash2 className="size-4" aria-hidden />
-              Delete item
-            </button>
-          </div>
         </div>
       </div>
       <div className="hidden lg:block">

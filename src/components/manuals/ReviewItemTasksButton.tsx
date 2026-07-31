@@ -19,13 +19,15 @@ export function ReviewItemTasksButton({
   itemUnitId,
   itemName,
   taskCount,
-  onDone,
-}: {
+  onDone, compact }: {
   homeId: string
   itemUnitId: string
   itemName: string
   taskCount: number
   onDone: () => void
+  /** Renders as a pill for the "Upkeep" section heading rather than a full-width
+   *  card. Same action either way. */
+  compact?: boolean
 }) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -69,6 +71,18 @@ export function ReviewItemTasksButton({
 
   return (
     <>
+      {compact ? (
+        <button
+          type="button"
+          onClick={() => void start()}
+          disabled={loading}
+          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold disabled:opacity-60"
+          style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
+        >
+          {loading && <Loader2Icon className="size-3 animate-spin" />}
+          Review tasks
+        </button>
+      ) : (
       <button
         type="button"
         onClick={() => void start()}
@@ -85,6 +99,7 @@ export function ReviewItemTasksButton({
         </span>
         <span className="text-[11px] font-mono shrink-0" style={{ color: "var(--hh-faint)" }}>{taskCount}</span>
       </button>
+      )}
       {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
 
       {review && (

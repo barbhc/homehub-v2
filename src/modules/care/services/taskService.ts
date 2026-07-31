@@ -42,7 +42,11 @@ function toTaskInstance(homeId: string, id: string, d: DocumentData): TaskInstan
 
 // ── Firestore taskTemplate doc (camelCase) → curated TaskTemplate (snake_case) ──
 // Schedule + supplies are inlined on the template (firestore-model.md §1).
-function toTaskTemplate(homeId: string, id: string, d: DocumentData): TaskTemplate {
+/** Exported for tests: this mapper is a serialization boundary, and a field it
+ *  forgets is invisible to the type system (every optional field reads as
+ *  `undefined` and silently takes a default). `remind_enabled` shipped that way
+ *  once — the UI showed every task at its tier default and nothing failed. */
+export function toTaskTemplate(homeId: string, id: string, d: DocumentData): TaskTemplate {
   return {
     task_template_id: id,
     home_id: homeId,
@@ -57,6 +61,10 @@ function toTaskTemplate(homeId: string, id: string, d: DocumentData): TaskTempla
     symptom_tags: Array.isArray(d.symptomTags) ? d.symptomTags : [],
     re_check_triggers: d.reCheckTriggers ?? [],
     priority_tier: (d.priorityTier ?? "recommended") as PriorityTier,
+    // `?? null` — NOT `?? false`. Absent means the user never chose, which
+    // willNotify resolves to the tier default; false is an explicit "don't
+    // remind me" and the two must stay distinguishable.
+    remind_enabled: typeof d.remindEnabled === "boolean" ? d.remindEnabled : null,
     risk_level: (d.riskLevel ?? "comfort") as RiskLevel,
     estimated_minutes: d.estimatedMinutes ?? null,
     default_assignee: d.defaultAssignee ?? null,

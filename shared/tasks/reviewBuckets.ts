@@ -43,6 +43,13 @@ export interface ReviewTaskLike {
    *  tip, however the manual phrased its cadence. */
   risk_level?: string | null
   actor?: string | null
+  /**
+   * Whether this task reminds you — the user's own choice. `null`/absent means
+   * they never expressed one, so the tier's default applies (see
+   * `remindsByDefault`). Kept nullable rather than backfilled so a default can
+   * later change without silently rewriting decisions people actually made.
+   */
+  remind_enabled?: boolean | null
 }
 
 /** Combustion checks, gas leak tests and the like. A per-use cadence must not be
@@ -83,10 +90,33 @@ export function isScheduled(bucket: ReviewBucket): boolean {
   return bucket === "essential" || bucket === "recommended" || bucket === "optional"
 }
 
-/** Only Essential, and only when scheduled, ever produces a proactive notification.
- *  Anything else is silent — the review UI states this per group. */
+/**
+ * What Homehub SUGGESTS when the user hasn't said otherwise: Essential reminds,
+ * everything else stays quiet. A suggestion, not a rule — see `willNotify`.
+ */
+export function remindsByDefault(bucket: ReviewBucket): boolean {
+  return bucket === "essential"
+}
+
+/**
+ * Whether this task will actually remind you.
+ *
+ * The reminder is its OWN switch, not a consequence of the tier. Tying the two
+ * together reads fine until someone wants a reminder for a Recommended task —
+ * "descale the machine" is the owner's real example — and their only way to get
+ * one is to inflate its priority to Essential, which corrupts the tier for
+ * everything that sorts and filters on it. So priority answers "how much does
+ * this matter" and this answers "does it interrupt me", independently.
+ *
+ * Two invariants hold regardless of the flag:
+ *   - Nothing unscheduled can remind you. There is no due date for it to fire
+ *     on, so a reminder there is a promise we cannot keep.
+ *   - An explicit choice always wins over the default, in both directions.
+ */
 export function willNotify(t: ReviewTaskLike): boolean {
-  return reviewBucketFor(t) === "essential"
+  const bucket = reviewBucketFor(t)
+  if (!isScheduled(bucket)) return false
+  return t.remind_enabled ?? remindsByDefault(bucket)
 }
 
 /** Display order of the sections, top to bottom. */
@@ -97,8 +127,8 @@ export const REVIEW_BUCKET_ORDER: ReviewBucket[] = [
 /** Copy for each section. The subtitle states the CONSEQUENCE, because that is
  *  what the user is agreeing to by leaving a task where it sits. */
 export const REVIEW_BUCKET_COPY: Record<ReviewBucket, { icon: string; title: string; sub: string; empty?: string }> = {
-  essential:   { icon: "🔔", title: "Essential",        sub: "We'll remind you when these come due.", empty: "None — nothing here will notify you." },
-  recommended: { icon: "📆", title: "Recommended",      sub: "On your schedule. No reminders." },
+  essential:   { icon: "🔔", title: "Essential",        sub: "On your schedule, with a reminder when each comes due.", empty: "None — nothing here will remind you." },
+  recommended: { icon: "📆", title: "Recommended",      sub: "On your schedule, quietly. Turn on a reminder for any of these." },
   optional:    { icon: "🗒",  title: "Optional",         sub: "On your schedule, quietly." },
   setup:       { icon: "🧰", title: "First-time setup", sub: "Do these once when you set it up. Never repeats." },
   whenNeeded:  { icon: "🔎", title: "When needed",      sub: "No fixed timing. Some matter a lot — do them when the machine or the season says so." },
