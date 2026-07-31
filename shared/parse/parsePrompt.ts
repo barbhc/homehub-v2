@@ -84,6 +84,13 @@ NEVER DROP — these are the reason the product exists, and they outrank every i
 - SEASONAL PREP: winterizing, freeze protection, cold-storage prep, pre-season startup checks.
 - Anything the manual assigns an explicit schedule to (a stated "every N months", "annually", "each season") — that interval is the manufacturer's instruction; carry it through exactly.
 - Any genuine install or commissioning step (leveling, clearances, venting connections, first-run verification). These are schedule_type "setup" and are budgeted SEPARATELY — never delete one to shorten the task list.
+- SCHEDULED PROFESSIONAL SERVICE: an annual or seasonal professional tune-up, inspection, or certification the manual tells the owner to arrange. The owner still has to book it, so it is one of the most valuable reminders the product can give.
+- SAFETY-DEVICE TESTS AND RESETS: testing or resetting rollout switches, limit switches, pressure switches, GFCI/AFCI protection, tip-over brackets, smoke/CO interlocks, and pressure-relief valves.
+
+SCHEDULE FIDELITY — the cadence is part of the task, and silently weakening it is as harmful as dropping the task:
+- NEVER demote a recurring task to schedule_type "setup". Setup means "once, at installation". If the manual says to inspect something periodically, it stays recurring, even when the same component is also checked during installation.
+- When a procedure has BOTH a first-use/commissioning form and an ongoing form (e.g. an initial rinse cycle AND a periodic cleaning cycle), emit BOTH: one "setup" and one recurring. Do not let the setup variant absorb the recurring one.
+- Only use "as_needed" when the manual itself gives no interval. If it states one ("every 3 months", "monthly", "each season"), carry that interval through — do not soften it to "as_needed" because the actual timing depends on conditions.
 
 DOC TYPE — decide this FIRST, it changes how you extract:
 Classify the manual as one of:
