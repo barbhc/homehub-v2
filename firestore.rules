@@ -137,6 +137,13 @@ service cloud.firestore {
         allow read, create: if isMember(homeId);
         allow update, delete: if false;
       }
+      // parseFeedback is the same contract at parse time: "these tasks don't look
+      // right", plus the corrections the reviewer already made. Append-only — a
+      // second opinion is a new entry, never an edit of the first.
+      match /parseFeedback/{feedbackId} {
+        allow read, create: if isMember(homeId);
+        allow update, delete: if false;
+      }
       match /houseRules/{ruleId}       { allow read, write: if isMember(homeId); }
 
       // ---- flat member-CRUD collections ----
