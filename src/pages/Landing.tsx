@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   HouseIcon,
   MailIcon,
@@ -207,7 +207,11 @@ export default function Landing() {
             </p>
             <SignupRow cta="Sign up" onGo={goSignup} />
           </div>
-          <div className="mt-[26px] text-center text-[12.5px]" style={{ color: SUB }}>© Homehub · Privacy · Terms</div>
+          <div className="mt-[26px] text-center text-[12.5px]" style={{ color: SUB }}>
+            © Homehub ·{" "}
+            <Link to="/privacy" className="underline underline-offset-2">Privacy</Link> ·{" "}
+            <Link to="/terms" className="underline underline-offset-2">Terms</Link>
+          </div>
         </div>
       </section>
     </div>
