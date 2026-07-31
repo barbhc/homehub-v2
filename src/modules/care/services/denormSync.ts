@@ -27,6 +27,9 @@ export interface TemplateDenormFields {
   careType?: string
   priorityTier?: string
   title?: string
+  /** The agenda groups/labels rows by the instance's own scheduleType copy, so a
+   *  review that moves a task between cadences must update it like the rest. */
+  scheduleType?: string
 }
 
 export async function syncTemplateDenormToInstances(
@@ -39,6 +42,7 @@ export async function syncTemplateDenormToInstances(
   if (fields.careType !== undefined) patch.careType = fields.careType
   if (fields.priorityTier !== undefined) patch.priorityTier = fields.priorityTier
   if (fields.title !== undefined) patch.title = fields.title
+  if (fields.scheduleType !== undefined) patch.scheduleType = fields.scheduleType
   if (Object.keys(patch).length === 0) return 0
   patch.updatedAt = serverTimestamp()
 

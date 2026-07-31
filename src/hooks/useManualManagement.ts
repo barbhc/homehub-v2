@@ -16,6 +16,8 @@ import { uploadManualPdfWithUrl } from "@/modules/inventory/services/storageServ
 import { resolveStorageUrl } from "@/integrations/firebase"
 import useSWR from "swr"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
+import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
+import type { ReviewEditSummary } from "@/components/manuals/TaskReviewFeedback"
 import type { KnowledgeChunk, ManualDocument } from "@/integrations/types"
 
 /**
@@ -261,7 +263,8 @@ export function useManualManagement({
 
   const handleSave = async (
     tasksToSave: PreviewTask[],
-    chunksToSave: PreviewChunk[]
+    chunksToSave: PreviewChunk[],
+    edits?: ReviewEditSummary
   ): Promise<string | null> => {
     if (!parsedManualId) return "No manual selected — please try parsing again."
     if (!homeId) return "No home context — please reload and try again."
@@ -271,6 +274,19 @@ export function useManualManagement({
     const res = await commitReviewedDraft(homeId, parsedManualId, chunksToSave, tasksToSave)
     setSaving(false)
     if (!res.ok) return `Save failed: ${res.error}`
+    // Corrections made during a fresh-parse review are parser feedback too —
+    // recorded on save, not only when the user files a complaint.
+    if (edits && edits.total > 0) {
+      void recordParseFeedback(homeId, {
+        manualId: parsedManualId,
+        itemUnitId: itemId ?? null,
+        source: "review_save",
+        reasons: [],
+        note: "",
+        edits,
+        rescanRequested: false,
+      })
+    }
     const savedManualId = parsedManualId
     setReviewOpen(false)
     setPreviewResult(null)

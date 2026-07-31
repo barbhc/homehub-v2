@@ -4,6 +4,7 @@ import { syncTemplateDenormToInstances } from "./denormSync"
 import type { ServiceResult } from "./careNoteService"
 import type { PreviewResult, PreviewTask, PreviewChunk, CareType, PriorityTier, RiskLevel, ScheduleType } from "@/modules/knowledge/types/previewTypes"
 import { USAGE_TIP_TAG } from "../../../../shared/tasks/taxonomy"
+import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
 
 /**
  * Re-review an item's EXISTING tasks through the parse-review wizard.
@@ -100,6 +101,22 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
     const keptTitles = new Set(tasks.map((t) => t.title))
     let updated = 0
 
+    // One instance query serves every per-template decision below (open lookup,
+    // zombie cleanup, seed-check) instead of a query per task.
+    const allInstSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskInstances`), where("itemUnitId", "==", itemUnitId), where("deletedAt", "==", null)),
+    )
+    const openByTemplate = new Map<string, { id: string }[]>()
+    for (const d of allInstSnap.docs) {
+      const status = d.get("status")
+      if (status !== "scheduled" && status !== "snoozed") continue
+      const tid = String(d.get("taskTemplateId"))
+      const arr = openByTemplate.get(tid) ?? []
+      arr.push({ id: d.id })
+      openByTemplate.set(tid, arr)
+    }
+    const todayStr = new Date().toISOString().slice(0, 10)
+
     for (const t of tasks) {
       const id = idByTitle.get(t.title)
       if (!id) continue // a title the reviewer renamed — leave the original alone
@@ -109,8 +126,17 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
           careType: t.care_type,
           priorityTier: t.priority_tier,
           remindEnabled: t.remind_enabled ?? null,
-          "schedule.scheduleType": t.schedule_type,
-          "schedule.intervalDays": t.interval_days ?? null,
+          // NESTED object, not "schedule.scheduleType" string keys: set(merge)
+          // treats a dotted key as a literal field NAME (path semantics belong
+          // to update()), so the original write created a junk field with a dot
+          // in it and left the real schedule untouched — every cadence change
+          // saved through this path was silently dropped. A green build and a
+          // passing save; only reading the document back caught it. merge:true
+          // deep-merges maps, so anchorDate/season/window keys survive.
+          schedule: {
+            scheduleType: t.schedule_type,
+            intervalDays: t.interval_days ?? null,
+          },
           isActive: true,
           userModifiedAt: now,
           updatedAt: now,
@@ -122,7 +148,50 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
       await syncTemplateDenormToInstances(batch, homeId, id, {
         careType: t.care_type,
         priorityTier: t.priority_tier,
+        scheduleType: t.schedule_type,
       })
+
+      const open = openByTemplate.get(id) ?? []
+      if (!isRecurring(t.schedule_type)) {
+        // Moved OFF the schedule (→ setup / as-needed): its open instances are now
+        // meaningless, and leaving them makes Home keep showing a due date for a
+        // task the user just said has none — the same zombie class as the denorm
+        // drift bug. Done instances stay; they're history.
+        for (const inst of open) {
+          batch.set(doc(db, `homes/${homeId}/taskInstances/${inst.id}`), { deletedAt: now, updatedAt: now }, { merge: true })
+        }
+      } else if (open.length === 0) {
+        // Moved ONTO a schedule with nothing open: seed one instance, due today,
+        // exactly as commitDraft does for a fresh parse. Never-completed past-due
+        // renders as calm "Start anytime", and rollForward re-anchors from there —
+        // it only fixes existing instances, it never creates one, so without this
+        // "Put on a schedule" would change the template and nothing visible.
+        batch.set(doc(collection(db, `homes/${homeId}/taskInstances`)), {
+          homeId,
+          taskTemplateId: id,
+          itemUnitId,
+          status: "scheduled",
+          dueDate: todayStr,
+          snoozedUntil: null,
+          priorityScore: t.priority_tier === "essential" ? 3 : t.priority_tier === "optional" ? 1 : 2,
+          isSafetyCritical: t.risk_level === "safety",
+          completedAt: null,
+          completionNotes: null,
+          completionPhotos: [],
+          assignedTo: null,
+          title: t.title,
+          priorityTier: t.priority_tier,
+          careType: t.care_type,
+          scopeType: "item_unit",
+          estimatedMinutes: t.estimated_minutes ?? null,
+          scheduleType: t.schedule_type,
+          itemName: null,
+          roomName: null,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        })
+      }
       updated++
     }
 
@@ -130,17 +199,11 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
     // agenda keeps showing a row whose template is no longer active.
     const tipTitles = new Set(chunks.filter((c) => (c.tags ?? []).includes(USAGE_TIP_TAG)).map((c) => c.title ?? ""))
     let deactivated = 0
-    const openSnap = await getDocs(
-      query(collection(db, `homes/${homeId}/taskInstances`), where("itemUnitId", "==", itemUnitId), where("deletedAt", "==", null)),
-    )
     for (const [title, id] of idByTitle) {
       if (keptTitles.has(title)) continue
       batch.set(doc(templates, id), { isActive: false, deletedAt: now, updatedAt: now }, { merge: true })
       deactivated++
-      for (const inst of openSnap.docs) {
-        if (String(inst.get("taskTemplateId")) !== id) continue
-        const status = inst.get("status")
-        if (status !== "scheduled" && status !== "snoozed") continue
+      for (const inst of openByTemplate.get(id) ?? []) {
         batch.set(doc(db, `homes/${homeId}/taskInstances/${inst.id}`), { deletedAt: now, updatedAt: now }, { merge: true })
       }
       // A row turned into a tip keeps its advice, written as a usage-tip chunk on

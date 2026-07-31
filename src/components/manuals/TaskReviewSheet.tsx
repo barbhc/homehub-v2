@@ -37,12 +37,29 @@ import { TaskReviewFeedback, type ReviewEdit, type ReviewEditSummary } from "./T
  * is always one tap away.
  */
 
+/**
+ * The four answers to "what is it?".
+ *
+ * "Setup" is here because without it a one-time install step had NO correct
+ * answer. The owner hit ten of them in one dryer manual — "Connect Gas Supply",
+ * "Level the Dryer", "Reverse the Door" — and reasonably picked Tip, which is
+ * the one choice that stops it being a task at all and rewrites it as a manual
+ * note. The system was already routing these correctly off `schedule_type`;
+ * the screen just never offered the word.
+ *
+ * Setup is a SCHEDULE fact rather than a kind of work, so picking it sets
+ * `schedule = "setup"` and leaves care_type alone. `displayKind` reads that back
+ * so the tiles always reflect where the row is actually going.
+ */
 const KINDS = [
   { id: "maintenance", icon: "🔧", label: "Maintenance", hint: "upkeep" },
   { id: "cleaning", icon: "🧽", label: "Cleaning", hint: "freshness" },
+  { id: "setup", icon: "🧰", label: "Setup", hint: "one-time" },
   { id: "tip", icon: "💡", label: "Tip", hint: "usage" },
 ] as const
-type RowKind = (typeof KINDS)[number]["id"]
+type KindChoice = (typeof KINDS)[number]["id"]
+/** What actually gets stored — "setup" is expressed through the schedule. */
+type RowKind = "maintenance" | "cleaning" | "tip"
 
 // Priority answers "how much does this matter" only. Whether it interrupts you
 // is the separate Remind switch below, so these hints must not promise anything
@@ -146,6 +163,10 @@ const taskLikeOf = (r: ReviewRow) => ({
   remind_enabled: r.remindEnabled,
 })
 const bucketOfRow = (r: ReviewRow): ReviewBucket => reviewBucketFor(taskLikeOf(r))
+/** The tile to light up: a row on the setup schedule reads as Setup, whatever
+ *  its care_type happens to be. */
+const displayKind = (r: ReviewRow): KindChoice =>
+  r.kind === "tip" ? "tip" : r.schedule === "setup" ? "setup" : r.kind
 /** Single source of truth for the bell — the same function the item page uses. */
 const remindsOfRow = (r: ReviewRow): boolean => willNotify(taskLikeOf(r))
 
@@ -154,7 +175,10 @@ interface TaskReviewSheetProps {
   onOpenChange: (open: boolean) => void
   itemName: string
   previewData: PreviewResult
-  onSave: (tasks: PreviewTask[], chunks: PreviewChunk[]) => Promise<string | null>
+  /** `edits` is the structured diff of every correction made in this review —
+   *  the caller records it as parse feedback on save, so feedback capture does
+   *  not depend on the user also tapping "these don't look right". */
+  onSave: (tasks: PreviewTask[], chunks: PreviewChunk[], edits: ReviewEditSummary) => Promise<string | null>
   saving: boolean
   /** Fires when the user says the parse looks wrong. Carries their corrections. */
   onFeedback?: (payload: { reasons: string[]; note: string; edits: ReviewEditSummary; rescan: boolean }) => void
@@ -205,9 +229,23 @@ export function TaskReviewSheet({
 
   /** Filing something under maintenance/cleaning is asking for it to repeat — if
    *  it arrived without a cadence, suggest one so step 2 can't silently skip it. */
-  const setKind = (r: ReviewRow, kind: RowKind) => {
-    const next: Partial<ReviewRow> = { kind }
-    if (kind !== "tip" && !isRecurring(r.schedule) && r.schedule !== "setup" && r.origSchedule === "after_each_use") {
+  const setKind = (r: ReviewRow, choice: KindChoice) => {
+    // Setup: keep it a task, move it onto the one-time schedule.
+    if (choice === "setup") {
+      patch(r.id, {
+        kind: r.kind === "tip" ? "maintenance" : r.kind,
+        schedule: "setup",
+        scheduleSuggested: false,
+      })
+      return
+    }
+    const next: Partial<ReviewRow> = { kind: choice }
+    // Leaving Setup for Maintenance/Cleaning means it now needs a cadence, or it
+    // would silently fall into "when needed" with no timing at all.
+    if (choice !== "tip" && r.schedule === "setup") {
+      next.schedule = "monthly"; next.scheduleSuggested = true
+    }
+    if (choice !== "tip" && !isRecurring(r.schedule) && r.schedule !== "setup" && r.origSchedule === "after_each_use") {
       next.schedule = "monthly"; next.scheduleSuggested = true
     }
     patch(r.id, next)
@@ -263,7 +301,7 @@ export function TaskReviewSheet({
         remind_enabled: r.remindEnabled,
       })
     }
-    const err = await onSave(keptTasks, keptChunks)
+    const err = await onSave(keptTasks, keptChunks, edits)
     if (err) setSaveError(err)
   }
 
@@ -299,13 +337,35 @@ export function TaskReviewSheet({
           From the manual · {originLabel(r.origSchedule)}{r.minutes ? ` · about ${r.minutes} min` : ""}
         </div>
 
+        {/* Where this row actually ends up, live. The wizard asks two questions
+            that combine into one of six sections, and until now it never showed
+            the answer — so a one-time setup step could be filed as a Tip (which
+            deletes the task and rewrites it as a manual note) with nothing on
+            screen saying so. "Every default visible and reversible." */}
+        <div
+          className="mt-3 flex items-center gap-2 rounded-xl px-2.5 py-2 text-[11.5px]"
+          style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}
+        >
+          <span className="font-semibold">Goes to</span>
+          <b className="font-extrabold">{REVIEW_BUCKET_COPY[bucketOfRow(r)].title}</b>
+          {remindsOfRow(r) && <BellRingIcon className="size-[13px] shrink-0" aria-label="will remind you" />}
+        </div>
+
+        {/* The one destructive choice on this screen, stated only when it applies. */}
+        {r.kind === "tip" && r.origin === "task" && r.origSchedule === "setup" && (
+          <div className="mt-2 rounded-xl px-2.5 py-2 text-[11.5px]" style={{ background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}>
+            The manual lists this as a <b>one-time setup step</b>. Saving it as a tip removes it from
+            your setup checklist and keeps it as a note instead.
+          </div>
+        )}
+
         <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">What is it?</div>
         <div className="flex gap-1.5">
           {KINDS.map((k) => (
-            <button key={k.id} type="button" aria-pressed={r.kind === k.id}
+            <button key={k.id} type="button" aria-pressed={displayKind(r) === k.id}
               onClick={() => setKind(r, k.id)}
               className={`flex-1 flex flex-col items-center gap-1 rounded-xl border py-2 px-1 text-[11px] font-semibold transition-colors ${
-                r.kind === k.id ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground"}`}>
+                displayKind(r) === k.id ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground"}`}>
               <span className="text-[17px] leading-none">{k.icon}</span>{k.label}
               <span className="text-[10.5px] font-semibold text-muted-foreground">{k.hint}</span>
             </button>

@@ -31,6 +31,11 @@ import type { ReviewEdit, ReviewEditSummary } from "@/components/manuals/TaskRev
 export interface ParseFeedbackInput {
   manualId: string | null
   itemUnitId: string | null
+  /** "complaint" = the user tapped "these tasks don't look right".
+   *  "review_save" = silent capture of the corrections a review applied — the
+   *  owner asked for every recategorization to feed the parser, not only the
+   *  ones frustrating enough to file a complaint about. */
+  source?: "complaint" | "review_save"
   reasons: string[]
   note: string
   edits: ReviewEditSummary
@@ -57,6 +62,7 @@ export async function recordParseFeedback(homeId: string, input: ParseFeedbackIn
     await addDoc(collection(db, `homes/${homeId}/parseFeedback`), {
       manualId: input.manualId,
       itemUnitId: input.itemUnitId,
+      source: input.source ?? "complaint",
       reasons: input.reasons,
       note: input.note.slice(0, 2000),
       editCounts: {
