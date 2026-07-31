@@ -1,21 +1,22 @@
 {
+  "promptHash": "d564709261ca",
   "stats": {
     "chunks": {
-      "total": 34,
+      "total": 36,
       "byType": {
-        "specs": 4,
-        "safety": 6,
-        "how_to": 15,
-        "care": 3,
-        "troubleshooting": 6
+        "specs": 6,
+        "safety": 7,
+        "how_to": 14,
+        "troubleshooting": 5,
+        "care": 4
       },
       "withSourcePages": 100
     },
     "tasks": {
-      "total": 15,
-      "recurring": 5,
-      "setup": 8,
-      "habits": 2,
+      "total": 12,
+      "recurring": 3,
+      "setup": 6,
+      "habits": 3,
       "coverage": {
         "instructions": 100,
         "source_page": 100,
@@ -23,7 +24,7 @@
         "minutes": 100,
         "validSchedule": 100
       },
-      "essentialShare": 60
+      "essentialShare": 50
     },
     "hasCleaningGuide": true,
     "hasWarranty": true,
@@ -32,19 +33,16 @@
   "taskTitles": [
     "Clean the Lint Filter",
     "Inspect and Clean Ductwork",
-    "Clean the Dryer Exterior",
-    "Clean the Interior and Door Seal",
     "Clean Around and Under the Dryer",
-    "Replace Inlet Hoses",
-    "Inspect Inlet Hose Condition",
+    "Clean the Dryer Exterior",
+    "Clean the Dryer Interior and Door Seal",
+    "Replace Steam Inlet Hoses",
     "Level the Dryer",
-    "Connect the Gas Supply",
-    "Connect the Electric Power Cord",
-    "Connect the Inlet Hose",
-    "Run the Installation Test",
-    "Verify Dryer is Level After Final Placement",
-    "Install the Side Vent Kit",
-    "Reverse the Door Hinge"
+    "Run the Installation Test (Duct Check)",
+    "Connect and Verify Gas Supply",
+    "Connect Electric Power Cord",
+    "Connect Steam Inlet Hose",
+    "Verify Dryer Venting Installation"
   ],
   "taskIndex": [
     {
@@ -60,81 +58,63 @@
       "care": "maintenance"
     },
     {
+      "title": "Clean Around and Under the Dryer",
+      "schedule": "monthly",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
       "title": "Clean the Dryer Exterior",
       "schedule": "as_needed",
       "tier": "optional",
       "care": "cleaning"
     },
     {
-      "title": "Clean the Interior and Door Seal",
-      "schedule": "monthly",
+      "title": "Clean the Dryer Interior and Door Seal",
+      "schedule": "as_needed",
       "tier": "recommended",
-      "care": "maintenance"
+      "care": "cleaning"
     },
     {
-      "title": "Clean Around and Under the Dryer",
-      "schedule": "monthly",
-      "tier": "essential",
-      "care": "maintenance"
-    },
-    {
-      "title": "Replace Inlet Hoses",
+      "title": "Replace Steam Inlet Hoses",
       "schedule": "every_n_days",
-      "tier": "recommended",
-      "care": "maintenance"
-    },
-    {
-      "title": "Inspect Inlet Hose Condition",
-      "schedule": "monthly",
       "tier": "recommended",
       "care": "maintenance"
     },
     {
       "title": "Level the Dryer",
       "schedule": "setup",
-      "tier": "essential",
+      "tier": "recommended",
       "care": "maintenance"
     },
     {
-      "title": "Connect the Gas Supply",
+      "title": "Run the Installation Test (Duct Check)",
       "schedule": "setup",
       "tier": "essential",
       "care": "maintenance"
     },
     {
-      "title": "Connect the Electric Power Cord",
+      "title": "Connect and Verify Gas Supply",
       "schedule": "setup",
       "tier": "essential",
       "care": "maintenance"
     },
     {
-      "title": "Connect the Inlet Hose",
+      "title": "Connect Electric Power Cord",
       "schedule": "setup",
       "tier": "essential",
       "care": "maintenance"
     },
     {
-      "title": "Run the Installation Test",
-      "schedule": "setup",
-      "tier": "essential",
-      "care": "maintenance"
-    },
-    {
-      "title": "Verify Dryer is Level After Final Placement",
-      "schedule": "setup",
-      "tier": "essential",
-      "care": "maintenance"
-    },
-    {
-      "title": "Install the Side Vent Kit",
+      "title": "Connect Steam Inlet Hose",
       "schedule": "setup",
       "tier": "recommended",
       "care": "maintenance"
     },
     {
-      "title": "Reverse the Door Hinge",
+      "title": "Verify Dryer Venting Installation",
       "schedule": "setup",
-      "tier": "recommended",
+      "tier": "essential",
       "care": "maintenance"
     }
   ],
@@ -142,36 +122,38 @@
     "Product Specifications",
     "Fire and Explosion Hazard – Gas Leak",
     "Fire Risk – Flammable Items and Substances",
-    "Installation Safety Requirements",
-    "Operation Safety Warnings",
+    "Electrical Safety and Grounding",
+    "Venting Safety Requirements",
     "Steam Cycle Safety",
-    "Maintenance Safety – Grounding and Cleaning",
+    "Child Safety and Supervision",
+    "Maintenance Safety Precautions",
     "Basic Dryer Operation",
     "Clean the Lint Filter",
     "Reverse the Door Hinge",
     "Level the Dryer",
-    "Vent the Dryer",
-    "Connect the Inlet Hose (Steam Models)",
-    "Connect Gas Dryers",
-    "Connect Electric Dryers (4-Wire)",
-    "Run the Installation Test (Duct Check)",
     "Stack the Dryer on a Washer",
+    "Connect the Inlet Hose (Steam Models)",
+    "Connect Gas Supply",
+    "Connect Electric Dryer (4-Wire Power Cord)",
+    "Run the Installation Test (Duct Check)",
     "Use the Rack Dry Function",
-    "Use Steam Fresh™ Cycle",
+    "Use Steam Fresh and Steam Sanitary Cycles",
     "Use Smart Diagnosis via Phone",
-    "Use Remote Start via SmartThinQ",
-    "Activate Control Lock",
+    "Enable Remote Start via SmartThinQ",
+    "Save and Recall a Custom Program",
+    "Ductwork Length Limits",
+    "Clearance Requirements",
     "Cycle Guide – Non-Steam Models",
     "Cycle Guide – Steam Models",
-    "Wi-Fi and SmartThinQ Specifications",
-    "Clean the Dryer Exterior",
-    "Clean the Dryer Interior and Door Seal",
-    "Maintain and Clean Ductwork",
-    "Dryer Won't Start or Has No Power",
+    "Wi-Fi and Wireless LAN Specifications",
+    "Dryer Won't Start or Heat",
     "Clothes Take Too Long to Dry",
-    "Performance Issues – Spots, Wrinkles, Shrinkage, Lint, Static",
-    "Error Codes",
+    "Performance Issues – Clothes Quality",
+    "Flow Sense and Error Codes",
     "Steam Function Issues",
-    "Wi-Fi Connection Issues"
+    "Clean Dryer Exterior",
+    "Clean Dryer Interior and Door Seal",
+    "Inspect and Clean Ductwork",
+    "Replace Steam Inlet Hoses"
   ]
 }

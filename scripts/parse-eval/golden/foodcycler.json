@@ -1,21 +1,22 @@
 {
+  "promptHash": "d564709261ca",
   "stats": {
     "chunks": {
-      "total": 26,
+      "total": 25,
       "byType": {
-        "specs": 1,
-        "safety": 7,
-        "how_to": 13,
-        "troubleshooting": 3,
-        "care": 2
+        "specs": 2,
+        "safety": 8,
+        "how_to": 8,
+        "care": 3,
+        "troubleshooting": 4
       },
       "withSourcePages": 100
     },
     "tasks": {
-      "total": 10,
+      "total": 7,
       "recurring": 2,
       "setup": 1,
-      "habits": 7,
+      "habits": 4,
       "coverage": {
         "instructions": 100,
         "source_page": 100,
@@ -23,27 +24,24 @@
         "minutes": 100,
         "validSchedule": 100
       },
-      "essentialShare": 60
+      "essentialShare": 29
     },
     "hasCleaningGuide": true,
     "hasWarranty": true,
-    "confidence": 0.93
+    "confidence": 0.95
   },
   "taskTitles": [
-    "Initial Setup and Unboxing",
+    "First Use Setup",
     "Clean the Bucket",
     "Clean the Appliance Exterior",
     "Replace Carbon Filters",
-    "Replace the Bucket Lid Filter",
-    "Run a Filter Refresh Cycle",
-    "Inspect Power Cord and Plug",
-    "Reset the GFCI or Circuit Breaker",
-    "Perform a Manual System Reset",
-    "Unplug Appliance When Not in Use"
+    "Replace Bucket Lid Filter",
+    "Run Odor-Mitigation Citrus Cycle",
+    "Inspect Power Cord and Plug"
   ],
   "taskIndex": [
     {
-      "title": "Initial Setup and Unboxing",
+      "title": "First Use Setup",
       "schedule": "setup",
       "tier": "essential",
       "care": "maintenance"
@@ -51,8 +49,8 @@
     {
       "title": "Clean the Bucket",
       "schedule": "after_each_use",
-      "tier": "essential",
-      "care": "maintenance"
+      "tier": "recommended",
+      "care": "cleaning"
     },
     {
       "title": "Clean the Appliance Exterior",
@@ -63,17 +61,17 @@
     {
       "title": "Replace Carbon Filters",
       "schedule": "every_n_days",
-      "tier": "essential",
+      "tier": "recommended",
       "care": "maintenance"
     },
     {
-      "title": "Replace the Bucket Lid Filter",
+      "title": "Replace Bucket Lid Filter",
       "schedule": "as_needed",
       "tier": "recommended",
       "care": "maintenance"
     },
     {
-      "title": "Run a Filter Refresh Cycle",
+      "title": "Run Odor-Mitigation Citrus Cycle",
       "schedule": "as_needed",
       "tier": "optional",
       "care": "maintenance"
@@ -83,52 +81,33 @@
       "schedule": "as_needed",
       "tier": "essential",
       "care": "maintenance"
-    },
-    {
-      "title": "Reset the GFCI or Circuit Breaker",
-      "schedule": "as_needed",
-      "tier": "essential",
-      "care": "maintenance"
-    },
-    {
-      "title": "Perform a Manual System Reset",
-      "schedule": "as_needed",
-      "tier": "recommended",
-      "care": "maintenance"
-    },
-    {
-      "title": "Unplug Appliance When Not in Use",
-      "schedule": "after_each_use",
-      "tier": "essential",
-      "care": "maintenance"
     }
   ],
   "chunkTitles": [
     "FoodCycler FC-50 Specifications",
-    "Electric Shock and Water Immersion Hazard",
-    "Blade Contact and Moving Parts Hazard",
-    "Hot Surface and Burn Hazard",
-    "Electrical Safety and Grounding Requirements",
-    "Prohibited Items and Overloading",
-    "Operation and Lid Safety Rules",
+    "Parts and Components",
+    "Electric Shock Hazard",
+    "Sharp Blades Warning",
+    "Hot Surface and Cooling Warning",
+    "Electrical Safety and Grounding",
+    "Bucket Fill Line and Overloading",
+    "Do Not Open Lid During Operation",
+    "Prohibited Items and Materials",
     "Ventilation and Placement Requirements",
-    "Parts and Features Overview",
-    "First-Time Setup and Unboxing",
-    "What Foods Can Be Processed",
+    "Before First Use Setup",
     "Loading and Starting a Processing Cycle",
     "Completing and Ending a Cycle",
-    "Standby, Cancel, and Reset Operation",
-    "Clean the Appliance Exterior",
-    "Clean the Bucket",
-    "Replace Carbon Filters",
-    "Replace the Bucket Lid Filter",
-    "Manual System Reset Procedure",
+    "What to Process: Food Waste Guide",
     "Using the By-Product as Plant Food",
+    "Manual System Reset Procedure",
+    "Replace Carbon Filters",
+    "Replace Bucket Lid Filter",
+    "Cleaning the Appliance Exterior",
+    "Cleaning the Bucket",
     "Extending Carbon Filter Life",
-    "Troubleshooting: Indicator Lights and Startup Issues",
-    "Troubleshooting: Odor and Filter Issues",
-    "Troubleshooting: Moist By-Product",
-    "Routine Appliance Cleaning Frequency",
-    "Carbon Filter Replacement Schedule"
+    "Indicator Light and Beep Issues",
+    "Drying Light Flashing",
+    "Bucket Coating Faded or Chipped",
+    "Storing Unprocessed Food Waste"
   ]
 }
