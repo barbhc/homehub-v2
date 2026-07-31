@@ -18,7 +18,13 @@ export type ManualDocClassification = {
   filename: string
 }
 
+import { FindManualCard } from "./FindManualCard"
+
 type ManualStepProps = {
+  /** Already typed on the identify step — enough to search for the manual so the
+   *  user never has to go hunt for a PDF themselves. */
+  brand?: string
+  model?: string
   onConfirm: (choices: ManualSourceChoice[]) => void
   onSkip?: () => void
   isSaving: boolean
@@ -55,6 +61,8 @@ export function ManualStep({
   docClassification,
   onDocClassificationUseAnyway,
   onDocClassificationReplace,
+  brand,
+  model,
 }: ManualStepProps) {
   const [mode, setMode] = useState<"url" | "upload">("upload")
   const [pasteUrl, setPasteUrl] = useState("")
@@ -143,6 +151,23 @@ export function ManualStep({
           </button>
         ))}
       </div>
+
+      {/* The fast path: we already know brand + model, so offer to find the PDF
+          rather than sending the user off to a manufacturer site. Upload and
+          paste-URL stay directly below as the always-available fallback. */}
+      {brand && model && (
+        <div className="mb-3">
+          <FindManualCard
+            brand={brand}
+            model={model}
+            disabled={isSaving}
+            onPick={(url) => {
+              setMode("url")
+              setPasteUrl(url)
+            }}
+          />
+        </div>
+      )}
 
       {/* Upload mode */}
       {mode === "upload" && (

@@ -525,6 +525,8 @@ export default function SmartAddItem() {
 
       {step === "manual" && (
         <ManualStep
+            brand={identifyData.brand}
+            model={identifyData.model}
           key={manualStepKey}
           onConfirm={handleManualConfirm}
           onSkip={handleManualSkip}
