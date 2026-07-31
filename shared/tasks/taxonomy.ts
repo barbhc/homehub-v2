@@ -114,7 +114,16 @@ const ASSEMBLY_PATTERN = /\b(position|reposition|assemble|reassemble)\b.*\b(tank
 // System" / "Vacuum refrigerator coils" / "Clean Surface Burner Caps" as
 // maintenance — cleaning a functional part IS function-preserving work.
 const CLEANING_VERB = /\b(clean|wipe|polish|dust|vacuum|scrub)\b/i
-const APPEARANCE_OBJECT = /\b(exterior|outside|outer|surfaces?|shelv(?:es|ing)|drawers?|bins?|stainless(?: steel)?|control panel|door panels?|door (?:glass|window)|glass|interior|racks?|touchscreen|display)\b/i
+const APPEARANCE_OBJECT = /\b(exterior|outside|outer|surfaces?|shelv(?:es|ing)|drawers?|bins?|stainless(?: steel)?|control panel|door panels?|door (?:glass|window)|glass|interior|racks?|touchscreen|display|cabinets?|surround|grates?|drip trays?|knobs?|handles?|seals?|gaskets?|outlets?|spouts?)\b/i
+/**
+ * Appearance parts that SIT ON a functional component, where the functional word
+ * would otherwise win. Cleaning a burner grate is wiping a pot support, not
+ * servicing the burner — but "Clean Burner Grates" matches /burners?/ and was
+ * being kept on the maintenance agenda. Checked ahead of FUNCTIONAL_OBJECT.
+ * Deliberately narrow: burner CAPS have gas ports, so cleaning those really is
+ * functional work and is excluded here.
+ */
+const APPEARANCE_OVER_FUNCTIONAL = /\b(burner grates?|grates?|drip trays?|door seals?|door gaskets?)\b/i
 const FUNCTIONAL_OBJECT = /\b(filters?|coils?|pumps?|drains?|vents?|ducts?|traps?|hoses?|sensors?|probes?|burners?|igniters?|elements?|condensers?|compressors?|spray arms?|impellers?|anodes?|valves?|nozzles?|jets?)\b/i
 /**
  * Actions that are function-preserving whatever the label says. These OVERRIDE a
@@ -139,6 +148,11 @@ export function classifyTaskKind(t: TaxonomyTaskFields): TaskKind {
   const consumable =
     CONSUMABLE_VERB.test(title) && CONSUMABLE_OBJECT.test(title) && !MAINTENANCE_CONSUMABLE.test(title)
   if (consumable || CONFIG_PATTERN.test(title) || ASSEMBLY_PATTERN.test(title)) return "operational"
+
+  // Wiping an appearance part that merely SITS ON a functional component is
+  // cleaning — checked before the functional rule below, which would otherwise
+  // claim it on the component's name alone.
+  if (CLEANING_VERB.test(title) && APPEARANCE_OVER_FUNCTIONAL.test(title)) return "cleaning"
 
   // Function-preserving work wins over ANY label, including an existing
   // "cleaning" one — descaling / filters / vents are maintenance even when the

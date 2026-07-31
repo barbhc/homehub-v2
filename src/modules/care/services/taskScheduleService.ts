@@ -1,5 +1,6 @@
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore"
 import { db, auth } from "@/integrations/firebase"
+import { syncTemplateDenormToInstances } from "./denormSync"
 import type {
   PriorityTier,
   RiskLevel,
@@ -198,6 +199,13 @@ export async function updateTaskSchedule(
           createdAt: serverTimestamp(),
         })
       }
+    }
+
+    // Tier is denormalized onto every open instance and the agenda reads THAT,
+    // not the template — without this the user changes a task's tier and Home
+    // keeps rendering the old one.
+    if (updates.priorityTier) {
+      await syncTemplateDenormToInstances(batch, homeId, taskTemplateId, { priorityTier: updates.priorityTier })
     }
 
     // Re-anchor open instances' due date when the cadence changed.

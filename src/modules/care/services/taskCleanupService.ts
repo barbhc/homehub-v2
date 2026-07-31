@@ -11,6 +11,7 @@
  */
 import { collection, doc, getDocs, query, where, writeBatch, serverTimestamp } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
+import { syncTemplateDenormToInstances } from "./denormSync"
 import {
   planTaskCleanup,
   type CleanupPlan,
@@ -80,6 +81,9 @@ export interface ApplyCleanupResult {
   retiered: number
   convertedToTips: number
   merged: number
+  /** Open instances whose denormalized display fields were re-synced to their
+   *  template. Non-zero on a home carrying drift from before the fix. */
+  denormRepaired: number
 }
 
 /**
@@ -105,7 +109,7 @@ export async function applyCleanupPlan(
   promoteToEssential: Set<string> = new Set(),
 ): Promise<ApplyCleanupResult> {
   const now = serverTimestamp()
-  const result: ApplyCleanupResult = { reclassified: 0, retiered: 0, convertedToTips: 0, merged: 0 }
+  const result: ApplyCleanupResult = { reclassified: 0, retiered: 0, convertedToTips: 0, merged: 0, denormRepaired: 0 }
   const templates = collection(db, `homes/${homeId}/taskTemplates`)
 
   // Open instances of merged/converted templates need soft-deleting too, or the
@@ -156,11 +160,15 @@ export async function applyCleanupPlan(
     switch (p.kind) {
       case "reclassify": {
         batch.set(doc(templates, p.taskTemplateId), { careType: p.to, updatedAt: now }, { merge: true })
+        // The agenda reads the instance's denormalized copy, not the template —
+        // without this the reclassification is invisible on Home.
+        await syncTemplateDenormToInstances(batch, homeId, p.taskTemplateId, { careType: p.to })
         result.reclassified++
         break
       }
       case "retier": {
         const promote = promoteToEssential.has(p.taskTemplateId)
+        const nextTier = promote ? "essential" : "recommended"
         batch.set(
           doc(templates, p.taskTemplateId),
           promote
@@ -168,6 +176,7 @@ export async function applyCleanupPlan(
             : { priorityTier: "recommended", essentialCandidate: p.candidate, updatedAt: now },
           { merge: true },
         )
+        await syncTemplateDenormToInstances(batch, homeId, p.taskTemplateId, { priorityTier: nextTier })
         result.retiered++
         break
       }
@@ -213,6 +222,45 @@ export async function applyCleanupPlan(
         break
       }
     }
+  }
+
+  // Heal instances stranded by earlier writes. This bug shipped, so real homes
+  // already carry drift that no future write would fix: an open instance whose
+  // denormalized careType/priorityTier disagrees with its template is corrected
+  // here, in BOTH directions (stale "maintenance" keeps cleaning noise on the
+  // agenda; stale "cleaning" wrongly hides real maintenance). Reads the template
+  // set fresh so it also covers rows this sweep just changed. Idempotent — a
+  // clean home produces zero writes — so re-running the sweep IS the repair path.
+  const [allTemplatesSnap, allOpenSnap] = await Promise.all([
+    getDocs(query(templates, where("deletedAt", "==", null))),
+    getDocs(query(collection(db, `homes/${homeId}/taskInstances`), where("deletedAt", "==", null))),
+  ])
+  const desired = new Map<string, { careType: unknown; priorityTier: unknown }>()
+  for (const d of allTemplatesSnap.docs) {
+    desired.set(d.id, { careType: d.get("careType"), priorityTier: d.get("priorityTier") })
+  }
+  // Fold in this sweep's own edits — the snapshot above predates the uncommitted batch.
+  for (const p of approved) {
+    if (p.kind === "reclassify") {
+      const cur = desired.get(p.taskTemplateId)
+      if (cur) cur.careType = p.to
+    } else if (p.kind === "retier") {
+      const cur = desired.get(p.taskTemplateId)
+      if (cur) cur.priorityTier = promoteToEssential.has(p.taskTemplateId) ? "essential" : "recommended"
+    }
+  }
+  for (const d of allOpenSnap.docs) {
+    const status = d.get("status")
+    if (status !== "scheduled" && status !== "snoozed") continue
+    const want = desired.get(String(d.get("taskTemplateId") ?? ""))
+    if (!want) continue
+    const patch: Record<string, unknown> = {}
+    if (want.careType !== undefined && d.get("careType") !== want.careType) patch.careType = want.careType
+    if (want.priorityTier !== undefined && d.get("priorityTier") !== want.priorityTier) patch.priorityTier = want.priorityTier
+    if (Object.keys(patch).length === 0) continue
+    patch.updatedAt = now
+    batch.set(doc(db, `homes/${homeId}/taskInstances/${d.id}`), patch, { merge: true })
+    result.denormRepaired++
   }
 
   await batch.commit()
