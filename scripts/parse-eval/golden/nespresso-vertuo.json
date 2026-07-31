@@ -1,0 +1,142 @@
+{
+  "stats": {
+    "chunks": {
+      "total": 27,
+      "byType": {
+        "specs": 2,
+        "safety": 7,
+        "how_to": 10,
+        "care": 3,
+        "troubleshooting": 5
+      },
+      "withSourcePages": 100
+    },
+    "tasks": {
+      "total": 11,
+      "recurring": 3,
+      "setup": 3,
+      "habits": 5,
+      "coverage": {
+        "instructions": 100,
+        "source_page": 100,
+        "justification": 100,
+        "minutes": 100,
+        "validSchedule": 100
+      },
+      "essentialShare": 36
+    },
+    "hasCleaningGuide": true,
+    "hasWarranty": true,
+    "confidence": 0.92
+  },
+  "taskTitles": [
+    "Run Initial Cleaning Cycle",
+    "Fill and Position Water Tank",
+    "Empty and Rinse Capsule Container",
+    "Replace Water Between Uses",
+    "Run Cleaning Cycle",
+    "Descale the Machine",
+    "Empty System Before Storage",
+    "Clean the Coffee Outlet",
+    "Clean Machine Exterior",
+    "Program Custom Cup Volume",
+    "Position Water Tank Arm"
+  ],
+  "taskIndex": [
+    {
+      "title": "Run Initial Cleaning Cycle",
+      "schedule": "setup",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Fill and Position Water Tank",
+      "schedule": "after_each_use",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Empty and Rinse Capsule Container",
+      "schedule": "as_needed",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Replace Water Between Uses",
+      "schedule": "weekly",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Run Cleaning Cycle",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Descale the Machine",
+      "schedule": "as_needed",
+      "tier": "essential",
+      "care": "maintenance"
+    },
+    {
+      "title": "Empty System Before Storage",
+      "schedule": "as_needed",
+      "tier": "recommended",
+      "care": "maintenance"
+    },
+    {
+      "title": "Clean the Coffee Outlet",
+      "schedule": "weekly",
+      "tier": "recommended",
+      "care": "cleaning"
+    },
+    {
+      "title": "Clean Machine Exterior",
+      "schedule": "weekly",
+      "tier": "optional",
+      "care": "cleaning"
+    },
+    {
+      "title": "Program Custom Cup Volume",
+      "schedule": "setup",
+      "tier": "optional",
+      "care": "maintenance"
+    },
+    {
+      "title": "Position Water Tank Arm",
+      "schedule": "setup",
+      "tier": "optional",
+      "care": "maintenance"
+    }
+  ],
+  "chunkTitles": [
+    "Machine Specifications",
+    "Machine Overview and Parts",
+    "Electrical Shock and Fire Hazards",
+    "Scalding Risk from Hot Liquids",
+    "Child Safety and Supervision",
+    "General Electrical Safety Rules",
+    "Water Tank and Capsule Safety",
+    "Cleaning Safety Restrictions",
+    "Descaling Agent Safety",
+    "Machine Setup and First Use",
+    "Brewing Coffee",
+    "Ejecting a Capsule and Turning Off",
+    "Programming Custom Water Volume",
+    "Cleaning Cycle (Special Function)",
+    "Reset to Factory Settings",
+    "Emptying the System (Non-Use / Frost Protection)",
+    "Descaling Procedure",
+    "Water Tank and Capsule Container Handling",
+    "Cup Support and Power Cable Adjustment",
+    "Daily Water Tank Maintenance",
+    "Capsule Container Emptying",
+    "Coffee Outlet Cleaning",
+    "No Coffee / Machine Won't Start",
+    "Coffee Quality Issues",
+    "Leakage Issues",
+    "LED Light Indicator Guide",
+    "Red Light Error Troubleshooting"
+  ]
+}

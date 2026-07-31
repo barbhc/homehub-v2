@@ -17,15 +17,21 @@
  * review the diff report → only then deploy parse-manual. When an intentional
  * improvement changes the snapshot, re-baseline with --update-golden.
  */
-import { createClient } from "@supabase/supabase-js"
+import { initializeApp, cert } from "firebase-admin/app"
+import { getFirestore } from "firebase-admin/firestore"
+import { getStorage } from "firebase-admin/storage"
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { buildPrompt, samplingParamsFor, EXTRACTION_TOOL, extractParsedResult } from "../../shared/parse/parsePrompt"
 import { titleSimilarity, TITLE_MATCH_THRESHOLD } from "../../shared/parse/parseCore"
+import { classifyTaskKind } from "../../shared/tasks/taxonomy"
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, "..", "..")
+/** Downloaded PDFs (gitignored) — a corpus manual can be 12MB, and a
+ *  before/after prompt comparison re-reads every one of them. */
+const PDF_CACHE = join(HERE, ".pdf-cache")
 
 // ── Env / clients ─────────────────────────────────────────────────────────────
 const env = Object.fromEntries(
@@ -34,17 +40,62 @@ const env = Object.fromEntries(
     .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
     .map((l) => {
       const i = l.indexOf("=")
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()]
+      // Strip surrounding quotes — a quoted value yields a malformed URL/path.
+      return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^(['"])(.*)\1$/, "$2")]
     })
 )
-const SUPABASE_URL = env.VITE_SUPABASE_URL
-const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY
 const ANTHROPIC_KEY = env.ANTHROPIC_API_KEY
-if (!SUPABASE_URL || !SERVICE_KEY || !ANTHROPIC_KEY) {
-  console.error("Missing VITE_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / ANTHROPIC_API_KEY in .env")
+// PDFs live in v2 Firebase Storage — the v1 Supabase project was DELETED, which
+// is why this harness sat un-runnable (every corpus fetch was ERR_NAME_NOT_RESOLVED).
+const SA_KEY_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || env.GOOGLE_APPLICATION_CREDENTIALS
+if (!ANTHROPIC_KEY || !SA_KEY_PATH || !existsSync(SA_KEY_PATH)) {
+  console.error(
+    "Need ANTHROPIC_API_KEY in .env and a readable service-account JSON via\n" +
+    "GOOGLE_APPLICATION_CREDENTIALS (env or .env)."
+  )
   process.exit(1)
 }
-const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+const sa = JSON.parse(readFileSync(SA_KEY_PATH, "utf8"))
+initializeApp({
+  credential: cert(sa),
+  projectId: sa.project_id,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+})
+const db = getFirestore()
+const bucket = getStorage().bucket()
+
+/**
+ * Corpus PDF → base64, cached on disk. Reads are strictly read-only against the
+ * owner's project (Firestore metadata + one Storage download); the harness never
+ * writes to either.
+ */
+async function loadPdfBase64(homeId: string, manualId: string): Promise<string> {
+  const cached = join(PDF_CACHE, `${manualId}.pdf`)
+  if (existsSync(cached)) return readFileSync(cached).toString("base64")
+
+  const snap = await db.doc(`homes/${homeId}/manuals/${manualId}`).get()
+  if (!snap.exists) throw new Error(`manual not found: homes/${homeId}/manuals/${manualId}`)
+  const sourceType = String(snap.get("sourceType") ?? "")
+  const sourceRef = String(snap.get("sourceRef") ?? "")
+  if (!sourceRef) throw new Error("manual has no sourceRef")
+
+  let buf: Buffer
+  if (sourceType === "upload") {
+    const [exists] = await bucket.file(sourceRef).exists()
+    if (!exists) throw new Error(`storage object missing: ${sourceRef}`)
+    ;[buf] = await bucket.file(sourceRef).download()
+  } else {
+    if (/supabase\.co/.test(sourceRef)) {
+      throw new Error("sourceRef points at the deleted v1 Supabase project — PDF unrecoverable")
+    }
+    const res = await fetch(sourceRef, { redirect: "follow" })
+    if (!res.ok) throw new Error(`PDF fetch failed: HTTP ${res.status}`)
+    buf = Buffer.from(await res.arrayBuffer())
+  }
+  mkdirSync(PDF_CACHE, { recursive: true })
+  writeFileSync(cached, buf)
+  return buf.toString("base64")
+}
 
 // ── Types (loose on purpose — we're scoring raw model output) ────────────────
 type RawTask = {
@@ -121,6 +172,56 @@ function diffTitles(goldenTitles: string[], newTitles: string[]) {
   return { matched: goldenTitles.length - missing.length, missing, added }
 }
 
+type IndexRow = { title?: string; schedule?: string; tier?: string; care?: string }
+
+/**
+ * Label a dropped/added title with the kind the deterministic taxonomy assigns
+ * it. This is the question a curation change actually has to answer: dropping
+ * "Add Detergent Before Each Cycle" is the goal, dropping "Replace Carbon
+ * Filters" is a regression, and a bare list of missing titles can't tell them
+ * apart. `maintenance` in a MISSING list is the thing to investigate.
+ */
+function kindOf(title: string, row?: IndexRow): string {
+  const kind = classifyTaskKind({
+    title,
+    care_type: row?.care ?? "maintenance",
+    priority_tier: row?.tier ?? "recommended",
+    risk_level: "performance",
+    schedule_type: row?.schedule ?? "monthly",
+  })
+  return kind === "maintenance" ? "maintenance — INVESTIGATE" : `${kind} — expected`
+}
+
+/**
+ * Classification drift on tasks that SURVIVED in both runs. Title-only diffing is
+ * blind to the change that matters most for curation work: a task that stays but
+ * moves essential → recommended, or maintenance → cleaning, is not "missing" —
+ * it IS the improvement. Without this, a tier/care-type prompt change reads as a
+ * clean no-op diff.
+ */
+function diffClassifications(golden: IndexRow[], next: IndexRow[]) {
+  const usedNext = new Set<number>()
+  const tierChanges: string[] = []
+  const careChanges: string[] = []
+  const scheduleChanges: string[] = []
+  for (const g of golden) {
+    let best = -1, bestScore = 0
+    next.forEach((n, i) => {
+      if (usedNext.has(i)) return
+      const s = titleSimilarity(g.title ?? "", n.title ?? "")
+      if (s > bestScore) { bestScore = s; best = i }
+    })
+    if (best < 0 || bestScore < TITLE_MATCH_THRESHOLD) continue
+    usedNext.add(best)
+    const n = next[best]
+    const label = g.title ?? "?"
+    if ((g.tier ?? "") !== (n.tier ?? "")) tierChanges.push(`${label}: ${g.tier} → ${n.tier}`)
+    if ((g.care ?? "") !== (n.care ?? "")) careChanges.push(`${label}: ${g.care} → ${n.care}`)
+    if ((g.schedule ?? "") !== (n.schedule ?? "")) scheduleChanges.push(`${label}: ${g.schedule} → ${n.schedule}`)
+  }
+  return { tierChanges, careChanges, scheduleChanges }
+}
+
 // ── Anthropic call (mirrors parse-manual: temp 0.1, document block, 20k out) ──
 async function extract(pdfBase64: string, model: string) {
   const started = Date.now()
@@ -173,7 +274,7 @@ async function main() {
   const only = args.find((a) => a.startsWith("--only="))?.slice(7)
   const updateGolden = args.includes("--update-golden")
   const corpus = JSON.parse(readFileSync(join(HERE, "corpus.json"), "utf8")) as {
-    manuals: Array<{ name: string; manual_id: string; model: string; note?: string }>
+    manuals: Array<{ name: string; home_id: string; manual_id: string; model: string; note?: string }>
   }
   if (args.includes("--list")) {
     for (const m of corpus.manuals) console.log(`${m.name.padEnd(20)} ${m.model.padEnd(20)} ${m.manual_id}  ${m.note ?? ""}`)
@@ -188,15 +289,15 @@ async function main() {
 
   for (const m of targets) {
     console.log(`\n━━ ${m.name} (${m.model}) ━━`)
-    // Resolve PDF from prod manual_document (read-only)
-    const { data: doc, error } = await sb.from("manual_document").select("source_type, source_ref").eq("manual_id", m.manual_id).single()
-    if (error || !doc) { console.error(`  manual_document not found: ${error?.message}`); failures++; continue }
-    const pdfUrl = doc.source_type === "url"
-      ? String(doc.source_ref)
-      : `${SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/public/Manuals/${String(doc.source_ref).replace(/^\//, "")}`
-    const pdfRes = await fetch(pdfUrl, { redirect: "follow" })
-    if (!pdfRes.ok) { console.error(`  PDF fetch failed: HTTP ${pdfRes.status}`); failures++; continue }
-    const pdfBase64 = Buffer.from(await pdfRes.arrayBuffer()).toString("base64")
+    // Resolve PDF from v2 Firestore/Storage (read-only, disk-cached)
+    let pdfBase64: string
+    try {
+      pdfBase64 = await loadPdfBase64(m.home_id, m.manual_id)
+    } catch (e) {
+      console.error(`  PDF unavailable: ${e instanceof Error ? e.message : e}`)
+      failures++
+      continue
+    }
     console.log(`  pdf: ${Math.round(pdfBase64.length * 0.75 / 1024)} KB · extracting…`)
 
     let parsed: RawParse, meta: Awaited<ReturnType<typeof extract>>["meta"]
@@ -230,9 +331,28 @@ async function main() {
       const cDiff = diffTitles(golden.chunkTitles, snapshot.chunkTitles)
       console.log(`  vs golden — tasks: ${tDiff.matched}/${golden.taskTitles.length} matched, ${tDiff.missing.length} MISSING, ${tDiff.added.length} added`)
       console.log(`  vs golden — chunks: ${cDiff.matched}/${golden.chunkTitles.length} matched, ${cDiff.missing.length} MISSING, ${cDiff.added.length} added`)
-      for (const t of tDiff.missing) console.log(`    − missing task: ${t}`)
-      for (const t of tDiff.added) console.log(`    + new task: ${t}`)
-      if (tDiff.missing.length > 0) failures++
+      const goldenRow = new Map((golden.taskIndex ?? []).map((r) => [r.title ?? "", r]))
+      const newRow = new Map(snapshot.taskIndex.map((r) => [r.title ?? "", r]))
+      for (const t of tDiff.missing) console.log(`    − missing task: ${t}  [${kindOf(t, goldenRow.get(t))}]`)
+      for (const t of tDiff.added) console.log(`    + new task: ${t}  [${kindOf(t, newRow.get(t))}]`)
+      const droppedMaintenance = tDiff.missing.filter((t) => /INVESTIGATE/.test(kindOf(t, goldenRow.get(t))))
+      // Reclassification of surviving tasks — the signal a title-only diff misses.
+      const cls = diffClassifications(golden.taskIndex ?? [], snapshot.taskIndex)
+      if (cls.tierChanges.length || cls.careChanges.length || cls.scheduleChanges.length) {
+        console.log(`  vs golden — reclassified: ${cls.tierChanges.length} tier, ${cls.careChanges.length} care_type, ${cls.scheduleChanges.length} schedule`)
+        for (const c of cls.tierChanges) console.log(`    ~ tier  ${c}`)
+        for (const c of cls.careChanges) console.log(`    ~ care  ${c}`)
+        for (const c of cls.scheduleChanges) console.log(`    ~ sched ${c}`)
+      }
+      // A dropped OPERATIONAL/CLEANING title is the intended effect of curation;
+      // a dropped MAINTENANCE title is the "things disappeared" regression. Only
+      // the latter fails the gate, so an intentional curation pass can go green.
+      if (droppedMaintenance.length > 0) {
+        console.error(`  ✗ ${droppedMaintenance.length} MAINTENANCE task(s) dropped — regression, not curation`)
+        failures++
+      } else if (tDiff.missing.length > 0) {
+        console.log(`  ✓ ${tDiff.missing.length} dropped title(s), all operational/cleaning — curation working as intended`)
+      }
     } else {
       writeFileSync(goldenPath, JSON.stringify(snapshot, null, 2))
       console.log(`  golden ${existsSync(goldenPath) ? "updated" : "written"}: golden/${m.name}.json`)

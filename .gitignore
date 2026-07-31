@@ -59,6 +59,8 @@ logo-canva.png
 dashboard-layouts.html
 public/dashboard-layouts.html
 scripts/parse-eval/results/
+# Corpus PDFs downloaded from the owner's Storage — never commit (large + owner's docs)
+scripts/parse-eval/.pdf-cache/
 scripts/parse-eval/candidates/
 
 # Functions build output

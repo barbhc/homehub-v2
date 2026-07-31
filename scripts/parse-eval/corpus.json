@@ -1,9 +1,46 @@
 {
-  "comment": "Golden corpus for the parse-manual eval harness. manual_id refers to prod manual_document rows; the runner resolves each PDF from source_type/source_ref. model mirrors pickParseModel (gas/safety-critical items escalate to Opus).",
+  "comment": "Golden corpus for the parse eval. home_id + manual_id address a v2 Firestore manual; the runner resolves its PDF from Firebase Storage (read-only) and caches it under .pdf-cache/. model mirrors pickParseModel (gas/safety-critical items escalate to Opus).",
+  "corpus_notes": [
+    "Rebuilt 2026-07-30. The original corpus addressed v1 Supabase manual_document rows; that project was DELETED, so every PDF fetch failed and this harness was un-runnable — which is why the prompt-curation PR (#2) stalled.",
+    "LOST to the migration (sourceRef still points at the dead Supabase host, PDFs unrecoverable): range-ge-gas (27bf5e43), microwave-drawer (9a053574), and the Bosch dishwasher — the appliance whose 'Add Detergent Before Each Cycle' triggered this work. Their golden snapshots stay in golden/ for reference but can no longer be reproduced.",
+    "COVERAGE GAP from that loss: no gas/combustion manual survives, so pickParseModel's Opus escalation path is no longer exercised. Add a gas manual to the corpus when one is re-uploaded.",
+    "washer-lg and foodcycler carry over from the original corpus (their PDFs survived as Storage uploads), so those goldens remain comparable across the v1->v2 move."
+  ],
   "manuals": [
-    { "name": "range-ge-gas", "manual_id": "27bf5e43-d076-4b7a-a0a4-850fca93d385", "model": "claude-opus-4-8", "note": "Gas range — safety-critical, escalated model" },
-    { "name": "microwave-drawer", "manual_id": "9a053574-c4ad-4e15-9913-30a6bb4251b2", "model": "claude-sonnet-4-6", "note": "Drawer microwave" },
-    { "name": "washer-lg", "manual_id": "150399bc-c86c-40f5-83cf-25b3bd5fc1fd", "model": "claude-sonnet-4-6", "note": "Large appliance manual (english-only upload)" },
-    { "name": "foodcycler", "manual_id": "3dd6282d-4cad-4f45-b5db-d9521a58a34d", "model": "claude-sonnet-4-6", "note": "Small appliance" }
+    {
+      "name": "nespresso-vertuo",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "24c0358b-83cc-4daa-8406-f9d819b3a970",
+      "model": "claude-sonnet-4-6",
+      "note": "THE trigger case — this manual produced 'Replace Water in the Tank' as an Essential task. Operational top-ups must become tips, not tasks."
+    },
+    {
+      "name": "foodcycler",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "3dd6282d-4cad-4f45-b5db-d9521a58a34d",
+      "model": "claude-sonnet-4-6",
+      "note": "Tier-inflation case: prior golden had 10 tasks / 6 habits / 50% essential, over the harness's own 40% warning. 'Replace Carbon Filters' MUST survive."
+    },
+    {
+      "name": "dryer-lg",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "d38bc556-3235-483f-9274-bbc738b13fe2",
+      "model": "claude-sonnet-4-6",
+      "note": "Both-directions case: lint-trap/vent work is real safety maintenance that must NOT be demoted, while 'Clean door window and seal' is cleaning noise."
+    },
+    {
+      "name": "furnace-york",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "3720005b-303e-4e69-b269-1b91f3e66c9f",
+      "model": "claude-sonnet-4-6",
+      "note": "Must-not-lose case: filter replacement is the canonical real maintenance task; curation must never drop it."
+    },
+    {
+      "name": "washer-lg",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "150399bc-c86c-40f5-83cf-25b3bd5fc1fd",
+      "model": "claude-sonnet-4-6",
+      "note": "Large-appliance manual (english-only upload). Carried over from the original corpus."
+    }
   ]
 }

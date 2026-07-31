@@ -92,7 +92,11 @@ export interface TaxonomyResult<T> {
 // Consumables you top up to RUN the appliance. The filter/cartridge negative is
 // what separates "Replace Water in the Tank" (operating a Nespresso) from
 // "Replace Water Filter" (genuine maintenance).
-const CONSUMABLE_VERB = /\b(add|re-?fill|fill|top[ -]?up|load|insert|pour|replace)\b/i
+// `empty|discard|dispose|dump` are here because emptying a used-consumable
+// receptacle (capsule bin, drip tray, grounds container) is operating the
+// appliance. Safe alongside the object gate below: "Empty the lint trap" has no
+// consumable object, so it stays maintenance.
+const CONSUMABLE_VERB = /\b(add|re-?fill|fill|top[ -]?up|load|insert|pour|replace|empty|discard|dispose|dump)\b/i
 const CONSUMABLE_OBJECT = /\b(detergent|rinse[ -]?aid|dishwasher salt|(?:fabric )?softener|pods?|capsules?|k[ -]?cups?|beans|grounds|coffee|water)\b/i
 // Hardware/parts that make a "replace water …" title genuine maintenance:
 // "Replace Water in the Tank" is operating a Nespresso; "Replace water inlet
@@ -100,6 +104,10 @@ const CONSUMABLE_OBJECT = /\b(detergent|rinse[ -]?aid|dishwasher salt|(?:fabric 
 const MAINTENANCE_CONSUMABLE = /\b(filters?|cartridges?|purifi\w*|descal\w*|hoses?|lines?|valves?|pumps?|anodes?|heaters?|softener system)\b/i
 // One-time config / personalization — using the appliance's settings, not upkeep.
 const CONFIG_PATTERN = /\b(wi[- ]?fi|bluetooth|pair(?:ing)?\b|connect (?:to )?(?:the )?app|app setup|presets?|program\w* .*(?:volume|cup|favorite)|set (?:the )?clock|register (?:the|your)\b|adjust\w* .*\bsettings?\b)\b/i
+// Putting the appliance into its ready-to-use position. Deliberately narrow —
+// "position/assemble" + a vessel word — so real work like "Reattach the filter
+// housing" (a functional part) is untouched.
+const ASSEMBLY_PATTERN = /\b(position|reposition|assemble|reassemble)\b.*\b(tank|arm|reservoir|carafe|jug|bin|container|lid|basket)\b/i
 
 // ── Cleaning reclassification ────────────────────────────────────────────────
 // Appearance/hygiene surfaces. The functional negative keeps "Clean the Filter
@@ -130,7 +138,7 @@ export function classifyTaskKind(t: TaxonomyTaskFields): TaskKind {
   // filter) and one-time configuration/personalization.
   const consumable =
     CONSUMABLE_VERB.test(title) && CONSUMABLE_OBJECT.test(title) && !MAINTENANCE_CONSUMABLE.test(title)
-  if (consumable || CONFIG_PATTERN.test(title)) return "operational"
+  if (consumable || CONFIG_PATTERN.test(title) || ASSEMBLY_PATTERN.test(title)) return "operational"
 
   // Function-preserving work wins over ANY label, including an existing
   // "cleaning" one — descaling / filters / vents are maintenance even when the
