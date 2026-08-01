@@ -9,14 +9,21 @@
  * call — same guard pattern as Sentry in main.tsx. Session recording stays off
  * for the friends round (events only; also WKWebView-safe).
  */
-import posthog from "posthog-js"
+import type posthogT from "posthog-js"
 import { getNativePlatform } from "@/lib/native"
 
+// posthog-js is dynamically imported so it does not sit in the entry chunk and
+// does not parse before first paint. Cold start in the iOS WebView is the whole
+// reason — nothing here renders anything, so none of it belongs on the critical
+// path. Every export below no-ops until the module has landed, exactly as they
+// already no-opped without a key.
+let posthog: typeof posthogT | null = null
 let initialized = false
 
-export function initAnalytics(): void {
+export async function initAnalytics(): Promise<void> {
   const key = import.meta.env.VITE_POSTHOG_KEY as string | undefined
   if (!key || initialized) return
+  posthog = (await import("posthog-js")).default
   posthog.init(key, {
     api_host: (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || "https://us.i.posthog.com",
     capture_pageview: false, // SPA — captured manually on route change (trackPageview)
@@ -30,23 +37,23 @@ export function initAnalytics(): void {
 }
 
 export function track(event: string, properties?: Record<string, unknown>): void {
-  if (!initialized) return
+  if (!initialized || !posthog) return
   posthog.capture(event, properties)
 }
 
 export function trackPageview(path: string): void {
-  if (!initialized) return
+  if (!initialized || !posthog) return
   posthog.capture("$pageview", { path })
 }
 
 /** Tie events to the Firebase uid (merges the pre-signup anonymous session). */
 export function identifyUser(uid: string): void {
-  if (!initialized) return
+  if (!initialized || !posthog) return
   posthog.identify(uid)
 }
 
 /** Clear identity on sign-out so a next sign-in on this device isn't merged. */
 export function resetAnalyticsIdentity(): void {
-  if (!initialized) return
+  if (!initialized || !posthog) return
   posthog.reset()
 }

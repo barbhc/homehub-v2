@@ -15,6 +15,7 @@ import {
   type ReviewBucket,
 } from "../../../shared/tasks/reviewBuckets"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
+import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { classifyActorFromText } from "@/lib/taskActor"
 import type {
   PreviewChunk, PreviewResult, PreviewTask, PriorityTier, ScheduleType,
@@ -78,9 +79,12 @@ const CADENCES: { id: ScheduleType; label: string }[] = [
   { id: "annual", label: "Yearly" },
   { id: "seasonal", label: "Seasonal" },
 ]
-const cadLabel = (s: ScheduleType) => CADENCES.find((c) => c.id === s)?.label ?? s
-const originLabel = (s: ScheduleType) =>
-  s === "setup" ? "one-time setup" : s === "as_needed" ? "as needed" : s === "after_each_use" ? "each use" : cadLabel(s)
+/** Per-ROW label, so an every_n_days task can say "Every 5 years" rather than
+ *  the enum name or "Every 1825 days". */
+const cadOf = (r: { schedule: ScheduleType; intervalDays: number | null }) =>
+  cadenceLabel(r.schedule, r.intervalDays)
+const originOf = (r: { origSchedule: ScheduleType; intervalDays: number | null }) =>
+  cadenceLabel(r.origSchedule, r.intervalDays).toLowerCase()
 
 interface ReviewRow {
   id: string
@@ -95,6 +99,8 @@ interface ReviewRow {
   kind: RowKind
   tier: PriorityTier
   schedule: ScheduleType
+  /** Needed to label `every_n_days` in human units. */
+  intervalDays: number | null
   scheduleSuggested: boolean
   /** null until the user touches the Remind switch — then the tier default no
    *  longer applies to this task, in either direction. */
@@ -125,6 +131,7 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
         : t.care_type === "cleaning" ? "cleaning" : "maintenance",
     tier: t.priority_tier,
     schedule: t.schedule_type,
+    intervalDays: t.interval_days ?? null,
     scheduleSuggested: false,
     remindEnabled: t.remind_enabled ?? null,
     included: true,
@@ -145,6 +152,7 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
       kind: "tip" as RowKind,
       tier: "optional" as PriorityTier,
       schedule: "after_each_use" as ScheduleType,
+      intervalDays: null,
       scheduleSuggested: false,
       remindEnabled: null,
       included: true,
@@ -291,13 +299,14 @@ export function TaskReviewSheet({
       const base: PreviewTask = r.task ?? {
         title: r.title, description: r.description, care_type: "maintenance", priority_tier: r.tier,
         risk_level: "performance", estimated_minutes: r.minutes, schedule_type: r.schedule,
-        interval_days: null, instructions_text: null, symptom_tags: [], re_check_triggers: [],
+        interval_days: r.intervalDays, instructions_text: null, symptom_tags: [], re_check_triggers: [],
       }
       keptTasks.push({
         ...base,
         care_type: r.kind === "cleaning" ? "cleaning" : "maintenance",
         priority_tier: r.tier,
         schedule_type: r.schedule,
+        interval_days: r.intervalDays,
         remind_enabled: r.remindEnabled,
       })
     }
@@ -334,7 +343,7 @@ export function TaskReviewSheet({
           <div className="text-[13px] text-muted-foreground mt-2 leading-snug">{r.justification || r.description}</div>
         )}
         <div className="text-[11.5px] text-muted-foreground/80 mt-2">
-          From the manual · {originLabel(r.origSchedule)}{r.minutes ? ` · about ${r.minutes} min` : ""}
+          From the manual · {originOf(r)}{r.minutes ? ` · about ${r.minutes} min` : ""}
         </div>
 
         {/* Where this row actually ends up, live. The wizard asks two questions
@@ -380,7 +389,7 @@ export function TaskReviewSheet({
           <>
             <div className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-background px-2.5 py-2 text-[11.5px] text-muted-foreground">
               <span>
-                {onSched ? <>Repeats <b className="text-foreground">{cadLabel(r.schedule)}</b></> :
+                {onSched ? <>Repeats <b className="text-foreground">{cadOf(r).toLowerCase()}</b></> :
                   <><b className="text-foreground">Not on a schedule</b> — {r.schedule === "setup" ? "a one-time step" : "you'll do it when needed"}</>}
               </span>
               <button type="button" onClick={() => toggleSchedule(r)}
@@ -455,7 +464,7 @@ export function TaskReviewSheet({
         {r.included && remindsOfRow(r) && (
           <BellRingIcon className="size-[13px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Reminds you" />
         )}
-        {r.included && isScheduled(b) && <span className="text-[10px] font-mono text-muted-foreground/70 whitespace-nowrap">{cadLabel(r.schedule)}</span>}
+        {r.included && isScheduled(b) && <span className="text-[10px] font-mono text-muted-foreground/70 whitespace-nowrap">{cadOf(r)}</span>}
         {r.included && r.kind !== "tip" && <PriorityDot tier={r.tier} />}
         <span role="button" tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); patch(r.id, { included: !r.included }) }}
@@ -613,18 +622,18 @@ function StepTwo({
             {items.map((r) => (
               <div key={r.id} className="rounded-xl border border-border bg-card px-3 py-2.5 mb-1.5">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-[14px] opacity-85">{KINDS.find((k) => k.id === r.kind)?.icon}</span>
+                  <span className="text-[14px] opacity-85">{KINDS.find((k) => k.id === displayKind(r))?.icon}</span>
                   <span className="flex-1 min-w-0 text-[14px] font-semibold">{r.title}</span>
                   <button type="button" onClick={() => setCadOpenId(cadOpenId === r.id ? null : r.id)}
                     className="rounded-full border border-border bg-background px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap">
-                    {cadLabel(r.schedule)}{r.scheduleSuggested ? " · suggested" : ""} ▾
+                    {cadOf(r)}{r.scheduleSuggested ? " · suggested" : ""} ▾
                   </button>
                 </div>
                 {cadOpenId === r.id && (
                   <div className="flex flex-wrap gap-1.5 mt-2.5">
                     {CADENCES.map((c) => (
                       <button key={c.id} type="button" aria-pressed={r.schedule === c.id}
-                        onClick={() => { patch(r.id, { schedule: c.id, scheduleSuggested: false }); setCadOpenId(null) }}
+                        onClick={() => { patch(r.id, { schedule: c.id, intervalDays: null, scheduleSuggested: false }); setCadOpenId(null) }}
                         className={`rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${
                           r.schedule === c.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}>
                         {c.label}

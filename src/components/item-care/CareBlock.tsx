@@ -20,12 +20,13 @@ import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronRightIcon,
-  ChevronUpIcon, Circle, GitBranchIcon, PackageIcon, RotateCcw, SlidersHorizontalIcon, WrenchIcon,
+  ChevronUpIcon, Circle, GitBranchIcon, PackageIcon, RotateCcw, SlidersHorizontalIcon,
 } from "lucide-react"
 import type { ItemUnit, KnowledgeChunk, Json } from "@/integrations/types"
 import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, type TaskTemplateWithSchedule } from "@/modules/care"
 import { dueLabel } from "@/lib/redesign/tokens"
 import { reviewBucketFor, isScheduled, willNotify, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
+import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { getTaskGuidance } from "@/pages/item-detail/utils"
 import { classifyTaskActor } from "@/lib/taskActor"
 import { StepList, InfoBlurb, ManualBlurb } from "@/components/tasks/TaskHowTo"
@@ -71,24 +72,14 @@ function taskLikeOf(t: TaskTemplateWithSchedule) {
   }
 }
 const bucketOf = (t: TaskTemplateWithSchedule): ReviewBucket => reviewBucketFor(taskLikeOf(t))
-/** Friendly cadence label (the handoff's "Twice a year" / "Yearly" wording). */
+/** Friendly cadence label. `after_each_use` is spelled out because a per-use
+ *  habit shares the "When needed" band with condition-triggered work and its
+ *  trigger is the one distinguishing fact; `as_needed` needs no label there
+ *  since the band header already says it. */
 function freqLabel(t: TaskTemplateWithSchedule): string {
   const st = t.schedule_rule?.[0]?.schedule_type
-  const n = t.schedule_rule?.[0]?.interval_days
-  switch (st) {
-    case "weekly": return "Weekly"
-    case "monthly": return "Monthly"
-    case "quarterly": return "Quarterly"
-    case "semiannual": return "Twice a year"
-    case "annual": return "Yearly"
-    case "seasonal": return "Seasonally"
-    case "every_n_days": return n ? `Every ${n} days` : "Every so often"
-    // A per-use habit sits in the same band as condition-triggered work, so its
-    // trigger is the one thing worth saying. "as_needed" needs no label there —
-    // the band header already says it.
-    case "after_each_use": return "After each use"
-    default: return ""
-  }
+  if (!st || st === "as_needed" || st === "setup") return ""
+  return cadenceLabel(st, t.schedule_rule?.[0]?.interval_days)
 }
 function manualPageOf(t: TaskTemplateWithSchedule): number | null {
   const meta = (t as unknown as { metadata?: { diagram_pages?: { page: number }[] } }).metadata
@@ -254,10 +245,12 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
   return (
     <div style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}>
       <div className="flex items-center gap-3 px-4 py-3.5">
+        {/* No leading glyph tile. Every row carried an identical wrench in a
+            red-or-green square, which read as a status light that meant nothing
+            — the same "red dots look like warnings" note that removed the tier
+            dots. Safety already has its own badge, and the bell says the one
+            thing worth scanning for. */}
         <div onClick={openTask} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-[9px]" style={{ background: safety ? CLAY_SOFT : "#F1F5F4" }}>
-            <WrenchIcon className="size-[17px]" style={{ color: safety ? CLAY : TEALD }} />
-          </div>
           <div className="min-w-0 flex-1">
             {/* A bell-ring, not a priority dot. Red dots read as "warning" on a
                 page where the genuinely alarming thing is a safety badge, and
