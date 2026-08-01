@@ -8,7 +8,8 @@ import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
-  addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, itemOptions, monthCalendar,
+  addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
+  TIER_FILTERS, tierFilterCounts,
   tasksDueOnDay, todayStr, useTaskDetail, whenLabel, type Lens, CLAY, TEAL,
 } from "./tasks/shared"
 
@@ -178,18 +179,25 @@ function DkCalendar({
 }
 
 // ── Tier pill ─────────────────────────────────────────────────────────────────
-function TierPill({ active, color, onClick, children, dot }: {
+function TierPill({ active, color, onClick, children, dot, count }: {
   active: boolean; color: string; onClick: () => void; children: React.ReactNode; dot?: boolean
+  /** What this filter would yield. Shown always, computed over the unfiltered
+   *  set, so picking one doesn't zero out the others and strand you. */
+  count?: number
 }) {
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-bold"
       style={{ border: `1.5px solid ${active ? "transparent" : LINE}`, background: active ? color : SURFACE, color: active ? "#fff" : INK }}
     >
       {dot && <span className="size-1.5 rounded-full" style={{ background: active ? "#fff" : color }} />}
       {children}
+      {count != null && (
+        <span className="font-mono text-[11px]" style={{ opacity: active ? 0.75 : 0.55 }}>{count}</span>
+      )}
     </button>
   )
 }
@@ -197,7 +205,9 @@ function TierPill({ active, color, onClick, children, dot }: {
 export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const navigate = useNavigate()
   const [tier, setTier] = useTierFilter()
-  const [item, setItem] = useState("all")
+  // Item filtering is the "Item" lens now; kept as a constant so the shared
+  // tier helpers keep their signature.
+  const item = "all"
   const [lens, setLens] = useState<Lens>("urgency")
   const [openId, setOpenId] = useState<string | null>(null)
   const [selDay, setSelDay] = useState<number | null>(null)
@@ -236,7 +246,6 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
   const insight = useMemo(() => computeInsight(all), [all])
-  const itemList = useMemo(() => itemOptions(items), [items])
   // Total ignoring the tier filter (for the "All · N" chip + empty-focus link).
   const totalAll = useMemo(() => applyTierFilter(items, "all", item).length, [items, item])
 
@@ -247,13 +256,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id))
   const openGuide = (t: WeekAgendaItem) => navigate(`/tasks/${t.taskInstanceId}`)
 
-  const tierChips: [string, string, string][] = [
-    ["focus", "Focus", TEAL],
-    ["all", `All · ${totalAll}`, TEAL],
-    ["essential", "Essential", TIER.essential.dot],
-    ["recommended", "Recommended", TIER.recommended.dot],
-    ["optional", "Optional", TIER.optional.dot],
-  ]
+  const tierCounts = useMemo(() => tierFilterCounts(items, item), [items, item])
 
   return (
     <div style={{ maxWidth: 1140, margin: "0 auto", padding: "30px 0 48px" }}>
@@ -297,48 +300,47 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
         </div>
       )}
 
-      {/* Controls row: tier pills (left) · item select + group-by (right) */}
-      <div className="mb-[22px] flex flex-wrap items-center gap-3.5">
-        <div className="flex gap-2">
-          {tierChips.map(([k, l, c]) => (
-            <TierPill key={k} active={tier === k} color={c} dot={k !== "all" && k !== "focus"} onClick={() => setTier(k)}>{l}</TierPill>
-          ))}
+      {/* Same model as mobile: lens on the left, priority on the right, and the
+          same words. Desktop has the width to leave priority as visible chips
+          rather than a menu, so it does — but "Needs you", the counts, and the
+          lens tabs are shared, because a filter that means one thing on a phone
+          and another on a laptop is two filters. */}
+      <div className="mb-[22px] flex flex-wrap items-center gap-x-3.5 gap-y-3" style={{ borderBottom: `1px solid ${LINE}` }}>
+        <div className="flex items-center gap-1">
+          {(["urgency", "room", "item"] as Lens[]).map((k) => {
+            const on = lens === k
+            return (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setLens(k)}
+                className="relative rounded-t-lg px-3 pb-2.5 pt-1 text-[14px] font-bold capitalize"
+                style={{ color: on ? INK : SUB }}
+              >
+                {k}
+                {on && <span className="absolute inset-x-3 rounded-full" style={{ bottom: -1, height: 2.5, background: TEAL }} />}
+              </button>
+            )
+          })}
         </div>
-        <div className="flex-1" />
-        <select
-          value={item}
-          onChange={(e) => setItem(e.target.value)}
-          aria-label="Filter by item"
-          className="rounded-[10px] px-3 py-2.5 text-[13px] font-semibold"
-          style={{ border: `1.5px solid ${LINE}`, background: SURFACE, color: INK }}
-        >
-          <option value="all">All items</option>
-          {itemList.map((it) => <option key={it} value={it}>{it}</option>)}
-        </select>
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-semibold" style={{ color: SUB }}>Group by</span>
-          <div className="flex gap-0.5 rounded-[10px] p-[3px]" style={{ background: "#E7EAE9" }}>
-            {(["urgency", "room", "item"] as Lens[]).map((k) => {
-              const on = lens === k
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setLens(k)}
-                  className="rounded-lg px-3.5 py-2 text-[13px] capitalize"
-                  style={on
-                    ? { background: SURFACE, color: INK, fontWeight: 700, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }
-                    : { background: "transparent", color: SUB, fontWeight: 600 }}
-                >
-                  {k}
-                </button>
-              )
-            })}
-          </div>
+
+        <div className="ml-auto flex flex-wrap gap-2 pb-2">
+          {TIER_FILTERS.map((o) => (
+            <TierPill
+              key={o.value}
+              active={tier === o.value}
+              color={o.dot ?? TEAL}
+              dot={!!o.dot}
+              onClick={() => setTier(o.value)}
+              count={tierCounts[o.value]}
+            >
+              {o.label}
+            </TierPill>
+          ))}
         </div>
       </div>
 
-      {/* Main list + sticky calendar rail */}
       <div className="grid items-start gap-7" style={{ gridTemplateColumns: "minmax(0,1fr) 340px" }}>
         <div className="flex flex-col gap-[26px]">
           {loading ? (
