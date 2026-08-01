@@ -72,34 +72,74 @@ describe("applyTierFilter", () => {
 // overdue — so the banner correctly stays hidden for it. The root cause of the
 // stale v1 spec was expecting "Start here" with essentials that were never
 // overdue (no completion history).
-describe("computeInsight (Fix C — Start here nudge)", () => {
+describe("computeInsight — Start here, or nothing", () => {
   it("2 overdue essentials → kind: start, 'Start here'", () => {
     const tasks = [
       task({ priorityTier: "essential", isOverdue: true }),
       task({ priorityTier: "essential", isOverdue: true }),
     ]
-    const insight = computeInsight(tasks)
+    const insight = computeInsight(tasks)!
     expect(insight.kind).toBe("start")
     expect(insight.label).toBe("Start here")
     expect(insight.text).toMatch(/2 essential tasks are overdue/)
   })
 
   it("1 overdue essential → 'Start here' (singular copy)", () => {
-    const insight = computeInsight([task({ priorityTier: "essential", isOverdue: true })])
+    const insight = computeInsight([task({ priorityTier: "essential", isOverdue: true })])!
     expect(insight.kind).toBe("start")
     expect(insight.text).toMatch(/1 essential task is overdue/)
   })
 
-  it("essentials that are past-due but NEVER completed are NOT overdue → calm", () => {
-    // isOverdue is false (the calm default for never-started work), so no banner.
+  it("essentials that are past-due but NEVER completed are NOT overdue → no banner", () => {
+    // isOverdue is false (the calm default for never-started work).
     const tasks = [
       task({ priorityTier: "essential", isOverdue: false, pastDue: true }),
       task({ priorityTier: "essential", isOverdue: false, pastDue: true }),
     ]
-    expect(computeInsight(tasks).kind).toBe("calm")
+    expect(computeInsight(tasks)).toBe(null)
   })
 
-  it("no overdue essentials → calm 'Good to know'", () => {
-    expect(computeInsight([task({ priorityTier: "recommended", isOverdue: true })]).kind).toBe("calm")
+  // ── the room hint must be TRUE ────────────────────────────────────────────
+  // Reported from a real session: three tasks, one per room, produced "Most of
+  // your list is in the Home — knock it out in one pass." One of three is not
+  // "most", and asserting something we haven't verified is the one thing this
+  // product must not do. The banner now has to earn its place.
+
+  it("REGRESSION: one task per room says nothing at all", () => {
+    const tasks = [
+      task({ roomName: "Home" }),
+      task({ roomName: "Laundry Room" }),
+      task({ roomName: "Kitchen" }),
+    ]
+    expect(computeInsight(tasks)).toBe(null)
+  })
+
+  it("a real majority in one room, and enough of them to be worth a trip → banner", () => {
+    const tasks = [
+      task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }),
+      task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }),
+      task({ roomName: "Garage" }),
+    ]
+    const insight = computeInsight(tasks)!
+    expect(insight.kind).toBe("calm")
+    // States the actual numbers rather than the vague "most".
+    expect(insight.text).toMatch(/4 of your 5 tasks are in the Kitchen/)
+  })
+
+  it("a bare majority of only two is not worth a banner", () => {
+    const tasks = [task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }), task({ roomName: "Garage" })]
+    expect(computeInsight(tasks)).toBe(null)
+  })
+
+  it("an exact tie is never 'most' — half is not a majority", () => {
+    const tasks = [
+      task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }),
+      task({ roomName: "Garage" }), task({ roomName: "Garage" }), task({ roomName: "Garage" }),
+    ]
+    expect(computeInsight(tasks)).toBe(null)
+  })
+
+  it("an empty list says nothing", () => {
+    expect(computeInsight([])).toBe(null)
   })
 })

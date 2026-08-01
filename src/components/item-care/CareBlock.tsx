@@ -164,15 +164,19 @@ const BAND_TONE: Record<BandTone, { bg: string; fg: string }> = {
  * distinguishes the four at a glance: previously "First-time setup" and "Tips"
  * were both grey outlines and read as the same afterthought.
  */
-function Band({ tone, title, count, children, onFirstOpen }: {
+function Band({ tone, title, count, children, onFirstOpen, defaultOpen = true, note }: {
   tone: BandTone
   title: string
   count: number
   children: React.ReactNode
   /** Fires the first time the user expands this band by hand. */
   onFirstOpen?: () => void
+  /** First-time setup starts closed — see the call site. */
+  defaultOpen?: boolean
+  /** One line beside the count, for a band whose closed state needs explaining. */
+  note?: string
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(defaultOpen)
   const t = BAND_TONE[tone]
   return (
     <div className="overflow-hidden rounded-[15px] border" style={{ borderColor: LINE, background: "var(--hh-surface)" }}>
@@ -184,6 +188,7 @@ function Band({ tone, title, count, children, onFirstOpen }: {
         style={{ background: t.bg }}
       >
         <span className="text-[12.5px] font-extrabold tracking-[-0.01em]" style={{ color: t.fg }}>{title}</span>
+        {note && !open && <span className="truncate text-[11px]" style={{ color: FAINT }}>{note}</span>}
         <span className="ml-auto font-mono text-[10.5px] font-bold" style={{ color: FAINT }}>{count}</span>
         {open
           ? <ChevronUpIcon className="size-[15px] shrink-0" style={{ color: FAINT }} />
@@ -687,6 +692,13 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
           tone="slate"
           title="First-time setup"
           count={fSetup.length}
+          // Closed by default. Nine open checkboxes for work that was finished
+          // the day the appliance was installed pushed the actual upkeep off
+          // the screen — and almost every item is added long AFTER install, so
+          // "already done" is the honest default. One tap opens it, and that tap
+          // is what stamps setup_revealed_at.
+          defaultOpen={item.setup_revealed_at != null}
+          note="already installed?"
           onFirstOpen={() => { void markSetupRevealed() }}
         >
           <SetupBody tasks={fSetup} homeId={homeId} itemUnitId={item.item_unit_id} m={m} />

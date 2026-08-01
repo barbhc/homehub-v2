@@ -369,14 +369,17 @@ export function TaskReviewSheet({
         )}
 
         <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">What is it?</div>
-        <div className="flex gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5">
           {KINDS.map((k) => (
             <button key={k.id} type="button" aria-pressed={displayKind(r) === k.id}
               onClick={() => setKind(r, k.id)}
-              className={`flex-1 flex flex-col items-center gap-1 rounded-xl border py-2 px-1 text-[11px] font-semibold transition-colors ${
+              className={`flex items-center gap-2 rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
                 displayKind(r) === k.id ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground"}`}>
-              <span className="text-[17px] leading-none">{k.icon}</span>{k.label}
-              <span className="text-[10.5px] font-semibold text-muted-foreground">{k.hint}</span>
+              <span className="text-[17px] leading-none shrink-0">{k.icon}</span>
+              <span className="min-w-0 leading-tight">
+                <span className="block text-[12.5px] font-bold">{k.label}</span>
+                <span className="block text-[10.5px] font-semibold text-muted-foreground">{k.hint}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -402,11 +405,12 @@ export function TaskReviewSheet({
               {TIERS.map((tier) => (
                 <button key={tier.id} type="button" aria-pressed={r.tier === tier.id}
                   onClick={() => patch(r.id, { tier: tier.id })}
-                  className={`flex-1 flex flex-col items-center gap-1 rounded-xl border py-2 px-1 text-[11px] font-semibold transition-colors ${
+                  className={`flex flex-1 flex-col items-center justify-start gap-1 rounded-xl border px-1.5 py-2.5 text-center leading-tight transition-colors ${
                     r.tier === tier.id
                       ? tier.id === "essential" ? "border-[#C2410C] bg-[#C2410C]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
                       : "border-border bg-background text-muted-foreground"}`}>
-                  <PriorityDot tier={tier.id} />{tier.label}
+                  <PriorityDot tier={tier.id} />
+                  <span className="text-[12px] font-bold">{tier.label}</span>
                   <span className="text-[10.5px] font-semibold text-muted-foreground">{onSched ? tier.onSched : tier.offSched}</span>
                 </button>
               ))}

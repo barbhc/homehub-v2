@@ -677,6 +677,10 @@ export default function Home() {
     !profileError && (homeProfile === null || homeProfile?.completed_at === null)
   useFeatureTour()
   const [completingId, setCompletingId] = useState<string | null>(null)
+  /** Instances the user has just completed, hidden until the refetch catches up.
+   *  Without this the card stayed on screen after a successful write, looking
+   *  untouched, and people tapped Mark done a second time. */
+  const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set())
   const [animateRing, setAnimateRing] = useState(false)
 
   // Calendar state
@@ -696,11 +700,24 @@ export default function Home() {
       if (!homeId) return
       setCompletingId(taskId)
       const result = await markTaskInstanceDone(homeId, taskId)
-      setCompletingId(null)
-      if (result.success) {
-        setAnimateRing(false)
-        refresh()
+      if (!result.success) {
+        // Leave it on screen — a task that failed to complete must not vanish.
+        setCompletingId(null)
+        return
       }
+      // Hide it immediately, then wait for the refetch before releasing the
+      // optimistic hide. Clearing `completingId` before `refresh()` resolved was
+      // the bug: the row un-dimmed while still listed, so it read as "nothing
+      // happened, tap again".
+      setJustCompleted((s) => new Set(s).add(taskId))
+      setAnimateRing(false)
+      setCompletingId(null)
+      await refresh()
+      setJustCompleted((s) => {
+        const next = new Set(s)
+        next.delete(taskId)
+        return next
+      })
     },
     [homeId, refresh]
   )
@@ -720,9 +737,13 @@ export default function Home() {
   const todayStr = formatLocalDateStr(new Date())
 
   // Essential overdue tasks only (the stat that matters for health score)
-  const overdueEssential = dashTasks?.overdueEssential ?? []
+  const notJustDone = useCallback(
+    (t: { id: string }) => !justCompleted.has(t.id),
+    [justCompleted],
+  )
+  const overdueEssential = (dashTasks?.overdueEssential ?? []).filter(notJustDone)
   // Due today: essential + recommended tasks due today that aren't already overdue
-  const dueSoonAll = dashTasks?.dueSoon ?? []
+  const dueSoonAll = (dashTasks?.dueSoon ?? []).filter(notJustDone)
   const dueToday = useMemo(
     () => dueSoonAll.filter((t) => t.dueDate === todayStr && (t.priority === "critical" || t.priority === "high")),
     [dueSoonAll, todayStr]
@@ -734,10 +755,10 @@ export default function Home() {
     const seen = new Set<string>()
     const out: DashboardTask[] = []
     for (const t of [...(dashTasks?.overdue ?? []), ...(dashTasks?.dueSoon ?? [])]) {
-      if (!seen.has(t.id)) { seen.add(t.id); out.push(t) }
+      if (!seen.has(t.id) && notJustDone(t)) { seen.add(t.id); out.push(t) }
     }
     return out
-  }, [dashTasks])
+  }, [dashTasks, notJustDone])
 
   // This week: upcoming essential + recommended, not today
   const thisWeekTasks = useMemo(

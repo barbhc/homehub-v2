@@ -207,7 +207,7 @@ export function useTierFilter(): [string, (t: string) => void] {
 
 export type Insight = { kind: "start" | "calm"; label: string; text: string; tone: string }
 
-export function computeInsight(tasks: WeekAgendaItem[]): Insight {
+export function computeInsight(tasks: WeekAgendaItem[]): Insight | null {
   const essOver = tasks.filter((t) => t.isOverdue && t.priorityTier === "essential").length
   if (essOver > 0) {
     return {
@@ -217,21 +217,29 @@ export function computeInsight(tasks: WeekAgendaItem[]): Insight {
       text: `${essOver} essential task${essOver > 1 ? "s are" : " is"} overdue.`,
     }
   }
+  // The room hint only earns a banner when it is actually TRUE and actually
+  // useful. It used to fire on any non-empty list, so three tasks spread one per
+  // room produced "Most of your list is in the Home — knock it out in one pass."
+  // That is not a weak tip, it is a false statement about the user's home, and
+  // stating things we haven't verified is the one thing this product must not
+  // do. Needs a real majority AND enough tasks for "one pass" to mean anything.
   const counts = new Map<string, number>()
   for (const t of tasks) {
     const r = roomOf(t)
     counts.set(r, (counts.get(r) ?? 0) + 1)
   }
   const busiest = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]
-  return {
-    kind: "calm",
-    label: "Good to know",
-    tone: TEAL,
-    text:
-      busiest && tasks.length > 0
-        ? `Most of your list is in the ${busiest[0]} — knock it out in one pass.`
-        : "You're on top of things.",
+  if (busiest && busiest[1] >= 3 && busiest[1] / tasks.length > 0.5) {
+    return {
+      kind: "calm",
+      label: "Good to know",
+      tone: TEAL,
+      text: `${busiest[1]} of your ${tasks.length} tasks are in the ${busiest[0]} — worth one pass.`,
+    }
   }
+  // Nothing worth saying. Say nothing: callers hide the banner entirely rather
+  // than fill the top of the screen with a platitude.
+  return null
 }
 
 // ── Real-date month calendar ──────────────────────────────────────────────────

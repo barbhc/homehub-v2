@@ -64,6 +64,8 @@ export default function ItemDetailPage() {
   const [faqs, setFaqs] = useState<ChatFaq[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  /** Bumped by "Try again" to re-run the fetch effect. */
+  const [reloadKey, setReloadKey] = useState(0)
   const [manualPdfUrl, setManualPdfUrl] = useState<string | null>(null)
   const [allHomeTags, setAllHomeTags] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
@@ -179,9 +181,19 @@ export default function ItemDetailPage() {
         })
       }
     })
+    .catch((e: unknown) => {
+      // Without this the page hangs on "Loading..." forever: a rejection skips
+      // the .then, so setLoading(false) never runs and nothing is shown. On a
+      // phone one dropped request is enough, and an infinite spinner is
+      // indistinguishable from the app just being slow — which is exactly how
+      // it was reported. Surface it and let them retry.
+      if (cancelled) return
+      setLoading(false)
+      setError(e instanceof Error ? e.message : "Could not load this item.")
+    })
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-fetch when home_id or id changes
-  }, [home?.home_id, id])
+  }, [home?.home_id, id, reloadKey])
 
   // Deep-link: arriving via /items/:id?manualPage=N (from a task's "From your
   // manual · p.N" reference) auto-opens the manual viewer at that page. Consume
@@ -229,6 +241,26 @@ export default function ItemDetailPage() {
     return (
       <PageContainer>
         <p className="text-muted-foreground">Loading...</p>
+      </PageContainer>
+    )
+  }
+
+  // A failed load is a dead end without this — the page previously showed the
+  // spinner forever and offered no way out.
+  if (error && !item) {
+    return (
+      <PageContainer>
+        <div className="py-16 text-center">
+          <p className="text-[15px] font-semibold text-foreground">Could not load this item.</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">{error}</p>
+          <button
+            type="button"
+            onClick={() => { setError(null); setReloadKey((k) => k + 1) }}
+            className="mt-4 rounded-xl bg-primary px-4 py-2.5 text-[13.5px] font-bold text-primary-foreground"
+          >
+            Try again
+          </button>
+        </div>
       </PageContainer>
     )
   }
