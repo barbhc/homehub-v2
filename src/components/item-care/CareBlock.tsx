@@ -371,14 +371,20 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
   return (
     <div className="border-t px-4 py-3.5" style={{ borderColor: LINE }}>
       <div className="mb-2.5 flex items-center gap-2">
-        <p className="flex-1 text-[12px]" style={{ color: SUB }}>Complete once at install. Re-check after moving or service.</p>
+        <p className="flex-1 text-[12px]" style={{ color: SUB }}>Everything here is required at install unless marked optional.</p>
         {doneCount > 0 && (
           <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.4px]" style={{ background: allDone ? TEAL_WASH : SLATE_SOFT, color: allDone ? TEAL : SLATE }}>{doneCount}/{tasks.length}</span>
         )}
       </div>
       <div className="flex flex-col" style={{ gap: m ? 12 : 12 }}>
-        {tasks.map((t) => {
+        {[...tasks]
+          .sort((a, b) => Number(a.priority_tier === "optional") - Number(b.priority_tier === "optional"))
+          .map((t) => {
           const done = isDone(t.task_template_id)
+          // Only the exceptions are marked. Most install steps are required, so
+          // stamping "Required" on nine of them would be noise; the one that is
+          // genuinely skippable — "Install side vent kit" — is the useful signal.
+          const optional = t.priority_tier === "optional"
           const loading = loadingIds.has(t.task_template_id)
           const triggers = parseTriggers(t.re_check_triggers ?? [])
           return (
@@ -387,7 +393,14 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                 <button type="button" onClick={() => toggleDone(t)} disabled={loading} aria-label={done ? "Mark not done" : "Mark done"} className="mt-px shrink-0 disabled:opacity-50" style={{ color: done ? TEAL : FAINT }}>
                   {done ? <CheckCircle2 className="size-5" /> : <Circle className="size-5" />}
                 </button>
-                <span className="flex-1 text-[13px] leading-snug" style={{ color: done ? FAINT : "#3C4A47", textDecoration: done ? "line-through" : undefined }}>{t.title}</span>
+                <span className="flex-1 text-[13px] leading-snug" style={{ color: done ? FAINT : "#3C4A47", textDecoration: done ? "line-through" : undefined }}>
+                  {t.title}
+                  {optional && (
+                    <span className="ml-1.5 inline-block rounded px-1.5 py-px align-[1px] text-[9.5px] font-bold uppercase tracking-[0.4px]" style={{ background: SLATE_SOFT, color: SLATE }}>
+                      Optional
+                    </span>
+                  )}
+                </span>
                 {done && (
                   <button type="button" onClick={() => toggleDone(t)} disabled={loading} aria-label="Mark as needing redo" className="mt-px shrink-0 disabled:opacity-50" style={{ color: FAINT }}>
                     <RotateCcw className="size-3.5" />
