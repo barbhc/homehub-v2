@@ -129,6 +129,38 @@ export function isFocusTask(t: WeekAgendaItem): boolean {
 }
 
 /**
+ * The priority menu, in order, with the labels the user actually reads.
+ *
+ * "Focus" was renamed to "Needs you" after the owner said, plainly, that she
+ * could not tell it apart from "All". The behaviour was never the problem —
+ * essential-or-overdue is the right default — but a filter has to say what it
+ * selects, and "Focus" said nothing. Everything else keeps the tier names used
+ * across the rest of the app.
+ */
+export const TIER_FILTERS: { value: string; label: string; short: string; dot: string | null }[] = [
+  // `short` is what the trigger shows; `label` is the full name in the menu,
+  // where there is room for it.
+  { value: "focus", label: "Needs you", short: "Needs you", dot: null },
+  { value: "all", label: "All priorities", short: "All", dot: null },
+  { value: "essential", label: "Essential", short: "Essential", dot: "var(--hh-clay)" },
+  { value: "recommended", label: "Recommended", short: "Recommended", dot: "var(--hh-teal)" },
+  { value: "optional", label: "Optional", short: "Optional", dot: "var(--hh-slate)" },
+]
+
+/** Counts for every option, computed over the UNFILTERED set so each choice
+ *  states what it would yield before it is picked. */
+export function tierFilterCounts(tasks: WeekAgendaItem[], item: string): Record<string, number> {
+  const scoped = applyTierFilter(tasks, "all", item)
+  return {
+    focus: scoped.filter(isFocusTask).length,
+    all: scoped.length,
+    essential: scoped.filter((t) => t.priorityTier === "essential").length,
+    recommended: scoped.filter((t) => t.priorityTier === "recommended").length,
+    optional: scoped.filter((t) => t.priorityTier === "optional").length,
+  }
+}
+
+/**
  * Tier + item filter. `tier` accepts a TierFilter; "focus" = essential OR overdue
  * (any tier), "all" = everything. Supersedes applyFilters for the task screens.
  */

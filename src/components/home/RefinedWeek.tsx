@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
-  AlarmClockIcon, CalendarDaysIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon,
-  ListIcon, PackageIcon, SparklesIcon, XIcon,
+  AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon,
+  SparklesIcon, XIcon,
 } from "lucide-react"
 import { getWeekAgenda, markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
 import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
-  addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, itemOptions, monthCalendar,
+  addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
+  TIER_FILTERS, tierFilterCounts,
   tasksDueOnDay, todayStr, useTaskDetail, whenLabel, type Lens, CLAY, TEAL,
 } from "./tasks/shared"
 
@@ -197,124 +198,6 @@ function itemMeta(t: WeekAgendaItem): string {
 }
 
 // ── Segmented controls ────────────────────────────────────────────────────────
-function Segmented<T extends string>({
-  value, onChange, options,
-}: {
-  value: T
-  onChange: (v: T) => void
-  options: [T, string, React.ReactNode?][]
-}) {
-  return (
-    <div className="flex gap-0.5 rounded-[11px] p-[3px]" style={{ background: "#E7EAE9" }}>
-      {options.map(([k, l, icon]) => {
-        const on = value === k
-        return (
-          <button
-            key={k}
-            type="button"
-            onClick={() => onChange(k)}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-[9px] py-2.5 text-[13.5px]"
-            style={on
-              ? { background: SURFACE, color: INK, fontWeight: 700, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }
-              : { background: "transparent", color: SUB, fontWeight: 600 }}
-          >
-            {icon}{l}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// ── Filters: tier chips + item sheet ──────────────────────────────────────────
-function Filters({
-  tier, setTier, item, setItem, items, total,
-}: {
-  tier: string
-  setTier: (t: string) => void
-  item: string
-  setItem: (i: string) => void
-  items: string[]
-  total: number
-}) {
-  const [sheet, setSheet] = useState(false)
-  // Leading calm "Focus" chip (teal, the default); "All · N" shows the true total
-  // so nothing feels hidden.
-  const tiers: [string, string][] = [
-    ["focus", "Focus"],
-    ["all", `All · ${total}`],
-    ["essential", "Essential"],
-    ["recommended", "Recommended"],
-    ["optional", "Optional"],
-  ]
-  const isTierDot = (k: string) => k !== "all" && k !== "focus"
-  return (
-    <>
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar" style={{ padding: `0 ${PAD}px` }}>
-        {tiers.map(([k, l]) => {
-          const on = tier === k
-          const c = isTierDot(k) ? TIER[k as Tier].dot : TEAL
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setTier(k)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[13.5px] font-bold"
-              style={{ border: `1.5px solid ${on ? "transparent" : "var(--hh-line2)"}`, background: on ? c : SURFACE, color: on ? "#fff" : INK }}
-            >
-              {isTierDot(k) && <span className="size-1.5 rounded-full" style={{ background: on ? "#fff" : TIER[k as Tier].dot }} />}
-              {l}
-            </button>
-          )
-        })}
-        <button
-          type="button"
-          onClick={() => setSheet(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[13.5px] font-bold"
-          style={{ border: `1.5px solid ${item !== "all" ? "transparent" : "var(--hh-line2)"}`, background: item !== "all" ? INK : SURFACE, color: item !== "all" ? "#fff" : INK }}
-        >
-          <PackageIcon className="size-[13px]" /> {item === "all" ? "Item" : item}<ChevronDownIcon className="size-[13px]" />
-        </button>
-      </div>
-
-      {sheet && (
-        <>
-          <div onClick={() => setSheet(false)} className="fixed inset-0 z-40" style={{ background: "rgba(8,12,11,0.4)" }} />
-          <div
-            className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[70%] w-full max-w-[460px] overflow-y-auto rounded-t-[20px]"
-            style={{ background: SURFACE, padding: `16px ${PAD}px calc(18px + env(safe-area-inset-bottom))`, boxShadow: "0 -8px 30px rgba(0,0,0,0.18)" }}
-          >
-            <div className="mx-auto mb-3.5 h-1 w-9 rounded-full" style={{ background: "var(--hh-line2)" }} />
-            <div className="mb-3 text-[16px] font-extrabold" style={{ color: INK }}>Filter by item</div>
-            <button
-              type="button"
-              onClick={() => { setItem("all"); setSheet(false) }}
-              className="flex w-full items-center gap-2.5 px-1.5 py-3 text-left"
-              style={{ borderBottom: `0.5px solid ${LINE}` }}
-            >
-              <span className="flex-1 text-[15px] font-semibold" style={{ color: INK }}>All items</span>
-              {item === "all" && <CheckIcon className="size-[18px]" style={{ color: TEAL }} />}
-            </button>
-            {items.map((it) => (
-              <button
-                key={it}
-                type="button"
-                onClick={() => { setItem(it); setSheet(false) }}
-                className="flex w-full items-center gap-2.5 px-1.5 py-3 text-left"
-                style={{ borderBottom: `0.5px solid ${LINE}` }}
-              >
-                <span className="flex-1 text-[15px] font-semibold" style={{ color: INK }}>{it}</span>
-                {item === it && <CheckIcon className="size-[18px]" style={{ color: TEAL }} />}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </>
-  )
-}
-
-// ── Month calendar ────────────────────────────────────────────────────────────
 function Calendar({
   tasks, sel, setSel,
 }: {
@@ -380,7 +263,9 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const [view, setView] = useState<View>("list")
   const [lens, setLens] = useState<Lens>("urgency")
   const [tier, setTier] = useTierFilter()
-  const [item, setItem] = useState("all")
+  // Item filtering is now the "Item" lens; kept as a constant so the shared
+  // tier helpers keep their signature.
+  const item = "all"
   const [openId, setOpenId] = useState<string | null>(null)
   const [selDay, setSelDay] = useState<number | null>(null)
   const [dismissed, setDismissed] = useState(false)
@@ -418,7 +303,19 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
   const insight = useMemo(() => computeInsight(all), [all])
-  const itemList = useMemo(() => itemOptions(items), [items])
+  const tierCounts = useMemo(() => tierFilterCounts(items, item), [items, item])
+  const activeTier = TIER_FILTERS.find((t) => t.value === tier) ?? TIER_FILTERS[0]
+  const [tierOpen, setTierOpen] = useState(false)
+  const tierRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!tierOpen) return
+    // A menu you can only close by choosing is a trap on touch.
+    const onDown = (e: PointerEvent) => {
+      if (!tierRef.current?.contains(e.target as Node)) setTierOpen(false)
+    }
+    document.addEventListener("pointerdown", onDown)
+    return () => document.removeEventListener("pointerdown", onDown)
+  }, [tierOpen])
   // Total ignoring the tier filter (for the "All · N" chip + the empty-focus link).
   const totalAll = useMemo(() => applyTierFilter(items, "all", item).length, [items, item])
 
@@ -476,35 +373,98 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
         </div>
       )}
 
-      {/* Sticky controls: toggle + filters + group-by */}
+      {/* ONE control line.
+          Was three stacked strips — a List/Calendar segment, a scrolling chip
+          row, and a "Group by" segment — roughly 190px, a quarter of the phone,
+          before a single task appeared.
+          Two of them turned out to be removable rather than shrinkable:
+            · the item filter, because grouping BY item is the same operation;
+            · the List/Calendar toggle, because "as a calendar" is just a fourth
+              way to look at the same list, so it joins the lens tabs.
+          What's left is one lens and one priority menu, side by side. */}
       <div
         className="sticky top-0 z-20"
-        style={{ background: BG, paddingBottom: 14, boxShadow: "0 8px 14px -10px rgba(15,23,42,0.18)" }}
+        style={{ background: BG, boxShadow: "0 8px 14px -10px rgba(15,23,42,0.18)" }}
       >
-        <div style={{ padding: `16px ${PAD}px 0` }}>
-          <Segmented<View>
-            value={view}
-            onChange={setView}
-            options={[
-              ["list", "List", <ListIcon key="l" className="size-[15px]" />],
-              ["calendar", "Calendar", <CalendarDaysIcon key="c" className="size-[15px]" />],
-            ]}
-          />
-        </div>
-        <div className="h-3.5" />
-        <Filters tier={tier} setTier={setTier} item={item} setItem={setItem} items={itemList} total={totalAll} />
-        {view === "list" && (
-          <div className="flex items-center gap-2" style={{ padding: `14px ${PAD}px 0` }}>
-            <span className="shrink-0 text-[13.5px] font-semibold" style={{ color: SUB }}>Group by</span>
-            <div className="flex-1">
-              <Segmented<Lens>
-                value={lens}
-                onChange={setLens}
-                options={[["urgency", "Urgency"], ["room", "Room"], ["item", "Item"]]}
-              />
-            </div>
+        <div
+          className="flex items-center gap-1"
+          style={{ padding: `14px ${PAD}px 0`, borderBottom: "1px solid var(--hh-line)" }}
+        >
+          {/* Tabs scroll rather than squeeze: four labels plus the priority pill
+              overflow a 390px screen, and a control half off the edge is worse
+              than one you scroll to. The pill stays pinned. */}
+          <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto no-scrollbar">
+          {([["urgency", "Urgency"], ["room", "Room"], ["item", "Item"], ["calendar", "Calendar"]] as const).map(
+            ([k, label]) => {
+              const on = k === "calendar" ? view === "calendar" : view === "list" && lens === k
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    if (k === "calendar") { setView("calendar"); return }
+                    setView("list"); setLens(k as Lens)
+                  }}
+                  className="relative shrink-0 rounded-t-lg px-2.5 pb-2 pt-1 text-[13.5px] font-bold"
+                  style={{ color: on ? INK : SUB }}
+                >
+                  {label}
+                  {on && (
+                    <span
+                      className="absolute inset-x-2.5 rounded-full"
+                      style={{ bottom: -1, height: 2.5, background: TEAL }}
+                    />
+                  )}
+                </button>
+              )
+            },
+          )}
           </div>
-        )}
+
+          <div className="relative shrink-0 pb-1.5" ref={tierRef}>
+            <button
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={tierOpen}
+              onClick={() => setTierOpen((v) => !v)}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-bold"
+              style={{ border: "1.5px solid var(--hh-line2)", background: SURFACE, color: INK }}
+            >
+              {activeTier.dot && <span className="size-[7px] shrink-0 rounded-full" style={{ background: activeTier.dot }} />}
+              {activeTier.short}
+              <ChevronDownIcon className="size-3.5" style={{ color: SUB }} />
+            </button>
+
+            {tierOpen && (
+              <div
+                role="listbox"
+                className="absolute right-0 z-30 mt-1.5 w-[218px] overflow-hidden rounded-2xl"
+                style={{ background: SURFACE, border: "1px solid var(--hh-line2)", boxShadow: "0 12px 28px rgba(15,23,42,0.16)" }}
+              >
+                {TIER_FILTERS.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="option"
+                    aria-selected={tier === o.value}
+                    onClick={() => { setTier(o.value); setTierOpen(false) }}
+                    className="flex w-full items-center gap-2 px-3.5 py-3 text-left"
+                    style={{ borderBottom: "1px solid var(--hh-line)" }}
+                  >
+                    {o.dot
+                      ? <span className="size-[7px] shrink-0 rounded-full" style={{ background: o.dot }} />
+                      : <span className="size-[7px] shrink-0" />}
+                    <span className="flex-1 text-[13.5px] font-bold" style={{ color: INK }}>{o.label}</span>
+                    {/* The count is the point: it says what you'd get, before you pick. */}
+                    <span className="font-mono text-[11px]" style={{ color: SUB }}>{tierCounts[o.value]}</span>
+                    {tier === o.value && <CheckIcon className="size-4" style={{ color: TEAL }} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Body */}
