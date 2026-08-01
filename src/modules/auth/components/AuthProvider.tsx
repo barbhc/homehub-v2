@@ -106,15 +106,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
     let lastUid: string | null = null
-    const unsub = onAuthStateChanged(auth, (u) => {
-      // Tie analytics to the uid; reset only on a real sign-out (not the initial
-      // signed-out emission, which would churn the anonymous id every cold load).
-      if (u) identifyUser(u.uid)
-      else if (lastUid) resetAnalyticsIdentity()
-      lastUid = u?.uid ?? null
-      setUser(toAuthUser(u))
-      setLoading(false)
-    })
+    const unsub = onAuthStateChanged(
+      auth,
+      (u) => {
+        // Tie analytics to the uid; reset only on a real sign-out (not the initial
+        // signed-out emission, which would churn the anonymous id every cold load).
+        if (u) identifyUser(u.uid)
+        else if (lastUid) resetAnalyticsIdentity()
+        lastUid = u?.uid ?? null
+        setUser(toAuthUser(u))
+        setLoading(false)
+      },
+      // Without this third argument the observer's error path is unhandled, so
+      // setLoading(false) never runs and EVERY authenticated screen sits on
+      // "Loading..." forever with no way out — the app-wide version of the
+      // missing .catch on the item page. Auth can fail to resolve for dull
+      // reasons: blocked IndexedDB persistence, a private-mode browser, a flaky
+      // first request in the iOS WebView.
+      //
+      // Treat "we could not determine who you are" as signed out rather than as
+      // limbo: AuthGate then sends them to sign-in, which is somewhere they can
+      // act, instead of a spinner they can only force-quit.
+      () => {
+        setUser(null)
+        setLoading(false)
+      },
+    )
     return () => unsub()
   }, [])
 

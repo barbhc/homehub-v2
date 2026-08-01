@@ -71,6 +71,27 @@ const TIERS: { id: PriorityTier; label: string; onSched: string; offSched: strin
   { id: "optional", label: "Optional", onSched: "if you like", offSched: "if you like" },
 ]
 
+/**
+ * For a one-time install step, "how important?" barely means anything — of
+ * course connecting the gas matters. The owner: "If you're setting up an item,
+ * theoretically, most of the tasks will be essential."
+ *
+ * The real distinction in the data is narrower: some install steps must happen
+ * before you can use the thing, and some are optional extras. Her own dryer had
+ * both — "Connect Gas Supply" against "Install side vent kit (Optional)". So
+ * setup rows get that question instead, in two answers.
+ *
+ * These map onto the SAME priority_tier field (essential / optional), so nothing
+ * downstream needs to know: it is the question that changes, not the storage.
+ */
+const SETUP_LEVELS: { id: PriorityTier; label: string; hint: string }[] = [
+  { id: "essential", label: "Required", hint: "before first use" },
+  { id: "optional", label: "Optional", hint: "an extra" },
+]
+/** Anything not explicitly Optional reads as Required — a setup step left at
+ *  "recommended" by the parser is one you still have to do. */
+const setupLevelOf = (tier: PriorityTier): PriorityTier => (tier === "optional" ? "optional" : "essential")
+
 const CADENCES: { id: ScheduleType; label: string }[] = [
   { id: "weekly", label: "Weekly" },
   { id: "monthly", label: "Monthly" },
@@ -369,14 +390,17 @@ export function TaskReviewSheet({
         )}
 
         <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">What is it?</div>
-        <div className="flex gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5">
           {KINDS.map((k) => (
             <button key={k.id} type="button" aria-pressed={displayKind(r) === k.id}
               onClick={() => setKind(r, k.id)}
-              className={`flex-1 flex flex-col items-center gap-1 rounded-xl border py-2 px-1 text-[11px] font-semibold transition-colors ${
+              className={`flex items-center gap-2 rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
                 displayKind(r) === k.id ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground"}`}>
-              <span className="text-[17px] leading-none">{k.icon}</span>{k.label}
-              <span className="text-[10.5px] font-semibold text-muted-foreground">{k.hint}</span>
+              <span className="text-[17px] leading-none shrink-0">{k.icon}</span>
+              <span className="min-w-0 leading-tight">
+                <span className="block text-[12.5px] font-bold">{k.label}</span>
+                <span className="block text-[10.5px] font-semibold text-muted-foreground">{k.hint}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -397,20 +421,45 @@ export function TaskReviewSheet({
                 {onSched ? "Take off schedule" : "Put on a schedule"}
               </button>
             </div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">How important?</div>
-            <div className="flex gap-1.5">
-              {TIERS.map((tier) => (
-                <button key={tier.id} type="button" aria-pressed={r.tier === tier.id}
-                  onClick={() => patch(r.id, { tier: tier.id })}
-                  className={`flex-1 flex flex-col items-center gap-1 rounded-xl border py-2 px-1 text-[11px] font-semibold transition-colors ${
-                    r.tier === tier.id
-                      ? tier.id === "essential" ? "border-[#C2410C] bg-[#C2410C]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
-                      : "border-border bg-background text-muted-foreground"}`}>
-                  <PriorityDot tier={tier.id} />{tier.label}
-                  <span className="text-[10.5px] font-semibold text-muted-foreground">{onSched ? tier.onSched : tier.offSched}</span>
-                </button>
-              ))}
-            </div>
+            {displayKind(r) === "setup" ? (
+              <>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">Is it required?</div>
+                <div className="flex gap-1.5">
+                  {SETUP_LEVELS.map((lv) => {
+                    const on = setupLevelOf(r.tier) === lv.id
+                    return (
+                      <button key={lv.id} type="button" aria-pressed={on}
+                        onClick={() => patch(r.id, { tier: lv.id })}
+                        className={`flex flex-1 flex-col items-center justify-start gap-1 rounded-xl border px-1.5 py-2.5 text-center leading-tight transition-colors ${
+                          on
+                            ? lv.id === "essential" ? "border-[#C2410C] bg-[#C2410C]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
+                            : "border-border bg-background text-muted-foreground"}`}>
+                        <span className="text-[12px] font-bold">{lv.label}</span>
+                        <span className="text-[10.5px] font-semibold text-muted-foreground">{lv.hint}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">How important?</div>
+                <div className="flex gap-1.5">
+                  {TIERS.map((tier) => (
+                    <button key={tier.id} type="button" aria-pressed={r.tier === tier.id}
+                      onClick={() => patch(r.id, { tier: tier.id })}
+                      className={`flex flex-1 flex-col items-center justify-start gap-1 rounded-xl border px-1.5 py-2.5 text-center leading-tight transition-colors ${
+                        r.tier === tier.id
+                          ? tier.id === "essential" ? "border-[#C2410C] bg-[#C2410C]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-background text-muted-foreground"}`}>
+                      <PriorityDot tier={tier.id} />
+                      <span className="text-[12px] font-bold">{tier.label}</span>
+                      <span className="text-[10.5px] font-semibold text-muted-foreground">{onSched ? tier.onSched : tier.offSched}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* The reminder, asked separately from priority. Only offered when the
                 task is actually scheduled — off the schedule there is no due date

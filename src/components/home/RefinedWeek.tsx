@@ -350,7 +350,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
       </div>
 
       {/* "Start here" insight banner — dismissible */}
-      {!loading && !dismissed && total > 0 && (
+      {!loading && !dismissed && insight && total > 0 && (
         <div style={{ padding: `${17}px ${PAD}px 0` }}>
           <div
             className="relative flex items-center gap-3 overflow-hidden rounded-2xl p-4"

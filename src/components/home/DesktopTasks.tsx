@@ -279,7 +279,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
       </div>
 
       {/* "Start here" insight banner — dismissible */}
-      {!loading && !dismissed && total > 0 && (
+      {!loading && !dismissed && insight && total > 0 && (
         <div
           className="relative mb-6 flex items-center gap-3.5 overflow-hidden rounded-2xl px-[18px] py-4"
           style={{ background: SURFACE, border: `1.5px solid ${insight.tone}33`, boxShadow: `0 2px 16px ${insight.tone}1f` }}

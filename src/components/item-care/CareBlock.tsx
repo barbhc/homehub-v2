@@ -164,15 +164,19 @@ const BAND_TONE: Record<BandTone, { bg: string; fg: string }> = {
  * distinguishes the four at a glance: previously "First-time setup" and "Tips"
  * were both grey outlines and read as the same afterthought.
  */
-function Band({ tone, title, count, children, onFirstOpen }: {
+function Band({ tone, title, count, children, onFirstOpen, defaultOpen = true, note }: {
   tone: BandTone
   title: string
   count: number
   children: React.ReactNode
   /** Fires the first time the user expands this band by hand. */
   onFirstOpen?: () => void
+  /** First-time setup starts closed — see the call site. */
+  defaultOpen?: boolean
+  /** One line beside the count, for a band whose closed state needs explaining. */
+  note?: string
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(defaultOpen)
   const t = BAND_TONE[tone]
   return (
     <div className="overflow-hidden rounded-[15px] border" style={{ borderColor: LINE, background: "var(--hh-surface)" }}>
@@ -184,6 +188,7 @@ function Band({ tone, title, count, children, onFirstOpen }: {
         style={{ background: t.bg }}
       >
         <span className="text-[12.5px] font-extrabold tracking-[-0.01em]" style={{ color: t.fg }}>{title}</span>
+        {note && !open && <span className="truncate text-[11px]" style={{ color: FAINT }}>{note}</span>}
         <span className="ml-auto font-mono text-[10.5px] font-bold" style={{ color: FAINT }}>{count}</span>
         {open
           ? <ChevronUpIcon className="size-[15px] shrink-0" style={{ color: FAINT }} />
@@ -366,14 +371,20 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
   return (
     <div className="border-t px-4 py-3.5" style={{ borderColor: LINE }}>
       <div className="mb-2.5 flex items-center gap-2">
-        <p className="flex-1 text-[12px]" style={{ color: SUB }}>Complete once at install. Re-check after moving or service.</p>
+        <p className="flex-1 text-[12px]" style={{ color: SUB }}>Everything here is required at install unless marked optional.</p>
         {doneCount > 0 && (
           <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.4px]" style={{ background: allDone ? TEAL_WASH : SLATE_SOFT, color: allDone ? TEAL : SLATE }}>{doneCount}/{tasks.length}</span>
         )}
       </div>
       <div className="flex flex-col" style={{ gap: m ? 12 : 12 }}>
-        {tasks.map((t) => {
+        {[...tasks]
+          .sort((a, b) => Number(a.priority_tier === "optional") - Number(b.priority_tier === "optional"))
+          .map((t) => {
           const done = isDone(t.task_template_id)
+          // Only the exceptions are marked. Most install steps are required, so
+          // stamping "Required" on nine of them would be noise; the one that is
+          // genuinely skippable — "Install side vent kit" — is the useful signal.
+          const optional = t.priority_tier === "optional"
           const loading = loadingIds.has(t.task_template_id)
           const triggers = parseTriggers(t.re_check_triggers ?? [])
           return (
@@ -382,7 +393,14 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                 <button type="button" onClick={() => toggleDone(t)} disabled={loading} aria-label={done ? "Mark not done" : "Mark done"} className="mt-px shrink-0 disabled:opacity-50" style={{ color: done ? TEAL : FAINT }}>
                   {done ? <CheckCircle2 className="size-5" /> : <Circle className="size-5" />}
                 </button>
-                <span className="flex-1 text-[13px] leading-snug" style={{ color: done ? FAINT : "#3C4A47", textDecoration: done ? "line-through" : undefined }}>{t.title}</span>
+                <span className="flex-1 text-[13px] leading-snug" style={{ color: done ? FAINT : "#3C4A47", textDecoration: done ? "line-through" : undefined }}>
+                  {t.title}
+                  {optional && (
+                    <span className="ml-1.5 inline-block rounded px-1.5 py-px align-[1px] text-[9.5px] font-bold uppercase tracking-[0.4px]" style={{ background: SLATE_SOFT, color: SLATE }}>
+                      Optional
+                    </span>
+                  )}
+                </span>
                 {done && (
                   <button type="button" onClick={() => toggleDone(t)} disabled={loading} aria-label="Mark as needing redo" className="mt-px shrink-0 disabled:opacity-50" style={{ color: FAINT }}>
                     <RotateCcw className="size-3.5" />
@@ -687,6 +705,13 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
           tone="slate"
           title="First-time setup"
           count={fSetup.length}
+          // Closed by default. Nine open checkboxes for work that was finished
+          // the day the appliance was installed pushed the actual upkeep off
+          // the screen — and almost every item is added long AFTER install, so
+          // "already done" is the honest default. One tap opens it, and that tap
+          // is what stamps setup_revealed_at.
+          defaultOpen={item.setup_revealed_at != null}
+          note="already installed?"
           onFirstOpen={() => { void markSetupRevealed() }}
         >
           <SetupBody tasks={fSetup} homeId={homeId} itemUnitId={item.item_unit_id} m={m} />
