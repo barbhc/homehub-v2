@@ -167,8 +167,16 @@ export default function Tasks() {
     async (fn: () => Promise<{ success: boolean; error?: string }>) => {
       setBulkLoading(true)
       setBulkError(null)
-      const result = await fn()
-      setBulkLoading(false)
+      let result: { success: boolean; error?: string }
+      try {
+        result = await fn()
+      } catch (e) {
+        // A throw inside the bulk action used to leave bulkLoading true forever:
+        // the buttons stayed disabled and the bar could not even be dismissed.
+        result = { success: false, error: e instanceof Error ? e.message : "Action failed" }
+      } finally {
+        setBulkLoading(false)
+      }
       if (result.success) {
         setSelectedIds(new Set())
         setSelectionMode(false)

@@ -73,15 +73,28 @@ export function HomeMembersSection({ homeId }: Props) {
   const currentUserRole = members.find((m) => m.user_id === userId)?.role ?? null
   const isOwner = currentUserRole === "owner"
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   const load = useCallback(async () => {
     setLoading(true)
-    const [membersRes, invitesRes] = await Promise.all([
-      getHomeMembers(homeId),
-      getActiveInvites(homeId),
-    ])
-    setMembers(membersRes.data ?? [])
-    setInvites(invitesRes.data ?? [])
-    setLoading(false)
+    setLoadError(null)
+    try {
+      const [membersRes, invitesRes] = await Promise.all([
+        getHomeMembers(homeId),
+        getActiveInvites(homeId),
+      ])
+      setMembers(membersRes.data ?? [])
+      setInvites(invitesRes.data ?? [])
+    } catch (e) {
+      // try/finally alone cleared the spinner but left the rejection unhandled
+      // AND rendered an empty list — which reads as "you have no members",
+      // a silent lie about who can see this home.
+      setLoadError(e instanceof Error ? e.message : "Could not load members.")
+    } finally {
+      // In a finally, not after the await: a throw used to skip setLoading
+      // entirely and leave the members list spinning with no way to retry.
+      setLoading(false)
+    }
   }, [homeId])
 
   useEffect(() => {
@@ -155,6 +168,13 @@ export function HomeMembersSection({ homeId }: Props) {
 
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : loadError ? (
+            <div className="text-sm">
+              <p className="text-destructive">{loadError}</p>
+              <button type="button" onClick={() => void load()} className="mt-1 font-semibold text-primary">
+                Try again
+              </button>
+            </div>
           ) : (
             <>
               {/* Members list */}

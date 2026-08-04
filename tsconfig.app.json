@@ -26,7 +26,7 @@
     "noUncheckedSideEffectImports": true
   },
   "include": ["src"],
-  // indexCoverage.test.ts is a node-API static guard (fs scan of the repo) —
-  // vitest runs it fine, but this browser-lib config can't type node:fs.
-  "exclude": ["src/test/indexCoverage.test.ts"]
+  // Node-API static guards (fs scans of the repo) — vitest runs them fine, but
+  // this browser-lib config can't type node:fs.
+  "exclude": ["src/test/indexCoverage.test.ts", "src/test/noUnhandledFetch.test.ts"]
 }
