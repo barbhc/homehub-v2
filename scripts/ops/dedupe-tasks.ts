@@ -32,10 +32,34 @@ if (!HOME_ID) {
   process.exit(1)
 }
 
-/** Each pair: the title to keep, and the duplicate to retire. Both must exist
- *  and be active, or the run aborts without writing. */
-const PAIRS: { keep: string; retire: string }[] = [
-  { keep: "Replace the Air Filter", retire: "Filter Replacement" },
+/**
+ * Each pair names the row to keep and the one to retire.
+ *
+ * Usually by TITLE. But a re-parse can emit the SAME title twice with different
+ * cadences — the range carried two rows both called "Clean Burner Grates", one
+ * weekly and one monthly — and a title cannot distinguish those. Those pairs are
+ * addressed by document id instead, which is the only unambiguous handle.
+ *
+ * Either form aborts unless it resolves to exactly one keep and one retire.
+ */
+type Pair =
+  | { keep: string; retire: string; note?: string }
+  | { keepId: string; retireId: string; note?: string }
+
+const PAIRS: Pair[] = [
+  // Round 1 (applied 2026-08-03) — left here as the record of what ran.
+  // { keep: "Replace the Air Filter", retire: "Filter Replacement" },
+
+  // Round 2 — the owner's calls, 2026-08-04.
+  {
+    // Same title twice; only the cadence differs. Monthly is the keeper.
+    keepId: "63ae043c-776f-4671-ba26-a228e8d61c36",   // Clean Burner Grates · monthly
+    retireId: "zMF1Fe0xViob6faSsbg7",                 // Clean Burner Grates · weekly
+    note: "Clean Burner Grates — keep monthly, drop weekly",
+  },
+  { keep: "Run Oven Self-Clean or Steam Clean", retire: "Steam Clean Oven" },
+  { keep: "Clean the Airfoils", retire: "Clean Airfoils with Soap and Water" },
+  { keep: "Check Fan Wiring", retire: "Inspect Wiring Connections" },
 ]
 
 interface Row {
@@ -107,13 +131,19 @@ async function main() {
   const plan: { keep: Row; retire: Row; open: { id: string; status: string; dueDate: string }[]; done: number }[] = []
 
   for (const pair of PAIRS) {
-    const keep = rows.filter((r) => r.title === pair.keep)
-    const retire = rows.filter((r) => r.title === pair.retire)
+    const byId = "keepId" in pair
+    const keep = byId ? rows.filter((r) => r.id === pair.keepId) : rows.filter((r) => r.title === pair.keep)
+    const retire = byId ? rows.filter((r) => r.id === pair.retireId) : rows.filter((r) => r.title === pair.retire)
+    const label = byId ? (pair.note ?? `${pair.keepId} / ${pair.retireId}`) : `"${pair.keep}" / "${pair.retire}"`
     if (keep.length !== 1 || retire.length !== 1) {
       console.error(
-        `✖ Manifest mismatch for "${pair.keep}" / "${pair.retire}": found ${keep.length} to keep, ${retire.length} to retire. Expected exactly 1 of each.`,
+        `✖ Manifest mismatch for ${label}: found ${keep.length} to keep, ${retire.length} to retire. Expected exactly 1 of each.`,
       )
       console.error("  Aborting without writing — resolve by hand rather than guessing.")
+      process.exit(1)
+    }
+    if (keep[0].id === retire[0].id) {
+      console.error(`✖ ${label} resolves to the SAME row. Refusing to retire the row being kept.`)
       process.exit(1)
     }
     plan.push({
