@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { clearCachedHome } from "@/lib/homeCache"
 import { markBoot } from "@/lib/bootTiming"
 import {
   onAuthStateChanged,
@@ -151,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Drop the persisted dashboard cache so the next account on this device
     // never briefly sees the previous user's Home.
     clearPersistedDashboardCache()
+    clearCachedHome()
     await fbSignOut(auth)
   }, [])
 
