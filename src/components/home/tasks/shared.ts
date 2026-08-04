@@ -180,16 +180,23 @@ export function applyTierFilter(tasks: WeekAgendaItem[], tier: string, item: str
 const TIER_STORAGE_KEY = "homehub:tasks-tier"
 
 /**
- * Tier-filter state that persists within a session but resets to "focus" each
+ * Tier-filter state that persists within a session but resets to "all" each
  * NEW session (sessionStorage is per-tab-session by design). Shared by mobile
  * RefinedWeek and desktop DesktopTasks so the behavior can't drift.
+ *
+ * The default WAS "focus" (essential-or-overdue). The owner questioned that
+ * filter twice — first as "Focus", then, renamed, as "Needs you" — and the
+ * second time the page was reporting "2 to do" while quietly hiding nine more.
+ * A default that filters is a default that hides; grouping by Urgency already
+ * puts what needs you first without pretending the rest doesn't exist.
+ * "Needs you" stays in the menu as an opt-in lens.
  */
 export function useTierFilter(): [string, (t: string) => void] {
   const [tier, setTierState] = useState<string>(() => {
     try {
-      return sessionStorage.getItem(TIER_STORAGE_KEY) || "focus"
+      return sessionStorage.getItem(TIER_STORAGE_KEY) || "all"
     } catch {
-      return "focus"
+      return "all"
     }
   })
   const setTier = (t: string) => {

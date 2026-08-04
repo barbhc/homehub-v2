@@ -6,7 +6,7 @@ import {
   PackageIcon, type LucideIcon,
 } from "lucide-react"
 import type { ItemUnit } from "@/integrations/types"
-import { TIER, dens } from "@/lib/redesign/tokens"
+import { dens } from "@/lib/redesign/tokens"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 
@@ -41,12 +41,10 @@ type SortMode = "room" | "category" | "recent"
 export function RefinedItems({
   items,
   rooms,
-  itemIdsWithTasks,
   density = "cozy",
 }: {
   items: ItemUnit[]
   rooms: Array<{ room_id: string; name: string }>
-  itemIdsWithTasks: Set<string>
   density?: "spacious" | "cozy" | "compact"
 }) {
   const d = dens(density)
@@ -153,9 +151,12 @@ export function RefinedItems({
                         {[it.brand, sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : null)].filter(Boolean).join(" · ")}
                       </div>
                     </div>
-                    {itemIdsWithTasks.has(it.item_unit_id) && (
-                      <span title="Task due" className="size-2 shrink-0 rounded-full" style={{ background: TIER.essential.dot }} />
-                    )}
+                    {/* The clay dot that used to sit here was titled "Task due"
+                        but its condition was "has any tasks at all" — true for
+                        every item in the owner's home, in the colour the app
+                        reserves for genuine urgency. Fourteen warnings that
+                        warn about nothing. Real urgency belongs to Home and
+                        Tasks, which actually know what is due. */}
                     <ChevronRightIcon className="size-[18px] text-[#C2CBD4]" />
                   </Link>
                 ))}

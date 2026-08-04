@@ -4,7 +4,6 @@ import {
   WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, type LucideIcon,
 } from "lucide-react"
 import type { ItemUnit } from "@/integrations/types"
-import { TIER } from "@/lib/redesign/tokens"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 
@@ -32,11 +31,10 @@ function Pill({ active, count, children, onClick }: { active: boolean; count?: n
 }
 
 export function DesktopItems({
-  items, rooms, itemIdsWithTasks,
+  items, rooms,
 }: {
   items: ItemUnit[]
   rooms: Array<{ room_id: string; name: string }>
-  itemIdsWithTasks: Set<string>
 }) {
   const [sort, setSort] = useState<SortMode>("room")
   const [roomFilter, setRoomFilter] = useState<string | "all">("all")
@@ -82,7 +80,6 @@ export function DesktopItems({
                 const Glyph = glyphFor(it)
                 return (
                   <Link key={it.item_unit_id} to={`/items/${it.item_unit_id}`} className="relative flex min-h-[168px] flex-col gap-3 rounded-[18px] bg-[var(--hh-surface)] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-                    {itemIdsWithTasks.has(it.item_unit_id) && <span className="absolute right-3.5 top-3.5 size-2 rounded-full" style={{ background: TIER.essential.dot }} />}
                     <div className="flex size-12 items-center justify-center rounded-xl" style={{ background: "linear-gradient(135deg,#EEF3F1,#E3ECE8)", color: TEAL }}>
                       <Glyph className="size-6" strokeWidth={1.8} />
                     </div>

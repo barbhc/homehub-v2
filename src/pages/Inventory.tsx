@@ -14,7 +14,6 @@ import {
 import { useCurrentHome } from "@/modules/home"
 import { getRooms } from "@/modules/home"
 import { getItemUnits } from "@/modules/items"
-import { getItemIdsWithTasks } from "@/lib/dashboard"
 import { RefinedItems } from "@/components/home/RefinedItems"
 import { DesktopItems } from "@/components/home/DesktopItems"
 import { cn } from "@/lib/utils"
@@ -102,7 +101,7 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil((new Date(y, (m ?? 1) - 1, d ?? 1).getTime() - Date.now()) / 86400000)
 }
 
-function ItemCard({ item, hasTasks }: { item: ItemUnit; hasTasks: boolean }) {
+function ItemCard({ item }: { item: ItemUnit }) {
   // Timely signals only — show a chip when it's actionable, not on every card.
   // Recall (safety) takes precedence over a soon-ending warranty.
   const hasRecall = item.recall_status === "found"
@@ -114,9 +113,6 @@ function ItemCard({ item, hasTasks }: { item: ItemUnit; hasTasks: boolean }) {
       to={`/items/${item.item_unit_id}`}
       className="relative bg-card border border-border rounded-xl p-3 flex flex-col items-center text-center hover:border-primary/40 transition-colors group"
     >
-      {hasTasks && (
-        <span className="absolute top-2 right-2 size-1.5 rounded-full bg-primary" aria-label="Has tasks" />
-      )}
       <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center mb-2 shrink-0">
         <ItemIcon item={item} />
       </div>
@@ -149,11 +145,9 @@ function ItemCard({ item, hasTasks }: { item: ItemUnit; hasTasks: boolean }) {
 function RoomSection({
   roomName,
   roomItems,
-  itemIdsWithTasks,
 }: {
   roomName: string
   roomItems: ItemUnit[]
-  itemIdsWithTasks: Set<string>
 }) {
   return (
     <section>
@@ -166,7 +160,6 @@ function RoomSection({
           <ItemCard
             key={item.item_unit_id}
             item={item}
-            hasTasks={itemIdsWithTasks.has(item.item_unit_id)}
           />
         ))}
       </div>
@@ -184,7 +177,6 @@ export default function Inventory() {
   const [rooms, setRooms] = useState<Array<{ room_id: string; name: string }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [itemIdsWithTasks, setItemIdsWithTasks] = useState<Set<string>>(new Set())
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null) // null = All
 
   useEffect(() => {
@@ -194,11 +186,9 @@ export default function Inventory() {
     Promise.all([
       getItemUnits(home.home_id),
       getRooms(home.home_id),
-      getItemIdsWithTasks(home.home_id),
-    ]).then(([itemsRes, roomsRes, ids]) => {
+    ]).then(([itemsRes, roomsRes]) => {
       setItems(itemsRes.data ?? [])
       setRooms(roomsRes.data ?? [])
-      setItemIdsWithTasks(ids)
       setError(itemsRes.error?.message ?? roomsRes.error?.message ?? null)
       setLoading(false)
     }).catch((e: unknown) => {
@@ -290,11 +280,11 @@ export default function Inventory() {
         {/* Redesigned Items — list (mobile) · card grid (desktop) */}
         <div className="lg:hidden -mx-6">
           <div className="mx-auto w-full max-w-[460px]">
-            <RefinedItems items={items} rooms={rooms} itemIdsWithTasks={itemIdsWithTasks} />
+            <RefinedItems items={items} rooms={rooms} />
           </div>
         </div>
         <div className="hidden lg:block">
-          <DesktopItems items={items} rooms={rooms} itemIdsWithTasks={itemIdsWithTasks} />
+          <DesktopItems items={items} rooms={rooms} />
         </div>
         {/* Old grid kept (hidden) — replaced by RefinedItems/DesktopItems */}
         <div className="hidden">
@@ -347,7 +337,6 @@ export default function Inventory() {
                 key={key}
                 roomName={roomName}
                 roomItems={roomItems}
-                itemIdsWithTasks={itemIdsWithTasks}
               />
             )
           })}
