@@ -288,7 +288,12 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
           {open ? "Hide" : "See how"}{open ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
         </button>
-        {canOpenTask && <ChevronRightIcon onClick={openTask} className="size-4 shrink-0 cursor-pointer" style={{ color: "#C2CBD4" }} />}
+        {/* The slot is ALWAYS this wide. Rendering the chevron only for rows with
+            an open instance made "See how" sit at two different x positions down
+            the same list, which reads as sloppy rather than as meaningful. */}
+        <span className="w-4 shrink-0">
+          {canOpenTask && <ChevronRightIcon onClick={openTask} className="size-4 cursor-pointer" style={{ color: "#C2CBD4" }} />}
+        </span>
       </div>
       {open && (
         <div className="px-4 pb-4 pt-1.5" style={{ background: SLATE_SOFT }}>
@@ -333,10 +338,13 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
  * Mark done — it exists so the manual's usage guidance stays findable without
  * becoming a reminder.
  */
-function UsageTipRows({ tips, taskTips, onOpenManualPage }: {
+function UsageTipRows({ tips, taskTips, onOpenManualPage, canOpenManual }: {
   tips: KnowledgeChunk[]
   taskTips: TaskTemplateWithSchedule[]
   onOpenManualPage?: (page: number) => void
+  /** False when the PDF could not be resolved. The page number is still worth
+   *  showing — it tells you where to look — but as text, not a dead button. */
+  canOpenManual: boolean
 }) {
   const rows = [
     ...tips.map((t) => ({ key: t.chunk_id, title: t.title ?? "Tip", body: t.content, page: t.source_pages?.[0] ?? null })),
@@ -348,10 +356,17 @@ function UsageTipRows({ tips, taskTips, onOpenManualPage }: {
         <li key={r.key} className="border-t px-4 py-3" style={{ borderColor: LINE }}>
           <p className="text-[13.5px] font-semibold" style={{ color: INK }}>{r.title}</p>
           {r.body && <p className="mt-0.5 text-[12.5px] leading-snug" style={{ color: SUB }}>{r.body}</p>}
-          {r.page != null && onOpenManualPage && (
-            <button type="button" onClick={() => onOpenManualPage(r.page!)} className="mt-1 text-[11.5px] font-bold" style={{ color: TEAL }}>
-              Manual p.{r.page}
-            </button>
+          {r.page != null && (
+            canOpenManual && onOpenManualPage ? (
+              <button type="button" onClick={() => onOpenManualPage(r.page!)} className="mt-1 text-[11.5px] font-bold" style={{ color: TEAL }}>
+                Manual p.{r.page}
+              </button>
+            ) : (
+              // Tapping this used to set state that `dockOpen` then discarded
+              // because the PDF URL was null — a button that silently did
+              // nothing. Say where it is instead of pretending to go there.
+              <span className="mt-1 block text-[11.5px] font-semibold" style={{ color: FAINT }}>Manual p.{r.page}</span>
+            )
           )}
         </li>
       ))}
@@ -495,12 +510,15 @@ export interface CareBlockProps {
   chunks: KnowledgeChunk[]
   hasManual: boolean
   onOpenManualPage?: (page: number) => void
+  /** Whether the manual PDF actually resolved. Page references render as plain
+   *  text when it didn't, rather than as buttons that silently do nothing. */
+  canOpenManual?: boolean
   onItemUpdate?: (item: ItemUnit) => void
   /** Mobile spacing. */
   m?: boolean
 }
 
-export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManualPage, onItemUpdate, m }: CareBlockProps) {
+export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManualPage, canOpenManual = false, onItemUpdate, m }: CareBlockProps) {
   // One partition, by the same rule the review wizard uses.
   const scheduled = tasks.filter((t) => isScheduled(bucketOf(t)))
   const whenNeeded = tasks.filter((t) => bucketOf(t) === "whenNeeded")
@@ -694,7 +712,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
 
       {(usageTips.length > 0 || fTipTasks.length > 0) && (
         <Band tone="violet" title="Tips — using it well" count={usageTips.length + fTipTasks.length}>
-          <UsageTipRows tips={usageTips} taskTips={fTipTasks} onOpenManualPage={onOpenManualPage} />
+          <UsageTipRows tips={usageTips} taskTips={fTipTasks} onOpenManualPage={onOpenManualPage} canOpenManual={canOpenManual} />
         </Band>
       )}
 
