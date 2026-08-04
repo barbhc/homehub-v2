@@ -20,9 +20,9 @@ export type BootPhase =
   | "react"         // createRoot().render() called
   | "auth"          // onAuthStateChanged delivered its first value
   | "home"          // the home context resolved to a home id
-  | "dash:round1"   // profile/stats/upcoming/warranties/notices/guides/upkeep
-  | "dash:round2"   // the task list itself
+  | "dash:core"     // stats + the task list — the critical path
   | "content"       // Home rendered real content rather than a skeleton
+  | "dash:extras"   // supplementary data, deliberately OFF the critical path
 
 const marks: { phase: BootPhase; at: number }[] = []
 
@@ -42,10 +42,24 @@ export function markBoot(phase: BootPhase): void {
   persist()
 }
 
-/** Deltas between consecutive phases — the shape that shows WHERE the time goes,
- *  which cumulative timestamps hide. */
+/**
+ * Deltas along the CRITICAL PATH — the shape that shows where the time goes,
+ * which cumulative timestamps hide.
+ *
+ * `dash:extras` is excluded from the chain on purpose: it runs in parallel with
+ * `dash:core`, so subtracting it from whatever mark happened to land before it
+ * would produce a number that means nothing. It is reported separately as an
+ * absolute time, which is the only honest way to show a parallel branch.
+ */
 export function bootReport(): { phase: BootPhase; at: number; delta: number }[] {
-  return marks.map((m, i) => ({ ...m, delta: i === 0 ? m.at : m.at - marks[i - 1].at }))
+  const path = marks.filter((m) => m.phase !== "dash:extras")
+  return path.map((m, i) => ({ ...m, delta: i === 0 ? m.at : m.at - path[i - 1].at }))
+}
+
+/** When the supplementary round finished, in absolute ms. Off the critical path:
+ *  Home is already interactive before this lands. */
+export function extrasFinishedAt(): number | null {
+  return marks.find((m) => m.phase === "dash:extras")?.at ?? null
 }
 
 function persist(): void {
@@ -59,6 +73,7 @@ function persist(): void {
         ttfb: nav ? Math.round(nav.responseStart) : null,
         domInteractive: nav ? Math.round(nav.domInteractive) : null,
         phases: bootReport(),
+        extrasAt: extrasFinishedAt(),
         // False until Home actually painted content — a trace without this is a
         // boot that never finished, and the last phase is where it stopped.
         complete: marks.some((m) => m.phase === "content"),
@@ -79,6 +94,7 @@ export function lastBootTiming(): {
   ttfb: number | null
   domInteractive: number | null
   phases: { phase: BootPhase; at: number; delta: number }[]
+  extrasAt: number | null
   complete: boolean
   standalone: boolean
   native: string

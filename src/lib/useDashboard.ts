@@ -26,9 +26,11 @@ import { getHomeUpkeep, type HomeUpkeepItem } from "@/modules/care"
 import { persistDashboardSnapshot } from "./swrPersist"
 import { markBoot } from "./bootTiming"
 
-interface DashboardData {
+interface DashboardCore {
   tasks: DashboardTasksResult
   stats: DashboardStats
+}
+interface DashboardExtras {
   upcoming: MaintenanceTaskFull[]
   insights: InsightCard[]
   expiringWarranties: ExpiringWarrantyItem[]
@@ -48,41 +50,47 @@ function soft<T>(p: Promise<T>, fallback: T, label: string): Promise<T> {
 
 const EMPTY_NOTICES: HomeNotices = { recalls: [], missingDetails: [] }
 
-async function fetchDashboard(homeId: string): Promise<DashboardData> {
-  // Round 1. Only stats is core (below); every supplementary query fails soft so
-  // one hiccup can't blank the whole Home. Profile drives task ordering only.
-  const [profileRes, stats, upcoming, expiringWarranties, notices, cleaningGuides, homeUpkeepRes] =
-    await Promise.all([
-      soft(getHomeProfile(homeId), { data: null, error: null } as Awaited<ReturnType<typeof getHomeProfile>>, "profile"),
-      getDashboardStats(homeId), // core — a real failure here surfaces the retry card
-      soft(getUpcomingTasks(homeId), [], "upcoming"),
-      soft(getExpiringWarranties(homeId), [], "warranties"),
-      soft(getHomeNotices(homeId), EMPTY_NOTICES, "notices"),
-      // Powers the desktop "Deep-clean guides" rail (advanced/power level only).
-      // Curated, guide-level + capped — NOT the full per-step cleaning feed.
-      soft(getDeepCleanGuides(homeId), [], "cleaningGuides"),
-      // Powers the desktop "Home upkeep" list: home-scoped recurring tasks.
-      soft(getHomeUpkeep(homeId), { data: [], error: null } as Awaited<ReturnType<typeof getHomeUpkeep>>, "homeUpkeep"),
-    ])
-  markBoot("dash:round1")
-  const topConcerns = profileRes.data?.top_concerns ?? []
-
-  // Round 2: tasks (core) + insights (supplementary).
-  const [tasks, insights] = await Promise.all([
-    getDashboardTasks(homeId, topConcerns), // core
-    soft(getInsights(homeId, expiringWarranties), [], "insights"),
+/**
+ * CORE — the two things Home cannot render without: the health stats and the
+ * task list. Everything else is supplementary and must not gate first paint.
+ *
+ * Measured on the owner's phone (2026-08-04, cold start, native shell): the old
+ * single fetch spent 1955ms of a 4387ms boot in a round of SEVEN parallel
+ * queries, and only then started the task list — which took 174ms. So the list
+ * she was waiting on sat behind deep-clean guides and home-upkeep, neither of
+ * which mobile Home even renders.
+ *
+ * `topConcerns` from the profile only applies an ordering BOOST
+ * (priorityScoreFor), so tasks depend on the profile alone — one query — rather
+ * than on the slowest of seven.
+ */
+async function fetchCore(homeId: string): Promise<DashboardCore> {
+  const [profileRes, stats] = await Promise.all([
+    soft(getHomeProfile(homeId), { data: null, error: null } as Awaited<ReturnType<typeof getHomeProfile>>, "profile"),
+    getDashboardStats(homeId), // core — a real failure here surfaces the retry card
   ])
-  markBoot("dash:round2")
-  return {
-    tasks,
-    stats,
-    upcoming,
-    insights,
-    expiringWarranties,
-    notices,
-    cleaningGuides,
-    homeUpkeep: homeUpkeepRes.data ?? [],
-  }
+  const tasks = await getDashboardTasks(homeId, profileRes.data?.top_concerns ?? [])
+  markBoot("dash:core")
+  return { stats, tasks }
+}
+
+/**
+ * SUPPLEMENTARY — warranties, notices, guides, upkeep, upcoming, insights.
+ * Every one fails soft: a flaky query here degrades its own section to empty and
+ * never blanks Home. Fetched alongside core, rendered whenever it lands.
+ */
+async function fetchExtras(homeId: string): Promise<DashboardExtras> {
+  const [upcoming, expiringWarranties, notices, cleaningGuides, homeUpkeepRes] = await Promise.all([
+    soft(getUpcomingTasks(homeId), [], "upcoming"),
+    soft(getExpiringWarranties(homeId), [], "warranties"),
+    soft(getHomeNotices(homeId), EMPTY_NOTICES, "notices"),
+    soft(getDeepCleanGuides(homeId), [], "cleaningGuides"),
+    soft(getHomeUpkeep(homeId), { data: [], error: null } as Awaited<ReturnType<typeof getHomeUpkeep>>, "homeUpkeep"),
+  ])
+  markBoot("dash:extras")
+  // Insights read the warranties, so this one genuinely is second.
+  const insights = await soft(getInsights(homeId, expiringWarranties), [], "insights")
+  return { upcoming, insights, expiringWarranties, notices, cleaningGuides, homeUpkeep: homeUpkeepRes.data ?? [] }
 }
 
 /** Reject after `ms` so a hung Firestore query surfaces the retry card instead
@@ -96,36 +104,52 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ])
 }
 
+/**
+ * Two keys, not one. Home's skeleton gates on CORE only, so the supplementary
+ * round can take as long as it likes without anyone staring at a spinner.
+ *
+ * Both keys keep the `dashboard:` prefix that swrPersist requires, so the warm
+ * start still works. The first launch after this ships has no snapshot under the
+ * new keys and will be a cold one; every launch after that is warm again.
+ */
 export function useDashboard(homeId: string | null) {
-  const { data, error, isLoading, mutate } = useSWR(
-    homeId ? `dashboard:${homeId}` : null,
-    () => withTimeout(fetchDashboard(homeId!), 20_000),
+  const core = useSWR<DashboardCore>(
+    homeId ? `dashboard:core:${homeId}` : null,
+    () => withTimeout(fetchCore(homeId!), 20_000),
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       dedupingInterval: 5000,
-      // App.tsx seeds the last dashboard as SWR `fallback`, so reopen paints the
-      // previous Home instantly; keepPreviousData avoids a skeleton flash while
-      // it revalidates.
       keepPreviousData: true,
-      // Write the snapshot on every success rather than on unload: iOS can kill a
-      // backgrounded WebView without firing beforeunload/visibilitychange, which
-      // is exactly the reopen the warm start exists for.
       onSuccess: (fresh, key) => persistDashboardSnapshot(key, fresh),
-    }
+    },
+  )
+
+  const extras = useSWR<DashboardExtras>(
+    homeId ? `dashboard:extras:${homeId}` : null,
+    () => withTimeout(fetchExtras(homeId!), 20_000),
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 5000,
+      keepPreviousData: true,
+      onSuccess: (fresh, key) => persistDashboardSnapshot(key, fresh),
+    },
   )
 
   return {
-    tasks: data?.tasks ?? null,
-    stats: data?.stats ?? null,
-    upcoming: data?.upcoming ?? [],
-    insights: data?.insights ?? [],
-    expiringWarranties: data?.expiringWarranties ?? [],
-    notices: data?.notices ?? { recalls: [], missingDetails: [] },
-    cleaningGuides: data?.cleaningGuides ?? [],
-    homeUpkeep: data?.homeUpkeep ?? [],
-    isLoading,
-    error,
-    refresh: mutate,
+    tasks: core.data?.tasks ?? null,
+    stats: core.data?.stats ?? null,
+    upcoming: extras.data?.upcoming ?? [],
+    insights: extras.data?.insights ?? [],
+    expiringWarranties: extras.data?.expiringWarranties ?? [],
+    notices: extras.data?.notices ?? { recalls: [], missingDetails: [] },
+    cleaningGuides: extras.data?.cleaningGuides ?? [],
+    homeUpkeep: extras.data?.homeUpkeep ?? [],
+    // CORE only. Gating the skeleton on the supplementary round is exactly the
+    // 1955ms this change exists to stop charging the user.
+    isLoading: core.isLoading,
+    error: core.error,
+    refresh: () => Promise.all([core.mutate(), extras.mutate()]),
   }
 }
