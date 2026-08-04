@@ -1,0 +1,386 @@
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { BellOffIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, SparklesIcon } from "lucide-react"
+import type { DashboardTask, MaintenanceTaskFull } from "@/lib/dashboard"
+import { getRecentCompletions } from "@/lib/dashboard"
+import { getItemUnits } from "@/modules/items"
+import { detectWins, comingUp, drawerMeta, dueThisMonth, fmtWhen, GAP_DAYS, type QuickWin, type ComingUpRow } from "@/lib/homeHero"
+
+/** Local YYYY-MM-DD (not toISOString, which is UTC and flips the date at night). */
+function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+/**
+ * The composed Home top: one stateful hero card, a Coming-up drawer, and an
+ * on-demand monthly briefing. Design signed off 2026-08-05 (round 4).
+ *
+ * The rules that shaped it, so they survive refactors:
+ *   · The hero IS the alert surface. A busy day changes its CONTENT — the task
+ *     becomes the headline, stated once, with Mark done — never its temperature:
+ *     the card stays teal in every state, and the only clay on a bad day is the
+ *     overdue text itself. Urgency is information, not atmosphere.
+ *   · Stats are buttons that say where they go; a zero is inert, because a tap
+ *     that opens an empty list teaches people to stop tapping.
+ *   · The win face hides when no win is true (insight-banner rule).
+ *   · The drawer answers while closed ("2 in August · next Sat, Aug 15").
+ *   · The briefing exists only when asked for, from real data, deterministic.
+ */
+
+const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)"
+const TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)", LINE = "var(--hh-line)"
+
+// ── hero ─────────────────────────────────────────────────────────────────────
+
+function StatBand({ itemsCount, dueMonth, overdueCount, onDue, onOverdue }: {
+  itemsCount: number
+  dueMonth: number
+  overdueCount: number
+  onDue: () => void
+  onOverdue: () => void
+}) {
+  const navigate = useNavigate()
+  const month = new Date().toLocaleDateString("en-US", { month: "short" })
+  const cell = "flex flex-1 items-center justify-center gap-1.5 py-2.5 px-1"
+  const divider = { borderLeft: "1px solid color-mix(in srgb, var(--hh-teal) 10%, var(--hh-line))" }
+  return (
+    <div
+      className="mt-3 flex overflow-hidden rounded-[13px] border"
+      style={{ background: "color-mix(in srgb, var(--hh-surface) 78%, transparent)", borderColor: "color-mix(in srgb, var(--hh-teal) 14%, var(--hh-line))" }}
+    >
+      <button type="button" onClick={() => navigate("/inventory")} className={cell}>
+        <span className="text-[15.5px] font-extrabold tracking-[-0.02em]" style={{ color: INK }}>{itemsCount}</span>
+        <span className="text-[11.5px] font-semibold" style={{ color: SUB }}>items</span>
+        <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
+      </button>
+      <button type="button" onClick={onDue} className={cell} style={divider}>
+        <span className="text-[15.5px] font-extrabold tracking-[-0.02em]" style={{ color: INK }}>{dueMonth}</span>
+        <span className="text-[11.5px] font-semibold" style={{ color: SUB }}>due in {month}</span>
+        <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
+      </button>
+      {overdueCount > 0 ? (
+        <button type="button" onClick={onOverdue} className={cell} style={divider}>
+          <span className="text-[15.5px] font-extrabold tracking-[-0.02em]" style={{ color: CLAY }}>{overdueCount}</span>
+          <span className="text-[11.5px] font-semibold" style={{ color: SUB }}>overdue</span>
+          <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
+        </button>
+      ) : (
+        // Inert by design: tapping into an empty list is how users learn to
+        // stop tapping. No chevron, no handler.
+        <div className={cell} style={divider} aria-disabled="true">
+          <span className="text-[15.5px] font-extrabold tracking-[-0.02em]" style={{ color: TEAL }}>0</span>
+          <span className="text-[11.5px] font-semibold" style={{ color: SUB }}>overdue</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId, onComplete, onSnooze }: {
+  /** Overdue + due-soon feed (the old urgent stack's data). */
+  tasks: DashboardTask[]
+  /** Forward schedule for the drawer + "due this month". */
+  upcoming: MaintenanceTaskFull[]
+  itemsCount: number
+  homeId: string | null
+  completingId: string | null
+  onComplete: (id: string) => void
+  onSnooze: (id: string) => void
+}) {
+  const navigate = useNavigate()
+  const today = localToday()
+
+  // Busy = something is genuinely on you today: overdue, or due today. Due-in-
+  // three-days lives in the drawer — that's planning, not interruption.
+  const urgent = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.isOverdue || (t.daysUntilDue != null && t.daysUntilDue <= 0))
+        .sort((a, b) => (b.daysOverdue ?? 0) - (a.daysOverdue ?? 0)),
+    [tasks],
+  )
+  const heroTask = urgent[0] ?? null
+
+  // ── faces ──────────────────────────────────────────────────────────────────
+  const [face, setFace] = useState(0)
+  const [wins, setWins] = useState<QuickWin[]>([])
+  const [winIx, setWinIx] = useState(0)
+  useEffect(() => {
+    if (!homeId) return
+    let cancelled = false
+    getItemUnits(homeId)
+      .then((res) => {
+        if (!cancelled && res.data) setWins(detectWins(res.data))
+      })
+      .catch(() => {
+        /* wins are optional by definition — a failed detector shows no face */
+      })
+    return () => { cancelled = true }
+  }, [homeId])
+  const faces = wins.length > 0 ? 2 : 1
+  const activeFace = Math.min(face, faces - 1)
+
+  // Swipe between faces (touch), dots as the visible affordance.
+  const touchX = useRef<number | null>(null)
+  const onTouchStart = (e: React.TouchEvent) => { touchX.current = e.touches[0].clientX }
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchX.current == null || faces === 1) return
+    const dx = e.changedTouches[0].clientX - touchX.current
+    if (Math.abs(dx) > 40) setFace((f) => (dx < 0 ? Math.min(f + 1, faces - 1) : Math.max(f - 1, 0)))
+    touchX.current = null
+  }
+
+  // ── drawer ─────────────────────────────────────────────────────────────────
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [pulse, setPulse] = useState(false)
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const openDrawer = () => {
+    setDrawerOpen(true)
+    setPulse(true)
+    setTimeout(() => setPulse(false), 900)
+    setTimeout(() => drawerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60)
+  }
+
+  const rows: ComingUpRow[] = useMemo(() => {
+    // The drawer merges the urgent feed (overdue) with the forward schedule,
+    // deduped by id — getUpcomingTasks is future-only.
+    const overdueRows = urgent
+      .filter((t) => t.isOverdue && t.dueDate)
+      .map((t) => ({ id: t.id, title: t.name, itemName: t.itemName, next_due_date: t.dueDate, isOverdue: true }))
+    const seen = new Set(overdueRows.map((r) => r.id))
+    const forward = upcoming.filter((t) => !seen.has(t.id))
+    return comingUp([...overdueRows, ...forward], today)
+  }, [urgent, upcoming, today])
+
+  const dueMonth = useMemo(() => dueThisMonth(upcoming, today), [upcoming, today])
+  const nextQuiet = rows.find((r) => r.overdueDays == null)
+
+  // ── briefing ───────────────────────────────────────────────────────────────
+  const [briefOpen, setBriefOpen] = useState(false)
+  const [brief, setBrief] = useState<{ done30: number; lastDone: string | null } | null>(null)
+  const [briefError, setBriefError] = useState<string | null>(null)
+  const generate = async () => {
+    if (briefOpen) { setBriefOpen(false); return }
+    setBriefOpen(true)
+    if (brief || !homeId) return
+    try {
+      setBrief(await getRecentCompletions(homeId, 30))
+    } catch (e) {
+      // The row must never hold a spinner it can't resolve.
+      setBriefError(e instanceof Error ? e.message : "Could not gather your month.")
+    }
+  }
+
+  const win = wins.length ? wins[winIx % wins.length] : null
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {/* ── hero ─────────────────────────────────────────────────────────── */}
+      <div
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        className="overflow-hidden rounded-[20px] border shadow-[0_6px_22px_rgba(11,26,22,0.07)]"
+        style={{
+          borderColor: "color-mix(in srgb, var(--hh-teal) 20%, var(--hh-line))",
+          background: "linear-gradient(155deg, var(--hh-teal-wash), var(--hh-surface) 62%)",
+        }}
+      >
+        <div className="px-4 pb-3 pt-4">
+          {activeFace === 0 ? (
+            heroTask ? (
+              <>
+                <div className="font-mono text-[9.5px] font-extrabold uppercase tracking-[0.12em]" style={{ color: TEAL }}>
+                  {urgent.length > 1 ? `${urgent.length} need you — first:` : "Needs you first"}
+                </div>
+                <div className="mt-1 text-[19px] font-extrabold leading-[1.22] tracking-[-0.02em]" style={{ color: INK }}>
+                  {heroTask.name}
+                </div>
+                <div className="mt-0.5 text-[12.5px]" style={{ color: SUB }}>
+                  {heroTask.itemName ?? "Home"}
+                  {heroTask.isOverdue && heroTask.daysOverdue != null && (
+                    <> · <span className="font-bold" style={{ color: CLAY }}>{heroTask.daysOverdue} day{heroTask.daysOverdue === 1 ? "" : "s"} overdue</span></>
+                  )}
+                  {!heroTask.isOverdue && <> · due today</>}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={completingId === heroTask.id}
+                    onClick={() => onComplete(heroTask.id)}
+                    className="rounded-[11px] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
+                    style={{ background: TEAL }}
+                  >
+                    Mark done
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSnooze(heroTask.id)}
+                    className="rounded-[11px] border px-3.5 py-2 text-[12.5px] font-semibold"
+                    style={{ borderColor: LINE, background: "var(--hh-surface)", color: SUB }}
+                  >
+                    <BellOffIcon className="mr-1 inline size-3.5 align-[-2px]" />Snooze
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full border-[2.5px] text-[17px] font-extrabold"
+                  style={{ borderColor: TEAL, color: TEAL, background: "var(--hh-surface)" }}
+                >
+                  <CheckIcon className="size-5" strokeWidth={3} />
+                </span>
+                <span>
+                  <span className="block text-[18px] font-extrabold leading-tight tracking-[-0.02em]" style={{ color: INK }}>
+                    {nextQuiet ? `All quiet until ${fmtWhen(nextQuiet.dueDate).replace(/^\w+, /, "")}` : "All quiet"}
+                  </span>
+                  <span className="mt-0.5 block text-[12.5px]" style={{ color: SUB }}>
+                    {nextQuiet ? `Nothing is overdue. Next: ${nextQuiet.title.toLowerCase()}.` : "Nothing is overdue, and nothing is scheduled yet."}
+                  </span>
+                </span>
+              </div>
+            )
+          ) : win ? (
+            <>
+              <div className="font-mono text-[9.5px] font-extrabold uppercase tracking-[0.11em]" style={{ color: TEAL }}>{win.kicker}</div>
+              <div className="mt-1 text-[17.5px] font-extrabold tracking-[-0.02em]" style={{ color: INK }}>{win.title}</div>
+              <div className="mt-1 text-[13px] leading-[1.45]" style={{ color: SUB }}>{win.why}</div>
+              <div className="mt-3 flex items-center gap-2">
+                <button type="button" onClick={() => navigate(win.to)} className="rounded-[11px] px-4 py-2 text-[13px] font-bold text-white" style={{ background: TEAL }}>
+                  {win.cta}
+                </button>
+                <button type="button" onClick={() => setWinIx((i) => i + 1)} className="text-[12.5px] font-semibold" style={{ color: SUB }}>
+                  Maybe later
+                </button>
+              </div>
+            </>
+          ) : null}
+
+          {activeFace === 0 && (
+            <StatBand
+              itemsCount={itemsCount}
+              dueMonth={dueMonth}
+              overdueCount={urgent.filter((t) => t.isOverdue).length}
+              onDue={openDrawer}
+              onOverdue={openDrawer}
+            />
+          )}
+        </div>
+
+        {faces > 1 && (
+          <div className="flex items-center justify-center gap-1.5 pb-2.5">
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={i === 0 ? "Home summary" : "One small thing"}
+                onClick={() => setFace(i)}
+                className="rounded-full transition-all"
+                style={{
+                  width: activeFace === i ? 14 : 5,
+                  height: 5,
+                  background: activeFace === i ? "var(--hh-teal)" : "var(--hh-line)",
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── coming up ────────────────────────────────────────────────────── */}
+      <div
+        ref={drawerRef}
+        className="overflow-hidden rounded-[15px] border transition-shadow"
+        style={{
+          borderColor: LINE,
+          background: "var(--hh-surface)",
+          boxShadow: pulse ? "0 0 0 2.5px color-mix(in srgb, var(--hh-teal) 35%, transparent)" : undefined,
+        }}
+      >
+        <button type="button" onClick={() => setDrawerOpen((v) => !v)} aria-expanded={drawerOpen} className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-slate-soft)" }}>
+            <CalendarDaysIcon className="size-[15px]" style={{ color: "var(--hh-slate)" }} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-bold" style={{ color: INK }}>Coming up</span>
+            <span className="block text-[11.5px]" style={{ color: SUB }}>{drawerMeta(rows, today)}</span>
+          </span>
+          <ChevronRightIcon className="size-4 shrink-0 transition-transform" style={{ color: FAINT, transform: drawerOpen ? "rotate(90deg)" : undefined }} />
+        </button>
+        {drawerOpen && rows.length > 0 && (
+          <div style={{ borderTop: `1px solid ${LINE}` }}>
+            {rows.map((r) => (
+              <div key={r.id}>
+                {r.gapBefore >= GAP_DAYS && (
+                  <div className="px-4 py-1.5 text-[11.5px] italic" style={{ color: FAINT, background: "color-mix(in srgb, var(--hh-bg) 55%, var(--hh-surface))", borderBottom: `1px solid ${LINE}` }}>
+                    — {Math.round(r.gapBefore / 7)} quiet week{Math.round(r.gapBefore / 7) === 1 ? "" : "s"} —
+                  </div>
+                )}
+                <div className="flex items-baseline gap-2.5 px-4 py-2.5" style={{ borderBottom: `1px solid ${LINE}` }}>
+                  <span className="min-w-0 flex-1 text-[13.5px] font-semibold" style={{ color: INK }}>{r.title}</span>
+                  <span className="whitespace-nowrap text-[12px]" style={{ color: r.overdueDays != null ? CLAY : SUB, fontWeight: r.overdueDays != null ? 700 : 500 }}>
+                    {r.overdueDays != null ? `${r.overdueDays} days overdue` : r.when}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── monthly briefing ─────────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-[15px] border" style={{ borderColor: LINE, background: "var(--hh-surface)" }}>
+        <button type="button" onClick={() => void generate()} aria-expanded={briefOpen} className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-teal-wash)" }}>
+            <SparklesIcon className="size-[15px]" style={{ color: TEAL }} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-bold" style={{ color: INK }}>Monthly briefing</span>
+            <span className="block text-[11.5px]" style={{ color: SUB }}>
+              {briefOpen ? "Generated from your home's data" : "Tap to generate — the past 30 days, and what's ahead"}
+            </span>
+          </span>
+          <ChevronRightIcon className="size-4 shrink-0 transition-transform" style={{ color: FAINT, transform: briefOpen ? "rotate(90deg)" : undefined }} />
+        </button>
+        {briefOpen && (
+          <div className="px-4 pb-4 pt-1" style={{ borderTop: `1px solid ${LINE}` }}>
+            {briefError ? (
+              <p className="pt-2 text-[12.5px]" style={{ color: CLAY }}>{briefError}</p>
+            ) : !brief ? (
+              <p className="pt-2 text-[12.5px]" style={{ color: SUB }}>Gathering your month…</p>
+            ) : (
+              <>
+                <div className="pt-2" style={{ fontFamily: '"Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif' }}>
+                  <span className="text-[17px] font-semibold tracking-[-0.01em]" style={{ color: INK }}>
+                    {brief.done30 > 0 ? "A steady month, in good shape." : "A quiet stretch."}
+                  </span>
+                </div>
+                <div className="mt-2.5">
+                  <div className="font-mono text-[9px] font-extrabold uppercase tracking-[0.1em]" style={{ color: FAINT }}>The past 30 days</div>
+                  <p className="mt-0.5 text-[13px] leading-[1.5]" style={{ color: INK }}>
+                    {brief.done30 > 0
+                      ? <>You completed <b>{brief.done30} task{brief.done30 === 1 ? "" : "s"}</b>{brief.lastDone ? <> — most recently &ldquo;{brief.lastDone}&rdquo;</> : null}.</>
+                      : <>Nothing was completed — which is fine when nothing was due.</>}
+                  </p>
+                </div>
+                <div className="mt-2.5">
+                  <div className="font-mono text-[9px] font-extrabold uppercase tracking-[0.1em]" style={{ color: FAINT }}>Ahead</div>
+                  <p className="mt-0.5 text-[13px] leading-[1.5]" style={{ color: INK }}>
+                    {rows.filter((r) => r.overdueDays == null).slice(0, 2).map((r, i) => (
+                      <span key={r.id}>{i > 0 ? " Then " : ""}{r.title} ({r.when}).</span>
+                    ))}
+                    {rows.filter((r) => r.overdueDays == null).length === 0 && "Nothing on the schedule yet."}
+                  </p>
+                </div>
+                <p className="mt-3 text-[10.5px]" style={{ color: FAINT }}>
+                  Covers the past 30 days and the month ahead · regenerates when you ask
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
