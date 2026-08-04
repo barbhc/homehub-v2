@@ -360,6 +360,7 @@ export default function ItemDetailPage() {
             hasManual={hasParsedManual}
             onBack={() => navigate("/inventory")}
             onOpenManualPage={(page) => openManualPage(page)}
+            canOpenManual={!!manualPdfUrl}
             onItemUpdate={setItem}
             reviewAction={
               home && id && tasks.length > 0 ? (

@@ -66,7 +66,7 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
 }
 
 export function RefinedItemDetail({
-  item, rooms, homeId, tasks, chunks, hasManual, onBack, onOpenManualPage, onItemUpdate, density = "cozy",
+  item, rooms, homeId, tasks, chunks, hasManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, density = "cozy",
   reviewAction, recordsSlot,
 }: {
   item: ItemUnit
@@ -78,6 +78,7 @@ export function RefinedItemDetail({
   hasManual: boolean
   onBack: () => void
   onOpenManualPage?: (page: number) => void
+  canOpenManual?: boolean
   onItemUpdate?: (item: ItemUnit) => void
   density?: "spacious" | "cozy" | "compact"
   /** "Review these tasks" — sits in the Upkeep heading, where the decision it
@@ -197,6 +198,7 @@ export function RefinedItemDetail({
           chunks={chunks}
           hasManual={hasManual}
           onOpenManualPage={onOpenManualPage}
+          canOpenManual={canOpenManual}
           onItemUpdate={onItemUpdate}
           m
         />

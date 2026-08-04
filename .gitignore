@@ -70,3 +70,6 @@ firebase/functions/lib
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Apple private keys (App Store Connect API / APNs) — never commit
+*.p8
