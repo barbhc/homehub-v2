@@ -21,9 +21,9 @@ export function BootDiagnostics() {
     react: "React mounted",
     auth: "Signed-in state resolved",
     home: "Home loaded",
-    "dash:round1": "Dashboard round 1 (7 queries)",
-    "dash:round2": "Task list (round 2)",
+    "dash:core": "Stats + task list",
     content: "Home showed real content",
+    "dash:extras": "Supplementary data",
   }
 
   const worst = t?.phases.reduce((a, b) => (b.delta > a.delta ? b : a), t.phases[0])
@@ -92,6 +92,11 @@ export function BootDiagnostics() {
               {!t.complete && (
                 <p className="mt-2 text-[12px] font-semibold" style={{ color: "var(--hh-clay)" }}>
                   This boot never finished loading — it stopped after “{LABEL[t.phases.at(-1)?.phase ?? ""] ?? "start"}”.
+                </p>
+              )}
+              {t.extrasAt != null && (
+                <p className="mt-2 text-[12px] text-muted-foreground">
+                  Supplementary data landed at {t.extrasAt}ms — in parallel, after Home was already usable.
                 </p>
               )}
               <p className="mt-2 text-[11px] text-muted-foreground">
