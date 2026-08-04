@@ -923,12 +923,15 @@ export default function Home() {
           <div className="mx-auto w-full max-w-[460px]">
             <RefinedHome
               tasks={homeTasks}
+              upcoming={upcoming}
+              itemsCount={stats?.totalItems ?? 0}
               warranties={expiringWarranties}
               cleaningGuides={cleaningGuides}
               level={level}
               homeId={homeId || null}
               completingId={completingId}
               onComplete={handleMarkComplete}
+              onSnooze={handleSnooze}
             />
           </div>
         </div>

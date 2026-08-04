@@ -58,9 +58,12 @@ export type TaskGroup = { key: string; label: string; tone: string; items: WeekA
 export function roomOf(t: WeekAgendaItem): string {
   return t.roomName ?? "Home"
 }
-/** Item label for the item filter / "Group by Item". */
+/** Item label for the item filter / "Group by Item". Home-scoped tasks group
+ *  under "Whole home" — a real address, not an apology like the old
+ *  "not linked to an item" framing. This is where the removed Home-upkeep row's
+ *  job now lives. */
 export function itemOf(t: WeekAgendaItem): string {
-  return t.itemName ?? t.roomName ?? "Home"
+  return t.itemName ?? t.roomName ?? "Whole home"
 }
 
 function sortRows(rows: WeekAgendaItem[]): WeekAgendaItem[] {

@@ -702,6 +702,29 @@ export async function getHomeNotices(homeId: string): Promise<HomeNotices> {
 }
 
 /** Returns item_unit_ids that have at least one task (instance or template). */
+/**
+ * Completions in the last `days` — the briefing's backward look. One equality
+ * query (status == done, already used elsewhere, no composite index), recency
+ * filtered client-side; a home's done-set is small.
+ */
+export async function getRecentCompletions(
+  homeId: string,
+  days: number,
+): Promise<{ done30: number; lastDone: string | null }> {
+  const snap = await getDocs(
+    query(collection(db, `homes/${homeId}/taskInstances`), where("status", "==", "done")),
+  )
+  const cutoff = Date.now() - days * 86_400_000
+  const recent = snap.docs
+    .map((d) => ({
+      title: (d.get("title") as string | null) ?? null,
+      at: (d.get("completedAt") as { toMillis?: () => number } | null)?.toMillis?.() ?? 0,
+    }))
+    .filter((r) => r.at >= cutoff)
+    .sort((a, b) => b.at - a.at)
+  return { done30: recent.length, lastDone: recent[0]?.title ?? null }
+}
+
 export async function getItemIdsWithTasks(homeId: string): Promise<Set<string>> {
   const ids = new Set<string>()
 
