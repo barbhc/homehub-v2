@@ -31,18 +31,40 @@ function localToday(): string {
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)"
 const TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)", LINE = "var(--hh-line)"
 
+/**
+ * One component, two scales. Mobile and desktop Home have drifted apart twice
+ * this week (the Tasks header, the stat band) because each had its own copy of
+ * the layout; a variant prop makes divergence impossible by construction.
+ */
+export type ComposedVariant = "mobile" | "desktop"
+const SCALE = {
+  mobile: {
+    heroPad: "px-4 pb-3 pt-4", headline: "text-[19px]", quiet: "text-[18px]", ring: "size-10",
+    statN: "text-[15.5px]", statL: "text-[11.5px]", statPad: "py-2.5",
+    rowPad: "px-3.5 py-3", rowTitle: "text-[14px]", rowMeta: "text-[11.5px]",
+    cuPad: "px-4 py-2.5", cuTitle: "text-[13.5px]", radius: 20,
+  },
+  desktop: {
+    heroPad: "px-6 pb-4 pt-5", headline: "text-[24px]", quiet: "text-[22px]", ring: "size-12",
+    statN: "text-[17px]", statL: "text-[12.5px]", statPad: "py-3",
+    rowPad: "px-5 py-3.5", rowTitle: "text-[15px]", rowMeta: "text-[12.5px]",
+    cuPad: "px-5 py-3", cuTitle: "text-[14.5px]", radius: 18,
+  },
+} as const
+
 // ── hero ─────────────────────────────────────────────────────────────────────
 
-function StatBand({ itemsCount, dueMonth, overdueCount, onDue, onOverdue }: {
+function StatBand({ itemsCount, dueMonth, overdueCount, onDue, onOverdue, sc }: {
   itemsCount: number
   dueMonth: number
   overdueCount: number
   onDue: () => void
   onOverdue: () => void
+  sc: (typeof SCALE)[ComposedVariant]
 }) {
   const navigate = useNavigate()
   const month = new Date().toLocaleDateString("en-US", { month: "short" })
-  const cell = "flex flex-1 items-center justify-center gap-1.5 py-2.5 px-1"
+  const cell = `flex flex-1 items-center justify-center gap-1.5 px-1 ${sc.statPad}`
   const divider = { borderLeft: "1px solid color-mix(in srgb, var(--hh-teal) 10%, var(--hh-line))" }
   return (
     <div
@@ -50,34 +72,34 @@ function StatBand({ itemsCount, dueMonth, overdueCount, onDue, onOverdue }: {
       style={{ background: "color-mix(in srgb, var(--hh-surface) 78%, transparent)", borderColor: "color-mix(in srgb, var(--hh-teal) 14%, var(--hh-line))" }}
     >
       <button type="button" onClick={() => navigate("/inventory")} className={cell}>
-        <span className="text-[15.5px] font-extrabold tracking-[-0.02em]" style={{ color: INK }}>{itemsCount}</span>
-        <span className="text-[11.5px] font-semibold" style={{ color: SUB }}>items</span>
+        <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: INK }}>{itemsCount}</span>
+        <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>items</span>
         <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
       </button>
       <button type="button" onClick={onDue} className={cell} style={divider}>
-        <span className="text-[15.5px] font-extrabold tracking-[-0.02em]" style={{ color: INK }}>{dueMonth}</span>
-        <span className="text-[11.5px] font-semibold" style={{ color: SUB }}>due in {month}</span>
+        <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: INK }}>{dueMonth}</span>
+        <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>due in {month}</span>
         <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
       </button>
       {overdueCount > 0 ? (
         <button type="button" onClick={onOverdue} className={cell} style={divider}>
-          <span className="text-[15.5px] font-extrabold tracking-[-0.02em]" style={{ color: CLAY }}>{overdueCount}</span>
-          <span className="text-[11.5px] font-semibold" style={{ color: SUB }}>overdue</span>
+          <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: CLAY }}>{overdueCount}</span>
+          <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>overdue</span>
           <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
         </button>
       ) : (
         // Inert by design: tapping into an empty list is how users learn to
         // stop tapping. No chevron, no handler.
         <div className={cell} style={divider} aria-disabled="true">
-          <span className="text-[15.5px] font-extrabold tracking-[-0.02em]" style={{ color: TEAL }}>0</span>
-          <span className="text-[11.5px] font-semibold" style={{ color: SUB }}>overdue</span>
+          <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: TEAL }}>0</span>
+          <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>overdue</span>
         </div>
       )}
     </div>
   )
 }
 
-export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId, onComplete, onSnooze }: {
+export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId, onComplete, onSnooze, variant = "mobile" }: {
   /** Overdue + due-soon feed (the old urgent stack's data). */
   tasks: DashboardTask[]
   /** Forward schedule for the drawer + "due this month". */
@@ -87,8 +109,10 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
   completingId: string | null
   onComplete: (id: string) => void
   onSnooze: (id: string) => void
+  variant?: ComposedVariant
 }) {
   const navigate = useNavigate()
+  const sc = SCALE[variant]
   const today = localToday()
 
   // Busy = something is genuinely on you today: overdue, or due today. Due-in-
@@ -180,20 +204,21 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
       <div
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        className="overflow-hidden rounded-[20px] border shadow-[0_6px_22px_rgba(11,26,22,0.07)]"
+        className="overflow-hidden border shadow-[0_6px_22px_rgba(11,26,22,0.07)]"
         style={{
+          borderRadius: sc.radius,
           borderColor: "color-mix(in srgb, var(--hh-teal) 20%, var(--hh-line))",
           background: "linear-gradient(155deg, var(--hh-teal-wash), var(--hh-surface) 62%)",
         }}
       >
-        <div className="px-4 pb-3 pt-4">
+        <div className={sc.heroPad}>
           {activeFace === 0 ? (
             heroTask ? (
               <>
                 <div className="font-mono text-[9.5px] font-extrabold uppercase tracking-[0.12em]" style={{ color: TEAL }}>
                   {urgent.length > 1 ? `${urgent.length} need you — first:` : "Needs you first"}
                 </div>
-                <div className="mt-1 text-[19px] font-extrabold leading-[1.22] tracking-[-0.02em]" style={{ color: INK }}>
+                <div className={`mt-1 ${sc.headline} font-extrabold leading-[1.22] tracking-[-0.02em]`} style={{ color: INK }}>
                   {heroTask.name}
                 </div>
                 <div className="mt-0.5 text-[12.5px]" style={{ color: SUB }}>
@@ -226,13 +251,13 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
             ) : (
               <div className="flex items-center gap-3">
                 <span
-                  className="flex size-10 shrink-0 items-center justify-center rounded-full border-[2.5px] text-[17px] font-extrabold"
+                  className={`flex ${sc.ring} shrink-0 items-center justify-center rounded-full border-[2.5px] text-[17px] font-extrabold`}
                   style={{ borderColor: TEAL, color: TEAL, background: "var(--hh-surface)" }}
                 >
                   <CheckIcon className="size-5" strokeWidth={3} />
                 </span>
                 <span>
-                  <span className="block text-[18px] font-extrabold leading-tight tracking-[-0.02em]" style={{ color: INK }}>
+                  <span className={`block ${sc.quiet} font-extrabold leading-tight tracking-[-0.02em]`} style={{ color: INK }}>
                     {nextQuiet ? `All quiet until ${fmtWhen(nextQuiet.dueDate).replace(/^\w+, /, "")}` : "All quiet"}
                   </span>
                   <span className="mt-0.5 block text-[12.5px]" style={{ color: SUB }}>
@@ -244,7 +269,7 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
           ) : win ? (
             <>
               <div className="font-mono text-[9.5px] font-extrabold uppercase tracking-[0.11em]" style={{ color: TEAL }}>{win.kicker}</div>
-              <div className="mt-1 text-[17.5px] font-extrabold tracking-[-0.02em]" style={{ color: INK }}>{win.title}</div>
+              <div className={`mt-1 ${sc.quiet} font-extrabold tracking-[-0.02em]`} style={{ color: INK }}>{win.title}</div>
               <div className="mt-1 text-[13px] leading-[1.45]" style={{ color: SUB }}>{win.why}</div>
               <div className="mt-3 flex items-center gap-2">
                 <button type="button" onClick={() => navigate(win.to)} className="rounded-[11px] px-4 py-2 text-[13px] font-bold text-white" style={{ background: TEAL }}>
@@ -259,6 +284,7 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
 
           {activeFace === 0 && (
             <StatBand
+              sc={sc}
               itemsCount={itemsCount}
               dueMonth={dueMonth}
               overdueCount={urgent.filter((t) => t.isOverdue).length}
@@ -298,13 +324,13 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
           boxShadow: pulse ? "0 0 0 2.5px color-mix(in srgb, var(--hh-teal) 35%, transparent)" : undefined,
         }}
       >
-        <button type="button" onClick={() => setDrawerOpen((v) => !v)} aria-expanded={drawerOpen} className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left">
+        <button type="button" onClick={() => setDrawerOpen((v) => !v)} aria-expanded={drawerOpen} className={`flex w-full items-center gap-2.5 text-left ${sc.rowPad}`}>
           <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-slate-soft)" }}>
             <CalendarDaysIcon className="size-[15px]" style={{ color: "var(--hh-slate)" }} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-bold" style={{ color: INK }}>Coming up</span>
-            <span className="block text-[11.5px]" style={{ color: SUB }}>{drawerMeta(rows, today)}</span>
+            <span className={`block ${sc.rowTitle} font-bold`} style={{ color: INK }}>Coming up</span>
+            <span className={`block ${sc.rowMeta}`} style={{ color: SUB }}>{drawerMeta(rows, today)}</span>
           </span>
           <ChevronRightIcon className="size-4 shrink-0 transition-transform" style={{ color: FAINT, transform: drawerOpen ? "rotate(90deg)" : undefined }} />
         </button>
@@ -317,8 +343,8 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
                     — {Math.round(r.gapBefore / 7)} quiet week{Math.round(r.gapBefore / 7) === 1 ? "" : "s"} —
                   </div>
                 )}
-                <div className="flex items-baseline gap-2.5 px-4 py-2.5" style={{ borderBottom: `1px solid ${LINE}` }}>
-                  <span className="min-w-0 flex-1 text-[13.5px] font-semibold" style={{ color: INK }}>{r.title}</span>
+                <div className={`flex items-baseline gap-2.5 ${sc.cuPad}`} style={{ borderBottom: `1px solid ${LINE}` }}>
+                  <span className={`min-w-0 flex-1 ${sc.cuTitle} font-semibold`} style={{ color: INK }}>{r.title}</span>
                   <span className="whitespace-nowrap text-[12px]" style={{ color: r.overdueDays != null ? CLAY : SUB, fontWeight: r.overdueDays != null ? 700 : 500 }}>
                     {r.overdueDays != null ? `${r.overdueDays} days overdue` : r.when}
                   </span>
@@ -331,13 +357,13 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
 
       {/* ── monthly briefing ─────────────────────────────────────────────── */}
       <div className="overflow-hidden rounded-[15px] border" style={{ borderColor: LINE, background: "var(--hh-surface)" }}>
-        <button type="button" onClick={() => void generate()} aria-expanded={briefOpen} className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left">
+        <button type="button" onClick={() => void generate()} aria-expanded={briefOpen} className={`flex w-full items-center gap-2.5 text-left ${sc.rowPad}`}>
           <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-teal-wash)" }}>
             <SparklesIcon className="size-[15px]" style={{ color: TEAL }} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-bold" style={{ color: INK }}>Monthly briefing</span>
-            <span className="block text-[11.5px]" style={{ color: SUB }}>
+            <span className={`block ${sc.rowTitle} font-bold`} style={{ color: INK }}>Monthly briefing</span>
+            <span className={`block ${sc.rowMeta}`} style={{ color: SUB }}>
               {briefOpen ? "Generated from your home's data" : "Tap to generate — the past 30 days, and what's ahead"}
             </span>
           </span>
@@ -353,7 +379,12 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
               <>
                 <div className="pt-2" style={{ fontFamily: '"Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif' }}>
                   <span className="text-[17px] font-semibold tracking-[-0.01em]" style={{ color: INK }}>
-                    {brief.done30 > 0 ? "A steady month, in good shape." : "A quiet stretch."}
+                    {/* The headline must not contradict the page. "A quiet
+                        stretch" above two overdue tasks describes inactivity as
+                        calm — the home isn't quiet, it's just untended. */}
+                    {rows.some((r) => r.overdueDays != null)
+                      ? brief.done30 > 0 ? "Good progress, a couple of loose ends." : "A few things have slipped."
+                      : brief.done30 > 0 ? "A steady month, in good shape." : "A quiet stretch."}
                   </span>
                 </div>
                 <div className="mt-2.5">
@@ -370,7 +401,10 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
                     {rows.filter((r) => r.overdueDays == null).slice(0, 2).map((r, i) => (
                       <span key={r.id}>{i > 0 ? " Then " : ""}{r.title} ({r.when}).</span>
                     ))}
-                    {rows.filter((r) => r.overdueDays == null).length === 0 && "Nothing on the schedule yet."}
+                    {rows.filter((r) => r.overdueDays == null).length === 0 &&
+                      (rows.length > 0
+                        ? "Nothing new is scheduled — the overdue work above is what's outstanding."
+                        : "Nothing on the schedule yet.")}
                   </p>
                 </div>
                 <p className="mt-3 text-[10.5px]" style={{ color: FAINT }}>
