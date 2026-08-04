@@ -265,7 +265,9 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
         <div className="min-w-0">
           <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>This week</h1>
           <div className="mt-1.5 text-[14px]" style={{ color: SUB }}>
-            {loading ? "Loading…" : total === 0 ? "Nothing due — enjoy the calm." : `${total} thing${total === 1 ? "" : "s"} across your home · about ${Math.round(totalMins / 5) * 5} min total`}
+            {loading ? "Loading…" : total === 0 ? "Nothing due — enjoy the calm."
+              : tier === "all" ? `${total} thing${total === 1 ? "" : "s"} across your home · about ${Math.round(totalMins / 5) * 5} min total`
+              : `${total} of ${totalAll} across your home · about ${Math.round(totalMins / 5) * 5} min`}
           </div>
         </div>
         <button

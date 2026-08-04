@@ -345,7 +345,11 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
       <div className="pt-2" style={{ paddingInline: PAD }}>
         <h1 className="text-[28px] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Tasks</h1>
         <div className="mt-1.5 text-[13.5px]" style={{ color: SUB }}>
-          {loading ? "Loading…" : total === 0 ? "Nothing due — enjoy the calm." : `${total} to do · ~${Math.round(totalMins / 5) * 5} min total`}
+          {/* When a filter is on, the headline must say so — "2 to do" while
+              hiding nine more read as the whole truth and wasn't. */}
+          {loading ? "Loading…" : total === 0 ? "Nothing due — enjoy the calm."
+            : tier === "all" ? `${total} to do · ~${Math.round(totalMins / 5) * 5} min total`
+            : `${total} of ${totalAll} · ~${Math.round(totalMins / 5) * 5} min`}
         </div>
       </div>
 

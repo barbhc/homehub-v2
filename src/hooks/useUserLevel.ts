@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import useSWR from "swr"
 import { collection, collectionGroup, doc, getDoc, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
@@ -83,7 +84,29 @@ export function useUserLevel(): {
   )
 
   const derivedLevel = data ? deriveUserLevel(data) : null
-  // Default to "engaged" while loading so existing/power users never flash the
-  // reduced surface; the override always wins once set.
-  return { level: applyOverride(derivedLevel ?? "engaged", override), derivedLevel, isLoading }
+
+  // Remember the last derived level so the next boot starts AT it.
+  //
+  // The old fallback was a flat "engaged" while the signals loaded, which meant
+  // a power user's every cold start rendered the mid-tier UI first and then
+  // REARRANGED itself a second later — the level gates the shared AppLayout nav
+  // plus Home, so this was the owner's "many of the pages change designs while
+  // loading". Keyed per home+user (same rule as the primary-home cache: a cached
+  // answer for someone else is worse than none); the fresh derivation still
+  // always wins once signals land.
+  const cacheKey = homeId && userId ? `homehub:user-level:${homeId}:${userId}` : null
+  useEffect(() => {
+    if (cacheKey && derivedLevel) {
+      try { localStorage.setItem(cacheKey, derivedLevel) } catch { /* non-fatal */ }
+    }
+  }, [cacheKey, derivedLevel])
+  let cached: UserLevel | null = null
+  if (cacheKey) {
+    try {
+      const raw = localStorage.getItem(cacheKey)
+      if (raw === "essentials" || raw === "engaged" || raw === "power") cached = raw
+    } catch { /* private mode */ }
+  }
+
+  return { level: applyOverride(derivedLevel ?? cached ?? "engaged", override), derivedLevel, isLoading }
 }
