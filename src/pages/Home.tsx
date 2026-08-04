@@ -8,8 +8,6 @@ import {
   ClipboardListIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ChevronRightIcon as ChevronSmall,
-  ShieldAlertIcon,
   FileTextIcon,
   BellRingIcon,
   MessageCircleIcon,
@@ -17,8 +15,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { markTaskInstanceDone, snoozeTaskInstance } from "@/modules/care"
-import type { DashboardTask, MaintenanceTaskFull, InsightCard, ExpiringWarrantyItem, DashboardStats } from "@/lib/dashboard"
-import { computeHealthScore } from "@/lib/dashboard"
+import type { DashboardTask, MaintenanceTaskFull } from "@/lib/dashboard"
 import { useDashboard } from "@/lib/useDashboard"
 import { shouldShowHomeSkeleton } from "@/lib/homeLoadingGate"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
@@ -48,12 +45,6 @@ function formatLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
-function formatAgendaDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number)
-  const dt = new Date(y, (m ?? 1) - 1, d ?? 1)
-  return dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
-}
-
 function formatTodayDate(): string {
   return new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -64,230 +55,7 @@ function formatTodayDate(): string {
 
 // ── Health Ring ─────────────────────────────────────────────────────────────
 
-function HealthRing({ score, animate }: { score: number; animate: boolean }) {
-  const CIRC = 2 * Math.PI * 50
-  const clamped = Math.max(0, Math.min(100, score))
-  const offset = CIRC * (1 - clamped / 100)
-
-  const ringColor =
-    score >= 90 ? "#1B6B5A" :
-    score >= 80 ? "#22c55e" :
-    score >= 70 ? "#f59e0b" :
-    score >= 55 ? "#fb923c" : "#ef4444"
-
-  const statusLabel =
-    score >= 90 ? "Excellent" :
-    score >= 80 ? "Great"     :
-    score >= 70 ? "Good"      :
-    score >= 55 ? "Fair"      : "Needs attention"
-
-  return (
-    <div className="relative w-[120px] h-[120px] shrink-0">
-      <svg viewBox="0 0 120 120" className="w-[120px] h-[120px] -rotate-90" aria-hidden>
-        <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="8.5"
-          className="text-muted/50" />
-        <circle
-          cx="60" cy="60" r="50"
-          fill="none"
-          stroke={ringColor}
-          strokeWidth="8.5"
-          strokeLinecap="round"
-          strokeDasharray={CIRC}
-          strokeDashoffset={animate ? offset : CIRC}
-          style={{
-            transition: animate
-              ? "stroke-dashoffset 1.1s cubic-bezier(0.22,1,0.36,1), stroke 0.5s ease"
-              : "none",
-          }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-[32px] leading-none text-foreground">{score}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.07em] mt-1"
-          style={{ color: ringColor }}>
-          {statusLabel}
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function HealthScoreCard({
-  stats,
-  essentialOverdueCount,
-  animateRing,
-}: {
-  stats: DashboardStats
-  essentialOverdueCount: number
-  animateRing: boolean
-}) {
-  const score = computeHealthScore(stats, essentialOverdueCount)
-  return (
-    <div className="rounded-2xl bg-card border border-border/60 shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-5 relative overflow-hidden">
-      <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-primary/5 pointer-events-none" />
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60 mb-4">
-        Home Health
-      </p>
-      <div className="flex items-center gap-5">
-        <HealthRing score={score} animate={animateRing} />
-        <div className="flex-1 space-y-2 min-w-0">
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-muted-foreground">Essential overdue</span>
-            <span className={cn("text-[13px] font-bold tabular-nums",
-              essentialOverdueCount > 0 ? "text-destructive" : "text-foreground")}>
-              {essentialOverdueCount}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-muted-foreground">Due this week</span>
-            <span className="text-[13px] font-bold tabular-nums text-foreground">{stats.dueSoonCount}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-muted-foreground">Done this month</span>
-            <span className="text-[13px] font-bold tabular-nums text-primary">{stats.completedThisMonth}</span>
-          </div>
-          <div className="h-1 bg-muted rounded-full overflow-hidden mt-1">
-            <div
-              className="h-full rounded-full transition-[width] duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
-              style={{
-                width: animateRing ? `${score}%` : "0%",
-                background: score >= 90 ? "#1B6B5A" : score >= 70 ? "#f59e0b" : "#ef4444",
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* What to do next — turns the score from a number into an action */}
-      <div className="mt-4 pt-3 border-t border-border/50">
-        {essentialOverdueCount > 0 ? (
-          <Link to="/maintenance" className="flex items-center justify-between gap-2 group">
-            <span className="text-[12px] text-muted-foreground">
-              <span className="font-semibold text-destructive">
-                {essentialOverdueCount} essential {essentialOverdueCount === 1 ? "task is" : "tasks are"} overdue
-              </span>{" "}
-              — biggest drag on your score
-            </span>
-            <span className="text-[12px] font-semibold text-primary whitespace-nowrap group-hover:underline">
-              Fix now →
-            </span>
-          </Link>
-        ) : stats.dueSoonCount > 0 ? (
-          <Link to="/maintenance" className="flex items-center justify-between gap-2 group">
-            <span className="text-[12px] text-muted-foreground">
-              Nothing overdue — {stats.dueSoonCount} {stats.dueSoonCount === 1 ? "task" : "tasks"} due this week
-            </span>
-            <span className="text-[12px] font-semibold text-primary whitespace-nowrap group-hover:underline">
-              View →
-            </span>
-          </Link>
-        ) : (
-          <p className="text-[12px] text-muted-foreground">
-            You&apos;re all caught up — nothing needs attention right now.
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Focus Task Row ───────────────────────────────────────────────────────────
-
-function FocusTaskRow({
-  task,
-  completing,
-  onComplete,
-}: {
-  task: DashboardTask
-  completing: boolean
-  onComplete: (id: string) => void
-}) {
-  const href = task.itemId ? `/inventory/${task.itemId}` : "/maintenance"
-  const isEssential = task.priority === "critical"
-
-  return (
-    <div
-      className={cn(
-        "flex items-center py-3 pr-2 border-l-[3px] -ml-px",
-        isEssential ? "border-l-red-500/70" : "border-l-primary/50",
-        completing && "opacity-50 pointer-events-none"
-      )}
-    >
-      <Link to={href} className="flex-1 pl-3 min-w-0 group">
-        {task.itemName && (
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide truncate mb-0.5">
-            {task.itemName}
-          </div>
-        )}
-        <div className="text-[13.5px] font-medium text-foreground truncate group-hover:text-primary transition-colors">
-          {task.name}
-        </div>
-        {task.isOverdue && task.daysOverdue != null && (
-          <span className="text-[10px] font-bold uppercase tracking-wide text-destructive">
-            {task.daysOverdue}d overdue
-          </span>
-        )}
-      </Link>
-      <button
-        type="button"
-        onClick={() => onComplete(task.id)}
-        disabled={completing}
-        className={cn(
-          "w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 ml-3",
-          "transition-all duration-200 hover:scale-110 active:scale-95",
-          isEssential
-            ? "border-red-200 hover:border-red-400 hover:bg-red-50"
-            : "border-border hover:border-primary hover:bg-primary/5"
-        )}
-        aria-label={`Mark ${task.name} complete`}
-      >
-        {completing && (
-          <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
-        )}
-      </button>
-    </div>
-  )
-}
-
 // ── Insight Scroll Strip ─────────────────────────────────────────────────────
-
-const insightAccent: Record<InsightCard["variant"], string> = {
-  red:   "border-t-red-500",
-  amber: "border-t-amber-500",
-  blue:  "border-t-blue-500",
-  green: "border-t-primary",
-}
-const insightCatColor: Record<InsightCard["variant"], string> = {
-  red:   "text-red-500",
-  amber: "text-amber-500",
-  blue:  "text-blue-500",
-  green: "text-primary",
-}
-
-function InsightScrollStrip({ insights }: { insights: InsightCard[] }) {
-  return (
-    <div className="flex gap-2.5 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden snap-x snap-mandatory -mx-4 px-4">
-      {insights.map((card) => (
-        <div
-          key={card.id}
-          className={cn(
-            "shrink-0 w-[160px] bg-card rounded-xl px-3.5 py-3 border border-border/70",
-            "border-t-[3px] shadow-sm snap-start",
-            insightAccent[card.variant]
-          )}
-        >
-          <p className={cn("text-[9px] font-bold uppercase tracking-[0.12em] mb-1.5", insightCatColor[card.variant])}>
-            {card.category}
-          </p>
-          <p className="text-[12.5px] font-semibold text-foreground leading-snug mb-1">{card.title}</p>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">{card.body}</p>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ── Calendar ────────────────────────────────────────────────────────────────
 
 interface CalendarProps {
   tasks: MaintenanceTaskFull[]
@@ -427,152 +195,6 @@ function DashboardCalendar({ tasks, selectedDay, onSelectDay, month, onPrevMonth
 
 // ── Agenda ──────────────────────────────────────────────────────────────────
 
-function AgendaSection({
-  title,
-  tasks,
-}: {
-  title: string
-  tasks: MaintenanceTaskFull[]
-}) {
-  // Group tasks by date
-  const groups = useMemo(() => {
-    const m = new Map<string, MaintenanceTaskFull[]>()
-    for (const t of tasks) {
-      if (!t.next_due_date) continue
-      const list = m.get(t.next_due_date) ?? []
-      list.push(t)
-      m.set(t.next_due_date, list)
-    }
-    return Array.from(m.entries())
-      .map(([dateStr, list]) => ({ dateStr, tasks: list }))
-      .sort((a, b) => a.dateStr.localeCompare(b.dateStr))
-  }, [tasks])
-
-  if (groups.length === 0) return null
-
-  return (
-    <div className="rounded-2xl border border-border/50 bg-card/40 p-5">
-      <h2 className="font-display text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-        {title}
-      </h2>
-      <div className="space-y-3">
-        {groups.map((g) => (
-          <div key={g.dateStr}>
-            <div className="flex items-center gap-2 mb-1 mt-2 first:mt-0">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 whitespace-nowrap">
-                {formatAgendaDate(g.dateStr)}
-              </span>
-              <div className="flex-1 h-px bg-border/50" />
-            </div>
-            {g.tasks.map((t) => (
-              <Link
-                key={t.id}
-                to={t.item_id ? `/inventory/${t.item_id}` : "/home"}
-                className="flex items-center gap-2 py-2 px-1 min-h-11 md:min-h-0 rounded-md hover:bg-muted/30 transition-colors group"
-              >
-                {t.itemName && (
-                  <span className="text-xs font-medium text-muted-foreground shrink-0 w-20 truncate">
-                    {t.itemName}
-                  </span>
-                )}
-                <span className="text-sm text-foreground truncate flex-1">{t.title}</span>
-                <ChevronSmall className="size-3.5 text-muted-foreground/25 group-hover:text-muted-foreground/50 transition-colors shrink-0" />
-              </Link>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── Warranty Alerts Card ───────────────────────────────────────────────────
-
-function formatExpiryDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number)
-  return new Date(y, (m ?? 1) - 1, d ?? 1).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-function warrantyUrgency(days: number): { tone: "red" | "amber" | "blue"; label: string } {
-  if (days <= 0) return { tone: "red", label: "Expires today" }
-  if (days === 1) return { tone: "red", label: "Expires tomorrow" }
-  if (days <= 14) return { tone: "red", label: `${days} days left` }
-  if (days <= 30) return { tone: "amber", label: `${days} days left` }
-  return { tone: "blue", label: `${days} days left` }
-}
-
-function WarrantyAlertsCard({ warranties }: { warranties: ExpiringWarrantyItem[] }) {
-  const [expanded, setExpanded] = useState(false)
-  if (warranties.length === 0) return null
-  const visible = expanded ? warranties : warranties.slice(0, 3)
-  const hiddenCount = warranties.length - visible.length
-
-  return (
-    <div className="rounded-2xl border border-white/70 bg-white/55 backdrop-blur-sm shadow-sm p-5 border-l-[3px] border-l-amber-500">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-display text-base font-bold text-foreground flex items-center gap-2">
-          <ShieldAlertIcon className="size-4 text-amber-600" aria-hidden />
-          Warranty alerts
-        </h2>
-        <span className="text-xs text-muted-foreground font-medium">
-          {warranties.length} expiring soon
-        </span>
-      </div>
-      <ul className="space-y-1.5">
-        {visible.map((w) => {
-          const urgency = warrantyUrgency(w.days_remaining)
-          const toneStyles = {
-            red: "bg-red-50 text-red-700 border-red-100",
-            amber: "bg-amber-50 text-amber-700 border-amber-100",
-            blue: "bg-blue-50 text-blue-700 border-blue-100",
-          }[urgency.tone]
-          return (
-            <li key={w.item_unit_id}>
-              <Link
-                to={`/inventory/${w.item_unit_id}`}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg border border-transparent hover:border-border hover:bg-white/70 transition-colors"
-              >
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium text-foreground truncate">
-                    {w.display_name}
-                  </span>
-                  <span className="block text-[11px] text-muted-foreground">
-                    Expires {formatExpiryDate(w.warranty_expiry_date)}
-                  </span>
-                </span>
-                <span
-                  className={cn(
-                    "shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full border",
-                    toneStyles
-                  )}
-                >
-                  {urgency.label}
-                </span>
-                <ChevronSmall className="size-4 text-muted-foreground/50 shrink-0" aria-hidden />
-              </Link>
-            </li>
-          )
-        })}
-      </ul>
-      {(hiddenCount > 0 || expanded) && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="mt-2 text-xs font-medium text-primary hover:underline min-h-11 md:min-h-0 px-2 -mx-2 inline-flex items-center"
-        >
-          {hiddenCount > 0 ? `See all ${warranties.length} warranties` : "Show less"}
-        </button>
-      )}
-    </div>
-  )
-}
-
-// ── Empty state hero (zero-item users) ──────────────────────────────────────
-
 function EmptyHomeHero() {
   return (
     <div className="rounded-2xl border border-white/70 bg-white/70 backdrop-blur-sm shadow-sm px-6 py-8 sm:px-10 sm:py-10 text-center">
@@ -663,7 +285,6 @@ export default function Home() {
     tasks: dashTasks,
     stats,
     upcoming,
-    insights,
     expiringWarranties,
     notices,
     cleaningGuides,
@@ -681,7 +302,6 @@ export default function Home() {
    *  Without this the card stayed on screen after a successful write, looking
    *  untouched, and people tapped Mark done a second time. */
   const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set())
-  const [animateRing, setAnimateRing] = useState(false)
 
   // Calendar state
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
@@ -691,14 +311,6 @@ export default function Home() {
   // that is the moment the user stops waiting, which is what we are measuring.
   useEffect(() => {
     if (!isLoading && stats) markBoot("content")
-  }, [isLoading, stats])
-
-  // Trigger ring animation after data loads
-  useEffect(() => {
-    if (!isLoading && stats) {
-      const t = setTimeout(() => setAnimateRing(true), 80)
-      return () => clearTimeout(t)
-    }
   }, [isLoading, stats])
 
   const handleMarkComplete = useCallback(
@@ -716,7 +328,6 @@ export default function Home() {
       // the bug: the row un-dimmed while still listed, so it read as "nothing
       // happened, tap again".
       setJustCompleted((s) => new Set(s).add(taskId))
-      setAnimateRing(false)
       setCompletingId(null)
       await refresh()
       setJustCompleted((s) => {
@@ -767,16 +378,6 @@ export default function Home() {
   }, [dashTasks, notJustDone])
 
   // This week: upcoming essential + recommended, not today
-  const thisWeekTasks = useMemo(
-    () => upcoming.filter(
-      (t) =>
-        (t.priority === "critical" || t.priority === "high") &&
-        t.next_due_date &&
-        t.next_due_date > todayStr &&
-        t.next_due_date <= addDays(todayStr, 7)
-    ),
-    [upcoming, todayStr]
-  )
 
   // All calendar tasks (for dots): essential + recommended, include overdue
   const calendarTasks: MaintenanceTaskFull[] = useMemo(() => {
@@ -952,106 +553,6 @@ export default function Home() {
           />
         </div>
 
-        {/* ── Old two-column layout — hidden (replaced by DesktopHome) ── */}
-        <div className="hidden">
-
-          {/* LEFT: Calendar + Quick Actions (desktop), hidden on mobile */}
-          <div className="hidden lg:block space-y-4">
-            <div className="rounded-2xl border border-white/70 bg-white/55 backdrop-blur-sm shadow-sm p-5">
-              <DashboardCalendar
-                tasks={calendarTasks}
-                selectedDay={selectedDay}
-                onSelectDay={setSelectedDay}
-                month={calendarMonth}
-                onPrevMonth={() =>
-                  setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
-                }
-                onNextMonth={() =>
-                  setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
-                }
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              {[
-                { to: "/inventory/add", label: "Add Item", icon: PlusIcon },
-                { to: "/inventory", label: "Inventory", icon: PackageIcon },
-                { to: "/maintenance", label: "All Tasks", icon: ClipboardListIcon },
-                { to: "/clean", label: "Deep Clean", icon: SparklesIcon },
-              ]
-              .filter((a) => level !== "essentials" || !["/maintenance", "/clean"].includes(a.to))
-              .map(({ to, label, icon: Icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="flex flex-col items-center gap-1.5 py-3.5 px-2 rounded-xl border border-border bg-card hover:border-foreground/20 hover:bg-accent/50 transition-colors text-center"
-                >
-                  <Icon className="size-[18px] text-muted-foreground" />
-                  <span className="text-xs font-medium text-foreground">{label}</span>
-                </Link>
-              ))}
-              {level !== "essentials" && (
-              <Link
-                to="/chat"
-                className="col-span-2 flex items-center justify-center gap-2 py-3 px-2 rounded-xl border border-border bg-card hover:border-foreground/20 hover:bg-accent/50 transition-colors text-center"
-              >
-                <WrenchIcon className="size-[18px] text-primary" />
-                <span className="text-xs font-semibold text-foreground">Fix a problem</span>
-              </Link>
-              )}
-            </div>
-          </div>
-
-          {/* RIGHT: Health + Today + Agenda */}
-          <div className="space-y-4">
-            {/* Home Health Score */}
-            {stats && (
-              <HealthScoreCard
-                stats={stats}
-                essentialOverdueCount={overdueEssential.length}
-                animateRing={animateRing}
-              />
-            )}
-
-            {/* Warranty alerts */}
-            <WarrantyAlertsCard warranties={expiringWarranties} />
-
-            {/* Insights scroll strip */}
-            {insights.length > 0 && (
-              <InsightScrollStrip insights={insights} />
-            )}
-
-            {/* Today's tasks */}
-            <div className="rounded-2xl border border-white/70 bg-white/55 backdrop-blur-sm shadow-sm p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-base font-bold text-foreground">Today</h2>
-                <span className="text-xs text-muted-foreground/70 font-medium">
-                  {new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                </span>
-              </div>
-
-              {todayTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-3">
-                  Nothing due today — you&apos;re all set.
-                </p>
-              ) : (
-                <div className="pl-px">
-                  {todayTasks.map((task) => (
-                    <FocusTaskRow
-                      key={task.id}
-                      task={task}
-                      completing={completingId === task.id}
-                      onComplete={handleMarkComplete}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* This Week */}
-            <AgendaSection title="This Week" tasks={thisWeekTasks} />
-          </div>
-        </div>
 
         {/* ── Mobile: Calendar — hidden; RefinedHome owns mobile ── */}
         <div className="hidden mt-4">
