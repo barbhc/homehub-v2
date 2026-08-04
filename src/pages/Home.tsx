@@ -667,7 +667,6 @@ export default function Home() {
     expiringWarranties,
     notices,
     cleaningGuides,
-    homeUpkeep,
     isLoading,
     error: dashError,
     refresh,
@@ -942,8 +941,9 @@ export default function Home() {
             tasks={homeTasks}
             warranties={expiringWarranties}
             notices={notices}
+            upcoming={upcoming}
+            itemsCount={stats?.totalItems ?? 0}
             cleaningGuides={cleaningGuides}
-            homeUpkeep={homeUpkeep}
             level={level}
             homeId={homeId || null}
             completingId={completingId}

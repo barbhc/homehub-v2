@@ -22,7 +22,6 @@ import {
 } from "./dashboard"
 import { getDeepCleanGuides, type DeepCleanGuide } from "./cleanSession"
 import { getHomeProfile } from "@/modules/home/services/homeProfileService"
-import { getHomeUpkeep, type HomeUpkeepItem } from "@/modules/care"
 import { persistDashboardSnapshot } from "./swrPersist"
 import { markBoot } from "./bootTiming"
 
@@ -36,7 +35,6 @@ interface DashboardExtras {
   expiringWarranties: ExpiringWarrantyItem[]
   notices: HomeNotices
   cleaningGuides: DeepCleanGuide[]
-  homeUpkeep: HomeUpkeepItem[]
 }
 
 /** Non-essential query → never fail the whole dashboard on it. A flaky
@@ -80,17 +78,20 @@ async function fetchCore(homeId: string): Promise<DashboardCore> {
  * never blanks Home. Fetched alongside core, rendered whenever it lands.
  */
 async function fetchExtras(homeId: string): Promise<DashboardExtras> {
-  const [upcoming, expiringWarranties, notices, cleaningGuides, homeUpkeepRes] = await Promise.all([
+  // getHomeUpkeep is deliberately NOT fetched here any more. Its only consumer
+  // was the desktop Home-upkeep card, and it read two ENTIRE collections
+  // (taskInstances + taskTemplates) on every dashboard load to render rows the
+  // agenda already carried. Removing the card removed the query with it.
+  const [upcoming, expiringWarranties, notices, cleaningGuides] = await Promise.all([
     soft(getUpcomingTasks(homeId), [], "upcoming"),
     soft(getExpiringWarranties(homeId), [], "warranties"),
     soft(getHomeNotices(homeId), EMPTY_NOTICES, "notices"),
     soft(getDeepCleanGuides(homeId), [], "cleaningGuides"),
-    soft(getHomeUpkeep(homeId), { data: [], error: null } as Awaited<ReturnType<typeof getHomeUpkeep>>, "homeUpkeep"),
   ])
   markBoot("dash:extras")
   // Insights read the warranties, so this one genuinely is second.
   const insights = await soft(getInsights(homeId, expiringWarranties), [], "insights")
-  return { upcoming, insights, expiringWarranties, notices, cleaningGuides, homeUpkeep: homeUpkeepRes.data ?? [] }
+  return { upcoming, insights, expiringWarranties, notices, cleaningGuides }
 }
 
 /** Reject after `ms` so a hung Firestore query surfaces the retry card instead
@@ -145,7 +146,6 @@ export function useDashboard(homeId: string | null) {
     expiringWarranties: extras.data?.expiringWarranties ?? [],
     notices: extras.data?.notices ?? { recalls: [], missingDetails: [] },
     cleaningGuides: extras.data?.cleaningGuides ?? [],
-    homeUpkeep: extras.data?.homeUpkeep ?? [],
     // CORE only. Gating the skeleton on the supplementary round is exactly the
     // 1955ms this change exists to stop charging the user.
     isLoading: core.isLoading,
