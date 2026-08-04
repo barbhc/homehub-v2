@@ -79,6 +79,10 @@ export function RefinedTaskDetail({
       setDetail(dRes.data ?? null)
       setMembers(mRes.data ?? [])
       setLoading(false)
+    }).catch(() => {
+      // Stop loading so the sheet can render its own empty state instead of
+      // holding a spinner the user cannot dismiss.
+      if (!cancelled) setLoading(false)
     })
     return () => { cancelled = true }
   }, [homeId, taskInstanceId])

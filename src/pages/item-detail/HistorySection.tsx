@@ -156,6 +156,10 @@ export function HistorySection({ homeId, itemId, refreshKey = 0 }: HistorySectio
       const completions = completionResult.data ?? []
       const tierChanges = tierResult.data ?? []
       setEvents(toTimelineEvents(completions, tierChanges))
+    }).catch(() => {
+      // History is supplementary: an empty timeline is an acceptable outcome,
+      // an endless spinner is not.
+      if (!cancelled) setLoading(false)
     })
     return () => {
       cancelled = true

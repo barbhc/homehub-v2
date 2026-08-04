@@ -201,6 +201,12 @@ export default function Inventory() {
       setItemIdsWithTasks(ids)
       setError(itemsRes.error?.message ?? roomsRes.error?.message ?? null)
       setLoading(false)
+    }).catch((e: unknown) => {
+      // Without this a rejected query skips the .then entirely, so setLoading
+      // never runs and the page spins forever with nothing on screen. One
+      // dropped request on a phone is enough.
+      setError(e instanceof Error ? e.message : "Could not load your items.")
+      setLoading(false)
     })
   }, [home?.home_id])
 

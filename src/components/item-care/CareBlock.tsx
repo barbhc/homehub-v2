@@ -554,6 +554,10 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
         if (inst.task_template_id) done.add(inst.task_template_id)
       }
       setCompletedTemplates(done)
+    }).catch(() => {
+      // No spinner rides on this one — the rows render without due dates. Caught
+      // so it fails as "no due date shown" rather than as an unhandled rejection
+      // that Sentry reports and nobody can act on.
     })
     return () => { cancelled = true }
   }, [homeId, item.item_unit_id, taskIdsKey])

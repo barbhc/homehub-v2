@@ -415,7 +415,9 @@ export default function FaqPage() {
       return
     }
     setLoading(true)
+    let work: Promise<unknown>
     if (tab === "items") {
+      work =
       Promise.all([
         getKnowledgeChunksByHome(homeId, ["care", "how_to", "troubleshooting"]),
         getCareNotesByHome(homeId),
@@ -429,24 +431,21 @@ export default function FaqPage() {
           byItem[id].push(n)
         }
         setItemCareNotes(byItem)
-        setLoading(false)
       })
     } else if (tab === "house") {
-      getCareNotesByScope(homeId, "home").then((r) => {
+      work = getCareNotesByScope(homeId, "home").then((r) => {
         setHouseNotes(r.data ?? [])
-        setLoading(false)
       })
     } else if (tab === "rooms") {
-      Promise.all([
+      work = Promise.all([
         getCareNotesByScope(homeId, "room"),
         getRooms(homeId),
       ]).then(([notesRes, roomsRes]) => {
         setRoomNotes(notesRes.data ?? [])
         setRooms((roomsRes.data ?? []) as Array<{ room_id: string; name: string }>)
-        setLoading(false)
       })
     } else {
-      Promise.all([getFaqsByHome(homeId), getItemUnits(homeId)]).then(
+      work = Promise.all([getFaqsByHome(homeId), getItemUnits(homeId)]).then(
         ([faqRes, itemsRes]) => {
           setFaqs(faqRes.data ?? [])
           const names: Record<string, string> = {}
@@ -456,10 +455,17 @@ export default function FaqPage() {
             }
           )
           setItemNamesById(names)
-          setLoading(false)
         }
       )
     }
+    // One tail for every tab. Each branch previously ended in its own
+    // setLoading(false) inside a .then with no .catch, so a rejected query on
+    // ANY tab left this page spinning forever — four copies of the same bug.
+    work
+      .catch((e: unknown) => {
+        console.warn("[faq] load failed:", e instanceof Error ? e.message : e)
+      })
+      .finally(() => setLoading(false))
   }, [homeId, tab])
 
   const filteredChunks = useMemo(() => {
