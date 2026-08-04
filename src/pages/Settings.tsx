@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
 import { AlertCircleIcon, BellIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2 } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
@@ -1257,6 +1258,11 @@ export default function Settings() {
           </CardContent>
         </SectionCard>
       )}
+
+      {/* Real numbers from the real device — see BootDiagnostics for why. */}
+      <div className="mt-6">
+        <BootDiagnostics />
+      </div>
 
       <SectionCard id="privacy" className="mt-6 scroll-mt-6">
         <CardContent className="p-4">

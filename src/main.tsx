@@ -3,11 +3,14 @@ import { createRoot } from "react-dom/client"
 import "./index.css"
 import App from "./App.tsx"
 import { markNativePlatform } from "@/lib/native"
+import { markBoot } from "@/lib/bootTiming"
 
 // Stays synchronous: stamps data-native/data-platform on <html> so CSS can apply
 // the status-bar inset before anything paints.
+markBoot("js")
 markNativePlatform()
 
+markBoot("react")
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

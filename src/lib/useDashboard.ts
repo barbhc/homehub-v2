@@ -24,6 +24,7 @@ import { getDeepCleanGuides, type DeepCleanGuide } from "./cleanSession"
 import { getHomeProfile } from "@/modules/home/services/homeProfileService"
 import { getHomeUpkeep, type HomeUpkeepItem } from "@/modules/care"
 import { persistDashboardSnapshot } from "./swrPersist"
+import { markBoot } from "./bootTiming"
 
 interface DashboardData {
   tasks: DashboardTasksResult
@@ -63,6 +64,7 @@ async function fetchDashboard(homeId: string): Promise<DashboardData> {
       // Powers the desktop "Home upkeep" list: home-scoped recurring tasks.
       soft(getHomeUpkeep(homeId), { data: [], error: null } as Awaited<ReturnType<typeof getHomeUpkeep>>, "homeUpkeep"),
     ])
+  markBoot("dash:round1")
   const topConcerns = profileRes.data?.top_concerns ?? []
 
   // Round 2: tasks (core) + insights (supplementary).
@@ -70,6 +72,7 @@ async function fetchDashboard(homeId: string): Promise<DashboardData> {
     getDashboardTasks(homeId, topConcerns), // core
     soft(getInsights(homeId, expiringWarranties), [], "insights"),
   ])
+  markBoot("dash:round2")
   return {
     tasks,
     stats,
