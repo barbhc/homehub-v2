@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { markBoot } from "@/lib/bootTiming"
 import { useAuth } from "@/modules/auth"
 import { getPrimaryHome } from "../services/homeService"
 import type { Home } from "@/integrations/types"
@@ -39,6 +40,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     try {
       console.debug("[HomeProvider] Loading home for user", user.id)
       const result = await getPrimaryHome()
+      markBoot("home")
       setHome(result.data ?? null)
       if (result.error) {
         // A FAILED lookup (missing index, offline, rules) must be visible and must

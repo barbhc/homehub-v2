@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react"
+import { markBoot } from "@/lib/bootTiming"
 import { Link } from "react-router-dom"
 import {
   PlusIcon,
@@ -686,6 +687,12 @@ export default function Home() {
   // Calendar state
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+
+  // The boot is "done" when Home shows real content rather than a skeleton —
+  // that is the moment the user stops waiting, which is what we are measuring.
+  useEffect(() => {
+    if (!isLoading && stats) markBoot("content")
+  }, [isLoading, stats])
 
   // Trigger ring animation after data loads
   useEffect(() => {

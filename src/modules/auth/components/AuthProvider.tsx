@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { markBoot } from "@/lib/bootTiming"
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -114,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (u) identifyUser(u.uid)
         else if (lastUid) resetAnalyticsIdentity()
         lastUid = u?.uid ?? null
+        markBoot("auth")
         setUser(toAuthUser(u))
         setLoading(false)
       },
@@ -128,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // limbo: AuthGate then sends them to sign-in, which is somewhere they can
       // act, instead of a spinner they can only force-quit.
       () => {
+        markBoot("auth")
         setUser(null)
         setLoading(false)
       },
