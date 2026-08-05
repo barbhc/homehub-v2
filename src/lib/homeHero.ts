@@ -71,6 +71,8 @@ export interface ComingUpRow {
   id: string
   title: string
   itemName: string | null
+  /** Item this belongs to, so the row can open the page that explains it. */
+  itemId: string | null
   /** "Fri, Aug 15" — words, per the round-3 note that killed the date blocks. */
   when: string
   dueDate: string
@@ -94,6 +96,7 @@ export interface ComingUpInput {
   id: string
   title: string
   itemName: string | null
+  item_id?: string | null
   next_due_date: string | null
   isOverdue: boolean
 }
@@ -119,6 +122,7 @@ export function comingUp(tasks: ComingUpInput[], today: string, limit = 6): Comi
       id: t.id,
       title: t.title,
       itemName: t.itemName,
+      itemId: t.item_id ?? null,
       when: fmtWhen(t.next_due_date!),
       dueDate: t.next_due_date!,
       overdueDays: overdue,

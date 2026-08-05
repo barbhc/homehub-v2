@@ -54,15 +54,18 @@ const SCALE = {
 
 // ── hero ─────────────────────────────────────────────────────────────────────
 
-function StatBand({ itemsCount, dueMonth, overdueCount, onDue, onOverdue, sc }: {
-  itemsCount: number
+/**
+ * Two cells, not three. "14 items" was a constant dressed as a statistic — it
+ * doesn't move week to week, and Items is already a tab. The band should only
+ * carry things that CHANGE and that you might act on.
+ */
+function StatBand({ dueMonth, overdueCount, onDue, onOverdue, sc }: {
   dueMonth: number
   overdueCount: number
   onDue: () => void
   onOverdue: () => void
   sc: (typeof SCALE)[ComposedVariant]
 }) {
-  const navigate = useNavigate()
   const month = new Date().toLocaleDateString("en-US", { month: "short" })
   const cell = `flex flex-1 items-center justify-center gap-1.5 px-1 ${sc.statPad}`
   const divider = { borderLeft: "1px solid color-mix(in srgb, var(--hh-teal) 10%, var(--hh-line))" }
@@ -71,12 +74,7 @@ function StatBand({ itemsCount, dueMonth, overdueCount, onDue, onOverdue, sc }: 
       className="mt-3 flex overflow-hidden rounded-[13px] border"
       style={{ background: "color-mix(in srgb, var(--hh-surface) 78%, transparent)", borderColor: "color-mix(in srgb, var(--hh-teal) 14%, var(--hh-line))" }}
     >
-      <button type="button" onClick={() => navigate("/inventory")} className={cell}>
-        <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: INK }}>{itemsCount}</span>
-        <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>items</span>
-        <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
-      </button>
-      <button type="button" onClick={onDue} className={cell} style={divider}>
+      <button type="button" onClick={onDue} className={cell}>
         <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: INK }}>{dueMonth}</span>
         <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>due in {month}</span>
         <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
@@ -99,12 +97,11 @@ function StatBand({ itemsCount, dueMonth, overdueCount, onDue, onOverdue, sc }: 
   )
 }
 
-export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId, onComplete, onSnooze, variant = "mobile" }: {
+export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete, onSnooze, variant = "mobile" }: {
   /** Overdue + due-soon feed (the old urgent stack's data). */
   tasks: DashboardTask[]
   /** Forward schedule for the drawer + "due this month". */
   upcoming: MaintenanceTaskFull[]
-  itemsCount: number
   homeId: string | null
   completingId: string | null
   onComplete: (id: string) => void
@@ -115,14 +112,30 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
   const sc = SCALE[variant]
   const today = localToday()
 
+  // Rows completed in THIS view, hidden locally until the data catches up.
+  //
+  // completeTask is eventually consistent: Home refetches once, immediately,
+  // and that snapshot is usually taken before the write lands — so a task
+  // ticked off in the drawer sat there unchanged until a reload (measured:
+  // still listed 10s later, gone after reload). Nothing refetches again, so
+  // "nothing happened, tap again" is exactly how it read. The optimistic hide
+  // is the pattern the rest of the app already uses; the server stays the
+  // authority on the next load.
+  const [justDone, setJustDone] = useState<Set<string>>(new Set())
+  const complete = (id: string) => {
+    setJustDone((s) => new Set(s).add(id))
+    onComplete(id)
+  }
+
   // Busy = something is genuinely on you today: overdue, or due today. Due-in-
   // three-days lives in the drawer — that's planning, not interruption.
   const urgent = useMemo(
     () =>
       tasks
+        .filter((t) => !justDone.has(t.id))
         .filter((t) => t.isOverdue || (t.daysUntilDue != null && t.daysUntilDue <= 0))
         .sort((a, b) => (b.daysOverdue ?? 0) - (a.daysOverdue ?? 0)),
-    [tasks],
+    [tasks, justDone],
   )
   const heroTask = urgent[0] ?? null
 
@@ -171,11 +184,11 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
     // deduped by id — getUpcomingTasks is future-only.
     const overdueRows = urgent
       .filter((t) => t.isOverdue && t.dueDate)
-      .map((t) => ({ id: t.id, title: t.name, itemName: t.itemName, next_due_date: t.dueDate, isOverdue: true }))
+      .map((t) => ({ id: t.id, title: t.name, itemName: t.itemName, item_id: t.itemId, next_due_date: t.dueDate, isOverdue: true }))
     const seen = new Set(overdueRows.map((r) => r.id))
-    const forward = upcoming.filter((t) => !seen.has(t.id))
+    const forward = upcoming.filter((t) => !seen.has(t.id) && !justDone.has(t.id))
     return comingUp([...overdueRows, ...forward], today)
-  }, [urgent, upcoming, today])
+  }, [urgent, upcoming, today, justDone])
 
   const dueMonth = useMemo(() => dueThisMonth(upcoming, today), [upcoming, today])
   const nextQuiet = rows.find((r) => r.overdueDays == null)
@@ -232,7 +245,7 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
                   <button
                     type="button"
                     disabled={completingId === heroTask.id}
-                    onClick={() => onComplete(heroTask.id)}
+                    onClick={() => complete(heroTask.id)}
                     className="rounded-[11px] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
                     style={{ background: TEAL }}
                   >
@@ -285,7 +298,6 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
           {activeFace === 0 && (
             <StatBand
               sc={sc}
-              itemsCount={itemsCount}
               dueMonth={dueMonth}
               overdueCount={urgent.filter((t) => t.isOverdue).length}
               onDue={openDrawer}
@@ -343,11 +355,38 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
                     — {Math.round(r.gapBefore / 7)} quiet week{Math.round(r.gapBefore / 7) === 1 ? "" : "s"} —
                   </div>
                 )}
-                <div className={`flex items-baseline gap-2.5 ${sc.cuPad}`} style={{ borderBottom: `1px solid ${LINE}` }}>
-                  <span className={`min-w-0 flex-1 ${sc.cuTitle} font-semibold`} style={{ color: INK }}>{r.title}</span>
-                  <span className="whitespace-nowrap text-[12px]" style={{ color: r.overdueDays != null ? CLAY : SUB, fontWeight: r.overdueDays != null ? 700 : 500 }}>
-                    {r.overdueDays != null ? `${r.overdueDays} days overdue` : r.when}
-                  </span>
+                {/* A row you can act on. The done circle completes in place;
+                    the body opens the item page, which is where the task's
+                    context lives. A title alone ("Check Grate Support
+                    Bumpers") doesn't tell you what it's FOR, so the item name
+                    rides along underneath — relevant, timely, and now
+                    intelligible. */}
+                <div className={`flex items-center gap-2 ${sc.cuPad}`} style={{ borderBottom: `1px solid ${LINE}` }}>
+                  <button
+                    type="button"
+                    disabled={completingId === r.id}
+                    onClick={(e) => { e.stopPropagation(); complete(r.id) }}
+                    aria-label={`Mark "${r.title}" done`}
+                    className="-ml-1 flex shrink-0 p-1.5 disabled:opacity-40"
+                  >
+                    <span className="flex size-[22px] items-center justify-center rounded-full border-2" style={{ borderColor: TEAL }}>
+                      <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(r.itemId ? `/items/${r.itemId}` : "/maintenance")}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate ${sc.cuTitle} font-semibold`} style={{ color: INK }}>{r.title}</span>
+                      <span className="block truncate text-[12px]" style={{ color: SUB }}>{r.itemName ?? "Whole home"}</span>
+                    </span>
+                    <span className="whitespace-nowrap text-[12px]" style={{ color: r.overdueDays != null ? CLAY : SUB, fontWeight: r.overdueDays != null ? 700 : 500 }}>
+                      {r.overdueDays != null ? `${r.overdueDays} days overdue` : r.when}
+                    </span>
+                    <ChevronRightIcon className="size-4 shrink-0" style={{ color: FAINT }} />
+                  </button>
                 </div>
               </div>
             ))}
@@ -399,7 +438,7 @@ export function HomeComposed({ tasks, upcoming, itemsCount, homeId, completingId
                   <div className="font-mono text-[9px] font-extrabold uppercase tracking-[0.1em]" style={{ color: FAINT }}>Ahead</div>
                   <p className="mt-0.5 text-[13px] leading-[1.5]" style={{ color: INK }}>
                     {rows.filter((r) => r.overdueDays == null).slice(0, 2).map((r, i) => (
-                      <span key={r.id}>{i > 0 ? " Then " : ""}{r.title} ({r.when}).</span>
+                      <span key={r.id}>{i > 0 ? " Then " : ""}{r.title}{r.itemName ? ` on the ${r.itemName}` : ""} ({r.when}).</span>
                     ))}
                     {rows.filter((r) => r.overdueDays == null).length === 0 &&
                       (rows.length > 0

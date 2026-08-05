@@ -524,7 +524,6 @@ export default function Home() {
             <RefinedHome
               tasks={homeTasks}
               upcoming={upcoming}
-              itemsCount={stats?.totalItems ?? 0}
               warranties={expiringWarranties}
               cleaningGuides={cleaningGuides}
               level={level}
@@ -543,7 +542,6 @@ export default function Home() {
             warranties={expiringWarranties}
             notices={notices}
             upcoming={upcoming}
-            itemsCount={stats?.totalItems ?? 0}
             cleaningGuides={cleaningGuides}
             level={level}
             homeId={homeId || null}
