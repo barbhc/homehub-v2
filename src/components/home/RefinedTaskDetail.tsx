@@ -14,6 +14,9 @@ import { canAssignTasks } from "@/modules/care"
 import { TaskFeedbackSheet } from "@/components/care/TaskFeedbackSheet"
 import { classifyActorFromText } from "@/lib/taskActor"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
+import { ManualDockPanel } from "@/components/care/ManualDockPanel"
+import { getManualsByItem } from "@/modules/knowledge"
+import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
 
@@ -87,6 +90,41 @@ export function RefinedTaskDetail({
     return () => { cancelled = true }
   }, [homeId, taskInstanceId])
 
+  // ── manual, opened IN PLACE ────────────────────────────────────────────────
+  // "Open manual" used to navigate to /items/:id?manualPage=N, which answered
+  // "where is this in the manual?" by throwing away the thing you were reading.
+  // The dock is designed to sit alongside its host — so host it here, and pad
+  // the task content by the dock's size so the task stays on screen.
+  const [manualUrl, setManualUrl] = useState<string | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [dockSize, setDockSize] = useState(52)
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    const on = () => setIsDesktop(mq.matches)
+    mq.addEventListener("change", on)
+    return () => mq.removeEventListener("change", on)
+  }, [])
+  useEffect(() => {
+    const itemId = detail?.itemUnitId
+    if (!homeId || !itemId || detail?.manualPage == null) return
+    let cancelled = false
+    getManualsByItem(homeId, itemId)
+      .then(async (res: Awaited<ReturnType<typeof getManualsByItem>>) => {
+        const first = (res.data ?? [])[0]
+        if (!first) return
+        const url = await resolveManualUrl(first.source_type, first.source_ref).catch(() => null)
+        if (url && !cancelled) setManualUrl(url)
+      })
+      .catch(() => {
+        /* no manual resolved — the button simply stays a link to the item page */
+      })
+    return () => { cancelled = true }
+  }, [homeId, detail?.itemUnitId, detail?.manualPage])
+  const dockOpen = manualOpen && !!manualUrl
+
   const recurring = !!detail?.schedule && !NON_RECURRING.includes(detail.schedule.scheduleType)
 
   const assignTo = useCallback(async (userId: string | null) => {
@@ -137,7 +175,15 @@ export function RefinedTaskDetail({
   )
 
   return (
-    <div className="flex min-h-full flex-col" style={{ background: BG }}>
+    <div
+      className="flex min-h-full flex-col"
+      style={{
+        background: BG,
+        // Reserve the dock's space so the task is never hidden behind it.
+        paddingRight: dockOpen && isDesktop ? `${dockSize}vw` : undefined,
+        paddingBottom: dockOpen && !isDesktop ? `${dockSize}vh` : undefined,
+      }}
+    >
       {/* Nav */}
       <div className="flex items-center px-3 pt-1 pb-2">
         <button onClick={onBack} className="inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
@@ -197,14 +243,32 @@ export function RefinedTaskDetail({
           {/* Manual reference — where this how-to came from; opens the item page
               (which has the manual viewer). */}
           {detail.manualPage != null && detail.itemUnitId && (
-            <Link
-              to={`/items/${detail.itemUnitId}?manualPage=${detail.manualPage}`}
-              className="inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
-              style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: TEAL }}
-            >
-              <BookOpenIcon className="size-[15px]" /> Open manual · p.{detail.manualPage}
-              <ArrowUpRightIcon className="size-[13px]" />
-            </Link>
+            manualUrl ? (
+              <button
+                type="button"
+                onClick={() => setManualOpen((v) => !v)}
+                className="inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
+                style={{
+                  borderColor: dockOpen ? TEAL : "var(--hh-line2)",
+                  background: dockOpen ? "var(--hh-teal-wash)" : "var(--hh-surface)",
+                  color: TEAL,
+                }}
+              >
+                <BookOpenIcon className="size-[15px]" />
+                {dockOpen ? "Hide manual" : `Open manual · p.${detail.manualPage}`}
+              </button>
+            ) : (
+              // No resolvable PDF (external link, or the fetch failed): fall
+              // back to the item page rather than offering a dead button.
+              <Link
+                to={`/items/${detail.itemUnitId}?manualPage=${detail.manualPage}`}
+                className="inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
+                style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: TEAL }}
+              >
+                <BookOpenIcon className="size-[15px]" /> Open manual · p.{detail.manualPage}
+                <ArrowUpRightIcon className="size-[13px]" />
+              </Link>
+            )
           )}
 
           {/* Assignment — mobile only, below the instructions (desktop shows it in the rail) */}
@@ -317,6 +381,19 @@ export function RefinedTaskDetail({
           hazardous={classifyActorFromText([detail.title, detail.notes, detail.justification].filter(Boolean).join(" ")) === "hazardous"}
           onClose={() => setFeedbackOpen(false)}
           onApplied={() => { setFeedbackOpen(false); onBack() }}
+        />
+      )}
+
+      {/* The manual, docked beside the task rather than instead of it. */}
+      {manualUrl && detail.manualPage != null && (
+        <ManualDockPanel
+          open={manualOpen}
+          onOpenChange={setManualOpen}
+          pdfUrl={manualUrl}
+          pageNumber={detail.manualPage}
+          isDesktop={isDesktop}
+          size={dockSize}
+          onSizeChange={setDockSize}
         />
       )}
     </div>

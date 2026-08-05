@@ -17,6 +17,17 @@ const TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", SUB = "var(--hh-su
  * off (tick + strike-through). The single step component shared with the item
  * page so the two surfaces match.
  */
+/**
+ * Steps are CHECKBOXES, not numbers.
+ *
+ * They were always tickable, but they wore numbered circles — and inside a
+ * deep-clean guide, whose sections are also numbered, that put two independent
+ * number systems on one screen ("5. Clean the Appliance Exterior" containing
+ * steps 1-5). The owner's question was the right one: two tiers, two meanings,
+ * one glyph. Numbers now mean exactly one thing — your position in a guide —
+ * and a circle you can tick means exactly one thing too. Order is carried by
+ * vertical position, which is what a list is for.
+ */
 export function StepList({ steps, label = "Steps" }: { steps: string[]; label?: string }) {
   const [done, setDone] = useState<number[]>([])
   if (steps.length === 0) return null
@@ -31,14 +42,17 @@ export function StepList({ steps, label = "Steps" }: { steps: string[]; label?: 
             <li key={i}>
               <button type="button" onClick={() => flip(i)} className="flex w-full items-start gap-3 text-left">
                 <span
-                  className="mt-px flex size-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold"
+                  className="mt-px flex size-[22px] shrink-0 items-center justify-center rounded-full transition-colors"
                   style={{
                     border: `2px solid ${on ? TEAL : "var(--hh-line2)"}`,
-                    background: on ? TEAL : "var(--hh-teal-wash)",
-                    color: on ? "#fff" : TEAL,
+                    background: on ? TEAL : "transparent",
                   }}
                 >
-                  {on ? <CheckIcon className="size-[13px]" strokeWidth={3} /> : i + 1}
+                  <CheckIcon
+                    className="size-[13px]"
+                    strokeWidth={3}
+                    style={{ color: "#fff", opacity: on ? 1 : 0 }}
+                  />
                 </span>
                 <span
                   className="flex-1 pt-0.5 text-[14px] leading-relaxed text-pretty"
