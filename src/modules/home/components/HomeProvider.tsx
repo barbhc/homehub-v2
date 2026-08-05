@@ -54,10 +54,16 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
       console.debug("[HomeProvider] Loading home for user", user.id)
       const result = await getPrimaryHome()
       markBoot("home")
-      // The network answer always wins — the cache decides what paints FIRST,
-      // never what is true.
-      setHome(result.data ?? null)
-      if (!result.error) writeCachedHome(user.id, result.data ?? null)
+      // A SUCCESSFUL network answer always wins — the cache decides what paints
+      // FIRST, never what is true. A FAILED one decides nothing: blanking a
+      // home we already painted would bounce the user to onboarding, which is
+      // the mistake this provider exists to prevent.
+      if (!result.error) {
+        setHome(result.data ?? null)
+        writeCachedHome(user.id, result.data ?? null)
+      } else if (!cached) {
+        setHome(null)
+      }
       if (result.error) {
         // A FAILED lookup (missing index, offline, rules) must be visible and must
         // not read as "no home" — see the error field's contract on HomeState.

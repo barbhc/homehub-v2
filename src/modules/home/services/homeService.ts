@@ -111,25 +111,30 @@ export async function createHome(input: CreateHomeInput): Promise<CreateHomeResu
 }
 
 /** The homeIds the current user belongs to (via their membership docs). */
-async function myMemberships(): Promise<{ homeId: string; isPrimary: boolean }[]> {
+async function myMemberships(): Promise<{
+  rows: { homeId: string; isPrimary: boolean }[]
+  /** True when Firestore answered from its LOCAL cache rather than the server. */
+  fromCache: boolean
+}> {
   const uid = auth.currentUser?.uid
-  if (!uid) return []
+  if (!uid) return { rows: [], fromCache: false }
   // collectionGroup queries need a fieldOverride in firestore.indexes.json
   // (members.uid, COLLECTION_GROUP scope). The EMULATOR does not enforce
   // indexes — a missing one fails only in prod; scripts/ops/prod-smoke.ts checks.
   const snap = await getDocs(query(collectionGroup(db, "members"), where("uid", "==", uid)))
-  return snap.docs
+  const rows = snap.docs
     .map((d) => {
       const homeId = d.ref.parent.parent?.id
       return homeId ? { homeId, isPrimary: !!d.get("isPrimary") } : null
     })
     .filter((m): m is { homeId: string; isPrimary: boolean } => m !== null)
+  return { rows, fromCache: snap.metadata.fromCache }
 }
 
 /** Fetches homes the user belongs to. */
 export async function getHomes(): Promise<ServiceResult<Home[]>> {
   try {
-    const memberships = await myMemberships()
+    const { rows: memberships } = await myMemberships()
     const homes: Home[] = []
     for (const m of memberships) {
       const snap = await getDoc(doc(db, `homes/${m.homeId}`))
@@ -145,8 +150,20 @@ export async function getHomes(): Promise<ServiceResult<Home[]>> {
 /** Fetches the user's primary (or first) home. */
 export async function getPrimaryHome(): Promise<ServiceResult<Home | null>> {
   try {
-    const memberships = await myMemberships()
-    if (memberships.length === 0) return { data: null, error: null }
+    const { rows: memberships, fromCache } = await myMemberships()
+    if (memberships.length === 0) {
+      // An EMPTY answer that came from Firestore's local cache is not evidence
+      // of anything. Offline, getDocs resolves from cache without throwing, so
+      // "we couldn't reach the server" and "you have no home" arrive looking
+      // identical — and the second one routes to onboarding and invites the
+      // user to create a home they already own. That is the duplicate-home
+      // incident's exact shape, reached by a different road. Report it as the
+      // failure it is; only a SERVER-confirmed empty list means "no home".
+      if (fromCache) {
+        return { data: null, error: { message: "Couldn't reach the server to find your home." } }
+      }
+      return { data: null, error: null }
+    }
     const chosen = memberships.find((m) => m.isPrimary) ?? memberships[0]
     const snap = await getDoc(doc(db, `homes/${chosen.homeId}`))
     if (!snap.exists() || snap.get("deletedAt") != null) return { data: null, error: null }

@@ -72,7 +72,10 @@ export default function CleanGuide() {
             {guide.tasks.map((t, i) => (
               <div key={t.taskTemplateId} className="rounded-[18px] p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
                 <div className="mb-3 flex items-center gap-3">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>{i + 1}</span>
+                  {/* The ONLY number on this screen: which section of the guide
+                      you're in. Solid, so it reads as a marker rather than a
+                      sibling of the step circles below it. */}
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold text-white" style={{ background: TEAL }}>{i + 1}</span>
                   <h2 className="min-w-0 flex-1 text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{t.title}</h2>
                   {t.estimatedMinutes != null && <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: SUB }}>{t.estimatedMinutes} min</span>}
                 </div>

@@ -12,6 +12,7 @@ import {
   BellRingIcon,
   MessageCircleIcon,
   WrenchIcon,
+  CloudOffIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { markTaskInstanceDone, snoozeTaskInstance } from "@/modules/care"
@@ -426,7 +427,12 @@ export default function Home() {
   // empty-state hero, which hides real RLS/auth regressions from users and
   // support. Profile errors are non-fatal (drive personalization, not core
   // data) so we log but don't block the page.
-  if (dashError) {
+  // ONLY when there is nothing to paint. The warm snapshot in localStorage is
+  // the whole point of swrPersist: with a cached Home in hand, a failed or
+  // timed-out fetch should show yesterday's Home plus a banner, not a red wall.
+  // Returning early on `dashError` alone meant a dropped connection blanked a
+  // page the device could already render — which is what the owner hit on 5G.
+  if (dashError && !stats) {
     return (
       <div className="px-4 lg:px-8 py-8 max-w-xl mx-auto">
         <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5">
@@ -455,6 +461,22 @@ export default function Home() {
 
   return (
     <div className="flex flex-col pb-8">
+      {/* Cached view + a failed refresh: say so quietly and stay usable. The
+          user can still read everything and complete work; only freshness is
+          in question, so this is a note, not an error state. */}
+      {dashError && (
+        <div className="mx-4 mt-3 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 lg:mx-8"
+             style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
+          <CloudOffIcon className="size-4 shrink-0" style={{ color: "var(--hh-sub)" }} />
+          <span className="min-w-0 flex-1 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
+            Showing your last saved view — couldn&apos;t reach the server.
+          </span>
+          <button type="button" onClick={() => refresh()} className="shrink-0 text-[12.5px] font-bold" style={{ color: "var(--hh-teal)" }}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* ── Mobile: Today strip (replaced by RefinedHome header on mobile) ── */}
       <div className="hidden px-4 pt-5 pb-2">
         <div className="flex items-baseline justify-between">
