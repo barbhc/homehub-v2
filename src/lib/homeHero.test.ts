@@ -120,3 +120,24 @@ describe("fmtWhen", () => {
     expect(fmtWhen("2026-08-15")).toBe("Sat, Aug 15")
   })
 })
+
+describe("comingUp — item context, the reason rows are legible", () => {
+  it("carries the item id so a row can open where its context lives", () => {
+    const rows = comingUp([
+      { id: "i1", title: "Check Grate Support Bumpers", itemName: "GE Profile Gas Range",
+        item_id: "range", next_due_date: "2026-08-15", isOverdue: false },
+    ], TODAY)
+    expect(rows[0].itemId).toBe("range")
+    // The title alone ("Check Grate Support Bumpers") doesn't say what it's FOR.
+    expect(rows[0].itemName).toBe("GE Profile Gas Range")
+  })
+
+  it("a home-scoped task has no item id — the row falls back, never dead-ends", () => {
+    const rows = comingUp([
+      { id: "h1", title: "Test smoke & CO detectors", itemName: null,
+        next_due_date: "2026-08-20", isOverdue: false },
+    ], TODAY)
+    expect(rows[0].itemId).toBeNull()
+    expect(rows[0].itemName).toBeNull()
+  })
+})
