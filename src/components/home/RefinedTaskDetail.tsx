@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
   RepeatIcon, InfoIcon, ClockIcon, MapPinIcon, CalendarIcon, PackageIcon, MinusIcon, PlusIcon,
-  BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon,
+  BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon,
 } from "lucide-react"
 import {
   getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate,
@@ -15,6 +15,7 @@ import { TaskFeedbackSheet } from "@/components/care/TaskFeedbackSheet"
 import { classifyActorFromText } from "@/lib/taskActor"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
+import { TaskEditSheet } from "@/components/tasks/TaskEditSheet"
 import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
@@ -95,6 +96,7 @@ export function RefinedTaskDetail({
   // "where is this in the manual?" by throwing away the thing you were reading.
   // The dock is designed to sit alongside its host — so host it here, and pad
   // the task content by the dock's size so the task stays on screen.
+  const [editOpen, setEditOpen] = useState(false)
   const [manualUrl, setManualUrl] = useState<string | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
   const [dockSize, setDockSize] = useState(52)
@@ -209,6 +211,16 @@ export function RefinedTaskDetail({
                 </span>
                 <h1 className="mt-2 text-[24px] font-extrabold leading-tight tracking-[-0.5px] text-balance lg:text-[28px] lg:tracking-[-0.7px]" style={{ color: INK }}>{detail.title}</h1>
               </div>
+              {/* The parser wrote this task; the owner gets to correct it. */}
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                aria-label="Edit task"
+                className="shrink-0 self-start rounded-full border p-2"
+                style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)" }}
+              >
+                <PencilIcon className="size-[16px]" style={{ color: TEAL }} />
+              </button>
             </div>
             <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-2 text-[13px] lg:text-[13.5px]" style={{ color: SUB }}>
               {detail.estimatedMinutes != null && <span className="inline-flex items-center gap-1.5"><ClockIcon className="size-[15px]" /> {detail.estimatedMinutes} min</span>}
@@ -381,6 +393,22 @@ export function RefinedTaskDetail({
           hazardous={classifyActorFromText([detail.title, detail.notes, detail.justification].filter(Boolean).join(" ")) === "hazardous"}
           onClose={() => setFeedbackOpen(false)}
           onApplied={() => { setFeedbackOpen(false); onBack() }}
+        />
+      )}
+
+      {editOpen && homeId && (
+        <TaskEditSheet
+          homeId={homeId}
+          detail={detail}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setEditOpen(false)
+            // Re-read rather than patching local state: the title edit also
+            // sweeps instances, so the authoritative shape comes from the server.
+            void getTaskDetail(homeId, taskInstanceId).then((r) => {
+              if (r.data) setDetail(r.data)
+            })
+          }}
         />
       )}
 

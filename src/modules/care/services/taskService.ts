@@ -922,3 +922,98 @@ export async function snoozeTaskInstance(
     return { success: false, error: e instanceof Error ? e.message : "Failed to snooze task" }
   }
 }
+
+// ── User edits: the homeowner owns their tasks ────────────────────────────────
+
+/** What a homeowner may change about a task's content. */
+export type TaskContentEdit = {
+  /** Trimmed; empty is rejected rather than silently writing a blank title. */
+  title?: string
+  /** Replaces the step list wholesale. Blank entries are dropped. */
+  steps?: string[]
+}
+
+/**
+ * Edits a task's title and/or steps.
+ *
+ * Title is DENORMALIZED onto every taskInstance — Home, Tasks, and the agenda
+ * all read the instance copy, never the template. So editing only the template
+ * would leave the old title on every surface the owner actually looks at: the
+ * same denormalized-drift bug that made an entire cleanup sweep invisible
+ * before. The template write and the instance sweep are one batch, and open
+ * instances (scheduled/snoozed) carry the new title forward.
+ *
+ * Completed instances keep the title they were completed under — history should
+ * record what the task was called when it was done, not be rewritten.
+ */
+export async function updateTaskContent(
+  homeId: string,
+  taskTemplateId: string,
+  edit: TaskContentEdit,
+): Promise<ServiceResult<null>> {
+  const title = edit.title?.trim()
+  if (edit.title !== undefined && !title) {
+    return { data: null, error: { message: "A task needs a name." } }
+  }
+  const steps = edit.steps?.map((s) => s.trim()).filter(Boolean)
+
+  try {
+    const batch = writeBatch(db)
+    const now = serverTimestamp()
+
+    const tplFields: DocumentData = { updatedAt: now, editedByUserAt: now }
+    if (title) tplFields.title = title
+    if (steps) tplFields.steps = steps
+    batch.set(doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`), tplFields, { merge: true })
+
+    if (title) {
+      const snap = await getDocs(
+        query(collection(db, `homes/${homeId}/taskInstances`), where("taskTemplateId", "==", taskTemplateId)),
+      )
+      for (const d of snap.docs) {
+        const x = d.data()
+        if ((x.status === "scheduled" || x.status === "snoozed") && x.deletedAt == null) {
+          batch.set(d.ref, { title, updatedAt: now }, { merge: true })
+        }
+      }
+    }
+
+    await batch.commit()
+    track("task_edited", { homeId, taskTemplateId, fields: Object.keys(edit).join(",") })
+    return { data: null, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to save your changes" } }
+  }
+}
+
+/**
+ * Moves a single occurrence's due date — the date the reminder fires.
+ *
+ * Deliberately instance-scoped: "do this one a week later" must not silently
+ * redefine the cadence for every future occurrence. Changing the schedule
+ * itself is a different, more consequential act with its own surface.
+ */
+export async function rescheduleTaskInstance(
+  homeId: string,
+  taskInstanceId: string,
+  dueDate: string,
+): Promise<ServiceResult<null>> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+    return { data: null, error: { message: "That date isn't valid." } }
+  }
+  try {
+    await writeBatch(db)
+      .set(
+        doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`),
+        // Clearing snoozedUntil keeps one source of truth for "when next":
+        // a snooze left in place would override the date just chosen.
+        { dueDate, snoozedUntil: null, status: "scheduled", updatedAt: serverTimestamp() },
+        { merge: true },
+      )
+      .commit()
+    track("task_rescheduled", { homeId, taskInstanceId })
+    return { data: null, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to change the date" } }
+  }
+}
