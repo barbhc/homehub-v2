@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { clearCachedHome } from "@/lib/homeCache"
 import { markBoot } from "@/lib/bootTiming"
+import { ensureNativePushToken } from "@/lib/nativePush"
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -119,6 +120,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         markBoot("auth")
         setUser(toAuthUser(u))
         setLoading(false)
+        // Recover a missing APNs registration. "Permission granted" was being
+        // treated as "set up", so a device whose token had been dropped never
+        // re-registered and stayed silently unreachable. No-op on web, no-op
+        // when a token already exists, and never prompts.
+        if (u) void ensureNativePushToken(u.uid)
       },
       // Without this third argument the observer's error path is unhandled, so
       // setLoading(false) never runs and EVERY authenticated screen sits on

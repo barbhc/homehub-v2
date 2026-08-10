@@ -212,6 +212,7 @@ export default function Settings() {
     platform: string
     native: boolean
     permission: string
+    build: string
     tokens: { kind: string; len: number }[]
   } | null>(null)
   const [pushTesting, setPushTesting] = useState(false)
@@ -232,6 +233,19 @@ export default function Settings() {
     } else if (typeof Notification !== "undefined") {
       permission = Notification.permission
     }
+    // Which binary is running — the only way to tell whether a native-side fix
+    // is actually on the device, since web deploys change nothing about it.
+    let build = "n/a"
+    if (native) {
+      try {
+        const { App } = await import("@capacitor/app")
+        const info = await App.getInfo()
+        build = `${info.version} (${info.build})`
+      } catch {
+        build = "unknown"
+      }
+    }
+
     let tokens: { kind: string; len: number }[] = []
     if (user?.id) {
       try {
@@ -245,7 +259,7 @@ export default function Settings() {
         /* diagnostics are best-effort — never block the page */
       }
     }
-    setPushDiag({ platform: Capacitor.getPlatform(), native, permission, tokens })
+    setPushDiag({ platform: Capacitor.getPlatform(), native, permission, build, tokens })
   }, [user?.id])
 
   const handleTestPush = async () => {
@@ -1153,6 +1167,8 @@ export default function Settings() {
                       <dd>{pushDiag.native ? `native shell (${pushDiag.platform})` : `web browser (${pushDiag.platform})`}</dd>
                       <dt className="text-muted-foreground">permission</dt>
                       <dd>{pushDiag.permission}</dd>
+                      <dt className="text-muted-foreground">build</dt>
+                      <dd>{pushDiag.build}</dd>
                       <dt className="text-muted-foreground">tokens</dt>
                       <dd>
                         {pushDiag.tokens.length === 0

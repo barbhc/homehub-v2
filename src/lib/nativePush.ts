@@ -1,5 +1,5 @@
 import { PushNotifications } from "@capacitor/push-notifications"
-import { doc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
+import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { isNativePlatform } from "./native"
 
@@ -68,6 +68,40 @@ export async function registerNativePush(
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Unknown error" }
+  }
+}
+
+/**
+ * Re-register with APNs when the OS says permission is granted but the server
+ * holds no device token for this user.
+ *
+ * The UI treated "permission granted" as "set up", so a device that had granted
+ * permission never called register() again — and the token, dropped by the old
+ * AppDelegate, was never recovered. Permission is not a token: only the
+ * `registration` callback produces one, and it fires only after register().
+ *
+ * register() is idempotent and silent once permission exists (no prompt), so
+ * this is safe to run at every boot. Returns true if a registration was kicked
+ * off, so callers can log/diagnose.
+ */
+export async function ensureNativePushToken(userId: string): Promise<boolean> {
+  if (!isNativePlatform()) return false
+  try {
+    const perm = await PushNotifications.checkPermissions()
+    if (perm.receive !== "granted") return false
+
+    const snap = await getDoc(tokensDoc(userId))
+    const stored = (snap.get("tokens") as string[] | undefined) ?? []
+    // A raw APNs device token is 64 hex chars; FCM web tokens never match.
+    if (stored.some((t) => /^[0-9a-f]{64}$/i.test(t))) return false
+
+    currentUserId = userId
+    await ensureListeners()
+    await PushNotifications.register()
+    return true
+  } catch (err) {
+    console.error("[nativePush] re-register failed:", err instanceof Error ? err.message : err)
+    return false
   }
 }
 
