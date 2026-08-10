@@ -8,10 +8,20 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { onSchedule } from "firebase-functions/v2/scheduler"
+import { defineSecret } from "firebase-functions/params"
 import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { getMessaging } from "firebase-admin/messaging"
+import { isApnsToken, sendApns } from "./apns.js"
 
 const REGION = "us-central1"
+
+// The APNs auth key (8RJM846HM6, Sandbox & Production, Team Scoped — created
+// for v1 on 2026-06-18 and reused). Set via `firebase functions:secrets:set`;
+// the .p8 content never enters source control.
+const APNS_KEY = defineSecret("APNS_KEY")
+const APNS_KEY_ID = defineSecret("APNS_KEY_ID")
+const APNS_TEAM_ID = defineSecret("APNS_TEAM_ID")
+const APNS_SECRETS = [APNS_KEY, APNS_KEY_ID, APNS_TEAM_ID]
 
 async function getTokens(db: Firestore, uid: string): Promise<string[]> {
   const snap = await db.doc(`users/${uid}/private/fcmTokens`).get()
@@ -19,7 +29,17 @@ async function getTokens(db: Firestore, uid: string): Promise<string[]> {
   return Array.isArray(tokens) ? tokens.filter((t): t is string => typeof t === "string") : []
 }
 
-/** Send to a user's tokens, pruning any the FCM response reports invalid. */
+/**
+ * Send to a user's tokens across BOTH lanes.
+ *
+ * The stored array mixes dialects: web pushes register FCM tokens; the iOS
+ * shell stores Apple's raw APNs token (64 hex). FCM multicast cannot address
+ * the latter — worse, it rejects them as invalid-argument, and the old prune
+ * treated that as "token is dead" and DELETED the iOS registration. So the
+ * lanes are split by token shape, each with its own definitive-death rule:
+ * FCM prunes on not-registered only; APNs prunes on 410/BadDeviceToken only.
+ * Transient failures never prune — a timeout is not evidence.
+ */
 async function sendToUser(
   db: Firestore,
   uid: string,
@@ -29,25 +49,44 @@ async function sendToUser(
   const tokens = await getTokens(db, uid)
   if (tokens.length === 0) return { sent: 0, failed: 0 }
 
-  const res = await getMessaging().sendEachForMulticast({ tokens, notification, data })
+  const apnsTokens = tokens.filter(isApnsToken)
+  const fcmTokens = tokens.filter((t) => !isApnsToken(t))
   const invalid: string[] = []
-  res.responses.forEach((r, i) => {
-    if (!r.success) {
-      const code = r.error?.code ?? ""
-      if (code.includes("registration-token-not-registered") || code.includes("invalid-argument")) {
-        invalid.push(tokens[i])
+  let sent = 0
+  let failed = 0
+
+  if (fcmTokens.length > 0) {
+    const res = await getMessaging().sendEachForMulticast({ tokens: fcmTokens, notification, data })
+    res.responses.forEach((r, i) => {
+      if (!r.success && (r.error?.code ?? "").includes("registration-token-not-registered")) {
+        invalid.push(fcmTokens[i])
+      }
+    })
+    sent += res.successCount
+    failed += res.failureCount
+  }
+
+  if (apnsTokens.length > 0) {
+    const creds = { keyId: APNS_KEY_ID.value(), teamId: APNS_TEAM_ID.value(), p8: APNS_KEY.value() }
+    for (const t of apnsTokens) {
+      const r = await sendApns(t, { title: notification.title, body: notification.body, url: data?.url }, creds)
+      if (r.status === 200) sent += 1
+      else {
+        failed += 1
+        if (r.definitivelyDead) invalid.push(t)
       }
     }
-  })
+  }
+
   if (invalid.length) {
     const remaining = tokens.filter((t) => !invalid.includes(t))
     await db.doc(`users/${uid}/private/fcmTokens`).set({ tokens: remaining }, { merge: true })
   }
-  return { sent: res.successCount, failed: res.failureCount }
+  return { sent, failed }
 }
 
 /** Send a test push to the caller — proves token registration + delivery. */
-export const sendTestPush = onCall({ region: REGION }, async (request) => {
+export const sendTestPush = onCall({ region: REGION, secrets: APNS_SECRETS }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
   const db = getFirestore()
@@ -65,7 +104,7 @@ export const sendTestPush = onCall({ region: REGION }, async (request) => {
  * intent (scheduled, not deleted, due on/before today).
  */
 export const sendPushDaily = onSchedule(
-  { region: REGION, schedule: "0 15 * * *", timeZone: "America/Los_Angeles" },
+  { region: REGION, schedule: "0 15 * * *", timeZone: "America/Los_Angeles", secrets: APNS_SECRETS },
   async () => {
     const db = getFirestore()
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date())
