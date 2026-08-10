@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
-import { AlertCircleIcon, BellIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2 } from "lucide-react"
+import { AlertCircleIcon, BellIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2
+} from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,7 @@ import { AdminToolsSection } from "@/components/settings/AdminToolsSection"
 import { HouseRulesSection } from "@/components/settings/HouseRulesSection"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useUserLevel } from "@/hooks/useUserLevel"
+import { LEGAL } from "@/pages/legal/legalConfig"
 import { useAppearance, type Appearance } from "@/lib/theme"
 import { useAuth } from "@/modules/auth"
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, isSubscribed as checkIsSubscribed } from "@/lib/pushNotifications"
@@ -261,6 +263,38 @@ export default function Settings() {
     }
     setPushDiag({ platform: Capacitor.getPlatform(), native, permission, build, tokens })
   }, [user?.id])
+
+  /** Opens the user's mail app with context already filled in. */
+  const reportProblem = useCallback(async () => {
+    let build = "web"
+    let platform = "web"
+    try {
+      const { Capacitor } = await import("@capacitor/core")
+      platform = Capacitor.getPlatform()
+      if (Capacitor.isNativePlatform()) {
+        const { App } = await import("@capacitor/app")
+        const info = await App.getInfo()
+        build = `${info.version} (${info.build})`
+      }
+    } catch {
+      /* context is a nicety — never block the report on collecting it */
+    }
+    const body = [
+      "What happened?",
+      "",
+      "",
+      "What did you expect instead?",
+      "",
+      "",
+      "— — — — —",
+      `App: ${build} on ${platform}`,
+      `Device: ${navigator.userAgent}`,
+      `When: ${new Date().toISOString()}`,
+    ].join("\n")
+    window.location.href =
+      `mailto:${LEGAL.contactEmail}?subject=${encodeURIComponent("Homehub problem report")}` +
+      `&body=${encodeURIComponent(body)}`
+  }, [])
 
   const handleTestPush = async () => {
     setPushTesting(true)
@@ -1087,6 +1121,29 @@ export default function Settings() {
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             Take a guided walkthrough of Homehub&apos;s main features.
+          </p>
+        </CardContent>
+      </SectionCard>
+
+      {/* Report a problem.
+          The subject and body are pre-filled with the build, platform and OS so
+          a report arrives actionable instead of starting a round-trip for
+          "which version are you on?". Testers on TestFlight also have Apple's
+          own screenshot-feedback channel; this is for everyone else, and for
+          anything that needs a reply. */}
+      <SectionCard className="mt-6">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <LifeBuoyIcon className="size-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Report a problem</h2>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void reportProblem()}>
+              Send report
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Something broken or confusing? This opens an email with your app version filled in.
           </p>
         </CardContent>
       </SectionCard>
