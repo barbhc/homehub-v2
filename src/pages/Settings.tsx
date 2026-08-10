@@ -202,9 +202,51 @@ export default function Settings() {
   const [pushSupported] = useState(() => isNative || isPushSupported())
   const [pushSubscribed, setPushSubscribed] = useState(false)
   const [pushToggling, setPushToggling] = useState(false)
+  // Read-only push diagnostics. Three rounds of this have now been spent
+  // guessing which layer was broken (server lane, AppDelegate, TestFlight
+  // enrolment) while the one question that separates them — is this the native
+  // shell, and did it ever receive a token? — was never actually asked. One
+  // cheap panel answers it permanently, and a web deploy reaches the phone with
+  // no rebuild.
+  const [pushDiag, setPushDiag] = useState<{
+    platform: string
+    native: boolean
+    permission: string
+    tokens: { kind: string; len: number }[]
+  } | null>(null)
   const [pushTesting, setPushTesting] = useState(false)
   const [pushTestMsg, setPushTestMsg] = useState<string | null>(null)
   const [pushError, setPushError] = useState<string | null>(null)
+
+  const loadPushDiag = useCallback(async () => {
+    const { Capacitor } = await import("@capacitor/core")
+    const native = Capacitor.isNativePlatform()
+    let permission = "n/a"
+    if (native) {
+      try {
+        const { PushNotifications } = await import("@capacitor/push-notifications")
+        permission = (await PushNotifications.checkPermissions()).receive
+      } catch (e) {
+        permission = `error: ${e instanceof Error ? e.message : "unknown"}`
+      }
+    } else if (typeof Notification !== "undefined") {
+      permission = Notification.permission
+    }
+    let tokens: { kind: string; len: number }[] = []
+    if (user?.id) {
+      try {
+        const snap = await getDoc(doc(db, `users/${user.id}/private/fcmTokens`))
+        const raw = (snap.get("tokens") as string[] | undefined) ?? []
+        tokens = raw.map((t) => ({
+          kind: /^[0-9a-f]{64}$/i.test(t) ? "APNs (iOS)" : "FCM (web)",
+          len: t.length,
+        }))
+      } catch {
+        /* diagnostics are best-effort — never block the page */
+      }
+    }
+    setPushDiag({ platform: Capacitor.getPlatform(), native, permission, tokens })
+  }, [user?.id])
 
   const handleTestPush = async () => {
     setPushTesting(true)
@@ -224,6 +266,7 @@ export default function Settings() {
       setPushTestMsg(msg)
     } finally {
       setPushTesting(false)
+      void loadPushDiag()
     }
   }
 
@@ -1095,6 +1138,30 @@ export default function Settings() {
                 {pushTestMsg && (
                   <span className="text-sm text-muted-foreground">{pushTestMsg}</span>
                 )}
+                <div className="mt-3 w-full rounded-xl border border-border bg-muted/30 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-muted-foreground">
+                      Delivery diagnostics
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => void loadPushDiag()}>
+                      {pushDiag ? "Refresh" : "Check"}
+                    </Button>
+                  </div>
+                  {pushDiag && (
+                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-[12px]">
+                      <dt className="text-muted-foreground">app</dt>
+                      <dd>{pushDiag.native ? `native shell (${pushDiag.platform})` : `web browser (${pushDiag.platform})`}</dd>
+                      <dt className="text-muted-foreground">permission</dt>
+                      <dd>{pushDiag.permission}</dd>
+                      <dt className="text-muted-foreground">tokens</dt>
+                      <dd>
+                        {pushDiag.tokens.length === 0
+                          ? "none stored"
+                          : pushDiag.tokens.map((t, i) => <div key={i}>{t.kind} · {t.len} chars</div>)}
+                      </dd>
+                    </dl>
+                  )}
+                </div>
               </div>
             )}
 
