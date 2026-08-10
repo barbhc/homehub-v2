@@ -40,7 +40,7 @@ export default function Privacy() {
             <><b>Your maintenance plan</b> — tasks, schedules, what you have marked done, and any corrections you make to how a task was categorized.</>,
             <><b>Questions you ask</b> — the questions you put to the in-app assistant and the answers it gives.</>,
             <><b>Notification token</b> — if you turn on reminders, a device token used solely to deliver them.</>,
-            <><b>Usage and error data</b> — which screens you open and which core actions you take, plus diagnostic reports when something crashes.</>,
+            <><b>Usage data</b> — which screens you open and which core actions you take.</>,
           ]}
         />
       </Section>
@@ -98,11 +98,6 @@ export default function Privacy() {
               name: "PostHog",
               data: "Product usage events and your account identifier.",
               why: "Understanding which parts of the app work and which are confusing. Session recording is off.",
-            },
-            {
-              name: "Sentry",
-              data: "Error reports, including the screen you were on when something failed.",
-              why: "Finding and fixing crashes.",
             },
           ]}
         />
