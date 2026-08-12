@@ -7,11 +7,38 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/homehub-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Fonts: ONE request, and it does not block the first paint.
+         There were three separate render-blocking stylesheets here, costing a
+         measured 576ms of a 683ms load on a throttled phone — most of the cold
+         start, spent before a single pixel could appear. Two of the four
+         families were dead: DM Sans had no references at all, and DM Serif
+         Display styled exactly one word on the boot splash, which now uses
+         Georgia (already its fallback, and indistinguishable at 27px for the
+         second it is on screen).
+         The `media="print"` swap is the standard trick to make a stylesheet
+         async: the browser fetches it at low priority and does not block
+         rendering, then onload promotes it. With display=swap, text paints
+         immediately in the system font and upgrades when Inter arrives. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
+      media="print"
+      onload="this.media='all';this.onload=null"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" />
+    </noscript>
+
+    <!-- Warm the connections the app makes the instant its JS runs. Each of
+         these is a fresh origin needing DNS + TCP + TLS; on cellular that is
+         300-600ms EACH, and today none of it starts until a megabyte of
+         JavaScript has downloaded and parsed. Preconnecting overlaps that
+         handshake with the bundle download instead of queueing behind it. -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
     <title>homehub</title>
     <script>
       // Set theme class before paint to avoid a flash of the wrong appearance.
@@ -48,7 +75,9 @@
         filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.18));
       }
       #boot-splash .bs-word {
-        font-family: "DM Serif Display", Georgia, "Times New Roman", serif;
+        /* Georgia, not a webfont: the splash exists to cover the cold start,
+           so it must never itself wait on a network request. */
+        font-family: Georgia, "Times New Roman", serif;
         font-size: 27px;
         letter-spacing: 0.01em;
         color: #ffffff;
