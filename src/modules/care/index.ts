@@ -43,6 +43,7 @@ export {
   updateTaskDiagramPages,
   updateTaskContent,
   rescheduleTaskInstance,
+  unsnoozeTaskInstance,
   type TaskContentEdit,
   getCompletionHistory,
   logTaskCompletion,

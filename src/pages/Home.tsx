@@ -15,10 +15,11 @@ import {
   CloudOffIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { markTaskInstanceDone, snoozeTaskInstance } from "@/modules/care"
+import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
 import type { DashboardTask, MaintenanceTaskFull } from "@/lib/dashboard"
 import { useDashboard } from "@/lib/useDashboard"
 import { shouldShowHomeSkeleton, SKELETON_PATIENCE_MS } from "@/lib/homeLoadingGate"
+import { UndoBar } from "@/components/ui/UndoBar"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useAuth } from "@/modules/auth"
 import { useCurrentHome, useHomeProfile } from "@/modules/home"
@@ -313,6 +314,8 @@ export default function Home() {
   const [completingId, setCompletingId] = useState<string | null>(null)
   // Flips true if the first paint is still a skeleton after SKELETON_PATIENCE_MS.
   const [skeletonSlow, setSkeletonSlow] = useState(false)
+  // A receipt for the last action, so a row that vanishes is explained.
+  const [undo, setUndo] = useState<{ message: string; onUndo?: () => void } | null>(null)
   /** Instances the user has just completed, hidden until the refetch catches up.
    *  Without this the card stayed on screen after a successful write, looking
    *  untouched, and people tapped Mark done a second time. */
@@ -350,6 +353,7 @@ export default function Home() {
       // the bug: the row un-dimmed while still listed, so it read as "nothing
       // happened, tap again".
       setJustCompleted((s) => new Set(s).add(taskId))
+      setUndo({ message: "Marked done" })
       setCompletingId(null)
       await refresh()
       setJustCompleted((s) => {
@@ -367,7 +371,17 @@ export default function Home() {
       if (!homeId) return
       const snoozedUntil = addDays(formatLocalDateStr(new Date()), 14)
       const result = await snoozeTaskInstance(homeId, taskId, snoozedUntil)
-      if (result.success) refresh()
+      if (!result.success) return
+      refresh()
+      // Say what happened and offer the way back. Without this the row simply
+      // disappeared, which a tester read as having deleted the task.
+      const when = new Date(snoozedUntil + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      setUndo({
+        message: `Snoozed until ${when}`,
+        onUndo: () => {
+          void unsnoozeTaskInstance(homeId, taskId).then((r) => { if (r.success) refresh() })
+        },
+      })
     },
     [homeId, refresh]
   )
@@ -483,6 +497,9 @@ export default function Home() {
 
   return (
     <div className="flex flex-col pb-8">
+      {undo && (
+        <UndoBar message={undo.message} onUndo={undo.onUndo} onDismiss={() => setUndo(null)} />
+      )}
       {/* Cached view + a failed refresh: say so quietly and stay usable. The
           user can still read everything and complete work; only freshness is
           in question, so this is a note, not an error state. */}
