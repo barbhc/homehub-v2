@@ -10,37 +10,37 @@
   --font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 
   /* Surfaces */
-  --color-background:        #EAF6F4;
-  --color-foreground:        #111827;
-  --color-card:              #FFFFFF;
-  --color-card-foreground:   #111827;
-  --color-popover:           #FFFFFF;
-  --color-popover-foreground: #111827;
+  --color-background: var(--t-background);
+  --color-foreground: var(--t-foreground);
+  --color-card: var(--t-card);
+  --color-card-foreground: var(--t-card-foreground);
+  --color-popover: var(--t-popover);
+  --color-popover-foreground: var(--t-popover-foreground);
 
   /* Primary = CHO action teal */
-  --color-primary:            #1B6B5A;
-  --color-primary-foreground: #FFFFFF;
+  --color-primary: var(--t-primary);
+  --color-primary-foreground: var(--t-primary-foreground);
 
   /* Secondary = action-pale fill (teal ghost) */
-  --color-secondary:            #EAF6F4;
-  --color-secondary-foreground: #1B6B5A;
+  --color-secondary: var(--t-secondary);
+  --color-secondary-foreground: var(--t-secondary-foreground);
 
   /* Muted */
-  --color-muted:            #F3F4F6;
-  --color-muted-foreground: #6B7280;
+  --color-muted: var(--t-muted);
+  --color-muted-foreground: var(--t-muted-foreground);
 
   /* Accent = same as secondary for hover surfaces */
-  --color-accent:            #EAF6F4;
-  --color-accent-foreground: #1B6B5A;
+  --color-accent: var(--t-accent);
+  --color-accent-foreground: var(--t-accent-foreground);
 
   /* Destructive — unchanged */
-  --color-destructive:            #DC2626;
-  --color-destructive-foreground: #FFFFFF;
+  --color-destructive: var(--t-destructive);
+  --color-destructive-foreground: var(--t-destructive-foreground);
 
   /* Borders + inputs */
-  --color-border: #E5E7EB;
-  --color-input:  #E5E7EB;
-  --color-ring:   rgba(27, 107, 90, 0.28);
+  --color-border: var(--t-border);
+  --color-input: var(--t-input);
+  --color-ring: var(--t-ring);
 
   /* Border radius — 5-step scale */
   --radius-sm:  0.25rem;   /* 4px  */
@@ -79,26 +79,58 @@
 }
 
 /* Dark mode token overrides — triggered by .dark class on <html> */
+/* ── Runtime theme colours ────────────────────────────────────────────────────
+   Tailwind v4 INLINES @theme values into the utilities it generates, so
+   `text-foreground` compiled to a literal light hex and the .dark block's
+   override of --color-foreground could never reach it. Dark mode therefore
+   worked only for components styled with var(--hh-*) directly — which is why
+   Settings showed light-grey cards with dark text sitting on a black page, and
+   the one card using a token rendered correctly right above them.
+   The @theme entries now point at these --t-* variables, so every utility
+   emits var(--t-…) and follows the theme at runtime. Light values here; the
+   .dark block overrides them. ─────────────────────────────────────────────── */
+:root {
+  --t-background: #EAF6F4;
+  --t-foreground: #111827;
+  --t-card: #FFFFFF;
+  --t-card-foreground: #111827;
+  --t-popover: #FFFFFF;
+  --t-popover-foreground: #111827;
+  --t-primary: #1B6B5A;
+  --t-primary-foreground: #FFFFFF;
+  --t-secondary: #EAF6F4;
+  --t-secondary-foreground: #1B6B5A;
+  --t-muted: #F3F4F6;
+  --t-muted-foreground: #6B7280;
+  --t-accent: #EAF6F4;
+  --t-accent-foreground: #1B6B5A;
+  --t-destructive: #DC2626;
+  --t-destructive-foreground: #FFFFFF;
+  --t-border: #E5E7EB;
+  --t-input: #E5E7EB;
+  --t-ring: rgba(27, 107, 90, 0.28);
+}
+
 .dark {
-  --color-background:        #0a1f1c;
-  --color-foreground:        #F9FAFB;
-  --color-card:              #112420;
-  --color-card-foreground:   #F9FAFB;
-  --color-popover:           #112420;
-  --color-popover-foreground: #F9FAFB;
-  --color-primary:            #2D9B82;
-  --color-primary-foreground: #FFFFFF;
-  --color-secondary:            #1a3530;
-  --color-secondary-foreground: #9FD4C8;
-  --color-muted:            #162920;
-  --color-muted-foreground: #9CA3AF;
-  --color-accent:            #1a3530;
-  --color-accent-foreground: #9FD4C8;
-  --color-destructive:            #ef4444;
-  --color-destructive-foreground: #FFFFFF;
-  --color-border: #1E4040;
-  --color-input:  #1E4040;
-  --color-ring:   rgba(45, 155, 130, 0.4);
+  --t-background: #0a1f1c;
+  --t-foreground: #F9FAFB;
+  --t-card: #112420;
+  --t-card-foreground: #F9FAFB;
+  --t-popover: #112420;
+  --t-popover-foreground: #F9FAFB;
+  --t-primary: #2D9B82;
+  --t-primary-foreground: #FFFFFF;
+  --t-secondary: #1a3530;
+  --t-secondary-foreground: #9FD4C8;
+  --t-muted: #162920;
+  --t-muted-foreground: #9CA3AF;
+  --t-accent: #1a3530;
+  --t-accent-foreground: #9FD4C8;
+  --t-destructive: #ef4444;
+  --t-destructive-foreground: #FFFFFF;
+  --t-border: #1E4040;
+  --t-input: #1E4040;
+  --t-ring: rgba(45, 155, 130, 0.4);
 
   /* Redesign palette — dark overrides */
   color-scheme: dark;

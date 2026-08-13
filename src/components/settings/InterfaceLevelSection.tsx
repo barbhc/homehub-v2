@@ -1,4 +1,5 @@
 import { SectionCard } from "@/components/layout"
+import { CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/modules/auth"
 import { setInterfaceLevelPref } from "@/lib/userPreferences"
@@ -31,8 +32,10 @@ export function InterfaceLevelSection() {
   }
 
   return (
-    <SectionCard title="Interface" className="mt-6">
-      <p className="text-sm text-muted-foreground mb-3">
+    <SectionCard className="mt-6">
+      <CardContent className="p-4">
+        <h2 className="mb-2 text-sm font-semibold text-foreground">Interface</h2>
+        <p className="text-sm text-muted-foreground mb-3">
         How much of Homehub to show. <strong>Standard</strong> reveals more as you add items and
         use the app; choose <strong>Simple</strong> for a calmer view or <strong>Advanced</strong>{" "}
         to see everything now.
@@ -64,8 +67,9 @@ export function InterfaceLevelSection() {
               </span>
             </button>
           )
-        })}
-      </div>
+          })}
+        </div>
+      </CardContent>
     </SectionCard>
   )
 }
