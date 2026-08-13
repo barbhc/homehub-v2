@@ -73,3 +73,6 @@ ui-debug.log
 
 # Apple private keys (App Store Connect API / APNs) — never commit
 *.p8
+
+# TestFlight feedback ledger — local triage state, not shared history
+scripts/ops/.tf-seen.json
