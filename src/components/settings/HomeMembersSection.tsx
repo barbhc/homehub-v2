@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
+import { doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import { Check, Copy, Link2, Loader2, Trash2, UserPlus, Users } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
@@ -69,6 +71,12 @@ export function HomeMembersSection({ homeId }: Props) {
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [removeTarget, setRemoveTarget] = useState<HomeMember | null>(null)
   const [removing, setRemoving] = useState(false)
+  // Setting your name lived only at the very bottom of Settings, so the prompt
+  // in this list pointed somewhere the user had to go hunting for — and having
+  // gone there, the list did not update. Both halves are fixed here: enter it
+  // in place, and reload the list on save.
+  const [nameDraft, setNameDraft] = useState("")
+  const [savingName, setSavingName] = useState(false)
 
   const currentUserRole = members.find((m) => m.user_id === userId)?.role ?? null
   const isOwner = currentUserRole === "owner"
@@ -190,15 +198,49 @@ export function HomeMembersSection({ homeId }: Props) {
                       </div>
                       <div>
                         <p className="text-sm font-medium">
-                          {/* "Unknown" read as an error — as though the app had lost track of who
-    this person is. It simply has no name for them, because nothing wrote
-    one until now. Say that neutrally, and mark yourself so the fix (set a
-    display name in Settings) is discoverable. */}
-                          {m.profile?.full_name ?? (m.user_id === user?.id ? "You — add your name in Settings" : "Member")}
-                          {m.user_id === userId && (
+                          {/* "Unknown" read as the app having lost track of someone.
+                              It simply has no name for them. */}
+                          {m.profile?.full_name ?? (m.user_id === userId ? "You" : "Member")}
+                          {m.user_id === userId && m.profile?.full_name && (
                             <span className="text-muted-foreground font-normal ml-1">(you)</span>
                           )}
                         </p>
+                        {/* Enter it HERE. Pointing at a field far down the page was
+                            the complaint, and the list did not refresh afterwards
+                            either — so this saves and reloads in place. */}
+                        {m.user_id === userId && !m.profile?.full_name && (
+                          <form
+                            className="mt-1.5 flex items-center gap-2"
+                            onSubmit={async (e) => {
+                              e.preventDefault()
+                              const name = nameDraft.trim()
+                              if (!name || !userId) return
+                              setSavingName(true)
+                              try {
+                                await setDoc(
+                                  doc(db, `users/${userId}`),
+                                  { fullName: name, updatedAt: serverTimestamp() },
+                                  { merge: true },
+                                )
+                                setNameDraft("")
+                                await load()
+                              } finally {
+                                setSavingName(false)
+                              }
+                            }}
+                          >
+                            <input
+                              value={nameDraft}
+                              onChange={(e) => setNameDraft(e.target.value)}
+                              placeholder="Add your name"
+                              aria-label="Your display name"
+                              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                            />
+                            <Button type="submit" size="sm" variant="outline" disabled={!nameDraft.trim() || savingName}>
+                              {savingName ? "Saving…" : "Save"}
+                            </Button>
+                          </form>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

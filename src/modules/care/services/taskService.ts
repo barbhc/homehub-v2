@@ -923,6 +923,33 @@ export async function snoozeTaskInstance(
   }
 }
 
+/**
+ * Reverses a snooze, putting the occurrence back exactly where it was.
+ *
+ * Snooze only ever writes `status` and `snoozedUntil` (dueDate is untouched),
+ * so undoing it is a clean two-field restore rather than a guess. This exists
+ * because a tester swiped a row, watched it vanish, and reported that he had
+ * "accidentally deleted a task" and needed it recovered — nothing had been
+ * deleted, but a reversible action with no confirmation and no way back is
+ * indistinguishable from a destructive one.
+ */
+export async function unsnoozeTaskInstance(
+  homeId: string,
+  taskInstanceId: string
+): Promise<SnoozeResult> {
+  try {
+    const ref = doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`)
+    await writeBatch(db)
+      .set(ref, { status: "scheduled", snoozedUntil: null, updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return { success: false, error: "Task instance not found" }
+    return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()) }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Failed to undo the snooze" }
+  }
+}
+
 // ── User edits: the homeowner owns their tasks ────────────────────────────────
 
 /** What a homeowner may change about a task's content. */

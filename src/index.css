@@ -214,3 +214,20 @@ body {
   .pt-safe-top { padding-top: 0; }
   :root[data-native="true"] .pt-safe-top { padding-top: 0; }
 }
+
+/* ── iOS input zoom ──────────────────────────────────────────────────────────
+   Safari and WKWebView AUTO-ZOOM the page when a focused input's font-size is
+   under 16px, and on a Capacitor shell with no browser chrome there is no
+   obvious way back out — a tester tapped the Items search field, the app zoomed
+   in, and he could not restore it.
+   Fixing the one field would have left the same trap in every other input, so
+   the floor is set globally, and only where it matters: `pointer: coarse` is
+   touch, so desktop keeps its intended sizes. `max()` raises anything smaller
+   without shrinking anything already larger. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1rem);
+  }
+}

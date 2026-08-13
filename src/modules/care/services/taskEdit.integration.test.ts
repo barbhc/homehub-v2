@@ -99,3 +99,30 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("task edits (emul
     expect((await getDoc(doc(db, `homes/${HOME}/taskInstances/${inst.id}`))).get("dueDate")).not.toBe("next tuesday")
   })
 })
+
+describe("snooze / undo (emulator)", () => {
+  it("undo restores the occurrence exactly, so a swipe is never destructive", async () => {
+    await signInWithEmailAndPassword(auth, "e2e@homehub.test", "E2eTest!2026")
+    const { snoozeTaskInstance, unsnoozeTaskInstance } = await import("./taskService")
+
+    const snap = await getDocs(
+      query(collection(db, `homes/${HOME}/taskInstances`), where("status", "==", "scheduled")),
+    )
+    const inst = snap.docs[0]
+    const beforeDue = inst.get("dueDate")
+
+    const s = await snoozeTaskInstance(HOME, inst.id, "2026-09-20")
+    expect(s.success).toBe(true)
+    const snoozed = await getDoc(doc(db, `homes/${HOME}/taskInstances/${inst.id}`))
+    expect(snoozed.get("status")).toBe("snoozed")
+    expect(snoozed.get("snoozedUntil")).toBe("2026-09-20")
+
+    const u = await unsnoozeTaskInstance(HOME, inst.id)
+    expect(u.success).toBe(true)
+    const restored = await getDoc(doc(db, `homes/${HOME}/taskInstances/${inst.id}`))
+    expect(restored.get("status")).toBe("scheduled")
+    expect(restored.get("snoozedUntil")).toBeNull()
+    // The due date was never the thing snooze changed, so undo must not move it.
+    expect(restored.get("dueDate")).toBe(beforeDue)
+  })
+})
