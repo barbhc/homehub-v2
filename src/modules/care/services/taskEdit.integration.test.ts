@@ -100,7 +100,11 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("task edits (emul
   })
 })
 
-describe("snooze / undo (emulator)", () => {
+// Same guard as the block above, and load-bearing: without it this suite signs
+// in against the REAL project on a plain `npm test`, which both fails and
+// violates the never-test-against-prod rule. It was added without the guard and
+// went red immediately.
+describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("snooze / undo (emulator)", () => {
   it("undo restores the occurrence exactly, so a swipe is never destructive", async () => {
     await signInWithEmailAndPassword(auth, "e2e@homehub.test", "E2eTest!2026")
     const { snoozeTaskInstance, unsnoozeTaskInstance } = await import("./taskService")
