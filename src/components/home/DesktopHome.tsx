@@ -8,6 +8,7 @@ import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { TIER, greeting, priorityTier } from "@/lib/redesign/tokens"
 import { HomeComposed } from "@/components/home/HomeComposed"
+import { useDisplayName } from "@/hooks/useDisplayName"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)"
 const GOLD = "#9A7B3A"
@@ -215,6 +216,7 @@ export function DesktopHome({
   onSnooze: (id: string) => void
 }) {
   const showClean = level === "power"
+  const { firstName } = useDisplayName()
 
   const hasGoodToKnow = notices.recalls.length > 0 || warranties.length > 0 || notices.missingDetails.length > 0
 
@@ -227,7 +229,7 @@ export function DesktopHome({
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="min-w-0">
             <div className="text-[12.5px] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>{fullToday()}</div>
-            <h1 className="mt-1 whitespace-nowrap text-[28px] font-extrabold leading-[1.15] tracking-[-0.7px]" style={{ color: INK }}>{greeting()}, Barb</h1>
+            <h1 className="mt-1 whitespace-nowrap text-[28px] font-extrabold leading-[1.15] tracking-[-0.7px]" style={{ color: INK }}>{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
           </div>
           <Link to="/chat" className="inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-bold text-white" style={{ background: TEAL }}>
             <SparklesIcon className="size-[17px]" /> Ask Homehub

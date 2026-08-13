@@ -17,6 +17,7 @@ import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { dens, greeting, shortDate } from "@/lib/redesign/tokens"
 import { HomeComposed } from "@/components/home/HomeComposed"
+import { useDisplayName } from "@/hooks/useDisplayName"
 
 // Calm palette (design/hh-home2.jsx)
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
@@ -135,6 +136,7 @@ export function RefinedHome({
   cleaningGuides = [],
   level,
   homeId,
+  homeName,
   completingId,
   onComplete,
   onSnooze,
@@ -147,6 +149,8 @@ export function RefinedHome({
   cleaningGuides?: DeepCleanGuide[]
   level: UserLevel
   homeId: string | null
+  /** Shown under the greeting so a shared-home member knows where they are. */
+  homeName?: string | null
   completingId: string | null
   onComplete: (id: string) => void
   onSnooze: (id: string) => void
@@ -154,13 +158,28 @@ export function RefinedHome({
 }) {
   const d = dens(density)
   const showClean = level === "power"
+  // Was the literal string "Barb". A tester's very first impression of the app
+  // was being greeted by its author's name; drop the name entirely when we
+  // don't know it rather than guessing.
+  const { firstName } = useDisplayName()
 
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
       {/* Compact header */}
       <div className="flex items-baseline justify-between px-5 pt-3" style={{ paddingInline: d.pad }}>
-        <span className="text-[19px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>{greeting()}, Barb</span>
+        <span className="min-w-0">
+          <span className="block text-[19px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>
+            {firstName ? `${greeting()}, ${firstName}` : greeting()}
+          </span>
+          {/* A tester signed in and found tasks and items he had never added,
+              with nothing on screen to explain that he had joined someone
+              else's home. Naming the home answers "whose data is this?" before
+              the question turns into alarm. */}
+          {homeName && (
+            <span className="block truncate text-[12.5px]" style={{ color: SUB }}>{homeName}</span>
+          )}
+        </span>
         <span className="text-[12.5px] font-semibold" style={{ color: SUB }}>{shortDate(0)}</span>
       </div>
 
