@@ -190,7 +190,11 @@ export function HomeMembersSection({ homeId }: Props) {
                       </div>
                       <div>
                         <p className="text-sm font-medium">
-                          {m.profile?.full_name ?? "Unknown"}
+                          {/* "Unknown" read as an error — as though the app had lost track of who
+    this person is. It simply has no name for them, because nothing wrote
+    one until now. Say that neutrally, and mark yourself so the fix (set a
+    display name in Settings) is discoverable. */}
+                          {m.profile?.full_name ?? (m.user_id === user?.id ? "You — add your name in Settings" : "Member")}
                           {m.user_id === userId && (
                             <span className="text-muted-foreground font-normal ml-1">(you)</span>
                           )}

@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 import { markTaskInstanceDone, snoozeTaskInstance } from "@/modules/care"
 import type { DashboardTask, MaintenanceTaskFull } from "@/lib/dashboard"
 import { useDashboard } from "@/lib/useDashboard"
-import { shouldShowHomeSkeleton } from "@/lib/homeLoadingGate"
+import { shouldShowHomeSkeleton, SKELETON_PATIENCE_MS } from "@/lib/homeLoadingGate"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useAuth } from "@/modules/auth"
 import { useCurrentHome, useHomeProfile } from "@/modules/home"
@@ -256,9 +256,21 @@ function EmptyHomeHero() {
 
 // ── Skeleton ────────────────────────────────────────────────────────────────
 
-function HomeSkeleton() {
+function HomeSkeleton({ patienceExpired = false }: { patienceExpired?: boolean }) {
   return (
     <div className="px-4 pt-4 space-y-5 max-w-5xl mx-auto">
+      {/* Once the wait stops being brief, say something. Shimmer alone reads as
+          a broken screen — a tester reported exactly this as "a blank Home
+          Screen", and there was nothing on it to tell him otherwise. */}
+      {patienceExpired && (
+        <div
+          className="rounded-xl border px-3.5 py-3 text-[13px]"
+          style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)", color: "var(--hh-sub)" }}
+        >
+          Still setting up your home — this can take a moment on a first sign-in
+          or a slow connection.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <Skeleton className="h-8 w-44 rounded-lg" />
       </div>
@@ -299,6 +311,8 @@ export default function Home() {
     !profileError && (homeProfile === null || homeProfile?.completed_at === null)
   useFeatureTour()
   const [completingId, setCompletingId] = useState<string | null>(null)
+  // Flips true if the first paint is still a skeleton after SKELETON_PATIENCE_MS.
+  const [skeletonSlow, setSkeletonSlow] = useState(false)
   /** Instances the user has just completed, hidden until the refetch catches up.
    *  Without this the card stayed on screen after a successful write, looking
    *  untouched, and people tapped Mark done a second time. */
@@ -312,6 +326,13 @@ export default function Home() {
   // that is the moment the user stops waiting, which is what we are measuring.
   useEffect(() => {
     if (!isLoading && stats) markBoot("content")
+  }, [isLoading, stats])
+
+  // Only runs while the skeleton is actually what the user is looking at.
+  useEffect(() => {
+    if (!shouldShowHomeSkeleton(isLoading, !!stats)) { setSkeletonSlow(false); return }
+    const t = window.setTimeout(() => setSkeletonSlow(true), SKELETON_PATIENCE_MS)
+    return () => window.clearTimeout(t)
   }, [isLoading, stats])
 
   const handleMarkComplete = useCallback(
@@ -420,7 +441,8 @@ export default function Home() {
 
   // Skeleton ONLY when there is genuinely nothing to paint — see
   // shouldShowHomeSkeleton for why `isLoading` alone was the wrong gate.
-  if (shouldShowHomeSkeleton(isLoading, !!stats)) return <HomeSkeleton />
+  // Past SKELETON_PATIENCE_MS it stops shimmering silently and says so.
+  if (shouldShowHomeSkeleton(isLoading, !!stats)) return <HomeSkeleton patienceExpired={skeletonSlow} />
 
   // Surface dashboard load failures explicitly. Without this, a failed fetch
   // falls through to `stats?.totalItems ?? 0 === 0` and renders the new-user
@@ -544,6 +566,7 @@ export default function Home() {
         <div className="lg:hidden -mx-4">
           <div className="mx-auto w-full max-w-[460px]">
             <RefinedHome
+              homeName={home?.name ?? null}
               tasks={homeTasks}
               upcoming={upcoming}
               warranties={expiringWarranties}
