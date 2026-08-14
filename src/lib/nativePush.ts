@@ -2,6 +2,7 @@ import { PushNotifications } from "@capacitor/push-notifications"
 import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { isNativePlatform } from "./native"
+import { parkDeepLink } from "./pushDeepLink"
 
 export { isNativePlatform }
 
@@ -43,10 +44,11 @@ async function ensureListeners(): Promise<void> {
   await PushNotifications.addListener("registrationError", (err) => {
     console.error("[nativePush] registration error:", err)
   })
-  // Tapping a notification deep-links via the `url` we set in the APNs payload.
+  // Tapping a notification deep-links via the `url` we set in the payload.
+  // parkDeepLink sanitizes it and hands it to the router — a full page load
+  // here would re-run the cold start the deep link exists to skip.
   await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-    const url = (action.notification.data as { url?: string } | undefined)?.url
-    if (url) window.location.assign(url)
+    parkDeepLink((action.notification.data as { url?: string } | undefined)?.url)
   })
 }
 
