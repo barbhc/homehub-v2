@@ -4,6 +4,7 @@ import { Suspense, useEffect } from "react"
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom"
 import { SWRConfig } from "swr"
 import { trackPageview } from "@/lib/analytics"
+import { usePushDeepLink } from "@/hooks/usePushDeepLink"
 import { readPersistedDashboardFallback } from "@/lib/swrPersist"
 import { AuthProvider, AuthGate, useAuth } from "@/modules/auth"
 import { HomeProvider, HomeGate } from "@/modules/home"
@@ -28,6 +29,12 @@ function BootSplashGate() {
 }
 
 /** Manual SPA pageviews (PostHog init sets capture_pageview: false). */
+/** Follows a tapped notification once the router is available. Renders nothing. */
+function PushDeepLinks() {
+  usePushDeepLink()
+  return null
+}
+
 function PageviewTracker() {
   const location = useLocation()
   useEffect(() => {
@@ -105,6 +112,7 @@ function App() {
         <AuthProvider>
           <BootSplashGate />
           <PageviewTracker />
+          <PushDeepLinks />
           <HomeProvider>
             <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading…</div>}>
             <Routes>

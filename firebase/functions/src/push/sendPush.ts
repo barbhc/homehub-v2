@@ -117,20 +117,45 @@ export const sendPushDaily = onSchedule(
       .where("dueDate", "<=", today)
       .get()
 
-    const byHome = new Map<string, number>()
+    // Keep the tasks themselves, not just a count: a notification that can name
+    // the one thing due — and open it — is worth more than one that says "1 task"
+    // and drops you on the Home screen to go find it.
+    const byHome = new Map<string, { id: string; title: string; itemName: string | null }[]>()
     for (const d of due.docs) {
       const homeRef = d.ref.parent.parent
       if (!homeRef) continue
-      byHome.set(homeRef.path, (byHome.get(homeRef.path) ?? 0) + 1)
+      const list = byHome.get(homeRef.path) ?? []
+      list.push({
+        id: d.id,
+        title: (d.get("title") as string) ?? "A task",
+        itemName: (d.get("itemName") as string | null) ?? null,
+      })
+      byHome.set(homeRef.path, list)
     }
 
     let notified = 0
-    for (const [homePath, count] of byHome) {
+    for (const [homePath, tasks] of byHome) {
+      const count = tasks.length
       if (count === 0) continue
       const members = await db.collection(`${homePath}/members`).get()
-      const body = count === 1 ? "You have 1 task due today." : `You have ${count} tasks due today.`
+
+      // One task: say which, and deep-link straight to it. Several: summarise
+      // and open the Tasks list, because picking one for the user would be a
+      // guess. The url is a PATH, never an absolute link — the client refuses
+      // anything else.
+      const only = count === 1 ? tasks[0] : null
+      const body = only
+        ? `${only.title}${only.itemName ? ` · ${only.itemName}` : ""}`
+        : `You have ${count} tasks due today.`
+      const url = only ? `/tasks/${only.id}` : "/maintenance"
+
       for (const m of members.docs) {
-        const res = await sendToUser(db, m.id, { title: "Home care today", body }, { homePath, count: String(count) })
+        const res = await sendToUser(
+          db,
+          m.id,
+          { title: only ? "Due today" : "Home care today", body },
+          { homePath, count: String(count), url },
+        )
         notified += res.sent
       }
     }
