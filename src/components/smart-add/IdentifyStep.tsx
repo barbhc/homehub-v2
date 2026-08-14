@@ -512,10 +512,24 @@ export function IdentifyStep({
       return
     }
     if (result.kind === "cancelled") return
-    track("label_ocr_native_capture_failed", { message: result.message })
-    setOcrError(
-      "Couldn't open the native camera — using the photo picker instead. If nothing opens, check Settings → Homehub → Camera."
-    )
+    track("label_ocr_native_capture_failed", { reason: result.reason, message: result.message })
+
+    // Two failures, two different answers — the old handler gave one answer to
+    // both, and it was wrong for each:
+    //
+    // PERMISSION DENIED needs the user; only they can flip the iOS setting, and
+    // the in-page fallback uses the same camera permission, so opening it here
+    // would just fail again. Say the one true, actionable thing.
+    //
+    // ANYTHING ELSE is our problem. The fallback <input capture> opens the same
+    // native camera sheet, so the user still gets their photo — announcing our
+    // internal rerouting as a red error was the bug the tester reported twice:
+    // "it allowed me to take the photo and then this message popped up."
+    // Mechanism is not the user's business when their goal still succeeds.
+    if (result.reason === "permission") {
+      setOcrError("Camera access is off for Homehub. Enable it in iOS Settings → Homehub → Camera, then try again.")
+      return
+    }
     fallbackInput?.click()
   }
 

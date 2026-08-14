@@ -5,40 +5,54 @@ export { isNativePlatform } from "./native"
 export type NativePhotoResult =
   | { kind: "photo"; file: File }
   | { kind: "cancelled" }
-  | { kind: "error"; message: string }
+  | { kind: "error"; reason: "permission" | "other"; message: string }
 
 /**
- * Capture a photo with the native camera (iOS/Android) and return it as a File
- * so it flows through the existing OCR pipeline unchanged.
+ * Capture a photo with the native camera and return it as a File.
  *
- * Cancel and failure are DIFFERENT results: Capacitor also throws when the
- * camera permission is denied or the native plugin isn't registered in the
- * installed binary (stale build) — collapsing those into "no photo" made the
- * whole feature silently dead in the iOS shell. Callers fall back to the
- * in-page `<input capture>` (which WKWebView supports natively) on "error".
+ * The image comes back BASE64 OVER THE BRIDGE, deliberately not as a file URL.
+ * The previous implementation asked for a Uri and then fetch()ed it — which
+ * works in a bundled build, where page and file share an origin, and fails in
+ * REMOTE-URL mode, where the page is the web host and the file is
+ * capacitor://localhost: a cross-origin fetch, denied AFTER the user had taken
+ * a perfectly good photo. That produced the tester's exact report, twice: the
+ * camera opens, the shot is taken, and then an error appears and a second
+ * camera opens to redo it. Base64 has no origin, so the whole failure class is
+ * gone, at the cost of a larger bridge message — fine at quality 80 for a
+ * nameplate shot.
  *
- * Requires Info.plist `NSCameraUsageDescription` (+ photo-library strings).
+ * Failures are CLASSIFIED, because they need different answers: a denied
+ * permission needs the user (only they can flip the iOS setting), while
+ * everything else is our problem and should be handled without ceremony.
  */
 export async function captureNativePhoto(): Promise<NativePhotoResult> {
   try {
     const photo = await Camera.getPhoto({
       source: CameraSource.Camera,
-      resultType: CameraResultType.Uri,
+      resultType: CameraResultType.Base64,
       quality: 80,
       correctOrientation: true,
     })
-    if (!photo.webPath) return { kind: "error", message: "Camera returned no image." }
-    const blob = await fetch(photo.webPath).then((r) => r.blob())
-    const ext = photo.format || "jpeg"
-    return {
-      kind: "photo",
-      file: new File([blob], `nameplate.${ext}`, { type: blob.type || `image/${ext}` }),
-    }
+    if (!photo.base64String) return { kind: "error", reason: "other", message: "Camera returned no image." }
+    const format = photo.format || "jpeg"
+    return { kind: "photo", file: base64ToFile(photo.base64String, `nameplate.${format}`, `image/${format}`) }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    // Capacitor's cancel message is stable across platforms ("User cancelled
-    // photos app"); anything else is a real failure worth surfacing.
+    // Capacitor's cancel message is stable ("User cancelled photos app").
     if (/cancel/i.test(message)) return { kind: "cancelled" }
-    return { kind: "error", message }
+    return { kind: "error", reason: classifyCameraFailure(message), message }
   }
+}
+
+/** Permission denials need the user; everything else is ours to absorb. */
+export function classifyCameraFailure(message: string): "permission" | "other" {
+  return /denied|permission|not authorized|restricted/i.test(message) ? "permission" : "other"
+}
+
+/** Decode without fetch(data:) — synchronous, and no URL layer to refuse it. */
+export function base64ToFile(b64: string, name: string, type: string): File {
+  const bytes = atob(b64)
+  const buf = new Uint8Array(bytes.length)
+  for (let i = 0; i < bytes.length; i++) buf[i] = bytes.charCodeAt(i)
+  return new File([buf], name, { type })
 }
