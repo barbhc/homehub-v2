@@ -10,6 +10,8 @@ import { coerceInterfaceOverride, type InterfaceOverride } from "./interfaceLeve
 export const PREF_TOUR_COMPLETED = "tour_completed"
 export const PREF_DASHBOARD_TIERS = "dashboard_tier_filter"
 export const PREF_INTERFACE_LEVEL = "interface_level"
+/** Home ids whose "Finish your home profile" banner has been dismissed. */
+export const PREF_PROFILE_BANNER_DISMISSED = "profile_banner_dismissed"
 
 // v1's (user_id, preference_key) → preference_value table collapses to a single
 // prefs doc at users/{uid}/private/preferences, with each preference key as a
@@ -54,4 +56,27 @@ export async function getInterfaceLevelPref(userId: string): Promise<InterfaceOv
 /** Persists the chosen interface level for cross-device sync. */
 export async function setInterfaceLevelPref(userId: string, level: InterfaceOverride): Promise<void> {
   await setPreference(userId, PREF_INTERFACE_LEVEL, { level: coerceInterfaceOverride(level) })
+}
+
+/**
+ * "Finish your home profile" dismissals, stored on the SERVER.
+ *
+ * They lived in localStorage alone, and the owner reported the banner coming
+ * back after she dismissed it. Whatever clears that storage — a WebView data
+ * reset, a quota failure swallowed by the catch, a reinstall — took the
+ * dismissal with it, and the app went back to nagging about something she had
+ * already answered. A dismissal is a decision the user made; it should outlive
+ * a browser cache.
+ *
+ * Stored per home, because the banner is per home.
+ */
+export async function getDismissedProfileBanners(userId: string): Promise<string[]> {
+  const v = await getPreference<unknown>(userId, PREF_PROFILE_BANNER_DISMISSED)
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []
+}
+
+export async function dismissProfileBanner(userId: string, homeId: string): Promise<void> {
+  const current = await getDismissedProfileBanners(userId)
+  if (current.includes(homeId)) return
+  await setPreference(userId, PREF_PROFILE_BANNER_DISMISSED, [...current, homeId])
 }

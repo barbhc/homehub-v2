@@ -21,6 +21,7 @@ export { isNativePlatform }
 // (process-global) Capacitor listeners.
 let currentUserId = ""
 let listenersReady = false
+let tapListenerReady = false
 let lastToken = ""
 
 const tokensDoc = (uid: string) => doc(db, `users/${uid}/private/fcmTokens`)
@@ -34,6 +35,32 @@ async function persistToken(token: string): Promise<void> {
   }
 }
 
+/**
+ * Register the notification-TAP listener immediately, before anything else.
+ *
+ * This used to live inside ensureListeners(), which only runs once Firebase
+ * auth has resolved and a token registration is attempted — several seconds
+ * into boot. iOS delivers the tap to the plugin at LAUNCH, so on a cold start
+ * the event fired into a JS runtime with no listener attached and was simply
+ * lost: the deep link worked server-side (the notification named the task) and
+ * the app still opened on Home. Which is exactly what was reported.
+ *
+ * Tapping a notification needs no auth and no token, so it must not wait for
+ * either. Safe to call from module scope; no-ops on web.
+ */
+export async function registerDeepLinkListener(): Promise<void> {
+  if (!isNativePlatform() || tapListenerReady) return
+  tapListenerReady = true
+  try {
+    await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+      parkDeepLink((action.notification.data as { url?: string } | undefined)?.url)
+    })
+  } catch (err) {
+    console.error("[nativePush] tap listener failed:", err instanceof Error ? err.message : err)
+    tapListenerReady = false
+  }
+}
+
 async function ensureListeners(): Promise<void> {
   if (listenersReady) return
   listenersReady = true
@@ -44,12 +71,9 @@ async function ensureListeners(): Promise<void> {
   await PushNotifications.addListener("registrationError", (err) => {
     console.error("[nativePush] registration error:", err)
   })
-  // Tapping a notification deep-links via the `url` we set in the payload.
-  // parkDeepLink sanitizes it and hands it to the router — a full page load
-  // here would re-run the cold start the deep link exists to skip.
-  await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-    parkDeepLink((action.notification.data as { url?: string } | undefined)?.url)
-  })
+  // The tap listener is NOT registered here — it must exist before auth
+  // resolves or a cold-start tap is lost. See registerDeepLinkListener.
+  await registerDeepLinkListener()
 }
 
 /**

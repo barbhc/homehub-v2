@@ -42,3 +42,14 @@ describe("park / claim", () => {
     expect(claimDeepLink()).toBeNull()
   })
 })
+
+describe("cold-start ordering", () => {
+  it("a link parked before the app is ready is still claimed later", () => {
+    // The reported failure: iOS delivers the tap at LAUNCH, before React (and
+    // before auth) exists. Parking must survive until the router can claim it.
+    sessionStorage.clear()
+    parkDeepLink("/tasks/fridge-shelves")
+    // …app boots, React mounts, hook runs…
+    expect(claimDeepLink()).toBe("/tasks/fridge-shelves")
+  })
+})

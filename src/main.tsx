@@ -4,11 +4,17 @@ import "./index.css"
 import App from "./App.tsx"
 import { markNativePlatform } from "@/lib/native"
 import { markBoot } from "@/lib/bootTiming"
+import { registerDeepLinkListener } from "@/lib/nativePush"
 
 // Stays synchronous: stamps data-native/data-platform on <html> so CSS can apply
 // the status-bar inset before anything paints.
 markBoot("js")
 markNativePlatform()
+
+// Before React, before auth: iOS hands a notification tap to the plugin at
+// launch, and an unregistered listener means the deep link is dropped and the
+// app opens on Home instead of the task.
+void registerDeepLinkListener()
 
 markBoot("react")
 createRoot(document.getElementById("root")!).render(
