@@ -1,7 +1,7 @@
 // Deploy re-trigger 2026-06-17: the Phase A merge (d30a027) did not fire a
 // Vercel production build automatically; this no-op forces a fresh deploy.
 import { Suspense, useEffect } from "react"
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom"
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigationType, useSearchParams } from "react-router-dom"
 import { SWRConfig } from "swr"
 import { trackPageview } from "@/lib/analytics"
 import { usePushDeepLink } from "@/hooks/usePushDeepLink"
@@ -40,6 +40,23 @@ function PageviewTracker() {
   useEffect(() => {
     trackPageview(location.pathname)
   }, [location.pathname])
+  return null
+}
+
+/**
+ * Start every page at its top.
+ *
+ * SPAs keep the window scroll position across route changes, so opening a
+ * deep-clean guide from halfway down Home rendered the guide already scrolled —
+ * a tester's words: "the page didn't start at the very top." A back navigation
+ * is left alone: restoring the prior position there is what the user expects.
+ */
+function ScrollToTop() {
+  const location = useLocation()
+  const navType = useNavigationType()
+  useEffect(() => {
+    if (navType !== "POP") window.scrollTo(0, 0)
+  }, [location.pathname, navType])
   return null
 }
 
@@ -113,6 +130,7 @@ function App() {
           <BootSplashGate />
           <PageviewTracker />
           <PushDeepLinks />
+          <ScrollToTop />
           <HomeProvider>
             <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading…</div>}>
             <Routes>
