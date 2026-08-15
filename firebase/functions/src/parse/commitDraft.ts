@@ -13,7 +13,7 @@ import {
   type ReconcileExisting,
 } from "../../../../shared/parse/parseCore.js"
 import type { ParseItemFacts } from "./parseTypes.js"
-import { seasonForTask, seasonalNextDue } from "../schedule/cadence.js"
+import { addCadence, seasonForTask, seasonalNextDue } from "../schedule/cadence.js"
 import { applyHouseRules, type HouseRuleLike } from "../../../../shared/tasks/houseRules.js"
 
 /** normalizeChunkRow output (snake_case) → Firestore chunk doc (camelCase). */
@@ -216,8 +216,18 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     // parse date — else a winterize task lands "due today" in July. Unknown-season
     // seasonal tasks get no due-now instance (the template still exists; it can be
     // scheduled once the season/feedback is known) rather than being dumped on today.
+    //
+    // Everything else starts ONE CADENCE FROM TODAY, not today. Seeding
+    // dueDate=today put a tester's freshly parsed air purifier on Home with
+    // seven tasks "due Today" — including a YEARLY HEPA replacement on an
+    // appliance he had just added. Adding an item is the moment the clock
+    // starts, not the moment everything falls due; assuming a backlog of
+    // neglect is precisely the "never assert what we haven't verified" failure,
+    // and it floods the agenda with urgency the user learns to ignore.
     const initialDue: string | null =
-      t.schedule_type === "seasonal" ? seasonalNextDue(seasonForTask(t) ?? "", today) : today
+      t.schedule_type === "seasonal"
+        ? seasonalNextDue(seasonForTask(t) ?? "", today)
+        : addCadence(today, t.schedule_type, t.interval_days ?? null)
     if (RECURRING.has(t.schedule_type) && initialDue) {
       batch.set(instancesCol.doc(), {
         taskTemplateId: tplRef.id,

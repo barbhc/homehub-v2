@@ -111,11 +111,16 @@ function TaskRow({
     drag.current.dx = nd
     setDx(nd)
   }
-  const up = () => {
+  const up = (e: React.PointerEvent) => {
     const g = drag.current
     drag.current = null
     setDragging(false)
     if (!g) return
+    // pointercancel is iOS saying "the scroll gesture took this pointer" — the
+    // finger was never a tap. Treating it as one expanded a task on almost
+    // every scroll, because a list this dense leaves nowhere neutral to put a
+    // finger down. Cancel resets; only a genuine up with no movement toggles.
+    if (e.type === "pointercancel") { setDx(0); return }
     if (!g.moved) { setDx(0); onToggle(); return }
     if (g.dx > TH) { setDx(0); onDone() }
     else if (g.dx < -TH) { setDx(0); onSnooze() }
@@ -397,7 +402,13 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
           {/* Tabs scroll rather than squeeze: four labels plus the priority pill
               overflow a 390px screen, and a control half off the edge is worse
               than one you scroll to. The pill stays pinned. */}
-          <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto no-scrollbar">
+          {/* touch-action pan-y: the four tabs fit on every supported width, so
+              this strip kept its overflow scroller only as insurance for huge
+              font settings — but as a plain scroller it grabbed horizontal
+              wobble mid-scroll and slid the headers around under the finger,
+              which a tester read (fairly) as the headers being broken. Vertical
+              pans now pass through to the page; genuine overflow still scrolls. */}
+          <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto no-scrollbar" style={{ touchAction: "pan-y" }}>
           {([["urgency", "Urgency"], ["room", "Room"], ["item", "Item"], ["calendar", "Calendar"]] as const).map(
             ([k, label]) => {
               const on = k === "calendar" ? view === "calendar" : view === "list" && lens === k

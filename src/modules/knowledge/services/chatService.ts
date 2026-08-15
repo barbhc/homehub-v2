@@ -49,6 +49,8 @@ export async function streamChatQuery(params: {
   onError: (message: string) => void
 }): Promise<void> {
   const { question, history, filter, homeId, allowWebSearch, onDelta, onDone, onError } = params
+
+  try {
   // getIdToken() auto-refreshes if the token is expired.
   const token = await auth.currentUser?.getIdToken().catch(() => undefined)
   if (!token) {
@@ -138,5 +140,12 @@ export async function streamChatQuery(params: {
     } catch {
       // ignore
     }
+  }
+  } catch (err) {
+    // A dropped connection rejects fetch() or reader.read(); before this catch
+    // that rejection escaped the function — no onError, no onDone — and the UI
+    // showed a typing indicator that never resolved, with the composer locked.
+    // A tester sat in front of exactly that.
+    onError(err instanceof Error ? err.message : "Lost the connection — please try again.")
   }
 }

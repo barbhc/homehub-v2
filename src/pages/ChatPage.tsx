@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
-import { SparklesIcon, WrenchIcon, BookOpenIcon, PlusIcon, ClockIcon } from "lucide-react"
+import { ChevronLeftIcon, SparklesIcon, WrenchIcon, BookOpenIcon, PlusIcon, ClockIcon } from "lucide-react"
 import { FilterBar } from "@/components/chat/FilterBar"
 import { ChatThread } from "@/components/chat/ChatThread"
 import { ChatInput } from "@/components/chat/ChatInput"
@@ -135,6 +135,15 @@ export default function ChatPage() {
     setActiveConvoId(id)
     convoIdRef.current = id
   }, [isStreaming])
+
+  /** Leave the thread and return to the Ask landing. The conversation is kept
+   *  (persisted per message); this only resets the view. */
+  const handleExitThread = useCallback(() => {
+    setMessages([])
+    setIsStreaming(false)
+    convoIdRef.current = null
+    setActiveConvoId(null)
+  }, [])
 
   const handleSend = useCallback(
     (text: string) => {
@@ -305,7 +314,7 @@ export default function ChatPage() {
   }, [selectedItemId, selectedRoomIds, items, rooms])
 
   return (
-    <div className="flex flex-col h-[calc(100vh-48px)] overflow-hidden bg-[var(--hh-bg)] lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-5">
+    <div className="flex flex-col h-[calc(100dvh-48px)] overflow-hidden pb-[calc(70px+env(safe-area-inset-bottom))] md:pb-0 bg-[var(--hh-bg)] lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-5">
       {/* ── Desktop conversation rail (lg+): New question + Recent only ── */}
       <aside className="hidden border-r border-[var(--hh-line)] bg-[var(--hh-surface)] p-6 lg:flex lg:h-[calc(100vh-48px)] lg:min-h-0 lg:flex-col lg:gap-4 lg:overflow-y-auto">
         {/* New question */}
@@ -367,6 +376,21 @@ export default function ChatPage() {
         /* ── CONVERSATION LAYOUT ── */
         <>
           {/* Compact filter strip (mobile — desktop uses the topic header below) */}
+          {/* Mobile thread header: a way OUT. The thread replaced the Ask
+              landing with no back control, and the tab bar's Ask tab returns to
+              this same thread — a tester described feeling trapped in the
+              conversation. Back ends the thread and returns to Ask home; the
+              conversation itself is already persisted server-side. */}
+          <div className="flex shrink-0 items-center gap-1 px-2 pt-1 lg:hidden">
+            <button
+              type="button"
+              onClick={handleExitThread}
+              className="inline-flex min-h-11 items-center gap-0.5 px-2 text-[15px] font-semibold"
+              style={{ color: "var(--hh-teal)" }}
+            >
+              <ChevronLeftIcon className="size-5" strokeWidth={2.4} /> Ask
+            </button>
+          </div>
           {!filtersLoading && (
             <div className="lg:hidden">
               <FilterBar
