@@ -95,15 +95,10 @@ export async function icecatIdentity(
   }
 }
 
-/** Strip "| Site Name" / trailing " - Site Name" chrome off a search-result title. */
-export function cleanResultTitle(title: string): string {
-  let t = title.split("|")[0].trim()
-  // Only strip a spaced-dash suffix when the tail looks like site chrome (short,
-  // no digits) — never touch dashes inside model numbers ("AP-1512HH").
-  const m = t.match(/^(.*\S)\s+[-–]\s+([^-–]{2,30})$/)
-  if (m && !/\d/.test(m[2])) t = m[1].trim()
-  return t.slice(0, 120)
-}
+/** Title cleanup + retailer detection live in shared/ so they are unit-testable
+ *  from the app's test runner. Re-exported here for existing importers. */
+import { cleanProductTitle, isRetailerHost, hostOf } from "../../../../shared/products/productTitle.js"
+export { cleanProductTitle, isRetailerHost, hostOf }
 
 /**
  * Mine model-family variants from search text: tokens that EXTEND the typed
@@ -161,9 +156,11 @@ export async function braveIdentity(
     const items = results
       .map((r) => {
         const rec = asRecord(r)
-        return rec ? { title: str(rec.title) ?? "", description: str(rec.description) ?? "" } : null
+        return rec
+          ? { title: str(rec.title) ?? "", description: str(rec.description) ?? "", url: str(rec.url) ?? "" }
+          : null
       })
-      .filter((r): r is { title: string; description: string } => !!r && !!r.title)
+      .filter((r): r is { title: string; description: string; url: string } => !!r && !!r.title)
     if (!items.length) return empty
 
     // Exact = a whole TOKEN equals the typed model ("WM4000HWA:" → "WM4000HWA").
@@ -171,7 +168,13 @@ export async function braveIdentity(
     // the first variant it sees — the design's "confidently wrong" failure mode;
     // partial models must fall through to the variants pick instead.
     const modelNorm = normalizeModel(model)
-    const exact = items.find((r) => r.title.split(/\s+/).some((tok) => normalizeModel(tok) === modelNorm))
+    const isExact = (r: { title: string }) =>
+      r.title.split(/\s+/).some((tok) => normalizeModel(tok) === modelNorm)
+    // Prefer a NON-RETAILER exact hit. A store listing title is the retailer's
+    // SEO string, not a product name — taking it verbatim is how items ended up
+    // called "Amazon.com: Ninja DZ201 ...". A retailer hit is still better than
+    // nothing, so it remains the fallback, just with its chrome stripped.
+    const exact = items.find((r) => isExact(r) && !isRetailerHost(hostOf(r.url))) ?? items.find(isExact)
     const haystacks = items.flatMap((r) => [r.title, r.description])
     const variants = mineVariants(model, haystacks)
 
@@ -183,7 +186,7 @@ export async function braveIdentity(
     if (!exact || variants.length > 0) return { identity: null, variants }
     return {
       identity: {
-        name: cleanResultTitle(exact.title),
+        name: cleanProductTitle(exact.title),
         rawCategory: `${exact.title} ${exact.description}`.slice(0, 300),
         source: "brave",
         confidence: "medium",

@@ -44,6 +44,7 @@ import {
   type ItemCategoryId,
 } from "@/modules/inventory/constants/itemCategories"
 import { useCurrentHome, getRooms } from "@/modules/home"
+import { isAllowedSpecKey } from "../../../shared/products/specKeys"
 import { cn } from "@/lib/utils"
 
 export type IdentifyMode = "choice" | "appliance" | "simple"
@@ -202,7 +203,9 @@ export function IdentifyStep({
   const [dismissedIdentityKeys, setDismissedIdentityKeys] = useState<Set<string>>(new Set())
   const [lookupCandidates, setLookupCandidates] = useState<ProductLookupCandidate[]>([])
   const [lookupConfidence, setLookupConfidence] = useState<KnowledgeConfidence>("low")
-  const [appliedCandidateKeys, setAppliedCandidateKeys] = useState<Set<string>>(new Set())
+  // No "applied" set: which chips were tapped is not evidence of what the form
+  // holds. Applied is derived from data.categoryFields inside the card.
+  const [dismissedCandidateKeys, setDismissedCandidateKeys] = useState<Set<string>>(new Set())
   const [lookupLoading, setLookupLoading] = useState(false)
   /** Actionable lookup-failure notice (quota) — shown quietly under the fields. */
   const [lookupNotice, setLookupNotice] = useState<string | null>(null)
@@ -305,7 +308,7 @@ export function IdentifyStep({
       setLookupResult({ key, identity: r.identity, variants: r.variantCandidates })
       setLookupCandidates(r.candidates)
       setLookupConfidence(r.knowledgeConfidence)
-      setAppliedCandidateKeys(new Set())
+      setDismissedCandidateKeys(new Set())
       track("identity_lookup_done", {
         outcome: r.identity ? "found" : r.variantCandidates.length > 0 ? "fuzzy" : "miss",
         source: r.identity?.source ?? null,
@@ -373,26 +376,41 @@ export function IdentifyStep({
     track("identity_variants_rejected")
   }
 
+  // Defence in depth: the server already drops keys outside the category's
+  // schema, but a cached lookup from before that gate can still carry one. A
+  // value written to a key no field renders is invisible AND unremovable — the
+  // exact shape of the reported bug — so refuse it here too.
   const handleApplyCandidate = (c: ProductLookupCandidate) => {
+    if (!isAllowedSpecKey(data.itemCategory ?? null, c.key)) {
+      console.warn("[identify] refused off-schema spec key", { key: c.key, category: data.itemCategory })
+      setDismissedCandidateKeys((prev) => new Set(prev).add(c.key))
+      return
+    }
     const nextFields = { ...(data.categoryFields ?? {}), [c.key]: c.value }
     onDataChange({ ...data, categoryFields: nextFields })
-    setAppliedCandidateKeys((prev) => {
-      const s = new Set(prev)
-      s.add(c.key)
-      return s
-    })
   }
 
   const handleRemoveCandidate = (key: string) => {
     const nextFields = { ...(data.categoryFields ?? {}) }
     delete nextFields[key]
     onDataChange({ ...data, categoryFields: nextFields })
-    setAppliedCandidateKeys((prev) => {
-      const s = new Set(prev)
-      s.delete(key)
-      return s
-    })
   }
+
+  /** "Keep mine" — hide the suggestion, leave the user's value alone. */
+  const handleDismissCandidate = (key: string) => {
+    setDismissedCandidateKeys((prev) => new Set(prev).add(key))
+  }
+
+  // Also drops any key the form cannot display. A cached lookup predating the
+  // server-side gate can still carry one, and offering "Apply" for a field that
+  // will never appear is offering a button that does nothing visible.
+  const visibleCandidates = useMemo(
+    () =>
+      lookupCandidates.filter(
+        (c) => !dismissedCandidateKeys.has(c.key) && isAllowedSpecKey(data.itemCategory ?? null, c.key),
+      ),
+    [lookupCandidates, dismissedCandidateKeys, data.itemCategory],
+  )
 
   const handleDismissLookup = () => {
     setDismissedSpecKey(currentKey)
@@ -1112,13 +1130,14 @@ export function IdentifyStep({
                   />
                 </div>
               )}
-              {dismissedSpecKey !== currentKey && (lookupLoading || lookupCandidates.length > 0) && (
+              {dismissedSpecKey !== currentKey && (lookupLoading || visibleCandidates.length > 0) && (
                 <ProductSuggestionCard
-                  candidates={lookupCandidates}
+                  candidates={visibleCandidates}
                   knowledgeConfidence={lookupConfidence}
-                  appliedKeys={appliedCandidateKeys}
+                  currentValues={data.categoryFields ?? {}}
                   onApply={handleApplyCandidate}
                   onRemove={handleRemoveCandidate}
+                  onDismissCandidate={handleDismissCandidate}
                   onDismiss={handleDismissLookup}
                   loading={lookupLoading}
                 />

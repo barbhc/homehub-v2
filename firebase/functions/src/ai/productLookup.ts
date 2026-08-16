@@ -22,6 +22,7 @@ import {
   type VariantCandidate,
 } from "./identityResolver.js"
 import { requireAnyMembership } from "../lib/membership.js"
+import { allSpecKeys, isAllowedSpecKey } from "../../../../shared/products/specKeys.js"
 import { consumeDailyAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
@@ -95,11 +96,16 @@ const CLAIM_TOOL = {
       candidate_fields: {
         type: "array",
         description:
-          "Specific numeric or textual specs the user should REVIEW before applying. Only include fields you can source to the product's public spec sheet. Typical keys: wattage, filter_type, filter_size, merv, voltage, dimensions, capacity_gallons, fuel_type, tonnage, seer, hspf, btu, cadr.",
+          "Specific numeric or textual specs the user should REVIEW before applying. Only include fields you can source to the product's public spec sheet. The `key` MUST be one of the keys listed in its description — Homehub can only display those, and anything else is silently discarded rather than shown to the user.",
         items: {
           type: "object",
           properties: {
-            key: { type: "string", description: "Snake_case field key, e.g. 'wattage', 'filter_size'." },
+            key: {
+              type: "string",
+              enum: allSpecKeys(),
+              description:
+                `The field this value fills. MUST be one of: ${allSpecKeys().join(", ")}. Do not invent a near-synonym — "power" instead of "wattage" is dropped, not remapped.`,
+            },
             label: { type: "string", description: "Short human label shown in the review card." },
             value: {
               description:
@@ -199,6 +205,7 @@ function parseToolInput(input: Record<string, unknown> | null, typedModel: strin
   const confidence: KnowledgeConfidence = rawConfidence === "high" || rawConfidence === "medium" ? rawConfidence : "low"
 
   const candidates: CandidateField[] = []
+  const droppedKeys: string[] = []
   const rawCandidates = input.candidate_fields
   if (Array.isArray(rawCandidates)) {
     for (const raw of rawCandidates) {
@@ -209,6 +216,17 @@ function parseToolInput(input: Record<string, unknown> | null, typedModel: strin
       const val = r.value
       if (!key || !label) continue
       if (!/^[a-z0-9_]+$/.test(key)) continue
+      // The gate. A key outside the category's real field schema cannot be
+      // rendered by the wizard form, so applying it writes a value the user can
+      // neither see nor correct — and the item then carries two contradictory
+      // specs (a reported air fryer saved `wattage: 1690` AND `power: 700`,
+      // with the suggestion card cheerfully reporting "Applied"). Dropped, not
+      // remapped: guessing that "power" meant "wattage" is how the wrong number
+      // gets in with a confident label on it.
+      if (!isAllowedSpecKey(category, key)) {
+        droppedKeys.push(key)
+        continue
+      }
       let value: string | number | boolean
       if (typeof val === "number" && Number.isFinite(val)) value = val
       else if (typeof val === "boolean") value = val
@@ -245,6 +263,16 @@ function parseToolInput(input: Record<string, unknown> | null, typedModel: strin
       variantCandidates.push({ model: vModel, differentiator })
       if (variantCandidates.length >= 3) break
     }
+  }
+
+  // Never silent: a model that keeps inventing keys is a prompt problem, and
+  // the only way to notice is to say so. Logged with the category so the fix is
+  // obvious — either the key belongs in the schema or the prompt needs work.
+  if (droppedKeys.length > 0) {
+    console.warn("[productLookup] dropped off-schema spec keys", {
+      category: category ?? "(none)",
+      keys: droppedKeys,
+    })
   }
 
   // Low confidence → refuse candidates + subType (they would be fabricated).

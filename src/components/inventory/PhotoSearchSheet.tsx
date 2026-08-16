@@ -172,7 +172,7 @@ export function PhotoSearchSheet({
 
         {/* Footer */}
         {images.length > 0 && (
-          <div className="border-t px-4 py-3 flex items-center justify-between gap-3">
+          <div className="border-t px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-3">
             <span className="text-xs text-muted-foreground">
               {selectedIdx !== null ? `Selected image ${selectedIdx + 1}` : "Tap an image to select"}
             </span>
