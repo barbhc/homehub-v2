@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react"
 import { ReviewItemTasksButton } from "@/components/manuals/ReviewItemTasksButton"
+import { ParsePickupCard } from "@/components/manuals/ParsePickupCard"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { PageContainer, EmptyState } from "@/components/layout"
 import { useAuth } from "@/modules/auth"
 import { useCurrentHome } from "@/modules/home"
 import { getRooms } from "@/modules/home"
-import { getItemUnit, softDeleteItemUnit } from "@/modules/items"
+import { getItemUnit, softDeleteItemUnit, updateItemUnit } from "@/modules/items"
 import {
   getTaskTemplatesWithSchedulesByItem,
   type TaskTemplateWithSchedule,
@@ -30,6 +31,7 @@ import type {
 } from "@/integrations/types"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
+import { RoomPickerDialog } from "@/components/home/RoomPickerDialog"
 import { DesktopItemDetail } from "@/components/home/DesktopItemDetail"
 import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -80,6 +82,7 @@ export default function ItemDetailPage() {
   // legacy layout was removed; kept as the section's refreshKey input.
   const [historyKey] = useState(0)
   const [editOpen, setEditOpen] = useState(false)
+  const [roomPickerOpen, setRoomPickerOpen] = useState(false)
 
   // Fetch all tags used across home items for autocomplete suggestions
   useEffect(() => {
@@ -284,6 +287,8 @@ export default function ItemDetailPage() {
     homeId: home?.home_id ?? "",
     itemName: item ? `${item.brand ?? ""} ${item.display_name ?? ""}`.trim() || item.display_name : undefined,
     itemUnitId: id ?? null,
+    brand: item?.brand ?? null,
+    model: item?.model ?? null,
     manuals,
     onManualUpdated: (updated: ManualDocument) =>
       setManuals((prev) => prev.map((m) => (m.manual_id === updated.manual_id ? updated : m))),
@@ -323,6 +328,19 @@ export default function ItemDetailPage() {
     handleSave: manualMgmt.handleSave,
   }
 
+  const handlePickRoom = async (roomId: string | null) => {
+    if (!home || !item) return
+    const prev = item
+    setItem({ ...item, room_id: roomId })
+    const res = await updateItemUnit(home.home_id, item.item_unit_id, { room_id: roomId })
+    if (res.error) {
+      setItem(prev)
+      setError(`Could not change the room: ${res.error.message}`)
+    } else if (res.data) {
+      setItem(res.data)
+    }
+  }
+
   const openManualPage = (page: number, chunkId: string | null = null) => {
     setKnowledgeManualPage(page)
     setKnowledgeChunkId(chunkId)
@@ -347,6 +365,20 @@ export default function ItemDetailPage() {
         </div>
       )}
 
+      {home && id && manuals.length > 0 && (
+        <ParsePickupCard
+          homeId={home.home_id}
+          itemUnitId={id}
+          itemName={item.display_name || "This item"}
+          manualIds={manuals.map((m) => m.manual_id)}
+          onReviewSaved={() => {
+            void getTaskTemplatesWithSchedulesByItem(home.home_id, id).then((r) => {
+              if (r.data) setTasks(r.data)
+            })
+          }}
+        />
+      )}
+
       {/* Redesigned item detail — RefinedItemDetail (mobile) · DesktopItemDetail (lg+) */}
       <div className="lg:hidden -mx-4 sm:-mx-6">
         <div className="mx-auto w-full max-w-[460px]">
@@ -362,6 +394,7 @@ export default function ItemDetailPage() {
             onOpenManualPage={(page) => openManualPage(page)}
             canOpenManual={!!manualPdfUrl}
             onItemUpdate={setItem}
+            onEditRoom={() => setRoomPickerOpen(true)}
             reviewAction={
               home && id && tasks.length > 0 ? (
                 <ReviewItemTasksButton
@@ -430,6 +463,18 @@ export default function ItemDetailPage() {
         />
       </div>
 
+      {home && (
+        <RoomPickerDialog
+          open={roomPickerOpen}
+          onOpenChange={setRoomPickerOpen}
+          homeId={home.home_id}
+          rooms={rooms}
+          currentRoomId={item.room_id}
+          onPick={(roomId) => void handlePickRoom(roomId)}
+          onRoomCreated={(room) => setRooms((prev) => [...prev, room])}
+        />
+      )}
+
       {/* Desktop edit — reuses HeroCard inline editing in a dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -447,6 +492,7 @@ export default function ItemDetailPage() {
             onDelete={() => setConfirmDeleteOpen(true)}
             deleting={deleting}
             sidebarMode
+            onRoomCreated={(room) => setRooms((prev) => [...prev, room])}
           />
         </DialogContent>
       </Dialog>

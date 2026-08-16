@@ -30,6 +30,7 @@ import {
   clearWizardSession,
   type WizardStep,
 } from "@/lib/wizardSession"
+import { markParsePending, clearParsePending } from "@/lib/parsePickup"
 import { subTypeToLegacyApplianceTypeId } from "@/modules/inventory/constants/itemCategories"
 
 type ManualClassificationGate = {
@@ -232,6 +233,10 @@ export default function SmartAddItem() {
       updateWizardSession({ step: "parsing" })
       setParsedChunks([])
       setParsedTasks([])
+      // Pickup flag for the item page: cleared below only when the user is
+      // still HERE to see the outcome. If they leave (background button, back,
+      // bottom nav), the flag survives and ParsePickupCard shows the result.
+      markParsePending(firstManualId)
 
       try {
         setManualUrl(firstUrl)
@@ -247,6 +252,12 @@ export default function SmartAddItem() {
             if (isMountedRef.current) setParseProgress(ui)
           }
         )
+
+        // User left the wizard mid-parse — stop here. The pickup flag stays
+        // set and ParsePickupCard on the item page reports the outcome; any
+        // session write below would resurrect the wizard session they left.
+        if (!isMountedRef.current) return
+        clearParsePending(firstManualId)
 
         if (!parseResult.ok) {
           // onStage already set "error"; fall back to the manual plan step.
@@ -276,6 +287,8 @@ export default function SmartAddItem() {
         await new Promise((r) => setTimeout(r, 700))
         if (isMountedRef.current) setStep("review")
       } catch (err: unknown) {
+        if (!isMountedRef.current) return
+        clearParsePending(firstManualId)
         const msg = err instanceof Error ? err.message : "Something went wrong"
         setError(msg)
         setParseProgress("error")
@@ -554,6 +567,17 @@ export default function SmartAddItem() {
           progress={parseProgress}
           parsedChunks={parsedChunks}
           parsedTasks={parsedTasks}
+          onContinueInBackground={
+            itemId
+              ? () => {
+                  // The worker keeps parsing server-side; the item page's
+                  // ParsePickupCard picks the result up. Clear the wizard
+                  // session so add-item starts fresh next time.
+                  clearWizardSession()
+                  navigate(`/items/${itemId}`)
+                }
+              : undefined
+          }
         />
       )}
 

@@ -12,6 +12,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { getMessaging } from "firebase-admin/messaging"
 import { isApnsToken, sendApns } from "./apns.js"
+import { isAgendaEligible } from "../../../../shared/tasks/agendaEligibility.js"
 
 const REGION = "us-central1"
 
@@ -124,6 +125,11 @@ export const sendPushDaily = onSchedule(
     for (const d of due.docs) {
       const homeRef = d.ref.parent.parent
       if (!homeRef) continue
+      // Same eligibility as the Home agenda. Without it the push counted tasks
+      // the app deliberately hides (item-scoped cleaning), and the owner's
+      // phone announced "22 tasks due today" over a Home screen showing 3 —
+      // an alert that contradicts the app it opens teaches people to ignore both.
+      if (!isAgendaEligible({ careType: d.get("careType") as string | null, scopeType: d.get("scopeType") as string | null })) continue
       const list = byHome.get(homeRef.path) ?? []
       list.push({
         id: d.id,

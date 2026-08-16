@@ -44,6 +44,29 @@ export async function captureNativePhoto(): Promise<NativePhotoResult> {
   }
 }
 
+/**
+ * Pick an existing photo from the library — same Base64-over-the-bridge path
+ * as capture, same failure classification. iOS shows the system photo picker,
+ * which needs no permission grant, so the "permission" branch is rare here.
+ */
+export async function pickNativeLibraryPhoto(): Promise<NativePhotoResult> {
+  try {
+    const photo = await Camera.getPhoto({
+      source: CameraSource.Photos,
+      resultType: CameraResultType.Base64,
+      quality: 80,
+      correctOrientation: true,
+    })
+    if (!photo.base64String) return { kind: "error", reason: "other", message: "Picker returned no image." }
+    const format = photo.format || "jpeg"
+    return { kind: "photo", file: base64ToFile(photo.base64String, `photo.${format}`, `image/${format}`) }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (/cancel/i.test(message)) return { kind: "cancelled" }
+    return { kind: "error", reason: classifyCameraFailure(message), message }
+  }
+}
+
 /** Permission denials need the user; everything else is ours to absorb. */
 export function classifyCameraFailure(message: string): "permission" | "other" {
   return /denied|permission|not authorized|restricted/i.test(message) ? "permission" : "other"

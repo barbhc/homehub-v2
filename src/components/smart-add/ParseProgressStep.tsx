@@ -25,6 +25,9 @@ interface ParseProgressStepProps {
   progress: ParseProgressState
   parsedChunks: KnowledgeChunk[]
   parsedTasks: TaskTemplateWithSchedule[]
+  /** Shown while working: lets the user leave for the item page. The worker
+   *  parses server-side, so leaving is always safe — this makes that visible. */
+  onContinueInBackground?: () => void
 }
 
 const STAGES = [
@@ -70,7 +73,7 @@ function formatElapsed(seconds: number): string {
   return `${m}m ${s}s`
 }
 
-export function ParseProgressStep({ progress, parsedChunks, parsedTasks }: ParseProgressStepProps) {
+export function ParseProgressStep({ progress, parsedChunks, parsedTasks, onContinueInBackground }: ParseProgressStepProps) {
   const maintenanceTasks = parsedTasks.filter((t) => t.care_type !== "cleaning")
   const cleaningTasks = parsedTasks.filter((t) => t.care_type === "cleaning")
   const howToChunks = parsedChunks.filter((c) => c.chunk_type === "how_to")
@@ -118,6 +121,21 @@ export function ParseProgressStep({ progress, parsedChunks, parsedTasks }: Parse
           </p>
         )}
       </div>
+
+      {isWorking && onContinueInBackground && (
+        <div className="relative -mt-3">
+          <button
+            type="button"
+            onClick={onContinueInBackground}
+            className="inline-flex items-center gap-1.5 rounded-full ring-1 ring-white/25 px-4 py-2 text-[13px] font-semibold text-white/85 hover:bg-white/10 transition-colors"
+          >
+            Continue in background →
+          </button>
+          <p className="text-[11px] text-white/35 mt-2">
+            We'll keep reading — the tasks we find will be waiting on the item's page.
+          </p>
+        </div>
+      )}
 
       {isError ? (
         <div className="relative flex items-center gap-3 rounded-xl bg-white/5 ring-1 ring-white/10 px-4 py-3">

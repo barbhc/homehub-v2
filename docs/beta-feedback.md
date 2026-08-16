@@ -19,6 +19,23 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-08-15 — round 3 (owner + second tester)
+
+**Headline: one S1 data bug (the "22 tasks due today" alert) fixed at the
+source, in prod data, and in the push counter; four UX proposals from this
+round's triage built and shipped together.**
+
+| # | Report / proposal | Severity | Status |
+|---|---|---|---|
+| 1 | Owner's lock screen: "You have 22 tasks due today" | **S1** | ✅ Fixed 3 ways: `commitDraft` seeded every parsed task due on its creation day → first due is now one cadence out (`addCadence`, seasonal tasks anchor to their season); `commitManualDraft` + `parseWorker` redeployed. The 7 flooded SF-Condo instances re-dated in prod (verified 200s). `sendPushDaily` also counted raw open instances while Home filters item-scoped cleaning — both now share `shared/tasks/agendaEligibility`; deployed |
+| 2 | Parse looked like it failed when leaving the wizard mid-parse | S2 | ✅ Built — "Continue in background" on the progress step + item-page pickup card (live stage → "N tasks found — Review" → error), gated on a handoff flag so old manuals never banner |
+| 3 | No way to create a room, or change an item's room on mobile | S3 | ✅ Built — tappable room pill → RoomPickerDialog (pick or create); "+ New room…" in the wizard RoomSelector and the desktop edit dialog |
+| 4 | Label photo silently became the item's picture; no library option | S3 | ✅ Built — "From library" lane (native photo picker / no-capture input) + "Use as the item's photo?" consent chips, default off |
+| 5 | Finding the manual is a dead end when the in-app search misses | S3 | ✅ Built — "Search the web yourself →" pre-filled with brand + model in FindManualCard's dead-end states and the item page's add-manual dialog |
+| 6 | Owner: app takes ~3s to load | S3 | ⬜ Open — awaiting Settings → Boot diagnostics numbers from the device before touching anything |
+| 7 | Buttons cut off near screen edges (safe area) | S4 | ⬜ Open — needs the exact screens to reproduce |
+| 8 | Suggestion icons unclear; lookup provenance (wrong wattage, "Amazon" titles) | S4 | ⬜ Open — provenance labeling proposal not yet commissioned |
+
 ## 2026-08-14 — second tester, round 2 (6 reports)
 
 **Headline: all six were already fixed in `main` before this triage.** Every

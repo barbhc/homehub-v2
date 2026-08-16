@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils"
 import type { ItemUnit, Room } from "@/integrations/types"
 import { updateItemUnit } from "@/modules/items"
+import { createRoom } from "@/modules/home"
 import {
   uploadItemPhoto,
   uploadReceiptImage,
@@ -27,6 +28,9 @@ import {
 import { PhotoSearchSheet } from "@/components/inventory/PhotoSearchSheet"
 import { type EditableField, ROOM_NONE, formatDate } from "./utils"
 import { useStorageUrl } from "@/hooks/useStorageUrl"
+
+/** Select sentinel for the "+ New room…" row (swaps the select for an input). */
+const ROOM_NEW = "__new__"
 
 interface EditableRowProps {
   field: EditableField
@@ -100,6 +104,8 @@ interface HeroCardProps {
   deleting: boolean
   /** When true, renders in sidebar layout: full-width photo, details always open on lg+ */
   sidebarMode?: boolean
+  /** Bubble a room created via "+ New room…" so the page's rooms list stays current. */
+  onRoomCreated?: (room: Room) => void
 }
 
 export function HeroCard({
@@ -113,10 +119,14 @@ export function HeroCard({
   onDelete,
   deleting,
   sidebarMode,
+  onRoomCreated,
 }: HeroCardProps) {
   const [editingField, setEditingField] = useState<EditableField | null>(null)
   const [editValue, setEditValue] = useState("")
   const [fieldError, setFieldError] = useState<string | null>(null)
+  const [newRoomMode, setNewRoomMode] = useState(false)
+  const [newRoomName, setNewRoomName] = useState("")
+  const [creatingRoom, setCreatingRoom] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [receiptUploading, setReceiptUploading] = useState(false)
   const [receiptError, setReceiptError] = useState<string | null>(null)
@@ -186,6 +196,31 @@ export function HeroCard({
     }
     if (res.data) onItemUpdate(res.data)
     setEditingField(null)
+  }
+
+  const createNewRoom = async () => {
+    const name = newRoomName.trim()
+    if (!name) return
+    // Same name typed again → reuse rather than duplicate.
+    const existing = rooms.find((r) => r.name.toLowerCase() === name.toLowerCase())
+    if (existing) {
+      setNewRoomMode(false)
+      setNewRoomName("")
+      await saveField("room_id", existing.room_id)
+      return
+    }
+    setCreatingRoom(true)
+    setFieldError(null)
+    const res = await createRoom({ home_id: homeId, name })
+    setCreatingRoom(false)
+    if (res.error || !res.data) {
+      setFieldError(res.error?.message ?? "Could not create the room")
+      return
+    }
+    onRoomCreated?.(res.data)
+    setNewRoomMode(false)
+    setNewRoomName("")
+    await saveField("room_id", res.data.room_id)
   }
 
   const startEdit = (field: EditableField, current: string | null) => {
@@ -439,22 +474,51 @@ export function HeroCard({
           {editingField === "room_id" ? (
             <div className="flex items-baseline gap-1.5">
               <span className="text-xs text-muted-foreground w-16 shrink-0">Room</span>
-              <Select
-                value={editValue || ROOM_NONE}
-                onValueChange={(v) => saveField("room_id", v === ROOM_NONE ? null : v)}
-              >
-                <SelectTrigger className="flex-1 max-w-[200px]">
-                  <SelectValue placeholder="Room" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ROOM_NONE}>No room</SelectItem>
-                  {rooms.map((r) => (
-                    <SelectItem key={r.room_id} value={r.room_id}>
-                      {r.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {newRoomMode ? (
+                <div className="flex flex-1 items-center gap-1.5">
+                  <Input
+                    value={newRoomName}
+                    onChange={(e) => setNewRoomName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void createNewRoom()
+                      if (e.key === "Escape") setNewRoomMode(false)
+                    }}
+                    placeholder="New room name"
+                    className="h-8 max-w-[160px]"
+                    autoFocus
+                  />
+                  <Button size="sm" onClick={() => void createNewRoom()} disabled={creatingRoom || !newRoomName.trim()}>
+                    {creatingRoom ? <Loader2Icon className="size-3.5 animate-spin" /> : "Add"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setNewRoomMode(false)} disabled={creatingRoom}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={editValue || ROOM_NONE}
+                  onValueChange={(v) => {
+                    if (v === ROOM_NEW) {
+                      setNewRoomMode(true)
+                      return
+                    }
+                    saveField("room_id", v === ROOM_NONE ? null : v)
+                  }}
+                >
+                  <SelectTrigger className="flex-1 max-w-[200px]">
+                    <SelectValue placeholder="Room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ROOM_NONE}>No room</SelectItem>
+                    {rooms.map((r) => (
+                      <SelectItem key={r.room_id} value={r.room_id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={ROOM_NEW}>+ New room…</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           ) : (
             <div

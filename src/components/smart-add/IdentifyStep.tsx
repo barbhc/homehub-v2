@@ -13,7 +13,7 @@
  * name) only, and Undo restores exactly what it changed.
  */
 import { useState, useRef, useEffect, useMemo } from "react"
-import { Camera, ChevronDown, Loader2, ShieldCheckIcon, BookOpenCheck, BellRingIcon, Sparkles, MapPin, Refrigerator, Armchair } from "lucide-react"
+import { Camera, ChevronDown, Loader2, ShieldCheckIcon, BookOpenCheck, BellRingIcon, Sparkles, MapPin, Refrigerator, Armchair, ImageIcon } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,7 +21,7 @@ import { RoomSelector } from "@/components/smart-add/RoomSelector"
 import { CategoryPicker } from "@/modules/inventory/components/CategoryPicker"
 import { CategoryFields } from "@/modules/inventory/components/CategoryFields"
 import { extractFromImage, isEmptyOcrExtraction, type OcrExtraction } from "@/modules/inventory/services/ocrService"
-import { isNativePlatform, captureNativePhoto } from "@/lib/nativeCamera"
+import { isNativePlatform, captureNativePhoto, pickNativeLibraryPhoto } from "@/lib/nativeCamera"
 import { downscaleImage } from "@/lib/downscaleImage"
 import { track } from "@/lib/analytics"
 import {
@@ -144,6 +144,7 @@ export function IdentifyStep({
   const [ocrRawText, setOcrRawText] = useState<string | null>(null)
   const [moreDetailsOpen, setMoreDetailsOpen] = useState(false)
   const [labelPreviewUrl, setLabelPreviewUrl] = useState<string | null>(null)
+  const [labelPhotoUse, setLabelPhotoUse] = useState<"unset" | "yes" | "no">("unset")
 
   // Name-first inference (simple lane) + room hint: infer category + room from
   // the typed name / applied subType and surface them as one-tap chips.
@@ -172,6 +173,12 @@ export function IdentifyStep({
   const catChip: ItemCategoryId | null = !data.itemCategory ? nameInference.itemCategory : null
   const roomChip = !data.locationId ? suggestedRoom : null
   const extraImageRef = useRef<HTMLInputElement>(null)
+  // Library lane: same OCR pipeline, but the photo already exists — no capture attr.
+  const libraryImageRef = useRef<HTMLInputElement>(null)
+  // Ask-before-attach: the processed label shot is HELD here until the user says
+  // it should be the item's picture. Suggest, never assume — a nameplate
+  // close-up silently becoming the product photo was beta feedback.
+  const pendingLabelFileRef = useRef<File | null>(null)
   // Monotonic request id — protects against stale OCR responses overwriting
   // newer extractions when users retry quickly.
   const ocrRequestIdRef = useRef(0)
@@ -407,10 +414,12 @@ export function IdentifyStep({
     let result: Awaited<ReturnType<typeof extractFromImage>>
     try {
       // One downscale, two consumers: the OCR payload and the pending item photo
-      // handed up to SmartAddItem (camera originals are 4–12MB; sending them raw
-      // is what silently killed this call pre-fix).
+      // (camera originals are 4–12MB; sending them raw is what silently killed
+      // this call pre-fix). The photo only becomes the item's picture if the
+      // user opts in below — carried forward automatically once they have.
       const small = await downscaleImage(file)
-      onLabelPhoto?.(small)
+      pendingLabelFileRef.current = small
+      onLabelPhoto?.(labelPhotoUse === "yes" ? small : null)
       result = await extractFromImage(small)
     } catch (err) {
       // extractFromImage never throws; this guards the downscale/canvas layer
@@ -544,12 +553,37 @@ export function IdentifyStep({
     }
   }
 
+  // "From library": the label shot people already have on their phone. Same OCR
+  // pipeline; iOS shows the system photo picker (no permission prompt), so the
+  // only failure worth words is a real one.
+  const handlePickFromLibrary = async () => {
+    if (ocrLoading) return
+    if (!isNativePlatform()) {
+      libraryImageRef.current?.click()
+      return
+    }
+    const result = await pickNativeLibraryPhoto()
+    if (result.kind === "photo") {
+      await processImageFile(result.file)
+      return
+    }
+    if (result.kind === "cancelled") return
+    track("label_ocr_library_pick_failed", { reason: result.reason, message: result.message })
+    if (result.reason === "permission") {
+      setOcrError("Photo access is off for Homehub. Enable it in iOS Settings → Homehub → Photos, then try again.")
+      return
+    }
+    libraryImageRef.current?.click()
+  }
+
   const clearOcrState = () => {
     setOcrError(null)
     setOcrOutcome(null)
     setOcrRawText(null)
     if (labelPreviewUrl) URL.revokeObjectURL(labelPreviewUrl)
     setLabelPreviewUrl(null)
+    pendingLabelFileRef.current = null
+    setLabelPhotoUse("unset")
     onLabelPhoto?.(null)
   }
 
@@ -661,16 +695,60 @@ export function IdentifyStep({
                             ? "Reading the label didn't work."
                             : "Photo attached."}
                   </p>
-                  <button
-                    type="button"
-                    onClick={handleSnapLabel}
-                    className="text-xs text-primary underline underline-offset-2 hover:no-underline mt-0.5"
-                  >
-                    Re-snap photo
-                  </button>
+                  <span className="flex items-center gap-3 mt-0.5">
+                    <button
+                      type="button"
+                      onClick={handleSnapLabel}
+                      className="text-xs text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                      Re-snap photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePickFromLibrary}
+                      className="text-xs text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                      From library
+                    </button>
+                  </span>
                 </div>
               )}
             </div>
+            {!ocrLoading && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">Use as the item's photo?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLabelPhotoUse("yes")
+                    onLabelPhoto?.(pendingLabelFileRef.current)
+                  }}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                    labelPhotoUse === "yes"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground"
+                  )}
+                >
+                  Yes, use it
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLabelPhotoUse("no")
+                    onLabelPhoto?.(null)
+                  }}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                    labelPhotoUse === "no"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground"
+                  )}
+                >
+                  No, just read it
+                </button>
+              </div>
+            )}
             {!ocrLoading && (ocrOutcome === "empty" || ocrOutcome === "extract_failed") && ocrRawText && (
               <details className="rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <summary className="text-xs font-medium text-foreground cursor-pointer">
@@ -700,14 +778,24 @@ export function IdentifyStep({
           </div>
         )}
         {mode === "appliance" && (
-          <input
-            ref={extraImageRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleImageInput}
-          />
+          <>
+            <input
+              ref={extraImageRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleImageInput}
+            />
+            {/* No capture attr → browsers offer the photo library. */}
+            <input
+              ref={libraryImageRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageInput}
+            />
+          </>
         )}
 
         {mode === "appliance" && (
@@ -783,6 +871,17 @@ export function IdentifyStep({
                 >
                   <Camera className="size-3.5" aria-hidden />
                   Snap label instead
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5"
+                  onClick={handlePickFromLibrary}
+                  disabled={ocrLoading}
+                >
+                  <ImageIcon className="size-3.5" aria-hidden />
+                  From library
                 </Button>
                 {ocrLoading && (
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
