@@ -160,12 +160,32 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
 
   // Swipe between faces (touch), dots as the visible affordance.
   const touchX = useRef<number | null>(null)
-  const onTouchStart = (e: React.TouchEvent) => { touchX.current = e.touches[0].clientX }
+  // `swiped` exists because the hero is now BOTH swipeable and tappable. Without
+  // it, a face-change swipe that happens to end over the headline would also
+  // open the task — the same "the gesture was not a tap" lesson as the
+  // pointercancel guard on the week rows.
+  const swiped = useRef(false)
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchX.current = e.touches[0].clientX
+    swiped.current = false
+  }
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchX.current == null || faces === 1) return
     const dx = e.changedTouches[0].clientX - touchX.current
-    if (Math.abs(dx) > 40) setFace((f) => (dx < 0 ? Math.min(f + 1, faces - 1) : Math.max(f - 1, 0)))
+    if (Math.abs(dx) > 40) {
+      swiped.current = true
+      setFace((f) => (dx < 0 ? Math.min(f + 1, faces - 1) : Math.max(f - 1, 0)))
+    }
     touchX.current = null
+  }
+
+  /** The headline opens the task. Reported: "I was expecting to be able to click
+   *  on it and see the instructions, including what size air filter I needed" —
+   *  the hero named the job and then offered only Mark done / Snooze, so the one
+   *  thing you need BEFORE doing it (how, and which part) had no route out. */
+  const openTask = (id: string) => {
+    if (swiped.current) return
+    navigate(`/tasks/${id}`)
   }
 
   // ── drawer ─────────────────────────────────────────────────────────────────
@@ -231,16 +251,30 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
                 <div className="font-mono text-[9.5px] font-extrabold uppercase tracking-[0.12em]" style={{ color: TEAL }}>
                   {urgent.length > 1 ? `${urgent.length} need you — first:` : "Needs you first"}
                 </div>
-                <div className={`mt-1 ${sc.headline} font-extrabold leading-[1.22] tracking-[-0.02em]`} style={{ color: INK }}>
-                  {heroTask.name}
-                </div>
-                <div className="mt-0.5 text-[12.5px]" style={{ color: SUB }}>
-                  {heroTask.itemName ?? "Home"}
-                  {heroTask.isOverdue && heroTask.daysOverdue != null && (
-                    <> · <span className="font-bold" style={{ color: CLAY }}>{heroTask.daysOverdue} day{heroTask.daysOverdue === 1 ? "" : "s"} overdue</span></>
-                  )}
-                  {!heroTask.isOverdue && <> · due today</>}
-                </div>
+                {/* The whole headline block is the target, not a small chevron:
+                    it is what the eye lands on and what the finger reaches for. */}
+                <button
+                  type="button"
+                  onClick={() => openTask(heroTask.id)}
+                  className="block w-full text-left"
+                >
+                  <span className={`mt-1 block ${sc.headline} font-extrabold leading-[1.22] tracking-[-0.02em]`} style={{ color: INK }}>
+                    {heroTask.name}
+                  </span>
+                  <span className="mt-0.5 flex items-center gap-1 text-[12.5px]" style={{ color: SUB }}>
+                    <span>
+                      {heroTask.itemName ?? "Home"}
+                      {heroTask.isOverdue && heroTask.daysOverdue != null && (
+                        <> · <span className="font-bold" style={{ color: CLAY }}>{heroTask.daysOverdue} day{heroTask.daysOverdue === 1 ? "" : "s"} overdue</span></>
+                      )}
+                      {!heroTask.isOverdue && <> · due today</>}
+                    </span>
+                    <ChevronRightIcon className="size-3.5 shrink-0" style={{ color: TEAL }} aria-hidden />
+                  </span>
+                  <span className="mt-1 block text-[11.5px] font-semibold" style={{ color: TEAL }}>
+                    See how &amp; what you need
+                  </span>
+                </button>
                 <div className="mt-3 flex gap-2">
                   <button
                     type="button"
