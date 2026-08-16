@@ -94,6 +94,16 @@ export function BootDiagnostics() {
                   This boot never finished loading — it stopped after “{LABEL[t.phases.at(-1)?.phase ?? ""] ?? "start"}”.
                 </p>
               )}
+              {/* A warm start paints from the saved snapshot and refreshes behind
+                  it, so "Stats + task list" can still be outstanding while Home
+                  is already usable. Saying so beats leaving a silent gap in the
+                  list that reads like a failure. */}
+              {t.complete && !t.phases.some((p) => p.phase === "dash:core") && (
+                <p className="mt-2 text-[12px] text-muted-foreground">
+                  Home painted from the saved snapshot; the refresh from the server was still
+                  in flight when this was recorded.
+                </p>
+              )}
               {t.extrasAt != null && (
                 <p className="mt-2 text-[12px] text-muted-foreground">
                   Supplementary data landed at {t.extrasAt}ms — in parallel, after Home was already usable.

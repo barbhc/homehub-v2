@@ -76,3 +76,7 @@ ui-debug.log
 
 # TestFlight feedback ledger — local triage state, not shared history
 scripts/ops/.tf-seen.json
+
+# Tester screenshots pulled by scripts/ops/testflight-feedback.mjs — these are
+# real photos of testers' homes and phones. They belong on disk, never in git.
+testflight-feedback/
