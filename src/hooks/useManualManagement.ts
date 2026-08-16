@@ -19,6 +19,10 @@ import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowled
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import type { ReviewEditSummary } from "@/components/manuals/TaskReviewFeedback"
 import type { KnowledgeChunk, ManualDocument } from "@/integrations/types"
+// Belt for the worker's humanized errors: parse failures recorded BEFORE the
+// worker started storing friendly copy still carry raw API JSON, and raw
+// transport text can reach here from the callable layer. Never render it.
+import { humanizeParseError } from "../../shared/parse/parseErrors"
 
 /**
  * True when a manual points at a file lost in the v1→v2 migration. v1 stored
@@ -167,7 +171,7 @@ export function useManualManagement({
       if (addRole === "reference") {
         const ingestRes = await ingestReference(homeId, manualId)
         if (ingestRes.error) {
-          setParseError(`Document saved, but ingestion failed: ${ingestRes.error.message}`)
+          setParseError(`Document saved, but ingestion failed: ${humanizeParseError(ingestRes.error.message)}`)
         } else {
           // Refresh chunks (reference chunks now in DB)
           const chunksRes = await getChunksByItem(homeId, itemId)
@@ -189,7 +193,7 @@ export function useManualManagement({
             prev.map((m) => (m.manual_id === manualId ? { ...m, parsed_at: new Date().toISOString() } : m)),
           )
         } else {
-          setParseError(`Manual saved, but parsing failed: ${parseRes.error}`)
+          setParseError(`Manual saved, but parsing failed: ${humanizeParseError(parseRes.error)}`)
         }
       }
       setAddManualOpen(false)
@@ -221,7 +225,7 @@ export function useManualManagement({
     const result = await previewManualParse(homeId, manualId)
     setParsingManualId(null)
     if (!result.ok) {
-      setParseError(`Parsing failed: ${result.error}`)
+      setParseError(`Parsing failed: ${humanizeParseError(result.error)}`)
       return
     }
     setPreviewResult(result)
@@ -237,7 +241,7 @@ export function useManualManagement({
     const result = await parseManualAndWait(manualId, { homeId, mode: "commit" })
     setParsingManualId(null)
     if (result.ok) await refreshItem()
-    else setParseError(`Rescan failed: ${result.error}`)
+    else setParseError(`Rescan failed: ${humanizeParseError(result.error)}`)
   }
 
   const handleFillGaps = async (manualId: string) => {
@@ -247,7 +251,7 @@ export function useManualManagement({
     const result = await parseManualAndWait(manualId, { homeId, mode: "fill_gaps" })
     setParsingManualId(null)
     if (result.ok) await refreshItem({ chunks: true })
-    else setParseError(`Fill gaps failed: ${result.error}`)
+    else setParseError(`Fill gaps failed: ${humanizeParseError(result.error)}`)
   }
 
   const handleDeleteManual = async (manualId: string) => {
