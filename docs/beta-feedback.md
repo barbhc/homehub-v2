@@ -32,7 +32,7 @@ round's triage built and shipped together.**
 | 3 | No way to create a room, or change an item's room on mobile | S3 | ✅ Built — tappable room pill → RoomPickerDialog (pick or create); "+ New room…" in the wizard RoomSelector and the desktop edit dialog |
 | 4 | Label photo silently became the item's picture; no library option | S3 | ✅ Built — "From library" lane (native photo picker / no-capture input) + "Use as the item's photo?" consent chips, default off |
 | 5 | Finding the manual is a dead end when the in-app search misses | S3 | ✅ Built — "Search the web yourself →" pre-filled with brand + model in FindManualCard's dead-end states and the item page's add-manual dialog |
-| 6 | Owner: app takes ~3s to load | S3 | ⬜ Open — awaiting Settings → Boot diagnostics numbers from the device before touching anything |
+| 6 | Owner: app takes ~3s to load | S3 | ◐ **Measured, half closed.** Device numbers (8/15, WiFi): ttfb 63ms, bundle 409ms, auth 214ms — **web total 625ms**. Fonts already non-blocking, firebase/react already preloaded: no cheap web win left. The other ~2.4s is native shell launch before the WebView navigates, invisible to web timing. Measuring it needs a launch stamp in the iOS shell → next TestFlight build. Separately, the diagnostics panel was calling this healthy boot "never finished loading" (PR #60) |
 | 7 | Buttons cut off near screen edges (safe area) | S4 | ⬜ Open — needs the exact screens to reproduce |
 | 8 | Suggestion icons unclear; lookup provenance (wrong wattage, "Amazon" titles) | S4 | ⬜ Open — provenance labeling proposal not yet commissioned |
 
