@@ -327,8 +327,15 @@ export default function Home() {
 
   // The boot is "done" when Home shows real content rather than a skeleton —
   // that is the moment the user stops waiting, which is what we are measuring.
+  //
+  // Gated on the SAME predicate Home renders with, deliberately. The previous
+  // `!isLoading && stats` repeated the trap PR #16 fixed in the skeleton: SWR
+  // keeps `isLoading` true while it serves a persisted snapshot and revalidates,
+  // so on a warm start Home painted real content at ~600ms and this mark never
+  // fired — making the FASTEST boots report "never finished loading" in the
+  // owner's diagnostics. One predicate, so the two can't drift again.
   useEffect(() => {
-    if (!isLoading && stats) markBoot("content")
+    if (stats && !shouldShowHomeSkeleton(isLoading, !!stats)) markBoot("content")
   }, [isLoading, stats])
 
   // Only runs while the skeleton is actually what the user is looking at.
