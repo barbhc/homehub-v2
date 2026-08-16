@@ -26,6 +26,31 @@ export type BootPhase =
 
 const marks: { phase: BootPhase; at: number }[] = []
 
+/** Upper bound on a believable native launch segment. The iOS shell builds its
+ *  injection script once per process, so a SECOND navigation in the same process
+ *  (reload, WebView reload after a memory warning) yields a delta that includes
+ *  however long the app had already been running. Past this, we report nothing
+ *  rather than a fiction. */
+const MAX_PLAUSIBLE_NATIVE_MS = 60_000
+
+/**
+ * How long the native shell took to get from process start to the web app's
+ * first instruction — the segment that ends where `performance.timeOrigin`
+ * begins, and which no web API can otherwise see.
+ *
+ * Both numbers are stamped natively (see `LaunchClock` / `MainViewController` in
+ * the iOS shell): process start from the kernel, and document start from the
+ * injected script itself. Null on the web, on an old build without the
+ * injection, or when the value is not plausibly a cold start.
+ */
+export function nativeLaunchMs(): number | null {
+  const w = window as unknown as { __nativeLaunchMs?: number; __nativeDocStartMs?: number }
+  if (typeof w.__nativeLaunchMs !== "number" || typeof w.__nativeDocStartMs !== "number") return null
+  const delta = Math.round(w.__nativeDocStartMs - w.__nativeLaunchMs)
+  if (delta < 0 || delta > MAX_PLAUSIBLE_NATIVE_MS) return null
+  return delta
+}
+
 /** Milliseconds since the navigation started — the only origin that spans the
  *  whole boot, including the bundle download. */
 const now = (): number => Math.round(performance.now())
@@ -74,6 +99,8 @@ function persist(): void {
         domInteractive: nav ? Math.round(nav.domInteractive) : null,
         phases: bootReport(),
         extrasAt: extrasFinishedAt(),
+        // The native launch segment, when the shell is new enough to stamp it.
+        nativeMs: nativeLaunchMs(),
         // False until Home actually painted content — a trace without this is a
         // boot that never finished, and the last phase is where it stopped.
         complete: marks.some((m) => m.phase === "content"),
@@ -95,6 +122,8 @@ export function lastBootTiming(): {
   domInteractive: number | null
   phases: { phase: BootPhase; at: number; delta: number }[]
   extrasAt: number | null
+  /** Native shell launch → web document start. Null on web or an old build. */
+  nativeMs?: number | null
   complete: boolean
   standalone: boolean
   native: string
