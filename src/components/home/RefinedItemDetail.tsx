@@ -67,7 +67,7 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
 
 export function RefinedItemDetail({
   item, rooms, homeId, tasks, chunks, hasManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, density = "cozy",
-  reviewAction, recordsSlot,
+  reviewAction, recordsSlot, onEditRoom,
 }: {
   item: ItemUnit
   rooms: Room[]
@@ -87,6 +87,9 @@ export function RefinedItemDetail({
   /** Manual, specs, saved answers, history, delete — the reference half of the
    *  page, rendered by the caller under one heading. */
   recordsSlot?: React.ReactNode
+  /** Makes the room pill tappable (opens the caller's room picker). Mobile has
+   *  no Edit dialog, so without this the room is read-only here. */
+  onEditRoom?: () => void
 }) {
   const d = dens(density)
   const Glyph = glyphFor(item)
@@ -123,7 +126,18 @@ export function RefinedItemDetail({
           <h1 className="mt-3.5 text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
           {(item.brand || item.model) && <div className="mt-1 text-[15px]" style={{ color: SUB }}>{[item.brand, item.model].filter(Boolean).join(" · ")}</div>}
           <div className="mt-3 flex flex-wrap gap-2">
-            {roomName && <Pill><MapPinIcon className="size-[13px]" style={{ color: TEAL }} /> {roomName}</Pill>}
+            {onEditRoom ? (
+              // Tappable: the room is the one basic fact people want to fix on
+              // the spot ("that's in the garage, not the kitchen").
+              <button type="button" onClick={onEditRoom} className="inline-flex">
+                <Pill active={!roomName}>
+                  <MapPinIcon className="size-[13px]" style={{ color: TEAL }} />
+                  {roomName ?? "Add room"}
+                </Pill>
+              </button>
+            ) : (
+              roomName && <Pill><MapPinIcon className="size-[13px]" style={{ color: TEAL }} /> {roomName}</Pill>
+            )}
             {item.category && <Pill>{item.category}</Pill>}
             {/* Warranty is NOT a chip here. "Warranty ended" at the top of the page
                 is a small piece of bad news about a thing you own, delivered before

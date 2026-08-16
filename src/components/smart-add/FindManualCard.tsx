@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Loader2Icon, SearchIcon, FileTextIcon, ShieldCheckIcon } from "lucide-react"
 import { callable } from "@/integrations/firebase"
+import { manualSearchUrl } from "@/lib/manualSearch"
 
 /**
  * "Find it for me" — the step that used to send people out of the app.
@@ -94,7 +95,16 @@ export function FindManualCard({
           Couldn't search just now — you can still upload or paste a link below.{" "}
           <button type="button" onClick={() => void search()} className="font-semibold underline" style={{ color: "var(--hh-teal)" }}>
             Try again
-          </button>
+          </button>{" "}
+          <a
+            href={manualSearchUrl(brand, model)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold underline"
+            style={{ color: "var(--hh-teal)" }}
+          >
+            Search the web yourself →
+          </a>
         </div>
       )}
 
@@ -104,7 +114,16 @@ export function FindManualCard({
             <div className="text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
               {unavailable
                 ? "Manual search isn't set up yet — upload the PDF or paste a link below."
-                : `No manual found online for the ${brand} ${model}. Upload the PDF or paste a link below.`}
+                : `No manual found online for the ${brand} ${model}. Upload the PDF or paste a link below.`}{" "}
+              <a
+                href={manualSearchUrl(brand, model)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold underline"
+                style={{ color: "var(--hh-teal)" }}
+              >
+                Search the web yourself →
+              </a>
             </div>
           ) : (
             <>
@@ -136,14 +155,25 @@ export function FindManualCard({
                   </li>
                 ))}
               </ul>
-              <button
-                type="button"
-                onClick={() => void search()}
-                className="mt-2 text-[11.5px] font-semibold underline"
-                style={{ color: "var(--hh-sub)" }}
-              >
-                None of these match
-              </button>
+              <div className="mt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void search()}
+                  className="text-[11.5px] font-semibold underline"
+                  style={{ color: "var(--hh-sub)" }}
+                >
+                  None of these match
+                </button>
+                <a
+                  href={manualSearchUrl(brand, model)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11.5px] font-semibold underline"
+                  style={{ color: "var(--hh-sub)" }}
+                >
+                  Search the web yourself →
+                </a>
+              </div>
             </>
           )}
         </>

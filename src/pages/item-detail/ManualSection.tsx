@@ -34,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ManualParseProgress } from "@/components/manuals/ManualParseProgress"
+import { manualSearchUrl } from "@/lib/manualSearch"
 import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useManualUrls, isDeadLegacyManualUrl } from "@/hooks/useManualManagement"
@@ -57,6 +58,9 @@ interface ManualSectionProps {
    *  attributed to it so patterns can be aggregated per product. */
   itemName?: string
   itemUnitId?: string | null
+  /** Brand + model feed the "search the web" fallback link in the add dialog. */
+  brand?: string | null
+  model?: string | null
   manuals: ManualDocument[]
   onManualUpdated: (updated: ManualDocument) => void
   // Manual management hook values
@@ -100,6 +104,8 @@ export function ManualSection({
   homeId,
   itemName,
   itemUnitId,
+  brand,
+  model,
   manuals,
   onManualUpdated,
   addManualOpen,
@@ -536,6 +542,19 @@ export function ManualSection({
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
                   />
+                  {brand && model && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Don't have a link?{" "}
+                      <a
+                        href={manualSearchUrl(brand, model)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold underline text-primary"
+                      >
+                        Search the web for the {brand} {model} manual →
+                      </a>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="manual-title">Title (optional)</Label>
