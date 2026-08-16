@@ -8,6 +8,7 @@
  */
 import { Timestamp, type Firestore } from "firebase-admin/firestore"
 import { buildPrompt, extractParsedResult } from "../../../../shared/parse/parsePrompt.js"
+import { humanizeParseError } from "../../../../shared/parse/parseErrors.js"
 import { normalizeChunkRow, normalizeTaskRow, type ParsedChunk, type ParsedTask } from "../../../../shared/parse/parseCore.js"
 import { pickParseModel } from "../../../../shared/parse/pickParseModel.js"
 import { applyTaskTaxonomy, usageTipToChunk } from "../../../../shared/tasks/taxonomy.js"
@@ -156,11 +157,19 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
     )
     return { stage: "done", summary: { chunks: res.chunks, tasks: res.tasks } }
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    // Record the dying stage; breadcrumbs survive for diagnosis + retry.
+    const raw = e instanceof Error ? e.message : String(e)
+    // `message` is what the person sees (the client renders it verbatim), so it
+    // must be a sentence, never SDK output — a tester once got the Anthropic
+    // 400 JSON, request_id included, in a banner. `raw` survives separately as
+    // the diagnostic breadcrumb.
+    const message = humanizeParseError(raw)
     await manualRef.set(
       {
-        parse: { stage: "error", stageAt: Timestamp.fromDate(now), error: { message, stage, at: Timestamp.fromDate(now) } },
+        parse: {
+          stage: "error",
+          stageAt: Timestamp.fromDate(now),
+          error: { message, raw: raw.slice(0, 500), stage, at: Timestamp.fromDate(now) },
+        },
         updatedAt: Timestamp.fromDate(now),
       },
       { merge: true }
