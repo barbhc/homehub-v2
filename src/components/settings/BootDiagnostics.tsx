@@ -27,7 +27,12 @@ export function BootDiagnostics() {
   }
 
   const worst = t?.phases.reduce((a, b) => (b.delta > a.delta ? b : a), t.phases[0])
-  const total = t?.phases.at(-1)?.at ?? 0
+  const webTotal = t?.phases.at(-1)?.at ?? 0
+  // The native segment is invisible to the web app but very visible to the
+  // person holding the phone, so the headline number includes it whenever the
+  // shell is new enough to report it.
+  const nativeMs = t?.nativeMs ?? null
+  const total = webTotal + (nativeMs ?? 0)
 
   return (
     <div className="rounded-2xl border border-border bg-card">
@@ -60,6 +65,25 @@ export function BootDiagnostics() {
               </div>
 
               <div className="flex flex-col gap-1">
+                {/* First, because it happens first — and because it is usually the
+                    biggest single number on this screen. */}
+                {nativeMs != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-[168px] shrink-0 text-[12px] text-foreground">
+                      App launch (before web)
+                    </span>
+                    <span
+                      className="h-2 rounded-full"
+                      style={{
+                        width: `${total ? Math.max(2, Math.round((nativeMs / total) * 100)) : 0}%`,
+                        background: nativeMs > webTotal ? "var(--hh-clay)" : "var(--hh-teal)",
+                      }}
+                    />
+                    <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground">
+                      +{nativeMs}ms
+                    </span>
+                  </div>
+                )}
                 {t.phases.map((p) => {
                   const pct = total ? Math.max(2, Math.round((p.delta / total) * 100)) : 0
                   const isWorst = worst && p.phase === worst.phase && p.delta > 0
@@ -85,8 +109,19 @@ export function BootDiagnostics() {
 
               {worst && (
                 <p className="mt-3 text-[12px] text-muted-foreground">
-                  Slowest step: <b className="text-foreground">{LABEL[worst.phase] ?? worst.phase}</b>{" "}
-                  at {worst.delta}ms of {total}ms total.
+                  Slowest step:{" "}
+                  <b className="text-foreground">
+                    {nativeMs != null && nativeMs > worst.delta
+                      ? "App launch (before web)"
+                      : (LABEL[worst.phase] ?? worst.phase)}
+                  </b>{" "}
+                  at {nativeMs != null && nativeMs > worst.delta ? nativeMs : worst.delta}ms of {total}ms total.
+                </p>
+              )}
+              {nativeMs == null && t.native !== "web" && (
+                <p className="mt-2 text-[12px] text-muted-foreground">
+                  Only the web half is measured here. The app-launch segment needs a newer
+                  TestFlight build to report itself.
                 </p>
               )}
               {!t.complete && (
