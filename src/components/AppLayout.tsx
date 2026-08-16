@@ -151,8 +151,14 @@ export function AppLayout() {
       {/* pt inset clears the iOS status bar / Dynamic Island on mobile (no top
           bar there). `pt-safe-top` (index.css) uses env() with a standalone-only
           fallback for the iOS PWA quirk where env resolves to 0, and resets to 0
-          at md+ where the desktop header takes over. */}
-      <main className="flex-1 pb-16 md:pb-0 pt-safe-top">
+          at md+ where the desktop header takes over.
+
+          pb must include the SAME safe-area inset the nav below adds to its own
+          height. A flat pb-16 reserved 64px for a bar that is 64px PLUS the home
+          indicator, so on every notched iPhone the last element of every page sat
+          under it — reported as "Back and Add item are still partially cut off".
+          It never reproduced in a browser, where env() resolves to 0. */}
+      <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 pt-safe-top">
         <Outlet />
       </main>
 
