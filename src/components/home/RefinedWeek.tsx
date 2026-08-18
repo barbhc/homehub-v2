@@ -129,8 +129,14 @@ function TaskRow({
 
   return (
     <div className="relative overflow-hidden" style={{ borderTop: `0.5px solid ${LINE}` }}>
-      {/* swipe reveals: right → Done (teal), left → Snooze (amber) */}
-      <div className="absolute inset-0 flex">
+      {/* Swipe reveals: right → Done (teal), left → Snooze (amber). Decoration
+          only — and it MUST NOT take pointer events. It's `inset-0` on the
+          container, so when the row is expanded it covers the detail panel too;
+          being a POSITIONED sibling it paints above that non-positioned panel,
+          and opacity:0 is still a hit target. Without this, every control in
+          the expanded card ("View full guide", "Mark done", "Snooze") silently
+          did nothing. */}
+      <div className="pointer-events-none absolute inset-0 flex">
         <div className="flex flex-1 items-center pl-5" style={{ background: TEAL, opacity: dx > 4 ? 1 : 0 }}>
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-white"><CheckIcon className="size-[18px]" strokeWidth={2.6} /> Done</span>
         </div>
