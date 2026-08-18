@@ -19,7 +19,7 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 ## Phase 1 remainder (owner console; sandbox couldn't do these)
 - [ ] Create GitHub repo `barbhc/homehub-v2` (private) and push this tree (or add repo to a Claude session and have it push).
 - [ ] Firebase console: create project on **Blaze**, set a **budget alert** the same session; enable Auth (email/password + email link), Firestore, Storage, Functions, Cloud Tasks, Cloud Scheduler. Put the real project id in `.firebaserc` + web-app config in `.env`.
-- [ ] `firebase deploy --only functions` → call `healthCheck` once (proves deploy).
+- [ ] `firebase deploy --only functions` → `firebase functions:list` (proves deploy).
 - [ ] First `npm run emu` downloads emulator JARs; then `npm run seed:emu` + `npm run dev:emu`.
 
 ## Phase 1 adaptations (deliberate, documented)

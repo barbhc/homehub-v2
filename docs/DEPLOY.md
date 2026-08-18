@@ -71,17 +71,18 @@ firebase deploy --only functions
   **Cloud Scheduler jobs** for `rollForwardNeverStarted` (30 5 * * *) and `sendPushDaily` (0 15 * * *).
   If prompted to enable the Cloud Tasks / Scheduler APIs, say yes.
 
-Deployed functions: `healthCheck`, `enqueueParse`, `parseWorker`, `rollForwardNeverStarted`,
+Deployed functions: `enqueueParse`, `parseWorker`, `rollForwardNeverStarted`,
 `sendTestPush`, `sendPushDaily`.
 
 ## 6. Verify the deploy
 ```bash
-firebase functions:list                                  # all 6 present, region us-central1
-# healthCheck round-trip (from a signed-in client, or):
+firebase functions:list                                  # all present, region us-central1
 gcloud scheduler jobs list --project homehub-v2-4a1b     # the 2 cron jobs exist
 gcloud tasks queues list --project homehub-v2-4a1b       # the parseWorker queue exists
 ```
-Then, from the app (or a small script) call `healthCheck` — it returns `{ ok: true }`.
+`functions:list` is the deploy proof. (There was a `healthCheck` callable for this;
+it was removed — an unauthenticated endpoint kept permanently to answer a question
+`functions:list` already answers is surface for nothing.)
 
 ## 7. (Optional) Host the frontend on Firebase Hosting
 ```bash
