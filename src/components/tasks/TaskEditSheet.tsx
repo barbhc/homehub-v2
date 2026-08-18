@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { createPortal } from "react-dom"
 import { GripVerticalIcon, PlusIcon, XIcon } from "lucide-react"
 import { updateTaskContent, rescheduleTaskInstance, type TaskDetail } from "@/modules/care"
 
@@ -79,19 +80,28 @@ export function TaskEditSheet({
   const fieldStyle = { borderColor: "var(--hh-line2)", background: "var(--hh-bg)", color: "var(--hh-ink)" }
   const label = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.5px]"
 
-  return (
+  // Portalled to <body>, and explicitly ABOVE the tab bar.
+  //
+  // The bottom nav in AppLayout is `fixed bottom-0 z-50`. Rendered inline, this
+  // sheet was also z-50 and came EARLIER in the DOM, so the nav painted over
+  // it: Save and Cancel sat behind the tab bar, unreachable, on a panel that
+  // had already scrolled as far as it could. Portalling also escapes any
+  // transform/filter ancestor, which would otherwise trap `fixed` in a local
+  // stacking context. Any future sheet outside the Radix primitives needs both
+  // halves of this — the portal AND a z-index above the nav's.
+  return createPortal(
     <>
       <button
         type="button"
         aria-label="Cancel editing"
         onClick={onClose}
-        className="fixed inset-0 z-40"
+        className="fixed inset-0 z-[60]"
         style={{ background: "rgba(8,12,11,0.4)" }}
       />
       <div
         role="dialog"
         aria-label="Edit task"
-        className="fixed inset-x-0 bottom-0 z-50 max-h-[88vh] overflow-y-auto rounded-t-[20px] px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:inset-x-auto lg:right-6 lg:top-6 lg:bottom-6 lg:w-[440px] lg:rounded-[20px]"
+        className="fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] overflow-y-auto rounded-t-[20px] px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:inset-x-auto lg:right-6 lg:top-6 lg:bottom-6 lg:w-[440px] lg:rounded-[20px]"
         style={{ background: "var(--hh-surface)" }}
       >
         <div className="mx-auto mb-4 h-1 w-9 rounded-full lg:hidden" style={{ background: "rgba(15,23,42,0.15)" }} />
@@ -200,6 +210,7 @@ export function TaskEditSheet({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   )
 }
