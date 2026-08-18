@@ -1,6 +1,12 @@
 # Scope: make the add-item wizard preview-first
 
-**Status:** proposed, not started. Written 2026-08-17 after the commit-mode sweep (PR #75).
+**Status: BUILT and deployed — PR #77 (2026-08-17).** Option A, as recommended.
+Net −527 lines. Kept as the record of why, and of the one coupling that had to
+be handled (the pickup card, below — it was real).
+
+Verified against the emulator with the real callable: a manual carrying a
+previewDraft has 0 task templates, `commitManualDraft` creates them, and the
+draft is cleared afterwards so it cannot reappear.
 
 ## Why this exists
 
