@@ -82,6 +82,16 @@ interface UseManualManagementParams {
   setTasks: (tasks: TaskTemplateWithSchedule[]) => void
 }
 
+/** Plain-language summary of what a commit-mode run changed. */
+function describeCommit(action: string, r: { inserted?: number; duplicatesSkipped?: number; tasks: number }): string {
+  const added = r.inserted ?? 0
+  const skipped = r.duplicatesSkipped ?? 0
+  const parts: string[] = []
+  parts.push(added === 0 ? "no new tasks" : `${added} new task${added === 1 ? "" : "s"}`)
+  if (skipped > 0) parts.push(`${skipped} skipped as duplicate${skipped === 1 ? "" : "s"}`)
+  return `${action} finished — ${parts.join(", ")}.`
+}
+
 export function useManualManagement({
   itemId,
   homeId,
@@ -104,6 +114,11 @@ export function useManualManagement({
 
   // --- Parse / review state ---
   const [parseError, setParseError] = useState<string | null>(null)
+  /** What a rescan/fill-gaps actually changed. These are the last two paths
+   *  that write tasks without a review step — they are explicit user actions,
+   *  so a confirmation is the right answer rather than a review sheet, but
+   *  silence is not: "it just added new tasks to the list" was a bug report. */
+  const [parseReceipt, setParseReceipt] = useState<string | null>(null)
   const [parsingManualId, setParsingManualId] = useState<string | null>(null)
   const [deletingManualId, setDeletingManualId] = useState<string | null>(null)
   const [parsedManualId, setParsedManualId] = useState<string | null>(null)
@@ -248,8 +263,10 @@ export function useManualManagement({
     // IS the rescan behavior. The worker seeds instances; no follow-up needed.
     const result = await parseManualAndWait(manualId, { homeId, mode: "commit" })
     setParsingManualId(null)
-    if (result.ok) await refreshItem()
-    else setParseError(`Rescan failed: ${humanizeParseError(result.error)}`)
+    if (result.ok) {
+      await refreshItem()
+      setParseReceipt(describeCommit("Rescan", result))
+    } else setParseError(`Rescan failed: ${humanizeParseError(result.error)}`)
   }
 
   const handleFillGaps = async (manualId: string) => {
@@ -258,8 +275,10 @@ export function useManualManagement({
     setParseError(null)
     const result = await parseManualAndWait(manualId, { homeId, mode: "fill_gaps" })
     setParsingManualId(null)
-    if (result.ok) await refreshItem({ chunks: true })
-    else setParseError(`Fill gaps failed: ${humanizeParseError(result.error)}`)
+    if (result.ok) {
+      await refreshItem({ chunks: true })
+      setParseReceipt(describeCommit("Fill gaps", result))
+    } else setParseError(`Fill gaps failed: ${humanizeParseError(result.error)}`)
   }
 
   const handleDeleteManual = async (manualId: string) => {
@@ -344,6 +363,8 @@ export function useManualManagement({
 
     // Parse / review state
     parseError,
+    parseReceipt,
+    setParseReceipt,
     setParseError,
     parsingManualId,
     setParsingManualId,

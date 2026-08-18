@@ -155,7 +155,17 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
         parse: {
           stage: "done",
           stageAt: Timestamp.fromDate(now),
-          summary: { chunks: res.chunks, tasks: res.tasks, confidence },
+          // `inserted` and `duplicatesSkipped` ride along so the client can tell
+          // the user what a rescan actually DID. A commit that changes the
+          // user's home and reports nothing is the silent-write problem in a
+          // smaller costume.
+          summary: {
+            chunks: res.chunks,
+            tasks: res.tasks,
+            inserted: res.inserted,
+            duplicatesSkipped: res.duplicatesSkipped ?? 0,
+            confidence,
+          },
         },
         updatedAt: Timestamp.fromDate(now),
       },

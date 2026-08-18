@@ -245,9 +245,14 @@ export default function SmartAddItem() {
         // a terminal state. The worker reaches "done" only after committing to
         // Firestore, so the review below can never be empty. State lives in
         // Firestore → the wizard survives a tab refresh mid-parse.
+        // "commit" is deliberate HERE and only here: the wizard reviews AFTER
+        // committing (ParseReviewStep edits live rows with optimistic
+        // mutations), unlike the item page which previews first. It was
+        // relying on the mode default to get this, which read as an oversight
+        // rather than a decision — and the default has now been removed.
         const parseResult = await parseManualAndWait(
           firstManualId,
-          { homeId: propertyId },
+          { homeId: propertyId, mode: "commit" },
           (ui) => {
             if (isMountedRef.current) setParseProgress(ui)
           }

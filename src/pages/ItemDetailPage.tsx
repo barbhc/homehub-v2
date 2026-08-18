@@ -364,6 +364,26 @@ export default function ItemDetailPage() {
         </div>
       )}
 
+      {manualMgmt.parseReceipt && (
+        // Rescan and Fill gaps are the only remaining paths that write tasks
+        // without a review step. They are explicit user actions, so a receipt
+        // is the right answer rather than a review sheet — but "it just added
+        // new tasks to the list" was a bug report, and silence is what made it
+        // one.
+        <div className="flex items-start gap-2 rounded-lg border px-4 py-2 text-sm mb-4"
+          style={{ borderColor: "var(--hh-teal)", background: "var(--hh-teal-wash)", color: "var(--hh-ink)" }}>
+          <span className="min-w-0 flex-1">{manualMgmt.parseReceipt}</span>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => manualMgmt.setParseReceipt(null)}
+            className="shrink-0 rounded p-0.5 opacity-70 hover:opacity-100"
+          >
+            <XIcon className="size-4" />
+          </button>
+        </div>
+      )}
+
       {home && id && manuals.length > 0 && (
         <ParsePickupCard
           homeId={home.home_id}
