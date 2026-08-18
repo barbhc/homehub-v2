@@ -19,6 +19,7 @@ export type ManualDocClassification = {
 }
 
 import { FindManualCard } from "./FindManualCard"
+import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
 
 type ManualStepProps = {
   /** Already typed on the identify step — enough to search for the manual so the
@@ -64,6 +65,7 @@ export function ManualStep({
   brand,
   model,
 }: ManualStepProps) {
+  const [autoFindManuals] = useAutoFindManuals()
   const [mode, setMode] = useState<"url" | "upload">("upload")
   const [pasteUrl, setPasteUrl] = useState("")
   const [file, setFile] = useState<File | null>(null)
@@ -161,7 +163,7 @@ export function ManualStep({
             brand={brand}
             model={model}
             disabled={isSaving}
-            autoStart
+            autoStart={autoFindManuals}
             onPick={(url) => {
               setMode("url")
               setPasteUrl(url)

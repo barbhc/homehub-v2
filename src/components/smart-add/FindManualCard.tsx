@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react"
-import { Loader2Icon, SearchIcon, FileTextIcon, ShieldCheckIcon } from "lucide-react"
+import { AlertTriangleIcon, EyeIcon, Loader2Icon, SearchIcon, FileTextIcon, ShieldCheckIcon } from "lucide-react"
 import { callable } from "@/integrations/firebase"
 import { manualSearchUrl } from "@/lib/manualSearch"
+import { findModelMismatch } from "../../../shared/products/modelMismatch"
+import { ManualPageSheet } from "@/components/care/ManualPageSheet"
 
 /**
  * "Find it for me" — the step that used to send people out of the app.
@@ -16,6 +18,17 @@ import { manualSearchUrl } from "@/lib/manualSearch"
  * confidently wrong tasks that the user has no way to trace back. The source
  * domain is displayed because that's what a person actually uses to judge, and
  * manufacturer results are marked and ranked first.
+ *
+ * For the beta this is EXPLICITLY a work in progress, and deliberately not the
+ * default path — uploading the manual yourself is. It earned that demotion: a
+ * real search for a Core 300 returned the manufacturer's own manual for the
+ * Core 300S, the smart variant. Right host, right brand, wrong product, and
+ * nothing on screen said so. A wrong host is obvious; a wrong VARIANT parses
+ * cleanly and quietly becomes someone's care plan.
+ *
+ * So each candidate now carries the reason we think it fits, a mismatch warning
+ * when the title names a different model, and a preview of the first pages —
+ * warn and allow, never block: one manual sometimes does cover a family.
  */
 
 interface ManualCandidate {
@@ -49,6 +62,7 @@ export function FindManualCard({
   const [state, setState] = useState<"idle" | "searching" | "done" | "error">("idle")
   const [candidates, setCandidates] = useState<ManualCandidate[]>([])
   const [unavailable, setUnavailable] = useState(false)
+  const [preview, setPreview] = useState<ManualCandidate | null>(null)
   const searchRef = useRef<() => void>(() => {})
   const autoFiredFor = useRef<string | null>(null)
 
@@ -81,24 +95,48 @@ export function FindManualCard({
   searchRef.current = () => void search()
 
   return (
+    <>
+    {preview && (
+      <ManualPageSheet
+        open
+        onOpenChange={(o) => { if (!o) setPreview(null) }}
+        pdfUrl={preview.url}
+        pageNumber={1}
+        caption={`${preview.title} — check the model on the cover matches your unit`}
+      />
+    )}
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
       {state === "idle" && (
-        <button
-          type="button"
-          onClick={() => void search()}
-          disabled={disabled}
-          className="flex w-full items-center gap-2.5 text-left"
-        >
-          <SearchIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal)" }} />
-          <span className="min-w-0 flex-1">
-            <span className="block text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
-              Find the manual for me
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5">
+            <SearchIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal)" }} />
+            <span className="text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+              Find it for me
             </span>
-            <span className="block text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
-              Search the web for the {brand} {model} manual
+            <span
+              className="rounded px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase tracking-[0.09em]"
+              style={{ background: "var(--hh-amber-wash, #F6EFDC)", color: "var(--hh-amber, #8A6D1E)" }}
+            >
+              Beta
             </span>
-          </span>
-        </button>
+          </div>
+          {/* Said plainly. During the beta this is not the default path —
+              uploading the manual yourself is — and a tester deserves to know
+              which parts of the product are still finding their feet. */}
+          <p className="text-[11.5px] leading-snug" style={{ color: "var(--hh-sub)" }}>
+            We&apos;ll search the web for the {brand} {model} manual and show what we find.
+            Still rough — check the model before you attach anything.
+          </p>
+          <button
+            type="button"
+            onClick={() => void search()}
+            disabled={disabled}
+            className="self-start rounded-lg border px-3 py-1.5 text-[12.5px] font-bold"
+            style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
+          >
+            Try the search
+          </button>
+        </div>
       )}
 
       {state === "searching" && (
@@ -148,30 +186,68 @@ export function FindManualCard({
               <div className="mb-2 text-[12px]" style={{ color: "var(--hh-sub)" }}>
                 Found {candidates.length === 1 ? "one that looks right" : `${candidates.length} that could be right`} — pick the one that matches your model.
               </div>
-              <ul className="flex flex-col gap-1.5">
-                {candidates.map((c) => (
-                  <li key={c.url}>
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => onPick(c.url, c.title)}
-                      className="flex w-full items-start gap-2.5 rounded-lg border px-2.5 py-2 text-left"
+              <ul className="flex flex-col gap-2">
+                {candidates.map((c) => {
+                  const otherModel = findModelMismatch(c.title, model)
+                  return (
+                    <li
+                      key={c.url}
+                      className="rounded-lg border px-2.5 py-2"
                       style={{ borderColor: "var(--hh-line)", background: "var(--hh-bg, transparent)" }}
                     >
-                      <FileTextIcon className="mt-0.5 size-3.5 shrink-0" style={{ color: "var(--hh-clay)" }} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
-                          {c.title}
+                      <div className="flex items-start gap-2.5">
+                        <FileTextIcon className="mt-0.5 size-3.5 shrink-0" style={{ color: "var(--hh-clay)" }} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[12.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+                            {c.title}
+                          </span>
+                          <span className="mt-0.5 flex items-center gap-1.5 text-[11px]" style={{ color: "var(--hh-sub)" }}>
+                            {c.official && <ShieldCheckIcon className="size-3 shrink-0" style={{ color: "var(--hh-teal)" }} />}
+                            <span className="truncate">{c.host}</span>
+                            {c.official && <span style={{ color: "var(--hh-teal)" }}>· manufacturer&apos;s own site</span>}
+                          </span>
                         </span>
-                        <span className="mt-0.5 flex items-center gap-1.5 text-[11px]" style={{ color: "var(--hh-sub)" }}>
-                          {c.official && <ShieldCheckIcon className="size-3 shrink-0" style={{ color: "var(--hh-teal)" }} />}
-                          <span className="truncate">{c.host}</span>
-                          {c.official && <span style={{ color: "var(--hh-teal)" }}>· manufacturer</span>}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                      </div>
+
+                      {/* Warn, never block: a manual sometimes does cover a
+                          family, and refusing those would be the same mistake
+                          pointed the other way. */}
+                      {otherModel && (
+                        <div
+                          className="mt-1.5 flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] leading-snug"
+                          style={{ background: "var(--hh-clay-wash, #F7E7DE)", color: "var(--hh-ink)" }}
+                        >
+                          <AlertTriangleIcon className="mt-px size-3 shrink-0" style={{ color: "var(--hh-clay)" }} />
+                          <span>
+                            This manual is for the <strong>{otherModel}</strong> — you entered{" "}
+                            <strong>{model}</strong>. Check before attaching.
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="mt-1.5 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => setPreview(c)}
+                          className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[11.5px] font-semibold"
+                          style={{ borderColor: "var(--hh-line2)", color: "var(--hh-ink)" }}
+                        >
+                          <EyeIcon className="size-3" /> Preview
+                        </button>
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => onPick(c.url, c.title)}
+                          className="rounded-md px-2.5 py-1 text-[11.5px] font-bold text-white"
+                          style={{ background: "var(--hh-teal)" }}
+                        >
+                          Use this
+                        </button>
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
               <div className="mt-2 flex items-center gap-3">
                 <button
@@ -197,5 +273,6 @@ export function FindManualCard({
         </>
       )}
     </div>
+    </>
   )
 }

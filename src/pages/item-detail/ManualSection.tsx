@@ -35,6 +35,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ManualParseProgress } from "@/components/manuals/ManualParseProgress"
 import { FindManualCard } from "@/components/smart-add/FindManualCard"
+import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
 import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useManualUrls, isDeadLegacyManualUrl } from "@/hooks/useManualManagement"
@@ -143,6 +144,7 @@ export function ManualSection({
   handleDeleteManual,
   handleSave,
 }: ManualSectionProps) {
+  const [autoFindManuals] = useAutoFindManuals()
   const primaryManuals = manuals.filter((m) => m.role !== "reference")
   const referenceManuals = manuals.filter((m) => m.role === "reference")
   const manualUrls = useManualUrls(manuals)
@@ -554,7 +556,7 @@ export function ManualSection({
                       <FindManualCard
                         brand={brand}
                         model={model}
-                        autoStart
+                        autoStart={autoFindManuals}
                         onPick={(url, title) => {
                           setUrlInput(url)
                           if (!titleInput.trim()) setTitleInput(title)
