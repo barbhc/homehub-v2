@@ -54,3 +54,22 @@ describe("modal surfaces sit above the tab bar", () => {
     expect(Number(nav![1])).toBe(NAV_Z)
   })
 })
+
+describe("modal children are allowed to shrink", () => {
+  /**
+   * Radix DialogContent is `display: grid` and SheetContent is `display: flex`.
+   * Their children default to `min-width: auto`, which means they refuse to go
+   * narrower than their max-content width — so one `truncate` line (which is
+   * `white-space: nowrap`, i.e. enormous max-content) widened the whole dialog
+   * past the viewport. Measured 2026-08-18: a 343px dialog with 527px of
+   * content, clipped on the right. `min-w-0` on the inner span was useless,
+   * because the GRID ITEM above it never shrank.
+   */
+  it("dialog content lets its children shrink below max-content", () => {
+    expect(read("../components/ui/dialog.tsx")).toContain("[&>*]:min-w-0")
+  })
+
+  it("sheet content does too", () => {
+    expect(read("../components/ui/sheet.tsx")).toContain("[&>*]:min-w-0")
+  })
+})
