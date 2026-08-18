@@ -1,4 +1,6 @@
-import { useState, type ChangeEvent } from "react"
+import { useEffect, useState, type ChangeEvent } from "react"
+import { mutate } from "swr"
+import { invalidateCachedStorageUrl } from "@/lib/storageUrlCache"
 import { CameraIcon, Loader2Icon, SearchIcon, type LucideIcon } from "lucide-react"
 import type { ItemUnit } from "@/integrations/types"
 import { useAuth } from "@/modules/auth"
@@ -51,8 +53,14 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [retried, setRetried] = useState(false)
 
   const photoUrl = useStorageUrl(item.photo_storage_ref)
+  useEffect(() => {
+    setLoaded(false)
+    setRetried(false)
+  }, [photoUrl])
 
   const handlePhotoSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -128,7 +136,29 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
       style={photoUrl ? { background: "#fff" } : { background: "linear-gradient(135deg,var(--hh-teal-wash),#DCE9E4)" }}
     >
       {photoUrl ? (
-        <img src={photoUrl} alt={item.display_name} className="h-full w-full object-contain mix-blend-multiply" />
+        <img
+          src={photoUrl}
+          alt={item.display_name}
+          // Decode off the main thread and fade in. The tile already reserves
+          // its space, so nothing shifts — the complaint was the snap, not the
+          // layout. A cached URL usually paints before the transition is
+          // visible at all.
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            // A cached token can be revoked or the object moved. Drop the entry
+            // and resolve again rather than leaving a broken tile.
+            if (!retried) {
+              invalidateCachedStorageUrl(item.photo_storage_ref)
+              setRetried(true)
+              void mutate(["storage-url", item.photo_storage_ref])
+            }
+          }}
+          className={cn(
+            "h-full w-full object-contain mix-blend-multiply transition-opacity duration-300",
+            loaded ? "opacity-100" : "opacity-0",
+          )}
+        />
       ) : (
         // Empty state: the whole tile is the "add photo" target (touch-friendly).
         // Bottom padding keeps the centered glyph + caption clear of the corner

@@ -1,5 +1,6 @@
 import useSWR from "swr"
 import { resolveStorageUrl } from "@/integrations/firebase"
+import { getCachedStorageUrl, setCachedStorageUrl } from "@/lib/storageUrlCache"
 import type { DiagramImageUrl } from "@/integrations/types"
 
 /** Resolved URLs are stable for a session — never revalidate. */
@@ -10,10 +11,19 @@ const SWR_OPTS = { revalidateOnFocus: false, revalidateIfStale: false, revalidat
  * download URL for use in <img>/<a>. Returns null until resolved.
  */
 export function useStorageUrl(pathOrUrl: string | null | undefined): string | null {
+  // Seeded from the persistent cache so a photo seen before renders on the
+  // FIRST paint. Without it every cold start pays getDownloadURL() before the
+  // image fetch can even begin, which is the "photo pops in late" report:
+  // nothing is slow, it is just two round-trips deep.
+  const seed = getCachedStorageUrl(pathOrUrl)
   const { data } = useSWR(
     pathOrUrl ? ["storage-url", pathOrUrl] : null,
-    ([, p]: [string, string]) => resolveStorageUrl(p),
-    SWR_OPTS,
+    async ([, p]: [string, string]) => {
+      const url = await resolveStorageUrl(p)
+      if (url) setCachedStorageUrl(p, url)
+      return url
+    },
+    { ...SWR_OPTS, fallbackData: seed ?? undefined },
   )
   return data ?? null
 }
