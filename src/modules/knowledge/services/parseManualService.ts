@@ -184,7 +184,7 @@ export type PreviewManualResult = PreviewResult | { ok: false; error: string }
 
 /** The worker's normalized previewDraft is snake_case already; the only rename
  *  the review UI needs is instructions_override → instructions_text. */
-function draftToPreview(draft: { chunks?: unknown[]; tasks?: unknown[] }): PreviewResult {
+function draftToPreview(draft: { chunks?: unknown[]; tasks?: unknown[] }, pdfPages?: number | null): PreviewResult {
   const chunks = (Array.isArray(draft.chunks) ? draft.chunks : []).map((raw) => {
     const c = (raw ?? {}) as Record<string, unknown>
     return {
@@ -203,7 +203,7 @@ function draftToPreview(draft: { chunks?: unknown[]; tasks?: unknown[] }): Previ
       instructions_text: (t.instructions_override ?? t.instructions_text ?? null) as string | null,
     } as unknown as PreviewTask
   })
-  return { ok: true, chunks, tasks }
+  return { ok: true, chunks, tasks, pdfPages: pdfPages ?? null }
 }
 
 /** Parse an existing manual to an editable preview (no commit). */
@@ -211,9 +211,13 @@ export async function previewManualParse(homeId: string, manualId: string): Prom
   const res = await parseManualAndWait(manualId, { homeId, mode: "preview" })
   if (!res.ok) return { ok: false, error: res.error }
   const snap = await getDoc(docRef(`homes/${homeId}/manuals/${manualId}`))
-  const draft = snap.data()?.previewDraft as { chunks?: unknown[]; tasks?: unknown[] } | undefined
+  const data = snap.data()
+  const draft = data?.previewDraft as { chunks?: unknown[]; tasks?: unknown[] } | undefined
   if (!draft) return { ok: false, error: "Preview produced no draft" }
-  return draftToPreview(draft)
+  // Written by the worker at the pdf_fetched stage — the same snapshot, so no
+  // extra read.
+  const pdfPages = (data?.parse as { pdfPages?: number | null } | undefined)?.pdfPages ?? null
+  return draftToPreview(draft, pdfPages)
 }
 
 export type CommitReviewedResult =

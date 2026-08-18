@@ -9,6 +9,8 @@ import { Timestamp, type Firestore } from "firebase-admin/firestore"
 import {
   planTaskReconciliation,
   extKey,
+  titleSimilarity,
+  TITLE_MATCH_THRESHOLD,
   type NormalizedTaskRow,
   type ReconcileExisting,
 } from "../../../../shared/parse/parseCore.js"
@@ -34,6 +36,9 @@ export interface CommitInput {
 }
 
 export interface CommitResult {
+  /** Incoming tasks declined because this item already had a near-identical
+   *  task from a DIFFERENT manual. Counted, never silent. */
+  duplicatesSkipped?: number
   chunks: number
   tasks: number
   matched: number
@@ -205,10 +210,37 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     batch.set(templatesCol.doc(m.existingId), templateDoc(t), { merge: true })
   }
 
+  // Tasks this ITEM already has from OTHER manuals. Reconciliation above is
+  // deliberately scoped to THIS manual — a rescan of manual A must never delete
+  // manual B's tasks — but that scope also made a second manual blind to what
+  // was already there, so parsing a replacement PDF could only ADD. A tester
+  // ended up with "Clean Baskets and Crisper Plates" twice, worded differently,
+  // one from each attempt, and asked us to catch exactly this.
+  //
+  // Suppression, not deletion: we decline to CREATE a near-duplicate. Nothing
+  // existing is touched, so the "never delete completion-bearing tasks"
+  // invariant is untouched too.
+  const otherSnap = await templatesCol
+    .where("itemUnitId", "==", item.itemUnitId)
+    .where("deletedAt", "==", null)
+    .get()
+  const otherTitles = otherSnap.docs
+    .filter((d) => d.get("manualId") !== manualId)
+    .map((d) => String(d.get("title") ?? ""))
+    .filter(Boolean)
+
+  const isCrossManualDuplicate = (title: string) =>
+    otherTitles.some((existingTitle) => titleSimilarity(title, existingTitle) >= TITLE_MATCH_THRESHOLD)
+
   // inserts: new template + (for recurring) an initial scheduled instance w/ denorm.
   let inserted = 0
+  let duplicatesSkipped = 0
   for (const i of plan.inserts) {
     const t = tasks[i]
+    if (isCrossManualDuplicate(t.title)) {
+      duplicatesSkipped++
+      continue
+    }
     const tplRef = templatesCol.doc()
     batch.set(tplRef, { ...templateDoc(t), createdAt: nowTs, userModifiedAt: null, deletedAt: null })
     inserted++
@@ -296,11 +328,20 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     await delBatch.commit()
   }
 
+  if (duplicatesSkipped > 0) {
+    console.info("[commitDraft] skipped cross-manual duplicates", {
+      itemUnitId: item.itemUnitId,
+      manualId,
+      duplicatesSkipped,
+    })
+  }
+
   return {
     chunks: chunks.length,
     tasks: tasks.length,
     matched: plan.matches.length,
     inserted,
+    duplicatesSkipped,
     flagged: plan.flags.length,
     deleted: plan.deletes.length,
   }
