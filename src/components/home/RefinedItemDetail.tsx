@@ -66,7 +66,7 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
 }
 
 export function RefinedItemDetail({
-  item, rooms, homeId, tasks, chunks, hasManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, density = "cozy",
+  item, rooms, homeId, tasks, chunks, hasManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, density = "cozy",
   reviewAction, recordsSlot, onEditRoom,
 }: {
   item: ItemUnit
@@ -79,6 +79,8 @@ export function RefinedItemDetail({
   onBack: () => void
   onOpenManualPage?: (page: number) => void
   canOpenManual?: boolean
+  /** Opens the add-manual dialog from the empty Upkeep state. */
+  onAddManual?: () => void
   onItemUpdate?: (item: ItemUnit) => void
   density?: "spacious" | "cozy" | "compact"
   /** "Review these tasks" — sits in the Upkeep heading, where the decision it
@@ -213,6 +215,7 @@ export function RefinedItemDetail({
           hasManual={hasManual}
           onOpenManualPage={onOpenManualPage}
           canOpenManual={canOpenManual}
+          onAddManual={onAddManual}
           onItemUpdate={onItemUpdate}
           m
         />

@@ -514,11 +514,15 @@ export interface CareBlockProps {
    *  text when it didn't, rather than as buttons that silently do nothing. */
   canOpenManual?: boolean
   onItemUpdate?: (item: ItemUnit) => void
+  /** Opens the add-manual dialog. Without it the no-manual state is a dead
+   *  end: a sentence telling you the manual is where upkeep comes from, and
+   *  nothing to press. */
+  onAddManual?: () => void
   /** Mobile spacing. */
   m?: boolean
 }
 
-export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManualPage, canOpenManual = false, onItemUpdate, m }: CareBlockProps) {
+export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, m }: CareBlockProps) {
   // One partition, by the same rule the review wizard uses.
   const scheduled = tasks.filter((t) => isScheduled(bucketOf(t)))
   const whenNeeded = tasks.filter((t) => bucketOf(t) === "whenNeeded")
@@ -643,10 +647,27 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
 
   const nothing = tasks.length === 0
   if (nothing && !critical) {
+    // The no-manual case is the whole product in miniature: upkeep comes from
+    // the manual, and this is where someone finds out they haven't got one.
+    // It used to say exactly that and then offer nothing to press.
     return (
       <Card>
-        <div className="px-4 py-7 text-center text-[13.5px]" style={{ color: SUB }}>
-          {hasManual ? "No upkeep found in this manual yet." : "Add this item's manual to unlock recommended upkeep."}
+        <div className="flex flex-col items-center gap-3 px-4 py-7 text-center">
+          <p className="text-[13.5px]" style={{ color: SUB }}>
+            {hasManual
+              ? "No upkeep found in this manual yet."
+              : "This item has no manual yet — that's where its upkeep comes from."}
+          </p>
+          {!hasManual && onAddManual && (
+            <button
+              type="button"
+              onClick={onAddManual}
+              className="rounded-xl px-4 py-2.5 text-[13.5px] font-bold text-white"
+              style={{ background: "var(--hh-teal)" }}
+            >
+              Find the manual
+            </button>
+          )}
         </div>
       </Card>
     )

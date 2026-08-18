@@ -461,6 +461,7 @@ export function DesktopItemDetail({
               hasManual={hasManual}
               onOpenManualPage={onOpenManualPage}
               onItemUpdate={onItemUpdate}
+              onAddManual={() => manualSectionProps.setAddManualOpen(true)}
             />
           )}
           {tab === "guides" && <GuidesTab howTo={howToChunks} cleaning={cleaningChunks} onAsk={goAsk} itemName={item.display_name} onOpenManualPage={onOpenManualPage} />}

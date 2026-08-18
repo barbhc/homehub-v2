@@ -161,6 +161,7 @@ export function ManualStep({
             brand={brand}
             model={model}
             disabled={isSaving}
+            autoStart
             onPick={(url) => {
               setMode("url")
               setPasteUrl(url)

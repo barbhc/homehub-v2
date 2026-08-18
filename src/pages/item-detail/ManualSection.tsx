@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ManualParseProgress } from "@/components/manuals/ManualParseProgress"
-import { manualSearchUrl } from "@/lib/manualSearch"
+import { FindManualCard } from "@/components/smart-add/FindManualCard"
 import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useManualUrls, isDeadLegacyManualUrl } from "@/hooks/useManualManagement"
@@ -542,18 +542,25 @@ export function ManualSection({
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
                   />
+                  {/* The wizard has searched for the manual in-app since Flow A;
+                      this dialog only ever offered a link OUT to a search
+                      engine, which is where "no part of the flow searched for
+                      the manual" came from. Same component, same ranking, and
+                      it starts on open — the user already said what they want
+                      by opening this. The generic search survives inside the
+                      card as its own fallback. */}
                   {brand && model && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">
-                      Don't have a link?{" "}
-                      <a
-                        href={manualSearchUrl(brand, model)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold underline text-primary"
-                      >
-                        Search the web for the {brand} {model} manual →
-                      </a>
-                    </p>
+                    <div className="mt-2">
+                      <FindManualCard
+                        brand={brand}
+                        model={model}
+                        autoStart
+                        onPick={(url, title) => {
+                          setUrlInput(url)
+                          if (!titleInput.trim()) setTitleInput(title)
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
                 <div>
