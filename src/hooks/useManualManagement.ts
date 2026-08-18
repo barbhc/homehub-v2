@@ -181,19 +181,27 @@ export function useManualManagement({
           )
         }
       } else {
-        const parseRes = await parseManualAndWait(manualId, { homeId, mode: "commit" })
-        if (parseRes.ok) {
-          const [chunksRes, tasksRes] = await Promise.all([
-            getChunksByItem(homeId, itemId),
-            getTaskTemplatesWithSchedulesByItem(homeId, itemId),
-          ])
+        // PREVIEW, then review — not commit. This path used to parse in
+        // "commit" mode, so tasks appeared on the item with no review step at
+        // all: "I thought there was supposed to be an option to go through
+        // tasks... these items just appeared." The wizard has always reviewed
+        // before committing; adding a manual from the item page silently did
+        // not, which is the one place a user is MOST likely to be adding a
+        // manual to an appliance they already own and already have habits for.
+        // Same machinery as handleParseExistingManual — commit happens when the
+        // user saves the review sheet.
+        setParsedManualId(manualId)
+        const result = await previewManualParse(homeId, manualId)
+        if (result.ok) {
+          const chunksRes = await getChunksByItem(homeId, itemId)
           if (chunksRes.data) setChunks(chunksRes.data)
-          if (tasksRes.data) setTasks(tasksRes.data)
           setManuals((prev) =>
             prev.map((m) => (m.manual_id === manualId ? { ...m, parsed_at: new Date().toISOString() } : m)),
           )
+          setPreviewResult(result)
+          setReviewOpen(true)
         } else {
-          setParseError(`Manual saved, but parsing failed: ${humanizeParseError(parseRes.error)}`)
+          setParseError(`Manual saved, but parsing failed: ${humanizeParseError(result.error)}`)
         }
       }
       setAddManualOpen(false)

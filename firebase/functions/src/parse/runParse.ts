@@ -9,6 +9,7 @@
 import { Timestamp, type Firestore } from "firebase-admin/firestore"
 import { buildPrompt, extractParsedResult } from "../../../../shared/parse/parsePrompt.js"
 import { humanizeParseError } from "../../../../shared/parse/parseErrors.js"
+import { countPdfPages } from "../../../../shared/parse/pdfShape.js"
 import { normalizeChunkRow, normalizeTaskRow, type ParsedChunk, type ParsedTask } from "../../../../shared/parse/parseCore.js"
 import { pickParseModel } from "../../../../shared/parse/pickParseModel.js"
 import { applyTaskTaxonomy, usageTipToChunk } from "../../../../shared/tasks/taxonomy.js"
@@ -78,8 +79,13 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
 
     // ── Fetch PDF ──
     const pdfBase64 = await deps.fetchPdf(sourceType, sourceRef)
+    // How much document we actually got. A cover-page-only upload otherwise
+    // produces confident, generic tasks with nothing to distinguish them from
+    // manual-derived ones — the review sheet warns off this number. Null when
+    // the page tree is compressed and we genuinely cannot tell.
+    const pdfPages = countPdfPages(Buffer.from(pdfBase64, "base64"))
     stage = "pdf_fetched"
-    await setStage("pdf_fetched")
+    await setStage("pdf_fetched", { pdfPages })
 
     // ── Claude extraction (forced tool + sampling params inside callClaude) ──
     stage = "claude_call"

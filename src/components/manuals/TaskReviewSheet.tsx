@@ -16,6 +16,7 @@ import {
 } from "../../../shared/tasks/reviewBuckets"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
+import { isThinManual, thinManualWarning } from "../../../shared/parse/pdfShape"
 import { classifyActorFromText } from "@/lib/taskActor"
 import type {
   PreviewChunk, PreviewResult, PreviewTask, PriorityTier, ScheduleType,
@@ -92,14 +93,30 @@ const SETUP_LEVELS: { id: PriorityTier; label: string; hint: string }[] = [
  *  "recommended" by the parser is one you still have to do. */
 const setupLevelOf = (tier: PriorityTier): PriorityTier => (tier === "optional" ? "optional" : "essential")
 
+/**
+ * Every cadence the DATA MODEL supports, because a picker that can't express
+ * what the manual says forces a wrong answer. A tester's air-fryer manual said
+ * "clean after each use"; this list offered Monthly or nothing, so the only
+ * ways out were to accept a monthly lie or drop the task off schedule — and he
+ * reported exactly that. `after_each_use` and `every_n_days` were supported by
+ * the parser, the store, and the item-page editor the whole time; only this
+ * sheet, the one place the user is actually DECIDING, left them out.
+ */
 const CADENCES: { id: ScheduleType; label: string }[] = [
+  { id: "after_each_use", label: "After each use" },
   { id: "weekly", label: "Weekly" },
+  { id: "every_n_days", label: "Every N days" },
   { id: "monthly", label: "Monthly" },
   { id: "quarterly", label: "Quarterly" },
   { id: "semiannual", label: "Twice a year" },
   { id: "annual", label: "Yearly" },
   { id: "seasonal", label: "Seasonal" },
+  { id: "as_needed", label: "As needed" },
 ]
+
+/** Default for "Every N days" — 14 covers the every-two-weeks request that has
+ *  no preset, and is a sane starting point to edit from. */
+const DEFAULT_INTERVAL_DAYS = 14
 /** Per-ROW label, so an every_n_days task can say "Every 5 years" rather than
  *  the enum name or "Every 1825 days". */
 const cadOf = (r: { schedule: ScheduleType; intervalDays: number | null }) =>
@@ -534,11 +551,38 @@ export function TaskReviewSheet({
         </SheetHeader>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3">
+          {/* Shown before ANY step, because it changes what the whole review
+              means: a tester downloaded only the cover page, we accepted it in
+              silence, and the generic tasks we produced were indistinguishable
+              from manual-derived ones. Only appears when we actually counted
+              the pages — an unreadable page tree says nothing rather than
+              crying wolf on a real manual. */}
+          {isThinManual(previewData.pdfPages) && (
+            <div className="mb-3 rounded-xl border px-3.5 py-3 text-[12.5px]"
+              style={{ borderColor: "var(--hh-clay)", background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}>
+              {thinManualWarning(previewData.pdfPages!)}
+            </div>
+          )}
           {step === 2 ? (
             <StepTwo rows={rows} cadOpenId={cadOpenId} setCadOpenId={setCadOpenId} patch={patch} bucketOfRow={bucketOfRow} />
           ) : guideRow ? (
             <>
-              <div className="flex justify-end">
+              {/* Back, because the walkthrough was one-way: "There's no way to go
+                  back and review a previous task you can only move forward."
+                  A decision you cannot revisit is a decision you have to get
+                  right first time, which is the opposite of what a review is. */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  disabled={guideIndex === 0}
+                  onClick={() => {
+                    setGuideIndex(Math.max(0, guideIndex! - 1))
+                    scrollRef.current?.scrollTo({ top: 0 })
+                  }}
+                  className="text-[12.5px] font-semibold text-muted-foreground px-1.5 py-1 disabled:opacity-40"
+                >
+                  ‹ Previous
+                </button>
                 <button type="button" onClick={() => { setGuideIndex(null); setWalked(true) }}
                   className="text-[12.5px] font-semibold text-muted-foreground px-1.5 py-1">✕ Exit</button>
               </div>
@@ -654,6 +698,14 @@ function StepTwo({
   }
   return (
     <>
+      {/* Said once, up front. A tester left feedback asking for a way to change
+          the frequency, then found this screen a step later and asked to be
+          TOLD it was coming. Reassurance is cheaper than the wrong decision it
+          prevents. */}
+      <div className="text-[11.5px] text-muted-foreground mb-3">
+        Pick what fits how you actually use it — you can change any of these later
+        from the item's page.
+      </div>
       <div className="text-[13px] mb-3">How often should these repeat?</div>
       {(["essential", "recommended", "optional"] as const).map((tier) => {
         const items = scheduled.filter((r) => r.tier === tier)
@@ -679,15 +731,50 @@ function StepTwo({
                   </button>
                 </div>
                 {cadOpenId === r.id && (
-                  <div className="flex flex-wrap gap-1.5 mt-2.5">
-                    {CADENCES.map((c) => (
-                      <button key={c.id} type="button" aria-pressed={r.schedule === c.id}
-                        onClick={() => { patch(r.id, { schedule: c.id, intervalDays: null, scheduleSuggested: false }); setCadOpenId(null) }}
-                        className={`rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${
-                          r.schedule === c.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}>
-                        {c.label}
-                      </button>
-                    ))}
+                  <div className="mt-2.5">
+                    <div className="flex flex-wrap gap-1.5">
+                      {CADENCES.map((c) => (
+                        <button key={c.id} type="button" aria-pressed={r.schedule === c.id}
+                          onClick={() => {
+                            // "Every N days" keeps an interval; everything else
+                            // clears it, so a leftover value can't outlive the
+                            // cadence that gave it meaning.
+                            patch(r.id, {
+                              schedule: c.id,
+                              intervalDays: c.id === "every_n_days" ? (r.intervalDays ?? DEFAULT_INTERVAL_DAYS) : null,
+                              scheduleSuggested: false,
+                            })
+                            if (c.id !== "every_n_days") setCadOpenId(null)
+                          }}
+                          className={`rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${
+                            r.schedule === c.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}>
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                    {r.schedule === "every_n_days" && (
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <label htmlFor={`interval-${r.id}`} className="text-[11.5px] text-muted-foreground">Every</label>
+                        <input
+                          id={`interval-${r.id}`}
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          max={3650}
+                          value={r.intervalDays ?? DEFAULT_INTERVAL_DAYS}
+                          onChange={(e) => {
+                            const n = Number(e.target.value)
+                            patch(r.id, { intervalDays: Number.isFinite(n) && n > 0 ? Math.min(Math.round(n), 3650) : null })
+                          }}
+                          className="w-16 rounded-md border border-border bg-background px-2 py-1 text-[13px]"
+                        />
+                        <span className="text-[11.5px] text-muted-foreground">days</span>
+                        <button type="button" onClick={() => setCadOpenId(null)}
+                          className="ml-auto rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold">
+                          Done
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

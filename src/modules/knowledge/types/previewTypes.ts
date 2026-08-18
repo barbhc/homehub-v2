@@ -73,4 +73,8 @@ export interface PreviewResult {
   ok: true
   chunks: PreviewChunk[]
   tasks: PreviewTask[]
+  /** Pages the worker counted in the source PDF; null when the page tree is
+   *  compressed and unreadable. Drives the "this is only a cover page" warning
+   *  — absent means we make no claim either way. */
+  pdfPages?: number | null
 }
