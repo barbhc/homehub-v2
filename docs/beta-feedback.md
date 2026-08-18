@@ -19,6 +19,32 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-08-17 — round 4 (second tester, one air-fryer session · 14 reports)
+
+**Headline: P0 + P1 fixed and deployed. The "due today" report turned out to be
+a STALE DEPLOY, not stale data — production was running a bundle older than the
+seeding fix, which only surfaced by driving the real callable in the emulator.**
+
+| # | Report | Sev | Status |
+|---|---|---|---|
+| 1 | Cover-page-only upload produced 3 confident generic tasks under "From your manual" | **S1** | ✅ Fixed (PR #71) — `shared/parse/pdfShape.ts` counts pages from raw bytes, worker stores it, review sheet warns. Silent when the page tree is compressed: a false warning on a real manual would teach people to ignore it |
+| 2 | Re-parse duplicated tasks ("Clean Baskets" twice, worded differently); no keep/clear prompt | **S2** | ✅ Fixed (PR #71) — `commitDraft` declines to CREATE a near-duplicate of an existing active task on the same item from another manual. Suppression, not deletion (invariant 3 intact); skips counted + logged |
+| 3 | "All the new tasks got scheduled as due today" | **S1** | ✅ Fixed — **not a code bug and not stale data**: his instances were written a day AFTER the fix deployed. Driving `commitManualDraft` against the emulator proved current code seeds weekly → today+7, so prod was running a stale bundle. Redeployed `commitManualDraft` + `parseWorker`; his 3 instances repaired (weekly → 8/25, monthly → 9/18, verified 200s) |
+| 4 | Manual says "after each use"; review offered only Monthly or off-schedule | **S2** | ✅ Fixed (PR #71) — review sheet offered 6 of the 9 cadences the parser/store/item-page editor all support. All nine now, plus an "Every N days" interval input (default 14 = his every-two-weeks ask) |
+| 5 | Adding a manual from the item page skipped review entirely — "these items just appeared" | **S2** | ✅ Fixed (PR #71) — it parsed in commit mode while the wizard previews first. Now previews + opens the same review sheet, which is also what makes #1's warning reachable |
+| 6 | Walkthrough was one-way; didn't know cadence was editable later | S3 | ✅ Fixed (PR #71) — Previous button + a line up front saying you can change these later |
+| 7 | Wants a progress bar and to be told parsing continues if he leaves (item-page parse) | S3 | ⬜ Open — the wizard has "Continue in background"; the item-page path doesn't |
+| 8 | Yellow parse-error banner can't be dismissed | S3 | ⬜ Open |
+| 9 | Onboarding bubbles describe other tabs while the screen behind doesn't change | S3 | ⬜ Open |
+| 10 | Welcome tour bubble sits under the toolbar icons | S4 | ⬜ Open |
+| 11 | Label-photo consent prompt is unwanted — he'd never use a label as the item photo | S4 | ⬜ Open — default is already "no"; the ask itself is the friction |
+| 12 | Pasting the SharkNinja Salesforce URL still fails | S3 | ✅ Working as designed — he saw the new friendly copy. That link keeps its file id after `#`, which browsers never send, so it can never resolve server-side |
+
+**The lesson worth keeping from #3:** a green deploy is not a working deploy. The
+only thing that found it was running the real callable against the emulator and
+reading back what it wrote.
+
+
 ## 2026-08-15 — round 3 (owner + second tester)
 
 **Headline: one S1 data bug (the "22 tasks due today" alert) fixed at the
