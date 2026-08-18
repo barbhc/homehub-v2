@@ -41,7 +41,7 @@ export function PurchaseStep({
     setSaving(true)
     let receiptPath: string | null = null
     if (receiptFile) {
-      const result = await uploadReceiptImage(itemUnitId, receiptFile)
+      const result = await uploadReceiptImage(homeId, itemUnitId, receiptFile)
       if (result.error) {
         setUploadError("Receipt upload failed — check your connection and try again.")
         setSaving(false)

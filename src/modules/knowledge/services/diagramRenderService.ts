@@ -70,7 +70,7 @@ export async function renderAndStoreDiagrams(
     await page.render({ canvasContext: ctx, viewport }).promise
 
     const blob = await canvasToJpegBlob(canvas)
-    const result = await uploadDiagramImage(manualId, pageNum, blob)
+    const result = await uploadDiagramImage(homeId, manualId, pageNum, blob)
     if (result.error) throw new Error(result.error.message)
 
     pageUrlMap.set(pageNum, result.data!.url)

@@ -256,7 +256,7 @@ export function HeroCard({
     if (!file) return
     setReceiptError(null)
     setReceiptUploading(true)
-    const res = await uploadReceiptImage(item.item_unit_id, file, userId ?? null)
+    const res = await uploadReceiptImage(homeId, item.item_unit_id, file, userId ?? null)
     if (res.error) {
       setReceiptError(res.error.message)
       setReceiptUploading(false)

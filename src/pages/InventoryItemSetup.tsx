@@ -284,7 +284,7 @@ export default function InventoryItemSetup() {
             if (!item || !propertyId) return
             setError(null)
             setActionLoading(true)
-            const uploadResult = await uploadManualPdfWithUrl(item.item_unit_id, file, user?.id)
+            const uploadResult = await uploadManualPdfWithUrl(propertyId, item.item_unit_id, file, user?.id)
             if (uploadResult.error) {
               setError(uploadResult.error.message)
               setActionLoading(false)

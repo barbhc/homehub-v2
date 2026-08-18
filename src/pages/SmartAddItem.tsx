@@ -323,7 +323,7 @@ export default function SmartAddItem() {
 
           if (choice.type === "upload") {
             setSavingMessage("Uploading PDF…")
-            const uploadRes = await uploadManualPdf(itemId, choice.file, user?.id)
+            const uploadRes = await uploadManualPdf(propertyId, itemId, choice.file, user?.id)
             if (!uploadRes.data?.path) throw new Error("Upload failed")
             sourceRef = uploadRes.data.path
             sourceType = "upload"
