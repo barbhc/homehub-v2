@@ -31,6 +31,8 @@ import type {
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { RoomPickerDialog } from "@/components/home/RoomPickerDialog"
+import { CategoryPickerDialog } from "@/components/home/CategoryPickerDialog"
+import { getCategoryDefinition, type ItemCategoryId } from "@/modules/inventory/constants/itemCategories"
 import { DesktopItemDetail } from "@/components/home/DesktopItemDetail"
 import { Trash2, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -82,6 +84,7 @@ export default function ItemDetailPage() {
   const [historyKey] = useState(0)
   const [editOpen, setEditOpen] = useState(false)
   const [roomPickerOpen, setRoomPickerOpen] = useState(false)
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false)
 
   // Fetch all tags used across home items for autocomplete suggestions
   useEffect(() => {
@@ -326,6 +329,28 @@ export default function ItemDetailPage() {
     }
   }
 
+  const handlePickCategory = async (category: ItemCategoryId, subType: string | null) => {
+    if (!home || !item) return
+    const prev = item
+    // `category` is the free-text field that drifted ("Small Appliance" vs
+    // "Small appliance" vs a raw subtype id). Writing the canonical label
+    // alongside the typed fields keeps anything still reading it consistent,
+    // while display derives from item_category/sub_type either way.
+    const patch = {
+      item_category: category,
+      sub_type: subType,
+      category: getCategoryDefinition(category).label,
+    }
+    setItem({ ...item, ...patch })
+    const res = await updateItemUnit(home.home_id, item.item_unit_id, patch)
+    if (res.error) {
+      setItem(prev)
+      setError(`Could not change the category: ${res.error.message}`)
+    } else if (res.data) {
+      setItem(res.data)
+    }
+  }
+
   const openManualPage = (page: number, chunkId: string | null = null) => {
     setKnowledgeManualPage(page)
     setKnowledgeChunkId(chunkId)
@@ -413,6 +438,7 @@ export default function ItemDetailPage() {
             onOpenManualPage={(page) => openManualPage(page)}
             canOpenManual={!!manualPdfUrl}
             onAddManual={() => manualMgmt.setAddManualOpen(true)}
+            onEditCategory={() => setCategoryPickerOpen(true)}
             onItemUpdate={setItem}
             onEditRoom={() => setRoomPickerOpen(true)}
             reviewAction={
@@ -492,6 +518,16 @@ export default function ItemDetailPage() {
           currentRoomId={item.room_id}
           onPick={(roomId) => void handlePickRoom(roomId)}
           onRoomCreated={(room) => setRooms((prev) => [...prev, room])}
+        />
+      )}
+
+      {item && (
+        <CategoryPickerDialog
+          open={categoryPickerOpen}
+          onOpenChange={setCategoryPickerOpen}
+          currentCategory={(item.item_category as ItemCategoryId | null) ?? null}
+          currentSubType={item.sub_type}
+          onPick={(category, subType) => void handlePickCategory(category, subType)}
         />
       )}
 

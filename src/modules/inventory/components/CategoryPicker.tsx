@@ -5,6 +5,9 @@ type CategoryPickerProps = {
   categoryId: ItemCategoryId | null
   subType: string | null
   onCategoryChange: (id: ItemCategoryId) => void
+  /** Callers that render their own heading (with an "optional" marker and
+   *  helper text) turn this off — otherwise the word appears twice. */
+  showHeading?: boolean
   onSubTypeChange: (id: string) => void
   className?: string
 }
@@ -18,13 +21,14 @@ export function CategoryPicker({
   onCategoryChange,
   onSubTypeChange,
   className,
+  showHeading = true,
 }: CategoryPickerProps) {
   const active = categoryId ? ITEM_CATEGORIES.find((c) => c.id === categoryId) : null
 
   return (
     <div className={cn("space-y-6", className)}>
       <div>
-        <p className="text-sm font-medium text-foreground mb-3">Category</p>
+        {showHeading && <p className="text-sm font-medium text-foreground mb-3">Category</p>}
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
           {ITEM_CATEGORIES.map((cat) => {
             const Icon = cat.icon
