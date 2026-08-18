@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react"
 import { CheckIcon, Loader2Icon, XIcon } from "lucide-react"
-import { watchParse, toUiStage, type ParseStage } from "@/modules/knowledge/services/parseManualService"
+import {
+  watchParse,
+  toUiStage,
+  readPreviewDraft,
+  commitReviewedDraft,
+  type ParseStage,
+} from "@/modules/knowledge/services/parseManualService"
+import { TaskReviewSheet } from "./TaskReviewSheet"
+import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
+import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import { clearParsePending, isParsePending } from "@/lib/parsePickup"
 import { ReviewItemTasksButton } from "./ReviewItemTasksButton"
 
@@ -48,6 +57,11 @@ export function ParsePickupCard({
 }) {
   const [byManual, setByManual] = useState<Record<string, ManualParseState>>({})
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({})
+  /** The uncommitted draft for the manual being picked up, if it still has one.
+   *  Present ⇒ the wizard previewed and the user left before saving. */
+  const [draft, setDraft] = useState<PreviewResult | null>(null)
+  const [draftOpen, setDraftOpen] = useState(false)
+  const [draftSaving, setDraftSaving] = useState(false)
 
   const idsKey = manualIds.join(",")
   useEffect(() => {
@@ -76,6 +90,19 @@ export function ParsePickupCard({
       ),
     [byManual, dismissed]
   )
+
+  // Look for a draft as soon as a finished parse is picked up. A manual that
+  // committed has none (commitManualDraft clears it), so absence is the signal
+  // that the tasks are already live.
+  const pickupId = pickup?.[0] ?? null
+  useEffect(() => {
+    if (!pickupId) { setDraft(null); return }
+    let cancelled = false
+    readPreviewDraft(homeId, pickupId)
+      .then((d) => { if (!cancelled) setDraft(d) })
+      .catch(() => { if (!cancelled) setDraft(null) })
+    return () => { cancelled = true }
+  }, [homeId, pickupId])
 
   const dismiss = (manualId: string) => {
     clearParsePending(manualId)
@@ -143,20 +170,38 @@ export function ParsePickupCard({
           Manual read{state.tasks != null ? ` — ${state.tasks} suggested ${state.tasks === 1 ? "task" : "tasks"}` : ""}
         </p>
         <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
-          They're saved already — review to adjust or remove any.
+          {draft
+            ? "Nothing saved yet — review to choose what to keep."
+            : "They're saved already — review to adjust or remove any."}
         </p>
       </div>
-      <ReviewItemTasksButton
-        homeId={homeId}
-        itemUnitId={itemUnitId}
-        itemName={itemName}
-        taskCount={state.tasks ?? 1}
-        compact
-        onDone={() => {
-          dismiss(manualId)
-          onReviewSaved()
-        }}
-      />
+      {/* Two different "review" buttons, because there are two different
+          states behind them. A wizard parse the user walked away from leaves an
+          UNCOMMITTED draft and zero tasks — the committed-task loader would
+          open an empty sheet. When a draft is present we review THAT and commit
+          on save; otherwise the tasks are already live and we review those. */}
+      {draft ? (
+        <button
+          type="button"
+          onClick={() => setDraftOpen(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold"
+          style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
+        >
+          Review them
+        </button>
+      ) : (
+        <ReviewItemTasksButton
+          homeId={homeId}
+          itemUnitId={itemUnitId}
+          itemName={itemName}
+          taskCount={state.tasks ?? 1}
+          compact
+          onDone={() => {
+            dismiss(manualId)
+            onReviewSaved()
+          }}
+        />
+      )}
       <button
         type="button"
         aria-label="Dismiss"
@@ -166,6 +211,37 @@ export function ParsePickupCard({
       >
         <XIcon className="size-4" />
       </button>
+
+      {draft && (
+        <TaskReviewSheet
+          open={draftOpen}
+          onOpenChange={setDraftOpen}
+          itemName={itemName}
+          previewData={draft}
+          saving={draftSaving}
+          onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[]) => {
+            setDraftSaving(true)
+            const res = await commitReviewedDraft(homeId, manualId, chunks, tasks)
+            setDraftSaving(false)
+            if (!res.ok) return res.error
+            setDraftOpen(false)
+            setDraft(null)
+            dismiss(manualId)
+            onReviewSaved()
+            return null
+          }}
+          onFeedback={(p) => {
+            void recordParseFeedback(homeId, {
+              manualId,
+              itemUnitId,
+              reasons: p.reasons,
+              note: p.note,
+              edits: p.edits,
+              rescanRequested: p.rescan,
+            })
+          }}
+        />
+      )}
     </div>
   )
 }

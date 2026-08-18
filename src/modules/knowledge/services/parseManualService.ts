@@ -234,9 +234,32 @@ function draftToPreview(draft: { chunks?: unknown[]; tasks?: unknown[] }, pdfPag
   return { ok: true, chunks, tasks, pdfPages: pdfPages ?? null }
 }
 
-/** Parse an existing manual to an editable preview (no commit). */
-export async function previewManualParse(homeId: string, manualId: string): Promise<PreviewManualResult> {
-  const res = await parseManualAndWait(manualId, { homeId, mode: "preview" })
+/**
+ * Read a manual's UNCOMMITTED draft, if it still has one.
+ *
+ * The wizard now previews before committing, so a person who walks away
+ * mid-review leaves a real draft and zero tasks. The item page's pickup card
+ * used to offer "Review" via the committed-task loader, which would have found
+ * nothing — this is what lets it offer the draft instead.
+ */
+export async function readPreviewDraft(homeId: string, manualId: string): Promise<PreviewResult | null> {
+  const snap = await getDoc(docRef(`homes/${homeId}/manuals/${manualId}`))
+  const data = snap.data()
+  const draft = data?.previewDraft as { chunks?: unknown[]; tasks?: unknown[] } | undefined
+  if (!draft) return null
+  const pdfPages = (data?.parse as { pdfPages?: number | null } | undefined)?.pdfPages ?? null
+  return draftToPreview(draft, pdfPages)
+}
+
+/** Parse an existing manual to an editable preview (no commit).
+ *  `onStage` streams the worker's live stages for callers that show progress
+ *  (the add-item wizard); the item page ignores it. */
+export async function previewManualParse(
+  homeId: string,
+  manualId: string,
+  onStage?: (ui: ParseProgressState) => void,
+): Promise<PreviewManualResult> {
+  const res = await parseManualAndWait(manualId, { homeId, mode: "preview" }, onStage)
   if (!res.ok) return { ok: false, error: res.error }
   const snap = await getDoc(docRef(`homes/${homeId}/manuals/${manualId}`))
   const data = snap.data()

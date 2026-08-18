@@ -45,6 +45,7 @@ export {
   watchParse,
   parseManualAndWait,
   previewManualParse,
+  readPreviewDraft,
   commitReviewedDraft,
   toUiStage,
   type ParseManualResult,
