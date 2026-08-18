@@ -33,12 +33,18 @@ seeding fix, which only surfaced by driving the real callable in the emulator.**
 | 4 | Manual says "after each use"; review offered only Monthly or off-schedule | **S2** | ✅ Fixed (PR #71) — review sheet offered 6 of the 9 cadences the parser/store/item-page editor all support. All nine now, plus an "Every N days" interval input (default 14 = his every-two-weeks ask) |
 | 5 | Adding a manual from the item page skipped review entirely — "these items just appeared" | **S2** | ✅ Fixed (PR #71) — it parsed in commit mode while the wizard previews first. Now previews + opens the same review sheet, which is also what makes #1's warning reachable |
 | 6 | Walkthrough was one-way; didn't know cadence was editable later | S3 | ✅ Fixed (PR #71) — Previous button + a line up front saying you can change these later |
-| 7 | Wants a progress bar and to be told parsing continues if he leaves (item-page parse) | S3 | ⬜ Open — the wizard has "Continue in background"; the item-page path doesn't |
-| 8 | Yellow parse-error banner can't be dismissed | S3 | ⬜ Open |
-| 9 | Onboarding bubbles describe other tabs while the screen behind doesn't change | S3 | ⬜ Open |
-| 10 | Welcome tour bubble sits under the toolbar icons | S4 | ⬜ Open |
-| 11 | Label-photo consent prompt is unwanted — he'd never use a label as the item photo | S4 | ⬜ Open — default is already "no"; the ask itself is the friction |
+| 7 | Wants a progress bar and to be told parsing continues if he leaves (item-page parse) | S3 | ✅ Fixed (PR #73) — the add-manual dialog now says you can close it, keep using the app, or quit; the tasks will be waiting. Always was true (server-side worker); the wizard said it and this path didn't |
+| 8 | Yellow parse-error banner can't be dismissed | S3 | ✅ Fixed (PR #73) — dismissible; it explained itself once then followed him around the item forever |
+| 9 | Onboarding bubbles describe other tabs while the screen behind doesn't change | S3 | ✅ Fixed (PR #73) — each step carries a route and navigates on highlight; verified all five land on /home, /inventory, /maintenance, /chat, /settings |
+| 10 | Welcome tour bubble sits under the toolbar icons | **S3** | ✅ Fixed (PR #73) — root cause was NOT styling: the nav renders twice (desktop header + mobile bar) with the same `data-tour`, and driver.js's `querySelector` picked the hidden desktop one, collapsed to 0×0 at y=0. Steps now resolve to the first VISIBLE match; safe-area clamp added as backup. Measured after: popover top 605 in an 812 viewport |
+| 11 | Label-photo consent prompt is unwanted — he'd never use a label as the item photo | S4 | ✅ Fixed (PR #73) — the photo stays out by default and the offer is one quiet link with Undo, instead of a question you must answer to move on |
 | 12 | Pasting the SharkNinja Salesforce URL still fails | S3 | ✅ Working as designed — he saw the new friendly copy. That link keeps its file id after `#`, which browsers never send, so it can never resolve server-side |
+
+**Also caught while fixing P2:** the item page auto-parses recently-added
+unparsed manuals in COMMIT mode on load — the same "tasks just appeared" path
+fixed for the add-manual handler in #71, which would have quietly undone it (a
+review closed without saving leaves the manual unparsed, so the next visit
+commits behind the user's back). Now previews + reviews, most recent only.
 
 **The lesson worth keeping from #3:** a green deploy is not a working deploy. The
 only thing that found it was running the real callable against the emulator and
