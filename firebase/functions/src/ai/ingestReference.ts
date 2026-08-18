@@ -14,7 +14,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
 import { makeCallClaudeText, type CallClaudeText } from "./claude.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { chargeAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -82,12 +82,14 @@ export const ingestReference = onCall({ region: REGION, secrets: [ANTHROPIC_API_
   const manualRef = db.doc(`homes/${homeId}/manuals/${manualId}`)
   const manual = await manualRef.get()
   if (!manual.exists) throw new HttpsError("not-found", "Manual not found")
-  await consumeDailyAiQuota(db, uid, "ingestReference")
+  const hold = await chargeAiQuota(db, uid, "ingestReference")
 
   let pdfBase64: string
   try {
     pdfBase64 = await makeFetchPdf()(manual.get("sourceType"), manual.get("sourceRef"))
   } catch (e) {
+    // Never reached Claude.
+    await hold.refund()
     throw new HttpsError("unavailable", e instanceof Error ? e.message : "Could not fetch PDF")
   }
 
@@ -95,6 +97,9 @@ export const ingestReference = onCall({ region: REGION, secrets: [ANTHROPIC_API_
   try {
     sections = await runIngestReference(makeCallClaudeText(ANTHROPIC_API_KEY.value()), pdfBase64)
   } catch (e) {
+    // No output, no charge. Note the zero-sections case below is NOT refunded:
+    // Claude answered, it just found nothing, and we were billed for that.
+    await hold.refund()
     throw new HttpsError("unavailable", e instanceof Error ? e.message : "AI extraction failed")
   }
   if (sections.length === 0) throw new HttpsError("failed-precondition", "No sections extracted from document")

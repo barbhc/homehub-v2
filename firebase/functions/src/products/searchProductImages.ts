@@ -7,7 +7,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { requireAnyMembership } from "../lib/membership.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { withAiQuota } from "../lib/quota.js"
 
 const BRAVE_SEARCH_API_KEY = defineSecret("BRAVE_SEARCH_API_KEY")
 const REGION = "us-central1"
@@ -22,7 +22,7 @@ export const searchProductImages = onCall({ region: REGION, secrets: [BRAVE_SEAR
 
   const { query, count } = (request.data ?? {}) as { query?: string; count?: number }
   if (!query || !query.trim()) throw new HttpsError("invalid-argument", "query is required")
-  await consumeDailyAiQuota(getFirestore(), request.auth.uid, "searchProductImages")
+  return withAiQuota(getFirestore(), request.auth.uid, "searchProductImages", async () => {
   const n = Math.min(typeof count === "number" ? count : 20, 30)
 
   const url = new URL("https://api.search.brave.com/res/v1/web/search")
@@ -48,4 +48,5 @@ export const searchProductImages = onCall({ region: REGION, secrets: [BRAVE_SEAR
       sourceUrl: r.url ?? "",
     }))
   return { ok: true, images }
+  })
 })

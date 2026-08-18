@@ -3,7 +3,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { isOfferableManual } from "../../../../shared/products/manualCandidates.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { chargeAiQuota } from "../lib/quota.js"
 import { requireAnyMembership } from "../lib/membership.js"
 
 /**
@@ -162,15 +162,23 @@ export const findManual = onCall(
     // the UI keeps upload/paste-URL available either way.
     if (!key) return { candidates: [], source: "unavailable" }
 
-    await consumeDailyAiQuota(db, uid, "findManual", FIND_MANUAL_DAILY_LIMIT)
+    const hold = await chargeAiQuota(db, uid, "findManual", FIND_MANUAL_DAILY_LIMIT)
 
     // Two passes: the precise one first, then a looser fallback, because
     // filetype: is a hint rather than a guarantee on most engines.
-    let results = await braveSearch(key, `"${brand} ${model}" owner's manual filetype:pdf`)
-    let candidates = rankCandidates(results, brand, model)
-    if (candidates.length === 0) {
-      results = await braveSearch(key, `${brand} ${model} manual pdf`)
+    let candidates
+    try {
+      let results = await braveSearch(key, `"${brand} ${model}" owner's manual filetype:pdf`)
       candidates = rankCandidates(results, brand, model)
+      if (candidates.length === 0) {
+        results = await braveSearch(key, `${brand} ${model} manual pdf`)
+        candidates = rankCandidates(results, brand, model)
+      }
+    } catch (e) {
+      // Brave never answered, so there is nothing to bill for. An empty
+      // candidate list is a real answer and stays charged; a thrown search is not.
+      await hold.refund()
+      throw e
     }
 
     // Misses are cached too — "no manual online for this model" is an answer worth

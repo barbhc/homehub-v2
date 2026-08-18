@@ -16,7 +16,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, type CallClaudeText } from "./claude.js"
 import { requireAnyMembership } from "../lib/membership.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { chargeAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY")
@@ -171,7 +171,7 @@ export const ocr = onCall(
         ? rawMediaType
         : "image/jpeg"
     // One charge covers the whole request, image fallback included.
-    await consumeDailyAiQuota(getFirestore(), request.auth.uid, "ocr")
+    const hold = await chargeAiQuota(getFirestore(), request.auth.uid, "ocr")
     const base64 = image.replace(/^data:image\/\w+;base64,/, "")
     const callClaude = makeCallClaudeText(ANTHROPIC_API_KEY.value())
 
@@ -213,6 +213,9 @@ export const ocr = onCall(
     // Both engines struck out AND Vision itself errored: that's an outage, not
     // an unreadable label — surface it as one so the client shows a real error.
     if (visionError && engine === "vision" && isEmptyExtraction(extraction) && !text.trim()) {
+      // Every engine failed and nothing was extracted — an outage, so the
+      // caller keeps their unit. A degraded-but-real result stays charged.
+      await hold.refund()
       throw new HttpsError("unavailable", visionError)
     }
 

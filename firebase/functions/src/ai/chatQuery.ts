@@ -20,7 +20,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
 import { rankChunks } from "./chunkRanking.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { chargeAiQuota, type QuotaHold } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const BRAVE_SEARCH_API_KEY = defineSecret("BRAVE_SEARCH_API_KEY")
@@ -126,8 +126,11 @@ export const chatQuery = onRequest(
     }
 
     // Daily AI quota — not an onCall, so surface it as a plain 429 before SSE.
+    // Charged before the stream opens, because once SSE is running the only
+    // way to report a refusal is inside the stream.
+    let hold: QuotaHold
     try {
-      await consumeDailyAiQuota(db, uid, "chatQuery")
+      hold = await chargeAiQuota(db, uid, "chatQuery")
     } catch (e) {
       res.status(429).json({ error: e instanceof HttpsError ? e.message : "Daily AI limit reached. Please try again tomorrow." })
       return
@@ -317,6 +320,10 @@ Rules:
       await stream.finalMessage()
       done(sources)
     } catch (err) {
+      // The stream never completed, so refund. This is the case that used to
+      // tell someone "your limit resets at midnight UTC" after our own outage
+      // ate their allowance.
+      await hold.refund()
       const status = (err as { status?: number })?.status
       const friendly =
         status === 429

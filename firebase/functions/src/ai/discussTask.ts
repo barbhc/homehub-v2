@@ -14,7 +14,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
 import { rankChunks } from "./chunkRanking.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { withAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -189,15 +189,16 @@ export const discussTask = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY]
   const db = getFirestore()
   const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
   if (!member.exists) throw new HttpsError("permission-denied", "Not a member of this home.")
-  await consumeDailyAiQuota(db, uid, "discussTask")
-  try {
-    return await runDiscussTask(makeCallClaudeTool(ANTHROPIC_API_KEY.value()), db, {
-      homeId,
-      taskTemplateId,
-      question: question.trim(),
-      history: Array.isArray(history) ? history : [],
-    })
-  } catch (e) {
-    throw new HttpsError("internal", e instanceof Error ? e.message : "discussTask failed")
-  }
+  return withAiQuota(db, uid, "discussTask", async () => {
+    try {
+      return await runDiscussTask(makeCallClaudeTool(ANTHROPIC_API_KEY.value()), db, {
+        homeId,
+        taskTemplateId,
+        question: question.trim(),
+        history: Array.isArray(history) ? history : [],
+      })
+    } catch (e) {
+      throw new HttpsError("internal", e instanceof Error ? e.message : "discussTask failed")
+    }
+  })
 })
