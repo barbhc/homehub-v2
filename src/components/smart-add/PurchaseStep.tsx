@@ -19,12 +19,20 @@ interface PurchaseStepProps {
   itemUnitId: string
   onComplete: () => void
   onSkip: () => void
+  /** From a receipt/label scan in the identify step, if it read them. */
+  initialPurchaseDate?: string | null
+  initialPrice?: number | null
 }
 
-export function PurchaseStep({ homeId, itemUnitId, onComplete, onSkip }: PurchaseStepProps) {
-  const [purchaseDate, setPurchaseDate] = useState("")
+export function PurchaseStep({
+  homeId, itemUnitId, onComplete, onSkip, initialPurchaseDate, initialPrice,
+}: PurchaseStepProps) {
+  // Prefilled when a label/receipt scan read these earlier. Shown rather than
+  // saved quietly: OCR is a suggestion, and this is the step where the owner
+  // gets to see it before it becomes a fact about their home.
+  const [purchaseDate, setPurchaseDate] = useState(initialPurchaseDate ?? "")
   const [storeName, setStoreName] = useState("")
-  const [priceStr, setPriceStr] = useState("")
+  const [priceStr, setPriceStr] = useState(initialPrice != null ? String(initialPrice) : "")
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)

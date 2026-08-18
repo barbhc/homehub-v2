@@ -6,14 +6,17 @@
  *              ("We found this" card — explicit apply, undoable, never a gate)
  *   simple     name-first quick add for items without a nameplate
  *
- * The label photo is an ASSIST, not a lane: "Snap label instead" in the
- * appliance lane runs the same Vision→Haiku OCR as before. Receipt scans keep
- * filling purchase fields. Nothing the user typed is ever overwritten by any
- * automation — identity apply fills blanks (and the auto-composed placeholder
- * name) only, and Undo restores exactly what it changed.
+ * The label photo is an ASSIST, not a lane: it lives under the "find the model
+ * another way" disclosure and runs the same Vision→Haiku OCR as before. A
+ * receipt scan still reads purchase date and price, but those are no longer
+ * ASKED for here — they belong to the Purchase step, which prefills from them
+ * so the owner sees what was read before it is saved. Nothing the user typed is
+ * ever overwritten by any automation: identity apply fills blanks (and the
+ * auto-composed placeholder name) only, and Undo restores exactly what it
+ * changed.
  */
 import { useState, useRef, useEffect, useMemo } from "react"
-import { Camera, ChevronDown, Loader2, ShieldCheckIcon, BookOpenCheck, BellRingIcon, Sparkles, MapPin, Refrigerator, Armchair, ImageIcon } from "lucide-react"
+import { Camera, ChevronDown, ChevronRight, Loader2, BookOpenCheck, BellRingIcon, Sparkles, MapPin, Refrigerator, Armchair, ImageIcon } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -144,6 +147,8 @@ export function IdentifyStep({
   const [ocrFilledCount, setOcrFilledCount] = useState(0)
   const [ocrRawText, setOcrRawText] = useState<string | null>(null)
   const [moreDetailsOpen, setMoreDetailsOpen] = useState(false)
+  const [otherWaysOpen, setOtherWaysOpen] = useState(false)
+  const [nameTouched, setNameTouched] = useState(false)
   const [labelPreviewUrl, setLabelPreviewUrl] = useState<string | null>(null)
   const [labelPhotoUse, setLabelPhotoUse] = useState<"unset" | "yes" | "no">("unset")
 
@@ -903,42 +908,66 @@ export function IdentifyStep({
             )}
 
             {!labelPreviewUrl && (
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5"
-                  onClick={handleSnapLabel}
-                  disabled={ocrLoading}
-                >
-                  <Camera className="size-3.5" aria-hidden />
-                  Snap label instead
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5"
-                  onClick={handlePickFromLibrary}
-                  disabled={ocrLoading}
-                >
-                  <ImageIcon className="size-3.5" aria-hidden />
-                  From library
-                </Button>
-                {ocrLoading && (
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                    Reading label…
-                  </span>
+              /* Three sibling buttons used to float here with no heading, so it
+                 was never clear what they were alternatives TO. One disclosure,
+                 named for the job: you are here because typing the model is
+                 hard. "From library" also read as a MANUAL library in this app
+                 — the one library it isn't. */
+              <div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setOtherWaysOpen((v) => !v)}
+                    aria-expanded={otherWaysOpen}
+                    className="flex items-center gap-1 text-xs font-semibold text-primary"
+                  >
+                    <ChevronRight
+                      className={cn("size-3.5 transition-transform", otherWaysOpen && "rotate-90")}
+                      aria-hidden
+                    />
+                    Find the model another way
+                  </button>
+                  {ocrLoading && (
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                      Reading label…
+                    </span>
+                  )}
+                </div>
+
+                {otherWaysOpen && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs gap-1.5"
+                      onClick={handleSnapLabel}
+                      disabled={ocrLoading}
+                    >
+                      <Camera className="size-3.5" aria-hidden />
+                      Snap the label
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs gap-1.5"
+                      onClick={handlePickFromLibrary}
+                      disabled={ocrLoading}
+                    >
+                      <ImageIcon className="size-3.5" aria-hidden />
+                      Choose a photo
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => onModeChange("simple")}
+                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    >
+                      I don't have a model number
+                    </button>
+                  </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => onModeChange("simple")}
-                  className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                >
-                  No model number?
-                </button>
               </div>
             )}
           </>
@@ -955,7 +984,12 @@ export function IdentifyStep({
             placeholder="e.g., Kitchen refrigerator"
             maxLength={255}
             required
-            aria-invalid={data.name.trim().length === 0}
+            onBlur={() => setNameTouched(true)}
+            // Only after they've been in the field. In the appliance lane the
+            // name composes itself from brand + model, so an empty Name is the
+            // normal opening state — flagging it in red before anyone has typed
+            // greets people with an error for something we are about to fill in.
+            aria-invalid={nameTouched && data.name.trim().length === 0}
           />
         </div>
 
@@ -1028,14 +1062,10 @@ export function IdentifyStep({
             aria-controls="identify-more-details"
           >
             <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-sm font-semibold text-foreground">Add more details</span>
+              <span className="text-sm font-semibold text-foreground">Add more details <span className="font-normal text-muted-foreground">(optional)</span></span>
               <ChevronDown className="size-4 text-muted-foreground group-hover:text-primary transition-colors" aria-hidden />
             </div>
             <ul className="space-y-1 text-xs text-muted-foreground">
-              <li className="flex items-center gap-1.5">
-                <ShieldCheckIcon className="size-3.5 text-emerald-600 shrink-0" aria-hidden />
-                <span><span className="font-medium text-foreground">Purchase date</span> → warranty tracking &amp; age-based reminders</span>
-              </li>
               {mode === "simple" && (
                 <li className="flex items-center gap-1.5">
                   <BookOpenCheck className="size-3.5 text-sky-600 shrink-0" aria-hidden />
@@ -1107,43 +1137,13 @@ export function IdentifyStep({
                 />
                 <p className="text-xs text-muted-foreground mt-1">useful for warranty claims and recalls</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="identify-purchase-date" className="text-sm font-medium text-foreground block mb-1.5">
-                    Purchase date
-                  </label>
-                  <Input
-                    id="identify-purchase-date"
-                    type="date"
-                    value={data.purchaseDate ?? ""}
-                    onChange={(e) =>
-                      onDataChange({ ...data, purchaseDate: e.target.value ? e.target.value : null })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">unlocks warranty tracking + age-based reminders</p>
-                </div>
-                <div>
-                  <label htmlFor="identify-purchase-price" className="text-sm font-medium text-foreground block mb-1.5">
-                    Purchase price (USD)
-                  </label>
-                  <Input
-                    id="identify-purchase-price"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="0.01"
-                    value={data.purchasePrice != null ? String(data.purchasePrice) : ""}
-                    onChange={(e) => {
-                      const t = e.target.value
-                      onDataChange({
-                        ...data,
-                        purchasePrice: t === "" ? null : Number(t),
-                      })
-                    }}
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
+              {/* Purchase date and price used to sit here AND on the final
+                  Purchase step, which asks for date, store, price and receipt.
+                  The same facts, requested twice, the first time before the
+                  item even exists — the "overwhelming, and purchase-specific
+                  details should happen later" report. They live on the Purchase
+                  step now, prefilled from a receipt scan when OCR found them,
+                  so nothing is lost and nothing is saved unseen. */}
               {data.itemCategory && data.subType && (
                 <div>
                   <p className="text-sm font-medium text-foreground mb-2">Category-specific details</p>

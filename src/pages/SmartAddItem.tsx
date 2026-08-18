@@ -534,12 +534,28 @@ export default function SmartAddItem() {
     )
   }
 
+  // The header used to promise "Give it a name to get started" on every step —
+  // including step 1, which asks for brand and model and has no name field at
+  // all, and the lane chooser, which asks its own question. A subtitle that
+  // describes a different screen is worse than none.
+  const stepSubtitle =
+    step === "identify"
+      ? identifyMode === "choice"
+        ? undefined
+        : identifyMode === "appliance"
+          ? "Brand and model first — we'll look up the rest."
+          : "A name is enough to start. Details can come later."
+      : step === "manual"
+        ? "The manual is where this item's upkeep comes from."
+        : step === "parsing"
+          ? "Reading the manual — this takes a minute."
+          : step === "review"
+            ? "Check what we found before anything is saved."
+            : "Optional — receipt, warranty and dates."
+
   return (
     <PageContainer>
-      <PageHeader
-        title="Add item"
-        subtitle="Give it a name to get started — add details and a manual after"
-      />
+      <PageHeader title="Add item" subtitle={stepSubtitle} />
 
       <Stepper
         currentStep={step}
@@ -665,6 +681,8 @@ export default function SmartAddItem() {
             clearWizardSession()
             navigate(`/inventory/${itemId}`, { state: { smartAddSuccess: true } })
           }}
+          initialPurchaseDate={identifyData.purchaseDate}
+          initialPrice={identifyData.purchasePrice}
         />
       )}
     </PageContainer>
