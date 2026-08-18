@@ -19,6 +19,39 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-08-18 — round 5 (owner, one air-purifier session · 10 reports)
+
+**Headline: the add flow is organised around identifying the product, but all of
+the app's value comes from the manual. She added a Levoit Core 300 and ended on
+an item page with a wrong name, a raw-slug category, no manual and no tasks —
+with nothing on the page offering to find one. Two hard bugs underneath it: the
+expanded task card ignores every tap, and the edit-task sheet's Save sits under
+the tab bar.**
+
+| # | Report | Sev | Root cause (verified in code) |
+|---|---|---|---|
+| 1 | "View full guide" does nothing (Tasks page, expanded card) | **S2** | `RefinedWeek.tsx:133` — the swipe-reveal layer is `absolute inset-0` with no `pointer-events-none`, and `ExpandedDetail` is a NON-positioned sibling. Positioned elements paint above non-positioned ones, so the invisible (opacity 0 ≠ untappable) reveal layer covers the whole expanded panel. "Mark done" and "Snooze" inside the panel are dead for the same reason |
+| 2 | Text below the fold on the edit sheet, won't scroll | **S2** | `TaskEditSheet` is `z-50` and rendered INLINE in the page tree; the tab bar is also `z-50` and comes later in DOM order, so it paints on top and hides Save/Cancel. Radix sheets/dialogs escape this only because they portal to `<body>` |
+| 3 | Model series found, the specific model wasn't offered | **S2** | Lookup fires on partial input ("Core") and AUTO-APPLIES a single result as "USING THIS". No candidate list, no re-run when the model is completed → the item is named "Levoit Core Series Air Purifiers" while brand·model reads "Levoit · Core 300" |
+| 4 | Nothing in the flow searched for the manual; item page is a dead end | **S2** | `findManual` (Brave, deployed, secret bound) exists ONLY in the wizard's manual step, and only as a passive card you have to tap. The item page's Upkeep empty state is a sentence with no button; "Add manual or reference" offers a generic web-search link instead |
+| 5 | "Search the web for the manual" opens a generic search | **S3** | Same asymmetry — the item-page dialog never calls `findManual`, it links to `manualSearchUrl()` |
+| 6 | Category shown lowercase, no picker (Room has one) | **S3** | `RefinedItemDetail.tsx:99,141` renders `item.category` raw. The field holds a subtype id ("air-purifier") for lookup-created items and a category label ("Major appliance") for older ones. `getSubTypeLabel()` already exists and isn't used; no edit affordance |
+| 7 | Fields should be clearly optional; too much before the item exists | **S3** | Serial, purchase date, price, warranty and spec fields all sit in the add flow ahead of the manual |
+| 8 | Header says "Give it a name to get started" over a Brand/Model form | **S3** | `SmartAddItem.tsx:541` — copy predates the two-lane start |
+| 9 | "Snap label instead" / "From library" float; "library" is unclear | **S3** | `IdentifyStep.tsx` — three sibling affordances with no grouping label; "library" means the photo library |
+| 10 | Item photo pops in late | **S4** | `ItemPhoto` resolves the URL through `useStorageUrl()` after mount, with no reserved space or fade |
+
+**Also found (not from feedback):** a Secret Manager secret in `homehub-2068d`
+whose NAME is a live-looking Anthropic API key (`SK_ANT_API03_…`) — someone ran
+`secrets:set <value>` instead of `secrets:set NAME`. The key material is visible
+to anyone with list access. Rotate it and delete the secret.
+
+**Proposal:** `design/add-item-manual-first.md` — reorder the flow so the manual
+is the spine, move purchase/spec details onto the item page, and make find-the-
+manual, category and room behave identically on all three surfaces.
+
+---
+
 ## 2026-08-17 — round 4 (second tester, one air-fryer session · 14 reports)
 
 **Headline: P0 + P1 fixed and deployed. The "due today" report turned out to be
