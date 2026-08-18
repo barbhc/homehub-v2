@@ -13,6 +13,8 @@ import {
   MessageCircleIcon,
   WrenchIcon,
   CloudOffIcon,
+  HomeIcon,
+  ChevronDownIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
@@ -26,6 +28,7 @@ import { useCurrentHome, useHomeProfile } from "@/modules/home"
 import { useUserLevel } from "@/hooks/useUserLevel"
 import { AskFirstHero } from "@/components/dashboard/AskFirstHero"
 import { RefinedHome } from "@/components/home/RefinedHome"
+import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
 import { DesktopHome } from "@/components/home/DesktopHome"
 import { ProfileCompletionBanner } from "@/components/dashboard/ProfileCompletionBanner"
 import { PushOptInNudge } from "@/components/dashboard/PushOptInNudge"
@@ -291,7 +294,8 @@ function HomeSkeleton({ patienceExpired = false }: { patienceExpired?: boolean }
 
 export default function Home() {
   const { user } = useAuth()
-  const { home } = useCurrentHome()
+  const { home, homes, setCurrentHome, refresh: refreshHomes } = useCurrentHome()
+  const [switcherOpen, setSwitcherOpen] = useState(false)
   const { level, derivedLevel } = useUserLevel()
   const homeId = home?.home_id ?? ""
 
@@ -565,6 +569,25 @@ export default function Home() {
         {/* ── New-user empty state ── */}
         {isNewUser && (
           <div className="mt-2 mb-4">
+            {/* The switcher lives in the greeting header, which this branch
+                replaces — so a freshly added home would be a room with no door:
+                no tasks, no header, no way back to the home you came from. */}
+            {homes.length > 1 && home && (
+              <button
+                type="button"
+                onClick={() => setSwitcherOpen(true)}
+                className="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px]"
+                style={{
+                  borderColor: "var(--hh-line)",
+                  background: "var(--hh-surface)",
+                  color: "var(--hh-sub)",
+                }}
+              >
+                <HomeIcon className="size-3.5 shrink-0" style={{ color: "var(--hh-teal)" }} aria-hidden />
+                <span className="truncate font-semibold">{home.name}</span>
+                <ChevronDownIcon className="size-3.5 shrink-0" aria-hidden />
+              </button>
+            )}
             <EmptyHomeHero />
           </div>
         )}
@@ -591,6 +614,7 @@ export default function Home() {
           <div className="mx-auto w-full max-w-[460px]">
             <RefinedHome
               homeName={home?.name ?? null}
+              onSelectHome={() => setSwitcherOpen(true)}
               tasks={homeTasks}
               upcoming={upcoming}
               warranties={expiringWarranties}
@@ -673,6 +697,21 @@ export default function Home() {
           </>
         )}
       </div>
+
+      {user && (
+        <HomeSwitcherSheet
+          open={switcherOpen}
+          onOpenChange={setSwitcherOpen}
+          homes={homes}
+          currentHomeId={home?.home_id ?? null}
+          userId={user.id}
+          onSelect={setCurrentHome}
+          // refresh(newId) rather than setCurrentHome: the home was just
+          // created, so it isn't in `homes` yet — this is the one path that
+          // fetches server truth and selects in a single step.
+          onCreated={(newHomeId) => refreshHomes(newHomeId)}
+        />
+      )}
     </div>
   )
 }

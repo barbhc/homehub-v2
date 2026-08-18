@@ -11,6 +11,8 @@ import {
   RepeatIcon,
   ShieldCheckIcon,
   SprayCanIcon,
+  HomeIcon,
+  ChevronDownIcon,
 } from "lucide-react"
 import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@/lib/dashboard"
 import type { DeepCleanGuide } from "@/lib/cleanSession"
@@ -21,6 +23,7 @@ import { useDisplayName } from "@/hooks/useDisplayName"
 
 // Calm palette (design/hh-home2.jsx)
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
+const LINE = "var(--hh-line)"
 
 function AskModule({ d }: { d: ReturnType<typeof dens> }) {
   const [open, setOpen] = useState(false)
@@ -137,6 +140,7 @@ export function RefinedHome({
   level,
   homeId,
   homeName,
+  onSelectHome,
   completingId,
   onComplete,
   onSnooze,
@@ -151,6 +155,8 @@ export function RefinedHome({
   homeId: string | null
   /** Shown under the greeting so a shared-home member knows where they are. */
   homeName?: string | null
+  /** Makes the home name a pill that opens the switcher. Absent = plain text. */
+  onSelectHome?: () => void
   completingId: string | null
   onComplete: (id: string) => void
   onSnooze: (id: string) => void
@@ -176,9 +182,24 @@ export function RefinedHome({
               with nothing on screen to explain that he had joined someone
               else's home. Naming the home answers "whose data is this?" before
               the question turns into alarm. */}
-          {homeName && (
-            <span className="block truncate text-[12.5px]" style={{ color: SUB }}>{homeName}</span>
-          )}
+          {homeName &&
+            (onSelectHome ? (
+              // Tappable once there is somewhere to go: this line is the only
+              // place the current home is named, so it has to be where you
+              // discover switching and adding.
+              <button
+                type="button"
+                onClick={onSelectHome}
+                className="mt-0.5 flex max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[12px]"
+                style={{ borderColor: LINE, background: "var(--hh-surface)", color: SUB }}
+              >
+                <HomeIcon className="size-3 shrink-0" style={{ color: TEAL }} aria-hidden />
+                <span className="truncate">{homeName}</span>
+                <ChevronDownIcon className="size-3 shrink-0" aria-hidden />
+              </button>
+            ) : (
+              <span className="block truncate text-[12.5px]" style={{ color: SUB }}>{homeName}</span>
+            ))}
         </span>
         <span className="text-[12.5px] font-semibold" style={{ color: SUB }}>{shortDate(0)}</span>
       </div>
