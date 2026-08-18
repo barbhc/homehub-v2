@@ -4,7 +4,7 @@
  * title is the store's SEO string, not a product name.
  */
 import { describe, it, expect } from "vitest"
-import { cleanProductTitle, isRetailerHost, hostOf } from "../../shared/products/productTitle"
+import { cleanProductTitle, isRetailerHost, hostOf, productDisplayName } from "../../shared/products/productTitle"
 
 describe("cleanProductTitle", () => {
   it("strips the leading retailer prefix that was reaching item names", () => {
@@ -44,5 +44,33 @@ describe("isRetailerHost / hostOf", () => {
   it("treats a malformed url as unknown rather than throwing", () => {
     expect(hostOf("not a url")).toBeNull()
     expect(isRetailerHost(null)).toBe(false)
+  })
+})
+
+describe("productDisplayName", () => {
+  it("uses brand + model when the title is marketing copy", () => {
+    // The real Brave hit for a Levoit Core 300 (beta round 5). Taken verbatim
+    // this became the heading on the item page.
+    const title =
+      "LEVOIT Core 300 Purifier with Replacement Filter - HEPA Air Cleaner " +
+      "Eliminates Allergens for Bedroom, Pets, Smokers In 1"
+    expect(productDisplayName(title, "Levoit", "Core 300")).toBe("Levoit Core 300")
+  })
+
+  it("keeps a short title — sometimes the product name beats the model number", () => {
+    expect(productDisplayName("Dyson Airwrap Multi-Styler", "Dyson", "HS05")).toBe(
+      "Dyson Airwrap Multi-Styler"
+    )
+  })
+
+  it("strips trailing listing furniture before measuring", () => {
+    expect(
+      productDisplayName("4.5 cu. ft. Front Load Washer - WM4000HWA + Reviews", "LG", "WM4000HWA")
+    ).toBe("4.5 cu. ft. Front Load Washer - WM4000HWA")
+  })
+
+  it("falls back to the title when there is no brand or model to compose", () => {
+    const long = "A".repeat(80)
+    expect(productDisplayName(long, "", "")).toBe(long)
   })
 })

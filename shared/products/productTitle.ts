@@ -60,5 +60,31 @@ export function cleanProductTitle(title: string): string {
   const m = t.match(/^(.*\S)\s+[-–]\s+([^-–]{2,30})$/)
   if (m && !/\d/.test(m[2])) t = m[1].trim()
 
+  // Listing-page furniture that survives the rules above because it trails the
+  // model rather than a dash: "… WM4000HWA + Reviews".
+  t = t.replace(/\s*[+·]\s*(reviews?|ratings?|specs?)\s*$/i, "").trim()
+
   return t.slice(0, 120)
+}
+
+/**
+ * What to actually call the item.
+ *
+ * A search-result title is written to sell, not to name: "LEVOIT Core 300
+ * Purifier with Replacement Filter - HEPA Air Cleaner Eliminates Allergens for
+ * Bedroom, Pets, Smokers In 1". Taken verbatim that becomes the heading on the
+ * item page and the label in every list.
+ *
+ * So: a SHORT cleaned title is a real product name and worth keeping — "Dyson
+ * Airwrap Multi-Styler" is more recognizable than "Dyson HS05". Past that it is
+ * marketing copy, and brand + model is what the owner would call it anyway.
+ */
+export const MAX_TITLE_NAME = 60
+
+export function productDisplayName(title: string, brand: string, model: string): string {
+  const cleaned = cleanProductTitle(title)
+  const composed = `${brand.trim()} ${model.trim()}`.trim()
+  if (!cleaned) return composed
+  if (cleaned.length > MAX_TITLE_NAME && composed) return composed
+  return cleaned
 }

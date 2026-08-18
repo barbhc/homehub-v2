@@ -320,6 +320,34 @@ export function IdentifyStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.brand, data.model, ocrLoading])
 
+  // An applied identity must not outlive the model it was for.
+  //
+  // Typing "Core", accepting "Levoit Core …", then finishing the model to
+  // "Core 300" left the earlier name in place: applyIdentity had already made
+  // it a non-placeholder, so neither the auto-compose nor a later apply would
+  // replace it. The item shipped named after the family while the field right
+  // above it read "Core 300". Withdrawing is not the same as auto-applying —
+  // we are retracting a suggestion that no longer refers to what they typed,
+  // and only when they have not edited it themselves.
+  useEffect(() => {
+    if (!identityApplied || identityApplied.key === currentKey) return
+    if (dataRef.current.name !== identityApplied.identity.name) {
+      // They renamed it. Their text stands; just stop calling it applied.
+      setIdentityApplied(null)
+      return
+    }
+    const reverted = undoIdentity(dataRef.current, identityApplied.snapshot)
+    const composed = `${data.brand.trim()} ${data.model.trim()}`.trim()
+    // Recompose here rather than leaning on the auto-compose effect: that one
+    // reads dataRef, which still holds the pre-undo value in this commit.
+    const nameIsOurs = !reverted.name.trim() || placeholderNamesRef.current.has(reverted.name)
+    if (composed && nameIsOurs) placeholderNamesRef.current.add(composed)
+    onDataChange(composed && nameIsOurs ? { ...reverted, name: composed } : reverted)
+    setIdentityApplied(null)
+    track("identity_withdrawn", { reason: "model_changed" })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentKey])
+
   // ── Identity card state machine ───────────────────────────────────────────
   const identityCardState: IdentityCardState | null = (() => {
     if (mode !== "appliance") return null
