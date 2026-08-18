@@ -40,8 +40,13 @@ const REGION = "us-central1"
 /** Bump when prompt/schema/model change in a way that invalidates cache.
  *  v2: identity layers + variant candidates added to the payload.
  *  v3: partial-model lookups prefer variants over token-exact retailer-page
- *      hits — invalidates junk "found" entries cached while v2 was live. */
-const PROMPT_VERSION = 3
+ *      hits — invalidates junk "found" entries cached while v2 was live.
+ *  v4: family pages no longer resolve as products, spaced models ("Core 300")
+ *      match at all, and the name is brand+model when the title is marketing
+ *      copy. Without this bump the 30-day cache would keep serving the exact
+ *      entries the fix exists to stop — "Levoit Core" -> "Core Series Air
+ *      Purifiers" was already cached from the session that reported it. */
+const PROMPT_VERSION = 4
 const CACHE_TTL_DAYS = 30
 /** Lookups fire on every typing pause (~$0.001 each, cache hits charged too),
  *  so the shared 50/day pool starves fast during real add sessions. Higher
