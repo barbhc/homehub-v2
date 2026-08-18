@@ -732,38 +732,35 @@ export function IdentifyStep({
                 </div>
               )}
             </div>
-            {!ocrLoading && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-muted-foreground">Use as the item's photo?</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLabelPhotoUse("yes")
-                    onLabelPhoto?.(pendingLabelFileRef.current)
-                  }}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                    labelPhotoUse === "yes"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground"
-                  )}
-                >
-                  Yes, use it
-                </button>
+            {/* The label photo is NOT the item photo, and asking implied it
+                might be: "if the photo I take should always be a label, I would
+                never want that to be my photo used to identify the item." So
+                it stays out by default and the offer is a single quiet link,
+                not a question you have to answer to move on. */}
+            {!ocrLoading && labelPhotoUse !== "yes" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setLabelPhotoUse("yes")
+                  onLabelPhoto?.(pendingLabelFileRef.current)
+                }}
+                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Use this shot as the item's photo
+              </button>
+            )}
+            {!ocrLoading && labelPhotoUse === "yes" && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Using this as the item's photo.</span>
                 <button
                   type="button"
                   onClick={() => {
                     setLabelPhotoUse("no")
                     onLabelPhoto?.(null)
                   }}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                    labelPhotoUse === "no"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground"
-                  )}
+                  className="underline underline-offset-2 hover:text-foreground"
                 >
-                  No, just read it
+                  Undo
                 </button>
               </div>
             )}
