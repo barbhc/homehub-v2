@@ -20,7 +20,20 @@ export interface ParsedConfidence {
 }
 
 export type ParseManualResult =
-  | { ok: true; chunks: number; tasks: number; committed?: boolean; draft?: boolean; processing?: boolean; confidence?: ParsedConfidence }
+  | {
+      ok: true
+      chunks: number
+      tasks: number
+      /** New task templates actually created by this run, and near-duplicates
+       *  declined because the item already had them from another manual. Both
+       *  are how a rescan tells the user what it changed. */
+      inserted?: number
+      duplicatesSkipped?: number
+      committed?: boolean
+      draft?: boolean
+      processing?: boolean
+      confidence?: ParsedConfidence
+    }
   | { ok: false; error: string; transient?: boolean }
 
 function coerceConfidence(raw: unknown): ParsedConfidence | undefined {
@@ -89,9 +102,22 @@ export function toUiStage(stage: ParseStage): ParseProgressState {
 }
 
 export type ParseMode = "commit" | "preview" | "fill_gaps"
+
+/**
+ * `mode` is REQUIRED, deliberately.
+ *
+ * It used to default to "commit", so any caller that simply forgot it wrote
+ * tasks straight into the user's home. That default produced the same bug
+ * twice — the item page's add-manual handler and its auto-parse-on-load both
+ * committed with no review, and both were reported as "these items just
+ * appeared". A default that silently picks the destructive option is a trap
+ * for the next person, so the compiler now asks the question instead.
+ */
 export interface StartParseOpts {
   homeId: string
-  mode?: ParseMode
+  /** Required — see ParseMode. "preview" writes a draft only; "commit" and
+   *  "fill_gaps" both write to the user's home. */
+  mode: ParseMode
 }
 
 const enqueueParseCallable = callable<
@@ -106,7 +132,7 @@ export async function startParse(
   opts: StartParseOpts
 ): Promise<{ ok: true; requestId: string } | { ok: false; error: string }> {
   try {
-    const res = await enqueueParseCallable({ homeId: opts.homeId, manualId, mode: opts.mode ?? "commit" })
+    const res = await enqueueParseCallable({ homeId: opts.homeId, manualId, mode: opts.mode })
     return { ok: true, requestId: res.requestId }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not start parsing." }
@@ -117,7 +143,7 @@ interface ManualParseSnapshot {
   stage?: ParseStage
   requestId?: string
   error?: { message?: string } | null
-  summary?: { chunks?: number; tasks?: number; confidence?: unknown } | null
+  summary?: { chunks?: number; tasks?: number; inserted?: number; duplicatesSkipped?: number; confidence?: unknown } | null
 }
 
 /** Subscribe to a manual's parse.stage. Returns an unsubscribe fn. */
@@ -160,6 +186,8 @@ export async function parseManualAndWait(
           ok: true,
           chunks: parse.summary?.chunks ?? 0,
           tasks: parse.summary?.tasks ?? 0,
+          inserted: parse.summary?.inserted,
+          duplicatesSkipped: parse.summary?.duplicatesSkipped,
           committed: opts.mode !== "preview",
           confidence: coerceConfidence(parse.summary?.confidence),
         })

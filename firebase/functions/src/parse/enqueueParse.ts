@@ -22,12 +22,22 @@ export const enqueueParse = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
 
-  const { homeId, manualId, mode = "commit" } = (request.data ?? {}) as {
+  const { homeId, manualId, mode: rawMode } = (request.data ?? {}) as {
     homeId?: string
     manualId?: string
     mode?: ParseMode
   }
   if (!homeId || !manualId) throw new HttpsError("invalid-argument", "homeId and manualId are required.")
+
+  // FAIL SAFE, not fail destructive. This defaulted to "commit", so a request
+  // that omitted or misspelled the mode wrote tasks straight into someone's
+  // home. "preview" only writes a draft the user must accept, so the worst a
+  // malformed or stale request can now do is prepare something and wait.
+  const VALID: ParseMode[] = ["commit", "preview", "fill_gaps"]
+  const mode: ParseMode = VALID.includes(rawMode as ParseMode) ? (rawMode as ParseMode) : "preview"
+  if (rawMode !== undefined && rawMode !== mode) {
+    console.warn("[enqueueParse] unrecognised mode, defaulting to preview", { rawMode, homeId, manualId })
+  }
 
   const db = getFirestore()
 
