@@ -3,6 +3,7 @@ import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
 import { AlertCircleIcon, BellIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2
 } from "lucide-react"
 import { SectionCard } from "@/components/layout"
+import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -123,6 +124,7 @@ const SETTINGS_NAV: [string, string][] = [
 ]
 
 export default function Settings() {
+  const [autoFindManuals, setAutoFindManuals] = useAutoFindManuals()
   const { user, signOut } = useAuth()
   const { home } = useCurrentHome()
   const { level } = useUserLevel()
@@ -987,6 +989,47 @@ export default function Settings() {
       {homeId && <div id="providers" className="scroll-mt-6"><ServiceProvidersSection homeId={homeId} /></div>}
 
       {homeId && <div id="members" className="scroll-mt-6"><HomeMembersSection homeId={homeId} /></div>}
+
+        {/* Beta features — off by default. The automatic manual search is a
+            work in progress that can offer a near-miss model (a Core 300S
+            manual for a Core 300), and the wrong manual becomes a whole care
+            plan for the wrong appliance. Opt in knowingly or not at all. */}
+        <SectionCard id="beta" className="mt-6 scroll-mt-6">
+          <CardContent className="p-4">
+            <h2 className="text-sm font-semibold text-foreground mb-1">Beta features</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Still finding their feet. They never change anything without asking you first.
+            </p>
+            <div
+              className="flex items-start justify-between gap-3 rounded-xl border p-3"
+              style={{ borderColor: "var(--hh-line)" }}
+            >
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+                  Find manuals automatically
+                </p>
+                <p className="mt-0.5 text-[12px]" style={{ color: "var(--hh-sub)" }}>
+                  Search as soon as the brand and model are known, instead of waiting to be asked.
+                  Results always need your confirmation before anything is attached.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoFindManuals}
+                aria-label="Find manuals automatically"
+                onClick={() => setAutoFindManuals(!autoFindManuals)}
+                className="relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors"
+                style={{ background: autoFindManuals ? "var(--hh-teal)" : "var(--hh-line2)" }}
+              >
+                <span
+                  className="absolute top-0.5 size-5 rounded-full bg-white transition-all"
+                  style={{ left: autoFindManuals ? "calc(100% - 22px)" : "2px" }}
+                />
+              </button>
+            </div>
+          </CardContent>
+        </SectionCard>
 
       {homeId && manualsLoaded && (
         <SectionCard id="manuals" className="mt-6 scroll-mt-6">

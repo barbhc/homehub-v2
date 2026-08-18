@@ -25,10 +25,41 @@ beforeEach(() => {
 })
 
 describe("FindManualCard", () => {
-  it("waits to be asked by default", async () => {
+  it("waits to be asked by default, and says it is a beta", async () => {
+    // The default path for the beta is uploading the manual yourself. This
+    // stays one tap away, labelled, and does not run on its own.
     render(<FindManualCard brand="Levoit" model="Core 300" onPick={() => {}} />)
-    expect(screen.getByText("Find the manual for me")).toBeInTheDocument()
+    expect(screen.getByText("Find it for me")).toBeInTheDocument()
+    expect(screen.getByText("Beta")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Try the search" })).toBeInTheDocument()
     expect(call).not.toHaveBeenCalled()
+  })
+
+  it("warns when a candidate names a different model, and still allows it", async () => {
+    // The reported case: a Core 300S manual offered for a Core 300.
+    call.mockResolvedValue({
+      candidates: [{ url: "https://files.vesync.com/core300s.pdf", title: "Levoit Core 300S user manual", host: "files.vesync.com", official: true }],
+      source: "search",
+    })
+    const onPick = vi.fn()
+    render(<FindManualCard brand="Levoit" model="Core 300" onPick={onPick} autoStart />)
+    expect(await screen.findByText(/This manual is for the/)).toBeInTheDocument()
+    expect(screen.getByText("Core 300S")).toBeInTheDocument()
+    // Warn, never block — a manual sometimes does cover a family.
+    screen.getByRole("button", { name: "Use this" }).click()
+    expect(onPick).toHaveBeenCalledWith("https://files.vesync.com/core300s.pdf", "Levoit Core 300S user manual")
+  })
+
+  it("says why it trusts a manufacturer result, and offers a preview", async () => {
+    call.mockResolvedValue({
+      candidates: [{ url: "https://files.vesync.com/core300.pdf", title: "Levoit Core 300 user manual", host: "files.vesync.com", official: true }],
+      source: "search",
+    })
+    render(<FindManualCard brand="Levoit" model="Core 300" onPick={() => {}} autoStart />)
+    expect(await screen.findByText(/manufacturer's own site/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Preview/ })).toBeInTheDocument()
+    // An exact model match must NOT be flagged.
+    expect(screen.queryByText(/This manual is for the/)).toBeNull()
   })
 
   it("searches on its own when autoStart is set, and shows what it found", async () => {
