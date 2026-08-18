@@ -7,7 +7,7 @@
  * the same pattern as the parse worker's CallClaude.
  */
 import Anthropic from "@anthropic-ai/sdk"
-import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { isAllowedUrl, fetchGuarded } from "../../../../shared/parse/ssrf.js"
 
 /** A text-in/text-out Claude call. `content` may include document/image blocks. */
 export type CallClaudeText = (args: {
@@ -78,7 +78,9 @@ export function extractJsonObject(text: string): string {
 export async function fetchPdfBase64(url: string): Promise<string | null> {
   if (!isAllowedUrl(url)) throw new Error("URL not allowed: private or internal addresses are blocked")
   try {
-    const res = await fetch(url, { redirect: "follow" })
+    // fetchGuarded re-checks each redirect hop; the isAllowedUrl above only
+    // covers the first one.
+    const res = await fetchGuarded(url)
     if (!res.ok) return null
     const buf = Buffer.from(await res.arrayBuffer())
     if (buf.byteLength > 25 * 1024 * 1024) return null

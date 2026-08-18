@@ -10,7 +10,7 @@
  * in words the person who pasted the link can act on.
  */
 import { getStorage } from "firebase-admin/storage"
-import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { isAllowedUrl, fetchGuarded } from "../../../../shared/parse/ssrf.js"
 import { looksLikePdf, looksLikeHtml, PARSE_ERR } from "../../../../shared/parse/parseErrors.js"
 import type { FetchPdf } from "./parseTypes.js"
 
@@ -18,7 +18,9 @@ export function makeFetchPdf(): FetchPdf {
   return async (sourceType, sourceRef) => {
     if (sourceType === "url") {
       if (!isAllowedUrl(sourceRef)) throw new Error(`blocked URL (SSRF guard): ${sourceRef}`)
-      const res = await fetch(sourceRef)
+      // Redirects are re-validated per hop — `fetch` alone would have followed a
+      // manufacturer-site 302 into the internal network.
+      const res = await fetchGuarded(sourceRef)
       if (!res.ok) throw new Error(PARSE_ERR.fetchBlocked(res.status))
       const buf = Buffer.from(await res.arrayBuffer())
       if (!looksLikePdf(buf)) {
