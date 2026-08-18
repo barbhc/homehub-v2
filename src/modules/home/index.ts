@@ -1,6 +1,8 @@
 export {
   createHome,
   getHomes,
+  getMyHomes,
+  type MyHomes,
   getPrimaryHome,
   getHome,
   getRooms,
