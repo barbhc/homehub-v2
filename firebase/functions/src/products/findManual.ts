@@ -2,6 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { isOfferableManual } from "../../../../shared/products/manualCandidates.js"
 import { consumeDailyAiQuota } from "../lib/quota.js"
 import { requireAnyMembership } from "../lib/membership.js"
 
@@ -83,12 +84,17 @@ export function rankCandidates(results: BraveResult[], brand: string, model: str
     let host: string
     try { host = new URL(url).hostname.replace(/^www\./, "") } catch { continue }
     seen.add(url)
-    out.push({
+    const candidate = {
       url,
       title: String(r.title ?? "").replace(/\s+/g, " ").trim().slice(0, 160) || `${brand} ${model} manual`,
       host,
       official: looksOfficial(host, brand),
-    })
+    }
+    // Refuse before ranking. Picking a candidate makes the server fetch that
+    // PDF and feed it to the task parser, so an unrelated host is not merely a
+    // bad suggestion — it is an injection route into the tasks the user trusts.
+    if (!isOfferableManual(candidate, brand, model)) continue
+    out.push(candidate)
   }
 
   // Manufacturer first, then results that actually name the model — a generic
@@ -141,7 +147,13 @@ export const findManual = onCall(
     if (snap.exists) {
       const expiresAt = snap.get("expiresAt") as Timestamp | undefined
       if (!expiresAt || expiresAt.toMillis() > now) {
-        return { candidates: (snap.get("candidates") as ManualCandidate[]) ?? [], source: "cache" }
+        // Filter on the way OUT as well as in. Results are cached for 30 days,
+        // so entries written before a filtering rule existed would keep being
+        // served long after the fix shipped — the junk hosts in the report are
+        // already in this collection. Screening reads fixes them in place,
+        // without a cache-version bump that would re-buy every search.
+        const cached = (snap.get("candidates") as ManualCandidate[]) ?? []
+        return { candidates: cached.filter((c) => isOfferableManual(c, brand, model)), source: "cache" }
       }
     }
 
