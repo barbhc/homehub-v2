@@ -14,7 +14,6 @@ import {
 import {
   getChunksByItem,
   getManualsByItem,
-  parseManualAndWait,
   getFaqsByItem,
   updateChunkSourcePages,
 } from "@/modules/knowledge"
@@ -33,7 +32,7 @@ import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { RoomPickerDialog } from "@/components/home/RoomPickerDialog"
 import { DesktopItemDetail } from "@/components/home/DesktopItemDetail"
-import { Trash2 } from "lucide-react"
+import { Trash2, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -157,31 +156,17 @@ export default function ItemDetailPage() {
       const unparsed = (manualsRes.data ?? []).filter(
         (m) => !m.parsed_at && Date.now() - new Date(m.created_at).getTime() < TEN_MINUTES
       )
-      for (const manual of unparsed) {
-        manualMgmt.setParsingManualId(manual.manual_id)
-        parseManualAndWait(manual.manual_id, { homeId: home.home_id, mode: "commit" }).then(async (result) => {
-          if (cancelled) return
-          manualMgmt.setParsingManualId(null)
-          if (!result.ok) {
-            manualMgmt.setParseError(`Auto-parsing failed: ${result.error}`)
-          }
-          if (result.ok) {
-            const [chunksRes2, tasksRes2] = await Promise.all([
-              getChunksByItem(home.home_id, id),
-              getTaskTemplatesWithSchedulesByItem(home.home_id, id),
-            ])
-            if (!cancelled && chunksRes2.data) setChunks(chunksRes2.data)
-            if (!cancelled && tasksRes2.data) setTasks(tasksRes2.data)
-
-            setManuals((prev) =>
-              prev.map((m) =>
-                m.manual_id === manual.manual_id
-                  ? { ...m, parsed_at: new Date().toISOString() }
-                  : m
-              )
-            )
-          }
-        })
+      // Preview + review, NOT commit. This used to parse in commit mode, which
+      // is the same "tasks just appeared" path that was fixed in the add-manual
+      // handler — and it would have quietly undone that fix, because a review
+      // the user closes without saving leaves the manual unparsed, so the next
+      // visit to the item would commit it behind their back.
+      //
+      // ONE manual, the most recent: each review is a modal sheet, and stacking
+      // them would be worse than the problem.
+      const toReview = unparsed[0]
+      if (toReview) {
+        void manualMgmt.handleParseExistingManual(toReview.manual_id)
       }
     })
     .catch((e: unknown) => {
@@ -360,8 +345,22 @@ export default function ItemDetailPage() {
     >
       <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       {(error || manualMgmt.parseError) && (
-        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-200 mb-4">
-          {error || manualMgmt.parseError}
+        // Dismissible. A parse error explains itself once and then just sits
+        // there — a tester asked how to clear it and there was no way, so a
+        // message about one failed upload followed him around the item forever.
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-200 mb-4">
+          <span className="min-w-0 flex-1">{error || manualMgmt.parseError}</span>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => {
+              setError(null)
+              manualMgmt.setParseError(null)
+            }}
+            className="shrink-0 rounded p-0.5 opacity-70 hover:opacity-100"
+          >
+            <XIcon className="size-4" />
+          </button>
         </div>
       )}
 

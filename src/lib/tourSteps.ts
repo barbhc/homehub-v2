@@ -1,8 +1,20 @@
 import type { DriveStep } from "driver.js"
 
-export const tourSteps: DriveStep[] = [
+/**
+ * A tour step that also KNOWS WHICH SCREEN IT IS TALKING ABOUT.
+ *
+ * The tour points at bottom-nav buttons and describes what lives behind each
+ * one, but it never went there — so a tester read "Ask here and get answers
+ * from your manuals" while the Home screen sat unchanged behind the bubble and
+ * reported, exactly right: "I have no idea that it's referring to a different
+ * tab." Describing a place without showing it is a caption with no picture.
+ */
+export type TourStep = DriveStep & { route?: string }
+
+export const tourSteps: TourStep[] = [
   {
     element: "[data-tour='nav-home']",
+    route: "/home",
     popover: {
       title: "Welcome to Homehub!",
       description:
@@ -13,6 +25,7 @@ export const tourSteps: DriveStep[] = [
   },
   {
     element: "[data-tour='nav-inventory']",
+    route: "/inventory",
     popover: {
       title: "Your Inventory",
       description:
@@ -23,6 +36,7 @@ export const tourSteps: DriveStep[] = [
   },
   {
     element: "[data-tour='nav-tasks']",
+    route: "/maintenance",
     popover: {
       title: "Maintenance Tasks",
       description:
@@ -33,6 +47,7 @@ export const tourSteps: DriveStep[] = [
   },
   {
     element: "[data-tour='nav-ask']",
+    route: "/chat",
     popover: {
       title: "Ask About Your Home",
       description:
@@ -43,6 +58,7 @@ export const tourSteps: DriveStep[] = [
   },
   {
     element: "[data-tour='nav-settings']",
+    route: "/settings",
     popover: {
       title: "Settings",
       description:

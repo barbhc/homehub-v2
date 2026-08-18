@@ -115,3 +115,17 @@
 .driver-popover.homehub-tour-popover .driver-popover-arrow-side-right {
   border-left-color: #FFFFFF;
 }
+
+/* Keep the popover inside the safe area.
+ *
+ * driver.js positions against the viewport, which on iOS includes the space
+ * under the status bar and the home indicator. A tester's very first bubble
+ * landed beneath the clock and signal icons: "the calendar and the other upper
+ * toolbar icons are covering it." These margins are the floor and ceiling the
+ * library doesn't know about; `max-width` keeps a wide bubble off both edges.
+ */
+.driver-popover.homehub-tour-popover {
+  margin-top: max(env(safe-area-inset-top), 8px);
+  margin-bottom: max(env(safe-area-inset-bottom), 8px);
+  max-width: min(340px, calc(100vw - 24px));
+}

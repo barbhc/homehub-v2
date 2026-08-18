@@ -621,6 +621,20 @@ export function ManualSection({
             </div>
 
             {addError && <p className="text-sm text-destructive">{addError}</p>}
+
+            {/* Said out loud, because the dialog gives no sign either way and a
+                tester asked for exactly this: "it would be more helpful if I
+                could just be told that I could navigate away from this page or
+                even close the app and the parsing continues in the background."
+                It always did — the worker runs server-side — but silence during
+                a 2–4 minute wait reads as "don't touch anything". */}
+            {parsePhase && addRole !== "reference" && (
+              <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+                Reading the manual — this takes a couple of minutes. You can close
+                this and keep using the app, or even quit it; we'll keep working and
+                the tasks will be waiting on this item.
+              </div>
+            )}
           </div>
           <DialogFooter showCloseButton>
             <Button onClick={handleAddManual} disabled={addLoading}>
