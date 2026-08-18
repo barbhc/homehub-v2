@@ -71,10 +71,18 @@ export function HomeSwitcherSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+      {/* This sheet pads ITSELF. SheetContent deliberately ships without
+          padding and every other bottom sheet pads its own children instead —
+          putting a default on the primitive would double-pad all seven. The
+          bottom inset is the part that was actually broken: the caption sat
+          under the home indicator, unreadable. */}
+      <SheetContent
+        side="bottom"
+        className="max-h-[85vh] overflow-y-auto px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md"
+      >
         {view === "list" ? (
           <>
-            <SheetHeader className="px-0">
+            <SheetHeader className="px-0 pt-0">
               <SheetTitle className="text-[15px]">Your homes</SheetTitle>
             </SheetHeader>
 
@@ -134,7 +142,7 @@ export function HomeSwitcherSheet({
           </>
         ) : (
           <>
-            <SheetHeader className="px-0">
+            <SheetHeader className="px-0 pt-0">
               <SheetTitle className="flex items-center gap-1.5 text-[15px]">
                 <button
                   type="button"
