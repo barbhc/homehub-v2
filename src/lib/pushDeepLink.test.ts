@@ -6,6 +6,16 @@ import { describe, it, expect, beforeEach } from "vitest"
 import { sanitizeDeepLink, parkDeepLink, claimDeepLink } from "./pushDeepLink"
 
 describe("sanitizeDeepLink", () => {
+  it("keeps the home query param the daily push now carries", () => {
+    expect(sanitizeDeepLink("/tasks/abc?home=h1")).toBe("/tasks/abc?home=h1")
+    expect(sanitizeDeepLink("/maintenance?home=h1")).toBe("/maintenance?home=h1")
+  })
+
+  it("still rejects another origin even when it carries a home param", () => {
+    expect(sanitizeDeepLink("//evil.com/tasks?home=h1")).toBeNull()
+    expect(sanitizeDeepLink("https://evil.com/tasks?home=h1")).toBeNull()
+  })
+
   it("accepts in-app paths", () => {
     expect(sanitizeDeepLink("/tasks/abc123")).toBe("/tasks/abc123")
     expect(sanitizeDeepLink("/maintenance")).toBe("/maintenance")

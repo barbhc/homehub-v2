@@ -129,9 +129,12 @@ function App() {
         <AuthProvider>
           <BootSplashGate />
           <PageviewTracker />
-          <PushDeepLinks />
           <ScrollToTop />
           <HomeProvider>
+            {/* INSIDE the provider: a push now names the home it came from, and
+                following it may mean switching first. Mounted outside, the hook
+                could not see home context at all. It renders null either way. */}
+            <PushDeepLinks />
             <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading…</div>}>
             <Routes>
               <Route path="/" element={<Index />} />

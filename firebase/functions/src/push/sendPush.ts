@@ -153,7 +153,13 @@ export const sendPushDaily = onSchedule(
       const body = only
         ? `${only.title}${only.itemName ? ` · ${only.itemName}` : ""}`
         : `You have ${count} tasks due today.`
-      const url = only ? `/tasks/${only.id}` : "/maintenance"
+      // The home id rides in the URL, not in `data`: the APNs lane forwards
+      // only {title, body, url}, so a data-only field would be silently dropped
+      // on exactly the platform that matters. Without it, a push about the
+      // second home tapped while the first is selected opens a task that isn't
+      // in the current home.
+      const homeId = homePath.split("/")[1]
+      const url = only ? `/tasks/${only.id}?home=${homeId}` : `/maintenance?home=${homeId}`
 
       for (const m of members.docs) {
         const res = await sendToUser(
