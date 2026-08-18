@@ -47,9 +47,6 @@ type FetchLike = (
 const LAYER_TIMEOUT_MS = 4500
 
 /** Uppercase alphanumerics only — "WM4000H-WA" and "wm4000hwa" compare equal. */
-export function normalizeModel(s: string): string {
-  return s.toUpperCase().replace(/[^A-Z0-9]/g, "")
-}
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null
@@ -97,34 +94,12 @@ export async function icecatIdentity(
 
 /** Title cleanup + retailer detection live in shared/ so they are unit-testable
  *  from the app's test runner. Re-exported here for existing importers. */
-import { cleanProductTitle, isRetailerHost, hostOf } from "../../../../shared/products/productTitle.js"
+import { cleanProductTitle, isRetailerHost, hostOf, productDisplayName } from "../../../../shared/products/productTitle.js"
 export { cleanProductTitle, isRetailerHost, hostOf }
-
-/**
- * Mine model-family variants from search text: tokens that EXTEND the typed
- * model ("WM4000H" → "WM4000HWA"). Only meaningful for reasonably long prefixes;
- * capped at 3 distinct.
- */
-export function mineVariants(typedModel: string, haystacks: string[]): VariantCandidate[] {
-  const prefix = normalizeModel(typedModel)
-  if (prefix.length < 5) return []
-  const seen = new Set<string>()
-  for (const text of haystacks) {
-    for (const rawToken of text.toUpperCase().split(/[^A-Z0-9-]+/)) {
-      const token = normalizeModel(rawToken)
-      if (
-        token.startsWith(prefix) &&
-        token.length > prefix.length &&
-        token.length <= prefix.length + 6 &&
-        /\d/.test(token)
-      ) {
-        seen.add(token)
-        if (seen.size >= 3) return [...seen].map((model) => ({ model, differentiator: null }))
-      }
-    }
-  }
-  return [...seen].map((model) => ({ model, differentiator: null }))
-}
+import {
+  looksLikeSeriesTitle, mineVariants, normalizeModel, titleNamesModel,
+} from "../../../../shared/products/modelVariants.js"
+export { mineVariants, normalizeModel }
 
 export type BraveIdentityResult = {
   identity: ProductIdentity | null
@@ -167,9 +142,10 @@ export async function braveIdentity(
     // A substring check would let a partial prefix ("WM4000H") confidently claim
     // the first variant it sees — the design's "confidently wrong" failure mode;
     // partial models must fall through to the variants pick instead.
-    const modelNorm = normalizeModel(model)
-    const isExact = (r: { title: string }) =>
-      r.title.split(/\s+/).some((tok) => normalizeModel(tok) === modelNorm)
+    // Spelling-insensitive: "WM4000HWA", "Core 300" and "Core-300" all have to
+    // match the model they name, or a correctly-typed full model resolves to
+    // nothing.
+    const isExact = (r: { title: string }) => titleNamesModel(r.title, model)
     // Prefer a NON-RETAILER exact hit. A store listing title is the retailer's
     // SEO string, not a product name — taking it verbatim is how items ended up
     // called "Amazon.com: Ninja DZ201 ...". A retailer hit is still better than
@@ -183,10 +159,16 @@ export async function braveIdentity(
     // almost always a retailer search/category page ("Smd24 at US Appliance"),
     // not the product. The "which one is yours?" pick is the honest answer.
     // A true full model has no mined extensions, so exact still wins there.
-    if (!exact || variants.length > 0) return { identity: null, variants }
+    // A FAMILY page token-matches the model perfectly — "Levoit Core Series Air
+    // Purifiers" contains the token "Core" — so exactness alone can't tell it
+    // from the product, and its title becomes the item's name. Falling through
+    // to the variants pick asks "which one is yours?" instead of guessing.
+    if (!exact || variants.length > 0 || looksLikeSeriesTitle(exact.title)) {
+      return { identity: null, variants }
+    }
     return {
       identity: {
-        name: cleanProductTitle(exact.title),
+        name: productDisplayName(exact.title, brand, model),
         rawCategory: `${exact.title} ${exact.description}`.slice(0, 300),
         source: "brave",
         confidence: "medium",
