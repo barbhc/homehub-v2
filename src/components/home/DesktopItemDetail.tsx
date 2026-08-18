@@ -14,6 +14,7 @@ import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { HistorySection, ManualSection } from "@/pages/item-detail"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { CareBlock } from "@/components/item-care/CareBlock"
+import { categoryLabel } from "@/lib/categoryLabel"
 import { WarrantyPanel } from "@/components/item-care/WarrantyPanel"
 import { StepList, InfoBlurb, ManualBlurb, ProEscalate } from "@/components/tasks/TaskHowTo"
 import { ItemPhoto } from "./ItemPhoto"
@@ -360,7 +361,7 @@ export function DesktopItemDetail({
     ["Serial", item.serial_number, true],
     ["Purchased", fmtDate(item.purchase_date)],
     ["Warranty", warrantyField],
-    ["Category", item.category],
+    ["Category", categoryLabel(item)],
   ]
   const shownHeaderFields = headerFields.filter(([, v]) => !!v) as [string, string, boolean?][]
 

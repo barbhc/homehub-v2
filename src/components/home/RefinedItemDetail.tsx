@@ -9,6 +9,7 @@ import type { ItemUnit, Room, KnowledgeChunk } from "@/integrations/types"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { dens } from "@/lib/redesign/tokens"
 import { CareBlock } from "@/components/item-care/CareBlock"
+import { categoryLabel } from "@/lib/categoryLabel"
 import { WarrantyPanel } from "@/components/item-care/WarrantyPanel"
 import { ItemPhoto } from "./ItemPhoto"
 
@@ -66,7 +67,7 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
 }
 
 export function RefinedItemDetail({
-  item, rooms, homeId, tasks, chunks, hasManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, density = "cozy",
+  item, rooms, homeId, tasks, chunks, hasManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
   reviewAction, recordsSlot, onEditRoom,
 }: {
   item: ItemUnit
@@ -81,6 +82,8 @@ export function RefinedItemDetail({
   canOpenManual?: boolean
   /** Opens the add-manual dialog from the empty Upkeep state. */
   onAddManual?: () => void
+  /** Makes the category chip tappable, the way onEditRoom does for room. */
+  onEditCategory?: () => void
   onItemUpdate?: (item: ItemUnit) => void
   density?: "spacious" | "cozy" | "compact"
   /** "Review these tasks" — sits in the Upkeep heading, where the decision it
@@ -98,7 +101,7 @@ export function RefinedItemDetail({
   const roomName = useMemo(() => rooms.find((r) => r.room_id === item.room_id)?.name ?? null, [rooms, item.room_id])
   const fields: [string, string | null, boolean?][] = [
     ["Room", roomName],
-    ["Category", item.category],
+    ["Category", categoryLabel(item)],
     ["Serial", item.serial_number, true],
     ["Purchased", fmtDate(item.purchase_date)],
   ]
@@ -140,7 +143,19 @@ export function RefinedItemDetail({
             ) : (
               roomName && <Pill><MapPinIcon className="size-[13px]" style={{ color: TEAL }} /> {roomName}</Pill>
             )}
-            {item.category && <Pill>{item.category}</Pill>}
+            {(() => {
+              const label = categoryLabel(item)
+              if (!label && !onEditCategory) return null
+              // Same affordance as room: the two facts sitting side by side
+              // behaving differently is what made this read as broken.
+              return onEditCategory ? (
+                <button type="button" onClick={onEditCategory} className="inline-flex">
+                  <Pill active={!label}>{label ?? "Add category"}</Pill>
+                </button>
+              ) : (
+                <Pill>{label}</Pill>
+              )
+            })()}
             {/* Warranty is NOT a chip here. "Warranty ended" at the top of the page
                 is a small piece of bad news about a thing you own, delivered before
                 anything useful — and it's the state of most items most of the time.

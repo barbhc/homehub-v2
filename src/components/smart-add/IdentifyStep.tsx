@@ -1004,6 +1004,7 @@ export function IdentifyStep({
             subType={data.subType}
             onCategoryChange={setCategory}
             onSubTypeChange={setSubType}
+            showHeading={false}
           />
         </div>
 
