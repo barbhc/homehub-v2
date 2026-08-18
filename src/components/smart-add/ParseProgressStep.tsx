@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
 import { CheckIcon, Loader2Icon, AlertCircleIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { KnowledgeChunk } from "@/integrations/types"
-import type { TaskTemplateWithSchedule } from "@/modules/care"
+// Structural, not nominal: this step only counts by care_type / chunk_type, and
+// it now receives PREVIEW rows (uncommitted draft) rather than live rows. Typing
+// it to the two fields it actually reads keeps it usable from both.
 
 /**
  * UI stages for the parse trust arc (fix B). Maps from the worker's Firestore
@@ -23,8 +24,8 @@ export type ParseProgressState =
 
 interface ParseProgressStepProps {
   progress: ParseProgressState
-  parsedChunks: KnowledgeChunk[]
-  parsedTasks: TaskTemplateWithSchedule[]
+  parsedChunks: { chunk_type?: string | null }[]
+  parsedTasks: { care_type?: string | null }[]
   /** Shown while working: lets the user leave for the item page. The worker
    *  parses server-side, so leaving is always safe — this makes that visible. */
   onContinueInBackground?: () => void

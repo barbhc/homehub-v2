@@ -13,7 +13,7 @@ import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/Manu
 import { PlanStep, type EditableTask } from "@/components/smart-add/PlanStep"
 import { PurchaseStep } from "@/components/smart-add/PurchaseStep"
 import { ParseProgressStep, type ParseProgressState } from "@/components/smart-add/ParseProgressStep"
-import { ParseReviewStep } from "@/components/smart-add/ParseReviewStep"
+import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import { createItemUnit } from "@/modules/items"
@@ -21,9 +21,16 @@ import { createTasksFromEditable } from "@/modules/care"
 import { uploadManualPdf, removeManualPdf, uploadItemPhoto } from "@/modules/inventory/services/storageService"
 import { resolveStorageUrl } from "@/integrations/firebase"
 import { deleteManualDocument } from "@/modules/knowledge/services/manualDocumentService"
-import { createManualDocument, parseManualAndWait, getChunksByItem, detectDocType, type DocType, type ParsedConfidence } from "@/modules/knowledge"
-import { getTaskTemplatesWithSchedulesByItem, type TaskTemplateWithSchedule } from "@/modules/care"
-import type { KnowledgeChunk } from "@/integrations/types"
+import {
+  createManualDocument,
+  previewManualParse,
+  commitReviewedDraft,
+  detectDocType,
+  type DocType,
+  type ParsedConfidence,
+} from "@/modules/knowledge"
+import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
+import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import {
   getWizardSession,
   updateWizardSession,
@@ -80,9 +87,15 @@ export default function SmartAddItem() {
   const [error, setError] = useState<string | null>(null)
   const [resumePrompt, setResumePrompt] = useState(false)
 
-  const [parsedChunks, setParsedChunks] = useState<KnowledgeChunk[]>([])
-  const [parsedTasks, setParsedTasks] = useState<TaskTemplateWithSchedule[]>([])
-  const [parseConfidence, setParseConfidence] = useState<ParsedConfidence | null>(null)
+  /** The uncommitted draft under review. Nothing is in the user's home until
+   *  they save it — walking away now costs them nothing. */
+  const [previewDraft, setPreviewDraft] = useState<PreviewResult | null>(null)
+  const [reviewSaving, setReviewSaving] = useState(false)
+  /** The manual being reviewed, for feedback attribution. */
+  const [reviewManualId, setReviewManualId] = useState<string | null>(null)
+  // Kept only for the wizard-session round-trip (checkResume restores it); the
+  // review sheet doesn't surface confidence, so nothing reads it here.
+  const [, setParseConfidence] = useState<ParsedConfidence | null>(null)
   const [parseProgress, setParseProgress] = useState<ParseProgressState>("idle")
   /** True after a successful parse when entering the review step (not plan fallback). */
   const [parseFlowCompleted, setParseFlowCompleted] = useState(false)
@@ -175,8 +188,7 @@ export default function SmartAddItem() {
     setHasManual(false)
     setManualUrl(null)
     setHasTasks(false)
-    setParsedChunks([])
-    setParsedTasks([])
+    setPreviewDraft(null)
     setParseConfidence(null)
     setParseProgress("idle")
     setParseFlowCompleted(false)
@@ -231,32 +243,28 @@ export default function SmartAddItem() {
       setStep("parsing")
       setParseProgress("uploading")
       updateWizardSession({ step: "parsing" })
-      setParsedChunks([])
-      setParsedTasks([])
+      setPreviewDraft(null)
       // Pickup flag for the item page: cleared below only when the user is
       // still HERE to see the outcome. If they leave (background button, back,
       // bottom nav), the flag survives and ParsePickupCard shows the result.
       markParsePending(firstManualId)
+      setReviewManualId(firstManualId)
 
       try {
         setManualUrl(firstUrl)
         setSavingMessage(undefined)
-        // Trust arc (fix B): stream the worker's live stages and resolve ONLY at
-        // a terminal state. The worker reaches "done" only after committing to
-        // Firestore, so the review below can never be empty. State lives in
-        // Firestore → the wizard survives a tab refresh mid-parse.
-        // "commit" is deliberate HERE and only here: the wizard reviews AFTER
-        // committing (ParseReviewStep edits live rows with optimistic
-        // mutations), unlike the item page which previews first. It was
-        // relying on the mode default to get this, which read as an oversight
-        // rather than a decision — and the default has now been removed.
-        const parseResult = await parseManualAndWait(
-          firstManualId,
-          { homeId: propertyId, mode: "commit" },
-          (ui) => {
-            if (isMountedRef.current) setParseProgress(ui)
-          }
-        )
+        // PREVIEW, then commit what the user accepts — the same contract as
+        // every other parse entry point. This used to commit first and review
+        // the live rows afterwards, which meant abandoning the wizard mid-review
+        // left the tasks behind: the "these items just appeared" shape, from the
+        // one screen where a person is most likely to walk away.
+        //
+        // Trust arc (fix B) is unchanged: stream the worker's live stages and
+        // resolve ONLY at a terminal state. State lives in Firestore, so the
+        // wizard still survives a tab refresh mid-parse.
+        const parseResult = await previewManualParse(propertyId, firstManualId, (ui) => {
+          if (isMountedRef.current) setParseProgress(ui)
+        })
 
         // User left the wizard mid-parse — stop here. The pickup flag stays
         // set and ParsePickupCard on the item page reports the outcome; any
@@ -272,23 +280,13 @@ export default function SmartAddItem() {
           return
         }
 
-        const nextConfidence: ParsedConfidence | null = parseResult.confidence ?? null
-        setParseConfidence(nextConfidence)
-
-        // done → the commit has already happened server-side; now the fetched
-        // chunks/tasks are guaranteed populated (no more fire-and-forget race).
-        const [chunksRes, tasksRes] = await Promise.all([
-          getChunksByItem(propertyId, itemId),
-          getTaskTemplatesWithSchedulesByItem(propertyId, itemId),
-        ])
-
-        setParsedChunks(chunksRes.data ?? [])
-        setParsedTasks(tasksRes.data ?? [])
-        setHasTasks(true)
+        // Nothing is in the user's home yet — this is a draft they can edit or
+        // walk away from. `hasTasks` and `parseFlowCompleted` now mean "saved
+        // the review", so they are set in handleReviewSave, not here.
+        setPreviewDraft(parseResult)
         setParseProgress("done")
-        updateWizardSession({ hasTasks: true, step: "review", parseConfidence: nextConfidence })
+        updateWizardSession({ step: "review" })
 
-        setParseFlowCompleted(true)
         await new Promise((r) => setTimeout(r, 700))
         if (isMountedRef.current) setStep("review")
       } catch (err: unknown) {
@@ -310,8 +308,7 @@ export default function SmartAddItem() {
       if (!propertyId || !itemId) return
     setActionLoading(true)
       setError(null)
-      setParsedChunks([])
-      setParsedTasks([])
+      setPreviewDraft(null)
 
       try {
         let firstManualId: string | null = null
@@ -446,7 +443,31 @@ export default function SmartAddItem() {
     }
   }, [manualDocGate])
 
-  const handleReviewFinish = useCallback(() => {
+  /** THE commit for the wizard path. Everything before this is a draft. */
+  const handleReviewSave = useCallback(
+    async (tasks: PreviewTask[], chunks: PreviewChunk[]): Promise<string | null> => {
+      if (!propertyId || !reviewManualId) return "Nothing to save"
+      setReviewSaving(true)
+      const res = await commitReviewedDraft(propertyId, reviewManualId, chunks, tasks)
+      setReviewSaving(false)
+      if (!res.ok) return res.error
+      // "Completed the parse flow" now means SAVED, not merely reached — the
+      // stepper and the resume logic both key off these.
+      setHasTasks(true)
+      setParseFlowCompleted(true)
+      setPreviewDraft(null)
+      setStep("purchase")
+      updateWizardSession({ hasTasks: true, step: "purchase" })
+      return null
+    },
+    [propertyId, reviewManualId],
+  )
+
+  /** Closed the review without saving. Nothing was written, and saying so
+   *  plainly beats letting them wonder — the draft is still on the manual, so
+   *  the item page's pickup card can offer it. */
+  const handleReviewSkip = useCallback(() => {
+    setPreviewDraft(null)
     setStep("purchase")
     updateWizardSession({ step: "purchase" })
   }, [])
@@ -570,8 +591,8 @@ export default function SmartAddItem() {
       {step === "parsing" && (
         <ParseProgressStep
           progress={parseProgress}
-          parsedChunks={parsedChunks}
-          parsedTasks={parsedTasks}
+          parsedChunks={previewDraft?.chunks ?? []}
+          parsedTasks={previewDraft?.tasks ?? []}
           onContinueInBackground={
             itemId
               ? () => {
@@ -586,16 +607,33 @@ export default function SmartAddItem() {
         />
       )}
 
-      {step === "review" && propertyId && (
-        <ParseReviewStep
-          homeId={propertyId}
-          itemUnitId={itemId ?? undefined}
-          chunks={parsedChunks}
-          tasks={parsedTasks}
-          confidence={parseConfidence}
-          onChunksChange={setParsedChunks}
-          onTasksChange={setParsedTasks}
-          onFinish={handleReviewFinish}
+      {/* The SAME review the item page uses. It was a second, parallel
+          implementation (ParseReviewStep) that edited already-committed rows —
+          so the wizard both wrote before asking and was the one review surface
+          that captured no parser feedback. */}
+      {step === "review" && propertyId && previewDraft && (
+        <TaskReviewSheet
+          open
+          onOpenChange={(open) => {
+            // Closing without saving keeps the draft; nothing has been written,
+            // and the item page's pickup card can still offer it.
+            if (!open) handleReviewSkip()
+          }}
+          itemName={identifyData.name || "This item"}
+          previewData={previewDraft}
+          saving={reviewSaving}
+          onSave={handleReviewSave}
+          onFeedback={(p) => {
+            if (!propertyId) return
+            void recordParseFeedback(propertyId, {
+              manualId: reviewManualId,
+              itemUnitId: itemId ?? null,
+              reasons: p.reasons,
+              note: p.note,
+              edits: p.edits,
+              rescanRequested: p.rescan,
+            })
+          }}
         />
       )}
 
