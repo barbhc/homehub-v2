@@ -59,6 +59,10 @@ async function seedHome(uid: string): Promise<void> {
   await db.doc(`homes/${HOME_ID}`).set({
     name: TEST_HOME_NAME,
     timezone: "America/Los_Angeles",
+    // Ownership anchor — firestore.rules only lets this uid hold the owner row
+    // (see homeService.createHome). Seeded so the e2e home has the same shape a
+    // real one does, rather than the pre-createdBy "legacy" shape.
+    createdBy: uid,
     // home_profile folded onto the home doc (firestore-model.md §2).
     homeType: "house",
     ownership: "own",

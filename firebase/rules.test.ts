@@ -20,7 +20,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing"
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc } from "firebase/firestore"
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, writeBatch } from "firebase/firestore"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -28,6 +28,9 @@ const HOME = "home-1"
 const OWNER = "owner-uid"
 const MEMBER = "member-uid"
 const OUTSIDER = "outsider-uid"
+// A home written before `createdBy` existed — proves the new rule locks legacy
+// homes down rather than locking their real owners out.
+const LEGACY = "home-legacy"
 
 let testEnv: RulesTestEnvironment
 
@@ -51,7 +54,7 @@ beforeEach(async () => {
   // Seed: HOME with OWNER (role owner) and MEMBER (role member). OUTSIDER is in no home.
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore()
-    await setDoc(doc(db, `homes/${HOME}`), { name: "Test", timezone: "America/Los_Angeles", deletedAt: null })
+    await setDoc(doc(db, `homes/${HOME}`), { name: "Test", timezone: "America/Los_Angeles", createdBy: OWNER, deletedAt: null })
     await setDoc(doc(db, `homes/${HOME}/members/${OWNER}`), { role: "owner", isPrimary: true })
     await setDoc(doc(db, `homes/${HOME}/members/${MEMBER}`), { role: "member", isPrimary: false })
   })
@@ -151,13 +154,6 @@ describe("global catalog", () => {
 })
 
 describe("member management + roles", () => {
-  it("a user self-joins (creates own member row)", async () => {
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `homes/${HOME}/invites/inv1`), { token: "tok", role: "member" })
-    })
-    await assertSucceeds(setDoc(doc(asOutsider(), `homes/${HOME}/members/${OUTSIDER}`), { role: "member", isPrimary: false }))
-  })
-
   it("a non-owner cannot create another user's member row", async () => {
     await assertFails(setDoc(doc(asMember(), `homes/${HOME}/members/${OUTSIDER}`), { role: "member", isPrimary: false }))
   })
@@ -186,6 +182,125 @@ describe("member management + roles", () => {
     })
     await assertFails(deleteDoc(doc(asOutsider(), `homes/${HOME}/members/${MEMBER}`)))
     await assertSucceeds(deleteDoc(doc(asOwner(), `homes/${HOME}/members/${MEMBER}`)))
+  })
+})
+
+/**
+ * Ownership anchoring (the member self-create / owner-escalation fix).
+ *
+ * Before the fix, `allow create: uid == memberUid || isOwner(homeId)` never
+ * consulted the invite and never looked at the home, so any signed-in user who
+ * learned a homeId could write their own member row into that home at ANY role.
+ * Home IDs are not secret: push deep-links carry ?home=<homeId>, and every
+ * current and former member knows one. Each case below was reproduced against
+ * the old rules on this emulator before being fixed.
+ */
+describe("home bootstrap + member self-create (anchored on createdBy)", () => {
+  it("createHome's ONE-batch bootstrap still works (home doc + own owner row)", async () => {
+    // Mirrors homeService.createHome. The rule uses getAfter() precisely so the
+    // home doc written in this same batch is visible to the member-create check;
+    // a plain get() would not see it and would break home creation outright.
+    const db = asOutsider()
+    const batch = writeBatch(db)
+    batch.set(doc(db, `homes/new-home`), {
+      name: "New", timezone: "America/Los_Angeles", createdBy: OUTSIDER, deletedAt: null,
+    })
+    batch.set(doc(db, `homes/new-home/members/${OUTSIDER}`), {
+      uid: OUTSIDER, role: "owner", isPrimary: true,
+    })
+    await assertSucceeds(batch.commit())
+  })
+
+  it("a home cannot be stamped with someone else's uid as createdBy", async () => {
+    const db = asOutsider()
+    const batch = writeBatch(db)
+    batch.set(doc(db, `homes/forged`), { name: "x", createdBy: OWNER, deletedAt: null })
+    batch.set(doc(db, `homes/forged/members/${OUTSIDER}`), { uid: OUTSIDER, role: "owner", isPrimary: true })
+    await assertFails(batch.commit())
+  })
+
+  it("an outsider who knows a homeId cannot self-join (no invite doc present)", async () => {
+    await assertFails(
+      setDoc(doc(asOutsider(), `homes/${HOME}/members/${OUTSIDER}`), { uid: OUTSIDER, role: "member", isPrimary: false })
+    )
+  })
+
+  it("an outsider cannot self-join even with an invite seeded (rules never read it)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `homes/${HOME}/invites/inv1`), { token: "tok", role: "member" })
+    })
+    await assertFails(
+      setDoc(doc(asOutsider(), `homes/${HOME}/members/${OUTSIDER}`), { uid: OUTSIDER, role: "member", isPrimary: false })
+    )
+  })
+
+  it("an outsider cannot self-join AS OWNER", async () => {
+    await assertFails(
+      setDoc(doc(asOutsider(), `homes/${HOME}/members/${OUTSIDER}`), { uid: OUTSIDER, role: "owner", isPrimary: false })
+    )
+  })
+
+  it("a self-joined outsider therefore cannot reach the home's data", async () => {
+    await assertFails(setDoc(doc(asOutsider(), `homes/${HOME}/members/${OUTSIDER}`), { uid: OUTSIDER, role: "owner" }))
+    await assertFails(getDoc(doc(asOutsider(), `homes/${HOME}/items/i1`)))
+    await assertFails(getDocs(collection(asOutsider(), `homes/${HOME}/rooms`)))
+  })
+
+  it("delete-then-recreate cannot escalate a member to owner", async () => {
+    // Self-leave stays legitimate...
+    await assertSucceeds(deleteDoc(doc(asMember(), `homes/${HOME}/members/${MEMBER}`)))
+    // ...but coming back as owner was the proven escalation. Now refused.
+    await assertFails(
+      setDoc(doc(asMember(), `homes/${HOME}/members/${MEMBER}`), { uid: MEMBER, role: "owner", isPrimary: false })
+    )
+    // Even rejoining as a plain member is refused — that is acceptInvite's job.
+    await assertFails(
+      setDoc(doc(asMember(), `homes/${HOME}/members/${MEMBER}`), { uid: MEMBER, role: "member", isPrimary: false })
+    )
+  })
+
+  it("a non-owner cannot delete the real owner's member row", async () => {
+    await assertFails(deleteDoc(doc(asMember(), `homes/${HOME}/members/${OWNER}`)))
+    await assertFails(deleteDoc(doc(asOutsider(), `homes/${HOME}/members/${OWNER}`)))
+  })
+
+  it("createdBy is immutable — nobody can re-point the anchor, not even the owner", async () => {
+    await assertFails(updateDoc(doc(asMember(), `homes/${HOME}`), { createdBy: MEMBER }))
+    await assertFails(updateDoc(doc(asOwner(), `homes/${HOME}`), { createdBy: MEMBER }))
+  })
+
+  it("ordinary home-profile edits still work (merge carries createdBy through)", async () => {
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}`), { squareFeet: 1200 }, { merge: true }))
+  })
+
+  it("only the owner may hard-delete the home", async () => {
+    await assertFails(deleteDoc(doc(asMember(), `homes/${HOME}`)))
+    await assertFails(deleteDoc(doc(asOutsider(), `homes/${HOME}`)))
+    await assertSucceeds(deleteDoc(doc(asOwner(), `homes/${HOME}`)))
+  })
+
+  describe("legacy homes (written before createdBy existed)", () => {
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore()
+        await setDoc(doc(db, `homes/${LEGACY}`), { name: "Legacy", deletedAt: null })
+        await setDoc(doc(db, `homes/${LEGACY}/members/${OWNER}`), { uid: OWNER, role: "owner", isPrimary: false })
+      })
+    })
+
+    it("admit no self-created member row at all", async () => {
+      await assertFails(
+        setDoc(doc(asOutsider(), `homes/${LEGACY}/members/${OUTSIDER}`), { uid: OUTSIDER, role: "owner" })
+      )
+    })
+
+    it("but their real owner is not locked out of editing them", async () => {
+      await assertSucceeds(setDoc(doc(asOwner(), `homes/${LEGACY}`), { name: "Renamed" }, { merge: true }))
+    })
+
+    it("and createdBy cannot be back-filled from the client", async () => {
+      await assertFails(updateDoc(doc(asOwner(), `homes/${LEGACY}`), { createdBy: OWNER }))
+    })
   })
 })
 

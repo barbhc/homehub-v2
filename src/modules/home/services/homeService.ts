@@ -88,6 +88,13 @@ export async function createHome(input: CreateHomeInput): Promise<CreateHomeResu
     b1.set(homeRef, {
       name: input.name,
       timezone: input.timezone ?? "America/Los_Angeles",
+      // The home's ownership anchor. firestore.rules requires createdBy == the
+      // caller's uid to create a home, and only lets that same uid take the
+      // home's owner member row — which is what stops any signed-in user who
+      // learns a homeId from writing themselves in as owner. It is immutable
+      // once written; every later home write is a {merge:true} that carries it
+      // through untouched.
+      createdBy: input.userId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       deletedAt: null,
