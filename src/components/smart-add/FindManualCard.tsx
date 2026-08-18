@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Loader2Icon, SearchIcon, FileTextIcon, ShieldCheckIcon } from "lucide-react"
 import { callable } from "@/integrations/firebase"
 import { manualSearchUrl } from "@/lib/manualSearch"
@@ -35,17 +35,34 @@ export function FindManualCard({
   model,
   onPick,
   disabled,
+  autoStart = false,
 }: {
   brand: string
   model: string
   onPick: (url: string, title: string) => void
   disabled?: boolean
+  /** Search on mount instead of waiting to be tapped. Use wherever the user
+   *  has already said they want a manual — they should not also have to
+   *  discover the search. */
+  autoStart?: boolean
 }) {
   const [state, setState] = useState<"idle" | "searching" | "done" | "error">("idle")
   const [candidates, setCandidates] = useState<ManualCandidate[]>([])
   const [unavailable, setUnavailable] = useState(false)
+  const searchRef = useRef<() => void>(() => {})
+  const autoFiredFor = useRef<string | null>(null)
 
   const canSearch = brand.trim().length >= 2 && model.trim().length >= 2
+  const autoKey = autoStart && canSearch ? `${brand.trim()}::${model.trim()}` : null
+
+  // Fire once per brand+model. A ref rather than a state flag so StrictMode's
+  // double-invoke doesn't buy the search twice.
+  useEffect(() => {
+    if (!autoKey || autoFiredFor.current === autoKey) return
+    autoFiredFor.current = autoKey
+    searchRef.current()
+  }, [autoKey])
+
   if (!canSearch) return null
 
   const search = async () => {
@@ -61,6 +78,7 @@ export function FindManualCard({
       setState("error")
     }
   }
+  searchRef.current = () => void search()
 
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>

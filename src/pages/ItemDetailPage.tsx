@@ -412,6 +412,7 @@ export default function ItemDetailPage() {
             onBack={() => navigate("/inventory")}
             onOpenManualPage={(page) => openManualPage(page)}
             canOpenManual={!!manualPdfUrl}
+            onAddManual={() => manualMgmt.setAddManualOpen(true)}
             onItemUpdate={setItem}
             onEditRoom={() => setRoomPickerOpen(true)}
             reviewAction={
