@@ -65,7 +65,15 @@ function err(e: unknown): { data: null; error: { message: string } } {
   return { data: null, error: { message: e instanceof Error ? e.message : "Request failed" } }
 }
 
-export type CreateHomeInput = { name: string; timezone?: string; userId: string }
+export type CreateHomeInput = {
+  name: string
+  timezone?: string
+  userId: string
+  /** Defaults to true (the first home). An ADDITIONAL home must pass false —
+   *  two memberships both flagged primary make "which home is primary" depend on
+   *  iteration order, which is how a switcher silently lands on the wrong one. */
+  isPrimary?: boolean
+}
 export type CreateHomeResult =
   | { data: { homeId: string }; error: null }
   | { data: null; error: { message: string } }
@@ -87,7 +95,7 @@ export async function createHome(input: CreateHomeInput): Promise<CreateHomeResu
     b1.set(doc(db, `homes/${homeRef.id}/members/${input.userId}`), {
       uid: input.userId,
       role: "owner",
-      isPrimary: true,
+      isPrimary: input.isPrimary ?? true,
       joinedAt: serverTimestamp(),
     })
     await b1.commit()
@@ -129,6 +137,61 @@ async function myMemberships(): Promise<{
     })
     .filter((m): m is { homeId: string; isPrimary: boolean } => m !== null)
   return { rows, fromCache: snap.metadata.fromCache }
+}
+
+export type MyHomes = { homes: Home[]; primaryHomeId: string | null }
+
+/**
+ * Every home the user belongs to, plus which one is flagged primary.
+ *
+ * This exists rather than reusing `getHomes()` for two reasons, both of which
+ * have bitten before:
+ *
+ *  · `getHomes` has NO `fromCache` guard. Offline, a collectionGroup query
+ *    resolves EMPTY from Firestore's local cache without throwing, so "we
+ *    couldn't reach the server" and "you belong to no home" arrive looking
+ *    identical — and the second one routes to onboarding and invites the user to
+ *    create a home they already own. That is the duplicate-home incident. The
+ *    guard below is the same one `getPrimaryHome` carries.
+ *  · `getHomes` fetches the home docs SEQUENTIALLY. `getPrimaryHome` was once
+ *    the slowest step of the whole boot (729ms, two round trips); fanning the
+ *    doc reads out with Promise.all keeps this at the same two sequential
+ *    stages no matter how many homes the user has.
+ *
+ * Order: primary first, then oldest — so the switcher reads in the order the
+ * user created them.
+ */
+export async function getMyHomes(): Promise<ServiceResult<MyHomes>> {
+  try {
+    const { rows: memberships, fromCache } = await myMemberships()
+    if (memberships.length === 0) {
+      if (fromCache) {
+        return { data: null, error: { message: "Couldn't reach the server to find your homes." } }
+      }
+      return { data: { homes: [], primaryHomeId: null }, error: null }
+    }
+
+    const snaps = await Promise.all(memberships.map((m) => getDoc(doc(db, `homes/${m.homeId}`))))
+    const primaryIds = new Set(memberships.filter((m) => m.isPrimary).map((m) => m.homeId))
+
+    const homes = snaps.flatMap((snap) => {
+      const data = snap.data()
+      if (!snap.exists() || !data || snap.get("deletedAt") != null) return []
+      return [toHome(snap.id, data)]
+    })
+
+    // Oldest first, then float the primary to the top. Sorting by createdAt
+    // BEFORE picking the primary makes the tie-break deterministic when two
+    // memberships are both flagged primary (data created before isPrimary was
+    // passed correctly): the older home wins.
+    homes.sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))
+    const primaryHomeId = homes.find((h) => primaryIds.has(h.home_id))?.home_id ?? null
+    homes.sort((a, b) => Number(b.home_id === primaryHomeId) - Number(a.home_id === primaryHomeId))
+
+    return { data: { homes, primaryHomeId }, error: null }
+  } catch (e) {
+    return err(e)
+  }
 }
 
 /** Fetches homes the user belongs to. */
