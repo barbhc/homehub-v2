@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/modules/auth"
 import { createHome, getPrimaryHome } from "../services/homeService"
+import { getGateStatus, redeemInviteCode } from "../services/growthGate"
 import { track } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
 
@@ -17,6 +18,22 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
   const [name, setName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // The invite gate. `needsCode` stays false until we have actually READ the
+  // flag, so the code field never flashes in front of a user who does not need
+  // one — the gate is off by default and looks it.
+  const [needsCode, setNeedsCode] = useState(false)
+  const [code, setCode] = useState("")
+
+  useEffect(() => {
+    if (!user) return
+    let live = true
+    void getGateStatus(user.id).then((s) => {
+      if (live) setNeedsCode(s.gateOn && !s.admitted)
+    })
+    return () => {
+      live = false
+    }
+  }, [user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,6 +57,20 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
       setLoading(false)
       onComplete()
       return
+    }
+
+    // Redeem BEFORE creating, because the rules will refuse the create without
+    // an admission and the resulting error is a bare permission-denied with
+    // nothing in it a user could act on.
+    if (needsCode) {
+      try {
+        await redeemInviteCode(code)
+        setNeedsCode(false)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "That invite code isn't valid.")
+        setLoading(false)
+        return
+      }
     }
 
     const result = await createHome({ name: name.trim(), userId: user.id })
@@ -95,6 +126,26 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
             required
           />
         </div>
+        {needsCode && (
+          <div>
+            <label className="text-sm font-medium block mb-1.5" htmlFor="invite-code">
+              Invite code
+            </label>
+            <Input
+              id="invite-code"
+              placeholder="8 letters and numbers"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              required
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Homehub is in a small early round. Whoever invited you has your code.
+            </p>
+          </div>
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Creating..." : "Continue"}

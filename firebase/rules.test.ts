@@ -39,8 +39,12 @@ beforeAll(async () => {
     projectId: "demo-homehub-rules",
     firestore: {
       rules: readFileSync(resolve(__dirname, "../firestore.rules"), "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
+      host: process.env.FIRESTORE_EMULATOR_HOST?.split(":")[0] ?? "127.0.0.1",
+      // Reads FIRESTORE_EMULATOR_HOST so this suite can run against an
+      // emulator on a non-default port. Two agents (or two terminals) working
+      // the repo at once otherwise collide on 8080, and the failure mode is a
+      // confusing "port taken" rather than anything to do with rules.
+      port: Number(process.env.FIRESTORE_EMULATOR_HOST?.split(":")[1] ?? 8080),
     },
   })
 })
@@ -366,5 +370,95 @@ describe("AI usage quota docs (usage/{uid}/daily/{day}) — Admin-SDK-only", () 
   it("other users cannot touch it either", async () => {
     await assertFails(getDoc(doc(asMember(), `usage/${OWNER}/daily/2026-07-21`)))
     await assertFails(setDoc(doc(asOutsider(), `usage/${OWNER}/daily/2026-07-21`), { count: 0 }))
+  })
+})
+
+describe("growth gate (invite codes)", () => {
+  const NEWCOMER = "newcomer-uid"
+  const asNewcomer = () => testEnv.authenticatedContext(NEWCOMER).firestore()
+  const newHome = (db: ReturnType<typeof asNewcomer>, id: string) =>
+    setDoc(doc(db, `homes/${id}`), { name: "Theirs", createdBy: NEWCOMER, deletedAt: null })
+
+  const setGate = (on: boolean) =>
+    testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "config/growth"), { inviteGateEnabled: on })
+    })
+  const admit = (uid: string) =>
+    testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `admissions/${uid}`), { code: "TESTCODE" })
+    })
+
+  it("FAILS OPEN when config/growth does not exist", async () => {
+    // Deploying these rules before the flag doc exists must not lock every
+    // existing user out of creating a home. The safe direction for a growth
+    // throttle, which is not the security boundary — membership is.
+    await assertSucceeds(newHome(asNewcomer(), "home-nogate"))
+  })
+
+  it("lets anyone create a home while the gate is OFF", async () => {
+    await setGate(false)
+    await assertSucceeds(newHome(asNewcomer(), "home-gateoff"))
+  })
+
+  it("refuses home creation with the gate ON and no admission", async () => {
+    await setGate(true)
+    await assertFails(newHome(asNewcomer(), "home-blocked"))
+  })
+
+  it("allows it once the user has been admitted", async () => {
+    await setGate(true)
+    await admit(NEWCOMER)
+    await assertSucceeds(newHome(asNewcomer(), "home-admitted"))
+  })
+
+  it("does not let one user's admission admit another", async () => {
+    await setGate(true)
+    await admit(OWNER)
+    await assertFails(newHome(asNewcomer(), "home-someone-elses-admission"))
+  })
+
+  it("still requires createdBy to be the caller, admitted or not", async () => {
+    // The gate is additive. It must not become a way around the ownership
+    // anchor that tenant isolation depends on.
+    await setGate(true)
+    await admit(NEWCOMER)
+    await assertFails(
+      setDoc(doc(asNewcomer(), "homes/home-spoofed"), { name: "X", createdBy: OWNER, deletedAt: null }),
+    )
+  })
+
+  it("nobody can self-admit", async () => {
+    await setGate(true)
+    await assertFails(setDoc(doc(asNewcomer(), `admissions/${NEWCOMER}`), { code: "MADEUP" }))
+  })
+
+  it("nobody can turn their own gate off", async () => {
+    await setGate(true)
+    await assertFails(setDoc(doc(asNewcomer(), "config/growth"), { inviteGateEnabled: false }))
+  })
+
+  it("invite codes are unreadable and unlistable by clients", async () => {
+    // A readable code collection IS a code generator: any signed-in user could
+    // list the valid codes and hand them out, and the gate is simply gone.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "inviteCodes/ABCD2345"), { uses: 0, maxUses: 5 })
+    })
+    await assertFails(getDoc(doc(asNewcomer(), "inviteCodes/ABCD2345")))
+    await assertFails(getDocs(collection(asNewcomer(), "inviteCodes")))
+    await assertFails(setDoc(doc(asNewcomer(), "inviteCodes/MINE1234"), { uses: 0, maxUses: 999 }))
+  })
+
+  it("a user can read their OWN admission but cannot enumerate admissions", async () => {
+    await admit(NEWCOMER)
+    await assertSucceeds(getDoc(doc(asNewcomer(), `admissions/${NEWCOMER}`)))
+    await assertFails(getDoc(doc(asNewcomer(), `admissions/${OWNER}`)))
+    await assertFails(getDocs(collection(asNewcomer(), "admissions")))
+  })
+
+  it("the gate never touches an EXISTING member's access to their home", async () => {
+    // Turning the gate on must not lock out the people already using the app.
+    await setGate(true)
+    await assertSucceeds(getDoc(doc(asMember(), `homes/${HOME}`)))
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/items/i-gate`), { displayName: "Kettle", deletedAt: null }))
   })
 })

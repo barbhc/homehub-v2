@@ -38,6 +38,32 @@ service cloud.firestore {
     function createdByUnchanged() {
       return request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null);
     }
+    // ---- growth gate (invite codes) ----
+    // A throttle on how fast strangers arrive, which is simultaneously a cost
+    // throttle and an abuse throttle. Enforced HERE rather than at sign-up
+    // because sign-up is Firebase Auth talking to Google with a public API key:
+    // a client-side check is a suggestion, not a gate. Creating a HOME is the
+    // first thing that costs anything and the precondition for everything else
+    // — every paid function already requires membership in one — so gating home
+    // creation gates the whole app with one rule.
+    //
+    // Flag-controlled, per the requirement that it can be turned off later
+    // WITHOUT a code change: flip config/growth.inviteGateEnabled to false (or
+    // delete the doc) and this evaluates true for everyone, no deploy involved.
+    function growthGateOn() {
+      return exists(/databases/$(database)/documents/config/growth)
+        && get(/databases/$(database)/documents/config/growth).data.get('inviteGateEnabled', false) == true;
+    }
+    // Deliberately FAILS OPEN when config/growth is absent. Deploying these
+    // rules before the flag doc exists must not lock every existing user out of
+    // creating a home. That is safe because this is a growth throttle, not a
+    // security boundary — tenant isolation is membership, which is unchanged —
+    // and no client can write or delete config/growth to force the open state.
+    function admitted() {
+      return !growthGateOn()
+        || exists(/databases/$(database)/documents/admissions/$(request.auth.uid));
+    }
+
     // assignee (if present & non-null) must be a member of this home.
     function assigneeIsMember(homeId, field) {
       return !(field in request.resource.data)
@@ -67,7 +93,8 @@ service cloud.firestore {
       // as `createdBy` (homeService.createHome). That field is what the member
       // create rule below checks before letting anyone take the owner row.
       allow create: if isSignedIn()
-        && request.resource.data.createdBy == request.auth.uid;
+        && request.resource.data.createdBy == request.auth.uid
+        && admitted();
       allow read: if isMember(homeId);
       // Any member may edit the home profile, but nobody may rewrite createdBy —
       // otherwise a plain member could re-point the ownership anchor at
@@ -216,5 +243,31 @@ service cloud.firestore {
     match /{path=**}/members/{memberUid} {
       allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
     }
+    // ---- growth gate storage ----
+
+    // The flag itself. Readable so the client can show the code field only when
+    // the gate is actually on; writable ONLY by the Admin SDK (no client rule
+    // grants write), so nobody can turn their own gate off.
+    match /config/{doc} {
+      allow get: if isSignedIn();
+      allow list, write: if false;
+    }
+
+    // Invite codes are server-only in BOTH directions. A readable code
+    // collection is a code generator: anyone signed in could list the valid
+    // codes and hand them out, which is the entire gate gone. redeemInviteCode
+    // (Admin SDK) is the only thing that ever touches these.
+    match /inviteCodes/{code} {
+      allow read, write: if false;
+    }
+
+    // Who has been let in. Self-readable so the client can tell "already
+    // admitted" from "needs a code" without a round trip; written only by the
+    // redeem callable, so admission cannot be self-granted.
+    match /admissions/{uid} {
+      allow get: if isSignedIn() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
   }
 }
