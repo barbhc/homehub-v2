@@ -10,7 +10,7 @@ import {
   icecatIdentity,
   braveIdentity,
   resolveExternalIdentity,
-  cleanResultTitle,
+  cleanProductTitle,
   mineVariants,
   normalizeModel,
 } from "../lib/firebase/functions/src/ai/identityResolver.js"
@@ -108,11 +108,11 @@ test("brave: HTTP error / empty results / thrown fetch → fail-open empty", asy
 
 // ── Title cleaning + variant mining ──────────────────────────────────────────
 
-test("cleanResultTitle strips pipe/site chrome but never model-number dashes", () => {
-  assert.equal(cleanResultTitle("Coway AP-1512HH Mighty Air Purifier | Best Buy"), "Coway AP-1512HH Mighty Air Purifier")
-  assert.equal(cleanResultTitle("Coway AP-1512HH Mighty - Amazon.com"), "Coway AP-1512HH Mighty")
+test("cleanProductTitle strips pipe/site chrome but never model-number dashes", () => {
+  assert.equal(cleanProductTitle("Coway AP-1512HH Mighty Air Purifier | Best Buy"), "Coway AP-1512HH Mighty Air Purifier")
+  assert.equal(cleanProductTitle("Coway AP-1512HH Mighty - Amazon.com"), "Coway AP-1512HH Mighty")
   // The dash suffix here contains a digit → looks like part of the product, kept.
-  assert.equal(cleanResultTitle("Ninja CREAMi Deluxe - NC501"), "Ninja CREAMi Deluxe - NC501")
+  assert.equal(cleanProductTitle("Ninja CREAMi Deluxe - NC501"), "Ninja CREAMi Deluxe - NC501")
 })
 
 test("mineVariants: extends-only, deduped, short prefixes refuse to mine", () => {
