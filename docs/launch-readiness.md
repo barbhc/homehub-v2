@@ -101,15 +101,49 @@ proven against the real project, immediately after deploying:
 firebase deploy --only storage
 ```
 
-1. Sign in, open an item, **upload a photo** — it must render. (This is the
-   canary: if `firestore.exists()` misbehaves, `getDownloadURL` fails and the
-   photo does not appear.)
-2. Open an existing item whose photo predates the change — it must still render
-   (legacy clause intact).
-3. From a **second account that is not a member**, request the first account's
-   new photo path directly — it must 403.
+This is now a script — `npm run smoke:storage` (scripts/smoke-storage-rules.mjs).
+It asserts all four cases against the real project with throwaway users and
+synthetic paths, and cleans up after itself:
 
-If step 1 or 2 fails, `firebase deploy --only storage` the previous
+```bash
+WEB_API_KEY=<VITE_FIREBASE_API_KEY> npm run smoke:storage
+```
+
+1. a member reads their own home's object → 200 (the canary: if
+   `firestore.exists()` misbehaves, `getDownloadURL` fails and photos vanish)
+2. a member reads a legacy-path object → 200 (legacy clause intact)
+3. a signed-in non-member reads the same object → 403 (the tenant gate)
+4. an unauthenticated caller reads it → 403 (no public reads)
+
+**If only #1 fails, the rules are fine and the IAM grant is missing.** Do NOT
+widen the rule to make it pass. See below.
+
+### The cross-service IAM grant (learned the hard way, 19 Aug 2026)
+
+`firestore.exists()` in Storage rules needs the **Cloud Storage for Firebase**
+service agent to hold `roles/firebaserules.firestoreServiceAgent`. The Firebase
+console prompts for this the first time you open the Storage tab after deploying
+such rules; a non-interactive `firebase deploy` never prompts, so the grant
+silently never happens. The rules then compile, deploy, read correctly — and
+deny every caller including members. The Rules test API is what finally named it:
+
+```
+Function not found error: Name: [firestore.exists]
+```
+
+Granting the role to the `@firebase-rules` service agent is NOT sufficient and
+was the wrong turn taken on the day. The principal that needs it is
+`@gcp-sa-firebasestorage`:
+
+```bash
+gcloud projects add-iam-policy-binding <project> \
+  --member=serviceAccount:service-<projectNumber>@gcp-sa-firebasestorage.iam.gserviceaccount.com \
+  --role=roles/firebaserules.firestoreServiceAgent
+```
+
+Allow ~1 minute to propagate, then re-run `npm run smoke:storage`.
+
+If #1 or #2 still fails after that, `firebase deploy --only storage` the previous
 `storage.rules` and reopen this item.
 
 ## P2 — nice to have
