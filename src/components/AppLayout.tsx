@@ -81,6 +81,11 @@ export function AppLayout() {
                 </Link>
               )
             })}
+            {/* From lg: only. These grow with the user's level, so a power user
+                on an iPad had a header that needed ~1102px in an 820px viewport
+                and ran off the right edge — Settings and the avatar simply gone.
+                Everything here stays reachable: Clean, Warranties and Providers
+                are all linked from Home. */}
             {desktopExtraNav.map(({ to, label, tourId }) => {
               const isActive = location.pathname === to
               return (
@@ -89,7 +94,7 @@ export function AppLayout() {
                   to={to}
                   data-tour={tourId}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-[14px] font-semibold transition-colors",
+                    "hidden rounded-lg px-3 py-1.5 text-[14px] font-semibold transition-colors lg:block",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
                   )}
                 >
@@ -102,7 +107,7 @@ export function AppLayout() {
             {/* Search — items list carries the search UI */}
             <Link
               to="/inventory"
-              className="flex size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)]"
+              className="hidden size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)] lg:flex"
               aria-label="Search"
               title="Search"
             >
@@ -128,7 +133,7 @@ export function AppLayout() {
             {/* Notifications — prefs live in Settings */}
             <Link
               to="/settings"
-              className="flex size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)]"
+              className="hidden size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)] lg:flex"
               aria-label="Notifications"
               title="Notifications"
             >
