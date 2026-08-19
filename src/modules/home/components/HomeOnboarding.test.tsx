@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { MemoryRouter } from "react-router-dom"
 import { HomeOnboarding } from "./HomeOnboarding"
 
 const getPrimaryHome = vi.fn()
@@ -31,7 +32,11 @@ describe("HomeOnboarding duplicate-home guard", () => {
   it("pre-check ERROR → hard stop: shows error, never calls createHome", async () => {
     getPrimaryHome.mockResolvedValue({ data: null, error: { message: "query failed" } })
     const onComplete = vi.fn()
-    render(<HomeOnboarding onComplete={onComplete} />)
+    render(
+      <MemoryRouter>
+        <HomeOnboarding onComplete={onComplete} />
+      </MemoryRouter>,
+    )
     await submitWithName()
     await waitFor(() => expect(screen.getByText(/couldn't check your account/i)).toBeInTheDocument())
     expect(createHome).not.toHaveBeenCalled()
@@ -44,7 +49,11 @@ describe("HomeOnboarding duplicate-home guard", () => {
       error: null,
     })
     const onComplete = vi.fn()
-    render(<HomeOnboarding onComplete={onComplete} />)
+    render(
+      <MemoryRouter>
+        <HomeOnboarding onComplete={onComplete} />
+      </MemoryRouter>,
+    )
     await submitWithName()
     await waitFor(() => expect(onComplete).toHaveBeenCalled())
     expect(createHome).not.toHaveBeenCalled()
@@ -54,7 +63,11 @@ describe("HomeOnboarding duplicate-home guard", () => {
     getPrimaryHome.mockResolvedValue({ data: null, error: null })
     createHome.mockResolvedValue({ data: { homeId: "h-new" }, error: null })
     const onComplete = vi.fn()
-    render(<HomeOnboarding onComplete={onComplete} />)
+    render(
+      <MemoryRouter>
+        <HomeOnboarding onComplete={onComplete} />
+      </MemoryRouter>,
+    )
     await submitWithName()
     await waitFor(() => expect(onComplete).toHaveBeenCalled())
     expect(createHome).toHaveBeenCalledOnce()

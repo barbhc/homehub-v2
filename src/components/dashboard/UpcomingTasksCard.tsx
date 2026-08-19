@@ -25,7 +25,10 @@ export function UpcomingTasksCard({
       </CardHeader>
       <CardContent className="flex-1 pt-0">
         {tasks.length === 0 ? (
-          <EmptyState title="No upcoming tasks." />
+          <EmptyState
+            title="Nothing scheduled yet"
+            teach="As you add appliances, the jobs their manuals call for land here on the week they are due."
+          />
         ) : (
           <>
             <div className="divide-y-0">

@@ -273,7 +273,18 @@ export default function Inventory() {
       ) : items.length === 0 ? (
         <EmptyState
           title="No items yet"
-          description='Your items will appear here. Use "Add Item" to get started.'
+          description="Start with one appliance you'd hate to have break — the boiler, the washer, the fridge."
+          teach="Photograph the label with the model number on it. Homehub finds the manual, reads it, and shows you the care it specifies before anything becomes a reminder."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <Link to="/inventory/add">Add your first item</Link>
+              </Button>
+              <Button asChild size="sm" variant="ghost">
+                <Link to="/sample">See a sample home</Link>
+              </Button>
+            </div>
+          }
         />
       ) : (
         <>
