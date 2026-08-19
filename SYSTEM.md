@@ -20,7 +20,7 @@ Every claim below was read at source; file:line references are the evidence. Whe
 | AI | `@anthropic-ai/sdk` 0.78. Models in use: `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-opus-4-8`, `claude-3-5-haiku-20241022` |
 | PDF | `pdfjs-dist` 4.10 (client render, worker from a blob URL), Claude document blocks (server parse) |
 | Native shell | Capacitor 8.4 iOS — push-notifications, camera, apple-sign-in |
-| Monitoring | PostHog (`posthog-js`, `src/lib/analytics.ts:27`) and Sentry (`@sentry/react` 10.65, `src/main.tsx:45`) — **both live**. Sentry DSN is US-region; see Gap #1 for how it can silently vanish |
+| Monitoring | PostHog (`posthog-js`, `src/lib/analytics.ts:27`) and Sentry (`@sentry/react` 10.65, `src/main.tsx:45`) — **both live**, with Sentry source maps uploaded at build time by `@sentry/vite-plugin`. See Gap #1 for how all of it can silently vanish |
 | Tests | Vitest 4.1 (80 unit files), Playwright 1.59 (29 e2e specs), `@firebase/rules-unit-testing` 5.0, 23 node:test worker files |
 | Lint | ESLint 9.39 — `npm run lint:new` covers only `src/integrations`, `shared`, `e2e/smoke`, `scripts/seed-emulator.ts`, `firebase/functions/src` |
 
@@ -175,6 +175,16 @@ Sentry's ingest host was checked against this policy by POSTing an envelope from
 
 `img-src` is deliberately `https:` rather than an allowlist: product-photo search renders thumbnails from arbitrary retailer and CDN hosts (`PhotoSearchSheet`).
 
+### Sentry source maps
+
+`build.sourcemap: "hidden"` emits maps with **no `//# sourceMappingURL=` comment**, so browsers never request them. `@sentry/vite-plugin` uploads them and then deletes them (`filesToDeleteAfterUpload`), and `**/*.map` is in `firebase.json`'s hosting `ignore`. Three independent reasons a map cannot reach the public bucket — a published `.map` hands anyone the original source.
+
+Uploaded maps are filed under a release name and events must carry the **same** name, or Sentry silently never applies them: maps present, traces still minified, nothing reporting a problem. Both sides therefore read one value — `resolveRelease()` in `vite.config.ts` (`SENTRY_RELEASE`, else the short git SHA) feeds the plugin and is `define`d into the client for `Sentry.init`.
+
+Upload is conditional on `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT`. **A build without them still succeeds** — CI and every clean checkout are that case — and warns instead. The token is a real secret and is NOT `VITE_`-prefixed, so it cannot reach the client; the DSN is the opposite, public by design and compiled into the bundle.
+
+**Verifying a `.map` is not served takes a content-type check, not a status code.** The SPA rewrite (`"source": "**"` → `/index.html`) means *no* path on this host ever 404s: a missing `.map` returns `HTTP 200` with `content-type: text/html`. A 200 here is not a leak.
+
 ## Deploy
 
 | Target | How | Gating |
@@ -208,7 +218,7 @@ Three Storage tests remain **skipped**: the membership gate needs cross-service 
 
 ## Gaps (ranked)
 
-1. **The Sentry DSN exists only in one person's gitignored `.env`.** Sentry itself is now live and verified (see Monitoring below), but `VITE_SENTRY_DSN` is a build-time value read from `.env`, and `.env` is gitignored. A build from a clean checkout — another machine, a fresh clone, a CI job — compiles an empty DSN, `bootTelemetry` returns before `Sentry.init`, and production ships with no error reporting at all. That is the exact failure that was open until 2026-08-19, reintroduced silently by anyone who deploys without that file. The console warning at `src/main.tsx:44` is the only thing that would say so, and only to whoever opens the console. Real fix: a deploy job that injects the DSN from a stored secret — which is Gap #4.
+1. **Sentry works, and all four values that make it work live in one person's gitignored `.env`.** Errors report, alerting reaches `barb.chang@gmail.com` (confirmed on the `HOMEHUB-1` probe), and source maps upload. But `VITE_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` are **build-time** values read from `.env`, and `.env` is gitignored — so they exist on exactly one machine. A build from a clean checkout (a fresh clone, another session, any future CI deploy job) degrades in two silent steps: without the token, maps stop uploading and every stack trace goes back to `at r (…:487:5974)`; without the DSN, `bootTelemetry` returns before `Sentry.init` and production ships with **no error reporting at all**. Nothing fails and nothing goes red — the build prints two warnings that only reach whoever is watching the console. Real fix: a deploy job injecting all four from stored secrets, which is Gap #4.
 2. **Legacy Storage objects are not tenant-scoped.** Objects uploaded before 2026-08-18 have no `homeId` in their path and stay readable by any signed-in non-anonymous user. The legacy clause has to stay broad — v1 imports exist at arbitrary shapes. Needs an object migration + field rewrite.
 3. **The Storage membership gate is not emulator-verifiable.** Its three tests ship skipped. Mitigated, not closed, by `npm run smoke:storage` against the real project — which must be run after every `firebase deploy --only storage`.
 4. **No deploy gating.** Manual deploys, no CI deploy job, nothing compares live rules to the repo. This is what let the rules drift 19 and 36 days behind the code, unnoticed.
