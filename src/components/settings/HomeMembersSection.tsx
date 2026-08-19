@@ -82,6 +82,11 @@ export function HomeMembersSection({ homeId }: Props) {
   const isOwner = currentUserRole === "owner"
 
   const [loadError, setLoadError] = useState<string | null>(null)
+  // Failures from the three ACTIONS (invite / revoke / remove), separate from
+  // loadError so a failed action does not replace the list with an error card.
+  // Every one of these used to be swallowed: the handlers keyed off `res.data`
+  // and did nothing at all on `res.error`.
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -112,16 +117,24 @@ export function HomeMembersSection({ homeId }: Props) {
   const handleCreateInvite = useCallback(async () => {
     if (!userId) return
     setCreating(true)
+    setActionError(null)
     const res = await createInvite(homeId, userId)
-    if (res.data) {
-      setInvites((prev) => [res.data!, ...prev])
-      // Auto-copy the link
-      const url = buildInviteUrl(res.data.token)
-      await navigator.clipboard.writeText(url)
+    setCreating(false)
+    if (res.error || !res.data) {
+      setActionError(res.error?.message ?? "Could not create an invite link.")
+      return
+    }
+    setInvites((prev) => [res.data!, ...prev])
+    // Auto-copy the link. A clipboard refusal (Safari without a user gesture,
+    // permissions policy) must not read as a failed invite — the invite exists
+    // and its link is on screen either way.
+    try {
+      await navigator.clipboard.writeText(buildInviteUrl(res.data.token))
       setCopiedToken(res.data.token)
       setTimeout(() => setCopiedToken(null), 2000)
+    } catch {
+      setActionError("Invite created, but copying the link failed — use Copy below.")
     }
-    setCreating(false)
   }, [homeId, userId])
 
   const handleCopyLink = useCallback(async (token: string) => {
@@ -132,18 +145,34 @@ export function HomeMembersSection({ homeId }: Props) {
   }, [])
 
   const handleRevokeInvite = useCallback(async (inviteId: string) => {
-    await revokeInvite(homeId, inviteId)
+    setActionError(null)
+    const res = await revokeInvite(homeId, inviteId)
+    // The result used to be discarded and the row removed unconditionally, so a
+    // FAILED revoke looked exactly like a successful one: the invite vanished
+    // from the list while the link stayed live. Of the silent failures here this
+    // is the one that actually costs access control.
+    if (res.error) {
+      setActionError(`Could not revoke that invite: ${res.error.message}`)
+      return
+    }
     setInvites((prev) => prev.filter((i) => i.invite_id !== inviteId))
-  }, [])
+  }, [homeId])
 
   const handleConfirmRemove = useCallback(async () => {
     if (!removeTarget) return
     setRemoving(true)
+    setActionError(null)
     const res = await removeMember(homeId, removeTarget.user_id)
-    if (res.data) {
-      setMembers((prev) => prev.filter((m) => m.user_id !== removeTarget.user_id))
-    }
     setRemoving(false)
+    // Keep the dialog OPEN on failure. Closing it while the member is still in
+    // the home is the success animation for an action that did not happen —
+    // and removeMember legitimately refuses (last owner, non-owner caller), so
+    // this path is reachable without anything being broken.
+    if (res.error) {
+      setActionError(`Could not remove them: ${res.error.message}`)
+      return
+    }
+    setMembers((prev) => prev.filter((m) => m.user_id !== removeTarget.user_id))
     setRemoveTarget(null)
   }, [homeId, removeTarget])
 
@@ -173,6 +202,12 @@ export function HomeMembersSection({ homeId }: Props) {
           <p className="text-sm text-muted-foreground mb-4">
             People who can view and manage this home.
           </p>
+
+          {actionError && (
+            <p role="alert" className="text-sm text-destructive mb-3">
+              {actionError}
+            </p>
+          )}
 
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
@@ -321,7 +356,12 @@ export function HomeMembersSection({ homeId }: Props) {
       </SectionCard>
 
       {/* Remove member confirmation */}
-      <Dialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
+      <Dialog
+        open={!!removeTarget}
+        onOpenChange={(open) => {
+          if (!open) { setRemoveTarget(null); setActionError(null) }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove {removeTarget?.profile?.full_name ?? "member"}?</DialogTitle>
@@ -329,8 +369,17 @@ export function HomeMembersSection({ homeId }: Props) {
               They will lose access to this home. You can re-invite them later.
             </DialogDescription>
           </DialogHeader>
+          {actionError && (
+            <p role="alert" className="text-sm text-destructive">
+              {actionError}
+            </p>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRemoveTarget(null)} disabled={removing}>
+            <Button
+              variant="outline"
+              onClick={() => { setRemoveTarget(null); setActionError(null) }}
+              disabled={removing}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleConfirmRemove} disabled={removing}>

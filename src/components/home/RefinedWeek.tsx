@@ -283,6 +283,10 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const [items, setItems] = useState<WeekAgendaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  // Done/Snooze both used to discard their result: the row closed either way and
+  // a failed check-off left the task in place with nothing said. The task then
+  // reappears on the next load looking like the tap never registered.
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!homeId) return
@@ -296,19 +300,30 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const onDone = useCallback(async (id: string) => {
     if (!homeId) return
     setPendingId(id)
+    setActionError(null)
     const res = await markTaskInstanceDone(homeId, id)
     setPendingId(null)
+    if (!res.success) {
+      // Leave the row open and the task in the list — it is genuinely not done.
+      setActionError(res.error ?? "Could not complete that task.")
+      return
+    }
     setOpenId(null)
-    if (res.success) setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
+    setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
   }, [homeId])
 
   const onSnooze = useCallback(async (id: string) => {
     if (!homeId) return
     setPendingId(id)
+    setActionError(null)
     const res = await snoozeTaskInstance(homeId, id, addDays(todayStr(), 7))
     setPendingId(null)
+    if (!res.success) {
+      setActionError(res.error ?? "Could not snooze that task.")
+      return
+    }
     setOpenId(null)
-    if (res.success) setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
+    setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
   }, [homeId])
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
@@ -362,6 +377,11 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
             : tier === "all" ? `${total} to do · ~${Math.round(totalMins / 5) * 5} min total`
             : `${total} of ${totalAll} · ~${Math.round(totalMins / 5) * 5} min`}
         </div>
+        {actionError && (
+          <div role="alert" className="mt-2 text-[13.5px] font-medium" style={{ color: CLAY }}>
+            {actionError}
+          </div>
+        )}
       </div>
 
       {/* "Start here" insight banner — dismissible */}

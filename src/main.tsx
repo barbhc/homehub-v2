@@ -40,7 +40,18 @@ function bootTelemetry(): void {
   void import("@/lib/analytics").then((m) => m.initAnalytics())
 
   const dsn = import.meta.env.VITE_SENTRY_DSN
-  if (!dsn) return
+  if (!dsn) {
+    // Silence here is indistinguishable from "Sentry is fine": the SDK is
+    // imported, the code reads as wired, and nothing ever reports. A build
+    // shipped to production with no DSN has NO error reporting at all, so say
+    // so once, loudly enough to find in a console session.
+    if (import.meta.env.PROD) {
+      console.warn(
+        "[telemetry] VITE_SENTRY_DSN is not set — this production build reports NO errors to Sentry.",
+      )
+    }
+    return
+  }
   void import("@sentry/react").then((Sentry) => {
     Sentry.init({
       dsn,
