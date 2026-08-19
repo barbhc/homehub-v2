@@ -25,9 +25,86 @@
 - **Tests:** 24 unit + 26 Playwright e2e + Firestore rules tests, all in CI.
 - **Server secrets:** Anthropic/Brave keys are Firebase secrets, never client-shipped; all `onCall` functions check `request.auth`.
 
+## Vendor-side spend alarms (verified 2026-08-19)
+
+The in-app monthly ceiling (`shared/quota/policy.ts`, PR #91) is the first line of
+defence, but it is **our own code** — a bug in the ceiling, a deploy that drops the
+env var, or a paid call added without a `chargeAiQuota` wrapper all bypass it
+silently. The vendor-side alarms below are the ones that still fire when our
+accounting is the thing that broke.
+
+**Two vendors, two bills, and they do not overlap.** This is the part that is easy
+to get wrong:
+
+| Cost | Billed by | Caught by |
+|---|---|---|
+| Firestore reads/writes, Functions invocations, Storage, egress | Google (GCP/Firebase) | GCP budget below |
+| **Claude API tokens — the parse pipeline, chat, OCR, task generation** | **Anthropic, directly** | **Anthropic console alert below — NOT the GCP budget** |
+
+A GCP budget on `homehub-2068d` will never see an Anthropic invoice. The runaway
+risk this whole phase is about — a stuck retry loop shipping 12MB PDFs to Opus —
+lands almost entirely on the Anthropic bill, which is exactly the one GCP cannot
+see. Both alarms are required; neither is a substitute for the other.
+
+### GCP budget — DONE, no action needed
+
+Verified live on 2026-08-19 via `gcloud billing budgets describe`:
+
+- Billing account `018AFC-7A39AF-E43EA7`, budget `Homehub`, scoped to project
+  `homehub-2068d` (project number 793197604559) only.
+- **$25/month**, calendar month, all credits included.
+- Thresholds: 50%, 90%, 100% of **current** spend, plus **100% of forecasted
+  spend** (added 2026-08-19 — the three original rules all fired only *after* the
+  money was gone; the forecast rule is the one that warns mid-month while there is
+  still time to act).
+- `notificationsRule` is empty, which means `disableDefaultIamRecipients` is false
+  — email goes to the billing account's admins and users. That is Barb today.
+
+To re-check it at any time:
+
+```bash
+gcloud billing budgets list --billing-account=018AFC-7A39AF-E43EA7 --billing-project=homehub-2068d
+```
+
+> If a second maintainer is ever added, or Barb stops being a billing admin, this
+> alert goes quiet without any error. Re-check it then — see the precondition rule
+> at the top of this document.
+
+### Anthropic console alert — BARB MUST DO THIS (5 minutes)
+
+**Not automatable.** Spend alerts are console-only; the Anthropic Admin API covers
+workspaces, members, and API keys but exposes no billing-limit endpoint, and the
+key in `.env` is a regular `sk-ant-api…` key, not an admin key. So this one is a
+click-path.
+
+1. Sign in at **https://console.anthropic.com** as the org owner.
+2. Left sidebar → **Settings** → **Billing** (org-level, not workspace-level).
+3. Find **Usage limits** (some plans label it *Spend limits* / *Cost alerts*).
+4. Set **Monthly spend alert** to **$25** — deliberately the same number as the GCP
+   budget, so "have I blown a budget?" has one answer, not two.
+5. Set **Monthly spend limit / hard cap** to **$100**. This is the one that actually
+   *stops* calls rather than emailing about them. Pick a number you are willing to
+   lose in a single bad night; $100 is roughly 4× the alert and still survivable.
+6. Confirm the alert email is `barb.chang@gmail.com` (or whatever inbox is read on a
+   phone at 11pm — an alert to an inbox nobody opens is not an alert).
+7. **Optional but recommended:** Settings → **Workspaces** → create a `homehub-prod`
+   workspace with its own **monthly budget**, and move the production key into it.
+   That way a runaway in Homehub cannot drain the budget the other projects share —
+   right now every app on this org bills into one pool.
+
+Once done, tick this box and record the numbers actually chosen:
+
+- [ ] Anthropic monthly **spend alert** set at $______ (target $25)
+- [ ] Anthropic monthly **hard limit** set at $______ (target $100)
+- [ ] Alert email confirmed as ______________________
+- [ ] (optional) `homehub-prod` workspace with its own budget
+
 ## P0 — before the first invite goes out
 
-- [ ] **Set a Firebase Blaze budget alert** on `homehub-2068d` (flagged as an owner to-do in `MIGRATION_STATUS.md`, never confirmed done).
+- [x] **Set a Firebase Blaze budget alert** on `homehub-2068d` — DONE, verified live
+      2026-08-19: $25/mo with a forecast rule. See *Vendor-side spend alarms* above.
+      **The Anthropic alert in that same section is still open and is the more
+      important half** — GCP cannot see the model bill.
 - [ ] **Add a per-user daily quota on AI functions** (`chatQuery`, `generateTasks`, `productLookup`, `ingestReference`, `ocr`, …). Simple pattern: a `usage/{uid}/{yyyy-mm-dd}` counter doc checked in one shared helper at the top of each paid function. A generous cap (e.g. 50 AI calls/day) protects against loops and leaked links without friends ever noticing.
 - [ ] **Close the Storage public-read:** `storage.rules` currently has `allow read: if true` on all paths — every uploaded manual, item photo, and receipt is readable by URL. Scope reads to home members (and migrate the "tokenless public URL" call sites that depend on it).
 - [ ] **Add product analytics** (recommend PostHog; Firebase Analytics also fine). Instrument the funnel + engagement events — this is what makes the feedback round measurable against the product-notes metrics:
