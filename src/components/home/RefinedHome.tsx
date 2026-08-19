@@ -95,15 +95,15 @@ function WarrantyNotice({ d, w }: { d: ReturnType<typeof dens>; w: ExpiringWarra
       style={{ background: "#FAF6EC", borderColor: "#EFE6CE", padding: d.cardPad }}
     >
       <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border" style={{ borderColor: "#EFE6CE", background: "var(--hh-surface)" }}>
-        <ShieldCheckIcon className="size-[18px]" style={{ color: "#9A7B3A" }} />
+        <ShieldCheckIcon className="size-[18px]" style={{ color: "var(--hh-gold)" }} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: "#9A7B3A" }}>Warranty</div>
+        <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-gold)" }}>Warranty</div>
         <div className="text-[15px] font-bold tracking-[-0.2px]" style={{ color: INK }}>{w.display_name}</div>
         <div className="mt-0.5 text-[13px] leading-snug" style={{ color: "#5A6863" }}>
           Warranty ends in {w.days_remaining} day{w.days_remaining === 1 ? "" : "s"}
         </div>
-        <span className="mt-2.5 inline-flex items-center gap-1 text-[13px] font-bold" style={{ color: "#9A7B3A" }}>
+        <span className="mt-2.5 inline-flex items-center gap-1 text-[13px] font-bold" style={{ color: "var(--hh-gold)" }}>
           Review <ArrowRightIcon className="size-3" />
         </span>
       </div>
@@ -225,7 +225,7 @@ export function RefinedHome({
           <div className="flex flex-col gap-3" style={{ gap: d.gap }}>
             <SectionLabel
               right={
-                <Link to="/warranties" className="whitespace-nowrap pl-2.5 text-[12.5px] font-semibold" style={{ color: "#9A7B3A" }}>
+                <Link to="/warranties" className="whitespace-nowrap pl-2.5 text-[12.5px] font-semibold" style={{ color: "var(--hh-gold)" }}>
                   See all
                 </Link>
               }

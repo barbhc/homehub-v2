@@ -28,7 +28,9 @@
     "eval:parser": "npx vite-node evals/manual-parser/run.ts --",
     "eval:parser:cache": "npx vite-node evals/manual-parser/cache.ts",
     "test:e2e:a11y:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.a11y.config.ts\"",
-    "test:e2e:devices:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.device.config.ts\""
+    "test:e2e:devices:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.device.config.ts\"",
+    "test:e2e:all:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && npx playwright test --config playwright.emu.config.ts && npm run emu:clear && npm run seed:emu && npx playwright test --config playwright.a11y.config.ts && npm run emu:clear && npm run seed:emu && npx playwright test --config playwright.device.config.ts\"",
+    "emu:clear": "node scripts/ops/clear-emulator.mjs"
   },
   "dependencies": {
     "@capacitor-community/apple-sign-in": "^7.1.0",
