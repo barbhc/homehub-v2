@@ -23,25 +23,37 @@
 import { HttpsError } from "firebase-functions/v2/https"
 import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore"
 import {
+  BURST_UNIT_LIMIT,
   DAILY_AI_LIMIT,
   decideQuota,
+  decideRateLimit,
   monthlyCeiling,
+  rateLimitFor,
   unitCostFor,
   utcDayKey,
   utcMonthKey,
+  type RateWindow,
 } from "../../../../shared/quota/policy.js"
 
 export {
+  AI_RATE_LIMIT,
   AI_UNIT_COST,
+  BURST_UNIT_LIMIT,
   DAILY_AI_LIMIT,
   DEFAULT_MONTHLY_UNIT_CEILING,
+  RATE_WINDOW_MS,
   decideQuota,
+  decideRateLimit,
   monthlyCeiling,
+  rateLimitFor,
   unitCostFor,
   utcDayKey,
   utcMonthKey,
   type QuotaState,
   type QuotaVerdict,
+  type RateState,
+  type RateVerdict,
+  type RateWindow,
 } from "../../../../shared/quota/policy.js"
 
 export function errorForVerdict(reason: "daily" | "global" | "invalid", limit: number): HttpsError {
@@ -64,6 +76,27 @@ export function errorForVerdict(reason: "daily" | "global" | "invalid", limit: n
   }
 }
 
+/**
+ * The too-fast error. Separate from `errorForVerdict` on purpose: both are
+ * `resource-exhausted`, but one means "come back tomorrow" and the other means
+ * "come back in nine seconds", and telling a user the wrong one of those is the
+ * difference between a shrug and abandoning the app.
+ */
+export function errorForRate(reason: "endpoint" | "burst", retryAfterSeconds: number): HttpsError {
+  const wait =
+    retryAfterSeconds <= 1 ? "a second" : `about ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}`
+  return new HttpsError(
+    "resource-exhausted",
+    reason === "endpoint"
+      ? `That's a lot of requests at once — please wait ${wait} and try again.`
+      : `Homehub is catching up with your last few actions — please wait ${wait} and try again.`,
+    // Structured detail so a client can back off intelligently rather than
+    // regex the sentence above. `kind` distinguishes this from a daily/monthly
+    // exhaustion, which needs a completely different message and no retry.
+    { kind: "rate_limited", reason, retryAfterSeconds },
+  )
+}
+
 /** A charge already made. Give it back if the paid call produced nothing. */
 export interface QuotaHold {
   units: number
@@ -72,6 +105,20 @@ export interface QuotaHold {
 
 /** A hold that costs nothing to release — for paths that never charged. */
 export const NO_CHARGE: QuotaHold = { units: 0, refund: async () => {} }
+
+/**
+ * Read a stored rate window, tolerating every shape a document can be in:
+ * absent (first call of the day), partially written, or holding junk from an
+ * older schema. Anything unusable reads as an empty window opened at epoch 0,
+ * which `decideRateLimit` treats as expired and resets — the safe direction,
+ * since the daily and monthly caps are still underneath.
+ */
+function readWindow(raw: unknown): RateWindow {
+  const w = raw as Partial<RateWindow> | undefined
+  const windowStart = typeof w?.windowStart === "number" && Number.isFinite(w.windowStart) ? w.windowStart : 0
+  const value = typeof w?.value === "number" && Number.isFinite(w.value) && w.value >= 0 ? w.value : 0
+  return { windowStart, value }
+}
 
 function globalDoc(db: Firestore, monthKey: string) {
   // Its own collection rather than a sentinel uid under usage/: nothing here
@@ -107,9 +154,28 @@ export async function chargeAiQuota(
   const dailyRef = db.doc(`usage/${uid}/daily/${dayKey}`)
   const monthlyRef = globalDoc(db, monthKey)
 
+  const nowMs = Date.now()
+
   await db.runTransaction(async (tx) => {
     // Firestore requires every read before any write in a transaction.
     const [dailySnap, monthlySnap] = await Promise.all([tx.get(dailyRef), tx.get(monthlyRef)])
+
+    // ── Rate limit ────────────────────────────────────────────────────────
+    // Read off the SAME snapshot the quota check uses, so throttling costs no
+    // extra Firestore round-trip, and decided BEFORE the counters below so a
+    // call rejected for going too fast never spends the allowance it is being
+    // protected from spending.
+    const rateVerdict = decideRateLimit({
+      now: nowMs,
+      fnWindow: readWindow(dailySnap.get(`rate.fns.${fn}`)),
+      fnLimit: rateLimitFor(fn),
+      burstWindow: readWindow(dailySnap.get("rate.burst")),
+      burstLimit: BURST_UNIT_LIMIT,
+      units,
+    })
+    if (!rateVerdict.allowed) {
+      throw errorForRate(rateVerdict.reason, rateVerdict.retryAfterSeconds)
+    }
 
     // `units` is new; older docs only have `count`. Treat a pre-migration doc's
     // count as its unit total so today's existing usage still counts against
@@ -149,6 +215,13 @@ export async function chargeAiQuota(
         count: FieldValue.increment(1),
         units: FieldValue.increment(units),
         fns: { [fn]: FieldValue.increment(1) },
+        // Absolute values, not increments: decideRateLimit already folded the
+        // window reset into these, and an increment cannot express "the window
+        // rolled over, start again at 1".
+        rate: {
+          fns: { [fn]: rateVerdict.fnWindow },
+          burst: rateVerdict.burstWindow,
+        },
         updatedAt: FieldValue.serverTimestamp(),
         // Self-expires after 2 days if a TTL policy on expiresAt is configured
         // (same best-effort convention as the productLookup cache docs).
