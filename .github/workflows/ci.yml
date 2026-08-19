@@ -5,11 +5,25 @@ name: CI
 # it re-enables in Phase 2/3 as a separate job running against
 # `firebase emulators:exec` with scripts/seed-emulator.ts.
 
+# Runs on pull_request only. The push-to-main run used to duplicate it: merges
+# here are SQUASH merges, so the tree that lands on main is the tree the PR run
+# already tested, and re-running it cost 982 Actions minutes in Aug 2026 — a
+# third of the monthly allowance — to re-confirm green results.
+#
+# What that trades away: if main moves between a PR's last run and its merge,
+# the combination is not tested until the next PR. Restore the `push` trigger
+# below (or adopt a merge queue) if that gap ever bites.
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
+  # Manual re-run for exactly the case above — validating main on demand.
+  workflow_dispatch:
+
+# A new push to a PR makes the in-flight run obsolete. Without this they both
+# run to completion and bill for it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   checks:
