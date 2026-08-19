@@ -1,0 +1,19 @@
+{
+  "corpus": 97.5,
+  "promptHash": "d564709261ca",
+  "recordedAt": "2026-08-19T17:34:37.056Z",
+  "manuals": {
+    "furnace-york": 98.5,
+    "dryer-lg": 97,
+    "washer-lg": 98.4,
+    "nespresso-vertuo": 90.9,
+    "foodcycler": 100,
+    "range-hood-zline": 100,
+    "air-purifier-coway": 100,
+    "ceiling-fan-haiku": 100,
+    "ninja-creami": 100,
+    "blender-kitchenaid": 100,
+    "blender-beast": 91.9,
+    "dishwasher-thermador": 93.2
+  }
+}

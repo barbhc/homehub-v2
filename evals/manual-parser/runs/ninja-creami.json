@@ -1,0 +1,892 @@
+{
+ "chunks": [
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Electric Shock & Fire Hazards",
+   "content": "Never submerge the appliance or let the power cord contact liquid. Do not use with a damaged cord, plug, or after the unit malfunctions — contact SharkNinja for service.",
+   "tags": [
+    "electrical",
+    "shock",
+    "fire",
+    "cord"
+   ],
+   "scenarios": [
+    {
+     "condition": "Cord or plug is damaged",
+     "steps": [
+      "Turn unit OFF immediately.",
+      "Unplug from outlet by grasping the plug body, not the cord.",
+      "Contact SharkNinja at 1-877-646-5288 for service — do not attempt to repair."
+     ]
+    }
+   ],
+   "source_pages": [
+    1
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Paddle & Moving Parts Safety",
+   "content": "Never place the Deluxe Creamerizer™ Paddle on the motor base without it first being attached to the outer bowl lid and lid attached to the outer bowl. Keep hands, hair, and clothing away from moving parts during operation.",
+   "tags": [
+    "paddle",
+    "moving-parts",
+    "assembly",
+    "injury"
+   ],
+   "scenarios": [
+    {
+     "condition": "Paddle is bent or damaged",
+     "steps": [
+      "Stop using the appliance immediately.",
+      "Contact SharkNinja to arrange for a replacement paddle before next use."
+     ]
+    }
+   ],
+   "source_pages": [
+    1,
+    2
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Freezing & Processing Restrictions",
+   "content": "Do not process a solid block of ice, ice cubes, or hard loose ingredients — this is NOT a blender. Do not freeze the pint at an angle; pints frozen unevenly should not be processed.",
+   "tags": [
+    "freezing",
+    "processing",
+    "ice",
+    "restrictions"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2,
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Hot Liquids & Dry Ingredients Warning",
+   "content": "Do not mix hot liquids — pressure buildup and steam can cause burns. Do not process dry ingredients without adding liquid; the unit is not intended for dry blending or grinding.",
+   "tags": [
+    "hot-liquids",
+    "steam",
+    "dry-ingredients",
+    "burns"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Microwave Use Restrictions",
+   "content": "Only the CREAMi® Deluxe Pint may be microwaved — do not microwave other containers or accessories. Do not microwave the pint for more than 8 minutes at a time; wait until cooled before microwaving again.",
+   "tags": [
+    "microwave",
+    "pint",
+    "containers"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "reference",
+   "title": "General Electrical Safety Rules",
+   "content": "Use only on a dry, level surface indoors; do not use extension cords. The polarized plug fits only one way — do not modify it. Do not allow cord to hang over counter edges or contact hot surfaces.",
+   "tags": [
+    "electrical",
+    "polarized-plug",
+    "extension-cord",
+    "indoor"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    1
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Technical Specifications",
+   "content": "Voltage: 120V~, 60Hz. Power: 800 Watts. Model: CN501CO.",
+   "tags": [
+    "voltage",
+    "wattage",
+    "specs",
+    "model"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Parts List",
+   "content": "Includes: (A) Motor Base, (B) Outer Bowl Lid, (C) Deluxe Creamerizer™ Paddle, (D) CREAMi® Deluxe Lid, (E) 24 oz. CREAMi Deluxe Pint, (F) Outer Bowl. Unit color, number of pints, and programs may vary by model.",
+   "tags": [
+    "parts",
+    "components",
+    "accessories"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2
+   ],
+   "diagram_pages": [
+    2
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Before First Use Setup",
+   "content": "Remove all packaging, wash containers/lids/paddle in warm soapy water using a handled utensil, rinse and air-dry all parts, then wipe the control panel with a soft cloth. All attachments are BPA-free and top-rack dishwasher safe (no heated dry cycle).",
+   "tags": [
+    "setup",
+    "first-use",
+    "washing",
+    "bpa-free"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Assembling & Operating the CREAMi Deluxe",
+   "content": "Add ingredients to pint (below MAX FILL), freeze 24 hrs with lid snapped on, then: remove pint lid, place pint in outer bowl, attach paddle to outer bowl lid (press latch, insert paddle, release), position lid tab right of handle and rotate clockwise to lock, place outer bowl on motor base with handle centered, twist handle right to raise and click into place. Press power, select TOP/FULL/BOTTOM mode, then dial to choose program; unit stops automatically when done.",
+   "tags": [
+    "assembly",
+    "operation",
+    "programs",
+    "pint",
+    "outer-bowl"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3,
+    4
+   ],
+   "diagram_pages": [
+    3,
+    4
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Removing Bowl & Finishing After Processing",
+   "content": "When program completes, hold bowl release button on left of motor base and twist handle back to center to lower platform, then pull bowl straight back to remove. Press lid unlock button and twist lid counterclockwise to remove. Lift pint out and enjoy.",
+   "tags": [
+    "removal",
+    "bowl",
+    "lid",
+    "post-processing"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [
+    4
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Adding Mix-Ins",
+   "content": "After processing, use a spoon to create a 1½-inch-wide hole reaching the bottom of the processed portion; add up to ¼ cup of chopped/broken mix-ins into the hole, then repeat assembly steps 6–10 and run the MIX-IN program. Do not RE-SPIN before using MIX-IN.",
+   "tags": [
+    "mix-in",
+    "customization",
+    "candies",
+    "nuts",
+    "frozen-fruit"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3,
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "RE-SPIN for Crumbly Results",
+   "content": "If the processed treat is crumbly or powdery (common with very cold bases below -7°F), repeat assembly steps 6–10 and run the RE-SPIN program to achieve a smoother, creamier texture.",
+   "tags": [
+    "re-spin",
+    "texture",
+    "crumbly",
+    "cold-base"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3,
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Refreezing Leftover Treats",
+   "content": "Flatten the top of the frozen treat with a spoon or spatula before refreezing. If hard after refreezing, process again on the original program; if soft, scoop and enjoy. For drinkable leftovers, add a 4 oz. pour-in for Frozen Drink or 6 oz. for Slushi/Creamiccino before reprocessing.",
+   "tags": [
+    "refreezing",
+    "leftovers",
+    "storage",
+    "drinkable"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "One-Touch Programs Overview",
+   "content": "Scoopable programs: Ice Cream, Lite Ice Cream, Sorbet, Gelato (select models), Frozen Yogurt. Drinkable programs: Creamiccino™ (select models), Frozen Drink, Slushi, Milkshake, Italian Ice. Utility: MIX-IN (fold in pieces), RE-SPIN (smooth crumbly results). TOP/BOTTOM modes not available with drinkable programs.",
+   "tags": [
+    "programs",
+    "ice-cream",
+    "sorbet",
+    "milkshake",
+    "slushi",
+    "gelato",
+    "frozen-yogurt"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [
+    3
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Freezing Tips for Best Results",
+   "content": "Set freezer between 9°F and -7°F; freeze pint on a level surface for at least 24 hours. Upright freezers work best — chest freezers are not recommended due to extremely cold temperatures. Process immediately after removing from freezer.",
+   "tags": [
+    "freezing",
+    "temperature",
+    "freezer",
+    "best-results"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Mix-In Tips",
+   "content": "Add up to ¼ cup total mix-ins; hard mix-ins (chocolate, candy, nuts) stay intact while soft mix-ins (cereal, cookies, frozen fruit) break down. For ice cream/gelato, avoid fresh fruit, sauces, and spreads — use frozen fruit or chocolate/caramel shell toppings instead.",
+   "tags": [
+    "mix-in",
+    "tips",
+    "chocolate",
+    "frozen-fruit",
+    "nuts"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Resetting the Motor",
+   "content": "If the motor overloads (E1/E2 error), unplug the unit, allow to cool ~15 minutes, remove outer bowl lid and paddle, ensure no ingredients are jamming the assembly, then plug back in and retry. Do not exceed maximum fill capacities.",
+   "tags": [
+    "motor-reset",
+    "overload",
+    "E1",
+    "E2",
+    "error"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning Containers, Lids & Paddle",
+   "content": "Hand-wash containers, lids, and paddle in warm soapy water using a handled dishwashing utensil; rinse thoroughly and air-dry. Alternatively, all are top-rack dishwasher safe (no heated dry cycle) — separate all parts before loading.",
+   "tags": [
+    "cleaning",
+    "dishwasher",
+    "paddle",
+    "pint",
+    "outer-bowl"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning the Outer Bowl Lid",
+   "content": "Remove paddle before cleaning; run warm water through the paddle release lever and out the drain holes, positioning lid lever-side down to fully drain. Remove the dark grey rubber lip seal from the underside and hand-wash lid and seal with warm soapy water, or place in dishwasher.",
+   "tags": [
+    "outer-bowl-lid",
+    "rubber-seal",
+    "drain-holes",
+    "cleaning"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning the Motor Base",
+   "content": "Unplug before cleaning. Wipe motor base with a clean, damp cloth — do not use abrasive cloths, pads, or brushes. After each use, wipe the spindle below the control panel with a damp cloth.",
+   "tags": [
+    "motor-base",
+    "spindle",
+    "cleaning",
+    "damp-cloth"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Cord Storage & Unit Storage",
+   "content": "Wrap the cord using the hook-and-loop fastener near the back of the motor base — do not wrap cord around the bottom of the base. Store attachments alongside the unit or in a cabinet where they won't be damaged.",
+   "tags": [
+    "storage",
+    "cord",
+    "hook-and-loop",
+    "attachments"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Frozen Treat Texture Problems",
+   "content": "Addresses liquid, crumbly, or powdery results after processing.",
+   "tags": [
+    "texture",
+    "crumbly",
+    "liquid",
+    "re-spin",
+    "freezer-temperature"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Frozen Treat Texture Problems",
+     "columns": [
+      "Problem",
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
+      [
+       "Treat is liquid after processing",
+       "Base not frozen long enough or freezer too warm; too much fat/sugar",
+       "Refreeze pint several hours; freeze at least 24 hrs; set freezer colder (9°F to -7°F); adjust recipe fat/sugar ratio"
+      ],
+      [
+       "Treat is crumbly or powdery",
+       "Freezer too cold; too little fat/sugar in recipe",
+       "Run RE-SPIN program; adjust recipe; consult inspiration guide"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Display Errors & Program Issues",
+   "content": "Covers E1/E2/E3 error codes, programs not illuminating, and install light states.",
+   "tags": [
+    "error-code",
+    "E1",
+    "E2",
+    "E3",
+    "install-light",
+    "programs"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Error Codes & Program Issues",
+     "columns": [
+      "Problem",
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
+      [
+       "E1 or E2 displayed, program lights flashing",
+       "Motor overloaded; ingredients too dense; freezer too cold",
+       "Unplug, remove bowl, cool 15 min; check for jammed ingredients; ensure base is between 9°F and -7°F; do not process ice blocks"
+      ],
+      [
+       "E3 displayed, program lights flashing",
+       "Program did not complete successfully",
+       "Unplug, check paddle is installed properly, plug back in and retry"
+      ],
+      [
+       "One-Touch Programs won't illuminate",
+       "Unit not plugged in before bowl installed; not fully assembled; no processing mode selected",
+       "Plug in before installing bowl; ensure full assembly; select TOP/FULL/BOTTOM mode first"
+      ],
+      [
+       "Install light flashing",
+       "Outer bowl not installed or incorrectly installed",
+       "Re-install paddle into lid, lid onto bowl, then bowl onto motor base until it clicks"
+      ],
+      [
+       "Install light steadily on",
+       "Paddle missing or incorrectly installed",
+       "Lower platform, check paddle is installed in lid, reinstall"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Outer Bowl & Pint Problems",
+   "content": "Covers bowl stuck on base, pint frozen at angle, unit moving on counter, and scratched pint interior.",
+   "tags": [
+    "outer-bowl",
+    "stuck",
+    "pint",
+    "angle",
+    "scratched",
+    "counter"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Outer Bowl & Pint Problems",
+     "columns": [
+      "Problem",
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
+      [
+       "Outer bowl won't release after processing",
+       "Water froze between paddle and motor base",
+       "Wait ~2 min; hold release button and twist handle clockwise with force; dry paddle cavity before processing and between consecutive runs"
+      ],
+      [
+       "Pint frozen at angle",
+       "Placed unevenly in freezer",
+       "Do not process; put pint in fridge to melt, whisk, refreeze on level surface"
+      ],
+      [
+       "Unit moves on counter",
+       "Countertop or unit feet not clean/dry",
+       "Clean and dry countertop and unit feet"
+      ],
+      [
+       "Inside of pint is scratched",
+       "Normal wear or aggressive metal utensil use",
+       "Prep ingredients in separate bowl; use soft non-abrasive cloths; light scratching is normal"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  }
+ ],
+ "tasks": [
+  {
+   "title": "Wash Parts Before First Use",
+   "description": "Wash all containers, lids, and paddle before using the appliance for the first time.",
+   "care_type": "cleaning",
+   "justification": "Removes manufacturing residues and ensures food-safe surfaces before first contact with ingredients.",
+   "priority_tier": "essential",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 10,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Remove all packaging. Wash containers, lids, and paddle in warm soapy water using a handled dishwashing utensil. Rinse thoroughly and air-dry all parts. Wipe the control panel with a soft cloth.",
+   "source_page": 2,
+   "tags": [
+    "first-use",
+    "setup",
+    "washing"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Inspect Paddle Before Each Use",
+   "description": "Check the Deluxe Creamerizer™ Paddle for bending or damage before every use.",
+   "care_type": "maintenance",
+   "justification": "A bent or damaged paddle can cause injury or appliance damage during operation.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 2,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "Before assembling, visually inspect the paddle for any bending, cracks, or visible damage. If damage is found, do not use — contact SharkNinja to arrange a replacement.",
+   "source_page": 1,
+   "tags": [
+    "paddle",
+    "inspection",
+    "safety"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "physical_damage"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "physical_damage",
+     "description": "Paddle appears bent, cracked, or deformed",
+     "severity": "safety"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean Containers, Lids & Paddle",
+   "description": "Wash the pint, outer bowl, lids, and paddle after each use to remove food residue.",
+   "care_type": "cleaning",
+   "justification": "Food residue left on parts can cause odors, contamination, and difficulty cleaning later.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "Hand-wash containers, lids, and paddle in warm soapy water using a handled dishwashing utensil. Rinse thoroughly and air-dry all parts. Alternatively, separate all parts and place on the top rack of the dishwasher — do not use a heated dry cycle.",
+   "source_page": 5,
+   "tags": [
+    "cleaning",
+    "dishwasher",
+    "paddle",
+    "pint",
+    "outer-bowl"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Outer Bowl Lid & Seal",
+   "description": "Clean the outer bowl lid, drain holes, and rubber lip seal after each use to remove sticky residue.",
+   "care_type": "cleaning",
+   "justification": "Ingredients can get trapped under the paddle and in the drain holes, causing buildup and odors.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 5,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "Remove the paddle by pressing the latch on top of the outer bowl lid. Run warm water through the paddle release lever and out the drain holes on either side. Position the lid lever-side down to fully drain. Remove the dark grey rubber lip seal from the underside of the lid. Hand-wash the lid and seal with warm soapy water, or place in the dishwasher (top rack, no heated dry).",
+   "source_page": 5,
+   "tags": [
+    "outer-bowl-lid",
+    "rubber-seal",
+    "drain-holes",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Wipe the Motor Base Spindle",
+   "description": "Wipe the spindle below the control panel with a damp cloth after each use.",
+   "care_type": "cleaning",
+   "justification": "Food or liquid residue on the spindle can build up and affect operation over time.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 2,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "Unplug the unit. Using a damp cloth, wipe the spindle located below the control panel. Do not use abrasive cloths, pads, or brushes.",
+   "source_page": 5,
+   "tags": [
+    "spindle",
+    "motor-base",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Wipe the Motor Base Exterior",
+   "description": "Wipe the motor base exterior with a clean, damp cloth to keep it clean.",
+   "care_type": "cleaning",
+   "justification": "Keeping the base clean prevents buildup and maintains appearance.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 3,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Unplug the motor base before cleaning. Wipe the exterior with a clean, damp cloth. Do not use abrasive cloths, pads, or brushes.",
+   "source_page": 5,
+   "tags": [
+    "motor-base",
+    "exterior",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean Between Motor Base & Platform",
+   "description": "Clean any liquid trapped between the motor base and the raised platform using a damp cloth.",
+   "care_type": "cleaning",
+   "justification": "Liquid trapped in this area can freeze or cause the bowl to stick to the motor base.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 5,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Place the outer bowl onto the motor base with the handle centered below the control panel. Twist the handle to the right to raise the platform. Use a damp cloth to clean the area between the base and the raised platform.",
+   "source_page": 5,
+   "tags": [
+    "motor-base",
+    "platform",
+    "liquid",
+    "cleaning"
+   ],
+   "diagram_pages": [
+    5
+   ],
+   "symptom_tags": [
+    "leaking"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "leaking",
+     "description": "Liquid is visible between the motor base and platform after processing",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Dry Paddle Cavity Between Consecutive Runs",
+   "description": "Ensure the cavity on top of the paddle is fully dry before processing consecutive bases.",
+   "care_type": "maintenance",
+   "justification": "Water can freeze between the paddle and motor base, causing the outer bowl to stick and require force to remove.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 3,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "After each processing run, rinse and dry the paddle before the next use. Make sure the cavity on top of the paddle is completely dry before reinstalling and processing again.",
+   "source_page": 5,
+   "tags": [
+    "paddle",
+    "drying",
+    "consecutive-runs",
+    "stuck-bowl"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "performance_drop"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "performance_drop",
+     "description": "Outer bowl is difficult or impossible to remove after processing",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  }
+ ],
+ "cleaning_guide": {
+  "weekly": {
+   "title": "Weekly Cleaning",
+   "steps": [
+    "Wash the CREAMi Deluxe Pint, outer bowl, and lids in warm soapy water or on the top rack of the dishwasher (no heated dry).",
+    "Remove the rubber lip seal from the outer bowl lid and wash separately.",
+    "Run warm water through the paddle release lever and drain holes on the outer bowl lid; position lever-side down to drain fully.",
+    "Wipe the motor base and spindle with a clean, damp cloth.",
+    "Inspect the paddle for any bending or damage and replace if needed."
+   ],
+   "supplies": [
+    "Warm soapy water",
+    "Handled dishwashing utensil",
+    "Damp cloth"
+   ]
+  },
+  "deep_clean": {
+   "title": "Deep Clean",
+   "steps": [
+    "Separate all parts: paddle, pint, outer bowl, outer bowl lid, CREAMi Deluxe lid, and rubber lip seal.",
+    "Hand-wash all parts in warm soapy water with a handled utensil, paying special attention to the paddle and drain holes in the lid.",
+    "Run warm water through the paddle release lever and out both drain holes; position lid lever-side down to fully drain.",
+    "Remove and hand-wash the dark grey rubber lip seal separately.",
+    "Raise the motor base platform and wipe the area between the base and platform with a damp cloth to remove any trapped liquid.",
+    "Wipe the spindle below the control panel and the motor base exterior with a clean damp cloth.",
+    "Air-dry all parts completely before reassembling or storing."
+   ],
+   "supplies": [
+    "Warm soapy water",
+    "Handled dishwashing utensil",
+    "Damp cloth",
+    "Soft non-abrasive cloth"
+   ]
+  }
+ },
+ "warranty": {
+  "duration_months": 12,
+  "coverage": "SharkNinja warrants the unit and non-wearable parts against defects in material and workmanship for one year from purchase date under normal household use. If a replacement unit is issued, coverage extends 6 months from receipt of replacement or the remainder of the original warranty, whichever is later.",
+  "exclusions": [
+   "Normal wear and tear of wearable parts (containers, lids, paddles, motor bases)",
+   "Units tampered with or used for commercial purposes",
+   "Damage from misuse, abuse, negligent handling, or failure to perform required maintenance",
+   "Consequential and incidental damages",
+   "Defects caused by unauthorized repair persons",
+   "Products purchased, used, or operated outside North America"
+  ],
+  "registration_required": false,
+  "contact": "1-877-646-5288 or ninjakitchen.com/support"
+ },
+ "manufactured_year": 2023,
+ "confidence": {
+  "overall": 0.92,
+  "safety": 0.97,
+  "how_to": 0.93,
+  "care": 0.9,
+  "troubleshooting": 0.92,
+  "notes": "Manual is clear and well-structured. Copyright year 2023 used for manufactured_year. No recurring filter, descaling, or airflow maintenance tasks exist for this appliance type — all care is cleaning-based. Confidence is high across all sections."
+ },
+ "truncated": false,
+ "model": "claude-sonnet-4-6",
+ "promptHash": "d564709261ca",
+ "at": "2026-08-19T17:26:40.123Z"
+}

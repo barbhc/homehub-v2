@@ -1,0 +1,83 @@
+{
+  "name": "dishwasher-thermador",
+  "appliance": "Thermador DWHD640EFM dishwasher",
+  "grounded_in": "Read 2026-08-19. §14 Cleaning and maintenance: 'Check the filters for residues after each dishwashing cycle' + 14.2 Cleaning spray arms. Troubleshooting E:20-60 says to descale a calcified heating element. §9 is the rinse aid system; the manual also covers detergent, water softening and Home Connect pairing. NOTE: this is a modern QR-code manual — the actual steps live behind QR codes, so the document is unusually thin on procedure.",
+  "doc_type": "user_manual",
+  "notes": "The appliance class that started the curation work ('Add Detergent Before Each Cycle' as a task). It also tests restraint: with the real steps hidden behind QR codes, a parser that writes confident detailed instructions is inventing them.",
+  "must_have": [
+    {
+      "id": "filter-system",
+      "title_matches": [
+        "filter"
+      ],
+      "care_type": "maintenance",
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "NEVER DROP category, and the manual gives it its own numbered section."
+    },
+    {
+      "id": "spray-arms",
+      "title_matches": [
+        "spray arm"
+      ],
+      "care_type": [
+        "maintenance",
+        "mixed"
+      ],
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "Named section 14.2; a functional part, so 'clean' here must not be read as cosmetic cleaning."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "descale",
+      "title_matches": [
+        "(descal|delime|limescale|calcif)"
+      ],
+      "why": "The manual only reaches it through an error code, so missing it is forgivable — but it is a NEVER DROP category."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "detergent",
+      "title_matches": [
+        "(add|fill|refill|pour).{0,24}(detergent|rinse aid|salt|tablet|pod)"
+      ],
+      "why": "THE canonical bad task. Constantly repeated, and still just running a dishwasher."
+    },
+    {
+      "id": "rinse-aid-setting",
+      "title_matches": [
+        "(set|adjust|change).{0,24}(rinse aid|water hardness|softening|dosage)"
+      ],
+      "why": "Dialling a setting is a preference, not maintenance."
+    },
+    {
+      "id": "home-connect",
+      "title_matches": [
+        "(home ?connect|wi-?fi|bluetooth)",
+        "\\b(pair|pairing)\\b",
+        "remote start",
+        "\\bapp\\b"
+      ],
+      "why": "One-time config / personalisation. NOTE: `app` is word-boundaried because the unbounded form matched inside 'Appliance' and flagged 'Descale the Appliance' — an expectation that fails on the right answer is worse than no expectation."
+    },
+    {
+      "id": "loading",
+      "title_matches": [
+        "^(load|unload)",
+        "(load|arrange).{0,20}(dish|rack|silverware)"
+      ],
+      "why": "Operating the dishwasher."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 3,
+    "max_tasks": 22,
+    "max_essential": 2,
+    "max_essential_share": 35
+  }
+}

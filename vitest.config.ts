@@ -14,6 +14,11 @@ export default defineConfig({
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       "shared/**/*.{test,spec}.ts",
+      // The parse eval's SCORER. It decides whether a parse regression ships,
+      // so it is gated like product code — a broken scorer produces a green
+      // eval that measures nothing, which is worse than no eval. Only the pure
+      // scoring module is collected; the runner needs credentials and an API.
+      "evals/**/*.{test,spec}.ts",
     ],
   },
   resolve: {

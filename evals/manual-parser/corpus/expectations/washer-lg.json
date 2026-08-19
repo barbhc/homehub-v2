@@ -1,0 +1,103 @@
+{
+  "name": "washer-lg",
+  "appliance": "LG WM3900HBA front-load washer",
+  "grounded_in": "Read 2026-08-19. Maintenance chapter is explicit: Regular Cleaning, Cleaning the Door Seal, Cleaning the Water Inlet Filters, Cleaning the Drain Pump Filter, Care in Cold Climates. Features chapter states 'Cleaning of the drum on a regular MONTHLY basis using Tub Clean'. Install chapter covers leveling feet and shipping bolts.",
+  "doc_type": "user_manual",
+  "must_have": [
+    {
+      "id": "tub-clean",
+      "title_matches": [
+        "(tub clean|clean.{0,12}drum|drum clean)"
+      ],
+      "care_type": "maintenance",
+      "cadence": [
+        "monthly"
+      ],
+      "why": "The manual states 'monthly' in so many words. This is the corpus's sharpest test of schedule fidelity: as_needed here is a measurable regression, not a judgement call."
+    },
+    {
+      "id": "drain-pump-filter",
+      "title_matches": [
+        "drain pump",
+        "pump filter"
+      ],
+      "care_type": "maintenance",
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "NEVER DROP category (drains/pumps)."
+    },
+    {
+      "id": "inlet-filter",
+      "title_matches": [
+        "(water )?inlet.{0,12}filter",
+        "inlet screen"
+      ],
+      "care_type": "maintenance",
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "NEVER DROP category (filters and screens)."
+    },
+    {
+      "id": "door-seal",
+      "title_matches": [
+        "(door seal|gasket|boot|bellows)"
+      ],
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "Seals are named explicitly in the prompt's filters/seals list and are a common mould complaint."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "level",
+      "title_matches": [
+        "level"
+      ],
+      "cadence": [
+        "setup"
+      ],
+      "why": "The canonical setup task. Its cadence is the test, not its presence."
+    },
+    {
+      "id": "cold-climate",
+      "title_matches": [
+        "(cold|freez|winteriz)"
+      ],
+      "why": "SEASONAL PREP is a NEVER DROP category and this manual has a section for it."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "detergent",
+      "title_matches": [
+        "(add|fill|refill|pour).{0,24}(detergent|softener|bleach)"
+      ],
+      "why": "Operation. This is the exact class of task the curation work exists to remove."
+    },
+    {
+      "id": "loading",
+      "title_matches": [
+        "^(load|unload|sort)",
+        "(load|sort).{0,20}(laundry|clothes)"
+      ],
+      "why": "Operating the appliance."
+    },
+    {
+      "id": "shipping-bolts",
+      "title_matches": [
+        "shipping bolt"
+      ],
+      "where": "recurring",
+      "why": "An unboxing artifact. Fine as setup, absurd on a calendar."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 6,
+    "max_tasks": 30,
+    "max_essential": 3,
+    "max_essential_share": 35
+  }
+}

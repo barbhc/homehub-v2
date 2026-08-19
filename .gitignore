@@ -80,3 +80,8 @@ scripts/ops/.tf-seen.json
 # Tester screenshots pulled by scripts/ops/testflight-feedback.mjs — these are
 # real photos of testers' homes and phones. They belong on disk, never in git.
 testflight-feedback/
+
+# Manual-parser eval: downloaded corpus PDFs. ~80MB of other people's appliance
+# manuals; runs/ is committed instead, which is what keeps the score
+# reproducible without them.
+evals/manual-parser/.pdf-cache/

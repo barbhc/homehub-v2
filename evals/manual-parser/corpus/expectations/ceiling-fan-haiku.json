@@ -1,0 +1,70 @@
+{
+  "name": "ceiling-fan-haiku",
+  "appliance": "Big Ass Fans Haiku L (L3127) ceiling fan",
+  "grounded_in": "Read 2026-08-19. The manual has exactly ONE maintenance page — 'Annual Maintenance', four checkboxes: Check Safety Cable, Secure Hardware, Check Wiring, Clean Airfoils. Everything else is the remote control, comfort modes and troubleshooting.",
+  "doc_type": "user_manual",
+  "notes": "The over-generation trap. A twelve-page manual with four genuine annual items. A parser that invents upkeep shows it here more clearly than anywhere else in the corpus, which is why max_tasks is deliberately tight.",
+  "must_have": [
+    {
+      "id": "safety-cable",
+      "title_matches": [
+        "(safety cable|cable)"
+      ],
+      "cadence": [
+        "annual",
+        "semiannual"
+      ],
+      "why": "A ceiling fan falling is the only real hazard this product has, and the manual gives the check an explicit annual cadence."
+    },
+    {
+      "id": "hardware",
+      "title_matches": [
+        "(hardware|mounting|tighten|secure|fastener|airfoil.{0,14}(secure|tight))"
+      ],
+      "cadence": [
+        "annual",
+        "semiannual"
+      ],
+      "why": "Stated annual item; also what the troubleshooting section points at for wobble and noise."
+    },
+    {
+      "id": "clean-airfoils",
+      "title_matches": [
+        "(airfoil|blade|dust)"
+      ],
+      "why": "Stated annual item. Cosmetic, so it also tests that the parser does not inflate it to essential."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "wiring",
+      "title_matches": [
+        "(wiring|wire nut|ground)"
+      ],
+      "why": "The fourth stated annual checkbox."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "remote-modes",
+      "title_matches": [
+        "(whoosh|sleep mode|timer mode|reverse the fan|comfort mode)",
+        "(set|use|adjust).{0,20}(fan speed|light brightness)"
+      ],
+      "why": "Operating the fan. Reversing it is a seasonal preference the manufacturer explicitly discourages. NOTE: this pattern deliberately does NOT match the word 'remote' on its own — the first run flagged 'Replace Remote Battery', which is a defensible as_needed task. An expectation that fails on a reasonable answer teaches people to ignore the suite."
+    },
+    {
+      "id": "pairing",
+      "title_matches": [
+        "(pair|wall control|nest|wi-?fi|senseme)"
+      ],
+      "why": "One-time config / personalisation."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 2,
+    "max_tasks": 9,
+    "max_essential": 2,
+    "max_essential_share": 40
+  }
+}

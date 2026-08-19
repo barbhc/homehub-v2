@@ -1,0 +1,1066 @@
+{
+ "chunks": [
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Product Models and Overview",
+   "content": "The Zephyr Ombra range hood covers models ZOM-E30BS, ZOM-E30BBS, ZOM-E36BS, and ZOM-E36BBS — wall-mounted chimney-style hoods with Airflow Control Technology (ACT™). The unit features a single blower motor, two 6W LumiLight LEDs, and touch controls.",
+   "tags": [
+    "ombra",
+    "wall-mount",
+    "range-hood",
+    "zephyr",
+    "act"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    1
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Fire and Grease Fire Emergency",
+   "content": "If a range-top grease fire occurs: smother flames with a lid or metal tray and turn off the burner. Never pick up a flaming pan, never use water, and only use a Class ABC extinguisher if the fire is small and contained — otherwise evacuate and call the fire department.",
+   "tags": [
+    "fire",
+    "grease-fire",
+    "emergency",
+    "safety"
+   ],
+   "scenarios": [
+    {
+     "condition": "Grease fire on range top",
+     "steps": [
+      "Smother flames with a close-fitting lid, cookie sheet, or metal tray.",
+      "Turn off the burner immediately.",
+      "Do NOT pick up a flaming pan.",
+      "Do NOT use water — violent steam explosion will result.",
+      "Use a Class ABC extinguisher ONLY if fire is small, contained, and you can fight it with your back to an exit.",
+      "If flames do not go out immediately, evacuate and call the fire department."
+     ]
+    }
+   ],
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Electrical Safety Requirements",
+   "content": "This appliance requires a 120V 60Hz supply on a dedicated, properly grounded branch circuit protected by a 15 or 20 amp breaker or time-delay fuse; wiring must be 2-wire with ground. Do not use extension cords or adapter plugs, and do not ground to a gas pipe.",
+   "tags": [
+    "electrical",
+    "grounding",
+    "120v",
+    "circuit-breaker",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Ducting and Ventilation Safety",
+   "content": "Use only single-wall rigid metal ductwork — never flexible duct (can restrict airflow up to 50%) and never exhaust into walls, ceilings, attics, crawl spaces, or garages. All exhaust must vent to the outdoors unless using the ductless recirculating option.",
+   "tags": [
+    "ducting",
+    "metal-duct",
+    "fire-hazard",
+    "ventilation",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5,
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "General Operation Safety",
+   "content": "Always leave safety grilles and filters in place during operation — without them, blowers can catch hair, fingers, and loose clothing. Always turn the hood ON when cooking at high heat or flambéing food, and clean ventilating fans frequently to prevent grease accumulation.",
+   "tags": [
+    "operation",
+    "filters",
+    "grease",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4,
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Installation Electrical Safety",
+   "content": "Electrical wiring must be done by a qualified person per all applicable codes (ANSI/NFPA 70 or CSA C22.1). Turn off power at the service panel before wiring; remove house fuse or open circuit breaker before beginning installation.",
+   "tags": [
+    "installation",
+    "electrical",
+    "qualified-installer",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5,
+    13
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Hood Dimensions and Mounting Heights",
+   "content": "Front width: 29-7/8\" (30\") or 35-7/8\" (36\"); depth: 19-3/4\"; chimney: 8-3/4\" wide × 6-7/8\" deep; duct outlet: 6\" round. Standard duct cover: min ducted 30\", min recirc 32\", max 42-1/2\"; with extension (Z1C-01OMS/Z1C-01OMBS): min ducted 46-1/2\", max 80\".",
+   "tags": [
+    "dimensions",
+    "specs",
+    "mounting-height",
+    "duct-cover"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    12
+   ],
+   "diagram_pages": [
+    12
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Ceiling Height Requirements",
+   "content": "Standard duct cover: min ceiling ducted 90\" (7'6\"), min ceiling recirc 92\" (7'8\"), max 112-1/2\" (9'4-1/2\"). Extension duct cover: min ceiling ducted 106-1/2\", min ceiling recirc 110-1/2\", max 150\" (12'6\").",
+   "tags": [
+    "ceiling-height",
+    "specs",
+    "duct-cover",
+    "installation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9
+   ],
+   "diagram_pages": [
+    9
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Parts Supplied",
+   "content": "Included: 1 hood, 2 aluminum mesh filters, 1 duct cover assembly (top and bottom), 1 duct cover wall bracket, 2 LumiLight LED 6W (pre-installed), 1 single blower motor (pre-installed), 1 hardware package (4× #6×1-1/2\", 2× #6×1\", 2× M4×8 screws, 3 wire nuts). Not included: ducting, cable locking connector, duct cover extension, recirculating kit.",
+   "tags": [
+    "parts",
+    "included",
+    "hardware",
+    "specs"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Mounting the Hood",
+   "content": "At least two installers are required. Measure and mark line A (26\" min from range top), plumb center line, mark line B (12-1/4\" above A), mark mounting spread (3-1/2\" left and 2\" right of center). Fasten 2× #6×1-1/2\" screws into studs on line B (not fully tightened), hang hood, hand-tighten, then secure with remaining screws from inside. Attach duct cover bracket to wall below ceiling with 2× #6×1-1/2\" screws, then install electrical, ductwork, and telescopic duct covers (secure with 2× M4×8 screws).",
+   "tags": [
+    "installation",
+    "mounting",
+    "wall-mount",
+    "duct-cover"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14,
+    15
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Ductless Recirculation Conversion",
+   "content": "Purchase recirculating kit ZRC-01OM (includes charcoal filters, brackets, and air diverter plate). Secure air diverter plate to wall below duct cover bracket, place charcoal filters on back of aluminum mesh filters secured by three brackets each, reinstall mesh filters, then enable recirculating mode via the touch controls. The system will alert after 120 hours of use to replace charcoal filters.",
+   "tags": [
+    "recirculating",
+    "ductless",
+    "charcoal-filter",
+    "conversion"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    16,
+    17
+   ],
+   "diagram_pages": [
+    17
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Touch Controls Operation",
+   "content": "Button 1 (Power/Delay Off): press to toggle hood on/off (remembers last speed and light level); hold 2 seconds with fan on to activate 5-minute delay-off timer. Buttons 2/3 decrease/increase fan speed (Q, 2, 3, 4). Button 4 (Lights): press once for high, again for low, again to off. The hood has 4 fan speeds: Quiet, 2, 3, 4.",
+   "tags": [
+    "controls",
+    "touch",
+    "fan-speed",
+    "lights",
+    "delay-off"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    18,
+    19
+   ],
+   "diagram_pages": [
+    18
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Enable and Disable Recirculating Mode",
+   "content": "To enable: with hood off, press and hold the + (fan increase) and light buttons simultaneously for 3 seconds — clean filter indicator illuminates for 3 seconds to confirm. To disable: repeat the same button combination for 3 seconds — clean filter indicator blinks twice to confirm.",
+   "tags": [
+    "recirculating",
+    "mode",
+    "controls",
+    "settings"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    19
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "ACT™ CFM Limitation Setup",
+   "content": "Disconnect hood from power. Remove aluminum mesh filters and PC board cover screws to access the PC board. Reposition the plastic jumper: pins 5-6 or 7-8 = default max CFM; pins 3-4 = max 390 CFM (3 speeds); pins 1-2 = max 290 CFM (2 speeds). Reinstall PC board, apply the appropriate foil CFM sticker inside the hood near the wiring diagram. Once powered on after repositioning, CFM cannot be changed again.",
+   "tags": [
+    "act",
+    "cfm",
+    "airflow-control",
+    "jumper",
+    "installation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    22,
+    23
+   ],
+   "diagram_pages": [
+    23
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "LumiLight LED Removal and Replacement",
+   "content": "Remove aluminum mesh filter. If applicable, remove side panels (2 screws each) and light panel (2 screws). Disconnect LED quick connector, push in the two side clips on the LED ends, then push the LED through the light panel opening. Replacement LED part number: Z0B0047.",
+   "tags": [
+    "led",
+    "lumilight",
+    "replacement",
+    "maintenance"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    21
+   ],
+   "diagram_pages": [
+    21
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Ducting Calculation and Planning",
+   "content": "Use the ducting calculation sheet to total equivalent duct length — maximum is 150 equivalent feet. Use minimum 6\" round rigid metal duct; increase to 7\" for long runs. Minimize elbows and transitions; place them as far from the hood outlet as possible and as far apart as possible.",
+   "tags": [
+    "ducting",
+    "calculation",
+    "installation",
+    "airflow"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    8,
+    10
+   ],
+   "diagram_pages": [
+    8
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning Aluminum Mesh Filters",
+   "content": "Remove filters and clean by hand or in the dishwasher using a non-phosphate detergent. Dry completely before reinstalling. Discoloration from phosphate detergents or local water is cosmetic and does not affect performance.",
+   "tags": [
+    "mesh-filter",
+    "cleaning",
+    "dishwasher-safe",
+    "aluminum"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning Stainless Steel Surfaces",
+   "content": "Clean periodically with warm soapy water and a cotton or microfiber cloth, always rubbing in the direction of the grain. For heavy grease, use a liquid degreaser; finish with a non-abrasive stainless steel polish, buffing in the grain direction.",
+   "tags": [
+    "stainless-steel",
+    "cleaning",
+    "surface",
+    "polish"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning Black Stainless Steel Surfaces",
+   "content": "Clean periodically with warm soapy water and a cotton or microfiber cloth; use a liquid degreaser for heavy grease. Do NOT use stainless steel polish or cleaners — the anti-smudge coating will be damaged.",
+   "tags": [
+    "black-stainless",
+    "cleaning",
+    "surface",
+    "anti-smudge"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Surface Cleaning Restrictions",
+   "content": "Never use corrosive or abrasive detergents, oven cleaners, products containing chlorine bleach or chloride, or steel wool/abrasive pads on any surface — these will scratch and damage the finish.",
+   "tags": [
+    "cleaning",
+    "restrictions",
+    "surface",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Charcoal Filter Replacement (Recirculating Mode)",
+   "content": "After 120 hours of fan use in recirculating mode, the clean filter indicator flashes to signal charcoal filter replacement. Do NOT wash charcoal filters — replace them. Replacement part number Z0F-C091 (order 2 per replacement). Reset the 120-hour timer by holding the + button for 3 seconds with hood off.",
+   "tags": [
+    "charcoal-filter",
+    "recirculating",
+    "replacement",
+    "120-hours"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    17,
+    19
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Reset Clean Filter Indicator",
+   "content": "For mesh filter timer (30-hour): with hood off, hold the — (fan decrease) button for 3 seconds — indicator turns off to confirm reset. For charcoal filter timer (120-hour, recirculating mode): with hood off, hold the + (fan increase) button for 3 seconds — indicator turns off to confirm reset.",
+   "tags": [
+    "filter-indicator",
+    "reset",
+    "controls",
+    "30-hour",
+    "120-hour"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    19
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Hood Not Working After Installation",
+   "content": "Check power source, wiring connections, and control board if the unit does not operate after installation.",
+   "tags": [
+    "troubleshooting",
+    "wont-start",
+    "power",
+    "wiring"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    25
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Hood Not Working",
+     "columns": [
+      "Problem",
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Unit doesn't work",
+       "Power source not ON",
+       "Check circuit breaker and unit power"
+      ],
+      [
+       "Unit doesn't work",
+       "Cable locking connector not connected properly",
+       "Check power connection"
+      ],
+      [
+       "Unit doesn't work",
+       "Switch/control board wiring disconnected",
+       "Verify wiring at switch and control board"
+      ],
+      [
+       "Unit doesn't work",
+       "Switch/control board defective",
+       "Replace switch or control board"
+      ],
+      [
+       "Unit doesn't work",
+       "Wires on control board loose",
+       "Reconnect wires on control board"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Blower Not Turning / Vibration / Whistling",
+   "content": "Diagnose blower, vibration, and whistling issues using the table below.",
+   "tags": [
+    "troubleshooting",
+    "blower",
+    "vibration",
+    "whistling",
+    "noise"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    25,
+    26
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Blower / Vibration / Whistling Issues",
+     "columns": [
+      "Problem",
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Light works, blower not turning",
+       "Blower wire not connected",
+       "Check all blower wiring"
+      ],
+      [
+       "Light works, blower not turning",
+       "Thermal protection activated (blower too hot)",
+       "Wait for system to cool down"
+      ],
+      [
+       "Light works, blower not turning",
+       "Switch/control board defective",
+       "Replace defective part"
+      ],
+      [
+       "Light works, blower not turning",
+       "Blower defective/seized",
+       "Replace blower"
+      ],
+      [
+       "Unit vibrating",
+       "Blower not secured",
+       "Tighten blower in place"
+      ],
+      [
+       "Unit vibrating",
+       "Damaged blower wheel",
+       "Replace blower"
+      ],
+      [
+       "Unit vibrating",
+       "Hood not secured",
+       "Check hood installation"
+      ],
+      [
+       "Unit whistling",
+       "Filter not in correct position",
+       "Adjust filters until whistling stops"
+      ],
+      [
+       "Unit whistling",
+       "Duct connections not sealed",
+       "Check and seal all duct connections"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "LED Lights Not Working / Poor Ventilation / Vibrating Filter",
+   "content": "Diagnose LED, ventilation performance, and mesh filter vibration issues using the table below.",
+   "tags": [
+    "troubleshooting",
+    "led",
+    "ventilation",
+    "filter",
+    "performance"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    25,
+    26
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "LED / Ventilation / Filter Issues",
+     "columns": [
+      "Problem",
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "LumiLight LEDs not working",
+       "LED connector disconnected",
+       "Reconnect LED connector"
+      ],
+      [
+       "LumiLight LEDs not working",
+       "Defective LED",
+       "Replace LumiLight LED"
+      ],
+      [
+       "LumiLight LEDs not working",
+       "Switch/control board defective",
+       "Replace switch or control board"
+      ],
+      [
+       "Hood not venting properly",
+       "Wrong duct size",
+       "Change to correct duct size"
+      ],
+      [
+       "Hood not venting properly",
+       "Hood too high from cooktop",
+       "Adjust to 26\"–34\" range"
+      ],
+      [
+       "Hood not venting properly",
+       "Wind from open windows/doors",
+       "Close windows and doors"
+      ],
+      [
+       "Hood not venting properly",
+       "Blockage in duct",
+       "Remove blockage from ductwork"
+      ],
+      [
+       "Mesh filter vibrating",
+       "Filter loose",
+       "Ensure metal clips are not stuck; replace if needed"
+      ],
+      [
+       "Mesh filter vibrating",
+       "Spring clip broken",
+       "Reinstall filter; push up on latch; replace if needed"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Parts and Accessories List",
+   "content": "Replacement parts: LumiLight LED 6W (Z0B0047), aluminum mesh filter (50200059). Optional accessories: Make-up Air Kit (MUA006A), Duct Cover Extension Stainless (Z1C-01OMS), Duct Cover Extension Black Stainless (Z1C-01OMBS), Recirculating Kit (ZRC-01OM), Replacement Charcoal Filter (Z0F-C091), Baffle Filter Kit (Z0F-B002). Order at store.zephyronline.com.",
+   "tags": [
+    "parts",
+    "accessories",
+    "part-numbers",
+    "replacement"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    27
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Recirculating Kit Part Numbers",
+   "content": "All four models (ZOM-E30BS, ZOM-E30BBS, ZOM-E36BS, ZOM-E36BBS) use recirculating kit ZRC-01OM (2 charcoal filters + brackets + air diverter plate) and replacement charcoal filters Z0F-C091 (order 2 per replacement).",
+   "tags": [
+    "recirculating",
+    "charcoal-filter",
+    "part-numbers",
+    "specs"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    16,
+    17
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "ACT™ CFM Verification",
+   "content": "To verify ACT™ setting: with hood off, hold the On/Off button for 3 seconds (or 5 seconds per page 23). Speed 4 indicator = default max CFM; speed 3 indicator = 390 CFM max (3 speeds); speed 2 indicator = 290 CFM max (2 speeds). A foil label inside the hood near the wiring diagram also indicates the set CFM.",
+   "tags": [
+    "act",
+    "cfm",
+    "verification",
+    "specs"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    18,
+    23
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Mounting Height and Clearance Guidelines",
+   "content": "Mount the hood so the bottom is a minimum of 24\" and maximum of 34\" above the range top. Hoods mounted too low risk heat damage and fire; too high reduces performance. Always check local codes and the range manufacturer's clearance requirements.",
+   "tags": [
+    "mounting-height",
+    "clearance",
+    "installation",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [
+    9
+   ],
+   "table_data": null,
+   "applies_to": []
+  }
+ ],
+ "tasks": [
+  {
+   "title": "Clean Aluminum Mesh Filters",
+   "description": "Remove and wash the aluminum mesh filters to prevent grease buildup that can restrict airflow and create a fire hazard.",
+   "care_type": "maintenance",
+   "justification": "Grease accumulation on filters restricts airflow, reduces hood performance, and creates a fire hazard.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 20,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Remove the aluminum mesh filters from the hood. Wash by hand or in the dishwasher using a non-phosphate detergent. For heavy grease, spray with a degreaser and let soak before washing. Dry completely before reinstalling. The clean filter indicator lights after 30 hours of fan use — reset it by holding the — button for 3 seconds with the hood off.",
+   "source_page": 20,
+   "tags": [
+    "mesh-filter",
+    "grease",
+    "cleaning",
+    "30-hour-indicator"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "performance_drop",
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Non-phosphate dishwasher detergent",
+     "category": "cleaner",
+     "part_number": null
+    },
+    {
+     "name": "Liquid degreaser",
+     "category": "cleaner",
+     "part_number": null
+    }
+   ]
+  },
+  {
+   "title": "Replace Charcoal Filters",
+   "description": "Replace the charcoal filters in recirculating mode after 120 hours of fan use to maintain air purification effectiveness.",
+   "care_type": "maintenance",
+   "justification": "Saturated charcoal filters no longer purify cooking fumes, causing odors to recirculate back into the home.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 15,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "When the clean filter indicator flashes (after 120 hours of fan use in recirculating mode), purchase replacement charcoal filters (part Z0F-C091, order 2). Remove the aluminum mesh filters. Remove the old charcoal filters from the back of the mesh filters. Attach new charcoal filters to the back of the mesh filters using the three brackets per filter. Reinstall the mesh filters. Reset the 120-hour timer by holding the + button for 3 seconds with the hood off. Do NOT wash charcoal filters — they must be replaced.",
+   "source_page": 17,
+   "tags": [
+    "charcoal-filter",
+    "recirculating",
+    "120-hours",
+    "replacement"
+   ],
+   "diagram_pages": [
+    17
+   ],
+   "symptom_tags": [
+    "odor",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Replacement Charcoal Filter",
+     "category": "filter",
+     "part_number": "Z0F-C091"
+    }
+   ]
+  },
+  {
+   "title": "Clean Hood Exterior Surfaces",
+   "description": "Wipe down the hood exterior periodically to remove grease and cooking residue.",
+   "care_type": "cleaning",
+   "justification": "Grease buildup on the exterior is unsightly and can become a fire hazard if left to accumulate heavily.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "For stainless steel: wipe with warm soapy water and a cotton or microfiber cloth, always rubbing in the direction of the grain. For heavy grease, use a liquid degreaser. Finish with a non-abrasive stainless steel polish, buffing in the grain direction. For black stainless steel: use warm soapy water and a soft cloth only — do NOT use stainless steel polish or cleaners as they damage the anti-smudge coating. Never use abrasive pads, steel wool, chlorine bleach, or oven cleaners on any surface.",
+   "source_page": 20,
+   "tags": [
+    "exterior",
+    "stainless-steel",
+    "black-stainless",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Non-abrasive stainless steel polish",
+     "category": "cleaner",
+     "part_number": null
+    },
+    {
+     "name": "Liquid degreaser",
+     "category": "cleaner",
+     "part_number": null
+    }
+   ]
+  },
+  {
+   "title": "Replace LumiLight LED",
+   "description": "Replace a failed LumiLight LED to restore cooking area illumination.",
+   "care_type": "maintenance",
+   "justification": "A failed LED leaves the cooking area without adequate lighting.",
+   "priority_tier": "recommended",
+   "risk_level": "comfort",
+   "estimated_minutes": 20,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Remove the aluminum mesh filter. If applicable, remove side panels (2 screws each) and the light panel (2 screws). Disconnect the LED quick connector. Push in the two side clips on the ends of the LED and push it through the light panel opening. Insert the new LED (part Z0B0047), reconnect the quick connector, and reinstall the light panel, side panels, and mesh filter.",
+   "source_page": 21,
+   "tags": [
+    "led",
+    "lumilight",
+    "replacement",
+    "lighting"
+   ],
+   "diagram_pages": [
+    21
+   ],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "LumiLight LED 6W",
+     "category": "other",
+     "part_number": "Z0B0047"
+    }
+   ]
+  },
+  {
+   "title": "Mount and Install the Hood",
+   "description": "One-time installation of the range hood to the wall at the correct height and position.",
+   "care_type": "maintenance",
+   "justification": "Improper installation can result in the hood falling, causing personal injury or damage to the cooktop.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 90,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Requires at least two installers. Mark line A at 26\" min above range top, plumb center line, mark line B 12-1/4\" above A. Mark mounting spread: 3-1/2\" left and 2\" right of center on line B. Fasten 2× #6×1-1/2\" screws into studs on line B (not fully tightened). Hang hood on screws and hand-tighten, then secure with remaining screws from inside the hood. Attach duct cover bracket below ceiling with 2× #6×1-1/2\" screws. Install electrical, ductwork (seal all joints with certified duct tape), and telescopic duct covers (secure with 2× M4×8 screws). If using recirculating mode, install air diverter plate before duct covers.",
+   "source_page": 14,
+   "tags": [
+    "installation",
+    "mounting",
+    "wall-mount",
+    "setup"
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "symptom_tags": [
+    "vibration",
+    "noise"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "vibration",
+     "description": "Hood vibrates excessively during operation",
+     "severity": "warning"
+    },
+    {
+     "trigger": "noise",
+     "description": "Unusual rattling or movement of the hood",
+     "severity": "warning"
+    },
+    {
+     "trigger": "physical_damage",
+     "description": "Hood appears to have shifted or is no longer level",
+     "severity": "safety"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Set Up ACT™ CFM Limitation",
+   "description": "One-time configuration of the maximum blower CFM using the jumper on the PC board to comply with local codes.",
+   "care_type": "maintenance",
+   "justification": "Some local codes limit maximum CFM; failure to configure ACT™ may result in code non-compliance.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 20,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Before installation, disconnect hood from power. Remove aluminum mesh filters and PC board cover screws to access the PC board. Reposition the plastic jumper: pins 5-6 or 7-8 = default max CFM; pins 3-4 = max 390 CFM (3 speeds); pins 1-2 = max 290 CFM (2 speeds). Reinstall PC board cover. Apply the appropriate foil CFM sticker inside the hood near the wiring diagram. Note: once powered on after repositioning, CFM cannot be changed again.",
+   "source_page": 23,
+   "tags": [
+    "act",
+    "cfm",
+    "jumper",
+    "installation",
+    "local-codes"
+   ],
+   "diagram_pages": [
+    23
+   ],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Install Recirculating Kit",
+   "description": "One-time setup of the ductless recirculation option when exhaust ducting cannot be installed.",
+   "care_type": "maintenance",
+   "justification": "Without proper recirculating kit installation, cooking fumes will not be filtered and will recirculate unfiltered air.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 30,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Purchase recirculating kit ZRC-01OM. Secure the air diverter plate to the wall below the duct cover bracket. Remove aluminum mesh filters from the hood. Place charcoal filters on the back side of each aluminum mesh filter and secure with three brackets per filter. Reinstall the aluminum mesh filters. Enable recirculating mode via the touch controls (hold + and light buttons simultaneously for 3 seconds with hood off).",
+   "source_page": 16,
+   "tags": [
+    "recirculating",
+    "ductless",
+    "charcoal-filter",
+    "setup"
+   ],
+   "diagram_pages": [
+    17
+   ],
+   "symptom_tags": [
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Recirculating Kit",
+     "category": "filter",
+     "part_number": "ZRC-01OM"
+    }
+   ]
+  }
+ ],
+ "cleaning_guide": {
+  "weekly": {
+   "title": "Weekly Hood Cleaning",
+   "steps": [
+    "Wipe the hood exterior with warm soapy water and a soft cotton or microfiber cloth.",
+    "For stainless steel, always rub in the direction of the grain; for black stainless, do NOT use stainless steel polish.",
+    "Check the mesh filters for visible grease buildup and clean if needed.",
+    "Never use abrasive pads, steel wool, chlorine bleach, or oven cleaners on any surface."
+   ],
+   "supplies": [
+    "Warm soapy water",
+    "Cotton or microfiber cloth",
+    "Liquid degreaser (for heavy grease)"
+   ]
+  },
+  "deep_clean": {
+   "title": "Deep Clean (Filter Cleaning)",
+   "steps": [
+    "Remove the aluminum mesh filters from the hood.",
+    "For heavy grease, spray with a liquid degreaser and let soak for several minutes.",
+    "Wash filters by hand or in the dishwasher using a non-phosphate detergent.",
+    "Rinse thoroughly and dry completely before reinstalling.",
+    "Reset the 30-hour clean filter indicator by holding the — button for 3 seconds with the hood off.",
+    "If in recirculating mode, inspect charcoal filters and replace if the 120-hour indicator has flashed (part Z0F-C091)."
+   ],
+   "supplies": [
+    "Non-phosphate dishwasher detergent",
+    "Liquid degreaser",
+    "Replacement Charcoal Filter Z0F-C091 (if needed)"
+   ]
+  }
+ },
+ "warranty": {
+  "duration_months": 36,
+  "coverage": "Three-year limited warranty on parts (including LED bulbs); one-year limited warranty on labor for manufacturing defects. Zephyr may repair or replace defective products or parts at their discretion.",
+  "exclusions": [
+   "Normal maintenance and consumable parts (light bulbs, mesh and charcoal filters, fuses)",
+   "Freight damage, misuse, negligence, or accident",
+   "Faulty or non-recommended installation",
+   "Improper maintenance or repair by non-Zephyr parties",
+   "Commercial or government use",
+   "Natural finish wear or wear from improper maintenance or abrasive cleaners",
+   "Chips, dents, or cracks from abuse or misuse",
+   "Service trips to teach product use",
+   "Damage from accident, fire, floods, or acts of God",
+   "Custom installations or alterations affecting serviceability",
+   "Filter discoloration from phosphate detergents or local water conditions"
+  ],
+  "registration_required": null,
+  "contact": "1-888-880-8368 | www.zephyronline.com | Zephyr Ventilation Service Department, 2277 Harbor Bay Parkway, Alameda, CA 94502"
+ },
+ "manufactured_year": 2021,
+ "confidence": {
+  "overall": 0.88,
+  "safety": 0.95,
+  "how_to": 0.9,
+  "care": 0.88,
+  "troubleshooting": 0.9,
+  "notes": "Manual is clear and well-structured. French pages were skipped per instructions. Minor ambiguity in ACT verification button hold time (3 vs 5 seconds mentioned on different pages). Manufactured year inferred from document code JAN21.0101."
+ },
+ "truncated": false,
+ "model": "claude-sonnet-4-6",
+ "promptHash": "d564709261ca",
+ "at": "2026-08-19T17:20:55.189Z"
+}

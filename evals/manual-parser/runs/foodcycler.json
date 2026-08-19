@@ -1,0 +1,808 @@
+{
+ "chunks": [
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "FoodCycler FC-50 Specifications",
+   "content": "Voltage: 120V, 60Hz, 500W max. Dimensions: 14.2\"H x 12.6\"D x 11.0\"W; Weight: ~20 lbs; Capacity: ~10.5 cups / 2.5L; Processing time: ~4–8 hours.",
+   "tags": [
+    "specs",
+    "voltage",
+    "dimensions",
+    "capacity",
+    "processing-time"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    1
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Parts and Components",
+   "content": "The FC-50 includes: (1) main body with processing lid, (2) replaceable carbon filters, (3) bucket, (4) bucket lid with pre-loaded filter, (5) carbon filter caps, (6) removable back panel, and (7) power cord.",
+   "tags": [
+    "parts",
+    "components",
+    "carbon-filter",
+    "bucket",
+    "back-panel"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [
+    4
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Electric Shock Hazard — Water Immersion",
+   "content": "NEVER immerse the power cord, power plug, or main body in water or any other liquid. If the appliance becomes submerged, unplug immediately — failure to follow can cause death or electric shock.",
+   "tags": [
+    "electric-shock",
+    "water",
+    "immersion",
+    "safety"
+   ],
+   "scenarios": [
+    {
+     "condition": "Appliance or cord contacts water or becomes submerged",
+     "steps": [
+      "Immediately unplug the appliance from the wall outlet.",
+      "Do not touch the appliance while it is in contact with water.",
+      "Contact Vitamix Technical Support before using again."
+     ]
+    }
+   ],
+   "source_pages": [
+    1,
+    2
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Sharp Blades — Never Contact Blades",
+   "content": "Blades are extremely sharp — NEVER manually contact the blades during cleaning or operation. NEVER put hands inside the bucket while it is inserted in the appliance; remove the bucket first if adjustment is needed.",
+   "tags": [
+    "blades",
+    "sharp",
+    "injury",
+    "safety"
+   ],
+   "scenarios": [
+    {
+     "condition": "Need to adjust bucket contents during or after a cycle",
+     "steps": [
+      "Turn off and unplug the appliance.",
+      "Allow to cool for at least 35 minutes.",
+      "Remove the bucket from the main body before adjusting contents."
+     ]
+    }
+   ],
+   "source_pages": [
+    2,
+    7
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Hot Surface Warning — Cool Before Opening",
+   "content": "NEVER touch hot surfaces; always use product handles. Allow the FC-50 components to cool approximately 35 minutes after the cycle completes before opening the lid or removing the bucket.",
+   "tags": [
+    "hot-surface",
+    "burn",
+    "cool-down",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    1,
+    2,
+    7,
+    8
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Electrical Safety — Grounding and Cord Use",
+   "content": "Always use grounded outlets; never remove the ground, use an adapter, or use an extension cord. Never plug into a timer or switch-controlled outlet, and never unplug by pulling the cord — grasp the plug.",
+   "tags": [
+    "grounding",
+    "extension-cord",
+    "electrical",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Never Open Lid During Operation",
+   "content": "NEVER open the lid or remove the bucket during a cycle. Ensure the cycle is complete and the appliance is unplugged before removing the bucket.",
+   "tags": [
+    "lid",
+    "operation",
+    "safety",
+    "cycle"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3,
+    8
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "What NOT to Put in the Bucket",
+   "content": "Never process large bones (pork/beef/lamb), hard pits (peach, avocado, mango, lychee, apricot), candy, gum, nuts, hard shells, oils/fats, coffee pods, cardboard, glass, wood, metal, paper towels, or pineapple leaves — these can cause serious damage or motor overload.",
+   "tags": [
+    "prohibited-items",
+    "bucket",
+    "safety",
+    "motor-overload"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3,
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Fill Line and Overloading Warning",
+   "content": "Never add food waste above the thin indented fill line on the inside wall of the bucket, and never pack food down to keep it below the line. Overloading can jam the appliance.",
+   "tags": [
+    "fill-line",
+    "overloading",
+    "bucket",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3,
+    7
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Ventilation and Heat Source Clearance",
+   "content": "Never block vents or place objects on the lid during operation; ensure adequate space around the appliance. Never place near hot burners, ovens, or heaters. The FC-50 operates best between 68°F–82.4°F (20°C–28°C).",
+   "tags": [
+    "ventilation",
+    "clearance",
+    "heat-source",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2,
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "reference",
+   "title": "Authorized Parts and Repairs Only",
+   "content": "Only use Vitamix-authorized attachments, carbon filters, and lids. Any repair, servicing, or part replacement must be performed by Vitamix or an authorized service representative — unauthorized repairs void the warranty.",
+   "tags": [
+    "authorized-parts",
+    "repairs",
+    "warranty",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "First-Use Setup",
+   "content": "Before first use: remove all packaging, stickers, and the power plug cover; open the lid (rotate counterclockwise to unlock), remove filter caps from inside the bucket and discard plastic wrap; remove paper rings from bucket top and bottom; pull bucket out and discard the max-fill sticker; reinstall bucket aligning arrows; remove vent sticker inside bucket compartment; pull back panel tab, remove white stickers from carbon filters, install filter caps (half-moon opening toward back panel), and snap back panel into place.",
+   "tags": [
+    "setup",
+    "first-use",
+    "unboxing",
+    "filter-caps",
+    "back-panel"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [
+    5
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Loading and Running a Processing Cycle",
+   "content": "Open and remove the processing lid (rotate counterclockwise to unlock), remove the bucket, add food waste up to the fill line, reinsert bucket aligning arrows, fold down handle, close and lock the lid (rotate clockwise), plug in, press On/Off once to start. The cycle runs 4–8 hours through Drying, Grinding, and Cooling modes; do not open the lid during the cycle. When complete, the appliance beeps and enters Standby; allow 35 minutes to cool before opening.",
+   "tags": [
+    "operation",
+    "cycle",
+    "loading",
+    "bucket",
+    "processing"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7,
+    8
+   ],
+   "diagram_pages": [
+    8
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "What Foods Can Be Processed",
+   "content": "YES (process freely): most fruit/veggie scraps, meat/fish/shellfish/poultry scraps, coffee grounds/filters/tea bags, beans/seeds/legumes, cereals/grains, eggs/shells, poultry/fish bones, pet food. CUT UP first: fibrous herbs, citrus rinds, corn cobs/husks, whole fruits/vegetables, celery/asparagus/fibrous plants. SMALL AMOUNTS only: dairy, jellies/jams/puddings, starches (bread/cake/rice), sauces/soups/dressings.",
+   "tags": [
+    "food-types",
+    "processing",
+    "what-to-add",
+    "guidelines"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [
+    6
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Using the By-Product as Plant Food",
+   "content": "The processed by-product can be used as plant food at a 1:10 ratio (plant food to soil); increase to 1:15 for cycles heavy in animal protein. Wait at least 1 week (4 weeks for best results) after mixing into soil before planting. Do not apply directly to the soil surface.",
+   "tags": [
+    "by-product",
+    "plant-food",
+    "compost",
+    "soil"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Manual System Reset",
+   "content": "If the operating system needs a reset: (a) plug in, (b) press and hold On/Off for 3 seconds until a beep is heard and the unit powers down, (c) unplug for 1 minute, (d) plug back in and wait 10 seconds, (e) press On/Off to restart. Repeat if needed; if still unresolved, contact Vitamix Customer Service.",
+   "tags": [
+    "reset",
+    "troubleshooting",
+    "operating-system",
+    "standby"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    12
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Replace Carbon Filters",
+   "content": "When the Change Filter light illuminates: pull back panel tab to release, remove filter caps, turn each filter counter-clockwise to remove and dispose per local regulations. Remove packaging from new filters and caps. Install new filters threaded-end down, rotate clockwise until stopped. Install caps with half-moon opening toward back panel. If indicator doesn't reset automatically, press and hold the small round button until a beep is heard. Reinstall back panel.",
+   "tags": [
+    "carbon-filter",
+    "replacement",
+    "back-panel",
+    "filter-caps",
+    "maintenance"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Replace Bucket Lid Filter",
+   "content": "When bucket odors become unpleasant: remove bucket lid, turn it over, remove the wingnut and slotted metal plate, remove and discard the old filter (do not wash it). Wash the lid and metal plate in the dishwasher or by hand. Install the new filter, replace the metal plate, reinstall the wingnut, and return the lid to the bucket.",
+   "tags": [
+    "bucket-lid-filter",
+    "replacement",
+    "odor",
+    "maintenance"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning the Appliance Exterior",
+   "content": "Wipe the outside surface and bucket compartment with a wrung-out cloth dampened with mild soap and water only; remove remaining moisture with a dry towel. Never use household cleaners or pour liquid over the appliance.",
+   "tags": [
+    "cleaning",
+    "exterior",
+    "wipe-down",
+    "mild-soap"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning the Bucket",
+   "content": "Remove all material from the bucket, wipe out residue with a paper towel, then place in the lower rack of the dishwasher. Alternatively, hand-wash with warm water and a small amount of dish soap, scrubbing around and beneath the grinding arms. Allow to cool before reinstalling if washed on a hot cycle.",
+   "tags": [
+    "bucket",
+    "cleaning",
+    "dishwasher",
+    "hand-wash"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Extending Carbon Filter Life",
+   "content": "Turn off and unplug the appliance when not in use to extend filter life (leaving it in Active mode reduces filter life). Running a cycle with only citrus rinds helps mitigate filter odors, and including coffee grounds regularly keeps the bucket clean and reduces odors.",
+   "tags": [
+    "carbon-filter",
+    "filter-life",
+    "odor",
+    "tips"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Troubleshooting — Indicator Lights and Common Problems",
+   "content": "Use the table below to diagnose common FC-50 issues by indicator light or symptom.",
+   "tags": [
+    "troubleshooting",
+    "indicator-lights",
+    "error",
+    "standby"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    13
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Troubleshooting Guide",
+     "columns": [
+      "Problem",
+      "Remedy"
+     ],
+     "rows": [
+      [
+       "On/Off button not illuminated",
+       "Appliance is in STANDBY (normal). Check both ends of power cord are connected. Unplug and replug. If persists, contact Vitamix."
+      ],
+      [
+       "On/Off button flashing + audible beeps",
+       "Lid is unlocked or sensor dislodged. Lock the lid. If problem continues, contact Vitamix."
+      ],
+      [
+       "Drying light flashing — food in main body",
+       "Unplug, cool 35 min, remove bucket, remove food waste from main body."
+      ],
+      [
+       "Drying light flashing — overloaded",
+       "Unplug, cool 35 min, remove bucket, manually turn gear counter-clockwise to remove food until below fill line, reinstall and restart."
+      ],
+      [
+       "Drying light flashing — food too large",
+       "Unplug, cool 35 min, remove bucket, cut food into smaller pieces, reinstall and restart."
+      ],
+      [
+       "Drying light flashing — grinding arm issue",
+       "Unplug, cool 35 min, remove bucket, manually turn gear counter-clockwise. If arm turns with hesitation or not at all, contact Vitamix."
+      ],
+      [
+       "Grinding, Cooling, or All lights flashing",
+       "Machine issue — contact Vitamix Customer Service immediately."
+      ],
+      [
+       "Bucket coating faded or chipped",
+       "Not a defect; cosmetic result of food waste scraping during processing. Does not affect function."
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Troubleshooting — Storage and Processing Tips",
+   "content": "Do not store unprocessed food waste in the appliance long-term — decomposing matter generates odors, methane, and may attract pests. For overly moist food results, run an additional cycle to dry the by-product.",
+   "tags": [
+    "storage",
+    "odor",
+    "moist",
+    "pests",
+    "troubleshooting"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  }
+ ],
+ "tasks": [
+  {
+   "title": "First-Use Setup and Preparation",
+   "description": "Prepare the FC-50 for first use by removing all packaging materials, stickers, and paper rings, and properly installing the carbon filters and back panel.",
+   "care_type": "maintenance",
+   "justification": "Skipping setup steps (e.g., leaving stickers on filters or the vent) can prevent proper operation and damage the appliance.",
+   "priority_tier": "essential",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 20,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Remove all packaging, the power plug cover, and promotional labels. Open the processing lid (rotate counterclockwise to unlock), remove filter caps from inside the bucket and discard plastic wrap. Remove paper rings from top and bottom of bucket. Pull bucket out and discard the max-fill sticker from the inside wall. Remove the vent sticker inside the bucket compartment. Pull back panel tab to release, remove white stickers from top of each carbon filter, install filter caps with half-moon opening facing the back panel, and snap the back panel back into place.",
+   "source_page": 5,
+   "tags": [
+    "setup",
+    "first-use",
+    "carbon-filter",
+    "back-panel"
+   ],
+   "diagram_pages": [
+    5
+   ],
+   "symptom_tags": [
+    "wont_start"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "wont_start",
+     "description": "Appliance does not start or shows errors on first use",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Bucket",
+   "description": "Clean the bucket after each processing cycle to remove food residue and prevent buildup around the grinding arms.",
+   "care_type": "cleaning",
+   "justification": "Food residue left in the bucket can cause odors and interfere with grinding arm function over time.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "Remove all processed material from the bucket and wipe out any residue with a paper towel. Place the bucket in the lower rack of the dishwasher, or hand-wash with warm water and a small amount of dish soap, scrubbing around and beneath the grinding arms. If using the dishwasher's hot cycle, allow the bucket to cool before handling or reinstalling.",
+   "source_page": 9,
+   "tags": [
+    "bucket",
+    "cleaning",
+    "dishwasher",
+    "grinding-arms"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "odor",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Appliance Exterior",
+   "description": "Wipe down the outside of the appliance and bucket compartment every 3–4 months to keep it clean.",
+   "care_type": "cleaning",
+   "justification": "Regular cleaning prevents buildup on the exterior and bucket compartment; the manual recommends cleaning every 3–4 months.",
+   "priority_tier": "recommended",
+   "risk_level": "comfort",
+   "estimated_minutes": 10,
+   "schedule_type": "quarterly",
+   "interval_days": null,
+   "instructions_text": "Using a wrung-out cloth dampened with mild soap and water only, wipe down the outside surface of the appliance and around the bucket compartment. Remove any remaining moisture with a clean, dry towel or cloth. Never use household cleaners or pour liquid over the appliance.",
+   "source_page": 9,
+   "tags": [
+    "exterior",
+    "cleaning",
+    "mild-soap",
+    "quarterly"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Replace Carbon Filters",
+   "description": "Replace the two carbon filters every 3–6 months (or ~500 cycle hours) when the Change Filter indicator light illuminates.",
+   "care_type": "maintenance",
+   "justification": "Carbon filters wick away odors during processing; worn filters allow unpleasant odors to escape and the Change Filter light signals replacement is needed.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 15,
+   "schedule_type": "every_n_days",
+   "interval_days": 90,
+   "instructions_text": "When the Change Filter light illuminates, pull the back panel tab down to release it and set aside. Remove the filter caps. Turn each filter counter-clockwise to remove; dispose per local regulations. Remove packaging from new filters and caps (including stickers). Install new filters threaded-end down and rotate clockwise until they stop. Install filter caps with the half-moon opening facing the back panel. If the indicator light does not reset automatically, press and hold the small round button until you hear a beep. Snap the back panel back into place.",
+   "source_page": 10,
+   "tags": [
+    "carbon-filter",
+    "replacement",
+    "odor",
+    "change-filter-light"
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "symptom_tags": [
+    "odor",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Carbon Filter (Set of 2)",
+     "category": "filter",
+     "part_number": null
+    }
+   ]
+  },
+  {
+   "title": "Replace Bucket Lid Filter",
+   "description": "Replace the bucket lid filter when bucket odors become unpleasant to restore odor containment while collecting food scraps.",
+   "care_type": "maintenance",
+   "justification": "The bucket lid filter contains odors while collecting food scraps; a worn filter allows unpleasant smells to escape.",
+   "priority_tier": "recommended",
+   "risk_level": "comfort",
+   "estimated_minutes": 10,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Remove the bucket lid from the bucket. Turn it over and remove the wingnut in the center of the slotted metal plate. Remove the slotted metal plate. Remove the old filter and discard per local regulations — do not wash the filter. Wash the bucket lid and metal plate in the dishwasher or by hand with a wrung-out cloth. Install the new filter, replace the slotted metal plate, and reinstall the wingnut. Return the bucket lid to the top of the bucket.",
+   "source_page": 10,
+   "tags": [
+    "bucket-lid-filter",
+    "replacement",
+    "odor"
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "symptom_tags": [
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Bucket Lid Filter",
+     "category": "filter",
+     "part_number": null
+    }
+   ]
+  },
+  {
+   "title": "Inspect Power Cord and Plug",
+   "description": "Regularly inspect the power cord, plug, and appliance for any signs of damage before use.",
+   "care_type": "maintenance",
+   "justification": "Operating a damaged cord or plug creates a risk of electric shock or fire; the manual instructs users to immediately cease use if damage is found.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 5,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Before each use, visually inspect the power cord and plug for cuts, fraying, kinks, or damage. Check the appliance body for cracks or damage. If any damage is found, stop using the appliance immediately and contact Vitamix Technical Support at 1.800.848.2649 or service@vitamix.com.",
+   "source_page": 3,
+   "tags": [
+    "power-cord",
+    "inspection",
+    "safety",
+    "electrical"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "electrical",
+    "wont_start"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "electrical",
+     "description": "You notice sparks, burning smell, or the appliance stops working unexpectedly",
+     "severity": "safety"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Run Citrus-Only Odor Mitigation Cycle",
+   "description": "Run a cycle with only citrus rinds (lemons, oranges) to help reduce filter and bucket odors between filter replacements.",
+   "care_type": "maintenance",
+   "justification": "Citrus rinds help neutralize odors in the filters and bucket, extending effective filter life.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 5,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Collect citrus rinds (lemon, orange, etc.) and fill the bucket up to the fill line with rinds only. Insert the bucket, lock the lid, plug in, and press On/Off to run a normal cycle. This helps mitigate odors in the filters and bucket.",
+   "source_page": 11,
+   "tags": [
+    "odor",
+    "citrus",
+    "filter-life",
+    "optional"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  }
+ ],
+ "cleaning_guide": {
+  "weekly": {
+   "title": "After-Use Bucket Cleaning",
+   "steps": [
+    "Remove all processed material from the bucket.",
+    "Wipe out any residue with a paper towel.",
+    "Place the bucket in the lower rack of the dishwasher, or hand-wash with warm water and a small amount of dish soap.",
+    "Scrub around and beneath the grinding arms to clean all surfaces.",
+    "Allow the bucket to cool before reinstalling if washed on a hot dishwasher cycle."
+   ],
+   "supplies": [
+    "Dish soap",
+    "Paper towels",
+    "Dishcloth"
+   ]
+  },
+  "deep_clean": {
+   "title": "Quarterly Full Appliance Cleaning (Every 3–4 Months)",
+   "steps": [
+    "Turn off and unplug the appliance.",
+    "Using a wrung-out cloth dampened with mild soap and water only, wipe down the outside surface of the appliance.",
+    "Wipe around the bucket compartment interior.",
+    "Remove any remaining moisture with a clean, dry towel.",
+    "Clean the bucket thoroughly in the dishwasher (lower rack) or by hand-washing with warm water and dish soap.",
+    "Inspect the carbon filters — replace if the Change Filter light is on or odors are present.",
+    "Inspect the bucket lid filter — replace if odors from the bucket lid are unpleasant."
+   ],
+   "supplies": [
+    "Mild dish soap",
+    "Soft cloth or sponge",
+    "Paper towels",
+    "Dry towel",
+    "Replacement carbon filters (if needed)",
+    "Replacement bucket lid filter (if needed)"
+   ]
+  }
+ },
+ "warranty": {
+  "duration_months": 36,
+  "coverage": "Vitamix warrants the Food Recycler (motor base, bucket, and lid purchased together) against defects in material or workmanship and normal wear and tear from ordinary household use for 3 years from date of purchase or delivery. Vitamix will repair, replace, or refund the purchase price within 30 days of receiving the returned unit.",
+  "exclusions": [
+   "Commercial or non-household use",
+   "Cosmetic changes not affecting performance (discoloration, abrasive/cleaner effects, food buildup)",
+   "Worn or chipped coating on bucket inner wall or floor",
+   "Filters (wear items, not covered)",
+   "Unauthorized repairs",
+   "Misuse, abuse, negligence, or alteration",
+   "Use with non-Vitamix-authorized parts or containers"
+  ],
+  "registration_required": false,
+  "contact": "1-800-848-2649 or service@vitamix.com"
+ },
+ "manufactured_year": 2023,
+ "confidence": {
+  "overall": 0.93,
+  "safety": 0.97,
+  "how_to": 0.95,
+  "care": 0.92,
+  "troubleshooting": 0.93,
+  "notes": "Manual is clear and well-structured. French pages (15–28) were skipped per instructions. Carbon filter replacement interval stated as 3–6 months or ~500 cycle hours; 90-day interval used as the more frequent end. Manufactured year inferred from copyright date '©2023' on warranty page."
+ },
+ "truncated": false,
+ "model": "claude-sonnet-4-6",
+ "promptHash": "d564709261ca",
+ "at": "2026-08-19T17:17:59.418Z"
+}

@@ -1,0 +1,50 @@
+{
+  "name": "foodcycler",
+  "appliance": "Vitamix FoodCycler FC-50",
+  "grounded_in": "Read 2026-08-19. Parts list names 'Replaceable carbon filters — wick away odors during processing'; safety list says replacement carbon filters are ordered from Vitamix, and 'Regularly inspect the power cord'. Everything else is loading the bucket and running a cycle.",
+  "doc_type": "user_manual",
+  "must_have": [
+    {
+      "id": "carbon-filter",
+      "title_matches": [
+        "(carbon )?filter"
+      ],
+      "care_type": "maintenance",
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "The only genuine recurring consumable on this appliance. A prior run had 50% of tasks marked essential; the risk when that gets corrected is over-trimming and losing this one too."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "clean-bucket",
+      "title_matches": [
+        "(clean|wash).{0,20}(bucket|lid|blade)"
+      ],
+      "why": "Named cleaning of a functional part."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "add-waste",
+      "title_matches": [
+        "(add|load|fill|empty).{0,24}(food|waste|scrap|bucket)"
+      ],
+      "why": "Filling the bucket is using the machine."
+    },
+    {
+      "id": "run-cycle",
+      "title_matches": [
+        "(run|start|complete).{0,20}cycle"
+      ],
+      "why": "Running a normal cycle is operation."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 2,
+    "max_tasks": 14,
+    "max_essential": 2,
+    "max_essential_share": 40
+  }
+}

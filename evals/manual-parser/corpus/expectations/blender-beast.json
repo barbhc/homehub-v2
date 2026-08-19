@@ -1,0 +1,33 @@
+{
+  "name": "blender-beast",
+  "appliance": "Beast B10 blender",
+  "grounded_in": "NOT text-grounded: this PDF carries no extractable text layer (14 pages, all images). Kept deliberately — it is the corpus's only image-only manual, and Claude reads it through vision exactly as it would a phone photo of a manual. That is a real production path with nothing else covering it.",
+  "doc_type": "user_manual",
+  "structural_only": true,
+  "notes": "Because the text could not be read, NO must_have is asserted. Inventing one would produce a false failure and false failures are how a suite stops being trusted. Scored on the checks that hold regardless of contents: it must produce a valid, untruncated extraction, must not manufacture operation tasks, and must not inflate tiers.",
+  "must_have": [],
+  "must_not_have": [
+    {
+      "id": "add-ingredients",
+      "title_matches": [
+        "(add|load|place|pour).{0,24}(ingredient|food|liquid|smoothie)"
+      ],
+      "why": "Class-level, safe without reading the manual: loading a blender is operation on every blender ever made."
+    },
+    {
+      "id": "blend",
+      "title_matches": [
+        "^(blend|press|hold|pulse)\\b",
+        "(press|hold).{0,20}(button|start)",
+        "(blend|make).{0,20}(smoothie|drink)"
+      ],
+      "why": "Running the appliance is never upkeep. Anchored to the START of the title so it cannot match 'Clean Blending Vessels', which is care, not operation."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 1,
+    "max_tasks": 10,
+    "max_essential": 1,
+    "max_essential_share": 35
+  }
+}

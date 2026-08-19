@@ -1,0 +1,68 @@
+{
+  "name": "furnace-york",
+  "appliance": "York TG9S gas furnace (Johnson Controls installation manual)",
+  "grounded_in": "Read from the cached PDF 2026-08-19. It is a contractor Installation/UIM document: combustion air, venting, gas piping, start-up adjustments, and an 'Owner Education' checklist reading 'Explain the importance of regular filter replacement and equipment maintenance'. There is no homeowner Care chapter.",
+  "doc_type": "install_service_manual",
+  "notes": "The correct answer here is MOSTLY SETUP AND FEW RECURRING TASKS. A parser that manufactures a homeowner calendar out of gas-piping and manometer sections is failing, not being thorough.",
+  "must_have": [
+    {
+      "id": "air-filter",
+      "title_matches": [
+        "filter"
+      ],
+      "care_type": "maintenance",
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "The one thing this manual explicitly hands to the owner. Losing it means the product silently drops the single most common furnace task there is."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "pro-service",
+      "title_matches": [
+        "(annual|yearly|professional|qualified).{0,24}(service|inspect|tune)",
+        "(service|inspect).{0,24}(annual|yearly)"
+      ],
+      "why": "The owner still has to book it, so it is one of the most valuable reminders the product can give."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "gas-leak-test",
+      "title_matches": [
+        "(gas|leak).{0,20}(test|check)",
+        "test.{0,12}for gas"
+      ],
+      "where": "recurring",
+      "why": "A one-time commissioning leak test is setup, not a recurring homeowner chore. Emitting it on a cadence tells a homeowner to go poke their gas line every year."
+    },
+    {
+      "id": "input-rate",
+      "title_matches": [
+        "(input rate|manometer|static pressure|temperature rise)"
+      ],
+      "where": "recurring",
+      "why": "Start-up adjustments performed once by the installer with instruments a homeowner does not own."
+    }
+  ],
+  "forbidden_instructions": [
+    {
+      "id": "diy-gas",
+      "matches": [
+        "loosen.{0,30}gas",
+        "open the gas valve",
+        "smell gas",
+        "manometer",
+        "disconnect.{0,20}gas (line|pipe|union)"
+      ],
+      "why": "Explicit prompt rule: never write a hazardous DIY instruction. This manual is full of text that reads like steps and is addressed to a licensed technician."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 3,
+    "max_tasks": 30,
+    "max_essential": 3,
+    "max_essential_share": 40
+  }
+}
