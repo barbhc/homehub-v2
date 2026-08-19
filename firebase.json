@@ -31,7 +31,7 @@
     ],
     "headers": [
       {
-        "//": "HTML shell + service workers must always revalidate so a hosting deploy reaches the WKWebView (which loads the live site) on the next launch — not up to an hour later.",
+        "//": "HTML shell + service workers must always revalidate so a hosting deploy reaches the WKWebView (which loads the live site) on the next launch \u2014 not up to an hour later.",
         "source": "**",
         "headers": [
           {
@@ -57,7 +57,7 @@
         ]
       },
       {
-        "//": "Hashed build assets are content-addressed (name changes every build) → safe to cache forever. Placed last so it wins over the ** rule for /assets/.",
+        "//": "Hashed build assets are content-addressed (name changes every build) \u2192 safe to cache forever. Placed last so it wins over the ** rule for /assets/.",
         "source": "/assets/**",
         "headers": [
           {
@@ -67,13 +67,9 @@
         ]
       },
       {
-        "//": "REPORT-ONLY on purpose. A blocking CSP here is a live-outage risk that cannot be talked down: index.html runs two inline <script> blocks (pre-paint theme, boot-splash timeout) and an inline <style>, the app talks to six Google/Firebase origins plus PostHog, product search renders <img> from arbitrary vendor hosts, and the same bundle is wrapped in a Capacitor WebView on iOS. Report-Only surfaces every real violation with zero chance of white-screening anyone. Promote to Content-Security-Policy once reports are clean — and replace 'unsafe-inline' on script-src with hashes for those two blocks at the same time.",
+        "//": "ENFORCING, with the two inline <script> blocks pinned by SHA-256 hash rather than 'unsafe-inline' \u2014 the promotion this block previously asked for (shipped Report-Only in PR #94, with a note to promote it once reports were clean and swap 'unsafe-inline' for hashes at the same time). Verified against the real production build in a browser BEFORE enforcing, which is how two breakages were caught that no policy-text assertion would find: posthog-js loads its runtime from us-assets.i.posthog.com (a different host from its api_host), and the font stylesheet's onload= swap was blocked because CSP hashes never cover inline event handlers \u2014 it is a hashed <script> now. src/test/csp.test.ts recomputes the hashes from index.html and fails if they drift; a stale hash is silent in production and costs the pre-paint theme or the boot-splash timeout. The Report-Only twin is retired: it allowed 'unsafe-inline' and lacked the PostHog assets host, so it only produced violations this policy correctly permits.",
         "source": "**",
         "headers": [
-          {
-            "key": "Content-Security-Policy-Report-Only",
-            "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://us.i.posthog.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
-          },
           {
             "key": "X-Content-Type-Options",
             "value": "nosniff"
