@@ -56,6 +56,13 @@ function bootTelemetry(): void {
     Sentry.init({
       dsn,
       environment: import.meta.env.MODE,
+      // Must equal the release the source maps were uploaded under (set in
+      // vite.config.ts from the git SHA). If these drift, the maps are in
+      // Sentry but never applied: traces stay minified and nothing reports an
+      // error, because as far as Sentry is concerned no maps exist for THIS
+      // release. Empty string means an untagged build — send undefined rather
+      // than "", which would be a release literally named empty.
+      release: import.meta.env.VITE_SENTRY_RELEASE || undefined,
       integrations: [Sentry.browserTracingIntegration()],
       tracesSampleRate: 0.2,
       enabled: import.meta.env.PROD,
