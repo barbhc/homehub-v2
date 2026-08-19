@@ -8,7 +8,12 @@ test.describe("emulator e2e — task review wizard", () => {
     await expect(page.getByText("Bosch 800 Series Dishwasher").filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
 
     // The entry point that lets EXISTING tasks reach the wizard at all.
-    const entry = page.getByText("Review these tasks").filter({ visible: true }).first()
+    // ItemDetailPage passes `compact`, which renders the short "Review tasks"
+    // button in the Upkeep heading rather than the full "Review these tasks"
+    // card — the entry point moved into the heading "where the decision it
+    // changes actually lives". Both strings still exist in the component; only
+    // the compact one is reachable from this page.
+    const entry = page.getByRole("button", { name: /^Review tasks$/ }).filter({ visible: true }).first()
     await expect(entry).toBeVisible({ timeout: 10_000 })
     await entry.click()
 
@@ -17,8 +22,12 @@ test.describe("emulator e2e — task review wizard", () => {
     await expect(page.getByText(/take them one at a time/)).toBeVisible()
     await expect(page.getByRole("button", { name: /^Skip$/ })).toHaveCount(0)
 
-    // Sections state their consequence.
-    await expect(page.getByText("We'll remind you when these come due.")).toBeVisible()
+    // Sections state their consequence. The wording lives in
+    // shared/tasks/reviewBuckets.ts (REVIEW_BUCKET_COPY) and was rewritten
+    // there; asserting the current sentence rather than a remembered one.
+    await expect(
+      page.getByText("On your schedule, with a reminder when each comes due.").first(),
+    ).toBeVisible()
 
     // Open a task; the roomy card must offer type AND priority.
     await page.getByRole("button", { name: /Descale the dishwasher/ }).first().click()

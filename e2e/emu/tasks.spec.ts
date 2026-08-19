@@ -18,24 +18,33 @@ import { test, expect } from "@playwright/test"
 const visible = { visible: true } as const
 
 test.describe("emulator e2e — tasks (getWeekAgenda + Fix A)", () => {
-  test("default Focus shows essentials; All reveals the recommended tail", async ({ page }) => {
-    // The redesigned tasks screen (RefinedWeek/DesktopTasks with Fix A) lives at
-    // /maintenance — the nav's "Tasks" link. (/tasks is the legacy page.)
+  test("the default hides nothing; 'Needs you' is an opt-in lens", async ({ page }) => {
+    // This test used to assert the OPPOSITE — that the default filtered down to
+    // essentials and "All" revealed the rest. That default was deliberately
+    // removed: the owner questioned the filter twice, and the second time the
+    // page was reporting "2 to do" while quietly hiding nine more. A default
+    // that filters is a default that hides, and grouping by Urgency already
+    // puts what needs you first without pretending the rest does not exist.
+    // See the rationale on useTierFilter in components/home/tasks/shared.ts.
+    //
+    // The test was never updated, so it kept asserting the behaviour that the
+    // product had rejected — and with CI unable to run, nothing said so.
     await page.goto("/maintenance")
 
-    // Essential, seeded → present in the default Focus view (getWeekAgenda E2E).
+    // Both tiers present by default. The essential one:
     await expect(
       page.getByText("Replace HVAC furnace filter").filter(visible)
     ).toBeVisible({ timeout: 20_000 })
-
-    // Recommended + not overdue → calmed out of the visible Focus list by default.
-    await expect(page.getByText("Flush the water heater").filter(visible)).toHaveCount(0)
-
-    // One tap on the (visible) All chip reveals the full list.
-    await page.getByRole("button", { name: /^All/ }).filter(visible).click()
+    // …and the recommended, not-overdue one that the old default hid.
     await expect(
       page.getByText("Flush the water heater").filter(visible)
     ).toBeVisible({ timeout: 10_000 })
+
+    // "Needs you" still exists as an opt-in lens, and still narrows to
+    // essential-or-overdue. Opening it is a choice the user makes.
+    await page.getByRole("button", { name: /^All/ }).filter(visible).first().click()
+    await page.getByRole("option", { name: /Needs you/ }).or(page.getByRole("button", { name: /Needs you/ })).filter(visible).first().click()
+    await expect(page.getByText("Flush the water heater").filter(visible)).toHaveCount(0)
   })
 
   test("Fix C — the 'Start here' banner renders for a genuinely overdue essential", async ({ page }) => {

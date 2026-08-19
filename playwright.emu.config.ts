@@ -15,6 +15,12 @@ import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
  * PW_CHROMIUM_PATH lets a sandbox point at a preinstalled Chromium; CI leaves it
  * unset and uses its own installed browsers.
  */
+// Overridable, matching playwright.a11y/device/visual.config.ts. A hardcoded
+// 5173 is worse than a port clash: Playwright attaches to whatever ALREADY
+// answers there — a stale `vite preview` from days ago, say — and the suite
+// silently tests the wrong build. Here that surfaced as auth.setup bouncing to
+// /signin against a preview that predated the Firebase emulator wiring.
+const PORT = Number(process.env.PW_WEB_PORT ?? 5173)
 const chromiumPath = process.env.PW_CHROMIUM_PATH
 const launchOptions = chromiumPath ? { executablePath: chromiumPath } : {}
 
@@ -27,7 +33,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: "line",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     launchOptions,
@@ -42,8 +48,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev:emu",
-    port: 5173,
+    command: `npm run dev:emu -- --port ${PORT} --strictPort`,
+    port: PORT,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

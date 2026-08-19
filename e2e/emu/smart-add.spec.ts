@@ -48,7 +48,15 @@ async function snapLabelPhoto(page: Page) {
   await page.goto("/inventory/add")
   // Flow A: the label photo is an assist inside the appliance lane.
   await page.getByRole("button", { name: /Appliance or device/ }).click()
-  await expect(page.getByRole("button", { name: "Snap label instead" }).filter(visible).first()).toBeVisible()
+  // The three photo/library alternatives moved behind a disclosure named for the
+  // job ("Find the model another way") in PR #89, and the button itself was
+  // renamed "Snap label instead" -> "Snap the label". This helper kept the old
+  // name, so all four OCR-state tests failed at the first line — and CI has not
+  // run since 18 Aug, so nobody saw it. There is even a unit test asserting the
+  // old string is gone (addFlowCopy.test.ts), which is how the rename was
+  // verified everywhere except here.
+  await page.getByRole("button", { name: /Find the model another way/ }).click()
+  await expect(page.getByRole("button", { name: /Snap the label/ }).filter(visible).first()).toBeVisible()
   await page.setInputFiles('input[type="file"]', {
     name: "label.png",
     mimeType: "image/png",
@@ -95,7 +103,12 @@ test.describe("emulator e2e — smart add label OCR states", () => {
       })
     )
     await snapLabelPhoto(page)
-    await expect(page.getByText("Couldn't read details from this photo", { exact: false })).toBeVisible({ timeout: 10_000 })
+    // Copy changed with the capture-guidance work: the bare "try a straight-on
+    // shot in good light" line was replaced by an honest sentence plus an
+    // ordered tips block, because "straight-on" is actively wrong advice on the
+    // glossy foil labels most appliances use.
+    await expect(page.getByText("Couldn't read anything usable from that photo", { exact: false })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText(/Get closer/i).first()).toBeVisible()
     await page.getByText("Show text found on the label").click()
     await expect(page.getByText("S/N QX44-778812", { exact: false })).toBeVisible()
     // No field was invented from nothing (the old code minted "Appliance").
