@@ -1,0 +1,1076 @@
+{
+ "chunks": [
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Machine Specifications",
+   "content": "Model GCB2 (Nespresso Vertuo Plus): 120V, 60Hz, 1300W (USA/CA), ~10.1 lb (~4.6 kg). Water tank capacity: 37.1 fl oz (1.1 L) or 57.5 fl oz (1.7 L) depending on model.",
+   "tags": [
+    "specs",
+    "power",
+    "weight",
+    "water-tank",
+    "vertuo-plus"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9
+   ],
+   "diagram_pages": [
+    9
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Cup Size Factory Settings",
+   "content": "Factory default cup sizes: Alto 14 fl oz/414 ml, Coffee 7.77 fl oz/230 ml, Espresso 1.35 fl oz/40 ml. Cup sizes can be reprogrammed from 0.3 fl oz/10 ml to 17 fl oz/500 ml.",
+   "tags": [
+    "cup-size",
+    "factory-settings",
+    "programming",
+    "vertuo"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14,
+    17
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Electrical Shock and Fire Hazards",
+   "content": "Never immerse the cord, plug, or any part of the appliance in water — electricity and water together can cause fatal electric shocks. If the cord or plug is damaged, do not operate the machine; return it to the Nespresso Club or authorized representative.",
+   "tags": [
+    "electrical",
+    "shock",
+    "fire",
+    "water",
+    "cord",
+    "safety"
+   ],
+   "scenarios": [
+    {
+     "condition": "Cord or plug is damaged",
+     "steps": [
+      "Stop using the machine immediately.",
+      "Do not attempt to repair it yourself.",
+      "Return the appliance to the Nespresso Club or an authorized Nespresso representative."
+     ]
+    },
+    {
+     "condition": "Emergency requiring immediate shutdown",
+     "steps": [
+      "Remove the plug from the power outlet immediately.",
+      "Exception: do not unplug if fingers are pinched during machine head movement — the automatic reverse mechanism will operate."
+     ]
+    }
+   ],
+   "source_pages": [
+    3,
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Scalding Risk from Hot Liquids",
+   "content": "Never force open the machine during operation — hot liquids and coffee grounds may splash and cause burns. If a capsule is blocked in the compartment, turn the machine off and unplug it before any operation, then call the Nespresso Club.",
+   "tags": [
+    "scalding",
+    "hot-liquid",
+    "capsule",
+    "safety",
+    "burns"
+   ],
+   "scenarios": [
+    {
+     "condition": "Capsule is blocked in the capsule compartment",
+     "steps": [
+      "Turn the machine OFF.",
+      "Unplug the power cord.",
+      "Do not attempt to remove the capsule yourself.",
+      "Call the Nespresso Club or an authorized Nespresso representative for assistance."
+     ]
+    }
+   ],
+   "source_pages": [
+    3,
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Children and Vulnerable Users",
+   "content": "Children under 8 must not use, clean, or maintain the appliance unless supervised and instructed by an adult on safe use. Persons with reduced physical, sensory, or mental capabilities may use the appliance only under supervision or with proper instruction.",
+   "tags": [
+    "children",
+    "supervision",
+    "safety",
+    "vulnerable-users"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Placement and Surface Safety",
+   "content": "Always place the appliance on a horizontal, stable, hard, even surface that does not allow water accumulation underneath. Never place the machine on or beside hot surfaces such as radiators, stoves, ovens, or gas burners.",
+   "tags": [
+    "placement",
+    "surface",
+    "stability",
+    "heat",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Capsule and Water Tank Safety",
+   "content": "Only use Nespresso Vertuo capsules — do not insert anything else into the openings, as this may cause fire or electric shock. Always fill the water tank with fresh drinking water only; do not use milk, soy milk, or flavored liquids.",
+   "tags": [
+    "capsule",
+    "water-tank",
+    "safety",
+    "vertuo-capsules"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3,
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "reference",
+   "title": "Cleaning Safety Restrictions",
+   "content": "Do not use strong or abrasive cleaning agents, solvents, or steam/pressure cleaners on the appliance — this will damage it and may create a life-threatening hazard. Never put the appliance or any part of it in a dishwasher.",
+   "tags": [
+    "cleaning",
+    "safety",
+    "dishwasher",
+    "abrasive",
+    "steam-cleaner"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6,
+    18
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Machine Overview and Parts",
+   "content": "Key parts: Coffee Outlet, Adjustable Cup Support (4 positions), Water Tank with Adjustable Arm (rotates left/right/back), Lid, OFF/Open-Close Lever, ON/Coffee Button, and Capsule Container (held by magnet). The water tank arm can be positioned at the back, left, or right side of the machine.",
+   "tags": [
+    "overview",
+    "parts",
+    "water-tank",
+    "cup-support",
+    "lever",
+    "button"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9,
+    10,
+    11
+   ],
+   "diagram_pages": [
+    9
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Setup and First Use",
+   "content": "Rinse and clean the water tank and lid, fill with fresh drinking water, and place in position. Ensure capsule container and cup support are in place, plug in the machine, press the button to turn ON (green light blinks during heat-up ~25 sec), then run the initial cleaning cycle (press button 3 times in 2 seconds) with a container under the coffee outlet — the 3-cycle cleaning procedure takes up to 5 minutes.",
+   "tags": [
+    "first-use",
+    "setup",
+    "cleaning-cycle",
+    "initial",
+    "water-tank"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    12,
+    13
+   ],
+   "diagram_pages": [
+    12,
+    13
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Brewing Coffee",
+   "content": "Fill water tank, press button to turn ON, wait for steady green light (ready), place cup under outlet, push lever up to open head, insert capsule dome-side down, push lever down to close, then press button to start brewing — the machine reads the barcode and brews automatically. Press button again to stop early; push lever up after brewing to eject the used capsule.",
+   "tags": [
+    "brewing",
+    "coffee",
+    "capsule",
+    "lever",
+    "button",
+    "operation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14,
+    15,
+    16
+   ],
+   "diagram_pages": [
+    14,
+    15,
+    16
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Program Custom Water Volume",
+   "content": "Open the machine head, insert the capsule size you want to program, close the head, then press and hold the button until the desired volume is reached — release to save. The programmed volume is stored per capsule size (Espresso, Coffee, Alto); to restore defaults, use the Factory Reset function.",
+   "tags": [
+    "programming",
+    "water-volume",
+    "cup-size",
+    "custom"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    17
+   ],
+   "diagram_pages": [
+    17
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Turning the Machine Off",
+   "content": "To manually turn OFF: close the machine head, then push the lever down for 3 seconds. The machine also turns off automatically after 9 minutes of non-use (energy saving mode).",
+   "tags": [
+    "power-off",
+    "energy-saving",
+    "auto-off",
+    "lever"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    16
+   ],
+   "diagram_pages": [
+    16
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Cleaning Procedure",
+   "content": "Rinse water tank and fill with fresh water; rinse cup support; place a container (min 27 fl oz/0.8 L) under the coffee outlet; open head to eject used capsule, close machine, empty and rinse capsule container. Press button 3 times in 2 seconds to start the cleaning cycle — orange light blinks during the ~5-minute automatic 3-cycle procedure.",
+   "tags": [
+    "cleaning",
+    "maintenance",
+    "orange-light",
+    "cleaning-cycle"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    18
+   ],
+   "diagram_pages": [
+    18
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Descaling Procedure",
+   "content": "Turn ON machine, open head to eject capsule, close head, turn OFF (lever 3 sec), empty cup support and capsule container. Fill water tank with 1 unit Nespresso descaling liquid + min 17 fl oz/0.5 L water. Enter Special Functions (button + lever down 3 sec, orange steady), press lever down 1 time for Descaling, place container (min 20 fl oz/0.6 L) under outlet, press button to start (~20 min, orange blinks). After completion, empty/rinse tank, refill with fresh water, press button to rinse, then exit (button + lever 3 sec). Allow machine to dry 10 minutes before use.",
+   "tags": [
+    "descaling",
+    "limescale",
+    "maintenance",
+    "special-functions",
+    "nespresso-descaler"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    21,
+    22,
+    23
+   ],
+   "diagram_pages": [
+    21,
+    22,
+    23
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Emptying the System",
+   "content": "Empty water tank and replace it; open head to eject capsule, close machine, empty capsule container; turn OFF (lever 3 sec); place container under outlet; enter Special Functions (button + lever 3 sec), press lever down 2 times for 'Emptying the system', press button to start — orange light blinks throughout and machine turns OFF automatically when empty. Use before long non-use periods, frost protection, or before repair.",
+   "tags": [
+    "emptying",
+    "winterizing",
+    "frost-protection",
+    "special-functions",
+    "non-use"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [
+    20
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Reset to Factory Settings",
+   "content": "Turn machine OFF (lever 3 sec), then press button + lever down simultaneously for 3 seconds (orange steady = Special Functions menu). Press lever down 3 times to select 'Reset to factory settings', then press button to confirm — orange blinks 3 times in 3 seconds, then goes steady green. This restores all programmed cup volumes to factory defaults.",
+   "tags": [
+    "factory-reset",
+    "special-functions",
+    "cup-volume",
+    "settings"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    19
+   ],
+   "diagram_pages": [
+    19
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Water Tank and Capsule Container Handling",
+   "content": "Remove water tank by tilting slightly backward then pulling up; reattach vertically until a click is heard. Remove capsule container by first removing the water tank, then sliding the container sideways; reinstall by sliding it back into position (held by magnet), then replace water tank.",
+   "tags": [
+    "water-tank",
+    "capsule-container",
+    "handling",
+    "assembly"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Cup Support and Power Cable Adjustment",
+   "content": "The cup support has 4 height positions and can be removed for large cups (e.g., Alto); slide into holes and push down until hooks click, lift straight up to remove. The power cable can be routed under the machine in the left or right guide depending on water tank position.",
+   "tags": [
+    "cup-support",
+    "power-cable",
+    "adjustment",
+    "alto"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [
+    11
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "No Coffee / Machine Won't Start",
+   "content": "Check button light is green, water tank is filled and seated, and a fresh capsule is correctly inserted with head closed. Descale if necessary; if still no coffee, open head to eject capsule and run the cleaning procedure.",
+   "tags": [
+    "no-coffee",
+    "wont-start",
+    "troubleshooting",
+    "water-tank",
+    "capsule"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    26
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "No Coffee / Won't Start Issues",
+     "columns": [
+      "Problem",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "No light on button",
+       "Machine auto-off; press button to turn ON. Check plug, voltage, fuse."
+      ],
+      [
+       "No coffee",
+       "Check green light, water tank filled/seated, fresh capsule inserted correctly, head closed. Descale if needed. Open head, eject capsule, run cleaning."
+      ],
+      [
+       "Machine won't start, steady green light",
+       "Check machine head is properly closed. Insert fresh capsule, close head, press button."
+      ],
+      [
+       "Green light blinking, machine not running",
+       "Machine is heating up — wait up to 1 minute."
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Coffee Quality Issues",
+   "content": "If coffee is not hot enough, preheat cup with hot tap water and descale if necessary. For unusual flow or coffee grounds in cup, check water tank position, eject capsule, run cleaning procedure, and descale if needed.",
+   "tags": [
+    "coffee-quality",
+    "temperature",
+    "flow",
+    "grounds",
+    "troubleshooting"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    26
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Coffee Quality Problems",
+     "columns": [
+      "Problem",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Coffee not hot enough",
+       "Preheat cup with hot tap water. Descale if necessary."
+      ],
+      [
+       "Unusual coffee flow",
+       "Check water tank is well positioned. Eject capsule, run cleaning. Descale if necessary."
+      ],
+      [
+       "Coffee grounds in cup",
+       "Start the cleaning procedure."
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Leakage and Capsule Ejection Issues",
+   "content": "For water or coffee leakage, check water tank position and empty/clean the capsule container; if problem persists, call Nespresso Club. If capsule is not ejecting correctly, open head, unplug machine, carefully clean metallic clamps (beware sharp edges); call Nespresso Club if problem persists.",
+   "tags": [
+    "leaking",
+    "water-leak",
+    "coffee-leak",
+    "capsule-ejection",
+    "troubleshooting"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    26
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Leakage and Ejection Problems",
+     "columns": [
+      "Problem",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Water leakage",
+       "Check water tank position. Empty and clean capsule container. Call Nespresso Club if persists."
+      ],
+      [
+       "Coffee leakage",
+       "Open head, eject capsule, run cleaning. Empty and clean cup support. Descale if needed. Call Nespresso Club if persists."
+      ],
+      [
+       "Capsule not ejecting correctly",
+       "Open head, unplug machine, carefully clean metallic clamps (beware sharp edges). Call Nespresso Club if persists."
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Light Indicator Troubleshooting",
+   "content": "Green light behaviors indicate normal operation (steady=ready, blinking=heating, slow rotation=barcode reading, fast rotation=brewing). Red and orange lights indicate errors or special function states requiring specific actions.",
+   "tags": [
+    "light-indicator",
+    "error",
+    "red-light",
+    "orange-light",
+    "green-light",
+    "troubleshooting"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    24,
+    25,
+    26,
+    27
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Light Indicator Guide",
+     "columns": [
+      "Light State",
+      "Meaning",
+      "Action"
+     ],
+     "rows": [
+      [
+       "No light",
+       "Machine OFF",
+       "Press button to turn ON; check plug/voltage/fuse"
+      ],
+      [
+       "Green steady",
+       "Ready",
+       "Normal — insert capsule and brew"
+      ],
+      [
+       "Green blinking (1/sec)",
+       "Heating up",
+       "Wait up to 1 minute"
+      ],
+      [
+       "Green slow rotation",
+       "Reading capsule barcode",
+       "Normal operation"
+      ],
+      [
+       "Green fast rotation",
+       "Brewing",
+       "Normal operation"
+      ],
+      [
+       "Green blinks 3x",
+       "Programming confirmed",
+       "Normal"
+      ],
+      [
+       "Red steady",
+       "Device error",
+       "Turn OFF, unplug, wait 15 min, restart. Call Nespresso Club if persists."
+      ],
+      [
+       "Red fading pulse",
+       "Cooling down after overheating",
+       "Wait for steady green"
+      ],
+      [
+       "Red blinking (1/sec)",
+       "Error / machine head stopped",
+       "Remove obstacle, empty capsule container, open/close head"
+      ],
+      [
+       "Red blinks 2x → steady green",
+       "Water tank empty or capsule missing",
+       "Fill water tank or insert capsule"
+      ],
+      [
+       "Red blinks 2x → steady orange",
+       "Error in special function",
+       "Choose desired special function by pressing lever"
+      ],
+      [
+       "Red blinks 2x → orange blinking",
+       "Error while special function running",
+       "Open head, eject capsule, restart function"
+      ],
+      [
+       "Red blinks 3x/2sec → steady red",
+       "Machine head unknown position",
+       "Press lever up, wait for head to stop, clear obstacle, press lever down"
+      ],
+      [
+       "Half green / half red steady",
+       "Descaling alert",
+       "Descale soon — only a few brews remain before mandatory"
+      ],
+      [
+       "Orange steady",
+       "Entering Special Functions menu",
+       "Select function by pressing lever"
+      ],
+      [
+       "Orange blinking (1/sec)",
+       "Special function running",
+       "Wait for completion"
+      ],
+      [
+       "Orange blinks 1x/2sec",
+       "Descaling mode selected",
+       "Place container, press button to start"
+      ],
+      [
+       "Orange blinks 2x/2sec",
+       "Emptying system mode selected",
+       "Press button to start"
+      ],
+      [
+       "Orange blinks 3x/2sec",
+       "Factory reset mode selected",
+       "Press button to confirm"
+      ],
+      [
+       "Orange blinks 3x in 3sec → green",
+       "Factory reset complete",
+       "Machine ready to use"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Machine Turns Off / Energy Saving",
+   "content": "The machine automatically turns off after 9 minutes of non-use to save energy. Press the button to turn it back on; it will heat up and be ready within about 1 minute.",
+   "tags": [
+    "auto-off",
+    "energy-saving",
+    "power",
+    "troubleshooting"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    16,
+    26
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Water Tank Maintenance",
+   "content": "Replace water in the tank if the machine is not used for a weekend or similar period. Empty the tank completely if the machine will not be used for an extended time (holidays, etc.).",
+   "tags": [
+    "water-tank",
+    "freshness",
+    "non-use",
+    "care"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Descaling Alert and Mandatory Descaling",
+   "content": "The machine displays a descaling alert (half green / half red steady light) when descaling is needed — only a few more brews are possible before descaling becomes mandatory. If the machine is completely scaled, the descaling program may stop and blink; pause for several minutes to let the agent penetrate, then press button to restart.",
+   "tags": [
+    "descaling",
+    "alert",
+    "limescale",
+    "mandatory",
+    "red-green-light"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    23
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  }
+ ],
+ "tasks": [
+  {
+   "title": "Run Initial Cleaning Cycle",
+   "description": "Flush the machine with water before first use or after a long period of non-use to ensure clean internal components.",
+   "care_type": "cleaning",
+   "justification": "Removes any residue from manufacturing or storage and ensures the first coffee is clean and properly flavored.",
+   "priority_tier": "essential",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Fill water tank with fresh water and place it in position. Ensure capsule container and cup support are in place. Plug in and press button to turn ON. Once steady green, place a container (min 27 fl oz/0.8 L) under the coffee outlet. Open head (lever up), close without capsule (lever down). Press button 3 times within 2 seconds to start the cleaning cycle — orange light blinks during the ~5-minute automatic procedure. The machine runs 3 cycles automatically.",
+   "source_page": 12,
+   "tags": [
+    "first-use",
+    "cleaning-cycle",
+    "setup"
+   ],
+   "diagram_pages": [
+    12,
+    13
+   ],
+   "symptom_tags": [
+    "performance_drop",
+    "odor"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "odor",
+     "description": "Coffee tastes or smells off after a long period of non-use",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Run Cleaning Cycle",
+   "description": "Periodically run the built-in cleaning cycle to flush internal components and maintain coffee quality.",
+   "care_type": "cleaning",
+   "justification": "Prevents coffee residue buildup inside the machine that can cause unusual flow, off-flavors, and grounds in the cup.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Rinse and fill water tank with fresh water. Rinse cup support. Place a container (min 27 fl oz/0.8 L) under the coffee outlet. Open head (lever up) to eject any used capsule, then close (lever down). Empty and rinse the capsule container. Press button 3 times within 2 seconds — orange light blinks during the ~5-minute automatic 3-cycle procedure. The machine returns to steady green when complete.",
+   "source_page": 18,
+   "tags": [
+    "cleaning",
+    "maintenance",
+    "cleaning-cycle",
+    "orange-light"
+   ],
+   "diagram_pages": [
+    18
+   ],
+   "symptom_tags": [
+    "performance_drop",
+    "odor",
+    "wont_clean"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Descale the Machine",
+   "description": "Remove mineral scale buildup from internal components using the Nespresso descaling kit.",
+   "care_type": "maintenance",
+   "justification": "Scale buildup reduces heating efficiency, shortens machine lifespan, and eventually makes the descaling program unable to run — the machine will stop working if completely scaled.",
+   "priority_tier": "essential",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 25,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Turn ON machine, open head to eject capsule, close head, then turn OFF (hold lever down 3 sec). Empty cup support and capsule container. Fill water tank with 1 unit Nespresso descaling liquid plus at least 17 fl oz/0.5 L of water. Enter Special Functions: press button + lever down simultaneously for 3 seconds (orange steady). Press lever down 1 time to select Descaling. Place a container (min 20 fl oz/0.6 L) under the coffee outlet. Press button to start — orange blinks throughout (~20 min). After machine stops, empty and rinse tank, refill with fresh water, press button to rinse. Exit by pressing button + lever down 3 seconds. Allow machine to dry 10 minutes before use.",
+   "source_page": 21,
+   "tags": [
+    "descaling",
+    "limescale",
+    "special-functions",
+    "nespresso-descaler"
+   ],
+   "diagram_pages": [
+    21,
+    22,
+    23
+   ],
+   "symptom_tags": [
+    "performance_drop",
+    "error_code"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "error_code",
+     "description": "Half green / half red steady light appears indicating descaling alert",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Nespresso Descaling Kit",
+     "category": "cleaner",
+     "part_number": null
+    }
+   ]
+  },
+  {
+   "title": "Empty the System Before Non-Use",
+   "description": "Drain all water from the machine before extended non-use, frost exposure, or before sending for repair.",
+   "care_type": "maintenance",
+   "justification": "Residual water left in the machine during freezing temperatures or long storage can damage internal components.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 10,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Empty the water tank and put it back in place. Open machine head to eject any capsule, close the machine, empty the capsule container. Turn machine OFF (hold lever down 3 sec). Place a container under the coffee outlet. Enter Special Functions: press button + lever down simultaneously for 3 seconds (orange steady). Press lever down 2 times to select 'Emptying the system'. Press button to start — orange blinks throughout and machine turns OFF automatically when empty.",
+   "source_page": 20,
+   "tags": [
+    "emptying",
+    "winterizing",
+    "frost-protection",
+    "non-use",
+    "special-functions"
+   ],
+   "diagram_pages": [
+    20
+   ],
+   "symptom_tags": [
+    "leaking",
+    "physical_damage"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Replace Water in Tank After Weekend",
+   "description": "Refresh the water in the tank when the machine has not been used for a weekend or similar period.",
+   "care_type": "cleaning",
+   "justification": "Stale water sitting in the tank can affect coffee taste and hygiene.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 2,
+   "schedule_type": "weekly",
+   "interval_days": 7,
+   "instructions_text": "Remove the water tank by tilting it slightly backward and pulling up. Discard old water, rinse the tank and lid, then refill with fresh drinking water. Reattach the tank vertically onto its arm until you hear a click.",
+   "source_page": 6,
+   "tags": [
+    "water-tank",
+    "freshness",
+    "hygiene"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "odor",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Coffee Outlet",
+   "description": "Regularly wipe the coffee outlet with a damp cloth to prevent coffee residue buildup.",
+   "care_type": "cleaning",
+   "justification": "Coffee residue on the outlet can affect hygiene and coffee quality over time.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 2,
+   "schedule_type": "weekly",
+   "interval_days": 7,
+   "instructions_text": "Use a clean damp cloth to wipe the coffee outlet area. Do not use abrasive cleaners, solvents, or steam cleaners. Do not immerse any part of the machine in water.",
+   "source_page": 18,
+   "tags": [
+    "coffee-outlet",
+    "cleaning",
+    "hygiene"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Empty and Rinse Capsule Container",
+   "description": "Empty and rinse the used capsule container regularly to prevent overflow and maintain hygiene.",
+   "care_type": "cleaning",
+   "justification": "An overfull capsule container can cause leakage and unhygienic conditions inside the machine.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 3,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Remove the water tank, then slide the capsule container sideways out of the machine. Empty the used capsules, rinse the container, and slide it back into position until held by the magnet. Replace the water tank.",
+   "source_page": 10,
+   "tags": [
+    "capsule-container",
+    "cleaning",
+    "hygiene"
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "symptom_tags": [
+    "leaking",
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Wipe Machine Exterior",
+   "description": "Clean the outer surfaces of the machine with a damp cloth and mild cleaning agent.",
+   "care_type": "cleaning",
+   "justification": "Keeps the machine hygienic and free of coffee splashes and dust buildup.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 3,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Use a damp cloth with a mild cleaning agent to wipe the exterior surfaces. Do not use strong or abrasive cleaners, solvents, or steam cleaners. Do not immerse any part of the machine in water.",
+   "source_page": 6,
+   "tags": [
+    "exterior",
+    "cleaning",
+    "appearance"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  }
+ ],
+ "cleaning_guide": {
+  "weekly": {
+   "title": "Weekly Cleaning",
+   "steps": [
+    "Replace water in the tank with fresh drinking water.",
+    "Wipe the coffee outlet with a clean damp cloth.",
+    "Empty and rinse the capsule container.",
+    "Rinse the cup support under running water.",
+    "Wipe the exterior with a damp cloth and mild cleaning agent."
+   ],
+   "supplies": [
+    "Clean damp cloth",
+    "Mild cleaning agent",
+    "Fresh drinking water"
+   ]
+  },
+  "deep_clean": {
+   "title": "Deep Clean (Cleaning Cycle + Descaling)",
+   "steps": [
+    "Rinse and fill water tank with fresh water.",
+    "Place a container (min 27 fl oz/0.8 L) under the coffee outlet.",
+    "Open head to eject any used capsule, close machine, empty and rinse capsule container.",
+    "Press button 3 times in 2 seconds to start the cleaning cycle — wait up to 5 minutes for completion (orange light blinks).",
+    "When descaling alert appears (half green/half red light), run the full descaling procedure: fill tank with 1 unit Nespresso descaling liquid + min 17 fl oz/0.5 L water, enter Special Functions (button + lever 3 sec), select Descaling (lever 1x), press button to start (~20 min).",
+    "After descaling, empty and rinse tank, refill with fresh water, press button to rinse, then exit Special Functions.",
+    "Allow machine to dry 10 minutes before use."
+   ],
+   "supplies": [
+    "Nespresso Descaling Kit",
+    "Clean damp cloth",
+    "Fresh drinking water",
+    "Container (min 20 fl oz/0.6 L)"
+   ]
+  }
+ },
+ "warranty": {
+  "duration_months": 12,
+  "coverage": "Nespresso warrants this product against defects in materials and workmanship for 1 year from date of purchase. During the warranty period, Nespresso will repair or replace defective products at no charge; replacement products or repaired parts are warranted for the unexpired portion of the original warranty or 6 months, whichever is greater.",
+  "exclusions": [
+   "Normal wear and tear",
+   "Negligence or failure to follow product instructions",
+   "Improper or inadequate maintenance",
+   "Calcium deposits",
+   "Connection to improper power supply",
+   "Unauthorized product modification or repair",
+   "Commercial use",
+   "Fire, lightning, flood, or other external causes",
+   "Incorrect voltage or frequency of electricity"
+  ],
+  "registration_required": null,
+  "contact": "www.nespresso.com"
+ },
+ "manufactured_year": 2016,
+ "confidence": {
+  "overall": 0.92,
+  "safety": 0.95,
+  "how_to": 0.93,
+  "care": 0.88,
+  "troubleshooting": 0.9,
+  "notes": "Manual is clear and well-structured in English. Descaling frequency interval is not explicitly stated (only triggered by alert), so schedule_type is as_needed. Manufactured year inferred from document revision date 2016.09 on back cover."
+ },
+ "truncated": false,
+ "model": "claude-sonnet-4-6",
+ "promptHash": "d564709261ca",
+ "at": "2026-08-19T17:15:39.787Z"
+}

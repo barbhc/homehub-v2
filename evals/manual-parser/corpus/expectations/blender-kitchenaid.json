@@ -1,0 +1,52 @@
+{
+  "name": "blender-kitchenaid",
+  "appliance": "KitchenAid RKFC3516IB 3.5 Cup Food Chopper",
+  "grounded_in": "Read 2026-08-19. Care is 'wash the work bowls, lids, and blade in hot, soapy water' (or the dishwasher top rack), and reassemble for storage. There is no maintenance chapter, no filter, no consumable.",
+  "doc_type": "user_manual",
+  "notes": "An appliance with NO safety-critical upkeep at all. Included specifically to measure essential-tier discipline where the correct number of essential tasks is zero.",
+  "must_have": [
+    {
+      "id": "wash-parts",
+      "title_matches": [
+        "(wash|clean).{0,30}(bowl|blade|lid|part|chopper)"
+      ],
+      "care_type": [
+        "cleaning",
+        "mixed",
+        "maintenance"
+      ],
+      "why": "The only care instruction. care_type is permissive here on purpose: a blade is arguably functional, and the eval should not invent a controversy."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "wipe-base",
+      "title_matches": [
+        "(wipe|clean).{0,20}(base|exterior|housing)"
+      ],
+      "why": "Named in the care section."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "add-food",
+      "title_matches": [
+        "(add|load|place).{0,24}(food|ingredient|item)"
+      ],
+      "why": "Operating the chopper."
+    },
+    {
+      "id": "chop",
+      "title_matches": [
+        "(chop|pur[ée]e|pulse|drizzle)"
+      ],
+      "why": "The function of the product, not its care."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 1,
+    "max_tasks": 8,
+    "max_essential": 1,
+    "max_essential_share": 30
+  }
+}

@@ -1,0 +1,1121 @@
+{
+ "chunks": [
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Fire or Explosion Hazard - Gas Leaks",
+   "content": "Never test for gas leaks with an open flame; use a commercially available soap solution made specifically for leak detection. A fire or explosion may result causing property damage, injury, or death.",
+   "tags": [
+    "gas",
+    "fire",
+    "explosion",
+    "leak"
+   ],
+   "scenarios": [
+    {
+     "condition": "You smell gas near the furnace",
+     "steps": [
+      "Do not use any open flame",
+      "Shut off gas at the external manual shutoff valve",
+      "Use approved soap solution or gas detector to locate leak",
+      "Contact a qualified service technician"
+     ]
+    }
+   ],
+   "source_pages": [
+    2,
+    9,
+    30
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Carbon Monoxide Poisoning Hazard",
+   "content": "Improper venting or insufficient combustion air can cause the furnace to generate dangerous carbon monoxide. When any Category I appliance is removed or replaced, the original vent system may no longer be correctly sized.",
+   "tags": [
+    "carbon-monoxide",
+    "venting",
+    "combustion-air"
+   ],
+   "scenarios": [
+    {
+     "condition": "Suspected improper venting or CO exposure",
+     "steps": [
+      "Inspect venting for blockage, corrosion, or leaks",
+      "Ensure adequate combustion air supply",
+      "Test appliances for spillage after 5 minutes of operation",
+      "Correct any venting problems before operating"
+     ]
+    }
+   ],
+   "source_pages": [
+    28,
+    30
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Overpressure Protection for Gas Piping",
+   "content": "An overpressure protection device such as a pressure regulator must be installed upstream of the furnace to limit downstream pressure to 0.5 psig (14 w.c.). Exceeding this damages the gas valve and can cause fire or explosion.",
+   "tags": [
+    "gas",
+    "pressure",
+    "regulator"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Never Operate Without Blower Door",
+   "content": "Never operate the furnace with the blower door removed; an electrical interlock switch cuts power when the panel is removed. Doing so could result in serious injury or equipment damage.",
+   "tags": [
+    "blower-door",
+    "interlock",
+    "safety-switch"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3,
+    37
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Do Not Store Combustibles Near Furnace",
+   "content": "The furnace area must not be used as a storage or broom closet. Never store aerosol cans, cleaning compounds, gasoline, paint thinners, or paper products near the furnace as a fire hazard may be created.",
+   "tags": [
+    "storage",
+    "fire",
+    "combustibles"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Do Not Winterize With Antifreeze",
+   "content": "Liquid anti-freeze will damage internal plastic parts. Do not attempt to winterize the furnace using liquid anti-freeze; protect the condensate system from freezing by other means.",
+   "tags": [
+    "antifreeze",
+    "freezing",
+    "condensate"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4,
+    16
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Propane and High Altitude Conversion",
+   "content": "Only use natural gas in furnaces designed for it and only use propane after proper conversion with a factory kit. Never drill orifices; incorrect orifices create dangerous conditions causing heat exchanger failure, high CO, and fire.",
+   "tags": [
+    "propane",
+    "conversion",
+    "high-altitude",
+    "orifice"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10,
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "reference",
+   "title": "Combustion Air Quality Contaminants",
+   "content": "The furnace requires outdoor combustion air when exposed to chemicals such as chlorine pool chemicals, cleaning solvents, de-icing salts, and fabric softeners. Contaminated air causes corrosion and premature failure.",
+   "tags": [
+    "combustion-air",
+    "contaminants",
+    "corrosion"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Furnace Location and Clearances",
+   "content": "Install the furnace level (max 1/4 inch slope) with 24 inches front service clearance and 18 inches side clearance. Maintain clearances to combustibles per Table 1 and ensure ambient temperature stays above 32F unless condensate is freeze-protected.",
+   "tags": [
+    "clearances",
+    "installation",
+    "location"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": {
+    "table_title": "Unit Clearances to Combustibles",
+    "columns": [
+     "Application",
+     "Upflow",
+     "Downflow",
+     "Horizontal"
+    ],
+    "rows": [
+     [
+      "Top",
+      "1\"",
+      "0\"",
+      "0\""
+     ],
+     [
+      "Vent",
+      "0\"",
+      "0\"",
+      "0\""
+     ],
+     [
+      "Rear",
+      "0\"",
+      "0\"",
+      "0\""
+     ],
+     [
+      "Side",
+      "0\"",
+      "0\"",
+      "1\""
+     ],
+     [
+      "Front",
+      "0\"",
+      "0\"",
+      "0\""
+     ]
+    ]
+   },
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Ductwork and Plenum Connection",
+   "content": "Attach supply plenum to furnace outlet with a flexible duct connector; minimum plenum height is 12 inches. Rotate the four shipping flanges up to attach ductwork, and seal all connections to prevent leakage.",
+   "tags": [
+    "ductwork",
+    "plenum",
+    "installation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5,
+    6
+   ],
+   "diagram_pages": [
+    5,
+    6
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Filter Installation and Sizing",
+   "content": "All applications require a field-supplied filter installed external to the cabinet; never install filters inside the furnace. Do not exceed 300 FPM for throwaway filters and use appropriate side or bottom filter sizes per Table 3.",
+   "tags": [
+    "filter",
+    "installation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    8,
+    9
+   ],
+   "diagram_pages": [
+    8
+   ],
+   "table_data": {
+    "table_title": "Recommended Filter Sizes (High Velocity 600 FPM)",
+    "columns": [
+     "CFM",
+     "Cabinet",
+     "Side (in)",
+     "Bottom (in)"
+    ],
+    "rows": [
+     [
+      "800",
+      "A",
+      "16 x 25",
+      "14 x 25"
+     ],
+     [
+      "1000",
+      "A",
+      "16 x 25",
+      "14 x 25"
+     ],
+     [
+      "1200",
+      "B",
+      "16 x 25",
+      "16 x 25"
+     ],
+     [
+      "1600",
+      "C",
+      "16 x 25",
+      "20 x 25"
+     ],
+     [
+      "2000",
+      "C",
+      "(2) 16 x 25",
+      "20 x 25"
+     ],
+     [
+      "2000",
+      "D",
+      "(2) 16 x 25",
+      "22 x 25"
+     ]
+    ]
+   },
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Gas Piping Installation",
+   "content": "Use properly sized wrought iron or approved flexible/steel pipe with a required drip leg and ground union, and install an accessible manual shutoff within 6 feet of the furnace. Never apply a pipe wrench to the gas valve body — use the octagon hub on the inlet side.",
+   "tags": [
+    "gas-piping",
+    "installation",
+    "shutoff"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9,
+    10
+   ],
+   "diagram_pages": [
+    9,
+    10
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Electrical Power Connections",
+   "content": "Provide a separate 115 VAC, 1-phase, 60-Hz supply with overcurrent protection and disconnect switch. Connect black to L1 (hot), white to neutral, and installer-supplied ground to the green screw; correct polarity and grounding are required.",
+   "tags": [
+    "electrical",
+    "wiring",
+    "power"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [
+    11
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Thermostat and Low Voltage Wiring",
+   "content": "Connect the field-supplied thermostat to the control board terminal strip; set the heat anticipator to 0.4 amps or six cycles per hour. The 40 VA transformer powers only furnace components and an AC contactor, not humidifiers or air cleaners.",
+   "tags": [
+    "thermostat",
+    "low-voltage",
+    "wiring"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    12,
+    13
+   ],
+   "diagram_pages": [
+    12,
+    13
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Condensate Drain Piping",
+   "content": "The condensate pan is self-priming with an internal trap — do not install an external trap. Slope hoses downward at all points, maintain 1/4 inch per foot drain slope, and cap unused openings; a sump pump approved for acidic condensate is required if no floor drain exists.",
+   "tags": [
+    "condensate",
+    "drain",
+    "piping"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    15,
+    16
+   ],
+   "diagram_pages": [
+    16
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Combustion Air and Vent Pipe Sizing",
+   "content": "This Category IV furnace requires separate air intake and vent lines using PVC, ABS, or approved polypropylene; it may not be common vented. Use Table 6 for maximum equivalent length by model and elevation, adding elbow equivalents from Table 9.",
+   "tags": [
+    "venting",
+    "combustion-air",
+    "pipe-sizing"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    21,
+    22,
+    23,
+    24
+   ],
+   "diagram_pages": [
+    23
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Vent Termination Clearances",
+   "content": "Observe all vent terminal clearances such as 12 inches above grade/snow, 12 inches from windows, and 3 feet from inside corners. Terminations must not damage plants, be affected by wind, or allow flue gas recirculation.",
+   "tags": [
+    "vent",
+    "termination",
+    "clearances"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    25,
+    26
+   ],
+   "diagram_pages": [
+    25,
+    26
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Ignition System Sequence",
+   "content": "On a call for heat the inducer starts, the hot surface igniter glows ~17 seconds, the gas valve opens, and the blower starts ~30 seconds after flame is established. Never attempt to light this furnace by hand — it only lights automatically via the hot surface igniter.",
+   "tags": [
+    "ignition",
+    "startup",
+    "sequence"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    31
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Adjusting Manifold Gas Pressure",
+   "content": "Measure and set manifold pressure at the OUT P port using a manometer; nominal is 3.5 w.c. for natural gas and 10.0 w.c. for propane. This is a professional adjustment — do not set below 3.2 or above 3.8 w.c. for natural gas at sea level.",
+   "tags": [
+    "manifold-pressure",
+    "gas",
+    "adjustment"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    33
+   ],
+   "diagram_pages": [
+    33
+   ],
+   "table_data": {
+    "table_title": "Nominal Manifold Pressure",
+    "columns": [
+     "Gas Type",
+     "Pressure"
+    ],
+    "rows": [
+     [
+      "Natural Gas",
+      "3.5\" w.c. (0.87 kPa)"
+     ],
+     [
+      "Propane (LP)",
+      "10.0\" w.c. (2.488 kPa)"
+     ]
+    ]
+   },
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Temperature Rise and Fan Adjustment",
+   "content": "After 5 minutes, measure temperature rise between return and supply air (about 6 feet from furnace) and keep it within the rating plate range. Increase blower speed to lower rise; the blower-off delay defaults to 120 seconds via a control board jumper.",
+   "tags": [
+    "temperature-rise",
+    "blower-speed",
+    "fan-delay"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    34
+   ],
+   "diagram_pages": [
+    34
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Twinning and Staging Two Furnaces",
+   "content": "Two identical furnaces on a common duct can be twinned or staged using a single TWIN wire between control boards plus an isolation relay. Both blowers must run in unison; twinned furnaces must be on the same power leg.",
+   "tags": [
+    "twinning",
+    "staging",
+    "dual-furnace"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    13,
+    14,
+    15
+   ],
+   "diagram_pages": [
+    14,
+    15
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Furnace Control LED Fault Codes",
+   "content": "A blinking LED on the control board indicates operating status and faults; slow green is normal, slow amber is normal heating. Red flash codes indicate specific failures requiring correction.",
+   "tags": [
+    "diagnostics",
+    "fault-codes",
+    "led"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    38,
+    40
+   ],
+   "diagram_pages": [
+    40
+   ],
+   "table_data": {
+    "table_title": "Diagnostic Fault Codes",
+    "columns": [
+     "Flashes",
+     "Fault Condition"
+    ],
+    "rows": [
+     [
+      "Slow Green",
+      "Normal operation"
+     ],
+     [
+      "Slow Amber",
+      "Normal operation with call for heat",
+      "Steady on Red / Control Failure"
+     ],
+     [
+      "Continuous Amber",
+      "Low flame sense current below 1.5 microamps"
+     ],
+     [
+      "1 Red",
+      "Flame present with gas off"
+     ],
+     [
+      "2 Red",
+      "Pressure switch closed when should be open"
+     ],
+     [
+      "3 Red",
+      "Pressure switch open when should be closed - faulty inducer, blocked vent"
+     ],
+     [
+      "4 Red",
+      "Main limit switch open - dirty filter, blower/duct problem"
+     ],
+     [
+      "5 Red",
+      "Rollout switch open - combustion/heat exchanger problem"
+     ],
+     [
+      "6 Red",
+      "Pressure switch opened during operation"
+     ],
+     [
+      "7 Red",
+      "Failed to establish flame in three tries"
+     ],
+     [
+      "8 Red",
+      "Flame lost five times during heating"
+     ],
+     [
+      "9 Red",
+      "Reversed polarity, grounding, or twinning error"
+     ],
+     [
+      "10 Red",
+      "Gas valve energized with no call for heat"
+     ],
+     [
+      "11 Red",
+      "Main limit open over 5 minutes - failed blower motor"
+     ],
+     [
+      "4 Amber",
+      "Y signal without G signal - wiring problem"
+     ]
+    ]
+   },
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Safety Controls and Lockouts",
+   "content": "The furnace has rollout switches, pressure switches, and limit controls that de-energize the gas valve on fault conditions. Soft lockouts reset after one hour; hard lockouts require cycling power after correcting the problem.",
+   "tags": [
+    "safety-controls",
+    "lockout",
+    "limit-switch"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    37,
+    38
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Ignition and Flame Problems",
+   "content": "If flame is not detected in 7 seconds the valve shuts off and retries; three failed tries cause a one-hour lockout. Check gas valve on position, gas pressure, flame sensor cleanliness, and igniter for ignition faults.",
+   "tags": [
+    "ignition",
+    "flame",
+    "lockout"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    37,
+    38
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Ratings and Physical Data",
+   "content": "TG9S series is a 95.5% AFUE single-stage PSC gas furnace available in 40K to 130K BTUH inputs, all using 115 VAC power with 1/2 inch NPT gas connections. Max outlet air temperature is 190F.",
+   "tags": [
+    "specifications",
+    "ratings",
+    "afue"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": {
+    "table_title": "Ratings & Physical/Electrical Data",
+    "columns": [
+     "Input MBH",
+     "Output MBH",
+     "CFM",
+     "AFUE %",
+     "Temp Rise F",
+     "Fuse Amps",
+     "Total Amps"
+    ],
+    "rows": [
+     [
+      "40",
+      "38",
+      "800",
+      "95.5",
+      "30-60",
+      "15",
+      "8.6"
+     ],
+     [
+      "60",
+      "57",
+      "1000-1200",
+      "95.5",
+      "30-60",
+      "15",
+      "10.8"
+     ],
+     [
+      "80",
+      "76",
+      "1200-2200",
+      "95.5",
+      "35-65",
+      "15-20",
+      "10.8-17.9"
+     ],
+     [
+      "100",
+      "95",
+      "1600-2000",
+      "95.5",
+      "35-65",
+      "15-20",
+      "12.4-17.9"
+     ],
+     [
+      "120",
+      "114",
+      "1600-2000",
+      "95.5",
+      "35-70",
+      "15-20",
+      "12.4-17.9"
+     ],
+     [
+      "130",
+      "123.5",
+      "2000",
+      "95.5",
+      "45-75",
+      "20",
+      "17.9"
+     ]
+    ]
+   },
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Retrieving Stored Fault Codes",
+   "content": "The control stores up to five error codes retrievable by pushing the LAST ERROR button when no thermostat calls are active. Hold the button five seconds to clear memory, confirmed by three green flashes.",
+   "tags": [
+    "diagnostics",
+    "fault-codes",
+    "service"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    39
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Downward Venting Requirements",
+   "content": "When running vent and intake downward, install a 6-inch minimum condensate trap at the lowest horizontal run and limit total vertical drop to 16 feet. Prime the drain line before each heating season and keep lines out of freezing spaces.",
+   "tags": [
+    "venting",
+    "downward",
+    "condensate-trap"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    27
+   ],
+   "diagram_pages": [
+    27
+   ],
+   "table_data": null,
+   "applies_to": []
+  }
+ ],
+ "tasks": [
+  {
+   "title": "Replace the Air Filter",
+   "description": "Replace or clean the field-installed return air filter regularly.",
+   "care_type": "maintenance",
+   "justification": "A dirty filter reduces airflow, causing the limit switch to trip, overheating, and premature heat exchanger failure.",
+   "priority_tier": "essential",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 10,
+   "schedule_type": "monthly",
+   "interval_days": null,
+   "instructions_text": "Locate the external filter in the side or bottom return, slide out the old filter, and insert a clean one of the correct size with airflow arrows pointing toward the furnace. Check monthly during heating season and replace when dirty.",
+   "source_page": 8,
+   "tags": [
+    "filter",
+    "airflow"
+   ],
+   "diagram_pages": [
+    8
+   ],
+   "symptom_tags": [
+    "overheating",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Return air filter (16x25 or 20x25)",
+     "category": "filter",
+     "part_number": null
+    }
+   ]
+  },
+  {
+   "title": "Clean the Flame Sensor",
+   "description": "Clean the flame sensor to maintain a reliable flame signal.",
+   "care_type": "maintenance",
+   "justification": "A dirty flame sensor drops the flame sense current below 1.5 microamps and causes ignition lockouts and no heat.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 20,
+   "schedule_type": "annual",
+   "interval_days": null,
+   "instructions_text": "With power off, remove the burner access and gently clean the flame sensor rod with fine abrasive cloth, then reinstall. A technician can verify current is above 1.5 microamps at the test pad.",
+   "source_page": 38,
+   "tags": [
+    "flame-sensor",
+    "ignition"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "wont_start",
+    "error_code"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Inspect and Clear Condensate Drain",
+   "description": "Inspect the condensate drain system and clear any blockages.",
+   "care_type": "maintenance",
+   "justification": "Blocked or sagging condensate hoses trip the pressure switch and shut the furnace down; buildup can cause water damage.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 20,
+   "schedule_type": "annual",
+   "interval_days": null,
+   "instructions_text": "Check that condensate hoses slope downward with no sagging loops, confirm the drain line maintains 1/4 inch per foot slope, and clear any debris from the open standpipe and drain. Ensure unused openings remain capped.",
+   "source_page": 15,
+   "tags": [
+    "condensate",
+    "drain"
+   ],
+   "diagram_pages": [
+    16
+   ],
+   "symptom_tags": [
+    "drainage",
+    "leaking",
+    "wont_start"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Inspect the Vent and Intake System",
+   "description": "Inspect combustion air intake and vent piping for blockage or damage.",
+   "care_type": "maintenance",
+   "justification": "Blocked or leaking vent piping causes pressure switch faults, poor combustion, and dangerous carbon monoxide spillage.",
+   "priority_tier": "recommended",
+   "risk_level": "safety",
+   "estimated_minutes": 20,
+   "schedule_type": "annual",
+   "interval_days": null,
+   "instructions_text": "Visually inspect the intake and vent terminations outside for blockage from snow, leaves, or nests, and check that piping is intact and properly sloped. Confirm required clearances above snow level are maintained.",
+   "source_page": 30,
+   "tags": [
+    "venting",
+    "combustion-air"
+   ],
+   "diagram_pages": [
+    26
+   ],
+   "symptom_tags": [
+    "overheating",
+    "error_code"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Prime Downward Vent Condensate Line",
+   "description": "Prime the downward venting condensate drain line before heating season.",
+   "care_type": "maintenance",
+   "justification": "An unprimed trap allows flue gas to escape and can trip safety switches when the heating season begins.",
+   "priority_tier": "recommended",
+   "risk_level": "safety",
+   "estimated_minutes": 10,
+   "schedule_type": "seasonal",
+   "interval_days": null,
+   "instructions_text": "For furnaces with downward venting, pour water into the condensate drain trap to prime it at the start of the heating season before first startup. Confirm the trap holds at least six inches of water.",
+   "source_page": 27,
+   "tags": [
+    "condensate",
+    "downward-vent",
+    "seasonal"
+   ],
+   "diagram_pages": [
+    27
+   ],
+   "symptom_tags": [
+    "drainage"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Schedule Annual Professional Service",
+   "description": "Have a qualified technician inspect the furnace annually.",
+   "care_type": "maintenance",
+   "justification": "Annual inspection catches heat exchanger, combustion, and venting problems that could cause carbon monoxide, fire, or failure.",
+   "priority_tier": "recommended",
+   "risk_level": "safety",
+   "estimated_minutes": 90,
+   "schedule_type": "annual",
+   "interval_days": null,
+   "instructions_text": "Book a licensed HVAC technician to check venting, combustion air, gas pressure, temperature rise, safety controls, and heat exchanger condition once a year, ideally before heating season.",
+   "source_page": 30,
+   "tags": [
+    "service",
+    "inspection",
+    "professional"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Level the Furnace",
+   "description": "Verify the furnace is installed level for proper condensate drainage.",
+   "care_type": "maintenance",
+   "justification": "An unlevel furnace prevents condensate from draining and can cause water backup and shutdown.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 20,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "During installation, position the furnace so it has no more than 1/4 inch slope side-to-side and front-to-back. Check with a level and shim as needed for proper condensate drainage.",
+   "source_page": 4,
+   "tags": [
+    "leveling",
+    "installation"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "drainage",
+    "leaking"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "leaking",
+     "description": "You notice water pooling around or inside the furnace base",
+     "severity": "warning"
+    },
+    {
+     "trigger": "drainage",
+     "description": "The furnace shuts down repeatedly or condensate is not draining",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Verify Grounding and Polarity",
+   "description": "Confirm correct electrical polarity and a proper ground connection.",
+   "care_type": "maintenance",
+   "justification": "Reversed polarity or missing ground causes control faults (9 red flashes) and is a shock hazard.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 20,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "At installation confirm black connects to L1 hot, white to neutral, and the installer-supplied ground is fastened to the green ground screw. A technician should verify correct polarity at the furnace and branch circuit.",
+   "source_page": 11,
+   "tags": [
+    "electrical",
+    "grounding",
+    "polarity"
+   ],
+   "diagram_pages": [
+    11
+   ],
+   "symptom_tags": [
+    "electrical",
+    "wont_start",
+    "error_code"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "electrical",
+     "description": "Burning smell, sparks, or shock when touching the unit",
+     "severity": "safety"
+    },
+    {
+     "trigger": "error_code",
+     "description": "Control board shows 9 red flashes",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Perform Gas Piping Leak Check",
+   "description": "Have a technician leak-check the gas piping at startup.",
+   "care_type": "maintenance",
+   "justification": "Undetected gas leaks can cause fire or explosion.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 30,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "At initial startup a qualified technician checks all pipe joints, gas valve, and manual valve connections for leaks using an approved gas detector or non-corrosive leak solution. This is professional work involving the gas supply — do not attempt it yourself.",
+   "source_page": 30,
+   "tags": [
+    "gas",
+    "leak-check",
+    "installation"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "odor"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "odor",
+     "description": "You smell gas near the furnace or gas piping",
+     "severity": "safety"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Confirm Combustion Air Supply",
+   "description": "Verify adequate combustion air is provided at installation.",
+   "care_type": "maintenance",
+   "justification": "Insufficient combustion air causes sooting, carbon monoxide, and unsafe operation.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 30,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "At install, verify the furnace has adequate combustion air via direct-vent piping, outdoor openings, or ventilated space per the required free-area tables. Use outdoor air when the furnace is exposed to chemical contaminants.",
+   "source_page": 28,
+   "tags": [
+    "combustion-air",
+    "installation"
+   ],
+   "diagram_pages": [
+    29
+   ],
+   "symptom_tags": [
+    "overheating"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "overheating",
+     "description": "Furnace soots, runs hot, or a CO alarm sounds",
+     "severity": "safety"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  }
+ ],
+ "cleaning_guide": null,
+ "warranty": null,
+ "manufactured_year": 2019,
+ "confidence": {
+  "overall": 0.86,
+  "safety": 0.92,
+  "how_to": 0.85,
+  "care": 0.8,
+  "troubleshooting": 0.88,
+  "notes": "Installation/service manual for HVAC professionals; few homeowner recurring tasks (filter is the main one). Most content is one-time install or professional service. No warranty or dedicated homeowner care section present."
+ },
+ "truncated": false,
+ "model": "claude-opus-4-8",
+ "promptHash": "d564709261ca",
+ "at": "2026-08-19T17:05:06.468Z"
+}

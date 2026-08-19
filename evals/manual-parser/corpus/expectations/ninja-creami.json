@@ -1,0 +1,54 @@
+{
+  "name": "ninja-creami",
+  "appliance": "Ninja CREAMi Deluxe CN501CO",
+  "grounded_in": "Read 2026-08-19. Care is 'wash all parts that may contact food' and 'Before each use, inspect the Deluxe Creamerizer Paddle for damage'. The rest of the manual is freezing pints flat, installing the paddle, and selecting programs.",
+  "doc_type": "user_manual",
+  "notes": "Almost pure operation. The test is whether the parser can tell that freezing and spinning a pint is USING an ice-cream machine.",
+  "must_have": [
+    {
+      "id": "wash-parts",
+      "title_matches": [
+        "(wash|clean).{0,30}(part|bowl|pint|paddle|lid|blade|container)"
+      ],
+      "why": "The one care instruction in the document."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "inspect-paddle",
+      "title_matches": [
+        "(inspect|check).{0,20}(paddle|blade)"
+      ],
+      "why": "A stated pre-use safety inspection — a legitimate as_needed/habit task."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "freeze-pint",
+      "title_matches": [
+        "(freeze|chill).{0,20}(pint|base|container)"
+      ],
+      "why": "This is the recipe, not the upkeep."
+    },
+    {
+      "id": "spin",
+      "title_matches": [
+        "(spin|re.?spin|process).{0,20}(pint|base|program)"
+      ],
+      "why": "Running a normal cycle."
+    },
+    {
+      "id": "select-program",
+      "title_matches": [
+        "(select|choose|set).{0,20}(program|mode|setting)"
+      ],
+      "why": "Adjusting a preference setting."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 1,
+    "max_tasks": 10,
+    "max_essential": 2,
+    "max_essential_share": 40
+  }
+}

@@ -1,0 +1,1308 @@
+{
+ "chunks": [
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Grounding and Electric Shock Risk",
+   "content": "This dishwasher must be properly grounded to reduce electric shock risk. Improper connection of the grounding conductor can result in serious injury or death.",
+   "tags": [
+    "grounding",
+    "electrical",
+    "shock"
+   ],
+   "scenarios": [
+    {
+     "condition": "Appliance is not properly grounded or grounding conductor is improperly connected",
+     "steps": [
+      "Do not use the appliance.",
+      "Check with a qualified electrician or authorized service representative.",
+      "Ensure the appliance is connected to a metal, permanent wiring system with an equipment grounding conductor."
+     ]
+    }
+   ],
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Hydrogen Gas Explosion Risk",
+   "content": "If the hot water system has been unused for two weeks or more, hydrogen gas may accumulate and is explosive. Before running the dishwasher, turn on all hot faucets and let water flow for several minutes to release the gas; do not smoke or use open flames during this time.",
+   "tags": [
+    "hydrogen",
+    "explosion",
+    "hot-water",
+    "gas"
+   ],
+   "scenarios": [
+    {
+     "condition": "Hot water system unused for two or more weeks",
+     "steps": [
+      "Turn on all hot water faucets.",
+      "Let water flow from each faucet for several minutes to release accumulated hydrogen gas.",
+      "Do not smoke or use open flames during this process.",
+      "Then proceed to use the dishwasher normally."
+     ]
+    }
+   ],
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Safe Loading of Sharp Utensils",
+   "content": "Load knives and other sharp utensils with handles up (in the silverware basket) or edges/points down (in the silverware drawer) to reduce cut injury risk. Do not allow children to handle or play near sharp utensils.",
+   "tags": [
+    "sharp",
+    "knives",
+    "loading",
+    "injury"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4,
+    12
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Hot Water and Steam Caution When Opening Door",
+   "content": "Always use caution when opening the door during or after a wash cycle, as hot water or steam may escape. Do not fully open the door until water noises have stopped and steam has subsided.",
+   "tags": [
+    "steam",
+    "hot-water",
+    "burn",
+    "door"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4,
+    18
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Child Safety",
+   "content": "Do not allow children to play in or on the dishwasher. When discarding an old dishwasher, remove the door to the washing compartment to prevent entrapment.",
+   "tags": [
+    "children",
+    "entrapment",
+    "disposal"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4,
+    25
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Sanitize Option Warning",
+   "content": "Only sanitizing cycles meet the requirements for soil removal and sanitation efficacy. Not all cycles on a certified machine have passed the sanitization performance test.",
+   "tags": [
+    "sanitize",
+    "certification",
+    "cycles"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Technical Specifications",
+   "content": "The DWHD640EFM operates at 120V/60Hz with a 1440W power rating and 12A fuse. Load capacity is 16 place settings; water pressure range is 7.25–145 psi; hot water inlet max is 140°F (60°C).",
+   "tags": [
+    "voltage",
+    "power",
+    "capacity",
+    "water-pressure",
+    "specs"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    26
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Technical Specifications",
+     "columns": [
+      "Specification",
+      "Value"
+     ],
+     "rows": [
+      [
+       "Weight",
+       "Max. 60 kg / 132 lbs"
+      ],
+      [
+       "Voltage",
+       "120 V, 60 Hz"
+      ],
+      [
+       "Power rating",
+       "1440 W"
+      ],
+      [
+       "Fuse",
+       "12 A"
+      ],
+      [
+       "Water pressure",
+       "Min. 7.25 psi (50 kPa) / Max. 145 psi (1000 kPa)"
+      ],
+      [
+       "Inlet rate",
+       "Min. 2.6 gal/min"
+      ],
+      [
+       "Water temperature",
+       "Cold water; Hot water max. 140°F (60°C)"
+      ],
+      [
+       "Load capacity",
+       "16 place settings"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Dishwasher Cycles Overview",
+   "content": "Five main cycles are available: Pots & Pans (intensive, 1:50–2:20 hr), Auto (sensor-controlled, 1:45–2:09 hr), Normal (most economical, 2:15–2:35 hr), Hand Wash (gentle, 1:15–1:25 hr), and Quick (30 min). A customizable Favorite cycle can also be saved.",
+   "tags": [
+    "cycles",
+    "pots-pans",
+    "auto",
+    "normal",
+    "hand-wash",
+    "quick",
+    "favorite"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Dishwasher Cycles",
+     "columns": [
+      "Cycle",
+      "Purpose",
+      "Cycle Sequence",
+      "Time (hr)",
+      "Energy (kWh)",
+      "Water (gal)"
+     ],
+     "rows": [
+      [
+       "Pots & Pans",
+       "Stubborn burned/dried food on pots, pans, silverware",
+       "Pre-Rinse, Cleaning 151–160°F, Intermediate rinse, Final rinse 162°F, Drying",
+       "1:50–2:20",
+       "1.100–1.150",
+       "4.9–6.4"
+      ],
+      [
+       "Auto",
+       "Mixed dishware, common food remnants lightly dried-on",
+       "Sensor controlled",
+       "1:45–2:09",
+       "0.880–0.970",
+       "3.4–6.4"
+      ],
+      [
+       "Normal",
+       "Mixed dishware, common food remnants lightly dried-on",
+       "Pre-Rinse, Cleaning 113–131°F, Intermediate rinse, Final rinse 154°F, Drying",
+       "2:15–2:35",
+       "0.670–0.850",
+       "2.4–5.9"
+      ],
+      [
+       "Hand Wash",
+       "Delicate dishware, glasses, stemware",
+       "Pre-Rinse, Cleaning 113–122°F, Intermediate rinse, Final rinse 144°F, Drying",
+       "1:15–1:25",
+       "0.580–0.600",
+       "2.4–3.8"
+      ],
+      [
+       "Quick",
+       "Lightly soiled, fresh food remnants",
+       "Cleaning 113°F, Intermediate rinse, Final rinse 127°F",
+       "0:30",
+       "0.450",
+       "2.8"
+      ],
+      [
+       "Favorite",
+       "User-saved cycle/option combo",
+       "-",
+       "1:45–2:09",
+       "0.880–0.970",
+       "3.4–6.4"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Wash Options",
+   "content": "Three options are available: Extra Dry (increases final rinse temp and extends drying, good for plastics), Power Boost (increases lower rack spray pressure for mixed loads), and Sanitize (increases temperature and cycle length; display shows 'SAnI' when complete).",
+   "tags": [
+    "extra-dry",
+    "power-boost",
+    "sanitize",
+    "options"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10,
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Sensor Settings",
+   "content": "Three sensor sensitivity levels (SE:00–SE:02) adjust cycle strength in Auto cycles. SE:00 is optimal for mixed/heavily soiled loads and saves energy; SE:01 adjusts for low soiling; SE:02 is for stubborn dried-on food or ecological detergents.",
+   "tags": [
+    "sensor",
+    "auto",
+    "soiling",
+    "energy"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Sensor Settings",
+     "columns": [
+      "Setting",
+      "Description"
+     ],
+     "rows": [
+      [
+       "SE:00",
+       "Optimal for mixed loads and heavily soiled dishware; saves energy and water (factory default)"
+      ],
+      [
+       "SE:01",
+       "Adjusts cycle strength for effective removal even at low soiling levels"
+      ],
+      [
+       "SE:02",
+       "For difficult conditions or stubborn dried-on food; recommended with ecological detergents"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Basic Settings Overview",
+   "content": "Basic settings include rinse aid dispenser level (r:00–r:06), sensor setting (SE:00–SE:02), Extra Dry (d:00–d:01), infoLight (I:00–I:01), start cycle default (SP:00–SP:01), signal volume (SL:00–SL:03), button volume (bL:00–bL:03), Wi-Fi (Cn:00–Cn:01), Remote Start (rc:00–rc:02), and factory reset (rE).",
+   "tags": [
+    "basic-settings",
+    "configuration",
+    "display"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    18,
+    19
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Rack Height Settings",
+   "content": "Upper rack height can be set to 3 positions. With silverware basket: Setting 1 allows upper rack max ø 24 cm / lower rack 33 cm; Setting 2: 26.5 cm / 30.5 cm; Setting 3: 29 cm / 28 cm. With silverware drawer, upper rack heights are smaller (18, 20.5, 23 cm).",
+   "tags": [
+    "rack",
+    "height",
+    "adjustment",
+    "capacity"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    13
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Rack Heights – With Silverware Basket",
+     "columns": [
+      "Setting",
+      "Upper Rack Max ø",
+      "Lower Rack Height"
+     ],
+     "rows": [
+      [
+       "1",
+       "24 cm / 9.5\"",
+       "33 cm / 13\""
+      ],
+      [
+       "2",
+       "26.5 cm / 10.5\"",
+       "30.5 cm / 12\""
+      ],
+      [
+       "3",
+       "29 cm / 11.5\"",
+       "28 cm / 11\""
+      ]
+     ]
+    },
+    {
+     "table_title": "Rack Heights – With Silverware Drawer",
+     "columns": [
+      "Setting",
+      "Upper Rack Max ø",
+      "Lower Rack Height"
+     ],
+     "rows": [
+      [
+       "1",
+       "18 cm / 7\"",
+       "33 cm / 13\""
+      ],
+      [
+       "2",
+       "20.5 cm / 8\"",
+       "30.5 cm / 12\""
+      ],
+      [
+       "3",
+       "23 cm / 9\"",
+       "28 cm / 11\""
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "First-Time Setup and Initial Use",
+   "content": "Before first use: add rinse aid, add detergent (1–3 tbsp depending on soil level), turn on the appliance, set rinse aid amount, then run the highest-temperature cycle without dishware to remove residues. Connect to the Home Connect® app to access additional cycles and settings.",
+   "tags": [
+    "first-use",
+    "setup",
+    "rinse-aid",
+    "detergent",
+    "initial"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    13,
+    14
+   ],
+   "diagram_pages": [
+    13
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Starting and Operating a Wash Cycle",
+   "content": "Press ON/OFF (1-second touch) to switch on; select a cycle and options; press START/RESUME to begin. The cycle ends when the display shows '00h:00m'. The appliance auto-shuts off 10 minutes after cycle end.",
+   "tags": [
+    "operation",
+    "start",
+    "cycle",
+    "on-off"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    17
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Interrupting and Terminating a Wash Cycle",
+   "content": "To pause: press ON/OFF (program is saved); press ON/OFF again then START/RESUME to continue. To cancel a cycle early: open the door, press ON/OFF for ~4 seconds, close the door — residual water pumps out and the cycle ends in ~1 minute.",
+   "tags": [
+    "interrupt",
+    "cancel",
+    "terminate",
+    "cycle"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    17
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Loading Dishware Correctly",
+   "content": "Remove large food remnants (do not pre-rinse under running water). Place heavily soiled items in the lower rack, position containers opening-down, ensure spray arms can rotate freely, and load silverware with points/edges down. Do not block the detergent dispenser lid.",
+   "tags": [
+    "loading",
+    "dishware",
+    "racks",
+    "spray-arms"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    15
+   ],
+   "diagram_pages": [
+    16
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Removing Dishware After Cycle",
+   "content": "Open the door slightly and allow dishes to cool for a few minutes before unloading. Unload starting from the bottom rack upward to prevent water dripping from upper items onto lower ones.",
+   "tags": [
+    "unloading",
+    "dishware",
+    "cooling"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    16
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Adding Rinse Aid",
+   "content": "When the rinse aid indicator lights up, press the catch on the dispenser lid and lift it, fill to the max mark with household dishwasher rinse aid, wipe up any spills (to prevent excess frothing), and close the lid until it clicks.",
+   "tags": [
+    "rinse-aid",
+    "dispenser",
+    "refill"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Adjusting Rinse Aid Amount",
+   "content": "Press ON/OFF, hold Button A for 3 seconds to open basic settings, press A repeatedly until 'r:05' appears, then press START/RESUME to adjust level (r:00 = off, r:01–r:06). Hold Button A for 3 seconds to save. Lower settings reduce streaking; higher settings reduce water spots.",
+   "tags": [
+    "rinse-aid",
+    "settings",
+    "streaks",
+    "water-spots"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Adjusting Upper Rack Height",
+   "content": "Pull out the upper rack, hold the top edge to prevent it dropping, press in both side levers simultaneously, raise or lower the rack evenly to the desired level (check both sides are level), release the levers until they click, then slide the rack back in.",
+   "tags": [
+    "upper-rack",
+    "height",
+    "adjustment",
+    "levers"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [
+    11
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Saving a Favorite Cycle",
+   "content": "Open the appliance door, press ON/OFF, press the right cycle button to select a cycle, then press the desired option button — the combination is saved as Favorite. To reset, use the Home Connect app or restore factory settings.",
+   "tags": [
+    "favorite",
+    "cycle",
+    "save",
+    "custom"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Setting Up Home Connect App",
+   "content": "Install the Home Connect® app on your mobile device, start the app and complete registration, then open the app and scan the QR code in the manual to connect the appliance. The appliance must be within range of your home Wi-Fi network.",
+   "tags": [
+    "home-connect",
+    "wifi",
+    "app",
+    "setup"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    19,
+    20
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Changing Basic Settings",
+   "content": "Open the door, press ON/OFF, hold Button A for 3 seconds to enter basic settings, press A repeatedly to navigate to the desired setting, press START/RESUME to change the value, then hold Button A for 3 seconds to save. Close the door when done.",
+   "tags": [
+    "basic-settings",
+    "configuration",
+    "button-a"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    18
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Preparing Appliance for Transport",
+   "content": "Remove all dishware, secure loose parts, open the water supply valve, switch on the appliance, select the highest-temperature cycle, start it, then terminate after ~4 minutes to drain. Switch off, close the water supply valve, detach the supply hose and let residual water drain. Always transport upright.",
+   "tags": [
+    "transport",
+    "moving",
+    "drain",
+    "storage"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    24
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning the Filter System",
+   "content": "Check the filters for residues after each dishwashing cycle. Scan the QR code in the manual or visit thermador.com for detailed filter cleaning instructions.",
+   "tags": [
+    "filter",
+    "cleaning",
+    "maintenance",
+    "after-each-use"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning the Spray Arms",
+   "content": "If dishware is not being washed properly, clean the spray arms by following the instructions accessible via the QR code in the manual. Ensure spray arm nozzles are clear and arms can rotate freely.",
+   "tags": [
+    "spray-arms",
+    "cleaning",
+    "nozzles",
+    "maintenance"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Cleaning the Drain Pump",
+   "content": "If water no longer drains properly, disconnect power, remove racks and filter system, scoop out water, pry off the pump cover with a spoon, remove food remnants or foreign objects from the impeller area, reinsert and press the cover until it clicks, then reinstall filter and racks.",
+   "tags": [
+    "drain-pump",
+    "cleaning",
+    "blockage",
+    "impeller"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    24
+   ],
+   "diagram_pages": [
+    24
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Preventing Material Damage",
+   "content": "Do not use bleach-based products, steam cleaners, abrasive sponges, or stainless steel polish on anti-fingerprint or black stainless finishes. Let the appliance cool before opening the door after a cycle to prevent cabinet damage from steam.",
+   "tags": [
+    "damage-prevention",
+    "cleaning-products",
+    "bleach",
+    "stainless"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Vacation and Winterizing Preparation",
+   "content": "Before vacation in warm weather, turn off the main water valve and the nearest supply valve to the dishwasher. If the appliance will be unused in freezing temperatures for an extended period, have it winterized by a professional service to protect the fill valve.",
+   "tags": [
+    "vacation",
+    "winterizing",
+    "storage",
+    "freeze-protection"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    25
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Error Codes – Water Supply and Drainage",
+   "content": "Common water-related error codes and their fixes. E:32-00 indicates a closed water supply valve or kinked/blocked inlet hose; E:34-00 means water is continuously running in; E:61-02 and E:61-03 relate to drain pump blockage or drainage issues.",
+   "tags": [
+    "error-code",
+    "water-supply",
+    "drainage",
+    "E32",
+    "E34",
+    "E61"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    21,
+    22
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Water Supply and Drainage Error Codes",
+     "columns": [
+      "Error Code",
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
+      [
+       "E:32-00 / water supply indicator",
+       "Water supply valve closed",
+       "Open valve, terminate and restart wash cycle; contact service if persists"
+      ],
+      [
+       "E:32-00 / water supply indicator",
+       "Inlet hose kinked or blocked",
+       "Contact customer service"
+      ],
+      [
+       "E:32-00 / water supply indicator",
+       "Water supply valve jammed/clogged",
+       "Open valve (flow must be ≥10 l/min); contact service if persists"
+      ],
+      [
+       "E:34-00",
+       "Water continuously running into appliance",
+       "Close water supply valve; contact customer service"
+      ],
+      [
+       "E:61-02",
+       "Drain pump cover loose or foreign object blocking pump",
+       "Secure pump cover until it clicks, or clean drain pump"
+      ],
+      [
+       "E:61-03",
+       "Garbage disposal plugged, drain hose kinked, or drain pump blocked",
+       "Remove disposal plug, check hose, secure pump cover or clean pump, ensure high loop in drain hose"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Error Codes – Water Protection and Electrical",
+   "content": "E:30-00 and E:31-00 indicate the water protection system is activated — close the water supply valve and contact customer service. E:90-01 means power voltage is too low — call an electrician. E:20-60 means the heating element is calcified — descale the appliance.",
+   "tags": [
+    "error-code",
+    "water-protection",
+    "electrical",
+    "E30",
+    "E31",
+    "E90",
+    "E20"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    21,
+    22
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Water Protection and Electrical Error Codes",
+     "columns": [
+      "Error Code",
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
+      [
+       "E:20-60",
+       "Heating element is calcified",
+       "Descale the appliance; use water softening system"
+      ],
+      [
+       "E:30-00",
+       "Water protection system activated",
+       "Close water supply valve; contact customer service"
+      ],
+      [
+       "E:31-00",
+       "Water protection system activated",
+       "Close water supply valve; contact customer service"
+      ],
+      [
+       "E:90-01",
+       "Power voltage too low",
+       "Call an electrician to check power voltage and electrical installation"
+      ],
+      [
+       "E:92-40",
+       "Filters soiled or blocked",
+       "Clean the filters"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Error Codes – Electronics and LED Faults",
+   "content": "If all LEDs light up or flash, a software update may be installing (wait up to 30 minutes). If the appliance is still not ready, press the main switch for ~4 seconds to reset. If the problem persists, unplug for 2 minutes, then restart; contact service if still unresolved.",
+   "tags": [
+    "error-code",
+    "LED",
+    "software-update",
+    "reset",
+    "electronics"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    22
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Poor Wash Results – Food Remnants on Dishware",
+   "content": "Food remnants remaining after a cycle are typically caused by overloading, blocked spray arms, dirty filters, incorrect filter installation, too-light a cycle, or over-pre-cleaning (which causes sensors to select a lighter cycle). Solutions include spacing dishware, cleaning spray arms and filters, and adjusting sensor sensitivity.",
+   "tags": [
+    "food-remnants",
+    "wash-quality",
+    "spray-arms",
+    "filters",
+    "sensor"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    22,
+    23
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Food Remnants on Dishware – Causes and Fixes",
+     "columns": [
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
+      [
+       "Dishware too close together or rack overfilled",
+       "Space dishware so spray jets reach all surfaces"
+      ],
+      [
+       "Spray arm rotation blocked",
+       "Arrange dishware so spray arms can rotate freely"
+      ],
+      [
+       "Spray arm nozzles blocked",
+       "Clean the spray arms"
+      ],
+      [
+       "Filters dirty or incorrectly inserted",
+       "Clean and properly reinstall filters"
+      ],
+      [
+       "Wash cycle too light",
+       "Select a more intensive cycle; adjust sensor sensitivity"
+      ],
+      [
+       "Dishware over-pre-cleaned (sensors select lighter cycle)",
+       "Only remove large food remnants; do not pre-rinse; adjust sensor sensitivity"
+      ],
+      [
+       "Tall narrow containers in corners not rinsed",
+       "Do not place tall narrow containers at too great an angle or in corners"
+      ],
+      [
+       "Upper rack uneven left-to-right",
+       "Set upper rack to same height on both sides"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Streaks, Spots, and Residue on Dishware",
+   "content": "Streaks on glassware are usually caused by too much rinse aid; water spots by too little. Detergent residue in the dispenser or collecting tray is caused by blocked spray arms or a damp dispenser. Rust spots on silverware indicate non-rust-resistant items or washing with rusting items.",
+   "tags": [
+    "streaks",
+    "water-spots",
+    "detergent-residue",
+    "rust",
+    "rinse-aid"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    23,
+    24
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Dishware Appearance Issues",
+     "columns": [
+      "Issue",
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
+      [
+       "Streaks on glasses/silverware",
+       "Too much rinse aid",
+       "Lower the rinse aid dispenser setting"
+      ],
+      [
+       "Water spots on glasses/silverware",
+       "No rinse aid added",
+       "Add rinse aid"
+      ],
+      [
+       "Detergent residue in dispenser/tray",
+       "Spray arms blocked; dispenser lid obstructed",
+       "Ensure spray arms rotate freely; do not block dispenser lid with dishware"
+      ],
+      [
+       "Detergent residue in dispenser/tray",
+       "Detergent dispenser was damp when loaded",
+       "Only add detergent to a dry dispenser"
+      ],
+      [
+       "Rust spots on silverware",
+       "Silverware not rust-resistant or washed with rusting items",
+       "Use rust-resistant dishware; do not wash rusting items"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  }
+ ],
+ "tasks": [
+  {
+   "title": "Check and Clean the Filter System",
+   "description": "Inspect and clean the dishwasher filters after every wash cycle to remove food debris.",
+   "care_type": "maintenance",
+   "justification": "Clogged filters cause poor wash results, drainage problems, and can damage the pump.",
+   "priority_tier": "essential",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 5,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "After each cycle, remove the lower rack and lift out the filter system. Rinse the filters under running water to remove food debris. Reinstall the filters and twist them into place until they click. Scan the QR code in the manual (section 14.1) for a detailed video guide.",
+   "source_page": 20,
+   "tags": [
+    "filter",
+    "cleaning",
+    "drainage"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "drainage",
+    "wont_clean",
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Spray Arms",
+   "description": "Clean the upper and lower spray arms when dishware is not being washed properly.",
+   "care_type": "maintenance",
+   "justification": "Blocked spray arm nozzles prevent water from reaching dishware, resulting in poor cleaning performance.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "If dishes are coming out dirty, check that the spray arms can rotate freely and that no dishware is blocking them. Remove the spray arms and rinse the nozzles under running water to clear any blockages. Scan the QR code in section 14.2 of the manual for a detailed video guide.",
+   "source_page": 20,
+   "tags": [
+    "spray-arms",
+    "nozzles",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "wont_clean",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Drain Pump",
+   "description": "Clear food remnants or foreign objects from the drain pump when water is no longer draining properly.",
+   "care_type": "maintenance",
+   "justification": "A blocked drain pump prevents water from draining and can damage the pump motor.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 15,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Disconnect the appliance from power. Remove upper and lower racks and the filter system. Scoop out any standing water with a sponge. Pry the pump cover off with a spoon, grip it by the crosspiece, and lift it diagonally inward. Remove any food remnants or foreign objects from the impeller area. Reinsert the pump cover and press down until it clicks. Reinstall the filter system and racks. Use caution — there may be sharp debris such as glass fragments.",
+   "source_page": 24,
+   "tags": [
+    "drain-pump",
+    "impeller",
+    "blockage"
+   ],
+   "diagram_pages": [
+    24
+   ],
+   "symptom_tags": [
+    "drainage",
+    "error_code"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Descale the Appliance",
+   "description": "Descale the dishwasher when error code E:20-60 appears, indicating the heating element is calcified.",
+   "care_type": "maintenance",
+   "justification": "Mineral scale buildup on the heating element reduces efficiency and can cause the element to fail.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 30,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "When error code E:20-60 appears, run a descaling cycle using a dishwasher-safe descaling product. Follow the descaling product's instructions for dosage and cycle selection. After descaling, consider using the water softening system (if available on your model) to prevent future buildup.",
+   "source_page": 21,
+   "tags": [
+    "descaling",
+    "limescale",
+    "heating-element",
+    "E20-60"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "error_code",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Refill the Rinse Aid Dispenser",
+   "description": "Refill the rinse aid dispenser when the rinse aid refill indicator lights up.",
+   "care_type": "maintenance",
+   "justification": "Without rinse aid, dishware will have water spots and drying performance will be significantly reduced.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 3,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "When the rinse aid indicator lights up on the control panel, press the catch on the dispenser lid and lift it open. Pour household dishwasher rinse aid up to the max mark. Wipe up any spills immediately (spilled rinse aid causes excess frothing). Close the lid until it clicks into position.",
+   "source_page": 14,
+   "tags": [
+    "rinse-aid",
+    "dispenser",
+    "drying"
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "symptom_tags": [
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Household dishwasher rinse aid",
+     "category": "cleaner",
+     "part_number": null
+    }
+   ]
+  },
+  {
+   "title": "Winterize the Appliance",
+   "description": "Have the dishwasher professionally winterized if it will be unused in freezing temperatures for an extended period.",
+   "care_type": "maintenance",
+   "justification": "Freezing temperatures can damage the fill valve, and this damage is not covered by the warranty.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 60,
+   "schedule_type": "seasonal",
+   "interval_days": null,
+   "instructions_text": "If the dishwasher will be unused in a location with freezing temperatures (e.g., a vacation home), arrange for a professional service technician to winterize the appliance. For warm-weather vacations, turn off the main water valve and the nearest supply valve to the dishwasher before leaving.",
+   "source_page": 25,
+   "tags": [
+    "winterizing",
+    "freeze-protection",
+    "vacation",
+    "seasonal"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "physical_damage",
+    "leaking"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Run Initial Empty Cycle",
+   "description": "Run the highest-temperature cycle without dishware before first use to remove manufacturing residues.",
+   "care_type": "maintenance",
+   "justification": "Running an empty cycle removes water marks and residues from the manufacturing process before washing dishware.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 20,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Add rinse aid and detergent. Turn on the appliance and set the rinse aid amount. Select the cycle with the highest cleaning temperature (Pots & Pans). Press START/RESUME and run the full cycle without any dishware inside.",
+   "source_page": 14,
+   "tags": [
+    "first-use",
+    "setup",
+    "initial-cycle"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Verify Grounding and Electrical Connection",
+   "description": "Confirm the dishwasher is properly grounded to a metal, permanent wiring system before first use.",
+   "care_type": "maintenance",
+   "justification": "Improper grounding can result in electric shock in the event of a malfunction or breakdown.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 15,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Verify with a qualified electrician that the appliance is connected to a properly grounded circuit. The appliance must be grounded to a metal, permanent wiring system or have an equipment grounding conductor run with the circuit conductors. Refer to the Installation Instructions for full electrical requirements.",
+   "source_page": 3,
+   "tags": [
+    "grounding",
+    "electrical",
+    "safety"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "electrical"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "electrical",
+     "description": "You notice sparks, burning smell, or receive a shock when touching the appliance",
+     "severity": "safety"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  }
+ ],
+ "cleaning_guide": {
+  "weekly": {
+   "title": "Weekly Cleaning",
+   "steps": [
+    "Check and clean the filter system — remove, rinse under running water, and reinstall.",
+    "Wipe down the door seal and interior edges with a damp cloth to remove food debris.",
+    "Check that spray arms rotate freely and nozzles are not blocked.",
+    "Wipe the exterior and control panel with a soft, damp cloth — do not use abrasive cleaners or bleach-based products."
+   ],
+   "supplies": [
+    "Soft damp cloth",
+    "Mild dish soap (if needed)"
+   ]
+  },
+  "deep_clean": {
+   "title": "Deep Clean",
+   "steps": [
+    "Remove and thoroughly clean the filter system under running water, using a soft brush if needed.",
+    "Remove the spray arms and rinse nozzles under running water to clear mineral deposits or food debris.",
+    "If error code E:20-60 appears, run a descaling cycle using a dishwasher-safe descaling product.",
+    "Clean the drain pump if water is not draining properly — disconnect power, remove racks and filter, scoop water, remove pump cover, clear impeller, and reassemble.",
+    "Wipe the interior tub walls and door interior with a damp cloth.",
+    "Check the rinse aid dispenser and refill if the indicator is lit."
+   ],
+   "supplies": [
+    "Dishwasher-safe descaling product",
+    "Soft brush",
+    "Sponge",
+    "Damp cloth",
+    "Household dishwasher rinse aid"
+   ]
+  }
+ },
+ "warranty": {
+  "duration_months": null,
+  "coverage": "Warranty repairs are performed by an authorized service provider using genuine replacement parts. Detailed warranty period and terms are found in the Statement of Limited Product Warranty.",
+  "exclusions": [
+   "Cleaning and maintenance",
+   "Damage caused by freezing"
+  ],
+  "registration_required": null,
+  "contact": "1-800-735-4328 | www.thermador.com/support"
+ },
+ "manufactured_year": 2024,
+ "confidence": {
+  "overall": 0.88,
+  "safety": 0.95,
+  "how_to": 0.9,
+  "care": 0.85,
+  "troubleshooting": 0.87,
+  "notes": "Manual is clear and well-structured. Warranty duration in months not explicitly stated — only references the Statement of Limited Product Warranty document. Filter and spray arm cleaning instructions reference QR codes rather than in-manual steps. Manufactured year inferred from copyright notice '© 2024 BSH HOME APPLIANCES CORPORATION'."
+ },
+ "truncated": false,
+ "model": "claude-sonnet-4-6",
+ "promptHash": "d564709261ca",
+ "at": "2026-08-19T17:33:26.148Z"
+}

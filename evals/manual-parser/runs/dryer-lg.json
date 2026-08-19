@@ -1,0 +1,1410 @@
+{
+ "chunks": [
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Fire and Explosion Hazard – Gas Dryers",
+   "content": "Do not store or use gasoline or other flammable vapors near the dryer. If you smell gas, do not operate any appliance or switch — evacuate immediately and call your gas supplier from a neighbor's phone.",
+   "tags": [
+    "gas",
+    "fire",
+    "explosion",
+    "emergency"
+   ],
+   "scenarios": [
+    {
+     "condition": "You smell gas near the dryer",
+     "steps": [
+      "Do not light any appliance or touch any electrical switch.",
+      "Do not use any phone in the building.",
+      "Clear all occupants from the room, building, or area.",
+      "Call your gas supplier from a neighbor's phone and follow their instructions.",
+      "If you cannot reach your gas supplier, call the fire department."
+     ]
+    }
+   ],
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": [
+    "gas"
+   ]
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Do Not Dry Flammable-Contaminated Items",
+   "content": "Never dry articles that have been cleaned in, soaked in, or spotted with gasoline, dry-cleaning solvents, vegetable oil, or other flammable substances — they give off vapors that can ignite or explode. Items contaminated with cooking oils may also cause a chemical reaction that starts a fire.",
+   "tags": [
+    "fire",
+    "flammable",
+    "laundry",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Venting and Ductwork Safety Requirements",
+   "content": "Use only 4-inch rigid, semi-rigid, or flexible metal ductwork — never plastic or thin foil. Gas dryers MUST exhaust to the outdoors; do not exhaust into an attic, wall, crawl space, or chimney.",
+   "tags": [
+    "venting",
+    "ductwork",
+    "fire",
+    "installation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6,
+    18
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Grounding and Electrical Safety",
+   "content": "The dryer must be properly grounded; do not cut or remove the ground prong from the power cord. Electric dryers require a dedicated 240 VAC, 60 Hz, 30-amp circuit; gas dryers require a grounded 120 VAC, 15-amp outlet.",
+   "tags": [
+    "grounding",
+    "electrical",
+    "shock",
+    "installation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    8,
+    21,
+    23
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Steam Cycle Safety Warnings",
+   "content": "Do not open the dryer door during a steam cycle and do not touch the steam nozzle inside the drum during or after the cycle. Do not fill the steam feeder with hot water (over 86°F/30°C), gasoline, or other flammable substances.",
+   "tags": [
+    "steam",
+    "burn",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7,
+    43
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": [
+    "steam"
+   ]
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Maintenance Safety – Unplug Before Cleaning",
+   "content": "Disconnect the dryer from power before cleaning or performing any user maintenance — turning controls to OFF does not disconnect power. Do not repair or replace parts yourself; use only authorized factory parts.",
+   "tags": [
+    "maintenance",
+    "electrical",
+    "safety",
+    "cleaning"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    8
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "reference",
+   "title": "Garage and Special Installation Safety",
+   "content": "For garage installations, place the dryer at least 18 inches above the floor. Do not install near heat sources such as a stove, oven, or heater, and do not install in humid spaces.",
+   "tags": [
+    "installation",
+    "garage",
+    "clearance",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6,
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Product Specifications",
+   "content": "All models: 27\"W × 30.2\"D × 39\"H; drying capacity 7.4 cu.ft. (IEC); gas models weigh 123–127 lb, electric 120–123 lb. DLE3500*/DLG3501* are non-steam; DLEX3700*/DLGX3701* and DLEX3900*/DLGX3901* are steam dryers.",
+   "tags": [
+    "specs",
+    "dimensions",
+    "capacity",
+    "weight"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Product Specifications",
+     "columns": [
+      "Model",
+      "Description",
+      "Dimensions (W×D×H)",
+      "Net Weight",
+      "Drying Capacity (Normal)"
+     ],
+     "rows": [
+      [
+       "DLE3500*/DLG3501*",
+       "Non-steam Dryer",
+       "27\"×30.2\"×39\"",
+       "Gas 123–127 lb / Electric 120–123 lb",
+       "7.4 cu.ft. (22.5 lb)"
+      ],
+      [
+       "DLEX3700*/DLGX3701*",
+       "Steam Dryer",
+       "27\"×30.2\"×39\"",
+       "Gas 123–127 lb / Electric 120–123 lb",
+       "7.4 cu.ft. (22.5 lb)"
+      ],
+      [
+       "DLEX3900*/DLGX3901*",
+       "Steam Dryer",
+       "27\"×30.2\"×39\"",
+       "Gas 123–127 lb / Electric 120–123 lb",
+       "7.4 cu.ft. (22.5 lb)"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Basic Dryer Operation",
+   "content": "Clean the lint filter, load wet laundry, press Power, turn the cycle selector knob to choose a cycle, adjust settings with modifier buttons, then press Start/Pause. Remove clothes promptly when the end-of-cycle chime sounds to reduce wrinkling.",
+   "tags": [
+    "operation",
+    "cycle",
+    "start",
+    "everyday"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    32
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Reversing the Door",
+   "content": "Unplug the dryer, support the door, remove the two decorative screws, two latch screws, and latch from the catch side; remove the two hinge screws and the door; turn the door upside down and reinstall on the opposite side; reinstall the latch hardware on the opposite side; verify the door closes properly.",
+   "tags": [
+    "door",
+    "reversal",
+    "installation",
+    "hinge"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    15
+   ],
+   "diagram_pages": [
+    15
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Stacking the Dryer on a Washer",
+   "content": "Clean the washer top, attach side brackets with adhesive and screws, place the dryer on top fitting feet into brackets, slide dryer back until stoppers catch, then insert and secure the front rail with the two remaining screws. Two or more people are required.",
+   "tags": [
+    "stacking",
+    "installation",
+    "stacking-kit",
+    "optional-accessory"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    17
+   ],
+   "diagram_pages": [
+    17
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Venting the Dryer – Ductwork Setup",
+   "content": "Use 4-inch rigid, semi-rigid, or flexible metal duct; keep the run as short as possible with as few elbows as possible; secure all joints with duct tape (no sheet-metal screws); the maximum flexible metal duct length is 8 ft. Refer to the ductwork table for maximum rigid duct lengths based on number of 90° elbows.",
+   "tags": [
+    "venting",
+    "ductwork",
+    "installation",
+    "exhaust"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    18,
+    19
+   ],
+   "diagram_pages": [
+    19
+   ],
+   "table_data": [
+    {
+     "table_title": "Maximum Duct Length by Wall Cap Type and Elbows",
+     "columns": [
+      "Wall Cap Type",
+      "# of 90° Elbows",
+      "Max Length (4\" rigid metal duct)"
+     ],
+     "rows": [
+      [
+       "Recommended (4\" opening)",
+       "0",
+       "65 ft (19.8 m)"
+      ],
+      [
+       "Recommended (4\" opening)",
+       "1",
+       "55 ft (16.8 m)"
+      ],
+      [
+       "Recommended (4\" opening)",
+       "2",
+       "47 ft (14.3 m)"
+      ],
+      [
+       "Recommended (4\" opening)",
+       "3",
+       "36 ft (11.0 m)"
+      ],
+      [
+       "Recommended (4\" opening)",
+       "4",
+       "28 ft (8.5 m)"
+      ],
+      [
+       "Short run only (2.5\" opening)",
+       "0",
+       "55 ft (16.8 m)"
+      ],
+      [
+       "Short run only (2.5\" opening)",
+       "1",
+       "47 ft (14.3 m)"
+      ],
+      [
+       "Short run only (2.5\" opening)",
+       "2",
+       "41 ft (12.5 m)"
+      ],
+      [
+       "Short run only (2.5\" opening)",
+       "3",
+       "30 ft (9.1 m)"
+      ],
+      [
+       "Short run only (2.5\" opening)",
+       "4",
+       "22 ft (6.7 m)"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Connecting the Steam Inlet Hose",
+   "content": "Connect the dryer to the cold water tap using new hoses (water pressure must be 20–120 psi). With a washer sharing the tap, use the Y-connector; without a washer, connect the long hose straight to the faucet. Tighten hand-tight plus 2/3 turn with pliers; check for leaks at all connections.",
+   "tags": [
+    "steam",
+    "water",
+    "installation",
+    "inlet-hose"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [
+    20
+   ],
+   "table_data": null,
+   "applies_to": [
+    "steam"
+   ]
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Connecting Gas Dryers",
+   "content": "Turn off the gas supply and unplug the dryer; remove the shipping cap from the gas fitting; connect using a new AGA/CSA-certified stainless steel flexible connector with a 3/8-inch NPT fitting; tighten all connections; turn on gas and check all connections with a noncorrosive leak-detection fluid. A qualified installer must perform this work.",
+   "tags": [
+    "gas",
+    "installation",
+    "connection"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    21,
+    22
+   ],
+   "diagram_pages": [
+    22
+   ],
+   "table_data": null,
+   "applies_to": [
+    "gas"
+   ]
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Connecting Electric Dryers – Power Cord",
+   "content": "For 4-wire connections (required for new construction after Jan 1, 1996): remove the terminal block cover, install a UL-listed strain relief, thread the 30-amp 240V 4-wire cord through it, transfer the dryer's ground wire to the center terminal, attach hot leads to outer screws, neutral to center, ground wire to green screw, tighten all screws, and reinstall the cover. 3-wire connections are not permitted on new construction.",
+   "tags": [
+    "electric",
+    "installation",
+    "power-cord",
+    "terminal-block"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    23,
+    24,
+    25,
+    26,
+    27
+   ],
+   "diagram_pages": [
+    24,
+    25,
+    26,
+    27
+   ],
+   "table_data": null,
+   "applies_to": [
+    "electric"
+   ]
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Installation Test (Duct Check)",
+   "content": "With the drum empty and dryer cool, press and hold Signal + Temp then press Power (or Power then immediately Temp + Signal on glass-touch models) to activate the test; press Start/Pause to run it. Monitor the Flow Sense LED — if it lights, the exhaust system is severely restricted and must be repaired before use.",
+   "tags": [
+    "installation",
+    "duct-check",
+    "flow-sense",
+    "test"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    29,
+    30
+   ],
+   "diagram_pages": [
+    29
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Using Steam Fresh™ and Steam Sanitary™ Cycles",
+   "content": "Select the Steam Fresh™ or Steam Sanitary™ cycle using the knob; use More Time/Less Time to set load size (3, 5, or 'big'); optionally add Reduce Static or Wrinkle Care; press Start/Pause. Do not use Steam Fresh™ on wool, leather, silk, wet clothes, lingerie, foam, or electric blankets.",
+   "tags": [
+    "steam",
+    "steam-fresh",
+    "steam-sanitary",
+    "cycle"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    43,
+    44
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": [
+    "steam"
+   ]
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Using the Rack Dry Function",
+   "content": "Open the door and slide the drying rack into the drum, seating it evenly on the inner door rim; place wet items on the rack with space for air circulation; close the door, select Rack Dry, and press Temp to choose a temperature (defaults to no heat). Never tumble a clothing load with the rack installed.",
+   "tags": [
+    "rack-dry",
+    "drying-rack",
+    "delicates",
+    "optional-accessory"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    42
+   ],
+   "diagram_pages": [
+    42
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Smart Diagnosis™ via Phone",
+   "content": "Call LG Customer Information Center (US: 1-800-243-0000; Canada: 1-888-542-2623); when instructed, hold the phone mouthpiece close to the Smart Diagnosis icon and press and hold the Temp button for 3 seconds; keep the phone in place until tone transmission finishes.",
+   "tags": [
+    "smart-diagnosis",
+    "troubleshooting",
+    "customer-service"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    48
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "LG SmartThinQ App Setup and Remote Start",
+   "content": "Turn off mobile data, connect your smartphone to your 2.4 GHz Wi-Fi router, then download the LG SmartThinQ app and follow in-app registration instructions. To use Remote Start: press Power, load laundry, press and hold the Remote Start button for 3 seconds, then start the cycle from the app.",
+   "tags": [
+    "smartthinq",
+    "wifi",
+    "remote-start",
+    "app"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    45,
+    46
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Sorting Laundry and Loading Tips",
+   "content": "Sort clothes into loads of similar fabric types and weights; combine large and small items but do not overload — clothes need room to tumble. Close zippers, hooks, and drawstrings; check all pockets for coins, lighters, or other items before loading.",
+   "tags": [
+    "laundry",
+    "sorting",
+    "loading",
+    "everyday"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    33
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning the Lint Filter",
+   "content": "Pull the lint filter straight up, roll lint off with fingers or vacuum it, and push firmly back into place before every load. If clogged with fabric softener residue, wash in warm soapy water and dry thoroughly before reinstalling.",
+   "tags": [
+    "lint-filter",
+    "cleaning",
+    "everyday",
+    "fire-prevention"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    33,
+    49
+   ],
+   "diagram_pages": [
+    49
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cleaning the Dryer Exterior and Interior",
+   "content": "Wipe the exterior with warm water and a mild nonabrasive household detergent; wipe the door opening and seal with a soft damp cloth to prevent lint buildup. Clean the drum with a conventional stainless steel cleaner per manufacturer specs; never use steel wool or abrasive cleansers.",
+   "tags": [
+    "cleaning",
+    "exterior",
+    "interior",
+    "drum"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    49
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Maintaining Ductwork and Exhaust System",
+   "content": "Check vent ductwork for lint buildup monthly and clean at least once per year. If airflow or drying performance noticeably decreases, immediately inspect ductwork for obstructions and contact a qualified technician.",
+   "tags": [
+    "ductwork",
+    "venting",
+    "maintenance",
+    "lint"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    49
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Dryer Won't Start or Won't Heat",
+   "content": "Check power cord connection, circuit breaker/fuse, and gas supply valve. For electric dryers, a blown fuse on one leg can allow the dryer to run without heat.",
+   "tags": [
+    "wont-start",
+    "no-heat",
+    "power",
+    "gas"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    51
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Dryer Won't Start or Won't Heat",
+     "columns": [
+      "Problem",
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Dryer will not turn on",
+       "Power cord not plugged in",
+       "Ensure plug is securely in grounded outlet matching rating plate"
+      ],
+      [
+       "Dryer will not turn on",
+       "House fuse blown / breaker tripped",
+       "Reset breaker or replace fuse; call electrician if circuit overload"
+      ],
+      [
+       "Dryer does not heat",
+       "House fuse blown / breaker tripped",
+       "Reset breaker or replace fuse; note electric dryers can run without heat if one fuse leg is blown"
+      ],
+      [
+       "Dryer does not heat",
+       "Gas supply turned off",
+       "Confirm house gas shutoff and dryer gas shutoff are both fully open"
+      ],
+      [
+       "Dryer does not heat",
+       "Energy Saver option selected",
+       "Deselect Energy Saver; cycle begins with air-dry section — no heat at start is normal in this mode"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Clothes Take Too Long to Dry",
+   "content": "Long drying times are most commonly caused by blocked or dirty exhaust ducts, a clogged lint filter, overloading, or improper sorting. Check and clean the exhaust system and lint filter first.",
+   "tags": [
+    "drying-time",
+    "performance",
+    "lint",
+    "ductwork"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    51,
+    52
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Clothes Take Too Long to Dry",
+     "columns": [
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Exhaust ducts blocked or too long",
+       "Confirm duct is properly configured and free of lint/obstructions; check outside dampers"
+      ],
+      [
+       "Load not properly sorted",
+       "Separate heavy from lightweight items"
+      ],
+      [
+       "Large load of heavy fabrics",
+       "Divide into smaller, consistent loads"
+      ],
+      [
+       "Lint filter needs cleaning",
+       "Remove lint before every load; pause cycle to clean if high-lint load"
+      ],
+      [
+       "Dryer overloaded",
+       "Divide extra-large loads into smaller loads"
+      ],
+      [
+       "Dryer underloaded",
+       "Add extra items or use Time Dry for very small loads"
+      ],
+      [
+       "Energy Saver option selected",
+       "Deselect Energy Saver for faster Normal cycle"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Performance Issues – Spots, Wrinkles, Shrinkage, Lint, Static",
+   "content": "Most performance problems stem from improper sorting, overdrying, or not following fabric care labels. Use Wrinkle Care to prevent wrinkles; use Reduce Static or fabric softener for static; sort lint producers from lint trappers.",
+   "tags": [
+    "performance",
+    "wrinkles",
+    "static",
+    "lint",
+    "shrinkage"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    53,
+    54
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Performance Issues",
+     "columns": [
+      "Problem",
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Greasy spots on clothes",
+       "Fabric softener used incorrectly",
+       "Follow fabric softener instructions"
+      ],
+      [
+       "Greasy spots on clothes",
+       "Clothes not properly cleaned before drying",
+       "Pre-treat stains; ensure washer cleans thoroughly"
+      ],
+      [
+       "Clothes are wrinkled",
+       "Overdried or left in dryer too long",
+       "Use shorter dry time or Less Dry setting; use Wrinkle Care option"
+      ],
+      [
+       "Clothes are shrinking",
+       "Garment care instructions not followed",
+       "Follow fabric care labels; use low or no heat"
+      ],
+      [
+       "Lint on clothes",
+       "Lint filter not cleaned / laundry not sorted",
+       "Clean filter before every load; separate lint producers from lint trappers"
+      ],
+      [
+       "Excess static",
+       "Overdried or no fabric softener",
+       "Use fabric softener or Reduce Static option; use shorter dry time"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Steam Function Issues",
+   "content": "Most steam cycle observations (water dripping from nozzle, drum not turning, steam not visible) are normal. Persistent wrinkles after Steam Fresh™ usually mean the load is too large or mixed.",
+   "tags": [
+    "steam",
+    "steam-fresh",
+    "troubleshooting"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    55
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Steam Function Issues",
+     "columns": [
+      "Problem",
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Water drips from nozzle at start",
+       "Normal – steam condensation",
+       "Dripping stops after a short time"
+      ],
+      [
+       "Garments still wrinkled after Steam Fresh™",
+       "Too many or mixed garment types",
+       "Use 1–5 items; load similar types"
+      ],
+      [
+       "Creases/pleats gone after Steam Fresh™",
+       "Cycle removes wrinkles by design",
+       "Use an iron to replace creases"
+      ],
+      [
+       "Static after Reduce Static option",
+       "Normal – depends on skin moisture",
+       "Amount of static varies by individual"
+      ],
+      [
+       "Steam does not generate, no error code",
+       "Water level error",
+       "Unplug dryer and call for service"
+      ],
+      [
+       "Drum does not turn during steam cycle",
+       "Normal – drum stops to keep steam in",
+       "Drum turns ~2 seconds once per minute"
+      ],
+      [
+       "Odors remain after Steam Fresh™",
+       "Steam did not fully remove odor",
+       "Wash in a normal cycle"
+      ]
+     ]
+    }
+   ],
+   "applies_to": [
+    "steam"
+   ]
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Error Codes Reference",
+   "content": "Check the error code display before calling for service. Most codes indicate sensor failures, power issues, gas supply problems, or duct blockages.",
+   "tags": [
+    "error-code",
+    "troubleshooting",
+    "flow-sense"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    30,
+    56
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Error Codes",
+     "columns": [
+      "Error Code",
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "tE1–tE7",
+       "Temperature sensor failure",
+       "Turn off dryer and call for service"
+      ],
+      [
+       "HS",
+       "Humidity sensor failure",
+       "Turn off dryer and call for service"
+      ],
+      [
+       "PS / PF / nP",
+       "Power cord not connected correctly or incorrect house power",
+       "Check power cord connection to terminal block; reset breaker or replace fuse"
+      ],
+      [
+       "gAS",
+       "Gas supply or service turned off (gas models only)",
+       "Confirm house gas shutoff and dryer gas shutoff are both fully open"
+      ],
+      [
+       "d75 / d80 / d90 / d95",
+       "Ductwork 75–95% blocked",
+       "Do not use dryer; clean/repair exhaust system immediately"
+      ],
+      [
+       "Flow Sense LED on",
+       "Exhaust system severely restricted",
+       "Check and clean ductwork; if LED stays on after 5+ cycles, call for service"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Wi-Fi / SmartThinQ Connection Issues",
+   "content": "Connection failures are usually caused by incorrect Wi-Fi password, mobile data left on, wrong router frequency (must be 2.4 GHz), or the appliance being too far from the router.",
+   "tags": [
+    "wifi",
+    "smartthinq",
+    "connection",
+    "troubleshooting"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    54
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Wi-Fi Connection Issues",
+     "columns": [
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Wrong Wi-Fi password",
+       "Delete home Wi-Fi network and re-register"
+      ],
+      [
+       "Mobile data turned on",
+       "Turn off Mobile/Cellular Data before registering"
+      ],
+      [
+       "SSID uses special characters",
+       "Use only English letters and numbers for SSID"
+      ],
+      [
+       "Router frequency not 2.4 GHz",
+       "Set router to 2.4 GHz; contact ISP if needed"
+      ],
+      [
+       "Appliance too far from router",
+       "Move router closer or install a Wi-Fi repeater"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Cycle Guide – Non-Steam Models",
+   "content": "DLE3500*/DLG3501* offer Sensor Dry cycles (Normal, Heavy Duty, Bedding, Towels, Small Load, Perm. Press, Delicates) and Manual Dry cycles (Speed Dry, Air Dry). Normal cycle has Energy Saver on by default.",
+   "tags": [
+    "cycle-guide",
+    "non-steam",
+    "sensor-dry",
+    "manual-dry"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    38
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Cycle Guide – Steam Models",
+   "content": "Steam models add Steam Sanitary™ and Steam Fresh™ cycles, plus the Reduce Static steam option for standard cycles. DLEX3900*/DLGX3901* also adds Sportswear and Small Load sensor dry cycles.",
+   "tags": [
+    "cycle-guide",
+    "steam",
+    "steam-fresh",
+    "steam-sanitary"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    39,
+    40
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": [
+    "steam"
+   ]
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Wireless LAN Module Specifications",
+   "content": "Wireless module model LCW-004; frequency range 2412–2462 MHz (2.4 GHz only); max output power: 802.11b 22.44 dBm, 802.11g 24.68 dBm, 802.11n 24.11 dBm.",
+   "tags": [
+    "wifi",
+    "wireless",
+    "specs",
+    "smartthinq"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    47
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  }
+ ],
+ "tasks": [
+  {
+   "title": "Clean the Lint Filter",
+   "description": "Remove lint from the lint filter before or after every drying load.",
+   "care_type": "maintenance",
+   "justification": "A clogged lint filter restricts airflow, greatly increases drying time, and is a leading cause of dryer fires.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 2,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "Open the dryer door and pull the lint filter straight up. Roll lint off with your fingers or vacuum it away. Hold the filter up to light to check for residue — if clogged with fabric softener, wash in warm soapy water and dry thoroughly before reinstalling. Push the filter firmly back into place until it clicks.",
+   "source_page": 49,
+   "tags": [
+    "lint-filter",
+    "fire-prevention",
+    "airflow"
+   ],
+   "diagram_pages": [
+    49
+   ],
+   "symptom_tags": [
+    "overheating",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Inspect and Clean Exhaust Ductwork",
+   "description": "Check the exhaust duct for lint buildup monthly and clean it at least once per year.",
+   "care_type": "maintenance",
+   "justification": "Lint buildup in ductwork restricts airflow, causes longer drying times, increases energy use, and is a significant fire hazard.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 30,
+   "schedule_type": "monthly",
+   "interval_days": null,
+   "instructions_text": "Disconnect the dryer from power and gas (if applicable). Disconnect the exhaust duct from the dryer and the wall cap. Use a dryer vent brush or vacuum to remove lint from the full length of the duct and from the wall cap dampers. Reconnect all duct sections and secure joints with duct tape. Reconnect power/gas and run the dryer briefly to confirm strong airflow at the exterior vent.",
+   "source_page": 49,
+   "tags": [
+    "ductwork",
+    "venting",
+    "lint",
+    "fire-prevention"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "overheating",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Dryer Exterior",
+   "description": "Wipe down the outside surfaces of the dryer to remove spills and dust.",
+   "care_type": "cleaning",
+   "justification": "Cosmetic only — keeps the dryer surface free of spills and dust.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 5,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Unplug the dryer before cleaning. Wipe the exterior with a soft cloth dampened with warm water and a mild nonabrasive household detergent. Wipe dry immediately. Do not use methylated spirits, solvents, steel wool, or abrasive cleansers.",
+   "source_page": 49,
+   "tags": [
+    "exterior",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Dryer Interior and Door Seal",
+   "description": "Wipe the drum interior, door opening, and door seal to prevent lint and dust buildup.",
+   "care_type": "cleaning",
+   "justification": "Lint and dust buildup around the door seal can damage the seal over time and allow lint to escape the drum.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 10,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "instructions_text": "Unplug the dryer. Wipe around the door opening and seal with a soft damp cloth. Clean the door window with a soft cloth dampened with warm water and mild detergent, then wipe dry. Clean the stainless steel drum with a conventional stainless steel cleaner per the manufacturer's directions. Never use steel wool or abrasive cleansers.",
+   "source_page": 49,
+   "tags": [
+    "interior",
+    "drum",
+    "door-seal",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Inspect Steam Inlet Hoses",
+   "description": "Periodically check the condition of the steam water supply hoses and replace them after 5 years of use.",
+   "care_type": "maintenance",
+   "justification": "Deteriorated hoses can fail and cause water leaks or flooding; the manual explicitly states to replace inlet hoses after 5 years.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 10,
+   "schedule_type": "annual",
+   "interval_days": null,
+   "instructions_text": "Turn off the cold water faucet. Inspect the full length of each hose for cracks, bulges, kinks, or corrosion at the fittings. Record the installation date on the hose for reference. Replace hoses after 5 years of use or immediately if any damage is found. When replacing, use new hoses only — do not reuse old hoses.",
+   "source_page": 20,
+   "tags": [
+    "steam",
+    "hose",
+    "water-supply",
+    "inspection"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "leaking"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [
+    "steam"
+   ],
+   "supplies": []
+  },
+  {
+   "title": "Level the Dryer",
+   "description": "Ensure all four leveling feet are in firm contact with the floor and the dryer is level front-to-back and side-to-side.",
+   "care_type": "maintenance",
+   "justification": "An unlevel dryer causes excessive vibration, noise, and prevents automatic sensor cycles from operating correctly.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 15,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Place a level across the top of the dryer. Use an adjustable wrench to turn the leveling feet — unscrew to raise, screw in to lower. Adjust until the dryer is level side-to-side and front-to-back. Gently push on the top corners to confirm the dryer does not rock. If installed on a pedestal, use the pedestal's leveling feet and fully retract the dryer's own feet.",
+   "source_page": 14,
+   "tags": [
+    "leveling",
+    "installation",
+    "vibration"
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "symptom_tags": [
+    "vibration",
+    "noise"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "vibration",
+     "description": "Dryer vibrates excessively or moves during operation",
+     "severity": "warning"
+    },
+    {
+     "trigger": "noise",
+     "description": "Dryer makes unusual banging or rattling noises",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Run the Installation Duct Check Test",
+   "description": "Perform the Flow Sense duct check test after installation to verify the exhaust system is adequate.",
+   "care_type": "maintenance",
+   "justification": "A severely restricted exhaust system reduces drying performance and creates a fire hazard; this test identifies problems before first use.",
+   "priority_tier": "recommended",
+   "risk_level": "safety",
+   "estimated_minutes": 10,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Ensure the drum is empty and the dryer is cool (run Air Dry for a few minutes first if the dryer was warmed up). Press and hold Signal + Temp, then press Power (or on glass-touch models: press Power then immediately hold Temp + Signal). Press Start/Pause to begin the test. Monitor the Flow Sense LED — if it lights, the exhaust system is severely restricted and must be repaired before use. The test ends automatically and displays 'End'.",
+   "source_page": 29,
+   "tags": [
+    "duct-check",
+    "flow-sense",
+    "installation",
+    "test"
+   ],
+   "diagram_pages": [
+    29
+   ],
+   "symptom_tags": [
+    "overheating",
+    "performance_drop"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "performance_drop",
+     "description": "Clothes take much longer to dry than expected",
+     "severity": "warning"
+    },
+    {
+     "trigger": "overheating",
+     "description": "Flow Sense LED lights up during normal drying cycles",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Connect and Verify Gas Supply",
+   "description": "Have a qualified installer connect the gas supply line and verify all connections are leak-free before first use.",
+   "care_type": "maintenance",
+   "justification": "An improperly connected or leaking gas line is a serious fire and explosion hazard.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 30,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "This work must be performed by a qualified installer or gas company technician. The technician will: turn off the gas supply, remove the shipping cap from the gas fitting, connect a new AGA/CSA-certified stainless steel flexible connector with a 3/8-inch NPT fitting, tighten all connections securely, turn on the gas supply, and check all connections with a noncorrosive leak-detection fluid. A manual gas shutoff valve must be installed within 6 ft of the dryer.",
+   "source_page": 21,
+   "tags": [
+    "gas",
+    "installation",
+    "leak-check"
+   ],
+   "diagram_pages": [
+    22
+   ],
+   "symptom_tags": [
+    "electrical"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "odor",
+     "description": "You smell gas near the dryer at any time",
+     "severity": "safety"
+    }
+   ],
+   "applies_to": [
+    "gas"
+   ],
+   "supplies": []
+  },
+  {
+   "title": "Verify Electrical Connection and Grounding",
+   "description": "Confirm the power cord is correctly connected to the terminal block and the dryer is properly grounded before first use.",
+   "care_type": "maintenance",
+   "justification": "An improper electrical connection or missing ground creates a risk of electric shock and fire.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 20,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Ensure the dryer is unplugged. Remove the terminal block access cover. Verify the power cord wires are connected to the correct terminal screws (hot leads to outer screws, neutral to center, ground to green screw) and all screws are tight. Reinstall the access cover. Plug into a properly grounded outlet — electric dryers require a dedicated 240V 30-amp circuit; gas dryers require a grounded 120V 15-amp outlet.",
+   "source_page": 23,
+   "tags": [
+    "electrical",
+    "grounding",
+    "installation"
+   ],
+   "diagram_pages": [
+    24
+   ],
+   "symptom_tags": [
+    "electrical"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "electrical",
+     "description": "You notice sparks, burning smell, or receive a shock when touching the dryer",
+     "severity": "safety"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Connect Steam Inlet Hose",
+   "description": "Connect the dryer to the cold water supply using new hoses before first use on steam models.",
+   "care_type": "maintenance",
+   "justification": "Improper or missing water connection prevents steam functions from working and can cause leaks.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 20,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Use only new hoses — never reuse old ones. Check rubber seals at each hose end. If sharing a faucet with a washer, shut off the cold water tap, remove the washer hose, connect the short hose to the Y-connector, connect the Y-connector to the faucet, then connect the long hose to the dryer and the washer hose to the other Y-connector port. If no washer, connect the long hose straight from the faucet to the dryer. Tighten hand-tight plus 2/3 turn with pliers. Turn on the water and check all connections for leaks.",
+   "source_page": 20,
+   "tags": [
+    "steam",
+    "water",
+    "installation",
+    "hose"
+   ],
+   "diagram_pages": [
+    20
+   ],
+   "symptom_tags": [
+    "leaking"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "leaking",
+     "description": "You notice water around the dryer or at the faucet connection",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [
+    "steam"
+   ],
+   "supplies": []
+  }
+ ],
+ "cleaning_guide": {
+  "weekly": {
+   "title": "Weekly Dryer Cleaning",
+   "steps": [
+    "Clean the lint filter before or after every load — pull it straight up, roll off lint with fingers, and push firmly back into place.",
+    "Wipe the door opening and seal with a soft damp cloth to remove lint and dust.",
+    "Wipe the exterior surfaces with warm water and a mild nonabrasive detergent; dry immediately.",
+    "Check the area around and under the dryer for lint and dust accumulation; vacuum as needed."
+   ],
+   "supplies": [
+    "Soft damp cloth",
+    "Mild nonabrasive household detergent",
+    "Vacuum"
+   ]
+  },
+  "deep_clean": {
+   "title": "Annual Deep Clean",
+   "steps": [
+    "Unplug the dryer (and shut off gas if applicable) before starting.",
+    "Remove and wash the lint filter in warm soapy water if clogged with fabric softener residue; dry thoroughly before reinstalling.",
+    "Disconnect the exhaust duct and use a dryer vent brush or vacuum to remove lint from the full duct length and exterior wall cap.",
+    "Reconnect all duct sections and secure joints with duct tape.",
+    "Clean the stainless steel drum interior with a conventional stainless steel cleaner per manufacturer directions.",
+    "Clean the door window with a soft cloth and mild detergent, then wipe dry.",
+    "Reconnect power/gas and run the installation duct check test to verify airflow is adequate."
+   ],
+   "supplies": [
+    "Dryer vent brush",
+    "Vacuum",
+    "Stainless steel cleaner",
+    "Mild nonabrasive detergent",
+    "Duct tape",
+    "Soft cloths"
+   ]
+  }
+ },
+ "warranty": {
+  "duration_months": 12,
+  "coverage": "LG will repair or replace defective parts and labor for one year from original retail purchase. The dryer drum is covered for parts only (no labor) for ten years from original retail purchase. Valid only for original retail purchaser in the United States including U.S. Territories; proof of purchase required.",
+  "exclusions": [
+   "Service trips for delivery, installation, or customer instruction",
+   "Power failures or inadequate electrical service",
+   "Damage from leaky/broken water pipes or inadequate water supply",
+   "Damage from operating in corrosive atmosphere or contrary to owner's manual",
+   "Damage from accidents, pests, lightning, wind, fire, floods, or acts of God",
+   "Unauthorized modification or alteration",
+   "Incorrect electrical current, voltage, or plumbing codes",
+   "Commercial or industrial use",
+   "Use of non-LG-approved accessories or cleaning products",
+   "Transportation damage (scratches, dents, chips) unless reported within 1 week of delivery",
+   "Display, open box, discounted, or refurbished product damage or missing items",
+   "Conversion from natural gas to LP gas or vice versa",
+   "Products with removed or altered serial numbers",
+   "Increases in utility costs",
+   "Repairs for non-household use",
+   "Removal/reinstallation costs if inaccessibly installed",
+   "Damage from misuse, abuse, improper installation, repair, or maintenance",
+   "Incorrect or inadequate exhaust systems (not covered by dryer warranty)"
+  ],
+  "registration_required": null,
+  "contact": "1-800-243-0000 or http://www.lg.com"
+ },
+ "manufactured_year": 2019,
+ "confidence": {
+  "overall": 0.92,
+  "safety": 0.97,
+  "how_to": 0.9,
+  "care": 0.9,
+  "troubleshooting": 0.92,
+  "notes": "Manual is comprehensive and well-structured. Manufactured year inferred from copyright date 2018-2019 and revision date 021919 (Feb 2019). All major sections extracted. Steam-specific content clearly flagged."
+ },
+ "truncated": false,
+ "model": "claude-sonnet-4-6",
+ "promptHash": "d564709261ca",
+ "at": "2026-08-19T17:08:51.859Z"
+}

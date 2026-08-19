@@ -1,0 +1,60 @@
+{
+  "name": "nespresso-vertuo",
+  "appliance": "Nespresso Vertuo Plus coffee machine",
+  "grounded_in": "Read 2026-08-19. Special Functions chapter lists CLEANING, RESET TO FACTORY SETTINGS and DESCALING. Safety chapter contains the exact sentence 'Replace water in water tank when the appliance is not operated during a weekend or a similar period of time.'",
+  "doc_type": "user_manual",
+  "notes": "THE trigger case for the whole curation effort: that one safety sentence became an ESSENTIAL recurring task called 'Replace Water in the Tank'. This file exists to make that specific regression impossible to reintroduce unnoticed.",
+  "must_have": [
+    {
+      "id": "descale",
+      "title_matches": [
+        "descal"
+      ],
+      "care_type": "maintenance",
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "Scale shortens the heater's life; the manual gives descaling its own chapter. If curation ever eats this, the machine has no real task at all."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "clean-machine",
+      "title_matches": [
+        "(clean|rinse|wipe).{0,30}(machine|surface|exterior|brewing|head|outlet)"
+      ],
+      "why": "The named CLEANING special function."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "replace-water",
+      "title_matches": [
+        "(replace|refill|change|top.?up|fill).{0,24}water"
+      ],
+      "why": "THE regression. A safety note about stale water became an Essential recurring reminder. Refilling a water tank is operating a coffee machine."
+    },
+    {
+      "id": "capsules",
+      "title_matches": [
+        "^(insert|load|eject|add)\\b",
+        "(insert|load|eject).{0,20}(capsule|pod)",
+        "(add|load).{0,20}(coffee|water)"
+      ],
+      "why": "Consumable handling is the definition of operation. Narrowed to INSERTING and EJECTING: 'Empty and Rinse Capsule Container' also cleans a part, and the prompt's own rule is to downgrade a borderline step rather than delete it. Forbidding it would have the eval arguing with the prompt."
+    },
+    {
+      "id": "factory-reset",
+      "title_matches": [
+        "(factory|reset)"
+      ],
+      "why": "One-time config / personalisation, explicitly listed under NOT A TASK."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 2,
+    "max_tasks": 18,
+    "max_essential": 2,
+    "max_essential_share": 35
+  }
+}

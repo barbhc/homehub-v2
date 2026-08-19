@@ -1,0 +1,58 @@
+{
+  "name": "range-hood-zline",
+  "appliance": "Zephyr Milano wall hood (sold as ZLINE ZOM-E30BS)",
+  "grounded_in": "Read 2026-08-19. Maintenance chapter: 'Aluminum Mesh Filters ... need not be replaced on a regular basis but are required to be kept clean. Remove and clean by hand or in dishwasher.' Charcoal filters (recirculating installs only) are replaced — the controller flags them after 120 hours. Surfaces are cleaned 'periodically'. ACT conversion is a one-time installer jumper change.",
+  "doc_type": "user_manual",
+  "must_have": [
+    {
+      "id": "mesh-filter",
+      "title_matches": [
+        "filter"
+      ],
+      "care_type": "maintenance",
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "Grease filters are a NEVER DROP category and a real fire path on a cooking appliance."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "charcoal-filter",
+      "title_matches": [
+        "(charcoal|carbon).{0,12}filter"
+      ],
+      "why": "Recirculating installs only, so its absence is defensible — but the manual states a duty cycle for it."
+    },
+    {
+      "id": "duct",
+      "title_matches": [
+        "(duct|vent|exhaust|blower)"
+      ],
+      "why": "Airflow is a NEVER DROP category."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "fan-speed",
+      "title_matches": [
+        "(select|set|adjust|change).{0,20}(speed|fan|light|blower setting)"
+      ],
+      "why": "Operating the hood."
+    },
+    {
+      "id": "act-conversion",
+      "title_matches": [
+        "(act|cfm)"
+      ],
+      "where": "recurring",
+      "why": "A one-time installer jumper move that the manual says cannot be undone. Recurring is exactly wrong."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 2,
+    "max_tasks": 18,
+    "max_essential": 2,
+    "max_essential_share": 35
+  }
+}

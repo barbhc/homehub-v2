@@ -1,0 +1,894 @@
+{
+ "chunks": [
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Product Specifications",
+   "content": "The Coway Airmega Mighty (AP-1512HH) is an air purifier with 361 ft² coverage in 12.5 min, CADR 233 (Smoke), 3-stage airflow, 77W power, and weighs 12.3 lbs. It uses a Pre-Filter + Deodorization Filter + HEPA Filter system and operates at 120V~, 60Hz only.",
+   "tags": [
+    "specs",
+    "coverage",
+    "cadr",
+    "filter",
+    "power"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Specifications",
+     "columns": [
+      "Attribute",
+      "Value"
+     ],
+     "rows": [
+      [
+       "Model Number",
+       "AP-1512HH / AP-1512HH(B) / AP-1512HH(W)"
+      ],
+      [
+       "Coverage",
+       "361 ft² in 12.5 min / 874 ft² in 30 min / 1,748 ft² in 60 min"
+      ],
+      [
+       "CADR",
+       "233 (Smoke)"
+      ],
+      [
+       "Filter",
+       "Pre-Filter + Deodorization Filter + HEPA Filter"
+      ],
+      [
+       "Filter Life",
+       "Deodorization: 6 months, HEPA: 1 year"
+      ],
+      [
+       "Air Flow",
+       "3 Stages"
+      ],
+      [
+       "Timer",
+       "On/Off up to 8 hours"
+      ],
+      [
+       "Voltage",
+       "120V~ 60Hz"
+      ],
+      [
+       "Power",
+       "77W"
+      ],
+      [
+       "Dimensions",
+       "16.8 x 18.3 x 9.6 in (43 x 46 x 24 cm)"
+      ],
+      [
+       "Weight",
+       "12.3 lbs (5.5 kg)"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Electrical Danger Warnings",
+   "content": "Do not operate with damaged power cords or plugs; always connect to a dedicated grounded 120V/60Hz outlet. Never pull the cord to unplug, handle the plug with wet hands, or use a power strip shared with other devices.",
+   "tags": [
+    "electrical",
+    "power",
+    "danger",
+    "grounding"
+   ],
+   "scenarios": [
+    {
+     "condition": "Strange sounds, smells, or smoke from the product",
+     "steps": [
+      "Immediately disconnect the power plug from the outlet",
+      "Contact customer service center for instructions — do not attempt to use the product"
+     ]
+    }
+   ],
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Fire and Explosion Hazards",
+   "content": "Do not place the product near flammable gases, cigarettes, incense, or combustible materials. Never spray insecticides, air fragrances, or other flammable materials near or into the air inlet.",
+   "tags": [
+    "fire",
+    "flammable",
+    "danger",
+    "combustible"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Water and Moisture Warnings",
+   "content": "Do not install the product in locations exposed to moisture, rainwater, or near humidifiers, bathrooms, or laundry rooms. If the electrical outlet is wet, carefully unplug and let it dry completely before use.",
+   "tags": [
+    "water",
+    "moisture",
+    "humidity",
+    "warning"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4,
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Child Safety and Physical Warnings",
+   "content": "Not for use by children under 8 or persons with reduced physical/sensory/mental capabilities without supervision. Do not let children hang on or climb the product; do not insert objects or fingers into openings.",
+   "tags": [
+    "children",
+    "safety",
+    "warning",
+    "physical"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Placement and Installation Cautions",
+   "content": "Maintain at least 20 cm clearance from walls/adjacent objects and 30–60 cm above the product; install at least 2 m from electronics like TVs. Do not place on sloped surfaces, in direct sunlight, or in industrial areas with oil/grease/dust.",
+   "tags": [
+    "placement",
+    "clearance",
+    "installation",
+    "caution"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Cleaning and Maintenance Safety",
+   "content": "Always unplug the air purifier before cleaning, inspecting, or replacing parts. Do not use detergents, paint thinner, organic solvents, bleach, chlorine, or abrasives; do not submerge or spray water directly on the unit.",
+   "tags": [
+    "cleaning",
+    "safety",
+    "unplug",
+    "solvents"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7,
+    12
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "reference",
+   "title": "Ozone Compliance",
+   "content": "This product complies with the maximum allowable ozone concentration of 0.050 ppmv in a 24-hour period. Health Canada Guideline 2010 recommends a maximum exposure limit of 0.020 ppmv or less over 8 hours in a sealed ~30 m³ room.",
+   "tags": [
+    "ozone",
+    "compliance",
+    "health-canada",
+    "air-quality"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Filter Installation",
+   "content": "Remove plastic bags from all filters before installing. Install in this order: HEPA filter first, then Deodorization filter, then Pre-filter. Open the front cover by pulling the upper part, insert filters in correct order, and push the Pre-filter grip firmly to secure it.",
+   "tags": [
+    "filter",
+    "installation",
+    "setup",
+    "hepa",
+    "pre-filter"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9
+   ],
+   "diagram_pages": [
+    9
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Operating Modes (Auto, Manual, Eco)",
+   "content": "Press the power button to turn on (auto mode activates by default, optimizing fan speed 1–3 based on dust sensor). Press the speed button to cycle through Auto → 1 → 2 → 3 → ECO; Eco mode stops the fan after 30 minutes of no detected pollution to save energy.",
+   "tags": [
+    "auto-mode",
+    "eco-mode",
+    "manual-mode",
+    "fan-speed",
+    "operation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Timer and Ionizer Controls",
+   "content": "Press the Timer button to set auto-off at 1H, 4H, or 8H; hold the Timer button until the indicator goes off to deactivate. Press the Ionizer button to toggle the ionizer on/off; hold the Ionizer button for 3 seconds to toggle the air quality indicator light.",
+   "tags": [
+    "timer",
+    "ionizer",
+    "controls",
+    "operation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Adjust Air Quality Sensor Sensitivity",
+   "content": "With the unit on, press and hold the airflow speed button and ionizer button simultaneously for 2 seconds; the speed indicator will flash to show current sensitivity. Press the speed button to cycle: Speed 1 = Sensitive, Speed 2 = Standard, Speed 3 = Insensitive; then hold both buttons again for 2 seconds to save (or wait 10 seconds for auto-save).",
+   "tags": [
+    "sensor",
+    "sensitivity",
+    "air-quality",
+    "adjustment"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [
+    11
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Air Quality Indicator Colors",
+   "content": "The round lamp at the top of the unit indicates indoor air quality: Blue = Clean, Dark Purple = Polluted, Red = Highly Polluted. This indicator can be toggled on/off by holding the Ionizer button for 3 seconds.",
+   "tags": [
+    "air-quality",
+    "indicator",
+    "led",
+    "color"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    8
+   ],
+   "diagram_pages": [
+    8
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Clean the Pre-Filter",
+   "content": "Every 2–4 weeks, open the front cover, press the top clip of the pre-filter and pull it out carefully to avoid dust fallout. Clean with a vacuum cleaner or water depending on contamination level; reinstall only after completely dry and fit the hook correctly.",
+   "tags": [
+    "pre-filter",
+    "cleaning",
+    "maintenance",
+    "reusable"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    13
+   ],
+   "diagram_pages": [
+    13
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Clean the Air Quality Sensor",
+   "content": "Every 2 months, open the sensor cover on the right side of the unit and clean the air inlet/outlet vent with a soft brush or vacuum. Then lightly wet a cotton swab and clean the lens, dust inlet, and dust outlet; dry with a dry cotton swab to remove moisture.",
+   "tags": [
+    "sensor",
+    "cleaning",
+    "air-quality",
+    "maintenance"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    12
+   ],
+   "diagram_pages": [
+    12
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Clean Air Inlet and Outlet Vents",
+   "content": "Every 2 months, clean the air inlet and outlet with a soft brush, taking care not to let dust fall inside the unit. If heavily dusty, run the purifier in manual mode for 10 minutes to blow dust off the vent before brushing.",
+   "tags": [
+    "vents",
+    "inlet",
+    "outlet",
+    "cleaning"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    12
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Clean the Product Body and Front Cover",
+   "content": "Every 2–4 weeks, wipe the product body with a dry, soft cloth (lightly damp for serious contamination — no abrasives). For the front cover, separate it from the unit and remove dust with a soft dry brush or cloth.",
+   "tags": [
+    "exterior",
+    "cleaning",
+    "body",
+    "front-cover"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    12
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Replace Deodorization Filter",
+   "content": "Replace the Deodorization Filter every 6 months (based on 8-hour daily use at maximum speed). After replacement, hold the Reset button for 2 seconds to reset the filter replacement indicator; use only genuine Coway filters for optimal performance.",
+   "tags": [
+    "deodorization-filter",
+    "replacement",
+    "maintenance",
+    "reset"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Replace HEPA Filter",
+   "content": "Replace the HEPA Filter every 1 year (based on 8-hour daily use at maximum speed). After replacement, hold the Reset button for 2 seconds to reset the HEPA LED indicator; the Deodorization and HEPA filters cannot be cleaned with water — replace only.",
+   "tags": [
+    "hepa-filter",
+    "replacement",
+    "maintenance",
+    "reset"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "reference",
+   "title": "Filter Replacement Indicator and Forcible Reset",
+   "content": "The reset indicator blinks when a filter needs replacement; the pollution level indicator will not illuminate while the filter replacement indicator is active. To forcibly reset a filter cycle early, hold Reset for 2 seconds, press once for Odor LED (Deodorization) or twice for HEPA LED, then hold Reset again for 2 seconds.",
+   "tags": [
+    "filter-indicator",
+    "reset",
+    "led",
+    "maintenance"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Troubleshooting Guide",
+   "content": "Common issues include no airflow, unchanging fan speed, weak airflow, bad odors, and a stuck pollution indicator color. Most problems are resolved by checking power, filter condition, sensor cleanliness, or sensor sensitivity settings.",
+   "tags": [
+    "troubleshooting",
+    "airflow",
+    "odor",
+    "sensor",
+    "filter"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    15
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Troubleshooting",
+     "columns": [
+      "Problem",
+      "Check",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "No air is blowing",
+       "Power cord connected?",
+       "Connect to 120V~, 60Hz outlet"
+      ],
+      [
+       "No air is blowing",
+       "Display all turned off?",
+       "Press power button and select desired function"
+      ],
+      [
+       "No air is blowing",
+       "Power outage?",
+       "Use after power is restored"
+      ],
+      [
+       "No air is blowing",
+       "Front cover closed?",
+       "Close the front cover properly"
+      ],
+      [
+       "Airflow speed does not change",
+       "In manual mode?",
+       "Set the desired operating mode"
+      ],
+      [
+       "Airflow significantly weaker",
+       "Filter cleaning/replacement overdue?",
+       "Check cycles and clean/replace filters"
+      ],
+      [
+       "Bad smell from air outlet",
+       "Filter cleaning/replacement overdue?",
+       "Check cycles and clean/replace filters"
+      ],
+      [
+       "Pollution indicator color stays same",
+       "Dust on sensor lens?",
+       "Clean the pollution sensor lens"
+      ],
+      [
+       "Pollution indicator always high",
+       "Sensor sensitivity too high?",
+       "Adjust sensor to Insensitive or Standard"
+      ],
+      [
+       "Pollution indicator always low",
+       "Sensor sensitivity too low?",
+       "Adjust sensor to Sensitive or Standard"
+      ],
+      [
+       "Other functional problems",
+       "Check symptoms",
+       "Unplug and contact service center"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Parts Overview",
+   "content": "The unit includes: front cover, air quality indicator (round lamp), air quality sensor, operation/indication panel, handle, air outlet (rear), and power cord. The air quality indicator lamp changes color to show indoor air quality level.",
+   "tags": [
+    "parts",
+    "components",
+    "diagram",
+    "indicator"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    8
+   ],
+   "diagram_pages": [
+    8
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Filter Cleaning and Replacement Schedule",
+   "content": "Pre-filter: clean every 2–4 weeks (reusable). Deodorization filter: replace every 6 months. HEPA filter: replace every 1 year. All intervals are based on 8-hour daily use at maximum air speed.",
+   "tags": [
+    "filter",
+    "schedule",
+    "maintenance",
+    "replacement"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Filter Maintenance Schedule",
+     "columns": [
+      "Filter",
+      "Cycle",
+      "Method"
+     ],
+     "rows": [
+      [
+       "Pre-filter",
+       "Every 2–4 weeks",
+       "Cleaning"
+      ],
+      [
+       "Deodorization filter",
+       "Every 6 months",
+       "Replacement"
+      ],
+      [
+       "HEPA filter",
+       "Every 1 year",
+       "Replacement"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  }
+ ],
+ "tasks": [
+  {
+   "title": "Install Filters Before First Use",
+   "description": "Remove plastic bags from all filters and install them in the correct order before operating the purifier.",
+   "care_type": "maintenance",
+   "justification": "Filters must be installed correctly before first use or the unit will not purify air effectively.",
+   "priority_tier": "essential",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 10,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Open the front cover by pulling the upper part. Remove plastic bags from all filters. Install in this order: HEPA filter first (innermost), then Deodorization filter, then Pre-filter (outermost). Push the Pre-filter grip firmly to secure it. Close the front cover.",
+   "source_page": 9,
+   "tags": [
+    "filter",
+    "setup",
+    "installation"
+   ],
+   "diagram_pages": [
+    9
+   ],
+   "symptom_tags": [
+    "performance_drop"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "performance_drop",
+     "description": "Air purifier seems to not be cleaning air effectively after setup",
+     "severity": "warning"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Pre-Filter",
+   "description": "Remove and clean the reusable pre-filter to maintain airflow and purification performance.",
+   "care_type": "maintenance",
+   "justification": "A clogged pre-filter reduces airflow and overall purification performance.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 15,
+   "schedule_type": "every_n_days",
+   "interval_days": 14,
+   "instructions_text": "Unplug the unit. Open the front cover by pulling the upper part. Press down on the top clip of the pre-filter and pull it out carefully to avoid scattering dust. Clean with a vacuum cleaner or rinse with water depending on contamination level. Allow to dry completely before reinstalling. Fit the hook correctly and close the front cover.",
+   "source_page": 13,
+   "tags": [
+    "pre-filter",
+    "cleaning",
+    "reusable"
+   ],
+   "diagram_pages": [
+    13
+   ],
+   "symptom_tags": [
+    "performance_drop",
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Air Quality Sensor",
+   "description": "Clean the air quality sensor lens and vents to maintain accurate air quality readings.",
+   "care_type": "maintenance",
+   "justification": "Without regular cleaning, the air quality sensor deteriorates in performance and gives inaccurate readings.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "every_n_days",
+   "interval_days": 60,
+   "instructions_text": "Unplug the unit. Open the air quality sensor cover on the right side of the product. Clean the air inlet and outlet vent with a soft brush or vacuum cleaner. Lightly wet a cotton swab and clean the lens, dust inlet, and dust outlet. Dry with a dry cotton swab to remove remaining moisture. Close the sensor cover.",
+   "source_page": 12,
+   "tags": [
+    "sensor",
+    "cleaning",
+    "air-quality"
+   ],
+   "diagram_pages": [
+    12
+   ],
+   "symptom_tags": [
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean Air Inlet and Outlet Vents",
+   "description": "Brush the air inlet and outlet vents to prevent dust buildup from restricting airflow.",
+   "care_type": "maintenance",
+   "justification": "Dust-clogged vents restrict airflow and reduce purification efficiency.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "every_n_days",
+   "interval_days": 60,
+   "instructions_text": "Unplug the unit. Use a soft brush to clean the air inlet and outlet vents. Take care not to let dust fall inside the purifier. If heavily covered in dust, run the purifier in manual mode for 10 minutes first to blow dust off the vent, then brush clean.",
+   "source_page": 12,
+   "tags": [
+    "vents",
+    "inlet",
+    "outlet",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Clean the Product Body",
+   "description": "Wipe the exterior body and front cover to keep the unit clean.",
+   "care_type": "cleaning",
+   "justification": "Cosmetic only — keeps the exterior free of dust and grime.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 5,
+   "schedule_type": "every_n_days",
+   "interval_days": 14,
+   "instructions_text": "Unplug the unit. Use a dry, soft cloth to wipe the product body. For stubborn contamination, use a lightly damp cloth. For the front cover, separate it from the product and remove dust with a soft dry brush or cloth. Do not use detergents, solvents, or abrasives.",
+   "source_page": 12,
+   "tags": [
+    "exterior",
+    "cleaning",
+    "body"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Replace the Deodorization Filter",
+   "description": "Replace the deodorization filter every 6 months to maintain odor-removal performance.",
+   "care_type": "maintenance",
+   "justification": "An expired deodorization filter loses its ability to remove odors and the filter replacement indicator will activate.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "semiannual",
+   "interval_days": null,
+   "instructions_text": "Unplug the unit. Open the front cover by pulling the upper part. Remove the pre-filter, then the deodorization filter. Insert the new deodorization filter, reinstall the pre-filter, and close the front cover. Plug in the unit and hold the Reset button for 2 seconds to reset the Odor LED indicator. Use only genuine Coway replacement filters.",
+   "source_page": 14,
+   "tags": [
+    "deodorization-filter",
+    "replacement"
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "symptom_tags": [
+    "odor",
+    "performance_drop"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Coway Deodorization Filter",
+     "category": "filter",
+     "part_number": null
+    }
+   ]
+  },
+  {
+   "title": "Replace the HEPA Filter",
+   "description": "Replace the HEPA filter annually to maintain particle filtration performance.",
+   "care_type": "maintenance",
+   "justification": "An expired HEPA filter cannot effectively capture particles and the filter replacement indicator will activate.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 10,
+   "schedule_type": "annual",
+   "interval_days": null,
+   "instructions_text": "Unplug the unit. Open the front cover by pulling the upper part. Remove the pre-filter and deodorization filter to access the HEPA filter. Remove the old HEPA filter and insert the new one. Reinstall the deodorization filter and pre-filter in order, then close the front cover. Plug in the unit and hold the Reset button for 2 seconds to reset the HEPA LED indicator. Use only genuine Coway replacement filters. Do not clean the HEPA filter with water.",
+   "source_page": 14,
+   "tags": [
+    "hepa-filter",
+    "replacement"
+   ],
+   "diagram_pages": [
+    14
+   ],
+   "symptom_tags": [
+    "performance_drop",
+    "odor"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "Coway HEPA Filter",
+     "category": "filter",
+     "part_number": null
+    }
+   ]
+  }
+ ],
+ "cleaning_guide": {
+  "weekly": {
+   "title": "Routine Cleaning (Every 2–4 Weeks)",
+   "steps": [
+    "Unplug the air purifier before cleaning.",
+    "Wipe the product body with a dry, soft cloth; use a lightly damp cloth for stubborn dirt (no abrasives or solvents).",
+    "Separate the front cover and remove dust with a soft dry brush or cloth.",
+    "Check the pre-filter — if it has been 2–4 weeks, remove and clean it with a vacuum or water, then dry completely before reinstalling."
+   ],
+   "supplies": [
+    "Soft dry cloth",
+    "Soft brush",
+    "Vacuum cleaner (optional)"
+   ]
+  },
+  "deep_clean": {
+   "title": "Deep Cleaning (Every 2 Months)",
+   "steps": [
+    "Unplug the air purifier.",
+    "Clean the air inlet and outlet vents with a soft brush; if heavily dusty, run in manual mode for 10 minutes first.",
+    "Open the air quality sensor cover on the right side; clean the inlet/outlet vent with a soft brush or vacuum.",
+    "Lightly wet a cotton swab and clean the sensor lens, dust inlet, and dust outlet.",
+    "Dry the sensor area with a dry cotton swab to remove all moisture.",
+    "Close the sensor cover and reinstall the front cover."
+   ],
+   "supplies": [
+    "Soft brush",
+    "Vacuum cleaner",
+    "Cotton swabs"
+   ]
+  }
+ },
+ "warranty": {
+  "duration_months": 12,
+  "coverage": "Covers defects in material or workmanship during ordinary consumer use for all internal/functional parts (1 year for all Airmega models). Motor and electronic parts are covered for 3 years on most Airmega models (5 years for ProX, 400S, 400, 300S, 300, IconS, Icon). Valid only for original retail purchasers in the USA, Canada, and Mexico.",
+  "exclusions": [
+   "Cosmetic damage (scratches, dents, chips)",
+   "Normal wear and tear",
+   "Altered or removed serial numbers",
+   "Acts of God or natural disasters",
+   "Misuse, abuse, or improper operation",
+   "Unauthorized repairs or modifications",
+   "Commercial or industrial use",
+   "Non-genuine or unauthorized filters",
+   "Failure to perform routine maintenance (filter replacement, cleaning)",
+   "Incorrect installation or improper voltage",
+   "Used products or products from unauthorized sellers",
+   "Display, open box, discounted, or refurbished products",
+   "Damage from corrosive atmosphere or inadequate air supply"
+  ],
+  "registration_required": true,
+  "contact": "info@cowaymega.com | 1-800-285-0982 | cowaymega.com/warranty-registration"
+ },
+ "manufactured_year": null,
+ "confidence": {
+  "overall": 0.92,
+  "safety": 0.95,
+  "how_to": 0.93,
+  "care": 0.95,
+  "troubleshooting": 0.92,
+  "notes": "Manual is clear and well-structured in English. All key sections (specs, safety, operation, maintenance, troubleshooting, warranty) are present and detailed. No manufacture year stated. French and Spanish sections were skipped per instructions."
+ },
+ "truncated": false,
+ "model": "claude-sonnet-4-6",
+ "promptHash": "d564709261ca",
+ "at": "2026-08-19T17:23:09.053Z"
+}

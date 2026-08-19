@@ -1,0 +1,75 @@
+{
+  "name": "dryer-lg",
+  "appliance": "LG DLGX3901B gas dryer",
+  "grounded_in": "Read 2026-08-19. Safety chapter: 'Clean the lint filter before or after each load' and 'The interior of the appliance and exhaust duct should be cleaned periodically by qualified service personnel'. Install chapter covers venting, leveling and the gas connection; Operation covers loading and cycles.",
+  "doc_type": "user_manual",
+  "must_have": [
+    {
+      "id": "lint-filter",
+      "title_matches": [
+        "lint"
+      ],
+      "care_type": "maintenance",
+      "cadence": [
+        "after_each_use"
+      ],
+      "why": "A clogged lint screen is the classic dryer fire. The manual states the cadence explicitly, so anything softer than after_each_use is the parser weakening a manufacturer instruction."
+    },
+    {
+      "id": "exhaust-duct",
+      "title_matches": [
+        "(exhaust|vent|duct)"
+      ],
+      "care_type": "maintenance",
+      "cadence_not": [
+        "setup"
+      ],
+      "why": "NEVER DROP category (airflow). Also the case the manual hands to a professional — it should stay a task, because the owner still has to book it."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "drum-interior",
+      "title_matches": [
+        "(drum|interior|moisture sensor|sensor)"
+      ],
+      "why": "Sensor and drum wipe-downs are genuine upkeep buried in the care section."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "loading",
+      "title_matches": [
+        "^(load|unload|sort)",
+        "(load|sort).{0,20}(laundry|clothes|dryer)"
+      ],
+      "why": "Operating the appliance. Repetition does not make it upkeep."
+    },
+    {
+      "id": "cycle-select",
+      "title_matches": [
+        "(select|choose|set).{0,20}(cycle|option|setting|temperature)"
+      ],
+      "why": "Adjusting a preference is not maintenance."
+    }
+  ],
+  "safety_expectations": [
+    {
+      "id": "fire-risk",
+      "matches": [
+        "fire"
+      ],
+      "in": [
+        "chunks",
+        "justification"
+      ],
+      "why": "The fire hazard is the whole reason the lint task matters; if it never appears the user is given a chore with no stakes."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 5,
+    "max_tasks": 30,
+    "max_essential": 3,
+    "max_essential_share": 35
+  }
+}

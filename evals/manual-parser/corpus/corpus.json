@@ -1,0 +1,107 @@
+{
+  "$comment": "Golden corpus for the manual-parser eval. Each entry addresses a real manual in the live project by home_id + manual_id; the runner resolves the PDF from Firebase Storage (read-only) and caches it under .pdf-cache/. `model` mirrors what pickParseModel would choose for that item, so the eval exercises the same model production would.",
+  "selection_criteria": [
+    "CAPABILITY COVERAGE, not head-count. Every entry is here because it exercises something the others do not: an install/service manual, a fire-safety task, a consumable-vs-maintenance trap, a manufacturer-stated interval, a low-task fixture that invites over-generation.",
+    "The Opus escalation path IS exercised — furnace-york has item_category subType 'hvac-furnace', which pickParseModel escalates. (The old scripts/parse-eval README claims this coverage was lost; that note is stale.)",
+    "Small appliances outnumber major ones because that is where the curation failures actually happened — 'Replace Water in the Tank' as an Essential task came from a coffee machine, not a furnace.",
+    "Manuals whose sourceRef still points at the deleted v1 Supabase project are permanently unrecoverable and are NOT listed: the gas range, a refrigerator, a dishwasher, the Cafe range and a microwave. That is a real coverage gap — see BASELINE.md."
+  ],
+  "manuals": [
+    {
+      "name": "furnace-york",
+      "appliance": "York TG9S gas furnace",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "3720005b-303e-4e69-b269-1b91f3e66c9f",
+      "model": "claude-opus-4-8",
+      "covers": "install/service manual; combustion safety; the ONE canonical must-never-lose task (filter). Also the only entry on the Opus escalation path."
+    },
+    {
+      "name": "dryer-lg",
+      "appliance": "LG DLGX3901B gas dryer",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "d38bc556-3235-483f-9274-bbc738b13fe2",
+      "model": "claude-sonnet-4-6",
+      "covers": "fire-safety maintenance (lint trap, vent run) that must never be demoted, alongside cosmetic cleaning that must not be inflated. Both directions of care_type in one manual."
+    },
+    {
+      "name": "washer-lg",
+      "appliance": "LG WM3900HBA front-load washer",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "150399bc-c86c-40f5-83cf-25b3bd5fc1fd",
+      "model": "claude-sonnet-4-6",
+      "covers": "setup-vs-recurring discrimination (leveling is setup; tub clean is recurring), door-seal care, supply-hose inspection."
+    },
+    {
+      "name": "nespresso-vertuo",
+      "appliance": "Nespresso Vertuo Plus coffee machine",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "24c0358b-83cc-4daa-8406-f9d819b3a970",
+      "model": "claude-sonnet-4-6",
+      "covers": "THE trigger case. This manual once produced 'Replace Water in the Tank' as an Essential task. Descaling must survive; every consumable top-up must not."
+    },
+    {
+      "name": "foodcycler",
+      "appliance": "FoodCycler FC-50 food recycler",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "3dd6282d-4cad-4f45-b5db-d9521a58a34d",
+      "model": "claude-sonnet-4-6",
+      "covers": "tier inflation (a prior run had 50% essential) against a filter task that must survive curation."
+    },
+    {
+      "name": "range-hood-zline",
+      "appliance": "ZLINE ZOM-E30BS range hood",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "86af4c28-7553-47fd-8d4e-d3cb00461d5f",
+      "model": "claude-sonnet-4-6",
+      "covers": "grease filters and duct/airflow — the NEVER DROP category, on an appliance where neglect is a fire risk."
+    },
+    {
+      "name": "air-purifier-coway",
+      "appliance": "Coway AP-1512HH air purifier",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "hJWWaF5A6tbKJzVoaOSq",
+      "model": "claude-sonnet-4-6",
+      "covers": "schedule fidelity. This manual states explicit intervals for several distinct filters; softening any of them to as_needed is the failure mode."
+    },
+    {
+      "name": "ceiling-fan-haiku",
+      "appliance": "Big Ass Fans Haiku L ceiling fan",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "803e3391-bcd6-4066-9773-07e9a45fa6cb",
+      "model": "claude-sonnet-4-6",
+      "covers": "the over-generation trap: a fixture with almost no genuine upkeep. A parser that invents tasks shows it here."
+    },
+    {
+      "name": "ninja-creami",
+      "appliance": "Ninja Creami Deluxe CN501CO",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "39e02a6e-8b29-4904-aa70-20f4292d7069",
+      "model": "claude-sonnet-4-6",
+      "covers": "operation-vs-upkeep on an appliance that is almost entirely operation — freezing pints and spinning them is using it, not maintaining it."
+    },
+    {
+      "name": "blender-kitchenaid",
+      "appliance": "KitchenAid RKFC3516IB mini blender",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "5323202f-deec-4f6a-b992-8af123f447d5",
+      "model": "claude-sonnet-4-6",
+      "covers": "essential-tier discipline on an appliance with no genuine safety-critical upkeep at all."
+    },
+    {
+      "name": "blender-beast",
+      "appliance": "Beast B10 blender",
+      "home_id": "c1d91d18-76d5-43cc-955d-ef73ba6f305f",
+      "manual_id": "cc4825e4-4560-4ec6-a868-9dc130e75c92",
+      "model": "claude-sonnet-4-6",
+      "covers": "a second small appliance of the same class as the KitchenAid, to separate model variance from a real regression."
+    },
+    {
+      "name": "dishwasher-thermador",
+      "appliance": "Thermador DWHD640EFM dishwasher",
+      "home_id": "a3ba0e21-4bd2-481b-99b8-088d5a90c668",
+      "manual_id": "dbe10fdf-efaa-4f2c-b8f8-1526b6d1d4cc",
+      "model": "claude-sonnet-4-6",
+      "covers": "the appliance class that started the curation work: the filter is real maintenance, while detergent, rinse aid and salt are operation. Also a SECOND home, proving the corpus is not single-tenant."
+    }
+  ]
+}

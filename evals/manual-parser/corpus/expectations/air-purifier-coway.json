@@ -1,0 +1,77 @@
+{
+  "name": "air-purifier-coway",
+  "appliance": "Coway Airmega AP-1512HH air purifier",
+  "grounded_in": "Read 2026-08-19. The manual prints an explicit table — 'Filter cleaning and replacement cycles': Pre-filter every 2~4 weeks (cleaning), Deodorization filter every 6 months (replacement), HEPA filter every 1 year (replacement). Cleaning chapter also covers the pollution sensor lens.",
+  "doc_type": "user_manual",
+  "notes": "The corpus's schedule-fidelity case. Three filters, three DIFFERENT manufacturer-stated intervals, printed in a table. Any of them arriving as as_needed is the 'never weaken a stated interval' rule being broken, and it is measurable here rather than arguable.",
+  "must_have": [
+    {
+      "id": "pre-filter",
+      "title_matches": [
+        "pre.?filter"
+      ],
+      "care_type": "maintenance",
+      "cadence": [
+        "weekly",
+        "monthly",
+        "every_n_days"
+      ],
+      "why": "Stated as every 2~4 weeks. Cleaned, not replaced — so it also tests that the parser does not turn a washable part into a purchase."
+    },
+    {
+      "id": "deodorization-filter",
+      "title_matches": [
+        "(deodor|odou?r|carbon).{0,14}filter"
+      ],
+      "care_type": "maintenance",
+      "cadence": [
+        "semiannual",
+        "quarterly"
+      ],
+      "why": "Stated as every 6 months."
+    },
+    {
+      "id": "hepa-filter",
+      "title_matches": [
+        "hepa"
+      ],
+      "care_type": "maintenance",
+      "cadence": [
+        "annual",
+        "semiannual"
+      ],
+      "why": "Stated as every 1 year."
+    }
+  ],
+  "should_have": [
+    {
+      "id": "sensor-lens",
+      "title_matches": [
+        "(sensor|lens)"
+      ],
+      "why": "The manual's own troubleshooting points at a dusty sensor lens; the prompt lists sensors explicitly."
+    }
+  ],
+  "must_not_have": [
+    {
+      "id": "reset-indicator",
+      "title_matches": [
+        "(reset).{0,24}(indicator|button|light|filter cycle)"
+      ],
+      "why": "Pressing the reset button is part of replacing a filter, not a separate chore to be reminded about."
+    },
+    {
+      "id": "speed-mode",
+      "title_matches": [
+        "(select|adjust|set).{0,20}(speed|mode|sensitivity|timer)"
+      ],
+      "why": "Adjusting a preference setting."
+    }
+  ],
+  "bounds": {
+    "min_tasks": 3,
+    "max_tasks": 16,
+    "max_essential": 2,
+    "max_essential_share": 35
+  }
+}

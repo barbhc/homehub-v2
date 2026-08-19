@@ -1,0 +1,672 @@
+{
+ "chunks": [
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Product Identification and Electrical Specs",
+   "content": "The KitchenAid KFC3516 is a household food chopper rated at 120V, 60Hz (245W per NOM for Mexico). It uses a polarized plug and is designed for household use only.",
+   "tags": [
+    "specs",
+    "electrical",
+    "model",
+    "kfc3516"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    1,
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Parts and Accessories Overview",
+   "content": "The KFC3516 includes: lid with drizzle basin and Pulse/On button, work bowl with handle and pour spout, stainless steel multipurpose blade, heavy-duty base with chop/purée selection lever, and power cord wrap.",
+   "tags": [
+    "parts",
+    "accessories",
+    "components"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2
+   ],
+   "diagram_pages": [
+    2
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Electrical Shock — Do Not Immerse Motor Base",
+   "content": "Never put the motor body, cord, or electrical plug in water or any other liquid — doing so creates a risk of fatal electrical shock. Always unplug before assembling, disassembling, or cleaning.",
+   "tags": [
+    "electrical-shock",
+    "water",
+    "immersion",
+    "safety"
+   ],
+   "scenarios": [
+    {
+     "condition": "Motor base, cord, or plug contacts water or liquid",
+     "steps": [
+      "Immediately stop using the appliance.",
+      "Do not touch the unit if it is in water — unplug at the wall breaker if needed.",
+      "Do not use until inspected by an authorized service center."
+     ]
+    }
+   ],
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Blade Hazard — Sharp Blade Handling",
+   "content": "The stainless steel blade is extremely sharp; always handle it carefully and keep hands and utensils away from the blade while the chopper is running. Never place the blade on the base without first properly seating the work bowl.",
+   "tags": [
+    "blade",
+    "sharp",
+    "injury",
+    "safety"
+   ],
+   "scenarios": [
+    {
+     "condition": "Need to remove or handle the blade",
+     "steps": [
+      "Unplug the food chopper first.",
+      "Grip the blade by its central hub, not the edges.",
+      "Pull straight up to remove; set on a stable surface away from children."
+     ]
+    }
+   ],
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Lid Interlock — Must Be Locked Before Operating",
+   "content": "The work bowl and lid must both be locked into place before the food chopper will operate. Never attempt to defeat the cover interlock mechanism.",
+   "tags": [
+    "lid",
+    "interlock",
+    "safety",
+    "lock"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4,
+    8
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Damaged Cord or Plug — Do Not Operate",
+   "content": "Do not operate the food chopper if the cord or plug is damaged, or if the appliance has been dropped or malfunctions. Return it to the nearest Authorized Service Center for inspection or repair.",
+   "tags": [
+    "cord",
+    "plug",
+    "damage",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Unauthorized Attachments — Fire and Shock Risk",
+   "content": "Using attachments not recommended or sold by KitchenAid may cause fire, electric shock, or injury. Only use accessories approved for the KFC3516.",
+   "tags": [
+    "attachments",
+    "accessories",
+    "fire",
+    "shock"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Children and Vulnerable Users — Supervision Required",
+   "content": "This appliance is not intended for use by persons with reduced physical, sensory, or mental capabilities, or by children, unless closely supervised by a responsible adult. Children must be supervised to ensure they do not play with the appliance.",
+   "tags": [
+    "children",
+    "supervision",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Foods Not to Process — Damage Risk",
+   "content": "Do not process coffee beans or hard spices such as nutmeg, as these can damage the food chopper. In Mexico, do not chop any food continuously for more than 30 seconds.",
+   "tags": [
+    "coffee-beans",
+    "nutmeg",
+    "hard-spices",
+    "damage",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5,
+    7
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "reference",
+   "title": "Cord Safety — Outdoor Use and Cord Placement",
+   "content": "Do not use the food chopper outdoors. Do not let the cord hang over the edge of a table or counter, and do not pull the cord to unplug — always grasp the plug itself.",
+   "tags": [
+    "cord",
+    "outdoor",
+    "safety"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3,
+    4
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "First Use — Initial Wash",
+   "content": "Before first use, wash the work bowl, lid, and blade in hot soapy water or on the top rack of the dishwasher. Rinse and dry thoroughly before assembling.",
+   "tags": [
+    "first-use",
+    "setup",
+    "wash",
+    "cleaning"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Disassembling the Food Chopper",
+   "content": "Unplug the chopper. Rotate the lid clockwise to unlock and lift off. Pull the blade straight up to remove. Hold the base steady and rotate the work bowl clockwise to unlock and lift it off the base.",
+   "tags": [
+    "disassembly",
+    "lid",
+    "blade",
+    "bowl"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [
+    6
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Assembling and Running the Food Chopper",
+   "content": "Ensure the chopper is unplugged. Place the work bowl on the base with the handle facing front, then rotate the handle 90° counterclockwise to lock (handle ends up on the right). Fit the blade over the center shaft and press down until it rests at the bottom. Add ingredients (cut to 1-inch pieces for best results). Place the lid with handle facing front, rotate the handle right until it clicks, then rotate counterclockwise to lock. Slide the Chop/Purée lever to the desired setting and press the PULSE/ON button to start.",
+   "tags": [
+    "assembly",
+    "operation",
+    "blade",
+    "lid",
+    "bowl",
+    "pulse"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7,
+    8
+   ],
+   "diagram_pages": [
+    7,
+    8
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Using Pulse for Coarse Chop",
+   "content": "For a coarse chop, rapidly press and release the PULSE/ON button repeatedly until the desired texture is achieved. Do not hold the button down continuously.",
+   "tags": [
+    "pulse",
+    "chop",
+    "operation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    8
+   ],
+   "diagram_pages": [
+    8
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Using the Drizzle Basin and Pour Spout",
+   "content": "Lock the lid in place, then pulse the PULSE/ON button rapidly to get ingredients moving. Slowly pour liquids (e.g., oil) into the drizzle basin on the lid — the liquid is drawn in and mixed as the ingredients spin. When done, remove the lid and use the pour spout to serve.",
+   "tags": [
+    "drizzle-basin",
+    "pour-spout",
+    "emulsion",
+    "mayonnaise",
+    "dressing"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    9
+   ],
+   "diagram_pages": [
+    9
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Chop and Purée Recommendations",
+   "content": "Use the Chop setting for raw fruits/vegetables (up to 3 cups), herbs/spices (up to 3 cups), bread/crackers (up to 3 cups), and meat (up to ½ lb). Use Purée for cooked fruits/vegetables (up to 2.5 cups), liquids/emulsions (up to 1.5 cups), and nuts (up to 3 cups). Cut larger items into 1-inch pieces before processing.",
+   "tags": [
+    "chop",
+    "puree",
+    "capacity",
+    "food-types",
+    "recommendations"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Chop and Purée Recommendations Chart",
+     "columns": [
+      "Suggested Food",
+      "Prepare for Processing",
+      "Amount",
+      "Setting"
+     ],
+     "rows": [
+      [
+       "Raw Fruits and Vegetables",
+       "Cut into 1-inch pieces",
+       "Up to 3 cups",
+       "Chop or Purée"
+      ],
+      [
+       "Cooked Fruits and Vegetables",
+       "Cut into 1-inch pieces",
+       "Up to 2.5 cups",
+       "Purée"
+      ],
+      [
+       "Liquids/Emulsions (Mayonnaise, Dressings)",
+       "Place dry/thick ingredients in bowl; use drizzle basin for oils/liquids",
+       "Up to 1.5 cups",
+       "Purée"
+      ],
+      [
+       "Meat",
+       "Raw, cut into 1-inch pieces",
+       "Up to ½ lb (227g) at one time",
+       "Chop or Purée"
+      ],
+      [
+       "Herbs and Spices",
+       "Add as-is; no prep needed",
+       "Up to 3 cups",
+       "Chop"
+      ],
+      [
+       "Bread, Cookies, or Crackers",
+       "Break into pieces that fit in bowl",
+       "Up to 3 cups",
+       "Chop"
+      ],
+      [
+       "Nuts",
+       "Add as-is; no prep needed",
+       "Up to 3 cups",
+       "Purée"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Routine Cleaning After Use",
+   "content": "Unplug the chopper and remove the work bowl, lid, and blade. Wash the bowl, lid, and blade in hot soapy water or on the top rack of the dishwasher; rinse and dry. Wipe the base with a damp cloth — do not use abrasive cleaners and do not immerse the base in water.",
+   "tags": [
+    "cleaning",
+    "dishwasher",
+    "base",
+    "bowl",
+    "blade",
+    "lid"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Cord Storage After Cleaning",
+   "content": "After cleaning, wrap the power cord counterclockwise around the base for compact, tangle-free storage. Always reassemble the food chopper after cleaning for convenient storage.",
+   "tags": [
+    "cord",
+    "storage",
+    "cleaning"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Food Chopper Won't Start or Malfunctions",
+   "content": "If the food chopper fails to operate, work through the following checks before contacting service. Do not return the unit to the retailer — retailers do not provide service.",
+   "tags": [
+    "wont-start",
+    "malfunction",
+    "troubleshooting"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    11
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Troubleshooting — Food Chopper Won't Start",
+     "columns": [
+      "Problem / Check",
+      "Action"
+     ],
+     "rows": [
+      [
+       "Not plugged in",
+       "Ensure the power cord is fully plugged into the outlet."
+      ],
+      [
+       "Bowl or lid not locked",
+       "Make sure the work bowl and lid are properly aligned and locked in place."
+      ],
+      [
+       "Button held continuously",
+       "Press the Pulse/On button with a rapid up-and-down motion; do not hold it down."
+      ],
+      [
+       "Temporary electrical issue",
+       "Unplug the food chopper, then plug it back in."
+      ],
+      [
+       "Blown fuse or tripped breaker",
+       "Check the fuse or circuit breaker for the outlet; reset if needed."
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "Warranty Coverage Summary",
+   "content": "The KFC3516 carries a one-year full warranty from date of purchase covering defects in materials and workmanship. KitchenAid offers a hassle-free replacement option: if the unit fails within the first year, they will deliver an identical or comparable replacement to your door at no charge.",
+   "tags": [
+    "warranty",
+    "one-year",
+    "replacement"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    12,
+    13
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  }
+ ],
+ "tasks": [
+  {
+   "title": "Wash Bowl, Lid, and Blade",
+   "description": "Clean the work bowl, lid, and blade after every use to remove food residue.",
+   "care_type": "cleaning",
+   "justification": "Food residue left on parts can harbor bacteria and cause odors or cross-contamination.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 5,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "Unplug the chopper and disassemble the bowl, lid, and blade. Wash all three parts in hot soapy water or place them on the top rack of the dishwasher. Rinse thoroughly and dry before reassembling.",
+   "source_page": 10,
+   "tags": [
+    "cleaning",
+    "bowl",
+    "lid",
+    "blade",
+    "dishwasher"
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "symptom_tags": [
+    "odor",
+    "wont_clean"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Wipe the Motor Base",
+   "description": "Wipe down the motor base with a damp cloth after each use to keep it clean.",
+   "care_type": "cleaning",
+   "justification": "Food splatter on the base can harden and become difficult to remove; the base must never be immersed in water.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 2,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "Unplug the chopper. Wipe the exterior of the base with a damp cloth. Do not use abrasive cleaners and do not immerse the base in water.",
+   "source_page": 10,
+   "tags": [
+    "cleaning",
+    "base",
+    "wipe"
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Wrap and Store the Power Cord",
+   "description": "Wrap the power cord around the base after cleaning for safe, tangle-free storage.",
+   "care_type": "cleaning",
+   "justification": "Leaving the cord loose can cause tripping hazards and cord damage over time.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 1,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "instructions_text": "After cleaning, wrap the power cord counterclockwise around the base. Reassemble the food chopper (bowl, blade, lid) for compact storage.",
+   "source_page": 10,
+   "tags": [
+    "cord",
+    "storage"
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Initial Wash Before First Use",
+   "description": "Wash all removable parts before using the food chopper for the first time.",
+   "care_type": "cleaning",
+   "justification": "Manufacturing residues may be present on new parts; washing ensures food safety before first use.",
+   "priority_tier": "essential",
+   "risk_level": "performance",
+   "estimated_minutes": 5,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "instructions_text": "Before first use, wash the work bowl, lid, and blade in hot soapy water or on the top rack of the dishwasher. Rinse and dry all parts completely before assembling and using.",
+   "source_page": 6,
+   "tags": [
+    "first-use",
+    "setup",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  }
+ ],
+ "cleaning_guide": {
+  "weekly": {
+   "title": "Weekly Cleaning",
+   "steps": [
+    "Unplug the food chopper before cleaning.",
+    "Disassemble the work bowl, lid, and blade.",
+    "Wash the bowl, lid, and blade in hot soapy water or on the top rack of the dishwasher.",
+    "Rinse all parts thoroughly and dry completely.",
+    "Wipe the motor base with a damp cloth; do not use abrasive cleaners or immerse in water.",
+    "Reassemble the chopper and wrap the cord around the base for storage."
+   ],
+   "supplies": [
+    "Dish soap",
+    "Warm water",
+    "Damp cloth"
+   ]
+  },
+  "deep_clean": {
+   "title": "Deep Clean",
+   "steps": [
+    "Unplug and fully disassemble the food chopper (bowl, lid, blade).",
+    "Soak the bowl, lid, and blade in hot soapy water for a few minutes to loosen stubborn residue.",
+    "Scrub all surfaces with a soft brush or sponge; pay attention to the blade hub and lid drizzle basin.",
+    "Rinse all parts thoroughly under running water.",
+    "Wipe the motor base carefully with a damp cloth, getting into any crevices around the lever and button.",
+    "Allow all parts to air-dry completely before reassembling.",
+    "Inspect the blade for any nicks or damage before storing."
+   ],
+   "supplies": [
+    "Dish soap",
+    "Warm water",
+    "Soft brush or sponge",
+    "Damp cloth"
+   ]
+  }
+ },
+ "warranty": {
+  "duration_months": 12,
+  "coverage": "One-year full warranty from date of purchase covering defects in materials and workmanship. KitchenAid will either replace the unit with an identical or comparable model delivered to your door at no charge, or pay for replacement parts and repair labor at an Authorized KitchenAid Service Center.",
+  "exclusions": [
+   "Use in other than normal single-family home use",
+   "Damage from accident, alteration, misuse, or abuse",
+   "Shipping or handling costs to deliver unit to an Authorized Service Center",
+   "Replacement parts or repair labor for units operated outside the 50 United States, District of Columbia, Puerto Rico, and Canada"
+  ],
+  "registration_required": null,
+  "contact": "1-800-541-6390 (USA/Puerto Rico) | 1-800-807-6777 (Canada) | KitchenAid.com"
+ },
+ "manufactured_year": 2018,
+ "confidence": {
+  "overall": 0.92,
+  "safety": 0.95,
+  "how_to": 0.93,
+  "care": 0.9,
+  "troubleshooting": 0.9,
+  "notes": "Manual is clear and well-structured. English sections were complete and detailed. Manufactured year inferred from copyright notice '©2018 KitchenAid' on pages 13 and 39. No recurring maintenance tasks beyond cleaning were described (no filters, no descaling, no periodic inspections), so the task list is short by design — this is a simple small appliance."
+ },
+ "truncated": false,
+ "model": "claude-sonnet-4-6",
+ "promptHash": "d564709261ca",
+ "at": "2026-08-19T17:28:22.070Z"
+}
