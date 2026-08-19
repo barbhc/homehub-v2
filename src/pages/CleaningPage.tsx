@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 import { PageContainer, PageHeader, SectionCard, EmptyState } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { useCurrentHome } from "@/modules/home"
@@ -96,7 +97,15 @@ export default function CleaningPage() {
         <SectionCard className="p-6">
           <h2 className="font-medium mb-3">Select room</h2>
           {rooms.length === 0 ? (
-            <EmptyState title="No rooms yet" description="Add rooms in settings first." />
+            <EmptyState
+              title="No rooms yet"
+              teach="Rooms let Homehub group cleaning by where you actually are, so a Saturday morning is one list instead of six."
+              action={
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/settings">Add rooms</Link>
+                </Button>
+              }
+            />
           ) : (
             <div className="flex flex-wrap gap-2">
               {rooms.map((r) => (

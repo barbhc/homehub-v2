@@ -541,7 +541,10 @@ export function TaskSection({
 
         {/* Normal tier-grouped task list */}
         {activeTab === "tasks" && !sessionPickMode && !sessionMode && tasks.length === 0 ? (
-          <EmptyState title="No tasks yet" description="Add tasks from a manual or create manually." />
+          <EmptyState
+            title="No care jobs yet"
+            teach="Add this item's manual and Homehub will pull out what the manufacturer says to do, and how often. You can also write a job yourself."
+          />
         ) : activeTab === "tasks" && !sessionPickMode && !sessionMode ? (
           <div className="bg-white/25 rounded-2xl p-3 sm:p-4 -mx-2">
             <div className="space-y-4">

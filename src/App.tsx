@@ -101,6 +101,7 @@ const ResetPassword = lazyWithRetry(() => import("@/pages/ResetPassword"))
 const AuthPage = lazyWithRetry(() => import("@/pages/AuthPage"))
 const ChatPage = lazyWithRetry(() => import("@/pages/ChatPage"))
 const FaqPage = lazyWithRetry(() => import("@/pages/FaqPage"))
+const SampleHome = lazyWithRetry(() => import("@/pages/SampleHome"))
 const AcceptInvite = lazyWithRetry(() => import("@/pages/AcceptInvite"))
 
 /**
@@ -150,6 +151,17 @@ function App() {
                 element={
                   <AuthGate>
                     <OnboardingProfile />
+                  </AuthGate>
+                }
+              />
+              {/* Sample home. AuthGate but NOT HomeGate: the entire point is
+                  that it works before you have a home — putting it inside
+                  HomeGate would redirect exactly the people it exists for. */}
+              <Route
+                path="/sample"
+                element={
+                  <AuthGate>
+                    <SampleHome />
                   </AuthGate>
                 }
               />

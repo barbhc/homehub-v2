@@ -37,6 +37,7 @@ import {
 import { ProductSuggestionCard } from "@/components/smart-add/ProductSuggestionCard"
 import { IdentityCard, type IdentityCardState } from "@/components/smart-add/IdentityCard"
 import { applyIdentity, undoIdentity, type IdentitySnapshot } from "@/components/smart-add/identityApply"
+import { LabelPhotoTips } from "@/components/smart-add/LabelPhotoTips"
 import { BrandAutocomplete } from "@/components/smart-add/BrandAutocomplete"
 import {
   mapApplianceTypeIdToCategory,
@@ -739,7 +740,7 @@ export function IdentifyStep({
                         ? `Filled ${ocrFilledCount} field${ocrFilledCount === 1 ? "" : "s"} from your photo — tap Add more details to review.`
                         : "Photo read — everything you'd typed was kept."
                       : ocrOutcome === "empty"
-                        ? "Couldn't read details from this photo. Try a straight-on shot in good light."
+                        ? "Couldn't read anything usable from that photo."
                         : ocrOutcome === "extract_failed"
                           ? "Our label reader is having trouble right now — not your photo. The text we could read is below."
                           : ocrError
@@ -797,6 +798,7 @@ export function IdentifyStep({
                 </button>
               </div>
             )}
+            {!ocrLoading && ocrOutcome === "empty" && <LabelPhotoTips variant="after-empty" />}
             {!ocrLoading && (ocrOutcome === "empty" || ocrOutcome === "extract_failed") && ocrRawText && (
               <details className="rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <summary className="text-xs font-medium text-foreground cursor-pointer">
@@ -936,7 +938,15 @@ export function IdentifyStep({
                 </div>
 
                 {otherWaysOpen && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="mt-2">
+                    {/* Says WHAT to photograph before the camera opens. A
+                        first-timer points at the front of the appliance —
+                        that is what "photograph your dishwasher" means in
+                        English — and the model number is on a sticker inside
+                        the door frame. A capture problem wearing an OCR
+                        problem's clothes, and no pipeline work fixes it. */}
+                    <LabelPhotoTips variant="before" />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -966,6 +976,7 @@ export function IdentifyStep({
                     >
                       I don't have a model number
                     </button>
+                    </div>
                   </div>
                 )}
               </div>

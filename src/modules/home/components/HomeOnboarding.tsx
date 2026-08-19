@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/modules/auth"
@@ -69,7 +70,21 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
   return (
     <div className={cn("w-full max-w-md mx-auto", className)}>
       <h1 className="text-2xl font-display font-normal mb-2">Set up your home</h1>
-      <p className="text-muted-foreground mb-6">Name your home to get started.</p>
+      <p className="text-muted-foreground mb-4">
+        Give it a name. You can add your appliances one at a time after this — there is no long
+        setup.
+      </p>
+      {/* The escape hatch. This screen used to ask for a commitment before the
+          person had seen anything the product does: name your home, then find
+          out. A sample home is the "find out first" half, and it is the last
+          moment it can be offered. */}
+      <p className="text-sm text-muted-foreground mb-6">
+        Not sure yet?{" "}
+        <Link to="/sample" className="font-medium text-foreground underline underline-offset-2">
+          Look around a sample home first
+        </Link>
+        .
+      </p>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label className="text-sm font-medium block mb-1.5">Home name</label>
