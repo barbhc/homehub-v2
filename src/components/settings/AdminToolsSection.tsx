@@ -7,6 +7,11 @@ import { collection, getDocs } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import { cn } from "@/lib/utils"
 import { TaskCleanupSweep } from "./TaskCleanupSweep"
+import {
+  buildHomeExport,
+  downloadJson,
+  exportFilename,
+} from "@/modules/home/services/exportService"
 
 // ---------------------------------------------------------------------------
 // CSV export helpers
@@ -158,6 +163,42 @@ export function AdminToolsSection({ homeId }: Props) {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 
+  // Full-household JSON export (separate state so one export failing does not
+  // blank the other's message).
+  const [exportingAll, setExportingAll] = useState(false)
+  const [exportAllError, setExportAllError] = useState<string | null>(null)
+  const [exportAllNote, setExportAllNote] = useState<string | null>(null)
+
+  const exportEverythingJson = async () => {
+    setExportingAll(true)
+    setExportAllError(null)
+    setExportAllNote(null)
+    try {
+      const result = await buildHomeExport(homeId)
+      const total = Object.values(result.counts).reduce((a, n) => a + n, 0)
+      // An export with nothing in it is far more likely to be a rules or
+      // wrong-home problem than a genuinely empty household, and handing over a
+      // 0-record file without saying so is how that goes unnoticed.
+      if (total === 0 && result.partial.length > 0) {
+        setExportAllError(
+          `Could not read this home's data: ${result.partial[0].reason}. Nothing was downloaded.`,
+        )
+        return
+      }
+      downloadJson(exportFilename(homeId), result)
+      setExportAllNote(
+        result.partial.length > 0
+          ? `Downloaded ${total} records. ${result.partial.length} section(s) could not be read: ` +
+            `${result.partial.map((p) => p.collection).join(", ")}.`
+          : `Downloaded ${total} records across ${Object.keys(result.counts).length} sections.`,
+      )
+    } catch (e) {
+      setExportAllError(e instanceof Error ? e.message : "Unexpected error during export")
+    } finally {
+      setExportingAll(false)
+    }
+  }
+
   const exportTasksCsv = async () => {
     setExporting(true)
     setExportError(null)
@@ -273,6 +314,36 @@ export function AdminToolsSection({ homeId }: Props) {
               <div className="mt-2 flex items-start gap-2 p-2 rounded-lg bg-destructive/10 text-destructive">
                 <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
                 <p className="text-xs">{exportError}</p>
+              </div>
+            )}
+
+            <p className="mt-4 text-xs text-muted-foreground">
+              Everything in this home — items, rooms, tasks, manuals, notes, house
+              rules, providers, shopping list and members — as one JSON file.
+              Invite links are left out on purpose: they are live credentials.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={exportEverythingJson}
+              disabled={exportingAll}
+            >
+              {exportingAll
+                ? <Loader2Icon className="size-3.5 mr-1.5 animate-spin" />
+                : <DownloadIcon className="size-3.5 mr-1.5" />}
+              Export everything (JSON)
+            </Button>
+            {exportAllError && (
+              <div role="alert" className="mt-2 flex items-start gap-2 p-2 rounded-lg bg-destructive/10 text-destructive">
+                <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
+                <p className="text-xs">{exportAllError}</p>
+              </div>
+            )}
+            {exportAllNote && (
+              <div className="mt-2 flex items-start gap-2 p-2 rounded-lg bg-muted">
+                <CheckCircle2Icon className="size-4 shrink-0 mt-0.5 text-primary" />
+                <p className="text-xs text-muted-foreground">{exportAllNote}</p>
               </div>
             )}
           </div>
