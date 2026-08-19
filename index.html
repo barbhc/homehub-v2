@@ -22,11 +22,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      id="hh-fonts"
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
       media="print"
-      onload="this.media='all';this.onload=null"
     />
+    <script>
+      // The media="print" -> "all" swap that makes the font stylesheet async.
+      // It used to be an inline onload= attribute on the <link>. CSP hashes
+      // cover <script> blocks but NEVER inline event handlers — allowing those
+      // needs 'unsafe-hashes', which re-opens most of what the hashes close. So
+      // the same two lines live here instead, covered by a hash.
+      // The sheet can finish loading before this runs, in which case the load
+      // event is already gone; `l.sheet` is the check for that.
+      (function(){var l=document.getElementById('hh-fonts');if(!l)return;var on=function(){l.media='all'};if(l.sheet){on()}else{l.addEventListener('load',on,{once:true})}})();
+    </script>
     <noscript>
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" />
     </noscript>
