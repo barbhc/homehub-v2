@@ -8,6 +8,22 @@ is worth the small amount of machinery:
   number of accounts is the number that multiplies the bill;
 - an **abuse** throttle — a leaked link is worth nothing without a code.
 
+## ⚠️ Rules do not deploy themselves
+
+The gate lives in `firestore.rules`. **Merging is not deploying** — Hosting
+auto-deploys on merge, rules never have. PR #102 found the live rules 19 days
+stale, which meant PR #94's tenant-isolation fix had never actually been live.
+
+So after this merges:
+
+```bash
+firebase deploy --only firestore:rules --project homehub-2068d
+```
+
+Until that runs, `invite-codes.ts on` flips a flag that nothing reads, and the
+gate is off no matter what the flag says. Confirm with the deployed-rules check
+in `docs/launch-readiness.md` rather than assuming.
+
 ## Turning it on and off
 
 **No deploy, no code change** — that was a requirement, and it is a single
