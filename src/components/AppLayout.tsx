@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom"
-import { HomeIcon, ListChecksIcon, PackageIcon, SparklesIcon, Settings2Icon, PlusIcon, SearchIcon, BellIcon } from "lucide-react"
+import { openFeedback } from "@/lib/feedback"
+import { HomeIcon, ListChecksIcon, PackageIcon, SparklesIcon, Settings2Icon, PlusIcon, SearchIcon, BellIcon, MessageSquareWarningIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/modules/auth"
 import { useUserLevel } from "@/hooks/useUserLevel"
@@ -110,6 +111,20 @@ export function AppLayout() {
             <Button asChild size="sm" className="gap-1.5 rounded-full" style={{ background: "var(--hh-teal)" }}>
               <Link to="/inventory/add"><PlusIcon className="size-4" /> Add item</Link>
             </Button>
+            {/* Feedback — one tap from any screen, not buried in Settings.
+                A confused user is confused HERE, on whatever page confused
+                them; making them first find Settings is how you never hear
+                from them. The mail body carries the current path, so a report
+                names the screen without the user having to describe it. */}
+            <button
+              type="button"
+              onClick={() => void openFeedback("problem")}
+              className="flex size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)]"
+              aria-label="Send feedback"
+              title="Send feedback"
+            >
+              <MessageSquareWarningIcon className="size-[18px]" />
+            </button>
             {/* Notifications — prefs live in Settings */}
             <Link
               to="/settings"

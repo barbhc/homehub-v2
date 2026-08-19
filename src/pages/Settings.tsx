@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { FeedbackButton } from "@/components/FeedbackButton"
+import { SUPPORT_EMAIL } from "@/lib/feedback"
 import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
 import { AlertCircleIcon, BellIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2
 } from "lucide-react"
@@ -32,7 +34,6 @@ import { AdminToolsSection } from "@/components/settings/AdminToolsSection"
 import { HouseRulesSection } from "@/components/settings/HouseRulesSection"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useUserLevel } from "@/hooks/useUserLevel"
-import { LEGAL } from "@/pages/legal/legalConfig"
 import { useAppearance, type Appearance } from "@/lib/theme"
 import { useAuth } from "@/modules/auth"
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, isSubscribed as checkIsSubscribed } from "@/lib/pushNotifications"
@@ -265,38 +266,6 @@ export default function Settings() {
     }
     setPushDiag({ platform: Capacitor.getPlatform(), native, permission, build, tokens })
   }, [user?.id])
-
-  /** Opens the user's mail app with context already filled in. */
-  const reportProblem = useCallback(async () => {
-    let build = "web"
-    let platform = "web"
-    try {
-      const { Capacitor } = await import("@capacitor/core")
-      platform = Capacitor.getPlatform()
-      if (Capacitor.isNativePlatform()) {
-        const { App } = await import("@capacitor/app")
-        const info = await App.getInfo()
-        build = `${info.version} (${info.build})`
-      }
-    } catch {
-      /* context is a nicety — never block the report on collecting it */
-    }
-    const body = [
-      "What happened?",
-      "",
-      "",
-      "What did you expect instead?",
-      "",
-      "",
-      "— — — — —",
-      `App: ${build} on ${platform}`,
-      `Device: ${navigator.userAgent}`,
-      `When: ${new Date().toISOString()}`,
-    ].join("\n")
-    window.location.href =
-      `mailto:${LEGAL.contactEmail}?subject=${encodeURIComponent("Homehub problem report")}` +
-      `&body=${encodeURIComponent(body)}`
-  }, [])
 
   const handleTestPush = async () => {
     setPushTesting(true)
@@ -1181,12 +1150,15 @@ export default function Settings() {
               <LifeBuoyIcon className="size-4 text-primary" />
               <h2 className="text-sm font-semibold text-foreground">Report a problem</h2>
             </div>
-            <Button variant="outline" size="sm" onClick={() => void reportProblem()}>
-              Send report
-            </Button>
+            <FeedbackButton label="Send report" />
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             Something broken or confusing? This opens an email with your app version filled in.
+            You can also write to{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="underline underline-offset-2">
+              {SUPPORT_EMAIL}
+            </a>{" "}
+            directly.
           </p>
         </CardContent>
       </SectionCard>
