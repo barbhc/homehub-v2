@@ -63,7 +63,11 @@ jobs:
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ steps.pw.outputs.version }}
+          # The browser SET is part of the key. Both jobs cache the same
+          # directory, and they do not install the same browsers — a shared key
+          # let this job's chromium-only cache satisfy the emulator job, which
+          # then launched a webkit that was never downloaded.
+          key: pw-${{ runner.os }}-chromium-${{ steps.pw.outputs.version }}
       - name: Install Playwright browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
@@ -130,7 +134,9 @@ jobs:
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ steps.vers.outputs.pw }}
+          # chromium AND webkit — see the install step below. Distinct from the
+          # `checks` key, which caches chromium alone.
+          key: pw-${{ runner.os }}-chromium-webkit-${{ steps.vers.outputs.pw }}
       - uses: actions/cache@v4
         with:
           # Keyed on the firebase-tools version, because that is what decides
@@ -143,12 +149,18 @@ jobs:
       # and an un-cacheable one. Matches the version the rules-emulator
       # behaviour in docs/launch-readiness.md was verified against.
       - run: npm i -g firebase-tools@${{ env.FIREBASE_TOOLS_VERSION }}
+      # WEBKIT IS NOT OPTIONAL HERE. The a11y suite's mobile project uses
+      # Playwright's `iPhone 14` preset, whose defaultBrowserType is webkit —
+      # and that is the right engine to keep, not a detail to paper over: the
+      # iOS app is a Capacitor WKWebView, so webkit IS the production surface
+      # for half this suite. Pinning the project to chromium would have made CI
+      # green by testing something the users never run.
       - name: Install Playwright browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
       - name: Install Playwright OS deps (cache hit)
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        run: npx playwright install-deps chromium webkit
 
       - name: Security-rules tests
         run: npm run test:rules:emu
