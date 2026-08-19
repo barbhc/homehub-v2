@@ -242,3 +242,15 @@ body {
     font-size: max(16px, 1rem);
   }
 }
+
+/* Inline code tokens must be allowed to break.
+   `your_correct_schedule_type` is 26 unbroken characters; at 375px it does not
+   fit a line, and the default `overflow-wrap: normal` refuses to break it, so
+   it pushes the paragraph past the right edge of the phone. Two of these on
+   Settings were the only remaining layout break in the device matrix.
+   `anywhere` rather than `break-word` so the break is taken BEFORE the line
+   overflows rather than after — the difference between wrapping and spilling
+   when the token is longer than the whole line. */
+code {
+  overflow-wrap: anywhere;
+}

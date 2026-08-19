@@ -104,6 +104,11 @@ jobs:
       # targets are what cost v1 five separate fix commits inside 48 hours.
       - name: Accessibility (WCAG A/AA, both viewports)
         run: npm run test:e2e:a11y:emu
+      # Gates LAYOUT at four viewports. Tap targets below Apple's 44x44 are
+      # reported into the log rather than gated — WCAG's 24x24 is what the a11y
+      # step above enforces, and closing the gap to 44 is a design pass.
+      - name: Device matrix (small phone → desktop)
+        run: npm run test:e2e:devices:emu
       - name: Upload e2e report on failure
         if: ${{ failure() }}
         continue-on-error: true
