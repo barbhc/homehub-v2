@@ -51,10 +51,16 @@ test.describe("emulator e2e — storage (uploadItemPhoto)", () => {
       page.getByRole("heading", { name: "LG French Door Refrigerator" }).filter({ visible: true }).first()
     ).toBeVisible({ timeout: 20_000 })
 
-    // The empty-state tile is a <label> whose visible "Add photo" caption opens
-    // the native file chooser (the desktop copy renders too, but display:none).
+    // The empty-state tile is a <label> whose visible caption opens the native
+    // file chooser (the desktop copy renders too, but display:none).
+    //
+    // The caption is "Add a photo": RefinedItemDetail passes emptyVariant="cta",
+    // a different empty state from the square tile's "Add photo". An exact-text
+    // selector for the tile's wording therefore matched nothing here, and the
+    // failure surfaced as a filechooser timeout rather than as "element not
+    // found" — which is why it read as flaky rather than stale.
     const chooserPromise = page.waitForEvent("filechooser")
-    await page.getByText("Add photo", { exact: true }).filter({ visible: true }).first().click()
+    await page.getByText("Add a photo", { exact: true }).filter({ visible: true }).first().click()
     const chooser = await chooserPromise
     await chooser.setFiles({ name: "fridge.png", mimeType: "image/png", buffer: Buffer.from(PNG_BASE64, "base64") })
 
