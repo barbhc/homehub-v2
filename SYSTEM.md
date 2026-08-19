@@ -20,7 +20,7 @@ Every claim below was read at source; file:line references are the evidence. Whe
 | AI | `@anthropic-ai/sdk` 0.78. Models in use: `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-opus-4-8`, `claude-3-5-haiku-20241022` |
 | PDF | `pdfjs-dist` 4.10 (client render, worker from a blob URL), Claude document blocks (server parse) |
 | Native shell | Capacitor 8.4 iOS — push-notifications, camera, apple-sign-in |
-| Monitoring | PostHog (`posthog-js`, `src/lib/analytics.ts:27`). **Sentry SDK is wired but NOT enabled** — see Gap #1 |
+| Monitoring | PostHog (`posthog-js`, `src/lib/analytics.ts:27`) and Sentry (`@sentry/react` 10.65, `src/main.tsx:45`) — **both live**. Sentry DSN is US-region; see Gap #1 for how it can silently vanish |
 | Tests | Vitest 4.1 (80 unit files), Playwright 1.59 (29 e2e specs), `@firebase/rules-unit-testing` 5.0, 23 node:test worker files |
 | Lint | ESLint 9.39 — `npm run lint:new` covers only `src/integrations`, `shared`, `e2e/smoke`, `scripts/seed-emulator.ts`, `firebase/functions/src` |
 
@@ -40,7 +40,7 @@ Every claim below was read at source; file:line references are the evidence. Whe
 | Firebase Firestore | All app data | same client config | public-by-design; protected by `firestore.rules` |
 | Firebase Storage | Manuals, item photos, receipts, diagram renders | same client config | public-by-design; protected by `storage.rules` |
 | Firebase Cloud Messaging | Web push | `VITE_FIREBASE_VAPID_KEY` | public-by-design; duplicated into `public/firebase-messaging-sw.js` (not Vite-processed) |
-| Sentry | Error monitoring | `VITE_SENTRY_DSN` | **empty** — the SDK never initialises. Gap #1 |
+| Sentry | Error monitoring | `VITE_SENTRY_DSN` | public-by-design (DSNs are write-only ingest keys and ship in the client bundle). Set 2026-08-19, US region `o4511209047326720.ingest.us.sentry.io` — matched by the CSP's `https://*.ingest.us.sentry.io`. **Lives only in a gitignored `.env`** — Gap #1 |
 | PostHog | Product analytics | `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | public-by-design. Note it loads its runtime from `us-assets.i.posthog.com`, a **different host** from its `api_host` — both are in the CSP |
 | CPSC saferproducts.gov | Recall lookups | none | `products/checkRecalls.ts:39` — fixed host, encoded query param |
 
@@ -169,6 +169,8 @@ Served from `firebase.json` on `**`:
 
 The three hashed inline scripts in `index.html` are the pre-paint theme setter, the boot-splash safety timeout, and the font-stylesheet `media` swap. None can move to a file without putting a request back on the cold-start path. The third exists *because* of CSP: it was an inline `onload=` attribute, and **hashes never cover inline event handlers**.
 
+Sentry's ingest host was checked against this policy by POSTing an envelope from the live site: HTTP 200, event accepted. A DSN in Sentry's **EU** region (`*.ingest.de.sentry.io`) would be blocked by the current `connect-src` and would fail silently — widen it before moving regions.
+
 `src/test/csp.test.ts` recomputes the hashes from `index.html` and fails if they drift — a stale hash is silent in production and costs either the boot theme or the splash timeout. The Report-Only twin was retired in #109.
 
 `img-src` is deliberately `https:` rather than an allowlist: product-photo search renders thumbnails from arbitrary retailer and CDN hosts (`PhotoSearchSheet`).
@@ -206,7 +208,7 @@ Three Storage tests remain **skipped**: the membership gate needs cross-service 
 
 ## Gaps (ranked)
 
-1. **Sentry is not enabled.** `VITE_SENTRY_DSN` is empty, so `bootTelemetry` returns before `Sentry.init` and the SDK never starts (`src/main.tsx:42`). The live bundle contains zero references to a Sentry ingest host. **There is no error reporting in production at all** — the SDK being wired is precisely what made this look done. A production build with no DSN now warns once in the console. Needs a Sentry project + DSN.
+1. **The Sentry DSN exists only in one person's gitignored `.env`.** Sentry itself is now live and verified (see Monitoring below), but `VITE_SENTRY_DSN` is a build-time value read from `.env`, and `.env` is gitignored. A build from a clean checkout — another machine, a fresh clone, a CI job — compiles an empty DSN, `bootTelemetry` returns before `Sentry.init`, and production ships with no error reporting at all. That is the exact failure that was open until 2026-08-19, reintroduced silently by anyone who deploys without that file. The console warning at `src/main.tsx:44` is the only thing that would say so, and only to whoever opens the console. Real fix: a deploy job that injects the DSN from a stored secret — which is Gap #4.
 2. **Legacy Storage objects are not tenant-scoped.** Objects uploaded before 2026-08-18 have no `homeId` in their path and stay readable by any signed-in non-anonymous user. The legacy clause has to stay broad — v1 imports exist at arbitrary shapes. Needs an object migration + field rewrite.
 3. **The Storage membership gate is not emulator-verifiable.** Its three tests ship skipped. Mitigated, not closed, by `npm run smoke:storage` against the real project — which must be run after every `firebase deploy --only storage`.
 4. **No deploy gating.** Manual deploys, no CI deploy job, nothing compares live rules to the repo. This is what let the rules drift 19 and 36 days behind the code, unnoticed.
