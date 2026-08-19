@@ -190,7 +190,7 @@ export function MaintenanceCalendar({
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((h) => (
           <div
             key={h}
-            className="text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 pb-2"
+            className="text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground pb-2"
           >
             {h}
           </div>

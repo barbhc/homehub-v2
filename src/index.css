@@ -59,8 +59,19 @@
   --hh-surface:    #FFFFFF;
   --hh-surface2:   #F4F7F6;
   --hh-ink:        #0B1220;
-  --hh-sub:        #6B7280;
-  --hh-faint:      #9AA6A2;
+  /* WCAG AA. The old #6B7280 cleared 4.5:1 on pure white (4.83) and failed on
+     every TINTED surface in the palette — 4.11 on --hh-teal-wash, 4.16 on the
+     lilac card. Muted text sits on those surfaces constantly, so the token was
+     failing almost everywhere it was actually used. Gray-600 rather than an
+     arbitrary value, so it reads as a deliberate step in the same ramp.
+     Worst case across every background in this file: 6.68:1. */
+  --hh-sub:        #4B5563;
+  /* 2.22:1 before — barely legible, and used on real text (chat source
+     labels, filter-bar captions), not just decoration. "Faint" is a visual
+     rank, not an exemption: WCAG asks 4.5:1 of body text however unimportant
+     the designer considers it. Kept clearly lighter than --hh-sub so the
+     hierarchy survives; worst case 4.88:1. */
+  --hh-faint:      #5F6A75;
   --hh-teal:       #1B6B5A;
   --hh-teal-deep:  #15564A;
   --hh-teal-wash:  #EAF3EF;
@@ -68,7 +79,7 @@
   --hh-clay-soft:  #FFF1E8;
   --hh-gold:       #8A5A12;
   --hh-gold-soft:  #FBF3E2;
-  --hh-slate:      #5B748F;
+  --hh-slate:      #455C72;  /* was #5B748F = 4.41:1 on --hh-slate-soft. Now 6.33:1 */
   --hh-slate-soft: #F1F5F8;
   /* Reference/advice accent — the item page's Tips band. Distinct from slate so
      Tips and First-time setup don't read as the same kind of thing. */
@@ -101,7 +112,7 @@
   --t-secondary: #EAF6F4;
   --t-secondary-foreground: #1B6B5A;
   --t-muted: #F3F4F6;
-  --t-muted-foreground: #6B7280;
+  --t-muted-foreground: #4B5563;  /* AA on tinted surfaces — see --hh-sub */
   --t-accent: #EAF6F4;
   --t-accent-foreground: #1B6B5A;
   --t-destructive: #DC2626;
@@ -138,8 +149,8 @@
   --hh-surface:    #161E1A;
   --hh-surface2:   #1E2A24;
   --hh-ink:        #F1F5F3;
-  --hh-sub:        #8B9A93;
-  --hh-faint:      #6E7C77;
+  --hh-sub:        #A2AEA9;  /* was #8B9A93 = 4.47:1, just under AA. Now 5.74:1 */
+  --hh-faint:      #93A09B;  /* was 3.02:1 on the darkest surface. Now 4.85:1 */
   --hh-teal:       #34B093;
   --hh-teal-deep:  #2A8C76;
   --hh-teal-wash:  rgba(52,176,147,0.16);

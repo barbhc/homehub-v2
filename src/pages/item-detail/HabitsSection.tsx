@@ -71,7 +71,7 @@ function HabitGroup({
   if (tasks.length === 0) return null
   return (
     <div className="mb-4 last:mb-0">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </p>
       <p className="text-xs text-muted-foreground mb-2">{subtitle}</p>

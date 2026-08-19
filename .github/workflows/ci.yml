@@ -99,6 +99,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Seeded e2e (auth + home)
         run: npm run test:e2e:emu
+      # Gates the merge. Runs at desktop AND mobile viewports: `target-size`
+      # (tap targets) is only measurable at a touch viewport, and undersized tap
+      # targets are what cost v1 five separate fix commits inside 48 hours.
+      - name: Accessibility (WCAG A/AA, both viewports)
+        run: npm run test:e2e:a11y:emu
       - name: Upload e2e report on failure
         if: ${{ failure() }}
         continue-on-error: true

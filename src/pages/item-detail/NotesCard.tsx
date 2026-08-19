@@ -76,7 +76,7 @@ export function NotesCard({ item, homeId, onItemUpdate, className }: NotesCardPr
           {item.notes ? (
             <span className="whitespace-pre-wrap">{item.notes}</span>
           ) : (
-            <span className="text-muted-foreground/50 italic text-xs">Click to add a note...</span>
+            <span className="text-muted-foreground italic text-xs">Click to add a note...</span>
           )}
         </div>
       )}

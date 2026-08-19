@@ -195,8 +195,12 @@ function TierPill({ active, color, onClick, children, dot, count }: {
     >
       {dot && <span className="size-1.5 rounded-full" style={{ background: active ? "#fff" : color }} />}
       {children}
+      {/* Explicit colours, not opacity. Opacity on text lands on whatever ratio
+          the blend happens to produce — this one computed to #C6DAD6 over teal,
+          4.36:1, just under AA. Both values below are chosen against their own
+          background and still read softer than the label beside them. */}
       {count != null && (
-        <span className="font-mono text-[11px]" style={{ opacity: active ? 0.75 : 0.55 }}>{count}</span>
+        <span className="font-mono text-[11px]" style={{ color: active ? "#E4F0ED" : "var(--hh-sub)" }}>{count}</span>
       )}
     </button>
   )

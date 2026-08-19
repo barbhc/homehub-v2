@@ -87,7 +87,7 @@ export function FilterBar({
       <div className="w-full max-w-[560px] flex flex-col gap-2">
         {rooms.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-9 shrink-0">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0">
               Room
             </span>
             {rooms.map((room) => {
@@ -111,7 +111,7 @@ export function FilterBar({
           </div>
         )}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-9 shrink-0">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0">
             Item
           </span>
           <div ref={containerRef} className="relative flex-1">
@@ -183,7 +183,7 @@ export function FilterBar({
   if (variant === "compact") {
     return (
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden scrollbar-none">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50 shrink-0">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
           Room
         </span>
         {rooms.map((room) => {

@@ -31,7 +31,7 @@ function AskModule({ d }: { d: ReturnType<typeof dens> }) {
     <div className="overflow-hidden rounded-[18px] border border-[var(--hh-line2)] shadow-[0_1px_2px_rgba(15,23,42,0.04)]" style={{ background: "var(--hh-surface)" }}>
       <div className="flex items-center gap-2.5 py-2 pl-4 pr-2">
         <SparklesIcon className="size-[17px] shrink-0" style={{ color: TEAL }} />
-        <Link to="/chat" className="flex-1 text-[15px] text-[#8A9994]">
+        <Link to="/chat" className="flex-1 text-[15px]" style={{ color: "var(--hh-sub)" }}>
           Ask about your home…
         </Link>
         <button

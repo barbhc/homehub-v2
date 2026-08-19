@@ -392,7 +392,7 @@ export function TaskSection({
                 if (list.length === 0) return null
                 return (
                   <li key={tier}>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground/60 mb-1.5 px-1">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground mb-1.5 px-1">
                       {tier}
                     </p>
                     <ul className="space-y-1.5">
@@ -490,7 +490,7 @@ export function TaskSection({
                             prev === t.task_template_id ? null : t.task_template_id
                           )
                         }
-                        className="shrink-0 text-muted-foreground/60 hover:text-foreground transition-colors"
+                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                         aria-label={isExpanded ? "Collapse steps" : "Show steps"}
                       >
                         <ChevronDownIcon
@@ -580,7 +580,7 @@ export function TaskSection({
                       >
                         {tier}
                       </span>
-                      <span className="text-[10px] text-muted-foreground/50 font-medium">
+                      <span className="text-[10px] text-muted-foreground font-medium">
                         {list.length}
                       </span>
                     </div>
@@ -836,7 +836,7 @@ function KnowledgeList({
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onDelete(chunk.chunk_id) }}
                       disabled={deletingId === chunk.chunk_id}
-                      className="h-11 w-11 md:h-6 md:w-6 p-0 flex items-center justify-center text-muted-foreground/40 hover:text-destructive transition-colors shrink-0 -mt-2 md:mt-px"
+                      className="h-11 w-11 md:h-6 md:w-6 p-0 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0 -mt-2 md:mt-px"
                       aria-label="Delete chunk"
                     >
                       {deletingId === chunk.chunk_id
@@ -847,7 +847,7 @@ function KnowledgeList({
                   <button
                     type="button"
                     onClick={() => onToggle(chunk.chunk_id)}
-                    className="h-11 w-11 md:h-6 md:w-6 p-0 flex items-center justify-center text-muted-foreground/50 hover:text-foreground transition-colors shrink-0 -mt-2 md:mt-px -mr-2 md:mr-0"
+                    className="h-11 w-11 md:h-6 md:w-6 p-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0 -mt-2 md:mt-px -mr-2 md:mr-0"
                   >
                     <ChevronDownIcon className={cn("size-4 transition-transform", isExpanded && "rotate-180")} />
                   </button>

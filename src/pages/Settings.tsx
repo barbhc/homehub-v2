@@ -766,7 +766,7 @@ export default function Settings() {
                     value={newSchedule}
                     onValueChange={(v) => setNewSchedule(v as (typeof SCHEDULE_OPTIONS)[number])}
                   >
-                    <SelectTrigger className="w-[120px]">
+                    <SelectTrigger className="w-[120px]" aria-label="Routine schedule">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1031,7 +1031,7 @@ export default function Settings() {
                       ) : state?.status === "error" ? (
                         <AlertCircleIcon className="size-3.5 text-destructive shrink-0" />
                       ) : parsedDate ? (
-                        <CircleDotIcon className="size-3.5 text-muted-foreground/40 shrink-0" />
+                        <CircleDotIcon className="size-3.5 text-muted-foreground shrink-0" />
                       ) : (
                         <CircleDotIcon className="size-3.5 text-amber-400 shrink-0" />
                       )}
@@ -1356,7 +1356,7 @@ export default function Settings() {
                       value={String(Math.min(notifPrefs.lead_time_days, MAX_LEAD_TIME_DAYS))}
                       onValueChange={(v) => setNotifLeadTime(Number(v))}
                     >
-                      <SelectTrigger className="w-[150px] shrink-0">
+                      <SelectTrigger className="w-[150px] shrink-0" aria-label="Reminder lead time">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

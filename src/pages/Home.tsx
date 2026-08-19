@@ -137,7 +137,7 @@ function DashboardCalendar({ tasks, selectedDay, onSelectDay, month, onPrevMonth
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((h) => (
           <div
             key={h}
-            className="text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 pb-1"
+            className="text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground pb-1"
           >
             {h}
           </div>
@@ -545,7 +545,7 @@ export default function Home() {
       {/* ── Desktop: Greeting bar — hidden; RefinedHome owns the header now ── */}
       <div className="hidden items-end justify-between px-8 pt-6 pb-2 max-w-5xl mx-auto w-full border-b border-border/50">
         <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground/70 mb-1">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
             {formatTodayDate()}
           </p>
           <h1 className="font-display text-[28px] leading-tight text-foreground font-bold">

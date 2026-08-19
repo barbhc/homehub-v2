@@ -1,14 +1,18 @@
 import { getStorage, connectStorageEmulator, ref, getDownloadURL } from "firebase/storage"
-import { firebaseApp, USE_EMULATORS } from "./app"
+import { firebaseApp, USE_EMULATORS, EMULATOR_PORTS } from "./app"
 
 export const storage = getStorage(firebaseApp)
 
 if (USE_EMULATORS) {
-  connectStorageEmulator(storage, "127.0.0.1", 9199)
+  connectStorageEmulator(storage, "127.0.0.1", EMULATOR_PORTS.storage)
 }
 
 /** Matches a Firebase Storage download URL (prod host or the local emulator). */
-const STORAGE_URL_RE = /^(?:https:\/\/firebasestorage\.googleapis\.com|http:\/\/127\.0\.0\.1:9199)\/v0\/b\/([^/]+)\/o\/([^?]+)/
+// Built from the configured port so an alt-port emulator run still resolves
+// its own download URLs (the literal 9199 silently stopped matching).
+const STORAGE_URL_RE = new RegExp(
+  `^(?:https://firebasestorage\\.googleapis\\.com|http://127\\.0\\.0\\.1:${EMULATOR_PORTS.storage})/v0/b/([^/]+)/o/([^?]+)`,
+)
 
 /**
  * Extract the object path from a Firebase Storage download URL pointing at THIS

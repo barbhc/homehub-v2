@@ -163,11 +163,11 @@ export function ServiceProvidersSection({ homeId }: Props) {
                       {/* Name + contact details */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{p.name}</p>
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                        <div className="-my-1 mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
                           {p.phone && (
                             <a
                               href={`tel:${p.phone.replace(/\s/g, "")}`}
-                              className="flex items-center gap-1 text-xs text-primary hover:underline"
+                              className="flex min-h-6 items-center gap-1 py-1 text-xs text-primary hover:underline"
                             >
                               <PhoneIcon className="size-3 shrink-0" />
                               {p.phone}
@@ -176,7 +176,7 @@ export function ServiceProvidersSection({ homeId }: Props) {
                           {p.email && (
                             <a
                               href={`mailto:${p.email}`}
-                              className="text-xs text-primary hover:underline truncate max-w-[200px]"
+                              className="inline-flex min-h-6 max-w-[200px] items-center truncate py-1 text-xs text-primary hover:underline"
                             >
                               {p.email}
                             </a>
@@ -186,7 +186,7 @@ export function ServiceProvidersSection({ homeId }: Props) {
                               href={p.website.startsWith("http") ? p.website : `https://${p.website}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline truncate max-w-[200px]"
+                              className="inline-flex min-h-6 max-w-[200px] items-center truncate py-1 text-xs text-primary hover:underline"
                             >
                               {p.website.replace(/^https?:\/\//, "")}
                             </a>

@@ -7,12 +7,12 @@ import {
   type DocumentReference,
   type DocumentData,
 } from "firebase/firestore"
-import { firebaseApp, USE_EMULATORS } from "./app"
+import { firebaseApp, USE_EMULATORS, EMULATOR_PORTS } from "./app"
 
 export const db = getFirestore(firebaseApp)
 
 if (USE_EMULATORS) {
-  connectFirestoreEmulator(db, "127.0.0.1", 8080)
+  connectFirestoreEmulator(db, "127.0.0.1", EMULATOR_PORTS.firestore)
 }
 
 /**

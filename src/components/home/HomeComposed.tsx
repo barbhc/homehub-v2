@@ -340,21 +340,29 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
           )}
         </div>
 
+        {/* The DOT stays 5px; the BUTTON is 24px. A pager dot sized to its own
+            visual is a 5px tap target — what axe's target-size rule flagged and
+            what a thumb misses. The negative margin keeps the row the height it
+            was, so the fix is invisible until you try to tap it. */}
         {faces > 1 && (
-          <div className="flex items-center justify-center gap-1.5 pb-2.5">
+          <div className="-my-1.5 flex items-center justify-center pb-2.5">
             {[0, 1].map((i) => (
               <button
                 key={i}
                 type="button"
                 aria-label={i === 0 ? "Home summary" : "One small thing"}
                 onClick={() => setFace(i)}
-                className="rounded-full transition-all"
-                style={{
-                  width: activeFace === i ? 14 : 5,
-                  height: 5,
-                  background: activeFace === i ? "var(--hh-teal)" : "var(--hh-line)",
-                }}
-              />
+                className="flex h-6 min-w-6 items-center justify-center px-1.5"
+              >
+                <span
+                  className="block rounded-full transition-all"
+                  style={{
+                    width: activeFace === i ? 14 : 5,
+                    height: 5,
+                    background: activeFace === i ? "var(--hh-teal)" : "var(--hh-line)",
+                  }}
+                />
+              </button>
             ))}
           </div>
         )}

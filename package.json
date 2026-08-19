@@ -26,7 +26,8 @@
     "lint:new": "eslint src/integrations shared e2e/smoke scripts/seed-emulator.ts firebase/functions/src",
     "smoke:storage": "node scripts/smoke-storage-rules.mjs",
     "eval:parser": "npx vite-node evals/manual-parser/run.ts --",
-    "eval:parser:cache": "npx vite-node evals/manual-parser/cache.ts"
+    "eval:parser:cache": "npx vite-node evals/manual-parser/cache.ts",
+    "test:e2e:a11y:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.a11y.config.ts\""
   },
   "dependencies": {
     "@capacitor-community/apple-sign-in": "^7.1.0",

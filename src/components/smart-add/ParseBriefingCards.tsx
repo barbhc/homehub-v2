@@ -176,7 +176,7 @@ function Card({
           {icon}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground/70 font-medium">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
             {label}
           </p>
           <div className="mt-1 text-sm text-foreground leading-snug">{children}</div>
