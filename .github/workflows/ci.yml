@@ -16,6 +16,15 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # A docs-only PR cannot break a typecheck, a rules test or a browser suite,
+    # and the emulator job is ~12 minutes. Five of the PRs merged on 19 Aug were
+    # pure prose and each paid for the full matrix. paths-ignore skips only when
+    # EVERY changed path matches, so a PR touching docs AND code still runs.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "notes/**"
+      - "design/**"
   # Manual re-run for exactly the case above — validating main on demand.
   workflow_dispatch:
 
@@ -24,6 +33,10 @@ on:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  # One place to bump the emulator tooling, and the key the JAR cache hangs off.
+  FIREBASE_TOOLS_VERSION: "15.23.0"
 
 jobs:
   checks:
@@ -104,25 +117,62 @@ jobs:
           java-version: "21"
       - run: npm ci
       - run: npm ci --prefix firebase/functions
-      - run: npm i -g firebase-tools
+
+      # ── Caches. Everything below was re-downloaded on EVERY run. ──────────
+      # firebase-tools is a large global install; the emulator JARs are tens of
+      # MB fetched on first `emulators:exec`; Playwright's chromium is ~120MB
+      # and was cached in the `checks` job but not here. Together they were
+      # roughly 2.5 minutes of download per run, every run.
+      - name: Resolve Playwright version
+        id: vers
+        run: echo "pw=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.vers.outputs.pw }}
+      - uses: actions/cache@v4
+        with:
+          # Keyed on the firebase-tools version, because that is what decides
+          # which emulator JARs get pulled.
+          path: ~/.cache/firebase/emulators
+          key: fb-emulators-${{ runner.os }}-${{ env.FIREBASE_TOOLS_VERSION }}
+          restore-keys: fb-emulators-${{ runner.os }}-
+      # PINNED. An unpinned global install meant CI silently changed its own
+      # tooling version between runs, which is both a reproducibility problem
+      # and an un-cacheable one. Matches the version the rules-emulator
+      # behaviour in docs/launch-readiness.md was verified against.
+      - run: npm i -g firebase-tools@${{ env.FIREBASE_TOOLS_VERSION }}
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install Playwright OS deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
       - name: Security-rules tests
         run: npm run test:rules:emu
       - name: Parse-worker integration tests
         run: npm run test:worker:emu
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-      - name: Seeded e2e (auth + home)
-        run: npm run test:e2e:emu
-      # Gates the merge. Runs at desktop AND mobile viewports: `target-size`
-      # (tap targets) is only measurable at a touch viewport, and undersized tap
-      # targets are what cost v1 five separate fix commits inside 48 hours.
-      - name: Accessibility (WCAG A/AA, both viewports)
-        run: npm run test:e2e:a11y:emu
-      # Gates LAYOUT at four viewports. Tap targets below Apple's 44x44 are
-      # reported into the log rather than gated — WCAG's 24x24 is what the a11y
-      # step above enforces, and closing the gap to 44 is a design pass.
-      - name: Device matrix (small phone → desktop)
-        run: npm run test:e2e:devices:emu
+
+      # ONE emulator boot for all three browser suites. They used to be three
+      # separate `emulators:exec` invocations, each paying a fresh JVM start.
+      #
+      #   e2e     — the seeded service-layer round trips
+      #   a11y    — WCAG A/AA at both viewports, gating
+      #   devices — layout at four viewports, gating; tap targets reported
+      #
+      # The seed is re-run BETWEEN suites, and that is load-bearing rather than
+      # tidy: the e2e suite creates items and uploads photos, so without a
+      # reseed the a11y suite scans a Home page containing rows the fixture
+      # never produced. Combining them without this made a11y fail on a
+      # contrast violation in exactly that extra state — a real finding, but not
+      # one this suite is supposed to discover by accident. Reseeding is ~5s;
+      # the JVM boot it replaces was ~35s.
+      #
+      # `&&` means the first failing suite still fails the job.
+      - name: Browser suites (e2e + a11y + device matrix)
+        run: npm run test:e2e:all:emu
       - name: Upload e2e report on failure
         if: ${{ failure() }}
         continue-on-error: true

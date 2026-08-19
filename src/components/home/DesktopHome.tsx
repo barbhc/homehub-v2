@@ -11,7 +11,7 @@ import { HomeComposed } from "@/components/home/HomeComposed"
 import { useDisplayName } from "@/hooks/useDisplayName"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)"
-const GOLD = "#9A7B3A"
+const GOLD = "var(--hh-gold)"
 
 /** Signed day offset for a task (negative = overdue) — WeekStrip's dot maths. */
 function dueDays(t: DashboardTask): number {
