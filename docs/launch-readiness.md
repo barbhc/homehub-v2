@@ -14,14 +14,20 @@
 | **Sharing model (decided)** | **Each friend runs their own home.** Co-member invite flow stays deferred — it is partially wired and explicitly out of scope this round. |
 | **Required-tasks funnel** | sign up → create home → add first items → engage with item content → check off first task |
 | **AHA moment (candidate)** | first time the app *answers a real question about their stuff* — e.g. viewing parsed manual/care content for an item they added, or completing a generated task. Pick one and instrument it. |
-| **Top 3 risks** | (1) zero analytics = blind feedback round; (2) uncapped AI spend per signed-up user; (3) world-readable Storage objects (receipts/photos) |
+| **Top 3 risks** *(restated 2026-08-19)* | (1) **no error visibility** — Sentry has no DSN in the deployed bundle, so a broken ring looks identical to a healthy one; (2) **no CI** — Actions billing is blocked account-wide, so nothing has been gated by a machine since 18 Aug; (3) **the Anthropic bill is unalarmed** — the in-app ceiling and the GCP budget both exist, and neither can see the invoice that a runaway parse actually lands on. *Original three (blind analytics, uncapped spend, world-readable Storage) are addressed — see the sections below.* |
 
 ## What's already in good shape (verified — don't redo)
 
 - **Auth is real and open:** email/password, email-link, and Apple sign-in with password reset (`src/modules/auth/components/AuthProvider.tsx`); `AuthGate` protects routes, no dev bypass.
 - **Multi-tenancy is genuine:** all data under `homes/{homeId}/…`, gated by membership (`firestore.rules`); multiple homes/users coexist; `getPrimaryHome` handles multi-home.
 - **Onboarding + empty states exist:** `Index.tsx` routing → `HomeOnboarding` → `OnboardingProfile`/`OnboardingInventory`; `EmptyState.tsx` used on Home/Inventory/Tasks; duplicate-home guard from a real launch-day incident.
-- **Sentry** wired, prod-gated (`src/main.tsx`), plus ErrorBoundary.
+- ~~**Sentry** wired, prod-gated~~ — **WRONG, corrected 2026-08-19.** The code is
+  there (`src/main.tsx:42`) and `ErrorBoundary` does call `captureException`, but
+  `VITE_SENTRY_DSN` is empty, so `Sentry.init` never runs. Verified by downloading
+  the live bundle from `homehub-2068d.web.app`: it carries the PostHog key and **no
+  Sentry DSN**. Every crash since has gone nowhere. This line sitting under
+  *"verified — don't redo"* is exactly how it stayed invisible for a month, and is
+  the second entry in this document to fail that way. See the precondition rule below.
 - **Tests:** 24 unit + 26 Playwright e2e + Firestore rules tests, all in CI.
 - **Server secrets:** Anthropic/Brave keys are Firebase secrets, never client-shipped; all `onCall` functions check `request.auth`.
 
@@ -105,7 +111,12 @@ Once done, tick this box and record the numbers actually chosen:
       2026-08-19: $25/mo with a forecast rule. See *Vendor-side spend alarms* above.
       **The Anthropic alert in that same section is still open and is the more
       important half** — GCP cannot see the model bill.
-- [ ] **Add a per-user daily quota on AI functions** (`chatQuery`, `generateTasks`, `productLookup`, `ingestReference`, `ocr`, …). Simple pattern: a `usage/{uid}/{yyyy-mm-dd}` counter doc checked in one shared helper at the top of each paid function. A generous cap (e.g. 50 AI calls/day) protects against loops and leaked links without friends ever noticing.
+- [x] **Add a per-user daily quota on AI functions** — DONE. 50 units/day per user
+      (PR #91), an app-wide 20,000-unit monthly ceiling with refunds and cost-weighted
+      units (PR #91), and per-endpoint rate limits capping the *minute* (PR #97).
+      The last one matters separately: quotas cap the day, and a stuck retry can
+      spend a whole day's allowance in five seconds — the cap works and the user
+      still loses. Details in `shared/quota/policy.ts`.
 - [ ] **Close the Storage public-read:** `storage.rules` currently has `allow read: if true` on all paths — every uploaded manual, item photo, and receipt is readable by URL. Scope reads to home members (and migrate the "tokenless public URL" call sites that depend on it).
 - [ ] **Add product analytics** (recommend PostHog; Firebase Analytics also fine). Instrument the funnel + engagement events — this is what makes the feedback round measurable against the product-notes metrics:
   - funnel: `sign_up`, `home_created`, `first_item_added`, `item_content_viewed`, `task_checked` (with timestamps → time-to-complete-required-tasks, time-to-first-AHA)
@@ -119,10 +130,52 @@ Once done, tick this box and record the numbers actually chosen:
 - [x] **Patch the member self-create rule** — DONE 2026-08-18. See "A precondition expired" below; this is the entry that lapsed.
 - [ ] **npm CVEs:** 18 vulnerabilities (10 moderate, 8 high) as of 2026-08-18, but only **5 reach production** — `react-router-dom` + `react-router` (high), `brace-expansion` (high), `dompurify` + `tar` (moderate). The other 13 are build-time only. All 5 fix within the current major; `npm audit fix` pulls in 80 packages, so run it in its own PR and click through the app afterwards (routing is in the blast radius).
 - [x] **CSP** — added 2026-08-18 as `Content-Security-Policy-Report-Only` in `firebase.json`. Deliberately not blocking: two inline `<script>` blocks in `index.html`, six Firebase/Google origins, PostHog, arbitrary vendor `<img>` hosts, and a Capacitor WebView. **Next step: read the violation reports, then promote to the enforcing header and replace `'unsafe-inline'` on `script-src` with hashes.**
-- [ ] **In-app feedback entry point** (Section 7 of template): a "Send feedback" item writing to a `feedback` collection (or even mailto:) + the "what to test" note.
+- [x] **In-app feedback entry point** — DONE (PR #99). Three entry points, not one:
+      the crash screen (which previously had none — `ErrorBoundary` replaces the whole
+      app, so a user who landed there could not reach Settings), the desktop header,
+      and Settings. mailto rather than a `feedback` collection on purpose: a Firestore
+      write cannot help when the thing being reported IS Firestore. The "what to test"
+      note is in `docs/testflight-ring.md`.
 - [ ] **Latency pass** on the AI-heavy paths (chat, parse/ingest) — confirm visible loading states everywhere; Sentry tracing (0.2 sample) can show the slow spans.
 - [ ] **Review `sendPushDaily` for new users** — make sure a brand-new home gets sensible (or no) daily pushes rather than noise.
 - [ ] **Clean up dead weight:** remove the vestigial `@supabase/supabase-js` dependency from `homehub-v2/package.json`.
+
+## Phase 2–4 — what shipped, 2026-08-19
+
+The work between "secure" and "ready for a wide spectrum of real users".
+
+### Strangers at scale
+
+| | |
+|---|---|
+| **Vendor spend alarms** | GCP budget verified live and given a *forecast* threshold — its three original rules all fired only after the money was gone. **The Anthropic alert is still open and is the more important half**; see *Vendor-side spend alarms* above. |
+| **Rate limits** | Per-endpoint and per-user, 60s windows, folded into the transaction `chargeAiQuota` already runs so they cost no extra reads. A throttled call charges nothing — being throttled must not also spend the allowance being protected. |
+| **Invite gate** | Enforced in `firestore.rules` at *home creation*, not sign-up: sign-up is Firebase Auth with a public API key, so a client check there is a suggestion. Ships **off**; `scripts/ops/invite-codes.ts on`. See `docs/invite-gate.md`. |
+| **Parser eval** | `evals/manual-parser/` — 12 real manuals, expectations written by reading them, **baseline 97.5/100**. `npm run eval:parser -- --offline` re-scores for free. |
+
+### Usability
+
+| | |
+|---|---|
+| **First run** | A sample home at `/sample` you can explore before committing, empty states that say what a screen is *for*, and capture guidance that names what to photograph (the rating label, not the appliance front). |
+| **Accessibility** | The suite could not run *and* could not fail. Both fixed; it now gates CI at two viewports. 16 of 17 checks were failing — all fixed, including a design-token contrast bug affecting nearly every screen. |
+| **Device matrix** | Four viewports, gating on layout. Found and fixed a real iPad break: the desktop header renders from 768px but needed ~1102px, so its right-hand controls ran off the edge. |
+| **Feedback** | Three entry points including the crash screen, which had none. |
+
+### Launch prep (prepared, not shipped)
+
+- **Privacy + terms** — already existed, written against the code on 2026-07-31, and re-verified. No action.
+- **Rollback** — `docs/rollback.md`. Written for 11pm on a phone.
+- **TestFlight ring** — `docs/testflight-ring.md`. 5–10 users, two weeks, thresholds fixed *before* the ring.
+
+### Still open, and honest about it
+
+- **Anthropic spend alert** — console-only, 5 minutes, Barb's to do.
+- **`VITE_SENTRY_DSN`** — not set, so nothing is being captured. See the correction above.
+- **Analytics funnel** — PostHog is wired, but the funnel events the ring needs measuring are not confirmed firing.
+- **Tap targets between 24px and 44px** — WCAG's 24×24 minimum is gated and passes; Apple's 44×44 guideline is reported with counts by the device suite. Closing that gap is a design pass, not a layout fix.
+- **CI has not run since 18 Aug.** GitHub Actions billing is blocked account-wide: every job fails unstarted in ~2s. Everything above was verified by running each CI job locally. **Nothing in this repo can fix that** — it needs Barb's billing settings.
+
 
 ## A precondition expired — 2026-08-18
 
@@ -152,6 +205,49 @@ in a doc that only gets read at review time:
 - [ ] When a checklist item is deferred **because of a precondition**, name the
       precondition and the file that would have to change. Then grep this doc for
       that filename before merging anything that touches it.
+
+### It happened twice more — 2026-08-19
+
+This is not a one-off, and treating it as one is how it keeps happening.
+
+**Second instance.** The *deployed* rules were 19 days (Firestore) and 36 days
+(Storage) stale. PR #94's tenant-isolation fix — the entire point of #94 — had
+never been live. The unstated precondition was "merging deploys it". Hosting
+auto-deploys; rules never have.
+
+**Third instance.** Sentry sat under *"What's already in good shape (verified —
+don't redo)"* with no DSN in the production bundle. It captured nothing, for a
+month, while a heading told every reader not to look at it.
+
+**The rule, restated so it covers all three:**
+
+> An accepted risk is a claim about the world, and the world moves. So is a
+> ticked checkbox. **Neither is self-maintaining.**
+
+Concretely, three habits, in the order they are worth adopting:
+
+1. **Name the precondition and the file.** "Safe until X" is only manageable if
+   X is written down next to the file that would change it. Then whoever ships X
+   greps this document before merging.
+2. **A ticked box needs a date and a way to re-check it.** Not "Sentry wired" but
+   "Sentry wired — verified 19 Aug by finding the DSN in the deployed bundle".
+   A claim you cannot re-run is a claim you cannot maintain, and it decays
+   silently into a heading that tells people not to look.
+3. **"Verified — don't redo" is the most dangerous heading in this document.**
+   Two of the three failures above were sitting under it. Anything in that
+   section needs the check that proved it, so re-proving costs a command rather
+   than an afternoon.
+
+The recurring shape is the same every time: **something was true when written,
+stopped being true silently, and the document went on asserting it.** Nothing in
+the code can catch that. The only defence is that these claims carry their own
+expiry conditions and the commands that re-test them.
+
+- [ ] Before each release, re-run the checks behind every ticked P0 box rather
+      than trusting the tick. Today that is: `gcloud billing budgets list` (the
+      GCP alert), `npm run smoke:storage` (the rules, against production),
+      `npm run eval:parser -- --offline` (the parser), and a `curl` of the live
+      bundle for `VITE_SENTRY_DSN`. Each is one command; none of them is a tick.
 
 ## Storage: legacy objects are still un-scoped
 
