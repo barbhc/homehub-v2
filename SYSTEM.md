@@ -67,7 +67,7 @@ Two server-side gates, used consistently:
 
 **These gates are only as strong as the rule that decides who becomes a member.** Until #94 any signed-in user who knew a `homeId` could write their own member doc into that home at any role, which made every per-home check above return true for them. The `createdBy` ownership anchor is what closes it — and as of 2026-08-19 that fix is **actually deployed**, which it was not for the 19 days before.
 
-**Admission gate (#101):** `admissions/{uid}` records who has been let in; `isSignedIn()` in `firestore.rules:64` now also accepts an existing admission doc. Codes live at `inviteCodes/{code}`, which is **fully denied to clients** — only the `redeemInviteCode` callable (Admin SDK) can read or decrement one.
+**Admission gate (#101):** `admissions/{uid}` records who has been let in. Home creation now also requires `admitted()`, which is `!growthGateOn() || exists(admissions/{uid})` — so the gate is **off by default** and only bites once `config/growth.inviteGateEnabled` is set true. Codes live at `inviteCodes/{code}`, **fully denied to clients** — only the `redeemInviteCode` callable (Admin SDK) can read or decrement one.
 
 ## Endpoints (the doors)
 
@@ -129,7 +129,8 @@ All app data is path-tenanted under `homes/{homeId}/…`; membership at `homes/{
 | `supplyCatalog/**` | any signed-in | **denied** (Admin SDK) | global catalog |
 | `webRetrievals`, `productLookupCache`, `parseEvalCandidates` | **denied** | **denied** | server-only caches |
 | `usage/{uid}/daily/{day}` | **denied** | **denied** | quota counters — user cannot read or reset their own |
-| `inviteCodes/{code}` | **denied** | **denied** | `:260` — redeem is server-side only |
+| `config/{doc}` | `get` any signed-in | **denied** | holds `growth.inviteGateEnabled` — the kill switch for the admission gate |
+| `inviteCodes/{code}` | **denied** | **denied** | redeem is server-side only |
 | `admissions/{uid}` | `get` self only; **`list` denied** | **denied** | `:267` — admission cannot be self-granted |
 | collectionGroup `members` | signed-in **where `uid == auth.uid`** | — | serves "find all my memberships" |
 
@@ -181,7 +182,7 @@ The three hashed inline scripts in `index.html` are the pre-paint theme setter, 
 | Firestore rules + indexes | `firebase deploy --only firestore:rules,firestore:indexes` | **manual** |
 | Storage rules | `firebase deploy --only storage` — **then `npm run smoke:storage`** | **manual** |
 
-**There is still no deploy job in CI.** Nothing enforces that deployed rules match the repo. On 2026-08-19 that gap was measured, not theorised: `firestore.rules` was serving a version 19 days old and `storage.rules` one **36 days** old, with `allow read: if true` — every photo, manual and receipt readable by anyone on the internet holding a path. Both are now deployed and byte-match the repo.
+**There is still no deploy job in CI.** Nothing enforces that deployed rules match the repo, and the drift recurs on the order of hours, not weeks: `firestore.rules` was re-deployed on 2026-08-19 and was stale again the same afternoon, because #101 merged the admission gate after that deploy and nothing re-ran it. On 2026-08-19 that gap was measured, not theorised: `firestore.rules` was serving a version 19 days old and `storage.rules` one **36 days** old, with `allow read: if true` — every photo, manual and receipt readable by anyone on the internet holding a path. Both are now deployed and byte-match the repo.
 
 **Order matters, and it is not obvious.** Hosting deploys had been keeping pace with merges while rules had not, so the client was newer than the rules. Deploying the new rules against the old client would have denied every upload (no `create`/`update` clause for legacy paths) and every home creation (no `createdBy` on the home doc). **Client first, then rules.**
 
