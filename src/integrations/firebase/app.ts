@@ -39,3 +39,17 @@ const firebaseConfig = USE_EMULATORS
     }
 
 export const firebaseApp: FirebaseApp = initializeApp(firebaseConfig)
+
+/**
+ * Emulator ports, overridable per-suite.
+ *
+ * Hardcoded ports mean exactly one emulator stack can exist on a machine, so a
+ * second suite — or a second person, or a second agent — collides on 8080 and
+ * gets "port taken", an error that says nothing about what they were doing.
+ * Defaults are the firebase.json values, so nothing changes unless you ask.
+ */
+export const EMULATOR_PORTS = {
+  firestore: Number(import.meta.env.VITE_EMULATOR_FIRESTORE_PORT ?? 8080),
+  auth: Number(import.meta.env.VITE_EMULATOR_AUTH_PORT ?? 9099),
+  storage: Number(import.meta.env.VITE_EMULATOR_STORAGE_PORT ?? 9199),
+} as const

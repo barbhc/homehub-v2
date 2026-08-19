@@ -540,7 +540,7 @@ export default function DeepClean() {
                       {roomGroups.map(({ roomKey, roomName, items }) => (
                         <div key={roomKey} className="mb-6">
                           {showRoomHeader && (
-                            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/60 mb-3 px-1">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-3 px-1">
                               {roomName}
                             </p>
                           )}
@@ -577,7 +577,7 @@ export default function DeepClean() {
                                           return next
                                         })
                                       }
-                                      className="flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-destructive px-2 py-1 rounded hover:bg-destructive/5 transition-colors"
+                                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive px-2 py-1 rounded hover:bg-destructive/5 transition-colors"
                                       aria-label={`Skip ${itemName ?? "these tasks"} today`}
                                     >
                                       <X className="size-3" />
@@ -620,7 +620,7 @@ export default function DeepClean() {
 
                       {skippedItemKeys.size > 0 && (
                         <div className="mt-2 rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/50 mb-2">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2">
                             Skipped today
                           </p>
                           <div className="flex flex-wrap gap-2">

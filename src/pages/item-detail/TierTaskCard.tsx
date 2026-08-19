@@ -103,7 +103,7 @@ export function TierTaskCard({
             <button
               type="button"
               onClick={onToggleExpand}
-              className="h-11 w-11 md:h-8 md:w-8 p-0 flex items-center justify-center text-muted-foreground/50 hover:text-foreground transition-colors shrink-0 -mt-2 md:mt-px -mr-2 md:mr-0"
+              className="h-11 w-11 md:h-8 md:w-8 p-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0 -mt-2 md:mt-px -mr-2 md:mr-0"
               title={isExpanded ? "Collapse" : "Expand instructions"}
             >
               <ChevronDownIcon

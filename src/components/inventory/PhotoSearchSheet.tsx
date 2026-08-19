@@ -131,7 +131,7 @@ export function PhotoSearchSheet({
 
           {!loading && searched && images.length === 0 && !error && (
             <div className="flex flex-col items-center justify-center gap-2 py-12">
-              <ImageIcon className="size-8 text-muted-foreground/40" />
+              <ImageIcon className="size-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">No images found. Try a different search.</p>
             </div>
           )}

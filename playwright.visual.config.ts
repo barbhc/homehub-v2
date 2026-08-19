@@ -15,6 +15,9 @@ import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
  * NOTE: baselines are browser/OS-sensitive — CI must run the same pinned Playwright
  * Chromium on Linux, or re-bake in CI on first adoption.
  */
+// Overridable so the visual suite can run beside another vite server; same
+// reason as the emulator ports.
+const PORT = Number(process.env.PW_WEB_PORT ?? 5173)
 const chromiumPath = process.env.PW_CHROMIUM_PATH
 // The sandbox runs as root; --no-sandbox is required there (CI leaves
 // PW_CHROMIUM_PATH unset, so this stays empty and its own browsers are used).
@@ -32,7 +35,7 @@ export default defineConfig({
   reporter: "line",
   snapshotPathTemplate: "e2e/__screenshots__/{projectName}/{testFilePath}/{arg}{ext}",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     launchOptions,
@@ -62,8 +65,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev:emu",
-    port: 5173,
+    command: `npm run dev:emu -- --port ${PORT} --strictPort`,
+    port: PORT,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

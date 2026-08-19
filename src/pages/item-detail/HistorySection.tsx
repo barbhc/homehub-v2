@@ -188,7 +188,7 @@ export function HistorySection({ homeId, itemId, refreshKey = 0 }: HistorySectio
             <div className="space-y-4 pb-2">
               {groups.map((group) => (
                 <div key={group.label}>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground/60 mb-2 px-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground mb-2 px-1">
                     {group.label}
                   </p>
                   <div className="relative ml-2.5">

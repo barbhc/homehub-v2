@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test"
 
+// Matches the emulator port the app was told to use, so an alt-port run (two
+// suites side by side) still resolves its own download URLs.
+const STORAGE_PORT = process.env.VITE_EMULATOR_STORAGE_PORT ?? "9199"
+
 /**
  * Storage round-trip against the seeded emulator — proves storageService's
  * uploadItemPhoto works end-to-end: the file lands in the Storage emulator, the
@@ -33,7 +37,7 @@ test.describe("emulator e2e — storage (uploadItemPhoto)", () => {
     // uploadItemPhoto → Storage emulator + item.photoPath persisted → getPhotoUrl
     // yields an emulator URL the <img> renders from. Assert the element is in the
     // DOM (the page renders mobile+desktop copies; only one is visible).
-    await expect(page.locator('img[src*="127.0.0.1:9199"]').first()).toBeAttached({ timeout: 15_000 })
+    await expect(page.locator(`img[src*="127.0.0.1:${STORAGE_PORT}"]`).first()).toBeAttached({ timeout: 15_000 })
   })
 
   test("mobile: tapping Add photo uploads and renders the image", async ({ page }) => {
@@ -56,6 +60,6 @@ test.describe("emulator e2e — storage (uploadItemPhoto)", () => {
 
     // Same round-trip as above: uploadItemPhoto → Storage emulator + persisted
     // photoPath → useStorageUrl resolves the token URL the <img> renders from.
-    await expect(page.locator('img[src*="127.0.0.1:9199"]').first()).toBeAttached({ timeout: 15_000 })
+    await expect(page.locator(`img[src*="127.0.0.1:${STORAGE_PORT}"]`).first()).toBeAttached({ timeout: 15_000 })
   })
 })

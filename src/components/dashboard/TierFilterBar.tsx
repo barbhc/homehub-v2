@@ -38,7 +38,7 @@ export function TierFilterBar({
               "px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all",
               isActive
                 ? activeClass
-                : "bg-transparent text-muted-foreground/60 border-border hover:border-muted-foreground/40",
+                : "bg-transparent text-muted-foreground border-border hover:border-muted-foreground/40",
               isLastActive && "cursor-not-allowed"
             )}
             aria-pressed={isActive}

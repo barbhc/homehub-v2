@@ -380,7 +380,7 @@ export function TaskReviewSheet({
         {(r.justification || r.description) && (
           <div className="text-[13px] text-muted-foreground mt-2 leading-snug">{r.justification || r.description}</div>
         )}
-        <div className="text-[11.5px] text-muted-foreground/80 mt-2">
+        <div className="text-[11.5px] text-muted-foreground mt-2">
           From the manual · {originOf(r)}{r.minutes ? ` · about ${r.minutes} min` : ""}
         </div>
 
@@ -530,12 +530,12 @@ export function TaskReviewSheet({
         {r.included && remindsOfRow(r) && (
           <BellRingIcon className="size-[13px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Reminds you" />
         )}
-        {r.included && isScheduled(b) && <span className="text-[10px] font-mono text-muted-foreground/70 whitespace-nowrap">{cadOf(r)}</span>}
+        {r.included && isScheduled(b) && <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">{cadOf(r)}</span>}
         {r.included && r.kind !== "tip" && <PriorityDot tier={r.tier} />}
         <span role="button" tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); patch(r.id, { included: !r.included }) }}
           aria-label={r.included ? `Skip ${r.title}` : `Bring back ${r.title}`}
-          className="shrink-0 text-[14px] text-muted-foreground/70 px-1 rounded hover:bg-muted">{r.included ? "✕" : "↩"}</span>
+          className="shrink-0 text-[14px] text-muted-foreground px-1 rounded hover:bg-muted">{r.included ? "✕" : "↩"}</span>
       </button>
     )
   }
@@ -545,7 +545,7 @@ export function TaskReviewSheet({
       <SheetContent side="bottom" className="h-[92dvh] flex flex-col p-0 gap-0">
         <SheetHeader className="px-4 pt-3 pb-2 border-b">
           <SheetTitle className="text-[17px] font-extrabold tracking-[-0.02em]">{itemName}</SheetTitle>
-          <div className="text-[10.5px] font-mono text-muted-foreground/70">
+          <div className="text-[10.5px] font-mono text-muted-foreground">
             {guideRow ? `Deciding each task · ${(guideIndex ?? 0) + 1} of ${rows.length}` : step === 1 ? "Step 1 of 2 · What each task is" : "Step 2 of 2 · How often"}
           </div>
         </SheetHeader>
@@ -586,7 +586,7 @@ export function TaskReviewSheet({
                 <button type="button" onClick={() => { setGuideIndex(null); setWalked(true) }}
                   className="text-[12.5px] font-semibold text-muted-foreground px-1.5 py-1">✕ Exit</button>
               </div>
-              <div className="text-center text-[10.5px] font-mono font-bold text-muted-foreground/70 tracking-wider mb-1.5">
+              <div className="text-center text-[10.5px] font-mono font-bold text-muted-foreground tracking-wider mb-1.5">
                 {guideIndex! + 1} of {rows.length}
               </div>
               <div className="h-1 bg-muted rounded mb-3 overflow-hidden">
@@ -630,7 +630,7 @@ export function TaskReviewSheet({
                   <div key={bucket}>
                     {showRule && (
                       <div className="flex items-center gap-2.5 mt-5 mb-1 first:mt-1">
-                        <span className="text-[9.5px] font-mono font-bold uppercase tracking-[0.14em] text-muted-foreground/70 whitespace-nowrap">
+                        <span className="text-[9.5px] font-mono font-bold uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
                           {isScheduled(bucket) ? "On your schedule" : "Not scheduled"}
                         </span>
                         <i className="flex-1 h-px bg-border" />
@@ -639,12 +639,12 @@ export function TaskReviewSheet({
                     <div className="mt-3.5 mb-2">
                       <div className="flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.015em]">
                         <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>{copy.title}
-                        <span className="ml-auto text-[11px] font-mono font-bold text-muted-foreground/70">{items.length}</span>
+                        <span className="ml-auto text-[11px] font-mono font-bold text-muted-foreground">{items.length}</span>
                       </div>
                       <div className="text-[11.5px] text-muted-foreground mt-0.5 pl-6">{copy.sub}</div>
                     </div>
                     {items.length === 0
-                      ? <div className="text-[11.5px] text-muted-foreground/70 pl-6 pb-1">{copy.empty}</div>
+                      ? <div className="text-[11.5px] text-muted-foreground pl-6 pb-1">{copy.empty}</div>
                       : items.map((r) => (expandedId === r.id ? <div key={r.id}>{expandedCard(r)}</div> : collapsedRow(r)))}
                   </div>
                 )
@@ -716,7 +716,7 @@ function StepTwo({
             <div className="mt-3.5 mb-2">
               <div className="flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.015em]">
                 <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>{copy.title}
-                <span className="ml-auto text-[11px] font-mono font-bold text-muted-foreground/70">{items.length}</span>
+                <span className="ml-auto text-[11px] font-mono font-bold text-muted-foreground">{items.length}</span>
               </div>
               <div className="text-[11.5px] text-muted-foreground mt-0.5 pl-6">{copy.sub}</div>
             </div>

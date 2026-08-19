@@ -107,7 +107,7 @@ export function HowToAccordion({ chunks, onOpenManualPage }: HowToAccordionProps
                     <button
                       type="button"
                       onClick={() => setExpandedId(isExpanded ? null : chunk.chunk_id)}
-                      className="h-6 w-6 p-0 flex items-center justify-center text-muted-foreground/50 hover:text-foreground transition-colors shrink-0 mt-px"
+                      className="h-6 w-6 p-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-px"
                       title={isExpanded ? "Collapse" : "Expand steps"}
                     >
                       <ChevronDownIcon className={cn("size-4 transition-transform", isExpanded && "rotate-180")} />

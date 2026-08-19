@@ -111,7 +111,7 @@ export function ChatMessageBubble({
         )}
         {!isUser && message.sources && message.sources.length > 0 && (
           <div className="flex flex-wrap gap-1.5 items-center text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
-            <span className="text-muted-foreground/60">Sources:</span>
+            <span className="text-muted-foreground">Sources:</span>
             {message.sources.map((s, i) => <SourceChip key={i} source={s} />)}
           </div>
         )}

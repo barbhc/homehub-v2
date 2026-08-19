@@ -43,7 +43,7 @@ type WStatus = "soon" | "active" | "expired"
 const TONE: Record<WStatus, { fg: string; soft: string; border: string; label: string }> = {
   soon: { fg: GOLD, soft: GOLD_SOFT, border: GOLD_BORDER, label: "Expiring soon" },
   active: { fg: TEAL, soft: "var(--hh-teal-wash)", border: "#D4E7E0", label: "Active" },
-  expired: { fg: "#7A8690", soft: "#F1F4F6", border: "#E4E9ED", label: "Lapsed" },
+  expired: { fg: "#5B666F", soft: "#F1F4F6", border: "#E4E9ED", label: "Lapsed" },
 }
 
 // Anything expiring within this window is surfaced as "worth a look".
@@ -259,7 +259,7 @@ export default function WarrantiesPage() {
             <div className="flex gap-3">
               <StatCard n={active.length} label="active" color={TEAL} />
               <StatCard n={soon.length} label="expiring" color={GOLD} />
-              <StatCard n={lapsed.length} label="lapsed" color="#7A8690" />
+              <StatCard n={lapsed.length} label="lapsed" color="#5B666F" />
             </div>
 
             {/* Expiring soon — gentle gold highlight */}

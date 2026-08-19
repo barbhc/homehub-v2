@@ -84,7 +84,7 @@ function EditableRow({
       onClick={onStartEdit}
     >
       <span className="text-xs text-muted-foreground w-16 shrink-0">{label}</span>
-      <span className={cn("text-sm", !displayValue && "text-muted-foreground/60 italic")}>
+      <span className={cn("text-sm", !displayValue && "text-muted-foreground italic")}>
         {displayValue || placeholder}
       </span>
       <PencilIcon className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 ml-auto" />
@@ -424,7 +424,7 @@ export function HeroCard({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-11 w-11 md:h-6 md:w-6 p-0 text-muted-foreground/50 hover:text-destructive shrink-0 -mr-2 md:mr-0"
+                className="h-11 w-11 md:h-6 md:w-6 p-0 text-muted-foreground hover:text-destructive shrink-0 -mr-2 md:mr-0"
                 disabled={deleting}
                 onClick={onDelete}
                 aria-label="Delete item"
@@ -437,7 +437,7 @@ export function HeroCard({
           {/* Brand · Model inline */}
           <div className="flex items-center gap-1 text-[12px] text-muted-foreground mt-1 truncate">
             {item.brand && <span>{item.brand}</span>}
-            {item.brand && item.model && <span className="text-muted-foreground/40">·</span>}
+            {item.brand && item.model && <span className="text-muted-foreground">·</span>}
             {item.model && <span>{item.model}</span>}
           </div>
 
@@ -620,7 +620,7 @@ export function HeroCard({
                   View receipt
                 </a>
               ) : (
-                <span className="text-sm text-muted-foreground/60 italic">No receipt</span>
+                <span className="text-sm text-muted-foreground italic">No receipt</span>
               )}
               <label className="ml-auto cursor-pointer">
                 <input
@@ -742,7 +742,7 @@ export function HeroCard({
                       setEditingTags(true)
                       setTimeout(() => tagInputRef.current?.focus(), 0)
                     }}
-                    className="text-xs text-muted-foreground/60 hover:text-primary border border-dashed border-white/50 hover:border-primary rounded-full px-3 py-1.5 min-h-11 transition-colors"
+                    className="text-xs text-muted-foreground hover:text-primary border border-dashed border-white/50 hover:border-primary rounded-full px-3 py-1.5 min-h-11 transition-colors"
                   >
                     + tag
                   </button>
