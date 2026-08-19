@@ -23,7 +23,7 @@ import {
 } from "./identityResolver.js"
 import { requireAnyMembership } from "../lib/membership.js"
 import { allSpecKeys, isAllowedSpecKey } from "../../../../shared/products/specKeys.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { chargeAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 // Brave is a SECRET, matching chatQuery + searchProductImages, which already
@@ -354,7 +354,9 @@ export const productLookup = onCall(
       const expiresAt = cachedSnap.get("expiresAt") as Timestamp | undefined
       const stored = cachedSnap.get("result") as ProductLookupCore | undefined
       if (stored && (!expiresAt || expiresAt.toMillis() > now)) {
-        await consumeDailyAiQuota(db, uid, "productLookup", LOOKUP_DAILY_LIMIT)
+        // A cache hit calls no vendor at all, but still costs a unit so a
+        // runaway client can't pull thousands of cached rows for free.
+        await chargeAiQuota(db, uid, "productLookup", LOOKUP_DAILY_LIMIT, 1)
         const identity = (cachedSnap.get("identity") as ProductIdentity | null | undefined) ?? null
         return {
           ...stored,
@@ -366,8 +368,10 @@ export const productLookup = onCall(
       }
     }
 
-    // Miss → quota-check BEFORE the paid Claude call.
-    await consumeDailyAiQuota(db, uid, "productLookup", LOOKUP_DAILY_LIMIT)
+    // Miss → charge BEFORE the paid work. Costs more than a hit because this
+    // path fans out to Icecat and Brave (resolveExternalIdentity) as well as
+    // Claude, which the single default unit cost would under-count.
+    const hold = await chargeAiQuota(db, uid, "productLookup", LOOKUP_DAILY_LIMIT, 2)
 
     // Identity layers (Icecat → Brave, sequential first-hit-wins; dormant
     // without keys) run in parallel with the Haiku spec lookup — Haiku's
@@ -387,6 +391,8 @@ export const productLookup = onCall(
     try {
       core = await runProductLookup(makeCallClaudeTool(ANTHROPIC_API_KEY.value()), brand, model, category)
     } catch (e) {
+      // No output, no charge.
+      await hold.refund()
       throw new HttpsError("unavailable", e instanceof Error ? e.message : "Product lookup failed")
     }
     const external = await externalPromise

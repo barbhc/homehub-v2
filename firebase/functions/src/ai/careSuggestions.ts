@@ -11,7 +11,7 @@ import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, extractJsonObject, type CallClaudeText } from "./claude.js"
 import { isAllowedUrl, fetchGuarded } from "../../../../shared/parse/ssrf.js"
 import { requireAnyMembership } from "../lib/membership.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { chargeAiQuota, withAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -92,13 +92,14 @@ export const suggestCareNotes = onCall({ region: REGION, secrets: [ANTHROPIC_API
   if (!scope || !["home", "room", "item_unit"].includes(scope)) {
     throw new HttpsError("invalid-argument", "scope is required and must be one of: home, room, item_unit")
   }
-  await consumeDailyAiQuota(getFirestore(), request.auth.uid, "suggestCareNotes")
-  try {
-    const suggestions = await runSuggestCareNotes(makeCallClaudeText(ANTHROPIC_API_KEY.value()), scope, context ?? {})
-    return { suggestions }
-  } catch (e) {
-    throw new HttpsError("unavailable", e instanceof Error ? e.message : "Suggest care notes failed")
-  }
+  return withAiQuota(getFirestore(), request.auth.uid, "suggestCareNotes", async () => {
+    try {
+      const suggestions = await runSuggestCareNotes(makeCallClaudeText(ANTHROPIC_API_KEY.value()), scope, context ?? {})
+      return { suggestions }
+    } catch (e) {
+      throw new HttpsError("unavailable", e instanceof Error ? e.message : "Suggest care notes failed")
+    }
+  })
 })
 
 /** import-care-url core: fetched page text + scope/context → suggestions. */
@@ -131,7 +132,9 @@ export const importCareUrl = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
   const trimmed = typeof url === "string" ? url.trim() : ""
   if (!trimmed || !trimmed.startsWith("http")) throw new HttpsError("invalid-argument", "url is required and must be a valid URL")
   if (!isAllowedUrl(trimmed)) throw new HttpsError("permission-denied", "URL not allowed: private or internal addresses are blocked")
-  await consumeDailyAiQuota(getFirestore(), request.auth.uid, "importCareUrl")
+  // Charged here, before the page fetch, and refunded by withAiQuota if
+  // anything below throws -- a dead URL should not cost the caller a unit.
+  const hold = await chargeAiQuota(getFirestore(), request.auth.uid, "importCareUrl")
 
   let html: string
   try {
@@ -145,6 +148,7 @@ export const importCareUrl = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
     if (!res.ok) throw new Error("Could not fetch URL")
     html = await res.text()
   } catch (e) {
+    await hold.refund()
     throw new HttpsError("unavailable", e instanceof Error ? e.message : "Could not fetch URL")
   }
 
@@ -152,6 +156,7 @@ export const importCareUrl = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
     const suggestions = await runImportCareUrl(makeCallClaudeText(ANTHROPIC_API_KEY.value()), stripHtml(html), scope, context ?? {})
     return { suggestions }
   } catch (e) {
+    await hold.refund()
     throw new HttpsError("unavailable", e instanceof Error ? e.message : "Failed to extract tips")
   }
 })

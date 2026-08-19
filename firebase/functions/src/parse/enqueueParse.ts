@@ -9,7 +9,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { getFunctions } from "firebase-admin/functions"
 import type { ParseMode } from "./parseTypes.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { chargeAiQuota } from "../lib/quota.js"
 
 const REGION = "us-central1"
 /** Per-home cap on simultaneously in-flight parses (queue drains a bulk rescan
@@ -51,7 +51,7 @@ export const enqueueParse = onCall({ region: REGION }, async (request) => {
 
   // The parse worker is the most expensive Claude call in the app — charge the
   // enqueuing user's daily quota here (the worker itself has no caller context).
-  await consumeDailyAiQuota(db, uid, "enqueueParse")
+  const hold = await chargeAiQuota(db, uid, "enqueueParse")
 
   // In-flight cap.
   const inFlight = await db
@@ -60,6 +60,9 @@ export const enqueueParse = onCall({ region: REGION }, async (request) => {
     .count()
     .get()
   if (inFlight.data().count >= MAX_IN_FLIGHT) {
+    // Rejected before anything was queued, let alone parsed. Without this the
+    // in-flight cap would quietly cost the user 10 units per bounce.
+    await hold.refund()
     throw new HttpsError("resource-exhausted", "Too many parses in progress; try again shortly.")
   }
 

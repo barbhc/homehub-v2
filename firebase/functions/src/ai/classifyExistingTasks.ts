@@ -14,7 +14,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
 import Anthropic from "@anthropic-ai/sdk"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { chargeAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -370,8 +370,6 @@ export const classifyExistingTasks = onCall(
         return { ok: true, dry_run: dryRun, total: 0, changes: 0, results: [], writes: 0 }
       }
       // Quota only on the Claude path — applying precomputed results costs nothing.
-      await consumeDailyAiQuota(db, uid, "classifyExistingTasks")
-
       // Item display names for context.
       const itemMap = new Map<string, string>()
       const itemIds = [...new Set(rows.map((r) => r.itemUnitId).filter((x): x is string => !!x))]
@@ -386,14 +384,26 @@ export const classifyExistingTasks = onCall(
       const allOutputs = new Map<string, ClassifierOutput>()
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE)
-        const res = await client.messages.create({
-          model: MODEL,
-          max_tokens: 4096,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: "user", content: buildUserPrompt(batch, itemMap) }],
-        })
+        // Charged per batch, not per request: this loop makes one Claude call
+        // for every BATCH_SIZE tasks, so a big backlog is a big bill. A single
+        // charge up front priced a 500-task home the same as a 10-task one.
+        const hold = await chargeAiQuota(db, uid, "classifyExistingTasks")
+        let res: Anthropic.Message
+        try {
+          res = await client.messages.create({
+            model: MODEL,
+            max_tokens: 4096,
+            system: SYSTEM_PROMPT,
+            messages: [{ role: "user", content: buildUserPrompt(batch, itemMap) }],
+          })
+        } catch (e) {
+          // No output, no charge.
+          await hold.refund()
+          throw e
+        }
         const text = res.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("")
         const parsed = parseClassifierOutput(text)
+        // Not refunded: Claude answered, we were billed, it just answered badly.
         if (!parsed) throw new HttpsError("unavailable", "Classifier returned malformed JSON")
         for (const entry of parsed) allOutputs.set(entry.task_template_id, entry)
       }

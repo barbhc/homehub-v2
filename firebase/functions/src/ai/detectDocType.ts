@@ -12,7 +12,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, extractJsonObject, type CallClaudeText } from "./claude.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
-import { consumeDailyAiQuota } from "../lib/quota.js"
+import { chargeAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -85,12 +85,15 @@ export const detectDocType = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
 
   // Unlike bad input, quota exhaustion THROWS — the caller must see that AI is
   // capped for the day rather than silently misfiling the doc as "other".
-  await consumeDailyAiQuota(db, uid, "detectDocType")
+  const hold = await chargeAiQuota(db, uid, "detectDocType")
 
   try {
     const pdfBase64 = await makeFetchPdf()(manual.get("sourceType"), manual.get("sourceRef"))
     return await runDetectDocType(makeCallClaudeText(ANTHROPIC_API_KEY.value()), pdfBase64)
   } catch (e) {
+    // Returns a fallback rather than throwing, so the refund has to be explicit:
+    // the user still got no classification and should not pay for one.
+    await hold.refund()
     return { ...fallback, reason: e instanceof Error ? e.message.slice(0, 200) : "Could not classify" }
   }
 })

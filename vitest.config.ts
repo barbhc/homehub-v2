@@ -8,9 +8,13 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
-    // Only unit tests under src/. e2e/*.spec.ts are Playwright specs (run via
-    // `npm run test:e2e`) and must not be collected by vitest.
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Unit tests under src/, plus the firebase-free modules in shared/ that
+    // the functions import (spend-cap policy). e2e/*.spec.ts are Playwright
+    // specs (run via `npm run test:e2e`) and must not be collected by vitest.
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "shared/**/*.{test,spec}.ts",
+    ],
   },
   resolve: {
     alias: {
