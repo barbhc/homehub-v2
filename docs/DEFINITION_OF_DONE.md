@@ -22,7 +22,7 @@ is **owner-only** work that needs real production credentials. Do it in this ord
 firebase deploy --only firestore:rules,firestore:indexes,storage,functions
 ```
 
-- [ ] Confirm all functions deployed (health check): call `healthCheck` once.
+- [ ] Confirm all functions deployed: `firebase functions:list`.
 - [ ] Secrets set (via `firebase functions:secrets:set`): `ANTHROPIC_API_KEY`,
       `GOOGLE_VISION_API_KEY`, `BRAVE_SEARCH_API_KEY` — **already added by owner**.
       Verify with `firebase functions:secrets:access <NAME>`.

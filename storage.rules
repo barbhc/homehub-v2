@@ -1,65 +1,99 @@
 rules_version = '2';
 
-// v2 Storage rules (launch-readiness P0: the public-read hole is closed).
+// v2 Storage rules.
 //
-// READS: `get` only, for signed-in NON-anonymous users — there is no public
-// read and no `list` anywhere (no bucket enumeration). Object paths are only
-// discoverable through membership-gated Firestore docs (photoPath, sourceRef,
-// receiptPath, diagram URLs), so path knowledge is effectively member-scoped;
-// true per-home rules aren't expressible here because no path family carries a
-// homeId and legacy v1-imported objects exist at arbitrary shapes. Anything
-// rendered via plain <img>/<a>/fetch (no auth header) uses token-bearing
-// getDownloadURL URLs — see src/integrations/firebase/storage.ts
-// (resolveStorageUrl). The parse worker reads via the Admin SDK (bypasses
-// rules).
+// READS are tenant-scoped by PATH. Every new upload is keyed under
+// homes/{homeId}/…, and reading one requires a membership doc for the caller in
+// that same home (cross-service firestore.exists — Storage rules can read
+// Firestore). Before this, `get` was allowed for ANY signed-in non-anonymous
+// user at ANY path: path secrecy was the only boundary, so anyone who could read
+// a photoPath/sourceRef out of Firestore could fetch the object. That mattered
+// because the Firestore member-create hole (see firestore.rules) let an outsider
+// self-join a home and read exactly those fields.
 //
-// WRITES: granted ONLY by the scoped blocks below — the old catch-all
-// `write: request.auth != null` let any signed-in token (incl. anonymous,
-// provider temporarily enabled) overwrite any object with no size limit.
-// Overlapping matches OR together, so a path matching several blocks is
-// writable if ANY block grants it.
+// LEGACY PREFIXES: objects uploaded before the re-key still live at the old
+// shapes ({uid}/…, photos/…, receipts/…, images/…) and carry no homeId, so they
+// cannot be membership-checked. Those prefixes stay readable by signed-in
+// non-anonymous users — the pre-existing posture, now NARROWED to exactly those
+// four shapes instead of a `/{allPaths=**}` catch-all. Existing content is NOT
+// retroactively protected by this change; that needs an object migration
+// (tracked in docs/launch-readiness.md).
+//
+// WRITES stay scoped by path + uid (no Firestore lookup), which is what keeps
+// them verifiable on the emulator.
+//
+// Anything rendered via plain <img>/<a>/fetch (no auth header) uses
+// token-bearing getDownloadURL URLs — see src/integrations/firebase/storage.ts
+// (resolveStorageUrl). The parse worker reads via the Admin SDK (bypasses rules).
 //
 // Client write shapes (src/modules/inventory/services/storageService.ts):
-//   {userId}/{itemId}/manual_{ts}.{ext}      — manual PDFs (uid-scoped)
-//   photos/{userId}/{itemId}/photo.{ext}     — item photos (uid-scoped)
-//   receipts/{itemUnitId}/{ts}-{name}.{ext}  — receipts (no uid in path)
-//   images/{manualId}/page_{n}.jpg           — rendered diagram pages
+//   homes/{homeId}/manuals/{userId}/{itemId}/manual_{ts}.{ext}
+//   homes/{homeId}/photos/{userId}/{itemId}/photo.{ext}
+//   homes/{homeId}/receipts/{itemUnitId}/{ts}-{name}.{ext}
+//   homes/{homeId}/images/{manualId}/page_{n}.jpg
 service firebase.storage {
   match /b/{bucket}/o {
-    // Signed-in (non-anonymous) users may GET objects at any shape (incl.
-    // legacy/imported v1 paths). No list, no public read, no writes here.
-    match /{allPaths=**} {
-      allow get: if request.auth != null
+    function isUser() {
+      return request.auth != null
         && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
+    function isSelf(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    function isHomeMember(homeId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/homes/$(homeId)/members/$(request.auth.uid));
+    }
 
-    // Manual PDFs — only the owner's own uid prefix; delete needs its own
+    // ---- tenant-scoped subtree: read requires membership of THIS home ----
+    match /homes/{homeId}/{allPaths=**} {
+      allow get: if isUser() && isHomeMember(homeId);
+    }
+
+    // Manual PDFs — only the uploader's own uid segment. delete needs its own
     // clause (request.resource is null on deletes; a size condition on a
     // combined `write` would deny every delete and break removeManualPdf).
-    match /{userId}/{itemId}/{fileName} {
-      allow create, update: if request.auth != null
-        && request.auth.uid == userId
-        && request.resource.size < 50 * 1024 * 1024;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+    match /homes/{homeId}/manuals/{userId}/{itemId}/{fileName} {
+      allow create, update: if isSelf(userId) && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if isSelf(userId);
     }
 
     // Item photos — uid-scoped.
-    match /photos/{userId}/{itemId}/{fileName} {
-      allow create, update: if request.auth != null
-        && request.auth.uid == userId
-        && request.resource.size < 50 * 1024 * 1024;
+    match /homes/{homeId}/photos/{userId}/{itemId}/{fileName} {
+      allow create, update: if isSelf(userId) && request.resource.size < 50 * 1024 * 1024;
     }
 
     // Receipts — no uid in the path (v1 convention): any authed, size-capped.
-    match /receipts/{itemUnitId}/{fileName} {
-      allow create, update: if request.auth != null
-        && request.resource.size < 50 * 1024 * 1024;
+    match /homes/{homeId}/receipts/{itemUnitId}/{fileName} {
+      allow create, update: if isUser() && request.resource.size < 50 * 1024 * 1024;
     }
 
     // Diagram page renders — any authed, smaller cap (JPEG pages).
-    match /images/{manualId}/{fileName} {
-      allow create, update: if request.auth != null
-        && request.resource.size < 20 * 1024 * 1024;
+    match /homes/{homeId}/images/{manualId}/{fileName} {
+      allow create, update: if isUser() && request.resource.size < 20 * 1024 * 1024;
+    }
+
+    // ---- legacy objects (uploaded before the re-key; no homeId in the path) ----
+    // Deliberately broad, and it cannot be otherwise: v1-imported objects exist
+    // at ARBITRARY shapes (the repo's own fixture, `legacy-item/manual_old.pdf`,
+    // is two segments and fits none of the four documented prefixes). Enumerating
+    // prefixes here would silently break existing photos and manuals in
+    // production, so this preserves exactly the pre-existing posture — signed-in,
+    // non-anonymous `get` — for everything OUTSIDE the tenant subtree.
+    //
+    // `prefix != 'homes'` is the load-bearing part: without it this clause ORs
+    // straight over the membership gate above and re-opens what it just closed.
+    //
+    // Legacy objects are therefore NOT retroactively tenant-scoped. Closing that
+    // needs an object migration into homes/{homeId}/… — tracked in
+    // docs/launch-readiness.md. What this change does buy: every NEW upload is
+    // membership-scoped, so the exposure stops growing.
+    match /{prefix}/{allPaths=**} {
+      allow get: if isUser() && prefix != 'homes';
+    }
+    // Legacy manual deletes stayed uid-scoped ({userId}/{itemId}/{fileName}).
+    match /{userId}/{itemId}/{fileName} {
+      allow delete: if isSelf(userId) && userId != 'homes';
     }
   }
 }

@@ -9,7 +9,7 @@
 import { onRequest } from "firebase-functions/v2/https"
 import { getAuth } from "firebase-admin/auth"
 import { getFirestore } from "firebase-admin/firestore"
-import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { isAllowedUrl, fetchGuarded } from "../../../../shared/parse/ssrf.js"
 import { hasAnyMembership } from "../lib/membership.js"
 
 const REGION = "us-central1"
@@ -58,7 +58,13 @@ export const proxyPdf = onRequest({ region: REGION, timeoutSeconds: 60, memory: 
   }
 
   try {
-    const upstream = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; Homehub/1.0)" }, redirect: "follow" })
+    // fetchGuarded, not fetch: every redirect hop is re-checked against
+    // isAllowedUrl. With redirect:"follow" only the URL the caller typed was
+    // ever validated, so a 302 to 169.254.169.254 or an RFC1918 host was
+    // followed on their behalf and the body proxied straight back to them.
+    const upstream = await fetchGuarded(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Homehub/1.0)" },
+    })
     if (!upstream.ok) {
       res.status(502).json({ error: `Upstream returned ${upstream.status}` })
       return

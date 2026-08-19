@@ -30,6 +30,14 @@ service cloud.firestore {
     function isOwner(homeId) {
       return isMember(homeId) && memberRole(homeId) == 'owner';
     }
+    // `createdBy` is a home's ownership anchor — the member-create rule below
+    // trusts it to decide who may take the first owner row, so it must survive
+    // every update unchanged. Compared via a defaulting get() so homes written
+    // before the field existed stay editable (null == null), while ADDING the
+    // field to such a home from the client is still refused.
+    function createdByUnchanged() {
+      return request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null);
+    }
     // assignee (if present & non-null) must be a member of this home.
     function assigneeIsMember(homeId, field) {
       return !(field in request.resource.data)
@@ -55,10 +63,19 @@ service cloud.firestore {
 
     // ---- homes ----
     match /homes/{homeId} {
-      // A signed-in user may create a home (they must then create their own owner
-      // member doc — see members create). Members read/update/delete the home.
-      allow create: if isSignedIn();
-      allow read, update, delete: if isMember(homeId);
+      // A signed-in user may create a home, but MUST stamp it with their own uid
+      // as `createdBy` (homeService.createHome). That field is what the member
+      // create rule below checks before letting anyone take the owner row.
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow read: if isMember(homeId);
+      // Any member may edit the home profile, but nobody may rewrite createdBy —
+      // otherwise a plain member could re-point the ownership anchor at
+      // themselves, then delete and recreate their own member row as owner.
+      allow update: if isMember(homeId) && createdByUnchanged();
+      // Hard-deleting the whole home is the owner's call, not any member's.
+      // (The app soft-deletes via deletedAt; this closes the destructive path.)
+      allow delete: if isOwner(homeId);
 
       // ---- members (the rules primitive) ----
       match /members/{memberUid} {
@@ -66,10 +83,26 @@ service cloud.firestore {
         // collectionGroup query is served by a DEDICATED rule below (a mixed
         // condition here isn't statically provable for a LIST → denied).
         allow read: if isMember(homeId);
-        // Self-create: home bootstrap (first owner) and invite self-join both create
-        // the caller's own member row. Creating another user's row requires owner.
+        // Self-create is ONLY the home-bootstrap case: whoever just created the
+        // home takes its owner row. It is NOT an invite-join path — acceptInvite
+        // runs on the Admin SDK and bypasses rules entirely, so a genuine invite
+        // never needs client write access here.
+        //
+        // The previous rule (`uid == memberUid || isOwner`) never consulted the
+        // invite and never looked at the home, so ANY signed-in user who learned a
+        // homeId could write themselves in at any role — including owner — and
+        // homeIds circulate: push deep-links carry ?home=<homeId>, and every
+        // current and FORMER member knows one.
+        //
+        // getAfter (not get) is required: createHome commits the home doc and this
+        // member doc in ONE batch, and get() cannot see the pending home write.
         allow create: if isSignedIn()
-          && (request.auth.uid == memberUid || isOwner(homeId));
+          && (
+            (request.auth.uid == memberUid
+              && request.resource.data.role == 'owner'
+              && getAfter(/databases/$(database)/documents/homes/$(homeId)).data.get('createdBy', '') == request.auth.uid)
+            || isOwner(homeId)
+          );
         // Self-update (e.g. isPrimary) but NOT self-escalating role; owner may update
         // any member. Role changes are owner-only (blocks self-escalation).
         allow update: if isOwner(homeId)

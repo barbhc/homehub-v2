@@ -9,7 +9,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, extractJsonObject, type CallClaudeText } from "./claude.js"
-import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { isAllowedUrl, fetchGuarded } from "../../../../shared/parse/ssrf.js"
 import { requireAnyMembership } from "../lib/membership.js"
 import { consumeDailyAiQuota } from "../lib/quota.js"
 
@@ -135,7 +135,10 @@ export const importCareUrl = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
 
   let html: string
   try {
-    const res = await fetch(trimmed, {
+    // fetchGuarded re-checks every redirect hop against isAllowedUrl. The check
+    // above only covers the URL as pasted; `fetch` would follow a 302 from it
+    // into the internal network and hand the body to the model.
+    const res = await fetchGuarded(trimmed, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; HomeHubCareBot/1.0; +https://github.com/homehub)" },
       signal: AbortSignal.timeout(15000),
     })

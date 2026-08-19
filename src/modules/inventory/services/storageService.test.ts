@@ -24,7 +24,7 @@ vi.mock("@/integrations/firebase", () => ({
   callable: () => async () => ({ ok: true, images: [] }),
 }))
 
-import { uploadManualPdf, uploadItemPhoto } from "./storageService"
+import { uploadManualPdf, uploadItemPhoto, uploadReceiptImage, uploadDiagramImage } from "./storageService"
 
 beforeEach(() => uploadBytes.mockReset())
 
@@ -32,7 +32,7 @@ const file = new File(["x"], "m.pdf", { type: "application/pdf" })
 
 describe("storageService uid requirement", () => {
   it("uploadManualPdf without userId fails fast (no unscoped write)", async () => {
-    const res = await uploadManualPdf("item1", file, null)
+    const res = await uploadManualPdf("h1", "item1", file, null)
     expect(res.error?.message).toMatch(/not signed in/i)
     expect(uploadBytes).not.toHaveBeenCalled()
   })
@@ -42,10 +42,30 @@ describe("storageService uid requirement", () => {
     expect(res.error?.message).toMatch(/not signed in/i)
     expect(uploadBytes).not.toHaveBeenCalled()
   })
+})
 
-  it("with userId the path is uid-scoped", async () => {
-    uploadBytes.mockResolvedValue(undefined)
-    const res = await uploadManualPdf("item1", file, "uid-9")
-    expect(res.data?.path).toMatch(/^uid-9\/item1\/manual_\d+\.pdf$/)
+/**
+ * The leading homes/{homeId}/ segment is what makes a Storage object
+ * membership-checkable at all (storage.rules gates reads on a Firestore member
+ * doc for that home). If an upload path ever loses it, the object silently
+ * lands back in the un-scoped legacy space where any signed-in user can read
+ * it — so the prefix is asserted here, not just the uid segment.
+ */
+describe("upload paths are home-scoped", () => {
+  beforeEach(() => uploadBytes.mockResolvedValue(undefined))
+
+  it("manual PDFs: homes/{homeId}/manuals/{uid}/{itemId}/…", async () => {
+    const res = await uploadManualPdf("h1", "item1", file, "uid-9")
+    expect(res.data?.path).toMatch(/^homes\/h1\/manuals\/uid-9\/item1\/manual_\d+\.pdf$/)
+  })
+
+  it("receipts: homes/{homeId}/receipts/{itemUnitId}/…", async () => {
+    const res = await uploadReceiptImage("h1", "item1", file, "uid-9")
+    expect(res.data?.path).toMatch(/^homes\/h1\/receipts\/item1\/\d+-m\.pdf$/)
+  })
+
+  it("diagram renders: homes/{homeId}/images/{manualId}/page_{n}.jpg", async () => {
+    const res = await uploadDiagramImage("h1", "man-1", 4, new Blob(["x"]))
+    expect(res.data?.path).toBe("homes/h1/images/man-1/page_4.jpg")
   })
 })

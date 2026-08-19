@@ -15,6 +15,9 @@ import { describe, expect, it, vi, beforeEach } from "vitest"
 
 const getDocs = vi.fn()
 const getDoc = vi.fn()
+/** Every doc written through writeBatch, in order — lets createHome's payload
+ *  be asserted without an emulator. */
+const batchWrites: Array<{ path: string; data: unknown }> = []
 
 vi.mock("firebase/firestore", () => ({
   // `Timestamp` must be a real class: toHome's date coercion does
@@ -22,7 +25,7 @@ vi.mock("firebase/firestore", () => ({
   // the service's catch turns into a generic error — which looks like a logic
   // bug rather than a missing mock.
   Timestamp: class {},
-  collection: vi.fn(),
+  collection: vi.fn((_db: unknown, path?: string) => ({ path: path ?? "homes" })),
   collectionGroup: vi.fn(),
   doc: vi.fn((_db: unknown, path: string) => ({ path })),
   getDoc: (...a: unknown[]) => getDoc(...a),
@@ -30,7 +33,16 @@ vi.mock("firebase/firestore", () => ({
   query: vi.fn(),
   where: vi.fn(),
   serverTimestamp: vi.fn(),
-  writeBatch: vi.fn(() => ({ set: vi.fn().mockReturnThis(), commit: vi.fn() })),
+  writeBatch: vi.fn(() => {
+    const batch = {
+      set: vi.fn((ref: { path?: string }, data: unknown) => {
+        batchWrites.push({ path: ref?.path ?? "", data })
+        return batch
+      }),
+      commit: vi.fn(async () => undefined),
+    }
+    return batch
+  }),
   updateDoc: vi.fn(),
 }))
 vi.mock("@/integrations/firebase", () => ({
@@ -38,7 +50,7 @@ vi.mock("@/integrations/firebase", () => ({
   auth: { currentUser: { uid: "uid-1" } },
 }))
 
-import { getMyHomes } from "./homeService"
+import { getMyHomes, createHome } from "./homeService"
 
 /** A membership doc as myMemberships reads it: homeId from the parent's parent. */
 const membership = (homeId: string, isPrimary: boolean) => ({
@@ -135,5 +147,58 @@ describe("getMyHomes", () => {
     await getMyHomes()
     // Sequential reads would never overlap; this is the boot-budget guard.
     expect(maxInFlight).toBeGreaterThan(1)
+  })
+})
+
+
+/**
+ * createHome writes the ownership anchor.
+ *
+ * firestore.rules refuses a home create unless `createdBy == request.auth.uid`,
+ * and refuses the caller's own owner member row unless the home it is being
+ * created in carries that same uid. So this one field is what stands between a
+ * working onboarding flow and nobody being able to create a home at all — and
+ * equally, between the current rules and the old ones, where any signed-in user
+ * who knew a homeId could write themselves in as owner.
+ *
+ * The matching server-side half — that these two writes, committed in ONE batch,
+ * are actually ACCEPTED by the rules — is proven against the emulator in
+ * firebase/rules.test.ts ("createHome's ONE-batch bootstrap still works").
+ * Keep the two in step: this test pins the payload, that one pins the verdict.
+ */
+describe("createHome", () => {
+  beforeEach(() => {
+    batchWrites.length = 0
+    getDoc.mockReset()
+  })
+
+  it("stamps createdBy with the creator's uid, and takes the owner row", async () => {
+    const res = await createHome({ name: "My House", userId: "uid-42" })
+    expect(res.error).toBeNull()
+
+    const home = batchWrites.find((w) => !w.path.includes("/members/"))!
+    const member = batchWrites.find((w) => w.path.includes("/members/"))!
+
+    expect(home.data).toMatchObject({ name: "My House", createdBy: "uid-42" })
+    expect(member.path).toContain("/members/uid-42")
+    expect(member.data).toMatchObject({ uid: "uid-42", role: "owner" })
+  })
+
+  it("writes the home and the member row in the SAME batch", async () => {
+    // Load-bearing: the rule uses getAfter() precisely because these commit
+    // together. Splitting them into two commits would make the member-create
+    // check consult a home doc that does not exist yet, and home creation would
+    // start failing for everyone.
+    await createHome({ name: "Second Home", userId: "uid-7", isPrimary: false })
+    const firstCommitWrites = batchWrites.slice(0, 2)
+    expect(firstCommitWrites).toHaveLength(2)
+    expect(firstCommitWrites.some((w) => w.path.includes("/members/"))).toBe(true)
+    expect(firstCommitWrites.some((w) => !w.path.includes("/members/"))).toBe(true)
+  })
+
+  it("never stamps createdBy with anything but the passed uid", async () => {
+    await createHome({ name: "H", userId: "uid-99" })
+    const home = batchWrites.find((w) => !w.path.includes("/members/"))!
+    expect((home.data as { createdBy: string }).createdBy).toBe("uid-99")
   })
 })

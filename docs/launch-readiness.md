@@ -39,12 +39,78 @@
 
 ## P1 — first week after sharing
 
-- [ ] **Patch the member self-create rule:** `firestore.rules` lets any signed-in user create their *own* member doc in **any home whose ID they know**. Demoted from P0 only because no shared-home IDs will circulate this round (friends run their own homes); fix before any invite/sharing work, and add a rules test.
-- [ ] **npm CVEs + CSP:** ~10 vulnerabilities (4 high) and no Content-Security-Policy header (`BACKLOG.md`; note its wording still says "Supabase/localStorage" — stale v1 text).
+- [x] **Patch the member self-create rule** — DONE 2026-08-18. See "A precondition expired" below; this is the entry that lapsed.
+- [ ] **npm CVEs:** 18 vulnerabilities (10 moderate, 8 high) as of 2026-08-18, but only **5 reach production** — `react-router-dom` + `react-router` (high), `brace-expansion` (high), `dompurify` + `tar` (moderate). The other 13 are build-time only. All 5 fix within the current major; `npm audit fix` pulls in 80 packages, so run it in its own PR and click through the app afterwards (routing is in the blast radius).
+- [x] **CSP** — added 2026-08-18 as `Content-Security-Policy-Report-Only` in `firebase.json`. Deliberately not blocking: two inline `<script>` blocks in `index.html`, six Firebase/Google origins, PostHog, arbitrary vendor `<img>` hosts, and a Capacitor WebView. **Next step: read the violation reports, then promote to the enforcing header and replace `'unsafe-inline'` on `script-src` with hashes.**
 - [ ] **In-app feedback entry point** (Section 7 of template): a "Send feedback" item writing to a `feedback` collection (or even mailto:) + the "what to test" note.
 - [ ] **Latency pass** on the AI-heavy paths (chat, parse/ingest) — confirm visible loading states everywhere; Sentry tracing (0.2 sample) can show the slow spans.
 - [ ] **Review `sendPushDaily` for new users** — make sure a brand-new home gets sensible (or no) daily pushes rather than noise.
 - [ ] **Clean up dead weight:** remove the vestigial `@supabase/supabase-js` dependency from `homehub-v2/package.json`.
+
+## A precondition expired — 2026-08-18
+
+The member self-create rule sat at P1 for four weeks behind one sentence:
+
+> *"Demoted from P0 only because no shared-home IDs will circulate this round
+> (friends run their own homes); fix before any invite/sharing work."*
+
+That was a sound call **on 2026-07-21**. It stopped being true on **2026-08-18**,
+when sharing shipped: PRs #79 and #80 added multi-home support and the home
+switcher, an `/invite/:token` route landed at `App.tsx:145`, and
+`HomeMembersSection` went into Settings. `firestore.rules` was last touched
+**2026-07-31** — eighteen days before the thing it was waiting on arrived.
+
+Nobody re-read this line when sharing shipped, because nothing made them. The
+risk was accepted against a condition, and the condition changed silently.
+
+Worse, home IDs turned out never to have been secret even in the friends round:
+push deep-links carry `?home=<homeId>` (`sendPush.ts:162`, consumed at
+`usePushDeepLink.ts:10`), so the ID travels in a notification URL.
+
+**The rule this earns:** an accepted risk that names a precondition
+("*fix before X*", "*safe until Y*") is not done being managed. Whoever ships X
+re-reads it. Concretely — put the re-check in the PR that lands the feature, not
+in a doc that only gets read at review time:
+
+- [ ] When a checklist item is deferred **because of a precondition**, name the
+      precondition and the file that would have to change. Then grep this doc for
+      that filename before merging anything that touches it.
+
+## Storage: legacy objects are still un-scoped
+
+The 2026-08-18 change keys **new** uploads under `homes/{homeId}/…` and gates
+reads on membership. Objects uploaded **before** that keep the old paths, carry
+no `homeId`, and stay readable by any signed-in user — the legacy read clause had
+to stay broad because v1 imports exist at arbitrary path shapes and enumerating
+prefixes would have broken existing photos and manuals.
+
+- [ ] **Migrate legacy Storage objects** into `homes/{homeId}/…`, rewrite the
+      `photoPath` / `sourceRef` / `receipt_storage_path` / diagram-URL fields that
+      point at them, then narrow the legacy clause in `storage.rules` to nothing.
+      Until this runs, the tenant-scoping fix protects new content only.
+
+## Post-deploy smoke check — Storage rules (REQUIRED, not optional)
+
+The membership gate uses cross-service `firestore.exists()`, which **the Storage
+emulator does not resolve** (verified on firebase-tools 15.23.0: same rule body,
+member denied with the Firestore call, allowed with a plain auth check). So it
+cannot be proven locally and its three rules tests ship skipped. It has to be
+proven against the real project, immediately after deploying:
+
+```bash
+firebase deploy --only storage
+```
+
+1. Sign in, open an item, **upload a photo** — it must render. (This is the
+   canary: if `firestore.exists()` misbehaves, `getDownloadURL` fails and the
+   photo does not appear.)
+2. Open an existing item whose photo predates the change — it must still render
+   (legacy clause intact).
+3. From a **second account that is not a member**, request the first account's
+   new photo path directly — it must 403.
+
+If step 1 or 2 fails, `firebase deploy --only storage` the previous
+`storage.rules` and reopen this item.
 
 ## P2 — nice to have
 

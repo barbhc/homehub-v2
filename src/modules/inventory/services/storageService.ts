@@ -14,19 +14,23 @@ export type UploadWithUrlResult =
   | { data: null; error: { message: string } }
 
 /**
- * Upload a PDF to Cloud Storage. Path (v1 convention preserved):
- *   {userId}/{itemId}/manual_{ts}.{ext}
- * userId is REQUIRED: storage rules scope manual writes to the caller's own
- * uid prefix, so the old unscoped `{itemId}/…` fallback would be denied anyway.
+ * Upload a PDF to Cloud Storage. Path:
+ *   homes/{homeId}/manuals/{userId}/{itemId}/manual_{ts}.{ext}
+ *
+ * homeId leads the path so Storage rules can tenant-scope the READ on membership
+ * of that home (storage.rules) — without it, no path family carried a homeId and
+ * any signed-in user who learned a path could fetch the object. userId is still
+ * REQUIRED: writes stay scoped to the caller's own uid segment.
  */
 export async function uploadManualPdf(
+  homeId: string,
   itemId: string,
   file: File,
   userId?: string | null
 ): Promise<UploadResult> {
   if (!userId) return { data: null, error: { message: "Not signed in." } }
   const ext = file.name.split(".").pop() || "pdf"
-  const path = `${userId}/${itemId}/manual_${Date.now()}.${ext}`
+  const path = `homes/${homeId}/manuals/${userId}/${itemId}/manual_${Date.now()}.${ext}`
   try {
     await uploadBytes(ref(storage, path), file, { contentType: file.type || "application/pdf" })
     return { data: { path }, error: null }
@@ -53,9 +57,9 @@ export async function removeManualPdf(
 }
 
 /**
- * Upload an item photo under photos/ and persist its path onto the item doc.
- * Path: photos/{userId}/{itemId}/photo.{ext}. userId is REQUIRED (rules scope
- * photo writes to the caller's own uid prefix).
+ * Upload an item photo and persist its path onto the item doc.
+ * Path: homes/{homeId}/photos/{userId}/{itemId}/photo.{ext} — homeId leads so
+ * reads are membership-scoped; userId is REQUIRED (writes stay uid-scoped).
  */
 export async function uploadItemPhoto(
   homeId: string,
@@ -65,7 +69,7 @@ export async function uploadItemPhoto(
 ): Promise<UploadWithUrlResult> {
   if (!userId) return { data: null, error: { message: "Not signed in." } }
   const ext = file.name.split(".").pop() ?? "jpg"
-  const path = `photos/${userId}/${itemId}/photo.${ext}`
+  const path = `homes/${homeId}/photos/${userId}/${itemId}/photo.${ext}`
   try {
     const objectRef = ref(storage, path)
     await uploadBytes(objectRef, file, { contentType: file.type || "image/jpeg" })
@@ -133,9 +137,12 @@ export async function saveProductPhotoFromUrl(
 }
 
 /**
- * Upload a receipt image or PDF. Path: receipts/{itemUnitId}/{ts}-{name}.
+ * Upload a receipt image or PDF.
+ * Path: homes/{homeId}/receipts/{itemUnitId}/{ts}-{name} (no uid segment — the
+ * v1 convention; reads are scoped by the leading homeId).
  */
 export async function uploadReceiptImage(
+  homeId: string,
   itemUnitId: string,
   file: File,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -144,7 +151,7 @@ export async function uploadReceiptImage(
   const ext = file.name.split(".").pop() ?? "jpg"
   const basename = file.name.replace(/\.[^/.]+$/, "")
   const sanitized = basename.replace(/[^a-zA-Z0-9-]/g, "_").slice(0, 60) || "file"
-  const path = `receipts/${itemUnitId}/${Date.now()}-${sanitized}.${ext}`
+  const path = `homes/${homeId}/receipts/${itemUnitId}/${Date.now()}-${sanitized}.${ext}`
   try {
     await uploadBytes(ref(storage, path), file, { contentType: file.type || "image/jpeg" })
     return { data: { path }, error: null }
@@ -157,11 +164,12 @@ export async function uploadReceiptImage(
  * Upload a PDF and return its download URL (e.g. for the manual viewer).
  */
 export async function uploadManualPdfWithUrl(
+  homeId: string,
   itemId: string,
   file: File,
   userId?: string | null
 ): Promise<UploadWithUrlResult> {
-  const result = await uploadManualPdf(itemId, file, userId)
+  const result = await uploadManualPdf(homeId, itemId, file, userId)
   if (result.error) return result
   const path = result.data!.path
   try {
@@ -173,14 +181,15 @@ export async function uploadManualPdfWithUrl(
 
 /**
  * Upload a rendered PDF page as a JPEG diagram image. Idempotent.
- * Path: images/{manualId}/page_{pageNum}.jpg
+ * Path: homes/{homeId}/images/{manualId}/page_{pageNum}.jpg
  */
 export async function uploadDiagramImage(
+  homeId: string,
   manualId: string,
   pageNum: number,
   blob: Blob
 ): Promise<UploadWithUrlResult> {
-  const path = `images/${manualId}/page_${pageNum}.jpg`
+  const path = `homes/${homeId}/images/${manualId}/page_${pageNum}.jpg`
   try {
     const objectRef = ref(storage, path)
     await uploadBytes(objectRef, blob, { contentType: "image/jpeg" })

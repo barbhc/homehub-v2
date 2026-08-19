@@ -157,7 +157,7 @@ export function useManualManagement({
       } else {
         const file = uploadFile
         if (!file) { setAddError("Select a PDF file"); return }
-        const uploadRes = await uploadManualPdfWithUrl(itemId, file, userId ?? null)
+        const uploadRes = await uploadManualPdfWithUrl(homeId, itemId, file, userId ?? null)
         if (uploadRes.error) { setAddError(uploadRes.error.message); return }
         sourceRef = uploadRes.data!.path
         sourceType = "upload"
