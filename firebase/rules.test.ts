@@ -39,8 +39,12 @@ beforeAll(async () => {
     projectId: "demo-homehub-rules",
     firestore: {
       rules: readFileSync(resolve(__dirname, "../firestore.rules"), "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
+      host: process.env.FIRESTORE_EMULATOR_HOST?.split(":")[0] ?? "127.0.0.1",
+      // Reads FIRESTORE_EMULATOR_HOST so this suite can run against an
+      // emulator on a non-default port. Two agents (or two terminals) working
+      // the repo at once otherwise collide on 8080, and the failure mode is a
+      // confusing "port taken" rather than anything to do with rules.
+      port: Number(process.env.FIRESTORE_EMULATOR_HOST?.split(":")[1] ?? 8080),
     },
   })
 })
