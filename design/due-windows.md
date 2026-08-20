@@ -127,6 +127,22 @@ per *suggest-never-assume*.
   failure-path test: a deadline-kind instance due today must still produce a
   day-of push.
 
+## Decisions from mockup review (owner, 2026-08-20)
+
+- **Safety pressure approved**: "Monthly check · skipped July" is the right
+  firmness for smoke/CO detectors — honest, dateless, no red.
+- **Window phrasing**: short forms win — "Oct-ish" over "anytime this fall".
+- **Agenda group header**: "Coming up" (reusing the header Home already
+  taught), not "Windows opening soon".
+- **Completion is one tap, adjust by exception.** "Mark done" completes
+  immediately, assuming today, and announces the next window in a calm bar
+  ("Done — next window around Oct 2 · Sep 25 – Oct 16") with two quiet text
+  actions: **Adjust** (reveals when-did-you-do-it + ±week — P2-7's mechanics,
+  now behind the exception) and **Undo**. The review found the always-open
+  sheet overwhelming: six tappable things to answer a question the app could
+  assume. Confirm-next-date's intent survives — the next window is always SEEN
+  before leaving — with five fewer buttons on the happy path.
+
 ## Done means
 
 - A monthly filter task shows "Sometime this month", never red, and a month
