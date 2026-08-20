@@ -77,3 +77,51 @@ describe("the name field", () => {
     expect(identify).toContain("aria-invalid={nameTouched && data.name.trim().length === 0}")
   })
 })
+
+/**
+ * Round 6, HH-23. Chris asked for one field per screen; the owner asked for
+ * fewer fields before the manual, which is a different and better fix. These
+ * pin the shape of that, because every one of them is a claim that would
+ * survive a rendering test unchanged.
+ */
+describe("the shortest path to a parsed manual", () => {
+  const room = read("./RoomSelector.tsx")
+
+  it("does not wait for a NAME before the manual", () => {
+    // A name typed before the manual is read is the worst version of the name —
+    // this flow produced "Levoit Core Series Air Purifiers" for a Core 300.
+    expect(identify).toContain("data.brand.trim().length >= 2 && data.model.trim().length >= 1\n")
+    expect(identify).not.toContain("data.model.trim().length >= 1 && data.name.trim().length > 0")
+  })
+
+  it("composes a name rather than leaving the item unnamed", () => {
+    expect(page).toContain("composedName")
+    expect(page).toContain("display_name: composedName")
+  })
+
+  it("still requires a name in the lane where nothing else identifies the item", () => {
+    expect(identify).toContain('mode === "appliance"')
+    expect(identify).toContain("data.name.trim().length > 0")
+  })
+
+  it("names the destination on the button, and it is not an automatic search", () => {
+    // The beta's default is the owner adding their own manual; the automatic
+    // search stays behind its labelled beta panel.
+    expect(identify).toContain('"Next: add the manual"')
+    expect(identify).not.toContain('"Find the manual"')
+  })
+
+  it("fills the room in from the item type instead of asking cold", () => {
+    expect(identify).toContain("suggestForSubType={data.subType}")
+    expect(room).toContain("inferRoom")
+  })
+
+  it("tells the user the room was filled in for them", () => {
+    // A prefill nobody can see is an assumption, not a suggestion.
+    expect(room).toContain("Filled in from the item type")
+  })
+
+  it("never overwrites a room the user already chose", () => {
+    expect(room).toContain("value != null")
+  })
+})
