@@ -104,9 +104,18 @@ per *suggest-never-assume*.
   one range hood reframed as checks, and the same item's "Check LED Light
   Operation" and "Replace LumiLight LED" correctly untouched — a looser rule
   would have turned a bulb replacement into a filter check.
-- **Remaining, not scheduled**: `seasonal` kind still uses the cadence default
-  rather than resolving against the home's climate facts (`freezeRisk`); the
-  design's "before first frost" copy is not built.
+- **Seasonal × climate — SHIPPED** (`shared/care/seasonalWindow.ts`). A
+  seasonal task states its season, and the months shift with the home's climate
+  band: a cold home's autumn work closes in October, a mild home's in November.
+  With no climate answered — the owner's own home today — it degrades to the
+  season-wide window and drops the local claim entirely ("Usually autumn", not
+  "usually autumn here"), because naming a local month would assert something
+  about their home we have not verified. Season inference reuses
+  `seasonalFamily` rather than adding a third copy of the winterize keyword list.
+- **Known limit**: a task is only treated as seasonal when its `scheduleType`
+  IS `seasonal`. A winterize task the parser filed as `annual` gets an annual
+  window instead — less specific, but not invented. Widening the gate on title
+  alone would manufacture a season the parser never claimed.
 
 ## Category considerations
 
