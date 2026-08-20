@@ -26,6 +26,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { buildPrompt, samplingParamsFor, EXTRACTION_TOOL, extractParsedResult } from "../../shared/parse/parsePrompt"
 import { titleSimilarity, TITLE_MATCH_THRESHOLD } from "../../shared/parse/parseCore"
+import { pairByBestScore } from "./pairing.js"
 import { classifyTaskKind } from "../../shared/tasks/taxonomy"
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -170,20 +171,12 @@ function score(parsed: RawParse) {
 // (parseCore.titleSimilarity), so a "MISSING" in this report is exactly a task
 // prod's rescan would fail to match.
 function diffTitles(goldenTitles: string[], newTitles: string[]) {
-  const matchedNew = new Set<number>()
-  const missing: string[] = []
-  for (const g of goldenTitles) {
-    let best = -1, bestScore = 0
-    newTitles.forEach((t, i) => {
-      if (matchedNew.has(i)) return
-      const s = titleSimilarity(g, t)
-      if (s > bestScore) { bestScore = s; best = i }
-    })
-    if (best >= 0 && bestScore >= TITLE_MATCH_THRESHOLD) matchedNew.add(best)
-    else missing.push(g)
+  const { pairs, unmatchedGolden, unmatchedNext } = pairByBestScore(goldenTitles, newTitles)
+  return {
+    matched: pairs.length,
+    missing: unmatchedGolden.map((i) => goldenTitles[i]),
+    added: unmatchedNext.map((i) => newTitles[i]),
   }
-  const added = newTitles.filter((_, i) => !matchedNew.has(i))
-  return { matched: goldenTitles.length - missing.length, missing, added }
 }
 
 type IndexRow = { title?: string; schedule?: string; tier?: string; care?: string }
@@ -214,20 +207,16 @@ function kindOf(title: string, row?: IndexRow): string {
  * clean no-op diff.
  */
 function diffClassifications(golden: IndexRow[], next: IndexRow[]) {
-  const usedNext = new Set<number>()
   const tierChanges: string[] = []
   const careChanges: string[] = []
   const scheduleChanges: string[] = []
-  for (const g of golden) {
-    let best = -1, bestScore = 0
-    next.forEach((n, i) => {
-      if (usedNext.has(i)) return
-      const s = titleSimilarity(g.title ?? "", n.title ?? "")
-      if (s > bestScore) { bestScore = s; best = i }
-    })
-    if (best < 0 || bestScore < TITLE_MATCH_THRESHOLD) continue
-    usedNext.add(best)
-    const n = next[best]
+  // Same score-ordered assignment as diffTitles — otherwise the two reports
+  // disagree about which task is which, and the reclassification list blames
+  // renames on the wrong rows.
+  const paired = pairByBestScore(golden.map((g) => g.title ?? ""), next.map((n) => n.title ?? ""))
+  for (const [gi, ni] of paired.pairs) {
+    const g = golden[gi]
+    const n = next[ni]
     const label = g.title ?? "?"
     if ((g.tier ?? "") !== (n.tier ?? "")) tierChanges.push(`${label}: ${g.tier} → ${n.tier}`)
     if ((g.care ?? "") !== (n.care ?? "")) careChanges.push(`${label}: ${g.care} → ${n.care}`)
