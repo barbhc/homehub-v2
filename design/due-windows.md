@@ -1,7 +1,22 @@
 # Due windows — when a task is "due" without a deadline
 
 **Status**: backlog, approved direction (owner, 2026-08-20) — not scheduled
+**Composes with**: P2-7 chosen option B (confirm-next-date) — see Prior art
 **Owner ask, verbatim intent**: maintenance rarely has to happen *by* a date; date-specific "overdue" triggers unnecessary stress. Filters should be done *within a window*. Propose the change and the per-category considerations.
+
+## Prior art — what was already decided, and what this is not
+
+The design handoff's P2-7 exploration (`design/explorations/feat-due.jsx`)
+covered **completion mechanics** — what happens at "Mark done" — and chose
+option B, *confirm-next-date* (a sheet: "when did you do it?" + adjustable next
+date). That decision stands; this doc does not reopen it.
+
+Due windows govern the other axis: what "due" MEANS while a task is pending.
+The two compose: the confirm sheet's "Next due {date}" becomes "Next: {window
+phrase}" with the same ± adjustment, and its seasonal-anchor behavior ("anchor
+to a month") is an early ancestor of `seasonal` kind. This also continues the
+2026-04-25 principle reset ("the app treats the user as a partner, not a
+delinquent") and the existing essential-only overdue softening.
 
 ## The problem in the current model
 
