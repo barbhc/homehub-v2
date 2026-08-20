@@ -665,7 +665,11 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
               className="rounded-xl px-4 py-2.5 text-[13.5px] font-bold text-white"
               style={{ background: "var(--hh-teal)" }}
             >
-              Find the manual
+              {/* Says what the button DOES. It opens the add-manual flow —
+                  upload or paste a link — and the automatic search is a
+                  labelled beta option inside that. "Find the manual" promised a
+                  search this button does not run. */}
+              Add the manual
             </button>
           )}
         </div>
