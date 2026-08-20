@@ -4,7 +4,8 @@
  * will actually meet.
  */
 import { describe, it, expect } from "vitest"
-import { detectWins, comingUp, drawerMeta, dueThisMonth, fmtWhen, GAP_DAYS } from "./homeHero"
+import { detectWins, comingUp, drawerMeta, dueThisMonth, fmtWhen, GAP_DAYS  } from "./homeHero"
+import type { ComingUpRow } from "./homeHero"
 import type { ItemUnit } from "@/integrations/types"
 import type { MaintenanceTaskFull } from "@/lib/dashboard"
 
@@ -139,5 +140,24 @@ describe("comingUp — item context, the reason rows are legible", () => {
     ], TODAY)
     expect(rows[0].itemId).toBeNull()
     expect(rows[0].itemName).toBeNull()
+  })
+})
+
+describe("drawerMeta under due windows", () => {
+  const row = (over: Partial<ComingUpRow>): ComingUpRow => ({
+    id: "r", title: "T", itemName: null, itemId: null, when: "Fri, Aug 21",
+    dueDate: "2026-08-10", overdueDays: 5, duePhrase: "Been a while", gapBefore: 0, ...over,
+  })
+
+  it("never says '0 overdue' — the count is zero precisely because none are", () => {
+    const meta = drawerMeta([row({}), row({ id: "r2" })], "2026-08-20")
+    expect(meta).not.toMatch(/overdue/)
+    expect(meta).toBe("2 waiting")
+  })
+
+  it("still counts a real deadline as overdue", () => {
+    // No duePhrase = the caller judged it a genuine deadline.
+    const meta = drawerMeta([row({ duePhrase: null })], "2026-08-20")
+    expect(meta).toMatch(/1 overdue/)
   })
 })

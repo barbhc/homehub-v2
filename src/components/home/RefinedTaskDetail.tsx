@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { dueKindOf, dueWindow, shortDate, windowPhrase } from "@/lib/dueWindow"
 import { Link } from "react-router-dom"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
@@ -128,6 +129,26 @@ export function RefinedTaskDetail({
   const dockOpen = manualOpen && !!manualUrl
 
   const recurring = !!detail?.schedule && !NON_RECURRING.includes(detail.schedule.scheduleType)
+  // The strip used to read "Next: Sep 2" for a monthly task — precision the
+  // schedule doesn't have. A window says what is true; a real deadline keeps
+  // its date. See design/due-windows.md.
+  const headerWhen = (() => {
+    if (!detail) return ""
+    const st = detail.schedule?.scheduleType ?? null
+    const kind = dueKindOf({ title: detail.title, scheduleType: st })
+    if (kind === "deadline") return dueLabel(dueDaysFromDate(detail.dueDate))
+    if (detail.neverCompleted && dueDaysFromDate(detail.dueDate) < 0) return "Start anytime"
+    return windowPhrase(detail.dueDate, st, { kind })
+  })()
+
+  const nextLabel = (() => {
+    if (!detail) return ""
+    const st = detail.schedule?.scheduleType ?? null
+    const kind = dueKindOf({ title: detail.title, scheduleType: st })
+    if (kind === "deadline") return `By ${fmt(detail.dueDate)}`
+    const w = dueWindow(detail.dueDate, st)
+    return `Window: ${shortDate(w.start)} – ${shortDate(w.end)}`
+  })()
 
   const assignTo = useCallback(async (userId: string | null) => {
     if (!homeId || !detail) return
@@ -225,7 +246,10 @@ export function RefinedTaskDetail({
             <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-2 text-[13px] lg:text-[13.5px]" style={{ color: SUB }}>
               {detail.estimatedMinutes != null && <span className="inline-flex items-center gap-1.5"><ClockIcon className="size-[15px]" /> {detail.estimatedMinutes} min</span>}
               {(detail.itemName || detail.roomName) && <span className="inline-flex items-center gap-1.5"><MapPinIcon className="size-[15px]" /> {[detail.itemName, detail.roomName].filter(Boolean).join(" · ")}</span>}
-              <span className="inline-flex items-center gap-1.5"><CalendarIcon className="size-[15px]" /> {detail.neverCompleted && dueDaysFromDate(detail.dueDate) < 0 ? "Start anytime" : dueLabel(dueDaysFromDate(detail.dueDate))}</span>
+              {/* "63 days overdue" for a filter change was the loudest false
+                  urgency in the app. Window-kind work says where it sits;
+                  deadlines keep the countdown. */}
+              <span className="inline-flex items-center gap-1.5"><CalendarIcon className="size-[15px]" /> {headerWhen}</span>
             </div>
           </div>
 
@@ -236,7 +260,7 @@ export function RefinedTaskDetail({
               <span className="flex-1 text-[13.5px] font-semibold" style={{ color: INK }}>
                 {recurring ? `Repeats ${recurLabel(detail.schedule.scheduleType)}` : recurLabel(detail.schedule.scheduleType)}
               </span>
-              <span className="text-[13px]" style={{ color: SUB }}>Next: {fmt(detail.dueDate)}</span>
+              <span className="text-[13px]" style={{ color: SUB }}>{nextLabel}</span>
             </div>
           )}
 
@@ -329,7 +353,7 @@ export function RefinedTaskDetail({
                 <span className="flex-1 text-[13.5px] font-semibold" style={{ color: INK }}>
                   {recurring ? `Repeats ${recurLabel(detail.schedule.scheduleType)}` : recurLabel(detail.schedule.scheduleType)}
                 </span>
-                <span className="text-[13px]" style={{ color: SUB }}>Next: {fmt(detail.dueDate)}</span>
+                <span className="text-[13px]" style={{ color: SUB }}>{nextLabel}</span>
               </div>
             </div>
           )}
@@ -442,6 +466,8 @@ function ConfirmDoneSheet({
 }) {
   const [whenDone, setWhenDone] = useState<"today" | "earlier">("today")
   const [bump, setBump] = useState(0)
+  /** Adjust is the exception path: hidden until asked for. */
+  const [adjusting, setAdjusting] = useState(false)
 
   const completedOn = whenDone === "today" ? todayStr() : addDays(todayStr(), -5)
   const nextDue = useMemo(() => {
@@ -458,28 +484,59 @@ function ConfirmDoneSheet({
       <div onClick={onClose} className="absolute inset-0 z-40" style={{ background: "rgba(8,12,11,0.4)" }} />
       <div className="absolute inset-x-0 bottom-0 z-41 rounded-t-[20px] px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)]" style={{ paddingInline: d.pad, background: "var(--hh-surface)" }}>
         <div className="mx-auto mb-4 h-1 w-9 rounded-full" style={{ background: "rgba(15,23,42,0.15)" }} />
+        {/* One decision, already made. The sheet used to open with six things
+            to press — two when-buttons, two bump-buttons, Confirm, dismiss —
+            to answer a question the app can assume: you did it today, and the
+            next window follows from the cadence. Owner review, 2026-08-20:
+            "too many options to press."
+
+            So the outcome is STATED, and everything that changes it hides
+            behind Adjust. Nothing is written until Confirm, which is why this
+            keeps a confirm tap rather than writing on Mark-done and offering an
+            Undo: completion runs through a server callable that mints the next
+            instance, and reversing it would mean unpicking completion history
+            (non-negotiable #3). Reversible-by-not-yet-written beats
+            undo-by-deletion. */}
         <div className="mb-1 flex items-center gap-2.5">
           <span className="flex size-[30px] items-center justify-center rounded-full" style={{ background: TEAL }}><CheckIcon className="size-[17px] text-white" strokeWidth={3} /></span>
           <div className="text-[22px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Nice work</div>
         </div>
-        <div className="mb-4 text-[13.5px]" style={{ color: SUB }}>When did you do it?</div>
-        <div className="mb-4 flex gap-2.5">
-          {([["today", "Today"], ["earlier", "A few days ago"]] as ["today" | "earlier", string][]).map(([k, l]) => (
-            <button key={k} onClick={() => setWhenDone(k)} className="flex-1 rounded-xl border-[1.5px] py-3 text-[13.5px] font-bold"
-              style={whenDone === k ? { borderColor: TEAL, background: "var(--hh-teal-wash)", color: TEAL } : { borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>{l}</button>
-          ))}
+        <div className="mb-4 text-[13.5px]" style={{ color: SUB }}>
+          {recurring && nextDue
+            ? <>Next window <span className="font-bold" style={{ color: INK }}>around {fmt(nextDue)}</span> · {rel(nextDue)}</>
+            : "Marked done today."}
         </div>
-        {recurring && nextDue && (
-          <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3.5" style={{ background: "var(--hh-surface2)" }}>
-            <div className="min-w-0">
-              <div className="text-[11px] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>Next due</div>
-              <div className="mt-0.5 text-[18px] font-extrabold tracking-[-0.4px]" style={{ color: TEAL }}>{fmt(nextDue)} · {rel(nextDue)}</div>
+
+        {!adjusting ? (
+          <button
+            onClick={() => setAdjusting(true)}
+            className="mb-4 text-[13.5px] font-bold"
+            style={{ color: TEAL }}
+          >
+            Adjust
+          </button>
+        ) : (
+          <>
+            <div className="mb-2 text-[13.5px]" style={{ color: SUB }}>When did you do it?</div>
+            <div className="mb-4 flex gap-2.5">
+              {([["today", "Today"], ["earlier", "A few days ago"]] as ["today" | "earlier", string][]).map(([k, l]) => (
+                <button key={k} onClick={() => setWhenDone(k)} className="flex-1 rounded-xl border-[1.5px] py-3 text-[13.5px] font-bold"
+                  style={whenDone === k ? { borderColor: TEAL, background: "var(--hh-teal-wash)", color: TEAL } : { borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>{l}</button>
+              ))}
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => setBump((b) => b - 1)} aria-label="Earlier" className="flex size-10 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}><MinusIcon className="size-4" /></button>
-              <button onClick={() => setBump((b) => b + 1)} aria-label="Later" className="flex size-10 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}><PlusIcon className="size-4" /></button>
-            </div>
-          </div>
+            {recurring && nextDue && (
+              <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3.5" style={{ background: "var(--hh-surface2)" }}>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>Next window</div>
+                  <div className="mt-0.5 text-[18px] font-extrabold tracking-[-0.4px]" style={{ color: TEAL }}>around {fmt(nextDue)} · {rel(nextDue)}</div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setBump((b) => b - 1)} aria-label="Earlier" className="flex size-10 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}><MinusIcon className="size-4" /></button>
+                  <button onClick={() => setBump((b) => b + 1)} aria-label="Later" className="flex size-10 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}><PlusIcon className="size-4" /></button>
+                </div>
+              </div>
+            )}
+          </>
         )}
         <button onClick={() => onConfirm({ completedOn, nextDue })} className="w-full rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>Confirm</button>
       </div>

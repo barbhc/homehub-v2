@@ -59,14 +59,14 @@ const SCALE = {
  * doesn't move week to week, and Items is already a tab. The band should only
  * carry things that CHANGE and that you might act on.
  */
-function StatBand({ dueMonth, overdueCount, onDue, onOverdue, sc }: {
+function StatBand({ dueMonth, deadlineCount, onDue, onOverdue, sc }: {
   dueMonth: number
-  overdueCount: number
+  /** Real deadlines only. Windows never count here — see design/due-windows.md. */
+  deadlineCount: number
   onDue: () => void
   onOverdue: () => void
   sc: (typeof SCALE)[ComposedVariant]
 }) {
-  const month = new Date().toLocaleDateString("en-US", { month: "short" })
   const cell = `flex flex-1 items-center justify-center gap-1.5 px-1 ${sc.statPad}`
   const divider = { borderLeft: "1px solid color-mix(in srgb, var(--hh-teal) 10%, var(--hh-line))" }
   return (
@@ -76,13 +76,13 @@ function StatBand({ dueMonth, overdueCount, onDue, onOverdue, sc }: {
     >
       <button type="button" onClick={onDue} className={cell}>
         <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: INK }}>{dueMonth}</span>
-        <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>due in {month}</span>
+        <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>in their window</span>
         <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
       </button>
-      {overdueCount > 0 ? (
+      {deadlineCount > 0 ? (
         <button type="button" onClick={onOverdue} className={cell} style={divider}>
-          <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: CLAY }}>{overdueCount}</span>
-          <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>overdue</span>
+          <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: CLAY }}>{deadlineCount}</span>
+          <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>{deadlineCount === 1 ? "deadline" : "deadlines"}</span>
           <ChevronRightIcon className="size-3" style={{ color: FAINT }} />
         </button>
       ) : (
@@ -90,7 +90,7 @@ function StatBand({ dueMonth, overdueCount, onDue, onOverdue, sc }: {
         // stop tapping. No chevron, no handler.
         <div className={cell} style={divider} aria-disabled="true">
           <span className={`${sc.statN} font-extrabold tracking-[-0.02em]`} style={{ color: TEAL }}>0</span>
-          <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>overdue</span>
+          <span className={`${sc.statL} font-semibold`} style={{ color: SUB }}>deadlines</span>
         </div>
       )}
     </div>
@@ -204,7 +204,13 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
     // deduped by id — getUpcomingTasks is future-only.
     const overdueRows = urgent
       .filter((t) => t.isOverdue && t.dueDate)
-      .map((t) => ({ id: t.id, title: t.name, itemName: t.itemName, item_id: t.itemId, next_due_date: t.dueDate, isOverdue: true }))
+      .map((t) => ({
+        id: t.id, title: t.name, itemName: t.itemName, item_id: t.itemId,
+        next_due_date: t.dueDate, isOverdue: true,
+        // Window-kind rows carry their phrase, so the drawer says "Been a
+        // while" instead of counting days at the user.
+        duePhrase: t.trulyOverdue ? null : (t.safetyNote ?? t.duePhrase),
+      }))
     const seen = new Set(overdueRows.map((r) => r.id))
     const forward = upcoming.filter((t) => !seen.has(t.id) && !justDone.has(t.id))
     return comingUp([...overdueRows, ...forward], today)
@@ -249,7 +255,12 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
             heroTask ? (
               <>
                 <div className="font-mono text-[9.5px] font-extrabold uppercase tracking-[0.12em]" style={{ color: TEAL }}>
-                  {urgent.length > 1 ? `${urgent.length} need you — first:` : "Needs you first"}
+                  {/* "N need you" reads as an accusation for work that has no
+                      deadline. A window is an invitation. Deadlines keep the
+                      firmer voice, because they earned it. */}
+                  {heroTask?.dueKind === "deadline"
+                    ? (urgent.length > 1 ? `${urgent.length} need you — first:` : "Needs you first")
+                    : (urgent.length > 1 ? "A good week for these — first:" : "A good week for this:")}
                 </div>
                 {/* The whole headline block is the target, not a small chevron:
                     it is what the eye lands on and what the finger reaches for. */}
@@ -264,10 +275,15 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
                   <span className="mt-0.5 flex items-center gap-1 text-[12.5px]" style={{ color: SUB }}>
                     <span>
                       {heroTask.itemName ?? "Home"}
-                      {heroTask.isOverdue && heroTask.daysOverdue != null && (
-                        <> · <span className="font-bold" style={{ color: CLAY }}>{heroTask.daysOverdue} day{heroTask.daysOverdue === 1 ? "" : "s"} overdue</span></>
+                      {/* Clay stays for real deadlines and for lapsed safety
+                          work — muted, never counting days at the user. */}
+                      {heroTask.trulyOverdue ? (
+                        <> · <span className="font-bold" style={{ color: CLAY }}>{heroTask.duePhrase}</span></>
+                      ) : heroTask.safetyNote ? (
+                        <> · <span className="font-semibold" style={{ color: CLAY }}>{heroTask.safetyNote}</span></>
+                      ) : (
+                        <> · {heroTask.duePhrase}</>
                       )}
-                      {!heroTask.isOverdue && <> · due today</>}
                     </span>
                     <ChevronRightIcon className="size-3.5 shrink-0" style={{ color: TEAL }} aria-hidden />
                   </span>
@@ -308,7 +324,7 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
                     {nextQuiet ? `All quiet until ${fmtWhen(nextQuiet.dueDate).replace(/^\w+, /, "")}` : "All quiet"}
                   </span>
                   <span className="mt-0.5 block text-[12.5px]" style={{ color: SUB }}>
-                    {nextQuiet ? `Nothing is overdue. Next: ${nextQuiet.title.toLowerCase()}.` : "Nothing is overdue, and nothing is scheduled yet."}
+                    {nextQuiet ? `Nothing is late. Next up: ${nextQuiet.title.toLowerCase()}.` : "Nothing is late, and nothing is scheduled yet."}
                   </span>
                 </span>
               </div>
@@ -333,7 +349,7 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
             <StatBand
               sc={sc}
               dueMonth={dueMonth}
-              overdueCount={urgent.filter((t) => t.isOverdue).length}
+              deadlineCount={urgent.filter((t) => t.trulyOverdue).length}
               onDue={openDrawer}
               onOverdue={openDrawer}
             />
@@ -425,7 +441,7 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
                       <span className="block truncate text-[12px]" style={{ color: SUB }}>{r.itemName ?? "Whole home"}</span>
                     </span>
                     <span className="whitespace-nowrap text-[12px]" style={{ color: r.overdueDays != null ? CLAY : SUB, fontWeight: r.overdueDays != null ? 700 : 500 }}>
-                      {r.overdueDays != null ? `${r.overdueDays} days overdue` : r.when}
+                      {r.duePhrase ?? r.when}
                     </span>
                     <ChevronRightIcon className="size-4 shrink-0" style={{ color: FAINT }} />
                   </button>
@@ -484,7 +500,7 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
                     ))}
                     {rows.filter((r) => r.overdueDays == null).length === 0 &&
                       (rows.length > 0
-                        ? "Nothing new is scheduled — the overdue work above is what's outstanding."
+                        ? "Nothing new is scheduled — the work above is what's waiting."
                         : "Nothing on the schedule yet.")}
                   </p>
                 </div>

@@ -1,6 +1,10 @@
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
-import type { MaintenanceFreqUnit, PriorityTier } from "@/integrations/types"
+import type { MaintenanceFreqUnit, PriorityTier, ScheduleType } from "@/integrations/types"
+import {
+  dueKindOf, dueWindow, isTrulyOverdue, safetyPhrase, windowPhrase,
+  type DueKind, type WindowState,
+} from "@/lib/dueWindow"
 import type { ServiceResult } from "./taskService"
 import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
@@ -34,6 +38,17 @@ export type WeekAgendaItem = {
   isOverdue: boolean
   /** Due date is in the past (any tier, regardless of completion history). */
   pastDue: boolean
+  /** Due semantics — see `src/lib/dueWindow.ts` and design/due-windows.md.
+   *  Derived at read time; nothing here is stored. */
+  dueKind: DueKind
+  /** Where today sits relative to this task's window. */
+  windowState: WindowState
+  /** How to say when it wants doing: "Oct-ish", "Been a while", "By Sep 30". */
+  duePhrase: string
+  /** Firm, dateless pressure for safety work that skipped a cycle; else null. */
+  safetyNote: string | null
+  /** Only a real deadline, actually past, still earns red. */
+  trulyOverdue: boolean
   itemUnitId: string | null
   itemName: string | null
   roomName: string | null
@@ -93,6 +108,16 @@ export async function getWeekAgenda(
         const templateId = (r.taskTemplateId as string) ?? ""
         const pastDue = dueDate < today
         const isOverdue = pastDue && tier === "essential" && completedTemplates.has(templateId)
+        // Windows are DERIVED, never read from the stored windowStart/windowEnd
+        // fields — those are v1 leftovers and badly stale (April windows on
+        // August tasks). See design/due-windows.md.
+        const scheduleType = (r.scheduleType as ScheduleType | null) ?? null
+        const dueKind = dueKindOf({ title: r.title as string, scheduleType, careType: r.careType as string | null })
+        const windowState = dueWindow(dueDate, scheduleType, { today }).state
+        const duePhrase = windowPhrase(dueDate, scheduleType, { today, kind: dueKind })
+        const safetyNote = (r.isSafetyCritical as boolean | undefined)
+          ? safetyPhrase(dueDate, scheduleType, { today })
+          : null
         return {
           taskInstanceId: r.id as string,
           taskTemplateId: templateId,
@@ -103,6 +128,11 @@ export async function getWeekAgenda(
           dueDate,
           isOverdue,
           pastDue,
+          dueKind,
+          windowState,
+          duePhrase,
+          safetyNote,
+          trulyOverdue: isTrulyOverdue(dueDate, dueKind, { today }),
           itemUnitId: (r.itemUnitId as string | null) ?? null,
           itemName: (r.itemName as string | null) ?? null,
           roomName: (r.roomName as string | null) ?? null,

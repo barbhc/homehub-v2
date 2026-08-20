@@ -38,7 +38,10 @@ export function daysUntil(dateStr: string): number {
  * natural-language relative label.
  */
 export function whenLabel(t: WeekAgendaItem): string {
-  if (t.isOverdue) return "Overdue"
+  // Only a real deadline still says the word. Window-kind work carries its own
+  // phrase ("Been a while") — see design/due-windows.md.
+  if (t.trulyOverdue) return "Overdue"
+  if (t.duePhrase) return t.duePhrase
   // Past-due but not a genuine lapse (never started, or non-essential cadence):
   // calm "Start anytime" instead of an alarming day count.
   if (t.pastDue) return "Start anytime"
@@ -79,15 +82,28 @@ function sumMins(rows: WeekAgendaItem[]): number {
 
 export function groupTasks(tasks: WeekAgendaItem[], lens: Lens): TaskGroup[] {
   if (lens === "urgency") {
+    // Grouped by WHEN ACTING MAKES SENSE, not by calendar failure
+    // (design/due-windows.md). "Deadlines" is the only bucket that keeps clay,
+    // and it is usually empty — which is the point: red means something again.
+    const isDeadline = (t: WeekAgendaItem) => t.dueKind === "deadline"
     const buckets: { key: string; label: string; tone: string; items: WeekAgendaItem[] }[] = [
-      // Genuinely overdue (essential lapse) only — usually small or empty.
-      { key: "overdue", label: "Overdue", tone: CLAY, items: tasks.filter((t) => t.isOverdue) },
-      { key: "week", label: "This week", tone: TEAL, items: tasks.filter((t) => !t.isOverdue && !t.pastDue && daysUntil(t.dueDate) <= 7) },
-      // Past their suggested cadence but no hard deadline — calm backlog.
-      { key: "anytime", label: "Start anytime", tone: SLATE, items: tasks.filter((t) => !t.isOverdue && t.pastDue) },
-      { key: "later", label: "Later", tone: SLATE, items: tasks.filter((t) => !t.isOverdue && !t.pastDue && daysUntil(t.dueDate) > 7) },
+      { key: "deadlines", label: "Deadlines", tone: CLAY, items: tasks.filter(isDeadline) },
+      // Window hasn't opened yet — genuinely not yet, no pressure implied.
+      {
+        key: "coming", label: "Coming up", tone: SLATE,
+        items: tasks.filter((t) => !isDeadline(t) && t.windowState === "upcoming"),
+      },
+      // CATCH-ALL, deliberately last and defined by exclusion: in-window,
+      // lapsed, or carrying no window state at all. Filtering this bucket by
+      // explicit states made the grouping non-total, and a task that matches no
+      // bucket does not render — it silently disappears from the user's list.
+      {
+        key: "now", label: "Good to do now", tone: TEAL,
+        items: tasks.filter((t) => !isDeadline(t) && t.windowState !== "upcoming"),
+      },
     ]
-    return buckets
+    const ordered = [buckets[0], buckets[2], buckets[1]]
+    return ordered
       .filter((g) => g.items.length > 0)
       .map((g) => ({ ...g, items: sortRows(g.items), mins: sumMins(g.items) }))
   }
@@ -218,13 +234,26 @@ export function useTierFilter(): [string, (t: string) => void] {
 export type Insight = { kind: "start" | "calm"; label: string; text: string; tone: string }
 
 export function computeInsight(tasks: WeekAgendaItem[]): Insight | null {
-  const essOver = tasks.filter((t) => t.isOverdue && t.priorityTier === "essential").length
-  if (essOver > 0) {
+  // Deadlines first — the only thing that is genuinely late.
+  const deadlines = tasks.filter((t) => t.trulyOverdue).length
+  if (deadlines > 0) {
     return {
       kind: "start",
       label: "Start here",
       tone: CLAY,
-      text: `${essOver} essential task${essOver > 1 ? "s are" : " is"} overdue.`,
+      text: `${deadlines} deadline${deadlines > 1 ? "s have" : " has"} passed.`,
+    }
+  }
+  // Lapsed safety work earns firmness without the word "overdue": a skipped
+  // detector check is worth saying plainly, and it is the one place a nudge is
+  // honest (owner-approved, design/due-windows.md).
+  const safety = tasks.filter((t) => t.safetyNote).length
+  if (safety > 0) {
+    return {
+      kind: "start",
+      label: "Worth doing",
+      tone: CLAY,
+      text: `${safety} safety check${safety > 1 ? "s have" : " has"} skipped a cycle.`,
     }
   }
   // The room hint only earns a banner when it is actually TRUE and actually
