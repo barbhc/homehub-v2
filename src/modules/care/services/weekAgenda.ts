@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { MaintenanceFreqUnit, PriorityTier, ScheduleType } from "@/integrations/types"
 import {
@@ -6,6 +6,8 @@ import {
   type DueKind, type WindowState,
 } from "@/lib/dueWindow"
 import { indicatorDrivenTitles, usagePhrase } from "../../../../shared/care/usageSignal"
+import { seasonForTitle, seasonalWindow, type Climate } from "../../../../shared/care/seasonalWindow"
+import { seasonalFamily } from "../../../../shared/tasks/houseRules"
 import type { ServiceResult } from "./taskService"
 import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
@@ -78,6 +80,19 @@ export async function getWeekAgenda(
   const horizon = addDaysStr(today, opts?.days ?? 7)
 
   try {
+    // Climate for seasonal windows. A single doc read, and a FAILED or absent
+    // one degrades to null — a seasonal task must never be blocked or hidden
+    // because the owner hasn't answered a profile question (the owner's own
+    // home has no climate field today, so this is the common path).
+    let climate: Climate | null = null
+    try {
+      const homeSnap = await getDoc(doc(db, `homes/${homeId}`))
+      const c = homeSnap.get("climate")
+      if (c === "mild" || c === "moderate" || c === "cold" || c === "hot") climate = c
+    } catch {
+      climate = null
+    }
+
     // Single-collection read — the joins are gone: taskInstances carry the
     // denormalized display fields (firestore-model.md §5). One equality filter
     // (deletedAt == null); status/dueDate filtering + sort happen client-side
@@ -144,9 +159,17 @@ export async function getWeekAgenda(
         const windowState = dueWindow(dueDate, scheduleType, { today, ...range }).state
         // A usage task says what the unit will tell you, and keeps our cadence
         // only as the fallback — never a date.
+        // A seasonal task states its season, resolved against the home's
+        // climate when we have one — never a manufactured date.
+        const season = dueKind === "seasonal"
+          ? seasonForTitle((r.title as string) ?? "", seasonalFamily((r.title as string) ?? ""))
+          : null
+        const seasonal = season ? seasonalWindow(season, climate, { today }) : null
         const duePhrase = isUsage
           ? usagePhrase(scheduleType)
-          : windowPhrase(dueDate, scheduleType, { today, kind: dueKind, ...range })
+          : seasonal
+            ? seasonal.phrase
+            : windowPhrase(dueDate, scheduleType, { today, kind: dueKind, ...range })
         const safetyNote = (r.isSafetyCritical as boolean | undefined)
           ? safetyPhrase(dueDate, scheduleType, { today })
           : null
