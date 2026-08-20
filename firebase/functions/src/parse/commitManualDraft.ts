@@ -13,6 +13,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { normalizeChunkRow, normalizeTaskRow, type ParsedChunk, type ParsedTask } from "../../../../shared/parse/parseCore.js"
 import { commitDraft } from "./commitDraft.js"
+import { parseLastDone } from "../../../../shared/care/lastDone.js"
 import type { ParseItemFacts } from "./parseTypes.js"
 
 const REGION = "us-central1"
@@ -24,8 +25,9 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
     homeId?: string
     manualId?: string
     chunks?: ParsedChunk[]
-    // remind_enabled is the reviewer's own switch, not a parser field — see below.
-    tasks?: (ParsedTask & { remind_enabled?: boolean | null })[]
+    // remind_enabled and last_done_on are the reviewer's own answers, not
+    // parser fields — see below.
+    tasks?: (ParsedTask & { remind_enabled?: boolean | null; last_done_on?: unknown })[]
   }
   if (!homeId || !manualId) throw new HttpsError("invalid-argument", "homeId and manualId required")
   if (!Array.isArray(chunks) || !Array.isArray(tasks)) {
@@ -57,9 +59,15 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   // switch is the user's decision rather than something the parser produces, so
   // it rides alongside the normalized row instead of being added to parseCore
   // (which stays a verbatim port of v1).
+  const todayStr = new Date().toISOString().slice(0, 10)
   const normTasks = tasks.map((t) => ({
     ...normalizeTaskRow(t),
     remind_enabled: typeof t.remind_enabled === "boolean" ? t.remind_enabled : null,
+    // Parsed, not cast: this arrives from a form as `unknown`, and a bad anchor
+    // would silently mis-schedule the task rather than fail loudly. Anything
+    // unusable degrades to null, which is exactly the shipped behaviour
+    // (anchor on today) — a malformed date must never cost the whole manual.
+    last_done_on: parseLastDone(t.last_done_on, todayStr),
   }))
 
   // Fresh requestId per save — a distinct user intent (commitDraft is idempotent

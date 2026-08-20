@@ -17,6 +17,18 @@ import {
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { splitInterval, toDays, type IntervalUnit } from "../../../shared/care/interval"
+import { earliestLastDone } from "../../../shared/care/lastDone"
+
+/** HH-35: the three TIER buckets get the app's own tier colour as a rail,
+ *  instead of this screen inventing an emoji vocabulary for a system that
+ *  already has one (TierBadge, the agenda, item detail all use these).
+ *  Non-tier buckets — setup / when-needed / tips — have no tier, so they keep
+ *  their icon rather than being given a colour that would imply one. */
+const TIER_RAIL: Record<string, string> = {
+  essential: "var(--hh-clay)",
+  recommended: "var(--hh-teal)",
+  optional: "var(--hh-slate)",
+}
 import { isThinManual, thinManualWarning } from "../../../shared/parse/pdfShape"
 import { classifyActorFromText } from "@/lib/taskActor"
 import type {
@@ -144,6 +156,9 @@ interface ReviewRow {
   /** null until the user touches the Remind switch — then the tier default no
    *  longer applies to this task, in either direction. */
   remindEnabled: boolean | null
+  /** HH-56: "I've been doing this already" — null means anchor on the add date,
+   *  which is the behaviour for anyone who just bought the thing. */
+  lastDoneOn: string | null
   included: boolean
   task?: PreviewTask
   chunk?: PreviewChunk
@@ -173,6 +188,7 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
     intervalDays: t.interval_days ?? null,
     scheduleSuggested: false,
     remindEnabled: t.remind_enabled ?? null,
+    lastDoneOn: null,
     included: true,
     task: t,
   }))
@@ -194,6 +210,7 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
       intervalDays: null,
       scheduleSuggested: false,
       remindEnabled: null,
+      lastDoneOn: null,
       included: true,
       chunk: c,
     }))
@@ -347,6 +364,7 @@ export function TaskReviewSheet({
         schedule_type: r.schedule,
         interval_days: r.intervalDays,
         remind_enabled: r.remindEnabled,
+        last_done_on: r.lastDoneOn,
       })
     }
     const err = await onSave(keptTasks, keptChunks, edits)
@@ -546,12 +564,18 @@ export function TaskReviewSheet({
       <SheetContent side="bottom" className="h-[92dvh] flex flex-col p-0 gap-0">
         <SheetHeader className="px-4 pt-3 pb-2 border-b">
           <SheetTitle className="text-[17px] font-extrabold tracking-[-0.02em]">{itemName}</SheetTitle>
-          <div className="text-[10.5px] font-mono text-muted-foreground">
+          {/* HH-35: was 10.5px mono. Mono is right for serials/counts/dates
+              (design/README.md) but this is a sentence, and at 10.5px it was
+              under the readable floor for secondary text. */}
+          <div className="text-[12.5px] text-muted-foreground">
             {guideRow ? `Deciding each task · ${(guideIndex ?? 0) + 1} of ${rows.length}` : step === 1 ? "Step 1 of 2 · What each task is" : "Step 2 of 2 · How often"}
           </div>
         </SheetHeader>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3">
+        {/* HH-35: px-3 put body copy 12px from the edge while the rows inside
+            sat further in — which is what read as "text too close to the sides".
+            One inset for the sheet and its contents. */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
           {/* Shown before ANY step, because it changes what the whole review
               means: a tester downloaded only the cover page, we accepted it in
               silence, and the generic tasks we produced were indistinguishable
@@ -642,7 +666,7 @@ export function TaskReviewSheet({
                         <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>{copy.title}
                         <span className="ml-auto text-[11px] font-mono font-bold text-muted-foreground">{items.length}</span>
                       </div>
-                      <div className="text-[11.5px] text-muted-foreground mt-0.5 pl-6">{copy.sub}</div>
+                      <div className="text-[12px] text-muted-foreground mt-0.5 pl-[13px]">{copy.sub}</div>
                     </div>
                     {items.length === 0
                       ? <div className="text-[11.5px] text-muted-foreground pl-6 pb-1">{copy.empty}</div>
@@ -684,6 +708,40 @@ function PriorityDot({ tier }: { tier: PriorityTier }) {
   return <span className={`inline-block rounded-full shrink-0 ${cls}`} aria-label={tier} />
 }
 
+function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, next: Partial<ReviewRow>) => void }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const open = row.lastDoneOn !== null
+  return (
+    <div className="mt-2">
+      <label className="flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: open ? "var(--hh-teal)" : "var(--hh-sub)" }}>
+        <input
+          type="checkbox"
+          checked={open}
+          onChange={(e) => patch(row.id, { lastDoneOn: e.target.checked ? today : null })}
+          className="size-4 accent-[var(--hh-teal)]"
+        />
+        I&rsquo;ve been doing this already
+      </label>
+      {open && (
+        <div className="mt-2 flex items-center gap-2 pl-6">
+          <label htmlFor={`lastdone-${row.id}`} className="text-[11.5px] text-muted-foreground">Last done</label>
+          <input
+            id={`lastdone-${row.id}`}
+            type="date"
+            value={row.lastDoneOn ?? today}
+            // Bounds match shared/care/lastDone exactly, so the picker cannot
+            // offer a value the server would silently drop.
+            min={earliestLastDone(today)}
+            max={today}
+            onChange={(e) => patch(row.id, { lastDoneOn: e.target.value || today })}
+            className="rounded-md border border-border bg-background px-2 py-1 text-[13px]"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StepTwo({
   rows, cadOpenId, setCadOpenId, patch, bucketOfRow,
 }: {
@@ -715,22 +773,46 @@ function StepTwo({
         return (
           <div key={tier}>
             <div className="mt-3.5 mb-2">
-              <div className="flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.015em]">
-                <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>{copy.title}
-                <span className="ml-auto text-[11px] font-mono font-bold text-muted-foreground">{items.length}</span>
+              <div className="flex items-center gap-2.5 text-[15px] font-extrabold tracking-[-0.015em]">
+                {TIER_RAIL[tier]
+                  ? <span aria-hidden="true" className="h-[15px] w-[3px] shrink-0 rounded-full" style={{ background: TIER_RAIL[tier] }} />
+                  : <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>}
+                {copy.title}
+                {/* Mono is correct here — this IS a count. Just not at 11px. */}
+                <span className="ml-auto text-[12.5px] font-mono font-bold text-muted-foreground tabular-nums">{items.length}</span>
               </div>
-              <div className="text-[11.5px] text-muted-foreground mt-0.5 pl-6">{copy.sub}</div>
+              <div className="text-[12px] text-muted-foreground mt-0.5 pl-[13px]">{copy.sub}</div>
             </div>
             {items.map((r) => (
               <div key={r.id} className="rounded-xl border border-border bg-card px-3 py-2.5 mb-1.5">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-[14px] opacity-85">{KINDS.find((k) => k.id === displayKind(r))?.icon}</span>
+                  <span aria-hidden="true" className="w-[3px] self-stretch min-h-[26px] shrink-0 rounded-full"
+                    style={{ background: TIER_RAIL[tier] ?? "transparent" }} />
                   <span className="flex-1 min-w-0 text-[14px] font-semibold">{r.title}</span>
+                  {/* HH-35: this was 10px grey mono — the most important control
+                      on the screen, set smaller than anything around it. */}
                   <button type="button" onClick={() => setCadOpenId(cadOpenId === r.id ? null : r.id)}
-                    className="rounded-full border border-border bg-background px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap">
-                    {cadOf(r)}{r.scheduleSuggested ? " · suggested" : ""} ▾
+                    className="rounded-full px-2.5 py-1 text-[12.5px] font-semibold whitespace-nowrap"
+                    style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>
+                    {cadOf(r)} ▾
                   </button>
                 </div>
+                {/* HH-56, the education half: say what the MANUAL said, so a
+                    changed cadence is the user disagreeing with the manufacturer
+                    knowingly rather than with us silently. */}
+                {r.scheduleSuggested && (
+                  <div className="mt-1.5 pl-[13px] text-[11.5px] text-muted-foreground">
+                    The manual says {originOf(r)}.
+                  </div>
+                )}
+                {/* HH-56, the control half. Chris added an air fryer he had
+                    owned for months and every schedule restarted from zero.
+                    "When did you last do it" is the fact someone actually
+                    knows about their own appliance — "when should it next be
+                    due" is arithmetic we can do for them from it. Left closed
+                    by default, because for anyone who just bought the thing the
+                    add date is already the right answer. */}
+                <LastDoneControl row={r} patch={patch} />
                 {cadOpenId === r.id && (
                   <div className="mt-2.5">
                     <div className="flex flex-wrap gap-1.5">
