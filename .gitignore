@@ -81,6 +81,12 @@ scripts/ops/.tf-seen.json
 # real photos of testers' homes and phones. They belong on disk, never in git.
 testflight-feedback/
 
+# Same rule, second pull path: the testflight-feedback-review skill writes its
+# inbox, ledger and built review page here. 18MB of the same photos, plus
+# tester email addresses and their verbatim words. Local state only — the
+# skill reads it off disk and the decisions land in docs/beta-feedback.md.
+feedback/
+
 # Manual-parser eval: downloaded corpus PDFs. ~80MB of other people's appliance
 # manuals; runs/ is committed instead, which is what keeps the score
 # reproducible without them.
