@@ -19,6 +19,51 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-08-20 — round 6 (full-inbox sweep · 71 reports, two testers, 10–20 Aug)
+
+**Headline: the inbox had ~50 reports that earlier pulls never surfaced, and 65
+of the 71 were already fixed and live by the time they were read — verified
+against the deployed bundle, not assumed. Of the six that needed a call, four
+land on the SAME screen: the parse-review sheet. The first-run path is one piece
+of work, not four patches.**
+
+Reconciled with `feedback/ledger.json` (local; gitignored — it carries tester
+photos and emails). Review page: the artifact linked from the ledger.
+
+### Verified already fixed — no work, delete in App Store Connect
+
+| # | Report | Where it was fixed |
+|---|---|---|
+| HH-28 | Ask hung on a typing bubble; composer below the fold | #58 — transport guard, honest empty answers, `100dvh` with tab-bar clearance. Confirmed live: the deployed `ChatPage` chunk contains "Lost the connection — please try again." and `100dvh` |
+| HH-29 | "Trapped" in the Ask thread, wanted a back arrow | #58 — the thread Back control. Its code comment cites this exact report |
+| HH-56 (bug half) | Every new task landed due today | #58 — `commitDraft` seeds the first instance one cadence from the add date. Confirmed in the DEPLOYED `commitManualDraft` source (`addCadence` present, function updated 2026-08-20 17:40 UTC) |
+| HH-48 (misread) | "The review flow was supposed to open" | NOT the missing-pickup-card bug (#119) — his screenshot shows "Review tasks" present. See below |
+| + 62 others | round 1–5 items | shipped between 15 and 20 Aug |
+
+Because the iOS shell loads the live site, these reached testers **without a new
+build** — which is why so many reports describe behaviour that no longer exists.
+Build age is a weak signal on this app.
+
+### Decided — owner, 2026-08-20
+
+All five approved as **Fix now**. Owner notes re-scoped three of them:
+
+| # | Report (as re-scoped) | Sev | What the owner changed |
+|---|---|---|---|
+| HH-48 | Open the review automatically when a parse finishes | **S3** | Confirmed the fix. The affordance exists; the *moment* does not |
+| HH-56 | Say what the manual said; let the user place the first window | **S3** | Beyond the shipped fix: an appliance already in use for months should not restart its clock at zero. Educate with the manual's own cadence, offer "I did this recently" |
+| HH-55 | A custom interval — explicitly NOT more presets | **S3** | Narrowed from "add biweekly" to "let the user say it". `every_n_days` already exists end to end; the mobile task sheet offers four cadences and no custom, and "Every N days" is developer wording |
+| HH-35 | Redesign the review sheet for cohesion + phone readability | **S4** | Widened from a type-size fix to a design pass. Mono metadata sits at 9.5–10.5px (under the 11px floor) and the sheet body has a tighter inset than its own cards. Mono itself stays — `design/README.md` assigns it to serials, counts and dates |
+| HH-23 | Shortest path to a parsed manual | **S3** | Re-framed from the tester's ask (one field per screen) to the owner's goal (fewer fields before the manual). A wizard with the same questions is the same number of questions. Success measure: time-to-first-task |
+
+### Rejected
+
+| # | Report | Why |
+|---|---|---|
+| HH-1 | Blank submission — no comment | Nothing to act on. Listed for deletion in App Store Connect |
+
+---
+
 ## 2026-08-18 — round 5 (owner, one air-purifier session · 10 reports)
 
 **Headline: the add flow is organised around identifying the product, but all of

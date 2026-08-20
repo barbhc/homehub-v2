@@ -3,7 +3,12 @@
 _Last synced: 2026-06-17. Strategic Arc-level planning lives in `memory/project_backlog.md`; relevance tracker in `RUT_AUDIT.md`._
 
 ## In Progress
-- [ ] _None_
+- [ ] **Beta round 6 — the first-run path** (owner-approved 2026-08-20 from TestFlight feedback; decisions in `docs/beta-feedback.md`). Four of these five land on the SAME screen, so they ship as one coherent piece of work rather than four patches:
+  - [ ] **HH-48 — open the review when a parse finishes.** The "Review tasks" button already exists; the missing thing is the moment. Auto-open on the item the user is looking at; the button and pickup card stay as the fallback for a parse that lands while they are elsewhere.
+  - [ ] **HH-56 — say what the manual said, let the user place the first window.** Nothing lands due today any more (#58), but an appliance the user has already been maintaining for months should not restart at zero. Show the manual's own cadence, offer "I did this recently".
+  - [ ] **HH-55 — a custom interval, not more presets.** Explicitly NOT adding biweekly/every-3-weeks chips. `every_n_days` already exists end to end; expose it on the mobile task sheet and word it the way a person would say it.
+  - [ ] **HH-35 — redesign the review sheet** for cohesion with the rest of the app and phone readability. Mono metadata sits at 9.5–10.5px, under the 11px floor, and the sheet body has a tighter inset than its own card rows.
+  - [ ] **HH-23 — shortest path to a parsed manual.** Purchase/warranty fields move behind the item existing. Success measure is time-to-first-task, not form layout.
 
 ## Up Next
 - [ ] **Task feedback loop ("Tune your tasks")** - Chips→chat feedback on any task; per-home house-rules layer + home-profile facts; confirm-first sweeps; global graduation via parse-eval corpus. Owner-approved design: `design/task-feedback-scope.md` (2026-07-17). Build Phase A first (no AI: chips, actions, ledger, confirm-sweep).
