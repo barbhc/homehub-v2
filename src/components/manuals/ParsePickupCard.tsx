@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { CheckIcon, Loader2Icon, XIcon } from "lucide-react"
 import {
   watchParse,
@@ -12,6 +12,16 @@ import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackS
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import { clearParsePending, isParsePending } from "@/lib/parsePickup"
 import { ReviewItemTasksButton } from "./ReviewItemTasksButton"
+
+/**
+ * Manuals whose review we have already opened by ourselves, this session.
+ *
+ * Module-level rather than component state because the item page remounts on
+ * every navigation, and "we opened this for you once" must survive that — a
+ * sheet that reappears every time the user returns to the item is an ambush,
+ * not a handoff. Cleared only by a reload, which is a cheap enough reset.
+ */
+const autoOpened = new Set<string>()
 
 const ACTIVE_STAGES: ParseStage[] = [
   "queued",
@@ -72,11 +82,16 @@ export function ParsePickupCard({
   const [draftOpen, setDraftOpen] = useState(false)
   const [draftSaving, setDraftSaving] = useState(false)
 
+  /** Manuals we watched actually RUN here, as opposed to finding already done.
+   *  Watching one finish is the strongest evidence the user is waiting on it. */
+  const watchedRunning = useRef<Set<string>>(new Set())
+
   const idsKey = manualIds.join(",")
   useEffect(() => {
     const ids = idsKey ? idsKey.split(",") : []
     const unsubs = ids.map((manualId) =>
       watchParse(homeId, manualId, (stage, parse) => {
+        if (ACTIVE_STAGES.includes(stage)) watchedRunning.current.add(manualId)
         setByManual((prev) => ({
           ...prev,
           [manualId]: { stage, tasks: parse.summary?.tasks ?? null },
@@ -133,7 +148,20 @@ export function ParsePickupCard({
     if (!pickupId) { setDraft(null); return }
     let cancelled = false
     readPreviewDraft(homeId, pickupId)
-      .then((d) => { if (!cancelled) setDraft(d) })
+      .then((d) => {
+        if (cancelled) return
+        setDraft(d)
+        // The handoff (HH-48). `d` non-null means nothing has been saved yet, so
+        // this is the review-and-amend moment rather than a look at live tasks.
+        // Requires the user's own involvement — either their wizard flagged this
+        // parse, or we sat and watched it run — so a stale draft from some
+        // earlier visit never ambushes them on arrival.
+        const theirs = isParsePending(pickupId) || watchedRunning.current.has(pickupId)
+        if (d && theirs && !autoOpened.has(pickupId)) {
+          autoOpened.add(pickupId)
+          setDraftOpen(true)
+        }
+      })
       .catch(() => { if (!cancelled) setDraft(null) })
     return () => { cancelled = true }
   }, [homeId, pickupId])
