@@ -5,34 +5,44 @@ name: CI
 # it re-enables in Phase 2/3 as a separate job running against
 # `firebase emulators:exec` with scripts/seed-emulator.ts.
 
-# Runs on pull_request only. The push-to-main run used to duplicate it: merges
-# here are SQUASH merges, so the tree that lands on main is the tree the PR run
-# already tested, and re-running it cost 982 Actions minutes in Aug 2026 — a
-# third of the monthly allowance — to re-confirm green results.
+# Runs on pull_request AND push-to-main.
 #
-# What that trades away: if main moves between a PR's last run and its merge,
-# the combination is not tested until the next PR. Restore the `push` trigger
-# below (or adopt a merge queue) if that gap ever bites.
+# Both of the narrowing changes made on 19 Aug are reverted here, because the
+# thing that motivated them is gone: the repo went PUBLIC, and GitHub Actions is
+# free and unlimited on public repos. Neither was a coverage decision — both
+# were rationing.
+#
+#   - `push: [main]` was dropped because re-running a squash-merged tree cost
+#     982 minutes, a third of the monthly allowance. The gap it left was
+#     written down at the time and is real: if main moves between a PR's last
+#     run and its merge, that COMBINATION is untested until the next PR. Three
+#     sessions were merging into this repo on 19 Aug, so that was not
+#     hypothetical — it was the normal case.
+#
+#   - `paths-ignore` skipped docs-only PRs. Cheap insurance when minutes were
+#     scarce; pure downside once they are free, since a "docs-only" PR is only
+#     docs-only until someone adds a file to it.
+#
+# If minutes are ever metered again (going private, or moving to an org plan),
+# these are the two knobs to turn first — in this order, and knowing what each
+# one costs.
 on:
   pull_request:
     branches: [main]
-    # A docs-only PR cannot break a typecheck, a rules test or a browser suite,
-    # and the emulator job is ~12 minutes. Five of the PRs merged on 19 Aug were
-    # pure prose and each paid for the full matrix. paths-ignore skips only when
-    # EVERY changed path matches, so a PR touching docs AND code still runs.
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "notes/**"
-      - "design/**"
-  # Manual re-run for exactly the case above — validating main on demand.
+  push:
+    branches: [main]
   workflow_dispatch:
 
-# A new push to a PR makes the in-flight run obsolete. Without this they both
-# run to completion and bill for it.
+# A new push to a PR makes the in-flight run obsolete — cancel it.
+#
+# But NOT on main. Cancelling there abandons the validation of a commit that is
+# already merged and already deployable, and leaves no record that it was ever
+# tested. Every commit on main gets a complete run; only PR branches get
+# superseded. (Free minutes means the only cost of finishing a main run is
+# wall-clock on a runner nobody is waiting for.)
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # One place to bump the emulator tooling, and the key the JAR cache hangs off.
