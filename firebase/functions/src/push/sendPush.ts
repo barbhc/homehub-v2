@@ -7,6 +7,7 @@
  * Phase 4 gate. Invalid tokens are pruned on send (standard FCM hygiene).
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
+import { dueKindOf, safetyPhrase, type DueKind } from "../../../../shared/care/dueWindow.js"
 import { onSchedule } from "firebase-functions/v2/scheduler"
 import { defineSecret } from "firebase-functions/params"
 import { getFirestore, type Firestore } from "firebase-admin/firestore"
@@ -100,10 +101,25 @@ export const sendTestPush = onCall({ region: REGION, secrets: APNS_SECRETS }, as
 })
 
 /**
- * Daily reminder (v1 cron 0 15 * * * ≈ 7–8am Pacific). For each home, notify each
- * member who has tokens about today's due/overdue tasks. Selection mirrors v1's
- * intent (scheduled, not deleted, due on/before today).
+ * Scheduled reminder (0 15 * * * ≈ 7–8am Pacific).
+ *
+ * Two lanes, because two kinds of work deserve different urgency
+ * (design/due-windows.md):
+ *
+ *   DEADLINES — a real date exists (warranty closing, a recall). Pushed the
+ *   day they are due, every day, as before. This is what red is for.
+ *
+ *   WINDOWS — everything else, which is almost everything. A filter change has
+ *   no deadline, so a day-of alarm invents one. These are batched into a single
+ *   SUNDAY digest: "3 things worth doing this month". Push volume for a normal
+ *   home drops to ≤1 digest a week plus true deadlines, which is the design
+ *   doc's done-criterion.
+ *
+ * One function, not two crons: the digest is the same daily run checking the
+ * day of week. A second scheduled function would be a second thing to deploy
+ * and a second thing to forget.
  */
+const DIGEST_WEEKDAY = 0 // Sunday, in the home's display timezone
 export const sendPushDaily = onSchedule(
   { region: REGION, schedule: "0 15 * * *", timeZone: "America/Los_Angeles", secrets: APNS_SECRETS },
   async () => {
@@ -121,7 +137,12 @@ export const sendPushDaily = onSchedule(
     // Keep the tasks themselves, not just a count: a notification that can name
     // the one thing due — and open it — is worth more than one that says "1 task"
     // and drops you on the Home screen to go find it.
-    const byHome = new Map<string, { id: string; title: string; itemName: string | null }[]>()
+    // Sunday in Pacific — the digest lane only runs then.
+    const weekday = new Date(`${today}T12:00:00Z`).getUTCDay()
+    const isDigestDay = weekday === DIGEST_WEEKDAY
+
+    type Pending = { id: string; title: string; itemName: string | null; kind: DueKind; safety: boolean }
+    const byHome = new Map<string, Pending[]>()
     for (const d of due.docs) {
       const homeRef = d.ref.parent.parent
       if (!homeRef) continue
@@ -130,12 +151,21 @@ export const sendPushDaily = onSchedule(
       // phone announced "22 tasks due today" over a Home screen showing 3 —
       // an alert that contradicts the app it opens teaches people to ignore both.
       if (!isAgendaEligible({ careType: d.get("careType") as string | null, scopeType: d.get("scopeType") as string | null })) continue
+      const title = (d.get("title") as string) ?? "A task"
+      const scheduleType = (d.get("scheduleType") as string | null) ?? null
+      const kind = dueKindOf({ title, scheduleType })
+      const dueDate = (d.get("dueDate") as string) ?? today
+      const safety =
+        !!d.get("isSafetyCritical") &&
+        safetyPhrase(dueDate, scheduleType, { today }) !== null
+
+      // Deadlines push the day they land. Everything else waits for Sunday —
+      // and a lapsed SAFETY check rides the digest too rather than going
+      // silent: firm, but not an alarm on a random Tuesday.
+      if (kind !== "deadline" && !isDigestDay) continue
+
       const list = byHome.get(homeRef.path) ?? []
-      list.push({
-        id: d.id,
-        title: (d.get("title") as string) ?? "A task",
-        itemName: (d.get("itemName") as string | null) ?? null,
-      })
+      list.push({ id: d.id, title, itemName: (d.get("itemName") as string | null) ?? null, kind, safety })
       byHome.set(homeRef.path, list)
     }
 
@@ -149,10 +179,33 @@ export const sendPushDaily = onSchedule(
       // and open the Tasks list, because picking one for the user would be a
       // guess. The url is a PATH, never an absolute link — the client refuses
       // anything else.
-      const only = count === 1 ? tasks[0] : null
-      const body = only
-        ? `${only.title}${only.itemName ? ` · ${only.itemName}` : ""}`
-        : `You have ${count} tasks due today.`
+      const deadlines = tasks.filter((t) => t.kind === "deadline")
+      const windows = tasks.filter((t) => t.kind !== "deadline")
+
+      // A deadline is never buried inside a digest — if one is due, it leads.
+      const only = deadlines.length === 1 && windows.length === 0 ? deadlines[0]
+        : count === 1 ? tasks[0]
+        : null
+
+      let title: string
+      let body: string
+      if (deadlines.length > 0) {
+        title = deadlines.length === 1 ? "Deadline today" : `${deadlines.length} deadlines today`
+        const names = deadlines.slice(0, 2).map((t) => t.title).join(" · ")
+        body = windows.length > 0
+          ? `${names}. Plus ${windows.length} other thing${windows.length > 1 ? "s" : ""} worth doing.`
+          : names
+      } else if (only) {
+        title = "Worth doing this week"
+        body = `${only.title}${only.itemName ? ` · ${only.itemName}` : ""}`
+      } else {
+        // The digest. Names, not a bare count: "3 tasks" sends you hunting.
+        title = `${count} things worth doing`
+        const named = tasks.slice(0, 3).map((t) => t.title).join(" · ")
+        const rest = count > 3 ? ` and ${count - 3} more` : ""
+        const safetyNote = tasks.some((t) => t.safety) ? " Includes a safety check." : ""
+        body = `${named}${rest}. No rush on a day — pick a morning.${safetyNote}`
+      }
       // The home id rides in the URL, not in `data`: the APNs lane forwards
       // only {title, body, url}, so a data-only field would be silently dropped
       // on exactly the platform that matters. Without it, a push about the
@@ -165,12 +218,12 @@ export const sendPushDaily = onSchedule(
         const res = await sendToUser(
           db,
           m.id,
-          { title: only ? "Due today" : "Home care today", body },
+          { title, body },
           { homePath, count: String(count), url },
         )
         notified += res.sent
       }
     }
-    console.log(`sendPushDaily: homes=${byHome.size} pushesSent=${notified}`)
+    console.log(`sendPushDaily: digestDay=${isDigestDay} homes=${byHome.size} pushesSent=${notified}`)
   }
 )
