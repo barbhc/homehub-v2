@@ -11,7 +11,7 @@ import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
   addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   TIER_FILTERS, tierFilterCounts,
-  tasksDueOnDay, todayStr, useTaskDetail, whenLabel, type Lens, CLAY, TEAL,
+  tasksDueOnDay, todayStr, useTaskDetail, type Lens, CLAY, TEAL,
 } from "./tasks/shared"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
@@ -176,7 +176,7 @@ function TaskRow({
           <div className="text-[15px] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
-            {t.isOverdue && <span className="size-[5px] shrink-0 rounded-full" style={{ background: CLAY }} />}
+            {t.trulyOverdue && <span className="size-[5px] shrink-0 rounded-full" style={{ background: CLAY }} />}
             <span className="text-[12.5px]" style={{ color: SUB }}>{itemMeta(t)}</span>
           </div>
         </div>
@@ -205,7 +205,9 @@ function TaskRow({
 
 function itemMeta(t: WeekAgendaItem): string {
   const where = t.itemName ?? t.roomName ?? "Home"
-  return `${where} · ${whenLabel(t)}`
+  // Safety work states the skipped cycle instead of a window phrase — firm
+  // without a date, and without red (owner-approved, design/due-windows.md).
+  return `${where} · ${t.safetyNote ?? t.duePhrase}`
 }
 
 // ── Segmented controls ────────────────────────────────────────────────────────

@@ -77,6 +77,9 @@ export interface ComingUpRow {
   when: string
   dueDate: string
   overdueDays: number | null
+  /** Window phrase from the caller ("Oct-ish"), preferred over `when` when the
+   *  task has no real deadline. See design/due-windows.md. */
+  duePhrase: string | null
   /** Days of silence before this row; a gap ≥ 14 days renders as a quiet line. */
   gapBefore: number
 }
@@ -99,6 +102,8 @@ export interface ComingUpInput {
   item_id?: string | null
   next_due_date: string | null
   isOverdue: boolean
+  /** Derived window phrase, if the caller computed one. */
+  duePhrase?: string | null
 }
 
 /**
@@ -126,6 +131,7 @@ export function comingUp(tasks: ComingUpInput[], today: string, limit = 6): Comi
       when: fmtWhen(t.next_due_date!),
       dueDate: t.next_due_date!,
       overdueDays: overdue,
+      duePhrase: t.duePhrase ?? null,
       gapBefore: overdue ? 0 : Math.max(0, gap),
     }
   })
@@ -134,7 +140,9 @@ export function comingUp(tasks: ComingUpInput[], today: string, limit = 6): Comi
 /** The drawer's one-line answer while closed. Never says "0 in August". */
 export function drawerMeta(rows: ComingUpRow[], today: string): string {
   if (rows.length === 0) return "Nothing scheduled yet"
-  const overdue = rows.filter((r) => r.overdueDays != null).length
+  // Rows carrying a window phrase are not "overdue" — only rows the caller
+  // marked without one (real deadlines) still count that way.
+  const overdue = rows.filter((r) => r.overdueDays != null && !r.duePhrase).length
   const month = parseDay(today).toLocaleDateString("en-US", { month: "long" })
   const monthN = parseDay(today).getMonth()
   const inMonth = rows.filter((r) => r.overdueDays == null && parseDay(r.dueDate).getMonth() === monthN).length
@@ -143,7 +151,12 @@ export function drawerMeta(rows: ComingUpRow[], today: string): string {
   if (inMonth > 0) parts.push(`${inMonth} in ${month}`)
   if (parts.length === 0) {
     const next = rows.find((r) => r.overdueDays == null)
-    return next ? `Next: ${next.when}` : `${overdue} overdue`
+    if (next) return `Next: ${next.when}`
+    // Every row is past its target but none is a real deadline — the common
+    // case once windows landed. "0 overdue" was literally false here; say what
+    // is actually true.
+    const waiting = rows.length
+    return waiting > 0 ? `${waiting} waiting` : "Nothing scheduled yet"
   }
   if (overdue === 0) {
     const next = rows.find((r) => r.overdueDays == null)

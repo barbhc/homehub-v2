@@ -6,7 +6,11 @@
 import { collection, getDocs, query, where, Timestamp } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { TopConcernKey } from "@/modules/home/services/homeProfileService"
-import type { CareType, RiskLevel } from "@/integrations/types"
+import type { CareType, RiskLevel, ScheduleType } from "@/integrations/types"
+import {
+  dueKindOf, dueWindow, isTrulyOverdue, safetyPhrase, windowPhrase,
+  type DueKind, type WindowState,
+} from "@/lib/dueWindow"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
 
 /** Due-soon window: tasks due within this many days count as "urgent". */
@@ -63,6 +67,15 @@ export interface DashboardTask {
   effort: TaskEffort | null
   daysOverdue: number | null
   daysUntilDue: number | null
+  /** Due semantics — derived, never stored. See src/lib/dueWindow.ts. */
+  dueKind: DueKind
+  windowState: WindowState
+  /** "Oct-ish" · "Been a while" · "By Sep 30". */
+  duePhrase: string
+  /** Firm, dateless pressure for lapsed safety work; null otherwise. */
+  safetyNote: string | null
+  /** Only a real deadline, actually past, still earns red. */
+  trulyOverdue: boolean
   /**
    * True when this task's template has never been completed. A past-due,
    * never-completed cadence was never actually started, so it's "start
@@ -238,6 +251,9 @@ type TaskInstanceRow = {
   task_instance_id: string
   task_template_id: string
   due_date: string
+  /** Cadence + safety flag drive due-window semantics (design/due-windows.md). */
+  schedule_type: ScheduleType | null
+  is_safety_critical: boolean
   task_template: { title: string; priority_tier: string; risk_level: RiskLevel | null; care_type: CareType | null } | null
   item_unit: { display_name: string; item_unit_id: string; room?: { name: string } } | null
 }
@@ -256,6 +272,9 @@ function toDashboardTask(
   const isOverdue = due < todayStr
   const dueSoonEnd = addDays(todayStr, DUE_SOON_DAYS)
   const isDueSoon = due >= todayStr && due <= dueSoonEnd
+  const scheduleType = row.schedule_type
+  const dueKind = dueKindOf({ title: row.task_template?.title, scheduleType })
+  const windowState = dueWindow(due, scheduleType, { today: todayStr }).state
 
   return {
     id: row.task_instance_id,
@@ -268,6 +287,11 @@ function toDashboardTask(
     priority,
     effort: null,
     daysOverdue,
+    dueKind,
+    windowState,
+    duePhrase: windowPhrase(due, scheduleType, { today: todayStr, kind: dueKind }),
+    safetyNote: row.is_safety_critical ? safetyPhrase(due, scheduleType, { today: todayStr }) : null,
+    trulyOverdue: isTrulyOverdue(due, dueKind, { today: todayStr }),
     daysUntilDue,
     neverCompleted: completedTemplateIds ? !completedTemplateIds.has(row.task_template_id) : false,
     urgencyLevel: computeUrgency(due, todayStr),
@@ -340,6 +364,8 @@ export async function getDashboardTasks(
       task_instance_id: r.id,
       task_template_id: (r.taskTemplateId as string) ?? "",
       due_date: (r.dueDate as string) ?? todayStr,
+      schedule_type: (r.scheduleType as ScheduleType | null) ?? null,
+      is_safety_critical: (r.isSafetyCritical as boolean | undefined) ?? false,
       task_template: {
         title: (r.title as string) ?? "Task",
         priority_tier: (r.priorityTier as string) ?? "optional",
