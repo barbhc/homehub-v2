@@ -36,11 +36,20 @@ interface ManualParseState {
 }
 
 /**
- * Item-page pickup for a wizard parse the user walked away from. Three
- * states, all gated on the wizard's parsePickup handoff flag (old manuals sit
- * at `done` forever, and item-page rescans have their own inline progress):
- * live progress, "N tasks ready — review", and a one-line error. Renders
- * nothing otherwise.
+ * Item-page pickup for a parse whose results are waiting to be reviewed.
+ *
+ * Originally gated ONLY on the wizard's localStorage handoff flag — which the
+ * item-page attach path never sets. The audit smoke walked that path as a
+ * brand-new user: the parse finished, previewDraft held 7 tasks, and this card
+ * rendered null forever. The page said "no manual yet" one line above
+ * "Manuals & References (1)", and the tasks were unreachable. A dead end on
+ * the product's key flow.
+ *
+ * So the DATA is now the gate: a finished manual that still HAS a previewDraft
+ * is by definition awaiting review — commitManualDraft deletes the draft on
+ * save, so a lingering draft cannot mean anything else. The flag remains only
+ * as the fast path for in-flight wizard parses (live progress before any
+ * draft exists) and for surfacing errors from the wizard handoff.
  */
 export function ParsePickupCard({
   homeId,
@@ -83,12 +92,37 @@ export function ParsePickupCard({
     () => Object.entries(byManual).find(([id, s]) => ACTIVE_STAGES.includes(s.stage) && isParsePending(id)),
     [byManual]
   )
+  // Draft probe for every finished manual. Bounded: an item has a handful of
+  // manuals at most, and committed ones return null immediately.
+  const [draftsById, setDraftsById] = useState<Record<string, PreviewResult | null>>({})
+  const doneIdsKey = Object.entries(byManual)
+    .filter(([, s]) => s.stage === "done")
+    .map(([id]) => id)
+    .sort()
+    .join(",")
+  useEffect(() => {
+    const ids = doneIdsKey ? doneIdsKey.split(",") : []
+    let cancelled = false
+    for (const id of ids) {
+      readPreviewDraft(homeId, id)
+        .then((d) => { if (!cancelled) setDraftsById((prev) => (prev[id] === d ? prev : { ...prev, [id]: d })) })
+        .catch(() => { if (!cancelled) setDraftsById((prev) => ({ ...prev, [id]: null })) })
+    }
+    return () => { cancelled = true }
+  }, [homeId, doneIdsKey])
+
   const pickup = useMemo(
     () =>
       Object.entries(byManual).find(
-        ([id, s]) => (s.stage === "done" || s.stage === "error") && isParsePending(id) && !dismissed[id]
+        ([id, s]) =>
+          !dismissed[id] &&
+          // Flag-based: the wizard handed off (done or error both surface).
+          (((s.stage === "done" || s.stage === "error") && isParsePending(id)) ||
+            // Data-based: a finished parse with an unreviewed draft, however it
+            // was started. This is what the item-page attach path produces.
+            (s.stage === "done" && !!draftsById[id]))
       ),
-    [byManual, dismissed]
+    [byManual, dismissed, draftsById]
   )
 
   // Look for a draft as soon as a finished parse is picked up. A manual that
