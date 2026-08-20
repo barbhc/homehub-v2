@@ -10,6 +10,8 @@ import {
 import { upsertHomeProfile } from "@/modules/home"
 import { ChatInput } from "@/components/chat/ChatInput"
 import type { PriorityTier, ScheduleType, Season } from "@/integrations/types"
+import { cadenceLabelInline } from "../../../shared/tasks/cadenceLabel"
+import { splitInterval, toDays, type IntervalUnit } from "../../../shared/care/interval"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)", CLAY = "var(--hh-clay)"
 
@@ -25,7 +27,16 @@ const TIER_OPTS: { key: PriorityTier; label: string }[] = [
   { key: "recommended", label: "Recommended" },
   { key: "optional", label: "Optional" },
 ]
+/**
+ * HH-55 (Chris): "every two weeks isn't an option". It wasn't — and `weekly`,
+ * which every other cadence picker in the app offers, was missing here too.
+ *
+ * The owner's call was to let people customise rather than grow a chip per
+ * permutation, so this stays the standard set plus one Custom door. Weekly is
+ * restored as a consistency fix, not a new permutation.
+ */
 const CADENCE_OPTS: { key: ScheduleType; label: string }[] = [
+  { key: "weekly", label: "Weekly" },
   { key: "monthly", label: "Monthly" },
   { key: "quarterly", label: "Every 3 months" },
   { key: "semiannual", label: "Every 6 months" },
@@ -78,6 +89,10 @@ export function TaskFeedbackSheet({
   const [chip, setChip] = useState<FeedbackChip | null>(null)
   const [tierChoice, setTierChoice] = useState<PriorityTier | null>(null)
   const [cadenceChoice, setCadenceChoice] = useState<ScheduleType | null>(null)
+  /** Only meaningful while cadenceChoice is every_n_days. Defaults to a
+   *  fortnight — the interval the tester actually asked for. */
+  const [customN, setCustomN] = useState(2)
+  const [customUnit, setCustomUnit] = useState<IntervalUnit>("weeks")
   const [seasonChoice, setSeasonChoice] = useState<Season | null>(null)
   const [note, setNote] = useState("")
   const [step, setStep] = useState<"choose" | "discuss" | "pushback" | "confirm">("choose")
@@ -102,11 +117,19 @@ export function TaskFeedbackSheet({
       case "not_relevant": return { action: "suppress" }
       case "duplicate": return { action: "archive_duplicate" }
       case "wrong_priority": return tierChoice ? { action: "tier_remap", toTier: tierChoice } : null
-      case "too_often": return cadenceChoice ? { action: "cadence", scheduleType: cadenceChoice, intervalDays: null } : null
+      case "too_often": return cadenceChoice
+        ? {
+            action: "cadence",
+            scheduleType: cadenceChoice,
+            // Non-custom cadences carry NO interval, so a leftover number can
+            // never outlive the cadence that gave it meaning.
+            intervalDays: cadenceChoice === "every_n_days" ? toDays(customN, customUnit) : null,
+          }
+        : null
       case "wrong_season": return seasonChoice ? { action: "reschedule_season", season: seasonChoice } : null
       default: return null
     }
-  }, [chip, tierChoice, cadenceChoice, seasonChoice])
+  }, [chip, tierChoice, cadenceChoice, customN, customUnit, seasonChoice])
 
   const sweepEligible = chip !== null && chip !== "duplicate"
   const isFreezePrep = ctx?.match.by === "seasonalFamily" && ctx.match.family === "freeze_prep"
@@ -134,7 +157,9 @@ export function TaskFeedbackSheet({
       case "suppress": return `Hide "${title}"`
       case "archive_duplicate": return `Remove "${title}" as a duplicate`
       case "tier_remap": return `Change priority to ${TIER_OPTS.find((t) => t.key === resolution.toTier)?.label}`
-      case "cadence": return `Change to ${CADENCE_OPTS.find((c) => c.key === resolution.scheduleType)?.label.toLowerCase()}`
+      // cadenceLabelInline so a custom interval reads "every 2 weeks" rather
+      // than the enum or a raw day count.
+      case "cadence": return `Change to ${cadenceLabelInline(resolution.scheduleType, resolution.intervalDays)}`
       case "reschedule_season": return `Move to ${SEASON_OPTS.find((s) => s.key === resolution.season)?.label}`
       default: return ""
     }
@@ -156,7 +181,17 @@ export function TaskFeedbackSheet({
     setVia("discuss")
     if (p.action === "suppress") setChip("not_relevant")
     else if (p.action === "tier_remap") { setChip("wrong_priority"); setTierChoice(p.toTier ?? null) }
-    else if (p.action === "cadence") { setChip("too_often"); setCadenceChoice(p.scheduleType ?? null) }
+    else if (p.action === "cadence") {
+      setChip("too_often"); setCadenceChoice(p.scheduleType ?? null)
+      // A DiscussProposal carries no interval — the AI proposes named cadences
+      // only (its tool schema has no interval field), so a custom one can only
+      // come from the user. splitInterval(null) gives them the fortnight default
+      // to adjust rather than an empty box.
+      if (p.scheduleType === "every_n_days") {
+        const { n, unit } = splitInterval(null)
+        setCustomN(n); setCustomUnit(unit)
+      }
+    }
     else if (p.action === "reschedule_season") { setChip("wrong_season"); setSeasonChoice(p.season ?? null) }
     if (hazardous && isDowngrade(r)) setStep("pushback")
     else setStep("confirm")
@@ -282,11 +317,49 @@ export function TaskFeedbackSheet({
               </SubPicker>
             )}
             {chip === "too_often" && (
-              <SubPicker label="How often instead?">
-                {CADENCE_OPTS.map((c) => (
-                  <Choice key={c.key} label={c.label} selected={cadenceChoice === c.key} onClick={() => setCadenceChoice(c.key)} />
-                ))}
-              </SubPicker>
+              <>
+                <SubPicker label="How often instead?">
+                  {CADENCE_OPTS.map((c) => (
+                    <Choice key={c.key} label={c.label} selected={cadenceChoice === c.key} onClick={() => setCadenceChoice(c.key)} />
+                  ))}
+                  <Choice
+                    label="Something else…"
+                    selected={cadenceChoice === "every_n_days"}
+                    onClick={() => setCadenceChoice("every_n_days")}
+                  />
+                </SubPicker>
+                {cadenceChoice === "every_n_days" && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-[13.5px]" style={{ color: SUB }}>Every</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={999}
+                      aria-label="How many"
+                      value={customN}
+                      onChange={(e) => {
+                        const n = Number(e.target.value)
+                        setCustomN(Number.isFinite(n) && n > 0 ? Math.round(n) : 1)
+                      }}
+                      className="w-16 rounded-[10px] px-2.5 py-2 text-[13.5px] font-semibold"
+                      style={{ border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
+                    />
+                    <select
+                      aria-label="Unit"
+                      value={customUnit}
+                      onChange={(e) => setCustomUnit(e.target.value as IntervalUnit)}
+                      className="rounded-[10px] px-2.5 py-2 text-[13.5px] font-semibold"
+                      style={{ border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
+                    >
+                      <option value="days">days</option>
+                      <option value="weeks">weeks</option>
+                      <option value="months">months</option>
+                      <option value="years">years</option>
+                    </select>
+                  </div>
+                )}
+              </>
             )}
             {chip === "wrong_season" && (
               <SubPicker label="When should it happen?">
