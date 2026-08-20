@@ -88,6 +88,26 @@ per *suggest-never-assume*.
    reset tasks (the Core 300's "Reset the Check Filter Indicator" already
    exists) linked to their replace task.
 
+### Status (2026-08-20)
+
+- **Phase 1 — SHIPPED** (#126) plus the push digest (#127).
+- **Phase 2 — SHIPPED** (#128): interval ranges extracted, validated, and
+  deployed. `dueKind` was deliberately NOT added to the extraction schema.
+  Client inference already covers window / deadline / seasonal, Phase 3 covers
+  usage from data already extracted, and each prompt change costs a full eval
+  cycle (~$5) against a harness with real run-to-run variance. Revisit if the
+  inference is ever seen to mislabel something.
+- **Phase 3 — SHIPPED** by inference rather than a prompt change
+  (`shared/care/usageSignal.ts`). An item that has a "Reset Filter Cleaning
+  Indicator" task demonstrably HAS an indicator, so its filter work is
+  indicator-driven. Verified against the owner's 429 real templates: 4 tasks on
+  one range hood reframed as checks, and the same item's "Check LED Light
+  Operation" and "Replace LumiLight LED" correctly untouched — a looser rule
+  would have turned a bulb replacement into a filter check.
+- **Remaining, not scheduled**: `seasonal` kind still uses the cadence default
+  rather than resolving against the home's climate facts (`freezeRisk`); the
+  design's "before first frost" copy is not built.
+
 ## Category considerations
 
 | Category | Kind | Note |

@@ -5,6 +5,7 @@ import {
   dueKindOf, dueWindow, isTrulyOverdue, safetyPhrase, windowPhrase,
   type DueKind, type WindowState,
 } from "@/lib/dueWindow"
+import { indicatorDrivenTitles, usagePhrase } from "../../../../shared/care/usageSignal"
 import type { ServiceResult } from "./taskService"
 import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
@@ -89,6 +90,24 @@ export async function getWeekAgenda(
       (d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>
     )
 
+    // Which tasks the appliance itself signals (design/due-windows.md Phase 3).
+    // Needs SIBLING context — an item's "Reset Filter Indicator" task is the
+    // evidence that its filter work is indicator-driven — so it is computed
+    // per item across the whole set, not per row.
+    const titlesByItem = new Map<string, string[]>()
+    for (const r of all) {
+      const item = (r.itemUnitId as string | null) ?? ""
+      if (!item) continue
+      const list = titlesByItem.get(item) ?? []
+      list.push((r.title as string) ?? "")
+      titlesByItem.set(item, list)
+    }
+    const indicatorDriven = new Map<string, Set<string>>()
+    for (const [item, titles] of titlesByItem) {
+      const driven = indicatorDrivenTitles(titles)
+      if (driven.size > 0) indicatorDriven.set(item, driven)
+    }
+
     // Templates with at least one completed instance — distinguishes a lapsed
     // essential cadence (genuinely overdue) from a never-started one (calm backlog).
     const completedTemplates = new Set(
@@ -112,14 +131,22 @@ export async function getWeekAgenda(
         // fields — those are v1 leftovers and badly stale (April windows on
         // August tasks). See design/due-windows.md.
         const scheduleType = (r.scheduleType as ScheduleType | null) ?? null
-        const dueKind = dueKindOf({ title: r.title as string, scheduleType, careType: r.careType as string | null })
+        const itemId = (r.itemUnitId as string | null) ?? ""
+        const isUsage = !!itemId && (indicatorDriven.get(itemId)?.has((r.title as string) ?? "") ?? false)
+        const dueKind: DueKind = isUsage
+          ? "usage"
+          : dueKindOf({ title: r.title as string, scheduleType, careType: r.careType as string | null })
         // The manual's stated range wins over the cadence default when present.
         const range = {
           intervalDaysMin: (r.intervalDaysMin as number | null) ?? null,
           intervalDaysMax: (r.intervalDaysMax as number | null) ?? null,
         }
         const windowState = dueWindow(dueDate, scheduleType, { today, ...range }).state
-        const duePhrase = windowPhrase(dueDate, scheduleType, { today, kind: dueKind, ...range })
+        // A usage task says what the unit will tell you, and keeps our cadence
+        // only as the fallback — never a date.
+        const duePhrase = isUsage
+          ? usagePhrase(scheduleType)
+          : windowPhrase(dueDate, scheduleType, { today, kind: dueKind, ...range })
         const safetyNote = (r.isSafetyCritical as boolean | undefined)
           ? safetyPhrase(dueDate, scheduleType, { today })
           : null

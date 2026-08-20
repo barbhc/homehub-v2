@@ -150,3 +150,17 @@ describe("groupTasks(urgency) is total", () => {
     expect(groups.map((g) => g.label)).toEqual(["Deadlines", "Good to do now", "Coming up"])
   })
 })
+
+describe("usage-kind tasks in the agenda grouping", () => {
+  it("never lands in Deadlines, and never vanishes", () => {
+    const tasks = [
+      item({ taskInstanceId: "u", dueKind: "usage", windowState: "lapsed", duePhrase: "When the indicator comes on · or about every 6 months" }),
+      item({ taskInstanceId: "d", dueKind: "deadline" }),
+    ]
+    const groups = groupTasks(tasks, "urgency")
+    const deadlineIds = groups.find((g) => g.label === "Deadlines")?.items.map((i) => i.taskInstanceId) ?? []
+    expect(deadlineIds).toEqual(["d"])
+    const all = groups.flatMap((g) => g.items.map((i) => i.taskInstanceId))
+    expect([...all].sort()).toEqual(["d", "u"])
+  })
+})
