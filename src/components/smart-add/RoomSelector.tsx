@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Loader2Icon } from "lucide-react"
 import { useCurrentHome } from "@/modules/home"
 import { getRooms, createRoom } from "@/modules/home"
 import { cn } from "@/lib/utils"
+import { inferRoom } from "../../../shared/inventory/roomInference"
 
 type RoomSelectorProps = {
   value: string | null
@@ -11,6 +12,11 @@ type RoomSelectorProps = {
   id?: string
   className?: string
   disabled?: boolean
+  /** HH-23: the item's subtype, so an unanswered room can fill itself in.
+   *  Only ever fills a room the home actually has, only while the field is
+   *  still empty, and only when the subtype has an unambiguous answer —
+   *  an air purifier could be in any room, so it stays empty and gets asked. */
+  suggestForSubType?: string | null
 }
 
 /** Select sentinel: choosing it swaps the select for a create-a-room input. */
@@ -28,6 +34,7 @@ export function RoomSelector({
   id = "room-select",
   className,
   disabled,
+  suggestForSubType,
 }: RoomSelectorProps) {
   const { home } = useCurrentHome()
   const [rooms, setRooms] = useState<Array<{ room_id: string; name: string }>>([])
@@ -35,11 +42,34 @@ export function RoomSelector({
   const [newRoomName, setNewRoomName] = useState("")
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  /** True while the value on screen is OUR guess and the user hasn't confirmed
+   *  it — drives the "we filled this in" hint, and nothing else. */
+  const [suggested, setSuggested] = useState(false)
+  /** Subtypes we've already offered a guess for, so a re-render doesn't argue
+   *  with someone who deliberately cleared the field. */
+  const offeredFor = useRef<string | null>(null)
 
   useEffect(() => {
     if (!home?.home_id) return
     getRooms(home.home_id).then((r) => setRooms(r.data ?? []))
   }, [home?.home_id])
+
+  // Fill the room in from the item type. Deliberately never overrides a value
+  // that is already set — the guess is a starting point, not a correction.
+  useEffect(() => {
+    if (!suggestForSubType || value != null || rooms.length === 0) return
+    if (offeredFor.current === suggestForSubType) return
+    offeredFor.current = suggestForSubType
+    const guess = inferRoom(suggestForSubType, rooms.map((r) => r.name))
+    if (!guess) return
+    const match = rooms.find((r) => r.name.toLowerCase() === guess.toLowerCase())
+    if (!match) return
+    setSuggested(true)
+    onChange(match.room_id)
+    // onChange is a fresh closure each render in most callers; depending on it
+    // would re-run this on every keystroke elsewhere in the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestForSubType, value, rooms])
 
   const handleCreate = async () => {
     if (!home?.home_id) return
@@ -118,6 +148,9 @@ export function RoomSelector({
               setNewRoomMode(true)
               return
             }
+            // Any deliberate choice ends the "we filled this in" state, whether
+            // they agreed with the guess or replaced it.
+            setSuggested(false)
             onChange(v ? v : null)
           }}
           disabled={disabled}
@@ -132,6 +165,14 @@ export function RoomSelector({
           ))}
           <option value={ROOM_NEW}>+ New room…</option>
         </select>
+      )}
+      {/* A prefill the user cannot see is an assumption, not a suggestion.
+          Says what we did and that it's theirs to change — the whole point of
+          filling it in was to save a tap, not to slip a decision past them. */}
+      {suggested && value != null && !newRoomMode && (
+        <p className="text-xs text-muted-foreground">
+          Filled in from the item type &mdash; change it if that&rsquo;s not where it lives.
+        </p>
       )}
       {createError && <p className="text-xs text-destructive">{createError}</p>}
     </div>

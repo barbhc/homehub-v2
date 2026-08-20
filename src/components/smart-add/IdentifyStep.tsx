@@ -652,9 +652,15 @@ export function IdentifyStep({
     onDataChange({ ...data, subType: id })
   }
 
+  // HH-23: the appliance lane no longer waits for a NAME. Brand + model is
+  // everything the manual lookup needs, and a name typed before the manual is
+  // read is the worst version of the name — it produced "Levoit Core Series Air
+  // Purifiers" for a Core 300. Blank composes to "Brand Model" on save and the
+  // parse improves it. The other lane still needs a name, because there it is
+  // the only thing identifying the item at all.
   const isValid =
     mode === "appliance"
-      ? data.brand.trim().length >= 2 && data.model.trim().length >= 1 && data.name.trim().length > 0
+      ? data.brand.trim().length >= 2 && data.model.trim().length >= 1
       : data.name.trim().length > 0
 
   // ── Lane chooser ──────────────────────────────────────────────────────────
@@ -984,26 +990,6 @@ export function IdentifyStep({
           </>
         )}
 
-        <div>
-          <label htmlFor="identify-name" className="text-sm font-medium text-foreground block mb-1.5">
-            Name <span className="text-destructive">*</span>
-          </label>
-          <Input
-            id="identify-name"
-            value={data.name}
-            onChange={(e) => onDataChange({ ...data, name: e.target.value })}
-            placeholder="e.g., Kitchen refrigerator"
-            maxLength={255}
-            required
-            onBlur={() => setNameTouched(true)}
-            // Only after they've been in the field. In the appliance lane the
-            // name composes itself from brand + model, so an empty Name is the
-            // normal opening state — flagging it in red before anyone has typed
-            // greets people with an error for something we are about to fill in.
-            aria-invalid={nameTouched && data.name.trim().length === 0}
-          />
-        </div>
-
         {(catChip || roomChip) && (
           <div className="flex flex-wrap items-center gap-2 -mt-1">
             <span className="text-xs text-muted-foreground">Suggested</span>
@@ -1037,6 +1023,7 @@ export function IdentifyStep({
             value={data.locationId}
             onChange={(id) => onDataChange({ ...data, locationId: id })}
             id="identify-room"
+            suggestForSubType={data.subType}
           />
           <p className="text-xs text-muted-foreground mt-1">Pick where this item lives in your home.</p>
         </div>
@@ -1136,6 +1123,25 @@ export function IdentifyStep({
                 </div>
               )}
               <div>
+                <label htmlFor="identify-name" className="text-sm font-medium text-foreground block mb-1.5">
+            Name
+          </label>
+                <Input
+            id="identify-name"
+            value={data.name}
+            onChange={(e) => onDataChange({ ...data, name: e.target.value })}
+            placeholder="Defaults to the brand and model"
+            maxLength={255}
+            onBlur={() => setNameTouched(true)}
+            // Only after they've been in the field. In the appliance lane the
+            // name composes itself from brand + model, so an empty Name is the
+            // normal opening state — flagging it in red before anyone has typed
+            // greets people with an error for something we are about to fill in.
+            aria-invalid={nameTouched && data.name.trim().length === 0}
+          />
+                <p className="text-xs text-muted-foreground mt-1">we name it from the brand and model, then improve it from the manual</p>
+              </div>
+              <div>
                 <label htmlFor="identify-serial" className="text-sm font-medium text-foreground block mb-1.5">
                   Serial number
                 </label>
@@ -1213,7 +1219,12 @@ export function IdentifyStep({
               Creating...
             </>
           ) : (
-            "Add item"
+            // HH-23 / owner direction: name the DESTINATION, not the record.
+            // "Add item" made this screen feel like the point; the manual is
+            // the point, and it is the next screen. Deliberately NOT "find the
+            // manual" — the beta's default is the owner uploading their own,
+            // and the automatic search stays behind its labelled beta panel.
+            mode === "appliance" ? "Next: add the manual" : "Add item"
           )}
         </Button>
       </div>

@@ -201,10 +201,18 @@ export default function SmartAddItem() {
     setActionLoading(true)
     // Firestore item (homes/{homeId}/items): `category` is the specific type
     // slug (matches sub_type); the RoomSelector's locationId is a room id.
+    // HH-23: the name is no longer asked for up front, so compose one when it
+    // is blank. Brand + model is a better first name than anything typed before
+    // the manual is read, and the parse improves it from there. "Item" is the
+    // last resort so a save can never fail for want of a display name.
+    const composedName =
+      identifyData.name.trim() ||
+      [identifyData.brand.trim(), identifyData.model.trim()].filter(Boolean).join(" ") ||
+      "Item"
     const result = await createItemUnit({
       home_id: propertyId,
       room_id: identifyData.locationId,
-      display_name: identifyData.name.trim(),
+      display_name: composedName,
       category: identifyData.subType ?? "other",
       item_category: identifyData.itemCategory,
       sub_type: identifyData.subType,
@@ -543,7 +551,7 @@ export default function SmartAddItem() {
       ? identifyMode === "choice"
         ? undefined
         : identifyMode === "appliance"
-          ? "Brand and model first — we'll look up the rest."
+          ? "Brand and model — then we'll add the manual."
           : "A name is enough to start. Details can come later."
       : step === "manual"
         ? "The manual is where this item's upkeep comes from."
