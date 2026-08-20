@@ -28,7 +28,9 @@ export default function OnboardingProfile() {
   const goNext = () => navigate("/onboarding/inventory", { replace: true })
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
+    <div /* pt-safe-top: rendered OUTSIDE AppLayout, where the inset normally
+       comes from — on an iPhone 17 the heading landed under the Dynamic Island */
+    className="min-h-screen pt-safe-top flex flex-col items-center justify-center bg-background p-6">
       <HomeProfileOnboarding
         homeId={home.home_id}
         onComplete={goNext}

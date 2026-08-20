@@ -72,6 +72,34 @@ function addDaysStr(dateStr: string, days: number): string {
  * (default 7), newest-due last, each tagged with its agenda source. Overdue
  * items are included (they still need doing this week).
  */
+/**
+ * How many scheduled tasks the agenda deliberately HIDES.
+ *
+ * Item-scoped cleaning lives in the Deep-Clean guide, not the task feed — a
+ * curation decision, not a bug. But a tester with one air fryer whose whole
+ * task set is cleaning saw "Nothing due — enjoy the calm" on Tasks while the
+ * item page listed three jobs right there. The app contradicting itself is
+ * worse than either answer alone, so the empty state needs this number to
+ * explain where the work went.
+ *
+ * Only called WHEN THE AGENDA IS EMPTY, so the common path pays nothing.
+ */
+export async function countHiddenCleaning(homeId: string): Promise<number> {
+  try {
+    const snap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskInstances`), where("deletedAt", "==", null))
+    )
+    return snap.docs.filter((d) => {
+      const status = d.get("status")
+      if (status !== "scheduled" && status !== "snoozed") return false
+      return !isAgendaEligible({ careType: d.get("careType"), scopeType: d.get("scopeType") })
+    }).length
+  } catch {
+    // The count only enriches copy; never let it break the empty state.
+    return 0
+  }
+}
+
 export async function getWeekAgenda(
   homeId: string,
   opts?: { days?: number }

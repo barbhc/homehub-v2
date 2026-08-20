@@ -233,7 +233,9 @@ function ItemRow({ item }: { item: SampleItem }) {
 
 export default function SampleHome() {
   return (
-    <div className="min-h-screen bg-background">
+    <div /* pt-safe-top: rendered OUTSIDE AppLayout, where the inset normally
+       comes from — on an iPhone 17 the heading landed under the Dynamic Island */
+    className="min-h-screen pt-safe-top bg-background">
       <div className="mx-auto w-full max-w-[640px] px-5 py-6 pb-16">
         <Banner />
 

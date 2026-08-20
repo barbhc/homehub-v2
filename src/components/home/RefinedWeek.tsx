@@ -4,7 +4,7 @@ import {
   AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon,
   SparklesIcon, XIcon,
 } from "lucide-react"
-import { getWeekAgenda, markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
+import { getWeekAgenda, countHiddenCleaning, markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
 import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
@@ -280,6 +280,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   // tier helpers keep their signature.
   const item = "all"
   const [openId, setOpenId] = useState<string | null>(null)
+  /** Scheduled work the agenda hides by design (item-scoped cleaning). */
+  const [hiddenCleaning, setHiddenCleaning] = useState(0)
   const [selDay, setSelDay] = useState<number | null>(null)
   const [dismissed, setDismissed] = useState(false)
   const [items, setItems] = useState<WeekAgendaItem[]>([])
@@ -293,6 +295,11 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const load = useCallback(async () => {
     if (!homeId) return
     const res = await getWeekAgenda(homeId, { days: HORIZON_DAYS })
+    if (!res.error && (res.data?.length ?? 0) === 0) {
+      setHiddenCleaning(await countHiddenCleaning(homeId))
+    } else {
+      setHiddenCleaning(0)
+    }
     setItems(res.data ?? [])
     setLoading(false)
   }, [homeId])
@@ -375,7 +382,12 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
         <div className="mt-1.5 text-[13.5px]" style={{ color: SUB }}>
           {/* When a filter is on, the headline must say so — "2 to do" while
               hiding nine more read as the whole truth and wasn't. */}
-          {loading ? "Loading…" : total === 0 ? "Nothing due — enjoy the calm."
+          {loading ? "Loading…" : total === 0
+            ? (hiddenCleaning > 0
+                // Never leave the user staring at "nothing" while an item page
+                // lists work. Say where it went.
+                ? `Nothing on the schedule — ${hiddenCleaning} cleaning job${hiddenCleaning === 1 ? "" : "s"} live in your guides.`
+                : "Nothing due — enjoy the calm.")
             : tier === "all" ? `${total} to do · ~${Math.round(totalMins / 5) * 5} min total`
             : `${total} of ${totalAll} · ~${Math.round(totalMins / 5) * 5} min`}
         </div>

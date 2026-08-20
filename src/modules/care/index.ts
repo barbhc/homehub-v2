@@ -100,6 +100,7 @@ export {
 
 export {
   getWeekAgenda,
+  countHiddenCleaning,
   createTasksFromEditable,
   type WeekAgendaItem,
   type EditableTaskInput,
