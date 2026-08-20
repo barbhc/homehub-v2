@@ -30,7 +30,13 @@ export interface CommitInput {
   /** The reviewer's per-task reminder choice rides alongside the normalized row;
    *  absent on the worker path (a fresh parse never sets it), which correctly
    *  leaves it null so the tier default applies. */
-  tasks: (NormalizedTaskRow & { remind_enabled?: boolean | null })[]
+  tasks: (NormalizedTaskRow & {
+    remind_enabled?: boolean | null
+    /** "I've been doing this already" from the review screen — the date the
+     *  user says they last did this work. Already validated by the caller
+     *  (parseLastDone); null means anchor on today, the shipped behaviour. */
+    last_done_on?: string | null
+  })[]
   /** "today" anchor for schedules/instances — injectable for deterministic tests. */
   now: Date
 }
@@ -259,10 +265,21 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     // starts, not the moment everything falls due; assuming a backlog of
     // neglect is precisely the "never assert what we haven't verified" failure,
     // and it floods the agenda with urgency the user learns to ignore.
+    //
+    // AND THE CLOCK STARTS WHERE THE USER SAYS IT DOES. An appliance someone
+    // has owned for eight months has a history the add date knows nothing
+    // about; starting its filter schedule from today is as wrong in the other
+    // direction as dumping it all on today was. `last_done_on` is their answer
+    // to "have you been doing this already", and the next window comes off it
+    // through the SAME addCadence — so a task last done outside its interval
+    // lands with a target already behind it, which the due-window layer renders
+    // as "been a while" rather than red. That is the honest reading, and it is
+    // why this needed no special case.
+    const anchor = t.last_done_on ?? today
     const initialDue: string | null =
       t.schedule_type === "seasonal"
         ? seasonalNextDue(seasonForTask(t) ?? "", today)
-        : addCadence(today, t.schedule_type, t.interval_days ?? null)
+        : addCadence(anchor, t.schedule_type, t.interval_days ?? null)
     if (RECURRING.has(t.schedule_type) && initialDue) {
       batch.set(instancesCol.doc(), {
         taskTemplateId: tplRef.id,

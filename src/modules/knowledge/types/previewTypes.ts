@@ -59,6 +59,10 @@ export interface PreviewTask {
   re_check_triggers: PreviewReCheckTrigger[]
   /** Per-task parse confidence 0–1 ("Sort it right" review). Low → "Check this". */
   confidence?: number | null
+  /** "I've been doing this already" from the review screen — the date the user
+   *  says they last did this work, anchoring the first window instead of the
+   *  add date. Never set by the parser; the server re-validates it. */
+  last_done_on?: string | null
   /** The user's reminder choice from the review screen, independent of tier.
    *  Never set by the parser — null means "they didn't choose", and the tier
    *  default in shared/tasks/reviewBuckets applies. Forwarded to save. */
