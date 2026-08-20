@@ -16,6 +16,7 @@ import {
 } from "../../../shared/tasks/reviewBuckets"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
+import { splitInterval, toDays, type IntervalUnit } from "../../../shared/care/interval"
 import { isThinManual, thinManualWarning } from "../../../shared/parse/pdfShape"
 import { classifyActorFromText } from "@/lib/taskActor"
 import type {
@@ -105,7 +106,7 @@ const setupLevelOf = (tier: PriorityTier): PriorityTier => (tier === "optional" 
 const CADENCES: { id: ScheduleType; label: string }[] = [
   { id: "after_each_use", label: "After each use" },
   { id: "weekly", label: "Weekly" },
-  { id: "every_n_days", label: "Every N days" },
+  { id: "every_n_days", label: "Something else…" },
   { id: "monthly", label: "Monthly" },
   { id: "quarterly", label: "Quarterly" },
   { id: "semiannual", label: "Twice a year" },
@@ -752,29 +753,47 @@ function StepTwo({
                         </button>
                       ))}
                     </div>
-                    {r.schedule === "every_n_days" && (
-                      <div className="mt-2.5 flex items-center gap-2">
-                        <label htmlFor={`interval-${r.id}`} className="text-[11.5px] text-muted-foreground">Every</label>
-                        <input
-                          id={`interval-${r.id}`}
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          max={3650}
-                          value={r.intervalDays ?? DEFAULT_INTERVAL_DAYS}
-                          onChange={(e) => {
-                            const n = Number(e.target.value)
-                            patch(r.id, { intervalDays: Number.isFinite(n) && n > 0 ? Math.min(Math.round(n), 3650) : null })
-                          }}
-                          className="w-16 rounded-md border border-border bg-background px-2 py-1 text-[13px]"
-                        />
-                        <span className="text-[11.5px] text-muted-foreground">days</span>
-                        <button type="button" onClick={() => setCadOpenId(null)}
-                          className="ml-auto rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold">
-                          Done
-                        </button>
-                      </div>
-                    )}
+                    {/* HH-55: this used to ask for a number of DAYS, which is
+                        not how anyone describes a schedule — the tester wanted
+                        "every two weeks" and would have had to work out 14.
+                        Number + unit, converted in shared/care/interval so the
+                        label rendered elsewhere reads back the same. */}
+                    {r.schedule === "every_n_days" && (() => {
+                      const cur = splitInterval(r.intervalDays ?? DEFAULT_INTERVAL_DAYS)
+                      return (
+                        <div className="mt-2.5 flex items-center gap-2">
+                          <label htmlFor={`interval-${r.id}`} className="text-[11.5px] text-muted-foreground">Every</label>
+                          <input
+                            id={`interval-${r.id}`}
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            max={999}
+                            value={cur.n}
+                            onChange={(e) => {
+                              const n = Number(e.target.value)
+                              patch(r.id, { intervalDays: toDays(Number.isFinite(n) && n > 0 ? n : 1, cur.unit) })
+                            }}
+                            className="w-16 rounded-md border border-border bg-background px-2 py-1 text-[13px]"
+                          />
+                          <select
+                            aria-label="Unit"
+                            value={cur.unit}
+                            onChange={(e) => patch(r.id, { intervalDays: toDays(cur.n, e.target.value as IntervalUnit) })}
+                            className="rounded-md border border-border bg-background px-2 py-1 text-[13px]"
+                          >
+                            <option value="days">days</option>
+                            <option value="weeks">weeks</option>
+                            <option value="months">months</option>
+                            <option value="years">years</option>
+                          </select>
+                          <button type="button" onClick={() => setCadOpenId(null)}
+                            className="ml-auto rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold">
+                            Done
+                          </button>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
               </div>
