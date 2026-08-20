@@ -78,6 +78,7 @@ export interface ParsedTask {
   title?: string; description?: string; care_type?: string; justification?: string
   priority_tier?: string; risk_level?: string; estimated_minutes?: number
   schedule_type?: string; interval_days?: number; instructions_text?: string
+  interval_days_min?: number; interval_days_max?: number
   source_page?: number
   tags?: string[]; diagram_pages?: Array<{ page: number; caption: string }>
   symptom_tags?: string[]
@@ -263,6 +264,11 @@ export function normalizeTaskRow(t: ParsedTask) {
     source_page: typeof t.source_page === "number" && t.source_page > 0 ? Math.round(t.source_page) : null,
     schedule_type: scheduleType,
     interval_days: t.schedule_type === "every_n_days" && typeof t.interval_days === "number" ? t.interval_days : null,
+    // The RANGE a manual actually states ("every 6-12 months"). Kept for every
+    // schedule_type, not just every_n_days: a monthly task whose manual says
+    // "every 3-6 weeks" has real slack, and collapsing that to one number is
+    // what made the app promise precision it never had (design/due-windows.md).
+    ...normalizeIntervalRange(t.interval_days_min, t.interval_days_max),
     tags: Array.isArray(t.tags) ? t.tags.slice(0, 20).map(String) : [],
     diagram_pages: Array.isArray(t.diagram_pages) ? t.diagram_pages : [],
     symptom_tags: symptomTags,
@@ -270,6 +276,30 @@ export function normalizeTaskRow(t: ParsedTask) {
     applies_to: normalizeAppliesTo(t.applies_to),
     supplies: normalizeSupplies(t.supplies),
   }
+}
+
+
+/**
+ * Validate an extracted cadence range.
+ *
+ * Refuses more than it accepts, because a fabricated range is a false promise
+ * about someone's appliance: both bounds must be sane positive day counts, min
+ * must not exceed max, and an absurd span (over five years, or a max more than
+ * ten times the min) is treated as a misread rather than trusted.
+ */
+export function normalizeIntervalRange(
+  min: unknown,
+  max: unknown,
+): { interval_days_min: number | null; interval_days_max: number | null } {
+  const none = { interval_days_min: null, interval_days_max: null }
+  if (typeof min !== "number" || typeof max !== "number") return none
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return none
+  const lo = Math.round(min)
+  const hi = Math.round(max)
+  if (lo <= 0 || hi <= 0 || lo > hi) return none
+  if (hi > 1825) return none
+  if (lo > 0 && hi / lo > 10) return none
+  return { interval_days_min: lo, interval_days_max: hi }
 }
 
 export type NormalizedTaskRow = ReturnType<typeof normalizeTaskRow>

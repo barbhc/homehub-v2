@@ -113,8 +113,13 @@ export async function getWeekAgenda(
         // August tasks). See design/due-windows.md.
         const scheduleType = (r.scheduleType as ScheduleType | null) ?? null
         const dueKind = dueKindOf({ title: r.title as string, scheduleType, careType: r.careType as string | null })
-        const windowState = dueWindow(dueDate, scheduleType, { today }).state
-        const duePhrase = windowPhrase(dueDate, scheduleType, { today, kind: dueKind })
+        // The manual's stated range wins over the cadence default when present.
+        const range = {
+          intervalDaysMin: (r.intervalDaysMin as number | null) ?? null,
+          intervalDaysMax: (r.intervalDaysMax as number | null) ?? null,
+        }
+        const windowState = dueWindow(dueDate, scheduleType, { today, ...range }).state
+        const duePhrase = windowPhrase(dueDate, scheduleType, { today, kind: dueKind, ...range })
         const safetyNote = (r.isSafetyCritical as boolean | undefined)
           ? safetyPhrase(dueDate, scheduleType, { today })
           : null

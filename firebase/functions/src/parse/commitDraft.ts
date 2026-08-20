@@ -196,6 +196,9 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     schedule: {
       scheduleType: t.schedule_type,
       intervalDays: t.interval_days,
+      // The manual's stated range, when it gave one — drives the due window.
+      intervalDaysMin: t.interval_days_min ?? null,
+      intervalDaysMax: t.interval_days_max ?? null,
       anchorDate: today,
       season: seasonForTask(t),
       windowDaysBefore: 7,
@@ -282,6 +285,8 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
         scopeType: "item_unit",
         estimatedMinutes: t.estimated_minutes,
         scheduleType: t.schedule_type,
+        intervalDaysMin: t.interval_days_min ?? null,
+        intervalDaysMax: t.interval_days_max ?? null,
         itemName: item.display_name ?? null,
         roomName: null,
         createdAt: nowTs,

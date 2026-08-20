@@ -74,6 +74,20 @@ export function toleranceDays(scheduleType: ScheduleTypeLike, intervalDays?: num
   return (scheduleType ? TOLERANCE_DAYS[scheduleType] : undefined) ?? 7
 }
 
+
+/**
+ * Half the span of a stated range, in days — the honest window when the manual
+ * told us one. "Every 6-12 months" is a 180-day span, so ±90 around the
+ * midpoint. Returns null when there is no usable range, so the caller falls
+ * back to the cadence default.
+ */
+export function rangeTolerance(min?: number | null, max?: number | null): number | null {
+  if (typeof min !== "number" || typeof max !== "number") return null
+  if (min <= 0 || max <= 0 || max < min) return null
+  const half = Math.round((max - min) / 2)
+  return half > 0 ? half : null
+}
+
 /**
  * The window around a target date. `dueDate` keeps its meaning as the target —
  * unchanged in the database, unchanged by this function.
@@ -81,10 +95,18 @@ export function toleranceDays(scheduleType: ScheduleTypeLike, intervalDays?: num
 export function dueWindow(
   dueDate: string,
   scheduleType: ScheduleTypeLike,
-  opts?: { today?: string; intervalDays?: number | null },
+  opts?: {
+    today?: string
+    intervalDays?: number | null
+    /** The manual's stated range ("every 6-12 months"), when it gave one.
+     *  Half its span IS the window — no invented tolerance needed. */
+    intervalDaysMin?: number | null
+    intervalDaysMax?: number | null
+  },
 ): DueWindow {
   const today = opts?.today ?? todayStr()
-  const tol = toleranceDays(scheduleType, opts?.intervalDays)
+  const tol = rangeTolerance(opts?.intervalDaysMin, opts?.intervalDaysMax)
+    ?? toleranceDays(scheduleType, opts?.intervalDays)
   const start = addDays(dueDate, -tol)
   const end = addDays(dueDate, tol)
   const state: WindowState = today < start ? "upcoming" : today > end ? "lapsed" : "open"
@@ -137,18 +159,25 @@ export function shortDate(dateStr: string): string {
 export function windowPhrase(
   dueDate: string,
   scheduleType: ScheduleTypeLike,
-  opts?: { today?: string; kind?: DueKind; intervalDays?: number | null },
+  opts?: {
+    today?: string; kind?: DueKind; intervalDays?: number | null
+    intervalDaysMin?: number | null; intervalDaysMax?: number | null
+  },
 ): string {
   const today = opts?.today ?? todayStr()
   const kind = opts?.kind ?? "window"
   if (kind === "deadline") return `By ${shortDate(dueDate)}`
 
-  const w = dueWindow(dueDate, scheduleType, { today, intervalDays: opts?.intervalDays })
+  const w = dueWindow(dueDate, scheduleType, {
+    today, intervalDays: opts?.intervalDays,
+    intervalDaysMin: opts?.intervalDaysMin, intervalDaysMax: opts?.intervalDaysMax,
+  })
   if (w.state === "lapsed") return "Been a while"
   if (w.state === "open") {
     // Inside the window and the target is close: "this week" reads truer than a
     // month name when the whole window is days wide.
-    const tol = toleranceDays(scheduleType, opts?.intervalDays)
+    const tol = rangeTolerance(opts?.intervalDaysMin, opts?.intervalDaysMax)
+      ?? toleranceDays(scheduleType, opts?.intervalDays)
     return tol <= 3 ? "This week" : "Good to do now"
   }
   return monthish(dueDate)
