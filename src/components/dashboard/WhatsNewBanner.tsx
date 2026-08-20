@@ -3,11 +3,29 @@ import { SparklesIcon, XIcon, ChevronRightIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getPreference, setPreference } from "@/lib/userPreferences"
 import { WHATS_NEW_ENTRIES, type WhatsNewEntry } from "@/lib/whatsNew"
+import { auth } from "@/integrations/firebase"
 
 const PREF_WHATS_NEW_DISMISSED = "whats_new_dismissed_version"
 
 interface WhatsNewBannerProps {
   userId: string
+}
+
+
+/**
+ * Did this account exist before the entry shipped?
+ *
+ * Returns false when the account is demonstrably NEWER than the entry (skip the
+ * banner), true when it is older, and true when we cannot tell — an unknown
+ * creation time should not silence a genuine announcement.
+ */
+function accountPredatesEntry(version: string): boolean {
+  const created = auth.currentUser?.metadata?.creationTime
+  if (!created) return true
+  const createdAt = new Date(created).getTime()
+  const shippedAt = new Date(`${version}T00:00:00Z`).getTime()
+  if (Number.isNaN(createdAt) || Number.isNaN(shippedAt)) return true
+  return createdAt < shippedAt
 }
 
 export function WhatsNewBanner({ userId }: WhatsNewBannerProps) {
@@ -20,6 +38,13 @@ export function WhatsNewBanner({ userId }: WhatsNewBannerProps) {
     async function check() {
       const current = WHATS_NEW_ENTRIES[0]
       if (!current) return
+      // Never announce a change to someone who was never there for it. A
+      // tester who signed up on 17 Aug was shown "What's new — Smarter
+      // categories", dated 14 April, on every visit: not a bug in dismissal
+      // (his preferences doc proves writes land — it holds tour_completed),
+      // but a changelog aimed at the wrong audience. He had nothing to
+      // dismiss, because it was never news to him.
+      if (accountPredatesEntry(current.version) === false) return
       try {
         const dismissed = await getPreference<string>(userId, PREF_WHATS_NEW_DISMISSED)
         if (dismissed === current.version) return

@@ -38,7 +38,9 @@ export default function OnboardingInventory() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
+    <div /* pt-safe-top: rendered OUTSIDE AppLayout, where the inset normally
+       comes from — on an iPhone 17 the heading landed under the Dynamic Island */
+    className="min-h-screen pt-safe-top flex flex-col items-center justify-center bg-background p-6">
       <div className="w-full max-w-2xl">
         <PageHeader
           title="Add your first items"
