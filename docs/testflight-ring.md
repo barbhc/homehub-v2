@@ -21,17 +21,15 @@ undone produces data you cannot act on.
       units and `fns.<fn>.charged` / `.failed`; `usage/{uid}/daily/{day}` holds
       per-user units. Read them once *now* so you know what normal looks like
       before you have nine people to compare against.
-- [ ] 🚨 **Wire Sentry. It is currently OFF in production.** Verified
-      2026-08-19 by downloading the live bundle from
-      `https://homehub-2068d.web.app`: it contains the PostHog key but **no
-      Sentry DSN**. `src/main.tsx:42` reads `VITE_SENTRY_DSN`, and that variable
-      is empty in `.env`, so `Sentry.init` never runs and nothing is captured.
-      `docs/launch-readiness.md` lists Sentry under *"already in good shape —
-      don't redo"*, which is how this stayed invisible.
-      **Set `VITE_SENTRY_DSN`, rebuild, redeploy, then trigger one real error on
-      the live site and confirm it arrives.** Every "watch Sentry" row below is
-      watching nothing until this is done — and "no errors reported" from an
-      un-wired Sentry looks exactly like a healthy ring.
+- [x] **Sentry wired — one human look left.** The DSN is in the served entry
+      (verified 2026-08-20 against the live bundle; the "reports NO errors"
+      warning string is compiled out, which only happens when the DSN is
+      inlined). A test error was thrown on the live site and the SDK posted its
+      envelope to `o…ingest.us.sentry.io` — **open the Sentry project once and
+      confirm `sentry-wire-check 2026-08-20` arrived**, then resolve it. Two
+      caveats: `SENTRY_AUTH_TOKEN`/`SENTRY_ORG` are empty in `.env`, so nothing
+      can verify arrival from the CLI, and source maps have never uploaded (CI
+      has never run green), so stack traces arrive minified until that lands.
 - [ ] **Analytics funnel fires.** `sign_up → home_created → first_item_added →
       item_content_viewed → task_checked`. Without these, "where onboarding drops
       people" is unanswerable and this ring's main question goes unanswered.
