@@ -570,9 +570,13 @@ export default function Home() {
         {isNewUser && (
           <div className="mt-2 mb-4">
             {/* The switcher lives in the greeting header, which this branch
-                replaces — so a freshly added home would be a room with no door:
-                no tasks, no header, no way back to the home you came from. */}
-            {homes.length > 1 && home && (
+                replaces — so this pill is the empty state's only door between
+                homes. It must show for a SINGLE home too: gating on
+                homes.length > 1 meant a one-home user had no way to add a
+                second home anywhere in the app until their first home had
+                tasks — the audit walked Sonia's exact setup path (fresh
+                account, own home, then the parents' house) straight into it. */}
+            {home && (
               <button
                 type="button"
                 onClick={() => setSwitcherOpen(true)}
