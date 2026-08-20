@@ -67,27 +67,50 @@ describe("applyTierFilter", () => {
   })
 })
 
-// Fix C: the "Start here" banner surfaces ONLY for genuinely-overdue essentials.
-// A never-completed essential is calm "Start anytime" (isOverdue false), NOT
-// overdue — so the banner correctly stays hidden for it. The root cause of the
-// stale v1 spec was expecting "Start here" with essentials that were never
-// overdue (no completion history).
+// The "Start here" banner surfaces ONLY for work that is genuinely late.
+//
+// Under due windows (design/due-windows.md) that is `trulyOverdue` — a real
+// calendar deadline that has passed — NOT `isOverdue`, which a window-kind task
+// reaches simply by drifting past its target. These two assertions still named
+// the pre-window contract ("N essential tasks are overdue") and went red when
+// computeInsight moved to deadlines; they are updated here rather than the
+// implementation, because a filter change that is due "sometime this month"
+// showing "Start here" is exactly the false urgency the redesign removed.
 describe("computeInsight — Start here, or nothing", () => {
-  it("2 overdue essentials → kind: start, 'Start here'", () => {
+  it("2 passed deadlines → kind: start, 'Start here'", () => {
     const tasks = [
-      task({ priorityTier: "essential", isOverdue: true }),
-      task({ priorityTier: "essential", isOverdue: true }),
+      task({ priorityTier: "essential", isOverdue: true, trulyOverdue: true }),
+      task({ priorityTier: "essential", isOverdue: true, trulyOverdue: true }),
     ]
     const insight = computeInsight(tasks)!
     expect(insight.kind).toBe("start")
     expect(insight.label).toBe("Start here")
-    expect(insight.text).toMatch(/2 essential tasks are overdue/)
+    expect(insight.text).toMatch(/2 deadlines have passed/)
   })
 
-  it("1 overdue essential → 'Start here' (singular copy)", () => {
-    const insight = computeInsight([task({ priorityTier: "essential", isOverdue: true })])!
+  it("1 passed deadline → singular copy", () => {
+    const insight = computeInsight([task({ priorityTier: "essential", isOverdue: true, trulyOverdue: true })])!
     expect(insight.kind).toBe("start")
-    expect(insight.text).toMatch(/1 essential task is overdue/)
+    expect(insight.text).toMatch(/1 deadline has passed/)
+  })
+
+  it("an essential past its WINDOW is not a deadline → no 'Start here'", () => {
+    // The whole point of windows: drifting past a target is "been a while",
+    // not "late". Only trulyOverdue earns the banner.
+    const tasks = [
+      task({ priorityTier: "essential", isOverdue: true, trulyOverdue: false }),
+      task({ priorityTier: "essential", isOverdue: true, trulyOverdue: false }),
+    ]
+    expect(computeInsight(tasks)?.label).not.toBe("Start here")
+  })
+
+  it("a lapsed safety check earns firmness, without the word overdue", () => {
+    const insight = computeInsight([
+      task({ priorityTier: "essential", safetyNote: "Monthly check · skipped July" }),
+    ])!
+    expect(insight.label).toBe("Worth doing")
+    expect(insight.text).toMatch(/1 safety check has skipped a cycle/)
+    expect(insight.text).not.toMatch(/overdue/i)
   })
 
   it("essentials that are past-due but NEVER completed are NOT overdue → no banner", () => {

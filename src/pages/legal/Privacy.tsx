@@ -9,6 +9,12 @@ import { LEGAL } from "./legalConfig"
  * category of stored data, this page is part of that change: App Store Connect's
  * App Privacy answers have to match it, and a policy that drifts from the code
  * is worse than none.
+ *
+ * ⚠️ THIS POLICY HAS A SIBLING: `public/privacy.html` is a standalone static
+ * copy, and it — not this route — is the URL filed with Apple, because a React
+ * route renders nothing when the bundle fails to load. Change both together;
+ * `staticPrivacy.test.ts` fails the build if the sections, the processor list,
+ * or the legalConfig values drift apart.
  */
 export default function Privacy() {
   return (
