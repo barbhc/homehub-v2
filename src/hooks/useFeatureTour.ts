@@ -50,6 +50,46 @@ function visibleTarget(selector: string): () => Element {
   }
 }
 
+/**
+ * May the tour start RIGHT NOW?
+ *
+ * Auto-start is asynchronous twice over — a Firestore preference read, then a
+ * settle timer — and the user keeps moving while both run. In the pre-beta
+ * audit the tour fired over the ITEM PAGE, mid-task, the moment a brand-new
+ * user tapped "Find the manual": a five-step "this is your dashboard" walkthrough
+ * covering a page it wasn't describing. Three refusals, checked at drive time:
+ *
+ *   · not on /home any more — the user outran the timer; describing the
+ *     dashboard from any other page is noise at best
+ *   · a dialog is open — never interrupt a task in progress
+ *   · the first step's target isn't visibly on screen — the new-user empty
+ *     state has no dashboard yet, and driver.js's fallback is a centred modal
+ *     narrating things the user cannot see
+ *
+ * Skipping does NOT mark the tour completed: the next visit to Home re-checks,
+ * so the tour simply waits for the first quiet moment on a real dashboard.
+ */
+export function tourCanStartNow(
+  firstStepSelector: string | undefined,
+  pathname: string = window.location.pathname,
+  doc: Document = document,
+): boolean {
+  if (pathname !== "/home") return false
+  if (doc.querySelector('[role="dialog"], .driver-popover')) return false
+  // A surface can declare itself a no-tour zone. The new-user empty state does:
+  // it IS the onboarding, and a dashboard walkthrough on top of it narrates
+  // things the screen deliberately doesn't show yet.
+  if (doc.querySelector("[data-tour-halt]")) return false
+  if (firstStepSelector) {
+    const target = [...doc.querySelectorAll(firstStepSelector)].find((el) => {
+      const r = el.getBoundingClientRect()
+      return r.width > 0 && r.height > 0
+    })
+    if (!target) return false
+  }
+  return true
+}
+
 /** `route` is ours, not driver.js's — strip it before handing steps over. */
 function toDriveSteps(steps: TourStep[]): DriveStep[] {
   return steps.map(({ route: _route, element, ...step }) => ({
@@ -110,6 +150,8 @@ export function useFeatureTour() {
     let timer: number | undefined
     const startTour = () => {
       timer = window.setTimeout(() => {
+        const first = tourSteps[0]?.element
+        if (!tourCanStartNow(typeof first === "string" ? first : undefined)) return
         const d = buildDriver(uid)
         driverRef.current = d
         d.drive()
