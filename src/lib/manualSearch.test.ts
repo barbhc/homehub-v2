@@ -13,3 +13,27 @@ describe("manualSearchUrl", () => {
     expect(url.startsWith("https://www.google.com/search?q=")).toBe(true)
   })
 })
+
+/**
+ * HH-72 — the pre-filled search behind the link.
+ *
+ * The owner reported this as a MISSING feature while looking at the screen it
+ * lives on, because the link was labelled "Search the web yourself". These pin
+ * the half that made that label a lie: the query is already written for you.
+ */
+describe("HH-72 — what the link actually hands Google", () => {
+  it("includes the brand, the model, and what kind of document", () => {
+    const q = decodeURIComponent(new URL(manualSearchUrl("LG", "DLGX3901B")).searchParams.get("q")!)
+    expect(q).toContain("LG")
+    expect(q).toContain("DLGX3901B")
+    expect(q).toMatch(/owner'?s manual/i)
+  })
+
+  it("does not leave a double space when the model is missing", () => {
+    // The add flow can reach this with a brand and no model yet, and
+    // "LG  owner's manual pdf" is a worse search than "LG owner's manual pdf".
+    const q = new URL(manualSearchUrl("LG", "")).searchParams.get("q")!
+    expect(q).not.toMatch(/\s{2,}/)
+    expect(q).toBe("LG owner's manual pdf")
+  })
+})

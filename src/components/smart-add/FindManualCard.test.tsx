@@ -124,3 +124,20 @@ describe("HH-73 — what the result actually is", () => {
     await waitFor(() => expect(screen.getByText(/DLGX3901B-parts/i)).toBeInTheDocument())
   })
 })
+
+describe("HH-72 — the web-search link says what it does", () => {
+  it("does not send the user away empty-handed", async () => {
+    // "Search the web yourself" reads as being left to it. We hand Google the
+    // brand, the model and "owner's manual pdf" already typed in — the label
+    // was the only thing hiding that, and the owner reported it as a MISSING
+    // feature while looking at the screen it lives on.
+    call.mockResolvedValue({ candidates: [], source: "search" })
+    render(<FindManualCard brand="LG" model="DLGX3901B" onPick={() => {}} autoStart />)
+    // manualSearchUrl is mocked in this file, so what the URL CONTAINS is
+    // asserted in manualSearch.test.ts where the real function lives. What this
+    // component owns is the label, and that it routes through that helper.
+    const link = await screen.findByRole("link", { name: /Search Google for this manual/i })
+    expect(link).toHaveAttribute("href", "https://example.test/search")
+    expect(screen.queryByText(/yourself/i)).not.toBeInTheDocument()
+  })
+})

@@ -179,12 +179,16 @@ export function FindManualCard({
                 className="font-semibold underline"
                 style={{ color: "var(--hh-teal)" }}
               >
-                Search the web yourself →
+                Search Google for this manual →
               </a>
             </div>
           ) : (
             <>
-              <div className="mb-2 text-[12px]" style={{ color: "var(--hh-sub)" }}>
+              {/* HH-72: was "Search the web yourself", which is the word doing
+                the damage — it reads as being sent away empty-handed. We hand
+                Google the brand, the model and "owner's manual pdf" already
+                typed in; the label should say so. */}
+            <div className="mb-2 text-[12px]" style={{ color: "var(--hh-sub)" }}>
                 Found {candidates.length === 1 ? "one that looks right" : `${candidates.length} that could be right`} — pick the one that matches your model.
               </div>
               <ul className="flex flex-col gap-2">
@@ -294,7 +298,7 @@ export function FindManualCard({
                   className="text-[11.5px] font-semibold underline"
                   style={{ color: "var(--hh-sub)" }}
                 >
-                  Search the web yourself →
+                  Search Google for this manual →
                 </a>
               </div>
             </>
