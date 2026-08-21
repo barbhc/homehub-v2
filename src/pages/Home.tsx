@@ -200,6 +200,46 @@ function DashboardCalendar({ tasks, selectedDay, onSelectDay, month, onPrevMonth
 
 // ── Agenda ──────────────────────────────────────────────────────────────────
 
+/**
+ * HH-80 — items, but nothing to do with them yet.
+ *
+ * Says the one thing that is true and useful in this state: upkeep comes from
+ * the manual, and this home has items without one. Deliberately NOT a fourth
+ * variant of "add an item" — they have already done that, and telling someone
+ * to repeat the step that did not work is how an empty screen becomes an
+ * insulting one.
+ */
+function NoUpkeepYetHero() {
+  return (
+    <div className="rounded-2xl border px-5 py-5 sm:px-6"
+      style={{ borderColor: "var(--hh-teal)", background: "var(--hh-teal-wash)" }}>
+      <h2 className="text-[17px] font-extrabold tracking-[-0.015em]" style={{ color: "var(--hh-ink)" }}>
+        No upkeep yet — add a manual
+      </h2>
+      <p className="mt-1.5 text-[13.5px] leading-snug" style={{ color: "var(--hh-sub)" }}>
+        Homehub builds a maintenance schedule by reading an item&rsquo;s manual. Your items don&rsquo;t have one
+        we could read yet, so there&rsquo;s nothing to show here.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          to="/inventory"
+          className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold text-white"
+          style={{ background: "var(--hh-teal)" }}
+        >
+          Pick an item &rarr;
+        </Link>
+        <Link
+          to="/inventory/add"
+          className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[13.5px] font-semibold"
+          style={{ borderColor: "var(--hh-line2)", color: "var(--hh-sub)" }}
+        >
+          Add another item
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 function EmptyHomeHero() {
   return (
     // data-tour-halt: this screen IS the onboarding — the feature tour defers
@@ -510,6 +550,12 @@ export default function Home() {
   }
 
   const isNewUser = (stats?.totalItems ?? 0) === 0
+  // HH-80: the state between "no items" and "a working home". The owner added
+  // an item, its manual search offered her two wrong documents (HH-73), so it
+  // produced no upkeep — and Home answered with "All quiet · Nothing scheduled
+  // yet" over a profile nag. Nothing on the screen was false and nothing was
+  // any use. This is the one state where we know exactly what would help.
+  const hasItemsNoUpkeep = !isNewUser && (stats?.scheduledTaskCount ?? 0) === 0
 
   return (
     <div className="flex flex-col pb-8">
@@ -601,16 +647,21 @@ export default function Home() {
           </div>
         )}
 
-        {!isNewUser && profileIncomplete && homeId && (
+        {/* The profile banner yields to the upkeep prompt. Both are asking for
+            the user's next action, and answering four profile questions does
+            not get them a single task — adding a manual does. */}
+        {!isNewUser && !hasItemsNoUpkeep && profileIncomplete && homeId && (
           <ProfileCompletionBanner homeId={homeId} />
         )}
+
+        {hasItemsNoUpkeep && <NoUpkeepYetHero />}
 
         {/* Push opt-in nudge: self-gates on browser support + existing
             subscription + dismissal, so it's safe to always render when the
             user has a home. Only one opt-in banner shows at a time — if the
             profile banner is still visible, skip the push nudge to avoid
             stacking. */}
-        {!isNewUser && !profileIncomplete && user?.id && homeId && (
+        {!isNewUser && !hasItemsNoUpkeep && !profileIncomplete && user?.id && homeId && (
           <PushOptInNudge userId={user.id} homeId={homeId} />
         )}
 

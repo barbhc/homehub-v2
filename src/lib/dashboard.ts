@@ -95,6 +95,11 @@ export const HABIT_SCHEDULE_TYPES = new Set(["as_needed", "after_each_use"])
 
 export interface DashboardStats {
   totalItems: number
+  /** Every open scheduled instance, at ANY date and of any care type.
+   *  HH-80 needs to tell "you have upkeep, none of it this week" apart from
+   *  "you have no upkeep at all", and dueSoonCount/overdueTaskCount both
+   *  answer a narrower question than that. */
+  scheduledTaskCount: number
   overdueTaskCount: number
   dueSoonCount: number
   completedThisMonth: number
@@ -496,6 +501,7 @@ export async function getDashboardStats(propertyId: string): Promise<DashboardSt
   let overdueTaskCount = 0
   let dueSoonCount = 0
   let completedThisMonth = 0
+  let scheduledTaskCount = 0
   for (const doc of instSnap.docs) {
     const r = doc.data() as Record<string, unknown>
     if (r.status === "done") {
@@ -504,6 +510,10 @@ export async function getDashboardStats(propertyId: string): Promise<DashboardSt
       continue
     }
     if (r.status !== "scheduled") continue
+    // Counted BEFORE the cleaning filter and before any date test: an item
+    // whose only upkeep is cleaning still has upkeep, and telling that user
+    // "nothing is scheduled yet" would be the same lie HH-82 was about.
+    scheduledTaskCount++
     if (r.careType === "cleaning") continue // route to Deep Clean, not the feed
     const d = r.dueDate as string | undefined
     if (!d) continue
@@ -516,7 +526,7 @@ export async function getDashboardStats(propertyId: string): Promise<DashboardSt
     }
   }
 
-  return { totalItems, overdueTaskCount, dueSoonCount, completedThisMonth }
+  return { totalItems, overdueTaskCount, dueSoonCount, completedThisMonth, scheduledTaskCount }
 }
 
 export interface MaintenanceTaskFull {
