@@ -19,6 +19,42 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-08-21 (evening) — round 9 (owner's add-manual run · 9 reports in 20 minutes)
+
+**Headline: one systemic bug (every dialog in the app lost scrolling past one
+screen of content), one self-inflicted regression (the composed name meeting an
+unconditional subtitle), and five reports that are a single item-page design
+problem. Two shipped same-day; the design work is mocked on the Round 9
+Redlines page and parked on the owner's picks.**
+
+Pulled 19:57 UTC. 91 items, 9 new, no crashes. All reporters are the owner.
+
+### Fixed and live (#145)
+
+| # | Report | Root cause |
+|---|---|---|
+| HH-90 | "The page freezes up… where is the Google link?" | `DialogContent` had no max-height and no overflow — content past one screen grew off BOTH viewport edges with nothing scrollable, on every dialog in the app. The "missing" Google link was present below the cut-off; one bug, two symptoms. Fixed with `max-h-[calc(100dvh-2rem)] + overflow-y-auto` (dvh — iOS Safari's vh lies) |
+| HH-86 | "Why is the brand name repeated at the top?" | Ours: #139 composes blank names as "Brand Model"; both detail headers rendered name + "brand · model" unconditionally. `itemSubtitle()` now suppresses by content, per-part |
+
+### Blocked on the owner's picks (Round 9 Redlines page)
+
+| # | Waiting on |
+|---|---|
+| HH-83/84/85/91 | The item-page redesign: schedule first, setup collapsed behind "Already set up", Ask contextual, empty state leads with the manual |
+| HH-87 | One of 3 in-progress states + yes/no on the global parsing tray. Cause found: `hasManual` is `parsed_at !== null`, so a parsing manual reads as none |
+| HH-89 | One of 3 manual-section/upload designs |
+| HH-88 | One wording pick per sentence (2 sentences, 3 options each) |
+
+### Roadmap
+
+HH-78 (sample home — redesign mocked on the same page), HH-74 (reconfirmed).
+
+### Rejected
+
+HH-1, reconfirmed. Listed for deletion.
+
+---
+
 ## 2026-08-21 (late) — round 8 (owner's continued test + Chris · 3 reports)
 
 **Headline: three reports, one complaint. Someone adds an item and the app shows
