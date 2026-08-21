@@ -36,7 +36,30 @@ Pulled 19:57 UTC. 91 items, 9 new, no crashes. All reporters are the owner.
 | HH-90 | "The page freezes up… where is the Google link?" | `DialogContent` had no max-height and no overflow — content past one screen grew off BOTH viewport edges with nothing scrollable, on every dialog in the app. The "missing" Google link was present below the cut-off; one bug, two symptoms. Fixed with `max-h-[calc(100dvh-2rem)] + overflow-y-auto` (dvh — iOS Safari's vh lies) |
 | HH-86 | "Why is the brand name repeated at the top?" | Ours: #139 composes blank names as "Brand Model"; both detail headers rendered name + "brand · model" unconditionally. `itemSubtitle()` now suppresses by content, per-part |
 
-### Blocked on the owner's picks (Round 9 Redlines page)
+### All picks shipped same-day (#146–#149, verified live)
+
+Her picks: item page yes; HH-83 exit-not-accept; 87 A+tray; 89 A+find lane;
+88 options 1+2; 78 approved for its roadmap turn. One correction her
+screenshots forced: **HH-84 and HH-85 were review-sheet reports, not item-page
+ones** — the item page already kept schedule first and setup last; the review
+sheet had learned neither lesson. Fixes landed on the right screen.
+
+| # | Shipped as |
+|---|---|
+| HH-83 | No finish path while a walkthrough card is open — footer shows "N of 11 decided · nothing is saved until the end"; ✕ Exit remains the way out and saves nothing |
+| HH-88 | Both sentences, her picks (dash; shortened dialog copy) |
+| HH-89 | Drop-zone upload + named lanes + "Find it for me · Beta" + PDF/LINK/REF tags. Fixing call sites caught "Re-upload PDF" opening the LINK tab |
+| HH-87 | `parse_stage` carried to the client; live banner data-gated; CareBlock waits during a parse; the self-draining parsing tray above the tab bar |
+| HH-84 | The walkthrough's schedule is the labelled "ON A SCHEDULE?" section, peer to What-is-it / How-important |
+| HH-85 | Review order: whenNeeded before setup; setup tucked behind "Already set up? Hide them" |
+| HH-91 | Ask below Upkeep with its precondition stated; empty card leads "No upkeep yet — add the manual" in Home's voice |
+
+Also from her walkthrough screenshot: the sheet title read "LG LG DLGX3901B" —
+ItemDetailPage prepended brand to a name that carries it since #139. Fixed
+content-conditionally (#146).
+
+### Superseded — as decided that morning
+
 
 | # | Waiting on |
 |---|---|
