@@ -40,3 +40,28 @@ describe("findModelMismatch", () => {
     expect(findModelMismatch("Levoit Core 300s user manual", "Core 300")).toBe("Core 300s")
   })
 })
+
+describe("HH-73 — a document naming other models, none of them yours", () => {
+  it("flags the LG spec sheet that started this", () => {
+    // Offered for a DLGX3901B. Names a sibling (DLEX3900) and a truncation
+    // (DLGX3901); the old extension-only search returned null for both, so it
+    // arrived with no warning at all.
+    expect(findModelMismatch("DLEX3900-DLGX3901-Spec-Sheet.pdf", "DLGX3901B")).toBe("DLGX3901")
+  })
+
+  it("still catches the longer-variant case it was built for", () => {
+    expect(findModelMismatch("Levoit Core 300S user manual", "Core 300")).toBe("Core 300S")
+  })
+
+  it("stays silent when the title names your model exactly", () => {
+    expect(findModelMismatch("LG DLGX3901B Owner Manual", "DLGX3901B")).toBeNull()
+  })
+
+  it("does not invent a mismatch out of an unrelated number", () => {
+    // The guard has to be quiet by default or the warning stops meaning
+    // anything — a year in a filename is not a model.
+    expect(findModelMismatch("Owner manual 2024 edition", "DLGX3901B")).toBeNull()
+    expect(findModelMismatch("Partstown", "DLGX3901B")).toBeNull()
+    expect(findModelMismatch("Manual rev 12", "DLGX3901B")).toBeNull()
+  })
+})

@@ -102,8 +102,9 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
     <div className={cn("w-full max-w-md mx-auto", className)}>
       <h1 className="text-2xl font-display font-normal mb-2">Set up your home</h1>
       <p className="text-muted-foreground mb-4">
-        Give it a name. You can add your appliances one at a time after this — there is no long
-        setup.
+        {/* HH-79: the old line ended "there is no long setup", which names the
+            fear instead of the payoff. Owner picked this wording. */}
+        Give it a name. You can add appliances one at a time — start with one.
       </p>
       {/* The escape hatch. This screen used to ask for a commitment before the
           person had seen anything the product does: name your home, then find

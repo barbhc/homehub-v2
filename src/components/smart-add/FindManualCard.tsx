@@ -3,6 +3,7 @@ import { AlertTriangleIcon, EyeIcon, Loader2Icon, SearchIcon, FileTextIcon, Shie
 import { callable } from "@/integrations/firebase"
 import { manualSearchUrl } from "@/lib/manualSearch"
 import { findModelMismatch } from "../../../shared/products/modelMismatch"
+import { documentKind, displayTitle } from "../../../shared/products/documentKind"
 import { ManualPageSheet } from "@/components/care/ManualPageSheet"
 
 /**
@@ -189,6 +190,10 @@ export function FindManualCard({
               <ul className="flex flex-col gap-2">
                 {candidates.map((c) => {
                   const otherModel = findModelMismatch(c.title, model)
+                  // HH-73: what KIND of document this is, and a usable name for
+                  // it when the result's own title is just the host.
+                  const doc = documentKind(c.title, c.url)
+                  const shown = displayTitle(c.title, c.url, c.host)
                   return (
                     <li
                       key={c.url}
@@ -199,12 +204,27 @@ export function FindManualCard({
                         <FileTextIcon className="mt-0.5 size-3.5 shrink-0" style={{ color: "var(--hh-clay)" }} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[12.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
-                            {c.title}
+                            {shown}
                           </span>
                           <span className="mt-0.5 flex items-center gap-1.5 text-[11px]" style={{ color: "var(--hh-sub)" }}>
-                            {c.official && <ShieldCheckIcon className="size-3 shrink-0" style={{ color: "var(--hh-teal)" }} />}
+                            {/* The badge vouches for the HOST, so it must not
+                                appear to vouch for the document. A spec sheet
+                                on lg.com is genuinely from LG and genuinely not
+                                a manual; showing only the reassuring half is
+                                what made this result look right. */}
+                            {c.official && !doc.thinOnUpkeep && <ShieldCheckIcon className="size-3 shrink-0" style={{ color: "var(--hh-teal)" }} />}
                             <span className="truncate">{c.host}</span>
-                            {c.official && <span style={{ color: "var(--hh-teal)" }}>· manufacturer&apos;s own site</span>}
+                            {c.official && !doc.thinOnUpkeep && <span style={{ color: "var(--hh-teal)" }}>· manufacturer&apos;s own site</span>}
+                            {doc.label && (
+                              <span
+                                className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                                style={doc.thinOnUpkeep
+                                  ? { background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }
+                                  : { background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}
+                              >
+                                {doc.label}
+                              </span>
+                            )}
                           </span>
                         </span>
                       </div>
@@ -212,6 +232,15 @@ export function FindManualCard({
                       {/* Warn, never block: a manual sometimes does cover a
                           family, and refusing those would be the same mistake
                           pointed the other way. */}
+                      {/* HH-73: say it plainly. The chosen PDF is fed to the
+                          parser that writes the maintenance schedule, so a
+                          document with no upkeep in it does not fail loudly —
+                          it produces confident tasks from nothing. */}
+                      {doc.thinOnUpkeep && (
+                        <p className="mt-1.5 text-[11px] leading-snug" style={{ color: "var(--hh-clay)" }}>
+                          This looks like a {doc.label!.toLowerCase()}, not the owner&apos;s manual — it probably has no upkeep in it. You can still use it.
+                        </p>
+                      )}
                       {otherModel && (
                         <div
                           className="mt-1.5 flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] leading-snug"
