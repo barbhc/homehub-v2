@@ -92,7 +92,7 @@ interface ManualSectionProps {
   setReviewOpen: (v: boolean) => void
   saving: boolean
   deletingManualId: string | null
-  handleOpenAddManual: () => void
+  handleOpenAddManual: (mode?: "url" | "upload") => void
   handleAddManual: () => void
   handleParseExistingManual: (id: string) => void
   handleRescanManual: (id: string) => void
@@ -145,6 +145,10 @@ export function ManualSection({
   handleSave,
 }: ManualSectionProps) {
   const [autoFindManuals] = useAutoFindManuals()
+  /** HH-89: "Find it for me" opens the dialog with the search already running —
+   *  tapping it IS the ask, so making them tap again inside would be a stutter.
+   *  One-shot; cleared when the dialog closes. */
+  const [findRequested, setFindRequested] = useState(false)
   const primaryManuals = manuals.filter((m) => m.role !== "reference")
   const referenceManuals = manuals.filter((m) => m.role === "reference")
   const manualUrls = useManualUrls(manuals)
@@ -201,11 +205,17 @@ export function ManualSection({
       >
         {/* Header: icon + (wrapping) filename & meta + overflow menu */}
         <div className="flex items-start gap-3">
+          {/* HH-89: "I'm not sure what this gray square icon is." Fair — it
+              was an icon tile that said nothing. A labelled tag says what the
+              row IS: the file kind for manuals, an open book for references. */}
           <div
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
+            className="flex h-9 min-w-9 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1"
             style={{ background: "var(--hh-clay-soft)" }}
           >
-            <Icon className="size-4" style={{ color: "var(--hh-clay)" }} />
+            <Icon className="size-3.5" style={{ color: "var(--hh-clay)" }} />
+            <span className="text-[8px] font-bold leading-none tracking-wide" style={{ color: "var(--hh-clay)" }}>
+              {isRef ? "REF" : m.source_type === "upload" ? "PDF" : "LINK"}
+            </span>
           </div>
           <div className="min-w-0 flex-1">
             <div
@@ -311,7 +321,7 @@ export function ManualSection({
               </p>
               <button
                 type="button"
-                onClick={handleOpenAddManual}
+                onClick={() => handleOpenAddManual("upload")}
                 className="mt-1.5 font-semibold underline underline-offset-2"
                 style={{ color: "var(--hh-teal-deep)" }}
               >
@@ -453,14 +463,58 @@ export function ManualSection({
                   )}
                 </div>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-3 w-full"
-                onClick={handleOpenAddManual}
-              >
-                Add manual or reference
-              </Button>
+              {/* HH-89, owner's pick A + the find lane. When the section is
+                  EMPTY this is the moment the whole product hinges on, so the
+                  upload target is an unmistakable drop-zone rather than a text
+                  field that reads as a label — and every lane is named at its
+                  real weight, the beta search included. With manuals present
+                  the compact button returns; the hinge moment has passed. */}
+              {manuals.length === 0 ? (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddManual("upload")}
+                    className="w-full rounded-xl border-2 border-dashed px-4 py-5 text-center"
+                    style={{ borderColor: "var(--hh-teal)", background: "var(--hh-teal-wash)" }}
+                  >
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-bold"
+                      style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: "var(--hh-clay)" }}
+                    >
+                      PDF
+                    </span>
+                    <span className="mt-2 block text-[14px] font-bold" style={{ color: "var(--hh-teal)" }}>
+                      Upload the manual
+                    </span>
+                    <span className="mt-0.5 block text-[12px]" style={{ color: "var(--hh-sub)" }}>
+                      Tap to choose the PDF from your phone
+                    </span>
+                  </button>
+                  <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => handleOpenAddManual("url")}>
+                    Paste a link instead
+                  </Button>
+                  {brand && model && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="mt-1.5 w-full text-muted-foreground"
+                      onClick={() => { setFindRequested(true); handleOpenAddManual("url") }}
+                    >
+                      Find it for me ·&nbsp;
+                      <span className="rounded-full border px-1.5 text-[10px] font-bold" style={{ borderColor: "var(--hh-line2)" }}>Beta</span>
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3 w-full"
+                  onClick={() => handleOpenAddManual()}
+                >
+                  Add manual or reference
+                </Button>
+              )}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -471,6 +525,7 @@ export function ManualSection({
         open={addManualOpen}
         onOpenChange={(open) => {
           setAddManualOpen(open)
+          if (!open) setFindRequested(false)
           if (open) {
             setAddError(null)
             setManualParseError(null)
@@ -556,7 +611,7 @@ export function ManualSection({
                       <FindManualCard
                         brand={brand}
                         model={model}
-                        autoStart={autoFindManuals}
+                        autoStart={autoFindManuals || findRequested}
                         onPick={(url, title) => {
                           setUrlInput(url)
                           if (!titleInput.trim()) setTitleInput(title)
