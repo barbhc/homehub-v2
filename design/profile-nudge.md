@@ -1,7 +1,9 @@
 # When to ask for the home profile — and how to make it worth answering
 
-**Status**: backlog, not scheduled. Written 2026-08-21 from the owner's own
-report (HH-80) and her follow-up: *"The questions in the set up your home are
+**Status**: **approved direction (owner, 2026-08-21)** — scheduled in `BACKLOG.md`.
+Option B + C with A for climate is the chosen shape; the other options below are
+kept as the record of what was considered and why they lost.
+Written 2026-08-21 from the owner's own report (HH-80) and her follow-up: *"The questions in the set up your home are
 completely separate from adding items. Think about when it makes sense to nudge
 a user to complete that setup, and make sure they understand the value."*
 
@@ -94,7 +96,7 @@ at getting the answer before it matters.
 Progressive, never more than one interruption. Feels considerate, but stretches a
 two-minute task across a week and keeps the incomplete state alive the whole time.
 
-## Recommendation
+## The decision (owner-approved 2026-08-21)
 
 **B + C, with A for climate specifically.** Concretely:
 
