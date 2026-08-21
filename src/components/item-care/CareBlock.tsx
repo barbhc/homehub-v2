@@ -526,6 +526,9 @@ export interface CareBlockProps {
   tasks: TaskTemplateWithSchedule[]
   chunks: KnowledgeChunk[]
   hasManual: boolean
+  /** HH-87: a manual is mid-parse. The empty state must not offer to add a
+   *  manual that was added minutes ago — it waits, and says so. */
+  parsingManual?: boolean
   onOpenManualPage?: (page: number) => void
   /** Whether the manual PDF actually resolved. Page references render as plain
    *  text when it didn't, rather than as buttons that silently do nothing. */
@@ -539,7 +542,7 @@ export interface CareBlockProps {
   m?: boolean
 }
 
-export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, m }: CareBlockProps) {
+export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, m }: CareBlockProps) {
   // One partition, by the same rule the review wizard uses.
   const scheduled = tasks.filter((t) => isScheduled(bucketOf(t)))
   const whenNeeded = tasks.filter((t) => bucketOf(t) === "whenNeeded")
@@ -673,9 +676,11 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
           <p className="text-[13.5px]" style={{ color: SUB }}>
             {hasManual
               ? "No upkeep found in this manual yet."
-              : "This item has no manual yet — that's where its upkeep comes from."}
+              : parsingManual
+                ? "Reading the manual — tasks will appear here."
+                : "This item has no manual yet — that's where its upkeep comes from."}
           </p>
-          {!hasManual && onAddManual && (
+          {!hasManual && !parsingManual && onAddManual && (
             <button
               type="button"
               onClick={onAddManual}

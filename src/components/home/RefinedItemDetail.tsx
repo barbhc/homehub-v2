@@ -68,7 +68,7 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
 }
 
 export function RefinedItemDetail({
-  item, rooms, homeId, tasks, chunks, hasManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
+  item, rooms, homeId, tasks, chunks, hasManual, parsingManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
   reviewAction, recordsSlot, onEditRoom,
 }: {
   item: ItemUnit
@@ -78,6 +78,7 @@ export function RefinedItemDetail({
   tasks: TaskTemplateWithSchedule[]
   chunks: KnowledgeChunk[]
   hasManual: boolean
+  parsingManual?: boolean
   onBack: () => void
   onOpenManualPage?: (page: number) => void
   canOpenManual?: boolean
@@ -234,6 +235,7 @@ export function RefinedItemDetail({
           tasks={tasks}
           chunks={chunks}
           hasManual={hasManual}
+          parsingManual={parsingManual}
           onOpenManualPage={onOpenManualPage}
           canOpenManual={canOpenManual}
           onAddManual={onAddManual}

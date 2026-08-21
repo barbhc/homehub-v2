@@ -106,3 +106,35 @@ describe("HH-89 — the manual entry looks like what it does", () => {
     expect(src).toContain("if (!open) setFindRequested(false)")
   })
 })
+
+describe("HH-87 — a manual mid-parse is neither 'has one' nor 'has none'", () => {
+  it("the empty state waits instead of offering to add what was just added", () => {
+    const src = read("../components/item-care/CareBlock.tsx")
+    expect(src).toContain("Reading the manual — tasks will appear here.")
+    expect(src).toContain("!hasManual && !parsingManual && onAddManual")
+  })
+
+  it("the live banner is data-gated, not wizard-flag-gated", () => {
+    // Closing the add dialog used to orphan the running parse: the flag was
+    // never set on the item-page path, so nothing on the page said "working".
+    const src = read("../components/manuals/ParsePickupCard.tsx")
+    expect(src).toContain("ACTIVE_STAGES.includes(s.stage)),")
+    expect(src).not.toContain("ACTIVE_STAGES.includes(s.stage) && isParsePending(id)")
+  })
+
+  it("one authoritative list of active stages", () => {
+    const svc = read("../modules/knowledge/services/parseManualService.ts")
+    expect(svc).toContain("export const ACTIVE_PARSE_STAGES")
+    // The tray and both item-detail variants must consume it, not re-declare it.
+    for (const f of ["../hooks/useParseTray.ts", "../components/home/DesktopItemDetail.tsx", "../pages/ItemDetailPage.tsx"]) {
+      expect(read(f), f).toContain("ACTIVE_PARSE_STAGES")
+    }
+  })
+
+  it("the tray drains itself — review, don't dismiss", () => {
+    const hook = read("../hooks/useParseTray.ts")
+    expect(hook).toContain('previewDraft") != null')
+    const pill = read("../components/manuals/ParseTrayPill.tsx")
+    expect(pill).toContain("if (total === 0) return null")
+  })
+})

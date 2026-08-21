@@ -3,6 +3,7 @@ import { CheckIcon, Loader2Icon, XIcon } from "lucide-react"
 import {
   watchParse,
   toUiStage,
+  ACTIVE_PARSE_STAGES,
   readPreviewDraft,
   commitReviewedDraft,
   type ParseStage,
@@ -23,14 +24,7 @@ import { ReviewItemTasksButton } from "./ReviewItemTasksButton"
  */
 const autoOpened = new Set<string>()
 
-const ACTIVE_STAGES: ParseStage[] = [
-  "queued",
-  "started",
-  "pdf_fetched",
-  "claude_call",
-  "claude_responded",
-  "committing",
-]
+const ACTIVE_STAGES = ACTIVE_PARSE_STAGES
 
 const STAGE_LINE: Record<string, string> = {
   uploading: "Starting…",
@@ -101,10 +95,15 @@ export function ParsePickupCard({
     return () => unsubs.forEach((u) => u())
   }, [homeId, idsKey])
 
-  // Both states gate on the wizard's handoff flag: item-page rescans have
-  // their own inline progress UI, and old parses sit at `done` forever.
+  // HH-87: the in-flight banner is DATA-gated. It used to require the wizard's
+  // handoff flag, on the theory that item-page adds had their own inline
+  // progress — true only while the add dialog stayed open. The owner added a
+  // manual, closed the dialog, and the page offered to add one: the parse was
+  // running and nothing on the page would say so. A manual in an active stage
+  // is the evidence, however the parse began. (The done/error pickup below
+  // keeps its own gates — this widens only the live state.)
   const active = useMemo(
-    () => Object.entries(byManual).find(([id, s]) => ACTIVE_STAGES.includes(s.stage) && isParsePending(id)),
+    () => Object.entries(byManual).find(([, s]) => ACTIVE_STAGES.includes(s.stage)),
     [byManual]
   )
   // Draft probe for every finished manual. Bounded: an item has a handful of

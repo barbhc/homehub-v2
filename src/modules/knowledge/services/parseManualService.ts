@@ -81,6 +81,13 @@ export type ParseStage =
   | "done"
   | "error"
 
+/** Stages during which a parse is genuinely RUNNING — the shared answer to
+ *  "is something in flight?" for the pickup banner, the item page's empty
+ *  state, and the parsing tray (HH-87). done/error are terminal. */
+export const ACTIVE_PARSE_STAGES: ParseStage[] = [
+  "queued", "started", "pdf_fetched", "claude_call", "claude_responded", "committing",
+]
+
 /** Map a worker stage to the UI progress state (ParseProgressStep). */
 export function toUiStage(stage: ParseStage): ParseProgressState {
   switch (stage) {

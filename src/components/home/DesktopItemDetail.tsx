@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
 import { itemSubtitle } from "@/lib/itemSubtitle"
 import { useNavigate } from "react-router-dom"
 import {
@@ -332,6 +333,8 @@ export function DesktopItemDetail({
   const specRows = toSpecRows(item.category_fields)
   const guideCount = howToChunks.length + cleaningChunks.length
   const hasManual = manuals.some((m) => m.parsed_at !== null)
+  // HH-87: mid-parse is neither "has a manual" nor "has none".
+  const parsingManual = manuals.some((m) => ACTIVE_PARSE_STAGES.includes(m.parse_stage as never))
 
   const recallFound = item.recall_status === "found"
 
@@ -462,6 +465,7 @@ export function DesktopItemDetail({
               tasks={tasks}
               chunks={chunks}
               hasManual={hasManual}
+              parsingManual={parsingManual}
               onOpenManualPage={onOpenManualPage}
               onItemUpdate={onItemUpdate}
               onAddManual={() => manualSectionProps.setAddManualOpen(true)}
