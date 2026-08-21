@@ -19,6 +19,52 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-08-21 — round 7 (owner's own test session · 8 reports in 11 minutes)
+
+**Headline: she tested a fresh account and the add flow, and the most useful
+report was that the screen she approved is not the screen that shipped. Two
+fixes are already live; three are blocked on her review by her own request; one
+is on the roadmap.**
+
+Pulled fresh 01:29 UTC. 79 items total, 8 new, no crashes. Every reporter this
+round is the owner herself, so there is no tester to credit or email.
+
+### Fixed and live (#139)
+
+| # | Report | Root cause (verified) |
+|---|---|---|
+| HH-76 | "What happened to the design we had talked about?" | **Ours.** The approved mockup was brand + model + one CTA. The first pass moved the NAME field and stopped, leaving Room and Category between the model field and the button. Her screenshot carried the new subtitle, ruling out a stale bundle |
+| HH-75 | Typing "lg" emptied the brand dropdown | `brandSuggestionsFor` skipped any brand whose LOWERCASED form equalled the query — meant as "already typed" — but the suggestion's whole value is the case. The list emptied on the last keystroke, taking the tap that fixes "lg" → "LG". Note the reported cause was not the real one: matching was already case-insensitive |
+
+Same commit fixed a duplicate her screenshot caught: the Room field printed both
+the new prefill hint and the old static helper line at once. That screenshot is
+also the first production confirmation that room inference works — Laundry Room,
+from an LG dryer.
+
+### Blocked on owner review (her request, not a blocker we invented)
+
+| # | What is needed |
+|---|---|
+| HH-72 | Wording for the web-search label. The pre-filled Google search **already exists** (`manualSearchUrl`) on the screen she used a minute earlier; "Search the web yourself →" reads as being sent away |
+| HH-74 | Layout proposal for the add screen's vertical rhythm |
+| HH-79 | Rewrite of "there is no long setup" |
+| HH-77 | Undecided. Wording options for the first-run hero; "fixture" is the least motivating opening example |
+
+### Roadmap
+
+| # | Report | Why not now |
+|---|---|---|
+| HH-73 | Both offered manuals wrong — wrong models, one from a parts reseller | Fix now, next in the queue. Three faults: `findModelMismatch` handles suffix variants, not a doc naming two unrelated models; partstown.com passed `isOfferableManual` on a bare site-name title; nothing checks document TYPE, so a spec sheet carried the "manufacturer's own site" badge |
+| HH-78 | Sample home looks plain next to the app | Half a day of design, and behind the add flow — someone who never reaches a parsed manual never comes back regardless |
+
+### Rejected
+
+| # | Report | Why |
+|---|---|---|
+| HH-1 | Blank submission (reconfirmed) | Nothing to act on. Listed for deletion |
+
+---
+
 ## 2026-08-20 — round 6 (full-inbox sweep · 71 reports, two testers, 10–20 Aug)
 
 **Headline: the inbox had ~50 reports that earlier pulls never surfaced, and 65

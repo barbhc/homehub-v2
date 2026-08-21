@@ -3,6 +3,15 @@
 _Last synced: 2026-06-17. Strategic Arc-level planning lives in `memory/project_backlog.md`; relevance tracker in `RUT_AUDIT.md`._
 
 ## In Progress
+- [ ] **Beta round 7 — the first-run path, second pass** (owner decisions 2026-08-21, from her own test session; see `docs/beta-feedback.md`).
+  - [x] **HH-76 — finish the agreed add screen.** Room and Category moved off the main column; the approved design was brand + model + one CTA. LIVE (#139).
+  - [x] **HH-75 — brand list emptied itself on the last keystroke.** LIVE (#139).
+  - [ ] **HH-73 — the manual search offered two wrong documents.** Three faults: `findModelMismatch` doesn't fire on a doc naming two unrelated models; a parts reseller passed `isOfferableManual` with only a site name as its title; nothing checks document TYPE, so a spec sheet wore the "manufacturer's own site" badge.
+  - [ ] **HH-72 — relabel "Search the web yourself".** The pre-filled Google search already exists; the label reads as being sent away. Blocked on wording.
+  - [ ] **HH-74 — spacing on the add screen.** Blocked on layout review.
+  - [ ] **HH-79 — "there is no long setup".** Blocked on wording.
+  - [ ] **HH-77 — first-run hero copy.** Undecided, pending wording options.
+- [ ] **HH-78 — give the sample home the app's real design.** Roadmap. `/sample` is the try-before-you-commit door and currently undersells the product.
 - [ ] **Beta round 6 — the first-run path** (owner-approved 2026-08-20 from TestFlight feedback; decisions in `docs/beta-feedback.md`). Four of these five land on the SAME screen, so they ship as one coherent piece of work rather than four patches:
   - [ ] **HH-48 — open the review when a parse finishes.** The "Review tasks" button already exists; the missing thing is the moment. Auto-open on the item the user is looking at; the button and pickup card stay as the fallback for a parse that lands while they are elsewhere.
   - [ ] **HH-56 — say what the manual said, let the user place the first window.** Nothing lands due today any more (#58), but an appliance the user has already been maintaining for months should not restart at zero. Show the manual's own cadence, offer "I did this recently".
