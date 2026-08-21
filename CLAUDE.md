@@ -19,6 +19,8 @@ npm run seed:emu     # deterministic emulator seed (auth now; Firestore lands Ph
 npm run build        # tsc -b && vite build  ← the gate; never just tsc --noEmit
 npm test             # vitest (incl. shared/parse suite — 104 tests)
 npx playwright test e2e/smoke/boot.spec.ts --project=smoke   # Phase 1 boot smoke
+npm run test:e2e:journey:emu   # walk the 4 core journeys with step screenshots
+                               # (docs/user-journeys.md; /journey-smoke reviews the gallery)
 ```
 
 ## Layout
