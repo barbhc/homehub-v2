@@ -156,3 +156,32 @@ describe("nothing stands between the model and the manual", () => {
     expect(identify2).not.toContain("Pick where this item lives in your home.")
   })
 })
+
+/**
+ * HH-81 — there must be exactly ONE add-item screen.
+ *
+ * There were two. `/inventory/add` was fixed in #139 to ask brand + model
+ * first; `/onboarding/inventory` rendered its own `AddItemForm`, still asking
+ * Category → Room → Name with brand and model labelled optional, and created a
+ * bare item that was never offered a manual — so nothing added during onboarding
+ * could ever produce a task. It was also the first screen every new account saw.
+ */
+describe("one add screen, not two", () => {
+  const app = read("../../App.tsx")
+
+  it("routes onboarding into the real add flow", () => {
+    expect(app).toContain('path="/onboarding/inventory"')
+    expect(app).toContain('<Navigate to="/inventory/add" replace />')
+  })
+
+  it("no longer ships a second add-item form", () => {
+    // If this fails, someone has reintroduced the duplicate rather than
+    // extending the real flow.
+    expect(() => read("../../modules/inventory/components/AddItemForm.tsx")).toThrow()
+    expect(() => read("../../pages/OnboardingInventory.tsx")).toThrow()
+  })
+
+  it("stops exporting it from the inventory module", () => {
+    expect(read("../../modules/inventory/index.ts")).not.toContain("AddItemForm")
+  })
+})
