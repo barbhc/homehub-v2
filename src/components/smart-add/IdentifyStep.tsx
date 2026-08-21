@@ -990,6 +990,26 @@ export function IdentifyStep({
           </>
         )}
 
+        {/* Simple lane: the name IS the item — main column, never collapsed.
+            (Regression guard: e2e/emu/smart-add.spec.ts types here without
+            opening "Add more details".) */}
+        {mode === "simple" && (
+          <div>
+            <label htmlFor="identify-name" className="text-sm font-medium text-foreground block mb-1.5">
+              Name
+            </label>
+            <Input
+              id="identify-name"
+              value={data.name}
+              onChange={(e) => onDataChange({ ...data, name: e.target.value })}
+              placeholder="e.g., Kitchen faucet"
+              maxLength={255}
+              onBlur={() => setNameTouched(true)}
+              aria-invalid={nameTouched && data.name.trim().length === 0}
+            />
+          </div>
+        )}
+
         {(catChip || roomChip) && (
           <div className="flex flex-wrap items-center gap-2 -mt-1">
             <span className="text-xs text-muted-foreground">Suggested</span>
@@ -1102,25 +1122,30 @@ export function IdentifyStep({
                   </div>
                 </div>
               )}
-              <div>
-                <label htmlFor="identify-name" className="text-sm font-medium text-foreground block mb-1.5">
-            Name
-          </label>
-                <Input
-            id="identify-name"
-            value={data.name}
-            onChange={(e) => onDataChange({ ...data, name: e.target.value })}
-            placeholder="Defaults to the brand and model"
-            maxLength={255}
-            onBlur={() => setNameTouched(true)}
-            // Only after they've been in the field. In the appliance lane the
-            // name composes itself from brand + model, so an empty Name is the
-            // normal opening state — flagging it in red before anyone has typed
-            // greets people with an error for something we are about to fill in.
-            aria-invalid={nameTouched && data.name.trim().length === 0}
-          />
-                <p className="text-xs text-muted-foreground mt-1">we name it from the brand and model, then improve it from the manual</p>
-              </div>
+              {/* Appliance lane only — the simple lane's Name renders on the
+                  main column (it is that lane's ONLY required field, so it can
+                  never live behind an "optional" disclosure). */}
+              {mode === "appliance" && (
+                <div>
+                  <label htmlFor="identify-name" className="text-sm font-medium text-foreground block mb-1.5">
+                    Name
+                  </label>
+                  <Input
+                    id="identify-name"
+                    value={data.name}
+                    onChange={(e) => onDataChange({ ...data, name: e.target.value })}
+                    placeholder="Defaults to the brand and model"
+                    maxLength={255}
+                    onBlur={() => setNameTouched(true)}
+                    // Only after they've been in the field. In the appliance lane the
+                    // name composes itself from brand + model, so an empty Name is the
+                    // normal opening state — flagging it in red before anyone has typed
+                    // greets people with an error for something we are about to fill in.
+                    aria-invalid={nameTouched && data.name.trim().length === 0}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">we name it from the brand and model, then improve it from the manual</p>
+                </div>
+              )}
               {/* HH-76: Room and Category used to sit on the main column,
                   between the model field and the button. The agreed design was
                   brand + model + one call to action, so they moved in here —

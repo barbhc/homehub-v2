@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/modules/auth"
 import { HomeOnboarding, useCurrentHome } from "@/modules/home"
@@ -18,7 +18,15 @@ export default function Index() {
 
   const returnTo = searchParams.get("returnTo")
 
+  // Set the moment onboarding hands off to the profile step. Without it, the
+  // redirect effect below fires on Index's final render (home just landed in
+  // context) and its navigate("/home") stomps the funnel's navigate to
+  // /onboarding/profile — every new user skipped the profile questions and
+  // the first-item step behind them.
+  const funnelingRef = useRef(false)
+
   useEffect(() => {
+    if (funnelingRef.current) return
     if (!user || homeLoading) return
     if (home) {
       navigate(returnTo || "/home", { replace: true })
@@ -66,8 +74,11 @@ export default function Index() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
         <HomeOnboarding
-          onComplete={async () => {
-            await refresh()
+          onComplete={async (homeId) => {
+            funnelingRef.current = true
+            // Pass the created home's id: refresh() polls until the members
+            // collection-group query can actually see it (HomeProvider.load).
+            await refresh(homeId)
             navigate("/onboarding/profile", { replace: true })
           }}
         />

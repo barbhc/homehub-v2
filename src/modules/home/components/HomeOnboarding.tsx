@@ -9,7 +9,10 @@ import { track } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
 
 type HomeOnboardingProps = {
-  onComplete: () => void
+  /** Called when the user has a home. Carries the home id when this component
+   *  knows it (just created / already existed) so the provider can wait for
+   *  THAT home to appear rather than re-discovering an empty list. */
+  onComplete: (homeId?: string) => void
   className?: string
 }
 
@@ -55,7 +58,7 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
     if (existing.data) {
       console.debug("[HomeOnboarding] User already has home:", existing.data.home_id)
       setLoading(false)
-      onComplete()
+      onComplete(existing.data.home_id)
       return
     }
 
@@ -95,7 +98,7 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
       setLoading(false)
       return
     }
-    onComplete()
+    onComplete(result.data?.homeId)
   }
 
   return (
