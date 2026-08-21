@@ -160,7 +160,7 @@ export function FindManualCard({
             className="font-semibold underline"
             style={{ color: "var(--hh-teal)" }}
           >
-            Search the web yourself →
+            Search Google for this manual →
           </a>
         </div>
       )}
