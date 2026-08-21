@@ -273,7 +273,15 @@ export default function ItemDetailPage() {
 
   const manualSectionProps = {
     homeId: home?.home_id ?? "",
-    itemName: item ? `${item.brand ?? ""} ${item.display_name ?? ""}`.trim() || item.display_name : undefined,
+    // The brand is CONTEXT for the manual search, so prepend it — unless the
+    // name already carries it, which every composed name has since #139.
+    // Unconditional prepending produced "LG LG DLGX3901B" across the review
+    // sheet and the add dialog (owner's round-9 screenshot).
+    itemName: item
+      ? (item.brand && !item.display_name?.toLowerCase().includes(item.brand.toLowerCase())
+          ? `${item.brand} ${item.display_name ?? ""}`.trim()
+          : item.display_name) || "This item"
+      : undefined,
     itemUnitId: id ?? null,
     brand: item?.brand ?? null,
     model: item?.model ?? null,
