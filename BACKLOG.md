@@ -3,7 +3,15 @@
 _Last synced: 2026-06-17. Strategic Arc-level planning lives in `memory/project_backlog.md`; relevance tracker in `RUT_AUDIT.md`._
 
 ## In Progress
-- [ ] **Beta round 7 — the first-run path, second pass** (owner decisions 2026-08-21, from her own test session; see `docs/beta-feedback.md`).
+- [ ] **Beta round 8 — "I did the work and see nothing"** (owner decisions 2026-08-21). All three are the same complaint from different screens: someone adds an item and the app shows them nothing in return.
+  - [ ] **HH-81 — the onboarding add screen is still the OLD layout.** There are two add-item surfaces: `/inventory/add` (fixed in #139) and `/onboarding/inventory` (`AddItemForm`, never touched). The onboarding one asks Category → Room → Name and labels brand+model "optional" — on the one screen every new account sees first, calling the only two fields that lead to a manual optional. The duplication is the real defect.
+  - [ ] **HH-82 — scheduled tasks absent from the Tasks list** (Chris, second report). Two deliberate causes stacking: `cleaning`+`item_unit` is excluded by the 2026-07-29 agenda rule, and the rest fall outside `weekAgenda`'s 7-day horizon. The horizon half is a side effect of #58 — before it, every new task landed due today, so the list was always full. We traded a flood for an empty list.
+  - [ ] **HH-80 — Home has nothing actionable when a home has items but no tasks.** The empty hero is gated on `totalItems === 0`, so it correctly steps aside once an item exists; what fills the gap is a profile nag. Needs a middle state.
+
+## Roadmap — from beta feedback
+- [ ] **HH-74 — spacing on the add screen.** Downgraded from Fix now on 2026-08-21 after the owner looked: HH-76 removed Room and Category from that screen, so the complaint was measured against a much longer version than ships today.
+- [ ] **HH-78 — give the sample home the app's real design.** `/sample` is the try-before-you-commit door and currently undersells the product.
+- [x] **Beta round 7 — the first-run path, second pass** (6 of 8 live; HH-74/HH-78 moved to the roadmap above) (owner decisions 2026-08-21, from her own test session; see `docs/beta-feedback.md`).
   - [x] **HH-76 — finish the agreed add screen.** Room and Category moved off the main column; the approved design was brand + model + one CTA. LIVE (#139).
   - [x] **HH-75 — brand list emptied itself on the last keystroke.** LIVE (#139).
   - [ ] **HH-73 — the manual search offered two wrong documents.** Three faults: `findModelMismatch` doesn't fire on a doc naming two unrelated models; a parts reseller passed `isOfferableManual` with only a site name as its title; nothing checks document TYPE, so a spec sheet wore the "manufacturer's own site" badge.

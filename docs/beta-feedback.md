@@ -19,6 +19,37 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-08-21 (late) — round 8 (owner's continued test + Chris · 3 reports)
+
+**Headline: three reports, one complaint. Someone adds an item and the app shows
+them nothing back — on the onboarding form, on the Tasks list, and on Home. Two
+of the three are consequences of fixes shipped hours earlier the same day, and
+they are recorded here as that rather than explained away.**
+
+Pulled 03:39 UTC. 82 items, 3 new, no crashes.
+
+| # | Report | Root cause (verified in code) | Call |
+|---|---|---|---|
+| HH-81 | "This still looks like the old layout for adding an item" | **TWO add-item surfaces exist.** `SmartAddItem`/`IdentifyStep` at `/inventory/add` was fixed in #139; `AddItemForm` at `/onboarding/inventory` was never touched and still asks Category → Room → Name, labelling brand+model *"Optional: Add make and model for more specific maintenance tips"*. That is the approved design inverted, on the first screen a new account sees, calling the only two fields that produce a manual optional | **Fix now** |
+| HH-82 | "I'm still not seeing these tasks on my task list" (2nd report) | Three scheduled tasks on his air fryer, all absent for **two** deliberate reasons: `Clean Baskets and Crisper Plates` is `cleaning`+`item_unit`, excluded by the 2026-07-29 agenda rule; the other two are due Sep 17, past `weekAgenda.ts:108`'s 7-day horizon. The horizon half is a **side effect of #58** — before it every new task landed due today, so the list was always full. The flood fix produced the empty list | **Fix now** |
+| HH-80 | "No call to action to add an item — it just asks me to finish my home profile" | Not the zero-items case; the hero for that exists and she saw it two hours earlier. `isNewUser = totalItems === 0`, and by then the home held the LG dryer, so the hero correctly stepped aside. But that item has no manual (HH-73 offered two wrong ones), so no tasks — and the loudest element on a screen with nothing to do is a profile nag. **The missing state is has-items-but-no-tasks** | **Fix now** |
+
+### Moved to the roadmap
+
+| # | Report | Why |
+|---|---|---|
+| HH-74 | Spacing on the add screen | Downgraded from Fix now after the owner looked at it: HH-76 removed Room and Category from that screen, so the original complaint was measured against a much longer version than ships today |
+| HH-78 | Sample home looks plain | Behind the add flow — someone who never reaches a parsed manual never comes back regardless |
+
+### Rejected
+
+HH-1 (blank submission), reconfirmed. Listed for deletion.
+
+**Credit:** HH-82 is Chris, credited by name (no email on file, so no thank-you
+to send). HH-80 and HH-81 are the owner's own reports.
+
+---
+
 ## 2026-08-21 — round 7 (owner's own test session · 8 reports in 11 minutes)
 
 **Headline: she tested a fresh account and the add flow, and the most useful
