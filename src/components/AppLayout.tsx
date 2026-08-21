@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom"
+import { ParseTrayPill } from "@/components/manuals/ParseTrayPill"
 import { openFeedback } from "@/lib/feedback"
 import { HomeIcon, ListChecksIcon, PackageIcon, SparklesIcon, Settings2Icon, PlusIcon, SearchIcon, BellIcon, MessageSquareWarningIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -181,6 +182,11 @@ export function AppLayout() {
       <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 pt-safe-top">
         <Outlet />
       </main>
+
+      {/* HH-87: the in-progress window — parses in flight and reviews waiting,
+          so the review sheet stops appearing out of nowhere. Renders null when
+          nothing is happening, which is almost always. */}
+      <ParseTrayPill />
 
       {/* Mobile bottom nav — translucent, iOS-native (redesign shell) */}
       <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-[var(--hh-line)] backdrop-blur-xl md:hidden pb-[env(safe-area-inset-bottom)]" style={{ background: "color-mix(in srgb, var(--hh-bg) 85%, transparent)" }}>

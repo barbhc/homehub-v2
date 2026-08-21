@@ -22,6 +22,9 @@ vi.mock("@/modules/knowledge/services/parseManualService", () => ({
   readPreviewDraft,
   commitReviewedDraft: vi.fn(),
   toUiStage: (s: string) => s,
+  // The real list, verbatim — the card's active-banner gate depends on it, and
+  // a stub like ["queued"] would quietly change what these tests exercise.
+  ACTIVE_PARSE_STAGES: ["queued", "started", "pdf_fetched", "claude_call", "claude_responded", "committing"],
 }))
 vi.mock("@/lib/parsePickup", () => ({ isParsePending, clearParsePending: vi.fn() }))
 vi.mock("@/modules/knowledge/services/parseFeedbackService", () => ({ recordParseFeedback: vi.fn() }))

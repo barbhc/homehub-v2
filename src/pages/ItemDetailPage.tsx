@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
 import { ReviewItemTasksButton } from "@/components/manuals/ReviewItemTasksButton"
 import { ParsePickupCard } from "@/components/manuals/ParsePickupCard"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
@@ -266,6 +267,8 @@ export default function ItemDetailPage() {
 
   const specsChunks = chunks.filter((c) => c.chunk_type === "specs")
   const hasParsedManual = manuals.some((m) => m.parsed_at !== null)
+  // HH-87: mid-parse is neither "has a manual" nor "has none".
+  const parsingManual = manuals.some((m) => ACTIVE_PARSE_STAGES.includes(m.parse_stage as never))
 
   // Task splitting (setup / habit / regular) moved into RefinedItemDetail's
   // CareBlock and DesktopItemDetail when the legacy layout was retired — this
@@ -442,6 +445,7 @@ export default function ItemDetailPage() {
             tasks={tasks}
             chunks={chunks}
             hasManual={hasParsedManual}
+            parsingManual={parsingManual}
             onBack={() => navigate("/inventory")}
             onOpenManualPage={(page) => openManualPage(page)}
             canOpenManual={!!manualPdfUrl}

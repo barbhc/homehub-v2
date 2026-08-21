@@ -45,6 +45,7 @@ function toManual(id: string, d: DocumentData): ManualDocument {
     version: d.version ?? null,
     language: d.language ?? null,
     parsed_at: manIso(d.parsedAt),
+    parse_stage: (d.parse as { stage?: string } | null)?.stage ?? null,
     parse_draft: d.draft ?? null,
     created_at: manIso(d.createdAt) ?? "",
     updated_at: manIso(d.updatedAt) ?? "",

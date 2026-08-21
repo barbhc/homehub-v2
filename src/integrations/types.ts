@@ -321,6 +321,9 @@ export interface ManualDocument {
   version: string | null
   language: string | null
   parsed_at: string | null
+  /** Live worker stage (queued…done|error), or null for pre-parse-era docs.
+   *  HH-87: parsed_at alone conflates "no manual" with "manual mid-parse". */
+  parse_stage: string | null
   parse_draft: Json | null
   created_at: string
   updated_at: string
