@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test"
+import { test, expect, type Locator, type Page } from "@playwright/test"
 import fs from "node:fs"
 import path from "node:path"
 import { TEST_EMAIL, TEST_PASSWORD } from "../seed-config"
@@ -38,7 +38,28 @@ function loadManifest(): { runAt: string; steps: StepRecord[] } {
 const manifest = loadManifest()
 let stepN = manifest.steps.reduce((m, s) => Math.max(m, s.n), 0)
 
-async function snap(page: Page, journey: string, name: string, note: string) {
+/**
+ * Capture one step.
+ *
+ * `anchor` is REQUIRED after any navigation, and it is not ceremony: routes are
+ * lazy-loaded, and `waitForURL` resolves when the URL changes, not when the
+ * destination paints. Without an anchor the shot lands on whatever is on screen
+ * at that instant — the first gallery review caught both failure modes, a BLANK
+ * frame (chunk not mounted yet) and a shot of the PREVIOUS page (old tree still
+ * mounted). Both passed their assertions, because Playwright's own auto-waiting
+ * covers the click that comes next. The pictures are the deliverable here, so
+ * they get their own wait.
+ *
+ * Pass the element that only exists on the screen being documented.
+ */
+async function snap(page: Page, journey: string, name: string, note: string, anchor?: Locator) {
+  if (anchor) await anchor.waitFor({ state: "visible", timeout: 20_000 })
+  // Belt and braces: never shoot an empty document, even without an anchor.
+  await page.waitForFunction(
+    () => ((document.querySelector("main") ?? document.body)?.innerText ?? "").trim().length > 20,
+    null,
+    { timeout: 20_000 },
+  )
   stepN += 1
   fs.mkdirSync(OUT, { recursive: true })
   const png = `${String(stepN).padStart(2, "0")}-${journey}-${name}.png`
@@ -58,13 +79,15 @@ async function signInSeeded(page: Page) {
 test.describe("journey walks", () => {
   test("J1 — onboarding: brand-new person to first item", async ({ page }) => {
     await page.goto("/")
-    await snap(page, "J1", "landing", "Marketing page: hero copy, Get started, Sign in — no errors")
+    await snap(page, "J1", "landing", "Marketing page: hero copy, Get started, Sign in — no errors",
+      page.getByRole("heading", { name: /Everything your home needs/i }).first())
 
     // Fresh account every run — the emulator is cleared+seeded per invocation,
     // and a unique address keeps re-runs against a warm emulator honest too.
     const email = `journey-${Date.now()}@homehub.test`
     await page.goto("/signup")
-    await snap(page, "J1", "signup", "Auth card in create-account mode: email+password, Apple, magic link")
+    await snap(page, "J1", "signup", "Auth card in create-account mode: email+password, Apple, magic link",
+      page.getByRole("button", { name: /^create account$/i }).first())
     await page.locator('input[type="email"]').fill(email)
     await page.locator('input[type="password"]').fill("JourneyWalk!2026")
     await page.getByRole("button", { name: /^create account$/i }).click()
@@ -79,7 +102,8 @@ test.describe("journey walks", () => {
     await page
       .waitForURL(/\/onboarding\/profile/, { timeout: 10_000 })
       .then(async () => {
-        await snap(page, "J1", "profile", "Home profile questions — every one skippable ('Suggest, never assume')")
+        await snap(page, "J1", "profile", "Home profile questions — every one skippable ('Suggest, never assume')",
+          page.getByRole("button", { name: /skip for now/i }).first())
         await page.getByRole("button", { name: /skip for now/i }).click()
       })
       .catch(() => {/* profile step not offered — fine, the funnel continues */})
@@ -91,11 +115,13 @@ test.describe("journey walks", () => {
     // First item through the simple lane. REGRESSION GUARD (2026-08-21): the
     // Name field must be on the MAIN COLUMN — it was trapped inside the
     // collapsed "Add more details" accordion, dead-ending every simple add.
-    await snap(page, "J1", "lane-chooser", "Two-lane start: Appliance or device / Everything else")
+    await snap(page, "J1", "lane-chooser", "Two-lane start: Appliance or device / Everything else",
+      page.getByRole("button", { name: /Everything else/ }).first())
     await page.getByRole("button", { name: /Everything else/ }).click()
     const name = page.locator("#identify-name")
     await expect(name.filter(visible).first()).toBeVisible({ timeout: 10_000 })
-    await snap(page, "J1", "simple-lane", "Simple lane: Name visible WITHOUT opening 'Add more details'")
+    await snap(page, "J1", "simple-lane", "Simple lane: Name visible WITHOUT opening 'Add more details'",
+      name.filter(visible).first())
     await name.fill("Journey Kettle")
     const cta = page.getByRole("button", { name: /^Add item$/ }).filter(visible).first()
     await expect(cta).toBeEnabled({ timeout: 5_000 })
@@ -103,7 +129,8 @@ test.describe("journey walks", () => {
 
     await page.waitForURL(/\/items\//, { timeout: 20_000 })
     await expect(page.getByText("Journey Kettle").filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J1", "item-page", "Item page: new item by name; 'no manual yet' care block invites the manual")
+    await snap(page, "J1", "item-page", "Item page: new item by name; 'no manual yet' care block invites the manual",
+      page.getByRole("button", { name: /Add the manual/ }).filter(visible).first())
 
     // Home now knows the item exists but has no upkeep — the nudge names the
     // next step (add a manual) instead of celebrating an empty schedule.
@@ -112,11 +139,13 @@ test.describe("journey walks", () => {
     // allowClose) so the page underneath can be asserted.
     const tour = page.getByText("Welcome to Homehub!").filter(visible).first()
     if (await tour.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await snap(page, "J1", "product-tour", "First-run tour popover (1 of 5) over the dashboard")
+      await snap(page, "J1", "product-tour", "First-run tour popover (1 of 5) over the dashboard", tour)
       await page.keyboard.press("Escape")
     }
-    await expect(page.getByText(/No upkeep yet/i).filter(visible).first()).toBeVisible({ timeout: 15_000 })
-    await snap(page, "J1", "home-after-first-item", "Home: 'No upkeep yet' banner pointing at the manual step; Journey Kettle under 'Finish setting up'")
+    const upkeepHero = page.getByText(/No upkeep yet/i).filter(visible).first()
+    await expect(upkeepHero).toBeVisible({ timeout: 15_000 })
+    await snap(page, "J1", "home-after-first-item", "Home: 'No upkeep yet' banner pointing at the manual step; Journey Kettle under 'Finish setting up'",
+      upkeepHero)
   })
 
   test("J3 — review: existing tasks through the review wizard", async ({ page }) => {
@@ -128,59 +157,73 @@ test.describe("journey walks", () => {
 
     await page.goto("/items/dishwasher")
     await expect(page.getByText("Bosch 800 Series Dishwasher").filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J3", "item-detail", "Seeded dishwasher: Upkeep block with its tasks and the Review tasks entry")
+    await snap(page, "J3", "item-detail", "Seeded dishwasher: Upkeep block with its tasks and the Review tasks entry",
+      page.getByRole("button", { name: /^Review tasks$/ }).filter(visible).first())
 
     await page.getByRole("button", { name: /^Review tasks$/ }).filter(visible).first().click()
     await expect(page.getByText(/worth tracking/).first()).toBeVisible({ timeout: 10_000 })
-    await snap(page, "J3", "review-lead-in", "Lead-in names both routes; no dead Skip")
+    await snap(page, "J3", "review-lead-in", "Lead-in names both routes; no dead Skip",
+      page.getByText(/worth tracking/).first())
 
     // Open one task card: kind + tier controls, then Done.
     await page.getByRole("button", { name: /Descale the dishwasher/ }).first().click()
     await expect(page.getByText("What is it?")).toBeVisible()
-    await snap(page, "J3", "review-task-card", "Task card: What is it? / How important? / remind switch")
+    await snap(page, "J3", "review-task-card", "Task card: What is it? / How important? / remind switch",
+      page.getByText("How important?").first())
     await page.getByRole("button", { name: /^Done$/ }).click()
 
     const next = page.getByRole("button", { name: /Next: schedule|^Save \d+ task/ }).last()
     await next.click()
-    await snap(page, "J3", "review-schedule", "Step 2: cadence chips with 'The manual says…' anchors")
+    await snap(page, "J3", "review-schedule", "Step 2: cadence chips with 'The manual says…' anchors",
+      page.getByText(/How often should these repeat/i).first())
     const save = page.getByRole("button", { name: /^Save \d+ task/ }).last()
     if (await save.isVisible().catch(() => false)) await save.click()
 
     await expect(page.getByText("What is it?")).toHaveCount(0, { timeout: 15_000 })
-    await snap(page, "J3", "review-saved", "Sheet closed — the review write landed without an error")
+    await snap(page, "J3", "review-saved", "Sheet closed — the review write landed without an error",
+      page.getByText("Bosch 800 Series Dishwasher").filter(visible).first())
   })
 
   test("J4 — agenda: window language, task detail, snooze + undo", async ({ page }) => {
     await signInSeeded(page)
 
     await page.goto("/home")
-    await expect(page.getByText(/A good week for these|need you/).filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J4", "home-hero", "Hero: window kicker ('A good week for these'), stat band, Mark done + Snooze")
+    const heroKicker = page.getByText(/A good week for these|need you/).filter(visible).first()
+    await expect(heroKicker).toBeVisible({ timeout: 20_000 })
+    await snap(page, "J4", "home-hero", "Hero: window kicker ('A good week for these'), stat band, Mark done + Snooze",
+      heroKicker)
 
     await page.goto("/maintenance")
     await expect(page.getByText("Replace HVAC furnace filter").filter(visible).first()).toBeVisible({ timeout: 20_000 })
     // Windows-not-deadlines: lapsed safety earns "Worth doing", never "overdue".
     await expect(page.getByText("Worth doing").filter(visible).first()).toBeVisible({ timeout: 10_000 })
-    await snap(page, "J4", "agenda", "Tasks: urgency lenses, calendar, 'Worth doing' safety nudge — calm language throughout")
+    await snap(page, "J4", "agenda", "Tasks: urgency lenses, calendar, 'Worth doing' safety nudge — calm language throughout",
+      page.getByText("Worth doing").filter(visible).first())
 
     // Desktop rows expand in place; "View full guide" opens the detail page.
     await page.getByText("Replace HVAC furnace filter").filter(visible).first().click()
     await expect(page.getByRole("button", { name: /View full guide/ }).filter(visible).first()).toBeVisible({ timeout: 10_000 })
-    await snap(page, "J4", "row-expanded", "Expanded row: Mark done, Snooze, View full guide — actions where the task lives")
+    await snap(page, "J4", "row-expanded", "Expanded row: Mark done, Snooze, View full guide — actions where the task lives",
+      page.getByRole("button", { name: /View full guide/ }).filter(visible).first())
     await page.getByRole("button", { name: /View full guide/ }).filter(visible).first().click()
     await page.waitForURL(/\/tasks\//, { timeout: 15_000 })
-    await snap(page, "J4", "task-detail", "Task detail: window phrase (not 'N days overdue'), steps, Mark done")
+    // The tune-this-task control exists ONLY on the detail page — without it as
+    // the anchor this shot lands on the still-mounted Tasks list (it did).
+    await snap(page, "J4", "task-detail", "Task detail: window phrase (not 'N days overdue'), steps, Mark done",
+      page.getByRole("button", { name: /Tune this task/i }).filter(visible).first())
 
     // Snooze from Home (the hero action) — pure Firestore write, undoable.
     await page.goto("/home")
     const snooze = page.getByRole("button", { name: /^Snooze$/ }).filter(visible).first()
     await expect(snooze).toBeVisible({ timeout: 20_000 })
     await snooze.click()
-    await snap(page, "J4", "snoozed", "Snoozed with a visible receipt + Undo — reversible by design")
     const undo = page.getByRole("button", { name: /^Undo$/ }).filter(visible).first()
+    // The receipt IS the step — anchor on it so the shot can't beat it to screen.
+    await snap(page, "J4", "snoozed", "Snoozed with a visible receipt + Undo — reversible by design", undo)
     if (await undo.isVisible().catch(() => false)) {
       await undo.click()
-      await snap(page, "J4", "undone", "Undo restored the task — snooze is a two-way door")
+      await snap(page, "J4", "undone", "Undo restored the task — snooze is a two-way door",
+        page.getByRole("button", { name: /^Snooze$/ }).filter(visible).first())
     }
   })
 })
