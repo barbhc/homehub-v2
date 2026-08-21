@@ -39,9 +39,12 @@ describe("empty Tasks must not contradict the item page", () => {
 })
 
 describe("screens outside AppLayout clear the Dynamic Island", () => {
-  // AppLayout supplies pt-safe-top; these three render outside it, so Chris's
+  // AppLayout supplies pt-safe-top; these render outside it, so Chris's
   // "Add your first items" heading sat under the island on an iPhone 17.
-  for (const page of ["OnboardingInventory", "OnboardingProfile", "SampleHome"]) {
+  // OnboardingInventory was the third; it is gone (HH-81) — /onboarding/inventory
+  // now redirects into the real add flow, which lives INSIDE AppLayout and gets
+  // the inset from there.
+  for (const page of ["OnboardingProfile", "SampleHome"]) {
     it(`${page} carries the top inset`, () => {
       expect(read(`../pages/${page}.tsx`)).toContain("pt-safe-top")
     })

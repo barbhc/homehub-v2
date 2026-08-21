@@ -75,7 +75,6 @@ const SWR_CONFIG = { fallback: readPersistedDashboardFallback() }
 // reachable Privacy Policy URL and a reviewer opens it signed out.
 const Privacy = lazyWithRetry(() => import("@/pages/legal/Privacy"))
 const Terms = lazyWithRetry(() => import("@/pages/legal/Terms"))
-const OnboardingInventory = lazyWithRetry(() => import("@/pages/OnboardingInventory"))
 const OnboardingProfile = lazyWithRetry(() => import("@/pages/OnboardingProfile"))
 const Home = lazyWithRetry(() => import("@/pages/Home"))
 const Inventory = lazyWithRetry(() => import("@/pages/Inventory"))
@@ -165,14 +164,14 @@ function App() {
                   </AuthGate>
                 }
               />
-              <Route
-                path="/onboarding/inventory"
-                element={
-                  <AuthGate>
-                    <OnboardingInventory />
-                  </AuthGate>
-                }
-              />
+              {/* HH-81: this used to render a SECOND add-item form — its own
+                  component, asking Category → Room → Name with brand and model
+                  labelled optional, and creating a bare item that never got
+                  offered a manual. Two divergent implementations of one screen,
+                  and the worse one was the first thing every new account saw.
+                  The route stays so existing links and the profile step keep
+                  working; it now hands off to the real flow. */}
+              <Route path="/onboarding/inventory" element={<Navigate to="/inventory/add" replace />} />
               <Route
                 element={
                   <AuthGate>
