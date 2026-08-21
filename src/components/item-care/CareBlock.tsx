@@ -673,12 +673,21 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
     return (
       <Card>
         <div className="flex flex-col items-center gap-3 px-4 py-7 text-center">
+          {/* HH-91: the no-manual state leads with the thing that unlocks the
+              page, in the same voice as Home's no-upkeep hero — two screens,
+              one lesson. The upload/link lanes themselves live in the manual
+              section below; this is the headline, not a second set of doors. */}
+          {!hasManual && !parsingManual && (
+            <p className="text-[15px] font-extrabold tracking-[-0.01em]" style={{ color: "var(--hh-ink)" }}>
+              No upkeep yet — add the manual
+            </p>
+          )}
           <p className="text-[13.5px]" style={{ color: SUB }}>
             {hasManual
               ? "No upkeep found in this manual yet."
               : parsingManual
                 ? "Reading the manual — tasks will appear here."
-                : "This item has no manual yet — that's where its upkeep comes from."}
+                : "Homehub reads it and builds this item's schedule, warranty window, and answers."}
           </p>
           {!hasManual && !parsingManual && onAddManual && (
             <button

@@ -120,8 +120,11 @@ export function willNotify(t: ReviewTaskLike): boolean {
 }
 
 /** Display order of the sections, top to bottom. */
+// HH-85: setup sits BELOW When-needed. Install steps for an appliance someone
+// has usually owned for months must never outrank the work they will actually
+// live with — the item page already learned this; the review sheet now agrees.
 export const REVIEW_BUCKET_ORDER: ReviewBucket[] = [
-  "essential", "recommended", "optional", "setup", "whenNeeded", "tip",
+  "essential", "recommended", "optional", "whenNeeded", "setup", "tip",
 ]
 
 /** Copy for each section. The subtitle states the CONSEQUENCE, because that is

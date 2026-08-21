@@ -258,6 +258,8 @@ export function TaskReviewSheet({
   const [guideIndex, setGuideIndex] = useState<number | null>(null)
   const [walked, setWalked] = useState(false)
   const [cadOpenId, setCadOpenId] = useState<string | null>(null)
+  /** HH-85: the setup section starts tucked away; one tap reveals it. */
+  const [setupOpen, setSetupOpen] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -447,13 +449,20 @@ export function TaskReviewSheet({
           </div>
         ) : (
           <>
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-background px-2.5 py-2 text-[11.5px] text-muted-foreground">
-              <span>
-                {onSched ? <>Repeats <b className="text-foreground">{cadOf(r).toLowerCase()}</b></> :
-                  <><b className="text-foreground">Not on a schedule</b> — {r.schedule === "setup" ? "a one-time step" : "you'll do it when needed"}</>}
+            {/* HH-84: "the schedule section of this page is buried and it's
+                one of the most important things." It was an 11.5px strip
+                wedged between two big labelled sections. It is now the third
+                labelled section, peer to WHAT IS IT? and HOW IMPORTANT?, with
+                the answer at reading size. */}
+            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">On a schedule?</div>
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5">
+              <span className="text-[13px] leading-snug">
+                {onSched
+                  ? <>Repeats <b className="font-bold">{cadOf(r).toLowerCase()}</b> — adjust it on the next step</>
+                  : <><b className="font-bold">Not scheduled</b> — {r.schedule === "setup" ? "a one-time step" : "you'll do it when needed"}</>}
               </span>
               <button type="button" onClick={() => toggleSchedule(r)}
-                className="ml-auto rounded-full border border-primary px-2.5 py-1 text-[10.5px] font-semibold text-primary whitespace-nowrap">
+                className="ml-auto rounded-full border border-primary px-2.5 py-1.5 text-[11.5px] font-semibold text-primary whitespace-nowrap">
                 {onSched ? "Take off schedule" : "Put on a schedule"}
               </button>
             </div>
@@ -664,11 +673,27 @@ export function TaskReviewSheet({
                     <div className="mt-3.5 mb-2">
                       <div className="flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.015em]">
                         <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>{copy.title}
+                        {/* HH-85: setup opens on demand. "Already set up" is the
+                            honest default for an appliance owned for months —
+                            same call the item page's band made — and six open
+                            install rows pushed the real upkeep off the screen.
+                            The rows still save either way; they file onto the
+                            item page, never onto the schedule. */}
+                        {bucket === "setup" && items.length > 0 && (
+                          <button type="button" onClick={() => setSetupOpen((v) => !v)} aria-expanded={setupOpen}
+                            className="rounded-full border border-border px-2 py-0.5 text-[10.5px] font-semibold text-muted-foreground">
+                            {setupOpen ? "Hide" : "Already set up? Hide them"}
+                          </button>
+                        )}
                         <span className="ml-auto text-[11px] font-mono font-bold text-muted-foreground">{items.length}</span>
                       </div>
                       <div className="text-[12px] text-muted-foreground mt-0.5 pl-[13px]">{copy.sub}</div>
                     </div>
-                    {items.length === 0
+                    {bucket === "setup" && !setupOpen && items.length > 0 ? (
+                      <div className="text-[11.5px] text-muted-foreground pl-6 pb-1">
+                        Tucked away — they&rsquo;ll be on the item page if you ever need them.
+                      </div>
+                    ) : items.length === 0
                       ? <div className="text-[11.5px] text-muted-foreground pl-6 pb-1">{copy.empty}</div>
                       : items.map((r) => (expandedId === r.id ? <div key={r.id}>{expandedCard(r)}</div> : collapsedRow(r)))}
                   </div>
