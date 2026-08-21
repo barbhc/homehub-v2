@@ -128,10 +128,12 @@ export function useManualManagement({
 
   // --- Handlers ---
 
-  const handleOpenAddManual = () => {
+  // HH-89: the entry lanes preset the mode — a drop-zone that opens on the
+  // Link tab would be a small lie about what was just tapped.
+  const handleOpenAddManual = (mode: "url" | "upload" = "url") => {
     setAddManualOpen(true)
     setAddError(null)
-    setAddMode("url")
+    setAddMode(mode)
     setAddRole("primary")
     setLabelInput("")
     setTitleInput("")

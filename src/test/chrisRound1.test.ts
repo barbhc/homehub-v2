@@ -78,3 +78,31 @@ describe("HH-86 follow-up — the review title must not double the brand", () =>
     expect(src).not.toContain('`${item.brand ?? ""} ${item.display_name ?? ""}`')
   })
 })
+
+describe("HH-89 — the manual entry looks like what it does", () => {
+  const src = read("../pages/item-detail/ManualSection.tsx")
+
+  it("an empty section offers all three lanes at their real weight", () => {
+    expect(src).toContain("Upload the manual")
+    expect(src).toContain("Paste a link instead")
+    expect(src).toContain("Find it for me")
+    // The beta search stays labelled — the owner's standing call.
+    expect(src).toMatch(/Find it for me[\s\S]{0,200}Beta/)
+  })
+
+  it("each lane presets the mode it names", () => {
+    expect(src).toContain('handleOpenAddManual("upload")')
+    expect(src).toContain('handleOpenAddManual("url")')
+    // "Re-upload PDF" must not open the Link tab.
+    expect(src).toMatch(/Re-upload PDF/)
+  })
+
+  it("the grey square became a labelled tag", () => {
+    expect(src).toMatch(/"REF" : m\.source_type === "upload" \? "PDF" : "LINK"/)
+  })
+
+  it("Find it for me starts the search on open, once", () => {
+    expect(src).toContain("autoStart={autoFindManuals || findRequested}")
+    expect(src).toContain("if (!open) setFindRequested(false)")
+  })
+})
