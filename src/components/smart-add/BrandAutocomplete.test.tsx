@@ -106,3 +106,27 @@ describe("BrandAutocomplete", () => {
     expect(screen.queryByRole("listbox")).toBeNull()
   })
 })
+
+describe("HH-75 — finishing the brand must not empty the list", () => {
+  it("still offers LG once you have typed lg", () => {
+    // The report: "When I type in LG, where the G is lowercase it no longer
+    // matches to LG in the drop-down." Matching was already case-insensitive;
+    // the SUPPRESSION was too, so the suggestion vanished exactly when it was
+    // needed — to fix the casing with one tap.
+    expect(brandSuggestionsFor("lg")).toContain("LG")
+    expect(brandSuggestionsFor("Lg")).toContain("LG")
+    expect(brandSuggestionsFor("lG")).toContain("LG")
+  })
+
+  it("offers nothing once the brand is typed exactly right", () => {
+    // Still true, and still the point of the guard: there is nothing to offer
+    // someone who has already written "LG".
+    expect(brandSuggestionsFor("LG")).toEqual([])
+    expect(brandSuggestionsFor("Samsung")).toEqual([])
+  })
+
+  it("does not regress the partial-typing case", () => {
+    expect(brandSuggestionsFor("l")).toContain("LG")
+    expect(brandSuggestionsFor("sam")).toEqual(["Samsung"])
+  })
+})

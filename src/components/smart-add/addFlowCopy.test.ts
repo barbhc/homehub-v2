@@ -125,3 +125,34 @@ describe("the shortest path to a parsed manual", () => {
     expect(room).toContain("value != null")
   })
 })
+
+/**
+ * HH-76 — the screen the owner approved vs the screen that shipped.
+ *
+ * The agreed design was brand + model + one call to action. The first pass
+ * moved the NAME field and stopped, leaving Room and Category standing between
+ * the model field and the button. This pins the rest of it.
+ */
+describe("nothing stands between the model and the manual", () => {
+  const identify2 = read("./IdentifyStep.tsx")
+  const beforeDetails = identify2.slice(0, identify2.indexOf("Add more details"))
+
+  it("keeps Room off the main column", () => {
+    expect(beforeDetails).not.toContain('id="identify-room"')
+    expect(identify2).toContain('id="identify-room"')
+  })
+
+  it("keeps the Category picker off the main column", () => {
+    expect(beforeDetails).not.toContain("<CategoryPicker")
+    expect(identify2).toContain("<CategoryPicker")
+  })
+
+  it("still prefills the room from the item type once it is in there", () => {
+    expect(identify2).toContain("suggestForSubType={data.subType}")
+  })
+
+  it("does not print two help lines under the room", () => {
+    // Her screenshot had the prefill hint AND the old static line stacked.
+    expect(identify2).not.toContain("Pick where this item lives in your home.")
+  })
+})
