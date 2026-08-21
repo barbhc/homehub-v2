@@ -100,6 +100,28 @@ export async function countHiddenCleaning(homeId: string): Promise<number> {
   }
 }
 
+/**
+ * What the last getWeekAgenda call declined to show, and why.
+ *
+ * Deliberately a module-level readback rather than a change to the return type:
+ * WeekAgendaItem[] is consumed in a dozen places and none of them should have to
+ * care. Read it immediately after awaiting getWeekAgenda.
+ */
+export interface AgendaWithheld {
+  /** Eligible, scheduled, but past the horizon the caller asked for. */
+  beyondHorizon: number
+  /** Soonest due date among those, or null. */
+  nextDueDate: string | null
+  /** Hidden by the item-cleaning rule, at any date. */
+  itemCleaning: number
+}
+
+let lastWithheld: AgendaWithheld = { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 }
+
+export function getLastAgendaWithheld(): AgendaWithheld {
+  return lastWithheld
+}
+
 export async function getWeekAgenda(
   homeId: string,
   opts?: { days?: number }
@@ -156,6 +178,28 @@ export async function getWeekAgenda(
     const completedTemplates = new Set(
       all.filter((r) => r.status === "done").map((r) => r.taskTemplateId as string)
     )
+
+    // HH-82 (Chris, twice): what this feed LEAVES OUT is invisible, and an
+    // empty list reads as "you have nothing" when the truth is "you have three
+    // things, and both of our rules happen to hide them". Counted here, where
+    // the reasons are, so the empty state can say which one applied.
+    const pending = all.filter((r) => r.status === "scheduled" || r.status === "snoozed")
+    const beyondHorizon = pending.filter(
+      (r) => (r.dueDate as string) > horizon &&
+        isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }),
+    )
+    const itemCleaning = pending.filter(
+      (r) => !isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }),
+    )
+    lastWithheld = {
+      beyondHorizon: beyondHorizon.length,
+      // The soonest thing we are not showing — "3 more, the first on Sep 17" is
+      // actionable where a bare count is not.
+      nextDueDate: beyondHorizon
+        .map((r) => r.dueDate as string)
+        .sort()[0] ?? null,
+      itemCleaning: itemCleaning.length,
+    }
 
     const items: WeekAgendaItem[] = all
       .filter((r) => r.status === "scheduled" || r.status === "snoozed")
