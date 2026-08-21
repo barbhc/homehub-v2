@@ -682,6 +682,20 @@ export function TaskReviewSheet({
         </div>
 
         <div className="border-t px-4 py-3 pb-5 flex items-center gap-2.5">
+          {/* HH-83: while the walkthrough is open there is NO finish button.
+              "Next: schedule 3 tasks" sat under card 1 of 11 and reads as the
+              walkthrough's own next step — but it jumps to scheduling with ten
+              tasks unvisited at their defaults. The owner's ask was an exit
+              that doesn't accept-and-finish: that is the ✕ Exit above, which
+              returns to the list with every decision kept and NOTHING saved
+              (commit only happens at step 2's Save). The footer now says that
+              instead of competing with it. */}
+          {guideRow ? (
+            <p className="flex-1 text-center text-[12px] text-muted-foreground">
+              {guideIndex ?? 0} of {rows.length} decided · nothing is saved until the end
+            </p>
+          ) : (
+          <>
           {step === 2 && (
             <Button variant="ghost" onClick={() => { setStep(1); scrollRef.current?.scrollTo({ top: 0 }) }}>‹ Back</Button>
           )}
@@ -695,6 +709,8 @@ export function TaskReviewSheet({
               ? `Next: schedule ${counts.scheduled} task${counts.scheduled === 1 ? "" : "s"} →`
               : `Save ${counts.tasks} task${counts.tasks === 1 ? "" : "s"}${counts.tips ? ` · ${counts.tips} tip${counts.tips === 1 ? "" : "s"}` : ""}`}
           </Button>
+          </>
+          )}
         </div>
       </SheetContent>
     </Sheet>

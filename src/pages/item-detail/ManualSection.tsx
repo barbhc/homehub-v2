@@ -639,9 +639,8 @@ export function ManualSection({
                 a 2–4 minute wait reads as "don't touch anything". */}
             {parsePhase && addRole !== "reference" && (
               <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
-                Reading the manual — this takes a couple of minutes. You can close
-                this and keep using the app, or even quit it; we'll keep working and
-                the tasks will be waiting on this item.
+                Reading the manual — about two minutes. You don&rsquo;t need to
+                stay: the tasks will be waiting on this item.
               </div>
             )}
           </div>

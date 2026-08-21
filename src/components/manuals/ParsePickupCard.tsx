@@ -184,7 +184,7 @@ export function ParsePickupCard({
             Still reading the manual — {STAGE_LINE[ui] ?? "working…"}
           </p>
           <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
-            Takes a couple of minutes. You can leave this page; we'll keep working.
+            Takes a couple of minutes. You can leave this page — we'll keep working.
           </p>
         </div>
       </div>

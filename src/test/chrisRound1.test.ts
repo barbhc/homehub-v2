@@ -58,3 +58,23 @@ describe("What's New only speaks to people who were there", () => {
     expect(src).toContain("creationTime")
   })
 })
+
+describe("HH-83 — the walkthrough offers no finish button", () => {
+  // "Next: schedule 3 tasks" sat under card 1 of 11 and read as the
+  // walkthrough's next step — but it jumped to scheduling with ten tasks
+  // unvisited at their defaults. While a guide card is open, the footer may
+  // only report progress; the ✕ Exit is the way out, and it saves nothing.
+  it("renders progress, not a save path, while a guide card is open", () => {
+    const src = read("../components/manuals/TaskReviewSheet.tsx")
+    expect(src).toContain("nothing is saved until the end")
+    expect(src).toMatch(/guideRow \? \(/)
+  })
+})
+
+describe("HH-86 follow-up — the review title must not double the brand", () => {
+  it("prepends brand only when the name does not already carry it", () => {
+    const src = read("../pages/ItemDetailPage.tsx")
+    expect(src).toContain("includes(item.brand.toLowerCase())")
+    expect(src).not.toContain('`${item.brand ?? ""} ${item.display_name ?? ""}`')
+  })
+})
