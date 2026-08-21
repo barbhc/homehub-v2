@@ -73,3 +73,19 @@ describe("modal children are allowed to shrink", () => {
     expect(read("../components/ui/sheet.tsx")).toContain("[&>*]:min-w-0")
   })
 })
+
+describe("HH-90 — a dialog taller than the screen must scroll", () => {
+  // DialogContent is fixed and centred with a translate, so without an explicit
+  // max-height + overflow it grows past BOTH viewport edges and nothing
+  // scrolls. The owner hit it on the add-manual dialog the moment search
+  // results rendered: "Add" below the fold, the header under the status bar,
+  // and no way to reach either. Every dialog in the app shares this container.
+  it("caps the shared DialogContent at the viewport and scrolls inside", () => {
+    const src = read("../components/ui/dialog.tsx")
+    expect(src).toContain("max-h-[calc(100dvh-2rem)]")
+    expect(src).toContain("overflow-y-auto")
+    // dvh, not vh — iOS Safari's collapsing chrome makes vh taller than the
+    // visible viewport, which would leave the bottom edge cut off again.
+    expect(src).not.toContain("max-h-[calc(100vh-2rem)]")
+  })
+})

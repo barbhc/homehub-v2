@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { itemSubtitle } from "@/lib/itemSubtitle"
 import { useNavigate } from "react-router-dom"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon,
@@ -397,8 +398,9 @@ export function DesktopItemDetail({
                 </span>
               ) : null}
             </div>
-            {(item.brand || item.model) && (
-              <div className="mb-4 mt-1 text-[13.5px]" style={{ color: SUB }}>{[item.brand, item.model].filter(Boolean).join(" · ")}</div>
+            {/* HH-86: same suppression as mobile — see itemSubtitle. */}
+            {itemSubtitle(item.display_name, item.brand, item.model) && (
+              <div className="mb-4 mt-1 text-[13.5px]" style={{ color: SUB }}>{itemSubtitle(item.display_name, item.brand, item.model)}</div>
             )}
             {shownHeaderFields.length > 0 && (
               <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>

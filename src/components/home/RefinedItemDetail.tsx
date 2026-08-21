@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { itemSubtitle } from "@/lib/itemSubtitle"
 import { Link } from "react-router-dom"
 import {
   ChevronLeftIcon, ChevronRightIcon, MapPinIcon, ShieldCheckIcon,
@@ -129,7 +130,12 @@ export function RefinedItemDetail({
             glyphClassName="size-16"
           />
           <h1 className="mt-3.5 text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
-          {(item.brand || item.model) && <div className="mt-1 text-[15px]" style={{ color: SUB }}>{[item.brand, item.model].filter(Boolean).join(" · ")}</div>}
+          {/* HH-86: only when it adds something — since #139 composes blank
+              names as "Brand Model", the old unconditional line was the same
+              words twice for every newly added item. */}
+          {itemSubtitle(item.display_name, item.brand, item.model) && (
+            <div className="mt-1 text-[15px]" style={{ color: SUB }}>{itemSubtitle(item.display_name, item.brand, item.model)}</div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             {onEditRoom ? (
               // Tappable: the room is the one basic fact people want to fix on
