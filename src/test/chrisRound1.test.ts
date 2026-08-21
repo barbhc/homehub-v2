@@ -138,3 +138,37 @@ describe("HH-87 — a manual mid-parse is neither 'has one' nor 'has none'", () 
     expect(pill).toContain("if (total === 0) return null")
   })
 })
+
+describe("round 9 redesign — the picks, pinned", () => {
+  it("HH-85: setup never outranks When-needed in the review order", () => {
+    const src = read("../../shared/tasks/reviewBuckets.ts")
+    const order = src.indexOf('"whenNeeded", "setup"')
+    expect(order).toBeGreaterThan(-1)
+  })
+
+  it("HH-85: the review's setup section starts tucked away", () => {
+    const src = read("../components/manuals/TaskReviewSheet.tsx")
+    expect(src).toContain("useState(false)\n")
+    expect(src).toContain("Already set up? Hide them")
+    expect(src).toContain("they&rsquo;ll be on the item page if you ever need them")
+  })
+
+  it("HH-84: the walkthrough's schedule block is a labelled peer section", () => {
+    const src = read("../components/manuals/TaskReviewSheet.tsx")
+    expect(src).toContain("On a schedule?</div>")
+    // The old buried strip: 11.5px muted text with the toggle inside it.
+    expect(src).not.toContain('text-[11.5px] text-muted-foreground">\n              <span>\n                {onSched')
+  })
+
+  it("HH-91: Ask sits below Upkeep and states its precondition", () => {
+    const src = read("../components/home/RefinedItemDetail.tsx")
+    expect(src).toContain("Works best once the manual is added.")
+    // Ask renders AFTER CareBlock now.
+    expect(src.indexOf("<CareBlock")).toBeLessThan(src.indexOf("Have a question or a problem?"))
+  })
+
+  it("HH-91: the empty item page leads with the manual, in Home's voice", () => {
+    const src = read("../components/item-care/CareBlock.tsx")
+    expect(src).toContain("No upkeep yet — add the manual")
+  })
+})

@@ -211,23 +211,6 @@ export function RefinedItemDetail({
             way a person phrases it. It used to be a link called "Fix a problem"
             at the very bottom, below every reference section, which is the last
             place someone with a broken appliance will look. */}
-        <Link
-          to={`/chat?item=${item.item_unit_id}`}
-          className="flex items-center gap-3 rounded-2xl border px-3.5 py-3"
-          style={{ background: "var(--hh-teal-wash)", borderColor: "color-mix(in srgb, var(--hh-teal) 22%, transparent)" }}
-        >
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "var(--hh-surface)" }}>
-            <MessageCircleQuestionIcon className="size-[18px]" style={{ color: TEAL }} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>Have a question or a problem?</span>
-            <span className="block text-[11.5px]" style={{ color: SUB }}>
-              {hasManual ? "Ask about this item — answers come from your manual" : "Ask about this item"}
-            </span>
-          </span>
-          <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: TEAL, opacity: 0.6 }} />
-        </Link>
-
         <SectionLabel action={reviewAction}>Upkeep</SectionLabel>
         <CareBlock
           item={item}
@@ -242,6 +225,30 @@ export function RefinedItemDetail({
           onItemUpdate={onItemUpdate}
           m
         />
+
+        {/* HH-91 / round-9 redesign: Ask sits BELOW the upkeep it answers
+            about. Its own subtitle admits the dependency; before a manual
+            exists it says so plainly instead of promising, and drops the teal
+            invitation styling. */}
+        <Link
+          to={`/chat?item=${item.item_unit_id}`}
+          className="mt-4 flex items-center gap-3 rounded-2xl border px-3.5 py-3"
+          style={hasManual
+            ? { background: "var(--hh-teal-wash)", borderColor: "color-mix(in srgb, var(--hh-teal) 22%, transparent)" }
+            : { background: "var(--hh-surface)", borderColor: "var(--hh-line)", opacity: 0.8 }}
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "var(--hh-surface)" }}>
+            <MessageCircleQuestionIcon className="size-[18px]" style={{ color: TEAL }} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>Have a question or a problem?</span>
+            <span className="block text-[11.5px]" style={{ color: SUB }}>
+              {hasManual ? "Ask about this item — answers come from your manual" : "Works best once the manual is added."}
+            </span>
+          </span>
+          <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: TEAL, opacity: 0.6 }} />
+        </Link>
+
 
         <SectionLabel>Details &amp; records</SectionLabel>
         {shownFields.length > 0 && (
