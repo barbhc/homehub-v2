@@ -3,6 +3,13 @@
 _Last synced: 2026-06-17. Strategic Arc-level planning lives in `memory/project_backlog.md`; relevance tracker in `RUT_AUDIT.md`._
 
 ## In Progress
+- [ ] **Beta round 9 — the add-manual flow, end to end** (owner decisions 2026-08-21, from her 20-minute test run; 9 reports, 5 of them one item-page design problem).
+  - [x] **HH-90 — every dialog stopped scrolling past one screen.** `DialogContent` had no max-height/overflow; "Add" was unreachable while choosing a manual. LIVE (#145).
+  - [x] **HH-86 — item header repeated the brand.** #139's composed names met an unconditional "brand · model" subtitle; `itemSubtitle()` now suppresses by content. LIVE (#145).
+  - [ ] **HH-88 — parsing-copy semicolons.** Blocked on wording pick (options in chat + on the card).
+  - [ ] **HH-87 — item page during a parse.** `hasManual` is `parsed_at !== null`, so a parsing manual reads as none. Blocked on picking one of 3 mocked states + the global parsing-tray question.
+  - [ ] **HH-83/84/85/91 (+86 density) — the item-page redesign.** One screen, five reports: schedule buried, setup above upkeep, Ask front-and-centre pre-manual, crowded text, review exit ambiguous. Blocked on the Round 9 Redlines review.
+  - [ ] **HH-89 — manual section + PDF upload affordance.** Blocked on picking one of 3 designs.
 - [ ] **Beta round 8 — "I did the work and see nothing"** (owner decisions 2026-08-21). All three are the same complaint from different screens: someone adds an item and the app shows them nothing in return.
   - [ ] **HH-81 — the onboarding add screen is still the OLD layout.** There are two add-item surfaces: `/inventory/add` (fixed in #139) and `/onboarding/inventory` (`AddItemForm`, never touched). The onboarding one asks Category → Room → Name and labels brand+model "optional" — on the one screen every new account sees first, calling the only two fields that lead to a manual optional. The duplication is the real defect.
   - [ ] **HH-82 — scheduled tasks absent from the Tasks list** (Chris, second report). Two deliberate causes stacking: `cleaning`+`item_unit` is excluded by the 2026-07-29 agenda rule, and the rest fall outside `weekAgenda`'s 7-day horizon. The horizon half is a side effect of #58 — before it, every new task landed due today, so the list was always full. We traded a flood for an empty list.
