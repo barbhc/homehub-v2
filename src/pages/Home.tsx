@@ -215,8 +215,11 @@ function EmptyHomeHero() {
           Let&apos;s set up your home
         </h2>
         <p className="text-[15px] sm:text-base text-muted-foreground mb-6 leading-relaxed">
-          Add an appliance or fixture and upload its manual.
-          Homehub turns it into reminders, warranty tracking, and answers to your questions.
+          {/* HH-77: "fixture" was the least motivating thing we could name to
+              someone who has added nothing, and the old line described what we
+              PARSE rather than what they get back. Owner picked this wording. */}
+          Add one appliance and its manual.
+          Homehub reads the manual and builds the upkeep schedule for you.
         </p>
         <Link
           to="/inventory/add"

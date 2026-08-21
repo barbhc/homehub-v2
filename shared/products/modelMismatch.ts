@@ -48,5 +48,28 @@ export function findModelMismatch(title: string, typedModel: string): string | n
       }
     }
   }
-  return null
+
+  // HH-73: the extension search above only catches a title naming a LONGER
+  // model ("Core 300" → "Core 300S"). The LG report was the other two shapes:
+  // "DLEX3900-DLGX3901-Spec-Sheet.pdf" offered for a DLGX3901B names a SIBLING
+  // (DLEX3900) and a TRUNCATION (DLGX3901), and both returned null — so a
+  // document naming two models, neither of them yours, arrived unflagged.
+  //
+  // Same doctrine: report the closest model-shaped token so the reader can
+  // compare it against the nameplate themselves. Still a warning, never a block
+  // — a manual really does sometimes cover a family, and "DLGX3901" probably
+  // does cover "DLGX3901B".
+  const tokens = title.match(/[A-Za-z]{2,}[-\s]?\d{2,}[A-Za-z0-9]*/g) ?? []
+  let best: { text: string; shared: number } | null = null
+  for (const raw of tokens) {
+    const norm = normalizeModel(raw)
+    if (norm.length < 4 || norm === typed) continue
+    let shared = 0
+    while (shared < norm.length && shared < typed.length && norm[shared] === typed[shared]) shared++
+    // Needs a real family resemblance, or it is some unrelated number in the
+    // filename rather than a model at all.
+    if (shared < 3) continue
+    if (!best || shared > best.shared) best = { text: raw.trim().replace(/[^\w-]+$/, ""), shared }
+  }
+  return best ? best.text : null
 }

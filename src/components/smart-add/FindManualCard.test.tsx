@@ -90,3 +90,37 @@ describe("FindManualCard", () => {
     expect(call).not.toHaveBeenCalled()
   })
 })
+
+describe("HH-73 — what the result actually is", () => {
+  it("warns that a spec sheet is not the manual, and drops the trust badge", async () => {
+    // The reported result: a real LG document, on lg.com, with no upkeep in it.
+    // Every existing guard passed it and the badge made it look right.
+    call.mockResolvedValue({
+      candidates: [{ url: "https://lg.com/DLEX3900-DLGX3901-Spec-Sheet.pdf", title: "DLEX3900-DLGX3901-Spec-Sheet.pdf", host: "lg.com", official: true }],
+      source: "search",
+    })
+    render(<FindManualCard brand="LG" model="DLGX3901B" onPick={() => {}} autoStart />)
+    await waitFor(() => expect(screen.getByText("Spec sheet")).toBeInTheDocument())
+    expect(screen.getByText(/not the owner's manual/i)).toBeInTheDocument()
+    expect(screen.queryByText(/manufacturer's own site/i)).not.toBeInTheDocument()
+  })
+
+  it("keeps the badge on an actual manual from the same host", () => {
+    // The badge is still worth having — it just cannot vouch for the document.
+    call.mockResolvedValue({
+      candidates: [{ url: "https://lg.com/DLGX3901B-owners-manual.pdf", title: "LG DLGX3901B Owner's Manual", host: "lg.com", official: true }],
+      source: "search",
+    })
+    render(<FindManualCard brand="LG" model="DLGX3901B" onPick={() => {}} autoStart />)
+    return waitFor(() => expect(screen.getByText(/manufacturer's own site/i)).toBeInTheDocument())
+  })
+
+  it("gives a result titled only with its host a name you can read", async () => {
+    call.mockResolvedValue({
+      candidates: [{ url: "https://partstown.com/lg/DLGX3901B-parts.pdf", title: "Partstown", host: "partstown.com", official: false }],
+      source: "search",
+    })
+    render(<FindManualCard brand="LG" model="DLGX3901B" onPick={() => {}} autoStart />)
+    await waitFor(() => expect(screen.getByText(/DLGX3901B-parts/i)).toBeInTheDocument())
+  })
+})
