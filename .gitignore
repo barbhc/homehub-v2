@@ -38,6 +38,7 @@ memory/
 e2e/.auth/
 playwright-report/
 test-results/
+journey-report/
 e2e/prototype-reference/
 
 # E2E test env (holds the service-role key for the seed script — NEVER commit)

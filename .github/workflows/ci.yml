@@ -193,7 +193,7 @@ jobs:
       # the JVM boot it replaces was ~35s.
       #
       # `&&` means the first failing suite still fails the job.
-      - name: Browser suites (e2e + a11y + device matrix)
+      - name: Browser suites (e2e + a11y + device matrix + journeys)
         run: npm run test:e2e:all:emu
       - name: Upload e2e report on failure
         if: ${{ failure() }}
@@ -204,4 +204,5 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            journey-report/
           retention-days: 7
