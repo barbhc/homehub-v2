@@ -35,6 +35,7 @@ import { CautionCallout } from "@/components/tasks/CautionCallout"
 import { useSetupCompletion } from "@/pages/item-detail/useSetupCompletion"
 import { SYMPTOM_TAGS, type ReCheckTrigger } from "@/lib/symptomTaxonomy"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
+import { isAgendaEligible } from "../../../shared/tasks/agendaEligibility"
 import { updateItemUnit } from "@/modules/items/services/itemService"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
@@ -235,6 +236,13 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
   const [open, setOpen] = useState(false)
   const safety = t.risk_level === "safety" || !!safetyNote
   const reminds = willNotify(taskLikeOf(t))
+  // HH-82 (Chris, twice): this band said "On a schedule" for three tasks and
+  // the Tasks list showed none of them. Both screens were behaving as designed
+  // and they disagreed about what "scheduled" means — this one groups purely by
+  // cadence, while the agenda drops item-scoped cleaning by the 2026-07-29
+  // rule. It is the item page that sets the expectation, so it is the item page
+  // that has to be honest about where the work actually appears.
+  const onAgenda = isAgendaEligible({ careType: t.care_type ?? null, scopeType: t.scope_type ?? null })
   const actor = classifyTaskActor(t)
   const { steps, cautions } = getTaskGuidance(t)
   const showSteps = actor !== "hazardous" && steps.length > 0
@@ -269,6 +277,15 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
                   style={{ color: TEAL }}
                   aria-label="Reminds you when due"
                 />
+              )}
+              {!onAgenda && (
+                <span
+                  className="mt-[1px] shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                  style={{ background: SLATE_SOFT, color: SLATE }}
+                  title="Cleaning for a single item lives in your cleaning guides, not on the Tasks list"
+                >
+                  In guides
+                </span>
               )}
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
@@ -692,7 +709,16 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, onOpenManual
       )}
 
 
+      {/* HH-82: when EVERY scheduled row is one the Tasks list will not show,
+          the count above is the whole of the user's disappointment. Say it once
+          at the band rather than making them infer it from three chips. */}
       <Band tone="teal" title="On a schedule" count={fScheduled.length}>
+        {fScheduled.length > 0 &&
+          fScheduled.every((t) => !isAgendaEligible({ careType: t.care_type ?? null, scopeType: t.scope_type ?? null })) && (
+            <div className="px-0.5 pb-1.5 text-[11.5px]" style={{ color: SUB }}>
+              These are cleaning jobs for this item — they live in your cleaning guides rather than on the Tasks list.
+            </div>
+          )}
         {fScheduled.length ? (
           fScheduled.map((t, i) => (
             <ScheduleRow
