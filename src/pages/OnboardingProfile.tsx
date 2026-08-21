@@ -13,8 +13,18 @@ export default function OnboardingProfile() {
 
   // Redirect lives in an effect — navigate() during render is a react-router
   // error, and the `return null` it paired with was the launch-day blank page.
+  //
+  // The redirect must NOT fire on the first render after "Continue": Index
+  // awaits refresh() and navigates here, but the router commit lands before
+  // the provider's setHome — so this page always mounted with a stale
+  // home=null and bounced every new user straight past the profile questions
+  // (and the first-item funnel behind them). A short grace lets the pending
+  // context commit arrive; a user with truly no home still gets redirected,
+  // just a beat later.
   useEffect(() => {
-    if (!loading && !home) navigate("/", { replace: true })
+    if (loading || home) return
+    const t = window.setTimeout(() => navigate("/", { replace: true }), 1500)
+    return () => window.clearTimeout(t)
   }, [loading, home, navigate])
 
   if (loading || !home) {

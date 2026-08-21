@@ -47,12 +47,16 @@ test.describe("emulator e2e — tasks (getWeekAgenda + Fix A)", () => {
     await expect(page.getByText("Flush the water heater").filter(visible)).toHaveCount(0)
   })
 
-  test("Fix C — the 'Start here' banner renders for a genuinely overdue essential", async ({ page }) => {
+  test("insight banner — lapsed safety work earns the 'Worth doing' nudge", async ({ page }) => {
     await page.goto("/maintenance")
-    // The seeded furnace filter has a PRIOR completion, so its past-due instance
-    // is genuinely overdue → computeInsight surfaces the "Start here" nudge.
-    // (A never-completed essential would be calm "Start anytime" — no banner.)
-    await expect(page.getByText("Start here").filter(visible)).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByText(/essential task is overdue/i).filter(visible)).toBeVisible()
+    // Due-windows semantics (design/due-windows.md): only a passed DEADLINE is
+    // "overdue" ("Start here" banner). Recurring window work is never late — but
+    // lapsed SAFETY work (the seeded smoke/CO detector test with a prior
+    // completion) earns the firm-but-dateless "Worth doing" nudge instead.
+    // This spec asserted the pre-windows "Start here / overdue" copy for weeks
+    // of red CI — see computeInsight in components/home/tasks/shared.ts for the
+    // current contract.
+    await expect(page.getByText("Worth doing").filter(visible)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(/safety check has skipped a cycle/i).filter(visible)).toBeVisible()
   })
 })

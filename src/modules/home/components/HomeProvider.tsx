@@ -77,7 +77,24 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.debug("[HomeProvider] Loading homes for user", user.id)
-      const result = await getMyHomes()
+      let result = await getMyHomes()
+      // A home created milliseconds ago can lag the members collection-group
+      // query. When the caller NAMES the home it just made, poll briefly for
+      // it instead of concluding it doesn't exist — that conclusion left
+      // home=null and silently killed the profile + first-item funnel for
+      // every new account.
+      for (let attempt = 0; selectHomeId && attempt < 3; attempt++) {
+        const found = !result.error && (result.data?.homes ?? []).some((h) => h.home_id === selectHomeId)
+        if (found) break
+        await new Promise((r) => setTimeout(r, 400))
+        result = await getMyHomes()
+      }
+      console.debug(
+        "[HomeProvider] getMyHomes →",
+        (result.data?.homes ?? []).length, "homes",
+        "error:", result.error?.message ?? null,
+        "selectHomeId:", selectHomeId ?? null,
+      )
       markBoot("home")
       // A SUCCESSFUL network answer always wins — the cache decides what paints
       // FIRST, never what is true. A FAILED one decides nothing: blanking a
