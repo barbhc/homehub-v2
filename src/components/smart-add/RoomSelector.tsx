@@ -169,6 +169,9 @@ export function RoomSelector({
       {/* A prefill the user cannot see is an assumption, not a suggestion.
           Says what we did and that it's theirs to change — the whole point of
           filling it in was to save a tap, not to slip a decision past them. */}
+      {/* Exactly ONE help line. Her screenshot showed both this hint AND the
+          caller's static "Pick where this item lives in your home." stacked,
+          which is noise and part of what read as gaps. */}
       {suggested && value != null && !newRoomMode && (
         <p className="text-xs text-muted-foreground">
           Filled in from the item type &mdash; change it if that&rsquo;s not where it lives.

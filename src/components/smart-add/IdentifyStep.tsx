@@ -1018,27 +1018,7 @@ export function IdentifyStep({
           </div>
         )}
 
-        <div>
-          <RoomSelector
-            value={data.locationId}
-            onChange={(id) => onDataChange({ ...data, locationId: id })}
-            id="identify-room"
-            suggestForSubType={data.subType}
-          />
-          <p className="text-xs text-muted-foreground mt-1">Pick where this item lives in your home.</p>
-        </div>
 
-        <div>
-          <p className="text-sm font-semibold text-foreground mb-1">Category <span className="text-xs font-normal text-muted-foreground">(optional)</span></p>
-          <p className="text-xs text-muted-foreground mb-3">Helps us suggest the right maintenance tasks. You can add it later.</p>
-          <CategoryPicker
-            categoryId={data.itemCategory}
-            subType={data.subType}
-            onCategoryChange={setCategory}
-            onSubTypeChange={setSubType}
-            showHeading={false}
-          />
-        </div>
 
         {moreDetailsOpen ? (
           <button
@@ -1140,6 +1120,32 @@ export function IdentifyStep({
             aria-invalid={nameTouched && data.name.trim().length === 0}
           />
                 <p className="text-xs text-muted-foreground mt-1">we name it from the brand and model, then improve it from the manual</p>
+              </div>
+              {/* HH-76: Room and Category used to sit on the main column,
+                  between the model field and the button. The agreed design was
+                  brand + model + one call to action, so they moved in here —
+                  still prefilled, still one tap away, no longer in the way.
+                  Room fills itself in from the item type; Category is filled by
+                  the lookup and again by the manual. Neither is a question the
+                  user is better placed to answer than we are. */}
+              <div>
+                <RoomSelector
+                  value={data.locationId}
+                  onChange={(id) => onDataChange({ ...data, locationId: id })}
+                  id="identify-room"
+                  suggestForSubType={data.subType}
+                />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-1">Category <span className="text-xs font-normal text-muted-foreground">(optional)</span></p>
+                <p className="text-xs text-muted-foreground mb-3">Helps us suggest the right maintenance tasks. You can add it later.</p>
+                <CategoryPicker
+                  categoryId={data.itemCategory}
+                  subType={data.subType}
+                  onCategoryChange={setCategory}
+                  onSubTypeChange={setSubType}
+                  showHeading={false}
+                />
               </div>
               <div>
                 <label htmlFor="identify-serial" className="text-sm font-medium text-foreground block mb-1.5">
