@@ -79,8 +79,7 @@ function ProfileDone() {
         Your home profile is set
       </h1>
       <p className="text-[15px] text-muted-foreground mb-8 leading-relaxed">
-        Homehub uses these answers to pick the right tasks and timing for your home.
-        Where to next?
+        Your answers shape which tasks show up, and when. Where to next?
       </p>
       <div className="flex flex-col items-center gap-3">
         <Link

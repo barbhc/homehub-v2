@@ -34,7 +34,9 @@ flowchart LR
     A[Marketing page /] --> B[Create account /signup]
     B --> C["Set up your home"\nname + invite code when gated]
     C --> D[Home profile /onboarding/profile\n5 questions, all skippable]
-    D --> E[First item /inventory/add\nlane chooser]
+    D --> D2{"Where next?"\nAdd your first item / Take me to my home page}
+    D2 -->|Add your first item| E[First item /inventory/add\nlane chooser]
+    D2 -->|Take me to my home page| G
     E --> F[Item page /items/:id]
     F --> G[Home: "No upkeep yet"\n+ first-run tour]
     B -. "?returnTo=/invite/…" .-> H[Accept invite /invite/:token]
@@ -46,9 +48,11 @@ flowchart LR
 | 2 | Email+password (**Create account**), magic link, Apple (flag-gated) | `/signup` | `src/modules/auth/components/SignInForm.tsx`, `AuthProvider.tsx` | Auth user |
 | 3 | **Set up your home** — name; invite-code field only when the growth gate is on | `/` | `HomeOnboarding.tsx` → `createHome` / `redeemInviteCode` | `homes/{id}`, `members/{uid}`, 9 default rooms |
 | 4 | Home profile: type → own/rent → climate → concerns → mode; **Skip for now** honored | `/onboarding/profile` | `HomeProfileOnboarding.tsx` → `upsertHomeProfile` | profile fields folded onto `homes/{id}` |
-| 5 | The funnel continues into the first item — skip does NOT strand you on Home | `/onboarding/inventory` → `/inventory/add` | `App.tsx` redirect (HH-81) | — |
+| 5 | **"Your home profile is set — where to next?"**: *Add your first item* / *Take me to my home page*. Asked, not assumed (HH-93) | `/onboarding/profile` | `OnboardingProfile.tsx` (`ProfileDone`) | — |
 | 6 | Lane chooser → simple lane: **Name on the main column** → Add item | `/inventory/add` | `IdentifyStep.tsx`, `SmartAddItem.tsx` → `createItemUnit` | `homes/{id}/items/{id}` |
-| 7 | Item page; "no manual yet" care block invites the manual | `/items/:id` | `CareBlock.tsx` | — |
+| 6b | Appliance lane instead: brand + model → **step 2, Add Manual** → attaching it starts the parse and lands on the item page | `/inventory/add` | `SmartAddItem.tsx` → `startParseAndLeave` | `homes/{id}/manuals/{id}`, `parse.stage` |
+| 7 | Item page; "no manual yet" care block invites the manual. While one is being read: **"Reading your manual · N pages"** + skeleton upkeep rows + the purchase nudge | `/items/:id` | `CareBlock.tsx`, `ParsePickupCard.tsx`, `PurchaseNudge.tsx` | — |
+| 7b | Parse done → **"N maintenance tasks to review"** → the focused review (how often + reminders). Cleaning, setup and tips are saved without a question | `/items/:id` | `TaskReviewSheet` `focus="maintenance"` | `taskTemplates`, `taskInstances` |
 | 8 | Home: first-run tour (1 of 5, Esc-closable), then **"No upkeep yet — add a manual"** with the item under "Finish setting up" | `/home` | `useFeatureTour`, `Home.tsx` | — |
 
 **Guards that make or break this journey**
@@ -62,6 +66,12 @@ flowchart LR
   (`funnelingRef`), `refresh(homeId)` polls until the members collection-group
   query can see a just-created home, and `OnboardingProfile` gives the context
   a grace window before bouncing.
+
+**The 2026-08-22 flow change (PRs #160–#163):** the profile no longer funnels
+straight into the add form — it offers the two doors above. The wizard ends at
+the manual; Reading, Review and Purchase left it. The item page fills in while
+the manual is read and asks for ONE review (maintenance). See
+`project_living_item_page` in memory and the "Living Item Page" design.
 
 **Spec coverage:** `journey.spec.ts` J1 (signup → home → profile → simple-lane
 item → "No upkeep yet") · `emu/auth-home` · `emu/smart-add` (the spec that
