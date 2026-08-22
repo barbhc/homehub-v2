@@ -167,6 +167,17 @@ describe("round 9 redesign — the picks, pinned", () => {
     expect(src.indexOf("<CareBlock")).toBeLessThan(src.indexOf("Have a question or a problem?"))
   })
 
+  it("HH-91: desktop states the same precondition on its Ask button", () => {
+    // Desktop's Ask is already secondary (a header button beside Edit), so the
+    // mobile fix — demote it below Upkeep — has nothing to move. The half that
+    // DOES translate is the honesty: pre-manual it must not look as capable as
+    // it is afterwards. Same sentence as mobile, so the two screens agree.
+    const src = read("../components/home/DesktopItemDetail.tsx")
+    expect(src).toContain("Works best once the manual is added.")
+    // Muted, not disabled — general questions are still fair game.
+    expect(src).not.toMatch(/onClick=\{goAsk\}[\s\S]{0,200}disabled/)
+  })
+
   it("HH-91: the empty item page leads with the manual, in Home's voice", () => {
     const src = read("../components/item-care/CareBlock.tsx")
     expect(src).toContain("No upkeep yet — add the manual")
