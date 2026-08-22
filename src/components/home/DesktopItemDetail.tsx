@@ -415,9 +415,26 @@ export function DesktopItemDetail({
             <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13px] font-bold" style={{ borderColor: "var(--hh-line2)", color: INK }}>
               <PencilIcon className="size-[14px]" /> Edit
             </button>
-            <button onClick={goAsk} className="inline-flex items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13px] font-bold" style={{ borderColor: "var(--hh-line2)", color: INK }}>
+            {/* HH-91 on desktop. Ask needs no DEMOTING here — unlike mobile it
+                is already a secondary header button beside Edit, not a hero
+                card. What it lacked is the honest half: before a manual exists
+                it looked exactly as capable as it does after, while its answers
+                come from the manual. Muted, with the precondition said out
+                loud. Still tappable — general questions are fair game, and
+                disabling it would take away a door that does open. */}
+            <button
+              onClick={goAsk}
+              title={hasManual ? undefined : "Answers come from the manual — add one to get item-specific help"}
+              className="inline-flex items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13px] font-bold"
+              style={{ borderColor: "var(--hh-line2)", color: hasManual ? INK : SUB }}
+            >
               <SparklesIcon className="size-[14px]" /> Ask
             </button>
+            {!hasManual && (
+              <span className="max-w-[150px] text-[11px] leading-snug" style={{ color: SUB }}>
+                Works best once the manual is added.
+              </span>
+            )}
           </div>
         </div>
       </Card>
