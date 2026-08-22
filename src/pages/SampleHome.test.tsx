@@ -26,12 +26,15 @@ describe("SampleHome", () => {
 
   it("says plainly that it is not the user's home", () => {
     renderPage()
-    expect(screen.getAllByText(/this is a sample home/i).length).toBeGreaterThan(0)
+    // Copy changed in the HH-78 redesign; the CONTRACT is unchanged — the page
+    // must say it is a sample and that nothing done here is kept.
+    expect(screen.getAllByText(/sample home/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/nothing you tap here is saved/i).length).toBeGreaterThan(0)
   })
 
   it("offers the way out to setting up a real home", () => {
     renderPage()
-    const cta = screen.getAllByRole("link", { name: /set up my home/i })
+    const cta = screen.getAllByRole("link", { name: /set up your own home/i })
     expect(cta.length).toBeGreaterThan(0)
     expect(cta[0]).toHaveAttribute("href", "/")
   })

@@ -3,7 +3,7 @@ import type { WizardStep } from "@/lib/wizardSession"
 
 const FULL_STEPS: { id: WizardStep; label: string }[] = [
   { id: "identify", label: "Add Item" },
-  { id: "manual", label: "Find Manual" },
+  { id: "manual", label: "Add Manual" },
   { id: "parsing", label: "Reading" },
   { id: "review", label: "Review" },
   { id: "purchase", label: "Purchase" },
@@ -11,7 +11,7 @@ const FULL_STEPS: { id: WizardStep; label: string }[] = [
 
 const SKIP_MANUAL_STEPS: { id: WizardStep; label: string }[] = [
   { id: "identify", label: "Add Item" },
-  { id: "manual", label: "Find Manual" },
+  { id: "manual", label: "Add Manual" },
   { id: "plan", label: "Plan" },
   { id: "purchase", label: "Purchase" },
 ]

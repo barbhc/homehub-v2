@@ -7,7 +7,6 @@ import {
   ClockIcon,
   PackageIcon,
   ShieldCheckIcon,
-  SparklesIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -31,8 +30,11 @@ import { cn } from "@/lib/utils"
 type SampleTask = {
   title: string
   item: string
+  /** Window phrase, NEVER a day count — the sample teaches the app's real
+   *  vocabulary (HH-78): "Been a while", "This week", "Sep-ish". */
   when: string
-  urgency: "overdue" | "soon" | "later"
+  tier: "essential" | "recommended" | "optional"
+  cadence: string
   minutes: number
   why: string
   how: string
@@ -43,8 +45,9 @@ const TASKS: SampleTask[] = [
   {
     title: "Replace the furnace filter",
     item: "Carrier Infinity Furnace",
-    when: "5 days overdue",
-    urgency: "overdue",
+    when: "Been a while",
+    tier: "essential",
+    cadence: "Every 3 months",
     minutes: 10,
     why: "A clogged filter strains the blower, cuts efficiency, and shortens the furnace's life.",
     how: "Switch the furnace off at the thermostat. Slide the old filter out of the return duct, noting the airflow arrow. Slide the new one in facing the same way.",
@@ -53,8 +56,9 @@ const TASKS: SampleTask[] = [
   {
     title: "Test the smoke & CO detectors",
     item: "Whole home",
-    when: "Due in 2 days",
-    urgency: "soon",
+    when: "This week",
+    tier: "essential",
+    cadence: "Monthly",
     minutes: 10,
     why: "Working detectors are your first warning in a fire or a carbon-monoxide leak.",
     how: "Press and hold the test button on each detector until it sounds. Replace any battery that produces a weak alarm or none at all.",
@@ -63,8 +67,9 @@ const TASKS: SampleTask[] = [
   {
     title: "Clean the dishwasher filter",
     item: "Bosch 800 Series Dishwasher",
-    when: "Due in 6 days",
-    urgency: "later",
+    when: "This month",
+    tier: "optional",
+    cadence: "Monthly",
     minutes: 5,
     why: "Food debris in the filter damages the pump and leaves dishes gritty.",
     how: "Twist the cylindrical filter counter-clockwise and lift it out with the flat screen beneath. Rinse both under warm water and refit until the filter clicks.",
@@ -73,8 +78,9 @@ const TASKS: SampleTask[] = [
   {
     title: "Flush the water heater",
     item: "Rheem Performance Water Heater",
-    when: "Due in 4 weeks",
-    urgency: "later",
+    when: "Sep-ish",
+    tier: "recommended",
+    cadence: "Yearly",
     minutes: 45,
     why: "Sediment builds up on the tank floor, shortening its life and raising your energy bill.",
     how: "Cut the power or gas, attach a hose to the drain valve, and run it to a drain until the water is clear.",
@@ -118,26 +124,33 @@ const ITEMS: SampleItem[] = [
   },
 ]
 
-const URGENCY: Record<SampleTask["urgency"], { dot: string; label: string }> = {
-  overdue: { dot: "var(--hh-danger, #c2410c)", label: "text-[color:var(--hh-danger,#c2410c)]" },
-  soon: { dot: "var(--hh-teal, #0f766e)", label: "text-[color:var(--hh-teal,#0f766e)]" },
-  later: { dot: "var(--hh-sub, #6b7280)", label: "text-muted-foreground" },
+/** The app's tier rails — clay/teal/slate, exactly as TierBadge and the item
+ *  page use them. The sample was inventing its own urgency dots and saying
+ *  "5 days overdue", which is the vocabulary the due-window redesign removed:
+ *  the demo must not pitch a harsher app than the one being sold. */
+const TIER_RAIL: Record<SampleTask["tier"], string> = {
+  essential: "var(--hh-clay)",
+  recommended: "var(--hh-teal)",
+  optional: "var(--hh-slate)",
 }
 
 function Banner({ bottom = false }: { bottom?: boolean }) {
+  // Top: a quiet chip — the sample should look like the product, not like a
+  // warning about it. Bottom: the exit, styled as the app's primary action.
+  if (!bottom) {
+    return (
+      <div className="rounded-xl px-3.5 py-2.5 text-[12.5px] font-bold"
+        style={{ background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}>
+        Sample home — look around, then start your own. Nothing you tap here is saved.
+      </div>
+    )
+  }
   return (
-    <div className="rounded-xl border border-dashed p-4">
-      <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <SparklesIcon className="size-4 shrink-0" aria-hidden="true" />
-        This is a sample home
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {bottom
-          ? "Nothing here is yours, and nothing you tap is saved. Your own home starts empty and fills up as you add things."
-          : "Everything below came from four appliance manuals. Have a look around — then set up your own."}
-      </p>
-      <Button asChild size="sm" className="mt-3">
-        <Link to="/">{bottom ? "Set up my home" : "Set up my home"}</Link>
+    <div className="rounded-2xl border px-4 py-4 text-center" style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
+      <p className="text-[14px] font-bold" style={{ color: "var(--hh-ink)" }}>Everything above came from four appliance manuals.</p>
+      <p className="mt-1 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>Your own home starts empty and fills as you add things.</p>
+      <Button asChild size="sm" className="mt-3 rounded-full font-bold">
+        <Link to="/">Set up your own home →</Link>
       </Button>
     </div>
   )
@@ -145,7 +158,6 @@ function Banner({ bottom = false }: { bottom?: boolean }) {
 
 function TaskRow({ task }: { task: SampleTask }) {
   const [open, setOpen] = useState(false)
-  const tone = URGENCY[task.urgency]
   return (
     <li className="border-b last:border-b-0">
       <button
@@ -155,16 +167,19 @@ function TaskRow({ task }: { task: SampleTask }) {
         className="flex w-full items-start gap-3 py-3.5 text-left min-h-[44px]"
       >
         <span
-          className="mt-1.5 size-2 shrink-0 rounded-full"
-          style={{ background: tone.dot }}
+          className="mt-0.5 w-[3px] self-stretch min-h-[34px] shrink-0 rounded-full"
+          style={{ background: TIER_RAIL[task.tier] }}
           aria-hidden="true"
         />
         <span className="min-w-0 flex-1">
-          <span className="block font-medium text-foreground">{task.title}</span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm">
-            <span className={tone.label}>{task.when}</span>
-            <span className="text-muted-foreground">· {task.item}</span>
+          <span className="block text-[14px] font-semibold tracking-[-0.2px]" style={{ color: "var(--hh-ink)" }}>{task.title}</span>
+          <span className="mt-0.5 block text-[12px]" style={{ color: "var(--hh-sub)" }}>
+            {task.when} · {task.minutes} min · {task.item}
           </span>
+        </span>
+        <span className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+          style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>
+          {task.cadence}
         </span>
         <ChevronDownIcon
           className={cn("mt-1 size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}

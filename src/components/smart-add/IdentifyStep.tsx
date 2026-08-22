@@ -720,7 +720,11 @@ export function IdentifyStep({
   // ── Form lanes (appliance / simple) ───────────────────────────────────────
   return (
     <div className="flex flex-col gap-6 max-w-xl mx-auto">
-      <SectionCard className="p-5 sm:p-6 space-y-5 transition-all duration-200">
+      {/* HH-74: no space-y here — SectionCard is already flex-col gap-6, and
+          stacking margin-based spacing on top produced 44px between every
+          section (24 gap + 20 margin), which is the "big gaps" she reported
+          once the screen slimmed down. One spacing system, the card's own. */}
+      <SectionCard className="p-5 sm:p-6 transition-all duration-200">
         {mode === "appliance" && labelPreviewUrl && (
           <div className="space-y-2">
             <div className="flex items-center gap-3">
