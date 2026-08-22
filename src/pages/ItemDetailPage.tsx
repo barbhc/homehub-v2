@@ -31,6 +31,7 @@ import type {
 } from "@/integrations/types"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
+import { ItemDetailsSheet } from "@/components/item-care/ItemDetailsSheet"
 import { RoomPickerDialog } from "@/components/home/RoomPickerDialog"
 import { CategoryPickerDialog } from "@/components/home/CategoryPickerDialog"
 import { getCategoryDefinition, type ItemCategoryId } from "@/modules/inventory/constants/itemCategories"
@@ -86,6 +87,7 @@ export default function ItemDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [roomPickerOpen, setRoomPickerOpen] = useState(false)
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   // Fetch all tags used across home items for autocomplete suggestions
   useEffect(() => {
@@ -453,6 +455,7 @@ export default function ItemDetailPage() {
             onEditCategory={() => setCategoryPickerOpen(true)}
             onItemUpdate={setItem}
             onEditRoom={() => setRoomPickerOpen(true)}
+            onEditDetails={() => setDetailsOpen(true)}
             reviewAction={
               home && id && tasks.length > 0 ? (
                 <ReviewItemTasksButton
@@ -530,6 +533,17 @@ export default function ItemDetailPage() {
           currentRoomId={item.room_id}
           onPick={(roomId) => void handlePickRoom(roomId)}
           onRoomCreated={(room) => setRooms((prev) => [...prev, room])}
+        />
+      )}
+
+      {home && (
+        <ItemDetailsSheet
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          item={item}
+          rooms={rooms}
+          homeId={home.home_id}
+          onItemUpdate={setItem}
         />
       )}
 
