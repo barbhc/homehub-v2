@@ -9,6 +9,7 @@ import {
   reviewBucketFor,
   isScheduled,
   willNotify,
+  remindsWhenDue,
   sortWithinBucket,
   summarize,
   isSafetyCritical,
@@ -170,5 +171,36 @@ describe("safety work is never auto-demoted to a tip", () => {
     expect(isSafetyCritical({ risk_level: "safety" })).toBe(true)
     expect(isSafetyCritical({ actor: "hazardous" })).toBe(true)
     expect(isSafetyCritical({ risk_level: "performance", actor: "diy" })).toBe(false)
+  })
+})
+
+/**
+ * The send-side rule. HH-102 found the push job filtering on due date and
+ * agenda eligibility alone — it never read the reminder switch at all, so the
+ * app promised "Off by default — turn it on if you want one" beside every
+ * Recommended task and then pushed anyway.
+ */
+describe("remindsWhenDue — what the push job is allowed to send", () => {
+  it("follows the tier when the owner never chose", () => {
+    expect(remindsWhenDue("essential", null)).toBe(true)
+    expect(remindsWhenDue("recommended", null)).toBe(false)
+    expect(remindsWhenDue("optional", null)).toBe(false)
+    expect(remindsWhenDue("essential", undefined)).toBe(true)
+  })
+
+  it("lets an explicit choice win in BOTH directions", () => {
+    expect(remindsWhenDue("recommended", true)).toBe(true)
+    expect(remindsWhenDue("essential", false)).toBe(false)
+  })
+
+  it("treats an unknown or missing tier as Recommended — quiet, never a surprise alert", () => {
+    expect(remindsWhenDue(null, null)).toBe(false)
+    expect(remindsWhenDue("urgent", null)).toBe(false)
+  })
+
+  it("does NOT re-bucket: a promoted per-use task still notifies", () => {
+    // Templates do not store keepAsTask, so willNotify would call this a "tip"
+    // and silence it — the exact reason the send side has its own rule.
+    expect(remindsWhenDue("essential", true)).toBe(true)
   })
 })

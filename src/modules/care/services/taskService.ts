@@ -352,6 +352,38 @@ export async function updateTaskCareType(
 /**
  * Merges `diagram_image_urls` into task_template.metadata while preserving other keys.
  */
+/**
+ * Turns this task's due-date reminder on or off, from the task's own screen.
+ *
+ * The review sheet sets `remindEnabled` once, at parse time, and until now that
+ * was the ONLY place it could ever be set — so a tier default (Essential
+ * reminds, everything else stays quiet) was permanent for anyone who did not
+ * catch it during review. A default the owner cannot reverse later is not a
+ * suggestion, it is an assumption, which the product principles forbid.
+ *
+ * Writes `null` to hand the task back to its tier default rather than pinning
+ * the value the default happens to produce today.
+ */
+export async function setTaskReminder(
+  homeId: string,
+  taskTemplateId: string,
+  enabled: boolean | null
+): Promise<ServiceResult<true>> {
+  try {
+    await writeBatch(db)
+      .set(
+        doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
+        { remindEnabled: enabled, updatedAt: serverTimestamp() },
+        { merge: true }
+      )
+      .commit()
+    track("task_reminder_set", { homeId, taskTemplateId, enabled: String(enabled) })
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to change the reminder" } }
+  }
+}
+
 export async function updateTaskDiagramUrls(
   homeId: string,
   taskTemplateId: string,
@@ -485,6 +517,12 @@ export type TaskDetail = {
   itemName: string | null
   roomName: string | null
   schedule: { scheduleType: ScheduleType; intervalDays: number | null; season: Season | null } | null
+  /** Whether this task pushes a reminder when it comes due. null = never
+   *  chosen, so the tier default applies (`remindsByDefault`: Essential on,
+   *  everything else quiet). The task screen is where that default becomes
+   *  reversible — before this, the review sheet was the only place it could
+   *  ever be set. */
+  remindEnabled: boolean | null
 }
 
 /**
@@ -585,6 +623,7 @@ export async function getTaskDetail(
         schedule: sched
           ? { scheduleType: sched.scheduleType as ScheduleType, intervalDays: sched.intervalDays ?? null, season: sched.season ?? null }
           : null,
+        remindEnabled: (tmpl?.remindEnabled as boolean | null | undefined) ?? null,
       },
       error: null,
     }
