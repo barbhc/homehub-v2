@@ -1,19 +1,20 @@
 import { cn } from "@/lib/utils"
 import type { WizardStep } from "@/lib/wizardSession"
 
+// Two steps, because the wizard now has two jobs: name the thing, attach its
+// manual. Reading, Review and Purchase used to sit here — the first two moved
+// to the item page (which fills in while the manual is read and asks for one
+// review), and Purchase became the item page's Details & records sheet.
+// A stepper that promises five screens and delivers two is worse than none.
 const FULL_STEPS: { id: WizardStep; label: string }[] = [
   { id: "identify", label: "Add Item" },
   { id: "manual", label: "Add Manual" },
-  { id: "parsing", label: "Reading" },
-  { id: "review", label: "Review" },
-  { id: "purchase", label: "Purchase" },
 ]
 
 const SKIP_MANUAL_STEPS: { id: WizardStep; label: string }[] = [
   { id: "identify", label: "Add Item" },
   { id: "manual", label: "Add Manual" },
   { id: "plan", label: "Plan" },
-  { id: "purchase", label: "Purchase" },
 ]
 
 type StepperProps = {

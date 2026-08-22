@@ -18,7 +18,8 @@ const read = (p: string) =>
     .replace(/^\s*\/\/.*$/gm, "")
 const identify = read("./IdentifyStep.tsx")
 const page = read("../../pages/SmartAddItem.tsx")
-const purchase = read("./PurchaseStep.tsx")
+const detailsSheet = read("../item-care/ItemDetailsSheet.tsx")
+const stepper = read("./Stepper.tsx")
 
 describe("the header describes the step you are on", () => {
   it("no longer promises a name field to a step that has none", () => {
@@ -32,7 +33,7 @@ describe("the header describes the step you are on", () => {
   })
 })
 
-describe("purchase details are asked once, at the end", () => {
+describe("purchase details belong to the item page, not the wizard", () => {
   it("step 1 no longer collects purchase date or price", () => {
     expect(identify).not.toContain('id="identify-purchase-date"')
     expect(identify).not.toContain('id="identify-purchase-price"')
@@ -42,10 +43,22 @@ describe("purchase details are asked once, at the end", () => {
     expect(identify).toContain('id="identify-serial"')
   })
 
-  it("the purchase step accepts what a scan already read, so nothing is lost", () => {
-    expect(purchase).toContain("initialPurchaseDate")
-    expect(purchase).toContain("initialPrice")
-    expect(page).toContain("initialPurchaseDate={identifyData.purchaseDate}")
+  it("the wizard has no purchase step to walk to", () => {
+    expect(page).not.toContain("PurchaseStep")
+  })
+
+  it("what a scan already read is saved with the item, so nothing is lost", () => {
+    // The old Purchase step took these as prefill. With that step gone, the
+    // create call is the only thing standing between a scanned receipt and the
+    // item record.
+    expect(page).toContain("purchase_date: identifyData.purchaseDate")
+    expect(page).toContain("price_paid: identifyData.purchasePrice")
+  })
+
+  it("the item page can collect the same fields later", () => {
+    for (const field of ["purchase_date", "price_paid", "store_name", "serial_number"]) {
+      expect(detailsSheet).toContain(field)
+    }
   })
 
   it("does not advertise a field that moved to another step", () => {
@@ -183,5 +196,42 @@ describe("one add screen, not two", () => {
 
   it("stops exporting it from the inventory module", () => {
     expect(read("../../modules/inventory/index.ts")).not.toContain("AddItemForm")
+  })
+})
+
+/**
+ * The wizard's job ends when the manual is attached. Everything after — the
+ * reading wait, the review, purchase details — is the item page's.
+ */
+describe("the wizard ends at the manual", () => {
+  it("starts the parse and leaves instead of waiting on it", () => {
+    expect(page).toContain("startParseAndLeave")
+    // Awaiting the parse here is what parked the user on a Reading screen for
+    // two minutes.
+    expect(page).not.toContain("previewManualParse")
+    expect(page).not.toContain("ParseProgressStep")
+  })
+
+  it("hands the running parse to the item page's pickup card", () => {
+    expect(page).toContain("markParsePending")
+    expect(page).toContain("navigate(`/items/${itemId}`)")
+  })
+
+  it("does not review a draft it can no longer see", () => {
+    expect(page).not.toContain("TaskReviewSheet")
+    expect(page).not.toContain("commitReviewedDraft")
+  })
+
+  it("promises only the steps it delivers", () => {
+    const full = stepper.slice(stepper.indexOf("FULL_STEPS"), stepper.indexOf("SKIP_MANUAL_STEPS"))
+    expect(full).toContain('"identify"')
+    expect(full).toContain('"manual"')
+    for (const retired of ['"parsing"', '"review"', '"purchase"']) {
+      expect(full).not.toContain(retired)
+    }
+  })
+
+  it("sends a session saved on the retired purchase step to the item", () => {
+    expect(page).toContain('(session.step as string) === "purchase"')
   })
 })
