@@ -11,9 +11,6 @@ import {
 } from "@/components/smart-add/IdentifyStep"
 import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/ManualStep"
 import { PlanStep, type EditableTask } from "@/components/smart-add/PlanStep"
-import { PurchaseStep } from "@/components/smart-add/PurchaseStep"
-import { ParseProgressStep, type ParseProgressState } from "@/components/smart-add/ParseProgressStep"
-import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import { createItemUnit } from "@/modules/items"
@@ -23,21 +20,19 @@ import { resolveStorageUrl } from "@/integrations/firebase"
 import { deleteManualDocument } from "@/modules/knowledge/services/manualDocumentService"
 import {
   createManualDocument,
-  previewManualParse,
-  commitReviewedDraft,
   detectDocType,
   type DocType,
   type ParsedConfidence,
 } from "@/modules/knowledge"
-import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
-import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
+import { startParse } from "@/modules/knowledge/services/parseManualService"
 import {
   getWizardSession,
+  setWizardSession,
   updateWizardSession,
   clearWizardSession,
   type WizardStep,
 } from "@/lib/wizardSession"
-import { markParsePending, clearParsePending } from "@/lib/parsePickup"
+import { markParsePending } from "@/lib/parsePickup"
 import { subTypeToLegacyApplianceTypeId } from "@/modules/inventory/constants/itemCategories"
 
 type ManualClassificationGate = {
@@ -87,18 +82,9 @@ export default function SmartAddItem() {
   const [error, setError] = useState<string | null>(null)
   const [resumePrompt, setResumePrompt] = useState(false)
 
-  /** The uncommitted draft under review. Nothing is in the user's home until
-   *  they save it — walking away now costs them nothing. */
-  const [previewDraft, setPreviewDraft] = useState<PreviewResult | null>(null)
-  const [reviewSaving, setReviewSaving] = useState(false)
-  /** The manual being reviewed, for feedback attribution. */
-  const [reviewManualId, setReviewManualId] = useState<string | null>(null)
-  // Kept only for the wizard-session round-trip (checkResume restores it); the
-  // review sheet doesn't surface confidence, so nothing reads it here.
+  // Kept only for the wizard-session round-trip (checkResume restores it);
+  // nothing in the two remaining steps reads it.
   const [, setParseConfidence] = useState<ParsedConfidence | null>(null)
-  const [parseProgress, setParseProgress] = useState<ParseProgressState>("idle")
-  /** True after a successful parse when entering the review step (not plan fallback). */
-  const [parseFlowCompleted, setParseFlowCompleted] = useState(false)
 
   const isMountedRef = useRef(true)
   useEffect(() => {
@@ -112,20 +98,23 @@ export default function SmartAddItem() {
   const completedSteps = new Set<WizardStep>()
   if (itemId) completedSteps.add("identify")
   if (hasManual) completedSteps.add("manual")
-  if (hasManual && (step === "review" || step === "purchase") && parseFlowCompleted) {
-    completedSteps.add("parsing")
-  }
-  if (hasManual && step === "purchase" && parseFlowCompleted) completedSteps.add("review")
   if (step === "plan") completedSteps.add("manual")
-  if (step === "purchase" && !hasManual) completedSteps.add("plan")
 
-  const stepperMode =
-    step === "plan" || (step === "purchase" && !hasManual) ? "skip-manual" : "full"
+  const stepperMode = step === "plan" ? "skip-manual" : "full"
 
   const checkResume = useCallback(() => {
     const session = getWizardSession()
     if (!session || !propertyId || session.propertyId !== propertyId) {
       setLoading(false)
+      return
+    }
+    // A session saved on the retired Purchase step has nothing left to resume
+    // INTO — the item exists, its manual is attached, and purchase details are
+    // the item page's Details sheet now. Send them to the item rather than to a
+    // step that no longer exists.
+    if ((session.step as string) === "purchase" && session.itemId) {
+      clearWizardSession()
+      navigate(`/items/${session.itemId}`)
       return
     }
     setManualDocGate(null)
@@ -146,6 +135,9 @@ export default function SmartAddItem() {
     setHasManual(session.hasManual)
     setHasTasks(session.hasTasks)
     setParseConfidence((session.parseConfidence as ParsedConfidence | null | undefined) ?? null)
+    // Steps retired when the wizard stopped waiting on the parse. "parsing"
+    // and "review" both mean "the manual was attached", so resuming at the
+    // manual step is honest — attaching again re-runs the read.
     const raw = session.step as string
     const safeStep: WizardStep =
       raw === "parsing" || raw === "review"
@@ -162,7 +154,7 @@ export default function SmartAddItem() {
     }
     setResumePrompt(false)
     setLoading(false)
-  }, [propertyId])
+  }, [propertyId, navigate])
 
   useEffect(() => {
     const session = getWizardSession()
@@ -188,10 +180,7 @@ export default function SmartAddItem() {
     setHasManual(false)
     setManualUrl(null)
     setHasTasks(false)
-    setPreviewDraft(null)
     setParseConfidence(null)
-    setParseProgress("idle")
-    setParseFlowCompleted(false)
     setStep("identify")
   }
 
@@ -241,74 +230,78 @@ export default function SmartAddItem() {
         if (r.error) console.warn("[smart-add] label photo attach failed:", r.error.message)
       })
     }
+
+    // An appliance goes on to its manual — that is the step that makes the rest
+    // of the app work, and it earns far more attachments as a screen the user is
+    // already on than as a button on a page they have to notice. Everything else
+    // (a sofa, a deck, a houseplant) usually has no manual to add, so it lands
+    // on its item page and is done.
+    //
+    // Until now BOTH lanes navigated away here, which left the wizard a
+    // one-step form advertising a five-step Stepper — step 2 was reachable only
+    // by resuming an old session.
+    if (identifyMode === "appliance") {
+      setItemId(created.item_unit_id)
+      setWizardSession({
+        itemId: created.item_unit_id,
+        propertyId,
+        step: "manual",
+        itemName: composedName,
+        brand: identifyData.brand.trim() || null,
+        model: identifyData.model.trim() || null,
+        locationId: identifyData.locationId,
+        itemCategory: identifyData.itemCategory,
+        subType: identifyData.subType,
+        categoryFields: identifyData.categoryFields,
+        purchaseDate: identifyData.purchaseDate ?? null,
+        purchasePrice: identifyData.purchasePrice,
+        hasManual: false,
+        hasTasks: false,
+        createdAt: new Date().toISOString(),
+      })
+      setStep("manual")
+      return
+    }
+
     clearWizardSession()
     navigate(`/items/${created.item_unit_id}`)
-  }, [propertyId, identifyData, labelPhotoFile, user?.id, navigate])
+  }, [propertyId, identifyData, identifyMode, labelPhotoFile, user?.id, navigate])
 
-  const runParseAfterManualUpload = useCallback(
+  /**
+   * Kick the parse off and LEAVE. The wizard's job ends when the manual is
+   * attached.
+   *
+   * The old flow parked the user on a Reading screen for the couple of minutes
+   * the worker takes, then walked them through a review of every bucket. Both
+   * are now the item page's job: the page fills in as tasks are found, and asks
+   * for one review when the read finishes.
+   *
+   * Nothing here is new machinery — `markParsePending` + ParsePickupCard were
+   * built for the user who walked away mid-parse. That exit is now the front
+   * door, so the parse is started and never awaited: the worker runs
+   * server-side and the item page watches it.
+   */
+  const startParseAndLeave = useCallback(
     async (firstManualId: string, firstUrl: string | null) => {
       if (!propertyId || !itemId) return
-      setStep("parsing")
-      setParseProgress("uploading")
-      updateWizardSession({ step: "parsing" })
-      setPreviewDraft(null)
-      // Pickup flag for the item page: cleared below only when the user is
-      // still HERE to see the outcome. If they leave (background button, back,
-      // bottom nav), the flag survives and ParsePickupCard shows the result.
-      markParsePending(firstManualId)
-      setReviewManualId(firstManualId)
+      setManualUrl(firstUrl)
+      setSavingMessage(undefined)
 
-      try {
-        setManualUrl(firstUrl)
-        setSavingMessage(undefined)
-        // PREVIEW, then commit what the user accepts — the same contract as
-        // every other parse entry point. This used to commit first and review
-        // the live rows afterwards, which meant abandoning the wizard mid-review
-        // left the tasks behind: the "these items just appeared" shape, from the
-        // one screen where a person is most likely to walk away.
-        //
-        // Trust arc (fix B) is unchanged: stream the worker's live stages and
-        // resolve ONLY at a terminal state. State lives in Firestore, so the
-        // wizard still survives a tab refresh mid-parse.
-        const parseResult = await previewManualParse(propertyId, firstManualId, (ui) => {
-          if (isMountedRef.current) setParseProgress(ui)
-        })
-
-        // User left the wizard mid-parse — stop here. The pickup flag stays
-        // set and ParsePickupCard on the item page reports the outcome; any
-        // session write below would resurrect the wizard session they left.
-        if (!isMountedRef.current) return
-        clearParsePending(firstManualId)
-
-        if (!parseResult.ok) {
-          // onStage already set "error"; fall back to the manual plan step.
-          setStep("plan")
-          updateWizardSession({ step: "plan" })
-          setHasTasks(false)
-          return
-        }
-
-        // Nothing is in the user's home yet — this is a draft they can edit or
-        // walk away from. `hasTasks` and `parseFlowCompleted` now mean "saved
-        // the review", so they are set in handleReviewSave, not here.
-        setPreviewDraft(parseResult)
-        setParseProgress("done")
-        updateWizardSession({ step: "review" })
-
-        await new Promise((r) => setTimeout(r, 700))
-        if (isMountedRef.current) setStep("review")
-      } catch (err: unknown) {
-        if (!isMountedRef.current) return
-        clearParsePending(firstManualId)
-        const msg = err instanceof Error ? err.message : "Something went wrong"
-        setError(msg)
-        setParseProgress("error")
+      const started = await startParse(firstManualId, { homeId: propertyId, mode: "preview" })
+      if (!started.ok) {
+        // Enqueue failed — the manual is attached but nothing is reading it.
+        // Say so here rather than dropping them on a page that will never
+        // change.
+        setError(started.error)
         setStep("manual")
-      } finally {
-        setSavingMessage(undefined)
+        return
       }
+
+      markParsePending(firstManualId)
+      clearWizardSession()
+      navigate(`/items/${itemId}`)
     },
-    [propertyId, itemId]
+    [propertyId, itemId, navigate],
   )
 
   const handleManualConfirm = useCallback(
@@ -316,7 +309,6 @@ export default function SmartAddItem() {
       if (!propertyId || !itemId) return
     setActionLoading(true)
       setError(null)
-      setPreviewDraft(null)
 
       try {
         let firstManualId: string | null = null
@@ -382,18 +374,17 @@ export default function SmartAddItem() {
           return
         }
 
-        await runParseAfterManualUpload(firstManualId, firstUrl)
+        await startParseAndLeave(firstManualId, firstUrl)
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Something went wrong"
         setError(msg)
-        setParseProgress("error")
         setStep("manual")
       } finally {
         setActionLoading(false)
         setSavingMessage(undefined)
       }
     },
-    [propertyId, itemId, user?.id, runParseAfterManualUpload]
+    [propertyId, itemId, user?.id, startParseAndLeave]
   )
 
   const handleDocClassificationUseAnyway = useCallback(async () => {
@@ -403,7 +394,7 @@ export default function SmartAddItem() {
     setActionLoading(true)
     setError(null)
     try {
-      await runParseAfterManualUpload(g.firstManualId, g.firstUrl)
+      await startParseAndLeave(g.firstManualId, g.firstUrl)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong"
       setError(msg)
@@ -411,7 +402,7 @@ export default function SmartAddItem() {
     } finally {
       setActionLoading(false)
     }
-  }, [manualDocGate, runParseAfterManualUpload])
+  }, [manualDocGate, startParseAndLeave])
 
   const handleDocClassificationReplace = useCallback(async () => {
     if (!manualDocGate) {
@@ -451,35 +442,6 @@ export default function SmartAddItem() {
     }
   }, [manualDocGate])
 
-  /** THE commit for the wizard path. Everything before this is a draft. */
-  const handleReviewSave = useCallback(
-    async (tasks: PreviewTask[], chunks: PreviewChunk[]): Promise<string | null> => {
-      if (!propertyId || !reviewManualId) return "Nothing to save"
-      setReviewSaving(true)
-      const res = await commitReviewedDraft(propertyId, reviewManualId, chunks, tasks)
-      setReviewSaving(false)
-      if (!res.ok) return res.error
-      // "Completed the parse flow" now means SAVED, not merely reached — the
-      // stepper and the resume logic both key off these.
-      setHasTasks(true)
-      setParseFlowCompleted(true)
-      setPreviewDraft(null)
-      setStep("purchase")
-      updateWizardSession({ hasTasks: true, step: "purchase" })
-      return null
-    },
-    [propertyId, reviewManualId],
-  )
-
-  /** Closed the review without saving. Nothing was written, and saying so
-   *  plainly beats letting them wonder — the draft is still on the manual, so
-   *  the item page's pickup card can offer it. */
-  const handleReviewSkip = useCallback(() => {
-    setPreviewDraft(null)
-    setStep("purchase")
-    updateWizardSession({ step: "purchase" })
-  }, [])
-
   const handleManualSkip = useCallback(() => {
     updateWizardSession({ step: "plan" })
     setStep("plan")
@@ -511,9 +473,11 @@ export default function SmartAddItem() {
     }
 
     setHasTasks(true)
-    updateWizardSession({ step: "purchase" })
-    setStep("purchase")
-  }, [propertyId, itemId])
+    // Purchase details are the item page's Details & records sheet now — asked
+    // there, when the user chooses, instead of as a wizard toll booth.
+    clearWizardSession()
+    navigate(`/items/${itemId}`)
+  }, [propertyId, itemId, navigate])
 
   if (!propertyId) {
     return (
@@ -555,11 +519,7 @@ export default function SmartAddItem() {
           : "A name is enough to start. Details can come later."
       : step === "manual"
         ? "The manual is where this item's upkeep comes from."
-        : step === "parsing"
-          ? "Reading the manual — this takes a minute."
-          : step === "review"
-            ? "Check what we found before anything is saved."
-            : "Optional — receipt, warranty and dates."
+        : undefined
 
   return (
     <PageContainer>
@@ -612,55 +572,6 @@ export default function SmartAddItem() {
         />
       )}
 
-      {step === "parsing" && (
-        <ParseProgressStep
-          progress={parseProgress}
-          parsedChunks={previewDraft?.chunks ?? []}
-          parsedTasks={previewDraft?.tasks ?? []}
-          onContinueInBackground={
-            itemId
-              ? () => {
-                  // The worker keeps parsing server-side; the item page's
-                  // ParsePickupCard picks the result up. Clear the wizard
-                  // session so add-item starts fresh next time.
-                  clearWizardSession()
-                  navigate(`/items/${itemId}`)
-                }
-              : undefined
-          }
-        />
-      )}
-
-      {/* The SAME review the item page uses. It was a second, parallel
-          implementation (ParseReviewStep) that edited already-committed rows —
-          so the wizard both wrote before asking and was the one review surface
-          that captured no parser feedback. */}
-      {step === "review" && propertyId && previewDraft && (
-        <TaskReviewSheet
-          open
-          onOpenChange={(open) => {
-            // Closing without saving keeps the draft; nothing has been written,
-            // and the item page's pickup card can still offer it.
-            if (!open) handleReviewSkip()
-          }}
-          itemName={identifyData.name || "This item"}
-          previewData={previewDraft}
-          saving={reviewSaving}
-          onSave={handleReviewSave}
-          onFeedback={(p) => {
-            if (!propertyId) return
-            void recordParseFeedback(propertyId, {
-              manualId: reviewManualId,
-              itemUnitId: itemId ?? null,
-              reasons: p.reasons,
-              note: p.note,
-              edits: p.edits,
-              rescanRequested: p.rescan,
-            })
-          }}
-        />
-      )}
-
       {step === "plan" && itemId && (
         <PlanStep
           itemName={identifyData.name}
@@ -677,22 +588,6 @@ export default function SmartAddItem() {
         />
       )}
 
-      {step === "purchase" && itemId && (
-        <PurchaseStep
-          homeId={propertyId}
-          itemUnitId={itemId}
-          onComplete={() => {
-            clearWizardSession()
-            navigate(`/inventory/${itemId}`, { state: { smartAddSuccess: true } })
-          }}
-          onSkip={() => {
-            clearWizardSession()
-            navigate(`/inventory/${itemId}`, { state: { smartAddSuccess: true } })
-          }}
-          initialPurchaseDate={identifyData.purchaseDate}
-          initialPrice={identifyData.purchasePrice}
-        />
-      )}
     </PageContainer>
   )
 }

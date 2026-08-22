@@ -151,3 +151,70 @@ test.describe("emulator e2e — smart add label OCR states", () => {
     await expect(page.getByRole("button", { name: "Try again" }).filter(visible).first()).toBeVisible()
   })
 })
+
+/**
+ * PR 1 of the living-item-page flow: the wizard's job ends when the manual is
+ * attached. It used to park the user on a Reading screen for the couple of
+ * minutes the worker takes, then walk them through a review of every bucket.
+ *
+ * The parse callables are stubbed at the network layer — same technique as the
+ * OCR specs above — because this asserts the CLIENT handoff, not the worker.
+ */
+const TINY_PDF = Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n")
+
+test.describe("emulator e2e — the wizard ends at the manual", () => {
+  test("attaching a manual starts the parse and lands on the item page", async ({ page }) => {
+    // The doc-type gate would otherwise interrupt with a "is this a manual?"
+    // prompt; a confident manual verdict lets the handoff run.
+    await page.route("**/detectDocType", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ result: { docType: "manual", confidence: 0.95, reason: "stub" } }),
+      })
+    )
+    let enqueued = 0
+    await page.route("**/enqueueParse", (route) => {
+      enqueued += 1
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ result: { ok: true, requestId: "req-e2e-1" } }),
+      })
+    })
+
+    await page.goto("/inventory/add")
+    await page.getByRole("button", { name: /Appliance or device/ }).click()
+    await page.locator("#identify-brand").fill("Emu")
+    await page.locator("#identify-model").fill("PR1-9000")
+    // The appliance lane's CTA names its destination; the simple lane's is "Add item".
+    await page.getByRole("button", { name: /Next: add the manual/i }).filter(visible).first().click()
+
+    // Step 2 of 2 — and there is no step 3.
+    await expect(page.getByText("Add Manual").first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText("Reading", { exact: true })).toHaveCount(0)
+    await expect(page.getByText("Purchase", { exact: true })).toHaveCount(0)
+
+    // The PDF input specifically — the step also carries an image input, and
+    // a bare input[type=file] picked the wrong one (button stayed disabled).
+    await page.setInputFiles('input[accept*="pdf"]', {
+      name: "manual.pdf",
+      mimeType: "application/pdf",
+      buffer: TINY_PDF,
+    })
+    await page.getByRole("button", { name: /Analyze Manual/i }).filter(visible).first().click()
+
+    // The handoff: parse enqueued, wizard gone, item page showing.
+    await expect(page).toHaveURL(/\/items\//, { timeout: 30_000 })
+    expect(enqueued).toBeGreaterThan(0)
+    await expect(page.getByText("Emu PR1-9000").first()).toBeVisible({ timeout: 15_000 })
+
+    // The user is never shown a Reading screen or a Purchase step again.
+    await expect(page.getByText(/Reading the manual — this takes a minute/)).toHaveCount(0)
+    await expect(page.getByText("Purchase Details")).toHaveCount(0)
+
+    // What the pickup card then SAYS is the item page's contract, and it reads
+    // a parse stage the stubbed callable never writes — asserting it here would
+    // only be testing the stub.
+  })
+})
