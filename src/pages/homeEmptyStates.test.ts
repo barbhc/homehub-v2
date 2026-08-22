@@ -69,3 +69,27 @@ describe("precedence", () => {
     expect(home).toContain("No upkeep yet — add a manual")
   })
 })
+
+describe("HH-92 / HH-95 — the young home's screen stops stacking disappointments", () => {
+  it("the feed horizon clears a calendar month", () => {
+    // commitDraft seeds first-due one CALENDAR month out; 30 days missed a
+    // monthly task by one day in every 31-day month, and Home denied the
+    // schedule until tomorrow. 45 clears any month plus the window's edge.
+    expect(dash).toContain("addDays(todayStr, 45)")
+    expect(dash).not.toContain("addDays(todayStr, 30)")
+  })
+
+  it("stats carry the soonest future task with its window-open date", () => {
+    expect(dash).toContain("nextUp = { dueDate: d, windowStart: w.start }")
+  })
+
+  it("the briefing waits for a month of history or a real completion", () => {
+    expect(home).toContain("ageDays >= 21 || (stats?.completedThisMonth ?? 0) > 0")
+  })
+
+  it("the all-quiet card never asserts an empty schedule over a full one", () => {
+    const composed = readFileSync(resolve(__dirname, "../components/home/HomeComposed.tsx"), "utf8")
+    expect(composed).toContain("the next window opens")
+    expect(composed).toContain("briefingReady && (")
+  })
+})

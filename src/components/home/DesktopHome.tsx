@@ -201,11 +201,13 @@ function WeekStrip({ tasks }: { tasks: DashboardTask[] }) {
 }
 
 export function DesktopHome({
-  tasks, upcoming, warranties, notices, cleaningGuides, level, homeId, completingId, onComplete, onSnooze,
+  tasks, upcoming, nextUp = null, briefingReady = true, warranties, notices, cleaningGuides, level, homeId, completingId, onComplete, onSnooze,
 }: {
   tasks: DashboardTask[]
   /** Forward schedule for the Coming-up drawer. */
   upcoming: MaintenanceTaskFull[]
+  nextUp?: { dueDate: string; windowStart: string } | null
+  briefingReady?: boolean
   warranties: ExpiringWarrantyItem[]
   notices: HomeNotices
   cleaningGuides: DeepCleanGuide[]
@@ -250,6 +252,8 @@ export function DesktopHome({
               variant="desktop"
               tasks={tasks}
               upcoming={upcoming}
+              nextUp={nextUp}
+              briefingReady={briefingReady}
               homeId={homeId}
               completingId={completingId}
               onComplete={onComplete}
