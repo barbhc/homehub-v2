@@ -12,7 +12,12 @@ import OnboardingProfile from "./OnboardingProfile"
 const useCurrentHome = vi.fn()
 vi.mock("@/modules/home", () => ({
   useCurrentHome: () => useCurrentHome(),
-  HomeProfileOnboarding: ({ homeId }: { homeId: string }) => <div>PROFILE-QA:{homeId}</div>,
+  HomeProfileOnboarding: ({ homeId, onComplete }: { homeId: string; onComplete: () => void }) => (
+    <div>
+      PROFILE-QA:{homeId}
+      <button onClick={onComplete}>MOCK-FINISH</button>
+    </div>
+  ),
 }))
 
 function renderPage() {
@@ -73,5 +78,24 @@ describe("OnboardingProfile", () => {
     })
     renderPage()
     expect(screen.getByText("PROFILE-QA:h1")).toBeInTheDocument()
+  })
+
+  /**
+   * HH-93: "Finish" used to hard-drop into the add-item form. The hand-off is
+   * now a choice — add the first item, or go to the home page (the owner's
+   * pick over a sample-home tour).
+   */
+  it("finishing the profile offers add-item OR the home page — no auto-drop", async () => {
+    useCurrentHome.mockReturnValue({
+      home: { home_id: "h1", name: "SF Condo", timezone: "", created_at: "", updated_at: "", deleted_at: null },
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+    })
+    renderPage()
+    screen.getByText("MOCK-FINISH").click()
+    await waitFor(() => expect(screen.getByText("Your home profile is set")).toBeInTheDocument())
+    expect(screen.getByRole("link", { name: /add your first item/i })).toHaveAttribute("href", "/inventory/add")
+    expect(screen.getByRole("link", { name: /take me to my home page/i })).toHaveAttribute("href", "/home")
   })
 })
