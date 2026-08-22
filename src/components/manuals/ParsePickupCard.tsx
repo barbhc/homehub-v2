@@ -26,6 +26,13 @@ const autoOpened = new Set<string>()
 
 const ACTIVE_STAGES = ACTIVE_PARSE_STAGES
 
+/** Upkeep in a draft — what the review actually asks about. Cleaning jobs and
+ *  per-use tips are saved without a question, so counting them here would
+ *  promise a longer review than the sheet delivers. */
+function maintenanceCount(draft: PreviewResult): number {
+  return draft.tasks.filter((t) => t.care_type !== "cleaning" && t.schedule_type !== "after_each_use").length
+}
+
 const STAGE_LINE: Record<string, string> = {
   uploading: "Starting…",
   queued: "Waiting for a parsing slot…",
@@ -237,12 +244,19 @@ export function ParsePickupCard({
         <CheckIcon className="size-3.5" style={{ color: "var(--hh-teal)" }} />
       </span>
       <div className="min-w-0 flex-1">
+        {/* Counted from the draft, not from the parse summary: the summary
+            counts everything the manual yielded, and this card is about the
+            only part that needs a decision. */}
         <p className="text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
-          Manual read{state.tasks != null ? ` — ${state.tasks} suggested ${state.tasks === 1 ? "task" : "tasks"}` : ""}
+          {draft
+            ? maintenanceCount(draft) > 0
+              ? `${maintenanceCount(draft)} maintenance ${maintenanceCount(draft) === 1 ? "task" : "tasks"} to review`
+              : "Manual read"
+            : `Manual read${state.tasks != null ? ` — ${state.tasks} suggested ${state.tasks === 1 ? "task" : "tasks"}` : ""}`}
         </p>
         <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
           {draft
-            ? "Nothing saved yet — review to choose what to keep."
+            ? "Set how often each repeats and whether it reminds you. Nothing is scheduled until you say so."
             : "They're saved already — review to adjust or remove any."}
         </p>
       </div>
@@ -258,7 +272,7 @@ export function ParsePickupCard({
           className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold"
           style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
         >
-          Review them
+          Review &amp; schedule
         </button>
       ) : (
         <ReviewItemTasksButton
@@ -289,6 +303,9 @@ export function ParsePickupCard({
           onOpenChange={setDraftOpen}
           itemName={itemName}
           previewData={draft}
+          // The one review this flow asks for. Cleaning, setup and tips are
+          // saved and shown on the page; only upkeep needs a decision here.
+          focus="maintenance"
           saving={draftSaving}
           onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[]) => {
             setDraftSaving(true)

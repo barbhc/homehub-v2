@@ -17,7 +17,7 @@
  * Pass `m` for mobile spacing.
  */
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronRightIcon,
   ChevronUpIcon, Circle, GitBranchIcon, PackageIcon, RotateCcw, SlidersHorizontalIcon,
@@ -393,8 +393,9 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
   itemUnitId: string
   m?: boolean
 }) {
-  const { isDone, loadingIds, doneCount, toggleDone } = useSetupCompletion(tasks, homeId, itemUnitId)
+  const { isDone, loadingIds, doneCount, toggleDone, markAllDone } = useSetupCompletion(tasks, homeId, itemUnitId)
   const allDone = tasks.length > 0 && doneCount === tasks.length
+  const [clearing, setClearing] = useState(false)
 
   return (
     <div className="border-t px-4 py-3.5" style={{ borderColor: LINE }}>
@@ -404,6 +405,21 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
           <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.4px]" style={{ background: allDone ? TEAL_WASH : SLATE_SOFT, color: allDone ? TEAL : SLATE }}>{doneCount}/{tasks.length}</span>
         )}
       </div>
+      {/* The design's Door 2, inline. Most people adding a manual own the
+          appliance already, and asking them to tick nine install steps they
+          did years ago is asking them to do our bookkeeping. Only offered
+          while nothing is ticked — after that the checkboxes are the story. */}
+      {doneCount === 0 && (
+        <button
+          type="button"
+          disabled={clearing}
+          onClick={async () => { setClearing(true); await markAllDone(); setClearing(false) }}
+          className="mb-3 w-full rounded-xl border px-3 py-2.5 text-left text-[12.5px] font-bold disabled:opacity-60"
+          style={{ borderColor: TEAL, color: TEAL, background: "var(--hh-surface)" }}
+        >
+          {clearing ? "Marking done…" : "It's already installed"}
+        </button>
+      )}
       <div className="flex flex-col" style={{ gap: m ? 12 : 12 }}>
         {[...tasks]
           .sort((a, b) => Number(a.priority_tier === "optional") - Number(b.priority_tier === "optional"))
@@ -748,7 +764,12 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
         {fScheduled.length > 0 &&
           fScheduled.every((t) => !isAgendaEligible({ careType: t.care_type ?? null, scopeType: t.scope_type ?? null })) && (
             <div className="px-0.5 pb-1.5 text-[11.5px]" style={{ color: SUB }}>
-              These are cleaning jobs for this item — they live in your cleaning guides rather than on the Tasks list.
+              {/* Shorter than it was, and it now offers the way out it used to
+                  only describe: nothing about cleaning is a dead end. */}
+              In your cleaning guides — nothing reminds you.{" "}
+              <Link to="/clean" className="font-bold underline underline-offset-2" style={{ color: TEAL }}>
+                Open guides
+              </Link>
             </div>
           )}
         {fScheduled.length ? (

@@ -89,7 +89,7 @@ describe("ParsePickupCard — the parse-to-review handoff", () => {
     // The card still offers it; nothing opens by itself.
     stages("done")
     view("m-stale")
-    await waitFor(() => expect(screen.getByText("Review them")).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText("Review & schedule")).toBeInTheDocument())
     expect(screen.queryByTestId("review-sheet")).not.toBeInTheDocument()
   })
 
@@ -112,7 +112,7 @@ describe("ParsePickupCard — the parse-to-review handoff", () => {
 
     // Same manual, same session — the user navigated away and came back.
     view("m-once")
-    await waitFor(() => expect(screen.getByText("Review them")).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText("Review & schedule")).toBeInTheDocument())
     expect(screen.queryByTestId("review-sheet")).not.toBeInTheDocument()
   })
 })

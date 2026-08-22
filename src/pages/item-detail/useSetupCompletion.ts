@@ -21,6 +21,9 @@ export interface SetupCompletion {
   doneCount: number
   isDone: (taskId: string) => boolean
   toggleDone: (task: TaskTemplateWithSchedule) => Promise<void>
+  /** "It's already installed" — clears every remaining step in one go, for the
+   *  common case of adding a manual to an appliance installed years ago. */
+  markAllDone: () => Promise<void>
 }
 
 export function useSetupCompletion(
@@ -73,6 +76,20 @@ export function useSetupCompletion(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskKey, homeId])
 
+  /**
+   * Every outstanding step at once.
+   *
+   * Sequential, not parallel: each completion is a write plus a state update
+   * keyed by task id, and firing them together made the map races visible as
+   * checkboxes that flickered back. A handful of install steps is a short loop.
+   */
+  const markAllDone = async () => {
+    for (const task of tasks) {
+      if (instanceMap.has(task.task_template_id)) continue
+      await toggleDone(task)
+    }
+  }
+
   const toggleDone = async (task: TaskTemplateWithSchedule) => {
     const taskId = task.task_template_id
     const wasDone = instanceMap.has(taskId)
@@ -113,5 +130,6 @@ export function useSetupCompletion(
     doneCount: tasks.filter((t) => instanceMap.has(t.task_template_id)).length,
     isDone: (taskId: string) => instanceMap.has(taskId),
     toggleDone,
+    markAllDone,
   }
 }
