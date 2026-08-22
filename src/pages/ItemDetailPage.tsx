@@ -32,6 +32,8 @@ import type {
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { ItemDetailsSheet } from "@/components/item-care/ItemDetailsSheet"
+import { PurchaseNudge } from "@/components/item-care/PurchaseNudge"
+import { shouldOfferPurchaseNudge } from "@/lib/purchaseNudge"
 import { RoomPickerDialog } from "@/components/home/RoomPickerDialog"
 import { CategoryPickerDialog } from "@/components/home/CategoryPickerDialog"
 import { getCategoryDefinition, type ItemCategoryId } from "@/modules/inventory/constants/itemCategories"
@@ -88,6 +90,9 @@ export default function ItemDetailPage() {
   const [roomPickerOpen, setRoomPickerOpen] = useState(false)
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  /** Bumped on dismissal purely to re-render — localStorage is the source of
+   *  truth, and this is what makes the card leave without a reload. */
+  const [, setNudgeDismissedAt] = useState(0)
 
   // Fetch all tags used across home items for autocomplete suggestions
   useEffect(() => {
@@ -456,6 +461,17 @@ export default function ItemDetailPage() {
             onItemUpdate={setItem}
             onEditRoom={() => setRoomPickerOpen(true)}
             onEditDetails={() => setDetailsOpen(true)}
+            nudgeSlot={
+              // Shown while there is still something to gain: no purchase date
+              // on the item, and not already waved away on this device.
+              shouldOfferPurchaseNudge(item.item_unit_id, item.purchase_date) ? (
+                <PurchaseNudge
+                  itemUnitId={item.item_unit_id}
+                  onAdd={() => setDetailsOpen(true)}
+                  onDismissed={() => setNudgeDismissedAt(Date.now())}
+                />
+              ) : null
+            }
             reviewAction={
               home && id && tasks.length > 0 ? (
                 <ReviewItemTasksButton

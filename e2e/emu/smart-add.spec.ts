@@ -207,7 +207,9 @@ test.describe("emulator e2e — the wizard ends at the manual", () => {
     // The handoff: parse enqueued, wizard gone, item page showing.
     await expect(page).toHaveURL(/\/items\//, { timeout: 30_000 })
     expect(enqueued).toBeGreaterThan(0)
-    await expect(page.getByText("Emu PR1-9000").first()).toBeVisible({ timeout: 15_000 })
+    // The item page renders a mobile and a desktop tree; .first() can land on
+    // the one the breakpoint hides.
+    await expect(page.getByText("Emu PR1-9000").filter(visible).first()).toBeVisible({ timeout: 15_000 })
 
     // The user is never shown a Reading screen or a Purchase step again.
     await expect(page.getByText(/Reading the manual — this takes a minute/)).toHaveCount(0)

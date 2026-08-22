@@ -34,7 +34,9 @@ vi.mock("@/modules/knowledge", () => ({
 }))
 vi.mock("@/modules/care", () => ({ getTaskTemplatesWithSchedulesByItem: vi.fn() }))
 vi.mock("@/modules/inventory/services/storageService", () => ({ uploadManualPdfWithUrl: vi.fn() }))
-vi.mock("@/integrations/firebase", () => ({ resolveStorageUrl: vi.fn() }))
+// `callable` joined this module's surface when the item-page add-manual path
+// stopped awaiting the parse and started enqueueing it instead.
+vi.mock("@/integrations/firebase", () => ({ resolveStorageUrl: vi.fn(), callable: () => vi.fn() }))
 vi.mock("@/modules/knowledge/services/parseFeedbackService", () => ({ recordParseFeedback: vi.fn() }))
 vi.mock("swr", () => ({ default: () => ({ data: undefined, error: undefined, mutate: vi.fn() }) }))
 

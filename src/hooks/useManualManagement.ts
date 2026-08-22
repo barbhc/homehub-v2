@@ -9,6 +9,8 @@ import {
   previewManualParse,
   commitReviewedDraft,
 } from "@/modules/knowledge"
+import { startParse } from "@/modules/knowledge/services/parseManualService"
+import { markParsePending, clearParsePending } from "@/lib/parsePickup"
 // updateManualLabel intentionally omitted here — ManualSection calls it directly
 import { getTaskTemplatesWithSchedulesByItem } from "@/modules/care"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
@@ -201,24 +203,21 @@ export function useManualManagement({
         // PREVIEW, then review — not commit. This path used to parse in
         // "commit" mode, so tasks appeared on the item with no review step at
         // all: "I thought there was supposed to be an option to go through
-        // tasks... these items just appeared." The wizard has always reviewed
-        // before committing; adding a manual from the item page silently did
-        // not, which is the one place a user is MOST likely to be adding a
-        // manual to an appliance they already own and already have habits for.
-        // Same machinery as handleParseExistingManual — commit happens when the
-        // user saves the review sheet.
+        // tasks... these items just appeared." Commit happens when the user
+        // saves the review sheet.
+        //
+        // Started, never awaited. Awaiting it held the dialog's spinner for the
+        // couple of minutes the worker takes and then threw a review sheet over
+        // the page — on the one screen where the user is most likely adding a
+        // manual to an appliance they already own. The page itself now reports
+        // the read (LiveParseBand) and asks for the review when it lands, so
+        // the user is free the moment the manual is attached.
         setParsedManualId(manualId)
-        const result = await previewManualParse(homeId, manualId)
-        if (result.ok) {
-          const chunksRes = await getChunksByItem(homeId, itemId)
-          if (chunksRes.data) setChunks(chunksRes.data)
-          setManuals((prev) =>
-            prev.map((m) => (m.manual_id === manualId ? { ...m, parsed_at: new Date().toISOString() } : m)),
-          )
-          setPreviewResult(result)
-          setReviewOpen(true)
-        } else {
-          setParseError(`Manual saved, but parsing failed: ${humanizeParseError(result.error)}`)
+        markParsePending(manualId)
+        const started = await startParse(manualId, { homeId, mode: "preview" })
+        if (!started.ok) {
+          clearParsePending(manualId)
+          setParseError(`Manual saved, but parsing could not start: ${humanizeParseError(started.error)}`)
         }
       }
       setAddManualOpen(false)

@@ -151,6 +151,10 @@ interface ManualParseSnapshot {
   requestId?: string
   error?: { message?: string } | null
   summary?: { chunks?: number; tasks?: number; inserted?: number; duplicatesSkipped?: number; confidence?: unknown } | null
+  /** Written by the worker at the pdf_fetched stage. The only concrete fact
+   *  available WHILE a parse runs — it lets the live band say how big the job
+   *  is instead of an unfalsifiable "working…". */
+  pdfPages?: number | null
 }
 
 /** Subscribe to a manual's parse.stage. Returns an unsubscribe fn. */
