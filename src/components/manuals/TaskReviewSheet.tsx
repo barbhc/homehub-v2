@@ -248,14 +248,27 @@ interface TaskReviewSheetProps {
   saving: boolean
   /** Fires when the user says the parse looks wrong. Carries their corrections. */
   onFeedback?: (payload: { reasons: string[]; note: string; edits: ReviewEditSummary; rescan: boolean }) => void
+  /** "maintenance" reviews only the upkeep that needs a decision and saves the
+   *  rest untouched. "all" (the default) is the full two-step sheet, still used
+   *  by the item page's own "Review tasks" button. */
+  focus?: "maintenance" | "all"
 }
 
 export function TaskReviewSheet({
-  open, onOpenChange, itemName, previewData, onSave, saving, onFeedback,
+  open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, focus = "all",
 }: TaskReviewSheetProps) {
   const initial = useMemo(() => rowsFrom(previewData), [previewData])
   const [rows, setRows] = useState<ReviewRow[]>(initial)
-  const [step, setStep] = useState<1 | 2>(1)
+  /**
+   * "maintenance" opens straight on the schedule screen, listing only the
+   * upkeep the user has to decide about. Cleaning, setup steps and tips are
+   * still saved — they just appear on the item page in their own sections
+   * instead of being three more things to answer before anything works.
+   *
+   * The full sheet is one tap away ("Review everything"), so nothing becomes
+   * unreachable; it stops being compulsory.
+   */
+  const [step, setStep] = useState<1 | 2>(focus === "maintenance" ? 2 : 1)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [guideIndex, setGuideIndex] = useState<number | null>(null)
   const [walked, setWalked] = useState(false)
@@ -266,8 +279,9 @@ export function TaskReviewSheet({
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setRows(initial); setStep(1); setExpandedId(null); setGuideIndex(null); setWalked(false); setSaveError(null)
-  }, [initial])
+    setRows(initial); setStep(focus === "maintenance" ? 2 : 1)
+    setExpandedId(null); setGuideIndex(null); setWalked(false); setSaveError(null)
+  }, [initial, focus])
 
   const patch = useCallback((id: string, next: Partial<ReviewRow>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...next } : r)))
@@ -579,7 +593,13 @@ export function TaskReviewSheet({
               (design/README.md) but this is a sentence, and at 10.5px it was
               under the readable floor for secondary text. */}
           <div className="text-[12.5px] text-muted-foreground">
-            {guideRow ? `Deciding each task · ${(guideIndex ?? 0) + 1} of ${rows.length}` : step === 1 ? "Step 1 of 2 · What each task is" : "Step 2 of 2 · How often"}
+            {guideRow
+              ? `Deciding each task · ${(guideIndex ?? 0) + 1} of ${rows.length}`
+              : step === 1
+                ? "Step 1 of 2 · What each task is"
+                : focus === "maintenance"
+                  ? "Maintenance · how often & reminders"
+                  : "Step 2 of 2 · How often"}
           </div>
         </SheetHeader>
 
@@ -600,7 +620,9 @@ export function TaskReviewSheet({
             </div>
           )}
           {step === 2 ? (
-            <StepTwo rows={rows} cadOpenId={cadOpenId} setCadOpenId={setCadOpenId} patch={patch} bucketOfRow={bucketOfRow} />
+            <StepTwo rows={rows} cadOpenId={cadOpenId} setCadOpenId={setCadOpenId} patch={patch}
+              bucketOfRow={bucketOfRow} focus={focus}
+              onReviewEverything={() => { setStep(1); scrollRef.current?.scrollTo({ top: 0 }) }} />
           ) : guideRow ? (
             <>
               {/* Back, because the walkthrough was one-way: "There's no way to go
@@ -728,7 +750,7 @@ export function TaskReviewSheet({
             </p>
           ) : (
           <>
-          {step === 2 && (
+          {step === 2 && focus !== "maintenance" && (
             <Button variant="ghost" onClick={() => { setStep(1); scrollRef.current?.scrollTo({ top: 0 }) }}>‹ Back</Button>
           )}
           <Button className="flex-1 font-bold" disabled={saving} onClick={() => {
@@ -798,17 +820,40 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
 }
 
 function StepTwo({
-  rows, cadOpenId, setCadOpenId, patch, bucketOfRow,
+  rows, cadOpenId, setCadOpenId, patch, bucketOfRow, focus = "all", onReviewEverything,
 }: {
   rows: ReviewRow[]
   cadOpenId: string | null
   setCadOpenId: (id: string | null) => void
   patch: (id: string, next: Partial<ReviewRow>) => void
   bucketOfRow: (r: ReviewRow) => ReviewBucket
+  focus?: "maintenance" | "all"
+  onReviewEverything?: () => void
 }) {
-  const scheduled = rows.filter((r) => r.included && isScheduled(bucketOfRow(r)))
+  const onSchedule = rows.filter((r) => r.included && isScheduled(bucketOfRow(r)))
+  // Cleaning that repeats is still scheduled work, but it lives in the guides
+  // and is not what this screen is for.
+  const scheduled = focus === "maintenance"
+    ? onSchedule.filter((r) => r.kind === "maintenance")
+    : onSchedule
+  const setAside = onSchedule.length - scheduled.length
+
   if (!scheduled.length) {
-    return <div className="text-[12px] text-muted-foreground px-1 py-2">Nothing is on a schedule — nothing will remind you.</div>
+    return (
+      <div className="px-1 py-2">
+        <p className="text-[12px] text-muted-foreground">
+          {focus === "maintenance"
+            ? "No maintenance to schedule from this manual."
+            : "Nothing is on a schedule — nothing will remind you."}
+        </p>
+        {onReviewEverything && (
+          <button type="button" onClick={onReviewEverything}
+            className="mt-2 text-[12px] font-bold underline underline-offset-2 text-primary">
+            Review everything
+          </button>
+        )}
+      </div>
+    )
   }
   return (
     <>
@@ -820,7 +865,21 @@ function StepTwo({
         Pick what fits how you actually use it — you can change any of these later
         from the item's page.
       </div>
-      <div className="text-[13px] mb-3">How often should these repeat?</div>
+      <div className="text-[13px] mb-1">How often should these repeat?</div>
+      {focus === "maintenance" && (
+        <p className="text-[11.5px] text-muted-foreground mb-3">
+          Reminders are on for Essential work and off for the rest. Change any of them here.
+        </p>
+      )}
+      {setAside > 0 && onReviewEverything && (
+        <p className="text-[11.5px] text-muted-foreground mb-1">
+          {setAside} cleaning {setAside === 1 ? "job" : "jobs"} stay in your guides.{" "}
+          <button type="button" onClick={onReviewEverything}
+            className="font-bold underline underline-offset-2 text-primary">
+            Review everything
+          </button>
+        </p>
+      )}
       {(["essential", "recommended", "optional"] as const).map((tier) => {
         const items = scheduled.filter((r) => r.tier === tier)
         if (!items.length) return null
@@ -851,6 +910,25 @@ function StepTwo({
                     style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>
                     {cadOf(r)} ▾
                   </button>
+                  {/* How often and whether it interrupts you are one decision in
+                      the user's head, so they sit together. Off the focused
+                      screen this lives inside each task's card instead. */}
+                  {focus === "maintenance" && (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={remindsOfRow(r)}
+                      aria-label={`Remind me about ${r.title}`}
+                      onClick={() => patch(r.id, { remindEnabled: !remindsOfRow(r) })}
+                      className="relative h-[20px] w-[34px] shrink-0 rounded-full transition-colors"
+                      style={{ background: remindsOfRow(r) ? "var(--hh-teal)" : "var(--hh-line2)" }}
+                    >
+                      <span
+                        className="absolute top-[2px] size-[16px] rounded-full bg-white shadow-sm transition-all"
+                        style={{ left: remindsOfRow(r) ? 16 : 2 }}
+                      />
+                    </button>
+                  )}
                 </div>
                 {/* HH-56, the education half: say what the MANUAL said, so a
                     changed cadence is the user disagreeing with the manufacturer
