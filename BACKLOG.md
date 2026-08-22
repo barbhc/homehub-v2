@@ -3,6 +3,15 @@
 _Last synced: 2026-06-17. Strategic Arc-level planning lives in `memory/project_backlog.md`; relevance tracker in `RUT_AUDIT.md`._
 
 ## In Progress
+- [ ] **Beta round 10 — the overnight sweep** (owner decisions 2026-08-22; 11 reports, 6 of them round-9 fallout, all owner-reported).
+  - [ ] **HH-96 — mobile has no purchase-data entry** (warranty tracking impossible from a phone; the add-flow removal assumed the item page had it). Blocked on the everything-included item-page design.
+  - [ ] **HH-92 — Home says "nothing scheduled yet" over scheduled tasks**; wire the #142 withheld-readback into the copy. Item-page date vocabulary folds into the HH-96 design.
+  - [ ] **HH-94 — Tasks hides cleaning invisibly on a NON-empty list** (third report against the rule's invisibility).
+  - [ ] HH-101 inverted setup labels · HH-100 "Something else…" placement · HH-98 "Save 11" over 3 shown · HH-97 "In guides" → "· Deep Clean" meta · HH-99 last-done styling · HH-95 briefing gate.
+  - [ ] **HH-74 — add-screen spacing pass** (promoted from roadmap).
+  - [ ] **HH-78 — sample home in the app's real design** (promoted from roadmap; direction approved on the Round 9 page).
+  - [ ] **HH-102 — reminders follow importance** (proposal deletes the per-row switch; awaiting explicit yes).
+  - [ ] **HH-93 — post-profile landing** (undecided; flow mockup requested).
 - [x] **Beta round 9 — the add-manual flow, end to end** (ALL NINE live: #145–#149; HH-84/85 re-placed to the review sheet by her screenshots) (owner decisions 2026-08-21, from her 20-minute test run; 9 reports, 5 of them one item-page design problem).
   - [x] **HH-90 — every dialog stopped scrolling past one screen.** `DialogContent` had no max-height/overflow; "Add" was unreachable while choosing a manual. LIVE (#145).
   - [x] **HH-86 — item header repeated the brand.** #139's composed names met an unconditional "brand · model" subtitle; `itemSubtitle()` now suppresses by content. LIVE (#145).
@@ -24,7 +33,7 @@ _Last synced: 2026-06-17. Strategic Arc-level planning lives in `memory/project_
   - Edge cases already written up: a late answer re-runs `applyHouseRules` (same shape as the confirm-first sweep, not new machinery); climate is per-home, so a second home must be asked rather than inherit; declining stays free and must stop the asking; a changed answer offers confirm-first suppression of tasks already committed, never silent deletion.
   - Done means: a mild-climate home that answers before its first parse never receives a winterizing task, verified end to end against the emulator where `commitDraft`'s suppression is already tested.
 - [ ] **HH-74 — spacing on the add screen.** Downgraded from Fix now on 2026-08-21 after the owner looked: HH-76 removed Room and Category from that screen, so the complaint was measured against a much longer version than ships today.
-- [ ] **HH-78 — give the sample home the app's real design.** `/sample` is the try-before-you-commit door and currently undersells the product.
+- [x] **HH-78 → promoted to round 10, 2026-08-22** — was: **give the sample home the app's real design.** `/sample` is the try-before-you-commit door and currently undersells the product.
 - [x] **Beta round 7 — the first-run path, second pass** (6 of 8 live; HH-74/HH-78 moved to the roadmap above) (owner decisions 2026-08-21, from her own test session; see `docs/beta-feedback.md`).
   - [x] **HH-76 — finish the agreed add screen.** Room and Category moved off the main column; the approved design was brand + model + one CTA. LIVE (#139).
   - [x] **HH-75 — brand list emptied itself on the last keystroke.** LIVE (#139).
@@ -33,7 +42,7 @@ _Last synced: 2026-06-17. Strategic Arc-level planning lives in `memory/project_
   - [ ] **HH-74 — spacing on the add screen.** Blocked on layout review.
   - [ ] **HH-79 — "there is no long setup".** Blocked on wording.
   - [ ] **HH-77 — first-run hero copy.** Undecided, pending wording options.
-- [ ] **HH-78 — give the sample home the app's real design.** Roadmap. `/sample` is the try-before-you-commit door and currently undersells the product.
+- [x] **HH-78 → promoted to round 10, 2026-08-22** — was: **give the sample home the app's real design.** Roadmap. `/sample` is the try-before-you-commit door and currently undersells the product.
 - [ ] **Beta round 6 — the first-run path** (owner-approved 2026-08-20 from TestFlight feedback; decisions in `docs/beta-feedback.md`). Four of these five land on the SAME screen, so they ship as one coherent piece of work rather than four patches:
   - [ ] **HH-48 — open the review when a parse finishes.** The "Review tasks" button already exists; the missing thing is the moment. Auto-open on the item the user is looking at; the button and pickup card stay as the fallback for a parse that lands while they are elsewhere.
   - [ ] **HH-56 — say what the manual said, let the user place the first window.** Nothing lands due today any more (#58), but an appliance the user has already been maintaining for months should not restart at zero. Show the manual's own cadence, offer "I did this recently".
