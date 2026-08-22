@@ -108,8 +108,12 @@ test.describe("journey walks", () => {
       })
       .catch(() => {/* profile step not offered — fine, the funnel continues */})
 
-    // Skip doesn't strand you on Home — onboarding funnels straight into the
-    // first-item flow (/onboarding/inventory → /inventory/add).
+    // HH-93: finishing (or skipping) the profile no longer drops you into the
+    // add form — it ASKS. Both doors are real; this walk takes the first.
+    const fork = page.getByText("Your home profile is set").filter(visible).first()
+    await expect(fork).toBeVisible({ timeout: 20_000 })
+    await snap(page, "J1", "profile-done", "Where next? — 'Add your first item' or 'Take me to my home page' (asked, not assumed)", fork)
+    await page.getByRole("link", { name: /Add your first item/i }).filter(visible).first().click()
     await page.waitForURL(/\/inventory\/add/, { timeout: 20_000 })
 
     // First item through the simple lane. REGRESSION GUARD (2026-08-21): the
@@ -146,6 +150,71 @@ test.describe("journey walks", () => {
     await expect(upkeepHero).toBeVisible({ timeout: 15_000 })
     await snap(page, "J1", "home-after-first-item", "Home: 'No upkeep yet' banner pointing at the manual step; Journey Kettle under 'Finish setting up'",
       upkeepHero)
+  })
+
+  /**
+   * J2 — the appliance lane, end to end (PRs #161–#163, 2026-08-22).
+   *
+   * The path the whole redesign is about: name it, attach the manual, and the
+   * WIZARD ENDS. Everything after happens on the item page, which reports the
+   * read itself. The parse callables are stubbed at the network layer because
+   * this walks the CLIENT hand-off, not the worker.
+   */
+  test("J2 — add: appliance lane hands the parse to the item page", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.route("**/detectDocType", (route) =>
+      route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({ result: { docType: "manual", confidence: 0.95, reason: "stub" } }),
+      })
+    )
+    await page.route("**/enqueueParse", (route) =>
+      route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({ result: { ok: true, requestId: "req-journey" } }),
+      })
+    )
+    await signInSeeded(page)
+
+    await page.goto("/inventory/add")
+    await page.getByRole("button", { name: /Appliance or device/ }).click()
+    await page.locator("#identify-brand").fill("LG")
+    await page.locator("#identify-model").fill("DLGX3901B")
+    await snap(page, "J2", "appliance-lane", "Appliance lane: brand + model, and a stepper promising exactly two steps",
+      page.getByRole("button", { name: /Next: add the manual/i }).filter(visible).first())
+    await page.getByRole("button", { name: /Next: add the manual/i }).filter(visible).first().click()
+
+    // Step 2 of 2 — and there is no step 3. Reading, Review and Purchase left
+    // the wizard when the item page took the job over.
+    //
+    // Assert on what a PHONE shows: the stepper's labels are `hidden sm:inline`,
+    // so at 390px the step names are not on screen at all — only the numbers.
+    const analyze = page.getByRole("button", { name: /Analyze Manual/i }).filter(visible).first()
+    await expect(page.getByRole("button", { name: /Upload PDF/i }).filter(visible).first())
+      .toBeVisible({ timeout: 15_000 })
+    await snap(page, "J2", "manual-step", "Step 2 of 2 — upload or link. No Reading, Review or Purchase step exists")
+    await expect(page.getByText("Purchase", { exact: true })).toHaveCount(0)
+
+    await page.setInputFiles('input[accept*="pdf"]', {
+      name: "manual.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"),
+    })
+    await analyze.click()
+
+    // The hand-off: the wizard is gone and the item page owns the outcome.
+    //
+    // Anchor on the item page's HEADING, not its text. "LG DLGX3901B" also
+    // appears in the manual step's "Find it for me" card, so a getByText match
+    // passed instantly against the screen we were leaving and the screenshot
+    // caught the wizard mid-transition — a green step with the wrong picture,
+    // which is the exact failure the gallery exists to catch.
+    await page.waitForURL(/\/items\//, { timeout: 30_000 })
+    const itemHeading = page.getByRole("heading", { name: "LG DLGX3901B" }).filter(visible).first()
+    await expect(itemHeading).toBeVisible({ timeout: 20_000 })
+    await snap(page, "J2", "living-item-page",
+      "Landed on the item page seconds after adding — no Reading screen. Purchase nudge names what the data buys",
+      itemHeading)
   })
 
   test("J3 — review: existing tasks through the review wizard", async ({ page }) => {

@@ -378,6 +378,24 @@ export default function ItemDetailPage() {
   // Hide the manual dock while a modal (Edit) is open — the dialog dims the page
   // and must sit above the dock, so we drop the dock and restore it on close.
   const dockOpen = knowledgeManualPageOpen && !!manualPdfUrl && !editOpen
+
+  /**
+   * One nudge node, rendered in BOTH lanes. The first pass mounted it only in
+   * the mobile tree, so on a laptop the item page never offered the purchase
+   * details it was designed to ask for — the same one-lane bug the reminder
+   * control had, caught the same way: by looking at the screenshot.
+   *
+   * Shown while there is still something to gain: no purchase date on the item,
+   * and not already waved away on this device.
+   */
+  const purchaseNudge = shouldOfferPurchaseNudge(item.item_unit_id, item.purchase_date) ? (
+    <PurchaseNudge
+      itemUnitId={item.item_unit_id}
+      onAdd={() => setDetailsOpen(true)}
+      onDismissed={() => setNudgeDismissedAt(Date.now())}
+    />
+  ) : null
+
   return (
     <div
       style={{
@@ -461,17 +479,7 @@ export default function ItemDetailPage() {
             onItemUpdate={setItem}
             onEditRoom={() => setRoomPickerOpen(true)}
             onEditDetails={() => setDetailsOpen(true)}
-            nudgeSlot={
-              // Shown while there is still something to gain: no purchase date
-              // on the item, and not already waved away on this device.
-              shouldOfferPurchaseNudge(item.item_unit_id, item.purchase_date) ? (
-                <PurchaseNudge
-                  itemUnitId={item.item_unit_id}
-                  onAdd={() => setDetailsOpen(true)}
-                  onDismissed={() => setNudgeDismissedAt(Date.now())}
-                />
-              ) : null
-            }
+            nudgeSlot={purchaseNudge}
             reviewAction={
               home && id && tasks.length > 0 ? (
                 <ReviewItemTasksButton
@@ -537,6 +545,7 @@ export default function ItemDetailPage() {
           onOpenManualPage={(page) => openManualPage(page)}
           onItemUpdate={setItem}
           manualSectionProps={manualSectionProps}
+          nudgeSlot={purchaseNudge}
         />
       </div>
 

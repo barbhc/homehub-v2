@@ -307,6 +307,10 @@ export interface DesktopItemDetailProps {
   historyKey: number
   onBack: () => void
   onEdit: () => void
+  /** The purchase-details nudge, when this item still has something to gain
+   *  from it. Desktop was missing it entirely on the first pass — the same
+   *  one-lane-only bug the reminder control had. */
+  nudgeSlot?: React.ReactNode
   /** Opens the manual viewer at a page (from a task's "Open manual · p.X" link). */
   onOpenManualPage?: (page: number) => void
   /** Setup-reveal writes setup_revealed_at; bubble the updated item up. */
@@ -318,7 +322,7 @@ export interface DesktopItemDetailProps {
 type TabId = "tasks" | "guides" | "fix" | "saved" | "activity"
 
 export function DesktopItemDetail({
-  item, rooms, homeId, tasks, chunks, manuals, faqs, historyKey, onBack, onEdit, onOpenManualPage, onItemUpdate, manualSectionProps,
+  item, rooms, homeId, tasks, chunks, manuals, faqs, historyKey, onBack, onEdit, onOpenManualPage, onItemUpdate, manualSectionProps, nudgeSlot,
 }: DesktopItemDetailProps) {
   const navigate = useNavigate()
   const Glyph = glyphFor(item)
@@ -500,6 +504,8 @@ export function DesktopItemDetail({
 
         {/* RAIL */}
         <div className="flex flex-col gap-4">
+          {nudgeSlot}
+
           {/* Warranty — status-first */}
           <WarrantyPanel item={item} homeId={homeId} onEdit={onEdit} onItemUpdate={onItemUpdate} />
 
