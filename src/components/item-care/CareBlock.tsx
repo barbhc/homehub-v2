@@ -662,6 +662,30 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
   const fScheduled = scheduled.filter(vis).sort(byDue)
 
   const nothing = tasks.length === 0
+  // While the manual is being read, Upkeep holds the space its tasks will fill
+  // rather than showing an empty state that contradicts the band above it. The
+  // rows are deliberately blank: the worker writes its draft in one go at the
+  // end, so anything more specific here would be invented. Reserving space is
+  // honest; naming tasks we have not been told about is not.
+  if (nothing && !critical && parsingManual) {
+    return (
+      <Card>
+        <div className="px-4 py-4" aria-busy="true" aria-live="polite">
+          <p className="mb-3 text-[13px] font-semibold" style={{ color: SUB }}>
+            Reading the manual — upkeep lands here.
+          </p>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="mb-2 h-[46px] animate-pulse rounded-xl last:mb-0"
+              style={{ background: "var(--hh-surface2)", opacity: 1 - i * 0.25 }}
+            />
+          ))}
+        </div>
+      </Card>
+    )
+  }
+
   if (nothing && !critical) {
     // The no-manual case is the whole product in miniature: upkeep comes from
     // the manual, and this is where someone finds out they haven't got one.
@@ -681,9 +705,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
           <p className="text-[13.5px]" style={{ color: SUB }}>
             {hasManual
               ? "No upkeep found in this manual yet."
-              : parsingManual
-                ? "Reading the manual — tasks will appear here."
-                : "Homehub reads it and builds this item's schedule, warranty window, and answers."}
+              : "The manual is where this item's schedule, warranty window and answers come from."}
           </p>
           {!hasManual && !parsingManual && onAddManual && (
             <button

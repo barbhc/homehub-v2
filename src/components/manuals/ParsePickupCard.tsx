@@ -37,6 +37,8 @@ const STAGE_LINE: Record<string, string> = {
 interface ManualParseState {
   stage: ParseStage
   tasks: number | null
+  /** Page count, once the worker has fetched the PDF. */
+  pages: number | null
 }
 
 /**
@@ -88,7 +90,13 @@ export function ParsePickupCard({
         if (ACTIVE_STAGES.includes(stage)) watchedRunning.current.add(manualId)
         setByManual((prev) => ({
           ...prev,
-          [manualId]: { stage, tasks: parse.summary?.tasks ?? null },
+          [manualId]: {
+            stage,
+            tasks: parse.summary?.tasks ?? null,
+            // Sticky: pdfPages is written once, at pdf_fetched, and later
+            // snapshots do not repeat it.
+            pages: parse.pdfPages ?? prev[manualId]?.pages ?? null,
+          },
         }))
       })
     )
@@ -180,10 +188,12 @@ export function ParsePickupCard({
         <Loader2Icon className="size-4 shrink-0 animate-spin" style={{ color: "var(--hh-teal)" }} />
         <div className="min-w-0">
           <p className="text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
-            Still reading the manual — {STAGE_LINE[ui] ?? "working…"}
+            {/* The page count is the one concrete thing we know mid-parse, and
+                it turns an indefinite wait into a job with a size. */}
+            Reading your manual{active[1].pages ? ` · ${active[1].pages} pages` : ""}
           </p>
           <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
-            Takes a couple of minutes. You can leave this page — we'll keep working.
+            {STAGE_LINE[ui] ?? "Working…"} You can leave this page — we'll keep going.
           </p>
         </div>
       </div>

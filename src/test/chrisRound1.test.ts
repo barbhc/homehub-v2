@@ -110,7 +110,12 @@ describe("HH-89 — the manual entry looks like what it does", () => {
 describe("HH-87 — a manual mid-parse is neither 'has one' nor 'has none'", () => {
   it("the empty state waits instead of offering to add what was just added", () => {
     const src = read("../components/item-care/CareBlock.tsx")
-    expect(src).toContain("Reading the manual — tasks will appear here.")
+    // Mid-parse now RESERVES the space its tasks will fill (skeleton rows)
+    // instead of a line of copy, so Upkeep never reads as empty while a manual
+    // is being read. The gate this test was written for is unchanged: the
+    // add-the-manual CTA still cannot appear while one is in flight.
+    expect(src).toContain("nothing && !critical && parsingManual")
+    expect(src).toContain("Reading the manual — upkeep lands here.")
     expect(src).toContain("!hasManual && !parsingManual && onAddManual")
   })
 
