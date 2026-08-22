@@ -97,11 +97,17 @@ function StatBand({ dueMonth, deadlineCount, onDue, onOverdue, sc }: {
   )
 }
 
-export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete, onSnooze, variant = "mobile" }: {
+export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete, onSnooze, variant = "mobile", nextUp = null, briefingReady = true }: {
   /** Overdue + due-soon feed (the old urgent stack's data). */
   tasks: DashboardTask[]
   /** Forward schedule for the drawer + "due this month". */
   upcoming: MaintenanceTaskFull[]
+  /** Soonest scheduled task beyond the feed, with its window-open date —
+   *  the truthful fallback when every list on this screen is empty (HH-92). */
+  nextUp?: { dueDate: string; windowStart: string } | null
+  /** HH-95: false for a young account with no history — "the past 30 days" of
+   *  an account created today is an empty story, so the card waits. */
+  briefingReady?: boolean
   homeId: string | null
   completingId: string | null
   onComplete: (id: string) => void
@@ -321,10 +327,17 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
                 </span>
                 <span>
                   <span className={`block ${sc.quiet} font-extrabold leading-tight tracking-[-0.02em]`} style={{ color: INK }}>
-                    {nextQuiet ? `All quiet until ${fmtWhen(nextQuiet.dueDate).replace(/^\w+, /, "")}` : "All quiet"}
+                    {nextQuiet ? `All quiet until ${fmtWhen(nextQuiet.dueDate).replace(/^\w+, /, "")}` : nextUp ? `All quiet until ${fmtWhen(nextUp.dueDate).replace(/^\w+, /, "")}` : "All quiet"}
                   </span>
                   <span className="mt-0.5 block text-[12.5px]" style={{ color: SUB }}>
-                    {nextQuiet ? `Nothing is late. Next up: ${nextQuiet.title.toLowerCase()}.` : "Nothing is late, and nothing is scheduled yet."}
+                    {/* HH-92: with tasks scheduled beyond the feed, "nothing is
+                        scheduled yet" was FALSE — and "window opens" ties the
+                        sentence to the "in their window" chip beside it. */}
+                    {nextQuiet
+                      ? `Nothing is late. Next up: ${nextQuiet.title.toLowerCase()}.`
+                      : nextUp
+                        ? `Nothing is late — the next window opens ${fmtWhen(nextUp.windowStart).replace(/^\w+, /, "")}.`
+                        : "Nothing is late, and nothing is scheduled yet."}
                   </span>
                 </span>
               </div>
@@ -400,7 +413,7 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
           </span>
           <span className="min-w-0 flex-1">
             <span className={`block ${sc.rowTitle} font-bold`} style={{ color: INK }}>Coming up</span>
-            <span className={`block ${sc.rowMeta}`} style={{ color: SUB }}>{drawerMeta(rows, today)}</span>
+            <span className={`block ${sc.rowMeta}`} style={{ color: SUB }}>{drawerMeta(rows, today, nextUp)}</span>
           </span>
           <ChevronRightIcon className="size-4 shrink-0 transition-transform" style={{ color: FAINT, transform: drawerOpen ? "rotate(90deg)" : undefined }} />
         </button>
@@ -453,6 +466,11 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
       </div>
 
       {/* ── monthly briefing ─────────────────────────────────────────────── */}
+      {/* HH-95: a briefing of "the past 30 days" for an account created today
+          is an empty story that can only disappoint. The card waits for a
+          month of history — which also un-stacks the young-home screen, which
+          read as three disappointments in a row. */}
+      {briefingReady && (
       <div className="overflow-hidden rounded-[15px] border" style={{ borderColor: LINE, background: "var(--hh-surface)" }}>
         <button type="button" onClick={() => void generate()} aria-expanded={briefOpen} className={`flex w-full items-center gap-2.5 text-left ${sc.rowPad}`}>
           <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-teal-wash)" }}>
@@ -512,6 +530,7 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

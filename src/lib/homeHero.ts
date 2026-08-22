@@ -138,8 +138,17 @@ export function comingUp(tasks: ComingUpInput[], today: string, limit = 6): Comi
 }
 
 /** The drawer's one-line answer while closed. Never says "0 in August". */
-export function drawerMeta(rows: ComingUpRow[], today: string): string {
-  if (rows.length === 0) return "Nothing scheduled yet"
+export function drawerMeta(
+  rows: ComingUpRow[],
+  today: string,
+  /** HH-92: the soonest scheduled task beyond the feed. With it, an empty
+   *  drawer says when something IS coming instead of denying the schedule. */
+  nextUp?: { dueDate: string; windowStart: string } | null,
+): string {
+  if (rows.length === 0) {
+    if (nextUp) return `Next window opens ${fmtWhen(nextUp.windowStart).replace(/^\w+, /, "")}`
+    return "Nothing scheduled yet"
+  }
   // Rows carrying a window phrase are not "overdue" — only rows the caller
   // marked without one (real deadlines) still count that way.
   const overdue = rows.filter((r) => r.overdueDays != null && !r.duePhrase).length

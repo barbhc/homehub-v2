@@ -161,3 +161,17 @@ describe("drawerMeta under due windows", () => {
     expect(meta).toMatch(/1 overdue/)
   })
 })
+
+describe("HH-92 — an empty drawer with a scheduled future tells the truth", () => {
+  it("names the day the next window opens instead of denying the schedule", () => {
+    // The reported screen: two tasks due Sep 21, feed empty, drawer reading
+    // "Nothing scheduled yet". With the readback it says when.
+    expect(drawerMeta([], "2026-08-21", { dueDate: "2026-09-21", windowStart: "2026-09-14" }))
+      .toBe("Next window opens Sep 14")
+  })
+
+  it("still says nothing-yet when there genuinely is nothing", () => {
+    expect(drawerMeta([], "2026-08-21", null)).toBe("Nothing scheduled yet")
+    expect(drawerMeta([], "2026-08-21")).toBe("Nothing scheduled yet")
+  })
+})

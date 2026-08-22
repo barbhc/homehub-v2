@@ -24,6 +24,7 @@ import { shouldShowHomeSkeleton, SKELETON_PATIENCE_MS } from "@/lib/homeLoadingG
 import { UndoBar } from "@/components/ui/UndoBar"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useAuth } from "@/modules/auth"
+import { auth } from "@/integrations/firebase"
 import { useCurrentHome, useHomeProfile } from "@/modules/home"
 import { useUserLevel } from "@/hooks/useUserLevel"
 import { AskFirstHero } from "@/components/dashboard/AskFirstHero"
@@ -556,6 +557,13 @@ export default function Home() {
   // yet" over a profile nag. Nothing on the screen was false and nothing was
   // any use. This is the one state where we know exactly what would help.
   const hasItemsNoUpkeep = !isNewUser && (stats?.scheduledTaskCount ?? 0) === 0
+  // HH-95: "the past 30 days" of a brand-new account is an empty story. Ready
+  // once the account is ~3 weeks old or something has actually been completed.
+  const briefingReady = (() => {
+    const created = auth.currentUser?.metadata?.creationTime
+    const ageDays = created ? (Date.now() - new Date(created).getTime()) / 86400000 : 999
+    return ageDays >= 21 || (stats?.completedThisMonth ?? 0) > 0
+  })()
 
   return (
     <div className="flex flex-col pb-8">
@@ -677,6 +685,8 @@ export default function Home() {
               onSelectHome={() => setSwitcherOpen(true)}
               tasks={homeTasks}
               upcoming={upcoming}
+            nextUp={stats?.nextUp ?? null}
+            briefingReady={briefingReady}
               warranties={expiringWarranties}
               cleaningGuides={cleaningGuides}
               level={level}
@@ -695,6 +705,8 @@ export default function Home() {
             warranties={expiringWarranties}
             notices={notices}
             upcoming={upcoming}
+            nextUp={stats?.nextUp ?? null}
+            briefingReady={briefingReady}
             cleaningGuides={cleaningGuides}
             level={level}
             homeId={homeId || null}

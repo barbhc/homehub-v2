@@ -135,6 +135,8 @@ function EntryCard({ d, icon: Icon, label, sub, to }: { d: ReturnType<typeof den
 export function RefinedHome({
   tasks,
   upcoming,
+  nextUp = null,
+  briefingReady = true,
   warranties,
   cleaningGuides = [],
   level,
@@ -149,6 +151,8 @@ export function RefinedHome({
   tasks: DashboardTask[]
   /** Forward schedule for the Coming-up drawer. */
   upcoming: MaintenanceTaskFull[]
+  nextUp?: { dueDate: string; windowStart: string } | null
+  briefingReady?: boolean
   warranties: ExpiringWarrantyItem[]
   cleaningGuides?: DeepCleanGuide[]
   level: UserLevel
@@ -214,6 +218,8 @@ export function RefinedHome({
         <HomeComposed
           tasks={tasks}
           upcoming={upcoming}
+          nextUp={nextUp}
+          briefingReady={briefingReady}
           homeId={homeId}
           completingId={completingId}
           onComplete={onComplete}

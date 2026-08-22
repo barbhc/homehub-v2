@@ -95,6 +95,13 @@ export const HABIT_SCHEDULE_TYPES = new Set(["as_needed", "after_each_use"])
 
 export interface DashboardStats {
   totalItems: number
+  /** Soonest FUTURE agenda-eligible scheduled task, at any distance — with the
+   *  day its window opens. The truthful fallback for every "nothing" state:
+   *  quarterly/annual first-dues sit beyond any reasonable feed horizon, and
+   *  the honest sentence is "the next window opens Nov 3", not "nothing yet".
+   *  Window vocabulary on purpose: the stat chip beside it says "in their
+   *  window", so the two speak the same language. */
+  nextUp: { dueDate: string; windowStart: string } | null
   /** Every open scheduled instance, at ANY date and of any care type.
    *  HH-80 needs to tell "you have upkeep, none of it this week" apart from
    *  "you have no upkeep at all", and dueSoonCount/overdueTaskCount both
@@ -502,6 +509,7 @@ export async function getDashboardStats(propertyId: string): Promise<DashboardSt
   let dueSoonCount = 0
   let completedThisMonth = 0
   let scheduledTaskCount = 0
+  let nextUp: { dueDate: string; windowStart: string } | null = null
   for (const doc of instSnap.docs) {
     const r = doc.data() as Record<string, unknown>
     if (r.status === "done") {
@@ -524,9 +532,13 @@ export async function getDashboardStats(propertyId: string): Promise<DashboardSt
     } else if (d <= dueSoonEnd) {
       dueSoonCount++
     }
+    if (d >= todayStr && (!nextUp || d < nextUp.dueDate)) {
+      const w = dueWindow(d, (r.scheduleType as string | null) ?? null)
+      nextUp = { dueDate: d, windowStart: w.start }
+    }
   }
 
-  return { totalItems, overdueTaskCount, dueSoonCount, completedThisMonth, scheduledTaskCount }
+  return { totalItems, overdueTaskCount, dueSoonCount, completedThisMonth, scheduledTaskCount, nextUp }
 }
 
 export interface MaintenanceTaskFull {
@@ -604,7 +616,14 @@ function toMaintenanceTaskFull(
 
 export async function getUpcomingTasks(propertyId: string): Promise<MaintenanceTaskFull[]> {
   const todayStr = today()
-  const in30Days = addDays(todayStr, 30)
+  // 45, not 30 — a fencepost that hid every fresh monthly task. commitDraft
+  // seeds first-due ONE CALENDAR MONTH out (#58), which is 31 days in seven
+  // months of the year, so a monthly task added on the 21st landed due the
+  // 21st — one day past a 30-day horizon — and Home said "nothing scheduled
+  // yet" over it until tomorrow. The owner hit exactly this (HH-92). 45 clears
+  // any month plus the window's near edge; the Coming-up list is capped at 6
+  // rows regardless, so the widening costs nothing visually.
+  const in30Days = addDays(todayStr, 45)
 
   const snap = await getDocs(query(collection(db, `homes/${propertyId}/taskInstances`), where("deletedAt", "==", null)))
   return snap.docs
