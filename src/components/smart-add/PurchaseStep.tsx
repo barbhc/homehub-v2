@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { callable } from "@/integrations/firebase"
 import { getItemUnit, updateItemUnit, type UpdateItemUnitInput } from "@/modules/items"
 import { uploadReceiptImage } from "@/modules/inventory/services/storageService"
+import { warrantyExpiry } from "@/lib/warrantyWindow"
 
 // Fire-and-forget recall check (CPSC). Errors are swallowed — a failed recall
 // lookup must never block the Smart Add flow.
@@ -58,16 +59,12 @@ export function PurchaseStep({
     if (receiptPath) updates.receipt_storage_path = receiptPath
 
     // Derive the warranty expiry from purchase date + the item's warranty
-    // months, folded into the same update.
+    // months, folded into the same update. Shared with the item page's editor
+    // so both screens land on the same day (src/lib/warrantyWindow.ts).
     if (purchaseDate.trim()) {
       const itemRes = await getItemUnit(homeId, itemUnitId)
-      const months = itemRes.data?.warranty_duration_months
-      if (months != null && months > 0) {
-        const [ey, em, ed] = purchaseDate.trim().split("-").map(Number)
-        const expiry = new Date(ey, em - 1, ed)
-        expiry.setMonth(expiry.getMonth() + months)
-        updates.warranty_expiry_date = expiry.toISOString().split("T")[0]
-      }
+      const expiry = warrantyExpiry(purchaseDate.trim(), itemRes.data?.warranty_duration_months)
+      if (expiry) updates.warranty_expiry_date = expiry
     }
 
     if (Object.keys(updates).length > 0) {

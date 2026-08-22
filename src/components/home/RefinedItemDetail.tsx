@@ -11,6 +11,7 @@ import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { dens } from "@/lib/redesign/tokens"
 import { CareBlock } from "@/components/item-care/CareBlock"
 import { categoryLabel } from "@/lib/categoryLabel"
+import { fmtMoney } from "@/lib/itemMoney"
 import { WarrantyPanel } from "@/components/item-care/WarrantyPanel"
 import { ItemPhoto } from "./ItemPhoto"
 
@@ -69,7 +70,7 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
 
 export function RefinedItemDetail({
   item, rooms, homeId, tasks, chunks, hasManual, parsingManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
-  reviewAction, recordsSlot, onEditRoom,
+  reviewAction, recordsSlot, onEditRoom, onEditDetails,
 }: {
   item: ItemUnit
   rooms: Room[]
@@ -97,6 +98,9 @@ export function RefinedItemDetail({
   /** Makes the room pill tappable (opens the caller's room picker). Mobile has
    *  no Edit dialog, so without this the room is read-only here. */
   onEditRoom?: () => void
+  /** Opens the one editable Details & records form. Without it the whole
+   *  section is display-only, which is what it was before HH-96. */
+  onEditDetails?: () => void
 }) {
   const d = dens(density)
   const Glyph = glyphFor(item)
@@ -106,6 +110,10 @@ export function RefinedItemDetail({
     ["Category", categoryLabel(item)],
     ["Serial", item.serial_number, true],
     ["Purchased", fmtDate(item.purchase_date)],
+    // HH-96: enterable since the Details sheet exists, so they can be shown.
+    // Listing a field the phone had no way to fill was the old dead end.
+    ["Price paid", item.price_paid != null ? fmtMoney(item.price_paid) : null],
+    ["Store", item.store_name],
   ]
   const shownFields = fields.filter(([, v]) => !!v) as [string, string, boolean?][]
 
@@ -250,15 +258,35 @@ export function RefinedItemDetail({
         </Link>
 
 
-        <SectionLabel>Details &amp; records</SectionLabel>
-        {shownFields.length > 0 && (
+        {/* HH-96: one way in for the whole section, not an "Add" on every empty
+            row. A column of open fields for a serial number nobody means to
+            type reads as a page that is never finished — the owner's call. */}
+        <SectionLabel action={onEditDetails ? (
+          <button type="button" onClick={onEditDetails}
+            className="shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"
+            style={{ borderColor: "var(--hh-line2)", color: TEAL }}>
+            {shownFields.length > 0 ? "Edit" : "Add"}
+          </button>
+        ) : undefined}>Details &amp; records</SectionLabel>
+        {shownFields.length > 0 ? (
           <div className="rounded-2xl px-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
             {shownFields.map(([k, v, mono], i) => <KV key={k} k={k} v={v} mono={mono} last={i === shownFields.length - 1} />)}
           </div>
+        ) : onEditDetails && (
+          // Empty used to render nothing at all — a heading with a void under
+          // it, and no hint that any of this could be filled in.
+          <button type="button" onClick={onEditDetails}
+            className="rounded-2xl px-4 py-3.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
+            style={{ background: "var(--hh-surface)" }}>
+            <span className="block text-[13.5px] font-semibold" style={{ color: INK }}>Nothing recorded yet</span>
+            <span className="block text-[12px]" style={{ color: SUB }}>
+              Serial, purchase date, price, warranty — add what you have.
+            </span>
+          </button>
         )}
 
         {/* Warranty — status-first; self-hides when nothing is tracked */}
-        <WarrantyPanel item={item} homeId={homeId} onItemUpdate={onItemUpdate} m />
+        <WarrantyPanel item={item} homeId={homeId} onEdit={onEditDetails} onItemUpdate={onItemUpdate} m />
 
         {recordsSlot}
       </div>

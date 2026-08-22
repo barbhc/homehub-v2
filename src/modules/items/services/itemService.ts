@@ -54,6 +54,10 @@ export type UpdateItemUnitInput = {
   price_paid?: number | null
   receipt_storage_path?: string | null
   warranty_expiry_date?: string | null
+  /** Coverage length in months. Editable since HH-96 — mobile had no warranty
+   *  affordance at all, so "we track the window" was a promise only desktop
+   *  could keep. */
+  warranty_duration_months?: number | null
   tags?: string[]
   setup_revealed_at?: string | null
   variant_tags?: string[]
@@ -130,6 +134,7 @@ const UPDATE_FIELD_MAP: Record<string, string> = {
   price_paid: "pricePaid",
   receipt_storage_path: "receiptPath",
   warranty_expiry_date: "warrantyExpiryDate",
+  warranty_duration_months: "warrantyDurationMonths",
   tags: "tags",
   setup_revealed_at: "setupRevealedAt",
   variant_tags: "variantTags",
