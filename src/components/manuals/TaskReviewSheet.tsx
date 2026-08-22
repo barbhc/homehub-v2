@@ -118,13 +118,15 @@ const setupLevelOf = (tier: PriorityTier): PriorityTier => (tier === "optional" 
 const CADENCES: { id: ScheduleType; label: string }[] = [
   { id: "after_each_use", label: "After each use" },
   { id: "weekly", label: "Weekly" },
-  { id: "every_n_days", label: "Something else…" },
   { id: "monthly", label: "Monthly" },
   { id: "quarterly", label: "Quarterly" },
   { id: "semiannual", label: "Twice a year" },
   { id: "annual", label: "Yearly" },
   { id: "seasonal", label: "Seasonal" },
   { id: "as_needed", label: "As needed" },
+  // HH-100: the escape hatch sits AFTER the presets it escapes from — wedged
+  // mid-list it read as one more cadence rather than the custom door.
+  { id: "every_n_days", label: "Something else…" },
 ]
 
 /** Default for "Every N days" — 14 covers the every-two-weeks request that has
@@ -680,9 +682,13 @@ export function TaskReviewSheet({
                             The rows still save either way; they file onto the
                             item page, never onto the schedule. */}
                         {bucket === "setup" && items.length > 0 && (
+                          // HH-101: the pair was inverted for the default state —
+                          // the section ARRIVES hidden, so the visible button must
+                          // offer SHOW; "Already set up? Hide them" only makes
+                          // sense on the open state it describes.
                           <button type="button" onClick={() => setSetupOpen((v) => !v)} aria-expanded={setupOpen}
                             className="rounded-full border border-border px-2 py-0.5 text-[10.5px] font-semibold text-muted-foreground">
-                            {setupOpen ? "Hide" : "Already set up? Hide them"}
+                            {setupOpen ? "Already set up? Hide them" : `Show ${items.length} setup step${items.length === 1 ? "" : "s"}`}
                           </button>
                         )}
                         <span className="ml-auto text-[11px] font-mono font-bold text-muted-foreground">{items.length}</span>
@@ -732,7 +738,10 @@ export function TaskReviewSheet({
             {saving && <Loader2Icon className="size-4 mr-2 animate-spin" />}
             {step === 1 && counts.scheduled > 0
               ? `Next: schedule ${counts.scheduled} task${counts.scheduled === 1 ? "" : "s"} →`
-              : `Save ${counts.tasks} task${counts.tasks === 1 ? "" : "s"}${counts.tips ? ` · ${counts.tips} tip${counts.tips === 1 ? "" : "s"}` : ""}`}
+              // HH-98: step 2 lists only the SCHEDULED tasks, but this button
+              // counts everything kept in step 1 — "Save 11" over three rows
+              // read as a contradiction. Both numbers, so it doesn't.
+              : `Save ${counts.tasks} task${counts.tasks === 1 ? "" : "s"}${counts.scheduled < counts.tasks ? ` — ${counts.scheduled} on a schedule` : ""}${counts.tips ? ` · ${counts.tips} tip${counts.tips === 1 ? "" : "s"}` : ""}`}
           </Button>
           </>
           )}
@@ -753,18 +762,22 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
   const today = new Date().toISOString().slice(0, 10)
   const open = row.lastDoneOn !== null
   return (
-    <div className="mt-2">
-      <label className="flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: open ? "var(--hh-teal)" : "var(--hh-sub)" }}>
-        <input
-          type="checkbox"
-          checked={open}
-          onChange={(e) => patch(row.id, { lastDoneOn: e.target.checked ? today : null })}
-          className="size-4 accent-[var(--hh-teal)]"
-        />
-        I&rsquo;ve been doing this already
-      </label>
+    // HH-99: this was a bare checkbox and a naked date input — the one control
+    // on the sheet wearing none of its clothes. It now speaks the sheet's own
+    // language: a pressable chip like the cadence chips above it, and the date
+    // in a bordered pill at the sheet's text size.
+    <div className="mt-2.5">
+      <button
+        type="button"
+        aria-pressed={open}
+        onClick={() => patch(row.id, { lastDoneOn: open ? null : today })}
+        className={`rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${
+          open ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}
+      >
+        {open ? "✓ " : ""}I&rsquo;ve been doing this already
+      </button>
       {open && (
-        <div className="mt-2 flex items-center gap-2 pl-6">
+        <div className="mt-2 flex items-center gap-2">
           <label htmlFor={`lastdone-${row.id}`} className="text-[11.5px] text-muted-foreground">Last done</label>
           <input
             id={`lastdone-${row.id}`}
@@ -775,7 +788,7 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
             min={earliestLastDone(today)}
             max={today}
             onChange={(e) => patch(row.id, { lastDoneOn: e.target.value || today })}
-            className="rounded-md border border-border bg-background px-2 py-1 text-[13px]"
+            className="rounded-full border border-border bg-background px-3 py-1.5 text-[12.5px] font-semibold"
           />
         </div>
       )}

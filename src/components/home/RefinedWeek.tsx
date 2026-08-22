@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon,
   SparklesIcon, XIcon,
@@ -554,6 +554,16 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                 </div>
               </div>
             ))}
+            {/* HH-94, the rule's third invisibility report: with a NON-empty
+                list, a scheduled cleaning task was simply absent and nothing
+                said so — the explanation only existed in the empty state. The
+                withheld count now closes every list, linking to where the work
+                actually lives. */}
+            {groups.length > 0 && hiddenCleaning > 0 && (
+              <Link to="/clean" className="block px-0.5 pb-2 text-[12.5px]" style={{ color: SUB }}>
+                {hiddenCleaning} cleaning job{hiddenCleaning === 1 ? "" : "s"} for your items live in <b style={{ color: TEAL }}>Deep Clean</b> →
+              </Link>
+            )}
           </div>
         ) : (
           <>
