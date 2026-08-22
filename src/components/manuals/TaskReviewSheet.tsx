@@ -643,7 +643,8 @@ export function TaskReviewSheet({
                   <><b className="font-bold">{rows.length} task{rows.length === 1 ? "" : "s"}</b> from this manual. Tap any one to change it — or walk them again.</>
                 ) : (
                   <>
-                    We found <b className="font-bold">{rows.length} things</b> worth tracking.{" "}
+                    {/* Caught by eye in the journey gallery: "We found 1 things". */}
+                    We found <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> worth tracking.{" "}
                     <b className="font-bold">{counts.scheduled}</b> {counts.scheduled === 1 ? "goes" : "go"} on your schedule — the rest are setup steps and tips.
                     <span className="block text-muted-foreground mt-0.5">Tap any task below to review and change it, or take them one at a time.</span>
                   </>
