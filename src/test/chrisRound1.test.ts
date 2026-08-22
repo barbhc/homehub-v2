@@ -183,3 +183,43 @@ describe("round 9 redesign — the picks, pinned", () => {
     expect(src).toContain("No upkeep yet — add the manual")
   })
 })
+
+describe("round 10 — the overnight fallout, pinned", () => {
+  const sheet = read("../components/manuals/TaskReviewSheet.tsx")
+  const care = read("../components/item-care/CareBlock.tsx")
+
+  it("HH-101: the collapsed setup section offers SHOW, not hide", () => {
+    expect(sheet).toContain('`Show ${items.length} setup step')
+    expect(sheet).toMatch(/setupOpen \? "Already set up\? Hide them"/)
+  })
+
+  it("HH-100: the custom-cadence door is the LAST chip", () => {
+    // NB: the first "]" after the anchor is the TYPE's ("{...}[]"), which ends
+    // the slice before the array even starts — search for the newline-] that
+    // closes the literal instead.
+    const start = sheet.indexOf("const CADENCES")
+    const list = sheet.slice(start, sheet.indexOf("\n]", start))
+    expect(list.lastIndexOf("every_n_days")).toBeGreaterThan(list.lastIndexOf("as_needed"))
+  })
+
+  it("HH-98: the save button carries both numbers when they differ", () => {
+    expect(sheet).toContain("on a schedule")
+  })
+
+  it("HH-97: no leading chip; the marker is meta text naming Deep Clean", () => {
+    expect(care).not.toContain("In guides")
+    expect(care).toContain('onAgenda ? "" : "Deep Clean"')
+  })
+
+  it("HH-94: a non-empty Tasks list still accounts for withheld cleaning", () => {
+    const week = read("../components/home/RefinedWeek.tsx")
+    expect(week).toContain("groups.length > 0 && hiddenCleaning > 0")
+    expect(week).toContain('Link to="/clean"')
+  })
+
+  it("HH-99: the last-done control speaks the sheet's chip language", () => {
+    expect(sheet).toContain("I&rsquo;ve been doing this already")
+    // The bare checkbox is gone; it presses like the cadence chips.
+    expect(sheet).not.toContain('type="checkbox"\n          checked={open}')
+  })
+})

@@ -278,15 +278,6 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
                   aria-label="Reminds you when due"
                 />
               )}
-              {!onAgenda && (
-                <span
-                  className="mt-[1px] shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                  style={{ background: SLATE_SOFT, color: SLATE }}
-                  title="Cleaning for a single item lives in your cleaning guides, not on the Tasks list"
-                >
-                  In guides
-                </span>
-              )}
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
                 {safety && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: CLAY_SOFT, color: CLAY }}>Safety</span>}
@@ -297,7 +288,12 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
             <div className="mt-0.5 text-[12px]" style={{ color: SUB }}>
               {/* Join non-empty parts: an unscheduled row has no cadence label,
                   and blindly prefixing the separator rendered a stray "· 15 min". */}
-              {[freqLabel(t), t.estimated_minutes ? `${t.estimated_minutes} min` : ""].filter(Boolean).join(" · ")}
+              {/* HH-97 (was HH-82's leading chip): the off-agenda marker lives
+                  in the meta line now — the chip broke row alignment, and
+                  "In guides" named a concept nobody had met. "Deep Clean" is
+                  the surface's own name on Home, so the words point somewhere
+                  visible. */}
+              {[freqLabel(t), t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Deep Clean"].filter(Boolean).join(" · ")}
               {days != null && <span style={{ color: neverStarted ? SUB : dueStatusColor(days), fontWeight: !neverStarted && days <= 7 ? 700 : 500 }}> · {neverStarted ? "Start anytime" : dueLabel(days)}</span>}
             </div>
           </div>
