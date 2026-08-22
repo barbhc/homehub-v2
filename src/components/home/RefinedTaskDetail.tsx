@@ -4,10 +4,10 @@ import { Link } from "react-router-dom"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
   RepeatIcon, InfoIcon, ClockIcon, MapPinIcon, CalendarIcon, PackageIcon, MinusIcon, PlusIcon,
-  BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon,
+  BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon, BellRingIcon,
 } from "lucide-react"
 import {
-  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate,
+  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder,
   type TaskDetail,
 } from "@/modules/care"
 import { getHomeMembers, type HomeMember } from "@/modules/home"
@@ -21,6 +21,7 @@ import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
+import { remindsByDefault } from "../../../shared/tasks/reviewBuckets"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 
@@ -75,6 +76,7 @@ export function RefinedTaskDetail({
   const [sheetOpen, setSheetOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [done, setDone] = useState<{ nextDue: string | null } | null>(null)
+  const [reminderError, setReminderError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!homeId) return
@@ -157,6 +159,21 @@ export function RefinedTaskDetail({
     await assignTaskInstance(homeId, detail.taskInstanceId, userId)
   }, [homeId, detail])
 
+  /** Optimistic, with rollback — a reminder that silently failed to save would
+   *  read as "on" here and never fire, which is the one failure the calm
+   *  contract cannot absorb. */
+  const toggleReminder = useCallback(async (next: boolean) => {
+    if (!homeId || !detail) return
+    const before = detail.remindEnabled
+    setReminderError(null)
+    setDetail((x) => (x ? { ...x, remindEnabled: next } : x))
+    const res = await setTaskReminder(homeId, detail.taskTemplateId, next)
+    if (res.error) {
+      setDetail((x) => (x ? { ...x, remindEnabled: before } : x))
+      setReminderError(res.error.message)
+    }
+  }, [homeId, detail])
+
   if (loading) return <div className="flex min-h-full items-center justify-center text-[14px]" style={{ background: BG, color: SUB }}>Loading…</div>
   if (!detail) return (
     <div className="flex min-h-full flex-col items-center justify-center gap-3" style={{ background: BG }}>
@@ -171,6 +188,46 @@ export function RefinedTaskDetail({
 
   // Shared assignment control (button + dropdown). Rendered inline on mobile
   // and inside the sticky rail on desktop — identical markup, no duplication.
+  /**
+   * HH-102: the review sheet sets this once at parse time and used to be the
+   * only place it existed — so "Essential reminds you, everything else stays
+   * quiet" was a default nobody could undo. Same control, same words, now where
+   * second thoughts happen.
+   *
+   * Rendered in BOTH lanes, like the recurrence strip above it: the first cut
+   * lived only in the desktop rail, which on an iPhone is in the DOM and
+   * invisible — a reversible default that the primary platform cannot reach is
+   * the same broken promise in a new place.
+   */
+  const reminderControl = recurring ? (
+    <>
+      <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[var(--hh-line)] px-3.5 py-3" style={{ background: "var(--hh-surface)" }}>
+        <input
+          type="checkbox"
+          checked={detail.remindEnabled ?? remindsByDefault(detail.tier)}
+          onChange={(e) => void toggleReminder(e.target.checked)}
+          className="size-[18px] shrink-0 accent-[var(--hh-teal,#1B6B5A)]"
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13.5px] font-semibold" style={{ color: INK }}>Remind me when it&apos;s due</span>
+          <span className="block text-[11.5px]" style={{ color: SUB }}>
+            {detail.remindEnabled == null
+              ? remindsByDefault(detail.tier)
+                ? "On by default for Essential — you can turn it off"
+                : "Off by default — turn it on if you want one"
+              : detail.remindEnabled ? "You turned this on" : "You turned this off"}
+          </span>
+        </span>
+        {(detail.remindEnabled ?? remindsByDefault(detail.tier)) && (
+          <BellRingIcon className="size-4 shrink-0" style={{ color: TEAL }} />
+        )}
+      </label>
+      {reminderError && (
+        <p className="mt-1.5 px-1 text-[12px] font-semibold" style={{ color: "#C2410C" }}>{reminderError}</p>
+      )}
+    </>
+  ) : null
+
   const assignControl = (
     <>
       <button onClick={() => setAssignOpen((v) => !v)} className="flex w-full items-center gap-3 rounded-[13px] border border-[var(--hh-line2)] px-3.5 py-3 text-left" style={{ background: "var(--hh-surface)" }}>
@@ -263,6 +320,7 @@ export function RefinedTaskDetail({
               <span className="text-[13px]" style={{ color: SUB }}>{nextLabel}</span>
             </div>
           )}
+          <div className="lg:hidden">{reminderControl}</div>
 
           {/* Why it matters */}
           {detail.justification && (
@@ -355,6 +413,7 @@ export function RefinedTaskDetail({
                 </span>
                 <span className="text-[13px]" style={{ color: SUB }}>{nextLabel}</span>
               </div>
+              <div className="mt-1.5">{reminderControl}</div>
             </div>
           )}
 

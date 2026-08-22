@@ -14,6 +14,7 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { getMessaging } from "firebase-admin/messaging"
 import { isApnsToken, sendApns } from "./apns.js"
 import { isAgendaEligible } from "../../../../shared/tasks/agendaEligibility.js"
+import { remindsWhenDue } from "../../../../shared/tasks/reviewBuckets.js"
 
 const REGION = "us-central1"
 
@@ -119,6 +120,47 @@ export const sendTestPush = onCall({ region: REGION, secrets: APNS_SECRETS }, as
  * day of week. A second scheduled function would be a second thing to deploy
  * and a second thing to forget.
  */
+/**
+ * Drops every pending task whose owner has not agreed to be interrupted about
+ * it: their explicit `remindEnabled`, or the tier default when they never chose
+ * (`remindsByDefault` — Essential reminds, everything else stays quiet).
+ *
+ * `remindsWhenDue`, not `willNotify` — see that function for why re-bucketing
+ * at send time would silence promoted per-use tasks.
+ *
+ * Mutates `byHome` in place and removes homes left with nothing, so the send
+ * loop below never has to know this happened.
+ */
+async function filterToAgreed<T extends { templatePath: string | null }>(
+  db: Firestore,
+  byHome: Map<string, T[]>,
+): Promise<void> {
+  const paths = [...new Set([...byHome.values()].flat().map((t) => t.templatePath).filter((p): p is string => !!p))]
+  if (paths.length === 0) return
+
+  // getAll takes the whole list, but chunk anyway: one runaway home should not
+  // turn a scheduled job into a single 10k-document read.
+  const agreed = new Map<string, boolean>()
+  for (let i = 0; i < paths.length; i += 300) {
+    const snaps = await db.getAll(...paths.slice(i, i + 300).map((p) => db.doc(p)))
+    for (const snap of snaps) {
+      if (!snap.exists) continue
+      agreed.set(snap.ref.path, remindsWhenDue(
+        snap.get("priorityTier") as string | null,
+        snap.get("remindEnabled") as boolean | null | undefined,
+      ))
+    }
+  }
+
+  for (const [home, tasks] of byHome) {
+    // A task whose template has vanished keeps its instance's own judgement
+    // rather than being silenced by a lookup failure.
+    const kept = tasks.filter((t) => (t.templatePath ? agreed.get(t.templatePath) !== false : true))
+    if (kept.length === 0) byHome.delete(home)
+    else byHome.set(home, kept)
+  }
+}
+
 const DIGEST_WEEKDAY = 0 // Sunday, in the home's display timezone
 export const sendPushDaily = onSchedule(
   { region: REGION, schedule: "0 15 * * *", timeZone: "America/Los_Angeles", secrets: APNS_SECRETS },
@@ -141,7 +183,7 @@ export const sendPushDaily = onSchedule(
     const weekday = new Date(`${today}T12:00:00Z`).getUTCDay()
     const isDigestDay = weekday === DIGEST_WEEKDAY
 
-    type Pending = { id: string; title: string; itemName: string | null; kind: DueKind; safety: boolean }
+    type Pending = { id: string; title: string; itemName: string | null; kind: DueKind; safety: boolean; templatePath: string | null }
     const byHome = new Map<string, Pending[]>()
     for (const d of due.docs) {
       const homeRef = d.ref.parent.parent
@@ -165,9 +207,29 @@ export const sendPushDaily = onSchedule(
       if (kind !== "deadline" && !isDigestDay) continue
 
       const list = byHome.get(homeRef.path) ?? []
-      list.push({ id: d.id, title, itemName: (d.get("itemName") as string | null) ?? null, kind, safety })
+      list.push({
+        id: d.id, title, itemName: (d.get("itemName") as string | null) ?? null, kind, safety,
+        templatePath: (d.get("taskTemplateId") as string | null)
+          ? `${homeRef.path}/taskTemplates/${d.get("taskTemplateId") as string}`
+          : null,
+      })
       byHome.set(homeRef.path, list)
     }
+
+    // Honour the reminder switch. Everything above answers "is this due?"; this
+    // answers "did they agree to be interrupted about it?" — and until now
+    // nothing did. The app told people "Off by default — turn it on if you want
+    // one" beside every Recommended task, then pushed them anyway, and silently
+    // ignored an Essential whose reminder had been turned off. A notification
+    // the app promised would not arrive is the one failure that teaches people
+    // to distrust every other one.
+    //
+    // Read from the TEMPLATE, not a denormalized copy on the instance: this
+    // flag changes long after the instance is written (that is the entire point
+    // of the task screen's toggle), and a denormalized field with no sync path
+    // is how the agenda went stale before. Bounded work — the candidate list is
+    // already filtered to due + agenda-eligible + digest-day.
+    await filterToAgreed(db, byHome)
 
     let notified = 0
     for (const [homePath, tasks] of byHome) {

@@ -31,6 +31,7 @@ export {
   deleteTaskTemplate,
   archiveTaskTemplate,
   updateTaskCareType,
+  setTaskReminder,
   computePriorityScore,
   type CreateTaskTemplateInput,
   type UpdateTaskInstanceInput,

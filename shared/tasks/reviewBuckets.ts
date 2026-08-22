@@ -98,6 +98,31 @@ export function remindsByDefault(bucket: ReviewBucket): boolean {
   return bucket === "essential"
 }
 
+/** A stored template's tier, in the review vocabulary. Anything unrecognised is
+ *  Recommended — the same fallback `reviewBucketFor` applies. */
+export function tierBucketOf(tier: string | null | undefined): ReviewBucket {
+  return tier === "essential" || tier === "optional" ? tier : "recommended"
+}
+
+/**
+ * Does the owner want to hear about a task that is ALREADY scheduled and due?
+ * Their own answer if they gave one, else the tier default.
+ *
+ * This is `willNotify` for the send side, and the difference matters. That one
+ * re-derives the review bucket from care_type/schedule_type/keep_as_task, which
+ * is right when you are looking at a draft row and asking "will this ever
+ * notify?". At send time the question is already settled — a due instance
+ * exists — and re-deriving would be actively wrong: stored templates do not
+ * carry `keepAsTask`, so a per-use task the owner deliberately promoted to a
+ * real schedule would re-bucket as a "tip" and be silenced.
+ */
+export function remindsWhenDue(
+  priorityTier: string | null | undefined,
+  remindEnabled: boolean | null | undefined,
+): boolean {
+  return remindEnabled ?? remindsByDefault(tierBucketOf(priorityTier))
+}
+
 /**
  * Whether this task will actually remind you.
  *
