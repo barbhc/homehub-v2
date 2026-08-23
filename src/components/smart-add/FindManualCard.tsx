@@ -103,7 +103,11 @@ export function FindManualCard({
         onOpenChange={(o) => { if (!o) setPreview(null) }}
         pdfUrl={preview.url}
         pageNumber={1}
-        caption={`${preview.title} — check the model on the cover matches your unit`}
+        // displayTitle, not the raw candidate title: the list already tidies
+        // useless titles through it and this caption was the one place that
+        // did not — which is how "seo.defaults.title" ended up naming a
+        // document on screen.
+        caption={`${displayTitle(preview.title, preview.url, preview.host)} — check the model on the cover matches your unit`}
       />
     )}
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { manualSearchUrl } from "./manualSearch"
+import { displayTitle } from "../../shared/products/documentKind"
 
 describe("manualSearchUrl", () => {
   it("builds an encoded Google search for brand + model", () => {
@@ -35,5 +36,21 @@ describe("HH-72 — what the link actually hands Google", () => {
     const q = new URL(manualSearchUrl("LG", "")).searchParams.get("q")!
     expect(q).not.toMatch(/\s{2,}/)
     expect(q).toBe("LG owner's manual pdf")
+  })
+})
+
+/**
+ * HH-105: a manufacturer's page title came back as the literal string
+ * "seo.defaults.title" — their untranslated placeholder — and the manual
+ * preview printed it as the document's name.
+ */
+describe("displayTitle — placeholder keys are not titles", () => {
+  it("falls back to the source when the title is an i18n key", () => {
+    expect(displayTitle("seo.defaults.title", "https://ninjakitchen.com/x.pdf", "ninjakitchen.com"))
+      .toBe("ninjakitchen.com")
+  })
+  it("leaves real titles with dots alone", () => {
+    expect(displayTitle("Model AF101 v2.1 Owner's Manual", "https://x.com/a.pdf", "x.com"))
+      .toBe("Model AF101 v2.1 Owner's Manual")
   })
 })

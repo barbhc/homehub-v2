@@ -70,8 +70,20 @@ export function documentKind(title: string, url = ""): DocumentKindResult {
  * documents by reading their names, and this one had none. Falls back to the
  * file name, which is at least about the document.
  */
+/**
+ * A title that is obviously machinery rather than words — the giveaway is
+ * dotted lowercase segments with no spaces. A tester's manual search returned
+ * a manufacturer page whose own <title> was the literal string
+ * "seo.defaults.title": their site ships an untranslated placeholder, and we
+ * printed it back at him. Not our bug, but very much our screen.
+ */
+function looksLikePlaceholderKey(t: string): boolean {
+  return /^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*){2,}$/.test(t.trim())
+}
+
 export function displayTitle(title: string, url: string, host: string): string {
   const t = title.trim()
+  if (looksLikePlaceholderKey(t)) return host || t
   const bare = t.toLowerCase().replace(/[^a-z0-9]/g, "")
   const h = host.toLowerCase().replace(/^www\./, "").replace(/[^a-z0-9]/g, "")
   // EQUALITY, not prefix. "LG Owner's Manual" starts with the host "lg.com"
