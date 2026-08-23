@@ -295,6 +295,14 @@ export function TaskReviewSheet({
     return { ...s, tasks: rows.filter((r) => r.included && r.kind !== "tip").length }
   }, [rows])
 
+  /** Does the focused review have anything to ask about? A manual of pure
+   *  cleaning advice has not — and then the sheet is a summary, not a form,
+   *  so its header and its button both have to say something else. */
+  const nothingToSchedule = useMemo(() => {
+    const onSched = rows.filter((r) => r.included && isScheduled(bucketOfRow(r)))
+    return (focus === "maintenance" ? onSched.filter((r) => r.kind === "maintenance") : onSched).length === 0
+  }, [rows, focus])
+
   const edits: ReviewEditSummary = useMemo(() => {
     const base = new Map(initial.map((r) => [r.id, r]))
     let tier = 0, kind = 0, schedule = 0, skipped = 0
@@ -598,7 +606,7 @@ export function TaskReviewSheet({
               : step === 1
                 ? "Step 1 of 2 · What each task is"
                 : focus === "maintenance"
-                  ? "Maintenance · how often & reminders"
+                  ? nothingToSchedule ? "What we found in this manual" : "Maintenance · how often & reminders"
                   : "Step 2 of 2 · How often"}
           </div>
         </SheetHeader>
@@ -666,9 +674,24 @@ export function TaskReviewSheet({
                 ) : (
                   <>
                     {/* Caught by eye in the journey gallery: "We found 1 things". */}
-                    We found <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> worth tracking.{" "}
-                    <b className="font-bold">{counts.scheduled}</b> {counts.scheduled === 1 ? "goes" : "go"} on your schedule — the rest are setup steps and tips.
-                    <span className="block text-muted-foreground mt-0.5">Tap any task below to review and change it, or take them one at a time.</span>
+                    {counts.scheduled === 0 ? (
+                      // "We found 5 things worth tracking. 0 go on your schedule"
+                      // argued with itself — it called five things worth
+                      // tracking and then said none of them counted, without
+                      // ever saying what DOES happen to them. A tester: "I'm
+                      // not quite clear what all this text is trying to tell me."
+                      <>
+                        We found <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> in this manual.
+                        None of them need a schedule — they&apos;re setup steps and tips, saved to this item.
+                        <span className="block text-muted-foreground mt-0.5">Tap any one to change how it&apos;s filed.</span>
+                      </>
+                    ) : (
+                      <>
+                        We found <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> worth tracking.{" "}
+                        <b className="font-bold">{counts.scheduled}</b> {counts.scheduled === 1 ? "goes" : "go"} on your schedule — the rest are setup steps and tips.
+                        <span className="block text-muted-foreground mt-0.5">Tap any task below to review and change it, or take them one at a time.</span>
+                      </>
+                    )}
                   </>
                 )}
                 <div className="mt-2.5">
@@ -764,7 +787,12 @@ export function TaskReviewSheet({
               // HH-98: step 2 lists only the SCHEDULED tasks, but this button
               // counts everything kept in step 1 — "Save 11" over three rows
               // read as a contradiction. Both numbers, so it doesn't.
-              : `Save ${counts.tasks} task${counts.tasks === 1 ? "" : "s"}${counts.scheduled < counts.tasks ? ` — ${counts.scheduled} on a schedule` : ""}${counts.tips ? ` · ${counts.tips} tip${counts.tips === 1 ? "" : "s"}` : ""}`}
+              // "Save 3 tasks — 0 on a schedule · 2 tips" over a screen saying
+              // nothing needs a schedule reads as an argument with itself.
+              // When there is nothing to schedule, just say how many are saved.
+              : nothingToSchedule
+                ? `Save all ${counts.tasks + counts.tips}`
+                : `Save ${counts.tasks} task${counts.tasks === 1 ? "" : "s"}${counts.scheduled < counts.tasks ? ` — ${counts.scheduled} on a schedule` : ""}${counts.tips ? ` · ${counts.tips} tip${counts.tips === 1 ? "" : "s"}` : ""}`}
           </Button>
           </>
           )}
@@ -839,18 +867,43 @@ function StepTwo({
   const setAside = onSchedule.length - scheduled.length
 
   if (!scheduled.length) {
+    // A manual with nothing to schedule is NOT an empty screen. A tester's air
+    // fryer produced three cleaning tips and no maintenance, and this branch
+    // rendered one sentence on a full-height sheet above a button offering to
+    // "Save 3 tasks" — his words: "this page looks really empty… it'd be nice
+    // if it was more straightforward". So show what the manual actually gave
+    // us and say where it goes; the footer's count then agrees with the list.
+    const kept = rows.filter((r) => r.included)
     return (
-      <div className="px-1 py-2">
-        <p className="text-[12px] text-muted-foreground">
+      <div className="px-1 py-1">
+        <p className="text-[13px] font-bold">Nothing here needs a reminder.</p>
+        <p className="mt-1 mb-3 text-[12px] text-muted-foreground">
           {focus === "maintenance"
-            ? "No maintenance to schedule from this manual."
-            : "Nothing is on a schedule — nothing will remind you."}
+            ? "This manual is cleaning and usage advice. It's saved to this item — nothing will remind you."
+            : "Everything here is a setup step or a tip. It's saved to this item — nothing will remind you."}
         </p>
+        {kept.length > 0 && (
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            {kept.map((r) => (
+              <div key={r.id} className="flex items-center gap-2.5 border-t border-border px-3 py-2.5 first:border-t-0">
+                <span aria-hidden="true" className="w-[3px] self-stretch min-h-[18px] shrink-0 rounded-full"
+                  style={{ background: TIER_RAIL[r.tier] ?? "var(--hh-slate)" }} />
+                <span className="min-w-0 flex-1 text-[12.5px] font-semibold">{r.title}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {r.kind === "tip" ? "Tip" : r.schedule === "setup" ? "Setup" : "Guide"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
         {onReviewEverything && (
-          <button type="button" onClick={onReviewEverything}
-            className="mt-2 text-[12px] font-bold underline underline-offset-2 text-primary">
-            Review everything
-          </button>
+          <p className="mt-2.5 text-[11.5px] text-muted-foreground">
+            Want one of these on a schedule?{" "}
+            <button type="button" onClick={onReviewEverything}
+              className="font-bold underline underline-offset-2 text-primary">
+              Review them all
+            </button>
+          </p>
         )}
       </div>
     )

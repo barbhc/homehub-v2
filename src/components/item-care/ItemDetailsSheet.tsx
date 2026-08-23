@@ -145,7 +145,7 @@ export function ItemDetailsSheet({
             {/* Say what the two fields buy them, at the moment they'd decide to
                 skip both. */}
             <p className="mt-1 text-[11.5px] text-muted-foreground">
-              With the purchase date, Homehub tracks when coverage ends.
+              With the purchase date, you&apos;ll see when coverage ends.
             </p>
           </div>
 

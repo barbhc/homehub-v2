@@ -98,3 +98,76 @@ describe("TaskReviewSheet — maintenance focus", () => {
     ]))
   })
 })
+
+/**
+ * HH-105's sibling: the case my fixtures never had.
+ *
+ * A tester's air fryer manual produced three cleaning tips and NO maintenance.
+ * The focused review had one sentence to render and a whole sheet to render it
+ * in, above a button offering to "Save 3 tasks — 0 on a schedule · 2 tips".
+ * His report: "this page looks really empty… it'd be nice if it was more
+ * straightforward and also filled the space a little bit better."
+ */
+const CLEANING_ONLY: PreviewResult = {
+  ok: true,
+  chunks: [],
+  tasks: [
+    task("Clean the basket after use", "cleaning", "recommended", "after_each_use"),
+    task("Wipe the element", "cleaning", "optional", "monthly"),
+    task("Don't overfill past the line", "cleaning", "optional", "after_each_use"),
+  ],
+}
+
+describe("TaskReviewSheet — a manual with no maintenance", () => {
+  function renderNoMaint(onSave = vi.fn().mockResolvedValue(null)) {
+    render(
+      <TaskReviewSheet open onOpenChange={vi.fn()} itemName="Air fryer"
+        previewData={CLEANING_ONLY} saving={false} onSave={onSave} focus="maintenance" />
+    )
+    return onSave
+  }
+
+  it("shows what the manual DID yield instead of an empty screen", () => {
+    renderNoMaint()
+    expect(screen.getByText("Nothing here needs a reminder.")).toBeInTheDocument()
+    expect(screen.getByText("Clean the basket after use")).toBeInTheDocument()
+    expect(screen.getByText("Wipe the element")).toBeInTheDocument()
+    // The old dead-end sentence is gone.
+    expect(screen.queryByText("No maintenance to schedule from this manual.")).not.toBeInTheDocument()
+  })
+
+  it("titles the sheet for what it actually is", () => {
+    renderNoMaint()
+    expect(screen.getByText("What we found in this manual")).toBeInTheDocument()
+    expect(screen.queryByText("Maintenance · how often & reminders")).not.toBeInTheDocument()
+  })
+
+  it("the button agrees with the screen instead of arguing with it", () => {
+    renderNoMaint()
+    expect(screen.getByRole("button", { name: /^Save all 3$/ })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /on a schedule/ })).not.toBeInTheDocument()
+  })
+
+  it("still saves everything it listed — tasks AND tips", async () => {
+    const onSave = renderNoMaint()
+    fireEvent.click(screen.getByRole("button", { name: /^Save all 3$/ }))
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    // Per-use advice commits as a knowledge chunk rather than a task, so
+    // "nothing was dropped" has to count both halves of the payload.
+    const [tasks, chunks] = onSave.mock.calls[0] as [PreviewTask[], { title?: string | null }[]]
+    const everything = [...tasks.map((t) => t.title), ...chunks.map((c) => c.title)]
+    expect(everything).toEqual(expect.arrayContaining([
+      "Clean the basket after use", "Wipe the element", "Don't overfill past the line",
+    ]))
+  })
+
+  it("offers the full review as the way to schedule one anyway", () => {
+    renderNoMaint()
+    fireEvent.click(screen.getByRole("button", { name: "Review them all" }))
+    // The full sheet DOES have something scheduled here — the monthly cleaning
+    // job — which is exactly why the focused screen speaks about reminders
+    // rather than claiming nothing repeats.
+    expect(screen.getByText("Step 1 of 2 · What each task is")).toBeInTheDocument()
+    expect(screen.getByText("Clean the basket after use")).toBeInTheDocument()
+  })
+})

@@ -101,7 +101,15 @@
    emits var(--t-…) and follows the theme at runtime. Light values here; the
    .dark block overrides them. ─────────────────────────────────────────────── */
 :root {
-  --t-background: #EAF6F4;
+  /* Was #EAF6F4 — a mint left over from the original theme, while every
+     redesigned page uses --hh-bg (#F3F5F4). Since `bg-background` is what
+     every Sheet and Dialog paints with, every pop-up in the app sat on a
+     visibly different colour from the page behind it. A tester's words:
+     "the pop-ups look stylistically different from the rest of the app…
+     it almost looks unfinished." Same value as --hh-bg now, so sheets,
+     dialogs, legacy pages and the body all agree; the white cards inside
+     them still read as cards. */
+  --t-background: #F3F5F4;
   --t-foreground: #111827;
   --t-card: #FFFFFF;
   --t-card-foreground: #111827;
@@ -123,7 +131,8 @@
 }
 
 .dark {
-  --t-background: #0a1f1c;
+  /* Matches --hh-bg dark, for the same reason as the light value above. */
+  --t-background: #0D1411;
   --t-foreground: #F9FAFB;
   --t-card: #112420;
   --t-card-foreground: #F9FAFB;

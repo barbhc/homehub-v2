@@ -297,8 +297,16 @@ export function ManualPageSheet({
           )}
 
           {error && !loading && (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <p className="text-sm text-muted-foreground">{error}</p>
+            // "Invalid PDF structure." on its own is a true sentence that
+            // leaves you nowhere — a tester hit it on the manual look-up and
+            // reported it as a failure of the feature. The document is usually
+            // fine; it is the in-page renderer that cannot cope, and it can
+            // still be opened and attached.
+            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+              <p className="text-[15px] font-bold text-foreground">This PDF won&apos;t preview here</p>
+              <p className="max-w-[34ch] text-[13px] text-muted-foreground">
+                It still opens fine in a browser, and you can attach it either way.
+              </p>
               {fullPdfLink && (
                 <a
                   href={fullPdfLink}
@@ -323,8 +331,11 @@ export function ManualPageSheet({
           )}
         </div>
 
-        {/* Footer: Set reference + Open PDF */}
-        <div className="border-t px-4 py-3 flex items-center justify-between gap-3">
+        {/* Footer: Set reference + Open PDF.
+            pb clears the home indicator — a tester reported the bottom row
+            "too close to the bottom of the screen", which on a modern iPhone
+            means it was sitting under the gesture bar. */}
+        <div className="border-t px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-3">
           {onSetPage && currentPage !== pageNumber ? (
             <Button
               size="sm"
@@ -348,7 +359,7 @@ export function ManualPageSheet({
               Reference updated to page {currentPage}
             </span>
           ) : (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[13px] text-muted-foreground">
               {currentPage === pageNumber
                 ? "This is the current reference page"
                 : ""}
