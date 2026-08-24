@@ -1,0 +1,772 @@
+<title>One Way In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap">
+
+<style>
+/* ============================================================
+   The document is achromatic. The only colour on it belongs to
+   the product: teal marks the moment the item becomes real,
+   clay marks the moment its upkeep arrives.
+
+   Everything inside .ph uses Homehub's REAL values, read out of
+   src/index.css and src/components/ui/*. See "The system" below.
+   ============================================================ */
+:root{
+  --paper:#E8EAE7; --paper-2:#DFE3DF; --card:#FDFDFC;
+  --ink:#14181A; --ink-soft:#5A6560; --ink-faint:#8A938D;
+  --rule:#CBD2CD; --rule-soft:#DCE1DC;
+  --p1:#1B6B5A; --p2:#C2410C;
+  --p1-wash:#E4EFEA; --p2-wash:#FBEADF;
+  --shadow:rgba(20,24,26,.10);
+
+  /* ---- Homehub tokens, verbatim ---- */
+  --app-bg:#F3F5F4;
+  --app-surface:#FFFFFF;
+  --app-card:#FFFFFF;
+  --app-ink:#111827;          /* --t-foreground */
+  --app-sub:#4B5563;          /* --t-muted-foreground */
+  --app-teal:#1B6B5A;         /* --t-primary */
+  --app-teal-hover:#155549;
+  --app-secondary:#EAF6F4;    /* --t-secondary */
+  --app-clay:#C2410C;
+  --app-clay-soft:#FFF1E8;
+  --app-slate:#455C72;
+  --app-slate-soft:#F1F5F8;
+  --app-gold:#8A5A12;
+  --app-gold-soft:#FBF3E2;
+  --app-border:#E5E7EB;       /* --t-border / --t-input */
+  --app-muted:#F3F4F6;        /* --t-muted */
+  --ph-edge:#C2C9C4;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#141817; --paper-2:#1A1F1E; --card:#1C2120;
+    --ink:#EDF0EE; --ink-soft:#A3ADA7; --ink-faint:#78827C;
+    --rule:#2E3634; --rule-soft:#242B29;
+    --p1:#34B093; --p2:#E8956A;
+    --p1-wash:rgba(52,176,147,.15); --p2-wash:rgba(232,149,106,.15);
+    --shadow:rgba(0,0,0,.5);
+    --app-bg:#0D1411; --app-surface:#161E1A; --app-card:#112420;
+    --app-ink:#F9FAFB; --app-sub:#9CA3AF;
+    --app-teal:#2D9B82; --app-teal-hover:#34B093; --app-secondary:#1a3530;
+    --app-clay:#E8956A; --app-clay-soft:rgba(232,149,106,.16);
+    --app-slate:#9BB3C7; --app-slate-soft:rgba(155,179,199,.14);
+    --app-gold:#D9B36B; --app-gold-soft:rgba(217,179,107,.14);
+    --app-border:#1E4040; --app-muted:#162920;
+    --ph-edge:#313A37;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141817; --paper-2:#1A1F1E; --card:#1C2120;
+  --ink:#EDF0EE; --ink-soft:#A3ADA7; --ink-faint:#78827C;
+  --rule:#2E3634; --rule-soft:#242B29;
+  --p1:#34B093; --p2:#E8956A;
+  --p1-wash:rgba(52,176,147,.15); --p2-wash:rgba(232,149,106,.15);
+  --shadow:rgba(0,0,0,.5);
+  --app-bg:#0D1411; --app-surface:#161E1A; --app-card:#112420;
+  --app-ink:#F9FAFB; --app-sub:#9CA3AF;
+  --app-teal:#2D9B82; --app-teal-hover:#34B093; --app-secondary:#1a3530;
+  --app-clay:#E8956A; --app-clay-soft:rgba(232,149,106,.16);
+  --app-slate:#9BB3C7; --app-slate-soft:rgba(155,179,199,.14);
+  --app-gold:#D9B36B; --app-gold-soft:rgba(217,179,107,.14);
+  --app-border:#1E4040; --app-muted:#162920;
+  --ph-edge:#313A37;
+}
+
+*{ box-sizing:border-box; }
+html{ -webkit-text-size-adjust:100%; }
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Source Serif 4",Georgia,"Times New Roman",serif;
+  font-size:17px; line-height:1.62; overflow-x:hidden;
+}
+.wrap{ max-width:1240px; margin:0 auto; padding:0 22px 90px; }
+.col{ max-width:63ch; }
+
+h1,h2,h3,h4,.eyebrow,.mono,.spec{ font-family:"Familjen Grotesk",ui-sans-serif,system-ui,sans-serif; }
+h1{ font-size:clamp(38px,7vw,72px); line-height:.98; letter-spacing:-.026em; font-weight:700; margin:0; text-wrap:balance; }
+h2{ font-size:clamp(24px,3.2vw,32px); line-height:1.1; letter-spacing:-.018em; font-weight:700; margin:0; text-wrap:balance; }
+h3{ font-size:19px; line-height:1.25; letter-spacing:-.01em; font-weight:600; margin:0; }
+h4{ font-size:15px; letter-spacing:-.005em; font-weight:600; margin:0; }
+p{ margin:0 0 15px; } p:last-child{ margin-bottom:0; }
+strong{ font-weight:600; } em{ font-style:italic; }
+.eyebrow{ font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace; font-size:11px; font-weight:600; letter-spacing:.17em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 10px; }
+.mono{ font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace; font-variant-numeric:tabular-nums; }
+.lede{ font-size:19.5px; line-height:1.55; color:var(--ink-soft); }
+
+.mast{ padding:64px 0 34px; border-bottom:2px solid var(--ink); }
+.mast .kicker{ font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-soft); display:flex; flex-wrap:wrap; gap:6px 18px; margin:0 0 26px; }
+.mast h1{ margin-bottom:22px; } .mast h1 .q{ color:var(--ink-faint); }
+
+/* ---------- the system panel ---------- */
+.sys{ margin:44px 0 0; border:1px solid var(--rule); background:var(--card); }
+.sysgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(232px,1fr)); gap:1px; background:var(--rule); }
+.sysgrid > div{ background:var(--card); padding:16px 18px 18px; }
+.sysgrid dt{ font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:9px; }
+.spec{ display:flex; justify-content:space-between; gap:12px; font-size:13.5px; padding:4px 0; border-bottom:1px dotted var(--rule-soft); }
+.spec:last-child{ border-bottom:none; }
+.spec b{ font-weight:500; color:var(--ink-soft); }
+.spec span{ font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
+.swatches{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+.sw{ display:flex; align-items:center; gap:7px; font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-soft); }
+.sw i{ width:20px; height:20px; border-radius:5px; border:1px solid var(--rule); display:block; }
+.wrongtable{ padding:16px 18px 18px; border-top:1px solid var(--rule); }
+.wrongtable table{ width:100%; border-collapse:collapse; }
+.wrongtable th,.wrongtable td{ text-align:left; padding:6px 10px 6px 0; font-size:13.5px; border-bottom:1px dotted var(--rule-soft); }
+.wrongtable thead th{ font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-faint); }
+.wrongtable td.was{ color:var(--p2); font-family:"IBM Plex Mono",monospace; font-size:12px; }
+.wrongtable td.now{ color:var(--p1); font-family:"IBM Plex Mono",monospace; font-size:12px; }
+
+/* ---------- payoff rail ---------- */
+.rail{ margin:22px 0 8px; padding:22px 20px 18px; background:var(--card); border:1px solid var(--rule-soft); overflow-x:auto; scrollbar-width:thin; scrollbar-color:var(--rule) transparent; }
+.rail::-webkit-scrollbar{ height:9px; }
+.rail::-webkit-scrollbar-track{ background:transparent; }
+.rail::-webkit-scrollbar-thumb{ background:var(--rule); border-radius:999px; border:2px solid transparent; background-clip:content-box; }
+.railhead{ display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 16px; margin-bottom:20px; font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); }
+.railtrack{ display:flex; align-items:flex-start; min-width:min-content; }
+.stn{ flex:1 1 0; min-width:100px; position:relative; padding-top:26px; }
+.stn::before{ content:""; position:absolute; top:9px; left:0; right:0; height:2px; background:var(--rule); }
+.stn:first-child::before{ left:50%; } .stn:last-child::before{ right:50%; }
+.stn .dot{ position:absolute; top:3px; left:50%; transform:translateX(-50%); width:15px; height:15px; border-radius:50%; background:var(--paper); border:2.5px solid var(--rule); }
+.stn.p1 .dot{ background:var(--p1); border-color:var(--p1); }
+.stn.p2 .dot{ background:var(--p2); border-color:var(--p2); }
+.stn .sl{ display:block; text-align:center; font-family:"Familjen Grotesk",sans-serif; font-size:12.5px; line-height:1.28; font-weight:500; color:var(--ink-soft); padding:0 5px; }
+.stn.p1 .sl,.stn.p2 .sl{ font-weight:600; color:var(--ink); }
+.stn .st{ display:block; text-align:center; margin-top:4px; font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.06em; color:var(--ink-faint); }
+.stn.p1 .st{ color:var(--p1); } .stn.p2 .st{ color:var(--p2); }
+.keys{ display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:18px; }
+.key{ display:inline-flex; align-items:center; gap:7px; font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); }
+.key i{ width:11px; height:11px; border-radius:50%; display:block; }
+.key.k1 i{ background:var(--p1); } .key.k2 i{ background:var(--p2); }
+
+/* ---------- the walk ---------- */
+.step{ display:grid; grid-template-columns:375px minmax(0,1fr); gap:38px; padding:46px 0; border-top:1px solid var(--rule); align-items:start; }
+.step.wide{ grid-template-columns:520px minmax(0,1fr); }
+.stepnum{ display:flex; align-items:baseline; gap:11px; margin-bottom:9px; }
+.stepnum b{ font-family:"Familjen Grotesk",sans-serif; font-size:34px; font-weight:700; line-height:.85; letter-spacing:-.04em; color:var(--ink-faint); }
+.tags{ display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 0; }
+.tag{ font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:4px 8px 5px; border:1px solid var(--rule); color:var(--ink-soft); }
+.tag.kept{ border-color:var(--p1); color:var(--p1); }
+.tag.chg{ border-color:var(--p2); color:var(--p2); }
+.notes{ font-size:16.5px; line-height:1.56; }
+.notes p{ margin-bottom:12px; }
+.yousaid{ margin:14px 0; padding:12px 15px; background:var(--paper-2); border-left:3px solid var(--ink); font-size:15.5px; line-height:1.5; font-style:italic; }
+.yousaid b{ font-family:"Familjen Grotesk",sans-serif; font-style:normal; font-weight:600; display:block; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px; }
+.variant{ grid-column:1 / -1; margin-top:28px; padding-top:24px; border-top:1px dashed var(--rule); display:grid; grid-template-columns:375px minmax(0,1fr); gap:38px; align-items:start; }
+.variant.wide{ grid-template-columns:520px minmax(0,1fr); }
+/* two phones side by side, notes beneath — for states that only make sense in pairs */
+.variant.duo{ grid-template-columns:minmax(0,1fr); gap:26px; }
+.duorow{ display:flex; gap:26px; flex-wrap:wrap; }
+
+/* =====================================================================
+   PHONE FRAME — 375 px, Homehub's real values at 1:1
+   ===================================================================== */
+.ph{
+  width:375px; height:748px; border-radius:34px; overflow:hidden;
+  background:var(--app-bg); border:1px solid var(--ph-edge);
+  box-shadow:0 10px 30px -12px var(--shadow);
+  display:flex; flex-direction:column;
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif; color:var(--app-ink);
+}
+.ph.desk{ width:520px; height:376px; border-radius:12px; }
+.ph-bar{ display:flex; justify-content:space-between; align-items:center; padding:12px 24px 2px; font-size:12px; font-weight:600; flex:0 0 auto; }
+.ph-bar.desk{ padding:9px 14px; background:var(--app-surface); border-bottom:1px solid var(--app-border); font-size:11px; color:var(--app-sub); font-weight:500; }
+.ph-body{ flex:1 1 auto; padding:24px; display:flex; flex-direction:column; gap:24px; overflow:hidden; }   /* PageContainer: p-6 space-y-6 */
+.ph-body.tight{ gap:16px; }
+.ph-body.pad0{ padding:0; gap:0; }
+.ph-nav{ flex:0 0 auto; display:flex; border-top:1px solid var(--app-border); background:var(--app-surface); padding:8px 4px 12px; }
+.ph-nav span{ flex:1; text-align:center; font-size:10px; font-weight:500; color:var(--app-sub); display:flex; flex-direction:column; align-items:center; gap:4px; }
+.ph-nav span.on{ color:var(--app-teal); font-weight:600; }
+.ph-nav span i{ width:18px; height:18px; border-radius:5px; background:currentColor; opacity:.45; display:block; }
+.ph-nav span.on i{ opacity:1; }
+
+/* type — PageHeader h1 is text-3xl font-display font-semibold tracking-tight */
+.a-h1{ font-family:"Plus Jakarta Sans",sans-serif; font-weight:600; font-size:30px; line-height:1.1; letter-spacing:-.025em; margin:0; }
+.a-h2{ font-family:"Plus Jakarta Sans",sans-serif; font-weight:600; font-size:20px; line-height:1.2; letter-spacing:-.015em; margin:0; }
+.a-h3{ font-size:16px; font-weight:600; line-height:1.35; margin:0; }
+.a-sub{ font-size:14px; line-height:1.45; color:var(--app-sub); margin:4px 0 0; }   /* mt-1 text-sm */
+.a-body{ font-size:16px; line-height:1.45; margin:0; }
+.a-meta{ font-size:12px; line-height:1.4; color:var(--app-sub); margin:0; }         /* text-xs */
+.a-lbl{ font-size:14px; font-weight:500; margin:0 0 6px; }
+.a-req{ color:var(--app-clay); }
+
+/* controls — Button h-11 rounded-md text-sm font-medium; Input h-11 rounded-md border-input bg-transparent */
+.a-btn{ height:44px; border-radius:8px; padding:0 16px; font-size:14px; font-weight:500; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--app-teal); color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+.a-btn.outline{ background:transparent; color:var(--app-teal); border:1px solid var(--app-teal); box-shadow:none; }
+.a-btn.ghost{ background:transparent; color:var(--app-ink); box-shadow:none; }
+.a-btn.secondary{ background:var(--app-secondary); color:var(--app-teal); box-shadow:none; }
+.a-btn.off{ background:var(--app-teal); color:#fff; opacity:.5; box-shadow:none; }
+.a-btn.sm{ height:36px; font-size:14px; padding:0 12px; }
+.a-input{ height:44px; border-radius:8px; border:1px solid var(--app-border); background:transparent; padding:0 12px; font-size:16px; display:flex; align-items:center; color:var(--app-ink); }
+.a-input.ghost{ color:var(--app-sub); }
+.a-sel{ height:44px; border-radius:8px; border:1px solid var(--app-border); background:transparent; padding:0 12px; font-size:16px; display:flex; align-items:center; justify-content:space-between; color:var(--app-ink); }
+
+/* surfaces — Card rounded-xl bg-card border shadow-sm; SectionCard rounded-2xl frosted */
+.a-card{ background:var(--app-card); border:1px solid var(--app-border); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+.a-section{ background:color-mix(in srgb, var(--app-surface) 55%, transparent); border:1px solid color-mix(in srgb, var(--app-surface) 70%, transparent); border-radius:24px; padding:20px; display:flex; flex-direction:column; gap:14px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+.a-tint{ background:var(--app-secondary); border:1px solid transparent; border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.a-gold{ background:var(--app-gold-soft); border:1px solid transparent; border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.a-list{ border:1px solid var(--app-border); border-radius:16px; background:var(--app-card); overflow:hidden; }
+.a-li{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-top:1px solid var(--app-border); }
+.a-li:first-child{ border-top:none; }
+
+/* badge — rounded-full px-2 py-0.5 text-xs font-medium */
+.a-badge{ display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:500; }
+.a-badge.teal{ background:var(--app-secondary); color:var(--app-teal); }
+.a-badge.clay{ background:var(--app-clay-soft); color:var(--app-clay); }
+.a-badge.slate{ background:var(--app-slate-soft); color:var(--app-slate); }
+.a-badge.gold{ background:var(--app-gold-soft); color:var(--app-gold); }
+
+.a-row{ display:flex; align-items:center; gap:12px; }
+.a-row.sb{ justify-content:space-between; }
+.a-stack{ display:flex; flex-direction:column; gap:12px; }
+.a-rail{ width:3px; align-self:stretch; min-height:20px; border-radius:999px; flex:0 0 auto; background:var(--app-slate); }
+.a-rail.ess{ background:var(--app-clay); } .a-rail.rec{ background:var(--app-teal); }
+.a-thumb{ width:56px; height:56px; border-radius:12px; background:var(--app-muted); border:1px solid var(--app-border); flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+.a-thumb svg{ width:28px; height:28px; opacity:.45; }
+.a-skel{ height:10px; border-radius:5px; background:var(--app-border); }
+.a-skel.w70{ width:70%; } .a-skel.w45{ width:45%; }
+.a-prog{ height:6px; border-radius:3px; background:var(--app-border); overflow:hidden; }
+.a-prog i{ display:block; height:100%; background:var(--app-teal); border-radius:3px; }
+.a-sw{ width:44px; height:26px; border-radius:999px; background:var(--app-border); position:relative; flex:0 0 auto; }
+.a-sw.on{ background:var(--app-teal); }
+.a-sw::after{ content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+.a-sw.on::after{ left:21px; }
+.a-div{ height:1px; background:var(--app-border); }
+.a-drop{ border:1px dashed var(--app-border); border-radius:16px; background:var(--app-card); padding:28px 16px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:8px; }
+.a-sheet{ margin-top:auto; background:var(--app-card); border-top:1px solid var(--app-border); border-radius:24px 24px 0 0; padding:16px 24px 24px; display:flex; flex-direction:column; gap:16px; box-shadow:0 -10px 30px -16px rgba(0,0,0,.45); }
+.a-grab{ width:40px; height:5px; border-radius:3px; background:var(--app-border); margin:0 auto; }
+.a-x{ width:44px; height:44px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--app-sub); flex:0 0 auto; margin:-10px -10px -10px 0; }
+.a-link{ color:var(--app-teal); font-size:14px; font-weight:500; }
+
+/* ---------- closing ---------- */
+.verdict{ margin-top:44px; border:2px solid var(--ink); background:var(--card); padding:24px 26px 26px; }
+.verdict h3{ font-size:22px; margin-bottom:10px; }
+.checklist{ list-style:none; padding:0; margin:16px 0 0; display:flex; flex-direction:column; gap:9px; }
+.checklist li{ display:flex; gap:11px; font-size:15.5px; line-height:1.45; }
+.checklist li i{ flex:0 0 auto; width:17px; height:17px; border-radius:50%; background:var(--p1-wash); color:var(--p1); font-style:normal; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:4px; font-family:"Familjen Grotesk",sans-serif; }
+.foot{ margin-top:64px; padding-top:20px; border-top:1px solid var(--rule); font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); }
+
+@media (max-width:980px){
+  .step,.step.wide,.variant,.variant.wide{ grid-template-columns:minmax(0,1fr); gap:22px; }
+  .ph.desk{ width:100%; max-width:520px; height:auto; min-height:340px; }
+}
+@media (max-width:640px){
+  body{ font-size:16.5px; }
+  .wrap{ padding:0 16px 70px; }
+  .mast{ padding-top:44px; }
+  .ph{ width:100%; max-width:375px; }
+  .verdict{ padding:19px 18px 21px; }
+}
+@media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="kicker"><span>Homehub</span><span>Add an item</span><span>The hybrid, v2</span><span>24 Aug 2026</span></p>
+  <h1>One way in.<br><span class="q">Rebuilt on the app&#x2019;s real system, not an impression of it.</span></h1>
+  <p class="lede col">Six screens and three variants, drawn at true 375&#x202F;px with Homehub&#x2019;s own type scale, radii, control heights and surfaces &#x2014; read out of the code rather than eyeballed. Your six tweaks are marked in clay wherever they land.</p>
+</header>
+
+<!-- ===================== THE SYSTEM ===================== -->
+<section style="padding-top:8px">
+  <div class="sys">
+    <div class="sysgrid">
+      <div>
+        <dt>Type &#x2014; PageHeader, Card, Badge</dt>
+        <div class="spec"><b>H1</b><span>Jakarta 600 &#x2022; 30px &#x2022; -.025em</span></div>
+        <div class="spec"><b>Section title</b><span>Jakarta 600 &#x2022; 20px</span></div>
+        <div class="spec"><b>Body / row title</b><span>Inter &#x2022; 16px &#x2022; 400/600</span></div>
+        <div class="spec"><b>Subtitle</b><span>14px &#x2022; #4B5563</span></div>
+        <div class="spec"><b>Meta</b><span>12px &#x2022; #4B5563</span></div>
+      </div>
+      <div>
+        <dt>Controls &#x2014; button.tsx, input.tsx</dt>
+        <div class="spec"><b>Button height</b><span>44px (h-11)</span></div>
+        <div class="spec"><b>Button label</b><span>14px &#x2022; weight 500</span></div>
+        <div class="spec"><b>Button radius</b><span>8px (rounded-md)</span></div>
+        <div class="spec"><b>Input</b><span>44px &#x2022; 8px &#x2022; transparent</span></div>
+        <div class="spec"><b>Input border</b><span>#E5E7EB</span></div>
+      </div>
+      <div>
+        <dt>Surfaces &#x2014; card.tsx, SectionCard.tsx</dt>
+        <div class="spec"><b>Card</b><span>16px &#x2022; #FFF &#x2022; shadow-sm</span></div>
+        <div class="spec"><b>SectionCard</b><span>24px &#x2022; 55% frosted</span></div>
+        <div class="spec"><b>Page padding</b><span>24px (p-6)</span></div>
+        <div class="spec"><b>Vertical rhythm</b><span>24px (space-y-6)</span></div>
+        <div class="spec"><b>Badge</b><span>full &#x2022; 12px &#x2022; weight 500</span></div>
+      </div>
+      <div>
+        <dt>Colour &#x2014; index.css</dt>
+        <div class="swatches" style="margin-bottom:8px">
+          <span class="sw"><i style="background:#1B6B5A"></i>teal 1B6B5A</span>
+          <span class="sw"><i style="background:#C2410C"></i>clay C2410C</span>
+          <span class="sw"><i style="background:#455C72"></i>slate 455C72</span>
+          <span class="sw"><i style="background:#F3F5F4"></i>bg F3F5F4</span>
+          <span class="sw"><i style="background:#EAF6F4"></i>secondary</span>
+          <span class="sw"><i style="background:#E5E7EB"></i>border</span>
+        </div>
+        <div class="spec"><b>Tier rails</b><span>3px &#x2022; clay / teal / slate</span></div>
+        <div class="spec"><b>Never</b><span>alarmist red</span></div>
+      </div>
+    </div>
+    <div class="wrongtable">
+      <p class="eyebrow" style="margin-bottom:10px">What the previous mockups got wrong &#x2014; this is why the screens felt off</p>
+      <table>
+        <thead><tr><th style="width:34%">Element</th><th style="width:33%">Drawn before</th><th style="width:33%">Actually in the app</th></tr></thead>
+        <tbody>
+          <tr><td>Page heading</td><td class="was">Jakarta 800 &#x2022; 23px</td><td class="now">Jakarta 600 &#x2022; 30px</td></tr>
+          <tr><td>Button label</td><td class="was">weight 700</td><td class="now">weight 500</td></tr>
+          <tr><td>Button radius</td><td class="was">10px</td><td class="now">8px</td></tr>
+          <tr><td>Text input</td><td class="was">white fill &#x2022; 9px</td><td class="now">transparent &#x2022; 8px</td></tr>
+          <tr><td>Card radius</td><td class="was">13px</td><td class="now">16px &#x2022; 24px frosted</td></tr>
+          <tr><td>Frame width</td><td class="was">300px, type scaled down</td><td class="now">375px, real values</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="rail" style="margin-top:34px">
+  <div class="railhead"><span>The hybrid</span><span>4 screens to a scanning item &#x2022; 5 taps &#x2022; 0 optional fields before it exists</span></div>
+  <div class="railtrack">
+    <div class="stn"><span class="dot"></span><span class="sl">Brand + model</span><span class="st">screen 1</span></div>
+    <div class="stn p1"><span class="dot"></span><span class="sl">Confirmed, with details</span><span class="st">~3s</span></div>
+    <div class="stn"><span class="dot"></span><span class="sl">Add the manual</span><span class="st">screen 2</span></div>
+    <div class="stn p2"><span class="dot"></span><span class="sl">Tasks appear as they&#x2019;re found</span><span class="st">live</span></div>
+    <div class="stn"><span class="dot"></span><span class="sl">Review, on the page</span><span class="st">30s</span></div>
+    <div class="stn"><span class="dot"></span><span class="sl">Track purchase</span><span class="st">skippable</span></div>
+  </div>
+  <div class="keys">
+    <span class="key k1"><i></i>Payoff 1 &#x2014; the item is real</span>
+    <span class="key k2"><i></i>Payoff 2 &#x2014; the upkeep is real</span>
+  </div>
+</div>
+
+<!-- ===================== 01 ===================== -->
+<div class="step">
+  <div>
+    <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+      <div class="ph-body">
+        <div>
+          <p class="a-h1">Add an item</p>
+          <p class="a-sub">Brand and model. We&#x2019;ll take it from there.</p>
+        </div>
+        <div class="a-stack" style="gap:16px">
+          <div><p class="a-lbl">Brand <span class="a-req">*</span></p><div class="a-input">Fisher &amp; Paykel</div></div>
+          <div><p class="a-lbl">Model <span class="a-req">*</span></p><div class="a-input ghost">e.g. RF135BDRUX4</div>
+            <p class="a-meta" style="margin-top:6px">On the nameplate &#x2014; usually inside the door.</p></div>
+        </div>
+        <span class="a-link">Can&#x2019;t find the model?</span>
+        <div class="a-btn off" style="margin-top:auto">Add the manual</div>
+      </div>
+      <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="stepnum"><b>01</b><h2>Two fields, nothing else</h2></div>
+    <div class="tags"><span class="tag kept">From D &#x2014; 01</span><span class="tag chg">Rebuilt to spec</span></div>
+    <p>The screen opens at its shortest and stays there until it has something to say. No room picker, no category grid, no serial number, no &#x201C;add more details&#x201D; disclosure &#x2014; there is nothing behind it to open.</p>
+    <p>The button is visible but dimmed, and it is labelled with <em>where it goes</em>, not with &#x201C;Next&#x201D;. That label is the same phrase that titles the next screen, so the action keeps its name all the way through.</p>
+    <p style="color:var(--ink-soft);font-size:15.5px">Everything here is now literal: 44&#x202F;px controls, 8&#x202F;px radii, transparent inputs on a #E5E7EB border, 24&#x202F;px page padding and a 24&#x202F;px rhythm between blocks.</p>
+  </div>
+</div>
+
+<!-- ===================== 02 ===================== -->
+<div class="step">
+  <div>
+    <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+      <div class="ph-body">
+        <p class="a-h1">Add an item</p>
+        <div class="a-stack" style="gap:16px">
+          <div><p class="a-lbl">Brand <span class="a-req">*</span></p><div class="a-input">Fisher &amp; Paykel</div></div>
+          <div><p class="a-lbl">Model <span class="a-req">*</span></p><div class="a-input">RF135BDRUX4</div></div>
+        </div>
+        <div class="a-tint">
+          <div class="a-row">
+            <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14M9 5.5v1M9 12.5v2.5"/></svg></div>
+            <div style="min-width:0">
+              <p class="a-h3">Refrigerator</p>
+              <p class="a-meta" style="margin-top:2px">Fisher &amp; Paykel RF135BDRUX4</p>
+            </div>
+          </div>
+          <div class="a-div"></div>
+          <div class="a-row sb"><span class="a-meta">Width</span><span class="a-meta" style="color:var(--app-ink);font-weight:600">36&#x2033;</span></div>
+          <div class="a-row sb"><span class="a-meta">Capacity</span><span class="a-meta" style="color:var(--app-ink);font-weight:600">20.1 cu ft</span></div>
+          <div class="a-row sb"><span class="a-meta">Water filter</span><span class="a-meta" style="color:var(--app-ink);font-weight:600">MODEL 8B</span></div>
+          <div class="a-row sb"><span class="a-meta">Room</span><span class="a-meta" style="color:var(--app-ink);font-weight:600">Kitchen</span></div>
+          <span class="a-link">Not my product</span>
+        </div>
+        <div class="a-btn" style="margin-top:auto">Add the manual</div>
+      </div>
+      <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="stepnum"><b>02</b><h2>It confirms itself, with details</h2></div>
+    <div class="tags"><span class="tag kept">From D &#x2014; 02</span><span class="tag chg">Naming rule changed</span></div>
+    <div class="yousaid"><b>You said</b>&#x201C;The name doesn&#x2019;t need to include the room, otherwise every item in the Kitchen will start with the same word. The one exception is if there is more than one item with the same name &#x2014; like Air Filter &#x2014; in which case add the room after the item type.&#x201D;</div>
+    <p>So it is <span class="mono">Refrigerator</span>, not &#x201C;Kitchen refrigerator&#x201D;. The room is already a field, already shown, and repeating it in the name would make an alphabetical list read <em>Kitchen&#x2026; Kitchen&#x2026; Kitchen&#x2026;</em></p>
+    <p><strong>The exception, drawn as a rule:</strong> the room is appended only when the name would otherwise collide with something already in this home.</p>
+    <div class="a-list" style="max-width:420px;margin:14px 0 6px">
+      <div class="a-li"><span class="a-rail rec"></span><span style="flex:1;font-size:15px;font-weight:600">Refrigerator</span><span class="a-meta">only one</span></div>
+      <div class="a-li"><span class="a-rail"></span><span style="flex:1;font-size:15px;font-weight:600">Air filter &#x2014; Garage</span><span class="a-meta">two exist</span></div>
+      <div class="a-li"><span class="a-rail"></span><span style="flex:1;font-size:15px;font-weight:600">Air filter &#x2014; Attic</span><span class="a-meta">two exist</span></div>
+    </div>
+    <p>The four details are the proof. Width, capacity, the actual filter part number and the room are all things nobody typed, so seeing them right is how a person knows we found <em>their</em> unit and not the smart variant of it.</p>
+    <div class="tags"><span class="tag chg">Fixes HH-112</span><span class="tag chg">Fixes HH-110</span></div>
+  </div>
+</div>
+
+<!-- ===================== 03 ===================== -->
+<div class="step">
+  <div>
+    <div class="ph"><div class="ph-bar"><span>9:42</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+      <div class="ph-body tight">
+        <div>
+          <p class="a-h1">Add the manual</p>
+          <p class="a-sub">This is where the upkeep comes from.</p>
+        </div>
+        <div class="a-card" style="border-color:var(--app-teal)">
+          <div class="a-row sb">
+            <div style="min-width:0"><p class="a-h3">Choose a file</p><p class="a-meta" style="margin-top:2px">A PDF from your phone or iCloud</p></div>
+            <div class="a-btn secondary sm">Browse</div>
+          </div>
+        </div>
+        <div class="a-card">
+          <div class="a-row sb">
+            <div style="min-width:0"><p class="a-h3">Paste a link</p><p class="a-meta" style="margin-top:2px">Must end in .pdf &#x2014; not a web page</p></div>
+            <span style="color:var(--app-sub);font-size:20px">&#x203A;</span>
+          </div>
+        </div>
+        <div class="a-card">
+          <div class="a-row sb" style="align-items:flex-start">
+            <div style="min-width:0">
+              <div class="a-row" style="gap:8px"><p class="a-h3">Find it for me</p><span class="a-badge gold">Beta</span></div>
+              <p class="a-meta" style="margin-top:4px">Often returns the wrong document. Check it before you scan.</p>
+            </div>
+            <span style="color:var(--app-sub);font-size:20px">&#x203A;</span>
+          </div>
+        </div>
+        <div class="a-stack" style="margin-top:auto;gap:8px">
+          <div class="a-btn off">Scan the manual</div>
+          <div class="a-btn ghost">I&#x2019;ll add it later</div>
+        </div>
+      </div>
+      <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="stepnum"><b>03</b><h2>Choose a file first, search last</h2></div>
+    <div class="tags"><span class="tag chg">Reordered</span><span class="tag chg">Parse &#x2192; Scan</span><span class="tag chg">Title matches the CTA</span></div>
+    <div class="yousaid"><b>You said</b>&#x201C;Find the manual has not generated good results so far. This should be the last option with text that it&#x2019;s a beta. Lead with choosing a file. For paste a link, make sure it&#x2019;s clear the link has to be of a PDF. The title should match the call to action from the previous screens.&#x201D;</div>
+    <p><strong>Order is the ranking.</strong> Choosing a file leads and carries the only filled control on the screen. Pasting a link is second. Search is last, labelled Beta, and its one line is the truth rather than a pitch: <span class="mono">Often returns the wrong document. Check it before you scan.</span></p>
+    <p>Saying that plainly is also the honest version of HH&#x2011;107. The gate still applies &#x2014; when nothing clears the bar we show nothing and offer the manufacturer&#x2019;s own page &#x2014; but a feature that has been wrong twice should say so where someone decides whether to use it.</p>
+    <p><strong>Paste a link</strong> says <span class="mono">Must end in .pdf &#x2014; not a web page</span>, which is the mistake that actually happens: people paste the product page.</p>
+    <p><strong>Scan, not parse.</strong> Every screen now says scan &#x2014; the button here, the header on 04, the progress line. It also avoids the reading you didn&#x2019;t want: nobody should think the app is opening the manual for them to read.</p>
+    <div class="tags"><span class="tag chg">Fixes HH-109</span><span class="tag chg">Fixes HH-107</span></div>
+  </div>
+
+  <div class="variant wide">
+    <div>
+      <div class="ph desk"><div class="ph-bar desk"><span>Add an item</span><span>&#x2013;  &#x25A1;  &#x2715;</span></div>
+        <div class="ph-body" style="padding:20px 24px;gap:16px">
+          <p class="a-h2">Add the manual</p>
+          <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px;flex:1;min-height:0">
+            <div class="a-drop" style="padding:20px 16px;justify-content:center">
+              <div class="a-thumb" style="width:44px;height:44px;border-radius:50%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 18v2h16v-2"/></svg></div>
+              <p class="a-h3">Drop a PDF here</p>
+              <p class="a-meta">or click to browse &#x2022; up to 50&#x202F;MB</p>
+            </div>
+            <div class="a-stack" style="gap:12px">
+              <div class="a-card" style="padding:12px;gap:4px">
+                <p class="a-h3" style="font-size:15px">Paste a link</p>
+                <p class="a-meta">Must end in .pdf</p>
+              </div>
+              <div class="a-card" style="padding:12px;gap:4px">
+                <div class="a-row" style="gap:8px"><p class="a-h3" style="font-size:15px">Find it for me</p><span class="a-badge gold">Beta</span></div>
+                <p class="a-meta">Often returns the wrong document.</p>
+              </div>
+            </div>
+          </div>
+          <div class="a-row" style="justify-content:flex-end;gap:12px">
+            <div class="a-btn ghost sm">I&#x2019;ll add it later</div>
+            <div class="a-btn off sm">Scan the manual</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h4 style="margin-bottom:8px">Desktop is the one place the drop zone earns its spot</h4>
+      <div class="tags" style="margin:0 0 12px"><span class="tag chg">Kept from your last note</span></div>
+      <p style="font-size:15.5px">On a computer, dragging a downloaded PDF onto a target genuinely is the fastest route, so it leads here and only here. Same three sources, same ranking underneath, same <span class="mono">Scan the manual</span> button. One flow, two layouts.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 04 ===================== -->
+<div class="step">
+  <div>
+    <div class="ph"><div class="ph-bar"><span>9:44</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+      <div class="ph-body tight">
+        <div>
+          <div class="a-row sb"><p class="a-h1" style="font-size:26px">Scanning it</p><span class="a-meta mono">18 / 42</span></div>
+          <div class="a-prog" style="margin-top:12px"><i style="width:43%"></i></div>
+        </div>
+        <div class="a-tint" style="padding:14px;gap:0">
+          <div class="a-row">
+            <div class="a-thumb" style="width:44px;height:44px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+            <div style="min-width:0"><p class="a-h3">Refrigerator</p><p class="a-meta" style="margin-top:2px">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+          </div>
+        </div>
+        <div class="a-row" style="gap:8px"><span class="a-badge clay">Upkeep 2</span><span class="a-badge teal">Cleaning 4</span><span class="a-badge slate">Setup 1</span></div>
+        <div class="a-list">
+          <div class="a-li"><span class="a-rail ess"></span><div style="flex:1;min-width:0"><p class="a-h3" style="font-size:15px">Replace the water filter</p><p class="a-meta">page 12</p></div></div>
+          <div class="a-li"><span class="a-rail ess"></span><div style="flex:1;min-width:0"><p class="a-h3" style="font-size:15px">Vacuum the condenser coils</p><p class="a-meta">page 28</p></div></div>
+          <div class="a-li"><span class="a-rail rec"></span><div style="flex:1;min-width:0"><p class="a-h3" style="font-size:15px">Clean the door gaskets</p><p class="a-meta">page 31</p></div></div>
+          <div class="a-li"><span class="a-rail" style="background:var(--app-border)"></span><div style="flex:1;min-width:0"><div class="a-skel w70"></div><div class="a-skel w45" style="margin-top:7px"></div></div></div>
+        </div>
+        <div class="a-btn ghost" style="margin-top:auto">I&#x2019;ll come back</div>
+      </div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="stepnum"><b>04</b><h2>Tasks appear as they&#x2019;re found</h2></div>
+    <div class="tags"><span class="tag kept">From C &#x2014; 03</span><span class="tag chg">Parse &#x2192; Scan</span></div>
+    <p>Each finding lands with the page it came from, so the wait is filled with evidence instead of a spinner. The counts climb as the scan goes on. A blank stays blank until the manual has actually said something &#x2014; naming a task we haven&#x2019;t been told about would be inventing it.</p>
+    <p>The rows use the app&#x2019;s real tier rails: clay for essential, teal for recommended, slate for optional. Same vocabulary as the agenda and item detail, so nothing new has to be learned here.</p>
+    <p><strong>&#x201C;I&#x2019;ll come back&#x201D; sits at the bottom the entire time.</strong> Leaving has to feel like a choice; if it ever feels like giving up, the screen has failed.</p>
+    <p style="color:var(--ink-soft);font-size:15.5px">Still the one real dependency: the worker writes only its stage and page count today, so streaming findings needs a functions change.</p>
+  </div>
+</div>
+
+<!-- ===================== 05 ===================== -->
+<div class="step">
+  <div>
+    <div class="ph"><div class="ph-bar"><span>9:47</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+      <div class="ph-body tight">
+        <div class="a-row">
+          <div class="a-thumb" style="width:44px;height:44px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+          <div style="min-width:0"><p class="a-h3">Refrigerator</p><p class="a-meta" style="margin-top:2px">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+        </div>
+        <div class="a-div"></div>
+        <div>
+          <p class="a-h2">Keep an eye on 2 things</p>
+          <p class="a-sub">Set how often, and whether we remind you.</p>
+        </div>
+        <div class="a-card" style="gap:14px">
+          <div class="a-row" style="gap:12px"><span class="a-rail ess" style="min-height:22px"></span><p class="a-h3" style="flex:1">Replace the water filter</p></div>
+          <div class="a-sel">Every 6 months <span style="color:var(--app-sub)">&#x25BE;</span></div>
+          <div class="a-row sb"><span class="a-body">Remind me when it&#x2019;s due</span><div class="a-sw on"></div></div>
+        </div>
+        <div class="a-card" style="gap:14px">
+          <div class="a-row" style="gap:12px"><span class="a-rail ess" style="min-height:22px"></span><p class="a-h3" style="flex:1">Vacuum the condenser coils</p></div>
+          <div class="a-sel">Twice a year <span style="color:var(--app-sub)">&#x25BE;</span></div>
+          <div class="a-row sb"><span class="a-body">Remind me when it&#x2019;s due</span><div class="a-sw"></div></div>
+        </div>
+        <div class="a-row sb" style="padding:14px 16px;border:1px solid var(--app-border);border-radius:16px">
+          <div style="min-width:0"><p class="a-h3" style="font-size:15px">5 more, already saved</p><p class="a-meta" style="margin-top:2px">4 cleaning &#x2022; 1 setup &#x2022; no reminders</p></div>
+          <span class="a-link">Show</span>
+        </div>
+        <div class="a-btn" style="margin-top:auto">Save all 7</div>
+      </div>
+      <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="stepnum"><b>05</b><h2>Two decisions, big; five things, folded</h2></div>
+    <div class="tags"><span class="tag kept">From C &#x2014; 04</span><span class="tag chg">Hierarchy rebuilt</span><span class="tag chg">Reclassify added</span></div>
+    <div class="yousaid"><b>You said</b>&#x201C;Tighten up the design, there&#x2019;s a lot of small text with no sense of hierarchy. Allow users to see the cleaning tasks and setup tasks and reclassify them here. But keep them hidden unless the user explicitly wants to see them.&#x201D;</div>
+    <p>The old version had six different sizes between 10&#x202F;px and 12.5&#x202F;px, which is the same as having none. This one has <strong>four</strong>, and each does one job: the section title at 20, task titles at 16, controls at 16, meta at 12.</p>
+    <p>Each task is now its own card with room to breathe: title on the tier rail, the how-often control at full width and full height, the reminder as a plain sentence and a switch. Nothing is squeezed into a 56&#x202F;px label column any more.</p>
+    <p><strong>The other five are one line, folded.</strong> They are already saved and nothing reminds you about them, so the row states that and offers <span class="mono">Show</span>. Hidden until asked for, exactly as you said &#x2014; and the button count stays honest at seven.</p>
+  </div>
+
+  <div class="variant">
+    <div>
+      <div class="ph"><div class="ph-bar"><span>9:47</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body tight">
+          <div>
+            <p class="a-h2">5 more, already saved</p>
+            <p class="a-sub">Nothing reminds you about these. Change one if it belongs somewhere else.</p>
+          </div>
+          <div class="a-card" style="padding:0;gap:0">
+            <div class="a-li" style="padding:14px 16px">
+              <span class="a-rail rec"></span>
+              <div style="flex:1;min-width:0"><p class="a-h3" style="font-size:15px">Clean the door gaskets</p><p class="a-meta" style="margin-top:2px">Cleaning &#x2022; monthly</p></div>
+              <span class="a-link">Change</span>
+            </div>
+            <div class="a-li" style="padding:14px 16px">
+              <span class="a-rail rec"></span>
+              <div style="flex:1;min-width:0"><p class="a-h3" style="font-size:15px">Wipe the interior shelves</p><p class="a-meta" style="margin-top:2px">Cleaning &#x2022; as needed</p></div>
+              <span class="a-link">Change</span>
+            </div>
+            <div class="a-li" style="padding:14px 16px;background:var(--app-secondary)">
+              <span class="a-rail rec"></span>
+              <div style="flex:1;min-width:0">
+                <p class="a-h3" style="font-size:15px">Replace the air filter</p>
+                <div class="a-row" style="gap:8px;margin-top:8px">
+                  <span class="a-badge teal" style="border:1px solid var(--app-teal)">Cleaning</span>
+                  <span class="a-badge" style="background:transparent;border:1px solid var(--app-border);color:var(--app-sub)">Upkeep</span>
+                  <span class="a-badge" style="background:transparent;border:1px solid var(--app-border);color:var(--app-sub)">Setup</span>
+                </div>
+              </div>
+            </div>
+            <div class="a-li" style="padding:14px 16px">
+              <span class="a-rail"></span>
+              <div style="flex:1;min-width:0"><p class="a-h3" style="font-size:15px">Level the unit</p><p class="a-meta" style="margin-top:2px">Setup &#x2022; one time</p></div>
+              <span class="a-link">Change</span>
+            </div>
+          </div>
+          <div class="a-btn outline" style="margin-top:auto">Done</div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h4 style="margin-bottom:8px">Expanded &#x2014; and reclassifiable</h4>
+      <div class="tags" style="margin:0 0 12px"><span class="tag chg">New</span></div>
+      <p style="font-size:15.5px">Tapping <span class="mono">Show</span> opens the five in place. Each carries what it is and how often, and <span class="mono">Change</span> turns that row into three chips &#x2014; Cleaning, Upkeep, Setup &#x2014; with the current one selected.</p>
+      <p style="font-size:15.5px">Moving something to <strong>Upkeep</strong> promotes it into the reviewed list above, where it gets a how-often control and a reminder switch. That is the whole point of letting someone reclassify here: the bucket decides whether anything ever reminds them.</p>
+      <p style="font-size:15.5px">Every correction is already recorded as review feedback, so a task the manual filed wrongly teaches the parser rather than being silently fixed one home at a time.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 06 ===================== -->
+<div class="step">
+  <div>
+    <div class="ph"><div class="ph-bar"><span>9:48</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+      <div class="ph-body tight">
+        <div>
+          <p class="a-h1">Track purchase</p>
+          <p class="a-sub">Important for warranty and insurance claims.</p>
+        </div>
+        <div class="a-stack" style="gap:14px">
+          <div><p class="a-lbl">Purchase date</p>
+            <div class="a-input ghost" style="justify-content:space-between">Choose a date
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--app-sub)" stroke-width="1.6" style="width:20px;height:20px"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            </div></div>
+          <div><p class="a-lbl">Where you bought it</p>
+            <div class="a-input ghost" style="justify-content:space-between">Store or site
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--app-sub)" stroke-width="1.6" style="width:20px;height:20px"><path d="M6 9l6 6 6-6"/></svg>
+            </div></div>
+          <div><p class="a-lbl">What you paid</p><div class="a-input ghost">$</div></div>
+          <div><p class="a-lbl">Serial number</p><div class="a-input ghost">On the nameplate</div></div>
+        </div>
+        <div class="a-row" style="gap:12px;margin-top:auto">
+          <div class="a-btn outline" style="flex:1">Skip</div>
+          <div class="a-btn" style="flex:1.6">Save</div>
+        </div>
+      </div>
+      <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="stepnum"><b>06</b><h2>Track purchase, last</h2></div>
+    <div class="tags"><span class="tag kept">From C &#x2014; 05</span><span class="tag chg">New header + subtext</span></div>
+    <div class="yousaid"><b>You said</b>&#x201C;To maintain consistency for call to action headers, say Track Purchase. For the small text, change to something like: important for warranty and insurance claims.&#x201D;</div>
+    <p>Header and subtext as asked. Note that I set it in sentence case &#x2014; <span class="mono">Track purchase</span> &#x2014; to match <span class="mono">Add an item</span> and <span class="mono">Add the manual</span>, since consistency was the reason you gave. Say the word and all three go to title case instead.</p>
+    <p>Four fields, and only four, because they are the ones no document could ever have told us. Each has a real label above it now rather than a placeholder doing double duty &#x2014; a placeholder disappears the moment someone types, which is exactly when they need to know what the field was.</p>
+    <p><strong>Skip is a real button of equal weight.</strong> Nothing here has ever blocked anything: the item has existed since screen 02, and its upkeep since screen 05.</p>
+    <div class="tags"><span class="tag chg">Fixes HH-111</span></div>
+  </div>
+
+  <div class="variant duo">
+    <div class="duorow">
+      <div class="ph"><div class="ph-bar"><span>9:48</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body tight">
+          <div>
+            <p class="a-h1">Track purchase</p>
+            <p class="a-sub">Important for warranty and insurance claims.</p>
+          </div>
+          <div><p class="a-lbl">Purchase date</p>
+            <div class="a-input" style="justify-content:space-between;border-color:var(--app-teal)">14 Mar 2024
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--app-teal)" stroke-width="1.6" style="width:20px;height:20px"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            </div></div>
+          <div class="a-card" style="gap:10px">
+            <div class="a-row sb">
+              <span style="font-size:16px;font-weight:600">March 2024</span>
+              <div class="a-row" style="gap:4px"><span style="color:var(--app-sub);font-size:18px">&#x2039;</span><span style="color:var(--app-sub);font-size:18px">&#x203A;</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">
+              <span class="a-meta">M</span><span class="a-meta">T</span><span class="a-meta">W</span><span class="a-meta">T</span><span class="a-meta">F</span><span class="a-meta">S</span><span class="a-meta">S</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:14px">
+              <span style="color:var(--app-sub);opacity:.45;padding:7px 0">26</span><span style="color:var(--app-sub);opacity:.45;padding:7px 0">27</span><span style="color:var(--app-sub);opacity:.45;padding:7px 0">28</span><span style="color:var(--app-sub);opacity:.45;padding:7px 0">29</span><span style="padding:7px 0">1</span><span style="padding:7px 0">2</span><span style="padding:7px 0">3</span>
+              <span style="padding:7px 0">4</span><span style="padding:7px 0">5</span><span style="padding:7px 0">6</span><span style="padding:7px 0">7</span><span style="padding:7px 0">8</span><span style="padding:7px 0">9</span><span style="padding:7px 0">10</span>
+              <span style="padding:7px 0">11</span><span style="padding:7px 0">12</span><span style="padding:7px 0">13</span><span style="padding:7px 0;background:var(--app-teal);color:#fff;border-radius:8px;font-weight:600">14</span><span style="padding:7px 0">15</span><span style="padding:7px 0">16</span><span style="padding:7px 0">17</span>
+              <span style="padding:7px 0">18</span><span style="padding:7px 0">19</span><span style="padding:7px 0">20</span><span style="padding:7px 0">21</span><span style="padding:7px 0">22</span><span style="padding:7px 0">23</span><span style="padding:7px 0">24</span>
+              <span style="padding:7px 0">25</span><span style="padding:7px 0">26</span><span style="padding:7px 0">27</span><span style="padding:7px 0">28</span><span style="padding:7px 0">29</span><span style="padding:7px 0">30</span><span style="padding:7px 0">31</span>
+            </div>
+          </div>
+          <div class="a-row" style="gap:12px;margin-top:auto">
+            <div class="a-btn outline" style="flex:1">Skip</div>
+            <div class="a-btn" style="flex:1.6">Save</div>
+          </div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+
+      <div class="ph"><div class="ph-bar"><span>9:49</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body tight">
+          <div>
+            <p class="a-h1">Track purchase</p>
+            <p class="a-sub">Important for warranty and insurance claims.</p>
+          </div>
+          <div><p class="a-lbl">Purchase date</p><div class="a-input" style="justify-content:space-between">14 Mar 2024
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--app-sub)" stroke-width="1.6" style="width:20px;height:20px"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div></div>
+          <div><p class="a-lbl">Where you bought it</p>
+            <div class="a-input" style="border-color:var(--app-teal)">Home De</div>
+            <div class="a-list" style="margin-top:6px">
+              <div class="a-li" style="padding:12px 14px;background:var(--app-secondary)">
+                <span style="flex:1;font-size:16px;font-weight:600">Home Depot</span><span class="a-badge teal">Used 3&#xD7;</span>
+              </div>
+              <div class="a-li" style="padding:12px 14px">
+                <span style="flex:1;font-size:16px">Home Depot &#x2014; Colma</span><span class="a-meta">Used once</span>
+              </div>
+              <div class="a-li" style="padding:12px 14px">
+                <span style="flex:1;font-size:16px;color:var(--app-sub)">Use &#x201C;Home De&#x201D; as typed</span>
+              </div>
+            </div>
+          </div>
+          <div class="a-row" style="gap:12px;margin-top:auto">
+            <div class="a-btn outline" style="flex:1">Skip</div>
+            <div class="a-btn" style="flex:1.6">Save</div>
+          </div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+    </div>
+    <div class="notes" style="max-width:78ch">
+      <h4 style="margin-bottom:8px">A calendar for the date, a memory for the store</h4>
+      <div class="tags" style="margin:0 0 12px"><span class="tag chg">New</span></div>
+      <div class="yousaid"><b>You said</b>&#x201C;For the Choose a date, allow a calendar picker. And for Where you bought it, prefill with previously entered stores or sites to normalize entries.&#x201D;</div>
+      <p style="font-size:15.5px"><strong>The date</strong> opens a month grid in place rather than a native spinner, because a purchase date is nearly always a month or two back and scrolling three wheels to get there is worse than tapping a number. Typing still works &#x2014; the field is an input, not a button.</p>
+      <p style="font-size:15.5px"><strong>The store</strong> suggests as you type, ranked by how often you have used each one, so the second fridge you add offers <span class="mono">Home Depot</span> before you finish the word. That is what stops one home accumulating &#x201C;home depot&#x201D;, &#x201C;Home Depot&#x201D; and &#x201C;HomeDepot&#x201D; as three different stores.</p>
+      <p style="font-size:15.5px">The last row always offers <strong>exactly what was typed</strong>. Suggesting is not the same as deciding, and a store we have never seen has to be enterable without a fight.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== CLOSE ===================== -->
+<div class="verdict">
+  <p class="eyebrow">Your six tweaks</p>
+  <h3>All six in. One flagged back to you.</h3>
+  <ul class="checklist">
+    <li><i>&#x2713;</i><span><strong>Naming</strong> &#x2014; <span class="mono">Refrigerator</span>, not &#x201C;Kitchen refrigerator&#x201D;. The room is appended only on a collision: <span class="mono">Air filter &#x2014; Garage</span>.</span></li>
+    <li><i>&#x2713;</i><span><strong>Style</strong> &#x2014; rebuilt at 375&#x202F;px on values read out of <span class="mono">button.tsx</span>, <span class="mono">input.tsx</span>, <span class="mono">card.tsx</span>, <span class="mono">SectionCard.tsx</span> and <span class="mono">index.css</span>. What was wrong before is listed at the top.</span></li>
+    <li><i>&#x2713;</i><span><strong>Scan, not parse</strong> &#x2014; every occurrence, on every screen.</span></li>
+    <li><i>&#x2713;</i><span><strong>03</strong> &#x2014; choose a file leads, paste-a-link says it must end in .pdf, search is last and labelled Beta with an honest line. Title matches the CTA that got you here.</span></li>
+    <li><i>&#x2713;</i><span><strong>05</strong> &#x2014; four type sizes instead of six, each task its own card, and the other five folded behind <span class="mono">Show</span> with reclassify chips.</span></li>
+    <li><i>&#x2713;</i><span><strong>06</strong> &#x2014; <span class="mono">Track purchase</span>, &#x201C;Important for warranty and insurance claims.&#x201D;</span></li>
+    <li><i>?</i><span><strong>Capitalisation</strong> &#x2014; you wrote Track Purchase and Scan the Manual in title case; I used sentence case so all four headers match. Your call, one word to change it.</span></li>
+  </ul>
+  <p style="margin-top:18px"><strong>Still the one thing to decide before we start:</strong> screen 04 needs the scan worker to write findings as it goes. Today it writes only its stage and a page count. Without that change the screen can show honest progress and the item resolving, but not tasks arriving one at a time &#x2014; which is the beat this flow is built on.</p>
+</div>
+
+<p class="foot">Homehub &#x2022; add an item &#x2022; the hybrid v2 &#x2022; 24 Aug 2026 &#x2022; nothing built yet</p>
+
+</div>
