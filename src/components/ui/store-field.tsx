@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { suggestStores } from "@/lib/storeSuggestions"
@@ -33,13 +33,32 @@ export function StoreField({
   className,
 }: StoreFieldProps) {
   const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const suggestions = useMemo(
     () => suggestStores({ query: value, homeEntries }),
     [value, homeEntries]
   )
 
+  // The journey gallery caught this: inside a sheet, this field sits last, so
+  // the list opened below the fold behind the footer and was never seen — the
+  // assertions passed because the options were in the DOM. Pull the field and
+  // its list into view when it opens, which is what a native picker does.
+  useEffect(() => {
+    if (!open || suggestions.length === 0) return
+    // Two details, both learned the hard way in the gallery:
+    //  - "end", not "center": centring the FIELD leaves the list below it
+    //    still clipped by the sheet's footer, which is the bug being fixed.
+    //  - "auto", not "smooth": a smooth scroll IS an animation, and anything
+    //    that cancels animations (Playwright's screenshot mode, and a user's
+    //    prefers-reduced-motion) cancels it half-done or not at all.
+    const id = requestAnimationFrame(() =>
+      wrapRef.current?.scrollIntoView?.({ block: "end", behavior: "auto" })
+    )
+    return () => cancelAnimationFrame(id)
+  }, [open, suggestions.length])
+
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div ref={wrapRef} className={cn("flex flex-col gap-2", className)}>
       <Input
         id={id}
         value={value}

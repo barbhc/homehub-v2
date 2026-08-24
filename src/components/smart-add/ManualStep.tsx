@@ -82,6 +82,13 @@ function docTypeLabel(docType: DocType): string {
   }
 }
 
+/** "0.0 MB" reads as an empty or broken file. Anything under a megabyte is KB. */
+function readableSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 type OpenPanel = "none" | "url" | "search"
 
 export function ManualStep({
@@ -189,7 +196,7 @@ export function ManualStep({
                 {file ? file.name : "Manual link added"}
               </p>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB · PDF` : pasteUrl}
+                {file ? `${readableSize(file.size)} · PDF` : pasteUrl}
               </p>
             </div>
             <button

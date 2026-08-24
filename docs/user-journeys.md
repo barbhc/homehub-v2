@@ -50,9 +50,9 @@ flowchart LR
 | 4 | Home profile: type → own/rent → climate → concerns → mode; **Skip for now** honored | `/onboarding/profile` | `HomeProfileOnboarding.tsx` → `upsertHomeProfile` | profile fields folded onto `homes/{id}` |
 | 5 | **"Your home profile is set — where to next?"**: *Add your first item* / *Take me to my home page*. Asked, not assumed (HH-93) | `/onboarding/profile` | `OnboardingProfile.tsx` (`ProfileDone`) | — |
 | 6 | Lane chooser → simple lane: **Name on the main column** → Add item | `/inventory/add` | `IdentifyStep.tsx`, `SmartAddItem.tsx` → `createItemUnit` | `homes/{id}/items/{id}` |
-| 6b | Appliance lane instead: brand + model → **step 2, Add Manual** → attaching it starts the parse and lands on the item page | `/inventory/add` | `SmartAddItem.tsx` → `startParseAndLeave` | `homes/{id}/manuals/{id}`, `parse.stage` |
-| 7 | Item page; "no manual yet" care block invites the manual. While one is being read: **"Reading your manual · N pages"** + skeleton upkeep rows + the purchase nudge | `/items/:id` | `CareBlock.tsx`, `ParsePickupCard.tsx`, `PurchaseNudge.tsx` | — |
-| 7b | Parse done → **"N maintenance tasks to review"** → the focused review (how often + reminders). Cleaning, setup and tips are saved without a question | `/items/:id` | `TaskReviewSheet` `focus="maintenance"` | `taskTemplates`, `taskInstances` |
+| 6b | Appliance lane instead: brand + model → **Add the manual** (the button and the next screen share the words) → attaching it starts the scan and lands on the item page. The item is named for **what it is** — "Refrigerator", with the room appended only on a collision (`composeItemName`) | `/inventory/add` | `SmartAddItem.tsx` → `startParseAndLeave`, `lib/itemName.ts` | `homes/{id}/manuals/{id}`, `parse.stage` |
+| 7 | Item page; "no manual yet" care block invites the manual. While one is being scanned: **"Scanning your manual · N pages"** + skeleton upkeep rows + the **Track purchase** nudge | `/items/:id` | `CareBlock.tsx`, `ParsePickupCard.tsx`, `PurchaseNudge.tsx` | — |
+| 7b | Scan done → the focused review (how often + reminders), rendered **as a section of the page** for anyone who stayed and as a drawer for anyone who came back. Cleaning, setup and tips are saved without a question, folded into "N more, already saved", and **reclassifiable** there | `/items/:id` | `TaskReviewSheet` `focus="maintenance"` `presentation`, `OtherFound` | `taskTemplates`, `taskInstances` |
 | 8 | Home: first-run tour (1 of 5, Esc-closable), then **"No upkeep yet — add a manual"** with the item under "Finish setting up" | `/home` | `useFeatureTour`, `Home.tsx` | — |
 
 **Guards that make or break this journey**
@@ -88,17 +88,27 @@ the manual is where upkeep comes from.
 flowchart LR
     A[/inventory/add\nlane chooser/] -->|Appliance or device| B[Brand + Model\nproductLookup + IdentityCard]
     A -->|Everything else| C[Name — main column]
-    B --> D["Next: add the manual"]
+    B --> D["Add the manual"]
     C --> E[Add item]
     D --> F[Item page]
     E --> F
-    F --> G[Add the manual\nlink / PDF / find-it-for-me]
-    G --> H[Parse: queued → reading →\nextracting → ready]
+    F --> G[Add the manual\nchoose a file → paste a link → find it Beta]
+    G --> H[Scan: queued → reading →\nextracting → ready]
     H --> I[Review sheet auto-opens]
 ```
 
 Key mechanics (fuller trace in `docs/firestore-model.md` §8):
-- **Appliance lane:** name optional (composes "Brand Model", HH-23); debounced
+- **The manual step is RANKED (HH-109):** choosing a file leads and carries the
+  only filled control; paste-a-link says *must end in .pdf* because pasting the
+  product page is the mistake that happens; **search is last**, badged Beta,
+  saying *"Often returns the wrong document."* The drop zone exists on desktop
+  only — dragging is fastest with a mouse and meaningless on a touchscreen.
+- **Naming (HH-112):** the item is called what it IS — `composeItemName` uses the
+  category label, appends the room only when that name is already taken in this
+  home, then the brand. Model numbers stay on the record, not in the name.
+- **Vocabulary:** the app SCANS a manual. Never "parse" (jargon) and never
+  "read" (which implies we are opening it for the user to read).
+- **Appliance lane:** name optional (composed, HH-23); debounced
   `productLookup`; explicit *Use this / Not my product*; label-photo OCR as an
   assist (`ocr` callable — Vision + Claude fallback), tips shown before the
   camera opens.
@@ -197,6 +207,42 @@ Key mechanics:
 
 ---
 
+## Journey 5 — Records: purchase date and where you bought it
+
+**Promise:** the two fields a warranty or insurance claim asks for are quick to
+enter and consistent once entered.
+
+```mermaid
+flowchart LR
+    A[/items/:id/] --> B[Details & records\nAdd / Edit]
+    B --> C[Purchase date\nmonth grid in place]
+    B --> D[Where you bought it\nsuggests + normalises]
+    D --> E[Canonical spelling\nor exactly what you typed]
+    C --> F[updateItemUnit — one write]
+    E --> F
+```
+
+Key mechanics:
+- **Date:** `DateField` opens a month grid in place rather than the iOS wheel —
+  a purchase date is nearly always a month or two back, which is three columns
+  of scrolling on the native control. Always six rows so the buttons don't move
+  under your thumb. Future dates are refused.
+- **Timezone:** `lib/monthGrid.ts` is pure number/string work.
+  `new Date("2024-03-14")` is UTC midnight, i.e. the 13th anywhere west of
+  Greenwich — the bug that silently moves a purchase date back a day on every
+  reload. Pinned by tests that pass in three timezones.
+- **Store:** `StoreField` merges this home's own `store_name` values (ranked by
+  use) with a curated seed in `lib/storeSuggestions.ts`, so the first item gets
+  help and the second normalises. The raw text is **always** the last option —
+  suggesting is not deciding.
+- **One read, two autocompletes:** the item page already fetched every home item
+  for tag suggestions; store history comes from that same snapshot.
+
+**Spec coverage:** `journey.spec.ts` J5 · `lib/monthGrid.test.ts` (13) ·
+`lib/storeSuggestions.test.ts` (16) · `lib/itemName.test.ts` (12).
+
+---
+
 ## Coverage map
 
 | Journey | Chained walk | Module specs | Server-side |
@@ -205,6 +251,7 @@ Key mechanics:
 | J2 Add + manual | J1 covers simple add | `emu/smart-add`, `emu/storage`, `emu/knowledge*` | `worker.emu`, `quota.emu`, parser goldens |
 | J3 Review | `journey.spec.ts` J3 | `emu/task-review` | `commitManualDraft.emu`, `lastDoneAnchor.emu` |
 | J4 Agenda | `journey.spec.ts` J4 | `emu/tasks`, `emu/home`, `emu/item-detail` | `completeTask.emu`, `rollForward.emu`, `discussTask.emu` |
+| J5 Records | `journey.spec.ts` J5 | `monthGrid`, `storeSuggestions`, `itemName` unit specs | — (client-only write via `updateItemUnit`) |
 
 **Known gaps (deliberate, revisit when they hurt):**
 - Browser-level **Mark done** and the **parse-progress** UI need the functions
