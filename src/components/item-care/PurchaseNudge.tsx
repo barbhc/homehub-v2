@@ -2,7 +2,7 @@ import { XIcon } from "lucide-react"
 import { dismissPurchaseNudge } from "@/lib/purchaseNudge"
 
 /**
- * "Track when your warranty ends by adding purchase details."
+ * "Track purchase — important for warranty and insurance claims."
  *
  * Placed on the item page while the manual is being read, because that is the
  * one stretch of this flow where the user is waiting on us and has nothing to
@@ -41,10 +41,10 @@ export function PurchaseNudge({
         <XIcon className="size-4" />
       </button>
       <p className="pr-6 text-[14px] font-bold tracking-[-0.01em]" style={{ color: "var(--hh-ink)" }}>
-        Add purchase details?
+        Track purchase
       </p>
       <p className="mt-1 text-[12.5px] leading-snug" style={{ color: "var(--hh-sub)" }}>
-        Track <b style={{ color: "var(--hh-ink)" }}>when your warranty ends</b> by adding purchase details.
+        Important for <b style={{ color: "var(--hh-ink)" }}>warranty and insurance claims</b>.
       </p>
       <button
         type="button"
@@ -52,7 +52,7 @@ export function PurchaseNudge({
         className="mt-2 text-[12.5px] font-bold underline underline-offset-2"
         style={{ color: "var(--hh-teal)" }}
       >
-        Add details
+        Add them
       </button>
     </div>
   )

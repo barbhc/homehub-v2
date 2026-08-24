@@ -19,6 +19,42 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-08-24 — round 11 (owner's add-item run · 6 reports in 7 minutes)
+
+**Headline: the owner stopped the patch cycle. All six approved Fix now, then
+held behind one design pass — at least five complete add-item flows, every step
+drawn — because three of the six are earlier reports coming back.**
+
+Pulled 20:49 UTC. 6 items, all new, no crashes, inbox otherwise empty (the
+105-item backlog was cleared 2026-08-23). All reporters are the owner,
+iPhone16_2, build 202608170005.
+
+Verified before triaging, because HH-109 asked directly whether this was the
+latest design: production serves `SmartAddItem-DvUjlKIx.js` with the current
+step-2 copy and `index-CBa9hT5C.css` with `--t-background:#f3f5f4`. It is the
+current build. Every complaint is with what shipped, not with a stale cache.
+
+| ID | Report | Severity | Recurrence |
+|---|---|---|---|
+| HH-107 | Manual search offers results it has already labelled bad | S2 | HH-73 |
+| HH-108 | Manual preview cannot be exited (16px close target, app-wide) | S2 | — |
+| HH-109 | Upload PDF tab separated from its drop zone by the search card | S3 | — |
+| HH-110 | Add-item step 1 is one long form; wants it split, mock-up first | S3 | HH-63 |
+| HH-111 | Purchase date / retailer / price missing from warranty fields | S2 | HH-96 |
+| HH-112 | Name defaults to brand + model instead of something recognisable | S3 | — |
+
+**No rejections this round.** Nothing was declined, so nothing is queued for
+deletion on those grounds; all six stay open until the design lands.
+
+**The pattern worth keeping.** HH-73 was answered with badges, a mismatch
+warning and a document-kind label — real information, added to a list that
+still said "Found 2 that could be right" and still offered a filled primary
+"Use this". HH-63 was answered by collapsing the extra fields behind a
+disclosure rather than splitting them into a step. HH-96 was answered by moving
+the purchase fields to the item page. In all three the user's *outcome* was
+unchanged, which is why all three came back. The round-11 rule: change what
+happens, not what is said about it.
+
 ## 2026-08-21 (evening) — round 9 (owner's add-manual run · 9 reports in 20 minutes)
 
 **Headline: one systemic bug (every dialog in the app lost scrolling past one

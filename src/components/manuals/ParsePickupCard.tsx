@@ -35,8 +35,8 @@ function maintenanceCount(draft: PreviewResult): number {
 
 const STAGE_LINE: Record<string, string> = {
   uploading: "Starting…",
-  queued: "Waiting for a parsing slot…",
-  reading: "Reading the document end to end…",
+  queued: "Waiting for a scanning slot…",
+  reading: "Scanning the document end to end…",
   extracting: "Pulling out care steps and schedules…",
   saving: "Saving results to your home…",
 }
@@ -197,7 +197,7 @@ export function ParsePickupCard({
           <p className="text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
             {/* The page count is the one concrete thing we know mid-parse, and
                 it turns an indefinite wait into a job with a size. */}
-            Reading your manual{active[1].pages ? ` · ${active[1].pages} pages` : ""}
+            Scanning your manual{active[1].pages ? ` · ${active[1].pages} pages` : ""}
           </p>
           <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
             {STAGE_LINE[ui] ?? "Working…"} You can leave this page — we'll keep going.
@@ -306,6 +306,13 @@ export function ParsePickupCard({
           // The one review this flow asks for. Cleaning, setup and tips are
           // saved and shown on the page; only upkeep needs a decision here.
           focus="maintenance"
+          // Round 11: in the flow it is a SECTION of the page; out of the flow
+          // it is a drawer. `watchedRunning` already knows which — it holds the
+          // manuals whose scan we sat and watched. Someone who stayed is still
+          // in the flow and should not be handed something to dismiss; someone
+          // who left and came back is already somewhere on this page, and
+          // sliding the review over that genuinely IS a detour.
+          presentation={watchedRunning.current.has(manualId) ? "inline" : "sheet"}
           saving={draftSaving}
           onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[]) => {
             setDraftSaving(true)

@@ -52,7 +52,10 @@ let stepN = manifest.steps.reduce((m, s) => Math.max(m, s.n), 0)
  *
  * Pass the element that only exists on the screen being documented.
  */
-async function snap(page: Page, journey: string, name: string, note: string, anchor?: Locator) {
+async function snap(
+  page: Page, journey: string, name: string, note: string, anchor?: Locator,
+  opts?: { viewportOnly?: boolean },
+) {
   if (anchor) await anchor.waitFor({ state: "visible", timeout: 20_000 })
   // Belt and braces: never shoot an empty document, even without an anchor.
   await page.waitForFunction(
@@ -63,7 +66,24 @@ async function snap(page: Page, journey: string, name: string, note: string, anc
   stepN += 1
   fs.mkdirSync(OUT, { recursive: true })
   const png = `${String(stepN).padStart(2, "0")}-${journey}-${name}.png`
-  await page.screenshot({ path: path.join(OUT, png), fullPage: true })
+  // `animations: "disabled"` finishes CSS transitions and animations before the
+  // shutter. Without it the gallery lies about state: the Scan button carries
+  // `transition-all`, so arming it animates opacity 0.5 → 1 over 150ms and the
+  // shot landed mid-transition — an ENABLED button that was pixel-identical to
+  // the disabled one, which cost a real round of chasing a bug that wasn't
+  // there. Every step gets this, not just that one.
+  //
+  // `viewportOnly` for anything inside a sheet or dialog. fullPage RESIZES the
+  // viewport to the document height and re-lays-out, which for a fixed overlay
+  // scrolls its inner container back to the top and drops whatever was open —
+  // an autocomplete list that a passing assertion had just confirmed was on
+  // screen simply was not in the picture. It also stops the page behind the
+  // sheet bleeding in under the footer, which was never real either.
+  await page.screenshot({
+    path: path.join(OUT, png),
+    fullPage: !opts?.viewportOnly,
+    animations: "disabled",
+  })
   manifest.steps.push({ n: stepN, journey, name, note, url: page.url(), png })
   fs.writeFileSync(path.join(OUT, "manifest.json"), JSON.stringify(manifest, null, 2))
 }
@@ -180,19 +200,40 @@ test.describe("journey walks", () => {
     await page.getByRole("button", { name: /Appliance or device/ }).click()
     await page.locator("#identify-brand").fill("LG")
     await page.locator("#identify-model").fill("DLGX3901B")
-    await snap(page, "J2", "appliance-lane", "Appliance lane: brand + model, and a stepper promising exactly two steps",
-      page.getByRole("button", { name: /Next: add the manual/i }).filter(visible).first())
-    await page.getByRole("button", { name: /Next: add the manual/i }).filter(visible).first().click()
+    // Round 11: the button says where it goes, and the screen it opens is
+    // titled with the same words. "Next:" is gone.
+    const toManual = page.getByRole("button", { name: /^Add the manual$/i }).filter(visible).first()
+    await snap(page, "J2", "appliance-lane", "Appliance lane: brand + model only, and a button naming its destination",
+      toManual)
+    await toManual.click()
 
     // Step 2 of 2 — and there is no step 3. Reading, Review and Purchase left
     // the wizard when the item page took the job over.
     //
     // Assert on what a PHONE shows: the stepper's labels are `hidden sm:inline`,
     // so at 390px the step names are not on screen at all — only the numbers.
-    const analyze = page.getByRole("button", { name: /Analyze Manual/i }).filter(visible).first()
-    await expect(page.getByRole("button", { name: /Upload PDF/i }).filter(visible).first())
+    const scan = page.getByRole("button", { name: /Scan the manual/i }).filter(visible).first()
+    await expect(page.getByRole("heading", { name: /^Add the manual$/i }).filter(visible).first())
       .toBeVisible({ timeout: 15_000 })
-    await snap(page, "J2", "manual-step", "Step 2 of 2 — upload or link. No Reading, Review or Purchase step exists")
+
+    // The ranking IS the design (HH-109). Choosing a file leads and is the only
+    // filled control; search is last, and says out loud that it is unreliable.
+    const chooseFile = page.getByText("Choose a file", { exact: true }).first()
+    const findForMe = page.getByText("Find it for me", { exact: true }).first()
+    await expect(chooseFile).toBeVisible()
+    await expect(findForMe).toBeVisible()
+    await expect(page.getByText(/Often returns the wrong document/)).toBeVisible()
+    await expect(page.getByText(/Must end in \.pdf/)).toBeVisible()
+    // Order, not just presence: file above link above search.
+    const yOf = async (l: Locator) => (await l.boundingBox())!.y
+    expect(await yOf(chooseFile)).toBeLessThan(await yOf(page.getByText("Paste a link", { exact: true }).first()))
+    expect(await yOf(page.getByText("Paste a link", { exact: true }).first())).toBeLessThan(await yOf(findForMe))
+    // No drop zone on a phone — dragging is a desktop affordance. It is
+    // `hidden md:flex`, so it is in the DOM and display:none; the claim is
+    // about what is SHOWN, which is toBeHidden, not toHaveCount(0).
+    await expect(page.getByText(/Drop a PDF here/)).toBeHidden()
+    await snap(page, "J2", "manual-step",
+      "Choose a file leads, paste-a-link names .pdf, search is last and badged Beta. No drop zone at phone width")
     await expect(page.getByText("Purchase", { exact: true })).toHaveCount(0)
 
     await page.setInputFiles('input[accept*="pdf"]', {
@@ -200,7 +241,14 @@ test.describe("journey walks", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"),
     })
-    await analyze.click()
+    await expect(page.getByText("manual.pdf")).toBeVisible({ timeout: 10_000 })
+    // Choosing a file must visibly arm the CTA — the gallery caught the enabled
+    // and disabled buttons looking identical, so this asserts the state and the
+    // screenshot below is where the LOOK gets judged.
+    await expect(scan).toBeEnabled()
+    await snap(page, "J2", "manual-chosen",
+      "The chosen file replaces the three options; Scan the manual is now live")
+    await scan.click()
 
     // The hand-off: the wizard is gone and the item page owns the outcome.
     //
@@ -232,19 +280,19 @@ test.describe("journey walks", () => {
     await page.getByRole("button", { name: /^Review tasks$/ }).filter(visible).first().click()
     await expect(page.getByText(/worth tracking/).first()).toBeVisible({ timeout: 10_000 })
     await snap(page, "J3", "review-lead-in", "Lead-in names both routes; no dead Skip",
-      page.getByText(/worth tracking/).first())
+      page.getByText(/worth tracking/).first(), { viewportOnly: true })
 
     // Open one task card: kind + tier controls, then Done.
     await page.getByRole("button", { name: /Descale the dishwasher/ }).first().click()
     await expect(page.getByText("What is it?")).toBeVisible()
     await snap(page, "J3", "review-task-card", "Task card: What is it? / How important? / remind switch",
-      page.getByText("How important?").first())
+      page.getByText("How important?").first(), { viewportOnly: true })
     await page.getByRole("button", { name: /^Done$/ }).click()
 
     const next = page.getByRole("button", { name: /Next: schedule|^Save \d+ task/ }).last()
     await next.click()
-    await snap(page, "J3", "review-schedule", "Step 2: cadence chips with 'The manual says…' anchors",
-      page.getByText(/How often should these repeat/i).first())
+    await snap(page, "J3", "review-schedule", "Step 2: one title, one sub, then cadence chips with 'The manual says…' anchors",
+      page.getByRole("heading", { name: /Keep an eye on \d+ thing/i }).first(), { viewportOnly: true })
     const save = page.getByRole("button", { name: /^Save \d+ task/ }).last()
     if (await save.isVisible().catch(() => false)) await save.click()
 
@@ -295,4 +343,80 @@ test.describe("journey walks", () => {
         page.getByRole("button", { name: /^Snooze$/ }).filter(visible).first())
     }
   })
+
+  test("J5 — records: a purchase date from a calendar, a store that normalises", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await signInSeeded(page)
+
+    // Any seeded item will do — this journey is about the two fields, not the
+    // item. Go through Items so the walk stays a walk.
+    await page.goto("/inventory")
+    const firstItem = page.getByRole("link", { name: /./ }).filter(visible)
+    await page.getByText("Dishwasher", { exact: false }).filter(visible).first().click()
+    await page.waitForURL(/\/items\//, { timeout: 20_000 })
+    void firstItem
+
+    // "Details & records" carries Add when nothing is filled in, Edit when
+    // something is. Either opens the same one form.
+    const openDetails = page.getByRole("button", { name: /^(Add|Edit)$/ }).filter(visible).first()
+    await openDetails.click()
+    const dateField = page.locator("#details-purchased")
+    await expect(dateField).toBeVisible({ timeout: 15_000 })
+    await snap(page, "J5", "details-sheet",
+      "One form for every record. Purchase details say what they are for: warranty and insurance claims",
+      dateField, { viewportOnly: true })
+
+    // The calendar: a month grid in place, not the iOS wheel. Purchase dates
+    // are nearly always a month or two back, which is three columns of
+    // scrolling on the native control and one tap here.
+    await dateField.click()
+    // Day cells carry an aria-label of the full date; the trigger carries its
+    // own <label>, so this only ever resolves to cells.
+    const grid = page.getByRole("button", { name: /^\d+ [A-Z][a-z]{2} \d{4}$/ }).filter(visible)
+    await expect(grid.first()).toBeVisible({ timeout: 10_000 })
+    await snap(page, "J5", "calendar-open",
+      "Month grid opens in place; future days are refused, and it is always six rows so nothing moves",
+      undefined, { viewportOnly: true })
+
+    // Pick a day that is definitely in the past for every timezone this runs in.
+    await grid.first().click()
+    // The trigger's accessible name is its LABEL ("Date purchased") — a <label
+    // for> pointing at a labelable <button> wins over its content, which is
+    // correct and is why this asserts the text rather than the name.
+    await expect(dateField).toContainText(/^\d+ [A-Z][a-z]{2} \d{4}$/)
+    await snap(page, "J5", "date-picked",
+      "The grid closed and the field carries the date — one tap, no wheel",
+      undefined, { viewportOnly: true })
+
+    // The store field: type a prefix, get the normalised spelling offered, and
+    // the raw text always available underneath.
+    const store = page.locator("#details-store")
+    await store.click()
+    await store.fill("Home De")
+    const suggestion = page.getByRole("option", { name: /Home Depot/ }).first()
+    await expect(suggestion).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole("option", { name: /Use "Home De" as typed/ })).toBeVisible()
+    // toBeVisible only means "in the layout and not display:none". Inside a
+    // sheet this list opened BELOW the footer and nobody could ever see it —
+    // green assertions, useless feature. Assert it is inside the viewport.
+    const box = await suggestion.boundingBox()
+    const vh = page.viewportSize()!.height
+    expect(box, "the suggestion list must have a box").not.toBeNull()
+    expect(box!.y).toBeGreaterThanOrEqual(0)
+    expect(box!.y + box!.height).toBeLessThanOrEqual(vh)
+    // Still open at the shutter, not merely at assertion time: this list closes
+    // on blur, and a screenshot that shows a teal-bordered field with nothing
+    // under it documents a feature nobody can see.
+    await expect(suggestion).toBeVisible()
+    await snap(page, "J5", "store-suggestions",
+      "Suggests the canonical spelling as you type — and always offers exactly what you typed",
+      undefined, { viewportOnly: true })
+
+    await suggestion.click()
+    await expect(store).toHaveValue("Home Depot")
+    await snap(page, "J5", "store-picked",
+      "Picked the normalised name, so this home does not end up with three spellings of one store",
+      undefined, { viewportOnly: true })
+  })
+
 })

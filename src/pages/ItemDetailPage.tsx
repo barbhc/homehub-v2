@@ -93,8 +93,11 @@ export default function ItemDetailPage() {
   /** Bumped on dismissal purely to re-render — localStorage is the source of
    *  truth, and this is what makes the card leave without a reload. */
   const [, setNudgeDismissedAt] = useState(0)
+  const [storeHistory, setStoreHistory] = useState<(string | null | undefined)[]>([])
 
-  // Fetch all tags used across home items for autocomplete suggestions
+  // One read of the home's items serves two autocompletes: tags, and the
+  // retailers already entered — which is what stops "Home Depot" being stored
+  // three different ways. Deliberately the same snapshot, not a second query.
   useEffect(() => {
     if (!home) return
     let cancelled = false
@@ -103,8 +106,9 @@ export default function ItemDetailPage() {
         if (cancelled) return
         const all = snap.docs.flatMap((d) => (d.data().tags as string[] | undefined) ?? [])
         setAllHomeTags([...new Set(all)].sort())
+        setStoreHistory(snap.docs.map((d) => (d.data().store_name as string | null | undefined) ?? null))
       })
-      .catch(() => { /* non-fatal — autocomplete just stays empty */ })
+      .catch(() => { /* non-fatal — both autocompletes just stay empty */ })
     return () => { cancelled = true }
   }, [home])
 
@@ -569,6 +573,7 @@ export default function ItemDetailPage() {
           rooms={rooms}
           homeId={home.home_id}
           onItemUpdate={setItem}
+          storeHistory={storeHistory}
         />
       )}
 

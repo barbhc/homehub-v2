@@ -1,0 +1,1316 @@
+<title>Five Ways In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
+
+<style>
+/* ============================================================
+   TOKENS — the page is achromatic on purpose. The only colour
+   on it belongs to the product: teal marks the moment the item
+   becomes real, clay marks the moment its upkeep arrives.
+   ============================================================ */
+:root{
+  --paper:#E8EAE7;
+  --paper-2:#DFE3DF;
+  --card:#FDFDFC;
+  --ink:#14181A;
+  --ink-soft:#5A6560;
+  --ink-faint:#8A938D;
+  --rule:#CBD2CD;
+  --rule-soft:#DCE1DC;
+  --p1:#1B6B5A;          /* payoff 1 — the item is confirmed */
+  --p2:#C2410C;          /* payoff 2 — its upkeep arrives */
+  --p1-wash:#E4EFEA;
+  --p2-wash:#FBEADF;
+  --shadow:rgba(20,24,26,.10);
+
+  /* app tokens, scoped to the phone frames — real Homehub values */
+  --app-bg:#F3F5F4;
+  --app-card:#FFFFFF;
+  --app-card2:#F4F7F6;
+  --app-ink:#0B1220;
+  --app-sub:#4B5563;
+  --app-faint:#5F6A75;
+  --app-teal:#1B6B5A;
+  --app-teal-wash:#EAF3EF;
+  --app-clay:#C2410C;
+  --app-clay-soft:#FFF1E8;
+  --app-slate:#455C72;
+  --app-slate-soft:#F1F5F8;
+  --app-gold:#8A5A12;
+  --app-gold-soft:#FBF3E2;
+  --app-line:rgba(15,23,42,.09);
+  --app-line2:rgba(15,23,42,.14);
+  --ph-edge:#C2C9C4;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#141817;
+    --paper-2:#1A1F1E;
+    --card:#1C2120;
+    --ink:#EDF0EE;
+    --ink-soft:#A3ADA7;
+    --ink-faint:#78827C;
+    --rule:#2E3634;
+    --rule-soft:#242B29;
+    --p1:#34B093;
+    --p2:#E8956A;
+    --p1-wash:rgba(52,176,147,.15);
+    --p2-wash:rgba(232,149,106,.15);
+    --shadow:rgba(0,0,0,.5);
+
+    --app-bg:#0D1411;
+    --app-card:#161E1A;
+    --app-card2:#1E2A24;
+    --app-ink:#F1F5F3;
+    --app-sub:#A2AEA9;
+    --app-faint:#93A09B;
+    --app-teal:#34B093;
+    --app-teal-wash:rgba(52,176,147,.16);
+    --app-clay:#E8956A;
+    --app-clay-soft:rgba(232,149,106,.16);
+    --app-slate:#9BB3C7;
+    --app-slate-soft:rgba(155,179,199,.14);
+    --app-gold:#D9B36B;
+    --app-gold-soft:rgba(217,179,107,.14);
+    --app-line:rgba(255,255,255,.09);
+    --app-line2:rgba(255,255,255,.15);
+    --ph-edge:#313A37;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141817;
+  --paper-2:#1A1F1E;
+  --card:#1C2120;
+  --ink:#EDF0EE;
+  --ink-soft:#A3ADA7;
+  --ink-faint:#78827C;
+  --rule:#2E3634;
+  --rule-soft:#242B29;
+  --p1:#34B093;
+  --p2:#E8956A;
+  --p1-wash:rgba(52,176,147,.15);
+  --p2-wash:rgba(232,149,106,.15);
+  --shadow:rgba(0,0,0,.5);
+
+  --app-bg:#0D1411;
+  --app-card:#161E1A;
+  --app-card2:#1E2A24;
+  --app-ink:#F1F5F3;
+  --app-sub:#A2AEA9;
+  --app-faint:#93A09B;
+  --app-teal:#34B093;
+  --app-teal-wash:rgba(52,176,147,.16);
+  --app-clay:#E8956A;
+  --app-clay-soft:rgba(232,149,106,.16);
+  --app-slate:#9BB3C7;
+  --app-slate-soft:rgba(155,179,199,.14);
+  --app-gold:#D9B36B;
+  --app-gold-soft:rgba(217,179,107,.14);
+  --app-line:rgba(255,255,255,.09);
+  --app-line2:rgba(255,255,255,.15);
+  --ph-edge:#313A37;
+}
+
+*{ box-sizing:border-box; }
+html{ -webkit-text-size-adjust:100%; }
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Source Serif 4",Georgia,"Times New Roman",serif;
+  font-size:17px; line-height:1.62; overflow-x:hidden;
+}
+.wrap{ max-width:1180px; margin:0 auto; padding:0 22px 90px; }
+.col{ max-width:63ch; }
+
+/* ---------- type ---------- */
+/* The document's faces. NOT .ph — everything inside a phone frame inherits
+   Inter from .ph, because the mockups have to be in the app's own type or
+   they are not evidence of anything. */
+h1,h2,h3,h4,.eyebrow,.mono{ font-family:"Familjen Grotesk",ui-sans-serif,system-ui,sans-serif; }
+h1{
+  font-size:clamp(38px,7.2vw,74px); line-height:.98; letter-spacing:-.026em;
+  font-weight:700; margin:0; text-wrap:balance;
+}
+h2{
+  font-size:clamp(25px,3.4vw,34px); line-height:1.1; letter-spacing:-.018em;
+  font-weight:700; margin:0; text-wrap:balance;
+}
+h3{ font-size:19px; line-height:1.25; letter-spacing:-.01em; font-weight:600; margin:0; }
+h4{ font-size:15px; letter-spacing:-.005em; font-weight:600; margin:0; }
+p{ margin:0 0 15px; }
+p:last-child{ margin-bottom:0; }
+strong{ font-weight:600; }
+em{ font-style:italic; }
+a{ color:inherit; }
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  font-size:11px; font-weight:600; letter-spacing:.17em; text-transform:uppercase;
+  color:var(--ink-faint); margin:0 0 10px;
+}
+.mono{ font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace; font-variant-numeric:tabular-nums; }
+.lede{ font-size:19.5px; line-height:1.55; color:var(--ink-soft); }
+
+/* ---------- masthead ---------- */
+.mast{ padding:64px 0 34px; border-bottom:2px solid var(--ink); }
+.mast .kicker{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11.5px; font-weight:600;
+  letter-spacing:.2em; text-transform:uppercase; color:var(--ink-soft);
+  display:flex; flex-wrap:wrap; gap:6px 18px; margin:0 0 26px;
+}
+.mast h1{ margin-bottom:22px; }
+.mast h1 .q{ color:var(--ink-faint); }
+.brief{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(178px,1fr)); gap:1px;
+  background:var(--rule); border:1px solid var(--rule); margin-top:34px;
+}
+.brief div{ background:var(--paper); padding:13px 15px 15px; }
+.brief dt{
+  font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:600;
+  letter-spacing:.15em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px;
+}
+.brief dd{ margin:0; font-size:15px; line-height:1.4; }
+
+/* ---------- sections ---------- */
+section{ padding:60px 0 0; }
+.sechead{ border-top:1px solid var(--rule); padding-top:26px; margin-bottom:26px; }
+
+/* ---------- payoff rail (the signature) ---------- */
+.rail{
+  margin:22px 0 30px; padding:22px 20px 18px;
+  background:var(--card); border:1px solid var(--rule-soft);
+  overflow-x:auto;
+}
+.railhead{
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 16px; margin-bottom:20px;
+  font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint);
+}
+.railtrack{ display:flex; align-items:flex-start; min-width:min-content; gap:0; }
+.stn{ flex:1 1 0; min-width:96px; position:relative; padding-top:26px; }
+.stn::before{
+  content:""; position:absolute; top:9px; left:0; right:0; height:2px; background:var(--rule);
+}
+.stn:first-child::before{ left:50%; }
+.stn:last-child::before{ right:50%; }
+.stn .dot{
+  position:absolute; top:3px; left:50%; transform:translateX(-50%);
+  width:15px; height:15px; border-radius:50%;
+  background:var(--paper); border:2.5px solid var(--rule);
+}
+.stn.p1 .dot{ background:var(--p1); border-color:var(--p1); }
+.stn.p2 .dot{ background:var(--p2); border-color:var(--p2); }
+.stn .sl{
+  display:block; text-align:center; font-family:"Familjen Grotesk",sans-serif;
+  font-size:12.5px; line-height:1.28; font-weight:500; color:var(--ink-soft); padding:0 5px;
+}
+.stn.p1 .sl,.stn.p2 .sl{ font-weight:600; color:var(--ink); }
+.stn .st{
+  display:block; text-align:center; margin-top:4px;
+  font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.06em;
+  color:var(--ink-faint);
+}
+.stn.p1 .st{ color:var(--p1); }
+.stn.p2 .st{ color:var(--p2); }
+.keys{ display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:18px; }
+.key{
+  display:inline-flex; align-items:center; gap:7px;
+  font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--ink-soft);
+}
+.key i{ width:11px; height:11px; border-radius:50%; display:block; }
+.key.k1 i{ background:var(--p1); } .key.k2 i{ background:var(--p2); }
+
+/* ---------- route header ---------- */
+.route{ padding-top:56px; }
+.routetop{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:6px; }
+.rletter{
+  font-family:"Familjen Grotesk",sans-serif; font-size:46px; font-weight:700;
+  line-height:.8; letter-spacing:-.04em; color:var(--ink-faint);
+}
+.bet{
+  margin:14px 0 4px; padding:13px 16px; background:var(--paper-2);
+  border-left:3px solid var(--ink); font-size:16px; line-height:1.5;
+}
+.bet b{ font-family:"Familjen Grotesk",sans-serif; font-weight:600; }
+
+/* ---------- screen strip ---------- */
+.strip{
+  display:flex; gap:20px; overflow-x:auto; padding:6px 2px 22px;
+  scroll-snap-type:x proximity;
+}
+.strip > figure{ scroll-snap-align:start; margin:0; flex:0 0 auto; width:268px; }
+.cap{
+  margin-top:11px; font-family:"Familjen Grotesk",sans-serif;
+  font-size:13px; line-height:1.42; color:var(--ink-soft);
+}
+.cap b{
+  display:block; color:var(--ink); font-weight:600; font-size:13.5px; margin-bottom:2px;
+}
+.cap .num{
+  font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.12em;
+  color:var(--ink-faint); display:block; margin-bottom:4px;
+}
+
+/* ---------- phone frame ---------- */
+.ph{
+  width:268px; height:520px; border-radius:26px; overflow:hidden;
+  background:var(--app-bg); border:1px solid var(--ph-edge);
+  box-shadow:0 6px 20px -8px var(--shadow);
+  display:flex; flex-direction:column;
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif; color:var(--app-ink);
+}
+.ph-bar{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 15px 3px; font-size:10.5px; font-weight:600; color:var(--app-ink);
+  letter-spacing:.01em; flex:0 0 auto;
+}
+.ph-body{ flex:1 1 auto; padding:11px 13px; display:flex; flex-direction:column; gap:9px; overflow:hidden; }
+.ph-body.pad0{ padding:0; }
+.ph-nav{
+  flex:0 0 auto; display:flex; border-top:1px solid var(--app-line);
+  background:var(--app-card); padding:6px 2px 8px;
+}
+.ph-nav span{
+  flex:1; text-align:center; font-size:8.5px; font-weight:500; color:var(--app-faint);
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+}
+.ph-nav span.on{ color:var(--app-teal); font-weight:600; }
+.ph-nav span i{ width:14px; height:14px; border-radius:4px; background:currentColor; opacity:.5; display:block; }
+.ph-nav span.on i{ opacity:1; }
+
+/* app atoms */
+.a-h1{ font-family:"Plus Jakarta Sans",sans-serif; font-weight:800; font-size:22px; line-height:1.1; letter-spacing:-.02em; margin:2px 0 0; }
+.a-h2{ font-family:"Plus Jakarta Sans",sans-serif; font-weight:700; font-size:15px; line-height:1.2; margin:0; }
+.a-sub{ font-size:11.5px; line-height:1.35; color:var(--app-sub); margin:0; }
+.a-tiny{ font-size:10px; line-height:1.35; color:var(--app-faint); margin:0; }
+.a-lbl{ font-size:11px; font-weight:600; margin:0 0 3px; }
+.a-req{ color:var(--app-clay); }
+.a-input{
+  border:1px solid var(--app-line2); border-radius:8px; background:var(--app-card);
+  padding:9px 10px; font-size:12.5px; color:var(--app-ink); min-height:34px;
+}
+.a-input.ghost{ color:var(--app-faint); }
+.a-card{ background:var(--app-card); border:1px solid var(--app-line); border-radius:12px; padding:11px; display:flex; flex-direction:column; gap:7px; }
+.a-card.tint{ background:var(--app-teal-wash); border-color:transparent; }
+.a-card.clay{ background:var(--app-clay-soft); border-color:transparent; }
+.a-card.slate{ background:var(--app-slate-soft); border-color:transparent; }
+.a-card.gold{ background:var(--app-gold-soft); border-color:transparent; }
+.a-btn{
+  border-radius:9px; padding:11px 12px; font-size:12.5px; font-weight:700; text-align:center;
+  background:var(--app-teal); color:#fff; min-height:40px; display:flex; align-items:center; justify-content:center;
+}
+.a-btn.ghost{ background:transparent; color:var(--app-teal); border:1.5px solid var(--app-teal); }
+.a-btn.quiet{ background:transparent; color:var(--app-sub); border:none; font-weight:600; }
+.a-btn.off{ background:var(--app-line2); color:var(--app-faint); }
+.a-btn.sm{ min-height:32px; padding:7px 10px; font-size:11.5px; border-radius:8px; }
+.a-row{ display:flex; align-items:center; gap:8px; }
+.a-row.sb{ justify-content:space-between; }
+.a-chip{
+  display:inline-flex; align-items:center; gap:4px; border-radius:999px;
+  padding:3px 8px; font-size:9.5px; font-weight:700; letter-spacing:.03em;
+}
+.a-chip.teal{ background:var(--app-teal-wash); color:var(--app-teal); }
+.a-chip.clay{ background:var(--app-clay-soft); color:var(--app-clay); }
+.a-chip.slate{ background:var(--app-slate-soft); color:var(--app-slate); }
+.a-chip.gold{ background:var(--app-gold-soft); color:var(--app-gold); }
+.a-thumb{ width:52px; height:52px; border-radius:9px; background:var(--app-card2); border:1px solid var(--app-line); flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+.a-thumb svg{ width:26px; height:26px; opacity:.5; }
+.a-thumb.big{ width:100%; height:104px; border-radius:11px; }
+.a-thumb.big svg{ width:44px; height:44px; }
+.a-skel{ height:9px; border-radius:5px; background:var(--app-line2); opacity:.55; }
+.a-skel.w70{ width:70%; } .a-skel.w45{ width:45%; } .a-skel.w85{ width:85%; }
+.a-rail{ border-left:2.5px solid var(--app-clay); padding-left:9px; }
+.a-rail.teal{ border-left-color:var(--app-teal); }
+.a-rail.slate{ border-left-color:var(--app-slate); }
+.a-step{ display:flex; align-items:center; gap:7px; }
+.a-step i{
+  width:20px; height:20px; border-radius:50%; background:var(--app-line2);
+  color:var(--app-faint); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+}
+.a-step i.on{ background:var(--app-teal); color:#fff; }
+.a-step i.done{ background:var(--app-teal-wash); color:var(--app-teal); }
+.a-step span{ font-size:10.5px; font-weight:600; color:var(--app-sub); }
+.a-step.cur span{ color:var(--app-ink); }
+.a-line{ flex:1; height:2px; background:var(--app-line2); border-radius:2px; }
+.a-prog{ height:4px; border-radius:3px; background:var(--app-line2); overflow:hidden; }
+.a-prog i{ display:block; height:100%; background:var(--app-teal); border-radius:3px; }
+.a-drop{
+  border:1.5px dashed var(--app-line2); border-radius:12px; background:var(--app-card);
+  padding:20px 12px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px;
+}
+.a-toggle{ display:flex; gap:3px; padding:3px; border-radius:10px; background:var(--app-card2); border:1px solid var(--app-line); }
+.a-toggle span{ flex:1; text-align:center; font-size:11px; font-weight:600; padding:6px 4px; border-radius:7px; color:var(--app-sub); }
+.a-toggle span.on{ background:var(--app-card); color:var(--app-ink); box-shadow:0 1px 2px rgba(0,0,0,.07); }
+.a-sheet{ margin-top:auto; background:var(--app-card); border-top:1px solid var(--app-line); border-radius:14px 14px 0 0; padding:11px 12px 12px; display:flex; flex-direction:column; gap:8px; }
+.a-x{ width:26px; height:26px; border-radius:8px; background:var(--app-card2); display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--app-sub); flex:0 0 auto; }
+.a-sw{ width:30px; height:18px; border-radius:999px; background:var(--app-line2); position:relative; flex:0 0 auto; }
+.a-sw.on{ background:var(--app-teal); }
+.a-sw::after{ content:""; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#fff; }
+.a-sw.on::after{ left:14px; }
+.a-sel{ display:flex; align-items:center; justify-content:space-between; border:1px solid var(--app-line2); border-radius:8px; padding:7px 9px; font-size:11.5px; background:var(--app-card); }
+.a-div{ height:1px; background:var(--app-line); }
+
+/* ---------- verdict / matrix ---------- */
+.tablewrap{ overflow-x:auto; margin:22px 0 8px; border:1px solid var(--rule); }
+table{ border-collapse:collapse; width:100%; min-width:820px; background:var(--card); }
+th,td{ text-align:left; padding:11px 13px; border-bottom:1px solid var(--rule-soft); vertical-align:top; font-size:14px; line-height:1.42; }
+thead th{
+  font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:600; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--ink-faint); background:var(--paper-2); border-bottom:1px solid var(--rule);
+}
+tbody th{ font-family:"Familjen Grotesk",sans-serif; font-weight:600; font-size:14.5px; white-space:nowrap; }
+td.num{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:13px; }
+tr.pick th, tr.pick td{ background:var(--p1-wash); }
+tr:last-child th, tr:last-child td{ border-bottom:none; }
+
+.cards2{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-top:22px; }
+.mini{ background:var(--card); border:1px solid var(--rule-soft); padding:15px 17px 17px; }
+.mini h4{ margin-bottom:7px; }
+.mini p{ font-size:14.5px; line-height:1.5; color:var(--ink-soft); margin:0; }
+.mini .tag{
+  font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--ink-faint); display:block; margin-bottom:6px;
+}
+.verdict{
+  margin-top:26px; border:2px solid var(--ink); background:var(--card); padding:24px 26px 26px;
+}
+.verdict h3{ font-size:22px; margin-bottom:10px; }
+.answers{ display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 0; }
+.answers span{
+  font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.08em;
+  border:1px solid var(--rule); padding:5px 9px; color:var(--ink-soft);
+}
+.foot{
+  margin-top:70px; padding-top:20px; border-top:1px solid var(--rule);
+  font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ink-faint);
+}
+.scrollhint{
+  font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--ink-faint); margin:0 0 10px;
+}
+/* The sideways scroll is part of the reading experience, so the bar has to
+   belong to the page in both themes — the OS default renders as a bright
+   white slab on the dark ground. */
+.strip,.tablewrap,.rail{ scrollbar-width:thin; scrollbar-color:var(--rule) transparent; }
+.strip::-webkit-scrollbar,.tablewrap::-webkit-scrollbar,.rail::-webkit-scrollbar{ height:9px; }
+.strip::-webkit-scrollbar-track,.tablewrap::-webkit-scrollbar-track,.rail::-webkit-scrollbar-track{ background:transparent; }
+.strip::-webkit-scrollbar-thumb,.tablewrap::-webkit-scrollbar-thumb,.rail::-webkit-scrollbar-thumb{
+  background:var(--rule); border-radius:999px; border:2px solid transparent; background-clip:content-box;
+}
+.strip::-webkit-scrollbar-thumb:hover,.tablewrap::-webkit-scrollbar-thumb:hover,.rail::-webkit-scrollbar-thumb:hover{ background:var(--ink-faint); background-clip:content-box; }
+
+@media (max-width:640px){
+  body{ font-size:16.5px; }
+  .wrap{ padding:0 16px 70px; }
+  .mast{ padding-top:44px; }
+  .verdict{ padding:19px 18px 21px; }
+}
+@media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="kicker"><span>Homehub</span><span>Add an item</span><span>Round 11 &#x2014; HH-107 to HH-112</span><span>24 Aug 2026</span></p>
+  <h1>Five ways in.<br><span class="q">Pick the one you never have to report again.</span></h1>
+  <p class="lede col">Five complete flows for adding an item, drawn screen by screen. They all start the same way &#x2014; brand and model, typed &#x2014; and they all promise the same two things. What differs is <em>when</em> those two things arrive, and how much the flow asks for on the way.</p>
+
+  <dl class="brief">
+    <div><dt>Fixed</dt><dd>Brand + model, typed. Every route starts here.</dd></div>
+    <div><dt>Fixed</dt><dd>Staged payoff: the item becomes real in seconds, its upkeep arrives minutes later.</dd></div>
+    <div><dt>Varies</dt><dd>Where serial, purchase, room and category live.</dd></div>
+    <div><dt>Varies</dt><dd>Whether the user waits out the read or hands it off.</dd></div>
+  </dl>
+</header>
+
+<!-- ============================================================ -->
+<section>
+  <div class="sechead col">
+    <p class="eyebrow">Why five and not one fix</p>
+    <h2>Three of the six reports were reports you had already made.</h2>
+  </div>
+  <div class="col">
+    <p>HH&#x2011;107 is HH&#x2011;73. HH&#x2011;110 is HH&#x2011;63. HH&#x2011;111 is HH&#x2011;96. Each was closed the first time by adding a warning, collapsing a section, or moving a field to another screen &#x2014; and in each case the thing that actually happened to the user stayed the same. The search still offered a parts list. The first screen was still long once you opened it. The purchase fields still weren&#x2019;t where someone thinks about warranty.</p>
+    <p>So this isn&#x2019;t a patch. Every route below is a complete architecture, and each one makes a <em>different bet</em> about the same two questions: how little can the flow ask before the item exists, and what happens during the four minutes it takes to read a manual.</p>
+  </div>
+
+  <div class="rail" style="margin-top:30px">
+    <div class="railhead"><span>The two moments every route has to deliver</span></div>
+    <div class="railtrack">
+      <div class="stn"><span class="dot"></span><span class="sl">Brand + model typed</span><span class="st">0s</span></div>
+      <div class="stn p1"><span class="dot"></span><span class="sl">The item is confirmed &#x2014; photo, type, specs</span><span class="st">~3s</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">Manual attached</span><span class="st">varies</span></div>
+      <div class="stn p2"><span class="dot"></span><span class="sl">Its upkeep arrives &#x2014; real tasks</span><span class="st">~4min</span></div>
+    </div>
+    <div class="keys">
+      <span class="key k1"><i></i>Payoff 1 &#x2014; the item is real</span>
+      <span class="key k2"><i></i>Payoff 2 &#x2014; the upkeep is real</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== ROUTE A ============================== -->
+<section class="route">
+  <div class="routetop">
+    <span class="rletter">A</span>
+    <div><p class="eyebrow" style="margin-bottom:4px">Route A</p><h2>Two fields, then out</h2></div>
+  </div>
+  <div class="col">
+    <p class="bet"><b>The bet:</b> the wizard&#x2019;s only job is to identify the thing and get its manual. Nothing else is asked, ever &#x2014; records live on the item page, where there is finally something to attach them to.</p>
+    <p>Two screens, four taps, no optional fields anywhere in the flow. The identity card resolves in place on screen 1, so the payoff arrives before you leave the first screen. The manual search is demoted to one line beneath the drop zone, which is what the code already claims it wants.</p>
+  </div>
+
+  <div class="rail">
+    <div class="railhead"><span>Route A</span><span>2 screens &#x2022; 4 taps &#x2022; 0 optional fields</span></div>
+    <div class="railtrack">
+      <div class="stn"><span class="dot"></span><span class="sl">Brand + model</span><span class="st">screen 1</span></div>
+      <div class="stn p1"><span class="dot"></span><span class="sl">Confirmed in place</span><span class="st">~3s</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">The manual</span><span class="st">screen 2</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">Item page, reading</span><span class="st">hand-off</span></div>
+      <div class="stn p2"><span class="dot"></span><span class="sl">Upkeep arrives</span><span class="st">~4min</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">One review</span><span class="st">30s</span></div>
+    </div>
+  </div>
+
+  <p class="scrollhint">Screens &#x2014; scroll sideways</p>
+  <div class="strip">
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">Add an item</p>
+          <p class="a-sub">Two things, and we take it from there.</p>
+          <div class="a-card">
+            <div><p class="a-lbl">Brand <span class="a-req">*</span></p><div class="a-input">Fisher &amp; Paykel</div></div>
+            <div><p class="a-lbl">Model <span class="a-req">*</span></p><div class="a-input">RF135BDRUX4</div>
+              <p class="a-tiny" style="margin-top:4px">On the nameplate &#x2014; usually inside the door.</p></div>
+          </div>
+          <p class="a-tiny" style="color:var(--app-teal);font-weight:600">Can&#x2019;t find the model?</p>
+          <div class="a-btn" style="margin-top:auto">Next: the manual</div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">A &#x2014; 01</span><b>Two fields. That&#x2019;s the whole screen.</b>No room, no category, no serial, no disclosure to open.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">Add an item</p>
+          <div class="a-card">
+            <div><p class="a-lbl">Brand <span class="a-req">*</span></p><div class="a-input">Fisher &amp; Paykel</div></div>
+            <div><p class="a-lbl">Model <span class="a-req">*</span></p><div class="a-input">RF135BDRUX4</div></div>
+          </div>
+          <div class="a-card tint">
+            <div class="a-row">
+              <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14M9 5.5v1M9 12.5v2"/></svg></div>
+              <div style="min-width:0">
+                <p class="a-h2">French door refrigerator</p>
+                <p class="a-tiny">36&#x2033; &#x2022; 20.1&#x202F;cu&#x202F;ft &#x2022; ice &amp; water</p>
+                <span class="a-chip teal" style="margin-top:5px">Found it</span>
+              </div>
+            </div>
+            <div class="a-row"><div class="a-btn ghost sm" style="flex:1">Not my product</div></div>
+          </div>
+          <div class="a-btn" style="margin-top:auto">Next: the manual</div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">A &#x2014; 02 &#x2022; payoff 1</span><b>It resolves under your thumb.</b>No confirmation screen and no waiting &#x2014; the answer appears where you typed the question. &#x201C;Not my product&#x201D; is the one tap out.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:42</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">The manual</p>
+          <p class="a-sub">This is where the upkeep comes from.</p>
+          <div class="a-drop" style="margin-top:2px">
+            <div class="a-thumb" style="width:38px;height:38px;border-radius:50%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 18v2h16v-2"/></svg></div>
+            <p class="a-h2" style="font-size:13px">Drop the PDF, or tap to browse</p>
+            <p class="a-tiny">Owner&#x2019;s manual &#x2022; up to 50&#x202F;MB</p>
+          </div>
+          <div class="a-row sb" style="padding:0 2px">
+            <p class="a-tiny" style="color:var(--app-teal);font-weight:600">Paste a link instead</p>
+            <p class="a-tiny" style="color:var(--app-teal);font-weight:600">Look it up for me</p>
+          </div>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:7px">
+            <div class="a-btn">Read the manual</div>
+            <div class="a-btn quiet">I&#x2019;ll add it later</div>
+          </div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">A &#x2014; 03</span><b>The drop zone is the screen.</b>HH&#x2011;109&#x2019;s fix: the two alternates are one quiet line each, below the thing they alternate with &#x2014; not a card above it.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:42</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-row">
+            <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+            <div style="min-width:0"><p class="a-h2">Kitchen refrigerator</p><p class="a-tiny">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+          </div>
+          <div class="a-card slate">
+            <div class="a-row sb"><p class="a-h2" style="font-size:12.5px">Reading the manual</p><span class="a-tiny mono">page 18 / 42</span></div>
+            <div class="a-prog"><i style="width:43%"></i></div>
+            <p class="a-tiny">Keep going &#x2014; we&#x2019;ll let you know when it&#x2019;s done.</p>
+          </div>
+          <p class="a-lbl" style="margin-top:3px">Upkeep</p>
+          <div class="a-card"><div class="a-skel w70"></div><div class="a-skel w45"></div></div>
+          <div class="a-card"><div class="a-skel w85"></div><div class="a-skel w45"></div></div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">A &#x2014; 04</span><b>The page is already theirs.</b>Real header, real room, honest progress. The blanks are blanks because we haven&#x2019;t been told yet &#x2014; never invented names.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:46</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-row">
+            <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+            <div style="min-width:0"><p class="a-h2">Kitchen refrigerator</p><p class="a-tiny">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+          </div>
+          <div class="a-card clay">
+            <p class="a-h2" style="font-size:13px">3 things to keep an eye on</p>
+            <p class="a-tiny">Nothing is scheduled until you say so.</p>
+            <div class="a-btn sm" style="align-self:flex-start;margin-top:2px">Review the 3</div>
+          </div>
+          <div class="a-rail"><p class="a-h2" style="font-size:12px">Replace the water filter</p><p class="a-tiny">Every 6 months</p></div>
+          <div class="a-rail teal"><p class="a-h2" style="font-size:12px">Vacuum the condenser coils</p><p class="a-tiny">Twice a year</p></div>
+          <div class="a-card gold">
+            <p class="a-tiny" style="color:var(--app-gold);font-weight:600">Track when your warranty ends by adding purchase details.</p>
+            <div class="a-row"><div class="a-btn sm ghost" style="flex:1;border-color:var(--app-gold);color:var(--app-gold)">Add them</div><div class="a-btn sm quiet">Not now</div></div>
+          </div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">A &#x2014; 05 &#x2022; payoff 2</span><b>Upkeep lands, and only then do we ask for anything.</b>HH&#x2011;111&#x2019;s fix without a form: one dismissible row, once there&#x2019;s a warranty worth tracking.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:46</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body pad0" style="justify-content:flex-end">
+          <div class="a-sheet" style="height:78%">
+            <div class="a-row sb"><p class="a-h2">3 things to keep an eye on</p><div class="a-x">&#x2715;</div></div>
+            <p class="a-tiny">Set how often, and whether we remind you.</p>
+            <div class="a-div"></div>
+            <div class="a-rail"><p class="a-h2" style="font-size:12px">Replace the water filter</p>
+              <div class="a-row" style="margin-top:5px"><span class="a-tiny">How often</span><div class="a-sel" style="flex:1">Every 6 months <span>&#x25BE;</span></div></div>
+              <div class="a-row sb" style="margin-top:5px"><span class="a-tiny">Remind me when it&#x2019;s due</span><div class="a-sw on"></div></div>
+            </div>
+            <div class="a-rail teal"><p class="a-h2" style="font-size:12px">Vacuum the condenser coils</p>
+              <div class="a-row" style="margin-top:5px"><span class="a-tiny">How often</span><div class="a-sel" style="flex:1">Twice a year <span>&#x25BE;</span></div></div>
+              <div class="a-row sb" style="margin-top:5px"><span class="a-tiny">Remind me when it&#x2019;s due</span><div class="a-sw"></div></div>
+            </div>
+            <div class="a-btn" style="margin-top:auto">Save all 3</div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">A &#x2014; 06</span><b>The one review.</b>How often, and a reminder switch that starts off for anything that isn&#x2019;t essential. Cleaning and setup are saved without being reviewed.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================== ROUTE B ============================== -->
+<section class="route">
+  <div class="routetop">
+    <span class="rletter">B</span>
+    <div><p class="eyebrow" style="margin-bottom:4px">Route B</p><h2>Confirm, then collect</h2></div>
+  </div>
+  <div class="col">
+    <p class="bet"><b>The bet:</b> the moment we correctly identify someone&#x2019;s appliance is the most persuasive thing this product does, and burying it in a card wastes it. Give it its own screen &#x2014; then earn one honest, skippable ask.</p>
+    <p>This is the route with a real optional step. It is the longest of the five, and deliberately so: the records screen arrives <em>after</em> the item already exists, groups the warranty fields together, and says what each is for. Nothing on it blocks anything.</p>
+  </div>
+
+  <div class="rail">
+    <div class="railhead"><span>Route B</span><span>4 screens &#x2022; 6 taps &#x2022; 1 skippable step</span></div>
+    <div class="railtrack">
+      <div class="stn"><span class="dot"></span><span class="sl">Brand + model</span><span class="st">screen 1</span></div>
+      <div class="stn p1"><span class="dot"></span><span class="sl">&#x201C;Is this yours?&#x201D;</span><span class="st">~3s</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">The manual</span><span class="st">screen 3</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">Records &#x2014; skippable</span><span class="st">screen 4</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">Held ~30s, then out</span><span class="st">hand-off</span></div>
+      <div class="stn p2"><span class="dot"></span><span class="sl">Upkeep arrives</span><span class="st">~4min</span></div>
+    </div>
+  </div>
+
+  <p class="scrollhint">Screens &#x2014; scroll sideways</p>
+  <div class="strip">
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-step" style="gap:6px">
+            <div class="a-step cur"><i class="on">1</i><span>Identify</span></div><div class="a-line"></div>
+            <div class="a-step"><i>2</i><span>Manual</span></div><div class="a-line"></div>
+            <div class="a-step"><i>3</i><span>Records</span></div>
+          </div>
+          <p class="a-h1" style="margin-top:6px">What did you get?</p>
+          <div class="a-card">
+            <div><p class="a-lbl">Brand <span class="a-req">*</span></p><div class="a-input">Fisher &amp; Paykel</div></div>
+            <div><p class="a-lbl">Model <span class="a-req">*</span></p><div class="a-input">RF135BDRUX4</div>
+              <p class="a-tiny" style="margin-top:4px">On the nameplate &#x2014; usually inside the door.</p></div>
+          </div>
+          <p class="a-tiny" style="color:var(--app-teal);font-weight:600">Can&#x2019;t find the model?</p>
+          <div class="a-btn" style="margin-top:auto">Look it up</div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">B &#x2014; 01</span><b>Named steps, not numbered dots.</b>Today the labels are hidden below tablet width, so a phone shows two bare circles. Here you always know what&#x2019;s coming.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">Is this yours?</p>
+          <div class="a-card tint" style="gap:9px">
+            <div class="a-thumb big"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14M9 5.5v1M9 12.5v2.5"/></svg></div>
+            <div><p class="a-h2">French door refrigerator</p><p class="a-tiny">Fisher &amp; Paykel RF135BDRUX4</p></div>
+            <div class="a-div"></div>
+            <div class="a-row sb"><span class="a-tiny">Width</span><span class="a-tiny" style="color:var(--app-ink);font-weight:600">36&#x2033;</span></div>
+            <div class="a-row sb"><span class="a-tiny">Capacity</span><span class="a-tiny" style="color:var(--app-ink);font-weight:600">20.1 cu ft</span></div>
+            <div class="a-row sb"><span class="a-tiny">Water filter</span><span class="a-tiny" style="color:var(--app-ink);font-weight:600">Yes</span></div>
+          </div>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:7px">
+            <div class="a-btn">Yes, that&#x2019;s it</div>
+            <div class="a-btn quiet">Not my product</div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">B &#x2014; 02 &#x2022; payoff 1</span><b>The moment gets a whole screen.</b>Specs we were never told are the proof we found the right unit. Costs one tap; buys the most convincing beat in the product.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:42</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-step" style="gap:6px">
+            <div class="a-step"><i class="done">&#x2713;</i><span>Identify</span></div><div class="a-line"></div>
+            <div class="a-step cur"><i class="on">2</i><span>Manual</span></div><div class="a-line"></div>
+            <div class="a-step"><i>3</i><span>Records</span></div>
+          </div>
+          <p class="a-h1" style="margin-top:6px">The manual</p>
+          <p class="a-sub">This is where the upkeep comes from.</p>
+          <div class="a-drop">
+            <div class="a-thumb" style="width:34px;height:34px;border-radius:50%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 18v2h16v-2"/></svg></div>
+            <p class="a-h2" style="font-size:13px">Drop the PDF, or tap to browse</p>
+          </div>
+          <div class="a-row sb" style="padding:0 2px">
+            <p class="a-tiny" style="color:var(--app-teal);font-weight:600">Paste a link instead</p>
+            <p class="a-tiny" style="color:var(--app-teal);font-weight:600">Look it up for me</p>
+          </div>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:7px">
+            <div class="a-btn">Read the manual</div>
+            <div class="a-btn quiet">I&#x2019;ll add it later</div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">B &#x2014; 03</span><b>Same manual screen as Route A.</b>Nothing about this step should differ between routes &#x2014; it is the one screen every route agrees on.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:43</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-step" style="gap:6px">
+            <div class="a-step"><i class="done">&#x2713;</i><span>Identify</span></div><div class="a-line"></div>
+            <div class="a-step"><i class="done">&#x2713;</i><span>Manual</span></div><div class="a-line"></div>
+            <div class="a-step cur"><i class="on">3</i><span>Records</span></div>
+          </div>
+          <div class="a-row sb" style="margin-top:6px">
+            <p class="a-h1" style="font-size:19px">Records</p>
+            <span class="a-chip slate">Optional</span>
+          </div>
+          <p class="a-sub">Nothing here is needed to use the item.</p>
+          <div class="a-card gold" style="gap:6px">
+            <p class="a-tiny" style="color:var(--app-gold);font-weight:700;letter-spacing:.02em">FOR WARRANTY CLAIMS</p>
+            <div class="a-input ghost">Purchase date</div>
+            <div class="a-input ghost">Where you bought it</div>
+            <div class="a-input ghost">What you paid</div>
+            <div class="a-input ghost">Serial number</div>
+          </div>
+          <div class="a-sel">Room <span>Kitchen &#x25BE;</span></div>
+          <div style="margin-top:auto;display:flex;gap:7px">
+            <div class="a-btn quiet" style="flex:1;border:1.5px solid var(--app-line2)">Skip</div>
+            <div class="a-btn" style="flex:1.4">Save</div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">B &#x2014; 04</span><b>One screen, one heading, one reason.</b>HH&#x2011;111 answered directly: the four warranty fields are together, labelled with what they&#x2019;re for. Skip is a real button, not a link.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:43</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-row">
+            <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+            <div><p class="a-h2">Kitchen refrigerator</p><p class="a-tiny">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+          </div>
+          <div class="a-card slate">
+            <div class="a-row sb"><p class="a-h2" style="font-size:12.5px">Reading the manual</p><span class="a-tiny mono">page 6 / 42</span></div>
+            <div class="a-prog"><i style="width:15%"></i></div>
+            <p class="a-tiny">About four minutes. You don&#x2019;t have to wait.</p>
+            <div class="a-btn sm ghost" style="align-self:flex-start">Tell me when it&#x2019;s done</div>
+          </div>
+          <div class="a-card"><p class="a-h2" style="font-size:12px">Cleaning &#x2022; 4</p><p class="a-tiny">Found while reading. Nothing reminds you.</p></div>
+          <div class="a-card"><div class="a-skel w70"></div><div class="a-skel w45"></div></div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">B &#x2014; 05</span><b>Held for about thirty seconds, then offered the door.</b>Long enough for the first real finding to appear; short enough that nobody feels detained.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================== ROUTE C ============================== -->
+<section class="route">
+  <div class="routetop">
+    <span class="rletter">C</span>
+    <div><p class="eyebrow" style="margin-bottom:4px">Route C</p><h2>Watch it read</h2></div>
+  </div>
+  <div class="col">
+    <p class="bet"><b>The bet:</b> reading a manual for someone <em>is</em> the product, and hiding it behind a hand-off means most people never witness the one thing that would make them keep the app. Put it on screen &#x2014; then ask only for what no document could ever have told us.</p>
+    <p>The only route where payoff 2 happens in front of the user. It is also the only one that asks for records <em>last</em>, and asks for four fields instead of eight, because by then the manual has filled in category, type and specs.</p>
+    <p><strong>The risk is honest:</strong> four minutes is a long time to hold a phone. The exit is on screen the entire time.</p>
+  </div>
+
+  <div class="rail">
+    <div class="railhead"><span>Route C</span><span>4 screens &#x2022; 5 taps &#x2022; 4 fields, asked last</span></div>
+    <div class="railtrack">
+      <div class="stn"><span class="dot"></span><span class="sl">Brand + model</span><span class="st">screen 1</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">The manual</span><span class="st">screen 2</span></div>
+      <div class="stn p1"><span class="dot"></span><span class="sl">Item resolves on the read screen</span><span class="st">~3s</span></div>
+      <div class="stn p2"><span class="dot"></span><span class="sl">Upkeep appears as it&#x2019;s found</span><span class="st">live</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">One review</span><span class="st">30s</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">The 4 we can&#x2019;t know</span><span class="st">skippable</span></div>
+    </div>
+  </div>
+
+  <p class="scrollhint">Screens &#x2014; scroll sideways</p>
+  <div class="strip">
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">Add an item</p>
+          <p class="a-sub">Brand and model, then its manual.</p>
+          <div class="a-card">
+            <div><p class="a-lbl">Brand <span class="a-req">*</span></p><div class="a-input">Fisher &amp; Paykel</div></div>
+            <div><p class="a-lbl">Model <span class="a-req">*</span></p><div class="a-input">RF135BDRUX4</div></div>
+          </div>
+          <p class="a-tiny" style="color:var(--app-teal);font-weight:600">Can&#x2019;t find the model?</p>
+          <div class="a-btn" style="margin-top:auto">Next: the manual</div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">C &#x2014; 01</span><b>Identical opening.</b>Route C spends its difference later, so screen 1 stays the shortest possible version.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:42</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">The manual</p>
+          <p class="a-sub">This is where the upkeep comes from.</p>
+          <div class="a-drop">
+            <div class="a-thumb" style="width:34px;height:34px;border-radius:50%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 18v2h16v-2"/></svg></div>
+            <p class="a-h2" style="font-size:13px">Drop the PDF, or tap to browse</p>
+          </div>
+          <div class="a-card" style="border-style:dashed">
+            <div class="a-row sb"><p class="a-h2" style="font-size:12px">RF135BDRUX4_manual.pdf</p><div class="a-x" style="width:22px;height:22px">&#x2715;</div></div>
+            <p class="a-tiny">4.2 MB &#x2022; 42 pages</p>
+          </div>
+          <div class="a-btn" style="margin-top:auto">Read it now</div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">C &#x2014; 02</span><b>&#x201C;Read it now&#x201D; is a promise about the next screen.</b>The verb tells you that you&#x2019;re about to watch something happen, not wait for a notification.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:43</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-row sb"><p class="a-h1" style="font-size:18px">Reading it</p><span class="a-tiny mono">page 18 / 42</span></div>
+          <div class="a-prog"><i style="width:43%"></i></div>
+          <div class="a-card tint">
+            <div class="a-row">
+              <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+              <div><p class="a-h2" style="font-size:13px">French door refrigerator</p><p class="a-tiny">36&#x2033; &#x2022; 20.1 cu ft</p></div>
+            </div>
+          </div>
+          <div class="a-row" style="gap:6px"><span class="a-chip teal">Cleaning 4</span><span class="a-chip clay">Upkeep 2</span><span class="a-chip slate">Setup 1</span></div>
+          <div class="a-rail teal"><p class="a-h2" style="font-size:11.5px">Clean the door gaskets</p><p class="a-tiny">Found on page 31</p></div>
+          <div class="a-rail"><p class="a-h2" style="font-size:11.5px">Replace the water filter</p><p class="a-tiny">Found on page 12</p></div>
+          <div class="a-card"><div class="a-skel w70"></div></div>
+          <div class="a-btn quiet" style="margin-top:auto">I&#x2019;ll come back</div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">C &#x2014; 03 &#x2022; both payoffs</span><b>The item resolves, then findings arrive one by one with the page they came from.</b>The exit sits at the bottom the whole time.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:46</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body pad0" style="justify-content:flex-end">
+          <div class="a-sheet" style="height:72%">
+            <div class="a-row sb"><p class="a-h2">2 things to keep an eye on</p><div class="a-x">&#x2715;</div></div>
+            <p class="a-tiny">Set how often, and whether we remind you.</p>
+            <div class="a-div"></div>
+            <div class="a-rail"><p class="a-h2" style="font-size:12px">Replace the water filter</p>
+              <div class="a-row" style="margin-top:5px"><span class="a-tiny">How often</span><div class="a-sel" style="flex:1">Every 6 months <span>&#x25BE;</span></div></div>
+              <div class="a-row sb" style="margin-top:5px"><span class="a-tiny">Remind me when it&#x2019;s due</span><div class="a-sw on"></div></div>
+            </div>
+            <div class="a-rail teal"><p class="a-h2" style="font-size:12px">Vacuum the condenser coils</p>
+              <div class="a-row" style="margin-top:5px"><span class="a-tiny">How often</span><div class="a-sel" style="flex:1">Twice a year <span>&#x25BE;</span></div></div>
+              <div class="a-row sb" style="margin-top:5px"><span class="a-tiny">Remind me when it&#x2019;s due</span><div class="a-sw"></div></div>
+            </div>
+            <p class="a-tiny">4 cleaning jobs and 1 setup step are saved too &#x2014; nothing reminds you about those.</p>
+            <div class="a-btn">Save all 7</div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">C &#x2014; 04</span><b>The one review, unchanged.</b>Only upkeep is reviewed; cleaning and setup are saved and shown, never gated.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:47</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">Four things no manual knows</p>
+          <p class="a-sub">We filled in everything else from the document.</p>
+          <div class="a-card gold" style="gap:6px">
+            <div class="a-input ghost">Purchase date</div>
+            <div class="a-input ghost">Where you bought it</div>
+            <div class="a-input ghost">What you paid</div>
+            <div class="a-input ghost">Serial number</div>
+            <p class="a-tiny" style="color:var(--app-gold)">These are what a warranty claim asks for.</p>
+          </div>
+          <div class="a-card">
+            <div class="a-row sb"><span class="a-tiny">Type</span><span class="a-tiny" style="color:var(--app-ink);font-weight:600">Refrigerator &#x2713;</span></div>
+            <div class="a-row sb"><span class="a-tiny">Room</span><span class="a-tiny" style="color:var(--app-ink);font-weight:600">Kitchen &#x2713;</span></div>
+            <div class="a-row sb"><span class="a-tiny">Water filter</span><span class="a-tiny" style="color:var(--app-ink);font-weight:600">MODEL 8B &#x2713;</span></div>
+          </div>
+          <div style="margin-top:auto;display:flex;gap:7px">
+            <div class="a-btn quiet" style="flex:1;border:1.5px solid var(--app-line2)">Skip</div>
+            <div class="a-btn" style="flex:1.4">Save</div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">C &#x2014; 05</span><b>Ask four, show what we filled in ourselves.</b>Showing the ticked list is what makes four questions feel like a courtesy instead of a form.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================== ROUTE D ============================== -->
+<section class="route">
+  <div class="routetop">
+    <span class="rletter">D</span>
+    <div><p class="eyebrow" style="margin-bottom:4px">Route D</p><h2>One screen that grows</h2></div>
+  </div>
+  <div class="col">
+    <p class="bet"><b>The bet:</b> the flow feels long because it <em>is</em> a flow. Delete the wizard. One screen that reveals the next thing as you finish the last, and a single button that is live from the moment we have enough.</p>
+    <p>No stepper, no Back, no Next, nothing to lose your place in. The three states below are one screen at three moments &#x2014; the user never navigates. It is the biggest structural departure and the shortest path to an item.</p>
+  </div>
+
+  <div class="rail">
+    <div class="railhead"><span>Route D</span><span>1 screen &#x2022; 3 taps &#x2022; no navigation at all</span></div>
+    <div class="railtrack">
+      <div class="stn"><span class="dot"></span><span class="sl">Type brand + model</span><span class="st">0s</span></div>
+      <div class="stn p1"><span class="dot"></span><span class="sl">Item appears below the fields</span><span class="st">~3s</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">Manual block reveals itself</span><span class="st">same screen</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">&#x201C;Add it&#x201D; &#x2192; item page</span><span class="st">hand-off</span></div>
+      <div class="stn p2"><span class="dot"></span><span class="sl">Upkeep arrives</span><span class="st">~4min</span></div>
+    </div>
+  </div>
+
+  <p class="scrollhint">One screen, three moments &#x2014; scroll sideways</p>
+  <div class="strip">
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">Add an item</p>
+          <div class="a-card">
+            <div><p class="a-lbl">Brand <span class="a-req">*</span></p><div class="a-input">Fisher &amp; Paykel</div></div>
+            <div><p class="a-lbl">Model <span class="a-req">*</span></p><div class="a-input ghost">e.g. RF135BDRUX4</div>
+              <p class="a-tiny" style="margin-top:4px">On the nameplate &#x2014; usually inside the door.</p></div>
+          </div>
+          <p class="a-tiny" style="color:var(--app-teal);font-weight:600">Can&#x2019;t find the model?</p>
+          <div class="a-btn off" style="margin-top:auto">Add it</div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">D &#x2014; moment 1</span><b>Opens at its shortest.</b>Two fields and a dimmed button. Nothing else exists on the screen yet, because nothing else is relevant yet.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">Add an item</p>
+          <div class="a-card">
+            <div><p class="a-lbl">Brand <span class="a-req">*</span></p><div class="a-input">Fisher &amp; Paykel</div></div>
+            <div><p class="a-lbl">Model <span class="a-req">*</span></p><div class="a-input">RF135BDRUX4</div></div>
+          </div>
+          <div class="a-card tint">
+            <div class="a-row">
+              <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+              <div style="min-width:0"><p class="a-h2" style="font-size:13px">French door refrigerator</p><p class="a-tiny">36&#x2033; &#x2022; 20.1 cu ft &#x2022; Kitchen</p></div>
+            </div>
+            <p class="a-tiny" style="color:var(--app-teal);font-weight:600">Not my product</p>
+          </div>
+          <div class="a-btn" style="margin-top:auto">Add it</div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">D &#x2014; moment 2 &#x2022; payoff 1</span><b>The card grows in and the button lights up.</b>You could stop right here and have a real item. Everything after this is optional by construction.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:42</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1" style="font-size:19px">Add an item</p>
+          <div class="a-card tint" style="padding:9px">
+            <div class="a-row">
+              <div class="a-thumb" style="width:40px;height:40px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+              <div style="min-width:0"><p class="a-h2" style="font-size:12.5px">French door refrigerator</p><p class="a-tiny">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+            </div>
+          </div>
+          <div class="a-card">
+            <p class="a-h2" style="font-size:12.5px">Add the manual</p>
+            <p class="a-tiny">Optional, but it&#x2019;s where the upkeep comes from.</p>
+            <div class="a-toggle" style="margin-top:2px"><span class="on">Upload PDF</span><span>Paste a link</span><span>Look it up</span></div>
+            <div class="a-drop" style="padding:13px 10px;margin-top:4px">
+              <p class="a-h2" style="font-size:12px">Drop the PDF, or tap to browse</p>
+              <p class="a-tiny">up to 50 MB</p>
+            </div>
+          </div>
+          <div class="a-btn" style="margin-top:auto">Add it and start reading</div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">D &#x2014; moment 3</span><b>The manual block reveals itself, and the button renames.</b>HH&#x2011;109 cannot happen here: the three sources are one control, directly above the one panel it switches.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:42</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-row">
+            <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+            <div><p class="a-h2">Kitchen refrigerator</p><p class="a-tiny">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+          </div>
+          <div class="a-card slate">
+            <div class="a-row sb"><p class="a-h2" style="font-size:12.5px">Reading the manual</p><span class="a-tiny mono">page 6 / 42</span></div>
+            <div class="a-prog"><i style="width:15%"></i></div>
+            <p class="a-tiny">We&#x2019;ll let you know when it&#x2019;s done.</p>
+          </div>
+          <p class="a-lbl">Upkeep</p>
+          <div class="a-card"><div class="a-skel w70"></div><div class="a-skel w45"></div></div>
+          <div class="a-card"><div class="a-skel w85"></div></div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">D &#x2014; 04</span><b>Straight to the item page.</b>From here Route D behaves exactly like Route A: hand-off, then upkeep, then one review, then the warranty row.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================== ROUTE E ============================== -->
+<section class="route">
+  <div class="routetop">
+    <span class="rletter">E</span>
+    <div><p class="eyebrow" style="margin-bottom:4px">Route E</p><h2>The item exists in ten seconds</h2></div>
+  </div>
+  <div class="col">
+    <p class="bet"><b>The bet:</b> even the manual is too much to ask for up front. The wizard creates the item and stops. Everything that makes the item <em>useful</em> &#x2014; manual, room, records &#x2014; becomes a short list on the item&#x2019;s own page that never blocks and never expires.</p>
+    <p>This is the only route where somebody can add six appliances in two minutes and come back to them later. It is also the only one where payoff 2 is genuinely optional, which is its risk: an item with no manual has no upkeep, and the checklist has to be persuasive enough to get tapped.</p>
+  </div>
+
+  <div class="rail">
+    <div class="railhead"><span>Route E</span><span>1 screen &#x2022; 2 taps to an item &#x2022; everything else on the page</span></div>
+    <div class="railtrack">
+      <div class="stn"><span class="dot"></span><span class="sl">Brand + model</span><span class="st">0s</span></div>
+      <div class="stn p1"><span class="dot"></span><span class="sl">Item created</span><span class="st">~10s</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">&#x201C;Make this useful&#x201D; list</span><span class="st">item page</span></div>
+      <div class="stn"><span class="dot"></span><span class="sl">Manual added in place</span><span class="st">when ready</span></div>
+      <div class="stn p2"><span class="dot"></span><span class="sl">Upkeep arrives</span><span class="st">~4min later</span></div>
+    </div>
+  </div>
+
+  <p class="scrollhint">Screens &#x2014; scroll sideways</p>
+  <div class="strip">
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">Add an item</p>
+          <p class="a-sub">Brand and model. You can do the rest later.</p>
+          <div class="a-card">
+            <div><p class="a-lbl">Brand <span class="a-req">*</span></p><div class="a-input">Fisher &amp; Paykel</div></div>
+            <div><p class="a-lbl">Model <span class="a-req">*</span></p><div class="a-input">RF135BDRUX4</div></div>
+          </div>
+          <div class="a-card tint">
+            <div class="a-row">
+              <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+              <div style="min-width:0"><p class="a-h2" style="font-size:13px">French door refrigerator</p><p class="a-tiny">36&#x2033; &#x2022; Kitchen</p></div>
+            </div>
+          </div>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:7px">
+            <div class="a-btn">Add it</div>
+            <div class="a-btn quiet">Add it and start another</div>
+          </div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">E &#x2014; 01 &#x2022; payoff 1</span><b>Two fields and two ways out.</b>&#x201C;Add it and start another&#x201D; is the only route that admits people move in and add eight things at once.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-row">
+            <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+            <div><p class="a-h2">Kitchen refrigerator</p><p class="a-tiny">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+          </div>
+          <div class="a-card">
+            <p class="a-h2" style="font-size:13px">Make this useful</p>
+            <div class="a-div"></div>
+            <div class="a-row sb"><div><p class="a-h2" style="font-size:12px">Add the manual</p><p class="a-tiny">Where the upkeep comes from</p></div><div class="a-btn sm" style="padding:6px 11px">Add</div></div>
+            <div class="a-div"></div>
+            <div class="a-row sb"><div><p class="a-h2" style="font-size:12px">Purchase details</p><p class="a-tiny">Tracks when the warranty ends</p></div><div class="a-btn sm ghost" style="padding:6px 11px">Add</div></div>
+            <div class="a-div"></div>
+            <div class="a-row sb"><div><p class="a-h2" style="font-size:12px">Serial number</p><p class="a-tiny">For recalls and claims</p></div><div class="a-btn sm ghost" style="padding:6px 11px">Add</div></div>
+          </div>
+          <p class="a-tiny">Nothing here expires. Come back whenever.</p>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">E &#x2014; 02</span><b>The optional step, moved onto the page.</b>Each row says what it buys you. The manual is visibly first and visibly primary; the others are equals below it.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:44</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-row">
+            <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+            <div><p class="a-h2">Kitchen refrigerator</p><p class="a-tiny">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+          </div>
+          <div class="a-card">
+            <p class="a-h2" style="font-size:13px">Add the manual</p>
+            <div class="a-toggle"><span class="on">Upload PDF</span><span>Paste a link</span><span>Look it up</span></div>
+            <div class="a-drop" style="padding:15px 10px">
+              <p class="a-h2" style="font-size:12px">Drop the PDF, or tap to browse</p>
+              <p class="a-tiny">up to 50 MB</p>
+            </div>
+            <div class="a-row" style="gap:7px"><div class="a-btn quiet" style="flex:1">Cancel</div><div class="a-btn" style="flex:1.5">Read it</div></div>
+          </div>
+          <p class="a-tiny">Takes about four minutes. You can leave.</p>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">E &#x2014; 03</span><b>The manual step opens in place.</b>No navigation, no wizard to re-enter. The row expands, does its job, and collapses again.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:48</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <div class="a-row">
+            <div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+            <div><p class="a-h2">Kitchen refrigerator</p><p class="a-tiny">Fisher &amp; Paykel &#x2022; Kitchen</p></div>
+          </div>
+          <div class="a-card clay">
+            <p class="a-h2" style="font-size:13px">3 things to keep an eye on</p>
+            <p class="a-tiny">Nothing is scheduled until you say so.</p>
+            <div class="a-btn sm" style="align-self:flex-start">Review the 3</div>
+          </div>
+          <div class="a-card">
+            <p class="a-h2" style="font-size:12.5px">Make this useful</p>
+            <div class="a-div"></div>
+            <div class="a-row sb"><div><p class="a-h2" style="font-size:11.5px">Manual</p><p class="a-tiny">42 pages, read</p></div><span class="a-chip teal">Done</span></div>
+            <div class="a-div"></div>
+            <div class="a-row sb"><div><p class="a-h2" style="font-size:11.5px">Purchase details</p><p class="a-tiny">Tracks when the warranty ends</p></div><div class="a-btn sm ghost" style="padding:6px 11px">Add</div></div>
+          </div>
+        </div>
+        <div class="ph-nav"><span><i></i>Home</span><span><i></i>Tasks</span><span class="on"><i></i>Items</span><span><i></i>Ask</span><span><i></i>Settings</span></div>
+      </div>
+      <figcaption class="cap"><span class="num">E &#x2014; 04 &#x2022; payoff 2</span><b>The list shortens as it&#x2019;s satisfied.</b>Done rows stay visible with a state chip &#x2014; progress you can see, not a checklist that vanishes.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================== LOW CONFIDENCE ============================== -->
+<section class="route">
+  <div class="routetop">
+    <span class="rletter">&#x203C;</span>
+    <div><p class="eyebrow" style="margin-bottom:4px">The branch you asked for</p><h2>When we can&#x2019;t fill it in confidently</h2></div>
+  </div>
+  <div class="col">
+    <p class="bet"><b>The rule:</b> every route above assumes the lookup finds the product and the manual is a real manual. When either is uncertain, the flow says so plainly and asks &#x2014; it never guesses, and it never shows a result it has already judged badly.</p>
+    <p>These four screens drop into <em>any</em> of the five routes at the point where the confident version would have moved on. That is the whole reason to design them separately: the happy path shouldn&#x2019;t carry the weight of the unhappy one.</p>
+  </div>
+
+  <p class="scrollhint">Screens &#x2014; scroll sideways</p>
+  <div class="strip">
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:41</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1">Which one is yours?</p>
+          <p class="a-sub">That model number matches more than one unit.</p>
+          <div class="a-card">
+            <div class="a-row"><div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+              <div style="min-width:0"><p class="a-h2" style="font-size:12.5px">RF135BDRUX4</p><p class="a-tiny">36&#x2033; &#x2022; ice &amp; water</p></div></div>
+            <div class="a-btn sm ghost">This one</div>
+          </div>
+          <div class="a-card">
+            <div class="a-row"><div class="a-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14"/></svg></div>
+              <div style="min-width:0"><p class="a-h2" style="font-size:12.5px">RF135BDRUX4&#x2011;N</p><p class="a-tiny">36&#x2033; &#x2022; no dispenser</p></div></div>
+            <div class="a-btn sm ghost">This one</div>
+          </div>
+          <p class="a-tiny" style="color:var(--app-teal);font-weight:600;margin-top:2px">Neither &#x2014; let me keep typing</p>
+          <p class="a-tiny" style="margin-top:auto">The difference matters: the wrong one produces upkeep for a machine you don&#x2019;t own.</p>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">Branch &#x2014; 01</span><b>Two candidates, not a guess.</b>Asked only when the lookup is genuinely split. The reason is stated, because the cost of choosing wrong is invisible otherwise.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:42</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1" style="font-size:19px">No good match online</p>
+          <p class="a-sub">We found pages, but none of them looked like the owner&#x2019;s manual for this model.</p>
+          <div class="a-card gold">
+            <p class="a-h2" style="font-size:12.5px">Fisher &amp; Paykel keeps its manuals here</p>
+            <p class="a-tiny">fisherpaykel.com &#x2022; search by model</p>
+            <div class="a-btn sm ghost" style="align-self:flex-start;border-color:var(--app-gold);color:var(--app-gold)">Open their site</div>
+          </div>
+          <div class="a-drop" style="padding:15px 10px">
+            <p class="a-h2" style="font-size:12px">Or drop the PDF here</p>
+            <p class="a-tiny">If you already have it</p>
+          </div>
+          <div class="a-btn quiet" style="margin-top:auto">Skip the manual for now</div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">Branch &#x2014; 02 &#x2022; HH-107</span><b>The gate, drawn.</b>When nothing clears the bar we show nothing &#x2014; no parts lists, no results titled &#x201C;Manuals&#x201D;. The brand&#x2019;s own manuals page replaces the list.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:43</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1" style="font-size:19px">This looks like a parts list</p>
+          <p class="a-sub">Parts lists usually have no upkeep in them, so we&#x2019;d find nothing to schedule.</p>
+          <div class="a-card">
+            <div class="a-row"><div class="a-thumb" style="width:38px;height:38px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2h9l4 4v16H6z"/><path d="M15 2v4h4"/></svg></div>
+              <div style="min-width:0"><p class="a-h2" style="font-size:12px">25931-A RF135BDRUX4</p><p class="a-tiny">guaranteedparts.com</p><span class="a-chip gold" style="margin-top:4px">Parts list</span></div></div>
+          </div>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:7px">
+            <div class="a-btn ghost">Find the real manual instead</div>
+            <div class="a-btn quiet">Use it anyway</div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">Branch &#x2014; 03</span><b>Warn <em>and</em> demote &#x2014; the part that was missing.</b>The judgement was always there; what changed is that &#x201C;Use it anyway&#x201D; stopped being the filled green button.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ph"><div class="ph-bar"><span>9:47</span><span>&#x25CF;&#x25CF;&#x25CF;</span></div>
+        <div class="ph-body">
+          <p class="a-h1" style="font-size:19px">The manual was thin</p>
+          <p class="a-sub">We read all 6 pages and found one upkeep job. That&#x2019;s all it says.</p>
+          <div class="a-rail"><p class="a-h2" style="font-size:12px">Replace the water filter</p><p class="a-tiny">Every 6 months &#x2022; page 4</p></div>
+          <div class="a-card">
+            <p class="a-h2" style="font-size:12px">Two things we couldn&#x2019;t work out</p>
+            <div class="a-sel">Type <span>Choose &#x25BE;</span></div>
+            <div class="a-sel">Room <span>Choose &#x25BE;</span></div>
+            <p class="a-tiny">The document didn&#x2019;t say, and we&#x2019;d rather ask than guess.</p>
+          </div>
+          <div style="margin-top:auto;display:flex;gap:7px">
+            <div class="a-btn quiet" style="flex:1;border:1.5px solid var(--app-line2)">Skip</div>
+            <div class="a-btn" style="flex:1.4">Save</div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="cap"><span class="num">Branch &#x2014; 04</span><b>The derivable fields, when nothing could derive them.</b>The count is honest (&#x201C;all 6 pages&#x201D;), and we ask for exactly what&#x2019;s missing rather than reopening the whole form.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================== COMPARE ============================== -->
+<section>
+  <div class="sechead col">
+    <p class="eyebrow">Side by side</p>
+    <h2>The same five routes, as numbers.</h2>
+  </div>
+  <p class="col" style="color:var(--ink-soft)">Taps and fields are counted from the screens above. Times are estimates from the measured parts of the pipeline &#x2014; the product lookup returns in about three seconds, a forty-two page manual takes about four minutes &#x2014; not measurements of these designs, which don&#x2019;t exist yet.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Route</th><th>Screens</th><th>Taps to an item</th><th>Fields before it exists</th>
+          <th>Payoff 1</th><th>Payoff 2 seen?</th><th>Records live</th><th>Biggest risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>A &#x2014; Two fields, then out</th>
+          <td class="num">2</td><td class="num">4</td><td class="num">2</td>
+          <td class="num">~3s, in place</td><td>Only if they return</td><td>Item page, after upkeep</td>
+          <td>Warranty data may never be entered at all.</td>
+        </tr>
+        <tr>
+          <th>B &#x2014; Confirm, then collect</th>
+          <td class="num">4</td><td class="num">6</td><td class="num">2</td>
+          <td class="num">~3s, own screen</td><td>Usually not</td><td>Skippable step 3</td>
+          <td>Longest route; a fourth screen is a fourth chance to quit.</td>
+        </tr>
+        <tr class="pick">
+          <th>C &#x2014; Watch it read</th>
+          <td class="num">4</td><td class="num">5</td><td class="num">2</td>
+          <td class="num">~3s, on the read screen</td><td><strong>Yes &#x2014; live</strong></td><td>Asked last, 4 fields</td>
+          <td>Four minutes is a long time to hold a phone.</td>
+        </tr>
+        <tr>
+          <th>D &#x2014; One screen that grows</th>
+          <td class="num">1</td><td class="num">3</td><td class="num">2</td>
+          <td class="num">~3s, same screen</td><td>Only if they return</td><td>Item page, after upkeep</td>
+          <td>No stepper means no sense of progress; needs the reveal to feel deliberate, not glitchy.</td>
+        </tr>
+        <tr>
+          <th>E &#x2014; Item exists in ten seconds</th>
+          <td class="num">1</td><td class="num">2</td><td class="num">2</td>
+          <td class="num">~10s, item created</td><td>Only if the list gets tapped</td><td>&#x201C;Make this useful&#x201D; list</td>
+          <td>An item with no manual has no upkeep &#x2014; activation becomes opt-in.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cards2">
+    <div class="mini"><span class="tag">HH-107</span><h4>Bad results shown anyway</h4><p>Answered by the branch, not by a route: a confidence gate, the brand&#x2019;s own page as the fallback, and &#x201C;Use it anyway&#x201D; demoted out of primary.</p></div>
+    <div class="mini"><span class="tag">HH-108</span><h4>Can&#x2019;t exit the preview</h4><p>Not a flow problem. The shared sheet&#x2019;s close target goes to 44&#x202F;px and every sheet gets a real Done. Ships on its own.</p></div>
+    <div class="mini"><span class="tag">HH-109</span><h4>Upload tab split from its drop zone</h4><p>A and B put the alternates below as quiet lines. D and E fuse them into one control directly above its panel &#x2014; structurally unable to recur.</p></div>
+    <div class="mini"><span class="tag">HH-110</span><h4>Screen 1 is too long</h4><p>Every route opens with two fields and nothing else. No disclosure to open, because there is nothing behind it.</p></div>
+    <div class="mini"><span class="tag">HH-111</span><h4>Warranty fields missing</h4><p>Four routes give them a named home; B and C group them under what they&#x2019;re for. The dead Purchase step and its false comment go either way.</p></div>
+    <div class="mini"><span class="tag">HH-112</span><h4>Name defaults to brand + model</h4><p>Gone from all five: the item is named by what it is and where it lives. The model number stays on the record, not on the name.</p></div>
+  </div>
+
+  <div class="verdict">
+    <p class="eyebrow">If you want one</p>
+    <h3>C for the flow, D for the first screen.</h3>
+    <p>You named the activation metric as seeing the parsed information of the correct item. <strong>C is the only route where that actually happens in front of the user</strong> &#x2014; every other route hands the moment to a notification and hopes they come back. It also asks the fewest questions, and asks them last, when the manual has already answered most of them.</p>
+    <p>Its risk is real and I would not paper over it: nobody watches a progress bar for four minutes. That is why C&#x2019;s read screen has to earn the wait with findings that arrive one at a time, and why the exit is on screen throughout &#x2014; leaving must feel like a choice, not a failure.</p>
+    <p style="margin-bottom:0">What I&#x2019;d take from D is the opening: one screen that grows, no stepper, button live the moment we have enough. Combine them and the flow is <em>type two things &#x2192; attach the manual &#x2192; watch it read &#x2192; one review</em>, with the four unknowable fields offered at the end and skippable.</p>
+    <div class="answers">
+      <span>Entry: brand + model, typed</span>
+      <span>Payoff: staged</span>
+      <span>Records: off-wizard (A, D) &#x2022; skippable (B, E) &#x2022; asked last (C)</span>
+      <span>Wait: varies by route</span>
+    </div>
+  </div>
+</section>
+
+<p class="foot">Homehub &#x2022; add an item &#x2022; five routes &#x2022; 24 Aug 2026 &#x2022; nothing built yet</p>
+
+</div>

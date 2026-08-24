@@ -56,20 +56,48 @@ describe("TaskReviewSheet — maintenance focus", () => {
     expect(screen.queryByText("Step 1 of 2 · What each task is")).not.toBeInTheDocument()
   })
 
-  it("lists maintenance only, and says where the cleaning went", () => {
+  it("lists maintenance only, and accounts for everything it did not show", () => {
     renderSheet()
     expect(screen.getByText("Inspect vent ductwork")).toBeInTheDocument()
     expect(screen.getByText("Clean the moisture sensors")).toBeInTheDocument()
     // Scheduled cleaning is real work — it just lives in the guides.
     expect(screen.queryByText("Clean the drum")).not.toBeInTheDocument()
-    expect(screen.getByText(/2 cleaning jobs stay in your guides/)).toBeInTheDocument()
+    // Round 11: the sentence about where it went became a folded row, so the
+    // count is visible without the list being. Same promise, one line.
+    expect(screen.getByText(/more, already saved/)).toBeInTheDocument()
+    expect(screen.getByText(/cleaning/)).toBeInTheDocument()
     // A setup step has no cadence to choose, so it is not on this screen either.
     expect(screen.queryByText("Remove shipping bolts")).not.toBeInTheDocument()
   })
 
-  it("keeps the full review one tap away", () => {
+  it("keeps everything it hid behind ONE disclosure, not a dead end", () => {
     renderSheet()
-    fireEvent.click(screen.getByRole("button", { name: "Review everything" }))
+    // Hidden until asked for (owner, round 11) — but named, and one tap opens it.
+    expect(screen.queryByText("Clean the drum")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /more, already saved/ }))
+    expect(screen.getByText("Clean the drum")).toBeInTheDocument()
+    expect(screen.getByText("Remove shipping bolts")).toBeInTheDocument()
+  })
+
+  it("can reclassify a hidden task, which is what decides whether it reminds", () => {
+    renderSheet()
+    fireEvent.click(screen.getByRole("button", { name: /more, already saved/ }))
+    // "Change" turns the row into the three buckets, with the current one on.
+    const changeButtons = screen.getAllByRole("button", { name: "Change" })
+    fireEvent.click(changeButtons[0])
+    const upkeep = screen.getByRole("button", { name: "Upkeep" })
+    expect(upkeep).toHaveAttribute("aria-pressed", "false")
+    fireEvent.click(upkeep)
+    // Promoted out of the folded list and into the reviewed one above, where it
+    // gets a cadence and a reminder switch.
+    expect(screen.getByText("Clean the drum")).toBeInTheDocument()
+    expect(screen.getByRole("switch", { name: /Clean the drum/ })).toBeInTheDocument()
+  })
+
+  it("keeps the full review reachable, now from inside the disclosure", () => {
+    renderSheet()
+    fireEvent.click(screen.getByRole("button", { name: /more, already saved/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Review them all" }))
     expect(screen.getByText("Step 1 of 2 · What each task is")).toBeInTheDocument()
     expect(screen.getByText("Clean the drum")).toBeInTheDocument()
   })
