@@ -187,11 +187,14 @@ test.describe("emulator e2e — the wizard ends at the manual", () => {
     await page.getByRole("button", { name: /Appliance or device/ }).click()
     await page.locator("#identify-brand").fill("Emu")
     await page.locator("#identify-model").fill("PR1-9000")
-    // The appliance lane's CTA names its destination; the simple lane's is "Add item".
-    await page.getByRole("button", { name: /Next: add the manual/i }).filter(visible).first().click()
+    // The appliance lane's CTA names its destination; the simple lane's is
+    // "Add item". Round 11 dropped the "Next:" prefix so the button and the
+    // title of the screen it opens are the same words.
+    await page.getByRole("button", { name: /^Add the manual$/i }).filter(visible).first().click()
 
-    // Step 2 of 2 — and there is no step 3.
-    await expect(page.getByText("Add Manual").first()).toBeVisible({ timeout: 15_000 })
+    // Step 2 of 2 — and there is no step 3. The heading is the button's words.
+    await expect(page.getByRole("heading", { name: /^Add the manual$/i }).filter(visible).first())
+      .toBeVisible({ timeout: 15_000 })
     await expect(page.getByText("Reading", { exact: true })).toHaveCount(0)
     await expect(page.getByText("Purchase", { exact: true })).toHaveCount(0)
 
@@ -202,7 +205,9 @@ test.describe("emulator e2e — the wizard ends at the manual", () => {
       mimeType: "application/pdf",
       buffer: TINY_PDF,
     })
-    await page.getByRole("button", { name: /Analyze Manual/i }).filter(visible).first().click()
+    // Scan, never parse (jargon) and never read (which would suggest we are
+    // opening the manual for the user to read).
+    await page.getByRole("button", { name: /Scan the manual/i }).filter(visible).first().click()
 
     // The handoff: parse enqueued, wizard gone, item page showing.
     await expect(page).toHaveURL(/\/items\//, { timeout: 30_000 })
