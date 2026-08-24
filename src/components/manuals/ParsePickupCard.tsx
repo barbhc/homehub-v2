@@ -306,6 +306,13 @@ export function ParsePickupCard({
           // The one review this flow asks for. Cleaning, setup and tips are
           // saved and shown on the page; only upkeep needs a decision here.
           focus="maintenance"
+          // Round 11: in the flow it is a SECTION of the page; out of the flow
+          // it is a drawer. `watchedRunning` already knows which — it holds the
+          // manuals whose scan we sat and watched. Someone who stayed is still
+          // in the flow and should not be handed something to dismiss; someone
+          // who left and came back is already somewhere on this page, and
+          // sliding the review over that genuinely IS a detour.
+          presentation={watchedRunning.current.has(manualId) ? "inline" : "sheet"}
           saving={draftSaving}
           onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[]) => {
             setDraftSaving(true)

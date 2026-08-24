@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Loader2Icon, BellRingIcon } from "lucide-react"
 import {
   reviewBucketFor,
@@ -237,6 +238,18 @@ const displayKind = (r: ReviewRow): KindChoice =>
 const remindsOfRow = (r: ReviewRow): boolean => willNotify(taskLikeOf(r))
 
 interface TaskReviewSheetProps {
+  /**
+   * Round 11 (owner): "Why is this pulling up from the bottom? Can the review
+   * tasks view look like it's part of the page — unless the user comes back
+   * later, and this is from the bottom drawer."
+   *
+   * In the flow it is a section: same header, same bottom bar, nothing to
+   * dismiss — which also removes HH-108's tiny close target from this path
+   * entirely, because there is nothing to close. Out of the flow, someone is
+   * already somewhere on the item page and sliding this over that IS a detour,
+   * so it stays a drawer and looks like one.
+   */
+  presentation?: "sheet" | "inline"
   open: boolean
   onOpenChange: (open: boolean) => void
   itemName: string
@@ -256,6 +269,7 @@ interface TaskReviewSheetProps {
 
 export function TaskReviewSheet({
   open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, focus = "all",
+  presentation = "sheet",
 }: TaskReviewSheetProps) {
   const initial = useMemo(() => rowsFrom(previewData), [previewData])
   const [rows, setRows] = useState<ReviewRow[]>(initial)
@@ -592,11 +606,17 @@ export function TaskReviewSheet({
     )
   }
 
+  const inline = presentation === "inline"
+  const Frame = inline ? InlineFrame : SheetFrame
+  const Head = inline ? InlineHeader : SheetHeader
+  const Title = inline ? InlineTitle : SheetTitle
+
+  if (inline && !open) return null
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[92dvh] flex flex-col p-0 gap-0">
-        <SheetHeader className="px-4 pt-3 pb-2 border-b">
-          <SheetTitle className="text-[17px] font-extrabold tracking-[-0.02em]">{itemName}</SheetTitle>
+    <Frame open={open} onOpenChange={onOpenChange}>
+        <Head className={inline ? "pb-2 border-b" : "px-4 pt-3 pb-2 border-b"}>
+          <Title className="text-[17px] font-extrabold tracking-[-0.02em]">{itemName}</Title>
           {/* HH-35: was 10.5px mono. Mono is right for serials/counts/dates
               (design/README.md) but this is a sentence, and at 10.5px it was
               under the readable floor for secondary text. */}
@@ -609,7 +629,7 @@ export function TaskReviewSheet({
                   ? nothingToSchedule ? "What we found in this manual" : "Maintenance · how often & reminders"
                   : "Step 2 of 2 · How often"}
           </div>
-        </SheetHeader>
+        </Head>
 
         {/* HH-35: px-3 put body copy 12px from the edge while the rows inside
             sat further in — which is what read as "text too close to the sides".
@@ -629,7 +649,7 @@ export function TaskReviewSheet({
           )}
           {step === 2 ? (
             <StepTwo rows={rows} cadOpenId={cadOpenId} setCadOpenId={setCadOpenId} patch={patch}
-              bucketOfRow={bucketOfRow} focus={focus}
+              bucketOfRow={bucketOfRow} focus={focus} setKind={setKind}
               onReviewEverything={() => { setStep(1); scrollRef.current?.scrollTo?.({ top: 0 }) }} />
           ) : guideRow ? (
             <>
@@ -797,9 +817,35 @@ export function TaskReviewSheet({
           </>
           )}
         </div>
+    </Frame>
+  )
+}
+
+/** The drawer, for someone who left and came back. */
+function SheetFrame({
+  open, onOpenChange, children,
+}: { open: boolean; onOpenChange: (o: boolean) => void; children: React.ReactNode }) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-[92dvh] flex flex-col p-0 gap-0">
+        {children}
       </SheetContent>
     </Sheet>
   )
+}
+
+/** The in-flow version: a section of the item's own page. No overlay, no close
+ *  button, no dismissal — it is simply what the page says next. */
+function InlineFrame({ children }: { children: React.ReactNode }) {
+  return <section className="flex flex-col gap-0">{children}</section>
+}
+
+function InlineHeader({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <header className={cn("flex flex-col gap-1.5", className)}>{children}</header>
+}
+
+function InlineTitle({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <h2 className={cn("text-foreground", className)}>{children}</h2>
 }
 
 function PriorityDot({ tier }: { tier: PriorityTier }) {
@@ -848,7 +894,7 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
 }
 
 function StepTwo({
-  rows, cadOpenId, setCadOpenId, patch, bucketOfRow, focus = "all", onReviewEverything,
+  rows, cadOpenId, setCadOpenId, patch, bucketOfRow, focus = "all", onReviewEverything, setKind,
 }: {
   rows: ReviewRow[]
   cadOpenId: string | null
@@ -857,6 +903,9 @@ function StepTwo({
   bucketOfRow: (r: ReviewRow) => ReviewBucket
   focus?: "maintenance" | "all"
   onReviewEverything?: () => void
+  /** Reclassifying from the folded section reuses step 1's logic, which knows
+   *  that Setup is a schedule fact and that leaving it needs a cadence. */
+  setKind?: (r: ReviewRow, choice: KindChoice) => void
 }) {
   const onSchedule = rows.filter((r) => r.included && isScheduled(bucketOfRow(r)))
   // Cleaning that repeats is still scheduled work, but it lives in the guides
@@ -864,7 +913,6 @@ function StepTwo({
   const scheduled = focus === "maintenance"
     ? onSchedule.filter((r) => r.kind === "maintenance")
     : onSchedule
-  const setAside = onSchedule.length - scheduled.length
 
   if (!scheduled.length) {
     // A manual with nothing to schedule is NOT an empty screen. A tester's air
@@ -910,29 +958,19 @@ function StepTwo({
   }
   return (
     <>
-      {/* Said once, up front. A tester left feedback asking for a way to change
-          the frequency, then found this screen a step later and asked to be
-          TOLD it was coming. Reassurance is cheaper than the wrong decision it
-          prevents. */}
-      <div className="text-[11.5px] text-muted-foreground mb-3">
-        Pick what fits how you actually use it — you can change any of these later
-        from the item's page.
+      {/* Round 11: this opened with four stacked explanatory lines at 11.5, 13,
+          11.5 and 11.5px — "a lot of small text with no sense of hierarchy".
+          Six sizes on one screen is the same as having none. Now: a title, one
+          sub, and the rest of the screen says it by being laid out properly.
+          The reassurance a tester asked for is still here, in the sub. */}
+      <div className="mb-4">
+        <h3 className="text-[17px] font-semibold tracking-[-0.015em]">
+          Keep an eye on {scheduled.length} thing{scheduled.length === 1 ? "" : "s"}
+        </h3>
+        <p className="mt-1 text-[14px] leading-snug text-muted-foreground">
+          Set how often, and whether we remind you. You can change these any time.
+        </p>
       </div>
-      <div className="text-[13px] mb-1">How often should these repeat?</div>
-      {focus === "maintenance" && (
-        <p className="text-[11.5px] text-muted-foreground mb-3">
-          Reminders are on for Essential work and off for the rest. Change any of them here.
-        </p>
-      )}
-      {setAside > 0 && onReviewEverything && (
-        <p className="text-[11.5px] text-muted-foreground mb-1">
-          {setAside} cleaning {setAside === 1 ? "job" : "jobs"} stay in your guides.{" "}
-          <button type="button" onClick={onReviewEverything}
-            className="font-bold underline underline-offset-2 text-primary">
-            Review everything
-          </button>
-        </p>
-      )}
       {(["essential", "recommended", "optional"] as const).map((tier) => {
         const items = scheduled.filter((r) => r.tier === tier)
         if (!items.length) return null
@@ -1069,6 +1107,140 @@ function StepTwo({
           </div>
         )
       })}
+
+      {/* Round 11: "Allow users to see the cleaning tasks and setup tasks and
+          reclassify them here. But keep them hidden unless the user explicitly
+          wants to see them."
+
+          Everything below is already SAVED and reminds nobody, so it is one
+          line until asked for. What earns the disclosure is the reclassify:
+          the bucket is what decides whether anything ever reminds you, so
+          moving something to Upkeep promotes it into the reviewed list above
+          rather than quietly relabelling it. */}
+      <OtherFound rows={rows} scheduled={scheduled} setKind={setKind} onReviewEverything={onReviewEverything} />
     </>
+  )
+}
+
+const OTHER_CHOICES: { id: KindChoice; label: string }[] = [
+  { id: "cleaning", label: "Cleaning" },
+  { id: "maintenance", label: "Upkeep" },
+  { id: "setup", label: "Setup" },
+]
+
+function OtherFound({
+  rows, scheduled, setKind, onReviewEverything,
+}: {
+  rows: ReviewRow[]
+  scheduled: ReviewRow[]
+  setKind?: (r: ReviewRow, choice: KindChoice) => void
+  onReviewEverything?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [changingId, setChangingId] = useState<string | null>(null)
+
+  const onScreen = new Set(scheduled.map((r) => r.id))
+  const others = rows.filter((r) => r.included && !onScreen.has(r.id))
+  if (!others.length) return null
+
+  const counts = others.reduce<Record<string, number>>((acc, r) => {
+    const k = displayKind(r)
+    acc[k] = (acc[k] ?? 0) + 1
+    return acc
+  }, {})
+  const summary = OTHER_CHOICES.concat({ id: "tip" as KindChoice, label: "Tip" })
+    .filter((c) => counts[c.id])
+    .map((c) => `${counts[c.id]} ${c.label.toLowerCase()}`)
+    .join(" · ")
+
+  return (
+    <div className="mt-5">
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3.5 text-left"
+        >
+          <span className="min-w-0">
+            <span className="block text-[15px] font-semibold">
+              {others.length} more, already saved
+            </span>
+            <span className="mt-0.5 block text-[12px] text-muted-foreground">
+              {summary} · no reminders
+            </span>
+          </span>
+          <span className="shrink-0 text-[14px] font-semibold text-primary">Show</span>
+        </button>
+      ) : (
+        <div>
+          <div className="mb-2 flex items-baseline justify-between gap-3">
+            <h3 className="text-[17px] font-semibold tracking-[-0.015em]">
+              {others.length} more, already saved
+            </h3>
+            <button type="button" onClick={() => setOpen(false)}
+              className="shrink-0 text-[14px] font-semibold text-primary">
+              Hide
+            </button>
+          </div>
+          <p className="mb-3 text-[14px] leading-snug text-muted-foreground">
+            Nothing reminds you about these. Change one if it belongs somewhere else.
+          </p>
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            {others.map((r) => {
+              const kind = displayKind(r)
+              const isChanging = changingId === r.id
+              return (
+                <div key={r.id}
+                  className="border-t border-border px-4 py-3 first:border-t-0"
+                  style={isChanging ? { background: "var(--hh-teal-wash)" } : undefined}>
+                  <div className="flex items-center gap-3">
+                    <span aria-hidden="true" className="w-[3px] self-stretch min-h-[22px] shrink-0 rounded-full"
+                      style={{ background: TIER_RAIL[r.tier] ?? "var(--hh-slate)" }} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-semibold">{r.title}</span>
+                      <span className="mt-0.5 block text-[12px] text-muted-foreground">
+                        {OTHER_CHOICES.find((c) => c.id === kind)?.label ?? "Tip"} · {cadOf(r)}
+                      </span>
+                    </span>
+                    {setKind && (
+                      <button type="button"
+                        onClick={() => setChangingId(isChanging ? null : r.id)}
+                        aria-expanded={isChanging}
+                        className="shrink-0 text-[14px] font-semibold text-primary">
+                        {isChanging ? "Done" : "Change"}
+                      </button>
+                    )}
+                  </div>
+                  {isChanging && setKind && (
+                    <div className="mt-2.5 flex flex-wrap gap-2 pl-[15px]">
+                      {OTHER_CHOICES.map((c) => (
+                        <button key={c.id} type="button"
+                          aria-pressed={kind === c.id}
+                          onClick={() => { setKind(r, c.id); setChangingId(null) }}
+                          className="rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors"
+                          style={kind === c.id
+                            ? { borderColor: "var(--hh-teal)", background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }
+                            : { borderColor: "var(--hh-line2)", color: "var(--hh-sub)" }}>
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {onReviewEverything && (
+            <p className="mt-2.5 text-[13px] text-muted-foreground">
+              Need more than the bucket changed?{" "}
+              <button type="button" onClick={onReviewEverything}
+                className="font-semibold underline underline-offset-2 text-primary">
+                Review them all
+              </button>
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
