@@ -630,7 +630,7 @@ export function TaskReviewSheet({
           {step === 2 ? (
             <StepTwo rows={rows} cadOpenId={cadOpenId} setCadOpenId={setCadOpenId} patch={patch}
               bucketOfRow={bucketOfRow} focus={focus}
-              onReviewEverything={() => { setStep(1); scrollRef.current?.scrollTo({ top: 0 }) }} />
+              onReviewEverything={() => { setStep(1); scrollRef.current?.scrollTo?.({ top: 0 }) }} />
           ) : guideRow ? (
             <>
               {/* Back, because the walkthrough was one-way: "There's no way to go
@@ -643,7 +643,7 @@ export function TaskReviewSheet({
                   disabled={guideIndex === 0}
                   onClick={() => {
                     setGuideIndex(Math.max(0, guideIndex! - 1))
-                    scrollRef.current?.scrollTo({ top: 0 })
+                    scrollRef.current?.scrollTo?.({ top: 0 })
                   }}
                   className="text-[12.5px] font-semibold text-muted-foreground px-1.5 py-1 disabled:opacity-40"
                 >
@@ -662,7 +662,7 @@ export function TaskReviewSheet({
                 onNext: () => {
                   const next = guideIndex! + 1
                   if (next >= rows.length) { setGuideIndex(null); setWalked(true) } else setGuideIndex(next)
-                  scrollRef.current?.scrollTo({ top: 0 })
+                  scrollRef.current?.scrollTo?.({ top: 0 })
                 },
               })}
             </>
@@ -695,7 +695,7 @@ export function TaskReviewSheet({
                   </>
                 )}
                 <div className="mt-2.5">
-                  <button type="button" onClick={() => { setGuideIndex(0); scrollRef.current?.scrollTo({ top: 0 }) }}
+                  <button type="button" onClick={() => { setGuideIndex(0); scrollRef.current?.scrollTo?.({ top: 0 }) }}
                     className="rounded-xl bg-primary px-3.5 py-2.5 text-[12.5px] font-bold text-primary-foreground">
                     Go through them one by one{walked ? " again" : ""} →
                   </button>
@@ -774,11 +774,11 @@ export function TaskReviewSheet({
           ) : (
           <>
           {step === 2 && focus !== "maintenance" && (
-            <Button variant="ghost" onClick={() => { setStep(1); scrollRef.current?.scrollTo({ top: 0 }) }}>‹ Back</Button>
+            <Button variant="ghost" onClick={() => { setStep(1); scrollRef.current?.scrollTo?.({ top: 0 }) }}>‹ Back</Button>
           )}
           <Button className="flex-1 font-bold" disabled={saving} onClick={() => {
             if (step === 1 && counts.scheduled > 0) {
-              setGuideIndex(null); setWalked(true); setStep(2); scrollRef.current?.scrollTo({ top: 0 })
+              setGuideIndex(null); setWalked(true); setStep(2); scrollRef.current?.scrollTo?.({ top: 0 })
             } else void handleSave()
           }}>
             {saving && <Loader2Icon className="size-4 mr-2 animate-spin" />}

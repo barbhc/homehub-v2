@@ -590,7 +590,7 @@ export function ManualSection({
                 <div>
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Label htmlFor="manual-url">URL</Label>
-                    <InfoTooltip message="Some manufacturer websites require a login session to serve PDFs and will return an error when parsed. If parsing fails, download the PDF and upload it directly instead." />
+                    <InfoTooltip message="Some manufacturer websites require a login session to serve PDFs and will return an error when scanned. If the scan fails, download the PDF and upload it directly instead." />
                   </div>
                   <Input
                     id="manual-url"
@@ -703,7 +703,7 @@ export function ManualSection({
             <Button onClick={handleAddManual} disabled={addLoading}>
               {addLoading && <Loader2Icon className="size-4 mr-2 animate-spin" />}
               {parsePhase
-                ? addRole === "reference" ? "Ingesting..." : "Parsing manual..."
+                ? addRole === "reference" ? "Ingesting..." : "Scanning manual..."
                 : "Add"}
             </Button>
           </DialogFooter>

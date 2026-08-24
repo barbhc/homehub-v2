@@ -1256,10 +1256,10 @@ export function IdentifyStep({
           ) : (
             // HH-23 / owner direction: name the DESTINATION, not the record.
             // "Add item" made this screen feel like the point; the manual is
-            // the point, and it is the next screen. Deliberately NOT "find the
-            // manual" — the beta's default is the owner uploading their own,
-            // and the automatic search stays behind its labelled beta panel.
-            mode === "appliance" ? "Next: add the manual" : "Add item"
+            // the point, and it is the next screen. Round 11: dropped the
+            // "Next:" prefix so the button and the title of the screen it opens
+            // are the SAME words — an action keeps its name through the flow.
+            mode === "appliance" ? "Add the manual" : "Add item"
           )}
         </Button>
       </div>

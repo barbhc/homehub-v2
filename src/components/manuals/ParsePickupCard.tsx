@@ -35,8 +35,8 @@ function maintenanceCount(draft: PreviewResult): number {
 
 const STAGE_LINE: Record<string, string> = {
   uploading: "Starting…",
-  queued: "Waiting for a parsing slot…",
-  reading: "Reading the document end to end…",
+  queued: "Waiting for a scanning slot…",
+  reading: "Scanning the document end to end…",
   extracting: "Pulling out care steps and schedules…",
   saving: "Saving results to your home…",
 }
@@ -197,7 +197,7 @@ export function ParsePickupCard({
           <p className="text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
             {/* The page count is the one concrete thing we know mid-parse, and
                 it turns an indefinite wait into a job with a size. */}
-            Reading your manual{active[1].pages ? ` · ${active[1].pages} pages` : ""}
+            Scanning your manual{active[1].pages ? ` · ${active[1].pages} pages` : ""}
           </p>
           <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
             {STAGE_LINE[ui] ?? "Working…"} You can leave this page — we'll keep going.

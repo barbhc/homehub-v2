@@ -120,8 +120,16 @@ describe("the shortest path to a parsed manual", () => {
   it("names the destination on the button, and it is not an automatic search", () => {
     // The beta's default is the owner adding their own manual; the automatic
     // search stays behind its labelled beta panel.
-    expect(identify).toContain('"Next: add the manual"')
+    expect(identify).toContain('"Add the manual"')
     expect(identify).not.toContain('"Find the manual"')
+  })
+
+  it("gives the button and the screen it opens the SAME words", () => {
+    // Round 11: was "Next: add the manual" over a page titled "Add item", so
+    // the action changed its name mid-flow. An action keeps one name from the
+    // control that starts it to the screen that finishes it.
+    expect(identify).toContain('"Add the manual"')
+    expect(page).toContain('step === "manual" ? "Add the manual"')
   })
 
   it("fills the room in from the item type instead of asking cold", () => {

@@ -33,6 +33,10 @@ import {
   type WizardStep,
 } from "@/lib/wizardSession"
 import { markParsePending } from "@/lib/parsePickup"
+import { composeItemName } from "@/lib/itemName"
+import { categoryLabel } from "@/lib/categoryLabel"
+import { getRooms } from "@/modules/home"
+import { getItemUnits } from "@/modules/items"
 import { subTypeToLegacyApplianceTypeId } from "@/modules/inventory/constants/itemCategories"
 
 type ManualClassificationGate = {
@@ -190,14 +194,26 @@ export default function SmartAddItem() {
     setActionLoading(true)
     // Firestore item (homes/{homeId}/items): `category` is the specific type
     // slug (matches sub_type); the RoomSelector's locationId is a room id.
-    // HH-23: the name is no longer asked for up front, so compose one when it
-    // is blank. Brand + model is a better first name than anything typed before
-    // the manual is read, and the parse improves it from there. "Item" is the
-    // last resort so a save can never fail for want of a display name.
-    const composedName =
-      identifyData.name.trim() ||
-      [identifyData.brand.trim(), identifyData.model.trim()].filter(Boolean).join(" ") ||
-      "Item"
+    // Round 11: the name is the KIND of thing — "Refrigerator", not
+    // "Fisher & Paykel RF135BDRUX4". The room is appended ONLY when the plain
+    // type is already taken in this home, so a kitchen full of items doesn't
+    // read "Kitchen… Kitchen… Kitchen…". Rules and fallbacks live in
+    // composeItemName; both reads are needed to answer "is this name taken".
+    const [existing, rooms] = await Promise.all([
+      getItemUnits(propertyId),
+      getRooms(propertyId),
+    ])
+    const composedName = composeItemName({
+      typed: identifyData.name,
+      typeLabel: categoryLabel({
+        item_category: identifyData.itemCategory,
+        sub_type: identifyData.subType,
+      }),
+      brand: identifyData.brand,
+      model: identifyData.model,
+      room: rooms.data?.find((r) => r.room_id === identifyData.locationId)?.name ?? null,
+      existingNames: (existing.data ?? []).map((i) => i.display_name),
+    })
     const result = await createItemUnit({
       home_id: propertyId,
       room_id: identifyData.locationId,
@@ -518,12 +534,12 @@ export default function SmartAddItem() {
           ? "Brand and model — then we'll add the manual."
           : "A name is enough to start. Details can come later."
       : step === "manual"
-        ? "The manual is where this item's upkeep comes from."
+        ? "This is where the upkeep comes from."
         : undefined
 
   return (
     <PageContainer>
-      <PageHeader title="Add item" subtitle={stepSubtitle} />
+      <PageHeader title={step === "manual" ? "Add the manual" : "Add an item"} subtitle={stepSubtitle} />
 
       <Stepper
         currentStep={step}

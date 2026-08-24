@@ -55,7 +55,7 @@ const PROGRESS_ORDER: ParseProgressState[] = [
 const STAGE_SUBCOPY: Record<ParseProgressState, string> = {
   idle: "",
   uploading: "Sending your manual securely…",
-  queued: "Waiting for a parsing slot — this is fine, we'll start shortly.",
+  queued: "Waiting for a scanning slot — this is fine, we'll start shortly.",
   reading: "Reading the document end to end. This takes 2–4 minutes for a full manual.",
   extracting: "Pulling out care steps, schedules, and troubleshooting tips…",
   saving: "Saving results to your home. Almost there.",
@@ -113,7 +113,7 @@ export function ParseProgressStep({ progress, parsedChunks, parsedTasks, onConti
           Manual Analysis
         </p>
         <h2 className="font-display text-2xl font-semibold text-white leading-snug">
-          {isDone ? "Analysis complete" : isError ? "Couldn't finish" : "Reading your manual…"}
+          {isDone ? "Scan complete" : isError ? "Couldn't finish" : "Scanning your manual…"}
         </h2>
         <p className="text-sm text-white/50 mt-1">{STAGE_SUBCOPY[progress]}</p>
         {isWorking && elapsed >= 60 && (

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { DateField } from "@/components/ui/date-field"
+import { StoreField } from "@/components/ui/store-field"
 import { updateItemUnit, type UpdateItemUnitInput } from "@/modules/items"
 import { warrantyExpiry } from "@/lib/warrantyWindow"
 import type { ItemUnit, Room } from "@/integrations/types"
@@ -41,7 +43,7 @@ const NO_ROOM = "__none__"
  * Saves ONE update: partial data is normal here and half of it landing is not.
  */
 export function ItemDetailsSheet({
-  open, onOpenChange, item, rooms, homeId, onItemUpdate,
+  open, onOpenChange, item, rooms, homeId, onItemUpdate, storeHistory = [],
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -49,6 +51,9 @@ export function ItemDetailsSheet({
   rooms: Room[]
   homeId: string
   onItemUpdate?: (item: ItemUnit) => void
+  /** Every `store_name` on this home's items, so the field can offer back the
+   *  spelling already in use instead of collecting three of them. */
+  storeHistory?: readonly (string | null | undefined)[]
 }) {
   const [roomId, setRoomId] = useState(item.room_id ?? NO_ROOM)
   const [serial, setSerial] = useState(item.serial_number ?? "")
@@ -102,7 +107,8 @@ export function ItemDetailsSheet({
         <SheetHeader>
           <SheetTitle>Details &amp; records</SheetTitle>
           <SheetDescription>
-            Fill in what you know — everything here is optional, and blanks stay hidden on the item page.
+            Purchase details are important for warranty and insurance claims. Everything here is
+            optional, and blanks stay hidden on the item page.
           </SheetDescription>
         </SheetHeader>
 
@@ -128,8 +134,8 @@ export function ItemDetailsSheet({
 
           <div>
             <Label htmlFor="details-purchased">Date purchased</Label>
-            <Input id="details-purchased" type="date" value={purchaseDate}
-              onChange={(e) => setPurchaseDate(e.target.value)} className="mt-1" />
+            <DateField id="details-purchased" value={purchaseDate}
+              onChange={setPurchaseDate} className="mt-1" />
           </div>
 
           <div>
@@ -156,9 +162,9 @@ export function ItemDetailsSheet({
           </div>
 
           <div>
-            <Label htmlFor="details-store">Store</Label>
-            <Input id="details-store" value={store} onChange={(e) => setStore(e.target.value)}
-              placeholder="e.g. Home Depot, Costco" className="mt-1" />
+            <Label htmlFor="details-store">Where you bought it</Label>
+            <StoreField id="details-store" value={store} onChange={setStore}
+              homeEntries={storeHistory} className="mt-1" />
           </div>
         </div>
 
