@@ -34,6 +34,7 @@ import {
 } from "@/lib/wizardSession"
 import { markParsePending } from "@/lib/parsePickup"
 import { resumeSummary } from "@/lib/resumeSummary"
+import { isCapacityRefusal, queueScan } from "@/lib/scanCapacity"
 import { composeItemName } from "@/lib/itemName"
 import { categoryLabel } from "@/lib/categoryLabel"
 import { getRooms } from "@/modules/home"
@@ -308,6 +309,12 @@ export default function SmartAddItem() {
         // Enqueue failed — the manual is attached but nothing is reading it.
         // Say so here rather than dropping them on a page that will never
         // change.
+        // HH-124: a ceiling is not a lost manual. Record it so the app can
+        // start the scan the next time it is opened with capacity available —
+        // the manual itself is already saved either way.
+        if (isCapacityRefusal(started.error) && itemId) {
+          queueScan(firstManualId, itemId, Date.now())
+        }
         setError(started.error)
         setStep("manual")
         return
@@ -539,7 +546,9 @@ export default function SmartAddItem() {
       ? identifyMode === "choice"
         ? undefined
         : identifyMode === "appliance"
-          ? "Brand and model. We'll take it from there."
+          // HH-123: name BOTH routes before either is used, so the choice is
+          // known before the fields are even looked at.
+          ? "Type the brand and model — or scan the label and we'll read it."
           : "A name is enough to start. Details can come later."
       : step === "manual"
         ? "This is where the upkeep comes from."

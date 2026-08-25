@@ -70,11 +70,15 @@ describe("purchase details belong to the item page, not the wizard", () => {
 })
 
 describe("finding the model another way", () => {
-  it("is one labelled disclosure, not three floating buttons", () => {
-    // Round 11 reworded the label to the approved copy; the claim is that the
-    // alternate routes sit behind ONE disclosure, not that it is called this.
-    expect(identify).toContain("Can&apos;t find the model?")
+  it("keeps the RARER routes behind one disclosure, not floating loose", () => {
+    // Round 13 promoted ONE route (scanning the label) out of this disclosure —
+    // see the type-or-scan block below. What stays behind it is the photo
+    // library and the no-model-number escape, and it is no longer named for
+    // having failed.
+    expect(identify).toContain("More ways to identify it")
+    expect(identify).not.toContain("Can&apos;t find the model?")
     expect(identify).not.toContain("Snap label instead")
+    expect(identify).toContain("Choose a photo")
   })
 
   it("calls the photo library a photo library", () => {
@@ -204,9 +208,43 @@ describe("the appliance lane's first screen is two fields and nothing else", () 
     expect(page).not.toContain("stepperMode")
   })
 
-  it("uses the approved subtitle", () => {
-    expect(page).toContain("Brand and model. We'll take it from there.")
+  it("uses the approved subtitle, which names BOTH routes", () => {
+    // HH-123: the option has to be known before the fields are looked at.
+    expect(page).toContain("Type the brand and model — or scan the label and we'll read it.")
     expect(page).not.toContain("Brand and model — then we'll add the manual.")
+  })
+})
+
+/**
+ * HH-123 — typing and scanning are two ways to say the same thing.
+ *
+ * The camera used to sit behind a disclosure called "Can't find the model?",
+ * which frames it as what you do AFTER FAILING — so someone perfectly happy to
+ * point a phone at a nameplate never considered it, having failed at nothing.
+ */
+describe("two ways to give us the brand and model", () => {
+  it("shows the scan without opening anything", () => {
+    expect(identify).toContain("Scan the label")
+    // Promoted OUT of the disclosure: it must not be inside the otherWaysOpen
+    // branch any more.
+    const disclosure = identify.slice(identify.indexOf("More ways to identify it"))
+    expect(disclosure).not.toContain("Scan the label")
+  })
+
+  it("puts an explicit 'or' between the fields and the camera", () => {
+    // Spacing alone does not say "these are alternatives". A rule with the word
+    // in it does.
+    expect(identify).toContain('<span className="text-xs font-semibold text-muted-foreground">or</span>')
+  })
+
+  it("says the scan FILLS the fields rather than skipping them", () => {
+    // This is the sentence that makes the two routes obviously the same
+    // information, and the reason the CTA can stay gated on the fields.
+    expect(identify).toContain("We&apos;ll fill both fields from the nameplate")
+  })
+
+  it("still gates the button on the fields, not on having taken a photo", () => {
+    expect(identify).toContain("data.brand.trim().length >= 2 && data.model.trim().length >= 1")
   })
 })
 

@@ -71,10 +71,16 @@ function DialogContent({
         {...props}
       >
         {children}
-        {showCloseButton && (
+        {/* HH-108: this was a bare size-4 icon with no padding, so the button's
+          box WAS the icon's box — a 16x16 tap target against Apple's 44 px
+          minimum. The owner reported a sheet she could not exit; she was not
+          missing a control, she was trying to hit a seventh of the required
+          area. Every sheet and dialog in the app inherits this, so the size
+          belongs here and not at a call site. */}
+      {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-2 right-2 flex size-11 items-center justify-center rounded-md opacity-70 transition-opacity hover:bg-muted hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
             <span className="sr-only">Close</span>

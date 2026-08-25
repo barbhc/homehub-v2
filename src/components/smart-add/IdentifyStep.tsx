@@ -944,12 +944,51 @@ export function IdentifyStep({
               />
             )}
 
+            {/* HH-123. Round 11 folded all three photo routes behind one
+                disclosure called "Can't find the model?" — which frames the
+                camera as what you do AFTER FAILING, so someone happy to point a
+                phone at a nameplate never considers it. Field use says the OCR
+                is accurate enough to be a first-class route.
+
+                So ONE route is promoted, not all three, and the relationship is
+                stated rather than implied: a rule with "or" in it, and a line
+                saying the scan FILLS these fields rather than skipping them.
+                Typing stays first, and stays the only thing that arms the CTA —
+                the camera is an input to the model field, not a way around it. */}
             {!labelPreviewUrl && (
-              /* Three sibling buttons used to float here with no heading, so it
-                 was never clear what they were alternatives TO. One disclosure,
-                 named for the job: you are here because typing the model is
-                 hard. "From library" also read as a MANUAL library in this app
-                 — the one library it isn't. */
+              <>
+                <div className="my-1 flex items-center gap-3" aria-hidden="true">
+                  <span className="h-px flex-1 bg-border" />
+                  <span className="text-xs font-semibold text-muted-foreground">or</span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSnapLabel}
+                  disabled={ocrLoading}
+                  className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border-2 border-primary bg-secondary px-4 py-3 text-left transition-colors disabled:opacity-60"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card">
+                      {ocrLoading
+                        ? <Loader2 className="size-5 animate-spin text-primary" aria-hidden />
+                        : <Camera className="size-5 text-primary" aria-hidden />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-base font-semibold text-primary">
+                        {ocrLoading ? "Reading label…" : "Scan the label"}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        We&apos;ll fill both fields from the nameplate
+                      </span>
+                    </span>
+                  </span>
+                  <ChevronRight className="size-5 shrink-0 text-primary" aria-hidden />
+                </button>
+              </>
+            )}
+
+            {!labelPreviewUrl && (
               <div>
                 <div className="flex items-center gap-3">
                   <button
@@ -962,7 +1001,7 @@ export function IdentifyStep({
                       className={cn("size-3.5 transition-transform", otherWaysOpen && "rotate-90")}
                       aria-hidden
                     />
-                    Can&apos;t find the model?
+                    More ways to identify it
                   </button>
                   {ocrLoading && (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
@@ -982,17 +1021,6 @@ export function IdentifyStep({
                         problem's clothes, and no pipeline work fixes it. */}
                     <LabelPhotoTips variant="before" />
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs gap-1.5"
-                      onClick={handleSnapLabel}
-                      disabled={ocrLoading}
-                    >
-                      <Camera className="size-3.5" aria-hidden />
-                      Snap the label
-                    </Button>
                     <Button
                       type="button"
                       variant="outline"

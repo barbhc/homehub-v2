@@ -359,25 +359,35 @@ export function ManualPageSheet({
               Reference updated to page {currentPage}
             </span>
           ) : (
+            // HH-108: this said "This is the current reference page" even when
+            // no caller had set one — FindManualCard opens this sheet to VET a
+            // search result, so the sentence was about a task's manual
+            // reference the user does not have. Say nothing rather than
+            // something untrue.
             <span className="text-[13px] text-muted-foreground">
-              {currentPage === pageNumber
+              {onSetPage && currentPage === pageNumber
                 ? "This is the current reference page"
                 : ""}
             </span>
           )}
 
-          {fullPdfLink && (
-            <a
-              href={fullPdfLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open the full PDF in a new tab"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Open PDF
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          )}
+          <div className="flex items-center gap-2">
+            {fullPdfLink && (
+              <a
+                href={fullPdfLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open the full PDF in a new tab"
+                className="inline-flex h-11 items-center gap-1.5 px-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Open PDF
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            )}
+            {/* The sheet is 88vh with no swipe-to-dismiss, so the shared close X
+                was the ONLY exit. One more, where a thumb already is. */}
+            <Button size="sm" onClick={() => onOpenChange(false)}>Done</Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
