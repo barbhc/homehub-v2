@@ -28,12 +28,14 @@ import {
   decideQuota,
   decideRateLimit,
   monthlyCeiling,
+  dailyCallLimitFor,
   rateLimitFor,
   unitCostFor,
   utcDayKey,
   utcMonthKey,
   type RateWindow,
 } from "../../../../shared/quota/policy.js"
+import { isQuotaExhaustedMessage } from "../../../../shared/quota/refusal.js"
 
 export {
   AI_RATE_LIMIT,
@@ -56,8 +58,26 @@ export {
   type RateWindow,
 } from "../../../../shared/quota/policy.js"
 
-export function errorForVerdict(reason: "daily" | "global" | "invalid", limit: number): HttpsError {
+export function errorForVerdict(
+  reason: "daily" | "global" | "invalid" | "fnDaily",
+  limit: number,
+  ctx?: { fn: string; fnLimit: number | null },
+): HttpsError {
   switch (reason) {
+    case "fnDaily":
+      // Named for the thing the user did, not for the function that ran. The
+      // only capped call today is the parse, so this says "scans"; if another
+      // ever gets a cap, give it a word here rather than leaking a function
+      // name into a sentence a homeowner reads.
+      return new HttpsError(
+        "resource-exhausted",
+        ctx?.fn === "enqueueParse"
+          ? `That's ${ctx.fnLimit} manual scans today — the daily limit. Your manual is saved and queued.`
+          : `Daily limit reached for this action (${ctx?.fnLimit}). Your work is saved and queued.`,
+        // Same shape the ceiling refusals use, so the retry job and the client
+        // both treat it as "come back later", not as a failure.
+        { kind: "quota_exhausted", scope: "daily" },
+      )
     case "daily":
       return new HttpsError(
         "resource-exhausted",
@@ -120,7 +140,14 @@ export function errorForRate(reason: "endpoint" | "burst", retryAfterSeconds: nu
  * redo by hand.
  */
 export function isQuotaExhausted(err: unknown): boolean {
-  return quotaScope(err) !== null
+  if (quotaScope(err) !== null) return true
+  // Fallback to the message when details are absent. They can be: an older
+  // client SDK, a transport that drops them, or an error re-thrown as a plain
+  // Error somewhere in between. Without this the retry job would treat a
+  // ceiling as an unknown failure and leave the work unparked — the same
+  // failure the client had, from the other side.
+  const msg = (err as { message?: unknown })?.message
+  return typeof msg === "string" && isQuotaExhaustedMessage(msg)
 }
 
 /** `"daily"` (this user is done for the day) vs `"global"` (nobody can spend). */
@@ -221,12 +248,19 @@ export async function chargeAiQuota(
       0
     const monthlyUnits = (monthlySnap.get("units") as number | undefined) ?? 0
 
+    // Per-function CALL count for today. Written below as `fns.{fn}` on the
+    // same doc the unit totals live on, so the check and the increment cannot
+    // disagree — the same reason decideQuota lives beside the transaction.
+    const fnCallsToday = (dailySnap.get(`fns.${fn}`) as number | undefined) ?? 0
+
     const verdict = decideQuota({
       dailyUnits,
       dailyLimit: limit,
       monthlyUnits,
       monthlyCeiling: ceiling,
       units,
+      fnCallsToday,
+      fnCallLimit: dailyCallLimitFor(fn),
     })
 
     if (!verdict.allowed) {
@@ -241,7 +275,10 @@ export async function chargeAiQuota(
           `quota misconfigured for ${fn}: units=${units} dailyLimit=${limit} ceiling=${ceiling}`,
         )
       }
-      throw errorForVerdict(verdict.reason, limit)
+      throw errorForVerdict(verdict.reason, limit, {
+        fn,
+        fnLimit: dailyCallLimitFor(fn),
+      })
     }
 
     tx.set(
