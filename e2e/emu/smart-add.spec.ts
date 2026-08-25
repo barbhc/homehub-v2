@@ -48,14 +48,17 @@ async function snapLabelPhoto(page: Page) {
   await page.goto("/inventory/add")
   // Flow A: the label photo is an assist inside the appliance lane.
   await page.getByRole("button", { name: /Appliance or device/ }).click()
-  // The three photo/library alternatives moved behind a disclosure named for the
-  // job ("Find the model another way") in PR #89, and the button itself was
-  // renamed "Snap label instead" -> "Snap the label". This helper kept the old
-  // name, so all four OCR-state tests failed at the first line — and CI has not
-  // run since 18 Aug, so nobody saw it. There is even a unit test asserting the
-  // old string is gone (addFlowCopy.test.ts), which is how the rename was
-  // verified everywhere except here.
-  await page.getByRole("button", { name: /Find the model another way/ }).click()
+  // The three photo/library alternatives sit behind one disclosure. Its label
+  // has now been renamed TWICE and broken this helper both times: "Snap label
+  // instead" -> "Snap the label" (PR #89), then "Find the model another way" ->
+  // "Can't find the model?" (round 11, to the approved copy). Both times the
+  // rename was verified in the unit copy-contract and in the journey walk, and
+  // both times this file — the only other place the string lives — was missed.
+  //
+  // Matched on the STABLE half now: whatever the disclosure is called, it is the
+  // control that reveals "Snap the label", so anchor on the thing that does not
+  // move rather than on the words above it.
+  await page.getByRole("button", { name: /find the model|can'?t find the model/i }).click()
   await expect(page.getByRole("button", { name: /Snap the label/ }).filter(visible).first()).toBeVisible()
   await page.setInputFiles('input[type="file"]', {
     name: "label.png",
@@ -83,9 +86,15 @@ test.describe("emulator e2e — smart add label OCR states", () => {
     await snapLabelPhoto(page)
     await expect(page.getByText("Reading label…").first()).toBeVisible({ timeout: 5_000 })
     await expect(page.getByText(/Filled \d+ fields? from your photo/)).toBeVisible({ timeout: 10_000 })
-    await expect(page.locator("#identify-name")).toHaveValue("Coway AP-1512HH")
     await expect(page.locator("#identify-brand")).toHaveValue("Coway")
     await expect(page.locator("#identify-model")).toHaveValue("AP-1512HH")
+    // Round 11: the appliance lane has no Name field, and OCR deliberately does
+    // not set one. A nameplate yields "Coway AP-1512HH" — a part number — and
+    // composeItemName keeps any name it is given as the user's own choice, so
+    // filling it here would quietly undo HH-112 for every photo-assisted add.
+    // The item is named for what it IS, from the category, exactly as when the
+    // model is typed by hand.
+    await expect(page.locator("#identify-name")).toHaveCount(0)
   })
 
   test("empty: honest couldn't-read copy with the raw label text expandable", async ({ page }) => {
@@ -112,7 +121,11 @@ test.describe("emulator e2e — smart add label OCR states", () => {
     await page.getByText("Show text found on the label").click()
     await expect(page.getByText("S/N QX44-778812", { exact: false })).toBeVisible()
     // No field was invented from nothing (the old code minted "Appliance").
-    await expect(page.locator("#identify-name")).toHaveValue("")
+    // The appliance lane no longer has a Name input at all; what matters is
+    // that a failed read leaves brand and model empty rather than guessing.
+    await expect(page.locator("#identify-name")).toHaveCount(0)
+    await expect(page.locator("#identify-brand")).toHaveValue("")
+    await expect(page.locator("#identify-model")).toHaveValue("")
   })
 
   test("extraction outage (parseWarning): copy blames the reader, not the photo", async ({ page }) => {

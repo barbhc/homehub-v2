@@ -514,10 +514,18 @@ export function IdentifyStep({
     const next: IdentifyData = {
       brand: data.brand || (r.brand ?? ""),
       model: data.model || (r.model ?? ""),
+      // The SIMPLE lane's name is its only required field, so OCR filling it is
+      // the whole point there. The APPLIANCE lane must not be given one: a
+      // nameplate scan yields "Coway AP-1512HH", which is a part number, and
+      // composeItemName treats any name here as the user's own choice and keeps
+      // it — quietly undoing HH-112 for every photo-assisted add. Left blank,
+      // the item is named for what it IS, exactly as it is when you type.
       name:
-        data.name && !placeholderNamesRef.current.has(data.name)
+        mode !== "simple"
           ? data.name
-          : (r.name ?? `${r.brand ?? ""} ${r.model ?? ""}`.trim()) || data.name || "Appliance",
+          : data.name && !placeholderNamesRef.current.has(data.name)
+            ? data.name
+            : (r.name ?? `${r.brand ?? ""} ${r.model ?? ""}`.trim()) || data.name || "Appliance",
       serialNumber: data.serialNumber || (r.serialNumber ?? ""),
       itemCategory: data.itemCategory ?? itemCategory,
       subType: data.subType ?? subType,
