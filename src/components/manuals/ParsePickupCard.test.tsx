@@ -175,3 +175,69 @@ describe("ParsePickupCard — the in-flow review replaces the card", () => {
     await waitFor(() => expect(screen.getAllByTestId("review-sheet")).toHaveLength(1))
   })
 })
+
+/**
+ * HH-121 — "I'm not sure what this page is. It just popped up."
+ *
+ * Round 12's default flip was right, but it made the NO-MAINTENANCE branch the
+ * thing that auto-opens — a full-height sheet with nothing to decide, arriving
+ * unannounced ninety-five minutes after the scan.
+ *
+ * The rule these pin: a sheet may interrupt for a DECISION, never for an
+ * announcement.
+ */
+describe("ParsePickupCard — nothing opens itself without a decision to make", () => {
+  const NO_MAINTENANCE = {
+    tasks: [
+      { title: "Clean the waveguide cover", care_type: "cleaning" },
+      { title: "Wipe vent area after use", care_type: "cleaning" },
+    ],
+    chunks: [],
+  }
+
+  it("does NOT open a sheet when the scan found no maintenance", async () => {
+    isParsePending.mockReturnValue(true)
+    readPreviewDraft.mockResolvedValue(NO_MAINTENANCE)
+    stages("queued", "done")
+
+    render(
+      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-none"]} itemName="Sharp microwave"
+        onReviewSaved={vi.fn()} />
+    )
+
+    await screen.findByText(/We finished reading the Sharp microwave manual/)
+    expect(screen.queryByTestId("review-sheet")).not.toBeInTheDocument()
+  })
+
+  it("still opens it when there IS maintenance to decide about", async () => {
+    isParsePending.mockReturnValue(true)
+    readPreviewDraft.mockResolvedValue({
+      tasks: [{ title: "Replace the HEPA Filter", care_type: "maintenance" }],
+      chunks: [],
+    })
+    stages("queued", "done")
+
+    render(
+      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-some"]} itemName="Air purifier"
+        onReviewSaved={vi.fn()} />
+    )
+
+    expect(await screen.findByTestId("review-sheet")).toBeInTheDocument()
+  })
+
+  it("names the item and says how many things it saved", async () => {
+    isParsePending.mockReturnValue(true)
+    readPreviewDraft.mockResolvedValue(NO_MAINTENANCE)
+    stages("queued", "done")
+
+    render(
+      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-count"]} itemName="Sharp microwave"
+        onReviewSaved={vi.fn()} />
+    )
+
+    await screen.findByText(/We finished reading the Sharp microwave manual/)
+    // "some things" would be useless; the count is the reassurance.
+    expect(screen.getByText(/We saved 2 /)).toBeInTheDocument()
+    expect(screen.getByText(/Nothing in it needs a reminder/)).toBeInTheDocument()
+  })
+})

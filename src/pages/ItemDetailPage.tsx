@@ -35,6 +35,8 @@ import { ItemDetailsSheet } from "@/components/item-care/ItemDetailsSheet"
 import { PurchaseNudge } from "@/components/item-care/PurchaseNudge"
 import { shouldOfferPurchaseNudge } from "@/lib/purchaseNudge"
 import { RoomPickerDialog } from "@/components/home/RoomPickerDialog"
+import { dueScans, unqueueScan } from "@/lib/scanCapacity"
+import { startParse } from "@/modules/knowledge/services/parseManualService"
 import { CategoryPickerDialog } from "@/components/home/CategoryPickerDialog"
 import { getCategoryDefinition, type ItemCategoryId } from "@/modules/inventory/constants/itemCategories"
 import { DesktopItemDetail } from "@/components/home/DesktopItemDetail"
@@ -94,6 +96,32 @@ export default function ItemDetailPage() {
    *  truth, and this is what makes the card leave without a reload. */
   const [, setNudgeDismissedAt] = useState(0)
   const [storeHistory, setStoreHistory] = useState<(string | null | undefined)[]>([])
+
+  // HH-124, the half that makes the queue real. A scan the daily ceiling
+  // refused is remembered; this starts it again the next time the item is
+  // opened. If capacity is still gone the callable refuses identically and the
+  // entry simply stays queued, so retrying costs nothing and cannot loop —
+  // startParse is attempted once per mount, per manual.
+  //
+  // HONEST LIMIT: this only runs while someone has the app open. Scanning a
+  // queued manual in the background needs the WORKER to retry, which is a
+  // functions change and a functions deploy.
+  useEffect(() => {
+    if (!home || !id) return
+    const due = dueScans(Date.now()).filter((e) => e.itemUnitId === id)
+    if (due.length === 0) return
+    let cancelled = false
+    void (async () => {
+      for (const entry of due) {
+        const res = await startParse(entry.manualId, { homeId: home.home_id, mode: "preview" })
+        if (cancelled) return
+        // Only forget it once it actually started. A second refusal leaves it
+        // queued for the next visit rather than silently dropping it.
+        if (res.ok) unqueueScan(entry.manualId)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [home, id])
 
   // One read of the home's items serves two autocompletes: tags, and the
   // retailers already entered — which is what stops "Home Depot" being stored

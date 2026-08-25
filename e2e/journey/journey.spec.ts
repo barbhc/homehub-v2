@@ -207,7 +207,23 @@ test.describe("journey walks", () => {
     // first build did not honour. Assert it, at phone width, where it matters.
     await expect(page.getByText("Add more details")).toHaveCount(0)
     await expect(page.getByText(/Serial number/)).toHaveCount(0)
-    await expect(page.getByText("Brand and model. We'll take it from there.")).toBeVisible()
+    // HH-123: the subtitle names BOTH routes, so the choice is known before the
+    // fields are even looked at.
+    await expect(page.getByText(/Type the brand and model .+ or scan the label/)).toBeVisible()
+    // Scanning is visible without opening anything, sits BELOW the model field,
+    // and says it fills them rather than skipping them.
+    const scanRow = page.getByRole("button", { name: /Scan the label/ }).filter(visible).first()
+    await expect(scanRow).toBeVisible()
+    await expect(page.getByText(/fill both fields from the nameplate/)).toBeVisible()
+    const modelY = (await page.locator("#identify-model").boundingBox())!.y
+    expect((await scanRow.boundingBox())!.y).toBeGreaterThan(modelY)
+    // And an explicit "or" sits between them — spacing alone does not say
+    // "these are alternatives".
+    const orY = (await page.getByText("or", { exact: true }).first().boundingBox())!.y
+    expect(orY).toBeGreaterThan(modelY)
+    expect(orY).toBeLessThan((await scanRow.boundingBox())!.y)
+    // The disclosure no longer frames its contents as failure.
+    await expect(page.getByText(/Can't find the model/)).toHaveCount(0)
     // Back STAYS, deliberately against the mockup. The mockup's screen 01 drew
     // no lane chooser before it, so it had nothing to go back to; the real flow
     // does, and the chooser is a state rather than a route — so the phone's own

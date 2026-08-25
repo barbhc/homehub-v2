@@ -4,6 +4,7 @@ import {
   UploadIcon,
   XIcon,
   AlertCircleIcon,
+  ClockIcon,
   ChevronRightIcon,
   ChevronDownIcon,
   SearchIcon,
@@ -13,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { MAX_UPLOAD_BYTES } from "@/modules/inventory/services/storageService"
 import { cn } from "@/lib/utils"
 import type { DocType } from "@/modules/knowledge"
+import { capacityNotice, isCapacityRefusal } from "@/lib/scanCapacity"
 
 export type ManualSourceChoice =
   | { type: "url"; url: string }
@@ -357,7 +359,33 @@ export function ManualStep({
         </div>
       )}
 
-      {error && (
+      {/* HH-124. Hitting the daily ceiling is not an error the user caused, so
+          it stops rendering as one: no destructive red, no "Try again" that
+          would fail identically, and no "midnight UTC" — our clock, not theirs.
+          The manual is already saved and the scan is queued, so this states a
+          fact rather than a refusal. */}
+      {error && isCapacityRefusal(error) && (() => {
+        const notice = capacityNotice(error)
+        return (
+          <div className="flex flex-col gap-3 rounded-2xl bg-[var(--hh-gold-soft)] p-4">
+            <div className="flex items-start gap-2.5">
+              <ClockIcon className="mt-0.5 size-5 shrink-0 text-[var(--hh-gold)]" />
+              <div className="min-w-0">
+                <p className="text-base font-semibold">{notice.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{notice.body}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-[var(--hh-gold-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--hh-gold)] ring-1 ring-[var(--hh-gold)]/30">
+                {notice.chip}
+              </span>
+              <span className="text-xs text-muted-foreground">{notice.eta}</span>
+            </div>
+          </div>
+        )
+      })()}
+
+      {error && !isCapacityRefusal(error) && (
         <div className="flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
           <div className="flex-1">

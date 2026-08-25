@@ -48,18 +48,16 @@ async function snapLabelPhoto(page: Page) {
   await page.goto("/inventory/add")
   // Flow A: the label photo is an assist inside the appliance lane.
   await page.getByRole("button", { name: /Appliance or device/ }).click()
-  // The three photo/library alternatives sit behind one disclosure. Its label
-  // has now been renamed TWICE and broken this helper both times: "Snap label
-  // instead" -> "Snap the label" (PR #89), then "Find the model another way" ->
-  // "Can't find the model?" (round 11, to the approved copy). Both times the
-  // rename was verified in the unit copy-contract and in the journey walk, and
-  // both times this file — the only other place the string lives — was missed.
+  // HH-123 (round 13): scanning the label came OUT of the disclosure and became
+  // a first-class control under the model field, because burying it under
+  // "Can't find the model?" framed the camera as what you do after failing.
+  // So there is no disclosure to open any more — the control is just there.
   //
-  // Matched on the STABLE half now: whatever the disclosure is called, it is the
-  // control that reveals "Snap the label", so anchor on the thing that does not
-  // move rather than on the words above it.
-  await page.getByRole("button", { name: /find the model|can'?t find the model/i }).click()
-  await expect(page.getByRole("button", { name: /Snap the label/ }).filter(visible).first()).toBeVisible()
+  // Anchored on the control itself rather than on anything above it: this
+  // helper has been broken by a rename twice before, both times because it
+  // depended on the words framing the button rather than the button.
+  await expect(page.getByRole("button", { name: /Scan the label/ }).filter(visible).first())
+    .toBeVisible({ timeout: 15_000 })
   await page.setInputFiles('input[type="file"]', {
     name: "label.png",
     mimeType: "image/png",

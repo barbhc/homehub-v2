@@ -30,6 +30,11 @@ const ACTIVE_STAGES = ACTIVE_PARSE_STAGES
 /** Upkeep in a draft — what the review actually asks about. Cleaning jobs and
  *  per-use tips are saved without a question, so counting them here would
  *  promise a longer review than the sheet delivers. */
+/** Everything the scan kept, for the "here is what we saved" line. */
+function savedCount(draft: PreviewResult): number {
+  return draft.tasks?.length ?? 0
+}
+
 function maintenanceCount(draft: PreviewResult): number {
   return draft.tasks.filter((t) => t.care_type !== "cleaning" && t.schedule_type !== "after_each_use").length
 }
@@ -172,7 +177,18 @@ export function ParsePickupCard({
         // parse, or we sat and watched it run — so a stale draft from some
         // earlier visit never ambushes them on arrival.
         const theirs = isParsePending(pickupId) || watchedRunning.current.has(pickupId)
-        if (d && theirs && !autoOpened.has(pickupId)) {
+        // HH-121: "I'm not sure what this page is. It just popped up."
+        //
+        // Round 12 made focus="maintenance" the default, which was right — but
+        // it also made the NO-MAINTENANCE branch the thing that auto-opens, and
+        // that branch has nothing to decide. The owner got a full-height sheet
+        // reading "Nothing here needs a reminder" over eleven rows, ninety-five
+        // minutes after the scan, with nothing explaining its arrival.
+        //
+        // The rule: a sheet may interrupt for a DECISION, never for an
+        // announcement. With no maintenance there is no decision, so the card
+        // below says what happened and takes over nothing.
+        if (d && theirs && maintenanceCount(d) > 0 && !autoOpened.has(pickupId)) {
           autoOpened.add(pickupId)
           setDraftOpen(true)
         }
@@ -317,12 +333,16 @@ export function ParsePickupCard({
           {draft
             ? maintenanceCount(draft) > 0
               ? `${maintenanceCount(draft)} maintenance ${maintenanceCount(draft) === 1 ? "task" : "tasks"} to review`
-              : "Manual read"
+              // HH-121: say what HAPPENED, and name the thing it happened to.
+              // "Manual read" on its own is a status, not an explanation.
+              : `We finished reading the ${itemName} manual`
             : `Manual read${state.tasks != null ? ` — ${state.tasks} suggested ${state.tasks === 1 ? "task" : "tasks"}` : ""}`}
         </p>
         <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
           {draft
-            ? "Set how often each repeats and whether it reminds you. Nothing is scheduled until you say so."
+            ? maintenanceCount(draft) > 0
+              ? "Set how often each repeats and whether it reminds you. Nothing is scheduled until you say so."
+              : `Nothing in it needs a reminder. We saved ${savedCount(draft)} ${savedCount(draft) === 1 ? "guide" : "guides, setup steps and tips"} to this item — have a look whenever you like.`
             : "They're saved already — review to adjust or remove any."}
         </p>
       </div>
