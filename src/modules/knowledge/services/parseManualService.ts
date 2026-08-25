@@ -73,6 +73,9 @@ function coerceConfidence(raw: unknown): ParsedConfidence | undefined {
 /** The worker's Firestore parse.stage values (docs/firestore-model.md §8). */
 export type ParseStage =
   | "queued"
+  /** HH-124: refused by the AI ceiling, saved, and waiting for capacity. The
+   *  hourly `retryAwaitingCapacity` job starts it; the user need do nothing. */
+  | "awaiting_capacity"
   | "started"
   | "pdf_fetched"
   | "claude_call"
@@ -85,6 +88,13 @@ export type ParseStage =
  *  "is something in flight?" for the pickup banner, the item page's empty
  *  state, and the parsing tray (HH-87). done/error are terminal. */
 export const ACTIVE_PARSE_STAGES: ParseStage[] = [
+  // `awaiting_capacity` counts as active HERE and not in enqueueParse's
+  // server-side ACTIVE_STAGES, and the asymmetry is deliberate. To the user it
+  // is pending — we said it was queued and that it would start on its own, so
+  // the item page must not fall back to "No upkeep yet — add the manual" for a
+  // manual we are holding. To the SERVER it is idle, so it must not consume the
+  // in-flight slot and block them starting a different parse by hand.
+  "awaiting_capacity",
   "queued", "started", "pdf_fetched", "claude_call", "claude_responded", "committing",
 ]
 
@@ -92,6 +102,9 @@ export const ACTIVE_PARSE_STAGES: ParseStage[] = [
 export function toUiStage(stage: ParseStage): ParseProgressState {
   switch (stage) {
     case "queued":
+    // Honest rather than a new UI state: it IS queued, and "Queued" is exactly
+    // what the capacity notice already told the user it would say.
+    case "awaiting_capacity":
       return "queued"
     case "started":
     case "pdf_fetched":

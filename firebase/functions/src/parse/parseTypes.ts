@@ -10,6 +10,13 @@ export type ParseMode = "commit" | "preview" | "fill_gaps"
 
 export type ParseStage =
   | "queued"
+  /** Refused by the AI ceiling, not by anything the user did. The manual is
+   *  saved and WILL be parsed — `retryAwaitingCapacity` picks it back up when
+   *  capacity frees. Deliberately NOT in enqueueParse's ACTIVE_STAGES: nothing
+   *  is running, so it must not consume the in-flight slot that would stop the
+   *  user starting a different parse. (The CLIENT's ACTIVE_PARSE_STAGES does
+   *  include it, because from the user's side it is pending.) */
+  | "awaiting_capacity"
   | "started"
   | "pdf_fetched"
   | "claude_call"
@@ -36,6 +43,10 @@ export interface ParseState {
   model: string
   attempt: number
   error: { message: string; stage: ParseStage; at: FirebaseFirestore.Timestamp } | null
+  /** Set only while stage is `awaiting_capacity`. `uid` is whose daily quota
+   *  the retry must charge — the scheduled job has no caller context, and
+   *  charging the wrong person's allowance would be worse than not retrying. */
+  awaiting?: { uid: string; since: FirebaseFirestore.Timestamp } | null
   summary: { chunks: number; tasks: number; confidence: ParseConfidence | null } | null
 }
 
