@@ -162,8 +162,15 @@ describe("HomeProvider multi-home selection", () => {
     renderProvider()
     await waitFor(() => expect(screen.getByTestId("home").textContent).toBe("My House"))
     await act(async () => { screen.getByText("switch-h2").click() })
-    expect(screen.getByTestId("home").textContent).toBe("Parents SF")
-    expect(JSON.parse(localStorage.getItem(CACHE_KEY)!).home.home_id).toBe("h2")
+    // waitFor, not a bare expect. This went red on CI and never locally: the
+    // click schedules a state update, and on a slower runner the assertion can
+    // run before React has flushed it. A synchronous assertion after an
+    // act-wrapped click that schedules work is a race that only shows up on
+    // someone else's machine — which is the worst kind to leave in.
+    await waitFor(() => expect(screen.getByTestId("home").textContent).toBe("Parents SF"))
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem(CACHE_KEY)!).home.home_id).toBe("h2"),
+    )
   })
 
   it("setCurrentHome ignores a home the user doesn't belong to", async () => {
@@ -171,7 +178,9 @@ describe("HomeProvider multi-home selection", () => {
     renderProvider()
     await waitFor(() => expect(screen.getByTestId("home").textContent).toBe("My House"))
     await act(async () => { screen.getByText("switch-unknown").click() })
-    expect(screen.getByTestId("home").textContent).toBe("My House")
+    // Same shape as above. Asserting a NON-change still has to wait, or it can
+    // pass for the wrong reason — the update simply hadn't happened yet.
+    await waitFor(() => expect(screen.getByTestId("home").textContent).toBe("My House"))
   })
 
   it("refresh(selectHomeId) selects a home that wasn't loaded yet — the just-created case", async () => {
