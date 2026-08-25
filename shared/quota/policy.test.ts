@@ -3,6 +3,8 @@ import {
   AI_UNIT_COST,
   BURST_UNIT_LIMIT,
   DAILY_AI_LIMIT,
+  dailyCallLimitFor,
+  AI_DAILY_CALL_LIMIT,
   BURST_UNIT_LIMIT,
   DEFAULT_MONTHLY_UNIT_CEILING,
   AI_UNIT_COST,
@@ -315,5 +317,49 @@ describe("the daily cap's relationships hold after it changes", () => {
     // If burst ever exceeded the daily allowance, a loop would spend the whole
     // day's budget inside one minute with nothing to stop it.
     expect(BURST_UNIT_LIMIT).toBeLessThan(DAILY_AI_LIMIT)
+  })
+})
+
+describe("the per-function daily call cap (owner: 50 scans a day)", () => {
+  const base = {
+    dailyUnits: 0, dailyLimit: DAILY_AI_LIMIT,
+    monthlyUnits: 0, monthlyCeiling: DEFAULT_MONTHLY_UNIT_CEILING,
+    units: AI_UNIT_COST.enqueueParse,
+  }
+
+  it("allows the 50th scan and refuses the 51st", () => {
+    const cap = AI_DAILY_CALL_LIMIT.enqueueParse
+    expect(decideQuota({ ...base, fnCallsToday: cap - 1, fnCallLimit: cap })).toEqual({ allowed: true })
+    expect(decideQuota({ ...base, fnCallsToday: cap, fnCallLimit: cap }))
+      .toEqual({ allowed: false, reason: "fnDaily" })
+  })
+
+  it("is checked BEFORE the shared pool, so the message is the useful one", () => {
+    // With scans exhausted but plenty of units left, the user should be told
+    // they are out of scans — not out of allowance, which is still true for
+    // everything else they might do.
+    const v = decideQuota({ ...base, dailyUnits: 0, fnCallsToday: 50, fnCallLimit: 50 })
+    expect(v).toEqual({ allowed: false, reason: "fnDaily" })
+  })
+
+  it("does not touch functions without a cap", () => {
+    // Chat, lookups and OCR keep drawing on the shared pool alone.
+    expect(dailyCallLimitFor("chatQuery")).toBeNull()
+    expect(decideQuota({ ...base, units: 1, fnCallsToday: 9999, fnCallLimit: null }))
+      .toEqual({ allowed: true })
+  })
+
+  it("a nonsense cap is a config error, not the user's problem", () => {
+    expect(decideQuota({ ...base, fnCallsToday: 0, fnCallLimit: 0 }).allowed).toBe(false)
+    expect(decideQuota({ ...base, fnCallsToday: -1, fnCallLimit: 50 }))
+      .toEqual({ allowed: false, reason: "invalid" })
+  })
+
+  it("50 scans is the money cap, and it is well under the monthly ceiling", () => {
+    // ~$0.55 a manual measured => 50/day is roughly $27/day for one user.
+    // It has to stay affordable against the app-wide month, or one person's
+    // full day would close the app for everyone.
+    const dayCost = AI_DAILY_CALL_LIMIT.enqueueParse * AI_UNIT_COST.enqueueParse
+    expect(dayCost).toBeLessThan(DEFAULT_MONTHLY_UNIT_CEILING / 2)
   })
 })

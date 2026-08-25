@@ -41,6 +41,27 @@ export const DEFAULT_MONTHLY_UNIT_CEILING = 20_000
  * What one call to each function costs, in units. 1 unit ~= one cheap Claude
  * call. Anything not listed costs 1.
  */
+/**
+ * A per-user, per-UTC-day cap on how many times ONE function may be called,
+ * counted in CALLS rather than units.
+ *
+ * Owner, 2026-08-25: "I'd like to limit this per user certainly. I think it's
+ * reasonable to limit someone to 50 scans a day."
+ *
+ * Why this is not just a smaller `DAILY_AI_LIMIT`: the shared pool is spent by
+ * everything. Setting it to 500 to buy "50 scans" would deliver FEWER than 50,
+ * because the product lookups that fire while you type, the OCR, and the
+ * doc-type checks all come out of the same 500 — which is exactly how a 50-unit
+ * day produced two scans. A scan cap has to count scans.
+ *
+ * This is also the cap that maps to money. A parse is the $0.55 item; the rest
+ * are fractions of a cent. 50 scans/day is about $27 a day at the measured rate
+ * — a real ceiling on the one call that can produce a four-figure invoice.
+ */
+export const AI_DAILY_CALL_LIMIT: Record<string, number> = {
+  enqueueParse: 50, // ~$27/day at the measured $0.55 per manual
+}
+
 export const AI_UNIT_COST: Record<string, number> = {
   enqueueParse: 10, // a whole manual PDF, multi-pass, sometimes Opus
   ingestReference: 3,
@@ -66,6 +87,11 @@ export function utcDayKey(now: Date = new Date()): string {
 /** yyyy-mm in UTC (the ceiling's window). */
 export function utcMonthKey(now: Date = new Date()): string {
   return now.toISOString().slice(0, 7)
+}
+
+/** The per-day call cap for a function, or null when it has none. */
+export function dailyCallLimitFor(fn: string): number | null {
+  return AI_DAILY_CALL_LIMIT[fn] ?? null
 }
 
 export function unitCostFor(fn: string): number {
@@ -102,11 +128,15 @@ export interface QuotaState {
   monthlyUnits: number
   monthlyCeiling: number
   units: number
+  /** How many times this function has already run for this user today. */
+  fnCallsToday?: number
+  /** The per-function daily cap, if this function has one. */
+  fnCallLimit?: number | null
 }
 
 export type QuotaVerdict =
   | { allowed: true }
-  | { allowed: false; reason: "daily" | "global" | "invalid" }
+  | { allowed: false; reason: "daily" | "global" | "invalid" | "fnDaily" }
 
 export function decideQuota(s: QuotaState): QuotaVerdict {
   const all = [s.dailyUnits, s.dailyLimit, s.monthlyUnits, s.monthlyCeiling, s.units]
@@ -118,6 +148,17 @@ export function decideQuota(s: QuotaState): QuotaVerdict {
   // user who ran out. Surfacing it as "invalid" keeps it out of the user's lap.
   if (s.units > s.dailyLimit || s.units > s.monthlyCeiling) {
     return { allowed: false, reason: "invalid" }
+  }
+  // The per-FUNCTION cap is checked before the shared pool, because it is the
+  // more specific and more useful thing to be told: "you have used today's
+  // scans" beats "you have used today's allowance" when the allowance still has
+  // room for everything else you might do.
+  const fnLimit = s.fnCallLimit
+  if (fnLimit != null) {
+    if (!Number.isInteger(fnLimit) || fnLimit <= 0) return { allowed: false, reason: "invalid" }
+    const used = s.fnCallsToday ?? 0
+    if (!Number.isInteger(used) || used < 0) return { allowed: false, reason: "invalid" }
+    if (used + 1 > fnLimit) return { allowed: false, reason: "fnDaily" }
   }
   // The caller's own limit is checked first: it is the one that resets
   // tomorrow rather than next month, so it is the more useful thing to be told.

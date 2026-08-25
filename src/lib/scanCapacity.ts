@@ -20,6 +20,8 @@
  * the client decides how that reads.
  */
 
+import { isQuotaExhaustedMessage } from "../../shared/quota/refusal"
+
 /**
  * Is this refusal the daily ceiling, rather than a real failure?
  *
@@ -29,10 +31,12 @@
  * would promise a scan that never comes.
  */
 export function isCapacityRefusal(message: string | null | undefined): boolean {
-  if (!message) return false
-  const m = message.toLowerCase()
-  const ceiling = /daily ai limit|monthly ai budget|resource[- ]exhausted|too many requests/.test(m)
-  return ceiling
+  // Delegates to the SHARED matcher rather than keeping its own copy of the
+  // patterns. This regex used to live here, matching sentences written in the
+  // functions package — so adding a refusal message on the server (the 50-scan
+  // cap did exactly that) made the client show a queued scan as a hard error.
+  // The functions test now asserts every server refusal is matched by this.
+  return isQuotaExhaustedMessage(message)
 }
 
 /** App-wide budget rather than this user's day — worth saying differently. */
