@@ -58,19 +58,93 @@ the project ages out. Nothing else in this backlog depends on the answer.
 
 ---
 
-## 3. Designed, approved, not built
+## 3. Parse cost — the two levers, ranked by when they pay
+
+Measured: **~$0.55 and ~4 minutes per manual** (42 pages, Sonnet 4.6). Cost
+scales with **pages**, and roughly splits input/output ~55/45 — so page count
+drives about half the bill and the structured output drives the rest.
+
+For scale: 8 scans this month is about **$4.40**. The 20,000-unit monthly
+ceiling is worth ~$1,100, which is a ceiling and not a forecast.
+
+| # | Item | When it pays | Status |
+|---|---|---|---|
+| 3.1 | **Language-aware page selection** | **Now** — every manual, every user | Designed in part; see below |
+| 3.2 | **Shared parse cache** | **At volume** — deferred by the owner 2026-08-25 | `design/manual-sourcing-and-parse-cache.md` |
+
+### 3.1 Language-aware page selection
+
+**The instruction already exists and cannot save money where it sits.**
+`shared/parse/parsePrompt.ts:36` tells the model *"Skip pages not in English"* —
+but that is an instruction to the model, which means the whole PDF has already
+been uploaded and billed as input tokens before any page is skipped. Skipping
+after you have paid for the page saves output, not input.
+
+To actually save, the pages must not be **sent**. That means selecting pages
+before the API call:
+
+1. Extract per-page text locally and detect its language. No API call, no cost.
+2. Subset the PDF to the selected pages and send only those.
+3. **Fall back to sending everything** whenever selection is uncertain — a
+   trilingual manual whose maintenance section exists in only one language, or
+   a layout that interleaves rather than blocks languages, must not lose
+   content to a cost optimisation.
+
+Expected saving on a trilingual manual: input drops to roughly a third, so
+about **35% off the total**, not two thirds — output is nearly half the bill.
+
+**The same step delivers the owner's language requirement** (2026-08-25): *"In
+the future, I would want the flexibility for the parser to match the user's
+preferred language, if the manual is translated in that preferred language."*
+Once pages are language-tagged, selecting the user's preferred language instead
+of English is a parameter, not new machinery. Build the detection with that in
+mind — tag every page's language, then choose; do not hard-code English.
+
+**Cost of building it:** there is no PDF library in `firebase/functions` today —
+`countPdfPages` is hand-rolled byte parsing that returns null when unsure. Page
+text extraction and subsetting need a real dependency (pdf-lib / pdfjs-dist).
+This is a real piece of work, not a config change.
+
+**Gate:** this changes what the model sees, so it goes through
+`scripts/parse-eval/run.ts` against the goldens BEFORE deploy (non-negotiable
+#5) — and the golden corpus is 7 files, which §5 already flags as too thin to
+trust a parse change against. Grow the corpus first or the eval proves nothing.
+
+### 3.2 Shared parse cache — deferred, not dismissed
+
+**Owner, 2026-08-25: "the shared parse cache won't matter until I have more
+volume."** Correct at one household. It changes shape as the beta grows, because
+a manual is not personal — the same Zojirushi NS-LAC05 PDF is the same document
+for every owner, and the architecture already splits the cacheable part
+(`previewDraft`, the raw extraction) from the personal part (`commitDraft`,
+which applies house rules, climate and per-user corrections).
+
+Cost stops scaling with users and starts scaling with distinct appliances:
+
+| | No cache | Shared cache |
+|---|---|---|
+| 1 home × 20 items | $11 | $11 |
+| 10 homes × 20 items | $110 | $33 |
+| 50 homes × 20 items | $550 | **$82** |
+
+**Revisit when:** more than ~10 active households, or when two users first add
+the same appliance model. Nothing else in the backlog depends on it.
+
+---
+
+## 4. Designed, approved, not built
 
 These have design documents in `design/` and no implementation. Confirmed by
 grep, not by the docs' own status lines.
 
 | # | Item | Doc | Why it matters |
 |---|---|---|---|
-| 3.1 | **Brand registry + parse cache** | `design/manual-sourcing-and-parse-cache.md` | The unbuilt half of HH-107. Manual search still ranks results it has already judged poor; the registry supplies the manufacturer URL for the no-match state. The round-7 fix added a *badge* and the complaint came back — this is the fix that changes the outcome. |
-| 3.2 | **Section-aware parser** | `design/section-aware-parser-proposal.md` | Parse quality at the source. Nothing in `shared/parse` implements it. |
+| 4.1 | **Brand registry + parse cache** | `design/manual-sourcing-and-parse-cache.md` | The unbuilt half of HH-107. Manual search still ranks results it has already judged poor; the registry supplies the manufacturer URL for the no-match state. The round-7 fix added a *badge* and the complaint came back — this is the fix that changes the outcome. |
+| 4.2 | **Section-aware parser** | `design/section-aware-parser-proposal.md` | Parse quality at the source. Nothing in `shared/parse` implements it. |
 
 ---
 
-## 4. Parse quality — the loop is built, the curation isn't
+## 5. Parse quality — the loop is built, the curation isn't
 
 The task-feedback loop (phases A–D) is complete and in production: chips, house
 rules re-applied at parse, the `discussTask` callable with deterministic safety
@@ -88,7 +162,7 @@ to route through the goldens harness (`scripts/parse-eval/run.ts`), and there ar
 
 ---
 
-## 5. Product items carried over from `backlog.json`
+## 6. Product items carried over from `backlog.json`
 
 That file (April, tech listed as "Supabase") held 15 items, 11 shipped. These
 four are the survivors, checked against the app as it is today. The JSON is
@@ -103,7 +177,7 @@ deleted — these are the only parts of it that were still true.
 
 ---
 
-## 6. Test-surface gaps
+## 7. Test-surface gaps
 
 | # | Item | State |
 |---|---|---|
@@ -113,7 +187,7 @@ deleted — these are the only parts of it that were still true.
 
 ---
 
-## 7. Standing constraints (not tasks — read before proposing work)
+## 8. Standing constraints (not tasks — read before proposing work)
 
 - **Deploying is manual.** `ci.yml` is the only workflow; merging ships nothing.
   Hosting is `npx firebase-tools deploy --only hosting --project homehub-2068d`,
