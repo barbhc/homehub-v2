@@ -237,17 +237,23 @@ export function ManualStep({
             <p className="text-xs text-muted-foreground">or click to browse · up to {maxMB} MB</p>
           </div>
 
-          {/* Mobile lead: choosing a file, and the only filled control here. */}
-          <div className="rounded-xl border border-primary bg-card p-4 shadow-sm md:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-base font-semibold">Choose a file</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">A PDF from your phone or iCloud</p>
-              </div>
-              <Button type="button" variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>
-                Browse
-              </Button>
+          {/* HH-115: order alone was too weak a signal when all three options
+              were the same shape. Upload is now a tall bordered card with an
+              icon and the only filled button on the screen, and it says the
+              thing that earns it the top slot. */}
+          <div className="flex flex-col items-center gap-3.5 rounded-2xl border-2 border-primary bg-card p-5 text-center shadow-sm md:hidden">
+            <span className="flex size-13 items-center justify-center rounded-full bg-secondary" style={{ width: 52, height: 52 }}>
+              <UploadIcon className="size-6 text-primary" />
+            </span>
+            <div>
+              <p className="text-xl font-semibold tracking-tight">Upload the PDF</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                From your phone, iCloud or Files. This is the one that always works.
+              </p>
             </div>
+            <Button type="button" className="w-full" onClick={() => inputRef.current?.click()}>
+              Choose a file
+            </Button>
           </div>
 
           {/* Second: paste a link. Says what kind of link, because pasting the
@@ -294,23 +300,28 @@ export function ManualStep({
               (HH-73, HH-107); saying so here is where someone actually decides
               whether to use it. */}
           {canSearch && (
-            <div className="rounded-xl border bg-card shadow-sm">
+            <div className="mt-1 border-t pt-3.5">
               <button
                 type="button"
                 onClick={() => setOpen(open === "search" ? "none" : "search")}
                 aria-expanded={open === "search"}
-                className="flex w-full items-center justify-between gap-3 p-4 text-left"
+                className="flex w-full items-start justify-between gap-3 text-left"
               >
                 <div className="min-w-0">
                   <span className="flex items-center gap-2">
                     <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="text-base font-semibold">Find it for me</span>
+                    <span className="text-[15px] font-semibold text-muted-foreground">Let us find it</span>
                     <span className="rounded-full bg-[var(--hh-gold-soft)] px-2 py-0.5 text-xs font-medium text-[var(--hh-gold)]">
                       Beta
                     </span>
                   </span>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Often returns the wrong document. Check it before you scan.
+                  {/* The owner asked for "a lot of commentary". A feature that
+                      has returned the wrong document twice in beta should say
+                      HOW it goes wrong, where someone decides to use it. */}
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    A last resort. It often returns the wrong document — a parts list, a spec sheet, the
+                    wrong model — and a wrong manual becomes wrong upkeep. Check anything it finds before
+                    you scan.
                   </p>
                 </div>
                 {open === "search" ? (
@@ -320,7 +331,7 @@ export function ManualStep({
                 )}
               </button>
               {open === "search" && (
-                <div className="border-t p-4">
+                <div className="mt-3">
                   <FindManualCard
                     brand={brand!}
                     model={model!}
@@ -366,14 +377,19 @@ export function ManualStep({
 
       {/* Scan, not parse — and never "read", which would suggest the app is
           opening the manual for the user to read themselves. */}
+      {/* HH-115: no Scan button before there is anything to scan. A permanently
+          dimmed primary is what made the owner read this screen as broken, and
+          it competed with the upload card for the eye. */}
       <div className="mt-2 flex flex-col gap-2">
-        <Button
-          onClick={handleContinue}
-          disabled={!canContinue || isSaving || !!docClassification}
-          className="w-full"
-        >
-          {isSaving ? (savingMessage ?? "Uploading…") : "Scan the manual"}
-        </Button>
+        {canContinue && (
+          <Button
+            onClick={handleContinue}
+            disabled={isSaving || !!docClassification}
+            className="w-full"
+          >
+            {isSaving ? (savingMessage ?? "Uploading…") : "Scan the manual"}
+          </Button>
+        )}
         {onSkip && (
           <Button variant="ghost" onClick={onSkip} disabled={isSaving} className="w-full">
             I&apos;ll add it later

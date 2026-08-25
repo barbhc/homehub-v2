@@ -927,6 +927,23 @@ export function IdentifyStep({
               />
             )}
 
+            {/* HH-114: the specs, directly under the thing they describe.
+                They stay Apply-chips and are NOT asserted as fact — see
+                ProductSuggestionCard's header for why (a hallucinated filter
+                size sends someone to buy the wrong part). */}
+            {dismissedSpecKey !== currentKey && (lookupLoading || visibleCandidates.length > 0) && (
+              <ProductSuggestionCard
+                candidates={visibleCandidates}
+                knowledgeConfidence={lookupConfidence}
+                currentValues={data.categoryFields ?? {}}
+                onApply={handleApplyCandidate}
+                onRemove={handleRemoveCandidate}
+                onDismissCandidate={handleDismissCandidate}
+                onDismiss={handleDismissLookup}
+                loading={lookupLoading}
+              />
+            )}
+
             {!labelPreviewUrl && (
               /* Three sibling buttons used to float here with no heading, so it
                  was never clear what they were alternatives TO. One disclosure,
@@ -1213,18 +1230,13 @@ export function IdentifyStep({
                   />
                 </div>
               )}
-              {dismissedSpecKey !== currentKey && (lookupLoading || visibleCandidates.length > 0) && (
-                <ProductSuggestionCard
-                  candidates={visibleCandidates}
-                  knowledgeConfidence={lookupConfidence}
-                  currentValues={data.categoryFields ?? {}}
-                  onApply={handleApplyCandidate}
-                  onRemove={handleRemoveCandidate}
-                  onDismissCandidate={handleDismissCandidate}
-                  onDismiss={handleDismissLookup}
-                  loading={lookupLoading}
-                />
-              )}
+              {/* The spec suggestions used to live here, inside "Add more
+                  details". That disclosure stopped mounting for the appliance
+                  lane in round 11 and I did not check where its contents went —
+                  so these were stranded, unreachable, in the ONE lane whose
+                  whole job is identifying a product. They now render on the main
+                  column under the identity card (HH-114), where they are also
+                  the answer to "did you find MY unit". */}
             </div>
           </div>
         </div>}

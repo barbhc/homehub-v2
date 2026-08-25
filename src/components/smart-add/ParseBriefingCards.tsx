@@ -374,7 +374,7 @@ export function ParseBriefingCards({
   }
 
   return (
-    <section className="space-y-2" aria-label="Parse summary">
+    <section className="space-y-2" aria-label="Scan summary">
       {lowConfidence ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
           <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />

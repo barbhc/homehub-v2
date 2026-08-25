@@ -142,7 +142,7 @@ export async function startParse(
     const res = await enqueueParseCallable({ homeId: opts.homeId, manualId, mode: opts.mode })
     return { ok: true, requestId: res.requestId }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not start parsing." }
+    return { ok: false, error: err instanceof Error ? err.message : "Could not start the scan." }
   }
 }
 
@@ -205,7 +205,7 @@ export async function parseManualAndWait(
       } else if (stage === "error") {
         settled = true
         unsub()
-        resolve({ ok: false, error: parse.error?.message ?? "Parse failed" })
+        resolve({ ok: false, error: parse.error?.message ?? "The scan failed" })
       }
     })
   })

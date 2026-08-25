@@ -232,22 +232,33 @@ test.describe("journey walks", () => {
 
     // The ranking IS the design (HH-109). Choosing a file leads and is the only
     // filled control; search is last, and says out loud that it is unreliable.
-    const chooseFile = page.getByText("Choose a file", { exact: true }).first()
-    const findForMe = page.getByText("Find it for me", { exact: true }).first()
+    const chooseFile = page.getByText("Upload the PDF", { exact: true }).first()
+    const findForMe = page.getByText("Let us find it", { exact: true }).first()
     await expect(chooseFile).toBeVisible()
     await expect(findForMe).toBeVisible()
-    await expect(page.getByText(/Often returns the wrong document/)).toBeVisible()
+    await expect(page.getByText(/parts list, a spec sheet, the\s+wrong model/)).toBeVisible()
     await expect(page.getByText(/Must end in \.pdf/)).toBeVisible()
     // Order, not just presence: file above link above search.
     const yOf = async (l: Locator) => (await l.boundingBox())!.y
     expect(await yOf(chooseFile)).toBeLessThan(await yOf(page.getByText("Paste a link", { exact: true }).first()))
     expect(await yOf(page.getByText("Paste a link", { exact: true }).first())).toBeLessThan(await yOf(findForMe))
+
+    // HH-115: order alone was too weak. Upload carries the ONLY filled button,
+    // and the search sits in muted type, not in ink.
+    const filled = page.locator('button[data-variant="default"]').filter(visible)
+    await expect(filled).toHaveCount(1)
+    await expect(filled.first()).toHaveText(/Choose a file/)
+    const searchColour = await findForMe.evaluate((el) => getComputedStyle(el as HTMLElement).color)
+    const inkColour = await chooseFile.evaluate((el) => getComputedStyle(el as HTMLElement).color)
+    expect(searchColour).not.toBe(inkColour)
+    // And no Scan button before there is anything to scan.
+    await expect(page.getByRole("button", { name: /Scan the manual/ })).toHaveCount(0)
     // No drop zone on a phone — dragging is a desktop affordance. It is
     // `hidden md:flex`, so it is in the DOM and display:none; the claim is
     // about what is SHOWN, which is toBeHidden, not toHaveCount(0).
     await expect(page.getByText(/Drop a PDF here/)).toBeHidden()
     await snap(page, "J2", "manual-step",
-      "Choose a file leads, paste-a-link names .pdf, search is last and badged Beta. No drop zone at phone width")
+      "Upload dominates with the only filled button; link names .pdf; search is last, muted and badged Beta")
     await expect(page.getByText("Purchase", { exact: true })).toHaveCount(0)
 
     await page.setInputFiles('input[accept*="pdf"]', {
@@ -274,6 +285,9 @@ test.describe("journey walks", () => {
     await page.waitForURL(/\/items\//, { timeout: 30_000 })
     const itemHeading = page.getByRole("heading", { name: "LG DLGX3901B" }).filter(visible).first()
     await expect(itemHeading).toBeVisible({ timeout: 20_000 })
+    // HH-118: the tray pill repeated the card above it and covered content. It
+    // stands down on the page already showing that scan.
+    await expect(page.getByText(/item[s]? scanning/)).toHaveCount(0)
     await snap(page, "J2", "living-item-page",
       "Landed on the item page seconds after adding — no Reading screen. Purchase nudge names what the data buys",
       itemHeading)
@@ -292,26 +306,41 @@ test.describe("journey walks", () => {
       page.getByRole("button", { name: /^Review tasks$/ }).filter(visible).first())
 
     await page.getByRole("button", { name: /^Review tasks$/ }).filter(visible).first().click()
-    await expect(page.getByText(/worth tracking/).first()).toBeVisible({ timeout: 10_000 })
-    await snap(page, "J3", "review-lead-in", "Lead-in names both routes; no dead Skip",
-      page.getByText(/worth tracking/).first(), { viewportOnly: true })
 
-    // Open one task card: kind + tier controls, then Done.
-    await page.getByRole("button", { name: /Descale the dishwasher/ }).first().click()
-    await expect(page.getByText("What is it?")).toBeVisible()
-    await snap(page, "J3", "review-task-card", "Task card: What is it? / How important? / remind switch",
-      page.getByText("How important?").first(), { viewportOnly: true })
-    await page.getByRole("button", { name: /^Done$/ }).click()
+    // HH-119: this door had NEVER opened the consolidated view. `focus` now
+    // defaults to "maintenance", so every caller gets the approved review
+    // without passing anything, and the old "Step 1 of 2" full review is the
+    // thing you opt into rather than the thing you fall back to.
+    //
+    // The seeded dishwasher's only task is CLEANING, so the consolidated view
+    // correctly reports that nothing needs a reminder — and still lists the
+    // task, which is the point: filtered, never hidden.
+    const consolidated = page.getByText(/Nothing here needs a reminder|Keep an eye on \d+ thing/i).first()
+    await expect(consolidated).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText("Step 1 of 2 · What each task is")).toHaveCount(0)
+    // Exactly ONE review is mounted (HH-120): two used to be, stacked.
+    await expect(page.getByRole("dialog")).toHaveCount(1)
+    // Nothing was dropped on the floor by the filter.
+    await expect(page.getByText("Descale the dishwasher").first()).toBeVisible()
+    // And it does not claim a manual it may not have.
+    await expect(page.getByText(/This manual is cleaning/)).toHaveCount(0)
+    await snap(page, "J3", "review-consolidated",
+      "Maintenance first — and when there is none, it says so and still shows what it saved",
+      consolidated, { viewportOnly: true })
 
-    const next = page.getByRole("button", { name: /Next: schedule|^Save \d+ task/ }).last()
-    await next.click()
-    await snap(page, "J3", "review-schedule", "Step 2: one title, one sub, then cadence chips with 'The manual says…' anchors",
-      page.getByRole("heading", { name: /Keep an eye on \d+ thing/i }).first(), { viewportOnly: true })
-    const save = page.getByRole("button", { name: /^Save \d+ task/ }).last()
-    if (await save.isVisible().catch(() => false)) await save.click()
+    // The full review stays one tap away.
+    await expect(page.getByRole("button", { name: /Review them all/ })).toBeVisible()
 
-    await expect(page.getByText("What is it?")).toHaveCount(0, { timeout: 15_000 })
-    await snap(page, "J3", "review-saved", "Sheet closed — the review write landed without an error",
+    // "Save all 1" read like a bug, so a single item now says "Save it". The
+    // selector has to cover every form the button can take, and the test must
+    // FAIL rather than skip when it does not — an `if (visible)` that silently
+    // does nothing is how a save can stop happening unnoticed.
+    const save = page.getByRole("button", { name: /^Save it$|^Save all \d+$|^Save \d+ task/ }).last()
+    await expect(save).toBeVisible({ timeout: 10_000 })
+    await save.click()
+
+    await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 15_000 })
+    await snap(page, "J3", "review-saved", "Closed — the review write landed without an error",
       page.getByText("Bosch 800 Series Dishwasher").filter(visible).first())
   })
 

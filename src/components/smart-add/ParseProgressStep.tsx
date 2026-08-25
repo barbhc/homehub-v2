@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { CheckIcon, Loader2Icon, AlertCircleIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { SCAN_KEEPS_GOING } from "@/lib/scanCopy"
 // Structural, not nominal: this step only counts by care_type / chunk_type, and
 // it now receives PREVIEW rows (uncommitted draft) rather than live rows. Typing
 // it to the two fields it actually reads keeps it usable from both.
@@ -118,7 +119,7 @@ export function ParseProgressStep({ progress, parsedChunks, parsedTasks, onConti
         <p className="text-sm text-white/50 mt-1">{STAGE_SUBCOPY[progress]}</p>
         {isWorking && elapsed >= 60 && (
           <p className="text-xs text-white/35 mt-2 tabular-nums">
-            Elapsed {formatElapsed(elapsed)} · you can leave this page and come back — we'll keep working.
+            Elapsed {formatElapsed(elapsed)} · {SCAN_KEEPS_GOING}
           </p>
         )}
       </div>

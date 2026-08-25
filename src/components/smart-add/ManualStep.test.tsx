@@ -17,18 +17,35 @@ const props = {
 const pdf = () =>
   new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "manual.pdf", { type: "application/pdf" })
 
-describe("ManualStep — the three sources, ranked", () => {
-  it("leads with choosing a file and puts search last", () => {
+describe("ManualStep — the three sources, ranked AND weighted (HH-115)", () => {
+  it("leads with uploading and puts the search last", () => {
     render(<ManualStep {...props} />)
     const body = document.body.textContent ?? ""
-    expect(body.indexOf("Choose a file")).toBeGreaterThan(-1)
-    expect(body.indexOf("Choose a file")).toBeLessThan(body.indexOf("Paste a link"))
-    expect(body.indexOf("Paste a link")).toBeLessThan(body.indexOf("Find it for me"))
+    expect(body.indexOf("Upload the PDF")).toBeGreaterThan(-1)
+    expect(body.indexOf("Upload the PDF")).toBeLessThan(body.indexOf("Paste a link"))
+    expect(body.indexOf("Paste a link")).toBeLessThan(body.indexOf("Let us find it"))
   })
 
-  it("says out loud that the search is unreliable, where someone chooses it", () => {
+  it("gives upload the ONLY filled button — order alone was too weak a signal", () => {
     render(<ManualStep {...props} />)
-    expect(screen.getByText(/Often returns the wrong document/)).toBeInTheDocument()
+    const filled = screen
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("data-variant") === "default")
+    expect(filled).toHaveLength(1)
+    expect(filled[0]).toHaveTextContent("Choose a file")
+  })
+
+  it("says the ONE thing that earns upload the top slot", () => {
+    render(<ManualStep {...props} />)
+    expect(screen.getByText(/the one that always works/i)).toBeInTheDocument()
+  })
+
+  it("names at least two ways the search goes wrong, not one line", () => {
+    render(<ManualStep {...props} />)
+    const caution = screen.getByText(/last resort/i).textContent ?? ""
+    expect(caution).toMatch(/parts list/i)
+    expect(caution).toMatch(/wrong model/i)
+    expect(caution).toMatch(/wrong upkeep/i)
     expect(screen.getByText("Beta")).toBeInTheDocument()
   })
 
@@ -39,6 +56,7 @@ describe("ManualStep — the three sources, ranked", () => {
 
   it("calls the action Scan — never parse, never read", () => {
     render(<ManualStep {...props} />)
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [pdf()] } })
     expect(screen.getByRole("button", { name: /Scan the manual/ })).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/Parse|Analyz|Read the manual/)
   })
@@ -50,14 +68,16 @@ describe("ManualStep — the three sources, ranked", () => {
 
   it("hides the search entirely when there is no brand and model to search with", () => {
     render(<ManualStep {...props} brand="" model="" />)
-    expect(screen.queryByText("Find it for me")).not.toBeInTheDocument()
+    expect(screen.queryByText("Let us find it")).not.toBeInTheDocument()
   })
 })
 
 describe("ManualStep — the CTA reflects whether there is anything to scan", () => {
-  it("starts disabled, because there is nothing to scan yet", () => {
+  it("shows NO scan button until there is something to scan", () => {
+    // A permanently dimmed primary read as broken, and competed with the
+    // upload card for the eye. It appears when it can do something.
     render(<ManualStep {...props} />)
-    expect(screen.getByRole("button", { name: /Scan the manual/ })).toBeDisabled()
+    expect(screen.queryByRole("button", { name: /Scan the manual/ })).not.toBeInTheDocument()
   })
 
   it("ENABLES once a file is chosen — the whole point of choosing one", () => {
@@ -74,6 +94,7 @@ describe("ManualStep — the CTA reflects whether there is anything to scan", ()
 
   it("stays disabled while a save is in flight", () => {
     render(<ManualStep {...props} isSaving />)
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [pdf()] } })
     expect(screen.getByRole("button", { name: /Uploading|Scan the manual/ })).toBeDisabled()
   })
 
@@ -95,7 +116,7 @@ describe("ManualStep — the CTA reflects whether there is anything to scan", ()
     expect(screen.queryByText("Paste a link")).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: /Remove this manual/ }))
     expect(screen.getByText("Paste a link")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Scan the manual/ })).toBeDisabled()
+    expect(screen.queryByRole("button", { name: /Scan the manual/ })).not.toBeInTheDocument()
   })
 
   it("reports a file size a person can read, not 0.0 MB", () => {

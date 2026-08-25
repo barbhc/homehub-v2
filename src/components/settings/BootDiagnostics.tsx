@@ -17,7 +17,7 @@ export function BootDiagnostics() {
   const t = lastBootTiming()
 
   const LABEL: Record<string, string> = {
-    js: "Bundle downloaded + parsed",
+    js: "Bundle downloaded + ready",
     react: "React mounted",
     auth: "Signed-in state resolved",
     home: "Home loaded",
