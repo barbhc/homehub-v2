@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageContainer, PageHeader, SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
-import { Stepper } from "@/components/smart-add/Stepper"
 import {
   IdentifyStep,
   DEFAULT_IDENTIFY_DATA,
@@ -25,6 +24,7 @@ import {
   type ParsedConfidence,
 } from "@/modules/knowledge"
 import { startParse } from "@/modules/knowledge/services/parseManualService"
+import type { WizardSession } from "@/lib/wizardSession"
 import {
   getWizardSession,
   setWizardSession,
@@ -33,6 +33,7 @@ import {
   type WizardStep,
 } from "@/lib/wizardSession"
 import { markParsePending } from "@/lib/parsePickup"
+import { resumeSummary } from "@/lib/resumeSummary"
 import { composeItemName } from "@/lib/itemName"
 import { categoryLabel } from "@/lib/categoryLabel"
 import { getRooms } from "@/modules/home"
@@ -84,7 +85,7 @@ export default function SmartAddItem() {
   const [actionLoading, setActionLoading] = useState(false)
   const [savingMessage, setSavingMessage] = useState<string | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
-  const [resumePrompt, setResumePrompt] = useState(false)
+  const [resumePrompt, setResumePrompt] = useState<WizardSession | null>(null)
 
   // Kept only for the wizard-session round-trip (checkResume restores it);
   // nothing in the two remaining steps reads it.
@@ -104,7 +105,6 @@ export default function SmartAddItem() {
   if (hasManual) completedSteps.add("manual")
   if (step === "plan") completedSteps.add("manual")
 
-  const stepperMode = step === "plan" ? "skip-manual" : "full"
 
   const checkResume = useCallback(() => {
     const session = getWizardSession()
@@ -156,14 +156,14 @@ export default function SmartAddItem() {
       // model, which belongs to the appliance lane).
       setIdentifyMode(session.brand?.trim() || session.model?.trim() ? "appliance" : "simple")
     }
-    setResumePrompt(false)
+    setResumePrompt(null)
     setLoading(false)
   }, [propertyId, navigate])
 
   useEffect(() => {
     const session = getWizardSession()
     if (session && propertyId && session.propertyId === propertyId) {
-      setResumePrompt(true)
+      setResumePrompt(session)
     }
     setLoading(false)
   }, [propertyId])
@@ -174,7 +174,7 @@ export default function SmartAddItem() {
 
   const handleStartFresh = () => {
     clearWizardSession()
-    setResumePrompt(false)
+    setResumePrompt(null)
     setItemId(null)
     setIdentifyMode("choice")
     setIdentifyData({ ...DEFAULT_IDENTIFY_DATA })
@@ -504,19 +504,27 @@ export default function SmartAddItem() {
   }
 
   if (resumePrompt) {
+    // HH-113. This said "You have an incomplete setup" while holding the item's
+    // name, brand, model, which step it stopped on and when it started — so
+    // "Start fresh", the one irreversible button here, was a guess about what
+    // you would be discarding. It also carried the pre-round-11 title, which is
+    // why the owner's first screen did not look like the new flow.
+    const summary = resumeSummary(resumePrompt, Date.now())
     return (
       <PageContainer>
-        <PageHeader title="Smart Add Item" subtitle="Add an appliance with guided setup" />
+        <PageHeader title="Pick up where you left off" subtitle={summary.when ? `You started this ${summary.when}.` : undefined} />
         <SectionCard className="p-6">
-          <p className="text-sm text-muted-foreground mb-4">
-            You have an incomplete setup. Would you like to resume?
-          </p>
-          <div className="flex gap-3">
-            <Button onClick={handleResume}>Resume setup</Button>
-            <Button variant="outline" onClick={handleStartFresh}>
-              Start fresh
+          <p className="text-lg font-semibold text-foreground">{summary.title}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{summary.missing}</p>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <Button onClick={handleResume} className="sm:flex-1">Finish adding it</Button>
+            <Button variant="outline" onClick={handleStartFresh} className="sm:flex-1">
+              Start something else
             </Button>
           </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Starting something else leaves this item where it is — you can come back to it from Items.
+          </p>
         </SectionCard>
       </PageContainer>
     )
@@ -531,7 +539,7 @@ export default function SmartAddItem() {
       ? identifyMode === "choice"
         ? undefined
         : identifyMode === "appliance"
-          ? "Brand and model — then we'll add the manual."
+          ? "Brand and model. We'll take it from there."
           : "A name is enough to start. Details can come later."
       : step === "manual"
         ? "This is where the upkeep comes from."
@@ -541,12 +549,15 @@ export default function SmartAddItem() {
     <PageContainer>
       <PageHeader title={step === "manual" ? "Add the manual" : "Add an item"} subtitle={stepSubtitle} />
 
-      <Stepper
-        currentStep={step}
-        completedSteps={completedSteps}
-        className="mb-8"
-        mode={stepperMode}
-      />
+      {/* The stepper is gone. Owner, round 11: "the 1 - 2 breadcrumb at the top
+          is not helpful and I don't think even accurate." Both true. At phone
+          width its labels are hidden, so it was two unlabelled circles; it
+          promised two steps for an arc that is really identify -> manual ->
+          item page -> review -> track purchase; and in the SIMPLE lane
+          handleIdentifyConfirm navigates straight to the item page, so "1 - 2"
+          advertised a second step that lane never has. The buttons already name
+          where they go ("Add the manual"), which is better wayfinding than a
+          dot that cannot say what it is counting. */}
 
       {step === "identify" && (
         <IdentifyStep

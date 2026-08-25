@@ -71,7 +71,9 @@ describe("purchase details belong to the item page, not the wizard", () => {
 
 describe("finding the model another way", () => {
   it("is one labelled disclosure, not three floating buttons", () => {
-    expect(identify).toContain("Find the model another way")
+    // Round 11 reworded the label to the approved copy; the claim is that the
+    // alternate routes sit behind ONE disclosure, not that it is called this.
+    expect(identify).toContain("Can&apos;t find the model?")
     expect(identify).not.toContain("Snap label instead")
   })
 
@@ -144,6 +146,92 @@ describe("the shortest path to a parsed manual", () => {
 
   it("never overwrites a room the user already chose", () => {
     expect(room).toContain("value != null")
+  })
+})
+
+/**
+ * Round 11 — the FIRST screen, against the design that was signed off.
+ *
+ * These exist because of the exact failure they now prevent: the hybrid was
+ * approved with screen 01 annotated "two fields, nothing else — no room picker,
+ * no category grid, no serial number, no 'Add more details' disclosure, because
+ * there is nothing behind it to open", the PR claimed it was built to spec, and
+ * what shipped still had the disclosure, a stepper and a Back button. Two
+ * strings had changed. Nothing asserted the screen, so nothing caught it.
+ *
+ * Each of these is a line the owner would have to re-report otherwise.
+ */
+describe("the appliance lane's first screen is two fields and nothing else", () => {
+  const applianceBranch = () => {
+    // Everything the appliance lane renders, minus the simple lane's own JSX.
+    const i = read("./IdentifyStep.tsx")
+    return i
+  }
+
+  it("does not offer an 'Add more details' disclosure to the appliance lane", () => {
+    // The disclosure survives for the SIMPLE lane, which keeps brand and model
+    // in it, so this asserts the GATE rather than the absence of the markup.
+    const i = applianceBranch()
+    expect(i).toContain('{mode === "simple" && (moreDetailsOpen ? (')
+  })
+
+  it("mounts nothing behind the disclosure outside the simple lane", () => {
+    // NOT MOUNTED, not merely inert: an inert subtree that can never be
+    // revealed still puts Serial number, Room and a category grid in the page.
+    const i = applianceBranch()
+    expect(i).toContain('{mode === "simple" && <div')
+    expect(i).toContain('id="identify-more-details"')
+  })
+
+  it("no longer asks for a name before the manual has been read", () => {
+    // The name is composed from the item TYPE and is editable in Details &
+    // records — which is the first rename this app has ever had.
+    const i = applianceBranch()
+    // The SIMPLE lane keeps its Name on the main column — it is that lane's
+    // only required field. What is gone is the appliance lane's copy of it,
+    // which sat behind the disclosure and asked for a name before we knew
+    // enough to suggest a good one.
+    expect(i).not.toContain('placeholder="Defaults to the brand and model"')
+    expect(i).not.toContain("we name it from the brand and model")
+    expect(read("../item-care/ItemDetailsSheet.tsx")).toContain('id="details-name"')
+  })
+
+  it("has no stepper anywhere in the add flow", () => {
+    // Owner: "the 1 - 2 breadcrumb at the top is not helpful and I don't think
+    // even accurate." It promised two steps for a five-beat arc, and the simple
+    // lane never has a second step at all.
+    expect(page).not.toContain("<Stepper")
+    expect(page).not.toContain("stepperMode")
+  })
+
+  it("uses the approved subtitle", () => {
+    expect(page).toContain("Brand and model. We'll take it from there.")
+    expect(page).not.toContain("Brand and model — then we'll add the manual.")
+  })
+})
+
+/**
+ * HH-113 — the resume gate says what it is holding.
+ */
+describe("picking up an unfinished item", () => {
+  it("never says 'an incomplete setup' again", () => {
+    expect(page).not.toContain("You have an incomplete setup")
+  })
+
+  it("names the item and what is missing", () => {
+    expect(page).toContain("resumeSummary")
+    expect(page).toContain("{summary.title}")
+    expect(page).toContain("{summary.missing}")
+  })
+
+  it("says what Start-fresh actually discards, because it discards nothing", () => {
+    // The item is created BEFORE the session is written, so it survives; the
+    // button was the scary one only because the screen would not say so.
+    expect(page).toContain("leaves this item where it is")
+  })
+
+  it("drops the pre-round-11 title that made this screen look like the old app", () => {
+    expect(page).not.toContain('title="Smart Add Item"')
   })
 })
 

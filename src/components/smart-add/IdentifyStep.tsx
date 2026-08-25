@@ -937,7 +937,7 @@ export function IdentifyStep({
                       className={cn("size-3.5 transition-transform", otherWaysOpen && "rotate-90")}
                       aria-hidden
                     />
-                    Find the model another way
+                    Can&apos;t find the model?
                   </button>
                   {ocrLoading && (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
@@ -1044,7 +1044,18 @@ export function IdentifyStep({
 
 
 
-        {moreDetailsOpen ? (
+        {/* Round 11: the approved first screen is "two fields, nothing else — no
+            room picker, no category grid, no serial number, no 'Add more
+            details' disclosure, because there is nothing behind it to open."
+            The appliance lane now honours that. Everything that used to hide
+            here has a home on the item page: Room and Serial in Details &
+            records, Category in its own picker, and the category-specific
+            fields moved into that same sheet in this change (they had no other
+            home, which is why the disclosure could not simply be deleted).
+
+            The SIMPLE lane keeps it — brand and model live in there, and that
+            lane is deliberately untouched this round. */}
+        {mode === "simple" && (moreDetailsOpen ? (
           <button
             type="button"
             onClick={() => setMoreDetailsOpen(false)}
@@ -1080,9 +1091,13 @@ export function IdentifyStep({
               </li>
             </ul>
           </button>
-        )}
+        ))}
 
-        <div
+        {/* Not merely collapsed — NOT MOUNTED outside the simple lane. The
+            approved design says "there is nothing behind it to open", and an
+            inert subtree that can never be revealed still puts Serial number,
+            Room and a category grid in the page for anything reading it. */}
+        {mode === "simple" && <div
           id="identify-more-details"
           className={cn(
             "grid transition-[grid-template-rows] duration-200 ease-out",
@@ -1126,30 +1141,12 @@ export function IdentifyStep({
                   </div>
                 </div>
               )}
-              {/* Appliance lane only — the simple lane's Name renders on the
-                  main column (it is that lane's ONLY required field, so it can
-                  never live behind an "optional" disclosure). */}
-              {mode === "appliance" && (
-                <div>
-                  <label htmlFor="identify-name" className="text-sm font-medium text-foreground block mb-1.5">
-                    Name
-                  </label>
-                  <Input
-                    id="identify-name"
-                    value={data.name}
-                    onChange={(e) => onDataChange({ ...data, name: e.target.value })}
-                    placeholder="Defaults to the brand and model"
-                    maxLength={255}
-                    onBlur={() => setNameTouched(true)}
-                    // Only after they've been in the field. In the appliance lane the
-                    // name composes itself from brand + model, so an empty Name is the
-                    // normal opening state — flagging it in red before anyone has typed
-                    // greets people with an error for something we are about to fill in.
-                    aria-invalid={nameTouched && data.name.trim().length === 0}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">we name it from the brand and model, then improve it from the manual</p>
-                </div>
-              )}
+              {/* The appliance lane's Name field used to live here. It is gone:
+                  the name is composed from the item TYPE (composeItemName) and
+                  is now editable in the item page's Details & records sheet,
+                  which is the first time this app has HAD a rename. Asking for
+                  a name before the manual has been read is also how a Core 300
+                  once got called "Levoit Core Series Air Purifiers". */}
               {/* HH-76: Room and Category used to sit on the main column,
                   between the model field and the button. The agreed design was
                   brand + model + one call to action, so they moved in here —
@@ -1222,7 +1219,7 @@ export function IdentifyStep({
               )}
             </div>
           </div>
-        </div>
+        </div>}
       </SectionCard>
 
       {error && (

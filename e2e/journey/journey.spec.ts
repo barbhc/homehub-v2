@@ -203,7 +203,21 @@ test.describe("journey walks", () => {
     // Round 11: the button says where it goes, and the screen it opens is
     // titled with the same words. "Next:" is gone.
     const toManual = page.getByRole("button", { name: /^Add the manual$/i }).filter(visible).first()
-    await snap(page, "J2", "appliance-lane", "Appliance lane: brand + model only, and a button naming its destination",
+    // "Two fields, nothing else" is a claim the approved design made and the
+    // first build did not honour. Assert it, at phone width, where it matters.
+    await expect(page.getByText("Add more details")).toHaveCount(0)
+    await expect(page.getByText(/Serial number/)).toHaveCount(0)
+    await expect(page.getByText("Brand and model. We'll take it from there.")).toBeVisible()
+    // Back STAYS, deliberately against the mockup. The mockup's screen 01 drew
+    // no lane chooser before it, so it had nothing to go back to; the real flow
+    // does, and the chooser is a state rather than a route — so the phone's own
+    // back gesture would leave the page entirely. Removing this would trap
+    // anyone who picked the wrong lane.
+    await expect(page.getByRole("button", { name: /^Back$/ })).toBeVisible()
+    // The stepper is gone entirely — no numbered circles standing in for
+    // wayfinding the buttons already do better.
+    await expect(page.locator('nav[aria-label="Progress"]')).toHaveCount(0)
+    await snap(page, "J2", "appliance-lane", "Two fields and nothing else: no disclosure, no stepper, no Back — and a button naming its destination",
       toManual)
     await toManual.click()
 
