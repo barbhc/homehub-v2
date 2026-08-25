@@ -125,11 +125,19 @@ export const ITEM_CATEGORIES: CategoryDefinition[] = [
       { group: "Other", options: [OTHER_OPTION] },
     ],
     fields: [
+      // HH-133: a MICROWAVE was being asked for fuel type and filter type. The
+      // showWhen mechanism already existed and was used by other categories —
+      // this one simply never used it, so every major appliance got every
+      // field. Asking a question that cannot apply is its own small claim that
+      // we do not know what the thing is.
       {
         key: "fuel_type",
         label: "Fuel type",
         type: "select",
         options: ["Electric", "Gas", "Dual"],
+        showWhen: {
+          subType: ["oven-range", "dryer", "hvac-furnace", "water-heater", "tankless-water-heater"],
+        },
       },
       { key: "installation_date", label: "Installation date", type: "date" },
       {
@@ -137,6 +145,9 @@ export const ITEM_CATEGORIES: CategoryDefinition[] = [
         label: "Filter type",
         type: "text",
         placeholder: "e.g., MERV-13 20x25x1",
+        showWhen: {
+          subType: ["hvac-furnace", "air-conditioner", "range-hood", "refrigerator"],
+        },
       },
       { key: "service_provider", label: "Service provider", type: "text" },
     ],

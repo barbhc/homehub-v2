@@ -9,11 +9,9 @@ import {
   type IdentifyMode,
 } from "@/components/smart-add/IdentifyStep"
 import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/ManualStep"
-import { PlanStep, type EditableTask } from "@/components/smart-add/PlanStep"
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import { createItemUnit } from "@/modules/items"
-import { createTasksFromEditable } from "@/modules/care"
 import { uploadManualPdf, removeManualPdf, uploadItemPhoto } from "@/modules/inventory/services/storageService"
 import { resolveStorageUrl } from "@/integrations/firebase"
 import { deleteManualDocument } from "@/modules/knowledge/services/manualDocumentService"
@@ -39,7 +37,6 @@ import { composeItemName } from "@/lib/itemName"
 import { categoryLabel } from "@/lib/categoryLabel"
 import { getRooms } from "@/modules/home"
 import { getItemUnits } from "@/modules/items"
-import { subTypeToLegacyApplianceTypeId } from "@/modules/inventory/constants/itemCategories"
 
 type ManualClassificationGate = {
   choices: ManualSourceChoice[]
@@ -80,7 +77,6 @@ export default function SmartAddItem() {
   const [manualStepKey, setManualStepKey] = useState(0)
   const [itemId, setItemId] = useState<string | null>(null)
   const [hasManual, setHasManual] = useState(false)
-  const [manualUrl, setManualUrl] = useState<string | null>(null)
   const [, setHasTasks] = useState(false)
   const [, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
@@ -104,7 +100,6 @@ export default function SmartAddItem() {
   const completedSteps = new Set<WizardStep>()
   if (itemId) completedSteps.add("identify")
   if (hasManual) completedSteps.add("manual")
-  if (step === "plan") completedSteps.add("manual")
 
 
   const checkResume = useCallback(() => {
@@ -183,7 +178,6 @@ export default function SmartAddItem() {
     setManualDocGate(null)
     setManualStepKey((k) => k + 1)
     setHasManual(false)
-    setManualUrl(null)
     setHasTasks(false)
     setParseConfidence(null)
     setStep("identify")
@@ -299,9 +293,8 @@ export default function SmartAddItem() {
    * server-side and the item page watches it.
    */
   const startParseAndLeave = useCallback(
-    async (firstManualId: string, firstUrl: string | null) => {
+    async (firstManualId: string) => {
       if (!propertyId || !itemId) return
-      setManualUrl(firstUrl)
       setSavingMessage(undefined)
 
       const started = await startParse(firstManualId, { homeId: propertyId, mode: "preview" })
@@ -375,7 +368,6 @@ export default function SmartAddItem() {
         if (!firstManualId) throw new Error("No manual created")
 
         setHasManual(true)
-        setManualUrl(firstUrl)
         updateWizardSession({ hasManual: true })
 
         const det = await detectDocType(propertyId, firstManualId)
@@ -397,7 +389,7 @@ export default function SmartAddItem() {
           return
         }
 
-        await startParseAndLeave(firstManualId, firstUrl)
+        await startParseAndLeave(firstManualId)
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Something went wrong"
         setError(msg)
@@ -417,7 +409,7 @@ export default function SmartAddItem() {
     setActionLoading(true)
     setError(null)
     try {
-      await startParseAndLeave(g.firstManualId, g.firstUrl)
+      await startParseAndLeave(g.firstManualId)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong"
       setError(msg)
@@ -453,7 +445,6 @@ export default function SmartAddItem() {
       }
       setManualDocGate(null)
       setHasManual(false)
-      setManualUrl(null)
       updateWizardSession({ hasManual: false })
       setManualStepKey((k) => k + 1)
     } catch (err: unknown) {
@@ -465,42 +456,22 @@ export default function SmartAddItem() {
     }
   }, [manualDocGate])
 
+  /**
+   * "I'll add it later" ends the wizard at the item page — the same place
+   * finishing with a manual ends.
+   *
+   * It used to set step "plan" and render PlanStep, the task planner the
+   * round 11–13 rebuild replaced. Declining to add a manual right now is an
+   * ordinary choice, so an ordinary choice was the main way to meet a retired
+   * screen. The item page already handles an item with no manual: it says so
+   * and offers to add one.
+   */
   const handleManualSkip = useCallback(() => {
-    updateWizardSession({ step: "plan" })
-    setStep("plan")
-  }, [])
-
-  const handlePlanFinish = useCallback(async (tasks: EditableTask[]) => {
-    if (!propertyId || !itemId) return
-    setError(null)
-    setActionLoading(true)
-
-    const result = await createTasksFromEditable(
-      propertyId,
-      itemId,
-      tasks.map((t) => ({
-        title: t.title,
-        instructions: t.instructions || null,
-        priority: t.priority,
-        effort: t.effort ?? null,
-        afterEachUse: t.afterEachUse,
-        frequencyValue: t.frequencyValue,
-        frequencyUnit: t.frequencyUnit,
-      }))
-    )
-    setActionLoading(false)
-
-    if (!result.success) {
-      setError(result.error)
-      return
-    }
-
-    setHasTasks(true)
-    // Purchase details are the item page's Details & records sheet now — asked
-    // there, when the user chooses, instead of as a wizard toll booth.
+    if (!itemId) return
     clearWizardSession()
     navigate(`/items/${itemId}`)
-  }, [propertyId, itemId, navigate])
+  }, [itemId, navigate])
+
 
   if (!propertyId) {
     return (
@@ -551,7 +522,13 @@ export default function SmartAddItem() {
           ? "Type the brand and model — or scan the label and we'll read it."
           : "A name is enough to start. Details can come later."
       : step === "manual"
-        ? "This is where the upkeep comes from."
+        // HH-130: "It would be great to carry forward the brand and model
+        // number onto this page because now I can't remember what the model
+        // number is that I need to look up." She was being asked to go and find
+        // a manual for a model the app was holding and not showing.
+        ? [identifyData.brand, identifyData.model].filter(Boolean).join(" ").trim()
+          ? `For your ${[identifyData.brand, identifyData.model].filter(Boolean).join(" ")}.`
+          : "This is where the upkeep comes from."
         : undefined
 
   return (
@@ -586,6 +563,7 @@ export default function SmartAddItem() {
         <ManualStep
             brand={identifyData.brand}
             model={identifyData.model}
+            onBack={() => { updateWizardSession({ step: "identify" }); setStep("identify") }}
           key={manualStepKey}
           onConfirm={handleManualConfirm}
           onSkip={handleManualSkip}
@@ -608,21 +586,6 @@ export default function SmartAddItem() {
         />
       )}
 
-      {step === "plan" && itemId && (
-        <PlanStep
-          itemName={identifyData.name}
-          brand={identifyData.brand || null}
-          applianceTypeId={subTypeToLegacyApplianceTypeId(identifyData.subType)}
-          itemCategory={identifyData.itemCategory}
-          subType={identifyData.subType}
-          categoryFields={identifyData.categoryFields}
-          manualUrl={manualUrl}
-          onFinish={handlePlanFinish}
-          isSaving={actionLoading}
-          error={error}
-          onRetry={() => setError(null)}
-        />
-      )}
 
     </PageContainer>
   )

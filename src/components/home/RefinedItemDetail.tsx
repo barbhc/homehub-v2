@@ -4,8 +4,7 @@ import { Link } from "react-router-dom"
 import {
   ChevronLeftIcon, ChevronRightIcon, MapPinIcon, ShieldCheckIcon,
   MegaphoneIcon, MessageCircleQuestionIcon, TagIcon,
-  WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, type LucideIcon,
-} from "lucide-react"
+  WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, PencilIcon, type LucideIcon } from "lucide-react"
 import type { ItemUnit, Room, KnowledgeChunk } from "@/integrations/types"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { dens } from "@/lib/redesign/tokens"
@@ -141,7 +140,24 @@ export function RefinedItemDetail({
             className="h-[150px] w-full rounded-[20px]"
             glyphClassName="size-16"
           />
-          <h1 className="mt-3.5 text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
+          {/* HH-125: "This is a rice cooker as a user I should be able to edit
+              this name." Renaming has existed since #168, behind Edit in
+              Details & records — which is not where the thought happens. The
+              thought happens looking at the wrong name, so the affordance goes
+              on the name, exactly as the room chip already does. */}
+          {onEditDetails ? (
+            <button
+              type="button"
+              onClick={onEditDetails}
+              className="mt-3.5 flex items-center gap-2 text-left"
+              aria-label={`Rename ${item.display_name}`}
+            >
+              <h1 className="text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
+              <PencilIcon className="size-[15px] shrink-0" style={{ color: TEAL }} aria-hidden="true" />
+            </button>
+          ) : (
+            <h1 className="mt-3.5 text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
+          )}
           {/* HH-86: only when it adds something — since #139 composes blank
               names as "Brand Model", the old unconditional line was the same
               words twice for every newly added item. */}

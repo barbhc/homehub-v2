@@ -5,8 +5,14 @@ export type WizardStep =
   | "manual"
   | "parsing"
   | "review"
-  | "plan"
-  | "purchase"
+
+/**
+ * Steps that no longer exist. A session saved before the round 11–13 rebuild
+ * can still be sitting in localStorage naming one of these, and resuming it
+ * used to drop the user into a retired screen — the single most reliable way
+ * to meet an old design in this app.
+ */
+const RETIRED_STEPS = new Set(["plan", "purchase"])
 
 /**
  * Subset of ParsedConfidence persisted alongside the wizard session so a
@@ -47,6 +53,10 @@ export type WizardSession = {
 function normalizeWizardSession(parsed: WizardSession): WizardSession {
   return {
     ...parsed,
+    // A retired step resolves to the last step that still exists rather than
+    // to a screen we deleted. "manual" is the right landing: it is where both
+    // retired steps followed from, and the item page takes over after it.
+    step: RETIRED_STEPS.has(parsed.step as string) ? "manual" : parsed.step,
     purchaseDate: parsed.purchaseDate ?? null,
     purchasePrice:
       typeof parsed.purchasePrice === "number" && !Number.isNaN(parsed.purchasePrice)

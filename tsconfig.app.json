@@ -28,5 +28,5 @@
   "include": ["src"],
   // Node-API static guards (fs scans of the repo) — vitest runs them fine, but
   // this browser-lib config can't type node:fs.
-  "exclude": ["src/test/indexCoverage.test.ts", "src/test/noUnhandledFetch.test.ts", "src/test/overlayLayering.test.ts", "src/test/chrisRound1.test.ts", "src/components/smart-add/addFlowCopy.test.ts", "src/test/csp.test.ts", "src/pages/legal/staticPrivacy.test.ts", "src/pages/homeEmptyStates.test.ts", "src/lib/scanCopy.test.ts"]
+  "exclude": ["src/test/indexCoverage.test.ts", "src/test/noUnhandledFetch.test.ts", "src/test/overlayLayering.test.ts", "src/test/chrisRound1.test.ts", "src/components/smart-add/addFlowCopy.test.ts", "src/test/csp.test.ts", "src/pages/legal/staticPrivacy.test.ts", "src/pages/homeEmptyStates.test.ts", "src/lib/scanCopy.test.ts", "src/lib/retiredDesigns.test.ts"]
 }

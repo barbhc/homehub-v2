@@ -9,6 +9,7 @@
 import type { IdentifyData } from "@/components/smart-add/IdentifyStep"
 import type { ProductIdentity } from "@/modules/inventory/services/productLookupService"
 import { mapOcrCategoryToTyped } from "@/modules/inventory/constants/itemCategories"
+import { isUsableProductName } from "@/lib/itemName"
 
 /** Priors for exactly the fields applyIdentity changed (undo restores these). */
 export type IdentitySnapshot = {
@@ -29,7 +30,12 @@ export function applyIdentity(
   // not a user decision — the identity's real product name may replace it.
   // The caller owns placeholder tracking (IdentifyStep's placeholderNamesRef).
   const nameIsPlaceholder = !data.name.trim() || !!opts?.nameIsPlaceholder
-  const fillName = nameIsPlaceholder && !!identity.name
+  // HH-125: a resolved "name" is not automatically a name. "Pan for NSLACO5"
+  // came from a manual heading and was kept verbatim, because composeItemName
+  // treats anything already in this field as the user's own choice. When the
+  // resolver's name fails that test we leave the field alone and let
+  // composeItemName fall back to the item TYPE — which is what HH-112 asked for.
+  const fillName = nameIsPlaceholder && isUsableProductName(identity.name, data.model)
   // Category+subType move together (a subType only makes sense inside its
   // category) — fill only when the user hasn't picked a category yet.
   const fillCategory = data.itemCategory == null && mapped.itemCategory != null
