@@ -113,6 +113,25 @@ requirement is met.**
    mockup nobody checked the build against is just a nicer version of claiming
    it is done.
 
+## Merging and deploying — standing authorization
+
+**Owner, 2026-08-25: "please merge and deploy without me asking going forward."**
+So: when a PR's CI is green, merge it and deploy hosting without stopping to
+confirm. Report what landed and what the live bundle proves, not a request for
+permission.
+
+The rest of the workflow is unchanged — work still goes through a feature branch
+and a PR, never a direct push to `main`, and every suite CI runs is still run
+locally first (rule 5). What this removes is the per-instance "shall I?", not
+any of the gates.
+
+**Two things this does NOT cover, and neither is implied by it:**
+
+- **Functions deploys still need explicit per-deploy approval.** They carry cost
+  and blast radius the hosting bundle does not, and that rule predates this one.
+- **Anything destructive** — deleting App Store Connect feedback, dropping data,
+  force-pushing, rewriting history. Those stay owner-run.
+
 **Deploy reality:** merging ships NOTHING. `ci.yml` is the only workflow — there
 is no deploy job. Hosting is a manual
 `npx firebase-tools deploy --only hosting --project homehub-2068d`, and the iOS
