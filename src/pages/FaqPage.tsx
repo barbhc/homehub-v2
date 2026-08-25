@@ -910,7 +910,7 @@ export default function FaqPage() {
           ) : Object.keys(groupedByItem).length === 0 ? (
             <EmptyState
               title="No manual excerpts yet"
-              description="Add manuals to your items and parse them to see care, how-to, and troubleshooting tips here."
+              description="Add manuals to your items and scan them to see care, how-to, and troubleshooting tips here."
             />
           ) : groupBy === "item" ? (
             <div className="space-y-0">

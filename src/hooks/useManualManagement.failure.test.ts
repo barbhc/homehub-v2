@@ -93,8 +93,11 @@ describe("useManualManagement — add/parse failures are surfaced, not swallowed
     await act(async () => { await result.current.handleAddManual() })
 
     await waitFor(() => expect(result.current.parseError).toBeTruthy())
-    // The distinction that matters: saved, but not parsed.
-    expect(result.current.parseError).toMatch(/pars/i)
+    // The distinction that matters: saved, but not SCANNED. (Round 12 retired
+    // "parse" from every user-facing string; the guarantee is the distinction,
+    // not the word.)
+    expect(result.current.parseError).toMatch(/saved/i)
+    expect(result.current.parseError).toMatch(/scan/i)
     expect(setManuals).toHaveBeenCalled()
   })
 })

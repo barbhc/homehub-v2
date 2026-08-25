@@ -22,6 +22,8 @@ import { db } from "@/integrations/firebase"
 import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
 
 export interface TrayEntry {
+  /** Pages the scan has to get through; null until the PDF has been fetched. */
+  pages: number | null
   manualId: string
   itemUnitId: string
   title: string
@@ -52,6 +54,7 @@ export function useParseTray(homeId: string | null): ParseTray {
             manualId: d.id,
             itemUnitId: d.get("itemUnitId") ?? "",
             title: d.get("title") || "Manual",
+            pages: (d.get("parse")?.pdfPages as number | undefined) ?? null,
             stage: stage ?? "",
           }
           if (stage && (ACTIVE_PARSE_STAGES as string[]).includes(stage)) parsing.push(entry)

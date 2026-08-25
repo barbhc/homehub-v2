@@ -30,7 +30,8 @@ vi.mock("@/lib/parsePickup", () => ({ isParsePending, clearParsePending: vi.fn()
 vi.mock("@/modules/knowledge/services/parseFeedbackService", () => ({ recordParseFeedback: vi.fn() }))
 vi.mock("./ReviewItemTasksButton", () => ({ ReviewItemTasksButton: () => <button>Review tasks</button> }))
 vi.mock("./TaskReviewSheet", () => ({
-  TaskReviewSheet: ({ open }: { open: boolean }) => (open ? <div data-testid="review-sheet" /> : null),
+  TaskReviewSheet: ({ open, presentation }: { open: boolean; presentation?: string }) =>
+    open ? <div data-testid="review-sheet" data-presentation={presentation ?? "sheet"} /> : null,
 }))
 
 import { ParsePickupCard } from "./ParsePickupCard"
@@ -114,5 +115,63 @@ describe("ParsePickupCard — the parse-to-review handoff", () => {
     view("m-once")
     await waitFor(() => expect(screen.getByText("Review & schedule")).toBeInTheDocument())
     expect(screen.queryByTestId("review-sheet")).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * HH-120. PR #167 gave the review an `inline` mode so it could be a section of
+ * the page rather than a drawer — and rendered it INSIDE this card, a narrow
+ * horizontal flex row built for a one-line status. The review collapsed to one
+ * word per line and sat behind the drawer another caller had opened, so two
+ * review surfaces were mounted at once.
+ *
+ * The guarantee is structural, not visual: in flow the card is REPLACED by the
+ * review, never wrapped around it.
+ */
+describe("ParsePickupCard — the in-flow review replaces the card", () => {
+  it("renders the review INSTEAD of the card once a watched scan finishes", async () => {
+    isParsePending.mockReturnValue(true)
+    readPreviewDraft.mockResolvedValue(DRAFT)
+    // A run we sat and watched: active stages, then done.
+    stages("queued", "claude_call", "done")
+
+    render(
+      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-inline"]} itemName="Dryer"
+        onReviewSaved={vi.fn()} />
+    )
+
+    const sheet = await screen.findByTestId("review-sheet")
+    expect(sheet).toHaveAttribute("data-presentation", "inline")
+    // The card's own chrome is gone — not merely hidden behind the review.
+    expect(screen.queryByRole("button", { name: /Dismiss/ })).not.toBeInTheDocument()
+  })
+
+  it("keeps the drawer for someone who came back later", async () => {
+    isParsePending.mockReturnValue(true)
+    readPreviewDraft.mockResolvedValue(DRAFT)
+    // Already finished on arrival: we never watched it run.
+    stages("done")
+
+    render(
+      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-return"]} itemName="Dryer"
+        onReviewSaved={vi.fn()} />
+    )
+
+    const sheet = await screen.findByTestId("review-sheet")
+    expect(sheet).toHaveAttribute("data-presentation", "sheet")
+  })
+
+  it("never mounts two reviews at once", async () => {
+    isParsePending.mockReturnValue(true)
+    readPreviewDraft.mockResolvedValue(DRAFT)
+    stages("queued", "done")
+
+    render(
+      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-single"]} itemName="Dryer"
+        onReviewSaved={vi.fn()} />
+    )
+
+    await screen.findByTestId("review-sheet")
+    await waitFor(() => expect(screen.getAllByTestId("review-sheet")).toHaveLength(1))
   })
 })

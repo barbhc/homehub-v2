@@ -264,11 +264,21 @@ interface TaskReviewSheetProps {
   /** "maintenance" reviews only the upkeep that needs a decision and saves the
    *  rest untouched. "all" (the default) is the full two-step sheet, still used
    *  by the item page's own "Review tasks" button. */
+  /**
+   * HH-119. This defaulted to "all" — the pre-round-10 full review — and only
+   * ONE of three callers passed "maintenance", so the consolidated design the
+   * owner approved reached one door out of three. Attaching a manual from the
+   * item page had never had it.
+   *
+   * The SAFE value is now the default: everyone gets the approved review, and
+   * the full one is what you opt into. A fourth caller added later inherits the
+   * design instead of silently escaping it.
+   */
   focus?: "maintenance" | "all"
 }
 
 export function TaskReviewSheet({
-  open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, focus = "all",
+  open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, focus = "maintenance",
   presentation = "sheet",
 }: TaskReviewSheetProps) {
   const initial = useMemo(() => rowsFrom(previewData), [previewData])
@@ -626,7 +636,10 @@ export function TaskReviewSheet({
               : step === 1
                 ? "Step 1 of 2 · What each task is"
                 : focus === "maintenance"
-                  ? nothingToSchedule ? "What we found in this manual" : "Maintenance · how often & reminders"
+                  // Round 12: was "What we found in this manual". focus=maintenance
+                  // is the default now, so this also heads the item page's
+                  // "Review tasks" — where there may be no manual at all.
+                  ? nothingToSchedule ? "What's saved to this item" : "Maintenance · how often & reminders"
                   : "Step 2 of 2 · How often"}
           </div>
         </Head>
@@ -811,7 +824,10 @@ export function TaskReviewSheet({
               // nothing needs a schedule reads as an argument with itself.
               // When there is nothing to schedule, just say how many are saved.
               : nothingToSchedule
-                ? `Save all ${counts.tasks + counts.tips}`
+                // "Save all 1" reads like a bug. One thing gets a sentence.
+                ? counts.tasks + counts.tips === 1
+                  ? "Save it"
+                  : `Save all ${counts.tasks + counts.tips}`
                 : `Save ${counts.tasks} task${counts.tasks === 1 ? "" : "s"}${counts.scheduled < counts.tasks ? ` — ${counts.scheduled} on a schedule` : ""}${counts.tips ? ` · ${counts.tips} tip${counts.tips === 1 ? "" : "s"}` : ""}`}
           </Button>
           </>
@@ -894,7 +910,7 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
 }
 
 function StepTwo({
-  rows, cadOpenId, setCadOpenId, patch, bucketOfRow, focus = "all", onReviewEverything, setKind,
+  rows, cadOpenId, setCadOpenId, patch, bucketOfRow, focus = "maintenance", onReviewEverything, setKind,
 }: {
   rows: ReviewRow[]
   cadOpenId: string | null
@@ -926,8 +942,12 @@ function StepTwo({
       <div className="px-1 py-1">
         <p className="text-[13px] font-bold">Nothing here needs a reminder.</p>
         <p className="mt-1 mb-3 text-[12px] text-muted-foreground">
+          {/* Round 12: said "This manual is…", but focus=maintenance is now the
+              DEFAULT, so this branch is also what the item page's "Review
+              tasks" button opens — where there may be no manual in the story at
+              all. Describe what is here, not where it came from. */}
           {focus === "maintenance"
-            ? "This manual is cleaning and usage advice. It's saved to this item — nothing will remind you."
+            ? "These are cleaning and usage advice. They're saved to this item — nothing will remind you."
             : "Everything here is a setup step or a tip. It's saved to this item — nothing will remind you."}
         </p>
         {kept.length > 0 && (

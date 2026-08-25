@@ -217,7 +217,7 @@ export function useManualManagement({
         const started = await startParse(manualId, { homeId, mode: "preview" })
         if (!started.ok) {
           clearParsePending(manualId)
-          setParseError(`Manual saved, but parsing could not start: ${humanizeParseError(started.error)}`)
+          setParseError(`Manual saved, but the scan could not start: ${humanizeParseError(started.error)}`)
         }
       }
       setAddManualOpen(false)
@@ -249,7 +249,7 @@ export function useManualManagement({
     const result = await previewManualParse(homeId, manualId)
     setParsingManualId(null)
     if (!result.ok) {
-      setParseError(`Parsing failed: ${humanizeParseError(result.error)}`)
+      setParseError(`The scan failed: ${humanizeParseError(result.error)}`)
       return
     }
     setPreviewResult(result)
@@ -298,7 +298,7 @@ export function useManualManagement({
     chunksToSave: PreviewChunk[],
     edits?: ReviewEditSummary
   ): Promise<string | null> => {
-    if (!parsedManualId) return "No manual selected — please try parsing again."
+    if (!parsedManualId) return "No manual selected — please try scanning again."
     if (!homeId) return "No home context — please reload and try again."
     setSaving(true)
     // commitReviewedDraft re-normalizes + commits server-side, and commitDraft

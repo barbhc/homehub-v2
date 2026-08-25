@@ -57,7 +57,7 @@ const TIER_LABEL: Record<PriorityTier, string> = {
 
 const SOURCE_LABEL: Record<string, string> = {
   manual: "manual edit",
-  import: "manual parse",
+  import: "manual scan",
   drag: "drag",
 }
 

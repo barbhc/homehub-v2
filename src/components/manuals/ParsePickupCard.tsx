@@ -12,6 +12,7 @@ import { TaskReviewSheet } from "./TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import { clearParsePending, isParsePending } from "@/lib/parsePickup"
+import { SCAN_KEEPS_GOING } from "@/lib/scanCopy"
 import { ReviewItemTasksButton } from "./ReviewItemTasksButton"
 
 /**
@@ -200,7 +201,7 @@ export function ParsePickupCard({
             Scanning your manual{active[1].pages ? ` · ${active[1].pages} pages` : ""}
           </p>
           <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
-            {STAGE_LINE[ui] ?? "Working…"} You can leave this page — we'll keep going.
+            {STAGE_LINE[ui] ?? "Working…"} {SCAN_KEEPS_GOING}
           </p>
         </div>
       </div>
@@ -228,6 +229,71 @@ export function ParsePickupCard({
         >
           <XIcon className="size-4" />
         </button>
+      </div>
+    )
+  }
+
+  // Did we sit and watch this scan run? That is the owner's own distinction
+  // between "still in the flow" (a section of the page) and "came back later"
+  // (a drawer over what you were already looking at).
+  const inFlow = watchedRunning.current.has(manualId)
+
+  // One review element, rendered in exactly one place — either as this card's
+  // replacement (in flow) or as a drawer beside it (came back later). Building
+  // it once is what makes "only ONE review is ever mounted" structural.
+  const reviewSheet = draft ? (
+    <TaskReviewSheet
+      open={draftOpen}
+      onOpenChange={setDraftOpen}
+      itemName={itemName}
+      previewData={draft}
+      // The one review this flow asks for. Cleaning, setup and tips are
+      // saved and shown on the page; only upkeep needs a decision here.
+      focus="maintenance"
+      // Round 11: in the flow it is a SECTION of the page; out of the flow
+      // it is a drawer. `watchedRunning` already knows which — it holds the
+      // manuals whose scan we sat and watched. Someone who stayed is still
+      // in the flow and should not be handed something to dismiss; someone
+      // who left and came back is already somewhere on this page, and
+      // sliding the review over that genuinely IS a detour.
+      presentation={inFlow ? "inline" : "sheet"}
+      saving={draftSaving}
+      onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[]) => {
+        setDraftSaving(true)
+        const res = await commitReviewedDraft(homeId, manualId, chunks, tasks)
+        setDraftSaving(false)
+        if (!res.ok) return res.error
+        setDraftOpen(false)
+        setDraft(null)
+        dismiss(manualId)
+        onReviewSaved()
+        return null
+      }}
+      onFeedback={(p) => {
+        void recordParseFeedback(homeId, {
+          manualId,
+          itemUnitId,
+          reasons: p.reasons,
+          note: p.note,
+          edits: p.edits,
+          rescanRequested: p.rescan,
+        })
+      }}
+    />
+  ) : null
+
+  // HH-120. In-flow the review is a SECTION of the page, which is what the owner
+  // asked for — but PR #167 rendered it INSIDE this card, a narrow horizontal
+  // flex row, and the review is built for a full-width sheet. It collapsed to
+  // one word per line and sat behind the drawer another caller had opened, so
+  // two review surfaces were mounted at once.
+  //
+  // The card is REPLACED by it, never wrapped around it: same content, same
+  // controls, the page's own width.
+  if (draft && draftOpen && inFlow) {
+    return (
+      <div className="mb-4">
+        {reviewSheet}
       </div>
     )
   }
@@ -296,47 +362,9 @@ export function ParsePickupCard({
       >
         <XIcon className="size-4" />
       </button>
+      {reviewSheet}
 
-      {draft && (
-        <TaskReviewSheet
-          open={draftOpen}
-          onOpenChange={setDraftOpen}
-          itemName={itemName}
-          previewData={draft}
-          // The one review this flow asks for. Cleaning, setup and tips are
-          // saved and shown on the page; only upkeep needs a decision here.
-          focus="maintenance"
-          // Round 11: in the flow it is a SECTION of the page; out of the flow
-          // it is a drawer. `watchedRunning` already knows which — it holds the
-          // manuals whose scan we sat and watched. Someone who stayed is still
-          // in the flow and should not be handed something to dismiss; someone
-          // who left and came back is already somewhere on this page, and
-          // sliding the review over that genuinely IS a detour.
-          presentation={watchedRunning.current.has(manualId) ? "inline" : "sheet"}
-          saving={draftSaving}
-          onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[]) => {
-            setDraftSaving(true)
-            const res = await commitReviewedDraft(homeId, manualId, chunks, tasks)
-            setDraftSaving(false)
-            if (!res.ok) return res.error
-            setDraftOpen(false)
-            setDraft(null)
-            dismiss(manualId)
-            onReviewSaved()
-            return null
-          }}
-          onFeedback={(p) => {
-            void recordParseFeedback(homeId, {
-              manualId,
-              itemUnitId,
-              reasons: p.reasons,
-              note: p.note,
-              edits: p.edits,
-              rescanRequested: p.rescan,
-            })
-          }}
-        />
-      )}
+
     </div>
   )
 }

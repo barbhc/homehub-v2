@@ -17,6 +17,17 @@ test.describe("emulator e2e — task review wizard", () => {
     await expect(entry).toBeVisible({ timeout: 10_000 })
     await entry.click()
 
+    // Round 12 (HH-119): `focus` now DEFAULTS to "maintenance", so every door
+    // opens the consolidated review and the full step-1 wizard is the thing you
+    // opt into. This test is about the full wizard writing back correctly, so
+    // it takes the route a user now takes to reach it.
+    //
+    // The seeded dishwasher's only task is cleaning, so the consolidated view
+    // reports that nothing needs a reminder and offers "Review them all".
+    await expect(page.getByText(/Nothing here needs a reminder|Keep an eye on/i).first())
+      .toBeVisible({ timeout: 10_000 })
+    await page.getByRole("button", { name: /Review them all|Review everything/ }).first().click()
+
     // Lead-in must name both routes, and never offer a dead "Skip".
     await expect(page.getByText(/worth tracking/).first()).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText(/take them one at a time/)).toBeVisible()

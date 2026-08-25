@@ -166,8 +166,15 @@ describe("TaskReviewSheet — a manual with no maintenance", () => {
 
   it("titles the sheet for what it actually is", () => {
     renderNoMaint()
-    expect(screen.getByText("What we found in this manual")).toBeInTheDocument()
+    expect(screen.getByText("What's saved to this item")).toBeInTheDocument()
     expect(screen.queryByText("Maintenance · how often & reminders")).not.toBeInTheDocument()
+  })
+
+  it("never claims a manual, because this is also the item page's Review button", () => {
+    // focus=maintenance became the DEFAULT in round 12, so this branch now also
+    // heads "Review tasks" on an item that may have no manual in its story.
+    renderNoMaint()
+    expect(document.body.textContent).not.toMatch(/this manual/i)
   })
 
   it("the button agrees with the screen instead of arguing with it", () => {
