@@ -3,6 +3,9 @@ import {
   AI_UNIT_COST,
   BURST_UNIT_LIMIT,
   DAILY_AI_LIMIT,
+  BURST_UNIT_LIMIT,
+  DEFAULT_MONTHLY_UNIT_CEILING,
+  AI_UNIT_COST,
   DEFAULT_MONTHLY_UNIT_CEILING,
   DEFAULT_RATE_LIMIT,
   RATE_WINDOW_MS,
@@ -287,5 +290,30 @@ describe("rate-limit table", () => {
       expect(cost, `${fn} costs ${cost}, above the burst limit`).toBeLessThanOrEqual(BURST_UNIT_LIMIT)
       expect(rateLimitFor(fn), `${fn} has a non-positive rate limit`).toBeGreaterThan(0)
     }
+  })
+})
+
+describe("the daily cap's relationships hold after it changes", () => {
+  it("a day's allowance buys a sensible number of the expensive call", () => {
+    // The reason 50 was raised: a manual scan is 10 units, so 50/day was five
+    // scans BEFORE any lookups, OCR or doc-type checks — and a real session
+    // spends most of its budget on those. Pinned as a ratio rather than a
+    // number so this stays meaningful the next time either side moves.
+    const scansPerDay = DAILY_AI_LIMIT / AI_UNIT_COST.enqueueParse
+    expect(scansPerDay).toBeGreaterThanOrEqual(20)
+  })
+
+  it("one user cannot outrun the app-wide ceiling in a single day", () => {
+    // The guard that actually remains. If a day's allowance ever exceeds the
+    // month's, the monthly ceiling stops being a backstop at all — one user
+    // could close the app for everyone before lunch.
+    expect(DAILY_AI_LIMIT).toBeLessThan(DEFAULT_MONTHLY_UNIT_CEILING)
+  })
+
+  it("the burst limit still bites before the daily one", () => {
+    // Raising the daily cap moves the anti-runaway job onto the rate limiter.
+    // If burst ever exceeded the daily allowance, a loop would spend the whole
+    // day's budget inside one minute with nothing to stop it.
+    expect(BURST_UNIT_LIMIT).toBeLessThan(DAILY_AI_LIMIT)
   })
 })

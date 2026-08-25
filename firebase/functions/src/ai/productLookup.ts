@@ -24,6 +24,7 @@ import {
 import { requireAnyMembership } from "../lib/membership.js"
 import { allSpecKeys, isAllowedSpecKey } from "../../../../shared/products/specKeys.js"
 import { chargeAiQuota } from "../lib/quota.js"
+import { DAILY_AI_LIMIT } from "../../../../shared/quota/policy.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 // Brave is a SECRET, matching chatQuery + searchProductImages, which already
@@ -51,7 +52,11 @@ const CACHE_TTL_DAYS = 30
 /** Lookups fire on every typing pause (~$0.001 each, cache hits charged too),
  *  so the shared 50/day pool starves fast during real add sessions. Higher
  *  allowance on the SAME counter — chat/OCR still cap at the default 50. */
-const LOOKUP_DAILY_LIMIT = 150
+// Derived, not a literal. This exists to give lookups a HIGHER allowance than
+// the shared default; hard-coding 150 meant that raising the default to 1000
+// silently turned it into a TIGHTER one, throttling the cheapest call in the
+// app while everything else got roomier.
+const LOOKUP_DAILY_LIMIT = DAILY_AI_LIMIT * 3
 
 const CATEGORY_IDS = [
   "major_appliance", "small_appliance", "fixture", "system", "structure",

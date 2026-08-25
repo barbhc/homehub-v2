@@ -9,7 +9,23 @@
  * decideQuota(), so the check and the increment cannot disagree about what
  * "over the limit" means.
  */
-export const DAILY_AI_LIMIT = 50
+/**
+ * Per user, per UTC day.
+ *
+ * Raised from 50 on 2026-08-25 at the owner's request. 50 was sized for a
+ * homeowner adding an appliance now and then, and it made testing the app
+ * impossible: a manual scan costs 10 units, so 50 was five scans a day BEFORE
+ * anything else, and a real QA session spent most of it on the product lookups
+ * that fire while you type. The account testing round 14 hit exactly 50/50 and
+ * got two scans out of it.
+ *
+ * WHAT THIS NO LONGER PROTECTS: at 1000/day a single user can consume the
+ * entire 20,000-unit monthly ceiling in twenty days, and that ceiling refuses
+ * every paid call for EVERY user until the next UTC month. The daily cap has
+ * stopped being a meaningful cost guard; the monthly ceiling and the per-minute
+ * rate limits are what remain.
+ */
+export const DAILY_AI_LIMIT = 1000
 
 /**
  * App-wide units per UTC month. Override with the AI_MONTHLY_UNIT_CEILING env
