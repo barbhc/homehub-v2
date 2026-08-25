@@ -19,7 +19,6 @@ const read = (p: string) =>
 const identify = read("./IdentifyStep.tsx")
 const page = read("../../pages/SmartAddItem.tsx")
 const detailsSheet = read("../item-care/ItemDetailsSheet.tsx")
-const stepper = read("./Stepper.tsx")
 
 describe("the header describes the step you are on", () => {
   it("no longer promises a name field to a step that has none", () => {
@@ -357,11 +356,16 @@ describe("the wizard ends at the manual", () => {
   })
 
   it("promises only the steps it delivers", () => {
-    const full = stepper.slice(stepper.indexOf("FULL_STEPS"), stepper.indexOf("SKIP_MANUAL_STEPS"))
-    expect(full).toContain('"identify"')
-    expect(full).toContain('"manual"')
-    for (const retired of ['"parsing"', '"review"', '"purchase"']) {
-      expect(full).not.toContain(retired)
+    // Round 14: this used to read Stepper.tsx's FULL_STEPS. The stepper is
+    // deleted — it was the last thing rendering the retired /inventory/:id/setup
+    // wizard — so the promise now lives in the WizardStep union itself, which is
+    // the thing that can actually route someone into a screen.
+    const wizard = read("../../lib/wizardSession.ts")
+    const union = wizard.slice(wizard.indexOf("export type WizardStep"), wizard.indexOf("RETIRED_STEPS"))
+    expect(union).toContain('"identify"')
+    expect(union).toContain('"manual"')
+    for (const retired of ['"plan"', '"purchase"']) {
+      expect(union).not.toContain(retired)
     }
   })
 

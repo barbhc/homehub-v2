@@ -102,7 +102,12 @@ describe("HH-89 — the manual entry looks like what it does", () => {
   })
 
   it("Find it for me starts the search on open, once", () => {
-    expect(src).toContain("autoStart={autoFindManuals || findRequested}")
+    // HH-126 moved this door onto the wizard's own ManualStep, so the
+    // mechanism changed shape: instead of an autoStart flag on a bespoke
+    // search card, the shortcut opens ManualStep with its search panel already
+    // expanded. The PROMISE is unchanged and still asserted — tapping
+    // "Find it for me" must not make you ask for the search a second time.
+    expect(src).toContain('initialPanel={findRequested ? "search" : undefined}')
     expect(src).toContain("if (!open) setFindRequested(false)")
   })
 })

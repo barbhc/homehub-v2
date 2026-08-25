@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils"
 import type { DocType } from "@/modules/knowledge"
 import { capacityNotice, isCapacityRefusal } from "@/lib/scanCapacity"
 
+type OpenPanel = "none" | "url" | "search"
+
 export type ManualSourceChoice =
   | { type: "url"; url: string }
   | { type: "upload"; file: File }
@@ -37,6 +39,9 @@ type ManualStepProps = {
   model?: string
   onConfirm: (choices: ManualSourceChoice[]) => void
   onSkip?: () => void
+  /** HH-130: the manual step had no way back, so checking the model you just
+   *  typed meant leaving and losing the step. */
+  onBack?: () => void
   isSaving: boolean
   savingMessage?: string
   error: string | null
@@ -44,6 +49,13 @@ type ManualStepProps = {
   docClassification?: ManualDocClassification | null
   onDocClassificationUseAnyway?: () => void
   onDocClassificationReplace?: () => void
+  /**
+   * Which panel starts open. HH-89: the item page has a "Find it for me"
+   * shortcut, and tapping it IS the ask — making the user tap "Let us find it"
+   * again inside would be a stutter. Only that entry point passes "search";
+   * the ranking is unchanged for everyone who opens this normally.
+   */
+  initialPanel?: OpenPanel
 }
 
 /**
@@ -91,11 +103,10 @@ function readableSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-type OpenPanel = "none" | "url" | "search"
-
 export function ManualStep({
   onConfirm,
   onSkip,
+  onBack,
   isSaving,
   savingMessage,
   error,
@@ -103,11 +114,12 @@ export function ManualStep({
   docClassification,
   onDocClassificationUseAnyway,
   onDocClassificationReplace,
+  initialPanel,
   brand,
   model,
 }: ManualStepProps) {
   const [autoFindManuals] = useAutoFindManuals()
-  const [open, setOpen] = useState<OpenPanel>("none")
+  const [open, setOpen] = useState<OpenPanel>(initialPanel ?? "none")
   const [pasteUrl, setPasteUrl] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
@@ -115,6 +127,11 @@ export function ManualStep({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const maxMB = Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)
+  const atCapacity = isCapacityRefusal(error)
+  /** Empty unless we actually know what the item is — never a bare "manual pdf". */
+  const searchQuery = [brand, model].filter(Boolean).join(" ").trim()
+    ? `${[brand, model].filter(Boolean).join(" ")} manual pdf`
+    : ""
   const canSearch = !!brand && !!model && brand.trim().length >= 2 && model.trim().length >= 2
 
   const validateAndSetFile = useCallback(
@@ -126,6 +143,26 @@ export function ManualStep({
       }
       if (f.size > MAX_UPLOAD_BYTES) {
         setFileError(`File is ${Math.round(f.size / 1024 / 1024)} MB — max is ${maxMB} MB.`)
+        return
+      }
+      // HH-124's owner report: "The file that I'm uploading says that it's
+      // 5.9 MB, but here it says zero bites is that a bug" — and then, on the
+      // next screen, "There should be a check to make sure that the file has
+      // content before accepting it."
+      //
+      // Both are the same fact and it is not a display bug: readableSize() is
+      // correct arithmetic, so f.size really is 0. iOS hands the picker a
+      // placeholder for an iCloud file it has not downloaded yet, and the guard
+      // above only asked whether the file was too BIG. So an empty PDF was
+      // accepted, uploaded, and scanned — 10 quota units spent reading nothing,
+      // and whatever came back built on it.
+      //
+      // Named cause, named fix, and deliberately NOT "try again": picking the
+      // same placeholder fails identically.
+      if (f.size === 0) {
+        setFileError(
+          "This file came through empty. iCloud may not have finished downloading it — open it once in Files, then pick it again.",
+        )
         return
       }
       setFile(f)
@@ -294,6 +331,30 @@ export function ManualStep({
                 <p className="mt-2 text-xs text-muted-foreground">
                   If the site asks you to sign in, download the PDF and choose the file instead.
                 </p>
+                {/* HH-129: "For add a link to the manual where is the link that
+                    says search on Google? It will drop on a search results page
+                    that has the brand and model name and manual as part of the
+                    search pre-populated."
+                    A bridge, not a feature. If she is going to search anyway,
+                    hand over the query instead of making her retype the model.
+                    It lives HERE rather than as a fourth source because what it
+                    produces is a link to paste — it must not read as another
+                    way to add a manual, which is the ranking HH-109 fixed. */}
+                {searchQuery && (
+                  <a
+                    href={`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex h-10 w-full items-center justify-center rounded-md border border-primary px-3 text-[13px] font-semibold text-primary"
+                  >
+                    Search Google for this manual
+                  </a>
+                )}
+                {searchQuery && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Opens a search for &ldquo;{searchQuery}&rdquo;.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -408,8 +469,26 @@ export function ManualStep({
       {/* HH-115: no Scan button before there is anything to scan. A permanently
           dimmed primary is what made the owner read this screen as broken, and
           it competed with the upload card for the eye. */}
+      {/* HH-131: "In this scenario, where all scanning capacity is used up. It
+          doesn't make sense to have the scan the manual button be active. It
+          should be inactivated and it's not clear if the user has to do
+          anything to trigger the scan to happen again."
+          Both halves. The button stops offering an action that cannot happen,
+          and it says the thing she actually asked: nobody has to come back for
+          it. That promise is only sayable because HH-124's retry job now
+          exists — before it, this would have been a lie. */}
       <div className="mt-2 flex flex-col gap-2">
-        {canContinue && (
+        {canContinue && atCapacity && (
+          <>
+            <Button disabled className="w-full">
+              Scanning resumes later
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Saved and queued. It starts on its own &mdash; you don&rsquo;t need to come back for it.
+            </p>
+          </>
+        )}
+        {canContinue && !atCapacity && (
           <Button
             onClick={handleContinue}
             disabled={isSaving || !!docClassification}
@@ -421,6 +500,11 @@ export function ManualStep({
         {onSkip && (
           <Button variant="ghost" onClick={onSkip} disabled={isSaving} className="w-full">
             I&apos;ll add it later
+          </Button>
+        )}
+        {onBack && (
+          <Button variant="ghost" onClick={onBack} disabled={isSaving} className="w-full text-muted-foreground">
+            Back
           </Button>
         )}
       </div>

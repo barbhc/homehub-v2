@@ -20,16 +20,29 @@ const base: IdentifyData = { ...DEFAULT_IDENTIFY_DATA, brand: "LG", model: "WM40
 describe("applyIdentity", () => {
   it("fills empty name + category, and records what it touched", () => {
     const { next, snapshot } = applyIdentity(base, identity)
-    expect(next.name).toBe("LG WM4000HWA Front Load Washer")
+    // HH-125: an identity "name" carrying the MODEL NUMBER is not a name — it is
+    // the thing HH-112 asked us to stop doing ("the model number is unnecessary
+    // and it's more important to list what type of item it is"). The field is
+    // left alone so composeItemName can fall back to the item type.
+    expect(next.name).toBe("")
     expect(next.itemCategory).toBe("major_appliance")
     expect(next.subType).toBeTruthy()
-    expect(snapshot.touched).toEqual({ name: true, category: true })
+    expect(snapshot.touched).toEqual({ name: false, category: true })
   })
 
   it("replaces the auto-composed placeholder name but never a user-typed one", () => {
+    // HH-125: a placeholder is still only replaced by something that is
+    // actually a NAME. "LG WM4000HWA Front Load Washer" carries the model, so
+    // it is refused and the placeholder is left for composeItemName to replace
+    // with the item type — swapping one model-bearing string for another was
+    // the whole complaint in HH-112.
     const placeholder = { ...base, name: "LG WM4000HWA" }
     const viaPlaceholder = applyIdentity(placeholder, identity, { nameIsPlaceholder: true })
-    expect(viaPlaceholder.next.name).toBe("LG WM4000HWA Front Load Washer")
+    expect(viaPlaceholder.next.name).toBe("LG WM4000HWA")
+
+    // A clean product name still fills it — the rule has to stay narrow.
+    const clean = applyIdentity(placeholder, { ...identity, name: "Front Load Washer" }, { nameIsPlaceholder: true })
+    expect(clean.next.name).toBe("Front Load Washer")
 
     const typed = { ...base, name: "Laundry room washer" }
     const viaTyped = applyIdentity(typed, identity, { nameIsPlaceholder: false })

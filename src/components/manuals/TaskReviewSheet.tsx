@@ -167,6 +167,28 @@ interface ReviewRow {
   chunk?: PreviewChunk
 }
 
+/**
+ * How many things in this draft would the maintenance review actually ask
+ * about?
+ *
+ * HH-127. ParsePickupCard had its OWN answer to this — "not cleaning and not
+ * after_each_use" — and that counted SETUP tasks as maintenance. This sheet
+ * does not: a setup task is not on a schedule, so `nothingToSchedule` ignores
+ * it. The two definitions disagreed on exactly one case, and that case is a
+ * manual full of cleaning advice plus a couple of install checks. The gate
+ * opened the sheet; the sheet then said "Nothing here needs a reminder."
+ *
+ * So there is one definition now, derived from the same rows the sheet renders
+ * rather than re-implemented beside it. This is the HH-119 lesson again: when a
+ * decision exists in two places, the copy that is not on screen is the one that
+ * drifts.
+ */
+export function draftMaintenanceCount(data: PreviewResult): number {
+  return rowsFrom(data).filter(
+    (r) => r.included && isScheduled(bucketOfRow(r)) && r.kind === "maintenance",
+  ).length
+}
+
 function rowsFrom(data: PreviewResult): ReviewRow[] {
   const taskRows: ReviewRow[] = data.tasks.map((t, i) => ({
     id: `t${i}:${t.title}`,

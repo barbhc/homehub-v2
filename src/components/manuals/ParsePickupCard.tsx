@@ -8,7 +8,7 @@ import {
   commitReviewedDraft,
   type ParseStage,
 } from "@/modules/knowledge/services/parseManualService"
-import { TaskReviewSheet } from "./TaskReviewSheet"
+import { draftMaintenanceCount, TaskReviewSheet } from "./TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import { clearParsePending, isParsePending } from "@/lib/parsePickup"
@@ -35,8 +35,10 @@ function savedCount(draft: PreviewResult): number {
   return draft.tasks?.length ?? 0
 }
 
+// HH-127: this used to compute its own answer and disagreed with the sheet on
+// setup tasks — see draftHasSchedulableMaintenance for what that cost.
 function maintenanceCount(draft: PreviewResult): number {
-  return draft.tasks.filter((t) => t.care_type !== "cleaning" && t.schedule_type !== "after_each_use").length
+  return draftMaintenanceCount(draft)
 }
 
 const STAGE_LINE: Record<string, string> = {

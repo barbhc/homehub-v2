@@ -3,9 +3,7 @@ import {
   BookOpenIcon,
   CheckIcon,
   FileTextIcon,
-  FileUpIcon,
   FileXIcon,
-  LinkIcon,
   Loader2Icon,
   MoreHorizontalIcon,
   RefreshCwIcon,
@@ -23,19 +21,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { InfoTooltip } from "@/components/ui/info-tooltip"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ManualParseProgress } from "@/components/manuals/ManualParseProgress"
-import { FindManualCard } from "@/components/smart-add/FindManualCard"
-import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
+import { ManualStep } from "@/components/smart-add/ManualStep"
 import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useManualUrls, isDeadLegacyManualUrl } from "@/hooks/useManualManagement"
@@ -111,16 +106,10 @@ export function ManualSection({
   onManualUpdated,
   addManualOpen,
   setAddManualOpen,
-  addMode,
   setAddMode,
   addRole,
   setAddRole,
-  urlInput,
   setUrlInput,
-  titleInput,
-  setTitleInput,
-  labelInput,
-  setLabelInput,
   setUploadFile,
   addError,
   setAddError,
@@ -144,7 +133,6 @@ export function ManualSection({
   handleDeleteManual,
   handleSave,
 }: ManualSectionProps) {
-  const [autoFindManuals] = useAutoFindManuals()
   /** HH-89: "Find it for me" opens the dialog with the search already running —
    *  tapping it IS the ask, so making them tap again inside would be a stutter.
    *  One-shot; cleared when the dialog closes. */
@@ -512,7 +500,7 @@ export function ManualSection({
                   className="mt-3 w-full"
                   onClick={() => handleOpenAddManual()}
                 >
-                  Add manual or reference
+                  Add the manual
                 </Button>
               )}
             </AccordionContent>
@@ -532,181 +520,67 @@ export function ManualSection({
           }
         }}
       >
-        <DialogContent aria-describedby={undefined}>
+        <DialogContent aria-describedby={undefined} className="max-h-[88vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add manual or reference</DialogTitle>
+            <DialogTitle>Add the manual</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Role toggle */}
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">Document type</Label>
-              <div className="flex gap-2">
-                <Button
-                  variant={addRole === "primary" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setAddRole("primary")}
-                >
-                  <FileTextIcon className="size-4 mr-1" />
-                  Owner manual
-                </Button>
-                <Button
-                  variant={addRole === "reference" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setAddRole("reference")}
-                >
-                  <BookOpenIcon className="size-4 mr-1" />
-                  Reference doc
-                </Button>
-              </div>
-              {addRole === "reference" && (
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  Reference docs (recipe books, guides, etc.) are searchable in chat but won't generate tasks.
-                </p>
-              )}
-            </div>
+          {/*
+            HH-126. This dialog used to be its own design: Link selected first,
+            "Find it for me" in a prominent card, and Document type + Label asked
+            BEFORE a file existed. That is the ranking HH-109 and HH-115 were
+            about — fixed in the wizard, still live here, because the redesign
+            reached one door of two.
 
-            {/* Source toggle */}
+            It renders the wizard's own ManualStep now. Not a copy of it: the
+            same component, so the next time the ranking changes it changes on
+            both doors at once. This is the HH-119 lesson applied before it
+            becomes a report.
+
+            Document type and label move AFTER a source is chosen — they were
+            asking the user to classify a document they had not picked yet.
+          */}
+          <ManualStep
+            initialPanel={findRequested ? "search" : undefined}
+            brand={brand ?? undefined}
+            model={model ?? undefined}
+            isSaving={addLoading}
+            savingMessage={parsePhase ? (addRole === "reference" ? "Ingesting\u2026" : "Scanning the manual\u2026") : undefined}
+            error={addError}
+            onRetry={() => setAddError(null)}
+            onConfirm={(choices) => {
+              const first = choices[0]
+              if (!first) return
+              if (first.type === "url") {
+                setAddMode("url")
+                setUrlInput(first.url)
+              } else {
+                setAddMode("upload")
+                setUploadFile(first.file)
+              }
+              // Deferred to a microtask so the hook sees the state above before
+              // it reads it — handleAddManual works off addMode/urlInput/
+              // uploadFile rather than arguments.
+              queueMicrotask(() => handleAddManual())
+            }}
+          />
+          <div className="mt-4 border-t border-border pt-3">
+            <Label className="text-xs text-muted-foreground mb-1.5 block">What is this document?</Label>
             <div className="flex gap-2">
-              <Button
-                variant={addMode === "url" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setAddMode("url")}
-              >
-                <LinkIcon className="size-4 mr-1" />
-                Link
+              <Button variant={addRole === "primary" ? "default" : "outline"} size="sm" onClick={() => setAddRole("primary")}>
+                <FileTextIcon className="size-4 mr-1" />
+                Owner manual
               </Button>
-              <Button
-                variant={addMode === "upload" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setAddMode("upload")}
-              >
-                <FileUpIcon className="size-4 mr-1" />
-                Upload PDF
+              <Button variant={addRole === "reference" ? "default" : "outline"} size="sm" onClick={() => setAddRole("reference")}>
+                <BookOpenIcon className="size-4 mr-1" />
+                Reference doc
               </Button>
             </div>
-
-            {addMode === "url" && (
-              <>
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Label htmlFor="manual-url">URL</Label>
-                    <InfoTooltip message="Some manufacturer websites require a login session to serve PDFs and will return an error when scanned. If the scan fails, download the PDF and upload it directly instead." />
-                  </div>
-                  <Input
-                    id="manual-url"
-                    type="url"
-                    placeholder="https://..."
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                  />
-                  {/* The wizard has searched for the manual in-app since Flow A;
-                      this dialog only ever offered a link OUT to a search
-                      engine, which is where "no part of the flow searched for
-                      the manual" came from. Same component, same ranking, and
-                      it starts on open — the user already said what they want
-                      by opening this. The generic search survives inside the
-                      card as its own fallback. */}
-                  {brand && model && (
-                    <div className="mt-2">
-                      <FindManualCard
-                        brand={brand}
-                        model={model}
-                        autoStart={autoFindManuals || findRequested}
-                        onPick={(url, title) => {
-                          setUrlInput(url)
-                          if (!titleInput.trim()) setTitleInput(title)
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="manual-title">Title (optional)</Label>
-                  <Input
-                    id="manual-title"
-                    placeholder="e.g. User manual"
-                    value={titleInput}
-                    onChange={(e) => setTitleInput(e.target.value)}
-                  />
-                </div>
-              </>
-            )}
-
-            {addMode === "upload" && (
-              <>
-                <div>
-                  <Label htmlFor="manual-file">PDF file</Label>
-                  <Input
-                    id="manual-file"
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="manual-title-upload">Title (optional)</Label>
-                  <Input
-                    id="manual-title-upload"
-                    placeholder="Defaults to filename"
-                    value={titleInput}
-                    onChange={(e) => setTitleInput(e.target.value)}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Label — shown for both modes */}
-            <div>
-              <Label htmlFor="manual-label" className="block mb-1.5">
-                Label <span className="text-muted-foreground font-normal">(optional)</span>
-              </Label>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {LABEL_PRESETS.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setLabelInput(labelInput === preset ? "" : preset)}
-                    className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
-                      labelInput === preset
-                        ? "border-primary bg-primary/10 text-primary font-medium"
-                        : "border-border text-muted-foreground hover:border-foreground/40"
-                    }`}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-              <Input
-                id="manual-label"
-                placeholder="Custom label…"
-                value={labelInput}
-                onChange={(e) => setLabelInput(e.target.value)}
-              />
-            </div>
-
-            {addError && <p className="text-sm text-destructive">{addError}</p>}
-
-            {/* Said out loud, because the dialog gives no sign either way and a
-                tester asked for exactly this: "it would be more helpful if I
-                could just be told that I could navigate away from this page or
-                even close the app and the parsing continues in the background."
-                It always did — the worker runs server-side — but silence during
-                a 2–4 minute wait reads as "don't touch anything". */}
-            {parsePhase && addRole !== "reference" && (
-              <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
-                Reading the manual — about two minutes. You don&rsquo;t need to
-                stay: the tasks will be waiting on this item.
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {addRole === "reference"
+                ? "Reference docs are searchable in chat but won\u2019t generate upkeep."
+                : "Owner manuals generate the upkeep schedule. Change this if it\u2019s a recipe book or a guide."}
+            </p>
           </div>
-          <DialogFooter showCloseButton>
-            <Button onClick={handleAddManual} disabled={addLoading}>
-              {addLoading && <Loader2Icon className="size-4 mr-2 animate-spin" />}
-              {parsePhase
-                ? addRole === "reference" ? "Ingesting..." : "Scanning manual..."
-                : "Add"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

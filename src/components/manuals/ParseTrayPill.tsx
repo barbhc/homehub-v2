@@ -22,7 +22,17 @@ const STAGE_WORD: Record<string, string> = {
   claude_call: "extracting tasks",
   claude_responded: "extracting tasks",
   committing: "saving",
+  // HH-132. This map had no entry for awaiting_capacity and the lookup fell
+  // through to "working", so the tray told the owner a manual was scanning
+  // while nothing was running at all. That state arrived when a
+  // capacity-parked scan was made to count as ACTIVE — right for the item page,
+  // which would otherwise claim there is no manual, and wrong for a label that
+  // means "in progress".
+  awaiting_capacity: "queued",
 }
+
+/** Parked by the ceiling: saved, not running, and started automatically. */
+const isQueued = (stage: string) => stage === "awaiting_capacity"
 
 export function ParseTrayPill() {
   const { home } = useCurrentHome()
@@ -42,11 +52,16 @@ export function ParseTrayPill() {
   const parsing = tray.parsing.filter((e) => e.itemUnitId !== onItem)
   const ready = tray.ready.filter((e) => e.itemUnitId !== onItem)
 
+  // Counted apart, because "2 items scanning" over one running scan and one
+  // parked file is a sentence the app cannot back up.
+  const queued = parsing.filter((e) => isQueued(e.stage))
+  const running = parsing.filter((e) => !isQueued(e.stage))
   const total = parsing.length + ready.length
   if (total === 0) return null
 
   const line = [
-    parsing.length ? `${parsing.length} item${parsing.length === 1 ? "" : "s"} scanning` : null,
+    running.length ? `${running.length} scanning` : null,
+    queued.length ? `${queued.length} queued` : null,
     ready.length ? `${ready.length} ready to review` : null,
   ].filter(Boolean).join(" · ")
 
@@ -59,7 +74,7 @@ export function ParseTrayPill() {
           style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)" }}>
           <div className="mb-1.5 flex items-center justify-between">
             <span className="text-[13px] font-bold" style={{ color: "var(--hh-ink)" }}>
-              {parsing.length ? `${parsing.length} item${parsing.length === 1 ? "" : "s"} scanning` : "Ready to review"}
+              {running.length ? `${running.length} scanning` : queued.length ? `${queued.length} queued` : "Ready to review"}
             </span>
             <button type="button" aria-label="Collapse" onClick={() => setOpen(false)} className="rounded p-0.5" style={{ color: "var(--hh-sub)" }}>
               <XIcon className="size-3.5" />
@@ -92,7 +107,7 @@ export function ParseTrayPill() {
               </li>
             ))}
           </ul>
-          {parsing.length > 0 && (
+          {running.length > 0 && (
             <p className="mt-2 text-[11.5px]" style={{ color: "var(--hh-sub)" }}>{SCAN_KEEPS_GOING_SHORT}</p>
           )}
         </div>

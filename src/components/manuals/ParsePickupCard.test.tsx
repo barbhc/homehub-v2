@@ -29,14 +29,29 @@ vi.mock("@/modules/knowledge/services/parseManualService", () => ({
 vi.mock("@/lib/parsePickup", () => ({ isParsePending, clearParsePending: vi.fn() }))
 vi.mock("@/modules/knowledge/services/parseFeedbackService", () => ({ recordParseFeedback: vi.fn() }))
 vi.mock("./ReviewItemTasksButton", () => ({ ReviewItemTasksButton: () => <button>Review tasks</button> }))
-vi.mock("./TaskReviewSheet", () => ({
+// Only the COMPONENT is stubbed. `draftMaintenanceCount` is deliberately kept
+// real: it is the shared definition of "is there maintenance here", and the
+// entire point of HH-127 is that the gate and the sheet cannot disagree about
+// it. Mocking the whole module would have replaced the thing under test with
+// `undefined` and made the gate look broken — which is exactly what happened
+// on the first run of this change.
+vi.mock("./TaskReviewSheet", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./TaskReviewSheet")>()),
   TaskReviewSheet: ({ open, presentation }: { open: boolean; presentation?: string }) =>
     open ? <div data-testid="review-sheet" data-presentation={presentation ?? "sheet"} /> : null,
 }))
 
 import { ParsePickupCard } from "./ParsePickupCard"
 
-const DRAFT = { tasks: [{ title: "Replace the HEPA Filter" }], chunks: [] }
+// HH-127: this fixture used to be `{ title }` and nothing else, which passed
+// only because the old gate asked "is it not cleaning?". The gate now uses the
+// review sheet's OWN definition — included, on a schedule, and maintenance —
+// so the fixture has to look like a real parsed task. A stub thin enough to
+// pass a weaker check is how the two definitions drifted apart unnoticed.
+const DRAFT = {
+  tasks: [{ title: "Replace the HEPA Filter", care_type: "maintenance", schedule_type: "monthly" }],
+  chunks: [],
+}
 
 /** Drive watchParse through a stage sequence, synchronously on subscribe. */
 function stages(...seq: string[]) {

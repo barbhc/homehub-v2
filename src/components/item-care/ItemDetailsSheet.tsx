@@ -129,7 +129,23 @@ export function ItemDetailsSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4">
+        {/* HH-133: "the service provider field at the bottom, still stays below the
+          line where I can see the field fully."
+          The sheet already scrolled — the KEYBOARD was the problem. iOS shrinks
+          the visual viewport without changing dvh, so the last field ends up
+          underneath it with nothing left to scroll into. Two fixes, both needed:
+          space below the final field so it CAN travel, and pulling the focused
+          field into view once the keyboard has finished animating. */}
+        <div
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-56"
+          onFocusCapture={(e) => {
+            const el = e.target as HTMLElement
+            if (!el.matches("input, select, textarea")) return
+            // 300ms: the keyboard animation. Scrolling during it lands on the
+            // pre-keyboard geometry and looks like nothing happened.
+            window.setTimeout(() => el.scrollIntoView({ block: "center", behavior: "auto" }), 300)
+          }}
+        >
           <div>
             <Label htmlFor="details-name">Name</Label>
             <Input id="details-name" value={name} onChange={(e) => setName(e.target.value)}

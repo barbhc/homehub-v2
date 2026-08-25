@@ -83,3 +83,38 @@ export function composeItemName(input: ComposeItemNameInput): string {
 
   return "Item"
 }
+
+
+/**
+ * Is a name that came from the identity resolver actually a NAME?
+ *
+ * HH-125: an item arrived called "Pan for NSLACO5" — a phrase lifted out of a
+ * rice cooker's manual, carried into the name field by the identity card, and
+ * then kept by composeItemName, which treats anything in that field as the
+ * user's own decision.
+ *
+ * The rule is narrow on purpose. Rejecting too much would throw away the good
+ * case ("Rice Cooker") and land everyone back on brand + model, which is what
+ * HH-112 was about. So it rejects only the two shapes that cannot be a name a
+ * person would use out loud:
+ *
+ *  - it repeats the MODEL NUMBER, which is what the user is naming the thing to
+ *    avoid having to remember;
+ *  - it reads as a fragment of a sentence rather than a noun ("Pan for …",
+ *    "Cover with …") — a manual heading, not a thing.
+ */
+export function isUsableProductName(name: string | null | undefined, model?: string | null): boolean {
+  const n = clean(name)
+  if (!n) return false
+  if (n.length > 48) return false
+  // Only a model that LOOKS like a model number disqualifies a name. A partial
+  // model can be an ordinary word — the withdraw suite caught this with
+  // "Levoit Core Series Air Purifiers" against a half-typed model of "Core",
+  // which is a perfectly good name being thrown away. A model number has a
+  // digit in it; "Core" does not, "NS-LAC05" does.
+  const m = clean(model)
+  const looksLikeModelNumber = !!m && m.length >= 4 && /\d/.test(m)
+  if (looksLikeModelNumber && squash(n).includes(squash(m))) return false
+  if (/\b(for|with|from|of|in)\b/i.test(n)) return false
+  return true
+}
