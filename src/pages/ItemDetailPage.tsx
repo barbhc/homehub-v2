@@ -97,15 +97,16 @@ export default function ItemDetailPage() {
   const [, setNudgeDismissedAt] = useState(0)
   const [storeHistory, setStoreHistory] = useState<(string | null | undefined)[]>([])
 
-  // HH-124, the half that makes the queue real. A scan the daily ceiling
-  // refused is remembered; this starts it again the next time the item is
-  // opened. If capacity is still gone the callable refuses identically and the
-  // entry simply stays queued, so retrying costs nothing and cannot loop —
-  // startParse is attempted once per mount, per manual.
+  // HH-124, the client half of the queue. A scan the daily ceiling refused is
+  // remembered; this starts it again when the item is opened, which is the fast
+  // path — the hourly `retryAwaitingCapacity` job covers the app being closed.
   //
-  // HONEST LIMIT: this only runs while someone has the app open. Scanning a
-  // queued manual in the background needs the WORKER to retry, which is a
-  // functions change and a functions deploy.
+  // Because BOTH halves now exist, this checks before it charges. The server
+  // may already have restarted the manual, and calling startParse on one that
+  // is queued, running or done would spend another 10 units re-parsing a
+  // manual nobody asked to re-parse. So the local queue defers to whatever
+  // Firestore says: anything other than `awaiting_capacity` means it has an
+  // owner already, and the local entry is simply forgotten.
   useEffect(() => {
     if (!home || !id) return
     const due = dueScans(Date.now()).filter((e) => e.itemUnitId === id)
@@ -113,6 +114,14 @@ export default function ItemDetailPage() {
     let cancelled = false
     void (async () => {
       for (const entry of due) {
+        const known = manuals.find((m) => m.manual_id === entry.manualId)
+        // Absent from the snapshot means "not loaded yet", not "gone" — leave
+        // it queued and try on a later render rather than dropping it.
+        if (!known) continue
+        if (known.parse_stage !== "awaiting_capacity") {
+          unqueueScan(entry.manualId)
+          continue
+        }
         const res = await startParse(entry.manualId, { homeId: home.home_id, mode: "preview" })
         if (cancelled) return
         // Only forget it once it actually started. A second refusal leaves it
@@ -121,7 +130,7 @@ export default function ItemDetailPage() {
       }
     })()
     return () => { cancelled = true }
-  }, [home, id])
+  }, [home, id, manuals])
 
   // One read of the home's items serves two autocompletes: tags, and the
   // retailers already entered — which is what stops "Home Depot" being stored

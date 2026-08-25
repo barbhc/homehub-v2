@@ -9,7 +9,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { getFunctions } from "firebase-admin/functions"
 import type { ParseMode } from "./parseTypes.js"
-import { chargeAiQuota } from "../lib/quota.js"
+import { chargeAiQuota, isQuotaExhausted, type QuotaHold } from "../lib/quota.js"
 
 const REGION = "us-central1"
 /** Per-home cap on simultaneously in-flight parses (queue drains a bulk rescan
@@ -51,7 +51,41 @@ export const enqueueParse = onCall({ region: REGION }, async (request) => {
 
   // The parse worker is the most expensive Claude call in the app — charge the
   // enqueuing user's daily quota here (the worker itself has no caller context).
-  const hold = await chargeAiQuota(db, uid, "enqueueParse")
+  //
+  // HH-124: a ceiling is not a failure. When the charge is refused for capacity
+  // (rather than for going too fast), the manual is parked as `awaiting_capacity`
+  // so `retryAwaitingCapacity` can start it when capacity frees. The error is
+  // still thrown — the user should hear about it immediately — but it now means
+  // "queued" rather than "gone".
+  //
+  // Only quota refusals park. A rate limit means "wait nine seconds", and
+  // parking those would fill the queue with work the user is about to redo by
+  // hand; they are re-thrown untouched.
+  let hold: QuotaHold
+  try {
+    hold = await chargeAiQuota(db, uid, "enqueueParse")
+  } catch (err) {
+    if (isQuotaExhausted(err)) {
+      await manualRef.set(
+        {
+          parse: {
+            stage: "awaiting_capacity",
+            stageAt: Timestamp.now(),
+            requestId: randomUUID(),
+            mode,
+            model: null,
+            attempt: 0,
+            error: null,
+            summary: null,
+            awaiting: { uid, since: Timestamp.now() },
+          },
+          updatedAt: Timestamp.now(),
+        },
+        { merge: true }
+      )
+    }
+    throw err
+  }
 
   // In-flight cap.
   const inFlight = await db

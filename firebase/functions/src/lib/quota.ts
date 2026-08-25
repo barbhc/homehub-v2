@@ -61,12 +61,24 @@ export function errorForVerdict(reason: "daily" | "global" | "invalid", limit: n
     case "daily":
       return new HttpsError(
         "resource-exhausted",
-        `Daily AI limit reached (${limit} actions per day). It resets at midnight UTC — please try again tomorrow.`,
+        `Daily AI limit reached (${limit} actions per day). Your work is saved and queued.`,
+        // HH-124: the message no longer names midnight UTC or tells anyone to
+        // "try again tomorrow". It said both, and both were wrong — UTC is our
+        // clock rather than theirs, and a parse refused here is now retried FOR
+        // them by retryAwaitingCapacity, so instructing them to come back and
+        // redo it describes work that already has an owner.
+        //
+        // `scope` is what the retry job branches on. Matching the sentence with
+        // a regex would make this copy load-bearing, and the whole reason the
+        // client keeps its own wording is that server copy can only change with
+        // a functions deploy.
+        { kind: "quota_exhausted", scope: "daily" },
       )
     case "global":
       return new HttpsError(
         "resource-exhausted",
-        "Homehub has hit its monthly AI budget. This isn't something you did — please try again next month.",
+        "Homehub has hit its monthly AI budget. This isn't something you did — your work is saved and queued.",
+        { kind: "quota_exhausted", scope: "global" },
       )
     default:
       return new HttpsError(
@@ -95,6 +107,29 @@ export function errorForRate(reason: "endpoint" | "burst", retryAfterSeconds: nu
     // exhaustion, which needs a completely different message and no retry.
     { kind: "rate_limited", reason, retryAfterSeconds },
   )
+}
+
+/**
+ * Was this refusal a CEILING (daily allowance or the app-wide monthly budget),
+ * as opposed to a rate limit or a real failure?
+ *
+ * Reads the structured detail rather than the sentence. The distinction matters
+ * because the two are both `resource-exhausted` but call for opposite handling:
+ * a ceiling should park the work and retry it later, while a rate limit means
+ * "wait a few seconds", and parking those would queue work the user is about to
+ * redo by hand.
+ */
+export function isQuotaExhausted(err: unknown): boolean {
+  return quotaScope(err) !== null
+}
+
+/** `"daily"` (this user is done for the day) vs `"global"` (nobody can spend). */
+export function quotaScope(err: unknown): "daily" | "global" | null {
+  const details = (err as { details?: unknown })?.details as
+    | { kind?: unknown; scope?: unknown }
+    | undefined
+  if (!details || details.kind !== "quota_exhausted") return null
+  return details.scope === "daily" || details.scope === "global" ? details.scope : null
 }
 
 /** A charge already made. Give it back if the paid call produced nothing. */
