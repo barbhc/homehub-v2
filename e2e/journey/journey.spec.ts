@@ -233,7 +233,11 @@ test.describe("journey walks", () => {
     // The stepper is gone entirely — no numbered circles standing in for
     // wayfinding the buttons already do better.
     await expect(page.locator('nav[aria-label="Progress"]')).toHaveCount(0)
-    await snap(page, "J2", "appliance-lane", "Two fields and nothing else: no disclosure, no stepper, no Back — and a button naming its destination",
+    // The note is what a human reviewing the gallery checks the screen against,
+    // so it describes THIS screen, not the round-12 one. The old note still
+    // read "no disclosure, no Back" — two lines under an assertion that Back is
+    // visible, and after HH-123 put a scan row and a disclosure on the screen.
+    await snap(page, "J2", "appliance-lane", "Type it or scan it, as one visible choice: the subtitle names both routes, an \u201cor\u201d rule sits between the model field and the scan row, the rarer routes stay folded under \u201cMore ways to identify it\u201d, and Back stays because the lane chooser is a state rather than a route",
       toManual)
     await toManual.click()
 
