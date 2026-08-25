@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { CategoryFields } from "@/modules/inventory/components/CategoryFields"
+import type { ItemCategoryId } from "@/modules/inventory/constants/itemCategories"
 import { DateField } from "@/components/ui/date-field"
 import { StoreField } from "@/components/ui/store-field"
 import { updateItemUnit, type UpdateItemUnitInput } from "@/modules/items"
@@ -55,6 +57,10 @@ export function ItemDetailsSheet({
    *  spelling already in use instead of collecting three of them. */
   storeHistory?: readonly (string | null | undefined)[]
 }) {
+  // The item's name had NO editor anywhere in the app: the wizard composed it
+  // and the item page rendered it read-only. HH-112 asked that people be told
+  // they can rename whenever they want, which first requires that they can.
+  const [name, setName] = useState(item.display_name ?? "")
   const [roomId, setRoomId] = useState(item.room_id ?? NO_ROOM)
   const [serial, setSerial] = useState(item.serial_number ?? "")
   const [purchaseDate, setPurchaseDate] = useState(item.purchase_date?.slice(0, 10) ?? "")
@@ -62,6 +68,14 @@ export function ItemDetailsSheet({
   const [store, setStore] = useState(item.store_name ?? "")
   const [months, setMonths] = useState(
     item.warranty_duration_months != null ? String(item.warranty_duration_months) : "none",
+  )
+  // Round 11: these used to exist ONLY inside the add wizard's "Add more
+  // details" disclosure, so removing that disclosure from the first screen
+  // would have made fuel type, filter type, installation date and service
+  // provider unenterable anywhere in the app. They belong here — this sheet is
+  // already "every record about an item, edited together in one pass".
+  const [categoryFields, setCategoryFields] = useState<Record<string, unknown>>(
+    (item.category_fields as Record<string, unknown> | null) ?? {},
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,12 +87,15 @@ export function ItemDetailsSheet({
     const parsedMonths = months === "none" ? null : Number(months)
     const cleanPrice = price.replace(/[^0-9.]/g, "")
     const updates: UpdateItemUnitInput = {
+      // Never blank a name: an item with no name is unfindable in a list.
+      display_name: name.trim() || item.display_name,
       room_id: roomId === NO_ROOM ? null : roomId,
       serial_number: serial.trim() || null,
       purchase_date: purchaseDate.trim() || null,
       price_paid: cleanPrice ? Number(cleanPrice) : null,
       store_name: store.trim() || null,
       warranty_duration_months: parsedMonths,
+      category_fields: categoryFields,
     }
 
     // The window closes on purchase date + coverage. Clear it when either half
@@ -113,6 +130,15 @@ export function ItemDetailsSheet({
         </SheetHeader>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4">
+          <div>
+            <Label htmlFor="details-name">Name</Label>
+            <Input id="details-name" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="What you call it" maxLength={255} className="mt-1" />
+            <p className="mt-1 text-[11.5px] text-muted-foreground">
+              Call it whatever you recognise. You can change this any time.
+            </p>
+          </div>
+
           <div>
             <Label htmlFor="details-room">Room</Label>
             <Select value={roomId} onValueChange={setRoomId}>
@@ -166,6 +192,19 @@ export function ItemDetailsSheet({
             <StoreField id="details-store" value={store} onChange={setStore}
               homeEntries={storeHistory} className="mt-1" />
           </div>
+
+          {item.item_category && item.sub_type && (
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">Category-specific details</p>
+              <CategoryFields
+                categoryId={item.item_category as ItemCategoryId}
+                subType={item.sub_type}
+                value={categoryFields}
+                onChange={setCategoryFields}
+                idPrefix="details-cf"
+              />
+            </div>
+          )}
         </div>
 
         <SheetFooter className="pb-[calc(1rem+env(safe-area-inset-bottom))]">
