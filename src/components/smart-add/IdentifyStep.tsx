@@ -16,6 +16,7 @@
  * changed.
  */
 import { useState, useRef, useEffect, useMemo } from "react"
+import { applyScannedIdentity, scannedFieldsChanged } from "@/lib/scanPrecedence"
 import { Camera, ChevronDown, ChevronRight, Loader2, BookOpenCheck, BellRingIcon, Sparkles, MapPin, Refrigerator, Armchair, ImageIcon } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
@@ -508,12 +509,31 @@ export function IdentifyStep({
       return
     }
     const { itemCategory, subType } = mergeOcrCategory(r.category)
-    // Preserve any values the user has already typed; OCR only fills blanks.
-    // Receipt scans typically set purchaseDate/purchasePrice; nameplate scans
-    // set serialNumber; both set brand/model/name/category.
+    // HH-139: "I had selected GE Café first, but then I decided to go with the
+    // photo of the label. It should be obvious from the photo that it's actually
+    // Bosch and not GE Café so if somebody chooses to snap a photo of the label
+    // it should overwrite what was ever put in the brand and model number."
+    //
+    // It used to be `data.brand || r.brand` — whatever was already there won —
+    // so her typed "GE Café" survived a photo of a Bosch nameplate and sat above
+    // model SHPM65Z55N/01. That pair is worse than either field alone: it is a
+    // product that does not exist, and it would have been saved that way.
+    //
+    // So brand and model move TOGETHER, as one unit, whenever the scan yields
+    // either. They describe a single nameplate; taking one from the photo and
+    // one from memory is what manufactures the chimera. Photographing the plate
+    // is a deliberate act and it supersedes typing — which is her rule, and the
+    // right one.
+    //
+    // Everything else still only fills blanks: a receipt scan's date or price
+    // has no business overwriting something the user chose.
+    const scannedIdentity = applyScannedIdentity(
+      { brand: data.brand, model: data.model },
+      { brand: r.brand, model: r.model },
+    )
     const next: IdentifyData = {
-      brand: data.brand || (r.brand ?? ""),
-      model: data.model || (r.model ?? ""),
+      brand: scannedIdentity.brand,
+      model: scannedIdentity.model,
       // The SIMPLE lane's name is its only required field, so OCR filling it is
       // the whole point there. The APPLIANCE lane must not be given one: a
       // nameplate scan yields "Coway AP-1512HH", which is a part number, and
@@ -537,9 +557,10 @@ export function IdentifyStep({
         data.purchasePrice ?? (typeof r.purchasePrice === "number" ? r.purchasePrice : null),
     }
     // Count what OCR actually changed so the UI can say so honestly.
-    let filled = 0
-    if (!data.brand && next.brand) filled++
-    if (!data.model && next.model) filled++
+    // Counted as "changed", not "filled": after HH-139 a scan can REPLACE a
+    // field, and reporting "filled 0 fields" after overwriting two of them
+    // would be the screen disagreeing with itself.
+    let filled = scannedFieldsChanged({ brand: data.brand, model: data.model }, next)
     if (data.name !== next.name) filled++
     if (!data.serialNumber && next.serialNumber) filled++
     if (data.itemCategory == null && next.itemCategory != null) filled++
