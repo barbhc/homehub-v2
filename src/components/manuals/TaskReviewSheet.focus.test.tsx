@@ -165,8 +165,12 @@ describe("TaskReviewSheet — a manual with no maintenance", () => {
   })
 
   it("titles the sheet for what it actually is", () => {
+    // HH-134: this asserted "What's saved to this item" for an UNCOMMITTED
+    // draft — the test pinned the false claim in place, which is why the
+    // suite stayed green through three reports of the same complaint. The
+    // default is now "not yet saved", so the honest title is what we found.
     renderNoMaint()
-    expect(screen.getByText("What's saved to this item")).toBeInTheDocument()
+    expect(screen.getByText("What we found in the manual")).toBeInTheDocument()
     expect(screen.queryByText("Maintenance · how often & reminders")).not.toBeInTheDocument()
   })
 

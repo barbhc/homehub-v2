@@ -344,7 +344,11 @@ export function ParsePickupCard({
           {draft
             ? maintenanceCount(draft) > 0
               ? "Set how often each repeats and whether it reminds you. Nothing is scheduled until you say so."
-              : `Nothing in it needs a reminder. We saved ${savedCount(draft)} ${savedCount(draft) === 1 ? "guide" : "guides, setup steps and tips"} to this item — have a look whenever you like.`
+              // HH-134: this said "We saved N …" about an UNCOMMITTED draft.
+              // runParse writes previewDraft only; commitDraft is what saves.
+              // So the card was reporting work that had not happened, next to
+              // the button that does it.
+              : `Nothing in it needs a reminder. ${savedCount(draft)} ${savedCount(draft) === 1 ? "guide" : "guides, setup steps and tips"} are ready to keep.`
             : "They're saved already — review to adjust or remove any."}
         </p>
       </div>
@@ -360,7 +364,11 @@ export function ParsePickupCard({
           className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold"
           style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
         >
-          Review &amp; schedule
+          {/* HH-134: "Review & schedule" over a card that just said nothing
+              needs a reminder was the invitation half of the contradiction.
+              With nothing to schedule the offer is to LOOK, and the sheet
+              behind it is where saving happens. */}
+          {maintenanceCount(draft) > 0 ? "Review & schedule" : "See what we found"}
         </button>
       ) : (
         <ReviewItemTasksButton

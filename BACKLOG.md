@@ -182,8 +182,9 @@ deleted — these are the only parts of it that were still true.
 | # | Item | State |
 |---|---|---|
 | 6.1 | **Visual baselines are not baked** | `e2e/visual/pages.spec.ts` exists; **zero `-snapshots` directories**. The visual suite cannot fail, so it currently proves nothing. Re-bake via the workflow — never commit local-platform pixels. (This is Phase 5's "fix E".) |
-| 6.2 | `getInviteByToken` collectionGroup read rule | Deliberately deferred until sharing ships. Revisit when a non-member needs to resolve an invite link. |
-| 6.3 | Parse watch-stages / snapshot tooling | Phase 3.3, explicitly optional. Only worth it if parse debugging gets painful again. |
+| 6.2 | **The review WRITE is covered nowhere** | Found while fixing HH-134. J3 was the only walk touching it, and only by asserting a Save button that — correctly, after HH-134 — appears solely when there is something to save. The seeded dishwasher's one task is cleaning, so nothing needs scheduling and Done is right. **Add one maintenance task to the seed**, then J3 covers the write again. Until then `saveItemTaskReview` / `commitDraft` have no end-to-end test. |
+| 6.3 | `getInviteByToken` collectionGroup read rule | Deliberately deferred until sharing ships. Revisit when a non-member needs to resolve an invite link. |
+| 6.4 | Parse watch-stages / snapshot tooling | Phase 3.3, explicitly optional. Only worth it if parse debugging gets painful again. |
 
 ---
 

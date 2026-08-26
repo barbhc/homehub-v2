@@ -272,6 +272,23 @@ interface TaskReviewSheetProps {
    * so it stays a drawer and looks like one.
    */
   presentation?: "sheet" | "inline"
+  /**
+   * Are these rows ALREADY written to the item, or is this an uncommitted
+   * preview that only exists because the user has not pressed Save yet?
+   *
+   * HH-134. Both callers pass `previewData`, so nothing here could tell the
+   * difference — and the copy assumed the wrong one. `runParse` is explicit:
+   * "Preview NEVER commits — it writes previewDraft only", and `commitDraft` is
+   * what writes chunks, templates and instances. So for a fresh parse this
+   * screen was saying "They're saved to this item" about eleven things that did
+   * not exist yet, above the button that creates them.
+   *
+   * Defaults to FALSE — treat rows as unsaved unless a caller says otherwise.
+   * The two mistakes are not symmetric: overstating what Save does costs a word,
+   * while claiming things are already saved invites someone to close the sheet
+   * and lose the whole parse.
+   */
+  alreadySaved?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   itemName: string
@@ -302,6 +319,7 @@ interface TaskReviewSheetProps {
 export function TaskReviewSheet({
   open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, focus = "maintenance",
   presentation = "sheet",
+  alreadySaved = false,
 }: TaskReviewSheetProps) {
   const initial = useMemo(() => rowsFrom(previewData), [previewData])
   const [rows, setRows] = useState<ReviewRow[]>(initial)
@@ -661,7 +679,9 @@ export function TaskReviewSheet({
                   // Round 12: was "What we found in this manual". focus=maintenance
                   // is the default now, so this also heads the item page's
                   // "Review tasks" — where there may be no manual at all.
-                  ? nothingToSchedule ? "What's saved to this item" : "Maintenance · how often & reminders"
+                  ? nothingToSchedule
+                    ? alreadySaved ? "What's saved to this item" : "What we found in the manual"
+                    : "Maintenance · how often & reminders"
                   : "Step 2 of 2 · How often"}
           </div>
         </Head>
@@ -683,7 +703,8 @@ export function TaskReviewSheet({
             </div>
           )}
           {step === 2 ? (
-            <StepTwo rows={rows} cadOpenId={cadOpenId} setCadOpenId={setCadOpenId} patch={patch}
+            <StepTwo
+              alreadySaved={alreadySaved} rows={rows} cadOpenId={cadOpenId} setCadOpenId={setCadOpenId} patch={patch}
               bucketOfRow={bucketOfRow} focus={focus} setKind={setKind}
               onReviewEverything={() => { setStep(1); scrollRef.current?.scrollTo?.({ top: 0 }) }} />
           ) : guideRow ? (
@@ -737,7 +758,7 @@ export function TaskReviewSheet({
                       // not quite clear what all this text is trying to tell me."
                       <>
                         We found <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> in this manual.
-                        None of them need a schedule — they&apos;re setup steps and tips, saved to this item.
+                        None of them need a schedule — they&apos;re setup steps and tips{alreadySaved ? ", saved to this item" : ", ready to save"}.
                         <span className="block text-muted-foreground mt-0.5">Tap any one to change how it&apos;s filed.</span>
                       </>
                     ) : (
@@ -846,10 +867,22 @@ export function TaskReviewSheet({
               // nothing needs a schedule reads as an argument with itself.
               // When there is nothing to schedule, just say how many are saved.
               : nothingToSchedule
-                // "Save all 1" reads like a bug. One thing gets a sentence.
-                ? counts.tasks + counts.tips === 1
-                  ? "Save it"
-                  : `Save all ${counts.tasks + counts.tips}`
+                // HH-134. "Save all 11" under a header saying nothing needs a
+                // reminder read as an argument with itself — and the owner
+                // reported it three times. The resolution is NOT to remove the
+                // button: for a fresh parse it is the only thing that writes
+                // these rows, and a read-only sheet would have lost her the
+                // whole scan. It is to stop the screen claiming they are
+                // already saved, and to say Done only when Save has nothing
+                // left to do.
+                ? alreadySaved && edits.total === 0
+                  ? "Done"
+                  : alreadySaved
+                    ? "Save changes"
+                    // "Save all 1" reads like a bug. One thing gets a sentence.
+                    : counts.tasks + counts.tips === 1
+                      ? "Save it"
+                      : `Save all ${counts.tasks + counts.tips}`
                 : `Save ${counts.tasks} task${counts.tasks === 1 ? "" : "s"}${counts.scheduled < counts.tasks ? ` — ${counts.scheduled} on a schedule` : ""}${counts.tips ? ` · ${counts.tips} tip${counts.tips === 1 ? "" : "s"}` : ""}`}
           </Button>
           </>
@@ -933,12 +966,14 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
 
 function StepTwo({
   rows, cadOpenId, setCadOpenId, patch, bucketOfRow, focus = "maintenance", onReviewEverything, setKind,
+  alreadySaved = false,
 }: {
   rows: ReviewRow[]
   cadOpenId: string | null
   setCadOpenId: (id: string | null) => void
   patch: (id: string, next: Partial<ReviewRow>) => void
   bucketOfRow: (r: ReviewRow) => ReviewBucket
+  alreadySaved?: boolean
   focus?: "maintenance" | "all"
   onReviewEverything?: () => void
   /** Reclassifying from the folded section reuses step 1's logic, which knows
@@ -969,8 +1004,12 @@ function StepTwo({
               tasks" button opens — where there may be no manual in the story at
               all. Describe what is here, not where it came from. */}
           {focus === "maintenance"
-            ? "These are cleaning and usage advice. They're saved to this item — nothing will remind you."
-            : "Everything here is a setup step or a tip. It's saved to this item — nothing will remind you."}
+            ? alreadySaved
+              ? "These are cleaning and usage advice. They're saved to this item — nothing will remind you."
+              : "These are cleaning and usage advice. Save them to keep them on this item — nothing will remind you."
+            : alreadySaved
+              ? "Everything here is a setup step or a tip. It's saved to this item — nothing will remind you."
+              : "Everything here is a setup step or a tip. Save it to keep it on this item — nothing will remind you."}
         </p>
         {kept.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-border bg-card">

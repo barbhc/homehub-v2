@@ -344,23 +344,45 @@ test.describe("journey walks", () => {
     await expect(page.getByText("Descale the dishwasher").first()).toBeVisible()
     // And it does not claim a manual it may not have.
     await expect(page.getByText(/This manual is cleaning/)).toHaveCount(0)
+    // HH-134: the previous note read "…and when there is none, it says so and
+    // still shows what it saved". That described the screen instead of stating
+    // the requirement, so reviewing the gallery against it confirmed the very
+    // contradiction the owner then reported three times — the screen claimed
+    // the rows were saved while the button underneath was what saved them.
+    // A note has to say what must be TRUE, not what is on screen.
     await snap(page, "J3", "review-consolidated",
-      "Maintenance first — and when there is none, it says so and still shows what it saved",
+      "Maintenance first. With none, it must NOT claim these are already saved while the primary button is still what saves them — copy and button have to agree",
       consolidated, { viewportOnly: true })
+
+    // HH-134, pinned here because this is the state the owner reported three
+    // times. These tasks are ALREADY on the item (the seed committed them), so
+    // the screen may say so — and then Save has nothing left to do and the
+    // button must say Done. The bug was the pair: "they're saved" above
+    // "Save all 11".
+    await expect(page.getByRole("button", { name: "Done" }).last()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole("button", { name: /^Save all \d+$/ })).toHaveCount(0)
 
     // The full review stays one tap away.
     await expect(page.getByRole("button", { name: /Review them all/ })).toBeVisible()
 
-    // "Save all 1" read like a bug, so a single item now says "Save it". The
-    // selector has to cover every form the button can take, and the test must
-    // FAIL rather than skip when it does not — an `if (visible)` that silently
-    // does nothing is how a save can stop happening unnoticed.
-    const save = page.getByRole("button", { name: /^Save it$|^Save all \d+$|^Save \d+ task/ }).last()
-    await expect(save).toBeVisible({ timeout: 10_000 })
-    await save.click()
+    // HONEST COVERAGE NOTE, because the previous version of this comment
+    // overclaimed. The seeded dishwasher's only task is CLEANING, so on this
+    // walk there is genuinely nothing to schedule and nothing to write — Done
+    // closes without a save, which is correct. That means J3 does NOT exercise
+    // the review WRITE, and no emu spec does either.
+    //
+    // The old comment here said a save "can stop happening unnoticed" and then
+    // asserted a button that, after HH-134, only appears when there IS
+    // something to save. Keeping that assertion would have meant reintroducing
+    // the contradiction to satisfy a test. The gap is recorded in BACKLOG.md
+    // instead of papered over: the seed needs one maintenance task before this
+    // walk can cover the write.
+    const done = page.getByRole("button", { name: "Done" }).last()
+    await expect(done).toBeVisible({ timeout: 10_000 })
+    await done.click()
 
     await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 15_000 })
-    await snap(page, "J3", "review-saved", "Closed — the review write landed without an error",
+    await snap(page, "J3", "review-saved", "Closed cleanly on Done — nothing needed saving, so nothing was written",
       page.getByText("Bosch 800 Series Dishwasher").filter(visible).first())
   })
 
