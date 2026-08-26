@@ -273,7 +273,7 @@ export function RefinedItemDetail({
           className="mt-4 flex items-center gap-3 rounded-2xl border px-3.5 py-3"
           style={hasManual
             ? { background: "var(--hh-teal-wash)", borderColor: "color-mix(in srgb, var(--hh-teal) 22%, transparent)" }
-            : { background: "var(--hh-surface)", borderColor: "var(--hh-line)", opacity: 0.8 }}
+            : { background: "var(--hh-surface)", borderColor: "var(--hh-line)", opacity: manualAwaitingReview ? 1 : 0.8 }}
         >
           <span className="grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "var(--hh-surface)" }}>
             <MessageCircleQuestionIcon className="size-[18px]" style={{ color: TEAL }} />
@@ -281,7 +281,16 @@ export function RefinedItemDetail({
           <span className="min-w-0 flex-1">
             <span className="block text-[14px] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>Have a question or a problem?</span>
             <span className="block text-[11.5px]" style={{ color: SUB }}>
-              {hasManual ? "Ask about this item — answers come from your manual" : "Works best once the manual is added."}
+              {/* HH-141: the third state reaches here too. "Works best once the
+                manual is added" sat two cards under one saying we had finished
+                reading it — the same contradiction the Upkeep card had, on the
+                same screen. Answers come from the chunks the SAVE writes, so
+                this state is honest about what unlocks it. */}
+            {hasManual
+              ? "Ask about this item — answers come from your manual"
+              : manualAwaitingReview
+                ? "Save what we found and answers come from your manual."
+                : "Works best once the manual is added."}
             </span>
           </span>
           <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: TEAL, opacity: 0.6 }} />

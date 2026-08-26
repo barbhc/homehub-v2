@@ -655,25 +655,33 @@ export function TaskReviewSheet({
    * with a coloured rail and closes with real, labelled controls, and both
    * screens list the same rows.
    *
-   * Two things are shown only where they add something the section did not
-   * already say, which is why step 2 shows neither: the KIND is dropped inside
-   * Setup and Tips (every row there is one), and the TIER is dropped inside the
-   * three tier sections (the heading IS the tier). In "When needed" both earn
-   * their place — its rows are sorted by tier precisely because "some matter a
-   * lot" and no due date is there to say so.
+   * The row rail carries the TIER, exactly as step 2's does. Inside the three
+   * tier sections that is the section's own colour, so the two agree; inside
+   * "When needed" and "First-time setup" it is the row's own, which is the
+   * signal `sortWithinBucket` exists to order ("some matter a lot", and no due
+   * date is there to say so). A tip has no meaningful tier, so it takes its
+   * section's rail.
+   *
+   * This replaced a priority DOT beside the rail. The first render of this fix
+   * showed why: a "When needed" row had a clay rail from its bucket and a teal
+   * dot from its tier — two colours, two meanings, one row. Step 2 has neither
+   * problem because its row rail has always been the tier.
+   *
+   * The KIND is a word, and only where the section has not already said it:
+   * inside Setup and Tips every row is one.
    */
   const collapsedRow = (r: ReviewRow) => {
     const b = bucketOfRow(r)
     const kind = KINDS.find((k) => k.id === r.kind)
     const kindSaysSomething = b !== "setup" && b !== "tip" && !!kind
-    const tierSaysSomething = !isScheduled(b) && r.kind !== "tip"
+    const rail = r.kind === "tip" ? TIER_RAIL[b] : TIER_RAIL[r.tier] ?? TIER_RAIL[b]
     return (
       <button key={r.id} type="button"
         onClick={(e) => expandAnchored(r.id, e.currentTarget)}
         className={`w-full text-left rounded-xl border px-3 py-2.5 mb-1.5 flex items-center gap-2.5 transition-colors hover:border-primary ${
           r.included ? "bg-card border-border" : "border-dashed border-border opacity-50"}`}>
         <span aria-hidden="true" className="w-[3px] self-stretch min-h-[26px] shrink-0 rounded-full"
-          style={{ background: r.included ? TIER_RAIL[b] ?? "transparent" : "transparent" }} />
+          style={{ background: r.included ? rail ?? "transparent" : "transparent" }} />
         <span className={`flex-1 min-w-0 text-[14px] font-semibold tracking-[-0.005em] ${r.included ? "" : "line-through text-muted-foreground"}`}>{r.title}</span>
         {r.included && remindsOfRow(r) && (
           <BellRingIcon className="size-[13px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Reminds you" />
@@ -686,7 +694,6 @@ export function TaskReviewSheet({
             {kind.label}
           </span>
         )}
-        {r.included && tierSaysSomething && <PriorityDot tier={r.tier} />}
         <span role="button" tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); patch(r.id, { included: !r.included }) }}
           aria-label={r.included ? `Skip ${r.title}` : `Bring back ${r.title}`}
