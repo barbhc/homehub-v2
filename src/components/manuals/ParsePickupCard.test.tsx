@@ -258,7 +258,10 @@ describe("ParsePickupCard — nothing opens itself without a decision to make", 
     // them. The test held the false tense in place for three rounds. The count
     // is still the reassurance; the tense is now true.
     expect(screen.getByText(/2 guides, setup steps and tips are ready to keep/)).toBeInTheDocument()
-    expect(screen.getByText(/Nothing in it needs a reminder/)).toBeInTheDocument()
+    // HH-137: the card says what was FOUND before saying nothing will remind
+    // you. Unlike the sheet, this card IS about a manual it just read, so
+    // naming it here is honest.
+    expect(screen.getByText(/No maintenance in this manual, so nothing will remind you/)).toBeInTheDocument()
     // And the button must not offer to schedule what the card just said needs
     // no reminder.
     expect(screen.getByRole("button", { name: "See what we found" })).toBeInTheDocument()

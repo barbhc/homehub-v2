@@ -335,7 +335,7 @@ test.describe("journey walks", () => {
     // The seeded dishwasher's only task is CLEANING, so the consolidated view
     // correctly reports that nothing needs a reminder — and still lists the
     // task, which is the point: filtered, never hidden.
-    const consolidated = page.getByText(/Nothing here needs a reminder|Keep an eye on \d+ thing/i).first()
+    const consolidated = page.getByText(/No maintenance tasks found|Keep an eye on \d+ thing/i).first()
     await expect(consolidated).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText("Step 1 of 2 · What each task is")).toHaveCount(0)
     // Exactly ONE review is mounted (HH-120): two used to be, stacked.

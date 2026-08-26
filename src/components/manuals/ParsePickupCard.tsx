@@ -373,7 +373,10 @@ export function ParsePickupCard({
               // runParse writes previewDraft only; commitDraft is what saves.
               // So the card was reporting work that had not happened, next to
               // the button that does it.
-              : `Nothing in it needs a reminder. ${savedCount(draft)} ${savedCount(draft) === 1 ? "guide" : "guides, setup steps and tips"} are ready to keep.`
+              // HH-137: same clarification as the sheet — say what was FOUND,
+              // then why that means nothing will remind you. The card and the
+              // screen behind it have to give the same account of the parse.
+              : `No maintenance in this manual, so nothing will remind you. ${savedCount(draft)} ${savedCount(draft) === 1 ? "guide" : "guides, setup steps and tips"} are ready to keep.`
             : "They're saved already — review to adjust or remove any."}
         </p>
       </div>
