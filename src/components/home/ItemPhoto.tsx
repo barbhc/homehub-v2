@@ -32,7 +32,7 @@ interface ItemPhotoProps {
    * The item page uses "cta": a 150px empty block at the top of the page reads as
    * a broken image rather than as something you're being asked to add.
    */
-  emptyVariant?: "tile" | "cta"
+  emptyVariant?: "tile" | "cta" | "icon"
 }
 
 /**
@@ -91,6 +91,32 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
       onPhotoSaved={(path) => onItemUpdate?.({ ...item, photo_storage_ref: path })}
     />
   )
+
+  // HH-136: "having that open add item photo at the top even above the product
+  // name is a bit of a distraction … can you think through a design that
+  // minimizes adding a photo so that it is available, but it's not above the
+  // name and taking up so much space."
+  //
+  // The smallest honest answer. A photo helps you spot an item in the LIST; on
+  // the item page you already know what you are looking at, so a 150px dashed
+  // call-to-action above the name was spending the top of the page on the one
+  // screen where the benefit does not apply. It is a tap target beside the
+  // title instead — always there, never first.
+  if (!photoUrl && emptyVariant === "icon") {
+    return (
+      <label
+        className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[1.5px] border-dashed transition-colors hover:bg-muted"
+        style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
+        aria-label={uploading ? "Uploading photo" : "Add a photo"}
+        title="Add a photo"
+      >
+        <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} disabled={uploading} />
+        {uploading
+          ? <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
+          : <CameraIcon className="size-[18px]" aria-hidden="true" />}
+      </label>
+    )
+  }
 
   // Compact empty state: an invitation sized like the row it is, not a slab of
   // nothing where a photo should be.

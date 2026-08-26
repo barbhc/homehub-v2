@@ -51,16 +51,20 @@ test.describe("emulator e2e — storage (uploadItemPhoto)", () => {
       page.getByRole("heading", { name: "LG French Door Refrigerator" }).filter({ visible: true }).first()
     ).toBeVisible({ timeout: 20_000 })
 
-    // The empty-state tile is a <label> whose visible caption opens the native
-    // file chooser (the desktop copy renders too, but display:none).
+    // The empty state is a <label> that opens the native file chooser.
     //
-    // The caption is "Add a photo": RefinedItemDetail passes emptyVariant="cta",
-    // a different empty state from the square tile's "Add photo". An exact-text
-    // selector for the tile's wording therefore matched nothing here, and the
-    // failure surfaced as a filechooser timeout rather than as "element not
-    // found" — which is why it read as flaky rather than stale.
+    // HH-136 moved it: it was a full-width "Add a photo" card ABOVE the item
+    // name, and is now a 44px control BESIDE the name — the caption it used to
+    // be found by is gone. This selector is anchored on the ACCESSIBLE NAME
+    // instead of visible text, so the next time the affordance changes shape
+    // this test keeps working; the promise it guards is "a phone can add a
+    // photo at all", which is about the upload path, not the wording.
+    //
+    // (Its previous comment records the same lesson from the other direction:
+    // an exact-text selector matched nothing and surfaced as a filechooser
+    // TIMEOUT rather than "element not found", which read as flake.)
     const chooserPromise = page.waitForEvent("filechooser")
-    await page.getByText("Add a photo", { exact: true }).filter({ visible: true }).first().click()
+    await page.getByLabel(/Add a photo/i).filter({ visible: true }).first().click()
     const chooser = await chooserPromise
     await chooser.setFiles({ name: "fridge.png", mimeType: "image/png", buffer: Buffer.from(PNG_BASE64, "base64") })
 
