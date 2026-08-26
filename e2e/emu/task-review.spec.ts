@@ -24,7 +24,7 @@ test.describe("emulator e2e — task review wizard", () => {
     //
     // The seeded dishwasher's only task is cleaning, so the consolidated view
     // reports that nothing needs a reminder and offers "Review them all".
-    await expect(page.getByText(/Nothing here needs a reminder|Keep an eye on/i).first())
+    await expect(page.getByText(/No maintenance tasks found|Keep an eye on/i).first())
       .toBeVisible({ timeout: 10_000 })
     await page.getByRole("button", { name: /Review them all|Review everything/ }).first().click()
 

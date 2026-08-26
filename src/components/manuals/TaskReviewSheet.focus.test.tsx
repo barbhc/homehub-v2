@@ -157,7 +157,9 @@ describe("TaskReviewSheet — a manual with no maintenance", () => {
 
   it("shows what the manual DID yield instead of an empty screen", () => {
     renderNoMaint()
-    expect(screen.getByText("Nothing here needs a reminder.")).toBeInTheDocument()
+    // HH-137: the heading is the FINDING now — "Nothing here needs a reminder"
+    // was true but never said why, so the screen read as an empty review.
+    expect(screen.getByText("No maintenance tasks found.")).toBeInTheDocument()
     expect(screen.getByText("Clean the basket after use")).toBeInTheDocument()
     expect(screen.getByText("Wipe the element")).toBeInTheDocument()
     // The old dead-end sentence is gone.

@@ -997,19 +997,36 @@ function StepTwo({
     const kept = rows.filter((r) => r.included)
     return (
       <div className="px-1 py-1">
-        <p className="text-[13px] font-bold">Nothing here needs a reminder.</p>
+        {/* HH-137. This said "Nothing here needs a reminder." — true, but it
+            never said WHY, so the screen read as an empty review rather than a
+            result. Owner: "Just clarify that no maintenance tasks were found
+            which is why nothing needs a reminder."
+            So the heading is now the FINDING and the body draws the line from
+            it to the consequence. The sheet stays: she was shown the version
+            that removes it and chose this one.
+
+            It deliberately does NOT say "in this manual". focus=maintenance has
+            been the default since round 12, so this same branch heads the item
+            page's Review button, where there may be no manual in the story at
+            all — and a test pins that. Saying what was FOUND carries her
+            clarification without claiming a document we might not have. */}
+        <p className="text-[13px] font-bold">No maintenance tasks found.</p>
         <p className="mt-1 mb-3 text-[12px] text-muted-foreground">
           {/* Round 12: said "This manual is…", but focus=maintenance is now the
               DEFAULT, so this branch is also what the item page's "Review
               tasks" button opens — where there may be no manual in the story at
               all. Describe what is here, not where it came from. */}
+          {/* The causal clause is the point: cleaning and usage advice is why
+              there is nothing to remind you about. The saved/not-saved split is
+              HH-134's and stays exactly as it was — those two clauses are what
+              its tests pin. */}
           {focus === "maintenance"
             ? alreadySaved
-              ? "These are cleaning and usage advice. They're saved to this item — nothing will remind you."
-              : "These are cleaning and usage advice. Save them to keep them on this item — nothing will remind you."
+              ? "Everything we found is cleaning or usage advice, so nothing here will remind you. They're saved to this item."
+              : "Everything we found is cleaning or usage advice, so nothing here will remind you. Save them to keep them on this item."
             : alreadySaved
-              ? "Everything here is a setup step or a tip. It's saved to this item — nothing will remind you."
-              : "Everything here is a setup step or a tip. Save it to keep it on this item — nothing will remind you."}
+              ? "Everything we found is a setup step or a tip, so nothing here will remind you. It's saved to this item."
+              : "Everything we found is a setup step or a tip, so nothing here will remind you. Save it to keep it on this item."}
         </p>
         {kept.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
