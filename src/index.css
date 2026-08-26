@@ -263,3 +263,20 @@ body {
 code {
   overflow-wrap: anywhere;
 }
+
+/* HH-135: the scanning rail. Indeterminate on purpose — we know the page count
+   but not how far through them the model is, so a bar that implied measured
+   progress would be a small lie. It sweeps instead of filling.
+   Motion is the whole point of this element, so it is the first thing to go
+   when someone has asked for less of it. */
+@keyframes hh-scan-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+.hh-scanrail {
+  width: 25%;
+  animation: hh-scan-sweep 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hh-scanrail { animation: none; width: 100%; opacity: 0.45; }
+}
