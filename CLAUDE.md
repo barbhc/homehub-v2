@@ -113,6 +113,27 @@ requirement is met.**
    mockup nobody checked the build against is just a nicer version of claiming
    it is done.
 
+## The add-item flow has a canonical spec
+
+**`docs/add-item-flow.md` is the agreement.** It exists because this one flow has
+been redesigned seven times and produced six separate reports of reaching a
+screen a later redesign was supposed to replace — each fix landing on the screen
+that was reported while the next report came from a door nobody had listed.
+
+Two rules, both from the owner (2026-08-26):
+
+1. **Check any add-item change against it before claiming the change is right.**
+   It is part of the eval, alongside the suites. Every rule in it cites the
+   report that established it, so "does this undo something she asked for?" is a
+   question with an answer.
+2. **Amend it in the SAME PR** when a redesign or fix changes what the flow is,
+   and say in the PR body when a change supersedes an existing rule. A rule
+   silently disappearing is the failure the file exists to prevent.
+
+It covers `SmartAddItem`, `components/smart-add/`, `item-detail/ManualSection`,
+`components/manuals/`, `RefinedItemDetail`, `wizardSession`, and the parse
+worker — the same surface `retiredDesigns.test.ts` guards.
+
 ## Merging and deploying — standing authorization
 
 **Owner, 2026-08-25: "please merge and deploy without me asking going forward."**
