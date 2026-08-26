@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Loader2Icon, BellRingIcon } from "lucide-react"
+import { Loader2Icon, BellRingIcon, XIcon, Undo2Icon } from "lucide-react"
 import {
   reviewBucketFor,
   isScheduled,
@@ -23,12 +23,24 @@ import { earliestLastDone } from "../../../shared/care/lastDone"
 /** HH-35: the three TIER buckets get the app's own tier colour as a rail,
  *  instead of this screen inventing an emoji vocabulary for a system that
  *  already has one (TierBadge, the agenda, item detail all use these).
- *  Non-tier buckets — setup / when-needed / tips — have no tier, so they keep
- *  their icon rather than being given a colour that would imply one. */
-const TIER_RAIL: Record<string, string> = {
+ *
+ *  HH-140: it defined three of the SIX buckets, and that omission is the whole
+ *  reason step 1 looked like a different app. Both steps map the same
+ *  REVIEW_BUCKET_ORDER over the same REVIEW_BUCKET_COPY, but a section with no
+ *  rail falls through to `copy.icon` — so step 2, which only ever renders the
+ *  three tiers, got rails, and step 1 got emoji. Six rounds of redesign landed
+ *  on the reported screen while the other door kept the pre-round-10 look.
+ *
+ *  The three added colours reuse the existing palette rather than introducing
+ *  one: when-needed can matter as much as anything scheduled (clay), setup is
+ *  done once and then over (slate), tips are good to know (teal). */
+export const TIER_RAIL: Record<string, string> = {
   essential: "var(--hh-clay)",
   recommended: "var(--hh-teal)",
   optional: "var(--hh-slate)",
+  whenNeeded: "var(--hh-clay)",
+  setup: "var(--hh-slate)",
+  tip: "var(--hh-teal)",
 }
 import { isThinManual, thinManualWarning } from "../../../shared/parse/pdfShape"
 import { classifyActorFromText } from "@/lib/taskActor"
@@ -634,24 +646,53 @@ export function TaskReviewSheet({
     )
   }
 
+  /**
+   * One row, in step 2's clothes.
+   *
+   * HH-140: this used to open with the kind as an EMOJI and close with a
+   * priority dot next to a bare ✕ — "◦ ×" in the owner's screenshot, which is
+   * a hollow Optional dot beside a glyph with no hit area. Step 2's row opens
+   * with a coloured rail and closes with real, labelled controls, and both
+   * screens list the same rows.
+   *
+   * Two things are shown only where they add something the section did not
+   * already say, which is why step 2 shows neither: the KIND is dropped inside
+   * Setup and Tips (every row there is one), and the TIER is dropped inside the
+   * three tier sections (the heading IS the tier). In "When needed" both earn
+   * their place — its rows are sorted by tier precisely because "some matter a
+   * lot" and no due date is there to say so.
+   */
   const collapsedRow = (r: ReviewRow) => {
     const b = bucketOfRow(r)
+    const kind = KINDS.find((k) => k.id === r.kind)
+    const kindSaysSomething = b !== "setup" && b !== "tip" && !!kind
+    const tierSaysSomething = !isScheduled(b) && r.kind !== "tip"
     return (
       <button key={r.id} type="button"
         onClick={(e) => expandAnchored(r.id, e.currentTarget)}
         className={`w-full text-left rounded-xl border px-3 py-2.5 mb-1.5 flex items-center gap-2.5 transition-colors hover:border-primary ${
           r.included ? "bg-card border-border" : "border-dashed border-border opacity-50"}`}>
-        <span className="text-[14px] shrink-0 opacity-85" aria-label={r.kind}>{KINDS.find((k) => k.id === r.kind)?.icon}</span>
+        <span aria-hidden="true" className="w-[3px] self-stretch min-h-[26px] shrink-0 rounded-full"
+          style={{ background: r.included ? TIER_RAIL[b] ?? "transparent" : "transparent" }} />
         <span className={`flex-1 min-w-0 text-[14px] font-semibold tracking-[-0.005em] ${r.included ? "" : "line-through text-muted-foreground"}`}>{r.title}</span>
         {r.included && remindsOfRow(r) && (
           <BellRingIcon className="size-[13px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Reminds you" />
         )}
-        {r.included && isScheduled(b) && <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">{cadOf(r)}</span>}
-        {r.included && r.kind !== "tip" && <PriorityDot tier={r.tier} />}
+        {r.included && isScheduled(b) && (
+          <span className="text-[12.5px] font-mono text-muted-foreground whitespace-nowrap tabular-nums">{cadOf(r)}</span>
+        )}
+        {r.included && kindSaysSomething && (
+          <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+            {kind.label}
+          </span>
+        )}
+        {r.included && tierSaysSomething && <PriorityDot tier={r.tier} />}
         <span role="button" tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); patch(r.id, { included: !r.included }) }}
           aria-label={r.included ? `Skip ${r.title}` : `Bring back ${r.title}`}
-          className="shrink-0 text-[14px] text-muted-foreground px-1 rounded hover:bg-muted">{r.included ? "✕" : "↩"}</span>
+          className="shrink-0 grid place-items-center size-[26px] rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          {r.included ? <XIcon className="size-[13px]" aria-hidden /> : <Undo2Icon className="size-[13px]" aria-hidden />}
+        </span>
       </button>
     )
   }
@@ -757,8 +798,13 @@ export function TaskReviewSheet({
                       // ever saying what DOES happen to them. A tester: "I'm
                       // not quite clear what all this text is trying to tell me."
                       <>
-                        We found <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> in this manual.
-                        None of them need a schedule — they&apos;re setup steps and tips{alreadySaved ? ", saved to this item" : ", ready to save"}.
+                        {/* HH-140: step 2 leads with the FINDING and draws the
+                            line to the consequence (HH-137, her wording). Step 1
+                            led with a count and left the reader to work out why
+                            nothing was scheduled. Same finding, same order, so
+                            the two doors tell one story. */}
+                        <b className="font-bold">No maintenance tasks found.</b>{" "}
+                        The <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> we did find are setup steps and tips, so nothing here will remind you.{alreadySaved ? " They\u2019re saved to this item." : " Save them to keep them on this item."}
                         <span className="block text-muted-foreground mt-0.5">Tap any one to change how it&apos;s filed.</span>
                       </>
                     ) : (
@@ -770,33 +816,36 @@ export function TaskReviewSheet({
                     )}
                   </>
                 )}
+                {/* HH-140: this was a second FILLED primary, competing with the
+                    footer's own. The walkthrough is the slower alternative to
+                    the list already on screen, so it reads as the secondary it
+                    is. One filled button per screen — the footer's. */}
                 <div className="mt-2.5">
                   <button type="button" onClick={() => { setGuideIndex(0); scrollRef.current?.scrollTo?.({ top: 0 }) }}
-                    className="rounded-xl bg-primary px-3.5 py-2.5 text-[12.5px] font-bold text-primary-foreground">
+                    className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-[12.5px] font-bold text-foreground hover:border-primary transition-colors">
                     Go through them one by one{walked ? " again" : ""} →
                   </button>
                 </div>
               </div>
 
-              {REVIEW_BUCKET_ORDER.map((bucket, i) => {
+              {REVIEW_BUCKET_ORDER.map((bucket) => {
                 const copy = REVIEW_BUCKET_COPY[bucket]
                 const items = sortWithinBucket(bucket, rows.filter((r) => bucketOfRow(r) === bucket) as never) as ReviewRow[]
                 if (!items.length && !copy.empty) return null
-                const prevSec = i > 0 ? isScheduled(REVIEW_BUCKET_ORDER[i - 1]) : null
-                const showRule = i === 0 || prevSec !== isScheduled(bucket)
                 return (
                   <div key={bucket}>
-                    {showRule && (
-                      <div className="flex items-center gap-2.5 mt-5 mb-1 first:mt-1">
-                        <span className="text-[9.5px] font-mono font-bold uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
-                          {isScheduled(bucket) ? "On your schedule" : "Not scheduled"}
-                        </span>
-                        <i className="flex-1 h-px bg-border" />
-                      </div>
-                    )}
+                    {/* HH-140: the "On your schedule" / "Not scheduled" bands are
+                        gone. Every section's own sub-line already says whether it
+                        is scheduled ("On your schedule, quietly", "Never
+                        scheduled"), so the band restated the next two lines in a
+                        third typeface — and it is the one structural device step
+                        2 does not have. */}
                     <div className="mt-3.5 mb-2">
-                      <div className="flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.015em]">
-                        <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>{copy.title}
+                      <div className="flex items-center gap-2.5 text-[15px] font-extrabold tracking-[-0.015em]">
+                        {TIER_RAIL[bucket]
+                          ? <span aria-hidden="true" className="h-[15px] w-[3px] shrink-0 rounded-full" style={{ background: TIER_RAIL[bucket] }} />
+                          : <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>}
+                        {copy.title}
                         {/* HH-85: setup opens on demand. "Already set up" is the
                             honest default for an appliance owned for months —
                             same call the item page's band made — and six open
@@ -813,7 +862,7 @@ export function TaskReviewSheet({
                             {setupOpen ? "Already set up? Hide them" : `Show ${items.length} setup step${items.length === 1 ? "" : "s"}`}
                           </button>
                         )}
-                        <span className="ml-auto text-[11px] font-mono font-bold text-muted-foreground">{items.length}</span>
+                        <span className="ml-auto text-[12.5px] font-mono font-bold text-muted-foreground tabular-nums">{items.length}</span>
                       </div>
                       <div className="text-[12px] text-muted-foreground mt-0.5 pl-[13px]">{copy.sub}</div>
                     </div>
