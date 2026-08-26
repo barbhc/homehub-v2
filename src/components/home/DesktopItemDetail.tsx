@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
+import { anyAwaitingReview } from "@/lib/manualReviewState"
 import { itemSubtitle } from "@/lib/itemSubtitle"
 import { useNavigate } from "react-router-dom"
 import {
@@ -339,6 +340,8 @@ export function DesktopItemDetail({
   const hasManual = manuals.some((m) => m.parsed_at !== null)
   // HH-87: mid-parse is neither "has a manual" nor "has none".
   const parsingManual = manuals.some((m) => ACTIVE_PARSE_STAGES.includes(m.parse_stage as never))
+  // HH-141: read, findings not saved yet — the third state.
+  const manualAwaitingReview = anyAwaitingReview(manuals)
 
   const recallFound = item.recall_status === "found"
 
@@ -487,6 +490,7 @@ export function DesktopItemDetail({
               chunks={chunks}
               hasManual={hasManual}
               parsingManual={parsingManual}
+              manualAwaitingReview={manualAwaitingReview}
               onOpenManualPage={onOpenManualPage}
               onItemUpdate={onItemUpdate}
               onAddManual={() => manualSectionProps.setAddManualOpen(true)}

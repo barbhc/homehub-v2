@@ -938,6 +938,8 @@ export function IdentifyStep({
                 state={identityCardState}
                 identity={identityCardState === "applied" ? identityApplied?.identity : lookupResult?.identity}
                 categoryLabel={identityCategoryLabel}
+                brand={data.brand}
+                model={data.model}
                 variants={lookupResult?.variants ?? []}
                 onUse={handleUseIdentity}
                 onUndo={handleUndoIdentity}

@@ -116,5 +116,31 @@ export function isUsableProductName(name: string | null | undefined, model?: str
   const looksLikeModelNumber = !!m && m.length >= 4 && /\d/.test(m)
   if (looksLikeModelNumber && squash(n).includes(squash(m))) return false
   if (/\b(for|with|from|of|in)\b/i.test(n)) return false
+  if (looksLikePageTitle(n)) return false
   return true
+}
+
+/**
+ * Is this string a search RESULT rather than a product?
+ *
+ * HH-138: the resolver returned "Bosch SHPM65Z55N/01 Manuals" — a web page's
+ * <title> — and the identity card printed it verbatim, so the identify screen
+ * appeared to announce it had found the manual. It had found a model.
+ *
+ * Deliberately narrower than `isUsableProductName`, and separate from it,
+ * because the two answer different questions. That function asks "would a
+ * person CALL it this?", and rejects "LG WM4000HWA Front Load Washer" for
+ * repeating the model number the name exists to replace (HH-125). That is the
+ * right rule for the name field and the wrong one for a card describing a
+ * match, where the same string is exactly what the user wants to read.
+ *
+ * Only the TRAILING shape is rejected here. Products really are called "Manual
+ * Espresso Machine" and "Manual Coffee Grinder"; nothing is called "… Manual".
+ */
+export function looksLikePageTitle(name: string | null | undefined): boolean {
+  const n = clean(name)
+  if (!n) return false
+  if (/\b(user|owner'?s|service|instruction|installation)?\s*manuals?$/i.test(n)) return true
+  if (/\b(pdf|datasheet|spec\s*sheet|specs|download|downloads)$/i.test(n)) return true
+  return false
 }

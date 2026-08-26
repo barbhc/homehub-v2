@@ -111,6 +111,9 @@ async function seedItems(rooms: Record<string, string>): Promise<Record<string, 
     { key: "washer", displayName: "Whirlpool Front-Load Washer", category: "washer", itemCategory: "major_appliance", brand: "Whirlpool", model: "WFW9620HC", room: "Laundry Room", purchaseOffset: -200, warrantyMonths: 12, categoryFields: { Capacity: "5.0 cu ft", "Spin speed": "1300 RPM" } },
     { key: "waterheater", displayName: "Rheem Performance Water Heater", category: "water_heater", itemCategory: "system", brand: "Rheem", model: "XE50T10", room: "Garage", purchaseOffset: -1500, warrantyMonths: 72, categoryFields: { Capacity: "50 gal", "First-hour rating": "62 gal" } },
     { key: "range", displayName: "GE Profile Gas Range", category: "range", itemCategory: "major_appliance", brand: "GE", model: "PGB960", room: "Kitchen", purchaseOffset: -90, warrantyMonths: 12, categoryFields: { Burners: "5", "Oven capacity": "5.6 cu ft", Convection: "Yes" } },
+    // The owner's OWN microwave, and deliberately the only item with NO tasks.
+    // See seedUnreviewedManual — this pair is the state five reports came from.
+    { key: "microwave", displayName: "Sharp Microwave Drawer", category: "microwave", itemCategory: "small_appliance", brand: "Sharp", model: "SMD2470ASY24", room: "Kitchen", purchaseOffset: -30, warrantyMonths: 12, categoryFields: { Capacity: "1.2 cu ft", Power: "950 W" } },
   ]
   const out: Record<string, { id: string; name: string; room: string }> = {}
   for (const it of items) {
@@ -288,6 +291,68 @@ async function seedTasks(items: Record<string, { id: string; name: string; room:
   }
 }
 
+// ── 5c. A manual that was READ but never SAVED, whose findings contain no
+// maintenance. The single most valuable row in this file.
+//
+// Five separate reports — HH-121, HH-127, HH-134, HH-137, HH-140 — all came
+// from this one state, and NO test visited it, because every seeded manual is
+// committed and every seeded item already has tasks. So each fix was judged
+// against the screenshot in the report instead of against the running app, and
+// the next report arrived from the door nobody had listed.
+//
+// The two fields are exactly what distinguishes it, and they are not
+// decorative: `commitDraft` is the only writer of `parsedAt`, so stage "done"
+// with a null `parsedAt` and a surviving `previewDraft` is, by construction, a
+// parse whose results were never saved. Reachable states from this one row:
+//
+//   · the item page's third state (HH-141) — read, nothing scheduled
+//   · ParsePickupCard's no-maintenance copy (HH-135)
+//   · the review's nothing-to-schedule branch, on BOTH doors (HH-134/137/140)
+//
+// Do not "fix" this by stamping parsedAt or committing the draft. Losing it
+// makes all five of those states untestable again.
+async function seedUnreviewedManual(items: Record<string, { id: string; name: string }>): Promise<void> {
+  const manualId = "manual-microwave"
+  const draftTask = (
+    title: string,
+    care_type: string,
+    schedule_type: string,
+    priority_tier: string,
+  ) => ({
+    title, description: null, care_type, priority_tier, risk_level: "performance",
+    estimated_minutes: 10, schedule_type, interval_days: null, instructions_text: null,
+    symptom_tags: [], re_check_triggers: [], keep_as_task: care_type !== "operating",
+  })
+
+  await db.doc(`homes/${HOME_ID}/manuals/${manualId}`).set({
+    itemUnitId: items.microwave.id,
+    title: "Sharp Microwave Drawer — Operation Manual",
+    label: null,
+    sourceType: "upload",
+    sourceRef: `${HOME_ID}/microwave/operation-manual.pdf`,
+    role: "primary",
+    version: null,
+    language: "en",
+    // NOT parsed: the draft was never committed. This is the whole point.
+    parsedAt: null,
+    parse: { stage: "done", stageAt: NOW, requestId: "seed", mode: "preview", model: "seed", attempt: 1, error: null, pdfPages: 48 },
+    previewDraft: {
+      confidence: "high",
+      chunks: [],
+      tasks: [
+        draftTask("Verify the drawer is properly grounded", "maintenance", "setup", "essential"),
+        draftTask("Level the drawer front before first use", "maintenance", "setup", "recommended"),
+        draftTask("Clean the waveguide cover", "cleaning", "monthly", "recommended"),
+        draftTask("Wipe the interior after each use", "cleaning", "after_each_use", "optional"),
+        draftTask("Descale if the drawer sticks", "maintenance", "as_needed", "recommended"),
+      ],
+    },
+    createdAt: NOW,
+    updatedAt: NOW,
+    deletedAt: null,
+  })
+}
+
 // ── 5b. Manuals + knowledge chunks (parse output) ─────────────────────────────
 // One parsed manual for the furnace with a couple of knowledge chunks, so the
 // knowledge reads (getChunksByItem/ByManual/searchChunks/getKnowledgeChunksByHome)
@@ -416,6 +481,7 @@ async function main(): Promise<void> {
   const rooms = await seedRooms()
   const items = await seedItems(rooms)
   await seedManuals(items)
+  await seedUnreviewedManual(items)
   await seedTasks(items)
   await seedProviders()
   await seedFaqs(items)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { isAwaitingReview } from "@/lib/manualReviewState"
 import { FeedbackButton } from "@/components/FeedbackButton"
 import { SUPPORT_EMAIL } from "@/lib/feedback"
 import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
@@ -1015,6 +1016,10 @@ export default function Settings() {
               <div className="space-y-1.5 mb-4">
                 {manuals.map((m) => {
                   const state = manualStates[m.manual_id]
+                  // HH-141: "Not scanned" is false for a manual we HAVE read
+                  // and never saved — the same lie the item page was telling
+                  // one screen over. `isAwaitingReview` is the shared answer.
+                  const awaitingReview = isAwaitingReview(m)
                   const parsedDate = m.parsed_at
                     ? new Date(m.parsed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                     : null
@@ -1033,7 +1038,9 @@ export default function Settings() {
                       ) : parsedDate ? (
                         <CircleDotIcon className="size-3.5 text-muted-foreground shrink-0" />
                       ) : (
-                        <CircleDotIcon className="size-3.5 text-amber-400 shrink-0" />
+                        // One colour per status: this dot and its label were
+                        // amber and clay respectively after the contrast fix.
+                        <CircleDotIcon className="size-3.5 shrink-0" style={{ color: "var(--hh-clay)" }} />
                       )}
 
                       {/* Name */}
@@ -1055,7 +1062,14 @@ export default function Settings() {
                           Scanned {parsedDate}
                         </span>
                       ) : (
-                        <span className="text-xs text-amber-600 shrink-0">Not scanned</span>
+                        // Clay, not amber-600: at 12px on the settings surface
+                        // amber-600 lands at 3.08:1 against a 4.5:1 floor, and
+                        // this is the ONE line telling someone the state of
+                        // their manual. It stayed invisible to the a11y suite
+                        // until the seed gained an unsaved manual (HH-140).
+                        <span className="text-xs shrink-0" style={{ color: "var(--hh-clay)" }}>
+                          {awaitingReview ? "Read — not saved" : "Not scanned"}
+                        </span>
                       )}
                     </div>
                   )

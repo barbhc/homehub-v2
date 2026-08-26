@@ -61,8 +61,10 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 - Rarer routes stay folded under "More ways to identify it". — HH-123
 - A matched product shows its specs as **suggestions, never auto-applied** — a
   hallucinated filter size could have someone buy the wrong part. — HH-114
-- **OPEN (HH-138):** the card must not claim a manual was found. Identifying an
-  item is not finding its manual.
+- The match card describes the match in OUR vocabulary — the kind of thing, and
+  the brand and model it matched on — never the resolver's raw string when that
+  string is a page title ("Bosch SHPM65Z55N/01 Manuals"). Identifying an item is
+  not finding its manual, and this screen may not claim one. — HH-138
 
 ## Screen 2 — Simple lane
 
@@ -104,9 +106,10 @@ page watches it.
 - Purchase, warranty and category fields live in **Details & records**,
   scrollable to the last field with the keyboard open. — HH-96, HH-111, HH-133
 - Category fields **match the category** — no fuel type on a microwave. — HH-133
-- **OPEN (HH-141):** needs a third state — *has a manual, nothing scheduled*.
-  Today a finished-but-uncommitted parse is neither parsed nor parsing, so the
-  page offers to add the manual it just read.
+- Three states, not two: no manual · being read · **read, nothing saved yet**.
+  A finished-but-uncommitted parse is stage "done" with a null `parsed_at`
+  (`commitDraft` is the only writer of it), and the third state holds the space
+  without a button — the pickup card above owns that decision. — HH-141
 
 ## The review — the one decision
 
@@ -120,9 +123,12 @@ page watches it.
   saves. — HH-134
 - When nothing needs a reminder it **says why**: no maintenance was
   found. — HH-137
-- **OPEN (HH-140):** "Review them all" leads to step 1, which no redesign has
-  ever reached — emoji instead of tier rails, two competing primaries, a
-  cryptic `◦ ×`, and "Save all 8" under a line saying nothing needs a schedule.
+- **Both steps are one design.** Step 1 is step 2's design applied to all six
+  buckets, not a screen of its own: same rails, same section shape, same
+  finding-first sentence, one filled primary. `TIER_RAIL` must define a colour
+  for EVERY bucket — a bucket without one falls through to `copy.icon`, and that
+  one omission is why step 1 kept the pre-round-10 emoji look through six
+  rounds of redesign that all landed on step 2. — HH-140
 
 ---
 
@@ -135,10 +141,15 @@ page watches it.
 | `src/components/smart-add/addFlowCopy.test.ts` | Copy and step-union drift | live |
 | Journey walks + their `snap()` notes | Visual drift — but ONLY if the note states the requirement rather than describing the screen | live |
 | **This file** | A change quietly undoing an earlier agreement | new |
-| A no-maintenance manual in the seed | **MISSING.** Every one of the five repeated reports came from a state no test visits, because the seed only has manuals that produce maintenance | gap |
+| `src/components/manuals/TaskReviewSheet.stepone.test.tsx` | Step 1 drifting from step 2 — asserts every bucket has a rail, so a new bucket cannot reintroduce the emoji look on one door | live |
+| `src/components/item-care/CareBlock.awaiting.test.tsx` | The page offering to add a manual it has already read | live |
+| `seedUnreviewedManual` in `scripts/seed-emulator.ts` | **The gap, now closed.** A read-but-unsaved manual with no maintenance in it — the state all five repeated reports came from, which no test could visit because every seeded manual was committed and every seeded item already had tasks | live |
 
-The last row is the most valuable thing on this page. Fixing it would have
-caught five reports before the owner saw any of them.
+The last row was the most valuable thing on this page, and it is now closed.
+One seeded pair — the owner's own Sharp microwave, with no tasks, and a manual
+whose `previewDraft` survives with no maintenance in it — makes every one of
+those five states reachable by a test. Do not stamp its `parsedAt` or commit its
+draft to make something else pass: that is what made them untestable before.
 
 ## Amending this file
 

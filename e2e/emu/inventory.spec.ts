@@ -7,9 +7,9 @@ import { test, expect } from "@playwright/test"
 test.describe("emulator e2e — inventory", () => {
   test("Inventory lists the seeded items (itemService.getItemUnits end-to-end)", async ({ page }) => {
     await page.goto("/inventory")
-    // The summary reflects the seeded count/grouping (6 items, 3 rooms) — a stable
+    // The summary reflects the seeded count/grouping (7 items, 3 rooms) — a stable
     // single-element proof that getItemUnits returned all seeded item_unit docs.
-    await expect(page.getByText(/6 items across 3 rooms/i)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(/7 items across 3 rooms/i)).toBeVisible({ timeout: 20_000 })
     // And a specific seeded item card renders (targeted by its link).
     await expect(page.getByRole("link", { name: /Bosch 800 Series Dishwasher/ })).toBeVisible()
     await expect(page.getByRole("link", { name: /Carrier Infinity Furnace/ })).toBeVisible()
