@@ -252,7 +252,15 @@ describe("ParsePickupCard — nothing opens itself without a decision to make", 
 
     await screen.findByText(/We finished reading the Sharp microwave manual/)
     // "some things" would be useless; the count is the reassurance.
-    expect(screen.getByText(/We saved 2 /)).toBeInTheDocument()
+    //
+    // HH-134: this asserted "We saved 2 …" about a draft that runParse had NOT
+    // committed — commitDraft, which the review's Save triggers, is what writes
+    // them. The test held the false tense in place for three rounds. The count
+    // is still the reassurance; the tense is now true.
+    expect(screen.getByText(/2 guides, setup steps and tips are ready to keep/)).toBeInTheDocument()
     expect(screen.getByText(/Nothing in it needs a reminder/)).toBeInTheDocument()
+    // And the button must not offer to schedule what the card just said needs
+    // no reminder.
+    expect(screen.getByRole("button", { name: "See what we found" })).toBeInTheDocument()
   })
 })

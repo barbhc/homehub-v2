@@ -125,6 +125,9 @@ export function ReviewItemTasksButton({
           }}
           itemName={itemName}
           previewData={review.preview}
+          // These came from loadItemTasksForReview — they are live tasks on the
+          // item, not a pending draft. This is the ONLY caller that can say so.
+          alreadySaved
           onSave={handleSave}
           saving={saving}
           onFeedback={(p) => {
