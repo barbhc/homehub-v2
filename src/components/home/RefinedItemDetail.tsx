@@ -131,33 +131,41 @@ export function RefinedItemDetail({
       <div className="flex-1 px-5 pb-10" style={{ paddingInline: d.pad, display: "flex", flexDirection: "column", gap: d.stack }}>
         {/* Photo + identity */}
         <div>
-          <ItemPhoto
-            item={item}
-            homeId={homeId}
-            Glyph={Glyph}
-            onItemUpdate={onItemUpdate}
-            emptyVariant="cta"
-            className="h-[150px] w-full rounded-[20px]"
-            glyphClassName="size-16"
-          />
           {/* HH-125: "This is a rice cooker as a user I should be able to edit
               this name." Renaming has existed since #168, behind Edit in
               Details & records — which is not where the thought happens. The
               thought happens looking at the wrong name, so the affordance goes
               on the name, exactly as the room chip already does. */}
-          {onEditDetails ? (
-            <button
-              type="button"
-              onClick={onEditDetails}
-              className="mt-3.5 flex items-center gap-2 text-left"
-              aria-label={`Rename ${item.display_name}`}
-            >
-              <h1 className="text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
-              <PencilIcon className="size-[15px] shrink-0" style={{ color: TEAL }} aria-hidden="true" />
-            </button>
-          ) : (
-            <h1 className="mt-3.5 text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
-          )}
+          {/* HH-136: the name is the first thing on the page now. The photo
+              control sits beside it — available, not announcing itself. When a
+              photo EXISTS it still renders as a tile, because then it is
+              content rather than an invitation. */}
+          <div className="mt-1 flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              {onEditDetails ? (
+                <button
+                  type="button"
+                  onClick={onEditDetails}
+                  className="flex items-center gap-2 text-left"
+                  aria-label={`Rename ${item.display_name}`}
+                >
+                  <h1 className="text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
+                  <PencilIcon className="size-[15px] shrink-0" style={{ color: TEAL }} aria-hidden="true" />
+                </button>
+              ) : (
+                <h1 className="text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
+              )}
+            </div>
+            <ItemPhoto
+              item={item}
+              homeId={homeId}
+              Glyph={Glyph}
+              onItemUpdate={onItemUpdate}
+              emptyVariant="icon"
+              className="size-11 shrink-0 rounded-xl"
+              glyphClassName="size-5"
+            />
+          </div>
           {/* HH-86: only when it adds something — since #139 composes blank
               names as "Brand Model", the old unconditional line was the same
               words twice for every newly added item. */}
