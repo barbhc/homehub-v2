@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
 import { ReviewItemTasksButton } from "@/components/manuals/ReviewItemTasksButton"
 import { ParsePickupCard } from "@/components/manuals/ParsePickupCard"
+import { anyAwaitingReview } from "@/lib/manualReviewState"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { PageContainer, EmptyState } from "@/components/layout"
 import { useAuth } from "@/modules/auth"
@@ -317,6 +318,9 @@ export default function ItemDetailPage() {
   const hasParsedManual = manuals.some((m) => m.parsed_at !== null)
   // HH-87: mid-parse is neither "has a manual" nor "has none".
   const parsingManual = manuals.some((m) => ACTIVE_PARSE_STAGES.includes(m.parse_stage as never))
+  // HH-141: a finished parse nobody saved is neither of the two above, and
+  // without this the page offered to add the manual ParsePickupCard just read.
+  const manualAwaitingReview = anyAwaitingReview(manuals)
 
   // Task splitting (setup / habit / regular) moved into RefinedItemDetail's
   // CareBlock and DesktopItemDetail when the legacy layout was retired — this
@@ -512,6 +516,7 @@ export default function ItemDetailPage() {
             chunks={chunks}
             hasManual={hasParsedManual}
             parsingManual={parsingManual}
+            manualAwaitingReview={manualAwaitingReview}
             onBack={() => navigate("/inventory")}
             onOpenManualPage={(page) => openManualPage(page)}
             canOpenManual={!!manualPdfUrl}

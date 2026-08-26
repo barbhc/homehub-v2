@@ -541,6 +541,10 @@ export interface CareBlockProps {
   /** HH-87: a manual is mid-parse. The empty state must not offer to add a
    *  manual that was added minutes ago — it waits, and says so. */
   parsingManual?: boolean
+  /** HH-141: a manual has been READ and its findings are not saved yet. Neither
+   *  "has a manual" nor "mid-parse", and without it the page offered to add the
+   *  manual ParsePickupCard was reporting on. See lib/manualReviewState. */
+  manualAwaitingReview?: boolean
   onOpenManualPage?: (page: number) => void
   /** Whether the manual PDF actually resolved. Page references render as plain
    *  text when it didn't, rather than as buttons that silently do nothing. */
@@ -554,7 +558,7 @@ export interface CareBlockProps {
   m?: boolean
 }
 
-export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, m }: CareBlockProps) {
+export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, m }: CareBlockProps) {
   // One partition, by the same rule the review wizard uses.
   const scheduled = tasks.filter((t) => isScheduled(bucketOf(t)))
   const whenNeeded = tasks.filter((t) => bucketOf(t) === "whenNeeded")
@@ -694,6 +698,33 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
             <div
               key={i}
               className="mb-2 h-[46px] animate-pulse rounded-xl last:mb-0"
+              style={{ background: "var(--hh-surface2)", opacity: 1 - i * 0.25 }}
+            />
+          ))}
+        </div>
+      </Card>
+    )
+  }
+
+  // HH-141: read, but nothing saved yet. The findings are real and one tap
+  // away in ParsePickupCard above — so this holds the space they will fill and
+  // says where they are. It deliberately carries NO button: a second primary
+  // next to the card's own would be two doors to one decision, which is the
+  // pattern the review consolidation removed.
+  if (nothing && !critical && manualAwaitingReview) {
+    return (
+      <Card>
+        <div className="px-4 py-4" aria-live="polite">
+          <p className="mb-1 text-[15px] font-extrabold tracking-[-0.01em]" style={{ color: "var(--hh-ink)" }}>
+            We read the manual
+          </p>
+          <p className="mb-3 text-[13.5px]" style={{ color: SUB }}>
+            Your upkeep lands here once you save what we found.
+          </p>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="mb-2 h-[46px] rounded-xl last:mb-0"
               style={{ background: "var(--hh-surface2)", opacity: 1 - i * 0.25 }}
             />
           ))}

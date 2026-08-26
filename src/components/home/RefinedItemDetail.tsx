@@ -68,7 +68,7 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
 }
 
 export function RefinedItemDetail({
-  item, rooms, homeId, tasks, chunks, hasManual, parsingManual, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
+  item, rooms, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
   reviewAction, recordsSlot, onEditRoom, onEditDetails, nudgeSlot,
 }: {
   item: ItemUnit
@@ -79,6 +79,8 @@ export function RefinedItemDetail({
   chunks: KnowledgeChunk[]
   hasManual: boolean
   parsingManual?: boolean
+  /** HH-141: read, findings not saved yet. */
+  manualAwaitingReview?: boolean
   onBack: () => void
   onOpenManualPage?: (page: number) => void
   canOpenManual?: boolean
@@ -254,6 +256,7 @@ export function RefinedItemDetail({
           chunks={chunks}
           hasManual={hasManual}
           parsingManual={parsingManual}
+          manualAwaitingReview={manualAwaitingReview}
           onOpenManualPage={onOpenManualPage}
           canOpenManual={canOpenManual}
           onAddManual={onAddManual}
