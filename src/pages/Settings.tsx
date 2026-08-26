@@ -1055,7 +1055,12 @@ export default function Settings() {
                           Scanned {parsedDate}
                         </span>
                       ) : (
-                        <span className="text-xs text-amber-600 shrink-0">Not scanned</span>
+                        // Clay, not amber-600: at 12px on the settings surface
+                        // amber-600 lands at 3.08:1 against a 4.5:1 floor, and
+                        // this is the ONE line telling someone their manual was
+                        // never read. It stayed invisible to the a11y suite
+                        // until the seed gained an unscanned manual (HH-140).
+                        <span className="text-xs shrink-0" style={{ color: "var(--hh-clay)" }}>Not scanned</span>
                       )}
                     </div>
                   )
