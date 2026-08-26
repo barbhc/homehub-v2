@@ -70,7 +70,8 @@ ceiling is worth ~$1,100, which is a ceiling and not a forecast.
 | # | Item | When it pays | Status |
 |---|---|---|---|
 | 3.1 | **Language-aware page selection** | **Now** — every manual, every user | Designed in part; see below |
-| 3.2 | **Shared parse cache** | **At volume** — deferred by the owner 2026-08-25 | `design/manual-sourcing-and-parse-cache.md` |
+| 3.2 | **Streaming partial results (design B)** | **After the golden corpus grows** — deferred 2026-08-26 | Blocked by schema order, not effort |
+| 3.3 | **Shared parse cache** | **At volume** — deferred by the owner 2026-08-25 | `design/manual-sourcing-and-parse-cache.md` |
 
 ### 3.1 Language-aware page selection
 
@@ -110,7 +111,43 @@ This is a real piece of work, not a config change.
 #5) — and the golden corpus is 7 files, which §5 already flags as too thin to
 trust a parse change against. Grow the corpus first or the eval proves nothing.
 
-### 3.2 Shared parse cache — deferred, not dismissed
+### 3.2 Streaming partial parse results ("design B")
+
+The scanning page that fills in row by row as the model finds each task — the
+version the owner liked most in the round-15 mockups. **Deferred 2026-08-26, and
+the reason is not effort.**
+
+Roughly two to three days of build:
+
+| Piece | Notes |
+|---|---|
+| Stream the Claude call | `messages.create` → `messages.stream`, consuming `input_json_delta` for the forced tool call |
+| Incrementally parse partial JSON | Emit complete array elements from a truncated document. The fiddliest part |
+| Write partial results | New field on the manual doc, debounced (~1/s) — not one Firestore write per task |
+| Retry safety | `parseWorker` is `maxAttempts: 2`; a retry must clear partial state or the list double-appends |
+| Client render | Small — `CareBlock` already has a mid-parse skeleton branch from HH-87 |
+
+**What actually blocks it: the tool schema emits `chunks` before `tasks`.**
+`EXTRACTION_TOOL` declares them in that order and the model emits in schema
+order, so a streaming client would see **nothing for most of the scan and then
+every task at once** — worse than the current state, and the opposite of what
+design B is for.
+
+Fixing that means reordering the schema, which changes what the model produces,
+which puts it through `scripts/parse-eval/run.ts` against the goldens
+(non-negotiable #5). **The corpus is 7 files** — §5 already flags that as too
+thin to trust a parse change against. So the golden corpus is the real
+prerequisite, not the streaming work.
+
+**One honesty problem to settle before building it:** house rules are applied in
+`commitDraft`, not at parse. A task streamed into view can be suppressed a minute
+later — a row appears, then vanishes. Either apply the suppression client-side
+while streaming, or accept it knowingly.
+
+Design A shipped in the meantime (HH-135): one readable line, an indeterminate
+rail, and the leave-is-safe promise cut to a clause.
+
+### 3.3 Shared parse cache — deferred, not dismissed
 
 **Owner, 2026-08-25: "the shared parse cache won't matter until I have more
 volume."** Correct at one household. It changes shape as the beta grows, because

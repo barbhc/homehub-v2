@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { CheckIcon, Loader2Icon, XIcon } from "lucide-react"
+import { CheckIcon, XIcon } from "lucide-react"
 import {
   watchParse,
   toUiStage,
@@ -12,7 +12,7 @@ import { draftMaintenanceCount, TaskReviewSheet } from "./TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import { clearParsePending, isParsePending } from "@/lib/parsePickup"
-import { SCAN_KEEPS_GOING } from "@/lib/scanCopy"
+import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 import { ReviewItemTasksButton } from "./ReviewItemTasksButton"
 
 /**
@@ -206,21 +206,46 @@ export function ParsePickupCard({
 
   if (active) {
     const ui = toUiStage(active[1].stage)
+    const pages = active[1].pages
+    // HH-135 (design A). This was a bordered card holding an 11.5px paragraph
+    // over three lines — "the text is quite small and I'm wondering if there's a
+    // more delightful animation". A four-minute wait shown as a small static
+    // block reads as nothing happening.
+    //
+    // So: one readable line saying what is happening, a 3px rail carrying the
+    // motion, and the leave-is-safe promise cut to a single clause instead of a
+    // sentence. The rail is indeterminate ON PURPOSE — we know the page count
+    // but not how far through them Claude is, and a bar that implies progress
+    // it cannot measure is the kind of small lie this product does not tell.
+    //
+    // PLACEMENT NOTE: design A drew this under the item name. It renders above
+    // the page instead, because ParsePickupCard is mounted once for BOTH the
+    // mobile and desktop trees (CSS hides one) — moving it into RefinedItemDetail
+    // would mount it twice, and two mounts means two review sheets, which is
+    // HH-120. Doing that properly means hoisting the parse watch out of this
+    // component; it is not a copy-and-polish change.
     return (
-      <div
-        className="mb-4 flex items-center gap-3 rounded-xl border px-4 py-3"
-        style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}
-      >
-        <Loader2Icon className="size-4 shrink-0 animate-spin" style={{ color: "var(--hh-teal)" }} />
-        <div className="min-w-0">
-          <p className="text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
-            {/* The page count is the one concrete thing we know mid-parse, and
-                it turns an indefinite wait into a job with a size. */}
-            Scanning your manual{active[1].pages ? ` · ${active[1].pages} pages` : ""}
+      <div className="mb-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-[14.5px] font-bold" style={{ color: "var(--hh-ink)" }}>
+            Reading the manual
           </p>
-          <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
-            {STAGE_LINE[ui] ?? "Working…"} {SCAN_KEEPS_GOING}
-          </p>
+          {pages ? (
+            <span className="shrink-0 text-[12px] tabular-nums" style={{ color: "var(--hh-sub)" }}>
+              {pages} pages
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-0.5 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
+          {STAGE_LINE[ui] ?? "Working…"} {SCAN_KEEPS_GOING_SHORT}
+        </p>
+        <div
+          className="mt-2 h-[3px] w-full overflow-hidden rounded-full"
+          style={{ background: "var(--hh-line)" }}
+          role="progressbar"
+          aria-label="Reading the manual"
+        >
+          <div className="hh-scanrail h-full rounded-full" style={{ background: "var(--hh-teal)" }} />
         </div>
       </div>
     )
