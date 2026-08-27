@@ -3,8 +3,13 @@
 import { Suspense, useEffect } from "react"
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigationType, useSearchParams } from "react-router-dom"
 import { lazy } from "react"
-// Dev-only design-QA harness — the DEV guard keeps it out of prod bundles.
-const PreviewGallery = lazy(() => import("@/dev/PreviewGallery"))
+// Dev-only design-QA harness. The ternary matters: import.meta.env.DEV is
+// statically replaced at build time, so in prod the dynamic import is
+// unreachable code and Rollup emits NO chunk for the harness — a bare
+// top-level lazy() would ship one even though nothing renders it.
+const PreviewGallery = import.meta.env.DEV
+  ? lazy(() => import("@/dev/PreviewGallery"))
+  : () => null
 import { SWRConfig } from "swr"
 import { trackPageview } from "@/lib/analytics"
 import { usePushDeepLink } from "@/hooks/usePushDeepLink"
