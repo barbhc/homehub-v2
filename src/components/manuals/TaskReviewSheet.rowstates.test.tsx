@@ -17,7 +17,7 @@
  * both directions.
  */
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, within, fireEvent } from "@testing-library/react"
 import { TaskReviewSheet } from "./TaskReviewSheet"
 import type { PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 
@@ -102,5 +102,51 @@ describe("the column as a whole", () => {
     // Essential-only is the default (owner, 27 Aug), so one of four.
     expect(screen.getAllByLabelText("Notifies you")).toHaveLength(1)
     expect(screen.getByText(/of those will also notify your phone/)).toBeInTheDocument()
+  })
+})
+
+/**
+ * Two defects the built screen showed and no test did. Both were caught by
+ * looking at a screenshot next to the mockup — rule 2 — and both are the kind
+ * that survive a green suite because the wrong output is still well-formed.
+ */
+describe("what the screenshots caught", () => {
+  it("does not echo the section name back as a pill on its own rows", () => {
+    renderSheet()
+    // The old rule excluded only Setup and Tips, because those were the only
+    // sections named after a kind. Now every section is, so a Maintenance row
+    // inside Maintenance was captioned "Maintenance".
+    const row = rowFor("Replace the furnace filter")
+    expect(within(row).queryByText("Maintenance")).toBeNull()
+    const cleaningRow = rowFor("Clean the drawer guides")
+    expect(within(cleaningRow).queryByText("Cleaning")).toBeNull()
+  })
+
+  it("hides the kind on every row a fresh parse can produce", () => {
+    // Worth stating plainly, because writing this test is what showed it: under
+    // kind grouping the bucket is DERIVED from the kind, so the two agree on
+    // every row the parser can produce and the pill never renders.
+    //
+    // The `kind.id !== b` guard is kept rather than deleted because one case
+    // can still diverge — a user picking Usage on safety work, which the
+    // taxonomy re-routes to Maintenance rather than letting it become a tip.
+    // Then the row is in Maintenance and captioned "Usage", which is exactly
+    // the disagreement worth surfacing. It is unreachable from a parse, so it
+    // is asserted at the routing level in reviewBuckets.test.ts instead of
+    // faked here.
+    renderSheet()
+    for (const label of ["Maintenance", "Cleaning", "Usage", "Setup"]) {
+      const pills = screen.queryAllByText(label).filter((el) => el.closest("button")?.dataset.id !== undefined)
+      expect(pills, `${label} appears as a row pill`).toHaveLength(0)
+    }
+  })
+
+  it("never points at a step that no longer exists", () => {
+    renderSheet()
+    fireEvent.click(screen.getByText("Replace the furnace filter"))
+    // "adjust it on the next step" survived the two-screen deletion: still
+    // grammatical, still plausible, pointing at nothing.
+    expect(screen.queryByText(/next step/)).toBeNull()
+    expect(screen.getByText(/change it below/)).toBeInTheDocument()
   })
 })

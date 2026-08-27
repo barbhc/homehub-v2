@@ -181,6 +181,43 @@ grep, not by the docs' own status lines.
 
 ---
 
+## 4b. The sample home buries the one thing that sells the product
+
+**Owner, 2026-08-27:** *"the sample home page is still very visually simple and
+doesn't inform or motivate a user if this is the first thing they explore."*
+
+`/sample` is the "find out before you commit" page — reached from the Inventory
+empty state and from `HomeOnboarding`. It is often the FIRST screen a new person
+sees, and it is a well-typeset list: a pale banner, a heading, hairline rules,
+four task rows with tier rails and cadence pills. No imagery, no manual, no
+before/after.
+
+**The specific finding, which is sharper than "it looks plain".** The content
+that proves the pitch is already in the fixtures and is hidden behind a chevron:
+
+```
+source: "Carrier Infinity 59MN7 manual, p. 34"
+source: "Bosch SHPM88Z75N manual, p. 20"
+source: "Rheem XE50T10 manual, p. 18"
+```
+
+The product's whole claim — *photograph an appliance, Homehub reads its manual,
+these jobs came from page 34* — is one tap away and invisible on arrival. A
+visitor who does not tap a chevron sees a to-do list that could have been typed
+by hand, and leaves without ever learning what the app did.
+
+| Shape | Cost |
+|---|---|
+| Surface the page citation on the collapsed row, not just the expanded one | small |
+| Lead with the mechanism rather than the result — show a manual page and the tasks that came out of it | medium |
+| Give the page a visual anchor: the appliance, or the manual, or both | medium |
+
+Not a bug and not urgent, but it is the page that decides whether someone starts
+at all — and it is currently the least persuasive surface in the app while
+holding the most persuasive content.
+
+---
+
 ## 5. Parse quality — the loop is built, the curation isn't
 
 The task-feedback loop (phases A–D) is complete and in production: chips, house

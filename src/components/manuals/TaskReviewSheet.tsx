@@ -574,7 +574,12 @@ export function TaskReviewSheet({
             <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5">
               <span className="text-[13px] leading-snug">
                 {onSched
-                  ? <>Repeats <b className="font-bold">{cadOf(r).toLowerCase()}</b> — adjust it on the next step</>
+                  // Round 18: this said "adjust it on the next step". There is
+                  // no next step — the cadence chips are directly below. Caught
+                  // by looking at the built screen, not by any test: the
+                  // sentence is still grammatical, still true-sounding, and
+                  // points at a screen that no longer exists.
+                  ? <>Repeats <b className="font-bold">{cadOf(r).toLowerCase()}</b> — change it below</>
                   : <><b className="font-bold">Not scheduled</b> — {r.schedule === "setup" ? "a one-time step" : "you'll do it when needed"}</>}
               </span>
               <button type="button" onClick={() => toggleSchedule(r)}
@@ -772,8 +777,17 @@ export function TaskReviewSheet({
   const collapsedRow = (r: ReviewRow) => {
     const b = bucketOfRow(r)
     const kind = KINDS.find((k) => k.id === r.kind)
-    // The kind is only worth a pill where the section has not already said it.
-    const kindSaysSomething = b !== "setup" && b !== "usage" && !!kind
+    // The kind is only worth a pill where the SECTION has not already said it.
+    //
+    // Round 18 broke this and the screenshots caught it: the old rule excluded
+    // Setup and Tips because those two sections were the only ones named after
+    // a kind. Now EVERY section is named after a kind, so the pill was echoing
+    // its own heading — "Maintenance" on a row inside Maintenance.
+    //
+    // It still earns its place in the one case where they differ: safety work
+    // the taxonomy refuses to demote lands in Maintenance while its care_type
+    // is cleaning, and saying so is the whole point of that rule.
+    const kindSaysSomething = !!kind && kind.id !== b
     const rail = r.kind === "usage" ? SECTION_RAIL[b] : TIER_RAIL[r.tier] ?? SECTION_RAIL[b]
     const scheduled = isScheduledTask(taskLikeOf(r))
     const reminds = r.included && remindsOfRow(r)
