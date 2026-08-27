@@ -285,6 +285,14 @@ export interface ItemUnit {
   warranty_registration_url?: string | null
   warranty_contact?: string | null
   warranty_registered_at?: string | null
+  /** Product-lookup spec suggestions awaiting the user's Add, written by the
+   *  post-create background lookup (round 18 — the lookup left the add screen).
+   *  Never auto-applied; the item page renders each inline on its own field.
+   *  Optional: absent on items predating the move and on synthetic objects. */
+  lookup_suggestions?: { key: string; label: string; value: string | number | boolean }[] | null
+  /** "Hide them" on the item page's provenance line — stamps the dismissal so
+   *  suggestions never come back on this item. */
+  lookup_dismissed_at?: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -294,6 +302,7 @@ export type ItemUnitInsert = Omit<
   | "item_unit_id" | "created_at" | "updated_at" | "setup_revealed_at" | "variant_tags"
   | "warranty_exclusions" | "warranty_registration_required" | "warranty_registration_url"
   | "warranty_contact" | "warranty_registered_at"
+  | "lookup_suggestions" | "lookup_dismissed_at"
 >
 
 export interface ServiceProvider {

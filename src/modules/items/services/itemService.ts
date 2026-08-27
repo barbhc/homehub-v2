@@ -38,6 +38,8 @@ export type CreateItemUnitInput = {
 export type UpdateItemUnitInput = {
   room_id?: string | null
   display_name?: string
+  lookup_suggestions?: { key: string; label: string; value: string | number | boolean }[] | null
+  lookup_dismissed_at?: string | null
   category?: string
   item_category?: ItemCategory | null
   sub_type?: string | null
@@ -108,6 +110,8 @@ function toItemUnit(id: string, homeId: string, d: DocumentData): ItemUnit {
     warranty_registration_url: d.warrantyRegistrationUrl ?? undefined,
     warranty_contact: d.warrantyContact ?? undefined,
     warranty_registered_at: isoOrNull(d.warrantyRegisteredAt),
+    lookup_suggestions: d.lookupSuggestions ?? null,
+    lookup_dismissed_at: d.lookupDismissedAt ?? null,
     created_at: iso(d.createdAt),
     updated_at: iso(d.updatedAt),
     deleted_at: isoOrNull(d.deletedAt),
@@ -139,6 +143,8 @@ const UPDATE_FIELD_MAP: Record<string, string> = {
   setup_revealed_at: "setupRevealedAt",
   variant_tags: "variantTags",
   warranty_registered_at: "warrantyRegisteredAt",
+  lookup_suggestions: "lookupSuggestions",
+  lookup_dismissed_at: "lookupDismissedAt",
 }
 
 function err(e: unknown): { data: null; error: { message: string } } {

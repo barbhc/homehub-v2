@@ -30,6 +30,27 @@ const identify = read("./IdentifyStep.tsx")
 const page = read("../../pages/SmartAddItem.tsx")
 const detailsSheet = read("../item-care/ItemDetailsSheet.tsx")
 
+/**
+ * Round 18 — the lookup left the add screen (owner, 2026-08-27: "it's a
+ * distraction… this search that doesn't necessarily result in anything
+ * useful"). The screen you type on may not change under you: no debounced
+ * lookup, no identity card, no spec chips. What the lookup finds now lands on
+ * the item page, after creation, via runPostCreateLookup.
+ */
+describe("the add screen no longer searches while you type", () => {
+  it("IdentifyStep does not call the lookup at all", () => {
+    expect(identify).not.toContain("lookupProduct")
+  })
+  it("and renders neither of the old cards", () => {
+    expect(identify).not.toContain("We found this item")
+    expect(identify).not.toContain("IdentityCard")
+    expect(identify).not.toContain("ProductSuggestionCard")
+  })
+  it("the wizard fires the lookup once, after the item exists", () => {
+    expect(page).toContain("runPostCreateLookup(created)")
+  })
+})
+
 describe("the comment stripper reads the whole file", () => {
   it("does not mistake accept=\"image/*\" for a block comment", () => {
     // The file-input accept attribute sits ~40 lines above the model field. If
