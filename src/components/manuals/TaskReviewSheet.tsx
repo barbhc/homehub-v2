@@ -61,6 +61,7 @@ export const SECTION_RAIL: Record<ReviewBucket, string> = {
 }
 import { isThinManual, thinManualWarning } from "../../../shared/parse/pdfShape"
 import { classifyActorFromText } from "@/lib/taskActor"
+import { isFirstReview, markFirstReviewSeen } from "@/lib/firstReview"
 import type {
   PreviewChunk, PreviewResult, PreviewTask, PriorityTier, ScheduleType,
 } from "@/modules/knowledge/types/previewTypes"
@@ -367,6 +368,10 @@ export function TaskReviewSheet({
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [guideIndex, setGuideIndex] = useState<number | null>(null)
   const [walked, setWalked] = useState(false)
+  /** Round 18: the first review a person ever opens explains what Save does,
+   *  against rows they can see. Read once on mount so dismissing it does not
+   *  depend on a write having landed. */
+  const [showFirstRun, setShowFirstRun] = useState(() => isFirstReview())
   /** HH-85: the setup section starts tucked away; one tap reveals it. */
   const [setupOpen, setSetupOpen] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -767,27 +772,55 @@ export function TaskReviewSheet({
   const collapsedRow = (r: ReviewRow) => {
     const b = bucketOfRow(r)
     const kind = KINDS.find((k) => k.id === r.kind)
+    // The kind is only worth a pill where the section has not already said it.
     const kindSaysSomething = b !== "setup" && b !== "usage" && !!kind
     const rail = r.kind === "usage" ? SECTION_RAIL[b] : TIER_RAIL[r.tier] ?? SECTION_RAIL[b]
+    const scheduled = isScheduledTask(taskLikeOf(r))
+    const reminds = r.included && remindsOfRow(r)
     return (
       <button key={r.id} type="button"
         onClick={(e) => expandAnchored(r.id, e.currentTarget)}
-        className={`w-full text-left rounded-xl border px-3 py-2.5 mb-1.5 flex items-center gap-2.5 transition-colors hover:border-primary ${
+        className={`w-full text-left rounded-xl border px-3 py-2.5 mb-1.5 flex items-center gap-2 transition-colors hover:border-primary ${
           r.included ? "bg-card border-border" : "border-dashed border-border opacity-50"}`}>
         <span aria-hidden="true" className="w-[3px] self-stretch min-h-[26px] shrink-0 rounded-full"
           style={{ background: r.included ? rail ?? "transparent" : "transparent" }} />
         <span className={`flex-1 min-w-0 text-[14px] font-semibold tracking-[-0.005em] ${r.included ? "" : "line-through text-muted-foreground"}`}>{r.title}</span>
-        {r.included && remindsOfRow(r) && (
-          <BellRingIcon className="size-[13px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Reminds you" />
-        )}
-        {r.included && isScheduledTask(taskLikeOf(r)) && (
-          <span className="text-[12.5px] font-mono text-muted-foreground whitespace-nowrap tabular-nums">{cadOf(r)}</span>
-        )}
+
         {r.included && kindSaysSomething && (
           <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
             {kind.label}
           </span>
         )}
+
+        {/* ONE cadence chip, identical on every scheduled row.
+            Owner, round 18: "I like to have the cadence be standardized, and
+            then I would like a bell … to just show that notifications are on."
+            An earlier draft coloured the chip itself when a row notified, which
+            made cadences incomparable down the column — the one thing a column
+            of cadences is for. So the chip never changes, and the bell beside
+            it is the only thing that does.
+
+            Unscheduled rows get the same slot without a box: there is no
+            cadence to line up with, and "when needed" is the reason, not a
+            value. Usage and Setup rows get nothing at all — no timing to
+            state. */}
+        {r.included && (scheduled ? (
+          <span className="shrink-0 rounded-lg border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono text-muted-foreground whitespace-nowrap tabular-nums">
+            {cadOf(r)}
+          </span>
+        ) : b === "maintenance" || b === "cleaning" ? (
+          <span className="shrink-0 text-[11px] font-mono italic text-muted-foreground/75 whitespace-nowrap">
+            when needed
+          </span>
+        ) : null)}
+
+        {/* The notification marker sits BESIDE the chip, never inside it. Its
+            absence is as meaningful as its presence, so this column is the
+            answer to "which of these will buzz me" in one glance. */}
+        {reminds && (
+          <BellRingIcon className="size-[14px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Notifies you" />
+        )}
+
         <span role="button" tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); patch(r.id, { included: !r.included }) }}
           aria-label={r.included ? `Skip ${r.title}` : `Bring back ${r.title}`}
@@ -797,6 +830,7 @@ export function TaskReviewSheet({
       </button>
     )
   }
+
 
   const inline = presentation === "inline"
   const Frame = inline ? InlineFrame : SheetFrame
@@ -878,6 +912,41 @@ export function TaskReviewSheet({
             </>
           ) : (
             <>
+              {/* FIRST REVIEW ONLY. The three sentences a person needs before
+                  they press a button that changes what their phone does — shown
+                  against real rows rather than in a tour bubble on an empty
+                  account, and never shown again.
+
+                  It is a block, not a modal: they opened this screen to do
+                  something, and interrupting that to explain the screen is the
+                  pattern HH-121 was about. */}
+              {showFirstRun && !alreadySaved && (
+                <div className="mb-3.5 flex flex-col gap-2 rounded-xl border-[1.5px] px-3 py-2.5"
+                  style={{ borderColor: "var(--hh-teal)", background: "var(--hh-teal-wash, rgba(27,107,90,.07))" }}>
+                  <span className="text-[12.5px] font-extrabold" style={{ color: "var(--hh-teal)" }}>
+                    Here&rsquo;s what saving these does
+                  </span>
+                  <span className="flex items-start gap-2 text-[11.5px] leading-snug">
+                    <CalendarCheckIcon className="mt-[2px] size-[13px] shrink-0" style={{ color: "var(--hh-teal)" }} />
+                    <span><b className="font-bold">Anything with a cadence shows up in Tasks</b> on its due date &mdash; that happens whatever you do next.</span>
+                  </span>
+                  <span className="flex items-start gap-2 text-[11.5px] leading-snug">
+                    <BellRingIcon className="mt-[2px] size-[13px] shrink-0" style={{ color: "var(--hh-teal)" }} />
+                    <span><b className="font-bold">A bell means it will also notify you.</b> Tap any row to add or remove one.</span>
+                  </span>
+                  <span className="flex items-start gap-2 text-[11.5px] leading-snug">
+                    <BellOffIcon className="mt-[2px] size-[13px] shrink-0 text-muted-foreground" />
+                    <span>Cleaning, usage and setup are saved to the item page and never chase you.</span>
+                  </span>
+                  <button type="button"
+                    onClick={() => { markFirstReviewSeen(); setShowFirstRun(false) }}
+                    className="self-start rounded-full border-[1.5px] px-3 py-1 text-[11px] font-extrabold"
+                    style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}>
+                    Got it
+                  </button>
+                </div>
+              )}
+
               {/* THE SUMMARY — round 18, and the owner's correction that produced it.
                   It used to say "nothing here will remind you" over three rows
                   showing a weekly cadence, which is a contradiction: those three
