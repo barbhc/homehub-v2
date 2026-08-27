@@ -195,6 +195,25 @@ Artifact: https://claude.ai/code/artifact/d65f91c0-c096-40db-bb05-e35077b119a2
   half already lives in the Model field's hint, so repeating it there was the
   redundancy that made the card feel heavy. The disclosure becomes **"If you
   can't scan the label"**, holding only the two real alternatives.
+- **The approved words, verbatim — plain language, no trade jargon** (her note,
+  2026-08-27: *"'We'll fill both fields from the nameplate' is tech speak"*, and
+  *"Get the whole sticker in frame is not true"* — the user needs the model
+  number legible, not the whole label in shot):
+
+  | Where | Says |
+  |---|---|
+  | Model field hint | Usually on a label inside the door or around the back |
+  | Scan card | **Scan the label** / Get the model number in the shot / We'll fill in the brand and model |
+  | Item page provenance | We found these on a product page, not in your manual. *Hide them* |
+
+  Gone: "nameplate", "both fields", "values suggested". The two words a
+  homeowner does not use were the two doing the work.
+
+- **`LabelPhotoTips` needs the same pass and has NOT had it.** Its `before`
+  variant dies with the disclosure, but `after-empty` stays and still says
+  *"rating label"*, *"the label should fill most of the frame"* (the exact claim
+  she just corrected), and *"Use the torch"* — British, in an app whose users
+  are in San Francisco. Rewrite proposed in chat, not yet landed.
 - **~11h, roughly half deletion.**
 - **The name auto-fills as the KIND of thing it is** (her call, 2026-08-27): a
   Fisher & Paykel DD24DAX9 is named *Refrigerator*, not its model string. When
