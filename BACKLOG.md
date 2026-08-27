@@ -192,8 +192,18 @@ sees, and it is a well-typeset list: a pale banner, a heading, hairline rules,
 four task rows with tier rails and cadence pills. No imagery, no manual, no
 before/after.
 
+**Measured on the running page** (pair-QA session, 2026-08-27, 375×812):
+
+| | |
+|---|---|
+| Images on the whole page | **0** |
+| Manual citations present in the DOM on arrival | **0** — they are conditionally rendered, not merely collapsed |
+| Total scroll height | 1702px, about two screens |
+
 **The specific finding, which is sharper than "it looks plain".** The content
-that proves the pitch is already in the fixtures and is hidden behind a chevron:
+that proves the pitch is already in the fixtures, and is not just hidden behind a
+chevron — it is not rendered at all until you open one, so it is invisible to a
+skim, to search, and to a screen reader:
 
 ```
 source: "Carrier Infinity 59MN7 manual, p. 34"
