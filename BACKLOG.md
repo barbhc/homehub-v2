@@ -181,50 +181,52 @@ grep, not by the docs' own status lines.
 
 ---
 
-## 4b. The sample home buries the one thing that sells the product
+## 4b. The sample home — PARKED until the add-item flow and item page are final
 
-**Owner, 2026-08-27:** *"the sample home page is still very visually simple and
-doesn't inform or motivate a user if this is the first thing they explore."*
+**Owner, 2026-08-27:** *"I wanna be able to do a session to really think through
+what a sample home should show and what would be helpful to the user versus just
+bolting it on right now… Let's park this until we finalize and QA fully the add
+item flow and the final item page."*
 
-`/sample` is the "find out before you commit" page — reached from the Inventory
-empty state and from `HomeOnboarding`. It is often the FIRST screen a new person
-sees, and it is a well-typeset list: a pale banner, a heading, hairline rules,
-four task rows with tier rails and cadence pills. No imagery, no manual, no
-before/after.
+**Status:** deliberately not being worked. The entry point from the Inventory
+empty state is removed for the duration (round 18); the route and the onboarding
+escape hatch stay. Resume with a design session, not a patch.
 
-**Measured on the running page** (pair-QA session, 2026-08-27, 375×812):
+### What is known so far, so the session starts from evidence
+
+Measured live on 2026-08-27, at 375×812:
 
 | | |
 |---|---|
-| Images on the whole page | **0** |
-| Manual citations present in the DOM on arrival | **0** — they are conditionally rendered, not merely collapsed |
-| Total scroll height | 1702px, about two screens |
+| Images on the entire page | **0** |
+| Manual citations rendered on arrival | **0** — conditionally rendered, not merely collapsed |
+| Page-cited sources sitting unused in the fixtures | **4** |
+| Scroll before the call to action | ~2 screens |
 
-**The specific finding, which is sharper than "it looks plain".** The content
-that proves the pitch is already in the fixtures, and is not just hidden behind a
-chevron — it is not rendered at all until you open one, so it is invisible to a
-skim, to search, and to a screen reader:
+The product's claim — *photograph an appliance, Homehub reads its manual, these
+jobs came from page 34* — is asserted in one line of prose and demonstrated
+nowhere. `"Carrier Infinity 59MN7 manual, p. 34"` does not exist in the page
+until a chevron is opened, so it is invisible to a skim, to search and to a
+screen reader alike.
 
-```
-source: "Carrier Infinity 59MN7 manual, p. 34"
-source: "Bosch SHPM88Z75N manual, p. 20"
-source: "Rheem XE50T10 manual, p. 18"
-```
+### Two open questions for the session
 
-The product's whole claim — *photograph an appliance, Homehub reads its manual,
-these jobs came from page 34* — is one tap away and invisible on arrival. A
-visitor who does not tap a chevron sees a to-do list that could have been typed
-by hand, and leaves without ever learning what the app did.
+1. **A sample HOME or a sample ITEM?** My recommendation was the item page — the
+   unit of value is the appliance, the proof (manual, citations) only exists
+   there, and depth beats breadth for someone who has committed to nothing. Not
+   decided.
+2. **How much of it should be the real components?** `SampleHome.tsx` hand-rolls
+   311 lines of its own layout, which is why it drifted from the app in the first
+   place. Feeding fixtures through `RefinedItemDetail` would make it inherit
+   every future change — but the file's own header warns against exactly that,
+   and that warning needs checking rather than overruling.
 
-| Shape | Cost |
-|---|---|
-| Surface the page citation on the collapsed row, not just the expanded one | small |
-| Lead with the mechanism rather than the result — show a manual page and the tasks that came out of it | medium |
-| Give the page a visual anchor: the appliance, or the manual, or both | medium |
+### Do not resume before
 
-Not a bug and not urgent, but it is the page that decides whether someone starts
-at all — and it is currently the least persuasive surface in the app while
-holding the most persuasive content.
+The add-item flow and the item page are finalised and QA'd. Building a sample of
+a design that is still moving is how it went stale the first time.
+
+Mockups so far: https://claude.ai/code/artifact/395e50df-9925-4252-a6a2-4d46c19fa2f9
 
 ---
 

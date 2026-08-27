@@ -265,19 +265,17 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
             thing worth scanning for. */}
         <div onClick={openTask} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
           <div className="min-w-0 flex-1">
-            {/* A bell-ring, not a priority dot. Red dots read as "warning" on a
-                page where the genuinely alarming thing is a safety badge, and
-                the fact a person actually scans for here is "will this one
-                interrupt me?" — which is willNotify, not the tier. Pinned to the
-                first line so a wrapping title can't orphan it. */}
+            {/* The bell used to live HERE, left of the title. Round 18 moved it
+                to the right of the row, beside a standardized cadence chip,
+                because that is where the review puts it — and a task that reads
+                one way while you are deciding it and another way on the page it
+                lands on is the drift this round exists to end.
+
+                Owner caught it: "you have the old bell icon to the left of the
+                task." She was reading a mockup I had drawn from this file, which
+                is how it surfaced — the mockup was faithful, the code was
+                stale. */}
             <div className="flex items-start gap-2">
-              {reminds && (
-                <BellRingIcon
-                  className="mt-[2px] size-[13px] shrink-0"
-                  style={{ color: TEAL }}
-                  aria-label="Reminds you when due"
-                />
-              )}
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
                 {safety && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: CLAY_SOFT, color: CLAY }}>Safety</span>}
@@ -293,11 +291,30 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
                   "In guides" named a concept nobody had met. "Deep Clean" is
                   the surface's own name on Home, so the words point somewhere
                   visible. */}
-              {[freqLabel(t), t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Deep Clean"].filter(Boolean).join(" · ")}
+              {/* The cadence moved to the chip on the right — same slot, same
+                  mono, same box as the review's. What stays here is what the
+                  chip cannot carry: effort, and the due phrase, which is the
+                  most important thing on the row. */}
+              {[t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Deep Clean"].filter(Boolean).join(" · ")}
               {days != null && <span style={{ color: neverStarted ? SUB : dueStatusColor(days), fontWeight: !neverStarted && days <= 7 ? 700 : 500 }}> · {neverStarted ? "Start anytime" : dueLabel(days)}</span>}
             </div>
           </div>
         </div>
+        {/* ONE cadence chip, identical on every scheduled row, with the bell
+            BESIDE it rather than inside — the owner's round-18 note, applied to
+            this surface too: "I like to have the cadence be standardized, and
+            then I would like a bell … to just show that notifications are on."
+            Colouring the chip would make cadences incomparable down the column,
+            which is the one thing a column of cadences is for. */}
+        {freqLabel(t) && (
+          <span className="shrink-0 rounded-lg border px-1.5 py-0.5 text-[11px] font-mono tabular-nums whitespace-nowrap"
+            style={{ borderColor: LINE, background: "var(--hh-surface2, transparent)", color: SUB }}>
+            {freqLabel(t)}
+          </span>
+        )}
+        {reminds && (
+          <BellRingIcon className="size-[14px] shrink-0" style={{ color: TEAL }} aria-label="Notifies you" />
+        )}
         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
           {open ? "Hide" : "See how"}{open ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
         </button>
