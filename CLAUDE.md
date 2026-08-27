@@ -134,6 +134,17 @@ It covers `SmartAddItem`, `components/smart-add/`, `item-detail/ManualSection`,
 `components/manuals/`, `RefinedItemDetail`, `wizardSession`, and the parse
 worker — the same surface `retiredDesigns.test.ts` guards.
 
+## ACTIVE: round 18 is mid-QA on an open draft PR
+
+**Read `docs/round-18-handoff.md` before touching `feat/kind-first-review`.**
+
+The owner is QA'ing a preview build in the Claude desktop browser and giving
+feedback in real time; each note becomes a change on that branch **before** the
+PR merges. The standing merge-and-deploy authorization below **does not apply to
+PR #185** — she said so explicitly. Do not merge it, and do not deploy it live.
+
+Remove this section when #185 merges.
+
 ## Merging and deploying — standing authorization
 
 **Owner, 2026-08-25: "please merge and deploy without me asking going forward."**
