@@ -188,9 +188,18 @@ what a sample home should show and what would be helpful to the user versus just
 bolting it on right now… Let's park this until we finalize and QA fully the add
 item flow and the final item page."*
 
-**Status:** deliberately not being worked. The entry point from the Inventory
-empty state is removed for the duration (round 18); the route and the onboarding
-escape hatch stay. Resume with a design session, not a patch.
+**Status:** deliberately not being worked. **Both** entry points are removed for
+the duration (round 18) — the Inventory empty state's "See a sample home" button
+and onboarding's "Not sure yet? Look around a sample home first". The route
+survives and works by direct link.
+
+That second removal has a real cost and it is recorded here so the redesign
+carries it back: the onboarding screen now asks for a commitment before the
+person has seen anything the product does, which is exactly what the escape
+hatch was built to fix. Restoring it is a three-line change and the argument for
+it has not stopped being true — it is waiting on a page worth linking to.
+`HomeOnboarding.sample.test.tsx` pins both doors shut so neither returns by
+reflex before then.
 
 ### What is known so far, so the session starts from evidence
 
