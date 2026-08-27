@@ -196,26 +196,33 @@ Artifact: https://claude.ai/code/artifact/d65f91c0-c096-40db-bb05-e35077b119a2
   redundancy that made the card feel heavy. The disclosure becomes **"If you
   can't scan the label"**, holding only the two real alternatives.
 - **~11h, roughly half deletion.**
-- **STILL HER CALL:** should the **name** still auto-fill in the background? The
-  category should (visible and reversible on the item page). Silently renaming
-  someone's item is the one change they would not expect.
+- **The name auto-fills as the KIND of thing it is** (her call, 2026-08-27): a
+  Fisher & Paykel DD24DAX9 is named *Refrigerator*, not its model string. When
+  the home already has an item by that name, the room follows it — *Air filter
+  (Living room)* — so a list can tell them apart. Editable like any other field.
+  Note this makes the item page's Category row near-duplicate of the name; worth
+  a look when building, not a blocker.
+- **The add screen's type was re-matched to the app** after she read it as bold
+  and off-font: the mockup was using 800/900 weights where the real components
+  use `font-medium`/`font-semibold`, and the disclosure had been drawn as a
+  heavy card instead of the real outline button + underlined link.
 
-### 2. Flagged, not fixed — CSP may be breaking Apple sign-in on the web
+### 2. FIXED, in PR #187 — the CSP was blocking Apple sign-in on the web
 
-`firebase.json`'s CSP blocks `https://apis.google.com/js/api.js` on **live and
-preview alike**. That script is Firebase Auth's gapi iframe, which
-`signInWithPopup` and `signInWithRedirect` both need — and in
-`AuthProvider.tsx` those are the **Apple sign-in** path on web. Both halves of
-the fallback chain need the same blocked script.
+Confirmed against production, not inferred: `script-src-elem` blocked
+`apis.google.com/js/api.js` and `frame-src` blocked the auth helper iframe at
+`homehub-2068d.firebaseapp.com`. Both are what `signInWithPopup` and its
+`signInWithRedirect` fallback need, so both halves of the chain failed the same
+way. "Continue with Apple" is live on the production sign-in page, so this was
+user-facing the whole time; native iOS uses the OS sheet, which is why no
+tester reported it.
 
-Native iOS is unaffected (`signInWithAppleNative` via Capacitor), which is why
-no tester has hit it.
+Preview: https://homehub-2068d--csp-auth-check-w30hwivf.web.app (expires 30 Aug).
+There, both load with zero violations.
 
-**Verified:** the CSP blocks it; Apple's web path calls those functions.
-**Not verified:** clicking "Continue with Apple" on the web end to end. Do that
-before claiming it is broken. Fix is one line (`script-src`, probably
-`frame-src` too) but it is a **security header on production auth** — its own
-PR, with her awareness.
+**Still hers:** tap "Continue with Apple" on that channel. The fix proves the
+browser no longer blocks the request; it cannot prove Apple accepts the
+Services ID.
 
 ### 3. Parked by decision — the sample home redesign
 
