@@ -2,6 +2,9 @@
 // Vercel production build automatically; this no-op forces a fresh deploy.
 import { Suspense, useEffect } from "react"
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigationType, useSearchParams } from "react-router-dom"
+import { lazy } from "react"
+// Dev-only design-QA harness — the DEV guard keeps it out of prod bundles.
+const PreviewGallery = lazy(() => import("@/dev/PreviewGallery"))
 import { SWRConfig } from "swr"
 import { trackPageview } from "@/lib/analytics"
 import { usePushDeepLink } from "@/hooks/usePushDeepLink"
@@ -136,6 +139,9 @@ function App() {
             <PushDeepLinks />
             <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading…</div>}>
             <Routes>
+              {import.meta.env.DEV && (
+                <Route path="/__preview" element={<PreviewGallery />} />
+              )}
               <Route path="/" element={<Index />} />
               <Route path="/signin" element={<AuthPage />} />
               <Route path="/signup" element={<AuthPage />} />
