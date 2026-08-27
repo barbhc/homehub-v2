@@ -1,7 +1,8 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   AlertTriangleIcon,
+  ChevronLeftIcon,
   BookOpenTextIcon,
   ChevronDownIcon,
   ClockIcon,
@@ -247,11 +248,46 @@ function ItemRow({ item }: { item: SampleItem }) {
 }
 
 export default function SampleHome() {
+  const navigate = useNavigate()
   return (
     <div /* pt-safe-top: rendered OUTSIDE AppLayout, where the inset normally
        comes from — on an iPhone 17 the heading landed under the Dynamic Island */
     className="min-h-screen pt-safe-top bg-background">
       <div className="mx-auto w-full max-w-[640px] px-5 py-6 pb-16">
+        {/*
+          THE WAY OUT. Owner, in a pair-QA session on the preview: "I don't know
+          how to get back to the home page."
+
+          This page renders outside AppLayout — deliberately, because it has to
+          work before you have a home and the nav assumes one — which also means
+          it has NO bottom nav. Until now the only link off the page was "Set up
+          your own home" at the very bottom, roughly two screens down, and that
+          is a commitment rather than an exit: someone who arrived from their own
+          Inventory to look around had nothing to press at all.
+
+          In the browser, back exists. In the Capacitor shell there is no browser
+          chrome, so there was no visible exit whatsoever. HH-108 was the same
+          shape on a different screen — "I can't exit out of this window once I
+          open up this Preview".
+
+          `navigate(-1)` returns them wherever they came from, which is right for
+          both doors (the Inventory empty state and onboarding). Landing here
+          from a cold link has no history to pop, so that falls back to the app
+          root rather than doing nothing — a back button that does nothing is
+          the bug with an extra step.
+        */}
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) navigate(-1)
+            else navigate("/")
+          }}
+          className="-ml-1.5 mb-1 inline-flex items-center gap-0.5 rounded-lg py-1 pl-1 pr-2.5 text-[15px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeftIcon className="size-[20px]" strokeWidth={2.4} aria-hidden />
+          Back
+        </button>
+
         <Banner />
 
         <h1 className="mt-7 text-2xl font-display font-normal text-foreground">Maple Street</h1>
