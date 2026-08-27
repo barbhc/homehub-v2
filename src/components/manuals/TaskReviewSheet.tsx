@@ -8,6 +8,7 @@ import {
   isScheduled,
   willNotify,
   remindsByDefault,
+  asTier,
   sortWithinBucket,
   summarize,
   isRecurring,
@@ -622,7 +623,10 @@ export function TaskReviewSheet({
                   <span className="block text-[12.5px] font-semibold">Remind me when it&apos;s due</span>
                   <span className="block text-[11px] text-muted-foreground">
                     {r.remindEnabled == null
-                      ? remindsByDefault(bucketOfRow(r))
+                      // The TIER, not the bucket — see remindsByDefault. Passing
+                      // a bucket here is what would have silently switched every
+                      // on-screen bell off once the buckets were renamed.
+                      ? remindsByDefault(asTier(r.tier))
                         ? "On by default for Essential — you can turn it off"
                         : "Off by default — turn it on if you want one"
                       : remindsOfRow(r) ? "You turned this on" : "You turned this off"}

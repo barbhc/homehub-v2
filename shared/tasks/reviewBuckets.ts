@@ -21,6 +21,11 @@
 
 export type ReviewBucket = "essential" | "recommended" | "optional" | "setup" | "whenNeeded" | "tip"
 
+/** How much a task matters. Deliberately its OWN type even though three of its
+ *  members are spelled like ReviewBucket members — that overlap is what let a
+ *  bucket be passed where a tier was meant. See `remindsByDefault`. */
+export type PriorityTierName = "essential" | "recommended" | "optional"
+
 /** Cadences that actually repeat — the ones that can produce a due date. */
 export const RECURRING_SCHEDULES = [
   "weekly", "monthly", "quarterly", "semiannual", "annual", "seasonal", "every_n_days",
@@ -93,13 +98,40 @@ export function isScheduled(bucket: ReviewBucket): boolean {
 /**
  * What Homehub SUGGESTS when the user hasn't said otherwise: Essential reminds,
  * everything else stays quiet. A suggestion, not a rule — see `willNotify`.
+ *
+ * Takes the TIER, and that is load-bearing rather than cosmetic. It used to take
+ * a ReviewBucket and return `bucket === "essential"`, which worked only because
+ * three tier names and three of the six bucket names happened to be the same
+ * words. Its three callers each reached it differently — the review passed a
+ * bucket, the task page passed a raw tier, and the server's `remindsWhenDue`
+ * passed a converted one — so renaming the buckets (which the kind-first review
+ * does) would have made the REVIEW answer "no" for everything while the task
+ * page and `sendPush` carried on saying yes and sending.
+ *
+ * A screen claiming nothing will notify you while the server notifies you is the
+ * worst shape this bug could take, and no single-screen test would have caught
+ * it: each screen is individually correct. So the parameter is now the thing the
+ * decision was always about, and `reviewBuckets.agreement.test.ts` pins that all
+ * three callers answer identically for the same task.
+ *
+ * The parameter is typed `PriorityTierName`, not `string`, and that is the
+ * actual guard. A runtime test cannot catch this today — for a scheduled row
+ * `reviewBucketFor` RETURNS the tier, so passing a bucket is currently
+ * indistinguishable, and the bug only appears the moment the buckets are
+ * renamed. The compiler can catch it now: `ReviewBucket` includes "setup",
+ * "whenNeeded" and "tip", so it is not assignable here and `tsc -b` fails on
+ * any caller that reaches for a bucket.
  */
-export function remindsByDefault(bucket: ReviewBucket): boolean {
-  return bucket === "essential"
+export function remindsByDefault(tier: PriorityTierName | null | undefined): boolean {
+  return tier === "essential"
 }
 
 /** A stored template's tier, in the review vocabulary. Anything unrecognised is
- *  Recommended — the same fallback `reviewBucketFor` applies. */
+ *  Recommended — the same fallback `reviewBucketFor` applies.
+ *
+ *  No longer used to pick a notification default (see `remindsByDefault`); it
+ *  remains because mapping a stored tier into the review's own words is a real
+ *  question the sheet still asks when it renders a saved task. */
 export function tierBucketOf(tier: string | null | undefined): ReviewBucket {
   return tier === "essential" || tier === "optional" ? tier : "recommended"
 }
@@ -120,7 +152,14 @@ export function remindsWhenDue(
   priorityTier: string | null | undefined,
   remindEnabled: boolean | null | undefined,
 ): boolean {
-  return remindEnabled ?? remindsByDefault(tierBucketOf(priorityTier))
+  return remindEnabled ?? remindsByDefault(asTier(priorityTier))
+}
+
+/** Narrow a stored tier string to the union. Anything unrecognised is
+ *  Recommended — the same fallback `reviewBucketFor` applies — which also means
+ *  an unknown tier never notifies by default. */
+export function asTier(tier: string | null | undefined): PriorityTierName {
+  return tier === "essential" || tier === "optional" ? tier : "recommended"
 }
 
 /**
@@ -141,7 +180,7 @@ export function remindsWhenDue(
 export function willNotify(t: ReviewTaskLike): boolean {
   const bucket = reviewBucketFor(t)
   if (!isScheduled(bucket)) return false
-  return t.remind_enabled ?? remindsByDefault(bucket)
+  return t.remind_enabled ?? remindsByDefault(asTier(t.priority_tier))
 }
 
 /** Display order of the sections, top to bottom. */
