@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Loader2Icon, BellRingIcon, BellOffIcon, XIcon, Undo2Icon } from "lucide-react"
+import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, XIcon, Undo2Icon } from "lucide-react"
 import {
   reviewBucketFor,
   isScheduledTask,
@@ -39,9 +39,25 @@ export const TIER_RAIL: Record<string, string> = {
   essential: "var(--hh-clay)",
   recommended: "var(--hh-teal)",
   optional: "var(--hh-slate)",
-  whenNeeded: "var(--hh-clay)",
+}
+
+/**
+ * Rails for the four SECTIONS, kept separate from the tier rails above.
+ *
+ * They used to be one map, which is how HH-140 happened: it held three keys
+ * that were both tier names and bucket names, so three of the six sections had
+ * a rail and three silently fell back to an emoji. Two maps, two questions —
+ * "how much does this matter" and "what kind of work is it" — and neither can
+ * answer for the other by accident.
+ *
+ * Every bucket must appear here. `TaskReviewSheet.sections.test.tsx` fails if
+ * one is missing rather than letting it fall through to an icon.
+ */
+export const SECTION_RAIL: Record<ReviewBucket, string> = {
+  maintenance: "var(--hh-clay)",
+  cleaning: "var(--hh-teal)",
+  usage: "var(--hh-teal)",
   setup: "var(--hh-slate)",
-  tip: "var(--hh-teal)",
 }
 import { isThinManual, thinManualWarning } from "../../../shared/parse/pdfShape"
 import { classifyActorFromText } from "@/lib/taskActor"
@@ -752,7 +768,7 @@ export function TaskReviewSheet({
     const b = bucketOfRow(r)
     const kind = KINDS.find((k) => k.id === r.kind)
     const kindSaysSomething = b !== "setup" && b !== "usage" && !!kind
-    const rail = r.kind === "usage" ? TIER_RAIL[b] : TIER_RAIL[r.tier] ?? TIER_RAIL[b]
+    const rail = r.kind === "usage" ? SECTION_RAIL[b] : TIER_RAIL[r.tier] ?? SECTION_RAIL[b]
     return (
       <button key={r.id} type="button"
         onClick={(e) => expandAnchored(r.id, e.currentTarget)}
@@ -862,47 +878,53 @@ export function TaskReviewSheet({
             </>
           ) : (
             <>
-              <div className="text-[13px] mb-3.5">
-                {walked ? (
-                  <><b className="font-bold">{rows.length} task{rows.length === 1 ? "" : "s"}</b> from this manual. Tap any one to change it — or walk them again.</>
-                ) : (
-                  <>
-                    {/* Caught by eye in the journey gallery: "We found 1 things". */}
-                    {counts.scheduled === 0 ? (
-                      // "We found 5 things worth tracking. 0 go on your schedule"
-                      // argued with itself — it called five things worth
-                      // tracking and then said none of them counted, without
-                      // ever saying what DOES happen to them. A tester: "I'm
-                      // not quite clear what all this text is trying to tell me."
-                      <>
-                        {/* HH-140: step 2 leads with the FINDING and draws the
-                            line to the consequence (HH-137, her wording). Step 1
-                            led with a count and left the reader to work out why
-                            nothing was scheduled. Same finding, same order, so
-                            the two doors tell one story. */}
-                        <b className="font-bold">No maintenance tasks found.</b>{" "}
-                        The <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> we did find are setup steps and tips, so nothing here will remind you.{alreadySaved ? " They\u2019re saved to this item." : " Save them to keep them on this item."}
-                        <span className="block text-muted-foreground mt-0.5">Tap any one to change how it&apos;s filed.</span>
-                      </>
-                    ) : (
-                      <>
-                        We found <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> worth tracking.{" "}
-                        <b className="font-bold">{counts.scheduled}</b> {counts.scheduled === 1 ? "goes" : "go"} on your schedule — the rest are setup steps and tips.
-                        <span className="block text-muted-foreground mt-0.5">Tap any task below to review and change it, or take them one at a time.</span>
-                      </>
-                    )}
-                  </>
-                )}
-                {/* HH-140: this was a second FILLED primary, competing with the
-                    footer's own. The walkthrough is the slower alternative to
-                    the list already on screen, so it reads as the secondary it
-                    is. One filled button per screen — the footer's. */}
-                <div className="mt-2.5">
-                  <button type="button" onClick={() => { setGuideIndex(0); scrollRef.current?.scrollTo?.({ top: 0 }) }}
-                    className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-[12.5px] font-bold text-foreground hover:border-primary transition-colors">
-                    Go through them one by one{walked ? " again" : ""} →
-                  </button>
+              {/* THE SUMMARY — round 18, and the owner's correction that produced it.
+                  It used to say "nothing here will remind you" over three rows
+                  showing a weekly cadence, which is a contradiction: those three
+                  DO come back, they just don't buzz. Her words: "there are items
+                  that are scheduled to be reminded within the app even if there's
+                  no notification."
+
+                  So it states the two channels separately. The first is always
+                  on and needs no permission; the second is opt-in, Essential by
+                  default, and is the only one that reaches the phone.
+
+                  HH-134 still governs the last line: until Save has run, nothing
+                  here is saved, and the screen may not imply otherwise. */}
+              <div className="mb-3.5 flex flex-col gap-1.5 rounded-xl border border-border bg-card px-3 py-2.5">
+                <div className="flex items-start gap-2 text-[12.5px]">
+                  <CalendarCheckIcon className="mt-[3px] size-[13px] shrink-0 text-muted-foreground" />
+                  <span>
+                    {counts.scheduled === 0
+                      ? <>Nothing here goes on a schedule.</>
+                      : <><b className="font-bold">{counts.scheduled}</b> show{counts.scheduled === 1 ? "s" : ""} up in Tasks when {counts.scheduled === 1 ? "it’s" : "they’re"} due.</>}
+                  </span>
                 </div>
+                <div className="flex items-start gap-2 text-[12.5px]">
+                  {counts.notifying > 0
+                    ? <BellRingIcon className="mt-[3px] size-[13px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} />
+                    : <BellOffIcon className="mt-[3px] size-[13px] shrink-0 text-muted-foreground" />}
+                  <span style={counts.notifying > 0 ? { color: "var(--hh-teal, #1B6B5A)" } : undefined}>
+                    {counts.notifying === 0
+                      ? <>None will notify your phone.</>
+                      : <><b className="font-bold">{counts.notifying}</b> of those will also notify your phone.</>}
+                  </span>
+                </div>
+                <span className="text-[11.5px] text-muted-foreground">
+                  {alreadySaved
+                    ? "Tap any one to change how it’s filed, how often, or whether it notifies you."
+                    : "Nothing is saved until you press Save."}
+                </span>
+              </div>
+
+              {/* HH-140: outlined, not filled — the walkthrough is the slower
+                  alternative to the list already on screen, and the footer owns
+                  the one filled button. */}
+              <div className="mb-3.5">
+                <button type="button" onClick={() => { setGuideIndex(0); scrollRef.current?.scrollTo?.({ top: 0 }) }}
+                  className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-[12.5px] font-bold text-foreground hover:border-primary transition-colors">
+                  Go through them one by one{walked ? " again" : ""} →
+                </button>
               </div>
 
               {REVIEW_BUCKET_ORDER.map((bucket) => {
@@ -919,9 +941,7 @@ export function TaskReviewSheet({
                         2 does not have. */}
                     <div className="mt-3.5 mb-2">
                       <div className="flex items-center gap-2.5 text-[15px] font-extrabold tracking-[-0.015em]">
-                        {TIER_RAIL[bucket]
-                          ? <span aria-hidden="true" className="h-[15px] w-[3px] shrink-0 rounded-full" style={{ background: TIER_RAIL[bucket] }} />
-                          : <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>}
+                        <span aria-hidden="true" className="h-[15px] w-[3px] shrink-0 rounded-full" style={{ background: SECTION_RAIL[bucket] }} />
                         {copy.title}
                         {/* HH-85: setup opens on demand. "Already set up" is the
                             honest default for an appliance owned for months —

@@ -1,5 +1,5 @@
 /**
- * The review's two steps must be one design.
+ * The review's sections, and the invariant that broke once already.
  *
  * HH-140, and the reason six rounds of redesign never reached it. Rounds 10–16
  * all reshaped the consolidated maintenance view — step 2, the screen every
@@ -21,7 +21,7 @@
  */
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
-import { TaskReviewSheet, TIER_RAIL } from "./TaskReviewSheet"
+import { TaskReviewSheet, SECTION_RAIL } from "./TaskReviewSheet"
 import { REVIEW_BUCKET_ORDER, REVIEW_BUCKET_COPY } from "../../../shared/tasks/reviewBuckets"
 import type { PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 
@@ -36,21 +36,21 @@ const task = (
   instructions_text: null, symptom_tags: [], re_check_triggers: [],
 })
 
-/** One row in every bucket, so all six sections render at once. */
+/** One row in every section, so all four render at once. */
 const ALL_SIX: PreviewResult = {
   ok: true,
   chunks: [],
   tasks: [
     task("Replace the HEPA filter", "maintenance", "annual", "essential"),
-    task("Vacuum the coils", "maintenance", "quarterly", "recommended"),
-    task("Check the door seal", "maintenance", "annual", "optional"),
     task("Descale when the light comes on", "maintenance", "as_needed", "essential"),
+    task("Clean the drawer guides", "cleaning", "weekly", "recommended"),
+    task("Wipe the exterior", "cleaning", "as_needed", "optional"),
     task("Verify proper grounding", "maintenance", "setup"),
     task("Wipe the vent after each use", "cleaning", "after_each_use"),
   ],
 }
 
-/** focus="all" is what "Review them all" opens — step 1. */
+/** There is one screen now; `focus` only affects what the summary counts. */
 function renderStepOne(data: PreviewResult = ALL_SIX) {
   render(
     <TaskReviewSheet
@@ -62,14 +62,17 @@ function renderStepOne(data: PreviewResult = ALL_SIX) {
 }
 
 describe("the invariant that broke", () => {
-  it("gives every bucket a rail colour — no bucket can fall back to an emoji", () => {
+  it("gives every bucket a rail colour — none can fall back to an emoji", () => {
+    // HH-140's mechanism: one map held both tier names and bucket names, so
+    // three sections had a rail and three fell through to `copy.icon`. The maps
+    // are separate now, and this is the check that keeps SECTION_RAIL complete.
     for (const bucket of REVIEW_BUCKET_ORDER) {
-      expect(TIER_RAIL[bucket], `${bucket} has no rail — step 1 renders its emoji`).toBeTruthy()
+      expect(SECTION_RAIL[bucket], `${bucket} has no rail — its section renders an emoji`).toBeTruthy()
     }
   })
 })
 
-describe("step 1 wears step 2's design", () => {
+describe("one screen, four sections", () => {
   it("heads its sections with the bucket titles, not their emoji", () => {
     renderStepOne()
     for (const bucket of REVIEW_BUCKET_ORDER) {
@@ -117,13 +120,18 @@ describe("nothing to schedule, reached through step 1", () => {
     ],
   }
 
-  it("leads with the finding, the way step 2 does", () => {
+  it("states both channels instead of one confusing sentence", () => {
     renderStepOne(NOTHING)
-    // HH-137's sentence, her wording, now on both doors.
-    expect(screen.getByText(/No maintenance tasks found/)).toBeTruthy()
-    // Scoped to the lead-in: Essential's empty-section line ends in the same
-    // clause, and matching that instead would pass with no lead-in at all.
-    expect(screen.getByText(/setup steps and tips, so nothing here will remind you/)).toBeTruthy()
+    // Round 18 replaced HH-137's single sentence. The owner: "nothing here will
+    // remind you" was confusing because scheduled items DO come back — they just
+    // don't buzz. Two facts, stated apart.
+    expect(screen.getByText(/Nothing here goes on a schedule/)).toBeTruthy()
+    expect(screen.getByText(/None will notify your phone/)).toBeTruthy()
+  })
+
+  it("never claims a schedule it does not have", () => {
+    renderStepOne(NOTHING)
+    expect(screen.queryByText(/show up in Tasks/)).toBeNull()
   })
 
   it("does not claim the rows are saved while offering the Save", () => {
