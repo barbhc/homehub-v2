@@ -24,7 +24,7 @@
  */
 import { describe, it, expect } from "vitest"
 import {
-  willNotify, remindsWhenDue, remindsByDefault, asTier, reviewBucketFor, isScheduled,
+  willNotify, remindsWhenDue, remindsByDefault, asTier, isScheduledTask,
   type ReviewTaskLike,
 } from "../../shared/tasks/reviewBuckets"
 
@@ -52,7 +52,7 @@ describe("all three notification paths agree", () => {
       for (const schedule of SCHEDULES) {
         for (const choice of CHOICES) {
           const t = task(tier, schedule, "maintenance", choice)
-          const scheduled = isScheduled(reviewBucketFor(t))
+          const scheduled = isScheduledTask(t)
 
           const review = willNotify(t)
           // The task page reads a SAVED template: it already has a due instance,

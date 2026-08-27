@@ -3,6 +3,7 @@
  * three different failures — all pinned here.
  */
 import { describe, it, expect } from "vitest"
+import { REVIEW_BUCKET_ORDER } from "../../shared/tasks/reviewBuckets"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { isAgendaEligible } from "../../shared/tasks/agendaEligibility"
@@ -150,10 +151,13 @@ describe("HH-87 — a manual mid-parse is neither 'has one' nor 'has none'", () 
 })
 
 describe("round 9 redesign — the picks, pinned", () => {
-  it("HH-85: setup never outranks When-needed in the review order", () => {
-    const src = read("../../shared/tasks/reviewBuckets.ts")
-    const order = src.indexOf('"whenNeeded", "setup"')
-    expect(order).toBeGreaterThan(-1)
+  it("HH-85: setup is LAST in the review order, below everything you live with", () => {
+    // Round 18 renamed the sections (maintenance/cleaning/usage/setup), but
+    // HH-85's rule is unchanged and now stronger: install steps sit below Usage
+    // too, at the owner's request. Asserted on the exported order, not the
+    // source text, so a reformat cannot fake it.
+    expect(REVIEW_BUCKET_ORDER[REVIEW_BUCKET_ORDER.length - 1]).toBe("setup")
+    expect(REVIEW_BUCKET_ORDER.indexOf("setup")).toBeGreaterThan(REVIEW_BUCKET_ORDER.indexOf("usage"))
   })
 
   it("HH-85: the review's setup section starts tucked away", () => {
