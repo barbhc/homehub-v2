@@ -167,7 +167,7 @@ export function IdentityCard({
         >
           None of these
         </button>
-        <p className="text-[11px] text-muted-foreground mt-2">The full model is on the nameplate’s top line.</p>
+        <p className="text-[11px] text-muted-foreground mt-2">The full model is on the label’s top line.</p>
       </div>
     )
   }
@@ -203,7 +203,7 @@ export function IdentityCard({
       <div className={quietShell} data-testid="identity-miss">
         <Eyebrow quiet>We don’t recognize this one</Eyebrow>
         <p className="text-xs text-muted-foreground mt-1">
-          No problem — we’ll use exactly what you typed. Worth a glance: 0 vs O and 1 vs I on nameplates.
+          No problem — we’ll use exactly what you typed. Worth a glance: 0 vs O and 1 vs I on these labels.
         </p>
         {onSnapLabel && (
           <button

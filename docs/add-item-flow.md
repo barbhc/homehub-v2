@@ -57,7 +57,20 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 - A label photo **overwrites** brand and model, and the two move **as a pair**.
   Taking one field from the photo and one from memory manufactures a product
   that does not exist. — HH-139
-- The nameplate **never sets the item's name** in this lane. — HH-112, HH-125
+- The label **never sets the item's name** in this lane. — HH-112, HH-125
+- **The words are the homeowner's, not the trade's.** The screen says *label*,
+  never *nameplate* — that is what an installer calls it. It names *the brand
+  and model*, the two fields on screen, never *both fields*, which describes our
+  form rather than their appliance. — owner, 2026-08-27
+- **The scan asks for the model number, not the whole label.** "Get the model
+  number in the shot" is the instruction, in the control and in the recovery
+  tips. The older "the label should fill most of the frame" was untrue and
+  worked against itself: it makes people step back, and the read only ever
+  needed the model number legible. — owner, 2026-08-27
+- The scan control's camera icon sits **on the title line**, not in a tile to
+  the left of the whole stack, so the two lines beneath get the full width. On a
+  375pt phone the left tile left the first line about 5% of slack; moving it up
+  gives roughly 35%. — owner, 2026-08-27
 - Rarer routes stay folded under "More ways to identify it". — HH-123
 - A matched product shows its specs as **suggestions, never auto-applied** — a
   hallucinated filter size could have someone buy the wrong part. — HH-114
