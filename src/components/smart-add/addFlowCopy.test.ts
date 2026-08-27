@@ -262,7 +262,7 @@ describe("two ways to give us the brand and model", () => {
     // It says "the brand and model", naming the two fields the user can see,
     // rather than "both fields", which describes our form to someone looking
     // at their appliance.
-    expect(identify).toContain("We&apos;ll fill in the brand and model")
+    expect(identify).toContain("We&apos;ll do the typing")
   })
 
   /**
@@ -275,7 +275,7 @@ describe("two ways to give us the brand and model", () => {
    * thing that reliably breaks the read.
    */
   it("asks for the model number, not the whole label", () => {
-    expect(identify).toContain("Get the model number in the shot")
+    expect(identify).toContain("Point at the model number")
     expect(identify).not.toContain("whole sticker")
   })
 

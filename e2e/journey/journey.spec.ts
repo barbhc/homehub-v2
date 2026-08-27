@@ -214,7 +214,7 @@ test.describe("journey walks", () => {
     // and says it fills them rather than skipping them.
     const scanRow = page.getByRole("button", { name: /Scan the label/ }).filter(visible).first()
     await expect(scanRow).toBeVisible()
-    await expect(page.getByText(/fill in the brand and model/)).toBeVisible()
+    await expect(page.getByText(/do the typing/)).toBeVisible()
     const modelY = (await page.locator("#identify-model").boundingBox())!.y
     expect((await scanRow.boundingBox())!.y).toBeGreaterThan(modelY)
     // And an explicit "or" sits between them — spacing alone does not say

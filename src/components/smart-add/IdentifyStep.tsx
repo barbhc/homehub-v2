@@ -989,27 +989,33 @@ export function IdentifyStep({
                   type="button"
                   onClick={handleSnapLabel}
                   disabled={ocrLoading}
-                  className="flex min-h-14 w-full flex-col gap-1 rounded-2xl border-2 border-primary bg-secondary px-4 py-3 text-left transition-colors disabled:opacity-60"
+                  className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border-2 border-primary bg-secondary px-4 py-3 text-left transition-colors disabled:opacity-60"
                 >
-                  <span className="flex w-full items-center gap-2">
-                    {ocrLoading
-                      ? <Loader2 className="size-4 shrink-0 animate-spin text-primary" aria-hidden />
-                      : <Camera className="size-4 shrink-0 text-primary" aria-hidden />}
-                    <span className="min-w-0 flex-1 text-base font-semibold text-primary">
-                      {ocrLoading ? "Reading label…" : "Scan the label"}
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card">
+                      {ocrLoading
+                        ? <Loader2 className="size-5 animate-spin text-primary" aria-hidden />
+                        : <Camera className="size-5 text-primary" aria-hidden />}
                     </span>
-                    <ChevronRight className="size-5 shrink-0 text-primary" aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block text-base font-semibold text-primary">
+                        {ocrLoading ? "Reading label…" : "Scan the label"}
+                      </span>
+                      {/* What to capture, then what you get. The first line used
+                          to say the sticker had to fill the frame, which is both
+                          untrue and counterproductive: it makes people step BACK,
+                          and the read only ever needed the model number legible.
+                          Both lines are short enough to hold one line each beside
+                          the icon tile at 375pt — measured, not assumed. */}
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Point at the model number
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        We&apos;ll do the typing
+                      </span>
+                    </span>
                   </span>
-                  {/* What to capture, then what you get. The first line used to
-                      say the sticker had to fill the frame, which is both untrue
-                      and counterproductive: it makes people step BACK, and the
-                      read only ever needed the model number legible. */}
-                  <span className="block text-xs text-muted-foreground">
-                    Get the model number in the shot
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    We&apos;ll fill in the brand and model
-                  </span>
+                  <ChevronRight className="size-5 shrink-0 text-primary" aria-hidden />
                 </button>
               </>
             )}
