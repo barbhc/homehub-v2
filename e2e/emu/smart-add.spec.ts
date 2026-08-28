@@ -83,7 +83,10 @@ test.describe("emulator e2e — smart add label OCR states", () => {
     })
     await snapLabelPhoto(page)
     await expect(page.getByText("Reading label…").first()).toBeVisible({ timeout: 5_000 })
-    await expect(page.getByText(/Filled \d+ fields? from your photo/)).toBeVisible({ timeout: 10_000 })
+    // The scan NAMES what it changed rather than counting fields — the old line
+    // ("Filled 4 fields…") counted things the appliance lane never displays and
+    // pointed at a disclosure that only exists in the simple lane.
+    await expect(page.getByText(/Got the .* from your photo/)).toBeVisible({ timeout: 10_000 })
     await expect(page.locator("#identify-brand")).toHaveValue("Coway")
     await expect(page.locator("#identify-model")).toHaveValue("AP-1512HH")
     // Round 11: the appliance lane has no Name field, and OCR deliberately does
