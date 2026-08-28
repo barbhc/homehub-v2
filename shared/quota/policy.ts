@@ -226,13 +226,37 @@ export const AI_RATE_LIMIT: Record<string, number> = {
 /**
  * Units per 60s window per user, summed across every endpoint.
  *
- * 25 is chosen against the most expensive LEGITIMATE minute in the app: adding
- * one appliance end-to-end is productLookup (1) + searchProductImages (1) +
- * findManual (1) + detectDocType (2) + enqueueParse (10) = 15 units, and a
- * person may reasonably retry a step. 25 clears that with room, while capping a
- * runaway at 25 units/min instead of the whole 50-unit day in five seconds.
+ * Sized against the most expensive LEGITIMATE minute in the app, and re-sized
+ * on 2026-08-28 after a tester hit it doing nothing unusual (HH-145).
+ *
+ * Adding one appliance end-to-end, as the flow actually stands:
+ *
+ *     ocr                    3   scanning the label
+ *     detectDocType          2
+ *     enqueueParse          10
+ *     productLookup          1   identity, from the add screen
+ *     productLookup          1   post-create enrichment (added 2026-08-28)
+ *     productLookup          1   brand-from-model, when a scan reads one and
+ *                                not the other (added 2026-08-28)
+ *     findManual             1
+ *     searchProductImages    1
+ *                          ───
+ *                           20
+ *
+ * The old comment sized this against 15 and the flow has since grown past it —
+ * two of those lookups landed the same day the report came in. At 25 a single
+ * add left 5 units of headroom, so a second appliance in the same minute, or
+ * one re-scan of a label, was refused. That is a person using the app the way
+ * onboarding invites them to, not a runaway.
+ *
+ * 45 covers two full adds (40) with room for a retry, and still stops the case
+ * this exists for: a loop burning the 1000-unit day in seconds. At 45/min the
+ * daily ceiling is the backstop and reaches it in ~22 minutes, not 5 seconds.
+ *
+ * Raising it is a spend decision, so the arithmetic is here rather than in a
+ * commit message: the ceiling that bounds cost is DAILY_AI_LIMIT, unchanged.
  */
-export const BURST_UNIT_LIMIT = 25
+export const BURST_UNIT_LIMIT = 45
 
 export function rateLimitFor(fn: string): number {
   return AI_RATE_LIMIT[fn] ?? DEFAULT_RATE_LIMIT

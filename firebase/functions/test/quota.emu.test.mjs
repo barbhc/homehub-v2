@@ -102,9 +102,15 @@ test("a loop spread across many endpoints still hits the burst cap", async () =>
   const uid = freshUid("burst")
   const spread = ["chatQuery", "discussTask", "suggestCareNotes", "productLookup", "findManual", "searchProductImages"]
 
+  // Rounds derived from the CAP, not hard-coded. This loop used to be six
+  // rounds of six 1-unit calls — exactly 36 units, chosen when the cap was 25.
+  // Raising the cap to 45 on 2026-08-28 made the loop stop short of it and the
+  // test went red, which is the guard behaving correctly: it proves a runaway
+  // is refused, and a runaway sized to yesterday's limit proves nothing.
+  const rounds = Math.ceil(BURST_UNIT_LIMIT / spread.length) + 2
   let spent = 0
   let denied = null
-  outer: for (let round = 0; round < 6; round++) {
+  outer: for (let round = 0; round < rounds; round++) {
     for (const fn of spread) {
       try {
         const hold = await chargeAiQuota(db, uid, fn)
@@ -116,7 +122,7 @@ test("a loop spread across many endpoints still hits the burst cap", async () =>
     }
   }
 
-  assert.ok(denied, "a 36-call loop must be stopped by something")
+  assert.ok(denied, `a ${rounds * spread.length}-call loop must be stopped by something`)
   assert.equal(denied.details?.reason, "burst")
   assert.ok(
     spent <= BURST_UNIT_LIMIT,

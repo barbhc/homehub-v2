@@ -274,12 +274,41 @@ describe("rate-limit table", () => {
     expect(Number.isFinite(rateLimitFor("somethingNobodyAddedYet"))).toBe(true)
   })
 
+  /**
+   * This list is the flow AS IT ACTUALLY RUNS, and keeping it that way is the
+   * point of the test. It previously omitted `ocr` and two later productLookup
+   * calls, so it kept passing while the real add grew past the limit — and a
+   * tester was refused mid-onboarding with "The scan failed" (HH-145). A budget
+   * test measuring a flow the app no longer has is worse than none: it reports
+   * headroom that does not exist.
+   */
+  const ADD_ONE_APPLIANCE = [
+    "ocr",                 // scanning the label
+    "detectDocType",
+    "enqueueParse",
+    "productLookup",       // identity, from the add screen
+    "productLookup",       // post-create enrichment
+    "productLookup",       // brand-from-model, when the scan reads one and not the other
+    "findManual",
+    "searchProductImages",
+  ]
+  const costOf = (fns: string[]) => fns.reduce((n, fn) => n + unitCostFor(fn), 0)
+
   it("lets the most expensive legitimate minute through", () => {
-    // Adding one appliance end to end. If this ever fails, the burst limit is
-    // throttling a real user rather than a loop.
-    const addItemFlow = ["productLookup", "searchProductImages", "findManual", "detectDocType", "enqueueParse"]
-    const cost = addItemFlow.reduce((n, fn) => n + unitCostFor(fn), 0)
-    expect(cost).toBeLessThanOrEqual(BURST_UNIT_LIMIT)
+    expect(costOf(ADD_ONE_APPLIANCE)).toBeLessThanOrEqual(BURST_UNIT_LIMIT)
+  })
+
+  it("lets someone add TWO appliances in a minute — the case that broke", () => {
+    // Onboarding actively invites this: a new tester adds a couple of things
+    // back to back. Being throttled for it is indistinguishable from a bug.
+    expect(costOf([...ADD_ONE_APPLIANCE, ...ADD_ONE_APPLIANCE])).toBeLessThanOrEqual(BURST_UNIT_LIMIT)
+  })
+
+  it("still refuses a runaway — the limit is not simply large", () => {
+    // Four adds in one minute is not a person. If this ever passes, the burst
+    // limit has stopped being a limit.
+    const four = [...ADD_ONE_APPLIANCE, ...ADD_ONE_APPLIANCE, ...ADD_ONE_APPLIANCE, ...ADD_ONE_APPLIANCE]
+    expect(costOf(four)).toBeGreaterThan(BURST_UNIT_LIMIT)
   })
 
   it("stops a runaway well short of the whole daily allowance in one window", () => {

@@ -24,6 +24,7 @@ import type { KnowledgeChunk, ManualDocument } from "@/integrations/types"
 // Belt for the worker's humanized errors: parse failures recorded BEFORE the
 // worker started storing friendly copy still carry raw API JSON, and raw
 // transport text can reach here from the callable layer. Never render it.
+import { isRateLimitMessage, retryAfterFromMessage } from "../../shared/quota/refusal"
 import { humanizeParseError } from "../../shared/parse/parseErrors"
 
 /**
@@ -116,6 +117,9 @@ export function useManualManagement({
 
   // --- Parse / review state ---
   const [parseError, setParseError] = useState<string | null>(null)
+  /** A throttled scan waiting to retry itself. Separate from parseError because
+   *  it is calm news, not a failure, and must not render in the error style. */
+  const [parseNotice, setParseNotice] = useState<string | null>(null)
   /** What a rescan/fill-gaps actually changed. These are the last two paths
    *  that write tasks without a review step — they are explicit user actions,
    *  so a confirmation is the right answer rather than a review sheet, but
@@ -241,6 +245,29 @@ export function useManualManagement({
     if (manualRes.data) setManuals(() => manualRes.data!)
   }
 
+
+  /**
+   * A throttled request is not a failed one, and must never say it is.
+   *
+   * HH-145: a tester saw "The scan failed" printed directly above her manual
+   * being read perfectly well. A second request inside the same 60-second
+   * window had been throttled, and the client had no way to tell that refusal
+   * apart from a real error, so it used the loudest wording it had.
+   *
+   * Returns true when it handled the refusal — the caller stops there. The wait
+   * comes from the server's own sentence, and the retry is automatic and single:
+   * one silent second attempt is the difference between a pause and a dead end,
+   * while a retry loop would be the runaway the limiter exists to stop.
+   */
+  const handledAsRateLimit = (message: string | undefined, retry: () => void): boolean => {
+    if (!isRateLimitMessage(message)) return false
+    const wait = retryAfterFromMessage(message)
+    setParseError(null)
+    setParseNotice(`One moment — starting your scan in ${wait} second${wait === 1 ? "" : "s"}.`)
+    window.setTimeout(() => { setParseNotice(null); retry() }, wait * 1000)
+    return true
+  }
+
   const handleParseExistingManual = async (manualId: string) => {
     if (!homeId) return
     setParsedManualId(manualId)
@@ -249,6 +276,7 @@ export function useManualManagement({
     const result = await previewManualParse(homeId, manualId)
     setParsingManualId(null)
     if (!result.ok) {
+      if (handledAsRateLimit(result.error, () => void handleParseExistingManual(manualId))) return
       setParseError(`The scan failed: ${humanizeParseError(result.error)}`)
       return
     }
@@ -267,7 +295,9 @@ export function useManualManagement({
     if (result.ok) {
       await refreshItem()
       setParseReceipt(describeCommit("Rescan", result))
-    } else setParseError(`Rescan failed: ${humanizeParseError(result.error)}`)
+    } else if (!handledAsRateLimit(result.error, () => void handleRescanManual(manualId))) {
+      setParseError(`Rescan failed: ${humanizeParseError(result.error)}`)
+    }
   }
 
   const handleFillGaps = async (manualId: string) => {
@@ -279,7 +309,9 @@ export function useManualManagement({
     if (result.ok) {
       await refreshItem({ chunks: true })
       setParseReceipt(describeCommit("Fill gaps", result))
-    } else setParseError(`Fill gaps failed: ${humanizeParseError(result.error)}`)
+    } else if (!handledAsRateLimit(result.error, () => void handleFillGaps(manualId))) {
+      setParseError(`Fill gaps failed: ${humanizeParseError(result.error)}`)
+    }
   }
 
   const handleDeleteManual = async (manualId: string) => {
@@ -364,6 +396,7 @@ export function useManualManagement({
 
     // Parse / review state
     parseError,
+    parseNotice,
     parseReceipt,
     setParseReceipt,
     setParseError,
