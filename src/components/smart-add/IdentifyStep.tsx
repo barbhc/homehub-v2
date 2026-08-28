@@ -869,9 +869,9 @@ export function IdentifyStep({
                           extra width buys more content per row rather than a
                           longer gap before the chevron — see BACKLOG.md. */}
                       <span className="mt-0.5 flex flex-col @min-[26rem]:flex-row @min-[26rem]:items-center @min-[26rem]:gap-2 text-sm text-muted-foreground">
-                        <span>Find the model number</span>
+                        <span data-scan-line>Find the model number</span>
                         <span className="hidden @min-[26rem]:inline" aria-hidden>·</span>
-                        <span>We&apos;ll do the typing</span>
+                        <span data-scan-line>We&apos;ll do the typing</span>
                       </span>
                     </span>
                   </span>

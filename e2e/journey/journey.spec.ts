@@ -478,11 +478,21 @@ test.describe("journey walks", () => {
     // toBeVisible only means "in the layout and not display:none". Inside a
     // sheet this list opened BELOW the footer and nobody could ever see it —
     // green assertions, useless feature. Assert it is inside the viewport.
-    const box = await suggestion.boundingBox()
+    // Polled, not sampled once. The list animates into place, and reading its
+    // box on the first frame caught it mid-flight roughly one run in three —
+    // a flaky guard is worse than none, because it teaches people to re-run
+    // until green. The assertion is unchanged in strength: if the list never
+    // comes fully into view, this still fails.
     const vh = page.viewportSize()!.height
+    await expect
+      .poll(async () => {
+        const b = await suggestion.boundingBox()
+        return b ? Math.round(b.y + b.height) : null
+      }, { message: "the suggestion list must settle inside the viewport", timeout: 5_000 })
+      .toBeLessThanOrEqual(vh)
+    const box = await suggestion.boundingBox()
     expect(box, "the suggestion list must have a box").not.toBeNull()
     expect(box!.y).toBeGreaterThanOrEqual(0)
-    expect(box!.y + box!.height).toBeLessThanOrEqual(vh)
     // Still open at the shutter, not merely at assertion time: this list closes
     // on blur, and a screenshot that shows a teal-bordered field with nothing
     // under it documents a feature nobody can see.
