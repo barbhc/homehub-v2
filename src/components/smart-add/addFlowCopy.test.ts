@@ -47,6 +47,34 @@ const detailsSheet = read("../item-care/ItemDetailsSheet.tsx")
  * this screen; round 13 promoted scanning back to a first-class control under
  * the model field, which retired the reassurance without removing it.
  */
+/**
+ * What the scan says it did.
+ *
+ * The old line — "Filled N fields from your photo — tap Add more details to
+ * review." — counted fields the appliance lane never shows (so a scan that
+ * visibly changed two things reported four) and then sent the reader to a
+ * disclosure that exists ONLY in the simple lane, while the camera exists only
+ * in the appliance one. Same defect as the lane-chooser caption above: a
+ * pointer to a control the reader does not have.
+ */
+describe("what the scan reports", () => {
+  it("names what changed instead of counting fields", () => {
+    expect(identify).toContain("Got the ${list} from your photo.")
+  })
+
+  it("no longer sends the appliance lane to a simple-lane disclosure", () => {
+    expect(identify).not.toContain("tap Add more details to review")
+  })
+
+  it("keeps 'Add more details' itself scoped to the simple lane", () => {
+    // If this ever renders in the appliance lane the old copy becomes true
+    // again, and the reason for this change disappears.
+    const disclosure = identify.indexOf("Add more details")
+    const laneGuard = identify.lastIndexOf('mode === "simple"', disclosure)
+    expect(laneGuard).toBeGreaterThan(-1)
+  })
+})
+
 describe("the lane chooser", () => {
   it("puts the camera hint on the lane that has a camera", () => {
     expect(identify).toContain("Type it, or scan the label.")

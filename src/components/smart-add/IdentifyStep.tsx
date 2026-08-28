@@ -136,7 +136,12 @@ export function IdentifyStep({
   // (the AI extraction call itself failed — not the photo's fault) | null (no
   // call yet / failed — ocrError carries failures). Drives the honest copy.
   const [ocrOutcome, setOcrOutcome] = useState<"success" | "empty" | "extract_failed" | null>(null)
-  const [ocrFilledCount, setOcrFilledCount] = useState(0)
+  /** What the scan actually changed, not how many things it touched.
+   *  The old count included fields the appliance lane never shows, so a scan
+   *  that visibly changed two things reported four. */
+  const [ocrFilled, setOcrFilled] = useState<{ brand: boolean; model: boolean; serial: boolean; count: number }>(
+    { brand: false, model: false, serial: false, count: 0 },
+  )
   const [ocrRawText, setOcrRawText] = useState<string | null>(null)
   const [moreDetailsOpen, setMoreDetailsOpen] = useState(false)
   const [otherWaysOpen, setOtherWaysOpen] = useState(false)
@@ -210,6 +215,32 @@ export function IdentifyStep({
    */
   const [brandSuggestion, setBrandSuggestion] = useState<string | null>(null)
   const brandLookupRef = useRef<string>("")
+
+  /**
+   * What the scan changed, said in things the user can see.
+   *
+   * The old line was "Filled 4 fields from your photo — tap Add more details to
+   * review." Two faults, both the same shape as a caption this screen already
+   * had to lose: it counted fields the appliance lane never displays, so a scan
+   * that visibly changed the brand and the model reported four; and "Add more
+   * details" exists ONLY in the simple lane, while the camera exists only in the
+   * appliance one. It was pointing at a control the reader did not have.
+   *
+   * So it names what changed instead of counting it, and points nowhere. Serial
+   * gets a mention because it is a thing a person recognises and checks; the
+   * category and the composed name do not, and a scan quietly getting those
+   * right is not news.
+   */
+  const scanSummary = useMemo(() => {
+    const seen: string[] = []
+    if (ocrFilled.brand) seen.push("brand")
+    if (ocrFilled.model) seen.push("model")
+    if (ocrFilled.serial) seen.push("serial number")
+    if (!seen.length) return "Photo read — we filled in what we could."
+    const list =
+      seen.length === 1 ? seen[0] : `${seen.slice(0, -1).join(", ")} and ${seen[seen.length - 1]}`
+    return `Got the ${list} from your photo.`
+  }, [ocrFilled])
 
   const wantAutoExpand = useMemo(() => hasHiddenAutofill(data, mode), [data, mode])
 
@@ -356,14 +387,17 @@ export function IdentifyStep({
     // field, and reporting "filled 0 fields" after overwriting two of them
     // would be the screen disagreeing with itself.
     let filled = scannedFieldsChanged({ brand: data.brand, model: data.model }, next)
+    const brandChanged = data.brand !== next.brand && !!next.brand
+    const modelChanged = data.model !== next.model && !!next.model
+    const serialChanged = !data.serialNumber && !!next.serialNumber
     if (data.name !== next.name) filled++
-    if (!data.serialNumber && next.serialNumber) filled++
+    if (serialChanged) filled++
     if (data.itemCategory == null && next.itemCategory != null) filled++
     if (!data.purchaseDate && next.purchaseDate) filled++
     if (data.purchasePrice == null && next.purchasePrice != null) filled++
     onDataChange(next)
     setOcrOutcome("success")
-    setOcrFilledCount(filled)
+    setOcrFilled({ brand: brandChanged, model: modelChanged, serial: serialChanged, count: filled })
     track("label_ocr_succeeded", { filled, docType: r.docType ?? "unknown", engine: r.engine ?? null, ms })
     if (hasHiddenAutofill(next, mode)) setMoreDetailsOpen(true)
     // If OCR gave us a purchase date or price (receipt scan), log a telemetry-
@@ -574,8 +608,8 @@ export function IdentifyStep({
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">
                     {ocrOutcome === "success"
-                      ? ocrFilledCount > 0
-                        ? `Filled ${ocrFilledCount} field${ocrFilledCount === 1 ? "" : "s"} from your photo — tap Add more details to review.`
+                      ? ocrFilled.count > 0
+                        ? scanSummary
                         : "Photo read — everything you'd typed was kept."
                       : ocrOutcome === "empty"
                         ? "Couldn't read anything usable from that photo."
