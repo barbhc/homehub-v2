@@ -24,6 +24,33 @@ export const tourSteps: TourStep[] = [
     },
   },
   {
+    /**
+     * Round 18. The tour taught NAVIGATION — five steps naming what lives behind
+     * each tab — and never taught the one thing a person needs before trusting
+     * an app with their house: how it will reach them.
+     *
+     * That gap is what produced the owner's confusion in HH-144. She read
+     * "nothing here will remind you" over three rows showing a weekly cadence
+     * and, reasonably, could not tell whether the app was going to do anything.
+     * Two channels, and only one of them is opt-in.
+     *
+     * It sits on Home rather than a settings screen because Home is where
+     * channel one actually happens, and it deliberately does NOT ask for
+     * notification permission: nothing is scheduled yet on a brand-new account,
+     * so the prompt would be abstract — and iOS only ever shows it once.
+     */
+    element: "[data-tour='nav-home']",
+    route: "/home",
+    popover: {
+      title: "How Homehub reaches you",
+      description:
+        "Anything on a schedule shows up here on the day it's due — nothing to switch on. " +
+        "A notification is separate, and always your choice: we'll ask the first time something wants one.",
+      side: "bottom",
+      align: "start",
+    },
+  },
+  {
     element: "[data-tour='nav-inventory']",
     route: "/inventory",
     popover: {

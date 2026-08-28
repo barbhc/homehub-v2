@@ -25,7 +25,7 @@ import {
 import type { ItemUnit, KnowledgeChunk, Json } from "@/integrations/types"
 import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, type TaskTemplateWithSchedule } from "@/modules/care"
 import { dueLabel } from "@/lib/redesign/tokens"
-import { reviewBucketFor, isScheduled, willNotify, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
+import { reviewBucketFor, isScheduledTask, willNotify, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { getTaskGuidance } from "@/pages/item-detail/utils"
 import { classifyTaskActor } from "@/lib/taskActor"
@@ -265,19 +265,17 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
             thing worth scanning for. */}
         <div onClick={openTask} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
           <div className="min-w-0 flex-1">
-            {/* A bell-ring, not a priority dot. Red dots read as "warning" on a
-                page where the genuinely alarming thing is a safety badge, and
-                the fact a person actually scans for here is "will this one
-                interrupt me?" — which is willNotify, not the tier. Pinned to the
-                first line so a wrapping title can't orphan it. */}
+            {/* The bell used to live HERE, left of the title. Round 18 moved it
+                to the right of the row, beside a standardized cadence chip,
+                because that is where the review puts it — and a task that reads
+                one way while you are deciding it and another way on the page it
+                lands on is the drift this round exists to end.
+
+                Owner caught it: "you have the old bell icon to the left of the
+                task." She was reading a mockup I had drawn from this file, which
+                is how it surfaced — the mockup was faithful, the code was
+                stale. */}
             <div className="flex items-start gap-2">
-              {reminds && (
-                <BellRingIcon
-                  className="mt-[2px] size-[13px] shrink-0"
-                  style={{ color: TEAL }}
-                  aria-label="Reminds you when due"
-                />
-              )}
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
                 {safety && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: CLAY_SOFT, color: CLAY }}>Safety</span>}
@@ -293,11 +291,30 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
                   "In guides" named a concept nobody had met. "Deep Clean" is
                   the surface's own name on Home, so the words point somewhere
                   visible. */}
-              {[freqLabel(t), t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Deep Clean"].filter(Boolean).join(" · ")}
+              {/* The cadence moved to the chip on the right — same slot, same
+                  mono, same box as the review's. What stays here is what the
+                  chip cannot carry: effort, and the due phrase, which is the
+                  most important thing on the row. */}
+              {[t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Deep Clean"].filter(Boolean).join(" · ")}
               {days != null && <span style={{ color: neverStarted ? SUB : dueStatusColor(days), fontWeight: !neverStarted && days <= 7 ? 700 : 500 }}> · {neverStarted ? "Start anytime" : dueLabel(days)}</span>}
             </div>
           </div>
         </div>
+        {/* ONE cadence chip, identical on every scheduled row, with the bell
+            BESIDE it rather than inside — the owner's round-18 note, applied to
+            this surface too: "I like to have the cadence be standardized, and
+            then I would like a bell … to just show that notifications are on."
+            Colouring the chip would make cadences incomparable down the column,
+            which is the one thing a column of cadences is for. */}
+        {freqLabel(t) && (
+          <span className="shrink-0 rounded-lg border px-1.5 py-0.5 text-[11px] font-mono tabular-nums whitespace-nowrap"
+            style={{ borderColor: LINE, background: "var(--hh-surface2, transparent)", color: SUB }}>
+            {freqLabel(t)}
+          </span>
+        )}
+        {reminds && (
+          <BellRingIcon className="size-[14px] shrink-0" style={{ color: TEAL }} aria-label="Notifies you" />
+        )}
         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
           {open ? "Hide" : "See how"}{open ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
         </button>
@@ -559,11 +576,20 @@ export interface CareBlockProps {
 }
 
 export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, m }: CareBlockProps) {
-  // One partition, by the same rule the review wizard uses.
-  const scheduled = tasks.filter((t) => isScheduled(bucketOf(t)))
-  const whenNeeded = tasks.filter((t) => bucketOf(t) === "whenNeeded")
+  // One partition, by the same rule the review wizard uses — and since round 18
+  // that rule is the KIND of work, not its importance. The bands below are the
+  // same four words the review shows, in the same order, because a task filed
+  // under Cleaning in the review that arrives under a different heading here is
+  // exactly the drift six reports were about.
+  //
+  // "Scheduled" is no longer a band. It is a property a row carries into
+  // whichever band it belongs to: a Cleaning job can be weekly or when-needed,
+  // and both are Cleaning.
+  const maintenance = tasks.filter((t) => bucketOf(t) === "maintenance")
+  const cleaning = tasks.filter((t) => bucketOf(t) === "cleaning")
+  const usageTasks = tasks.filter((t) => bucketOf(t) === "usage")
   const setupTasks = tasks.filter((t) => bucketOf(t) === "setup")
-  const tipTasks = tasks.filter((t) => bucketOf(t) === "tip")
+
 
   // Soonest open instance per scheduled template — drives the due label and the
   // tap-through to task detail. Re-fetch when the task set changes (e.g. after an
@@ -659,9 +685,10 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
   }
   const activeVariant = supportsVariant ? variant : null
   const vis = (t: TaskTemplateWithSchedule) => variantVisible(t, activeVariant, showAll)
-  const fWhenNeeded = whenNeeded.filter(vis)
+  const fMaintenance = maintenance.filter(vis)
+  const fCleaning = cleaning.filter(vis)
+  const fUsageTasks = usageTasks.filter(vis)
   const fSetup = setupTasks.filter(vis)
-  const fTipTasks = tipTasks.filter(vis)
   // Order the schedule sensibly: genuinely due/overdue first (soonest first),
   // with never-started cadences ("Start anytime") sinking to the bottom instead
   // of dominating the top with alarming back-dated "overdue" dates.
@@ -676,10 +703,14 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
     if (na !== nb) return na ? 1 : -1
     return dueDaysOf(a) - dueDaysOf(b) || a.title.localeCompare(b.title)
   }
-  // Cleaning sits in the same band as maintenance now: what a person wants to
-  // know is when a thing is due and whether it will remind them, not which of
-  // two words we filed it under.
-  const fScheduled = scheduled.filter(vis).sort(byDue)
+  // Round 18: the bands are kinds, so this is no longer a band of its own — it
+  // is the ordering applied INSIDE Maintenance and Cleaning, where dated rows
+  // lead and never-started cadences sink rather than shouting "overdue".
+  const orderInBand = (rows: TaskTemplateWithSchedule[]) => {
+    const dated = rows.filter((t) => isScheduledTask(taskLikeOf(t))).sort(byDue)
+    const undated = rows.filter((t) => !isScheduledTask(taskLikeOf(t)))
+    return [...dated, ...undated]
+  }
 
   const nothing = tasks.length === 0
   // While the manual is being read, Upkeep holds the space its tasks will fill
@@ -788,60 +819,27 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
       )}
 
 
-      {/* HH-82: when EVERY scheduled row is one the Tasks list will not show,
-          the count above is the whole of the user's disappointment. Say it once
-          at the band rather than making them infer it from three chips. */}
-      <Band tone="teal" title="On a schedule" count={fScheduled.length}>
-        {fScheduled.length > 0 &&
-          fScheduled.every((t) => !isAgendaEligible({ careType: t.care_type ?? null, scopeType: t.scope_type ?? null })) && (
-            <div className="px-0.5 pb-1.5 text-[11.5px]" style={{ color: SUB }}>
-              {/* Shorter than it was, and it now offers the way out it used to
-                  only describe: nothing about cleaning is a dead end. */}
-              In your cleaning guides — nothing reminds you.{" "}
-              <Link to="/clean" className="font-bold underline underline-offset-2" style={{ color: TEAL }}>
-                Open guides
-              </Link>
-            </div>
-          )}
-        {fScheduled.length ? (
-          fScheduled.map((t, i) => (
+      {/* Round 18: four bands, and they are the same four words in the same
+          order as the review — Maintenance, Cleaning, Usage, Setup. A task filed
+          under Cleaning in the review arriving under a different heading here is
+          the drift six reports were about.
+
+          Inside each band, dated rows lead. HH-82 still applies: when every
+          scheduled row is one the Tasks list will not show, say it once at the
+          band rather than making someone infer it from three chips. */}
+      {fMaintenance.length > 0 && (
+        <Band tone="teal" title="Maintenance" count={fMaintenance.length}>
+          {orderInBand(fMaintenance).map((t, i) => (
             <ScheduleRow
               key={t.task_template_id}
               t={t}
-              due={dueByTemplate.get(t.task_template_id)?.due ?? null}
+              due={isScheduledTask(taskLikeOf(t)) ? dueByTemplate.get(t.task_template_id)?.due ?? null : null}
               completed={completedTemplates.has(t.task_template_id)}
-              instanceId={dueByTemplate.get(t.task_template_id)?.instanceId ?? null}
+              instanceId={isScheduledTask(taskLikeOf(t)) ? dueByTemplate.get(t.task_template_id)?.instanceId ?? null : null}
               onOpenTask={(iid) => navigate(`/tasks/${iid}`)}
               hasManual={hasManual}
               onOpenManualPage={onOpenManualPage}
-              last={i === fScheduled.length - 1}
-              variantTag={variantTagFor(t, activeVariant, showAll)}
-              safetyNote={critical && criticalTaskIds.has(t.task_template_id) ? critical.content : undefined}
-            />
-          ))
-        ) : (
-          <div className="px-4 py-3.5 text-[12.5px] italic" style={{ color: FAINT }}>
-            Nothing on a schedule for this item.
-          </div>
-        )}
-      </Band>
-
-      {/* No fixed timing — condition-triggered work, per-use habits the user kept,
-          and safety work the taxonomy refused to demote to a tip. Same rows as
-          the schedule band (so "See how" still works), minus the due date, which
-          would be a lie here. */}
-      {fWhenNeeded.length > 0 && (
-        <Band tone="gold" title="When needed" count={fWhenNeeded.length}>
-          {fWhenNeeded.map((t, i) => (
-            <ScheduleRow
-              key={t.task_template_id}
-              t={t}
-              due={null}
-              completed={completedTemplates.has(t.task_template_id)}
-              instanceId={null}
-              hasManual={hasManual}
-              onOpenManualPage={onOpenManualPage}
-              last={i === fWhenNeeded.length - 1}
+              last={i === fMaintenance.length - 1}
               variantTag={variantTagFor(t, activeVariant, showAll)}
               safetyNote={critical && criticalTaskIds.has(t.task_template_id) ? critical.content : undefined}
             />
@@ -849,24 +847,52 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
         </Band>
       )}
 
-      {(usageTips.length > 0 || fTipTasks.length > 0) && (
-        <Band tone="violet" title="Tips — using it well" count={usageTips.length + fTipTasks.length}>
-          <UsageTipRows tips={usageTips} taskTips={fTipTasks} onOpenManualPage={onOpenManualPage} canOpenManual={canOpenManual} />
+      {fCleaning.length > 0 && (
+        <Band tone="gold" title="Cleaning" count={fCleaning.length}>
+          {fCleaning.every((t) => !isAgendaEligible({ careType: t.care_type ?? null, scopeType: t.scope_type ?? null })) && (
+            <div className="px-0.5 pb-1.5 text-[11.5px]" style={{ color: SUB }}>
+              In your cleaning guides — nothing reminds you.{" "}
+              <Link to="/clean" className="font-bold underline underline-offset-2" style={{ color: TEAL }}>
+                Open guides
+              </Link>
+            </div>
+          )}
+          {orderInBand(fCleaning).map((t, i) => (
+            <ScheduleRow
+              key={t.task_template_id}
+              t={t}
+              due={isScheduledTask(taskLikeOf(t)) ? dueByTemplate.get(t.task_template_id)?.due ?? null : null}
+              completed={completedTemplates.has(t.task_template_id)}
+              instanceId={isScheduledTask(taskLikeOf(t)) ? dueByTemplate.get(t.task_template_id)?.instanceId ?? null : null}
+              onOpenTask={(iid) => navigate(`/tasks/${iid}`)}
+              hasManual={hasManual}
+              onOpenManualPage={onOpenManualPage}
+              last={i === fCleaning.length - 1}
+              variantTag={variantTagFor(t, activeVariant, showAll)}
+              safetyNote={critical && criticalTaskIds.has(t.task_template_id) ? critical.content : undefined}
+            />
+          ))}
         </Band>
       )}
 
-      {/* Last on the page: once the thing is installed, its install steps are the
-          least useful rows here. They used to sit above the habits and tips. */}
+      {(usageTips.length > 0 || fUsageTasks.length > 0) && (
+        <Band tone="violet" title="Usage" count={usageTips.length + fUsageTasks.length}>
+          <UsageTipRows tips={usageTips} taskTips={fUsageTasks} onOpenManualPage={onOpenManualPage} canOpenManual={canOpenManual} />
+        </Band>
+      )}
+
+      {/* Last on the page, and last in REVIEW_BUCKET_ORDER: once the thing is
+          installed, its install steps are the least useful rows here. */}
       {fSetup.length > 0 && (
         <Band
           tone="slate"
-          title="First-time setup"
+          title="Setup"
           count={fSetup.length}
-          // Closed by default. Nine open checkboxes for work that was finished
-          // the day the appliance was installed pushed the actual upkeep off
-          // the screen — and almost every item is added long AFTER install, so
-          // "already done" is the honest default. One tap opens it, and that tap
-          // is what stamps setup_revealed_at.
+          // Closed by default. Nine open checkboxes for work finished the day the
+          // appliance was installed pushed the actual upkeep off the screen — and
+          // almost every item is added long AFTER install, so "already done" is
+          // the honest default. One tap opens it, and that tap stamps
+          // setup_revealed_at.
           defaultOpen={item.setup_revealed_at != null}
           note="already installed?"
           onFirstOpen={() => { void markSetupRevealed() }}

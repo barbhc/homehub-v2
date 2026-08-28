@@ -181,6 +181,64 @@ grep, not by the docs' own status lines.
 
 ---
 
+## 4b. The sample home — PARKED until the add-item flow and item page are final
+
+**Owner, 2026-08-27:** *"I wanna be able to do a session to really think through
+what a sample home should show and what would be helpful to the user versus just
+bolting it on right now… Let's park this until we finalize and QA fully the add
+item flow and the final item page."*
+
+**Status:** deliberately not being worked. **Both** entry points are removed for
+the duration (round 18) — the Inventory empty state's "See a sample home" button
+and onboarding's "Not sure yet? Look around a sample home first". The route
+survives and works by direct link.
+
+That second removal has a real cost and it is recorded here so the redesign
+carries it back: the onboarding screen now asks for a commitment before the
+person has seen anything the product does, which is exactly what the escape
+hatch was built to fix. Restoring it is a three-line change and the argument for
+it has not stopped being true — it is waiting on a page worth linking to.
+`HomeOnboarding.sample.test.tsx` pins both doors shut so neither returns by
+reflex before then.
+
+### What is known so far, so the session starts from evidence
+
+Measured live on 2026-08-27, at 375×812:
+
+| | |
+|---|---|
+| Images on the entire page | **0** |
+| Manual citations rendered on arrival | **0** — conditionally rendered, not merely collapsed |
+| Page-cited sources sitting unused in the fixtures | **4** |
+| Scroll before the call to action | ~2 screens |
+
+The product's claim — *photograph an appliance, Homehub reads its manual, these
+jobs came from page 34* — is asserted in one line of prose and demonstrated
+nowhere. `"Carrier Infinity 59MN7 manual, p. 34"` does not exist in the page
+until a chevron is opened, so it is invisible to a skim, to search and to a
+screen reader alike.
+
+### Two open questions for the session
+
+1. **A sample HOME or a sample ITEM?** My recommendation was the item page — the
+   unit of value is the appliance, the proof (manual, citations) only exists
+   there, and depth beats breadth for someone who has committed to nothing. Not
+   decided.
+2. **How much of it should be the real components?** `SampleHome.tsx` hand-rolls
+   311 lines of its own layout, which is why it drifted from the app in the first
+   place. Feeding fixtures through `RefinedItemDetail` would make it inherit
+   every future change — but the file's own header warns against exactly that,
+   and that warning needs checking rather than overruling.
+
+### Do not resume before
+
+The add-item flow and the item page are finalised and QA'd. Building a sample of
+a design that is still moving is how it went stale the first time.
+
+Mockups so far: https://claude.ai/code/artifact/395e50df-9925-4252-a6a2-4d46c19fa2f9
+
+---
+
 ## 5. Parse quality — the loop is built, the curation isn't
 
 The task-feedback loop (phases A–D) is complete and in production: chips, house

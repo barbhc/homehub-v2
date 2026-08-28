@@ -17,7 +17,10 @@ export const CADENCE_LABELS: Record<string, string> = {
   quarterly: "Quarterly",
   semiannual: "Twice a year",
   annual: "Yearly",
-  seasonal: "Seasonally",
+  // Adjective, like every other label here. "Seasonally" was the one
+  // adverb in a column of adjectives, and round 18 put these in a chip
+  // column where they line up and the odd one out is visible.
+  seasonal: "Seasonal",
   setup: "One-time setup",
   as_needed: "When needed",
   after_each_use: "After each use",

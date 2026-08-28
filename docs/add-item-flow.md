@@ -148,22 +148,49 @@ page watches it.
 
 ## The review — the one decision
 
-- **A sheet may interrupt for a DECISION, never for an announcement.** With
-  maintenance it opens; without, a card reports. — HH-121, HH-127
-- Opens on **the schedule screen**, focused on maintenance. That is the
-  **default**, not a prop a caller might forget. — HH-119
-- **Exactly one review** is ever mounted. — HH-120
+**Round 18 rewrote this section.** The review is now ONE screen grouped by what
+a task IS, not how much it matters. Owner: *"categorizing essential recommended
+and optional is less helpful than categorizing maintenance, cleaning, usage and
+setup."*
+
+- **One screen, four sections: Maintenance → Cleaning → Usage → Setup.**
+  Setup sits below Usage — install steps for a thing owned for months must not
+  outrank the work you live with. — HH-144, and HH-85 for the ordering
+- **Importance is a rail, not a heading.** Essential/Recommended/Optional are a
+  property of the row. `SECTION_RAIL` and `TIER_RAIL` are separate maps, because
+  one map holding both is exactly how HH-140 happened. — HH-144
+- **No maintenance simply means no Maintenance section.** No special screen, no
+  card instead of a sheet, no sentence explaining an absence. — HH-142
+- **The summary states TWO channels, apart.** How many show up in Tasks when due
+  (always on, no permission), and how many also notify (opt-in). Owner: *"there
+  are items that are scheduled to be reminded within the app even if there's no
+  notification."* — HH-144
+- **Essential is the only notify-by-default**, and the switch overrides in both
+  directions. Priority and interruption stay independent. — owner, 2026-08-27
+- **The cadence chip is identical on every scheduled row**; the bell beside it is
+  the only thing that varies. Colouring the chip makes cadences incomparable
+  down the column. — HH-144
+- **A bell is never drawn that cannot be rung.** If permission was refused, the
+  screen says so instead. — round 18
 - It never claims rows are saved while the button underneath is what saves
   them. `runParse` writes `previewDraft` only; `commitDraft` is what
   saves. — HH-134
-- When nothing needs a reminder it **says why**: no maintenance was
-  found. — HH-137
-- **Both steps are one design.** Step 1 is step 2's design applied to all six
-  buckets, not a screen of its own: same rails, same section shape, same
-  finding-first sentence, one filled primary. `TIER_RAIL` must define a colour
-  for EVERY bucket — a bucket without one falls through to `copy.icon`, and that
-  one omission is why step 1 kept the pre-round-10 emoji look through six
-  rounds of redesign that all landed on step 2. — HH-140
+- **The one-by-one walkthrough survives**, speaking the same four words.
+  Reclassifying a row visibly moves it between sections. It is the only route
+  tasks from older parses have into the new vocabulary. — HH-144
+
+### Superseded by round 18
+
+Named here rather than deleted, because a rule vanishing silently is the failure
+this file exists to prevent.
+
+| Rule | Why it no longer applies |
+|---|---|
+| HH-121 / HH-127: *"with maintenance it opens; without, a card reports"* | The owner rejected both the long list AND round 14's card: *"it really is unsatisfying as somebody who has just waited to see their manual scanned."* One screen serves both cases. |
+| HH-119: *"opens on the schedule screen, focused on maintenance"* | There is no second screen to open on. |
+| HH-120: *"exactly one review is ever mounted"* | Satisfied by construction — there is one screen. |
+| HH-137: the finding-first sentence | Replaced by the two-channel summary, because "nothing here will remind you" contradicted the weekly cadences beneath it. |
+
 
 ---
 
@@ -176,7 +203,10 @@ page watches it.
 | `src/components/smart-add/addFlowCopy.test.ts` | Copy and step-union drift | live |
 | Journey walks + their `snap()` notes | Visual drift — but ONLY if the note states the requirement rather than describing the screen | live |
 | **This file** | A change quietly undoing an earlier agreement | new |
-| `src/components/manuals/TaskReviewSheet.stepone.test.tsx` | Step 1 drifting from step 2 — asserts every bucket has a rail, so a new bucket cannot reintroduce the emoji look on one door | live |
+| `src/components/manuals/TaskReviewSheet.sections.test.tsx` | A bucket with no rail — the HH-140 mechanism, now impossible because `SECTION_RAIL` is typed `Record<ReviewBucket, string>` | live |
+| `src/components/manuals/TaskReviewSheet.rowstates.test.tsx` | The three timing states drifting — asserts a quiet row's chip is byte-identical to a notifying row's | live |
+| `src/lib/reviewBuckets.agreement.test.ts` | The review, the task page and `sendPush` disagreeing about whether one task notifies | live |
+| `remindsByDefault(tier: PriorityTierName)` | **The compiler.** Passing a bucket where a tier belongs fails `tsc -b`; a runtime test could not catch it, because today the bucket for a scheduled row IS the tier | live |
 | `src/components/item-care/CareBlock.awaiting.test.tsx` | The page offering to add a manual it has already read | live |
 | `seedUnreviewedManual` in `scripts/seed-emulator.ts` | **The gap, now closed.** A read-but-unsaved manual with no maintenance in it — the state all five repeated reports came from, which no test could visit because every seeded manual was committed and every seeded item already had tasks | live |
 

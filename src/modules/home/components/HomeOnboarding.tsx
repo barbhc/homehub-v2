@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/modules/auth"
@@ -104,22 +103,28 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
   return (
     <div className={cn("w-full max-w-md mx-auto", className)}>
       <h1 className="text-2xl font-display font-normal mb-2">Set up your home</h1>
-      <p className="text-muted-foreground mb-4">
+      <p className="text-muted-foreground mb-6">
         {/* HH-79: the old line ended "there is no long setup", which names the
             fear instead of the payoff. Owner picked this wording. */}
         Give it a name. You can add appliances one at a time — start with one.
       </p>
-      {/* The escape hatch. This screen used to ask for a commitment before the
-          person had seen anything the product does: name your home, then find
-          out. A sample home is the "find out first" half, and it is the last
-          moment it can be offered. */}
-      <p className="text-sm text-muted-foreground mb-6">
-        Not sure yet?{" "}
-        <Link to="/sample" className="font-medium text-foreground underline underline-offset-2">
-          Look around a sample home first
-        </Link>
-        .
-      </p>
+      {/* THE ESCAPE HATCH IS GONE, and it is worth saying why rather than
+          leaving a silent gap.
+
+          It read "Not sure yet? Look around a sample home first" and linked to
+          /sample. It existed for a real reason: this screen asks for a
+          commitment before the person has seen anything the product does, and
+          the sample was the "find out first" half.
+
+          Removed at the owner's request (round 18) because /sample still renders
+          the pre-round-18 layout, and the fix for showing someone a stale
+          product is not to show it to the people who have seen nothing else.
+          BACKLOG §4b parks the redesign until the add-item flow and the item
+          page are final; both doors reopen when it lands.
+
+          The route still exists and still works by direct link — this closed the
+          doors, it did not retire the page. Restoring this one is a three-line
+          change, and the argument it was built on has not stopped being true. */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label className="text-sm font-medium block mb-1.5">Home name</label>

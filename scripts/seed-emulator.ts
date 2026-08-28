@@ -155,6 +155,8 @@ type TaskSeed = {
    *  a never-started essential is calm "Start anytime", not overdue). Drives the
    *  "Start here" insight banner (fix C). */
   priorCompletion?: boolean
+  /** Explicit reminder choice. null/absent = the tier default applies. */
+  remindEnabled?: boolean
 }
 async function seedTasks(items: Record<string, { id: string; name: string; room: string }>): Promise<void> {
   const tasks: TaskSeed[] = [
@@ -162,7 +164,11 @@ async function seedTasks(items: Record<string, { id: string; name: string; room:
     { title: "Test smoke & CO detectors", scope: "home", care: "maintenance", tier: "essential", risk: "safety", minutes: 10, schedule: "semiannual", dueOffset: -2, safety: true, justification: "Working detectors are your first warning in a fire or CO leak." },
     { title: "Flush the water heater", scope: "item_unit", itemKey: "waterheater", care: "maintenance", tier: "recommended", risk: "prevent_damage", minutes: 45, schedule: "annual", dueOffset: 4, justification: "Sediment buildup shortens tank life and raises energy use." },
     { title: "Service AC before summer", scope: "item_unit", itemKey: "furnace", care: "maintenance", tier: "recommended", risk: "performance", minutes: 60, schedule: "seasonal", season: "summer", dueOffset: 6, justification: "A pre-season check keeps cooling reliable through the heat." },
-    { title: "Vacuum refrigerator coils", scope: "item_unit", itemKey: "fridge", care: "maintenance", tier: "recommended", risk: "performance", minutes: 20, schedule: "semiannual", dueOffset: 12, justification: "Dusty coils make the compressor work harder." },
+    // Round 18: a RECOMMENDED task with the bell explicitly on. Essential is the
+    // only notify-by-default, so without this row the seed can only ever show
+    // the default path and the "you turned this on" case is untestable — which
+    // is the case the owner's "descale the machine" decision exists for.
+    { title: "Vacuum refrigerator coils", scope: "item_unit", itemKey: "fridge", care: "maintenance", tier: "recommended", risk: "performance", minutes: 20, schedule: "semiannual", dueOffset: 12, remindEnabled: true, justification: "Dusty coils make the compressor work harder." },
     { title: "Clean range-hood filter", scope: "home", care: "cleaning", tier: "optional", risk: "performance", minutes: 15, schedule: "monthly", dueOffset: 2 },
     { title: "Wipe down kitchen surfaces", scope: "home", care: "cleaning", tier: "optional", risk: "comfort", minutes: 10, schedule: "weekly", dueOffset: 1 },
     { title: "Run washer cleaning cycle", scope: "item_unit", itemKey: "washer", care: "cleaning", tier: "recommended", risk: "performance", minutes: 15, schedule: "monthly", dueOffset: -10, status: "done" },
@@ -199,6 +205,7 @@ async function seedTasks(items: Record<string, { id: string; name: string; room:
       symptomTags: [],
       reCheckTriggers: [],
       priorityTier: t.tier,
+      remindEnabled: t.remindEnabled ?? null,
       riskLevel: t.risk,
       estimatedMinutes: t.minutes,
       defaultAssignee: null,
