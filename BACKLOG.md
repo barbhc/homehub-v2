@@ -417,3 +417,26 @@ which nobody would have reported because it only looks slightly loose.
 **Still open: the sweep.** 43 files use `justify-between`; this was the only
 row of this exact shape today, but the pattern will recur, and the container-
 query mechanism now has one worked example to copy.
+
+## Journey suite fails 4/5 locally, on main as well as on qa/all
+
+Found 2026-08-27 late. `npm run test:e2e:journey:emu` — a FRESH emulator stack
+via `emulators:exec`, not the long-lived one — fails J2 through J5 with
+`waitForURL` timeouts. The failure screenshot shows the sign-in screen with
+`e2e@homehub.test` in the field, so the walks are not getting past login.
+
+**It is not today's work.** Checked out `main` and ran the identical command:
+4 failed, 1 passed, same shape. It reproduces without any round-18, add-flow
+or tour change present, so it is this machine rather than the branch. Clearing
+`e2e/.auth` did not help; the journey config has no auth setup project, so the
+walks sign themselves in.
+
+Earlier the same day the suite passed 5/5 repeatedly against a long-lived
+stack, which is the opposite of the usual trap — normally the long-lived stack
+is the one that lies. Whatever changed is in the host's emulator state or in
+seed timing under `emulators:exec`, not in the app.
+
+Worth resolving before trusting a local journey run again: CI runs these same
+suites, so the fast check is whether the next PR's browser job is green. If CI
+passes and local keeps failing, the harness has a host dependency worth
+finding — a journey suite nobody trusts is a journey suite nobody runs.

@@ -739,7 +739,7 @@ export function IdentifyStep({
                      the wrong box. Above a 24rem container the group hugs left
                      and the leftover width becomes margin — which is what extra
                      width is for in a single-column form. */
-                  className="flex min-h-14 w-full items-center justify-between @min-[360px]:justify-start gap-3 @min-[360px]:gap-4 rounded-2xl border-2 border-primary bg-secondary px-4 py-3 text-left transition-colors disabled:opacity-60"
+                  className="flex min-h-14 w-full items-center justify-between gap-3 @min-[360px]:gap-4 rounded-2xl border-2 border-primary bg-secondary px-4 py-3 text-left transition-colors disabled:opacity-60"
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card">
@@ -761,13 +761,19 @@ export function IdentifyStep({
                           instruction — what to aim at, and what you get — and at
                           hint size they read as fine print under a heading three
                           steps larger. 14px is what every field label on this
-                          screen uses, so the card now sits on the same scale as
-                          the form beside it. */}
-                      <span className="mt-0.5 block text-sm text-muted-foreground">
-                        Find the model number
-                      </span>
-                      <span className="block text-sm text-muted-foreground">
-                        We&apos;ll do the typing
+                          screen uses, so the card sits on the same scale as the
+                          form beside it.
+
+                          Stacked in a narrow container, side by side once there
+                          is room. A CONTAINER query, not a breakpoint: this card
+                          may later sit in a sidebar or a modal, where a `md:`
+                          prefix would describe the wrong box. The point is that
+                          extra width buys more content per row rather than a
+                          longer gap before the chevron — see BACKLOG.md. */}
+                      <span className="mt-0.5 flex flex-col @min-[26rem]:flex-row @min-[26rem]:items-center @min-[26rem]:gap-2 text-sm text-muted-foreground">
+                        <span>Find the model number</span>
+                        <span className="hidden @min-[26rem]:inline" aria-hidden>·</span>
+                        <span>We&apos;ll do the typing</span>
                       </span>
                     </span>
                   </span>
