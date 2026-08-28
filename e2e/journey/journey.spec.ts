@@ -327,56 +327,50 @@ test.describe("journey walks", () => {
 
     await page.getByRole("button", { name: /^Review tasks$/ }).filter(visible).first().click()
 
-    // HH-119: this door had NEVER opened the consolidated view. `focus` now
-    // defaults to "maintenance", so every caller gets the approved review
-    // without passing anything, and the old "Step 1 of 2" full review is the
-    // thing you opt into rather than the thing you fall back to.
-    //
-    // The seeded dishwasher's only task is CLEANING, so the consolidated view
-    // correctly reports that nothing needs a reminder — and still lists the
-    // task, which is the point: filtered, never hidden.
-    const consolidated = page.getByText(/No maintenance tasks found|Keep an eye on \d+ thing/i).first()
-    await expect(consolidated).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText("Step 1 of 2 · What each task is")).toHaveCount(0)
-    // Exactly ONE review is mounted (HH-120): two used to be, stacked.
+    // ROUND 18: one screen, grouped by kind. The seeded dishwasher's only task
+    // is a monthly cleaning job, so this walk covers the case that produced six
+    // reports — a manual with no maintenance — and the screen now handles it by
+    // simply having no Maintenance section rather than by explaining an absence.
+    const summary = page.getByText(/show(s)? up in Tasks/i).first()
+    await expect(summary).toBeVisible({ timeout: 10_000 })
+
+    // The two channels, stated apart. This is the owner's correction: "there
+    // are items that are scheduled to be reminded within the app even if
+    // there's no notification." A monthly clean DOES come back; it does not buzz.
+    await expect(page.getByText(/None will notify your phone/i).first()).toBeVisible()
+
+    // No step machinery, and exactly ONE review mounted (HH-120).
+    await expect(page.getByText(/Step \d of 2/)).toHaveCount(0)
+    await expect(page.getByRole("button", { name: /Review them all/ })).toHaveCount(0)
     await expect(page.getByRole("dialog")).toHaveCount(1)
-    // Nothing was dropped on the floor by the filter.
+
+    // Nothing was dropped: the task is in the Cleaning section, named.
     await expect(page.getByText("Descale the dishwasher").first()).toBeVisible()
+    await expect(page.getByText("Keeps it nice. Lives on the item page.").first()).toBeVisible()
+
     // And it does not claim a manual it may not have.
     await expect(page.getByText(/This manual is cleaning/)).toHaveCount(0)
-    // HH-134: the previous note read "…and when there is none, it says so and
-    // still shows what it saved". That described the screen instead of stating
-    // the requirement, so reviewing the gallery against it confirmed the very
-    // contradiction the owner then reported three times — the screen claimed
-    // the rows were saved while the button underneath was what saved them.
-    // A note has to say what must be TRUE, not what is on screen.
-    await snap(page, "J3", "review-consolidated",
-      "Maintenance first. With none, it must NOT claim these are already saved while the primary button is still what saves them — copy and button have to agree",
-      consolidated, { viewportOnly: true })
+
+    await snap(page, "J3", "review-one-screen",
+      "Four sections by kind, Setup last. The summary must state BOTH channels separately — what shows up in Tasks, and what notifies — and must not claim these are already saved while the primary button is what saves them",
+      summary, { viewportOnly: true })
 
     // HH-134, pinned here because this is the state the owner reported three
     // times. These tasks are ALREADY on the item (the seed committed them), so
-    // the screen may say so — and then Save has nothing left to do and the
-    // button must say Done. The bug was the pair: "they're saved" above
-    // "Save all 11".
+    // Save has nothing left to do and the button must say Done. The bug was the
+    // pair: "they're saved" above "Save all 11".
     await expect(page.getByRole("button", { name: "Done" }).last()).toBeVisible({ timeout: 10_000 })
     await expect(page.getByRole("button", { name: /^Save all \d+$/ })).toHaveCount(0)
 
-    // The full review stays one tap away.
-    await expect(page.getByRole("button", { name: /Review them all/ })).toBeVisible()
+    // The walkthrough is the route tasks from older parses take into the new
+    // vocabulary, so it must be reachable from here.
+    await expect(page.getByRole("button", { name: /Go through them one by one/ })).toBeVisible()
 
-    // HONEST COVERAGE NOTE, because the previous version of this comment
-    // overclaimed. The seeded dishwasher's only task is CLEANING, so on this
-    // walk there is genuinely nothing to schedule and nothing to write — Done
-    // closes without a save, which is correct. That means J3 does NOT exercise
-    // the review WRITE, and no emu spec does either.
-    //
-    // The old comment here said a save "can stop happening unnoticed" and then
-    // asserted a button that, after HH-134, only appears when there IS
-    // something to save. Keeping that assertion would have meant reintroducing
-    // the contradiction to satisfy a test. The gap is recorded in BACKLOG.md
-    // instead of papered over: the seed needs one maintenance task before this
-    // walk can cover the write.
+    // HONEST COVERAGE NOTE, unchanged in substance from before: the seeded
+    // dishwasher's only task is CLEANING, so there is genuinely nothing to
+    // write on this walk — Done closes without a save, which is correct. J3
+    // therefore does NOT exercise the review WRITE; e2e/emu/task-review.spec.ts
+    // does, by changing a cadence and a reminder before saving.
     const done = page.getByRole("button", { name: "Done" }).last()
     await expect(done).toBeVisible({ timeout: 10_000 })
     await done.click()
@@ -484,11 +478,21 @@ test.describe("journey walks", () => {
     // toBeVisible only means "in the layout and not display:none". Inside a
     // sheet this list opened BELOW the footer and nobody could ever see it —
     // green assertions, useless feature. Assert it is inside the viewport.
-    const box = await suggestion.boundingBox()
+    // Polled, not sampled once. The list animates into place, and reading its
+    // box on the first frame caught it mid-flight roughly one run in three —
+    // a flaky guard is worse than none, because it teaches people to re-run
+    // until green. The assertion is unchanged in strength: if the list never
+    // comes fully into view, this still fails.
     const vh = page.viewportSize()!.height
+    await expect
+      .poll(async () => {
+        const b = await suggestion.boundingBox()
+        return b ? Math.round(b.y + b.height) : null
+      }, { message: "the suggestion list must settle inside the viewport", timeout: 5_000 })
+      .toBeLessThanOrEqual(vh)
+    const box = await suggestion.boundingBox()
     expect(box, "the suggestion list must have a box").not.toBeNull()
     expect(box!.y).toBeGreaterThanOrEqual(0)
-    expect(box!.y + box!.height).toBeLessThanOrEqual(vh)
     // Still open at the shutter, not merely at assertion time: this list closes
     // on blur, and a screenshot that shows a teal-bordered field with nothing
     // under it documents a feature nobody can see.

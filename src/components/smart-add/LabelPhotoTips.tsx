@@ -23,18 +23,19 @@ import { LightbulbIcon } from "lucide-react"
  * legible; and "torch" is British, in an app whose users are in California.
  */
 
-export function LabelPhotoTips({ variant }: { variant: "before" | "after-empty" }) {
-  if (variant === "before") {
-    return (
-      <p className="text-xs text-muted-foreground">
-        Look for the{" "}
-        <span className="font-medium text-foreground">label with the model number</span> on it,
-        not the front of the appliance. It is usually inside the door frame, around the back, or
-        under the lid.
-      </p>
-    )
-  }
-
+/**
+ * The "before" variant retired on 2026-08-27. It was pre-capture guidance filed
+ * BEHIND the capture control, inside a disclosure most people never opened —
+ * so the advice that prevents the commonest failure was only reachable by
+ * someone who had already gone looking. What mattered in it now lives where it
+ * is read first: "Point at the model number" on the scan card, and "Usually on
+ * a label inside the door or around the back" under the model field.
+ *
+ * The prop is gone rather than defaulted, so a caller that wants the old
+ * behaviour fails to compile instead of quietly rendering retired copy.
+ */
+export function LabelPhotoTips({ variant }: { variant: "after-empty" }) {
+  void variant
   return (
     <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
       <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">

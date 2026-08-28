@@ -2,12 +2,13 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Loader2Icon, BellRingIcon, XIcon, Undo2Icon } from "lucide-react"
+import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, XIcon, Undo2Icon } from "lucide-react"
 import {
   reviewBucketFor,
-  isScheduled,
+  isScheduledTask,
   willNotify,
   remindsByDefault,
+  asTier,
   sortWithinBucket,
   summarize,
   isRecurring,
@@ -38,12 +39,30 @@ export const TIER_RAIL: Record<string, string> = {
   essential: "var(--hh-clay)",
   recommended: "var(--hh-teal)",
   optional: "var(--hh-slate)",
-  whenNeeded: "var(--hh-clay)",
+}
+
+/**
+ * Rails for the four SECTIONS, kept separate from the tier rails above.
+ *
+ * They used to be one map, which is how HH-140 happened: it held three keys
+ * that were both tier names and bucket names, so three of the six sections had
+ * a rail and three silently fell back to an emoji. Two maps, two questions —
+ * "how much does this matter" and "what kind of work is it" — and neither can
+ * answer for the other by accident.
+ *
+ * Every bucket must appear here. `TaskReviewSheet.sections.test.tsx` fails if
+ * one is missing rather than letting it fall through to an icon.
+ */
+export const SECTION_RAIL: Record<ReviewBucket, string> = {
+  maintenance: "var(--hh-clay)",
+  cleaning: "var(--hh-teal)",
+  usage: "var(--hh-teal)",
   setup: "var(--hh-slate)",
-  tip: "var(--hh-teal)",
 }
 import { isThinManual, thinManualWarning } from "../../../shared/parse/pdfShape"
+import { applyHouseRules, looksLikeSetupStep } from "../../../shared/tasks/houseRules"
 import { classifyActorFromText } from "@/lib/taskActor"
+import { isFirstReview, markFirstReviewSeen } from "@/lib/firstReview"
 import type {
   PreviewChunk, PreviewResult, PreviewTask, PriorityTier, ScheduleType,
 } from "@/modules/knowledge/types/previewTypes"
@@ -80,14 +99,14 @@ import { TaskReviewFeedback, type ReviewEdit, type ReviewEditSummary } from "./T
  * so the tiles always reflect where the row is actually going.
  */
 const KINDS = [
-  { id: "maintenance", icon: "🔧", label: "Maintenance", hint: "upkeep" },
-  { id: "cleaning", icon: "🧽", label: "Cleaning", hint: "freshness" },
-  { id: "setup", icon: "🧰", label: "Setup", hint: "one-time" },
-  { id: "tip", icon: "💡", label: "Tip", hint: "usage" },
+  { id: "maintenance", icon: "🔧", label: "Maintenance", hint: "keeps it working" },
+  { id: "cleaning", icon: "🧽", label: "Cleaning", hint: "keeps it nice" },
+  { id: "usage", icon: "💡", label: "Usage", hint: "good to know" },
+  { id: "setup", icon: "🧰", label: "Setup", hint: "once, at install" },
 ] as const
 type KindChoice = (typeof KINDS)[number]["id"]
 /** What actually gets stored — "setup" is expressed through the schedule. */
-type RowKind = "maintenance" | "cleaning" | "tip"
+type RowKind = "maintenance" | "cleaning" | "usage"
 
 // Priority answers "how much does this matter" only. Whether it interrupts you
 // is the separate Remind switch below, so these hints must not promise anything
@@ -156,7 +175,7 @@ interface ReviewRow {
   id: string
   riskLevel: string | null
   actor: string
-  origin: "task" | "tip"
+  origin: "task" | "usage"
   title: string
   description: string | null
   justification: string | null
@@ -197,12 +216,43 @@ interface ReviewRow {
  */
 export function draftMaintenanceCount(data: PreviewResult): number {
   return rowsFrom(data).filter(
-    (r) => r.included && isScheduled(bucketOfRow(r)) && r.kind === "maintenance",
+    (r) => r.included && isScheduledTask(taskLikeOf(r)) && r.kind === "maintenance",
   ).length
 }
 
-function rowsFrom(data: PreviewResult): ReviewRow[] {
-  const taskRows: ReviewRow[] = data.tasks.map((t, i) => ({
+/**
+ * The draft, corrected before anyone is asked to judge it.
+ *
+ * Two things the review used to show that it already knew were wrong:
+ *
+ * FREEZE PREP in a freeze-free home. The house rules suppress the whole
+ * freeze_prep family when a home is marked freeze-free, and they work — but
+ * they run inside commitDraft, which is the moment Save is pressed. So the
+ * owner, whose home is set to a mild climate, was shown "Winterize the
+ * Dishwasher", asked whether to keep it, and would then have saved four
+ * maintenance tasks where the screen promised five. Suppressing here means the
+ * review shows what saving will actually produce. commitDraft still applies the
+ * rules server-side; this is not a replacement for that, it is the same
+ * decision made early enough to be honest about.
+ *
+ * SETUP STEPS misfiled as upkeep. "Purge Hot Water Lines Before First Use"
+ * arrived with schedule `as_needed`, so kind-first grouping filed it under
+ * Maintenance — correctly, from wrong input. Rewriting the schedule to `setup`
+ * here puts it in the Setup section AND carries the correction into what gets
+ * saved, because the rows are what onSave hands back.
+ */
+function correctDraft(tasks: PreviewResult["tasks"], freezeRiskFalse: boolean): PreviewResult["tasks"] {
+  const kept = freezeRiskFalse ? applyHouseRules(tasks, [], { freezeRiskFalse }).kept : tasks
+  return kept.map((t) =>
+    t.schedule_type !== "setup" &&
+    looksLikeSetupStep([t.title, t.description ?? "", t.instructions_text ?? ""].join(" "))
+      ? { ...t, schedule_type: "setup" as const }
+      : t,
+  )
+}
+
+function rowsFrom(data: PreviewResult, freezeRiskFalse = false): ReviewRow[] {
+  const taskRows: ReviewRow[] = correctDraft(data.tasks, freezeRiskFalse).map((t, i) => ({
     id: `t${i}:${t.title}`,
     origin: "task",
     title: t.title,
@@ -218,7 +268,7 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
       t.schedule_type === "after_each_use" &&
       t.risk_level !== "safety" &&
       classifyActorFromText([t.title, t.description ?? "", t.instructions_text ?? ""].join(" ")) === "diy"
-        ? "tip"
+        ? "usage"
         : t.care_type === "cleaning" ? "cleaning" : "maintenance",
     tier: t.priority_tier,
     schedule: t.schedule_type,
@@ -233,7 +283,7 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
     .filter((c) => (c.tags ?? []).includes(USAGE_TIP_TAG))
     .map((c, i) => ({
       id: `c${i}:${c.title ?? ""}`,
-      origin: "tip",
+      origin: "usage",
       title: c.title ?? "Tip",
       description: c.content,
       justification: null,
@@ -241,7 +291,7 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
       origSchedule: "after_each_use" as ScheduleType,
       riskLevel: null,
       actor: "diy",
-      kind: "tip" as RowKind,
+      kind: "usage" as RowKind,
       tier: "optional" as PriorityTier,
       schedule: "after_each_use" as ScheduleType,
       intervalDays: null,
@@ -255,10 +305,10 @@ function rowsFrom(data: PreviewResult): ReviewRow[] {
 }
 
 const taskLikeOf = (r: ReviewRow) => ({
-  care_type: r.kind === "tip" ? "operating" : r.kind,
+  care_type: r.kind === "usage" ? "operating" : r.kind,
   priority_tier: r.tier,
   schedule_type: r.schedule,
-  keep_as_task: r.kind !== "tip",
+  keep_as_task: r.kind !== "usage",
   risk_level: r.riskLevel,
   actor: r.actor,
   remind_enabled: r.remindEnabled,
@@ -267,7 +317,7 @@ const bucketOfRow = (r: ReviewRow): ReviewBucket => reviewBucketFor(taskLikeOf(r
 /** The tile to light up: a row on the setup schedule reads as Setup, whatever
  *  its care_type happens to be. */
 const displayKind = (r: ReviewRow): KindChoice =>
-  r.kind === "tip" ? "tip" : r.schedule === "setup" ? "setup" : r.kind
+  r.kind === "usage" ? "usage" : r.schedule === "setup" ? "setup" : r.kind
 /** Single source of truth for the bell — the same function the item page uses. */
 const remindsOfRow = (r: ReviewRow): boolean => willNotify(taskLikeOf(r))
 
@@ -301,6 +351,11 @@ interface TaskReviewSheetProps {
    * and lose the whole parse.
    */
   alreadySaved?: boolean
+  /** The home is marked freeze-free, so freeze-prep tasks are suppressed before
+   *  the review rather than at save. Passed IN rather than read from context:
+   *  this component is rendered in tests without providers, and a hook here
+   *  crashes every one of them — the same way a useAuth call did in round 18. */
+  freezeRiskFalse?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   itemName: string
@@ -332,8 +387,9 @@ export function TaskReviewSheet({
   open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, focus = "maintenance",
   presentation = "sheet",
   alreadySaved = false,
+  freezeRiskFalse = false,
 }: TaskReviewSheetProps) {
-  const initial = useMemo(() => rowsFrom(previewData), [previewData])
+  const initial = useMemo(() => rowsFrom(previewData, freezeRiskFalse), [previewData, freezeRiskFalse])
   const [rows, setRows] = useState<ReviewRow[]>(initial)
   /**
    * "maintenance" opens straight on the schedule screen, listing only the
@@ -344,18 +400,23 @@ export function TaskReviewSheet({
    * The full sheet is one tap away ("Review everything"), so nothing becomes
    * unreachable; it stops being compulsory.
    */
-  const [step, setStep] = useState<1 | 2>(focus === "maintenance" ? 2 : 1)
+  // Round 18: there is no step 2. The review is ONE screen, grouped by kind,
+  // and every row carries its own cadence and bell — which is what step 2
+  // existed to collect. `focus` survives only to decide what the summary counts.
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [guideIndex, setGuideIndex] = useState<number | null>(null)
   const [walked, setWalked] = useState(false)
-  const [cadOpenId, setCadOpenId] = useState<string | null>(null)
+  /** Round 18: the first review a person ever opens explains what Save does,
+   *  against rows they can see. Read once on mount so dismissing it does not
+   *  depend on a write having landed. */
+  const [showFirstRun] = useState(() => isFirstReview())
   /** HH-85: the setup section starts tucked away; one tap reveals it. */
   const [setupOpen, setSetupOpen] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setRows(initial); setStep(focus === "maintenance" ? 2 : 1)
+    setRows(initial)
     setExpandedId(null); setGuideIndex(null); setWalked(false); setSaveError(null)
   }, [initial, focus])
 
@@ -365,19 +426,12 @@ export function TaskReviewSheet({
 
   const counts = useMemo(() => {
     const s = summarize(rows.filter((r) => r.included).map((r) => ({
-      care_type: r.kind === "tip" ? "operating" : r.kind,
-      priority_tier: r.tier, schedule_type: r.schedule, keep_as_task: r.kind !== "tip",
+      care_type: r.kind === "usage" ? "operating" : r.kind,
+      priority_tier: r.tier, schedule_type: r.schedule, keep_as_task: r.kind !== "usage",
     })))
-    return { ...s, tasks: rows.filter((r) => r.included && r.kind !== "tip").length }
+    return { ...s, tasks: rows.filter((r) => r.included && r.kind !== "usage").length }
   }, [rows])
 
-  /** Does the focused review have anything to ask about? A manual of pure
-   *  cleaning advice has not — and then the sheet is a summary, not a form,
-   *  so its header and its button both have to say something else. */
-  const nothingToSchedule = useMemo(() => {
-    const onSched = rows.filter((r) => r.included && isScheduled(bucketOfRow(r)))
-    return (focus === "maintenance" ? onSched.filter((r) => r.kind === "maintenance") : onSched).length === 0
-  }, [rows, focus])
 
   const edits: ReviewEditSummary = useMemo(() => {
     const base = new Map(initial.map((r) => [r.id, r]))
@@ -399,7 +453,7 @@ export function TaskReviewSheet({
     // Setup: keep it a task, move it onto the one-time schedule.
     if (choice === "setup") {
       patch(r.id, {
-        kind: r.kind === "tip" ? "maintenance" : r.kind,
+        kind: r.kind === "usage" ? "maintenance" : r.kind,
         schedule: "setup",
         scheduleSuggested: false,
       })
@@ -408,17 +462,17 @@ export function TaskReviewSheet({
     const next: Partial<ReviewRow> = { kind: choice }
     // Leaving Setup for Maintenance/Cleaning means it now needs a cadence, or it
     // would silently fall into "when needed" with no timing at all.
-    if (choice !== "tip" && r.schedule === "setup") {
+    if (choice !== "usage" && r.schedule === "setup") {
       next.schedule = "monthly"; next.scheduleSuggested = true
     }
-    if (choice !== "tip" && !isRecurring(r.schedule) && r.schedule !== "setup" && r.origSchedule === "after_each_use") {
+    if (choice !== "usage" && !isRecurring(r.schedule) && r.schedule !== "setup" && r.origSchedule === "after_each_use") {
       next.schedule = "monthly"; next.scheduleSuggested = true
     }
     patch(r.id, next)
   }
 
   const toggleSchedule = (r: ReviewRow) => {
-    if (isScheduled(bucketOfRow(r))) patch(r.id, { schedule: "as_needed", scheduleSuggested: false })
+    if (isScheduledTask(taskLikeOf(r))) patch(r.id, { schedule: "as_needed", scheduleSuggested: false })
     else patch(r.id, { schedule: "monthly", scheduleSuggested: true })
   }
 
@@ -445,7 +499,7 @@ export function TaskReviewSheet({
     const keptChunks: PreviewChunk[] = previewData.chunks.filter((c) => !(c.tags ?? []).includes(USAGE_TIP_TAG))
     for (const r of rows) {
       if (!r.included) continue
-      if (r.kind === "tip") {
+      if (r.kind === "usage") {
         keptChunks.push(
           r.chunk ?? {
             chunk_type: "how_to", title: r.title, content: r.description ?? r.title,
@@ -471,13 +525,18 @@ export function TaskReviewSheet({
     }
     const err = await onSave(keptTasks, keptChunks, edits)
     if (err) setSaveError(err)
+    // The explanation retires on the first successful SAVE, not on a "Got it".
+    // It answers "what saving these does", so the moment it stops being news is
+    // the moment you have done it once — and the dismiss button it used to
+    // carry was the last thing in this box wearing a control's styling.
+    else markFirstReviewSeen()
   }
 
   // ── rendering ──────────────────────────────────────────────────────────────
   const guideRow = guideIndex != null ? rows[guideIndex] : null
 
   const expandedCard = (r: ReviewRow, opts?: { onNext?: () => void }) => {
-    const onSched = isScheduled(bucketOfRow(r))
+    const onSched = isScheduledTask(taskLikeOf(r))
     return (
       <div data-expanded="true" className="rounded-2xl border-[1.5px] p-4 mb-2 bg-card" style={{ borderColor: "var(--hh-teal, #1B6B5A)" }}>
         <div className="flex items-start gap-2">
@@ -520,7 +579,7 @@ export function TaskReviewSheet({
         </div>
 
         {/* The one destructive choice on this screen, stated only when it applies. */}
-        {r.kind === "tip" && r.origin === "task" && r.origSchedule === "setup" && (
+        {r.kind === "usage" && r.origin === "task" && r.origSchedule === "setup" && (
           <div className="mt-2 rounded-xl px-2.5 py-2 text-[11.5px]" style={{ background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}>
             The manual lists this as a <b>one-time setup step</b>. Saving it as a tip removes it from
             your setup checklist and keeps it as a note instead.
@@ -543,7 +602,7 @@ export function TaskReviewSheet({
           ))}
         </div>
 
-        {r.kind === "tip" ? (
+        {r.kind === "usage" ? (
           <div className="mt-3 rounded-xl bg-violet-50 dark:bg-violet-950/40 px-2.5 py-2 text-[11.5px] text-violet-700 dark:text-violet-300">
             <b>Saved as a tip</b> — on the item page, never scheduled.
           </div>
@@ -558,7 +617,12 @@ export function TaskReviewSheet({
             <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5">
               <span className="text-[13px] leading-snug">
                 {onSched
-                  ? <>Repeats <b className="font-bold">{cadOf(r).toLowerCase()}</b> — adjust it on the next step</>
+                  // Round 18: this said "adjust it on the next step". There is
+                  // no next step — the cadence chips are directly below. Caught
+                  // by looking at the built screen, not by any test: the
+                  // sentence is still grammatical, still true-sounding, and
+                  // points at a screen that no longer exists.
+                  ? <>Repeats <b className="font-bold">{cadOf(r).toLowerCase()}</b> — change it below</>
                   : <><b className="font-bold">Not scheduled</b> — {r.schedule === "setup" ? "a one-time step" : "you'll do it when needed"}</>}
               </span>
               <button type="button" onClick={() => toggleSchedule(r)}
@@ -606,10 +670,90 @@ export function TaskReviewSheet({
               </>
             )}
 
+            {/* HOW OFTEN. This lived in step 2 until round 18; deleting that screen
+                without moving it would have left the review with no cadence
+                editor at all. It sits directly above the reminder because they
+                are one decision — "how does this task behave?" — and because the
+                cadence is what decides whether the reminder can be offered. */}
+            {r.schedule !== "setup" && (
+              <>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">How often?</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {CADENCES.map((c) => (
+                    <button key={c.id} type="button" aria-pressed={r.schedule === c.id}
+                      onClick={() => patch(r.id, {
+                        schedule: c.id,
+                        scheduleSuggested: false,
+                        intervalDays: c.id === "every_n_days" ? r.intervalDays ?? DEFAULT_INTERVAL_DAYS : null,
+                      })}
+                      className={`rounded-full border px-3 py-1.5 text-[11.5px] font-bold transition-colors ${
+                        r.schedule === c.id
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-background text-muted-foreground"}`}>
+                      {c.id === "every_n_days" && r.schedule === c.id
+                        ? cadenceLabel(r.schedule, r.intervalDays)
+                        : c.label}
+                    </button>
+                  ))}
+                </div>
+                {/* HH-100's escape hatch. It lived inside step 2's cadence
+                    popover; moving the picker without it would have left
+                    "Something else…" setting a silent 14 days with no way to
+                    change the number. */}
+                {r.schedule === "every_n_days" && (() => {
+                  const cur = splitInterval(r.intervalDays ?? DEFAULT_INTERVAL_DAYS)
+                  return (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <label htmlFor={`interval-${r.id}`} className="text-[11.5px] text-muted-foreground">Every</label>
+                      <input
+                        id={`interval-${r.id}`}
+                        type="number" inputMode="numeric" min={1} max={999}
+                        value={cur.n}
+                        onChange={(e) => {
+                          const n = Number(e.target.value)
+                          patch(r.id, { intervalDays: toDays(Number.isFinite(n) && n > 0 ? n : 1, cur.unit) })
+                        }}
+                        className="w-16 rounded-md border border-border bg-background px-2 py-1 text-[13px]"
+                      />
+                      <select
+                        aria-label="Unit"
+                        value={cur.unit}
+                        onChange={(e) => patch(r.id, { intervalDays: toDays(cur.n, e.target.value as IntervalUnit) })}
+                        className="rounded-md border border-border bg-background px-2 py-1 text-[13px]"
+                      >
+                        <option value="days">days</option>
+                        <option value="weeks">weeks</option>
+                        <option value="months">months</option>
+                        <option value="years">years</option>
+                      </select>
+                    </div>
+                  )
+                })()}
+              </>
+            )}
+
+            {/* "When did you last do this?" also lived only in step 2. It sits
+                under the cadence because it is the same conversation: the
+                cadence says how often, this says from when. */}
+            {onSched && <LastDoneControl row={r} patch={patch} />}
+
             {/* The reminder, asked separately from priority. Only offered when the
                 task is actually scheduled — off the schedule there is no due date
                 to remind against, and offering the switch would promise a
-                notification that can never fire. */}
+                notification that can never fire. Round 18 draws the ABSENCE
+                rather than a disabled switch: a control you cannot use, with an
+                excuse next to it, is worse than a sentence saying why. */}
+            {!onSched && r.schedule !== "setup" && (
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-border bg-background px-2.5 py-2.5">
+                <BellOffIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12.5px] font-semibold">No notification</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    Nothing to notify about until it has a date. Give it a cadence above and the switch appears.
+                  </span>
+                </span>
+              </div>
+            )}
             {onSched && (
               <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-xl border border-border bg-background px-2.5 py-2.5">
                 <input
@@ -622,7 +766,10 @@ export function TaskReviewSheet({
                   <span className="block text-[12.5px] font-semibold">Remind me when it&apos;s due</span>
                   <span className="block text-[11px] text-muted-foreground">
                     {r.remindEnabled == null
-                      ? remindsByDefault(bucketOfRow(r))
+                      // The TIER, not the bucket — see remindsByDefault. Passing
+                      // a bucket here is what would have silently switched every
+                      // on-screen bell off once the buckets were renamed.
+                      ? remindsByDefault(asTier(r.tier))
                         ? "On by default for Essential — you can turn it off"
                         : "Off by default — turn it on if you want one"
                       : remindsOfRow(r) ? "You turned this on" : "You turned this off"}
@@ -673,27 +820,64 @@ export function TaskReviewSheet({
   const collapsedRow = (r: ReviewRow) => {
     const b = bucketOfRow(r)
     const kind = KINDS.find((k) => k.id === r.kind)
-    const kindSaysSomething = b !== "setup" && b !== "tip" && !!kind
-    const rail = r.kind === "tip" ? TIER_RAIL[b] : TIER_RAIL[r.tier] ?? TIER_RAIL[b]
+    // The kind is only worth a pill where the SECTION has not already said it.
+    //
+    // Round 18 broke this and the screenshots caught it: the old rule excluded
+    // Setup and Tips because those two sections were the only ones named after
+    // a kind. Now EVERY section is named after a kind, so the pill was echoing
+    // its own heading — "Maintenance" on a row inside Maintenance.
+    //
+    // It still earns its place in the one case where they differ: safety work
+    // the taxonomy refuses to demote lands in Maintenance while its care_type
+    // is cleaning, and saying so is the whole point of that rule.
+    const kindSaysSomething = !!kind && kind.id !== b
+    const rail = r.kind === "usage" ? SECTION_RAIL[b] : TIER_RAIL[r.tier] ?? SECTION_RAIL[b]
+    const scheduled = isScheduledTask(taskLikeOf(r))
+    const reminds = r.included && remindsOfRow(r)
     return (
       <button key={r.id} type="button"
         onClick={(e) => expandAnchored(r.id, e.currentTarget)}
-        className={`w-full text-left rounded-xl border px-3 py-2.5 mb-1.5 flex items-center gap-2.5 transition-colors hover:border-primary ${
+        className={`w-full text-left rounded-xl border px-3 py-2.5 mb-1.5 flex items-center gap-2 transition-colors hover:border-primary ${
           r.included ? "bg-card border-border" : "border-dashed border-border opacity-50"}`}>
         <span aria-hidden="true" className="w-[3px] self-stretch min-h-[26px] shrink-0 rounded-full"
           style={{ background: r.included ? rail ?? "transparent" : "transparent" }} />
         <span className={`flex-1 min-w-0 text-[14px] font-semibold tracking-[-0.005em] ${r.included ? "" : "line-through text-muted-foreground"}`}>{r.title}</span>
-        {r.included && remindsOfRow(r) && (
-          <BellRingIcon className="size-[13px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Reminds you" />
-        )}
-        {r.included && isScheduled(b) && (
-          <span className="text-[12.5px] font-mono text-muted-foreground whitespace-nowrap tabular-nums">{cadOf(r)}</span>
-        )}
+
         {r.included && kindSaysSomething && (
           <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
             {kind.label}
           </span>
         )}
+
+        {/* ONE cadence chip, identical on every scheduled row.
+            Owner, round 18: "I like to have the cadence be standardized, and
+            then I would like a bell … to just show that notifications are on."
+            An earlier draft coloured the chip itself when a row notified, which
+            made cadences incomparable down the column — the one thing a column
+            of cadences is for. So the chip never changes, and the bell beside
+            it is the only thing that does.
+
+            Unscheduled rows get the same slot without a box: there is no
+            cadence to line up with, and "when needed" is the reason, not a
+            value. Usage and Setup rows get nothing at all — no timing to
+            state. */}
+        {r.included && (scheduled ? (
+          <span className="shrink-0 rounded-lg border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono text-muted-foreground whitespace-nowrap tabular-nums">
+            {cadOf(r)}
+          </span>
+        ) : b === "maintenance" || b === "cleaning" ? (
+          <span className="shrink-0 text-[11px] font-mono italic text-muted-foreground/75 whitespace-nowrap">
+            when needed
+          </span>
+        ) : null)}
+
+        {/* The notification marker sits BESIDE the chip, never inside it. Its
+            absence is as meaningful as its presence, so this column is the
+            answer to "which of these will buzz me" in one glance. */}
+        {reminds && (
+          <BellRingIcon className="size-[14px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Notifies you" />
+        )}
+
         <span role="button" tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); patch(r.id, { included: !r.included }) }}
           aria-label={r.included ? `Skip ${r.title}` : `Bring back ${r.title}`}
@@ -703,6 +887,7 @@ export function TaskReviewSheet({
       </button>
     )
   }
+
 
   const inline = presentation === "inline"
   const Frame = inline ? InlineFrame : SheetFrame
@@ -719,18 +904,15 @@ export function TaskReviewSheet({
               (design/README.md) but this is a sentence, and at 10.5px it was
               under the readable floor for secondary text. */}
           <div className="text-[12.5px] text-muted-foreground">
+            {/* One screen, so there is no step to number. It says WHAT is here,
+                and the summary below says what will happen to it. `alreadySaved`
+                is the only fork: "review tasks" on the item page is looking at
+                live rows, not a proposal. */}
             {guideRow
               ? `Deciding each task · ${(guideIndex ?? 0) + 1} of ${rows.length}`
-              : step === 1
-                ? "Step 1 of 2 · What each task is"
-                : focus === "maintenance"
-                  // Round 12: was "What we found in this manual". focus=maintenance
-                  // is the default now, so this also heads the item page's
-                  // "Review tasks" — where there may be no manual at all.
-                  ? nothingToSchedule
-                    ? alreadySaved ? "What's saved to this item" : "What we found in the manual"
-                    : "Maintenance · how often & reminders"
-                  : "Step 2 of 2 · How often"}
+              : alreadySaved
+                ? `${rows.length} task${rows.length === 1 ? "" : "s"} on this item`
+                : `${rows.length} thing${rows.length === 1 ? "" : "s"} from the manual`}
           </div>
         </Head>
 
@@ -750,12 +932,7 @@ export function TaskReviewSheet({
               {thinManualWarning(previewData.pdfPages!)}
             </div>
           )}
-          {step === 2 ? (
-            <StepTwo
-              alreadySaved={alreadySaved} rows={rows} cadOpenId={cadOpenId} setCadOpenId={setCadOpenId} patch={patch}
-              bucketOfRow={bucketOfRow} focus={focus} setKind={setKind}
-              onReviewEverything={() => { setStep(1); scrollRef.current?.scrollTo?.({ top: 0 }) }} />
-          ) : guideRow ? (
+          {guideRow ? (
             <>
               {/* Back, because the walkthrough was one-way: "There's no way to go
                   back and review a previous task you can only move forward."
@@ -792,47 +969,85 @@ export function TaskReviewSheet({
             </>
           ) : (
             <>
-              <div className="text-[13px] mb-3.5">
-                {walked ? (
-                  <><b className="font-bold">{rows.length} task{rows.length === 1 ? "" : "s"}</b> from this manual. Tap any one to change it — or walk them again.</>
-                ) : (
-                  <>
-                    {/* Caught by eye in the journey gallery: "We found 1 things". */}
-                    {counts.scheduled === 0 ? (
-                      // "We found 5 things worth tracking. 0 go on your schedule"
-                      // argued with itself — it called five things worth
-                      // tracking and then said none of them counted, without
-                      // ever saying what DOES happen to them. A tester: "I'm
-                      // not quite clear what all this text is trying to tell me."
-                      <>
-                        {/* HH-140: step 2 leads with the FINDING and draws the
-                            line to the consequence (HH-137, her wording). Step 1
-                            led with a count and left the reader to work out why
-                            nothing was scheduled. Same finding, same order, so
-                            the two doors tell one story. */}
-                        <b className="font-bold">No maintenance tasks found.</b>{" "}
-                        The <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> we did find are setup steps and tips, so nothing here will remind you.{alreadySaved ? " They\u2019re saved to this item." : " Save them to keep them on this item."}
-                        <span className="block text-muted-foreground mt-0.5">Tap any one to change how it&apos;s filed.</span>
-                      </>
-                    ) : (
-                      <>
-                        We found <b className="font-bold">{rows.length} thing{rows.length === 1 ? "" : "s"}</b> worth tracking.{" "}
-                        <b className="font-bold">{counts.scheduled}</b> {counts.scheduled === 1 ? "goes" : "go"} on your schedule — the rest are setup steps and tips.
-                        <span className="block text-muted-foreground mt-0.5">Tap any task below to review and change it, or take them one at a time.</span>
-                      </>
-                    )}
-                  </>
+              {/* ONE box, not two. It used to be a first-run explainer in
+                  teal followed by a white summary, and between them they said
+                  the same three facts twice — once as sentences, once as
+                  numbers. The owner: "that's a bit duplicative of above… it's
+                  just a lot of reading before you even get to the tasks."
+
+                  So the numbers ARE the explanation. On a first review each
+                  line carries its clause; afterwards the clauses drop and the
+                  counts remain, because the counts change every time and the
+                  explanation does not.
+
+                  STYLING. It was tinted AND bordered, and in this app a teal
+                  border means "this is a control" — every other one is a
+                  <button>, including the "Got it" that used to sit inside this
+                  box. So a paragraph was wearing a button's costume, which is
+                  why it read as belonging to a different screen. The sheet's own
+                  note idiom is tinted and borderless (see "Goes to" on the
+                  expanded card), and the body sits at 13px rather than 11.5px —
+                  the rest of this sheet runs 13.5-17px, so the most important
+                  explanation on it was also the smallest text.
+
+                  HH-134 still governs the last line: until Save has run, nothing
+                  here is saved, and the screen may not imply otherwise. */}
+              <div className="mb-3.5 flex flex-col gap-2 rounded-xl px-3 py-2.5"
+                style={{ background: "var(--hh-teal-wash, rgba(27,107,90,.07))" }}>
+                {showFirstRun && !alreadySaved && (
+                  <span className="text-[14px] font-extrabold" style={{ color: "var(--hh-teal)" }}>
+                    What saving these does
+                  </span>
                 )}
-                {/* HH-140: this was a second FILLED primary, competing with the
-                    footer's own. The walkthrough is the slower alternative to
-                    the list already on screen, so it reads as the secondary it
-                    is. One filled button per screen — the footer's. */}
-                <div className="mt-2.5">
-                  <button type="button" onClick={() => { setGuideIndex(0); scrollRef.current?.scrollTo?.({ top: 0 }) }}
-                    className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-[12.5px] font-bold text-foreground hover:border-primary transition-colors">
-                    Go through them one by one{walked ? " again" : ""} →
-                  </button>
+                <div className="flex items-start gap-2 text-[13px] leading-snug">
+                  <CalendarCheckIcon className="mt-[3px] size-[14px] shrink-0" style={{ color: "var(--hh-teal)" }} />
+                  <span>
+                    {counts.scheduled === 0
+                      ? <>Nothing here goes on a schedule.</>
+                      : <>
+                          <b className="font-bold">{counts.scheduled} will show up in Tasks</b>
+                          {" "}when {counts.scheduled === 1 ? "it needs" : "they need"} doing.
+                        </>}
+                  </span>
                 </div>
+                <div className="flex items-start gap-2 text-[13px] leading-snug">
+                  {counts.notifying > 0
+                    ? <BellRingIcon className="mt-[3px] size-[14px] shrink-0" style={{ color: "var(--hh-teal)" }} />
+                    : <BellOffIcon className="mt-[3px] size-[14px] shrink-0 text-muted-foreground" />}
+                  <span>
+                    {counts.notifying === 0
+                      ? <>None will notify your phone.</>
+                      : <><b className="font-bold">{counts.notifying} of those will also notify your phone.</b></>}
+                    {showFirstRun && !alreadySaved && <> Tap a task to change that.</>}
+                  </span>
+                </div>
+                {showFirstRun && !alreadySaved && (
+                  <div className="flex items-start gap-2 text-[13px] leading-snug">
+                    <BellOffIcon className="mt-[3px] size-[14px] shrink-0 text-muted-foreground" />
+                    <span>Cleaning, usage and setup stay on the item page.</span>
+                  </div>
+                )}
+                <span className="text-[12.5px] text-muted-foreground">
+                  {alreadySaved
+                    ? "Tap any one to change how it’s filed, how often, or whether it notifies you."
+                    : "Nothing is saved until you press Save."}
+                </span>
+              </div>
+
+              {/* HH-140: outlined, not filled — the walkthrough is the slower
+                  alternative to the list already on screen, and the footer owns
+                  the one filled button. */}
+              {/* Two routes, said as two. The walkthrough was the only offer on
+                  screen, so the list below it read as something to look at
+                  rather than something to touch — and every row is editable.
+                  The owner asked for both to be visible: take the guided pass,
+                  or fix the two you disagree with and save. */}
+              <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <button type="button" onClick={() => { setGuideIndex(0); scrollRef.current?.scrollTo?.({ top: 0 }) }}
+                  className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-[13px] font-bold text-foreground hover:border-primary transition-colors">
+                  Go through them one by one{walked ? " again" : ""} →
+                </button>
+                <span className="text-[12.5px] text-muted-foreground">or tap any task to change it</span>
               </div>
 
               {REVIEW_BUCKET_ORDER.map((bucket) => {
@@ -849,9 +1064,7 @@ export function TaskReviewSheet({
                         2 does not have. */}
                     <div className="mt-3.5 mb-2">
                       <div className="flex items-center gap-2.5 text-[15px] font-extrabold tracking-[-0.015em]">
-                        {TIER_RAIL[bucket]
-                          ? <span aria-hidden="true" className="h-[15px] w-[3px] shrink-0 rounded-full" style={{ background: TIER_RAIL[bucket] }} />
-                          : <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>}
+
                         {copy.title}
                         {/* HH-85: setup opens on demand. "Already set up" is the
                             honest default for an appliance owned for months —
@@ -905,41 +1118,24 @@ export function TaskReviewSheet({
             </p>
           ) : (
           <>
-          {step === 2 && focus !== "maintenance" && (
-            <Button variant="ghost" onClick={() => { setStep(1); scrollRef.current?.scrollTo?.({ top: 0 }) }}>‹ Back</Button>
-          )}
-          <Button className="flex-1 font-bold" disabled={saving} onClick={() => {
-            if (step === 1 && counts.scheduled > 0) {
-              setGuideIndex(null); setWalked(true); setStep(2); scrollRef.current?.scrollTo?.({ top: 0 })
-            } else void handleSave()
-          }}>
+          {/* One screen, so one button. There is no "Next" any more — the
+              cadence and the reminder are decided on the rows themselves, which
+              is what step 2 existed to collect.
+
+              HH-134 still governs the wording: for a fresh parse this button is
+              the ONLY thing that writes these rows, so it never disappears, and
+              it never claims they are already saved. "Done" appears only when
+              Save genuinely has nothing left to do. */}
+          <Button className="flex-1 font-bold" disabled={saving} onClick={() => { void handleSave() }}>
             {saving && <Loader2Icon className="size-4 mr-2 animate-spin" />}
-            {step === 1 && counts.scheduled > 0
-              ? `Next: schedule ${counts.scheduled} task${counts.scheduled === 1 ? "" : "s"} →`
-              // HH-98: step 2 lists only the SCHEDULED tasks, but this button
-              // counts everything kept in step 1 — "Save 11" over three rows
-              // read as a contradiction. Both numbers, so it doesn't.
-              // "Save 3 tasks — 0 on a schedule · 2 tips" over a screen saying
-              // nothing needs a schedule reads as an argument with itself.
-              // When there is nothing to schedule, just say how many are saved.
-              : nothingToSchedule
-                // HH-134. "Save all 11" under a header saying nothing needs a
-                // reminder read as an argument with itself — and the owner
-                // reported it three times. The resolution is NOT to remove the
-                // button: for a fresh parse it is the only thing that writes
-                // these rows, and a read-only sheet would have lost her the
-                // whole scan. It is to stop the screen claiming they are
-                // already saved, and to say Done only when Save has nothing
-                // left to do.
-                ? alreadySaved && edits.total === 0
-                  ? "Done"
-                  : alreadySaved
-                    ? "Save changes"
-                    // "Save all 1" reads like a bug. One thing gets a sentence.
-                    : counts.tasks + counts.tips === 1
-                      ? "Save it"
-                      : `Save all ${counts.tasks + counts.tips}`
-                : `Save ${counts.tasks} task${counts.tasks === 1 ? "" : "s"}${counts.scheduled < counts.tasks ? ` — ${counts.scheduled} on a schedule` : ""}${counts.tips ? ` · ${counts.tips} tip${counts.tips === 1 ? "" : "s"}` : ""}`}
+            {alreadySaved && edits.total === 0
+              ? "Done"
+              : alreadySaved
+                ? "Save changes"
+                // "Save all 1" reads like a bug. One thing gets a sentence.
+                : counts.total === 1
+                  ? "Save it"
+                  : `Save all ${counts.total}`}
           </Button>
           </>
           )}
@@ -1020,381 +1216,3 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
   )
 }
 
-function StepTwo({
-  rows, cadOpenId, setCadOpenId, patch, bucketOfRow, focus = "maintenance", onReviewEverything, setKind,
-  alreadySaved = false,
-}: {
-  rows: ReviewRow[]
-  cadOpenId: string | null
-  setCadOpenId: (id: string | null) => void
-  patch: (id: string, next: Partial<ReviewRow>) => void
-  bucketOfRow: (r: ReviewRow) => ReviewBucket
-  alreadySaved?: boolean
-  focus?: "maintenance" | "all"
-  onReviewEverything?: () => void
-  /** Reclassifying from the folded section reuses step 1's logic, which knows
-   *  that Setup is a schedule fact and that leaving it needs a cadence. */
-  setKind?: (r: ReviewRow, choice: KindChoice) => void
-}) {
-  const onSchedule = rows.filter((r) => r.included && isScheduled(bucketOfRow(r)))
-  // Cleaning that repeats is still scheduled work, but it lives in the guides
-  // and is not what this screen is for.
-  const scheduled = focus === "maintenance"
-    ? onSchedule.filter((r) => r.kind === "maintenance")
-    : onSchedule
-
-  if (!scheduled.length) {
-    // A manual with nothing to schedule is NOT an empty screen. A tester's air
-    // fryer produced three cleaning tips and no maintenance, and this branch
-    // rendered one sentence on a full-height sheet above a button offering to
-    // "Save 3 tasks" — his words: "this page looks really empty… it'd be nice
-    // if it was more straightforward". So show what the manual actually gave
-    // us and say where it goes; the footer's count then agrees with the list.
-    const kept = rows.filter((r) => r.included)
-    return (
-      <div className="px-1 py-1">
-        {/* HH-137. This said "Nothing here needs a reminder." — true, but it
-            never said WHY, so the screen read as an empty review rather than a
-            result. Owner: "Just clarify that no maintenance tasks were found
-            which is why nothing needs a reminder."
-            So the heading is now the FINDING and the body draws the line from
-            it to the consequence. The sheet stays: she was shown the version
-            that removes it and chose this one.
-
-            It deliberately does NOT say "in this manual". focus=maintenance has
-            been the default since round 12, so this same branch heads the item
-            page's Review button, where there may be no manual in the story at
-            all — and a test pins that. Saying what was FOUND carries her
-            clarification without claiming a document we might not have. */}
-        <p className="text-[13px] font-bold">No maintenance tasks found.</p>
-        <p className="mt-1 mb-3 text-[12px] text-muted-foreground">
-          {/* Round 12: said "This manual is…", but focus=maintenance is now the
-              DEFAULT, so this branch is also what the item page's "Review
-              tasks" button opens — where there may be no manual in the story at
-              all. Describe what is here, not where it came from. */}
-          {/* The causal clause is the point: cleaning and usage advice is why
-              there is nothing to remind you about. The saved/not-saved split is
-              HH-134's and stays exactly as it was — those two clauses are what
-              its tests pin. */}
-          {focus === "maintenance"
-            ? alreadySaved
-              ? "Everything we found is cleaning or usage advice, so nothing here will remind you. They're saved to this item."
-              : "Everything we found is cleaning or usage advice, so nothing here will remind you. Save them to keep them on this item."
-            : alreadySaved
-              ? "Everything we found is a setup step or a tip, so nothing here will remind you. It's saved to this item."
-              : "Everything we found is a setup step or a tip, so nothing here will remind you. Save it to keep it on this item."}
-        </p>
-        {kept.length > 0 && (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            {kept.map((r) => (
-              <div key={r.id} className="flex items-center gap-2.5 border-t border-border px-3 py-2.5 first:border-t-0">
-                <span aria-hidden="true" className="w-[3px] self-stretch min-h-[18px] shrink-0 rounded-full"
-                  style={{ background: TIER_RAIL[r.tier] ?? "var(--hh-slate)" }} />
-                <span className="min-w-0 flex-1 text-[12.5px] font-semibold">{r.title}</span>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {r.kind === "tip" ? "Tip" : r.schedule === "setup" ? "Setup" : "Guide"}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        {onReviewEverything && (
-          <p className="mt-2.5 text-[11.5px] text-muted-foreground">
-            Want one of these on a schedule?{" "}
-            <button type="button" onClick={onReviewEverything}
-              className="font-bold underline underline-offset-2 text-primary">
-              Review them all
-            </button>
-          </p>
-        )}
-      </div>
-    )
-  }
-  return (
-    <>
-      {/* Round 11: this opened with four stacked explanatory lines at 11.5, 13,
-          11.5 and 11.5px — "a lot of small text with no sense of hierarchy".
-          Six sizes on one screen is the same as having none. Now: a title, one
-          sub, and the rest of the screen says it by being laid out properly.
-          The reassurance a tester asked for is still here, in the sub. */}
-      <div className="mb-4">
-        <h3 className="text-[17px] font-semibold tracking-[-0.015em]">
-          Keep an eye on {scheduled.length} thing{scheduled.length === 1 ? "" : "s"}
-        </h3>
-        <p className="mt-1 text-[14px] leading-snug text-muted-foreground">
-          Set how often, and whether we remind you. You can change these any time.
-        </p>
-      </div>
-      {(["essential", "recommended", "optional"] as const).map((tier) => {
-        const items = scheduled.filter((r) => r.tier === tier)
-        if (!items.length) return null
-        const copy = REVIEW_BUCKET_COPY[tier]
-        return (
-          <div key={tier}>
-            <div className="mt-3.5 mb-2">
-              <div className="flex items-center gap-2.5 text-[15px] font-extrabold tracking-[-0.015em]">
-                {TIER_RAIL[tier]
-                  ? <span aria-hidden="true" className="h-[15px] w-[3px] shrink-0 rounded-full" style={{ background: TIER_RAIL[tier] }} />
-                  : <span className="text-[16px] w-[17px] text-center">{copy.icon}</span>}
-                {copy.title}
-                {/* Mono is correct here — this IS a count. Just not at 11px. */}
-                <span className="ml-auto text-[12.5px] font-mono font-bold text-muted-foreground tabular-nums">{items.length}</span>
-              </div>
-              <div className="text-[12px] text-muted-foreground mt-0.5 pl-[13px]">{copy.sub}</div>
-            </div>
-            {items.map((r) => (
-              <div key={r.id} className="rounded-xl border border-border bg-card px-3 py-2.5 mb-1.5">
-                <div className="flex items-center gap-2.5">
-                  <span aria-hidden="true" className="w-[3px] self-stretch min-h-[26px] shrink-0 rounded-full"
-                    style={{ background: TIER_RAIL[tier] ?? "transparent" }} />
-                  <span className="flex-1 min-w-0 text-[14px] font-semibold">{r.title}</span>
-                  {/* HH-35: this was 10px grey mono — the most important control
-                      on the screen, set smaller than anything around it. */}
-                  <button type="button" onClick={() => setCadOpenId(cadOpenId === r.id ? null : r.id)}
-                    className="rounded-full px-2.5 py-1 text-[12.5px] font-semibold whitespace-nowrap"
-                    style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>
-                    {cadOf(r)} ▾
-                  </button>
-                  {/* How often and whether it interrupts you are one decision in
-                      the user's head, so they sit together. Off the focused
-                      screen this lives inside each task's card instead. */}
-                  {focus === "maintenance" && (
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={remindsOfRow(r)}
-                      aria-label={`Remind me about ${r.title}`}
-                      onClick={() => patch(r.id, { remindEnabled: !remindsOfRow(r) })}
-                      className="relative h-[20px] w-[34px] shrink-0 rounded-full transition-colors"
-                      style={{ background: remindsOfRow(r) ? "var(--hh-teal)" : "var(--hh-line2)" }}
-                    >
-                      <span
-                        className="absolute top-[2px] size-[16px] rounded-full bg-white shadow-sm transition-all"
-                        style={{ left: remindsOfRow(r) ? 16 : 2 }}
-                      />
-                    </button>
-                  )}
-                </div>
-                {/* HH-56, the education half: say what the MANUAL said, so a
-                    changed cadence is the user disagreeing with the manufacturer
-                    knowingly rather than with us silently. */}
-                {r.scheduleSuggested && (
-                  <div className="mt-1.5 pl-[13px] text-[11.5px] text-muted-foreground">
-                    The manual says {originOf(r)}.
-                  </div>
-                )}
-                {/* HH-56, the control half. Chris added an air fryer he had
-                    owned for months and every schedule restarted from zero.
-                    "When did you last do it" is the fact someone actually
-                    knows about their own appliance — "when should it next be
-                    due" is arithmetic we can do for them from it. Left closed
-                    by default, because for anyone who just bought the thing the
-                    add date is already the right answer. */}
-                <LastDoneControl row={r} patch={patch} />
-                {cadOpenId === r.id && (
-                  <div className="mt-2.5">
-                    <div className="flex flex-wrap gap-1.5">
-                      {CADENCES.map((c) => (
-                        <button key={c.id} type="button" aria-pressed={r.schedule === c.id}
-                          onClick={() => {
-                            // "Every N days" keeps an interval; everything else
-                            // clears it, so a leftover value can't outlive the
-                            // cadence that gave it meaning.
-                            patch(r.id, {
-                              schedule: c.id,
-                              intervalDays: c.id === "every_n_days" ? (r.intervalDays ?? DEFAULT_INTERVAL_DAYS) : null,
-                              scheduleSuggested: false,
-                            })
-                            if (c.id !== "every_n_days") setCadOpenId(null)
-                          }}
-                          className={`rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${
-                            r.schedule === c.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}>
-                          {c.label}
-                        </button>
-                      ))}
-                    </div>
-                    {/* HH-55: this used to ask for a number of DAYS, which is
-                        not how anyone describes a schedule — the tester wanted
-                        "every two weeks" and would have had to work out 14.
-                        Number + unit, converted in shared/care/interval so the
-                        label rendered elsewhere reads back the same. */}
-                    {r.schedule === "every_n_days" && (() => {
-                      const cur = splitInterval(r.intervalDays ?? DEFAULT_INTERVAL_DAYS)
-                      return (
-                        <div className="mt-2.5 flex items-center gap-2">
-                          <label htmlFor={`interval-${r.id}`} className="text-[11.5px] text-muted-foreground">Every</label>
-                          <input
-                            id={`interval-${r.id}`}
-                            type="number"
-                            inputMode="numeric"
-                            min={1}
-                            max={999}
-                            value={cur.n}
-                            onChange={(e) => {
-                              const n = Number(e.target.value)
-                              patch(r.id, { intervalDays: toDays(Number.isFinite(n) && n > 0 ? n : 1, cur.unit) })
-                            }}
-                            className="w-16 rounded-md border border-border bg-background px-2 py-1 text-[13px]"
-                          />
-                          <select
-                            aria-label="Unit"
-                            value={cur.unit}
-                            onChange={(e) => patch(r.id, { intervalDays: toDays(cur.n, e.target.value as IntervalUnit) })}
-                            className="rounded-md border border-border bg-background px-2 py-1 text-[13px]"
-                          >
-                            <option value="days">days</option>
-                            <option value="weeks">weeks</option>
-                            <option value="months">months</option>
-                            <option value="years">years</option>
-                          </select>
-                          <button type="button" onClick={() => setCadOpenId(null)}
-                            className="ml-auto rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold">
-                            Done
-                          </button>
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )
-      })}
-
-      {/* Round 11: "Allow users to see the cleaning tasks and setup tasks and
-          reclassify them here. But keep them hidden unless the user explicitly
-          wants to see them."
-
-          Everything below is already SAVED and reminds nobody, so it is one
-          line until asked for. What earns the disclosure is the reclassify:
-          the bucket is what decides whether anything ever reminds you, so
-          moving something to Upkeep promotes it into the reviewed list above
-          rather than quietly relabelling it. */}
-      <OtherFound rows={rows} scheduled={scheduled} setKind={setKind} onReviewEverything={onReviewEverything} />
-    </>
-  )
-}
-
-const OTHER_CHOICES: { id: KindChoice; label: string }[] = [
-  { id: "cleaning", label: "Cleaning" },
-  { id: "maintenance", label: "Upkeep" },
-  { id: "setup", label: "Setup" },
-]
-
-function OtherFound({
-  rows, scheduled, setKind, onReviewEverything,
-}: {
-  rows: ReviewRow[]
-  scheduled: ReviewRow[]
-  setKind?: (r: ReviewRow, choice: KindChoice) => void
-  onReviewEverything?: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [changingId, setChangingId] = useState<string | null>(null)
-
-  const onScreen = new Set(scheduled.map((r) => r.id))
-  const others = rows.filter((r) => r.included && !onScreen.has(r.id))
-  if (!others.length) return null
-
-  const counts = others.reduce<Record<string, number>>((acc, r) => {
-    const k = displayKind(r)
-    acc[k] = (acc[k] ?? 0) + 1
-    return acc
-  }, {})
-  const summary = OTHER_CHOICES.concat({ id: "tip" as KindChoice, label: "Tip" })
-    .filter((c) => counts[c.id])
-    .map((c) => `${counts[c.id]} ${c.label.toLowerCase()}`)
-    .join(" · ")
-
-  return (
-    <div className="mt-5">
-      {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3.5 text-left"
-        >
-          <span className="min-w-0">
-            <span className="block text-[15px] font-semibold">
-              {others.length} more, already saved
-            </span>
-            <span className="mt-0.5 block text-[12px] text-muted-foreground">
-              {summary} · no reminders
-            </span>
-          </span>
-          <span className="shrink-0 text-[14px] font-semibold text-primary">Show</span>
-        </button>
-      ) : (
-        <div>
-          <div className="mb-2 flex items-baseline justify-between gap-3">
-            <h3 className="text-[17px] font-semibold tracking-[-0.015em]">
-              {others.length} more, already saved
-            </h3>
-            <button type="button" onClick={() => setOpen(false)}
-              className="shrink-0 text-[14px] font-semibold text-primary">
-              Hide
-            </button>
-          </div>
-          <p className="mb-3 text-[14px] leading-snug text-muted-foreground">
-            Nothing reminds you about these. Change one if it belongs somewhere else.
-          </p>
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            {others.map((r) => {
-              const kind = displayKind(r)
-              const isChanging = changingId === r.id
-              return (
-                <div key={r.id}
-                  className="border-t border-border px-4 py-3 first:border-t-0"
-                  style={isChanging ? { background: "var(--hh-teal-wash)" } : undefined}>
-                  <div className="flex items-center gap-3">
-                    <span aria-hidden="true" className="w-[3px] self-stretch min-h-[22px] shrink-0 rounded-full"
-                      style={{ background: TIER_RAIL[r.tier] ?? "var(--hh-slate)" }} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[15px] font-semibold">{r.title}</span>
-                      <span className="mt-0.5 block text-[12px] text-muted-foreground">
-                        {OTHER_CHOICES.find((c) => c.id === kind)?.label ?? "Tip"} · {cadOf(r)}
-                      </span>
-                    </span>
-                    {setKind && (
-                      <button type="button"
-                        onClick={() => setChangingId(isChanging ? null : r.id)}
-                        aria-expanded={isChanging}
-                        className="shrink-0 text-[14px] font-semibold text-primary">
-                        {isChanging ? "Done" : "Change"}
-                      </button>
-                    )}
-                  </div>
-                  {isChanging && setKind && (
-                    <div className="mt-2.5 flex flex-wrap gap-2 pl-[15px]">
-                      {OTHER_CHOICES.map((c) => (
-                        <button key={c.id} type="button"
-                          aria-pressed={kind === c.id}
-                          onClick={() => { setKind(r, c.id); setChangingId(null) }}
-                          className="rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors"
-                          style={kind === c.id
-                            ? { borderColor: "var(--hh-teal)", background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }
-                            : { borderColor: "var(--hh-line2)", color: "var(--hh-sub)" }}>
-                          {c.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          {onReviewEverything && (
-            <p className="mt-2.5 text-[13px] text-muted-foreground">
-              Need more than the bucket changed?{" "}
-              <button type="button" onClick={onReviewEverything}
-                className="font-semibold underline underline-offset-2 text-primary">
-                Review them all
-              </button>
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}

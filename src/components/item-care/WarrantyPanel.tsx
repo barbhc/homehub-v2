@@ -73,10 +73,17 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
     if (!onEdit) return null // mobile: nothing to show, self-hide
     return (
       <div className="rounded-[16px] bg-[var(--hh-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ padding: m ? 16 : 18 }}>
-        <span className="text-[13.5px] font-bold" style={{ color: INK }}>Warranty</span>
-        <div className="mt-1.5 text-[12.5px]" style={{ color: SUB }}>No warranty tracked yet.</div>
+        {/* Titled for both, because it is now the only prompt for either. The
+            "Track purchase" nudge that used to sit above it opened this exact
+            sheet, so the page asked the same question twice in two different
+            shapes — and the owner's call was to keep the one that matches the
+            rest of the page. */}
+        <span className="text-[13.5px] font-bold" style={{ color: INK }}>Warranty and purchase information</span>
+        <div className="mt-1.5 text-[12.5px]" style={{ color: SUB }}>
+          Nothing tracked yet — worth having for warranty and insurance claims.
+        </div>
         <button onClick={onEdit} className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: TEAL }}>
-          <PlusIcon className="size-[14px]" /> Add warranty
+          <PlusIcon className="size-[14px]" /> Add details
         </button>
       </div>
     )
@@ -119,7 +126,9 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
   return (
     <div className="rounded-[16px] bg-[var(--hh-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ padding: m ? 16 : 18 }}>
       <div className="mb-2.5 flex items-center justify-between">
-        <span className="text-[13.5px] font-bold" style={{ color: INK }}>Warranty</span>
+        {/* Same name in both states. A section that renames itself depending on
+            whether it has data is two sections wearing one box. */}
+        <span className="text-[13.5px] font-bold" style={{ color: INK }}>Warranty and purchase information</span>
         <span className="rounded-md px-2 py-0.5 text-[11.5px] font-bold" style={{ color: active ? TEAL : FAINT, background: active ? TEAL_WASH : SLATE_SOFT }}>
           {active ? "Active" : "Lapsed"}
         </span>

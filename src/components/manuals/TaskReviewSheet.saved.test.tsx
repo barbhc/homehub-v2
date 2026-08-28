@@ -92,7 +92,10 @@ describe("a fresh parse — nothing is written until Save", () => {
 
   it("says what saving will do instead", () => {
     renderSheet()
-    expect(screen.getByText(/Save them to keep them on this item/)).toBeTruthy()
+    // Round 18 moved this sentence into the summary and made it blunter. The
+    // rule is unchanged: before Save has run, the screen states that nothing is
+    // saved rather than implying it already is.
+    expect(screen.getByText(/Nothing is saved until you press Save/)).toBeTruthy()
   })
 })
 
@@ -105,9 +108,11 @@ describe("rows already on the item — Save has nothing left to do", () => {
     expect(primary()).not.toMatch(/Save all/)
   })
 
-  it("and only here may it say they are saved", () => {
+  it("and only here does it stop warning that nothing is saved yet", () => {
     renderSheet({ alreadySaved: true })
-    expect(screen.getByText(/They're saved to this item/)).toBeTruthy()
+    // These rows ARE live, so the not-yet-saved warning would be false here.
+    expect(screen.queryByText(/Nothing is saved until you press Save/)).toBeNull()
+    expect(screen.getByText(/Tap any one to change how it/)).toBeTruthy()
   })
 })
 

@@ -19,7 +19,25 @@
  * share one definition (same arrangement as parseCore/houseRules/taxonomy).
  */
 
-export type ReviewBucket = "essential" | "recommended" | "optional" | "setup" | "whenNeeded" | "tip"
+/**
+ * A section of the review, and of the item page's Upkeep block. These are KINDS
+ * of work, not levels of importance.
+ *
+ * Round 18 (owner): "categorizing essential recommended and optional is less
+ * helpful than categorizing maintenance, cleaning, usage and setup." Her own
+ * microwave was the argument — eleven rows across six tier sections, four of
+ * them holding two rows or fewer, while six of the eleven were the same kind of
+ * job (cleaning) split three ways by importance.
+ *
+ * Importance did not disappear; it went back to being a field on the row, drawn
+ * as the coloured rail. What changed is what the HEADINGS mean.
+ */
+export type ReviewBucket = "maintenance" | "cleaning" | "usage" | "setup"
+
+/** How much a task matters. Deliberately its OWN type even though three of its
+ *  members are spelled like ReviewBucket members — that overlap is what let a
+ *  bucket be passed where a tier was meant. See `remindsByDefault`. */
+export type PriorityTierName = "essential" | "recommended" | "optional"
 
 /** Cadences that actually repeat — the ones that can produce a due date. */
 export const RECURRING_SCHEDULES = [
@@ -61,47 +79,86 @@ export function isSafetyCritical(t: ReviewTaskLike): boolean {
 /**
  * Which section of the review screen this task belongs in.
  *
- * Order matters: a per-use habit is a tip even if the manual called it essential
- * (you do it at the machine, a Tuesday reminder is noise), and a setup step is
- * setup even if it's safety-critical — you do it once, at install.
+ * Order matters, and two of these rules are safety rules rather than taxonomy:
+ *
+ *  - A setup step is setup however it was phrased — you do it once, at install.
+ *  - An operating step or per-use habit is Usage advice, NOT a scheduled task…
+ *    unless it is safety-critical. "Furnace Combustion Cycle Testing" arrived as
+ *    after_each_use and was silently filed as a tip on a gas furnace, which is
+ *    exactly the failure this product cannot afford. Safety work with no real
+ *    cadence now lands in MAINTENANCE, carrying "when needed" — unscheduled, but
+ *    at the top of the screen instead of in a section called Tips.
+ *
+ * Everything else is Maintenance or Cleaning, which is simply its care_type.
  */
 export function reviewBucketFor(t: ReviewTaskLike): ReviewBucket {
   const schedule = t.schedule_type ?? "monthly"
   const keepAsTask = t.keep_as_task === true
 
-  // Operating steps and per-use habits are tips unless the user overrode it —
-  // EXCEPT when the work is safety-critical. "Furnace Combustion Cycle Testing"
-  // arrived as after_each_use and was silently filed as a tip on a gas furnace,
-  // which is exactly the failure this product cannot afford. Safety work with no
-  // real cadence goes to "when needed": unscheduled, but visible and carrying its
-  // priority, so the user decides rather than never seeing it.
+  // The Usage check comes FIRST, and the order is load-bearing. Choosing Usage
+  // on a setup step is the one destructive answer on the screen — it stops the
+  // row being a task at all and rewrites it as a manual note. If setup were
+  // checked first, that row would keep appearing in the Setup checklist while no
+  // longer being a task, which is the exact confusion HH-85 was about.
   if (!keepAsTask && (t.care_type === "operating" || schedule === "after_each_use")) {
-    return isSafetyCritical(t) ? "whenNeeded" : "tip"
+    return isSafetyCritical(t) ? "maintenance" : "usage"
   }
-  if (schedule === "setup") return "setup"
-  if (!isRecurring(schedule)) return "whenNeeded"
 
-  const tier = t.priority_tier
-  return tier === "essential" || tier === "optional" ? tier : "recommended"
+  if (schedule === "setup") return "setup"
+
+  return t.care_type === "cleaning" ? "cleaning" : "maintenance"
 }
 
-/** True when this task will actually be scheduled (and so can notify). */
-export function isScheduled(bucket: ReviewBucket): boolean {
-  return bucket === "essential" || bucket === "recommended" || bucket === "optional"
+/**
+ * Does this task land on the schedule — and so, can it ever notify you?
+ *
+ * This is the question `isScheduled(bucket)` was really asking. It used to be
+ * answerable from the section, because the sections WERE the schedule
+ * (essential/recommended/optional on it, setup/whenNeeded/tip off it). Grouping
+ * by kind breaks that: a Cleaning row can be weekly or when-needed, and the
+ * section no longer knows.
+ *
+ * So it takes the task. The old bucket-shaped version is deleted rather than
+ * kept alongside — leaving it would let a caller keep asking the section a
+ * question the section can no longer answer, and it would still compile.
+ */
+export function isScheduledTask(t: ReviewTaskLike): boolean {
+  const schedule = t.schedule_type ?? "monthly"
+  const keepAsTask = t.keep_as_task === true
+  if (!keepAsTask && (t.care_type === "operating" || schedule === "after_each_use")) return false
+  if (schedule === "setup") return false
+  return isRecurring(schedule)
 }
 
 /**
  * What Homehub SUGGESTS when the user hasn't said otherwise: Essential reminds,
  * everything else stays quiet. A suggestion, not a rule — see `willNotify`.
+ *
+ * Takes the TIER, and that is load-bearing rather than cosmetic. It used to take
+ * a ReviewBucket and return `bucket === "essential"`, which worked only because
+ * three tier names and three of the six bucket names happened to be the same
+ * words. Its three callers each reached it differently — the review passed a
+ * bucket, the task page passed a raw tier, and the server's `remindsWhenDue`
+ * passed a converted one — so renaming the buckets (which the kind-first review
+ * does) would have made the REVIEW answer "no" for everything while the task
+ * page and `sendPush` carried on saying yes and sending.
+ *
+ * A screen claiming nothing will notify you while the server notifies you is the
+ * worst shape this bug could take, and no single-screen test would have caught
+ * it: each screen is individually correct. So the parameter is now the thing the
+ * decision was always about, and `reviewBuckets.agreement.test.ts` pins that all
+ * three callers answer identically for the same task.
+ *
+ * The parameter is typed `PriorityTierName`, not `string`, and that is the
+ * actual guard. A runtime test cannot catch this today — for a scheduled row
+ * `reviewBucketFor` RETURNS the tier, so passing a bucket is currently
+ * indistinguishable, and the bug only appears the moment the buckets are
+ * renamed. The compiler can catch it now: `ReviewBucket` includes "setup",
+ * "whenNeeded" and "tip", so it is not assignable here and `tsc -b` fails on
+ * any caller that reaches for a bucket.
  */
-export function remindsByDefault(bucket: ReviewBucket): boolean {
-  return bucket === "essential"
-}
-
-/** A stored template's tier, in the review vocabulary. Anything unrecognised is
- *  Recommended — the same fallback `reviewBucketFor` applies. */
-export function tierBucketOf(tier: string | null | undefined): ReviewBucket {
-  return tier === "essential" || tier === "optional" ? tier : "recommended"
+export function remindsByDefault(tier: PriorityTierName | null | undefined): boolean {
+  return tier === "essential"
 }
 
 /**
@@ -120,7 +177,14 @@ export function remindsWhenDue(
   priorityTier: string | null | undefined,
   remindEnabled: boolean | null | undefined,
 ): boolean {
-  return remindEnabled ?? remindsByDefault(tierBucketOf(priorityTier))
+  return remindEnabled ?? remindsByDefault(asTier(priorityTier))
+}
+
+/** Narrow a stored tier string to the union. Anything unrecognised is
+ *  Recommended — the same fallback `reviewBucketFor` applies — which also means
+ *  an unknown tier never notifies by default. */
+export function asTier(tier: string | null | undefined): PriorityTierName {
+  return tier === "essential" || tier === "optional" ? tier : "recommended"
 }
 
 /**
@@ -139,47 +203,74 @@ export function remindsWhenDue(
  *   - An explicit choice always wins over the default, in both directions.
  */
 export function willNotify(t: ReviewTaskLike): boolean {
-  const bucket = reviewBucketFor(t)
-  if (!isScheduled(bucket)) return false
-  return t.remind_enabled ?? remindsByDefault(bucket)
+  if (!isScheduledTask(t)) return false
+  return t.remind_enabled ?? remindsByDefault(asTier(t.priority_tier))
 }
 
-/** Display order of the sections, top to bottom. */
-// HH-85: setup sits BELOW When-needed. Install steps for an appliance someone
-// has usually owned for months must never outrank the work they will actually
-// live with — the item page already learned this; the review sheet now agrees.
-export const REVIEW_BUCKET_ORDER: ReviewBucket[] = [
-  "essential", "recommended", "optional", "whenNeeded", "setup", "tip",
-]
+/**
+ * Display order of the sections, top to bottom.
+ *
+ * Maintenance leads because it is the only kind that can ever interrupt you, so
+ * it is the one worth deciding while attention is still fresh. Setup sits LAST,
+ * below Usage — owner, round 18. Install steps for an appliance someone has
+ * usually owned for months must never outrank the work they will live with, and
+ * once it is installed they are the least relevant rows on the screen.
+ */
+export const REVIEW_BUCKET_ORDER: ReviewBucket[] = ["maintenance", "cleaning", "usage", "setup"]
 
 /** Copy for each section. The subtitle states the CONSEQUENCE, because that is
- *  what the user is agreeing to by leaving a task where it sits. */
+ *  what the user is agreeing to by leaving a task where it sits.
+ *
+ *  Note what these no longer claim. The tier sections used to promise a
+ *  notification in their sub-lines ("with a reminder when each comes due"),
+ *  which was never true of a whole section — the switch is per task. That
+ *  promise now lives on the row that makes it, and in the summary above. */
 export const REVIEW_BUCKET_COPY: Record<ReviewBucket, { icon: string; title: string; sub: string; empty?: string }> = {
-  essential:   { icon: "🔔", title: "Essential",        sub: "On your schedule, with a reminder when each comes due.", empty: "None — nothing here will remind you." },
-  recommended: { icon: "📆", title: "Recommended",      sub: "On your schedule, quietly. Turn on a reminder for any of these." },
-  optional:    { icon: "🗒",  title: "Optional",         sub: "On your schedule, quietly." },
-  setup:       { icon: "🧰", title: "First-time setup", sub: "Do these once when you set it up. Never repeats." },
-  whenNeeded:  { icon: "🔎", title: "When needed",      sub: "No fixed timing. Some matter a lot — do them when the machine or the season says so." },
-  tip:         { icon: "💡", title: "Tips",             sub: "Saved to the item page. Never scheduled." },
+  maintenance: { icon: "🔧", title: "Maintenance", sub: "Keeps it working. Turn a notification on for any of these." },
+  cleaning:    { icon: "🧽", title: "Cleaning",    sub: "Keeps it nice. Lives on the item page." },
+  usage:       { icon: "💡", title: "Usage",       sub: "Good to know. Never scheduled." },
+  setup:       { icon: "🧰", title: "Setup",       sub: "Once, when you install it." },
 }
 
-/** Sort inside a section: unscheduled sections lead with what matters most,
- *  since there's no due date to convey urgency (e.g. Nespresso descaling, which
- *  is essential but triggered by an alert light rather than a calendar). */
-export function sortWithinBucket<T extends ReviewTaskLike>(bucket: ReviewBucket, rows: T[]): T[] {
-  if (isScheduled(bucket)) return rows
+/**
+ * Sort inside a section: rows with a cadence first, then by how much they
+ * matter.
+ *
+ * Every section now mixes both — a Cleaning section holds weekly jobs and
+ * when-needed ones — so the old rule ("only sort the unscheduled sections")
+ * has nothing left to key on. Dated work leads because it is what the user is
+ * actually agreeing to a schedule for; within each half, importance decides,
+ * which is the reason the old code sorted unscheduled sections by tier at all
+ * (Nespresso descaling is essential but triggered by a light, not a calendar).
+ */
+export function sortWithinBucket<T extends ReviewTaskLike>(_bucket: ReviewBucket, rows: T[]): T[] {
   const rank: Record<string, number> = { essential: 0, recommended: 1, optional: 2 }
-  return [...rows].sort((a, b) => (rank[a.priority_tier ?? ""] ?? 3) - (rank[b.priority_tier ?? ""] ?? 3))
+  return [...rows].sort((a, b) => {
+    const sa = isScheduledTask(a) ? 0 : 1
+    const sb = isScheduledTask(b) ? 0 : 1
+    if (sa !== sb) return sa - sb
+    return (rank[a.priority_tier ?? ""] ?? 3) - (rank[b.priority_tier ?? ""] ?? 3)
+  })
 }
 
-/** Counts for the lead-in line and the primary button. */
-export function summarize(rows: ReviewTaskLike[]): { scheduled: number; unscheduled: number; tips: number; total: number } {
-  let scheduled = 0, unscheduled = 0, tips = 0
+/**
+ * Counts for the summary line and the primary button.
+ *
+ * `scheduled` and `notifying` are the two facts the screen states separately,
+ * and keeping them apart is the whole point of round 18: a task on a schedule
+ * SHOWS UP IN TASKS when it is due whatever you do, and only some of those also
+ * send a push. The owner: "there are items that are scheduled to be reminded
+ * within the app even if there's no notification."
+ */
+export function summarize(rows: ReviewTaskLike[]): {
+  scheduled: number; unscheduled: number; tips: number; notifying: number; total: number
+} {
+  let scheduled = 0, unscheduled = 0, tips = 0, notifying = 0
   for (const r of rows) {
-    const b = reviewBucketFor(r)
-    if (b === "tip") tips++
-    else if (isScheduled(b)) scheduled++
+    if (reviewBucketFor(r) === "usage") tips++
+    else if (isScheduledTask(r)) scheduled++
     else unscheduled++
+    if (willNotify(r)) notifying++
   }
-  return { scheduled, unscheduled, tips, total: rows.length }
+  return { scheduled, unscheduled, tips, notifying, total: rows.length }
 }

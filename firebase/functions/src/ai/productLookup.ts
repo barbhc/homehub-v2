@@ -17,10 +17,12 @@ import { createHash } from "node:crypto"
 import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
 import {
   resolveExternalIdentity,
+  brandFromModel,
   normalizeModel,
   type ProductIdentity,
   type VariantCandidate,
 } from "./identityResolver.js"
+import type { DerivedBrand } from "../../../../shared/products/brands.js"
 import { requireAnyMembership } from "../lib/membership.js"
 import { allSpecKeys, isAllowedSpecKey } from "../../../../shared/products/specKeys.js"
 import { chargeAiQuota } from "../lib/quota.js"
@@ -84,6 +86,9 @@ export type ProductLookupResult = ProductLookupCore & {
   identity: ProductIdentity | null
   source: "llm" | "cache"
   cacheHit: boolean
+  /** Brand derived from the model alone, for a scan that read one and not the
+   *  other. Present only in brand-only mode; a SUGGESTION, never applied. */
+  brandSuggestion?: DerivedBrand
 }
 
 const CLAIM_TOOL = {
@@ -342,6 +347,25 @@ export const productLookup = onCall(
     const model = sanitizeInput(b.model)
     const category = sanitizeInput(b.category, 40)
     const subType = sanitizeInput(b.subType, 80)
+    // BRAND-ONLY MODE: a scan that read the model cleanly and the brand not at
+    // all (LG's wordmark is a logo the OCR cannot transcribe). A model number is
+    // a strong enough key to answer "whose is this?" on its own, so rather than
+    // refuse the call we derive the brand and return just that — no spec lookup,
+    // no cache entry, no Claude. The client offers it as a suggestion.
+    if (!brand && model) {
+      if (model.length < 2) throw new HttpsError("invalid-argument", "model must be at least 2 characters")
+      const derived = await brandFromModel(fetch, BRAVE_SEARCH_API_KEY.value().trim(), model)
+      return {
+        safe: { category: null, subType: null },
+        candidates: [],
+        knowledgeConfidence: "low",
+        identity: null,
+        variantCandidates: [],
+        source: "llm",
+        cacheHit: false,
+        brandSuggestion: derived,
+      } satisfies ProductLookupResult
+    }
     if (!brand || !model) throw new HttpsError("invalid-argument", "brand and model required")
     if (brand.length < 2 || model.length < 2)
       throw new HttpsError("invalid-argument", "brand and model must be at least 2 characters")

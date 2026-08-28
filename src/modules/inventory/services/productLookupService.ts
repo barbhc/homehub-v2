@@ -52,6 +52,9 @@ export type VariantCandidate = {
   differentiator: string | null
 }
 
+/** A brand derived from the model number alone, with its evidence. */
+export type DerivedBrand = { brand: string; agreeing: number } | null
+
 export type ProductLookupResult = {
   safe: ProductLookupSafeFields
   candidates: ProductLookupCandidate[]
@@ -61,6 +64,8 @@ export type ProductLookupResult = {
   variantCandidates: VariantCandidate[]
   source: "llm" | "cache"
   cacheHit: boolean
+  /** Only in brand-only mode. A suggestion — never applied for the user. */
+  brandSuggestion?: DerivedBrand
 }
 
 export type ProductLookupResponse =
@@ -110,4 +115,25 @@ export async function lookupProduct(input: ProductLookupInput): Promise<ProductL
     const message = err instanceof Error ? err.message : "Product lookup failed"
     return { data: null, error: { message } }
   }
+}
+
+/**
+ * Who makes this model? For a scan that read the model and not the brand.
+ *
+ * LG prints its wordmark as a logo the OCR cannot transcribe, so a perfectly
+ * good label can yield "WM3900HBA" and no manufacturer. Rather than let the
+ * extractor guess — which is how an LG dryer once became a Whirlpool — the
+ * model number goes to the same resolver the identity lookup uses, and comes
+ * back with a brand only when the evidence agrees with itself.
+ *
+ * Returns null for every failure, including "no idea". A suggestion that does
+ * not appear costs nothing; a wrong one costs the item's name, its lookup and
+ * its tasks.
+ */
+export async function lookupBrandForModel(model: string): Promise<string | null> {
+  const trimmed = model.trim()
+  if (trimmed.length < 5) return null
+  const res = await lookupProduct({ brand: "", model: trimmed })
+  if (res.error) return null
+  return res.data.brandSuggestion?.brand ?? null
 }

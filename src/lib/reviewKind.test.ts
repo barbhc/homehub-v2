@@ -9,19 +9,19 @@
  * already correct; the screen never said so.
  */
 import { describe, it, expect } from "vitest"
-import { reviewBucketFor, type ReviewTaskLike } from "../../shared/tasks/reviewBuckets"
+import { reviewBucketFor, isScheduledTask, type ReviewTaskLike } from "../../shared/tasks/reviewBuckets"
 
 /** Mirrors TaskReviewSheet: what the row becomes for bucketing. */
-const taskLike = (kind: "maintenance" | "cleaning" | "tip", schedule: string, over: Partial<ReviewTaskLike> = {}): ReviewTaskLike => ({
-  care_type: kind === "tip" ? "operating" : kind,
+const taskLike = (kind: "maintenance" | "cleaning" | "usage", schedule: string, over: Partial<ReviewTaskLike> = {}): ReviewTaskLike => ({
+  care_type: kind === "usage" ? "operating" : kind,
   priority_tier: "essential",
   schedule_type: schedule,
-  keep_as_task: kind !== "tip",
+  keep_as_task: kind !== "usage",
   ...over,
 })
 /** Mirrors `displayKind` — which tile lights up. */
 const displayKind = (kind: string, schedule: string) =>
-  kind === "tip" ? "tip" : schedule === "setup" ? "setup" : kind
+  kind === "usage" ? "usage" : schedule === "setup" ? "setup" : kind
 
 const REAL_SETUP_TASKS = [
   "Connect the Inlet Hose (Steam Models)",
@@ -59,18 +59,23 @@ describe("a one-time setup step has a correct answer", () => {
     // Still true — this is the destructive path the UI now warns about, not a
     // bug in bucketing. The fix is that "setup" is now selectable and the
     // destination is shown, so nobody reaches here by accident.
-    expect(reviewBucketFor(taskLike("tip", "setup"))).toBe("tip")
-    expect(displayKind("tip", "setup")).toBe("tip")
+    expect(reviewBucketFor(taskLike("usage", "setup"))).toBe("usage")
+    expect(displayKind("usage", "setup")).toBe("usage")
   })
 
   it("choosing Setup keeps it a task; only Tip stops it being one", () => {
     expect(taskLike("maintenance", "setup").keep_as_task).toBe(true)
-    expect(taskLike("tip", "setup").keep_as_task).toBe(false)
+    expect(taskLike("usage", "setup").keep_as_task).toBe(false)
   })
 
-  it("leaving Setup for Maintenance needs a cadence, or it falls into 'when needed'", () => {
+  it("leaving Setup for Maintenance still needs a cadence to be scheduled", () => {
     // Guards the setKind branch that assigns monthly when moving off setup.
-    expect(reviewBucketFor(taskLike("maintenance", "as_needed"))).toBe("whenNeeded")
-    expect(reviewBucketFor(taskLike("maintenance", "monthly"))).toBe("essential")
+    // Round 18: both land in Maintenance — the difference is no longer WHICH
+    // section, it is whether the row can be scheduled at all, which is what the
+    // cadence chip and the bell now say on the row itself.
+    expect(reviewBucketFor(taskLike("maintenance", "as_needed"))).toBe("maintenance")
+    expect(isScheduledTask(taskLike("maintenance", "as_needed"))).toBe(false)
+    expect(reviewBucketFor(taskLike("maintenance", "monthly"))).toBe("maintenance")
+    expect(isScheduledTask(taskLike("maintenance", "monthly"))).toBe(true)
   })
 })

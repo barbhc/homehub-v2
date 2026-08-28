@@ -181,6 +181,64 @@ grep, not by the docs' own status lines.
 
 ---
 
+## 4b. The sample home — PARKED until the add-item flow and item page are final
+
+**Owner, 2026-08-27:** *"I wanna be able to do a session to really think through
+what a sample home should show and what would be helpful to the user versus just
+bolting it on right now… Let's park this until we finalize and QA fully the add
+item flow and the final item page."*
+
+**Status:** deliberately not being worked. **Both** entry points are removed for
+the duration (round 18) — the Inventory empty state's "See a sample home" button
+and onboarding's "Not sure yet? Look around a sample home first". The route
+survives and works by direct link.
+
+That second removal has a real cost and it is recorded here so the redesign
+carries it back: the onboarding screen now asks for a commitment before the
+person has seen anything the product does, which is exactly what the escape
+hatch was built to fix. Restoring it is a three-line change and the argument for
+it has not stopped being true — it is waiting on a page worth linking to.
+`HomeOnboarding.sample.test.tsx` pins both doors shut so neither returns by
+reflex before then.
+
+### What is known so far, so the session starts from evidence
+
+Measured live on 2026-08-27, at 375×812:
+
+| | |
+|---|---|
+| Images on the entire page | **0** |
+| Manual citations rendered on arrival | **0** — conditionally rendered, not merely collapsed |
+| Page-cited sources sitting unused in the fixtures | **4** |
+| Scroll before the call to action | ~2 screens |
+
+The product's claim — *photograph an appliance, Homehub reads its manual, these
+jobs came from page 34* — is asserted in one line of prose and demonstrated
+nowhere. `"Carrier Infinity 59MN7 manual, p. 34"` does not exist in the page
+until a chevron is opened, so it is invisible to a skim, to search and to a
+screen reader alike.
+
+### Two open questions for the session
+
+1. **A sample HOME or a sample ITEM?** My recommendation was the item page — the
+   unit of value is the appliance, the proof (manual, citations) only exists
+   there, and depth beats breadth for someone who has committed to nothing. Not
+   decided.
+2. **How much of it should be the real components?** `SampleHome.tsx` hand-rolls
+   311 lines of its own layout, which is why it drifted from the app in the first
+   place. Feeding fixtures through `RefinedItemDetail` would make it inherit
+   every future change — but the file's own header warns against exactly that,
+   and that warning needs checking rather than overruling.
+
+### Do not resume before
+
+The add-item flow and the item page are finalised and QA'd. Building a sample of
+a design that is still moving is how it went stale the first time.
+
+Mockups so far: https://claude.ai/code/artifact/395e50df-9925-4252-a6a2-4d46c19fa2f9
+
+---
+
 ## 5. Parse quality — the loop is built, the curation isn't
 
 The task-feedback loop (phases A–D) is complete and in production: chips, house
@@ -252,3 +310,151 @@ deleted — these are the only parts of it that were still true.
   reliable; its forward-looking notes are not).
 - **Strategic product direction** → `~/.claude/projects/…/memory/`, in particular
   the product-vision and principle notes.
+
+## The product name is inlined in 18 user-facing strings
+
+Raised by the owner 2026-08-27, while reviewing the onboarding tour: "if I have
+to change the product name, I would want to pull this out."
+
+There is no `APP_NAME` constant. "Homehub" is typed directly into 18 strings a
+user can read — crash and feedback report titles, the monthly AI-budget notice,
+the iOS camera-permission instructions ("Enable it in iOS Settings → Homehub →
+Camera"), purchase-date and manual-parse explainers. A rename today means a
+hand-audit of all of them, and the iOS one is worse than a find-and-replace
+because it names a system UI path that changes with the app's display name.
+
+Cheap half already done: both onboarding tour titles were rewritten to avoid
+the name ("Welcome", "How we'll reach you"), and the voice guide now prefers
+"we" to the product name wherever a sentence allows it.
+
+The rest is a constant plus 18 substitutions — small, mechanical, and much
+easier before a rename than during one. Not urgent while the name is settled.
+
+## Ask cannot answer warranty questions, though the app knows the answer
+
+Found 2026-08-27 while fact-checking onboarding copy, after the owner queried
+whether manuals carry warranty terms. They do, and we parse them — the parse
+schema has a top-level `warranty` object (duration_months, coverage,
+exclusions, registration, contact) that populates the item's Warranty panel.
+
+But `chatQuery` ranks and feeds **knowledge chunks**, and the parser's chunk
+types are `care | how_to | troubleshooting | safety | specs`. There is no
+warranty chunk type, so "what does the warranty cover?" searches a corpus that
+structurally cannot contain the answer — while the answer sits on the same
+item's page.
+
+A user asking the obvious question gets a miss from a product that already
+knows. Two candidate fixes: emit a warranty chunk at parse time, or let
+chatQuery fall back to the item's warranty fields when the question is
+warranty-shaped. The first is cheaper and keeps one retrieval path.
+
+Not blocking; onboarding copy no longer promises it.
+
+## ~~Controls stretch on desktop~~ — FIXED 2026-08-27 for the scan card; sweep still open
+
+Owner, 2026-08-27, reading the add screen on a laptop: "there's just a very
+wide space between scan the label, the text underneath, and then the carrot on
+the right hand side."
+
+Measured on the real component at both ends:
+
+| viewport | card | content | dead space |
+|---|---|---|---|
+| 375 | 285px | 205px | 24px |
+| 1440 | 526px | **205px** | **265px** |
+
+The content does not grow at all. The card nearly doubles, `justify-between`
+spends the entire difference on emptiness, and the chevron ends up 265px from
+the thing it belongs to — eleven times the mobile gap. It reads as a layout
+bug because it is one: nobody decided what the extra width was for.
+
+### What the extra width should be for
+
+Three legitimate answers, and stretching a control is none of them:
+
+1. **More content per row** — a second column, a wider table.
+2. **A longer measure** for prose, up to the 45–75 character comfort zone.
+3. **More whitespace AROUND a capped block** — which is what a single-column
+   form wants.
+
+The add flow is (3). Its column already caps at `max-w-xl` (576px); the fault
+is that controls inside the cap still stretch to fill it.
+
+### `justify-between` is a contract, and this row breaks it
+
+It says "both ends are meaningful and independent" — right for a settings row
+where a label sits opposite its value. Wrong for a whole-card tap target,
+where the chevron is an *attribute of the row*, not a second thing. Options,
+cheapest first: cap the inner content and let the chevron follow the text; or
+keep `justify-between` only above a width where the spread looks deliberate.
+
+### The systemic version
+
+`justify-between` appears in 43 component files. Only one is this exact
+shape today (full-width row + trailing chevron), so this is a small fix now
+and a growing one later — worth a sweep while it is still one instance.
+
+### The right mechanism
+
+Container queries, not breakpoints. A component should respond to the width of
+its own container, not the viewport — the same scan card may later sit in a
+sidebar, a modal, or a two-column desktop layout, and a `md:` breakpoint would
+be wrong in all three. Tailwind v4 supports `@container` natively and
+`components/ui/card.tsx` already uses it (`@container/card-header`), so the
+primitive is present and unused elsewhere.
+
+**Fixed for the scan card** (owner reversed the deferral the same day): a
+`@min-[360px]:justify-start` container query on `IdentifyStep`'s appliance
+column. 265px of dead space became 16px on desktop, 375pt is unchanged, and
+`e2e/emu/desktop-gap.spec.ts` holds the gap under 16% of the card at 375, 390,
+430, 600, 768 and 1440.
+
+The 360px threshold was measured rather than picked. The first attempt used
+`@sm` (384px) and the guard failed at 430 — a 79px gap, 23% of the card, on an
+iPhone 15 Pro Max. The same defect in miniature, on a device testers hold,
+which nobody would have reported because it only looks slightly loose.
+
+**Still open: the sweep.** 43 files use `justify-between`; this was the only
+row of this exact shape today, but the pattern will recur, and the container-
+query mechanism now has one worked example to copy.
+
+## ~~Journey suite fails 4/5 locally~~ — DIAGNOSED: tests were running against PRODUCTION
+
+Found 2026-08-27 late. `npm run test:e2e:journey:emu` — a FRESH emulator stack
+via `emulators:exec`, not the long-lived one — fails J2 through J5 with
+`waitForURL` timeouts. The failure screenshot shows the sign-in screen with
+`e2e@homehub.test` in the field, so the walks are not getting past login.
+
+**It is not today's work.** Checked out `main` and ran the identical command:
+4 failed, 1 passed, same shape. It reproduces without any round-18, add-flow
+or tour change present, so it is this machine rather than the branch. Clearing
+`e2e/.auth` did not help; the journey config has no auth setup project, so the
+walks sign themselves in.
+
+Earlier the same day the suite passed 5/5 repeatedly against a long-lived
+stack, which is the opposite of the usual trap — normally the long-lived stack
+is the one that lies. Whatever changed is in the host's emulator state or in
+seed timing under `emulators:exec`, not in the app.
+
+**Root cause, found 2026-08-28.** A stray `vite preview` had been listening on
+port 5173 since before the session, serving a PRODUCTION-configured bundle
+(`homehub-2068d`). `playwright.journey.config.ts` defaults to `PORT = 5173` with
+`reuseExistingServer: !CI`, so every local run silently adopted it instead of
+starting its own emulator-backed server. The walks then signed in as
+`e2e@homehub.test` against **production auth**, where that user does not exist —
+hence four timeouts on the sign-in screen. `PW_WEB_PORT=5399` → 5/5 pass.
+
+**The part that needs a decision, not a fix.** J1 does not sign in, it signs
+UP, with `journey-${Date.now()}@homehub.test`. Against production that
+succeeds — so each of tonight's runs likely created a real account, and J1
+walks on to create a home called "Journey Test Home". Worth checking prod for
+`journey-*@homehub.test` users and stray "Journey Test Home" homes, and
+deleting them. Deletion is the owner's to run.
+
+**Two guards worth building**, because a config that silently prefers whatever
+is on a port will do this again:
+1. `reuseExistingServer` should be `false` for the emulator-backed configs, or
+   the port should not be the same one a human's dev server uses.
+2. The journey walks should refuse to run against a non-emulator backend —
+   assert the project id is `demo-homehub` in a `beforeAll`, and fail loudly.
+   A test suite that can reach production is a test suite that will write to it.

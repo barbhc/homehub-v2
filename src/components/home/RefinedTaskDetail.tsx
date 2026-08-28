@@ -21,7 +21,7 @@ import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
-import { remindsByDefault } from "../../../shared/tasks/reviewBuckets"
+import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 
@@ -204,7 +204,7 @@ export function RefinedTaskDetail({
       <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[var(--hh-line)] px-3.5 py-3" style={{ background: "var(--hh-surface)" }}>
         <input
           type="checkbox"
-          checked={detail.remindEnabled ?? remindsByDefault(detail.tier)}
+          checked={detail.remindEnabled ?? remindsByDefault(asTier(detail.tier))}
           onChange={(e) => void toggleReminder(e.target.checked)}
           className="size-[18px] shrink-0 accent-[var(--hh-teal,#1B6B5A)]"
         />
@@ -212,13 +212,13 @@ export function RefinedTaskDetail({
           <span className="block text-[13.5px] font-semibold" style={{ color: INK }}>Remind me when it&apos;s due</span>
           <span className="block text-[11.5px]" style={{ color: SUB }}>
             {detail.remindEnabled == null
-              ? remindsByDefault(detail.tier)
+              ? remindsByDefault(asTier(detail.tier))
                 ? "On by default for Essential — you can turn it off"
                 : "Off by default — turn it on if you want one"
               : detail.remindEnabled ? "You turned this on" : "You turned this off"}
           </span>
         </span>
-        {(detail.remindEnabled ?? remindsByDefault(detail.tier)) && (
+        {(detail.remindEnabled ?? remindsByDefault(asTier(detail.tier))) && (
           <BellRingIcon className="size-4 shrink-0" style={{ color: TEAL }} />
         )}
       </label>

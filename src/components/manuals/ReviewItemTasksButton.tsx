@@ -3,6 +3,7 @@ import { Loader2Icon, SlidersHorizontalIcon } from "lucide-react"
 import { TaskReviewSheet } from "./TaskReviewSheet"
 import { loadItemTasksForReview, saveItemTaskReview, type ExistingTaskReview } from "@/modules/care/services/taskReviewService"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
+import { useHomeProfile } from "@/modules/home"
 import type { PreviewChunk, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import type { ReviewEditSummary } from "./TaskReviewFeedback"
 
@@ -30,6 +31,8 @@ export function ReviewItemTasksButton({
    *  card. Same action either way. */
   compact?: boolean
 }) {
+  // Freeze-prep is suppressed before the review, not at save (see the prop).
+  const { profile } = useHomeProfile(homeId)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [review, setReview] = useState<ExistingTaskReview | null>(null)
@@ -118,6 +121,7 @@ export function ReviewItemTasksButton({
 
       {review && (
         <TaskReviewSheet
+          freezeRiskFalse={profile?.freeze_risk === false}
           open={open}
           onOpenChange={(o) => {
             setOpen(o)

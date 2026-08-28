@@ -30,6 +30,113 @@ const identify = read("./IdentifyStep.tsx")
 const page = read("../../pages/SmartAddItem.tsx")
 const detailsSheet = read("../item-care/ItemDetailsSheet.tsx")
 
+/**
+ * Round 18 — the lookup left the add screen (owner, 2026-08-27: "it's a
+ * distraction… this search that doesn't necessarily result in anything
+ * useful"). The screen you type on may not change under you: no debounced
+ * lookup, no identity card, no spec chips. What the lookup finds now lands on
+ * the item page, after creation, via runPostCreateLookup.
+ */
+/**
+ * The lane chooser says what each lane can do, on the lane.
+ *
+ * "Photo of a label? You can snap it inside the appliance form." used to sit
+ * centred beneath both cards — a caption describing a control on the NEXT
+ * screen, in our noun ("the appliance form"), true of only one of the two
+ * options it sat under. It was written when round 11 demoted the camera off
+ * this screen; round 13 promoted scanning back to a first-class control under
+ * the model field, which retired the reassurance without removing it.
+ */
+/**
+ * What the scan says it did.
+ *
+ * The old line — "Filled N fields from your photo — tap Add more details to
+ * review." — counted fields the appliance lane never shows (so a scan that
+ * visibly changed two things reported four) and then sent the reader to a
+ * disclosure that exists ONLY in the simple lane, while the camera exists only
+ * in the appliance one. Same defect as the lane-chooser caption above: a
+ * pointer to a control the reader does not have.
+ */
+describe("what the scan reports", () => {
+  it("names what changed instead of counting fields", () => {
+    expect(identify).toContain("Got the ${list(seen)} from your photo.")
+  })
+
+  it("no longer sends the appliance lane to a simple-lane disclosure", () => {
+    expect(identify).not.toContain("tap Add more details to review")
+  })
+
+  it("keeps 'Add more details' itself scoped to the simple lane", () => {
+    // If this ever renders in the appliance lane the old copy becomes true
+    // again, and the reason for this change disappears.
+    const disclosure = identify.indexOf("Add more details")
+    const laneGuard = identify.lastIndexOf('mode === "simple"', disclosure)
+    expect(laneGuard).toBeGreaterThan(-1)
+  })
+})
+
+/**
+ * A scan that half-worked must not read as a scan that worked.
+ *
+ * The owner scanned an LG dryer: the model came through, the brand did not,
+ * and three things then compounded. The status line reported only the success.
+ * The empty Brand field's placeholder was `e.g., LG` — her actual brand — so
+ * the one field still needed displayed the correct answer in grey, and only
+ * the shade of the text distinguished empty from filled. And the CTA was grey
+ * and silent about which of the two it was waiting for.
+ */
+describe("when the scan misses a required field", () => {
+  it("says what it could not read, not just what it could", () => {
+    expect(identify).toContain("We couldn't read the ${list(missing)}")
+  })
+
+  it("marks the field itself, because the status line scrolls away", () => {
+    expect(identify).toContain("Not found in your photo")
+  })
+
+  it("no placeholder names a real brand", () => {
+    // Any example brand is somebody's actual brand. Hers was.
+    expect(identify).not.toContain('placeholder="e.g., LG"')
+    expect(identify).toContain('placeholder="Who makes it?"')
+  })
+
+  it("only flags a field AFTER a scan has run", () => {
+    // An untouched form is empty, not missing — marking it red on arrival
+    // would scold the user for showing up.
+    expect(identify).toContain('if (mode !== "appliance" || ocrOutcome !== "success") return [] as string[]')
+  })
+
+  it("keeps the CTA gated on both fields — the owner's call", () => {
+    // She chose to leave the button disabled rather than let it be pressed and
+    // explain itself. The messaging above is what makes that acceptable.
+    expect(identify).toContain("data.brand.trim().length >= 2 && data.model.trim().length >= 1")
+  })
+})
+
+describe("the lane chooser", () => {
+  it("puts the camera hint on the lane that has a camera", () => {
+    expect(identify).toContain("Type it, or scan the label.")
+  })
+
+  it("no longer captions both lanes with a note about one of them", () => {
+    expect(identify).not.toContain("snap it inside the appliance form")
+  })
+})
+
+describe("the add screen no longer searches while you type", () => {
+  it("IdentifyStep does not call the lookup at all", () => {
+    expect(identify).not.toContain("lookupProduct")
+  })
+  it("and renders neither of the old cards", () => {
+    expect(identify).not.toContain("We found this item")
+    expect(identify).not.toContain("IdentityCard")
+    expect(identify).not.toContain("ProductSuggestionCard")
+  })
+  it("the wizard fires the lookup once, after the item exists", () => {
+    expect(page).toContain("runPostCreateLookup(created)")
+  })
+})
+
 describe("the comment stripper reads the whole file", () => {
   it("does not mistake accept=\"image/*\" for a block comment", () => {
     // The file-input accept attribute sits ~40 lines above the model field. If
@@ -94,7 +201,7 @@ describe("finding the model another way", () => {
     // see the type-or-scan block below. What stays behind it is the photo
     // library and the no-model-number escape, and it is no longer named for
     // having failed.
-    expect(identify).toContain("More ways to identify it")
+    expect(identify).toContain("If you can&apos;t scan the label")
     expect(identify).not.toContain("Can&apos;t find the model?")
     expect(identify).not.toContain("Snap label instead")
     expect(identify).toContain("Choose a photo")
@@ -246,7 +353,7 @@ describe("two ways to give us the brand and model", () => {
     expect(identify).toContain("Scan the label")
     // Promoted OUT of the disclosure: it must not be inside the otherWaysOpen
     // branch any more.
-    const disclosure = identify.slice(identify.indexOf("More ways to identify it"))
+    const disclosure = identify.slice(identify.indexOf("If you can&apos;t scan the label"))
     expect(disclosure).not.toContain("Scan the label")
   })
 
@@ -275,7 +382,7 @@ describe("two ways to give us the brand and model", () => {
    * thing that reliably breaks the read.
    */
   it("asks for the model number, not the whole label", () => {
-    expect(identify).toContain("Point at the model number")
+    expect(identify).toContain("Find the model number")
     expect(identify).not.toContain("whole sticker")
   })
 

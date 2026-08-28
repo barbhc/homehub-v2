@@ -132,9 +132,28 @@ export function useFeatureTour() {
           const route = idx >= 0 ? steps[idx]?.route : undefined
           if (route) navigate(route)
         },
-        onDestroyStarted: () => {
+        /**
+         * Both endings arrive here: "Get Started" on the last step, and the X
+         * at any point. They are NOT the same intention, and the difference
+         * decides whether we are allowed to move the user.
+         *
+         * Finishing the tour is an invitation to begin, and the tour has just
+         * spent five steps explaining what the app does with an item — so the
+         * one useful next screen is the one that adds the first item. Landing
+         * on Settings, where the last step happened to point, leaves someone on
+         * the least useful page in the product at the exact moment they are
+         * most willing to do something (owner, 2026-08-27).
+         *
+         * Dismissing it early is the opposite signal. Someone who tapped X to
+         * get out of a tour does not want to be deposited in a wizard, so the
+         * close path navigates nowhere.
+         */
+        onDestroyStarted: (_el, _step, opts) => {
+          const idx = opts?.state?.activeIndex ?? -1
+          const finished = idx === steps.length - 1
           d.destroy()
           setPreference(uid, PREF_TOUR_COMPLETED, true).catch(() => {})
+          if (finished) navigate("/inventory/add")
         },
       })
       return d

@@ -7,7 +7,7 @@
 import { describe, it, expect } from "vitest"
 import {
   reviewBucketFor,
-  isScheduled,
+  isScheduledTask,
   willNotify,
   remindsWhenDue,
   sortWithinBucket,
@@ -20,7 +20,7 @@ const t = (o: Partial<ReviewTaskLike>): ReviewTaskLike => ({
   care_type: "maintenance", priority_tier: "recommended", schedule_type: "monthly", ...o,
 })
 
-describe("reviewBucketFor — schedule decides the section, not priority", () => {
+describe("reviewBucketFor — the KIND decides the section (round 18)", () => {
   it("one-time install steps are setup even when marked essential", () => {
     // All real titles from the owner's home, all stored as essential.
     for (const title of ["Connect Gas Supply", "Verify Proper Grounding", "Remove Protective Shipping Film"]) {
@@ -28,35 +28,52 @@ describe("reviewBucketFor — schedule decides the section, not priority", () =>
     }
   })
 
-  it("condition-triggered work is 'when needed', however important", () => {
+  it("condition-triggered maintenance is Maintenance, and says 'when needed'", () => {
     // Nespresso descaling: essential + prevent_damage, but the manual ties it to
-    // the alert light, so a monthly reminder would be a lie.
-    expect(reviewBucketFor(t({ schedule_type: "as_needed", priority_tier: "essential" }))).toBe("whenNeeded")
+    // the alert light, so a monthly reminder would be a lie. Under tier grouping
+    // it was exiled to a "When needed" section below three others; now it leads,
+    // because it is maintenance — and it still cannot be scheduled.
+    const nespresso = t({ schedule_type: "as_needed", priority_tier: "essential" })
+    expect(reviewBucketFor(nespresso)).toBe("maintenance")
+    expect(isScheduledTask(nespresso)).toBe(false)
   })
 
-  it("per-use habits are tips — you do them at the machine", () => {
-    expect(reviewBucketFor(t({ schedule_type: "after_each_use", priority_tier: "essential" }))).toBe("tip")
+  it("per-use habits are Usage — you do them at the machine", () => {
+    expect(reviewBucketFor(t({ schedule_type: "after_each_use", priority_tier: "essential" }))).toBe("usage")
   })
 
-  it("operating steps are tips regardless of cadence", () => {
-    expect(reviewBucketFor(t({ care_type: "operating", schedule_type: "monthly" }))).toBe("tip")
+  it("operating steps are Usage regardless of cadence", () => {
+    expect(reviewBucketFor(t({ care_type: "operating", schedule_type: "monthly" }))).toBe("usage")
   })
 
-  it("a genuinely recurring task lands on its priority", () => {
-    expect(reviewBucketFor(t({ schedule_type: "monthly", priority_tier: "essential" }))).toBe("essential")
-    expect(reviewBucketFor(t({ schedule_type: "every_n_days", priority_tier: "recommended" }))).toBe("recommended")
-    expect(reviewBucketFor(t({ schedule_type: "seasonal", priority_tier: "optional" }))).toBe("optional")
+  it("SAFETY work is never filed as Usage, whatever cadence the manual gave it", () => {
+    // "Furnace Combustion Cycle Testing" arrived as after_each_use and was once
+    // silently filed as a tip on a gas furnace. It now lands in Maintenance —
+    // more visible than the old "When needed", never less.
+    const combustion = t({ schedule_type: "after_each_use", risk_level: "safety" })
+    expect(reviewBucketFor(combustion)).toBe("maintenance")
+    expect(reviewBucketFor(t({ schedule_type: "after_each_use", actor: "pro" }))).toBe("maintenance")
+    expect(reviewBucketFor(t({ care_type: "operating", actor: "hazardous" }))).toBe("maintenance")
   })
 
-  it("unknown/missing priority falls back to recommended, never essential", () => {
-    expect(reviewBucketFor(t({ priority_tier: null }))).toBe("recommended")
-    expect(reviewBucketFor(t({ priority_tier: "bogus" }))).toBe("recommended")
+  it("cleaning is Cleaning whether or not it repeats", () => {
+    expect(reviewBucketFor(t({ care_type: "cleaning", schedule_type: "weekly" }))).toBe("cleaning")
+    expect(reviewBucketFor(t({ care_type: "cleaning", schedule_type: "as_needed" }))).toBe("cleaning")
   })
 
-  it("the user's keep-as-task override beats the tip rules", () => {
-    expect(reviewBucketFor(t({ care_type: "operating", schedule_type: "monthly", keep_as_task: true, priority_tier: "essential" }))).toBe("essential")
+  it("priority no longer decides the section at all", () => {
+    // The heart of round 18: three tiers, one section.
+    for (const tier of ["essential", "recommended", "optional", null, "bogus"]) {
+      expect(reviewBucketFor(t({ schedule_type: "monthly", priority_tier: tier })), String(tier)).toBe("maintenance")
+    }
+  })
+
+  it("the user's keep-as-task override beats the Usage rules", () => {
+    expect(reviewBucketFor(t({ care_type: "operating", schedule_type: "monthly", keep_as_task: true, priority_tier: "essential" }))).toBe("maintenance")
     // ...but a per-use override still can't be scheduled — it has no cadence.
-    expect(reviewBucketFor(t({ schedule_type: "after_each_use", keep_as_task: true }))).toBe("whenNeeded")
+    const perUse = t({ schedule_type: "after_each_use", keep_as_task: true })
+    expect(reviewBucketFor(perUse)).toBe("maintenance")
+    expect(isScheduledTask(perUse)).toBe(false)
   })
 })
 
@@ -74,7 +91,10 @@ describe("willNotify — the promise the UI makes", () => {
     // safety work and calling it Essential would corrupt every tier-based sort.
     const descale = t({ schedule_type: "quarterly", priority_tier: "recommended", remind_enabled: true })
     expect(willNotify(descale)).toBe(true)
-    expect(reviewBucketFor(descale)).toBe("recommended")
+    // Round 18: it sits in Maintenance and keeps its Recommended tier — which is
+    // the point. The tier is a property of the row, not the section it lives in.
+    expect(reviewBucketFor(descale)).toBe("maintenance")
+    expect(descale.priority_tier).toBe("recommended")
     expect(willNotify(t({ schedule_type: "annual", priority_tier: "optional", remind_enabled: true }))).toBe(true)
   })
 
@@ -97,20 +117,36 @@ describe("willNotify — the promise the UI makes", () => {
 })
 
 describe("isScheduled", () => {
-  it("only the three priority buckets are scheduled", () => {
-    expect(["essential", "recommended", "optional"].every(isScheduled as never)).toBe(true)
-    expect(["setup", "whenNeeded", "tip"].some(isScheduled as never)).toBe(false)
+  it("scheduling is a property of the TASK now, not of its section", () => {
+    // The section can no longer answer this: a Cleaning row may be weekly or
+    // when-needed, and both are Cleaning.
+    expect(isScheduledTask(t({ care_type: "cleaning", schedule_type: "weekly" }))).toBe(true)
+    expect(isScheduledTask(t({ care_type: "cleaning", schedule_type: "as_needed" }))).toBe(false)
+    expect(isScheduledTask(t({ schedule_type: "monthly" }))).toBe(true)
+    expect(isScheduledTask(t({ schedule_type: "setup" }))).toBe(false)
+    expect(isScheduledTask(t({ schedule_type: "after_each_use" }))).toBe(false)
+    expect(isScheduledTask(t({ care_type: "operating", schedule_type: "monthly" }))).toBe(false)
   })
 })
 
 describe("sortWithinBucket", () => {
-  it("unscheduled sections lead with the most important", () => {
-    const rows = [t({ priority_tier: "optional" }), t({ priority_tier: "essential" }), t({ priority_tier: "recommended" })]
-    expect(sortWithinBucket("whenNeeded", rows).map((r) => r.priority_tier)).toEqual(["essential", "recommended", "optional"])
+  it("dated rows lead, then the most important", () => {
+    // Every section now mixes both, so the old "only sort unscheduled sections"
+    // rule had nothing left to key on.
+    const rows = [
+      t({ schedule_type: "as_needed", priority_tier: "essential" }),
+      t({ schedule_type: "monthly", priority_tier: "optional" }),
+      t({ schedule_type: "monthly", priority_tier: "essential" }),
+    ]
+    expect(sortWithinBucket("maintenance", rows).map((r) => [r.schedule_type, r.priority_tier])).toEqual([
+      ["monthly", "essential"],
+      ["monthly", "optional"],
+      ["as_needed", "essential"],
+    ])
   })
-  it("scheduled sections keep their given order (they're already one priority)", () => {
-    const rows = [t({ priority_tier: "essential" }), t({ priority_tier: "essential" })]
-    expect(sortWithinBucket("essential", rows)).toEqual(rows)
+  it("within one half, importance decides", () => {
+    const rows = [t({ priority_tier: "optional" }), t({ priority_tier: "essential" }), t({ priority_tier: "recommended" })]
+    expect(sortWithinBucket("maintenance", rows).map((r) => r.priority_tier)).toEqual(["essential", "recommended", "optional"])
   })
   it("does not mutate the input", () => {
     const rows = [t({ priority_tier: "optional" }), t({ priority_tier: "essential" })]
@@ -130,7 +166,9 @@ describe("summarize — drives the lead-in and the primary button", () => {
       t({ schedule_type: "after_each_use" }),
       t({ care_type: "operating" }),
     ]
-    expect(summarize(rows)).toEqual({ scheduled: 2, unscheduled: 2, tips: 2, total: 6 })
+    // `notifying` is round 18's second fact: what will actually reach the phone,
+    // stated separately from what merely shows up in Tasks.
+    expect(summarize(rows)).toEqual({ scheduled: 2, unscheduled: 2, tips: 2, notifying: 1, total: 6 })
   })
 
   it("reproduces the shape of the owner's Nespresso parse", () => {
@@ -141,30 +179,32 @@ describe("summarize — drives the lead-in and the primary button", () => {
       ...Array.from({ length: 4 }, () => t({ schedule_type: "as_needed" })),
       ...Array.from({ length: 2 }, () => t({ care_type: "operating", schedule_type: "after_each_use" })),
     ]
-    expect(summarize(rows)).toEqual({ scheduled: 1, unscheduled: 5, tips: 2, total: 8 })
+    // Nothing notifies: the one weekly row is Recommended, and Essential is the
+    // only default. Exactly the "3 show up in Tasks, none notify" case.
+    expect(summarize(rows)).toEqual({ scheduled: 1, unscheduled: 5, tips: 2, notifying: 0, total: 8 })
   })
 })
 
 describe("safety work is never auto-demoted to a tip", () => {
-  it("a per-use SAFETY task goes to 'when needed', not tips", () => {
+  it("a per-use SAFETY task goes to Maintenance, never Usage", () => {
     // Real regression: "Furnace Combustion Cycle Testing" arrived as
     // after_each_use and was filed as a tip on a GAS FURNACE.
-    expect(reviewBucketFor({ schedule_type: "after_each_use", risk_level: "safety" })).toBe("whenNeeded")
+    expect(reviewBucketFor({ schedule_type: "after_each_use", risk_level: "safety" })).toBe("maintenance")
   })
 
-  it("a per-use PRO/HAZARDOUS task goes to 'when needed', not tips", () => {
-    expect(reviewBucketFor({ schedule_type: "after_each_use", actor: "pro" })).toBe("whenNeeded")
-    expect(reviewBucketFor({ schedule_type: "after_each_use", actor: "hazardous" })).toBe("whenNeeded")
+  it("a per-use PRO/HAZARDOUS task goes to Maintenance, never Usage", () => {
+    expect(reviewBucketFor({ schedule_type: "after_each_use", actor: "pro" })).toBe("maintenance")
+    expect(reviewBucketFor({ schedule_type: "after_each_use", actor: "hazardous" })).toBe("maintenance")
   })
 
-  it("ordinary per-use habits are still tips — the lint filter case still works", () => {
-    expect(reviewBucketFor({ schedule_type: "after_each_use", actor: "diy", risk_level: "performance" })).toBe("tip")
+  it("ordinary per-use habits are Usage — the lint filter case still works", () => {
+    expect(reviewBucketFor({ schedule_type: "after_each_use", actor: "diy", risk_level: "performance" })).toBe("usage")
   })
 
   it("safety work keeps its priority visible instead of vanishing", () => {
-    const b = reviewBucketFor({ schedule_type: "after_each_use", risk_level: "safety", priority_tier: "essential" })
-    expect(b).toBe("whenNeeded")
-    expect(isScheduled(b)).toBe(false) // no cadence to fire on — but it IS shown
+    const task = { schedule_type: "after_each_use", risk_level: "safety", priority_tier: "essential" }
+    expect(reviewBucketFor(task)).toBe("maintenance")
+    expect(isScheduledTask(task)).toBe(false) // no cadence to fire on — but it IS shown
   })
 
   it("isSafetyCritical identifies what must not be demoted", () => {

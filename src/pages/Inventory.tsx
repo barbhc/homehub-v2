@@ -276,14 +276,17 @@ export default function Inventory() {
           description="Start with one appliance you'd hate to have break — the boiler, the washer, the fridge."
           teach="Photograph the label with the model number on it. Homehub finds the manual, reads it, and shows you the care it specifies before anything becomes a reminder."
           action={
-            <div className="flex flex-wrap gap-2">
-              <Button asChild size="sm">
-                <Link to="/inventory/add">Add your first item</Link>
-              </Button>
-              <Button asChild size="sm" variant="ghost">
-                <Link to="/sample">See a sample home</Link>
-              </Button>
-            </div>
+            /* "See a sample home" sat here until round 18. Removed at the
+               owner's request while the sample page is redesigned (BACKLOG §4b):
+               it still renders the pre-round-18 layout, so pointing a signed-in
+               user at it from the empty state means showing them a stale version
+               of the product they are already inside.
+
+               The route and the onboarding escape hatch both stay — this is one
+               door closed for the duration, not the page retired. */
+            <Button asChild size="sm">
+              <Link to="/inventory/add">Add your first item</Link>
+            </Button>
           }
         />
       ) : (

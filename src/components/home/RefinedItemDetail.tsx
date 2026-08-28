@@ -4,12 +4,15 @@ import { Link } from "react-router-dom"
 import {
   ChevronLeftIcon, ChevronRightIcon, MapPinIcon, ShieldCheckIcon,
   MegaphoneIcon, MessageCircleQuestionIcon, TagIcon,
-  WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, PencilIcon, type LucideIcon } from "lucide-react"
+  WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, PencilIcon, SparklesIcon, type LucideIcon } from "lucide-react"
 import type { ItemUnit, Room, KnowledgeChunk } from "@/integrations/types"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { dens } from "@/lib/redesign/tokens"
 import { CareBlock } from "@/components/item-care/CareBlock"
 import { categoryLabel } from "@/lib/categoryLabel"
+import { updateItemUnit, getItemUnits } from "@/modules/items"
+import { lateRoomSuggestion, lateNameSuggestion } from "@/lib/lateSuggestions"
+import { composeItemName } from "@/lib/itemName"
 import { fmtMoney } from "@/lib/itemMoney"
 import { WarrantyPanel } from "@/components/item-care/WarrantyPanel"
 import { ItemPhoto } from "./ItemPhoto"
@@ -67,9 +70,31 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
   )
 }
 
+/** A lookup suggestion, inline on the field it belongs to (round 18): the
+ *  value sits greyed and italic in the row it would fill, behind its own Add.
+ *  Explicitly NOT a card announcing a find — the owner rejected that twice,
+ *  first on the add screen, then as a pop-up here. */
+function SuggestionKV({ k, v, onAdd, last }: { k: string; v: string; onAdd?: () => void; last?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-2.5" style={{ borderBottom: last ? "none" : "0.5px solid var(--hh-line)" }}>
+      <span className="text-[13.5px]" style={{ color: SUB }}>{k}</span>
+      <span className="flex items-center gap-2">
+        <span className="text-[13.5px] italic" style={{ color: SUB }}>{v}</span>
+        {onAdd && (
+          <button type="button" onClick={onAdd}
+            className="rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold"
+            style={{ borderColor: TEAL, color: TEAL }}>
+            Add
+          </button>
+        )}
+      </span>
+    </div>
+  )
+}
+
 export function RefinedItemDetail({
   item, rooms, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
-  reviewAction, recordsSlot, onEditRoom, onEditDetails, nudgeSlot,
+  reviewAction, recordsSlot, onEditRoom, onEditDetails,
 }: {
   item: ItemUnit
   rooms: Room[]
@@ -102,9 +127,6 @@ export function RefinedItemDetail({
   /** Opens the one editable Details & records form. Without it the whole
    *  section is display-only, which is what it was before HH-96. */
   onEditDetails?: () => void
-  /** The purchase-details nudge, when this item still has something to gain
-   *  from it. Sits directly above the section it fills. */
-  nudgeSlot?: React.ReactNode
 }) {
   const d = dens(density)
   const Glyph = glyphFor(item)
@@ -120,6 +142,54 @@ export function RefinedItemDetail({
     ["Store", item.store_name],
   ]
   const shownFields = fields.filter(([, v]) => !!v) as [string, string, boolean?][]
+
+  /**
+   * The room and name the add screen could not offer, because the item's TYPE
+   * arrived after it was created — from the product lookup or the manual parse.
+   * One tap each, and nothing changes on its own: the room is a fact only the
+   * owner knows, and a name someone is looking at should not rearrange itself.
+   */
+  const roomSuggestion = useMemo(() => lateRoomSuggestion(item, rooms), [item, rooms])
+  const nameSuggestion = useMemo(() => lateNameSuggestion(item), [item])
+  const applyRoomSuggestion = async (room: Room) => {
+    const r = await updateItemUnit(homeId, item.item_unit_id, { room_id: room.room_id })
+    if (r.data) onItemUpdate?.(r.data)
+  }
+  const applyNameSuggestion = async (label: string) => {
+    // Dedupe at APPLY time rather than on every render: composeItemName appends
+    // the room when the plain type is taken ("Dishwasher — Kitchen"), and that
+    // needs every other item's name, which is a read worth doing once, here.
+    const existing = await getItemUnits(homeId)
+    const name = composeItemName({
+      typeLabel: label,
+      brand: item.brand,
+      model: item.model,
+      room: rooms.find((rm) => rm.room_id === item.room_id)?.name ?? null,
+      existingNames: (existing.data ?? [])
+        .filter((i) => i.item_unit_id !== item.item_unit_id)
+        .map((i) => i.display_name),
+    })
+    const r = await updateItemUnit(homeId, item.item_unit_id, { display_name: name })
+    if (r.data) onItemUpdate?.(r.data)
+  }
+
+  // Lookup suggestions (round 18): applied is DERIVED — a suggestion whose key
+  // already has a value has been accepted (or typed over) and stops rendering,
+  // so there is no separate applied-state to drift out of sync.
+  const catFields = (item.category_fields ?? {}) as Record<string, unknown>
+  const suggestions = (item.lookup_dismissed_at ? [] : item.lookup_suggestions ?? []).filter(
+    (sug) => catFields[sug.key] == null || catFields[sug.key] === "",
+  )
+  const acceptSuggestion = async (sug: { key: string; value: string | number | boolean }) => {
+    const r = await updateItemUnit(homeId, item.item_unit_id, {
+      category_fields: { ...catFields, [sug.key]: sug.value },
+    })
+    if (r.data) onItemUpdate?.(r.data)
+  }
+  const hideSuggestions = async () => {
+    const r = await updateItemUnit(homeId, item.item_unit_id, { lookup_dismissed_at: new Date().toISOString() })
+    if (r.data) onItemUpdate?.(r.data)
+  }
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
@@ -173,6 +243,31 @@ export function RefinedItemDetail({
               words twice for every newly added item. */}
           {itemSubtitle(item.display_name, item.brand, item.model) && (
             <div className="mt-1 text-[15px]" style={{ color: SUB }}>{itemSubtitle(item.display_name, item.brand, item.model)}</div>
+          )}
+          {(roomSuggestion || nameSuggestion) && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-[12px]" style={{ color: SUB }}>Suggested</span>
+              {roomSuggestion && (
+                <button
+                  type="button"
+                  onClick={() => void applyRoomSuggestion(roomSuggestion)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
+                  style={{ borderColor: TEAL, color: TEAL }}
+                >
+                  <MapPinIcon className="size-[13px]" /> {roomSuggestion.name}
+                </button>
+              )}
+              {nameSuggestion && (
+                <button
+                  type="button"
+                  onClick={() => void applyNameSuggestion(nameSuggestion)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
+                  style={{ borderColor: TEAL, color: TEAL }}
+                >
+                  <PencilIcon className="size-[13px]" /> Name it &ldquo;{nameSuggestion}&rdquo;
+                </button>
+              )}
+            </div>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
             {onEditRoom ? (
@@ -297,7 +392,6 @@ export function RefinedItemDetail({
         </Link>
 
 
-        {nudgeSlot}
 
         {/* HH-96: one way in for the whole section, not an "Add" on every empty
             row. A column of open fields for a serial number nobody means to
@@ -309,9 +403,15 @@ export function RefinedItemDetail({
             {shownFields.length > 0 ? "Edit" : "Add"}
           </button>
         ) : undefined}>Details &amp; records</SectionLabel>
-        {shownFields.length > 0 ? (
+        {shownFields.length > 0 || suggestions.length > 0 ? (
           <div className="rounded-2xl px-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
-            {shownFields.map(([k, v, mono], i) => <KV key={k} k={k} v={v} mono={mono} last={i === shownFields.length - 1} />)}
+            {shownFields.map(([k, v, mono], i) => (
+              <KV key={k} k={k} v={v} mono={mono} last={suggestions.length === 0 && i === shownFields.length - 1} />
+            ))}
+            {suggestions.map((sug, i) => (
+              <SuggestionKV key={sug.key} k={sug.label} v={String(sug.value)}
+                onAdd={() => void acceptSuggestion(sug)} last={i === suggestions.length - 1} />
+            ))}
           </div>
         ) : onEditDetails && (
           // Empty used to render nothing at all — a heading with a void under
@@ -324,6 +424,16 @@ export function RefinedItemDetail({
               Serial, purchase date, price, warranty — add what you have.
             </span>
           </button>
+        )}
+
+        {suggestions.length > 0 && (
+          <p className="px-1 text-[12px] leading-relaxed" style={{ color: SUB }}>
+            <SparklesIcon className="mr-1 inline size-3.5 align-[-2px]" style={{ color: TEAL }} aria-hidden />
+            We found these on a product page, not in your manual.{" "}
+            <button type="button" onClick={() => void hideSuggestions()} className="underline underline-offset-2">
+              Hide them
+            </button>
+          </p>
         )}
 
         {/* Warranty — status-first; self-hides when nothing is tracked */}

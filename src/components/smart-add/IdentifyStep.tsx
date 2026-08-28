@@ -28,17 +28,8 @@ import { extractFromImage, isEmptyOcrExtraction, type OcrExtraction } from "@/mo
 import { isNativePlatform, captureNativePhoto, pickNativeLibraryPhoto } from "@/lib/nativeCamera"
 import { downscaleImage } from "@/lib/downscaleImage"
 import { track } from "@/lib/analytics"
-import {
-  lookupProduct,
-  type ProductLookupCandidate,
-  type ProductIdentity,
-  type VariantCandidate,
-  type KnowledgeConfidence,
-} from "@/modules/inventory/services/productLookupService"
-import { ProductSuggestionCard } from "@/components/smart-add/ProductSuggestionCard"
-import { IdentityCard, type IdentityCardState } from "@/components/smart-add/IdentityCard"
-import { applyIdentity, undoIdentity, type IdentitySnapshot } from "@/components/smart-add/identityApply"
 import { LabelPhotoTips } from "@/components/smart-add/LabelPhotoTips"
+import { lookupBrandForModel } from "@/modules/inventory/services/productLookupService"
 import { BrandAutocomplete } from "@/components/smart-add/BrandAutocomplete"
 import {
   mapApplianceTypeIdToCategory,
@@ -49,7 +40,6 @@ import {
   type ItemCategoryId,
 } from "@/modules/inventory/constants/itemCategories"
 import { useCurrentHome, getRooms } from "@/modules/home"
-import { isAllowedSpecKey } from "../../../shared/products/specKeys"
 import { cn } from "@/lib/utils"
 
 export type IdentifyMode = "choice" | "appliance" | "simple"
@@ -146,7 +136,12 @@ export function IdentifyStep({
   // (the AI extraction call itself failed — not the photo's fault) | null (no
   // call yet / failed — ocrError carries failures). Drives the honest copy.
   const [ocrOutcome, setOcrOutcome] = useState<"success" | "empty" | "extract_failed" | null>(null)
-  const [ocrFilledCount, setOcrFilledCount] = useState(0)
+  /** What the scan actually changed, not how many things it touched.
+   *  The old count included fields the appliance lane never shows, so a scan
+   *  that visibly changed two things reported four. */
+  const [ocrFilled, setOcrFilled] = useState<{ brand: boolean; model: boolean; serial: boolean; count: number }>(
+    { brand: false, model: false, serial: false, count: 0 },
+  )
   const [ocrRawText, setOcrRawText] = useState<string | null>(null)
   const [moreDetailsOpen, setMoreDetailsOpen] = useState(false)
   const [otherWaysOpen, setOtherWaysOpen] = useState(false)
@@ -191,34 +186,6 @@ export function IdentifyStep({
   // newer extractions when users retry quickly.
   const ocrRequestIdRef = useRef(0)
 
-  // ── Product lookup (identity card + spec candidates) ──────────────────────
-  // Identity: the layered resolver's answer for the CURRENT brand+model key.
-  // Specs: the existing per-field review card. Numeric specs from Claude are
-  // NEVER silently merged — the user taps Apply per candidate. Identity is the
-  // same contract: "Use this" is the only write, and it's undoable.
-  const [lookupResult, setLookupResult] = useState<{
-    key: string
-    identity: ProductIdentity | null
-    variants: VariantCandidate[]
-  } | null>(null)
-  const [identityApplied, setIdentityApplied] = useState<{
-    key: string
-    snapshot: IdentitySnapshot
-    identity: ProductIdentity
-  } | null>(null)
-  // "Not my product" / "None of these" per brand+model key — session-scoped.
-  const [dismissedIdentityKeys, setDismissedIdentityKeys] = useState<Set<string>>(new Set())
-  const [lookupCandidates, setLookupCandidates] = useState<ProductLookupCandidate[]>([])
-  const [lookupConfidence, setLookupConfidence] = useState<KnowledgeConfidence>("low")
-  // No "applied" set: which chips were tapped is not evidence of what the form
-  // holds. Applied is derived from data.categoryFields inside the card.
-  const [dismissedCandidateKeys, setDismissedCandidateKeys] = useState<Set<string>>(new Set())
-  const [lookupLoading, setLookupLoading] = useState(false)
-  /** Actionable lookup-failure notice (quota) — shown quietly under the fields. */
-  const [lookupNotice, setLookupNotice] = useState<string | null>(null)
-  const [dismissedSpecKey, setDismissedSpecKey] = useState<string | null>(null)
-  const lookupRequestIdRef = useRef(0)
-  const lastLookupKeyRef = useRef<string>("")
   // Keep a ref to the latest data so debounced/apply callbacks read fresh
   // values without re-subscribing on every keystroke.
   const dataRef = useRef(data)
@@ -232,22 +199,75 @@ export function IdentifyStep({
   // stale placeholder outside our tracking.
   const placeholderNamesRef = useRef<Set<string>>(new Set())
 
-  const currentKey = `${data.brand.trim().toLowerCase()}::${data.model.trim().toLowerCase()}`
+  /**
+   * A brand derived from the model number, offered when the scan read one and
+   * not the other.
+   *
+   * The LG dryer case: the wordmark is a stylised logo the OCR cannot
+   * transcribe, so the label yields "WM3900HBA" and no manufacturer. The
+   * extractor used to fill that gap by guessing — which is how an LG dryer
+   * scanned as a Whirlpool. It now returns null instead, and this asks the
+   * resolver who actually makes that model.
+   *
+   * Offered, never applied: it lands as a Suggested chip beside the category
+   * and room chips, one tap to accept. "Suggest, never assume" is the whole
+   * reason the guess became a suggestion rather than a better guess.
+   */
+  const [brandSuggestion, setBrandSuggestion] = useState<string | null>(null)
+  const brandLookupRef = useRef<string>("")
+
+  /**
+   * What the scan changed, said in things the user can see.
+   *
+   * The old line was "Filled 4 fields from your photo — tap Add more details to
+   * review." Two faults, both the same shape as a caption this screen already
+   * had to lose: it counted fields the appliance lane never displays, so a scan
+   * that visibly changed the brand and the model reported four; and "Add more
+   * details" exists ONLY in the simple lane, while the camera exists only in the
+   * appliance one. It was pointing at a control the reader did not have.
+   *
+   * So it names what changed instead of counting it, and points nowhere. Serial
+   * gets a mention because it is a thing a person recognises and checks; the
+   * category and the composed name do not, and a scan quietly getting those
+   * right is not news.
+   */
+  /**
+   * Required fields the appliance lane still needs, after a scan has run.
+   *
+   * Only ever populated once a photo has been read — an untouched form is not
+   * "missing" anything, it is simply empty, and marking it red before the user
+   * has done anything would be scolding them for arriving.
+   */
+  const missingRequired = useMemo(() => {
+    if (mode !== "appliance" || ocrOutcome !== "success") return [] as string[]
+    const out: string[] = []
+    if (data.brand.trim().length < 2) out.push("brand")
+    if (data.model.trim().length < 1) out.push("model")
+    return out
+  }, [mode, ocrOutcome, data.brand, data.model])
+
+  const scanSummary = useMemo(() => {
+    const seen: string[] = []
+    if (ocrFilled.brand) seen.push("brand")
+    if (ocrFilled.model) seen.push("model")
+    if (ocrFilled.serial) seen.push("serial number")
+    const list = (xs: string[]) =>
+      xs.length === 1 ? xs[0] : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`
+    const got = seen.length ? `Got the ${list(seen)} from your photo.` : "Photo read."
+    // A half-successful scan used to read as a successful one. Whatever is still
+    // required and still empty gets said out loud, because the alternative is
+    // what the owner hit: a screen reporting success, a field that looked full,
+    // and a grey button that knew what was wrong and could not say it.
+    const missing = missingRequired
+    if (!missing.length) return got
+    return `${got} We couldn't read the ${list(missing)} — add ${missing.length > 1 ? "them" : "it"} below.`
+  }, [ocrFilled, missingRequired])
 
   const wantAutoExpand = useMemo(() => hasHiddenAutofill(data, mode), [data, mode])
 
   useEffect(() => {
     if (wantAutoExpand) setMoreDetailsOpen(true)
   }, [wantAutoExpand])
-
-  // A found product's specs (capacity, wattage, filter size…) live in the
-  // ProductSuggestionCard inside "Add more details". Surface them automatically
-  // when the lookup returns candidates — otherwise a match appears to fill only
-  // the category, when there was more to apply one tap away.
-  useEffect(() => {
-    if (lookupCandidates.length > 0) setMoreDetailsOpen(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lookupCandidates.length])
 
   useEffect(() => {
     return () => {
@@ -269,188 +289,6 @@ export function IdentifyStep({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, data.brand, data.model])
-
-  // Debounced brand+model → product lookup (identity + spec candidates).
-  // Fires 800ms after both have settled at ≥2 chars, skipped while OCR is
-  // running so we don't race the nameplate extraction. Transport errors leave
-  // lookupResult null — no card at all; an error is NOT a product miss.
-  useEffect(() => {
-    const brand = data.brand.trim()
-    const model = data.model.trim()
-    const key = `${brand.toLowerCase()}::${model.toLowerCase()}`
-
-    if (brand.length < 2 || model.length < 2) {
-      if (lookupCandidates.length > 0) setLookupCandidates([])
-      return
-    }
-    if (ocrLoading) return
-    if (lastLookupKeyRef.current === key) return
-
-    const handle = window.setTimeout(async () => {
-      const requestId = ++lookupRequestIdRef.current
-      setLookupLoading(true)
-      const result = await lookupProduct({
-        brand,
-        model,
-        category: dataRef.current.itemCategory,
-        subType: dataRef.current.subType,
-      })
-      if (requestId !== lookupRequestIdRef.current) return
-      setLookupLoading(false)
-      if (result.error) {
-        // Soft-fail — the form stays fully usable; typed data is the data.
-        // But never SILENTLY: track every failure (a retired model 404'd every
-        // lookup for days and nothing surfaced), and tell the user about quota
-        // exhaustion, which is actionable.
-        console.warn("[product-lookup] error:", result.error.message)
-        track("identity_lookup_error", { message: result.error.message.slice(0, 120) })
-        if (/limit reached/i.test(result.error.message)) {
-          setLookupNotice("Daily lookup limit reached — the form still works, fill it in manually.")
-        }
-        return
-      }
-      setLookupNotice(null)
-      lastLookupKeyRef.current = key
-      const r = result.data
-      setLookupResult({ key, identity: r.identity, variants: r.variantCandidates })
-      setLookupCandidates(r.candidates)
-      setLookupConfidence(r.knowledgeConfidence)
-      setDismissedCandidateKeys(new Set())
-      track("identity_lookup_done", {
-        outcome: r.identity ? "found" : r.variantCandidates.length > 0 ? "fuzzy" : "miss",
-        source: r.identity?.source ?? null,
-        cacheHit: r.cacheHit,
-      })
-    }, 800)
-
-    return () => window.clearTimeout(handle)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.brand, data.model, ocrLoading])
-
-  // An applied identity must not outlive the model it was for.
-  //
-  // Typing "Core", accepting "Levoit Core …", then finishing the model to
-  // "Core 300" left the earlier name in place: applyIdentity had already made
-  // it a non-placeholder, so neither the auto-compose nor a later apply would
-  // replace it. The item shipped named after the family while the field right
-  // above it read "Core 300". Withdrawing is not the same as auto-applying —
-  // we are retracting a suggestion that no longer refers to what they typed,
-  // and only when they have not edited it themselves.
-  useEffect(() => {
-    if (!identityApplied || identityApplied.key === currentKey) return
-    if (dataRef.current.name !== identityApplied.identity.name) {
-      // They renamed it. Their text stands; just stop calling it applied.
-      setIdentityApplied(null)
-      return
-    }
-    const reverted = undoIdentity(dataRef.current, identityApplied.snapshot)
-    const composed = `${data.brand.trim()} ${data.model.trim()}`.trim()
-    // Recompose here rather than leaning on the auto-compose effect: that one
-    // reads dataRef, which still holds the pre-undo value in this commit.
-    const nameIsOurs = !reverted.name.trim() || placeholderNamesRef.current.has(reverted.name)
-    if (composed && nameIsOurs) placeholderNamesRef.current.add(composed)
-    onDataChange(composed && nameIsOurs ? { ...reverted, name: composed } : reverted)
-    setIdentityApplied(null)
-    track("identity_withdrawn", { reason: "model_changed" })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey])
-
-  // ── Identity card state machine ───────────────────────────────────────────
-  const identityCardState: IdentityCardState | null = (() => {
-    if (mode !== "appliance") return null
-    if (lookupLoading) return "loading"
-    if (identityApplied && identityApplied.key === currentKey) return "applied"
-    if (!lookupResult || lookupResult.key !== currentKey) return null
-    if (dismissedIdentityKeys.has(currentKey)) return "miss"
-    if (lookupResult.identity) return "found"
-    if (lookupResult.variants.length > 0) return "fuzzy"
-    return "miss"
-  })()
-
-  const identityCategoryLabel = useMemo(() => {
-    const identity = lookupResult?.identity
-    if (!identity) return null
-    const mapped = mergeOcrCategory(identity.rawCategory)
-    if (!mapped.itemCategory) return null
-    return getSubTypeLabel(mapped.itemCategory, mapped.subType) ?? legacyCategoryLabelFromItemCategory(mapped.itemCategory)
-  }, [lookupResult?.identity])
-
-  const handleUseIdentity = () => {
-    const identity = lookupResult?.identity
-    if (!identity || lookupResult?.key !== currentKey) return
-    const { next, snapshot } = applyIdentity(dataRef.current, identity, {
-      nameIsPlaceholder: placeholderNamesRef.current.has(dataRef.current.name),
-    })
-    onDataChange(next)
-    setIdentityApplied({ key: currentKey, snapshot, identity })
-    track("identity_applied", { source: identity.source })
-  }
-
-  const handleUndoIdentity = () => {
-    if (!identityApplied) return
-    onDataChange(undoIdentity(dataRef.current, identityApplied.snapshot))
-    setIdentityApplied(null)
-    track("identity_undone")
-  }
-
-  const handleNotMyProduct = () => {
-    if (identityApplied) onDataChange(undoIdentity(dataRef.current, identityApplied.snapshot))
-    setIdentityApplied(null)
-    setDismissedIdentityKeys((prev) => new Set(prev).add(currentKey))
-    track("identity_rejected", { source: lookupResult?.identity?.source ?? null })
-  }
-
-  const handlePickVariant = (model: string) => {
-    // Setting the full model refires the debounced lookup → found state.
-    onDataChange({ ...dataRef.current, model })
-    track("identity_variant_picked")
-  }
-
-  const handleNoneOfThese = () => {
-    setDismissedIdentityKeys((prev) => new Set(prev).add(currentKey))
-    track("identity_variants_rejected")
-  }
-
-  // Defence in depth: the server already drops keys outside the category's
-  // schema, but a cached lookup from before that gate can still carry one. A
-  // value written to a key no field renders is invisible AND unremovable — the
-  // exact shape of the reported bug — so refuse it here too.
-  const handleApplyCandidate = (c: ProductLookupCandidate) => {
-    if (!isAllowedSpecKey(data.itemCategory ?? null, c.key)) {
-      console.warn("[identify] refused off-schema spec key", { key: c.key, category: data.itemCategory })
-      setDismissedCandidateKeys((prev) => new Set(prev).add(c.key))
-      return
-    }
-    const nextFields = { ...(data.categoryFields ?? {}), [c.key]: c.value }
-    onDataChange({ ...data, categoryFields: nextFields })
-  }
-
-  const handleRemoveCandidate = (key: string) => {
-    const nextFields = { ...(data.categoryFields ?? {}) }
-    delete nextFields[key]
-    onDataChange({ ...data, categoryFields: nextFields })
-  }
-
-  /** "Keep mine" — hide the suggestion, leave the user's value alone. */
-  const handleDismissCandidate = (key: string) => {
-    setDismissedCandidateKeys((prev) => new Set(prev).add(key))
-  }
-
-  // Also drops any key the form cannot display. A cached lookup predating the
-  // server-side gate can still carry one, and offering "Apply" for a field that
-  // will never appear is offering a button that does nothing visible.
-  const visibleCandidates = useMemo(
-    () =>
-      lookupCandidates.filter(
-        (c) => !dismissedCandidateKeys.has(c.key) && isAllowedSpecKey(data.itemCategory ?? null, c.key),
-      ),
-    [lookupCandidates, dismissedCandidateKeys, data.itemCategory],
-  )
-
-  const handleDismissLookup = () => {
-    setDismissedSpecKey(currentKey)
-    setLookupCandidates([])
-  }
 
   const processImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return
@@ -527,6 +365,15 @@ export function IdentifyStep({
     //
     // Everything else still only fills blanks: a receipt scan's date or price
     // has no business overwriting something the user chose.
+    // Model read, brand not: ask who makes it rather than letting anything
+    // guess. Fire-and-forget — a suggestion that never arrives costs nothing.
+    if (r.model && !r.brand && brandLookupRef.current !== r.model) {
+      brandLookupRef.current = r.model
+      void lookupBrandForModel(r.model)
+        .then((b) => { if (brandLookupRef.current === r.model) setBrandSuggestion(b) })
+        .catch(() => {})
+    }
+
     const scannedIdentity = applyScannedIdentity(
       { brand: data.brand, model: data.model },
       { brand: r.brand, model: r.model },
@@ -561,14 +408,17 @@ export function IdentifyStep({
     // field, and reporting "filled 0 fields" after overwriting two of them
     // would be the screen disagreeing with itself.
     let filled = scannedFieldsChanged({ brand: data.brand, model: data.model }, next)
+    const brandChanged = data.brand !== next.brand && !!next.brand
+    const modelChanged = data.model !== next.model && !!next.model
+    const serialChanged = !data.serialNumber && !!next.serialNumber
     if (data.name !== next.name) filled++
-    if (!data.serialNumber && next.serialNumber) filled++
+    if (serialChanged) filled++
     if (data.itemCategory == null && next.itemCategory != null) filled++
     if (!data.purchaseDate && next.purchaseDate) filled++
     if (data.purchasePrice == null && next.purchasePrice != null) filled++
     onDataChange(next)
     setOcrOutcome("success")
-    setOcrFilledCount(filled)
+    setOcrFilled({ brand: brandChanged, model: modelChanged, serial: serialChanged, count: filled })
     track("label_ocr_succeeded", { filled, docType: r.docType ?? "unknown", engine: r.engine ?? null, ms })
     if (hasHiddenAutofill(next, mode)) setMoreDetailsOpen(true)
     // If OCR gave us a purchase date or price (receipt scan), log a telemetry-
@@ -716,6 +566,13 @@ export function IdentifyStep({
               <p className="text-sm text-muted-foreground mt-0.5">
                 Has a brand &amp; model — washer, fridge, thermostat, TV…
               </p>
+              {/* The camera lives in THIS lane and nowhere else, so the person
+                  whose plan is "I'll photograph the label" needs to know that
+                  here, at the moment they choose. Said on the card it changes
+                  rather than in a caption underneath both of them. */}
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Type it, or scan the label.
+              </p>
             </div>
           </div>
         </button>
@@ -739,16 +596,13 @@ export function IdentifyStep({
             </div>
           </div>
         </button>
-        <p className="text-xs text-muted-foreground text-center">
-          Photo of a label? You can snap it inside the appliance form.
-        </p>
       </div>
     )
   }
 
   // ── Form lanes (appliance / simple) ───────────────────────────────────────
   return (
-    <div className="flex flex-col gap-6 max-w-xl mx-auto">
+    <div className="@container flex flex-col gap-6 max-w-xl mx-auto">
       {/* HH-74: no space-y here — SectionCard is already flex-col gap-6, and
           stacking margin-based spacing on top produced 44px between every
           section (24 gap + 20 margin), which is the "big gaps" she reported
@@ -775,8 +629,8 @@ export function IdentifyStep({
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">
                     {ocrOutcome === "success"
-                      ? ocrFilledCount > 0
-                        ? `Filled ${ocrFilledCount} field${ocrFilledCount === 1 ? "" : "s"} from your photo — tap Add more details to review.`
+                      ? ocrFilled.count > 0
+                        ? scanSummary
                         : "Photo read — everything you'd typed was kept."
                       : ocrOutcome === "empty"
                         ? "Couldn't read anything usable from that photo."
@@ -894,13 +748,23 @@ export function IdentifyStep({
                 <label htmlFor="identify-brand" className="text-sm font-medium text-foreground block mb-1.5">
                   Brand <span className="text-destructive">*</span>
                 </label>
+                {/* Placeholder is a QUESTION, not an example. It used to read
+                    "e.g., LG" — and the owner scanned an LG, so the one empty
+                    required field displayed her correct answer in grey, with
+                    only the shade of the text to tell empty from filled. Any
+                    example brand is somebody's real brand; the fix is to stop
+                    naming one rather than to pick a rarer one. */}
                 <BrandAutocomplete
                   id="identify-brand"
                   value={data.brand}
                   onChange={(brand) => onDataChange({ ...dataRef.current, brand })}
-                  placeholder="e.g., LG"
+                  placeholder="Who makes it?"
                   required
+                  invalid={missingRequired.includes("brand")}
                 />
+                {missingRequired.includes("brand") && (
+                  <p className="mt-1 text-xs text-destructive">Not found in your photo</p>
+                )}
               </div>
               <div>
                 <label htmlFor="identify-model" className="text-sm font-medium text-foreground block mb-1.5">
@@ -910,9 +774,11 @@ export function IdentifyStep({
                   id="identify-model"
                   value={data.model}
                   onChange={(e) => onDataChange({ ...data, model: e.target.value })}
-                  placeholder="e.g., WM4000HWA"
+                  placeholder="Model number"
                   maxLength={100}
                   required
+                  aria-invalid={missingRequired.includes("model")}
+                  className={cn(missingRequired.includes("model") && "border-destructive")}
                   // Model numbers are uppercase alphanumerics — stop the iOS
                   // keyboard fighting the user (lowercase default, autocorrect
                   // "SMD2470" → words, spellcheck red squiggles).
@@ -921,51 +787,22 @@ export function IdentifyStep({
                   autoCapitalize="characters"
                   spellCheck={false}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Usually on a label inside the door or around the back
-                </p>
+                {missingRequired.includes("model") ? (
+                  <p className="mt-1 text-xs text-destructive">Not found in your photo</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Usually on a label inside the door or around the back
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* The lookup result sits DIRECTLY under the fields that produced
-                it — cause then effect. The snap/no-model row (a fallback for
-                when typing didn't get you there) follows below. */}
-            {lookupNotice && !identityCardState && (
-              <p className="text-xs text-muted-foreground">{lookupNotice}</p>
-            )}
-            {identityCardState && (
-              <IdentityCard
-                state={identityCardState}
-                identity={identityCardState === "applied" ? identityApplied?.identity : lookupResult?.identity}
-                categoryLabel={identityCategoryLabel}
-                brand={data.brand}
-                model={data.model}
-                variants={lookupResult?.variants ?? []}
-                onUse={handleUseIdentity}
-                onUndo={handleUndoIdentity}
-                onNotMine={handleNotMyProduct}
-                onPickVariant={handlePickVariant}
-                onNoneOfThese={handleNoneOfThese}
-                onSnapLabel={labelPreviewUrl ? undefined : handleSnapLabel}
-              />
-            )}
-
-            {/* HH-114: the specs, directly under the thing they describe.
-                They stay Apply-chips and are NOT asserted as fact — see
-                ProductSuggestionCard's header for why (a hallucinated filter
-                size sends someone to buy the wrong part). */}
-            {dismissedSpecKey !== currentKey && (lookupLoading || visibleCandidates.length > 0) && (
-              <ProductSuggestionCard
-                candidates={visibleCandidates}
-                knowledgeConfidence={lookupConfidence}
-                currentValues={data.categoryFields ?? {}}
-                onApply={handleApplyCandidate}
-                onRemove={handleRemoveCandidate}
-                onDismissCandidate={handleDismissCandidate}
-                onDismiss={handleDismissLookup}
-                loading={lookupLoading}
-              />
-            )}
+            {/* The lookup used to run here, on every keystroke, and report
+                itself in two cards: "We found this item" and a panel of spec
+                chips. Both are gone. It now runs once, in the background, after
+                the item exists — and anything it finds waits on the item page,
+                beside the fields it would fill, where they are actually
+                visible. The screen you type on no longer changes under you. */}
 
             {/* HH-123. Round 11 folded all three photo routes behind one
                 disclosure called "Can't find the model?" — which frames the
@@ -989,7 +826,18 @@ export function IdentifyStep({
                   type="button"
                   onClick={handleSnapLabel}
                   disabled={ocrLoading}
-                  className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border-2 border-primary bg-secondary px-4 py-3 text-left transition-colors disabled:opacity-60"
+                  /* justify-between is a contract: both ends are meaningful and
+                     independent. True in a narrow column, where the chevron sits
+                     24px past the text. False once the column doubles — the card
+                     goes 285px to 526px while its content stays exactly 205px,
+                     so the spread buys 265px of nothing and the chevron drifts
+                     away from the row it belongs to.
+                     A CONTAINER query, not a breakpoint: this card may later sit
+                     in a sidebar or a modal, where a md: prefix would describe
+                     the wrong box. Above a 24rem container the group hugs left
+                     and the leftover width becomes margin — which is what extra
+                     width is for in a single-column form. */
+                  className="flex min-h-14 w-full items-center justify-between gap-3 @min-[360px]:gap-4 rounded-2xl border-2 border-primary bg-secondary px-4 py-3 text-left transition-colors disabled:opacity-60"
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card">
@@ -1007,11 +855,23 @@ export function IdentifyStep({
                           and the read only ever needed the model number legible.
                           Both lines are short enough to hold one line each beside
                           the icon tile at 375pt — measured, not assumed. */}
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        Point at the model number
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        We&apos;ll do the typing
+                      {/* text-sm, not text-xs. These two lines carry the whole
+                          instruction — what to aim at, and what you get — and at
+                          hint size they read as fine print under a heading three
+                          steps larger. 14px is what every field label on this
+                          screen uses, so the card sits on the same scale as the
+                          form beside it.
+
+                          Stacked in a narrow container, side by side once there
+                          is room. A CONTAINER query, not a breakpoint: this card
+                          may later sit in a sidebar or a modal, where a `md:`
+                          prefix would describe the wrong box. The point is that
+                          extra width buys more content per row rather than a
+                          longer gap before the chevron — see BACKLOG.md. */}
+                      <span className="mt-0.5 flex flex-col @min-[26rem]:flex-row @min-[26rem]:items-center @min-[26rem]:gap-2 text-sm text-muted-foreground">
+                        <span data-scan-line>Find the model number</span>
+                        <span className="hidden @min-[26rem]:inline" aria-hidden>·</span>
+                        <span data-scan-line>We&apos;ll do the typing</span>
                       </span>
                     </span>
                   </span>
@@ -1027,13 +887,13 @@ export function IdentifyStep({
                     type="button"
                     onClick={() => setOtherWaysOpen((v) => !v)}
                     aria-expanded={otherWaysOpen}
-                    className="flex items-center gap-1 text-xs font-semibold text-primary"
+                    className="flex items-center gap-1 text-sm font-semibold text-primary"
                   >
                     <ChevronRight
-                      className={cn("size-3.5 transition-transform", otherWaysOpen && "rotate-90")}
+                      className={cn("size-4 transition-transform", otherWaysOpen && "rotate-90")}
                       aria-hidden
                     />
-                    More ways to identify it
+                    If you can&apos;t scan the label
                   </button>
                   {ocrLoading && (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
@@ -1045,19 +905,19 @@ export function IdentifyStep({
 
                 {otherWaysOpen && (
                   <div className="mt-2">
-                    {/* Says WHAT to photograph before the camera opens. A
-                        first-timer points at the front of the appliance —
-                        that is what "photograph your dishwasher" means in
-                        English — and the model number is on a sticker inside
-                        the door frame. A capture problem wearing an OCR
-                        problem's clothes, and no pipeline work fixes it. */}
-                    <LabelPhotoTips variant="before" />
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {/* Just the two real alternatives now. The tips that used
+                        to live here were pre-capture guidance filed BEHIND the
+                        capture control, and what mattered in them — aim at the
+                        model number, the label is inside the door or round the
+                        back — is said on the scan card and under the model
+                        field, where it is read before the camera opens rather
+                        than after you have gone looking for it. */}
+                    <div className="flex flex-wrap items-center gap-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="text-xs gap-1.5"
+                      className="text-sm gap-1.5"
                       onClick={handlePickFromLibrary}
                       disabled={ocrLoading}
                     >
@@ -1067,7 +927,7 @@ export function IdentifyStep({
                     <button
                       type="button"
                       onClick={() => onModeChange("simple")}
-                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
                     >
                       I don't have a model number
                     </button>
@@ -1099,9 +959,23 @@ export function IdentifyStep({
           </div>
         )}
 
-        {(catChip || roomChip) && (
+        {(catChip || roomChip || (brandSuggestion && !data.brand.trim())) && (
           <div className="flex flex-wrap items-center gap-2 -mt-1">
             <span className="text-xs text-muted-foreground">Suggested</span>
+            {brandSuggestion && !data.brand.trim() && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDataChange({ ...dataRef.current, brand: brandSuggestion })
+                  track("brand_suggestion_accepted")
+                  setBrandSuggestion(null)
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                <Sparkles className="size-3.5" aria-hidden />
+                {brandSuggestion}
+              </button>
+            )}
             {catChip && (
               <button
                 type="button"
@@ -1324,7 +1198,11 @@ export function IdentifyStep({
         >
           Back
         </Button>
-        <Button onClick={onConfirm} disabled={!isValid || isCreating} className="gap-2">
+        {/* The primary fills the remaining row — every approved mockup of this
+            screen drew it that way (ghost Back, solid CTA stretching), and the
+            round-18 gallery caught the code hugging content instead, leaving
+            dead space to the right of the one button that matters. */}
+        <Button onClick={onConfirm} disabled={!isValid || isCreating} className="flex-1 gap-2">
           {isCreating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />

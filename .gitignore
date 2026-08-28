@@ -92,3 +92,4 @@ feedback/
 # manuals; runs/ is committed instead, which is what keeps the score
 # reproducible without them.
 evals/manual-parser/.pdf-cache/
+design-shots/
