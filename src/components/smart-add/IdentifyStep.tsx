@@ -520,7 +520,7 @@ export function IdentifyStep({
 
   // ── Form lanes (appliance / simple) ───────────────────────────────────────
   return (
-    <div className="flex flex-col gap-6 max-w-xl mx-auto">
+    <div className="@container flex flex-col gap-6 max-w-xl mx-auto">
       {/* HH-74: no space-y here — SectionCard is already flex-col gap-6, and
           stacking margin-based spacing on top produced 44px between every
           section (24 gap + 20 margin), which is the "big gaps" she reported
@@ -728,7 +728,18 @@ export function IdentifyStep({
                   type="button"
                   onClick={handleSnapLabel}
                   disabled={ocrLoading}
-                  className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border-2 border-primary bg-secondary px-4 py-3 text-left transition-colors disabled:opacity-60"
+                  /* justify-between is a contract: both ends are meaningful and
+                     independent. True in a narrow column, where the chevron sits
+                     24px past the text. False once the column doubles — the card
+                     goes 285px to 526px while its content stays exactly 205px,
+                     so the spread buys 265px of nothing and the chevron drifts
+                     away from the row it belongs to.
+                     A CONTAINER query, not a breakpoint: this card may later sit
+                     in a sidebar or a modal, where a md: prefix would describe
+                     the wrong box. Above a 24rem container the group hugs left
+                     and the leftover width becomes margin — which is what extra
+                     width is for in a single-column form. */
+                  className="flex min-h-14 w-full items-center justify-between @min-[360px]:justify-start gap-3 @min-[360px]:gap-4 rounded-2xl border-2 border-primary bg-secondary px-4 py-3 text-left transition-colors disabled:opacity-60"
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card">

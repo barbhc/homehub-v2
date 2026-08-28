@@ -350,7 +350,7 @@ warranty-shaped. The first is cheaper and keeps one retrieval path.
 
 Not blocking; onboarding copy no longer promises it.
 
-## Controls stretch on desktop instead of the layout deciding what to do with the width
+## ~~Controls stretch on desktop~~ — FIXED 2026-08-27 for the scan card; sweep still open
 
 Owner, 2026-08-27, reading the add screen on a laptop: "there's just a very
 wide space between scan the label, the text underneath, and then the carrot on
@@ -403,5 +403,17 @@ be wrong in all three. Tailwind v4 supports `@container` natively and
 `components/ui/card.tsx` already uses it (`@container/card-header`), so the
 primitive is present and unused elsewhere.
 
-Deliberately not fixed in the round-18 QA branch — the owner's call, and it is
-a layout-system question rather than a copy fix.
+**Fixed for the scan card** (owner reversed the deferral the same day): a
+`@min-[360px]:justify-start` container query on `IdentifyStep`'s appliance
+column. 265px of dead space became 16px on desktop, 375pt is unchanged, and
+`e2e/emu/desktop-gap.spec.ts` holds the gap under 16% of the card at 375, 390,
+430, 600, 768 and 1440.
+
+The 360px threshold was measured rather than picked. The first attempt used
+`@sm` (384px) and the guard failed at 430 — a 79px gap, 23% of the card, on an
+iPhone 15 Pro Max. The same defect in miniature, on a device testers hold,
+which nobody would have reported because it only looks slightly loose.
+
+**Still open: the sweep.** 43 files use `justify-between`; this was the only
+row of this exact shape today, but the pattern will recur, and the container-
+query mechanism now has one worked example to copy.
