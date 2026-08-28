@@ -46,40 +46,32 @@ export type TourStep = DriveStep & { route?: string }
  */
 export const tourSteps: TourStep[] = [
   {
+    /**
+     * ONE Home step, not two (owner, 2026-08-27). It used to be a welcome
+     * followed by a notifications explainer, both anchored to the same nav
+     * button — so the tour appeared to stall on its first target, and the
+     * highlight never moved between them.
+     *
+     * The notifications half is round 18's, and it is not decoration. The tour
+     * taught NAVIGATION and never taught the thing a person needs before
+     * trusting an app with their house: how it will reach them. That gap is
+     * what produced HH-144 — reading "nothing here will remind you" over three
+     * rows showing a weekly cadence, unable to tell whether the app was going
+     * to do anything. Two channels, and only one of them is opt-in, so both
+     * have to be said.
+     *
+     * It still deliberately does NOT ask for notification permission here.
+     * Nothing is scheduled yet on a brand-new account, so the prompt would be
+     * abstract — and iOS only ever shows it once.
+     */
     element: "[data-tour='nav-home']",
     route: "/home",
     popover: {
       title: "Welcome",
       description:
-        "Home is what your house needs from you, most important first. " +
-        "It fills in as you add what you own — straight from your manuals, not generic advice.",
-      side: "bottom",
-      align: "start",
-    },
-  },
-  {
-    /**
-     * Round 18. The tour taught NAVIGATION — five steps naming what lives behind
-     * each tab — and never taught the one thing a person needs before trusting
-     * an app with their house: how it will reach them.
-     *
-     * That gap is what produced the owner's confusion in HH-144. She read
-     * "nothing here will remind you" over three rows showing a weekly cadence
-     * and, reasonably, could not tell whether the app was going to do anything.
-     * Two channels, and only one of them is opt-in.
-     *
-     * It sits on Home rather than a settings screen because Home is where
-     * channel one actually happens, and it deliberately does NOT ask for
-     * notification permission: nothing is scheduled yet on a brand-new account,
-     * so the prompt would be abstract — and iOS only ever shows it once.
-     */
-    element: "[data-tour='nav-home']",
-    route: "/home",
-    popover: {
-      title: "How we'll reach you",
-      description:
-        "Anything on a schedule turns up on Home when it comes round — nothing to switch on. " +
-        "Notifications on your phone are separate, and yours to allow. We'll ask before the first one.",
+        "Home is what your house needs from you, most important first — straight from your " +
+        "manuals, not generic advice. It appears here on its own; notifications on your phone " +
+        "are separate, and yours to allow.",
       side: "bottom",
       align: "start",
     },

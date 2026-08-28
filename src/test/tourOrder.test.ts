@@ -16,10 +16,14 @@ import { tourSteps } from "@/lib/tourSteps"
 const hook = readFileSync("src/hooks/useFeatureTour.ts", "utf8")
 
 describe("tour order", () => {
+  it("visits each destination exactly once — no nav button gets two bubbles", () => {
+    const routes = tourSteps.map((s) => s.route)
+    expect(new Set(routes).size).toBe(routes.length)
+  })
+
   it("visits Home, Tasks, Items, Ask, Settings — the payoff before the chore", () => {
     expect(tourSteps.map((s) => s.route)).toEqual([
-      "/home",        // welcome
-      "/home",        // how we'll reach you
+      "/home",        // welcome + how we'll reach you, merged
       "/maintenance", // Tasks — what your house needs
       "/inventory",   // Items — how to get more of it
       "/chat",
@@ -31,6 +35,15 @@ describe("tour order", () => {
     for (const step of tourSteps) {
       expect(step.popover?.title ?? "").not.toMatch(/homehub/i)
     }
+  })
+
+  it("still says how BOTH channels reach you — the HH-144 gap", () => {
+    // Merging the two Home steps must not quietly drop the notifications half:
+    // in-app scheduling is automatic, phone notifications are opt-in, and a
+    // person cannot tell which is which unless we say so.
+    const home = `${tourSteps[0].popover?.description}`
+    expect(home).toMatch(/on its own|nothing to switch on/i)
+    expect(home).toMatch(/notifications on your phone|yours to allow/i)
   })
 
   it("promises no day-specific deadline", () => {
