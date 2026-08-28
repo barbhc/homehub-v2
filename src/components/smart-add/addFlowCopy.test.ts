@@ -37,6 +37,26 @@ const detailsSheet = read("../item-care/ItemDetailsSheet.tsx")
  * lookup, no identity card, no spec chips. What the lookup finds now lands on
  * the item page, after creation, via runPostCreateLookup.
  */
+/**
+ * The lane chooser says what each lane can do, on the lane.
+ *
+ * "Photo of a label? You can snap it inside the appliance form." used to sit
+ * centred beneath both cards — a caption describing a control on the NEXT
+ * screen, in our noun ("the appliance form"), true of only one of the two
+ * options it sat under. It was written when round 11 demoted the camera off
+ * this screen; round 13 promoted scanning back to a first-class control under
+ * the model field, which retired the reassurance without removing it.
+ */
+describe("the lane chooser", () => {
+  it("puts the camera hint on the lane that has a camera", () => {
+    expect(identify).toContain("Type it, or scan the label.")
+  })
+
+  it("no longer captions both lanes with a note about one of them", () => {
+    expect(identify).not.toContain("snap it inside the appliance form")
+  })
+})
+
 describe("the add screen no longer searches while you type", () => {
   it("IdentifyStep does not call the lookup at all", () => {
     expect(identify).not.toContain("lookupProduct")

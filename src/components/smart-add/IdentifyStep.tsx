@@ -484,6 +484,13 @@ export function IdentifyStep({
               <p className="text-sm text-muted-foreground mt-0.5">
                 Has a brand &amp; model — washer, fridge, thermostat, TV…
               </p>
+              {/* The camera lives in THIS lane and nowhere else, so the person
+                  whose plan is "I'll photograph the label" needs to know that
+                  here, at the moment they choose. Said on the card it changes
+                  rather than in a caption underneath both of them. */}
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Type it, or scan the label.
+              </p>
             </div>
           </div>
         </button>
@@ -507,9 +514,6 @@ export function IdentifyStep({
             </div>
           </div>
         </button>
-        <p className="text-xs text-muted-foreground text-center">
-          Photo of a label? You can snap it inside the appliance form.
-        </p>
       </div>
     )
   }

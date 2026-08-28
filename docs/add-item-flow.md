@@ -39,6 +39,14 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 
 ## Screen 1 — Lane chooser
 
+- **Each lane says what it can do, on the lane.** The camera exists in the
+  appliance lane and nowhere else, so that lane's card says "Type it, or scan
+  the label." SUPERSEDES the centred caption "Photo of a label? You can snap it
+  inside the appliance form." — which described a control on the next screen, in
+  our noun, beneath two cards when it was true of one. Round 11 demoted the
+  camera and needed the reassurance; round 13 promoted scanning back to a
+  first-class control, which retired it. — owner, 2026-08-27
+
 "What are you adding?"
 
 - **Appliance or device** — has a brand & model; leads to a manual.
