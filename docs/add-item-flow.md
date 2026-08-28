@@ -81,7 +81,18 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   the real control at 375/390/430 and fails if either line wraps; do not judge
   this from a mockup, whose phone fits materially more characters per line than
   the device does. — owner, 2026-08-27
-- Rarer routes stay folded under "More ways to identify it". — HH-123
+- Rarer routes stay folded under **"If you can't scan the label"**, and that
+  disclosure holds ONLY the two real alternatives — choose an existing photo,
+  or no model number at all. SUPERSEDES "More ways to identify it", which named
+  a promise it did not keep: the owner opened it expecting more input methods
+  and found a tips paragraph. The tips are retired; what mattered in them is
+  said on the scan card and under the model field, before the camera opens
+  rather than behind it. — HH-123, owner 2026-08-27
+- **The scan card's two lines are `text-sm`, not `text-xs`.** They carry the
+  whole instruction, and at hint size they read as fine print under a heading
+  three steps larger. The text column beside the icon is ~165px on a 375pt
+  phone, so copy must fit one line each at 14px — `e2e/emu/scan-fit.spec.ts`
+  fails the build if it does not. — owner, 2026-08-27
 - **The lookup does not run on this screen.** No debounced search, no "We found
   this item" card, no spec chips — the screen the user types on never changes
   under them. The lookup fires once, after the item is created, and everything

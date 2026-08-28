@@ -746,10 +746,16 @@ export function IdentifyStep({
                           and the read only ever needed the model number legible.
                           Both lines are short enough to hold one line each beside
                           the icon tile at 375pt — measured, not assumed. */}
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        Point at the model number
+                      {/* text-sm, not text-xs. These two lines carry the whole
+                          instruction — what to aim at, and what you get — and at
+                          hint size they read as fine print under a heading three
+                          steps larger. 14px is what every field label on this
+                          screen uses, so the card now sits on the same scale as
+                          the form beside it. */}
+                      <span className="mt-0.5 block text-sm text-muted-foreground">
+                        Find the model number
                       </span>
-                      <span className="block text-xs text-muted-foreground">
+                      <span className="block text-sm text-muted-foreground">
                         We&apos;ll do the typing
                       </span>
                     </span>
@@ -766,13 +772,13 @@ export function IdentifyStep({
                     type="button"
                     onClick={() => setOtherWaysOpen((v) => !v)}
                     aria-expanded={otherWaysOpen}
-                    className="flex items-center gap-1 text-xs font-semibold text-primary"
+                    className="flex items-center gap-1 text-sm font-semibold text-primary"
                   >
                     <ChevronRight
-                      className={cn("size-3.5 transition-transform", otherWaysOpen && "rotate-90")}
+                      className={cn("size-4 transition-transform", otherWaysOpen && "rotate-90")}
                       aria-hidden
                     />
-                    More ways to identify it
+                    If you can&apos;t scan the label
                   </button>
                   {ocrLoading && (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-busy="true">
@@ -784,19 +790,19 @@ export function IdentifyStep({
 
                 {otherWaysOpen && (
                   <div className="mt-2">
-                    {/* Says WHAT to photograph before the camera opens. A
-                        first-timer points at the front of the appliance —
-                        that is what "photograph your dishwasher" means in
-                        English — and the model number is on a sticker inside
-                        the door frame. A capture problem wearing an OCR
-                        problem's clothes, and no pipeline work fixes it. */}
-                    <LabelPhotoTips variant="before" />
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {/* Just the two real alternatives now. The tips that used
+                        to live here were pre-capture guidance filed BEHIND the
+                        capture control, and what mattered in them — aim at the
+                        model number, the label is inside the door or round the
+                        back — is said on the scan card and under the model
+                        field, where it is read before the camera opens rather
+                        than after you have gone looking for it. */}
+                    <div className="flex flex-wrap items-center gap-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="text-xs gap-1.5"
+                      className="text-sm gap-1.5"
                       onClick={handlePickFromLibrary}
                       disabled={ocrLoading}
                     >
@@ -806,7 +812,7 @@ export function IdentifyStep({
                     <button
                       type="button"
                       onClick={() => onModeChange("simple")}
-                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
                     >
                       I don't have a model number
                     </button>

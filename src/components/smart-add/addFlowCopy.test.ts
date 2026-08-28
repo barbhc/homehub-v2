@@ -135,7 +135,7 @@ describe("finding the model another way", () => {
     // see the type-or-scan block below. What stays behind it is the photo
     // library and the no-model-number escape, and it is no longer named for
     // having failed.
-    expect(identify).toContain("More ways to identify it")
+    expect(identify).toContain("If you can&apos;t scan the label")
     expect(identify).not.toContain("Can&apos;t find the model?")
     expect(identify).not.toContain("Snap label instead")
     expect(identify).toContain("Choose a photo")
@@ -287,7 +287,7 @@ describe("two ways to give us the brand and model", () => {
     expect(identify).toContain("Scan the label")
     // Promoted OUT of the disclosure: it must not be inside the otherWaysOpen
     // branch any more.
-    const disclosure = identify.slice(identify.indexOf("More ways to identify it"))
+    const disclosure = identify.slice(identify.indexOf("If you can&apos;t scan the label"))
     expect(disclosure).not.toContain("Scan the label")
   })
 
@@ -316,7 +316,7 @@ describe("two ways to give us the brand and model", () => {
    * thing that reliably breaks the read.
    */
   it("asks for the model number, not the whole label", () => {
-    expect(identify).toContain("Point at the model number")
+    expect(identify).toContain("Find the model number")
     expect(identify).not.toContain("whole sticker")
   })
 
