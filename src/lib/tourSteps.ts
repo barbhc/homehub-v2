@@ -36,6 +36,14 @@ export type TourStep = DriveStep & { route?: string }
  * in 18 user-facing strings with no APP_NAME constant (see BACKLOG.md); these
  * titles no longer add to that count.
  */
+/**
+ * ORDER (owner, 2026-08-27): Home → Tasks → Items → Ask → Settings.
+ *
+ * Tasks before Items because the tour is selling the payoff before the chore.
+ * "Here is what your house needs" lands harder than "here is where you file
+ * appliances", and Items reads as the way to get more of the first rather than
+ * as data entry for its own sake.
+ */
 export const tourSteps: TourStep[] = [
   {
     element: "[data-tour='nav-home']",
@@ -43,8 +51,8 @@ export const tourSteps: TourStep[] = [
     popover: {
       title: "Welcome",
       description:
-        "Home shows what's worth doing for your house, most important first. " +
-        "Most of it can wait for a good moment.",
+        "Home is what your house needs from you, most important first. " +
+        "It fills in as you add what you own — straight from your manuals, not generic advice.",
       side: "bottom",
       align: "start",
     },
@@ -77,18 +85,6 @@ export const tourSteps: TourStep[] = [
     },
   },
   {
-    element: "[data-tour='nav-inventory']",
-    route: "/inventory",
-    popover: {
-      title: "Items",
-      description:
-        "Add anything you own that came with a manual. " +
-        "We'll read it for the upkeep, the cleaning and the how-tos.",
-      side: "bottom",
-      align: "center",
-    },
-  },
-  {
     element: "[data-tour='nav-tasks']",
     route: "/maintenance",
     popover: {
@@ -96,6 +92,18 @@ export const tourSteps: TourStep[] = [
       description:
         "Everything on a schedule — upkeep and cleaning alike — in one place. " +
         "Filter by priority, room, or status.",
+      side: "bottom",
+      align: "center",
+    },
+  },
+  {
+    element: "[data-tour='nav-inventory']",
+    route: "/inventory",
+    popover: {
+      title: "Items",
+      description:
+        "Add anything you own that came with a manual. " +
+        "We'll read it for the upkeep, the cleaning and the how-tos.",
       side: "bottom",
       align: "center",
     },
