@@ -23,7 +23,11 @@ test("valid nameplate extraction passes through", async () => {
     category: "air purifier", purchaseDate: null, purchasePrice: null,
     docType: "nameplate", confidence: 0.9,
   })
-  const res = await runOcrExtract(call, "MODEL AP-1512HH ...")
+  // The OCR text has to CONTAIN the brand, because the extractor may no longer
+  // report one it did not read. This fixture used to say "MODEL AP-1512HH ..."
+  // while claiming brand "Coway" — the exact shape of the bug that filled in
+  // "Whirlpool" for an LG dryer, sitting in the test suite as a contract.
+  const res = await runOcrExtract(call, "COWAY MODEL AP-1512HH ...")
   assert.equal(res.brand, "Coway")
   assert.equal(res.model, "AP-1512HH")
   assert.equal(res.docType, "nameplate")
@@ -101,4 +105,42 @@ test("isEmptyExtraction: any single useful field makes it non-empty", () => {
   assert.equal(isEmptyExtraction({ ...empty, purchasePrice: 0 }), false)
   // docType/confidence alone don't count — nothing a form field could use.
   assert.equal(isEmptyExtraction({ ...empty, docType: "nameplate", confidence: 0.4 }), true)
+})
+
+test("a brand absent from the OCR text is dropped, not reported", async () => {
+  // The LG dryer: model printed as plain text and read fine, wordmark a
+  // stylised logo Vision could not transcribe. Asked for a brand it never saw,
+  // the model completed with a plausible laundry name. Null is the honest
+  // answer — a blank field asks the user, a wrong one lies and then poisons the
+  // product lookup, the item name and the parse.
+  const call = async () => JSON.stringify({
+    brand: "Whirlpool", model: "WM3900HBA", name: "Whirlpool WM3900HBA",
+    serialNumber: null, category: "dryer", purchaseDate: null, purchasePrice: null,
+    docType: "nameplate", confidence: 0.9,
+  })
+  const res = await runOcrExtract(call, "MODEL NO. WM3900HBA 120V 60Hz")
+  assert.equal(res.brand, null)
+  assert.equal(res.model, "WM3900HBA")
+  assert.equal(res.name, null, "the composed name goes with the brand that made it")
+})
+
+test("punctuation drift does not count as an invention", async () => {
+  const call = async () => JSON.stringify({
+    brand: "Bosch", model: "SHPM65Z55N", name: null, serialNumber: null,
+    category: null, purchaseDate: null, purchasePrice: null,
+    docType: "nameplate", confidence: 0.9,
+  })
+  const res = await runOcrExtract(call, "BOSCH  MODEL SHPM-65Z55N")
+  assert.equal(res.brand, "Bosch")
+  assert.equal(res.model, "SHPM65Z55N")
+})
+
+test("the IMAGE path is not grounded — it can see the logo the OCR missed", async () => {
+  const call = async () => JSON.stringify({
+    brand: "LG", model: "WM3900HBA", name: "LG WM3900HBA", serialNumber: null,
+    category: "dryer", purchaseDate: null, purchasePrice: null,
+    docType: "nameplate", confidence: 0.9,
+  })
+  const res = await runOcrImageExtract(call, "aGVsbG8=", "image/jpeg")
+  assert.equal(res.brand, "LG")
 })
