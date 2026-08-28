@@ -12,6 +12,7 @@
  * can fill fields manually).
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
+import { groundInText } from "../../../../shared/products/groundExtraction.js"
 import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, type CallClaudeText } from "./claude.js"
@@ -62,9 +63,9 @@ const SCHEMA_INSTRUCTIONS = `Heuristics for docType:
 - "unknown": use only if truly ambiguous.
 
 Return a JSON object with these fields (use null when not confidently present):
-- brand: manufacturer name (e.g. "Coway", "GE", "Whirlpool"). On a receipt, this is the product brand, NOT the store.
-- model: model number or model name (e.g. "AP-1512HH", "Airmega 300S"). On nameplates, prefer the string labeled "MODEL" / "MOD." / "MODEL NO." — avoid part numbers, catalog numbers, or date codes.
-- name: a short human-friendly item name, ideally "<brand> <model>" (e.g. "Coway Airmega 300S"). Fall back to a product-type phrase if brand/model are missing.
+- brand: manufacturer name, copied EXACTLY as it appears. Null unless the name is literally present — never infer it from the model number, the product type, or anything in these instructions. On a receipt, this is the product brand, NOT the store.
+- model: model number or model name, copied EXACTLY as printed. On nameplates, prefer the string labeled "MODEL" / "MOD." / "MODEL NO." — avoid part numbers, catalog numbers, or date codes.
+- name: a short human-friendly item name, ideally "<brand> <model>". Fall back to a product-type phrase if brand/model are missing.
 - serialNumber: alphanumeric serial labeled "S/N" / "Serial" / "Serial No." — NOT model numbers, part numbers, or country-of-origin codes. Usually 8-20 alphanumeric chars. Nameplates only.
 - category: a short product-type string a downstream mapper can fuzzy-match (e.g. "air purifier", "refrigerator", "dishwasher", "washing machine", "dryer", "television", "microwave", "coffee maker", "router", "range hood", "garbage disposal", "wine fridge", "tankless water heater", "bidet", "faucet", "toilet"). Prefer specific over generic. Null if unclear.
 - purchaseDate: ISO yyyy-mm-dd. From receipts, the transaction date. Null on nameplates (build dates are not purchase dates).
@@ -124,7 +125,7 @@ function parseExtraction(content: string): Extraction {
 export async function runOcrExtract(callClaude: CallClaudeText, text: string): Promise<Extraction> {
   if (!text.trim()) return EMPTY_EXTRACTION
   const content = await callClaude({ model: OCR_MODEL, maxTokens: 400, content: [{ type: "text", text: buildPrompt(text) }] })
-  return parseExtraction(content)
+  return groundInText(parseExtraction(content), text)
 }
 
 /** Pure core: image → validated Extraction (Claude Haiku vision). The fallback

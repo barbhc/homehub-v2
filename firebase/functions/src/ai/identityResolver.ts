@@ -95,6 +95,7 @@ export async function icecatIdentity(
 /** Title cleanup + retailer detection live in shared/ so they are unit-testable
  *  from the app's test runner. Re-exported here for existing importers. */
 import { cleanProductTitle, isRetailerHost, hostOf, productDisplayName } from "../../../../shared/products/productTitle.js"
+import { isDistinctiveModel, pickBrandFromResults, type DerivedBrand } from "../../../../shared/products/brands.js"
 export { cleanProductTitle, isRetailerHost, hostOf }
 import {
   looksLikeSeriesTitle, mineVariants, normalizeModel, titleNamesModel,
@@ -203,4 +204,45 @@ export async function resolveExternalIdentity(
     return braveIdentity(deps.fetchJson, deps.braveApiKey, brand, model)
   }
   return { identity: null, variants: [] }
+}
+
+
+/**
+ * Derive the BRAND from a model number alone — for when the scan read the model
+ * cleanly and the brand not at all.
+ *
+ * That is the LG dryer case: the wordmark is a stylised logo the OCR could not
+ * transcribe, while WM3900HBA was printed as plain text and read perfectly. A
+ * model number is a far stronger key than a nameplate's visual context — search
+ * it and the web answers unanimously, without anyone having to guess.
+ *
+ * Fetch only. The decision lives in `pickBrandFromResults`, pure and tested;
+ * every failure here is null, because this is a suggestion and an absent
+ * suggestion costs the user nothing.
+ */
+export async function brandFromModel(
+  fetchJson: FetchLike,
+  apiKey: string,
+  model: string,
+): Promise<DerivedBrand> {
+  if (!apiKey || !isDistinctiveModel(model)) return null
+  try {
+    const res = await fetchJson(
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(model)}&count=5`,
+      { headers: { "X-Subscription-Token": apiKey, Accept: "application/json" }, signal: AbortSignal.timeout(LAYER_TIMEOUT_MS) },
+    )
+    if (!res.ok) return null
+    const body = asRecord(await res.json())
+    const web = asRecord(body?.web)
+    const results = Array.isArray(web?.results) ? web.results : []
+    return pickBrandFromResults(
+      results.flatMap((r) => {
+        const rec = asRecord(r)
+        return rec ? [{ title: str(rec.title) ?? "", description: str(rec.description) ?? "", url: str(rec.url) ?? "" }] : []
+      }),
+      model,
+    )
+  } catch {
+    return null
+  }
 }

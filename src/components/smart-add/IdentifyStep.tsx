@@ -29,6 +29,7 @@ import { isNativePlatform, captureNativePhoto, pickNativeLibraryPhoto } from "@/
 import { downscaleImage } from "@/lib/downscaleImage"
 import { track } from "@/lib/analytics"
 import { LabelPhotoTips } from "@/components/smart-add/LabelPhotoTips"
+import { lookupBrandForModel } from "@/modules/inventory/services/productLookupService"
 import { BrandAutocomplete } from "@/components/smart-add/BrandAutocomplete"
 import {
   mapApplianceTypeIdToCategory,
@@ -193,6 +194,23 @@ export function IdentifyStep({
   // stale placeholder outside our tracking.
   const placeholderNamesRef = useRef<Set<string>>(new Set())
 
+  /**
+   * A brand derived from the model number, offered when the scan read one and
+   * not the other.
+   *
+   * The LG dryer case: the wordmark is a stylised logo the OCR cannot
+   * transcribe, so the label yields "WM3900HBA" and no manufacturer. The
+   * extractor used to fill that gap by guessing — which is how an LG dryer
+   * scanned as a Whirlpool. It now returns null instead, and this asks the
+   * resolver who actually makes that model.
+   *
+   * Offered, never applied: it lands as a Suggested chip beside the category
+   * and room chips, one tap to accept. "Suggest, never assume" is the whole
+   * reason the guess became a suggestion rather than a better guess.
+   */
+  const [brandSuggestion, setBrandSuggestion] = useState<string | null>(null)
+  const brandLookupRef = useRef<string>("")
+
   const wantAutoExpand = useMemo(() => hasHiddenAutofill(data, mode), [data, mode])
 
   useEffect(() => {
@@ -295,6 +313,15 @@ export function IdentifyStep({
     //
     // Everything else still only fills blanks: a receipt scan's date or price
     // has no business overwriting something the user chose.
+    // Model read, brand not: ask who makes it rather than letting anything
+    // guess. Fire-and-forget — a suggestion that never arrives costs nothing.
+    if (r.model && !r.brand && brandLookupRef.current !== r.model) {
+      brandLookupRef.current = r.model
+      void lookupBrandForModel(r.model)
+        .then((b) => { if (brandLookupRef.current === r.model) setBrandSuggestion(b) })
+        .catch(() => {})
+    }
+
     const scannedIdentity = applyScannedIdentity(
       { brand: data.brand, model: data.model },
       { brand: r.brand, model: r.model },
@@ -861,9 +888,23 @@ export function IdentifyStep({
           </div>
         )}
 
-        {(catChip || roomChip) && (
+        {(catChip || roomChip || (brandSuggestion && !data.brand.trim())) && (
           <div className="flex flex-wrap items-center gap-2 -mt-1">
             <span className="text-xs text-muted-foreground">Suggested</span>
+            {brandSuggestion && !data.brand.trim() && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDataChange({ ...dataRef.current, brand: brandSuggestion })
+                  track("brand_suggestion_accepted")
+                  setBrandSuggestion(null)
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                <Sparkles className="size-3.5" aria-hidden />
+                {brandSuggestion}
+              </button>
+            )}
             {catChip && (
               <button
                 type="button"

@@ -418,7 +418,7 @@ which nobody would have reported because it only looks slightly loose.
 row of this exact shape today, but the pattern will recur, and the container-
 query mechanism now has one worked example to copy.
 
-## Journey suite fails 4/5 locally, on main as well as on qa/all
+## ~~Journey suite fails 4/5 locally~~ — DIAGNOSED: tests were running against PRODUCTION
 
 Found 2026-08-27 late. `npm run test:e2e:journey:emu` — a FRESH emulator stack
 via `emulators:exec`, not the long-lived one — fails J2 through J5 with
@@ -436,7 +436,25 @@ stack, which is the opposite of the usual trap — normally the long-lived stack
 is the one that lies. Whatever changed is in the host's emulator state or in
 seed timing under `emulators:exec`, not in the app.
 
-Worth resolving before trusting a local journey run again: CI runs these same
-suites, so the fast check is whether the next PR's browser job is green. If CI
-passes and local keeps failing, the harness has a host dependency worth
-finding — a journey suite nobody trusts is a journey suite nobody runs.
+**Root cause, found 2026-08-28.** A stray `vite preview` had been listening on
+port 5173 since before the session, serving a PRODUCTION-configured bundle
+(`homehub-2068d`). `playwright.journey.config.ts` defaults to `PORT = 5173` with
+`reuseExistingServer: !CI`, so every local run silently adopted it instead of
+starting its own emulator-backed server. The walks then signed in as
+`e2e@homehub.test` against **production auth**, where that user does not exist —
+hence four timeouts on the sign-in screen. `PW_WEB_PORT=5399` → 5/5 pass.
+
+**The part that needs a decision, not a fix.** J1 does not sign in, it signs
+UP, with `journey-${Date.now()}@homehub.test`. Against production that
+succeeds — so each of tonight's runs likely created a real account, and J1
+walks on to create a home called "Journey Test Home". Worth checking prod for
+`journey-*@homehub.test` users and stray "Journey Test Home" homes, and
+deleting them. Deletion is the owner's to run.
+
+**Two guards worth building**, because a config that silently prefers whatever
+is on a port will do this again:
+1. `reuseExistingServer` should be `false` for the emulator-backed configs, or
+   the port should not be the same one a human's dev server uses.
+2. The journey walks should refuse to run against a non-emulator backend —
+   assert the project id is `demo-homehub` in a `beforeAll`, and fail loudly.
+   A test suite that can reach production is a test suite that will write to it.
