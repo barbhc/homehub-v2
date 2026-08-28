@@ -11,7 +11,7 @@
  *   npm run shots -- --only item  # substring-filter scenario ids
  */
 import { chromium } from "@playwright/test"
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs"
+import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
 const PORT = process.env.PW_WEB_PORT || "5283"
@@ -65,10 +65,17 @@ for (const sc of scenarios) {
 await browser.close()
 
 // One self-contained gallery page: scenarios × widths, images inlined.
+// Built from EVERYTHING on disk, not just this run — otherwise a --only
+// re-shoot of one scenario silently drops every other scenario from the
+// gallery, which is exactly what happened on its second use.
+const noteById = new Map(scenarios.map((sc) => [sc.id, sc.note]))
 const byId = new Map()
-for (const s of shots) {
-  if (!byId.has(s.id)) byId.set(s.id, { note: s.note, widths: [] })
-  byId.get(s.id).widths.push(s)
+for (const f of readdirSync(OUT).filter((f) => f.endsWith(".png")).sort()) {
+  const m = f.match(/^(.*)--(\d+)\.png$/)
+  if (!m) continue
+  const [, id, width] = m
+  if (!byId.has(id)) byId.set(id, { note: noteById.get(id) ?? "", widths: [] })
+  byId.get(id).widths.push({ id, width: Number(width), file: f })
 }
 const section = ([id, g]) => `
   <section>

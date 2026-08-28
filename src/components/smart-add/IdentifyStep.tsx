@@ -1059,7 +1059,11 @@ export function IdentifyStep({
         >
           Back
         </Button>
-        <Button onClick={onConfirm} disabled={!isValid || isCreating} className="gap-2">
+        {/* The primary fills the remaining row — every approved mockup of this
+            screen drew it that way (ghost Back, solid CTA stretching), and the
+            round-18 gallery caught the code hugging content instead, leaving
+            dead space to the right of the one button that matters. */}
+        <Button onClick={onConfirm} disabled={!isValid || isCreating} className="flex-1 gap-2">
           {isCreating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />

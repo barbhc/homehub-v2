@@ -19,6 +19,7 @@
  */
 import type { ReactNode } from "react"
 import { IdentifyStep, type IdentifyData } from "@/components/smart-add/IdentifyStep"
+import { PageContainer } from "@/components/layout"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import type { ItemUnit, Room } from "@/integrations/types"
 
@@ -81,16 +82,20 @@ export const SCENARIOS: { id: string; note: string; render: () => ReactNode }[] 
     id: "identify-appliance-empty",
     note: "Appliance lane, untouched. The screen must not change as you type — no lookup lives here any more.",
     render: () => (
-      <IdentifyStep mode="appliance" data={blankIdentify} onDataChange={noop} onModeChange={noop} onConfirm={noop} isCreating={false} error={null} />
+      <PageContainer>
+        <IdentifyStep mode="appliance" data={blankIdentify} onDataChange={noop} onModeChange={noop} onConfirm={noop} isCreating={false} error={null} />
+      </PageContainer>
     ),
   },
   {
     id: "identify-appliance-filled",
     note: "Brand and model typed. Same screen as empty — that identity is the round-18 contract.",
     render: () => (
-      <IdentifyStep mode="appliance"
-        data={{ ...blankIdentify, brand: "Fisher & Paykel", model: "DD24DAX9", name: "Fisher & Paykel DD24DAX9" }}
-        onDataChange={noop} onModeChange={noop} onConfirm={noop} isCreating={false} error={null} />
+      <PageContainer>
+        <IdentifyStep mode="appliance"
+          data={{ ...blankIdentify, brand: "Fisher & Paykel", model: "DD24DAX9", name: "Fisher & Paykel DD24DAX9" }}
+          onDataChange={noop} onModeChange={noop} onConfirm={noop} isCreating={false} error={null} />
+      </PageContainer>
     ),
   },
   {
