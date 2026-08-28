@@ -33,8 +33,6 @@ import type {
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { ItemDetailsSheet } from "@/components/item-care/ItemDetailsSheet"
-import { PurchaseNudge } from "@/components/item-care/PurchaseNudge"
-import { shouldOfferPurchaseNudge } from "@/lib/purchaseNudge"
 import { RoomPickerDialog } from "@/components/home/RoomPickerDialog"
 import { dueScans, unqueueScan } from "@/lib/scanCapacity"
 import { startParse } from "@/modules/knowledge/services/parseManualService"
@@ -93,9 +91,6 @@ export default function ItemDetailPage() {
   const [roomPickerOpen, setRoomPickerOpen] = useState(false)
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  /** Bumped on dismissal purely to re-render — localStorage is the source of
-   *  truth, and this is what makes the card leave without a reload. */
-  const [, setNudgeDismissedAt] = useState(0)
   const [storeHistory, setStoreHistory] = useState<(string | null | undefined)[]>([])
 
   // HH-124, the client half of the queue. A scan the daily ceiling refused is
@@ -433,13 +428,6 @@ export default function ItemDetailPage() {
    * Shown while there is still something to gain: no purchase date on the item,
    * and not already waved away on this device.
    */
-  const purchaseNudge = shouldOfferPurchaseNudge(item.item_unit_id, item.purchase_date) ? (
-    <PurchaseNudge
-      itemUnitId={item.item_unit_id}
-      onAdd={() => setDetailsOpen(true)}
-      onDismissed={() => setNudgeDismissedAt(Date.now())}
-    />
-  ) : null
 
   return (
     <div
@@ -525,7 +513,6 @@ export default function ItemDetailPage() {
             onItemUpdate={setItem}
             onEditRoom={() => setRoomPickerOpen(true)}
             onEditDetails={() => setDetailsOpen(true)}
-            nudgeSlot={purchaseNudge}
             reviewAction={
               home && id && tasks.length > 0 ? (
                 <ReviewItemTasksButton
@@ -591,7 +578,6 @@ export default function ItemDetailPage() {
           onOpenManualPage={(page) => openManualPage(page)}
           onItemUpdate={setItem}
           manualSectionProps={manualSectionProps}
-          nudgeSlot={purchaseNudge}
         />
       </div>
 

@@ -94,7 +94,7 @@ function SuggestionKV({ k, v, onAdd, last }: { k: string; v: string; onAdd?: () 
 
 export function RefinedItemDetail({
   item, rooms, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
-  reviewAction, recordsSlot, onEditRoom, onEditDetails, nudgeSlot,
+  reviewAction, recordsSlot, onEditRoom, onEditDetails,
 }: {
   item: ItemUnit
   rooms: Room[]
@@ -127,9 +127,6 @@ export function RefinedItemDetail({
   /** Opens the one editable Details & records form. Without it the whole
    *  section is display-only, which is what it was before HH-96. */
   onEditDetails?: () => void
-  /** The purchase-details nudge, when this item still has something to gain
-   *  from it. Sits directly above the section it fills. */
-  nudgeSlot?: React.ReactNode
 }) {
   const d = dens(density)
   const Glyph = glyphFor(item)
@@ -395,7 +392,6 @@ export function RefinedItemDetail({
         </Link>
 
 
-        {nudgeSlot}
 
         {/* HH-96: one way in for the whole section, not an "Add" on every empty
             row. A column of open fields for a serial number nobody means to
