@@ -10,7 +10,9 @@ import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { dens } from "@/lib/redesign/tokens"
 import { CareBlock } from "@/components/item-care/CareBlock"
 import { categoryLabel } from "@/lib/categoryLabel"
-import { updateItemUnit } from "@/modules/items"
+import { updateItemUnit, getItemUnits } from "@/modules/items"
+import { lateRoomSuggestion, lateNameSuggestion } from "@/lib/lateSuggestions"
+import { composeItemName } from "@/lib/itemName"
 import { fmtMoney } from "@/lib/itemMoney"
 import { WarrantyPanel } from "@/components/item-care/WarrantyPanel"
 import { ItemPhoto } from "./ItemPhoto"
@@ -144,6 +146,36 @@ export function RefinedItemDetail({
   ]
   const shownFields = fields.filter(([, v]) => !!v) as [string, string, boolean?][]
 
+  /**
+   * The room and name the add screen could not offer, because the item's TYPE
+   * arrived after it was created — from the product lookup or the manual parse.
+   * One tap each, and nothing changes on its own: the room is a fact only the
+   * owner knows, and a name someone is looking at should not rearrange itself.
+   */
+  const roomSuggestion = useMemo(() => lateRoomSuggestion(item, rooms), [item, rooms])
+  const nameSuggestion = useMemo(() => lateNameSuggestion(item), [item])
+  const applyRoomSuggestion = async (room: Room) => {
+    const r = await updateItemUnit(homeId, item.item_unit_id, { room_id: room.room_id })
+    if (r.data) onItemUpdate?.(r.data)
+  }
+  const applyNameSuggestion = async (label: string) => {
+    // Dedupe at APPLY time rather than on every render: composeItemName appends
+    // the room when the plain type is taken ("Dishwasher — Kitchen"), and that
+    // needs every other item's name, which is a read worth doing once, here.
+    const existing = await getItemUnits(homeId)
+    const name = composeItemName({
+      typeLabel: label,
+      brand: item.brand,
+      model: item.model,
+      room: rooms.find((rm) => rm.room_id === item.room_id)?.name ?? null,
+      existingNames: (existing.data ?? [])
+        .filter((i) => i.item_unit_id !== item.item_unit_id)
+        .map((i) => i.display_name),
+    })
+    const r = await updateItemUnit(homeId, item.item_unit_id, { display_name: name })
+    if (r.data) onItemUpdate?.(r.data)
+  }
+
   // Lookup suggestions (round 18): applied is DERIVED — a suggestion whose key
   // already has a value has been accepted (or typed over) and stops rendering,
   // so there is no separate applied-state to drift out of sync.
@@ -214,6 +246,31 @@ export function RefinedItemDetail({
               words twice for every newly added item. */}
           {itemSubtitle(item.display_name, item.brand, item.model) && (
             <div className="mt-1 text-[15px]" style={{ color: SUB }}>{itemSubtitle(item.display_name, item.brand, item.model)}</div>
+          )}
+          {(roomSuggestion || nameSuggestion) && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-[12px]" style={{ color: SUB }}>Suggested</span>
+              {roomSuggestion && (
+                <button
+                  type="button"
+                  onClick={() => void applyRoomSuggestion(roomSuggestion)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
+                  style={{ borderColor: TEAL, color: TEAL }}
+                >
+                  <MapPinIcon className="size-[13px]" /> {roomSuggestion.name}
+                </button>
+              )}
+              {nameSuggestion && (
+                <button
+                  type="button"
+                  onClick={() => void applyNameSuggestion(nameSuggestion)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
+                  style={{ borderColor: TEAL, color: TEAL }}
+                >
+                  <PencilIcon className="size-[13px]" /> Name it &ldquo;{nameSuggestion}&rdquo;
+                </button>
+              )}
+            </div>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
             {onEditRoom ? (
