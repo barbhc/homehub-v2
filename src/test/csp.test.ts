@@ -96,6 +96,24 @@ describe("Content-Security-Policy", () => {
     expect(directive("img-src")).toContain("https:")
   })
 
+  /**
+   * Apple sign-in on the web runs signInWithPopup, falling back to
+   * signInWithRedirect when a popup is blocked. Both load Firebase Auth's gapi
+   * bootstrap from apis.google.com and embed the auth helper iframe served from
+   * the project's authDomain, so BOTH halves of that fallback chain need the
+   * same two sources — allowing one and not the other fixes nothing.
+   *
+   * Until 2026-08-27 the policy allowed neither: script-src had no
+   * apis.google.com, and frame-src was never declared at all, so the iframe
+   * fell back to default-src 'self'. Both were confirmed blocked against
+   * production, not inferred. Native iOS signs in through the OS sheet and
+   * never touches this path, which is why no tester ever reported it.
+   */
+  it("allows the two sources Firebase Auth's web sign-in needs", () => {
+    expect(directive("script-src")).toContain("https://apis.google.com")
+    expect(directive("frame-src")).toContain("https://homehub-2068d.firebaseapp.com")
+  })
+
   it("ships the other headers that cost nothing to get right", () => {
     const block = firebaseJson.hosting.headers.find((h: { source: string }) => h.source === "**")
     const keys = block.headers.map((h: { key: string }) => h.key)
