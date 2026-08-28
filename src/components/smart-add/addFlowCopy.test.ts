@@ -59,7 +59,7 @@ const detailsSheet = read("../item-care/ItemDetailsSheet.tsx")
  */
 describe("what the scan reports", () => {
   it("names what changed instead of counting fields", () => {
-    expect(identify).toContain("Got the ${list} from your photo.")
+    expect(identify).toContain("Got the ${list(seen)} from your photo.")
   })
 
   it("no longer sends the appliance lane to a simple-lane disclosure", () => {
@@ -72,6 +72,44 @@ describe("what the scan reports", () => {
     const disclosure = identify.indexOf("Add more details")
     const laneGuard = identify.lastIndexOf('mode === "simple"', disclosure)
     expect(laneGuard).toBeGreaterThan(-1)
+  })
+})
+
+/**
+ * A scan that half-worked must not read as a scan that worked.
+ *
+ * The owner scanned an LG dryer: the model came through, the brand did not,
+ * and three things then compounded. The status line reported only the success.
+ * The empty Brand field's placeholder was `e.g., LG` — her actual brand — so
+ * the one field still needed displayed the correct answer in grey, and only
+ * the shade of the text distinguished empty from filled. And the CTA was grey
+ * and silent about which of the two it was waiting for.
+ */
+describe("when the scan misses a required field", () => {
+  it("says what it could not read, not just what it could", () => {
+    expect(identify).toContain("We couldn't read the ${list(missing)}")
+  })
+
+  it("marks the field itself, because the status line scrolls away", () => {
+    expect(identify).toContain("Not found in your photo")
+  })
+
+  it("no placeholder names a real brand", () => {
+    // Any example brand is somebody's actual brand. Hers was.
+    expect(identify).not.toContain('placeholder="e.g., LG"')
+    expect(identify).toContain('placeholder="Who makes it?"')
+  })
+
+  it("only flags a field AFTER a scan has run", () => {
+    // An untouched form is empty, not missing — marking it red on arrival
+    // would scold the user for showing up.
+    expect(identify).toContain('if (mode !== "appliance" || ocrOutcome !== "success") return [] as string[]')
+  })
+
+  it("keeps the CTA gated on both fields — the owner's call", () => {
+    // She chose to leave the button disabled rather than let it be pressed and
+    // explain itself. The messaging above is what makes that acceptable.
+    expect(identify).toContain("data.brand.trim().length >= 2 && data.model.trim().length >= 1")
   })
 })
 

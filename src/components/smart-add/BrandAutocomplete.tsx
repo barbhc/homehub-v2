@@ -49,9 +49,13 @@ type BrandAutocompleteProps = {
   onChange: (value: string) => void
   placeholder?: string
   required?: boolean
+  /** Marks the field as still needed — used when a scan read the model and not
+   *  the brand, so the gap is visible on the field and not only in a status
+   *  line that scrolls away. */
+  invalid?: boolean
 }
 
-export function BrandAutocomplete({ id, value, onChange, placeholder, required }: BrandAutocompleteProps) {
+export function BrandAutocomplete({ id, value, onChange, placeholder, required, invalid }: BrandAutocompleteProps) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
 
@@ -91,6 +95,8 @@ export function BrandAutocomplete({ id, value, onChange, placeholder, required }
     <div className="relative">
       <Input
         id={id}
+        aria-invalid={invalid}
+        className={cn(invalid && "border-destructive")}
         role="combobox"
         aria-expanded={show}
         aria-controls={listboxId}

@@ -231,16 +231,37 @@ export function IdentifyStep({
    * category and the composed name do not, and a scan quietly getting those
    * right is not news.
    */
+  /**
+   * Required fields the appliance lane still needs, after a scan has run.
+   *
+   * Only ever populated once a photo has been read — an untouched form is not
+   * "missing" anything, it is simply empty, and marking it red before the user
+   * has done anything would be scolding them for arriving.
+   */
+  const missingRequired = useMemo(() => {
+    if (mode !== "appliance" || ocrOutcome !== "success") return [] as string[]
+    const out: string[] = []
+    if (data.brand.trim().length < 2) out.push("brand")
+    if (data.model.trim().length < 1) out.push("model")
+    return out
+  }, [mode, ocrOutcome, data.brand, data.model])
+
   const scanSummary = useMemo(() => {
     const seen: string[] = []
     if (ocrFilled.brand) seen.push("brand")
     if (ocrFilled.model) seen.push("model")
     if (ocrFilled.serial) seen.push("serial number")
-    if (!seen.length) return "Photo read — we filled in what we could."
-    const list =
-      seen.length === 1 ? seen[0] : `${seen.slice(0, -1).join(", ")} and ${seen[seen.length - 1]}`
-    return `Got the ${list} from your photo.`
-  }, [ocrFilled])
+    const list = (xs: string[]) =>
+      xs.length === 1 ? xs[0] : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`
+    const got = seen.length ? `Got the ${list(seen)} from your photo.` : "Photo read."
+    // A half-successful scan used to read as a successful one. Whatever is still
+    // required and still empty gets said out loud, because the alternative is
+    // what the owner hit: a screen reporting success, a field that looked full,
+    // and a grey button that knew what was wrong and could not say it.
+    const missing = missingRequired
+    if (!missing.length) return got
+    return `${got} We couldn't read the ${list(missing)} — add ${missing.length > 1 ? "them" : "it"} below.`
+  }, [ocrFilled, missingRequired])
 
   const wantAutoExpand = useMemo(() => hasHiddenAutofill(data, mode), [data, mode])
 
@@ -727,13 +748,23 @@ export function IdentifyStep({
                 <label htmlFor="identify-brand" className="text-sm font-medium text-foreground block mb-1.5">
                   Brand <span className="text-destructive">*</span>
                 </label>
+                {/* Placeholder is a QUESTION, not an example. It used to read
+                    "e.g., LG" — and the owner scanned an LG, so the one empty
+                    required field displayed her correct answer in grey, with
+                    only the shade of the text to tell empty from filled. Any
+                    example brand is somebody's real brand; the fix is to stop
+                    naming one rather than to pick a rarer one. */}
                 <BrandAutocomplete
                   id="identify-brand"
                   value={data.brand}
                   onChange={(brand) => onDataChange({ ...dataRef.current, brand })}
-                  placeholder="e.g., LG"
+                  placeholder="Who makes it?"
                   required
+                  invalid={missingRequired.includes("brand")}
                 />
+                {missingRequired.includes("brand") && (
+                  <p className="mt-1 text-xs text-destructive">Not found in your photo</p>
+                )}
               </div>
               <div>
                 <label htmlFor="identify-model" className="text-sm font-medium text-foreground block mb-1.5">
@@ -743,9 +774,11 @@ export function IdentifyStep({
                   id="identify-model"
                   value={data.model}
                   onChange={(e) => onDataChange({ ...data, model: e.target.value })}
-                  placeholder="e.g., WM4000HWA"
+                  placeholder="Model number"
                   maxLength={100}
                   required
+                  aria-invalid={missingRequired.includes("model")}
+                  className={cn(missingRequired.includes("model") && "border-destructive")}
                   // Model numbers are uppercase alphanumerics — stop the iOS
                   // keyboard fighting the user (lowercase default, autocorrect
                   // "SMD2470" → words, spellcheck red squiggles).
@@ -754,9 +787,13 @@ export function IdentifyStep({
                   autoCapitalize="characters"
                   spellCheck={false}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Usually on a label inside the door or around the back
-                </p>
+                {missingRequired.includes("model") ? (
+                  <p className="mt-1 text-xs text-destructive">Not found in your photo</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Usually on a label inside the door or around the back
+                  </p>
+                )}
               </div>
             </div>
 
