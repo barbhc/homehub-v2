@@ -349,3 +349,59 @@ chatQuery fall back to the item's warranty fields when the question is
 warranty-shaped. The first is cheaper and keeps one retrieval path.
 
 Not blocking; onboarding copy no longer promises it.
+
+## Controls stretch on desktop instead of the layout deciding what to do with the width
+
+Owner, 2026-08-27, reading the add screen on a laptop: "there's just a very
+wide space between scan the label, the text underneath, and then the carrot on
+the right hand side."
+
+Measured on the real component at both ends:
+
+| viewport | card | content | dead space |
+|---|---|---|---|
+| 375 | 285px | 205px | 24px |
+| 1440 | 526px | **205px** | **265px** |
+
+The content does not grow at all. The card nearly doubles, `justify-between`
+spends the entire difference on emptiness, and the chevron ends up 265px from
+the thing it belongs to — eleven times the mobile gap. It reads as a layout
+bug because it is one: nobody decided what the extra width was for.
+
+### What the extra width should be for
+
+Three legitimate answers, and stretching a control is none of them:
+
+1. **More content per row** — a second column, a wider table.
+2. **A longer measure** for prose, up to the 45–75 character comfort zone.
+3. **More whitespace AROUND a capped block** — which is what a single-column
+   form wants.
+
+The add flow is (3). Its column already caps at `max-w-xl` (576px); the fault
+is that controls inside the cap still stretch to fill it.
+
+### `justify-between` is a contract, and this row breaks it
+
+It says "both ends are meaningful and independent" — right for a settings row
+where a label sits opposite its value. Wrong for a whole-card tap target,
+where the chevron is an *attribute of the row*, not a second thing. Options,
+cheapest first: cap the inner content and let the chevron follow the text; or
+keep `justify-between` only above a width where the spread looks deliberate.
+
+### The systemic version
+
+`justify-between` appears in 43 component files. Only one is this exact
+shape today (full-width row + trailing chevron), so this is a small fix now
+and a growing one later — worth a sweep while it is still one instance.
+
+### The right mechanism
+
+Container queries, not breakpoints. A component should respond to the width of
+its own container, not the viewport — the same scan card may later sit in a
+sidebar, a modal, or a two-column desktop layout, and a `md:` breakpoint would
+be wrong in all three. Tailwind v4 supports `@container` natively and
+`components/ui/card.tsx` already uses it (`@container/card-header`), so the
+primitive is present and unused elsewhere.
+
+Deliberately not fixed in the round-18 QA branch — the owner's call, and it is
+a layout-system question rather than a copy fix.
