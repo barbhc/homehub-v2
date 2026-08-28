@@ -163,3 +163,26 @@ export function applyHouseRules<T extends RuleTaskFields>(
 
   return { kept, suppressed, retiered, recadenced, reseasoned }
 }
+
+/**
+ * Does this read as a one-time setup step rather than recurring upkeep?
+ *
+ * The owner's Bosch review listed "Purge Hot Water Lines Before First Use"
+ * under Maintenance. The grouping was right and its input was wrong: the parser
+ * gave it a schedule of `as_needed`, and "before first use" is the definition
+ * of setup — a thing you do once, when the appliance is new, and never again.
+ *
+ * Deterministic on purpose. The alternative was strengthening the extraction
+ * prompt, which cannot ship without beating the goldens harness, and which
+ * would still leave every manual already parsed misfiled. A phrase this
+ * unambiguous is better handled as a rule than as a hope.
+ *
+ * Conservative by design: it fires only on wording that means the FIRST time,
+ * never on "after each use" or "before each wash", which are recurring and are
+ * the exact strings a looser pattern would swallow.
+ */
+export function looksLikeSetupStep(text: string): boolean {
+  const t = text.toLowerCase()
+  if (/\b(each|every|before every|after every)\b/.test(t)) return false
+  return /\bbefore (the )?first use\b|\bprior to first use\b|\bfirst use\b|\bbefore using .* for the first time\b|\binitial (setup|installation|start[- ]?up)\b|\bwhen (first )?installing\b|\bat installation\b/.test(t)
+}

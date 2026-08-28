@@ -60,6 +60,7 @@ export const SECTION_RAIL: Record<ReviewBucket, string> = {
   setup: "var(--hh-slate)",
 }
 import { isThinManual, thinManualWarning } from "../../../shared/parse/pdfShape"
+import { applyHouseRules, looksLikeSetupStep } from "../../../shared/tasks/houseRules"
 import { classifyActorFromText } from "@/lib/taskActor"
 import { isFirstReview, markFirstReviewSeen } from "@/lib/firstReview"
 import type {
@@ -219,8 +220,39 @@ export function draftMaintenanceCount(data: PreviewResult): number {
   ).length
 }
 
-function rowsFrom(data: PreviewResult): ReviewRow[] {
-  const taskRows: ReviewRow[] = data.tasks.map((t, i) => ({
+/**
+ * The draft, corrected before anyone is asked to judge it.
+ *
+ * Two things the review used to show that it already knew were wrong:
+ *
+ * FREEZE PREP in a freeze-free home. The house rules suppress the whole
+ * freeze_prep family when a home is marked freeze-free, and they work — but
+ * they run inside commitDraft, which is the moment Save is pressed. So the
+ * owner, whose home is set to a mild climate, was shown "Winterize the
+ * Dishwasher", asked whether to keep it, and would then have saved four
+ * maintenance tasks where the screen promised five. Suppressing here means the
+ * review shows what saving will actually produce. commitDraft still applies the
+ * rules server-side; this is not a replacement for that, it is the same
+ * decision made early enough to be honest about.
+ *
+ * SETUP STEPS misfiled as upkeep. "Purge Hot Water Lines Before First Use"
+ * arrived with schedule `as_needed`, so kind-first grouping filed it under
+ * Maintenance — correctly, from wrong input. Rewriting the schedule to `setup`
+ * here puts it in the Setup section AND carries the correction into what gets
+ * saved, because the rows are what onSave hands back.
+ */
+function correctDraft(tasks: PreviewResult["tasks"], freezeRiskFalse: boolean): PreviewResult["tasks"] {
+  const kept = freezeRiskFalse ? applyHouseRules(tasks, [], { freezeRiskFalse }).kept : tasks
+  return kept.map((t) =>
+    t.schedule_type !== "setup" &&
+    looksLikeSetupStep([t.title, t.description ?? "", t.instructions_text ?? ""].join(" "))
+      ? { ...t, schedule_type: "setup" as const }
+      : t,
+  )
+}
+
+function rowsFrom(data: PreviewResult, freezeRiskFalse = false): ReviewRow[] {
+  const taskRows: ReviewRow[] = correctDraft(data.tasks, freezeRiskFalse).map((t, i) => ({
     id: `t${i}:${t.title}`,
     origin: "task",
     title: t.title,
@@ -319,6 +351,11 @@ interface TaskReviewSheetProps {
    * and lose the whole parse.
    */
   alreadySaved?: boolean
+  /** The home is marked freeze-free, so freeze-prep tasks are suppressed before
+   *  the review rather than at save. Passed IN rather than read from context:
+   *  this component is rendered in tests without providers, and a hook here
+   *  crashes every one of them — the same way a useAuth call did in round 18. */
+  freezeRiskFalse?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   itemName: string
@@ -350,8 +387,9 @@ export function TaskReviewSheet({
   open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, focus = "maintenance",
   presentation = "sheet",
   alreadySaved = false,
+  freezeRiskFalse = false,
 }: TaskReviewSheetProps) {
-  const initial = useMemo(() => rowsFrom(previewData), [previewData])
+  const initial = useMemo(() => rowsFrom(previewData, freezeRiskFalse), [previewData, freezeRiskFalse])
   const [rows, setRows] = useState<ReviewRow[]>(initial)
   /**
    * "maintenance" opens straight on the schedule screen, listing only the
@@ -371,7 +409,7 @@ export function TaskReviewSheet({
   /** Round 18: the first review a person ever opens explains what Save does,
    *  against rows they can see. Read once on mount so dismissing it does not
    *  depend on a write having landed. */
-  const [showFirstRun, setShowFirstRun] = useState(() => isFirstReview())
+  const [showFirstRun] = useState(() => isFirstReview())
   /** HH-85: the setup section starts tucked away; one tap reveals it. */
   const [setupOpen, setSetupOpen] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -487,6 +525,11 @@ export function TaskReviewSheet({
     }
     const err = await onSave(keptTasks, keptChunks, edits)
     if (err) setSaveError(err)
+    // The explanation retires on the first successful SAVE, not on a "Got it".
+    // It answers "what saving these does", so the moment it stops being news is
+    // the moment you have done it once — and the dismiss button it used to
+    // carry was the last thing in this box wearing a control's styling.
+    else markFirstReviewSeen()
   }
 
   // ── rendering ──────────────────────────────────────────────────────────────
@@ -926,74 +969,65 @@ export function TaskReviewSheet({
             </>
           ) : (
             <>
-              {/* FIRST REVIEW ONLY. The three sentences a person needs before
-                  they press a button that changes what their phone does — shown
-                  against real rows rather than in a tour bubble on an empty
-                  account, and never shown again.
+              {/* ONE box, not two. It used to be a first-run explainer in
+                  teal followed by a white summary, and between them they said
+                  the same three facts twice — once as sentences, once as
+                  numbers. The owner: "that's a bit duplicative of above… it's
+                  just a lot of reading before you even get to the tasks."
 
-                  It is a block, not a modal: they opened this screen to do
-                  something, and interrupting that to explain the screen is the
-                  pattern HH-121 was about. */}
-              {showFirstRun && !alreadySaved && (
-                <div className="mb-3.5 flex flex-col gap-2 rounded-xl border-[1.5px] px-3 py-2.5"
-                  style={{ borderColor: "var(--hh-teal)", background: "var(--hh-teal-wash, rgba(27,107,90,.07))" }}>
-                  <span className="text-[12.5px] font-extrabold" style={{ color: "var(--hh-teal)" }}>
-                    Here&rsquo;s what saving these does
-                  </span>
-                  <span className="flex items-start gap-2 text-[11.5px] leading-snug">
-                    <CalendarCheckIcon className="mt-[2px] size-[13px] shrink-0" style={{ color: "var(--hh-teal)" }} />
-                    <span><b className="font-bold">Anything with a cadence shows up in Tasks</b> on its due date &mdash; that happens whatever you do next.</span>
-                  </span>
-                  <span className="flex items-start gap-2 text-[11.5px] leading-snug">
-                    <BellRingIcon className="mt-[2px] size-[13px] shrink-0" style={{ color: "var(--hh-teal)" }} />
-                    <span><b className="font-bold">A bell means it will also notify you.</b> Tap any row to add or remove one.</span>
-                  </span>
-                  <span className="flex items-start gap-2 text-[11.5px] leading-snug">
-                    <BellOffIcon className="mt-[2px] size-[13px] shrink-0 text-muted-foreground" />
-                    <span>Cleaning, usage and setup are saved to the item page and never chase you.</span>
-                  </span>
-                  <button type="button"
-                    onClick={() => { markFirstReviewSeen(); setShowFirstRun(false) }}
-                    className="self-start rounded-full border-[1.5px] px-3 py-1 text-[11px] font-extrabold"
-                    style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}>
-                    Got it
-                  </button>
-                </div>
-              )}
+                  So the numbers ARE the explanation. On a first review each
+                  line carries its clause; afterwards the clauses drop and the
+                  counts remain, because the counts change every time and the
+                  explanation does not.
 
-              {/* THE SUMMARY — round 18, and the owner's correction that produced it.
-                  It used to say "nothing here will remind you" over three rows
-                  showing a weekly cadence, which is a contradiction: those three
-                  DO come back, they just don't buzz. Her words: "there are items
-                  that are scheduled to be reminded within the app even if there's
-                  no notification."
-
-                  So it states the two channels separately. The first is always
-                  on and needs no permission; the second is opt-in, Essential by
-                  default, and is the only one that reaches the phone.
+                  STYLING. It was tinted AND bordered, and in this app a teal
+                  border means "this is a control" — every other one is a
+                  <button>, including the "Got it" that used to sit inside this
+                  box. So a paragraph was wearing a button's costume, which is
+                  why it read as belonging to a different screen. The sheet's own
+                  note idiom is tinted and borderless (see "Goes to" on the
+                  expanded card), and the body sits at 13px rather than 11.5px —
+                  the rest of this sheet runs 13.5-17px, so the most important
+                  explanation on it was also the smallest text.
 
                   HH-134 still governs the last line: until Save has run, nothing
                   here is saved, and the screen may not imply otherwise. */}
-              <div className="mb-3.5 flex flex-col gap-1.5 rounded-xl border border-border bg-card px-3 py-2.5">
-                <div className="flex items-start gap-2 text-[12.5px]">
-                  <CalendarCheckIcon className="mt-[3px] size-[13px] shrink-0 text-muted-foreground" />
+              <div className="mb-3.5 flex flex-col gap-2 rounded-xl px-3 py-2.5"
+                style={{ background: "var(--hh-teal-wash, rgba(27,107,90,.07))" }}>
+                {showFirstRun && !alreadySaved && (
+                  <span className="text-[14px] font-extrabold" style={{ color: "var(--hh-teal)" }}>
+                    What saving these does
+                  </span>
+                )}
+                <div className="flex items-start gap-2 text-[13px] leading-snug">
+                  <CalendarCheckIcon className="mt-[3px] size-[14px] shrink-0" style={{ color: "var(--hh-teal)" }} />
                   <span>
                     {counts.scheduled === 0
                       ? <>Nothing here goes on a schedule.</>
-                      : <><b className="font-bold">{counts.scheduled}</b> show{counts.scheduled === 1 ? "s" : ""} up in Tasks when {counts.scheduled === 1 ? "it’s" : "they’re"} due.</>}
+                      : <>
+                          <b className="font-bold">{counts.scheduled} will show up in Tasks</b>
+                          {" "}when {counts.scheduled === 1 ? "it needs" : "they need"} doing.
+                        </>}
                   </span>
                 </div>
-                <div className="flex items-start gap-2 text-[12.5px]">
+                <div className="flex items-start gap-2 text-[13px] leading-snug">
                   {counts.notifying > 0
-                    ? <BellRingIcon className="mt-[3px] size-[13px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} />
-                    : <BellOffIcon className="mt-[3px] size-[13px] shrink-0 text-muted-foreground" />}
-                  <span style={counts.notifying > 0 ? { color: "var(--hh-teal, #1B6B5A)" } : undefined}>
+                    ? <BellRingIcon className="mt-[3px] size-[14px] shrink-0" style={{ color: "var(--hh-teal)" }} />
+                    : <BellOffIcon className="mt-[3px] size-[14px] shrink-0 text-muted-foreground" />}
+                  <span>
                     {counts.notifying === 0
                       ? <>None will notify your phone.</>
-                      : <><b className="font-bold">{counts.notifying}</b> of those will also notify your phone.</>}
+                      : <><b className="font-bold">{counts.notifying} of those will also notify your phone.</b></>}
+                    {showFirstRun && !alreadySaved && <> Tap a task to change that.</>}
                   </span>
                 </div>
-                <span className="text-[11.5px] text-muted-foreground">
+                {showFirstRun && !alreadySaved && (
+                  <div className="flex items-start gap-2 text-[13px] leading-snug">
+                    <BellOffIcon className="mt-[3px] size-[14px] shrink-0 text-muted-foreground" />
+                    <span>Cleaning, usage and setup stay on the item page.</span>
+                  </div>
+                )}
+                <span className="text-[12.5px] text-muted-foreground">
                   {alreadySaved
                     ? "Tap any one to change how it’s filed, how often, or whether it notifies you."
                     : "Nothing is saved until you press Save."}
@@ -1003,11 +1037,17 @@ export function TaskReviewSheet({
               {/* HH-140: outlined, not filled — the walkthrough is the slower
                   alternative to the list already on screen, and the footer owns
                   the one filled button. */}
-              <div className="mb-3.5">
+              {/* Two routes, said as two. The walkthrough was the only offer on
+                  screen, so the list below it read as something to look at
+                  rather than something to touch — and every row is editable.
+                  The owner asked for both to be visible: take the guided pass,
+                  or fix the two you disagree with and save. */}
+              <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <button type="button" onClick={() => { setGuideIndex(0); scrollRef.current?.scrollTo?.({ top: 0 }) }}
-                  className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-[12.5px] font-bold text-foreground hover:border-primary transition-colors">
+                  className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-[13px] font-bold text-foreground hover:border-primary transition-colors">
                   Go through them one by one{walked ? " again" : ""} →
                 </button>
+                <span className="text-[12.5px] text-muted-foreground">or tap any task to change it</span>
               </div>
 
               {REVIEW_BUCKET_ORDER.map((bucket) => {
@@ -1024,7 +1064,7 @@ export function TaskReviewSheet({
                         2 does not have. */}
                     <div className="mt-3.5 mb-2">
                       <div className="flex items-center gap-2.5 text-[15px] font-extrabold tracking-[-0.015em]">
-                        <span aria-hidden="true" className="h-[15px] w-[3px] shrink-0 rounded-full" style={{ background: SECTION_RAIL[bucket] }} />
+
                         {copy.title}
                         {/* HH-85: setup opens on demand. "Already set up" is the
                             honest default for an appliance owned for months —

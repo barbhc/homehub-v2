@@ -14,6 +14,7 @@ import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowled
 import { clearParsePending, isParsePending } from "@/lib/parsePickup"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 import { ReviewItemTasksButton } from "./ReviewItemTasksButton"
+import { useHomeProfile } from "@/modules/home"
 
 /**
  * Manuals whose review we have already opened by ourselves, this session.
@@ -85,6 +86,8 @@ export function ParsePickupCard({
   manualIds: string[]
   onReviewSaved: () => void
 }) {
+  // Freeze-prep is suppressed before the review rather than at save.
+  const { profile } = useHomeProfile(homeId)
   const [byManual, setByManual] = useState<Record<string, ManualParseState>>({})
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({})
   /** The uncommitted draft for the manual being picked up, if it still has one.
@@ -286,6 +289,7 @@ export function ParsePickupCard({
   // it once is what makes "only ONE review is ever mounted" structural.
   const reviewSheet = draft ? (
     <TaskReviewSheet
+      freezeRiskFalse={profile?.freeze_risk === false}
       open={draftOpen}
       onOpenChange={setDraftOpen}
       itemName={itemName}
