@@ -310,3 +310,42 @@ deleted — these are the only parts of it that were still true.
   reliable; its forward-looking notes are not).
 - **Strategic product direction** → `~/.claude/projects/…/memory/`, in particular
   the product-vision and principle notes.
+
+## The product name is inlined in 18 user-facing strings
+
+Raised by the owner 2026-08-27, while reviewing the onboarding tour: "if I have
+to change the product name, I would want to pull this out."
+
+There is no `APP_NAME` constant. "Homehub" is typed directly into 18 strings a
+user can read — crash and feedback report titles, the monthly AI-budget notice,
+the iOS camera-permission instructions ("Enable it in iOS Settings → Homehub →
+Camera"), purchase-date and manual-parse explainers. A rename today means a
+hand-audit of all of them, and the iOS one is worse than a find-and-replace
+because it names a system UI path that changes with the app's display name.
+
+Cheap half already done: both onboarding tour titles were rewritten to avoid
+the name ("Welcome", "How we'll reach you"), and the voice guide now prefers
+"we" to the product name wherever a sentence allows it.
+
+The rest is a constant plus 18 substitutions — small, mechanical, and much
+easier before a rename than during one. Not urgent while the name is settled.
+
+## Ask cannot answer warranty questions, though the app knows the answer
+
+Found 2026-08-27 while fact-checking onboarding copy, after the owner queried
+whether manuals carry warranty terms. They do, and we parse them — the parse
+schema has a top-level `warranty` object (duration_months, coverage,
+exclusions, registration, contact) that populates the item's Warranty panel.
+
+But `chatQuery` ranks and feeds **knowledge chunks**, and the parser's chunk
+types are `care | how_to | troubleshooting | safety | specs`. There is no
+warranty chunk type, so "what does the warranty cover?" searches a corpus that
+structurally cannot contain the answer — while the answer sits on the same
+item's page.
+
+A user asking the obvious question gets a miss from a product that already
+knows. Two candidate fixes: emit a warranty chunk at parse time, or let
+chatQuery fall back to the item's warranty fields when the question is
+warranty-shaped. The first is cheaper and keeps one retrieval path.
+
+Not blocking; onboarding copy no longer promises it.
