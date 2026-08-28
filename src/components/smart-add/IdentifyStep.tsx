@@ -28,16 +28,6 @@ import { extractFromImage, isEmptyOcrExtraction, type OcrExtraction } from "@/mo
 import { isNativePlatform, captureNativePhoto, pickNativeLibraryPhoto } from "@/lib/nativeCamera"
 import { downscaleImage } from "@/lib/downscaleImage"
 import { track } from "@/lib/analytics"
-import {
-  lookupProduct,
-  type ProductLookupCandidate,
-  type ProductIdentity,
-  type VariantCandidate,
-  type KnowledgeConfidence,
-} from "@/modules/inventory/services/productLookupService"
-import { ProductSuggestionCard } from "@/components/smart-add/ProductSuggestionCard"
-import { IdentityCard, type IdentityCardState } from "@/components/smart-add/IdentityCard"
-import { applyIdentity, undoIdentity, type IdentitySnapshot } from "@/components/smart-add/identityApply"
 import { LabelPhotoTips } from "@/components/smart-add/LabelPhotoTips"
 import { BrandAutocomplete } from "@/components/smart-add/BrandAutocomplete"
 import {
@@ -49,7 +39,6 @@ import {
   type ItemCategoryId,
 } from "@/modules/inventory/constants/itemCategories"
 import { useCurrentHome, getRooms } from "@/modules/home"
-import { isAllowedSpecKey } from "../../../shared/products/specKeys"
 import { cn } from "@/lib/utils"
 
 export type IdentifyMode = "choice" | "appliance" | "simple"
@@ -191,34 +180,6 @@ export function IdentifyStep({
   // newer extractions when users retry quickly.
   const ocrRequestIdRef = useRef(0)
 
-  // ── Product lookup (identity card + spec candidates) ──────────────────────
-  // Identity: the layered resolver's answer for the CURRENT brand+model key.
-  // Specs: the existing per-field review card. Numeric specs from Claude are
-  // NEVER silently merged — the user taps Apply per candidate. Identity is the
-  // same contract: "Use this" is the only write, and it's undoable.
-  const [lookupResult, setLookupResult] = useState<{
-    key: string
-    identity: ProductIdentity | null
-    variants: VariantCandidate[]
-  } | null>(null)
-  const [identityApplied, setIdentityApplied] = useState<{
-    key: string
-    snapshot: IdentitySnapshot
-    identity: ProductIdentity
-  } | null>(null)
-  // "Not my product" / "None of these" per brand+model key — session-scoped.
-  const [dismissedIdentityKeys, setDismissedIdentityKeys] = useState<Set<string>>(new Set())
-  const [lookupCandidates, setLookupCandidates] = useState<ProductLookupCandidate[]>([])
-  const [lookupConfidence, setLookupConfidence] = useState<KnowledgeConfidence>("low")
-  // No "applied" set: which chips were tapped is not evidence of what the form
-  // holds. Applied is derived from data.categoryFields inside the card.
-  const [dismissedCandidateKeys, setDismissedCandidateKeys] = useState<Set<string>>(new Set())
-  const [lookupLoading, setLookupLoading] = useState(false)
-  /** Actionable lookup-failure notice (quota) — shown quietly under the fields. */
-  const [lookupNotice, setLookupNotice] = useState<string | null>(null)
-  const [dismissedSpecKey, setDismissedSpecKey] = useState<string | null>(null)
-  const lookupRequestIdRef = useRef(0)
-  const lastLookupKeyRef = useRef<string>("")
   // Keep a ref to the latest data so debounced/apply callbacks read fresh
   // values without re-subscribing on every keystroke.
   const dataRef = useRef(data)
@@ -232,22 +193,11 @@ export function IdentifyStep({
   // stale placeholder outside our tracking.
   const placeholderNamesRef = useRef<Set<string>>(new Set())
 
-  const currentKey = `${data.brand.trim().toLowerCase()}::${data.model.trim().toLowerCase()}`
-
   const wantAutoExpand = useMemo(() => hasHiddenAutofill(data, mode), [data, mode])
 
   useEffect(() => {
     if (wantAutoExpand) setMoreDetailsOpen(true)
   }, [wantAutoExpand])
-
-  // A found product's specs (capacity, wattage, filter size…) live in the
-  // ProductSuggestionCard inside "Add more details". Surface them automatically
-  // when the lookup returns candidates — otherwise a match appears to fill only
-  // the category, when there was more to apply one tap away.
-  useEffect(() => {
-    if (lookupCandidates.length > 0) setMoreDetailsOpen(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lookupCandidates.length])
 
   useEffect(() => {
     return () => {
@@ -269,188 +219,6 @@ export function IdentifyStep({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, data.brand, data.model])
-
-  // Debounced brand+model → product lookup (identity + spec candidates).
-  // Fires 800ms after both have settled at ≥2 chars, skipped while OCR is
-  // running so we don't race the nameplate extraction. Transport errors leave
-  // lookupResult null — no card at all; an error is NOT a product miss.
-  useEffect(() => {
-    const brand = data.brand.trim()
-    const model = data.model.trim()
-    const key = `${brand.toLowerCase()}::${model.toLowerCase()}`
-
-    if (brand.length < 2 || model.length < 2) {
-      if (lookupCandidates.length > 0) setLookupCandidates([])
-      return
-    }
-    if (ocrLoading) return
-    if (lastLookupKeyRef.current === key) return
-
-    const handle = window.setTimeout(async () => {
-      const requestId = ++lookupRequestIdRef.current
-      setLookupLoading(true)
-      const result = await lookupProduct({
-        brand,
-        model,
-        category: dataRef.current.itemCategory,
-        subType: dataRef.current.subType,
-      })
-      if (requestId !== lookupRequestIdRef.current) return
-      setLookupLoading(false)
-      if (result.error) {
-        // Soft-fail — the form stays fully usable; typed data is the data.
-        // But never SILENTLY: track every failure (a retired model 404'd every
-        // lookup for days and nothing surfaced), and tell the user about quota
-        // exhaustion, which is actionable.
-        console.warn("[product-lookup] error:", result.error.message)
-        track("identity_lookup_error", { message: result.error.message.slice(0, 120) })
-        if (/limit reached/i.test(result.error.message)) {
-          setLookupNotice("Daily lookup limit reached — the form still works, fill it in manually.")
-        }
-        return
-      }
-      setLookupNotice(null)
-      lastLookupKeyRef.current = key
-      const r = result.data
-      setLookupResult({ key, identity: r.identity, variants: r.variantCandidates })
-      setLookupCandidates(r.candidates)
-      setLookupConfidence(r.knowledgeConfidence)
-      setDismissedCandidateKeys(new Set())
-      track("identity_lookup_done", {
-        outcome: r.identity ? "found" : r.variantCandidates.length > 0 ? "fuzzy" : "miss",
-        source: r.identity?.source ?? null,
-        cacheHit: r.cacheHit,
-      })
-    }, 800)
-
-    return () => window.clearTimeout(handle)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.brand, data.model, ocrLoading])
-
-  // An applied identity must not outlive the model it was for.
-  //
-  // Typing "Core", accepting "Levoit Core …", then finishing the model to
-  // "Core 300" left the earlier name in place: applyIdentity had already made
-  // it a non-placeholder, so neither the auto-compose nor a later apply would
-  // replace it. The item shipped named after the family while the field right
-  // above it read "Core 300". Withdrawing is not the same as auto-applying —
-  // we are retracting a suggestion that no longer refers to what they typed,
-  // and only when they have not edited it themselves.
-  useEffect(() => {
-    if (!identityApplied || identityApplied.key === currentKey) return
-    if (dataRef.current.name !== identityApplied.identity.name) {
-      // They renamed it. Their text stands; just stop calling it applied.
-      setIdentityApplied(null)
-      return
-    }
-    const reverted = undoIdentity(dataRef.current, identityApplied.snapshot)
-    const composed = `${data.brand.trim()} ${data.model.trim()}`.trim()
-    // Recompose here rather than leaning on the auto-compose effect: that one
-    // reads dataRef, which still holds the pre-undo value in this commit.
-    const nameIsOurs = !reverted.name.trim() || placeholderNamesRef.current.has(reverted.name)
-    if (composed && nameIsOurs) placeholderNamesRef.current.add(composed)
-    onDataChange(composed && nameIsOurs ? { ...reverted, name: composed } : reverted)
-    setIdentityApplied(null)
-    track("identity_withdrawn", { reason: "model_changed" })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey])
-
-  // ── Identity card state machine ───────────────────────────────────────────
-  const identityCardState: IdentityCardState | null = (() => {
-    if (mode !== "appliance") return null
-    if (lookupLoading) return "loading"
-    if (identityApplied && identityApplied.key === currentKey) return "applied"
-    if (!lookupResult || lookupResult.key !== currentKey) return null
-    if (dismissedIdentityKeys.has(currentKey)) return "miss"
-    if (lookupResult.identity) return "found"
-    if (lookupResult.variants.length > 0) return "fuzzy"
-    return "miss"
-  })()
-
-  const identityCategoryLabel = useMemo(() => {
-    const identity = lookupResult?.identity
-    if (!identity) return null
-    const mapped = mergeOcrCategory(identity.rawCategory)
-    if (!mapped.itemCategory) return null
-    return getSubTypeLabel(mapped.itemCategory, mapped.subType) ?? legacyCategoryLabelFromItemCategory(mapped.itemCategory)
-  }, [lookupResult?.identity])
-
-  const handleUseIdentity = () => {
-    const identity = lookupResult?.identity
-    if (!identity || lookupResult?.key !== currentKey) return
-    const { next, snapshot } = applyIdentity(dataRef.current, identity, {
-      nameIsPlaceholder: placeholderNamesRef.current.has(dataRef.current.name),
-    })
-    onDataChange(next)
-    setIdentityApplied({ key: currentKey, snapshot, identity })
-    track("identity_applied", { source: identity.source })
-  }
-
-  const handleUndoIdentity = () => {
-    if (!identityApplied) return
-    onDataChange(undoIdentity(dataRef.current, identityApplied.snapshot))
-    setIdentityApplied(null)
-    track("identity_undone")
-  }
-
-  const handleNotMyProduct = () => {
-    if (identityApplied) onDataChange(undoIdentity(dataRef.current, identityApplied.snapshot))
-    setIdentityApplied(null)
-    setDismissedIdentityKeys((prev) => new Set(prev).add(currentKey))
-    track("identity_rejected", { source: lookupResult?.identity?.source ?? null })
-  }
-
-  const handlePickVariant = (model: string) => {
-    // Setting the full model refires the debounced lookup → found state.
-    onDataChange({ ...dataRef.current, model })
-    track("identity_variant_picked")
-  }
-
-  const handleNoneOfThese = () => {
-    setDismissedIdentityKeys((prev) => new Set(prev).add(currentKey))
-    track("identity_variants_rejected")
-  }
-
-  // Defence in depth: the server already drops keys outside the category's
-  // schema, but a cached lookup from before that gate can still carry one. A
-  // value written to a key no field renders is invisible AND unremovable — the
-  // exact shape of the reported bug — so refuse it here too.
-  const handleApplyCandidate = (c: ProductLookupCandidate) => {
-    if (!isAllowedSpecKey(data.itemCategory ?? null, c.key)) {
-      console.warn("[identify] refused off-schema spec key", { key: c.key, category: data.itemCategory })
-      setDismissedCandidateKeys((prev) => new Set(prev).add(c.key))
-      return
-    }
-    const nextFields = { ...(data.categoryFields ?? {}), [c.key]: c.value }
-    onDataChange({ ...data, categoryFields: nextFields })
-  }
-
-  const handleRemoveCandidate = (key: string) => {
-    const nextFields = { ...(data.categoryFields ?? {}) }
-    delete nextFields[key]
-    onDataChange({ ...data, categoryFields: nextFields })
-  }
-
-  /** "Keep mine" — hide the suggestion, leave the user's value alone. */
-  const handleDismissCandidate = (key: string) => {
-    setDismissedCandidateKeys((prev) => new Set(prev).add(key))
-  }
-
-  // Also drops any key the form cannot display. A cached lookup predating the
-  // server-side gate can still carry one, and offering "Apply" for a field that
-  // will never appear is offering a button that does nothing visible.
-  const visibleCandidates = useMemo(
-    () =>
-      lookupCandidates.filter(
-        (c) => !dismissedCandidateKeys.has(c.key) && isAllowedSpecKey(data.itemCategory ?? null, c.key),
-      ),
-    [lookupCandidates, dismissedCandidateKeys, data.itemCategory],
-  )
-
-  const handleDismissLookup = () => {
-    setDismissedSpecKey(currentKey)
-    setLookupCandidates([])
-  }
 
   const processImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return
@@ -922,50 +690,17 @@ export function IdentifyStep({
                   spellCheck={false}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  On the nameplate — usually inside the door or on the back
+                  Usually on a label inside the door or around the back
                 </p>
               </div>
             </div>
 
-            {/* The lookup result sits DIRECTLY under the fields that produced
-                it — cause then effect. The snap/no-model row (a fallback for
-                when typing didn't get you there) follows below. */}
-            {lookupNotice && !identityCardState && (
-              <p className="text-xs text-muted-foreground">{lookupNotice}</p>
-            )}
-            {identityCardState && (
-              <IdentityCard
-                state={identityCardState}
-                identity={identityCardState === "applied" ? identityApplied?.identity : lookupResult?.identity}
-                categoryLabel={identityCategoryLabel}
-                brand={data.brand}
-                model={data.model}
-                variants={lookupResult?.variants ?? []}
-                onUse={handleUseIdentity}
-                onUndo={handleUndoIdentity}
-                onNotMine={handleNotMyProduct}
-                onPickVariant={handlePickVariant}
-                onNoneOfThese={handleNoneOfThese}
-                onSnapLabel={labelPreviewUrl ? undefined : handleSnapLabel}
-              />
-            )}
-
-            {/* HH-114: the specs, directly under the thing they describe.
-                They stay Apply-chips and are NOT asserted as fact — see
-                ProductSuggestionCard's header for why (a hallucinated filter
-                size sends someone to buy the wrong part). */}
-            {dismissedSpecKey !== currentKey && (lookupLoading || visibleCandidates.length > 0) && (
-              <ProductSuggestionCard
-                candidates={visibleCandidates}
-                knowledgeConfidence={lookupConfidence}
-                currentValues={data.categoryFields ?? {}}
-                onApply={handleApplyCandidate}
-                onRemove={handleRemoveCandidate}
-                onDismissCandidate={handleDismissCandidate}
-                onDismiss={handleDismissLookup}
-                loading={lookupLoading}
-              />
-            )}
+            {/* The lookup used to run here, on every keystroke, and report
+                itself in two cards: "We found this item" and a panel of spec
+                chips. Both are gone. It now runs once, in the background, after
+                the item exists — and anything it finds waits on the item page,
+                beside the fields it would fill, where they are actually
+                visible. The screen you type on no longer changes under you. */}
 
             {/* HH-123. Round 11 folded all three photo routes behind one
                 disclosure called "Can't find the model?" — which frames the
@@ -1001,8 +736,17 @@ export function IdentifyStep({
                       <span className="block text-base font-semibold text-primary">
                         {ocrLoading ? "Reading label…" : "Scan the label"}
                       </span>
+                      {/* What to capture, then what you get. The first line used
+                          to say the sticker had to fill the frame, which is both
+                          untrue and counterproductive: it makes people step BACK,
+                          and the read only ever needed the model number legible.
+                          Both lines are short enough to hold one line each beside
+                          the icon tile at 375pt — measured, not assumed. */}
                       <span className="mt-0.5 block text-xs text-muted-foreground">
-                        We&apos;ll fill both fields from the nameplate
+                        Point at the model number
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        We&apos;ll do the typing
                       </span>
                     </span>
                   </span>
@@ -1315,7 +1059,11 @@ export function IdentifyStep({
         >
           Back
         </Button>
-        <Button onClick={onConfirm} disabled={!isValid || isCreating} className="gap-2">
+        {/* The primary fills the remaining row — every approved mockup of this
+            screen drew it that way (ghost Back, solid CTA stretching), and the
+            round-18 gallery caught the code hugging content instead, leaving
+            dead space to the right of the one button that matters. */}
+        <Button onClick={onConfirm} disabled={!isValid || isCreating} className="flex-1 gap-2">
           {isCreating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />

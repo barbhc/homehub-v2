@@ -57,14 +57,30 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 - A label photo **overwrites** brand and model, and the two move **as a pair**.
   Taking one field from the photo and one from memory manufactures a product
   that does not exist. — HH-139
-- The nameplate **never sets the item's name** in this lane. — HH-112, HH-125
+- The label **never sets the item's name** in this lane. — HH-112, HH-125
+- **The words are the homeowner's, not the trade's.** The screen says *label*,
+  never *nameplate* — that is what an installer calls it. It names *the brand
+  and model*, the two fields on screen, never *both fields*, which describes our
+  form rather than their appliance. — owner, 2026-08-27
+- **The scan asks for the model number, not the whole label.** "Point at the
+  model number" is the instruction, in the control and in the recovery tips. The
+  older "the label should fill most of the frame" was untrue and worked against
+  itself: it makes people step back, and the read only ever needed the model
+  number legible. — owner, 2026-08-27
+- The camera keeps its **tile on the left**, and the copy is sized to fit beside
+  it. The text column there is about **165px on a 375pt phone** — small enough
+  that a sentence of ordinary length wraps. `e2e/emu/scan-fit.spec.ts` measures
+  the real control at 375/390/430 and fails if either line wraps; do not judge
+  this from a mockup, whose phone fits materially more characters per line than
+  the device does. — owner, 2026-08-27
 - Rarer routes stay folded under "More ways to identify it". — HH-123
-- A matched product shows its specs as **suggestions, never auto-applied** — a
-  hallucinated filter size could have someone buy the wrong part. — HH-114
-- The match card describes the match in OUR vocabulary — the kind of thing, and
-  the brand and model it matched on — never the resolver's raw string when that
-  string is a page title ("Bosch SHPM65Z55N/01 Manuals"). Identifying an item is
-  not finding its manual, and this screen may not claim one. — HH-138
+- **The lookup does not run on this screen.** No debounced search, no "We found
+  this item" card, no spec chips — the screen the user types on never changes
+  under them. The lookup fires once, after the item is created, and everything
+  it finds waits on the item page. SUPERSEDES the per-keystroke lookup and both
+  of its cards; HH-114's suggestions-never-auto-applied rule moves to the item
+  page below, and HH-138's vocabulary rule retires with the card it governed.
+  — owner, 2026-08-27 (round 18)
 
 ## Screen 2 — Simple lane
 
@@ -96,6 +112,25 @@ page watches it.
 - The tray **stands down** on a page already showing that scan. — HH-118
 
 ## The item page — where the value arrives
+
+### What the background lookup may do here — round 18
+
+- **Category fills silently, blank-only.** Visible and reversible on the
+  Category row; a category the user chose is never overwritten.
+- **The name follows the category** (owner, 2026-08-27): the composed
+  "Brand Model" placeholder becomes the KIND of thing — *Refrigerator* — with
+  the room appended only when that name is taken (*Air filter — Garage*, via
+  `composeItemName`). A name the user typed is never touched. Editable like any
+  field.
+- **Specs arrive as suggestions inline on their own field rows** — italic,
+  greyed, behind a per-field Add — never as a card announcing a find, and never
+  auto-applied (HH-114's rule, relocated here). Applied-ness is DERIVED: a key
+  with a value stops suggesting.
+- **One provenance line** under the rows: "We found these on a product page,
+  not in your manual. Hide them." Hiding stamps `lookup_dismissed_at` and is
+  permanent for that item.
+- **Finding nothing shows nothing.** No card, no message, no trace a search
+  happened.
 
 - **The name is the first thing.** The photo is a 44px control beside it, never
   a block above it. — HH-136

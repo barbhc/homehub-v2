@@ -12,6 +12,7 @@ import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/Manu
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import { createItemUnit } from "@/modules/items"
+import { runPostCreateLookup } from "@/modules/inventory/services/postCreateLookup"
 import { uploadManualPdf, removeManualPdf, uploadItemPhoto } from "@/modules/inventory/services/storageService"
 import { resolveStorageUrl } from "@/integrations/firebase"
 import { deleteManualDocument } from "@/modules/knowledge/services/manualDocumentService"
@@ -241,6 +242,15 @@ export default function SmartAddItem() {
         if (r.error) console.warn("[smart-add] label photo attach failed:", r.error.message)
       })
     }
+
+    // The product lookup, moved off the add screen (round 18). Fire-and-forget
+    // for the same reason as the photo: the item is already saved, so a failed
+    // or abandoned lookup costs only the suggestions. Whatever it finds —
+    // category, a type-based name for a "Brand Model" placeholder, spec
+    // suggestions — lands on the item doc and surfaces on the item page.
+    void runPostCreateLookup(created).catch((e) => {
+      console.warn("[smart-add] post-create lookup failed:", e instanceof Error ? e.message : e)
+    })
 
     // An appliance goes on to its manual — that is the step that makes the rest
     // of the app work, and it earns far more attachments as a screen the user is

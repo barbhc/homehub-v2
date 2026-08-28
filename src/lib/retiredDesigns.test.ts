@@ -33,6 +33,11 @@ const RETIRED_COMPONENTS = [
   "PurchaseStep",   // purchase toll booth -> Details & records on the item page
   "ConfirmStep",    // -> IdentifyStep
   "ParseReviewStep",// -> TaskReviewSheet
+  // Round 18: the product lookup left the add screen. The cards that reported
+  // it mid-flow are gone whole — suggestions render inline on the item page's
+  // own field rows (SuggestionKV in RefinedItemDetail), never as a card.
+  "IdentityCard",        // "We found this item" -> silent category + item-page rows
+  "ProductSuggestionCard", // spec chips -> SuggestionKV rows behind per-field Add
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */
