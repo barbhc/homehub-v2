@@ -438,6 +438,16 @@ export default function ItemDetailPage() {
       }}
     >
       <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+      {manualMgmt.parseNotice && (
+        // A throttled scan, waiting to retry itself. Teal and undismissable on
+        // purpose: it resolves on its own in a few seconds, and it is NOT the
+        // amber error style below — dressing a pause as a failure is what
+        // HH-145 was reported for.
+        <div className="flex items-start gap-2 rounded-lg px-4 py-2 text-sm mb-4"
+          style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>
+          <span className="min-w-0 flex-1">{manualMgmt.parseNotice}</span>
+        </div>
+      )}
       {(error || manualMgmt.parseError) && (
         // Dismissible. A parse error explains itself once and then just sits
         // there — a tester asked how to clear it and there was no way, so a
