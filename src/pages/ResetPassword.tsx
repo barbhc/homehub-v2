@@ -34,8 +34,13 @@ function PwField({ label, value, onChange }: { label: string; value: string; onC
  *
  * "signin-handoff" exists because Firebase uses ONE email-action URL for every
  * template — pointing the reset template here means magic SIGN-IN links land
- * here too (mode=signIn). AuthProvider (mounted above the router) completes
- * those itself; this page just waits for the session and forwards home.
+ * here too (mode=signIn).
+ *
+ * Since 2026-08-28 nothing completes those. Email-link sign-in was never
+ * enabled on this project, so no such link was ever successfully sent, and the
+ * owner had the path removed rather than switched on. The phase stays because
+ * the URL shape is Firebase's, not ours — but it no longer waits forever for a
+ * session that cannot arrive: with no user, it says so and offers the way back.
  */
 type Phase = "verifying" | "form" | "done" | "signin-handoff" | "link-error"
 
@@ -56,6 +61,16 @@ export default function ResetPassword() {
   const [linkError, setLinkError] = useState<string>(
     !isSignInLink && !oobCode ? "This reset link is incomplete or has expired." : ""
   )
+  // A sign-in link with no session is now a dead end rather than a spinner:
+  // nothing completes email links since that path was removed.
+  useEffect(() => {
+    if (!isSignInLink || user) return
+    const t = window.setTimeout(() => {
+      setPhase("link-error")
+      setLinkError("This sign-in link no longer works. Sign in with your email and password instead.")
+    }, 3_000)
+    return () => window.clearTimeout(t)
+  }, [isSignInLink, user])
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [error, setError] = useState<string | null>(null)

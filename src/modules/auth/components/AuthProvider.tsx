@@ -7,9 +7,6 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
   sendPasswordResetEmail,
   updatePassword as fbUpdatePassword,
   signOut as fbSignOut,
@@ -33,8 +30,6 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>
-  signInWithMagicLink: (email: string) => Promise<{ error: Error | null }>
-  completeMagicLink: (email: string) => Promise<{ error: Error | null }>
   signInWithApple: () => Promise<{ error: Error | null }>
   resetPassword: (email: string) => Promise<{ error: Error | null }>
   updatePassword: (password: string) => Promise<{ error: Error | null }>
@@ -44,10 +39,6 @@ const AuthContext = createContext<AuthState | null>(null)
 
 const APPLE_ENABLED = import.meta.env.VITE_APPLE_SIGNIN_ENABLED === "true"
 /** localStorage key for the email-link flow (Firebase can't read it back from the link). */
-const EMAIL_LINK_KEY = "homehub:emailForSignIn"
-/** Full magic-link URL, stashed for cross-device completion (the link isn't in the
- *  URL anymore once we redirect to the confirm-email form). */
-const EMAIL_LINK_URL_KEY = "homehub:emailLinkUrl"
 /** An Apple sign-in via redirect (the native shell — WKWebView blocks popups) reports
  *  failures only on the return page load. Stash the message so SignInForm can show it. */
 export const APPLE_REDIRECT_ERROR_KEY = "homehub:appleRedirectError"
@@ -75,27 +66,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Complete a magic-link sign-in if we arrived on one (state survives the
-    // round-trip via localStorage — Firebase can't recover the email from the link).
-    if (isSignInWithEmailLink(auth, window.location.href)) {
-      const storedEmail = window.localStorage.getItem(EMAIL_LINK_KEY)
-      if (storedEmail) {
-        // Same device: we already know the email — complete the sign-in inline.
-        void signInWithEmailLink(auth, storedEmail, window.location.href)
-          .then((cred) => {
-            trackSignUpIfNew(cred, "email_link")
-            window.localStorage.removeItem(EMAIL_LINK_KEY)
-            window.history.replaceState({}, "", window.location.pathname) // strip one-time params
-          })
-          .catch(() => { /* listener stays unauthenticated; UI shows sign-in */ })
-      } else if (!window.location.pathname.startsWith("/signin")) {
-        // Different device / storage cleared: the email can't be recovered from the
-        // link. Stash the link and send the user to a real confirm-email form
-        // instead of window.prompt (blocked by some browsers, and poor UX).
-        window.localStorage.setItem(EMAIL_LINK_URL_KEY, window.location.href)
-        window.location.replace("/signin?completeLink=1")
-      }
-    }
+    /* Magic-link arrival handling removed 2026-08-28. Email-link sign-in was
+       never switched on for this Firebase project — it is a checkbox inside the
+       Email/Password provider, not a provider of its own, and it was off. So
+       the button offering it failed with auth/operation-not-allowed for every
+       user who pressed it, including the owner. She chose to remove the path
+       rather than enable it; with nothing able to send a link, nothing needs to
+       complete one. */
 
     // Complete a pending Apple sign-in that used the redirect flow (native shell).
     // The happy path lands via onAuthStateChanged below; getRedirectResult here
@@ -175,35 +152,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const signInWithMagicLink = useCallback(async (email: string) => {
-    try {
-      await sendSignInLinkToEmail(auth, email, {
-        url: `${window.location.origin}/`,
-        handleCodeInApp: true,
-      })
-      window.localStorage.setItem(EMAIL_LINK_KEY, email)
-      return { error: null }
-    } catch (err) {
-      return { error: toError(err) }
-    }
-  }, [])
-
-  const completeMagicLink = useCallback(async (email: string) => {
-    try {
-      const linkUrl = window.localStorage.getItem(EMAIL_LINK_URL_KEY) ?? window.location.href
-      if (!isSignInWithEmailLink(auth, linkUrl)) {
-        return { error: new Error("This sign-in link is invalid or has expired. Request a new one.") }
-      }
-      const cred = await signInWithEmailLink(auth, email, linkUrl)
-      trackSignUpIfNew(cred, "email_link")
-      window.localStorage.removeItem(EMAIL_LINK_KEY)
-      window.localStorage.removeItem(EMAIL_LINK_URL_KEY)
-      return { error: null }
-    } catch (err) {
-      return { error: toError(err) }
-    }
-  }, [])
-
   const signInWithApple = useCallback(async () => {
     // Behind VITE_APPLE_SIGNIN_ENABLED; stub path returns a clear error until the
     // owner completes the Services-ID config.
@@ -277,7 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const value: AuthState = { user, loading, signIn, signOut, signUp, signInWithMagicLink, completeMagicLink, signInWithApple, resetPassword, updatePassword }
+  const value: AuthState = { user, loading, signIn, signOut, signUp, signInWithApple, resetPassword, updatePassword }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

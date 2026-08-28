@@ -7,7 +7,6 @@ import {
   UserIcon,
   EyeIcon,
   EyeOffIcon,
-  WandSparklesIcon,
   ChevronLeftIcon,
 } from "lucide-react"
 import { useAuth, APPLE_REDIRECT_ERROR_KEY } from "./AuthProvider"
@@ -148,7 +147,7 @@ const HEADINGS: Record<Mode, { title: string; sub: string }> = {
 const APPLE_ENABLED = import.meta.env.VITE_APPLE_SIGNIN_ENABLED === "true"
 
 export function SignInForm({ className, showMark, initialMode = "signin", prefillEmail, onSuccess }: SignInFormProps) {
-  const { signIn, signUp, resetPassword, signInWithMagicLink, signInWithApple } = useAuth()
+  const { signIn, signUp, resetPassword, signInWithApple } = useAuth()
   const [mode, setMode] = useState<Mode>(initialMode)
   const [email, setEmail] = useState(prefillEmail ?? "")
   const [password, setPassword] = useState("")
@@ -198,22 +197,6 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
       // On success the browser redirects to Apple; no further UI needed.
     } catch {
       setError("Couldn't start Apple sign-in. Please try again.")
-      setLoading(false)
-    }
-  }
-
-  const handleMagicLink = async () => {
-    if (loading) return
-    reset()
-    if (!email.trim()) { setError("Enter your email first, then tap the magic link."); return }
-    setLoading(true)
-    try {
-      const { error: err } = await signInWithMagicLink(email)
-      if (err) { setError(err.message); return }
-      setMessage(`We emailed a magic sign-in link to ${email}.`)
-    } catch {
-      setError("Couldn't send the link. Please try again.")
-    } finally {
       setLoading(false)
     }
   }
@@ -313,17 +296,6 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
               </button>
               <p className="text-center text-[11px] mt-1.5" style={{ color: FAINT }}>Apple sign-in coming soon</p>
             </>
-          )}
-
-          {/* Magic link is a sign-in convenience only (mockup: sign-in screen). */}
-          {mode === "signin" && (
-            <button
-              type="button" onClick={handleMagicLink} disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2.5 rounded-[14px] py-[14px] mt-3 text-[15px] font-bold bg-white disabled:opacity-70"
-              style={{ color: INK, border: `1.5px solid ${LINE}` }}
-            >
-              <WandSparklesIcon size={17} style={{ color: TEAL }} /> Email me a magic link
-            </button>
           )}
 
           {mode === "signup" && (
