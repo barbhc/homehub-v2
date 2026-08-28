@@ -11,14 +11,34 @@ import { resolve } from "node:path"
 
 /** Source with comments stripped. These assert what a screen SAYS, and a
  *  comment explaining why old copy was removed would otherwise read as the
- *  copy still being there. */
+ *  copy still being there.
+ *
+ *  The opener must be preceded by whitespace or `{`, and that guard is
+ *  load-bearing rather than tidy. `accept="image/*"` contains the two
+ *  characters that open a block comment, so the naive pattern treated the rest
+ *  of that attribute as a comment and deleted everything up to the next real
+ *  `*​/` — fifty lines of IdentifyStep, including the model field and its hint.
+ *  Nothing failed. `toContain` on that range failed for a reason that looked
+ *  like missing copy, and every `not.toContain` over it passed vacuously, which
+ *  is the worse half: a test asserting we no longer say something, agreeing,
+ *  because it could not see the file. */
 const read = (p: string) =>
   readFileSync(resolve(__dirname, p), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[\s{])\/\*[\s\S]*?\*\//g, "$1")
     .replace(/^\s*\/\/.*$/gm, "")
 const identify = read("./IdentifyStep.tsx")
 const page = read("../../pages/SmartAddItem.tsx")
 const detailsSheet = read("../item-care/ItemDetailsSheet.tsx")
+
+describe("the comment stripper reads the whole file", () => {
+  it("does not mistake accept=\"image/*\" for a block comment", () => {
+    // The file-input accept attribute sits ~40 lines above the model field. If
+    // the stripper regresses, this assertion goes red and every copy assertion
+    // over that window quietly stops meaning anything.
+    expect(identify).toContain('accept="image/*"')
+    expect(identify).toContain("Usually on a label inside the door or around the back")
+  })
+})
 
 describe("the header describes the step you are on", () => {
   it("no longer promises a name field to a step that has none", () => {
@@ -239,7 +259,30 @@ describe("two ways to give us the brand and model", () => {
   it("says the scan FILLS the fields rather than skipping them", () => {
     // This is the sentence that makes the two routes obviously the same
     // information, and the reason the CTA can stay gated on the fields.
-    expect(identify).toContain("We&apos;ll fill both fields from the nameplate")
+    // It says "the brand and model", naming the two fields the user can see,
+    // rather than "both fields", which describes our form to someone looking
+    // at their appliance.
+    expect(identify).toContain("We&apos;ll do the typing")
+  })
+
+  /**
+   * Plain-language pass, 2026-08-27. The owner read the flow as tech speak and
+   * caught a claim in it that was not true.
+   *
+   * "Nameplate" is what an installer calls it. And the scan never needed the
+   * whole sticker in shot — it needs the model number legible — so telling
+   * someone to frame the entire label makes them step BACK, which is the one
+   * thing that reliably breaks the read.
+   */
+  it("asks for the model number, not the whole label", () => {
+    expect(identify).toContain("Point at the model number")
+    expect(identify).not.toContain("whole sticker")
+  })
+
+  it("says label, the word a homeowner uses, not nameplate", () => {
+    const copyOnly = identify.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    expect(copyOnly).not.toContain("nameplate")
+    expect(copyOnly).toContain("Usually on a label inside the door or around the back")
   })
 
   it("still gates the button on the fields, not on having taken a photo", () => {

@@ -922,7 +922,7 @@ export function IdentifyStep({
                   spellCheck={false}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  On the nameplate — usually inside the door or on the back
+                  Usually on a label inside the door or around the back
                 </p>
               </div>
             </div>
@@ -1001,8 +1001,17 @@ export function IdentifyStep({
                       <span className="block text-base font-semibold text-primary">
                         {ocrLoading ? "Reading label…" : "Scan the label"}
                       </span>
+                      {/* What to capture, then what you get. The first line used
+                          to say the sticker had to fill the frame, which is both
+                          untrue and counterproductive: it makes people step BACK,
+                          and the read only ever needed the model number legible.
+                          Both lines are short enough to hold one line each beside
+                          the icon tile at 375pt — measured, not assumed. */}
                       <span className="mt-0.5 block text-xs text-muted-foreground">
-                        We&apos;ll fill both fields from the nameplate
+                        Point at the model number
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        We&apos;ll do the typing
                       </span>
                     </span>
                   </span>
