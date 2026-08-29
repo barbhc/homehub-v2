@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
-import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
+import { DESKTOP_VIEWPORT, WEB_PORT } from "./e2e/seed-config"
 
 /**
  * Emulator-backed e2e config. Runs the app in emulator mode (`npm run dev:emu`
@@ -15,12 +15,12 @@ import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
  * PW_CHROMIUM_PATH lets a sandbox point at a preinstalled Chromium; CI leaves it
  * unset and uses its own installed browsers.
  */
-// Overridable, matching playwright.a11y/device/visual.config.ts. A hardcoded
-// 5173 is worse than a port clash: Playwright attaches to whatever ALREADY
-// answers there — a stale `vite preview` from days ago, say — and the suite
-// silently tests the wrong build. Here that surfaced as auth.setup bouncing to
-// /signin against a preview that predated the Firebase emulator wiring.
-const PORT = Number(process.env.PW_WEB_PORT ?? 5173)
+// Shared with playwright.a11y/device/visual/journey.config.ts — see WEB_PORT in
+// e2e/seed-config for why it is not Vite's 5173 and why reuse is off. Attaching
+// to whatever ALREADY answers on a port means silently testing the wrong build;
+// here that surfaced as auth.setup bouncing to /signin against a preview that
+// predated the Firebase emulator wiring.
+const PORT = WEB_PORT
 const chromiumPath = process.env.PW_CHROMIUM_PATH
 const launchOptions = chromiumPath ? { executablePath: chromiumPath } : {}
 
@@ -50,7 +50,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev:emu -- --port ${PORT} --strictPort`,
     port: PORT,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

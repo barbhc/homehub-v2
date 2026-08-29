@@ -277,7 +277,7 @@ deleted — these are the only parts of it that were still true.
 | # | Item | State |
 |---|---|---|
 | 6.1 | **Visual baselines are not baked** | `e2e/visual/pages.spec.ts` exists; **zero `-snapshots` directories**. The visual suite cannot fail, so it currently proves nothing. Re-bake via the workflow — never commit local-platform pixels. (This is Phase 5's "fix E".) |
-| 6.2 | **The review WRITE is covered nowhere** | Found while fixing HH-134. J3 was the only walk touching it, and only by asserting a Save button that — correctly, after HH-134 — appears solely when there is something to save. The seeded dishwasher's one task is cleaning, so nothing needs scheduling and Done is right. **Add one maintenance task to the seed**, then J3 covers the write again. Until then `saveItemTaskReview` / `commitDraft` have no end-to-end test. |
+| 6.2 | ~~**The review WRITE is covered nowhere**~~ | **FIXED 2026-08-29, and the diagnosis above was wrong.** `e2e/emu/task-review.spec.ts` was already driving the write — it changes a cadence and a reminder and clicks Save. Its closing assertion, though, watched `"What is it?"` — a label inside the EXPANDED ROW, which the row's own Done button collapsed two lines earlier. It was already true before Save was clicked, so it observed nothing about saving. It now waits for the DIALOG to close (the only signal that `saveItemTaskReview` resolved without error), reloads, reopens the review and reads both edits back off the row. The write itself was verified sound against the emulator during this work — `scheduleType` and `remindEnabled` both land. The prescribed fix (add a maintenance task to the seeded dishwasher) was **not** taken: J3 deliberately covers the no-maintenance case that produced six reports, and seeding one away would have traded real coverage for a duplicate of what the emu spec already does. |
 | 6.3 | `getInviteByToken` collectionGroup read rule | Deliberately deferred until sharing ships. Revisit when a non-member needs to resolve an invite link. |
 | 6.4 | Parse watch-stages / snapshot tooling | Phase 3.3, explicitly optional. Only worth it if parse debugging gets painful again. |
 
@@ -451,10 +451,27 @@ walks on to create a home called "Journey Test Home". Worth checking prod for
 `journey-*@homehub.test` users and stray "Journey Test Home" homes, and
 deleting them. Deletion is the owner's to run.
 
-**Two guards worth building**, because a config that silently prefers whatever
-is on a port will do this again:
-1. `reuseExistingServer` should be `false` for the emulator-backed configs, or
-   the port should not be the same one a human's dev server uses.
-2. The journey walks should refuse to run against a non-emulator backend —
-   assert the project id is `demo-homehub` in a `beforeAll`, and fail loudly.
-   A test suite that can reach production is a test suite that will write to it.
+**Both guards BUILT 2026-08-29.** A config that silently prefers whatever is on
+a port will do this again, so both were taken rather than either:
+
+1. **The port moved and reuse is off.** `WEB_PORT` in `e2e/seed-config.ts`
+   defaults to **5273**, not Vite's 5173, and all five emulator-backed configs
+   now set `reuseExistingServer: false`. With `--strictPort` a collision is a
+   loud startup failure instead of a silent adoption. `PW_WEB_PORT` still
+   overrides.
+2. **The walks check the backend before they walk.**
+   `e2e/assertEmulatorBackend.ts` reads `window.__HH_BACKEND_PROJECT__` — set
+   dev-only in `src/integrations/firebase/app.ts` — and refuses anything but
+   `demo-homehub`. It runs in a `beforeAll` in the journey walks and at the top
+   of `auth.setup.ts`, which covers emu/a11y/device/visual too.
+
+   The check is browser-side on purpose: a node-side env check is exactly the
+   check that cannot catch this, because a suite that *adopts* someone else's
+   server has no idea what that server is serving. Only the running page knows.
+   A production build has no beacon at all, so `undefined` fails — inconclusive
+   is treated as hostile.
+
+**The stray process was still running when this was fixed** — `vite preview
+--port 5173`, uptime 14 days, serving a `homehub-2068d` bundle. The guard was
+verified by pointing it at that exact server and watching it refuse, rather
+than by reasoning about it.

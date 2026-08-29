@@ -31,3 +31,32 @@ export function dayOffset(days: number, from: string = SEED_TODAY): string {
   d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().slice(0, 10)
 }
+
+/**
+ * Web-server port for the EMULATOR-BACKED Playwright configs.
+ *
+ * Deliberately NOT 5173. Vite's default is 5173, so that is the port a human's
+ * `npm run dev` — or a forgotten `vite preview` serving a PRODUCTION bundle —
+ * is already sitting on. Combined with `reuseExistingServer`, sharing the port
+ * meant a suite silently adopted whatever was there: on 2026-08-27 the journey
+ * walks ran against production auth for a whole evening and signed real
+ * accounts up, because a stale prod preview owned 5173.
+ *
+ * `--strictPort` on the webServer command plus `reuseExistingServer: false`
+ * means a collision here is now a loud startup failure, not a silent redirect
+ * onto someone else's backend.
+ *
+ * PW_WEB_PORT still overrides, for running two suites side by side.
+ */
+export const WEB_PORT = Number(process.env.PW_WEB_PORT || 5273)
+
+/**
+ * The project id an emulator-backed run MUST be talking to.
+ *
+ * Deliberately a literal rather than an import of `DEMO_PROJECT_ID` from
+ * src/integrations/firebase/app.ts: that module calls `initializeApp()` at load
+ * and reads `import.meta.env`, so pulling it into a Playwright config or spec
+ * would boot a Firebase app inside node. The value is pinned in firebase.json,
+ * the npm scripts and that module; if it ever changes, it changes in all of them.
+ */
+export const EMULATOR_PROJECT_ID = "demo-homehub"

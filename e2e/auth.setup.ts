@@ -1,5 +1,6 @@
 import { test as setup, expect } from "@playwright/test"
 import { TEST_EMAIL, TEST_PASSWORD } from "./seed-config"
+import { assertEmulatorBackend } from "./assertEmulatorBackend"
 
 /**
  * Signs the seeded test user into the Auth EMULATOR once and saves the
@@ -11,6 +12,10 @@ import { TEST_EMAIL, TEST_PASSWORD } from "./seed-config"
  * the home. Orchestrated by `npm run test:e2e:emu`.
  */
 setup("authenticate", async ({ page }) => {
+  // The emu/a11y/device/visual suites all depend on this project, so guarding
+  // here covers all four: nothing they do reaches a backend before this runs.
+  await assertEmulatorBackend(page)
+
   await page.goto("/signin")
 
   await page.locator('input[type="email"]').fill(TEST_EMAIL)

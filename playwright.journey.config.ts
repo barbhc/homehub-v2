@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
-import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
+import { DESKTOP_VIEWPORT, WEB_PORT } from "./e2e/seed-config"
 
 /**
  * Journey-walk config: the chained happy-path walks in e2e/journey/, against
@@ -9,13 +9,14 @@ import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
  * Run:  npm run test:e2e:journey:emu
  * Out:  $JOURNEY_OUT (default journey-report/latest) — PNG per step + manifest.json
  *
- * PW_WEB_PORT: run on a different port when 5173 is already taken by a dev
- * server you don't want the suite driving (a prod-preview on 5173 must never
- * be a test target).
+ * The web port and the no-reuse rule live in e2e/seed-config (WEB_PORT): these
+ * walks SIGN UP, so a suite that adopted a production-configured server would
+ * not just read the wrong data, it would create real accounts. It has.
+ * PW_WEB_PORT overrides the port to run two suites side by side.
  */
 const chromiumPath = process.env.PW_CHROMIUM_PATH
 const launchOptions = chromiumPath ? { executablePath: chromiumPath } : {}
-const PORT = Number(process.env.PW_WEB_PORT ?? 5173)
+const PORT = WEB_PORT
 
 export default defineConfig({
   testDir: "./e2e",
@@ -43,7 +44,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev:emu -- --port ${PORT} --strictPort`,
     port: PORT,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

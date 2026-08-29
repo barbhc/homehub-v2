@@ -9,6 +9,12 @@ import { test, expect } from "@playwright/test"
  * click. What the spec is FOR is unchanged and is the reason it survived the
  * rewrite: prove that opening the review from the item page, changing something
  * and saving actually writes back, against real Firestore rules.
+ *
+ * "Writes back" means READ BACK AFTER A RELOAD. Until 2026-08-29 this spec
+ * ended on `expect(getByText("What is it?")).toHaveCount(0)` — a label inside
+ * the expanded ROW, which the row's Done button had already collapsed. The
+ * assertion was satisfied before Save was ever clicked, so the suite was green
+ * and the write it exists to prove was never observed.
  */
 test.describe("emulator e2e — task review", () => {
   test("reviews an existing item's tasks and writes the result back", async ({ page }) => {
@@ -59,7 +65,30 @@ test.describe("emulator e2e — task review", () => {
     await expect(save).toBeVisible()
     await save.click()
 
-    // Sheet closes → the write landed without an error surfacing.
-    await expect(page.getByText("What is it?")).toHaveCount(0, { timeout: 15_000 })
+    // WAIT FOR THE SHEET, not for the row panel. The old assertion here watched
+    // "What is it?" — a label inside the EXPANDED ROW, which the row's own Done
+    // button collapsed two lines earlier. It was already true before Save was
+    // clicked, so it observed nothing about saving at all, and a reload placed
+    // after it raced the in-flight commit and killed it.
+    //
+    // The dialog closing is the real signal: ReviewItemTasksButton only calls
+    // setOpen(false) after saveItemTaskReview resolves without an error.
+    await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 15_000 })
+
+    // Reload so nothing in memory can answer for Firestore, then reopen the
+    // review and read both edits back off the row that wrote them.
+    await page.reload()
+    await expect(page.getByText("Bosch 800 Series Dishwasher").filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
+    await page.getByRole("button", { name: /^Review tasks$/ }).filter({ visible: true }).first().click()
+    await page.getByRole("button", { name: /Descale the dishwasher/ }).first().click()
+    await expect(page.getByText("How often?")).toBeVisible({ timeout: 10_000 })
+
+    // Monthly → Quarterly survived the round trip...
+    await expect(
+      page.getByRole("button", { name: /^Quarterly$/ }).filter({ visible: true }).first()
+    ).toHaveAttribute("aria-pressed", "true")
+
+    // ...and so did the bell, which is stored separately from the tier.
+    await expect(page.getByRole("checkbox", { name: /Remind me when it/ })).toBeChecked()
   })
 })

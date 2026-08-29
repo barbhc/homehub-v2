@@ -2,6 +2,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test"
 import fs from "node:fs"
 import path from "node:path"
 import { TEST_EMAIL, TEST_PASSWORD } from "../seed-config"
+import { assertEmulatorBackendVia } from "../assertEmulatorBackend"
 
 /**
  * Journey walks — the four happy paths from docs/user-journeys.md, chained the
@@ -18,6 +19,13 @@ import { TEST_EMAIL, TEST_PASSWORD } from "../seed-config"
  * Auth is done through the real UI in each journey (no storageState): the
  * sign-in screen is itself a step users walk.
  */
+
+// J1 signs UP. Against a production backend that succeeds and leaves a real
+// account and a real home behind — which is what happened on 2026-08-27. Refuse
+// before the first walk, not after.
+test.beforeAll(async ({ browser }) => {
+  await assertEmulatorBackendVia(browser)
+})
 
 const OUT = process.env.JOURNEY_OUT || path.join("journey-report", "latest")
 const visible = { visible: true } as const
