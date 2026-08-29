@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
-import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
+import { DESKTOP_VIEWPORT, WEB_PORT } from "./e2e/seed-config"
 
 /**
  * Visual-regression config, emulator-backed. Runs e2e/visual/pages.spec.ts at the
@@ -17,7 +17,7 @@ import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
  */
 // Overridable so the visual suite can run beside another vite server; same
 // reason as the emulator ports.
-const PORT = Number(process.env.PW_WEB_PORT ?? 5173)
+const PORT = WEB_PORT
 const chromiumPath = process.env.PW_CHROMIUM_PATH
 // The sandbox runs as root; --no-sandbox is required there (CI leaves
 // PW_CHROMIUM_PATH unset, so this stays empty and its own browsers are used).
@@ -67,7 +67,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev:emu -- --port ${PORT} --strictPort`,
     port: PORT,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

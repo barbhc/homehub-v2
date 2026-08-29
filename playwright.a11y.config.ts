@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
-import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
+import { DESKTOP_VIEWPORT, WEB_PORT } from "./e2e/seed-config"
 
 /**
  * Accessibility config, emulator-backed.
@@ -20,9 +20,9 @@ import { DESKTOP_VIEWPORT } from "./e2e/seed-config"
  *
  * Run: npm run test:e2e:a11y:emu
  */
-// Overridable so this suite can run beside another vite server. Same reason as
-// the emulator ports: a hardcoded 5173 means only one suite can exist at a time.
-const PORT = Number(process.env.PW_WEB_PORT ?? 5173)
+// Shared, and overridable via PW_WEB_PORT so this suite can run beside another
+// vite server. See WEB_PORT in e2e/seed-config for why it is not Vite's default.
+const PORT = WEB_PORT
 
 /**
  * Anchored to the e2e directory, NOT a bare /a11y\/.../ — Playwright matches
@@ -73,7 +73,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev:emu -- --port ${PORT} --strictPort`,
     port: PORT,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

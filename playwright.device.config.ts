@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
+import { WEB_PORT } from "./e2e/seed-config"
 
 /**
  * Device-matrix config, emulator-backed.
@@ -12,7 +13,7 @@ import { defineConfig, devices } from "@playwright/test"
  * contains the word — a worktree named `homehub-v2-devices` does exactly that,
  * and the symptom is this suite silently running the entire e2e suite.
  */
-const PORT = Number(process.env.PW_WEB_PORT ?? 5173)
+const PORT = WEB_PORT
 const DEVICE_SPECS = /[\\/]e2e[\\/]device[\\/].*\.spec\.ts$/
 const chromiumPath = process.env.PW_CHROMIUM_PATH
 const launchOptions = chromiumPath
@@ -45,7 +46,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev:emu -- --port ${PORT} --strictPort`,
     port: PORT,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

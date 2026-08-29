@@ -41,6 +41,23 @@ const firebaseConfig = USE_EMULATORS
 export const firebaseApp: FirebaseApp = initializeApp(firebaseConfig)
 
 /**
+ * Dev-only beacon naming the backend this bundle actually booted against.
+ *
+ * The E2E suites assert it reads "demo-homehub" BEFORE they write anything
+ * (e2e/assertEmulatorBackend.ts). A node-side env check cannot do that job: if
+ * Playwright adopts a web server someone else started, the suite's own env says
+ * nothing about what that server is serving. Only the running page knows.
+ *
+ * `import.meta.env.DEV` is statically false in a production build, so this is
+ * absent from the shipped bundle — and its ABSENCE is exactly what trips the
+ * guard when a suite lands on a `vite preview` of a production bundle, which is
+ * the case that signed real accounts up on 2026-08-27.
+ */
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  ;(window as unknown as Record<string, unknown>).__HH_BACKEND_PROJECT__ = firebaseConfig.projectId
+}
+
+/**
  * Emulator ports, overridable per-suite.
  *
  * Hardcoded ports mean exactly one emulator stack can exist on a machine, so a
