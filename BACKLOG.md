@@ -311,6 +311,32 @@ deleted — these are the only parts of it that were still true.
 - **Strategic product direction** → `~/.claude/projects/…/memory/`, in particular
   the product-vision and principle notes.
 
+## One review door skips the freeze-risk suppression
+
+Found 2026-08-30 while triaging feedback with the code open, not from a report.
+
+`TaskReviewSheet` takes `freezeRiskFalse`, which is what suppresses winterizing
+work for a home that never freezes. **Two of its three callers pass it and one
+does not**: `ReviewItemTasksButton` and `ParsePickupCard` do,
+`src/pages/item-detail/ManualSection.tsx:589` does not — and that file has no
+`useHomeProfile` at all, so it has nothing to pass. The prop defaults to
+`undefined`, `correctDraft` then skips `applyHouseRules`, and freeze-prep tasks
+render in the review on that door.
+
+**Why it is worse than a cosmetic miss:** the server DOES apply house rules —
+`commitDraft` calls `applyHouseRules` and has since the 2026-08-30 functions
+deploy. So on this door the tasks are shown, the person saves them, and they are
+silently dropped. That is the exact "shown in review then dropped at save" bug
+the owner reported, still live on the one door that was missed.
+
+This is the CLAUDE.md rule-6 shape one layer over: rule 6 was written about
+`focus`, whose default was then made safe. `freezeRiskFalse` has an unsafe
+default (`undefined` → suppression off) and three call sites. Either give it a
+safe default that cannot silently disable a suppression, or have `ManualSection`
+read the profile. The first is better — the same argument rule 6 already made.
+
+Not yet triaged for effort; no tester has reported this door specifically.
+
 ## The product name is inlined in 18 user-facing strings
 
 Raised by the owner 2026-08-27, while reviewing the onboarding tour: "if I have
