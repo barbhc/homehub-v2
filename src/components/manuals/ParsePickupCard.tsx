@@ -346,12 +346,26 @@ export function ParsePickupCard({
   }
 
   return (
+    /* HH-143. This was ONE `items-center` row: icon + text + a
+       `whitespace-nowrap shrink-0` button + dismiss. The button reserves its
+       full 133px whatever happens, so the text column was squeezed to what was
+       left — measured on the running app at 92px on a 375pt phone, NARROWER
+       THAN THE BUTTON BESIDE IT, turning a one-sentence notice into 14 wrapped
+       lines and a 286px-tall card. `items-center` then floated the tick and the
+       button against the middle of that column, which is the ragged look in the
+       report. The owner reported it from a 430pt phone, which is the best case.
+
+       The button now drops below the text until the CARD (not the viewport —
+       this notice also sits in narrower parents) has room for both. Threshold
+       measured, not picked: see the table in the PR. */
     <div
-      className="mb-4 flex items-center gap-3 rounded-xl border px-4 py-3"
+      className="@container mb-4 rounded-xl border px-4 py-3"
       style={{ borderColor: "var(--hh-teal)", background: "var(--hh-surface)" }}
     >
+     <div className="flex flex-col gap-2.5 @min-[30rem]:flex-row @min-[30rem]:items-center @min-[30rem]:gap-3">
+      <div className="flex min-w-0 flex-1 items-start gap-3 @min-[30rem]:items-center">
       <span
-        className="flex size-6 shrink-0 items-center justify-center rounded-full"
+        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full @min-[30rem]:mt-0"
         style={{ background: "color-mix(in srgb, var(--hh-teal) 15%, transparent)" }}
       >
         <CheckIcon className="size-3.5" style={{ color: "var(--hh-teal)" }} />
@@ -389,6 +403,12 @@ export function ParsePickupCard({
           UNCOMMITTED draft and zero tasks — the committed-task loader would
           open an empty sheet. When a draft is present we review THAT and commit
           on save; otherwise the tasks are already live and we review those. */}
+      </div>
+      {/* Action and dismiss travel together. On one row they sit exactly where
+          they always did; stacked, `justify-between` puts the action at the
+          left and the dismiss at the far right — two independent controls,
+          which is the one shape that contract is actually for. */}
+      <div className="flex items-center justify-between gap-3 @min-[30rem]:shrink-0 @min-[30rem]:justify-start">
       {draft ? (
         <button
           type="button"
@@ -424,9 +444,9 @@ export function ParsePickupCard({
       >
         <XIcon className="size-4" />
       </button>
+      </div>
+     </div>
       {reviewSheet}
-
-
     </div>
   )
 }
