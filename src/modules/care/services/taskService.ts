@@ -487,6 +487,49 @@ export async function updateTaskSupply(
   }
 }
 
+/**
+ * Appends ONE user-entered supply row to a template (a part the parse did not
+ * cite). Same transaction discipline as updateTaskSupply: the array is written
+ * whole, so the re-read at commit time is what keeps a concurrent parse write
+ * safe. Never invents a category — user rows are "other".
+ */
+export async function addTaskSupply(
+  homeId: string,
+  taskTemplateId: string,
+  input: { name: string; url?: string | null; size?: string | null; buy_ahead?: boolean }
+): Promise<ServiceResult<{ index: number; supply: TemplateSupply }>> {
+  const name = input.name.trim()
+  if (!name) return { data: null, error: { message: "Give the part a name" } }
+  try {
+    const ref = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const index = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref)
+      if (!snap.exists() || snap.data().deletedAt != null) throw new Error("Task not found")
+      const rows = Array.isArray(snap.data().supplies) ? [...(snap.data().supplies as unknown[])] : []
+      rows.push({
+        name,
+        category: "other",
+        partNumber: null,
+        url: input.url?.trim() || null,
+        size: input.size?.trim() || null,
+        buyAhead: input.buy_ahead === true,
+      })
+      tx.set(ref, { supplies: rows, userModifiedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true })
+      return rows.length - 1
+    })
+    track("task_supply_added", { homeId, taskTemplateId })
+    return {
+      data: {
+        index,
+        supply: { name, category: "other", part_number: null, url: input.url?.trim() || null, size: input.size?.trim() || null, buy_ahead: input.buy_ahead === true },
+      },
+      error: null,
+    }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to add the part" } }
+  }
+}
+
 export async function updateTaskDiagramUrls(
   homeId: string,
   taskTemplateId: string,

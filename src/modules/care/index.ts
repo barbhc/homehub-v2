@@ -34,6 +34,7 @@ export {
   setTaskReminder,
   setTaskCadence,
   updateTaskSupply,
+  addTaskSupply,
   type TaskSupplyPatch,
   computePriorityScore,
   type CreateTaskTemplateInput,

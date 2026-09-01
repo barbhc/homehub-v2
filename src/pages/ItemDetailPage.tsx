@@ -61,6 +61,8 @@ export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  // A buy-ahead push (or any link) can name the task: /items/{id}?task={templateId}.
+  const focusTaskId = searchParams.get("task")
   const { home } = useCurrentHome()
   const { user } = useAuth()
 
@@ -523,6 +525,7 @@ export default function ItemDetailPage() {
             onItemUpdate={setItem}
             onEditRoom={() => setRoomPickerOpen(true)}
             onEditDetails={() => setDetailsOpen(true)}
+            focusTaskId={focusTaskId}
             reviewAction={
               home && id && tasks.length > 0 ? (
                 <ReviewItemTasksButton
@@ -588,6 +591,7 @@ export default function ItemDetailPage() {
           onOpenManualPage={(page) => openManualPage(page)}
           onItemUpdate={setItem}
           manualSectionProps={manualSectionProps}
+          focusTaskId={focusTaskId}
         />
       </div>
 
