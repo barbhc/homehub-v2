@@ -113,6 +113,11 @@ export {
   type CreateTasksResult,
 } from "./services/weekAgenda"
 export {
+  proposeReminders,
+  type ProposedReminder,
+  type ProposeRemindersResponse,
+} from "./services/proposeReminders"
+export {
   getWeekReminders,
   type WeekReminder,
   type WeekRemindersResult,
