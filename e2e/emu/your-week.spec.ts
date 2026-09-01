@@ -7,7 +7,7 @@ import { test, expect } from "@playwright/test"
  * The seeded test user has no prefs doc, so the mode is the default
  * "curated+essential": Essentials remind by tier default, Recommended work
  * with a null flag does not. That gives a clock-independent assertion pair:
- * the seeded Essential rows appear; the Recommended "Flush the water heater"
+ * the seeded Essential rows appear; the never-chosen "Clean range-hood filter"
  * (remindEnabled null) does not — and the honesty footer counts it.
  */
 const visible = { visible: true } as const
@@ -21,8 +21,10 @@ test.describe("emulator e2e — /week", () => {
     await expect(page.getByText("Replace HVAC furnace filter").filter(visible).first()).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText("Test smoke & CO detectors").filter(visible).first()).toBeVisible()
 
-    // Recommended, never chose → not on the reminder lens in the default mode.
-    await expect(page.getByText("Flush the water heater")).toHaveCount(0)
+    // Optional, never chose, home-scoped cleaning (agenda-eligible) → not on
+    // the reminder lens in the default mode. Chosen because no other walk in
+    // this suite turns it on — specs share one seeded emulator per run.
+    await expect(page.getByText("Clean range-hood filter")).toHaveCount(0)
     // …but it is not hidden from the user: the footer says how many, and where.
     await expect(page.getByText(/more tasks? in Tasks/).filter(visible).first()).toBeVisible()
 

@@ -19,6 +19,8 @@ import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { dens, greeting, shortDate } from "@/lib/redesign/tokens"
 import { HomeComposed } from "@/components/home/HomeComposed"
+import { ThisWeekSection } from "@/components/home/ThisWeekSection"
+import { heroLeadId } from "@/lib/homeHero"
 import { useDisplayName } from "@/hooks/useDisplayName"
 
 // Calm palette (design/hh-home2.jsx)
@@ -225,6 +227,11 @@ export function RefinedHome({
           onComplete={onComplete}
           onSnooze={onSnooze}
         />
+
+        {/* Round 19 (Home Option 2): the week, EXPANDED, through the reminder
+            lens — the same rows the Sunday summary names, with Buy first at the
+            end of the card. Not a tap-through card: the owner's call. */}
+        <ThisWeekSection homeId={homeId} completingId={completingId} onComplete={onComplete} excludeInstanceIds={heroLeadId(tasks) ? [heroLeadId(tasks)!] : []} />
 
         {/* Notices — warranties (timely, calm) */}
         {warranties.length > 0 && (

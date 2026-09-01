@@ -1,14 +1,12 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import useSWR from "swr"
 import { BellIcon, CheckIcon, ChevronLeftIcon, ExternalLinkIcon, ShoppingBagIcon } from "lucide-react"
 import { PageContainer } from "@/components/layout"
 import { useCurrentHome } from "@/modules/home"
-import { getWeekReminders, listShoppingItems, addShoppingItem, type WeekReminder } from "@/modules/care"
-import { usePushMode } from "@/hooks/usePushMode"
+import { addShoppingItem, type WeekReminder } from "@/modules/care"
+import { useWeekReminders, isoDaysFromNow, dayChip, weekChip } from "@/hooks/useWeekReminders"
 import { buyFirstRows, type BuyFirstRow } from "@/lib/buyFirst"
 import { TIER, type Tier, shortDate } from "@/lib/redesign/tokens"
-import type { ShoppingListItem } from "@/integrations/types"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -22,20 +20,6 @@ const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frid
  * day one. Copy per the approved round-19 canvas ("Your week (digest)").
  */
 
-type WeekData = { all: WeekReminder[]; hiddenCount: number; shopping: ShoppingListItem[] }
-
-function isoDaysFromNow(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-function dayChip(dueDate: string, withinWeek: boolean): string {
-  const d = new Date(`${dueDate}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return ""
-  return withinWeek
-    ? d.toLocaleDateString("en-US", { weekday: "short" })
-    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
 function hourLabel(hour: number): string {
   const h = hour % 12 === 0 ? 12 : hour % 12
   return `${h} ${hour < 12 ? "AM" : "PM"}`
@@ -47,23 +31,7 @@ function asTier(t: string): Tier {
 export default function YourWeek() {
   const { home } = useCurrentHome()
   const homeId = home?.home_id ?? null
-  const { mode, prefs } = usePushMode()
-
-  const { data, error, isLoading, mutate } = useSWR<WeekData>(
-    homeId ? `week:reminders:${homeId}:${mode}` : null,
-    async () => {
-      // Both must succeed: a week that quietly dropped its supplies would show
-      // a false "nothing to buy". Errors throw into SWR's error path.
-      const [week, shopping] = await Promise.all([
-        getWeekReminders(homeId!, mode, { days: 30 }),
-        listShoppingItems(homeId!, { includeBought: true }),
-      ])
-      if (week.error || !week.data) throw new Error(week.error?.message ?? "Could not load your week")
-      if (shopping.error || !shopping.data) throw new Error(shopping.error?.message ?? "Could not load your shopping list")
-      return { all: week.data.items, hiddenCount: week.data.hiddenCount, shopping: shopping.data }
-    },
-    { revalidateOnFocus: false }
-  )
+  const { data, error, isLoading, mutate, prefs } = useWeekReminders(homeId, { days: 30 })
 
   const weekEnd = useMemo(() => isoDaysFromNow(7), [])
   const thisWeek = useMemo(() => (data?.all ?? []).filter((r) => r.dueDate <= weekEnd), [data, weekEnd])
@@ -166,7 +134,7 @@ export default function YourWeek() {
                 ) : (
                   <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] divide-y divide-[var(--hh-line)]" style={{ background: "var(--hh-surface)" }}>
                     {thisWeek.map((t) => (
-                      <ReminderRow key={t.taskInstanceId} t={t} chip={dayChip(t.dueDate, true) || t.duePhrase} />
+                      <ReminderRow key={t.taskInstanceId} t={t} chip={weekChip(t)} />
                     ))}
                   </div>
                 )}
@@ -214,7 +182,7 @@ export default function YourWeek() {
           <p className="mb-4 text-[13px]" style={{ color: SUB }}>{shortDate(0)} – {shortDate(7)} · from your reminders</p>
           {data && thisWeek.length > 0 && (
             <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] divide-y divide-[var(--hh-line)]" style={{ background: "var(--hh-surface)" }}>
-              {thisWeek.map((t) => <ReminderRow key={t.taskInstanceId} t={t} chip={dayChip(t.dueDate, true) || t.duePhrase} />)}
+              {thisWeek.map((t) => <ReminderRow key={t.taskInstanceId} t={t} chip={weekChip(t)} />)}
             </div>
           )}
           {data && thisWeek.length === 0 && <div className="text-[14px]" style={{ color: SUB }}>Nothing needs you this week.</div>}
