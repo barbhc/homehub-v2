@@ -68,11 +68,16 @@ firebase deploy --only functions
 - The functions deploy **auto-runs `npm run bundle`** (typecheck + esbuild) via predeploy — no
   manual build step.
 - The **first** functions deploy provisions the **Cloud Tasks queue** for `parseWorker` and the
-  **Cloud Scheduler jobs** for `rollForwardNeverStarted` (30 5 * * *) and `sendPushDaily` (0 15 * * *).
+  **Cloud Scheduler jobs** for `rollForwardNeverStarted` (30 5 * * *) and `sendPushSweep` (0 * * * * — hourly; the per-user digest hour, quiet hours and buy-ahead lane gate themselves inside).
   If prompted to enable the Cloud Tasks / Scheduler APIs, say yes.
 
 Deployed functions: `enqueueParse`, `parseWorker`, `rollForwardNeverStarted`,
-`sendTestPush`, `sendPushDaily`.
+`sendTestPush`, `sendPushSweep`, `previewDigest`.
+
+**Cutover note (round 19):** `sendPushDaily` was replaced by `sendPushSweep`. A deploy does not
+delete the old job — run `firebase functions:delete sendPushDaily` after the first sweep deploy, then
+confirm with `firebase functions:list` that `sendPushDaily` is gone, or the 3 PM job keeps firing
+beside the new one.
 
 ## 6. Verify the deploy
 ```bash

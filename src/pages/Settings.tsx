@@ -3,8 +3,7 @@ import { isAwaitingReview } from "@/lib/manualReviewState"
 import { FeedbackButton } from "@/components/FeedbackButton"
 import { SUPPORT_EMAIL } from "@/lib/feedback"
 import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
-import { AlertCircleIcon, BellIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2
-} from "lucide-react"
+import { AlertCircleIcon, BellIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2, ShoppingBagIcon } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
 import { CardContent } from "@/components/ui/card"
@@ -55,6 +54,7 @@ import {
   normalizeNotificationPrefs,
   type NotificationEventKey,
   type NotificationPrefs,
+  type PushMode,
 } from "@/lib/notificationPreferences"
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
@@ -98,7 +98,25 @@ const NOTIF_EVENT_ROWS: {
     sub: "For items you own",
     locked: true,
   },
+  {
+    key: "buy_ahead",
+    icon: ShoppingBagIcon,
+    label: "Buy-ahead reminders",
+    sub: "A week before a part is needed",
+  },
 ]
+
+// The breadth dial (round 19). Owner's decision: breadth is a user MODE, not a
+// hard predicate — her mode is "Just my list"; the default keeps today's
+// behavior so safety work reminds unless someone deliberately opts down.
+const PUSH_MODE_OPTIONS: { value: PushMode; label: string; sub: string }[] = [
+  { value: "curated", label: "Just my list", sub: "Only reminders you turned on. Nothing else notifies." },
+  { value: "curated+essential", label: "My list + anything Essential", sub: "Your list, plus safety and damage-prevention work by default." },
+  { value: "all", label: "Everything on a schedule", sub: "Every scheduled task reminds you when it's due." },
+]
+const DIGEST_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const DIGEST_HOURS = [6, 7, 8, 9, 10, 12, 17, 18, 19, 20]
+const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "AM" : "PM"}`
 
 // Reminder lead-time presets (days). Clamped to MAX_LEAD_TIME_DAYS on write.
 const NOTIF_LEAD_TIME_OPTIONS: { value: number; label: string }[] = [
@@ -347,6 +365,17 @@ export default function Settings() {
     (days: number) => {
       updateNotifPrefs({ ...notifPrefs, lead_time_days: days })
     },
+    [notifPrefs, updateNotifPrefs]
+  )
+
+  const setPushMode = useCallback(
+    (mode: PushMode) => updateNotifPrefs({ ...notifPrefs, push_mode: mode }),
+    [notifPrefs, updateNotifPrefs]
+  )
+
+  const setWeeklyDigest = useCallback(
+    (patch: Partial<NotificationPrefs["weekly_digest"]>) =>
+      updateNotifPrefs({ ...notifPrefs, weekly_digest: { ...notifPrefs.weekly_digest, ...patch } }),
     [notifPrefs, updateNotifPrefs]
   )
 
@@ -1351,6 +1380,99 @@ export default function Settings() {
                 <p className="mx-1 mt-2.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
                   Safety &amp; recall notices are always delivered.
                 </p>
+
+                {/* Notification style — the breadth dial. */}
+                <div className="mb-2 mt-5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>
+                  What reminds me
+                </div>
+                <div
+                  role="radiogroup"
+                  aria-label="Notification style"
+                  className="overflow-hidden rounded-2xl"
+                  style={{ background: "var(--hh-surface2)", border: "1px solid var(--hh-line)" }}
+                >
+                  {PUSH_MODE_OPTIONS.map((opt, i) => {
+                    const on = notifPrefs.push_mode === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => setPushMode(opt.value)}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                        style={i ? { borderTop: "1px solid var(--hh-line)" } : undefined}
+                      >
+                        <span
+                          className="flex size-5 shrink-0 items-center justify-center rounded-full"
+                          style={{ border: `1.5px solid ${on ? "var(--hh-teal)" : "var(--hh-line2)"}`, background: on ? "var(--hh-teal)" : "var(--hh-surface)" }}
+                        >
+                          {on && <span className="size-2 rounded-full bg-white" />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>{opt.label}</span>
+                          <span className="mt-0.5 block text-[13px]" style={{ color: "var(--hh-sub)" }}>{opt.sub}</span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="mx-1 mt-2.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
+                  Any single reminder can be turned off on its task — the bell. Lapsed safety checks are mentioned in every style.
+                </p>
+
+                {/* Weekly summary — the Sunday digest, at the user's hour. */}
+                <div className="mb-2 mt-5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>
+                  Weekly summary
+                </div>
+                <div
+                  className="overflow-hidden rounded-2xl"
+                  style={{ background: "var(--hh-surface2)", border: "1px solid var(--hh-line)" }}
+                >
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-teal-wash)" }}>
+                      <BellIcon className="size-[18px]" style={{ color: "var(--hh-teal)" }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>Your week at home</div>
+                      <div className="mt-0.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
+                        {notifPrefs.weekly_digest.enabled
+                          ? `${DIGEST_DAYS[notifPrefs.weekly_digest.day]}s at ${hourLabel(notifPrefs.weekly_digest.hour)} · what's coming, and what to buy first`
+                          : "Off — no weekly summary"}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWeeklyDigest({ enabled: !notifPrefs.weekly_digest.enabled })}
+                      aria-pressed={notifPrefs.weekly_digest.enabled}
+                      aria-label={`Weekly summary push ${notifPrefs.weekly_digest.enabled ? "on" : "off"}`}
+                      className="flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
+                      style={{
+                        border: `1.5px solid ${notifPrefs.weekly_digest.enabled ? "var(--hh-teal)" : "var(--hh-line2)"}`,
+                        background: notifPrefs.weekly_digest.enabled ? "var(--hh-teal)" : "var(--hh-surface)",
+                      }}
+                    >
+                      {notifPrefs.weekly_digest.enabled && <CheckIcon className="size-[17px] text-white" strokeWidth={3} />}
+                    </button>
+                  </div>
+                  {notifPrefs.weekly_digest.enabled && (
+                    <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: "1px solid var(--hh-line)" }}>
+                      <div className="min-w-0 flex-1 text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>When</div>
+                      <Select value={String(notifPrefs.weekly_digest.day)} onValueChange={(v) => setWeeklyDigest({ day: Number(v) })}>
+                        <SelectTrigger className="w-[130px] shrink-0" aria-label="Weekly summary day"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {DIGEST_DAYS.map((d, i) => <SelectItem key={d} value={String(i)}>{d}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={String(notifPrefs.weekly_digest.hour)} onValueChange={(v) => setWeeklyDigest({ hour: Number(v) })}>
+                        <SelectTrigger className="w-[100px] shrink-0" aria-label="Weekly summary time"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {DIGEST_HOURS.map((h) => <SelectItem key={h} value={String(h)}>{hourLabel(h)}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
 
                 {/* Timing: lead time + quiet hours */}
                 <div
