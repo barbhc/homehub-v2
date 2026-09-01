@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
 import type {
@@ -10,6 +10,7 @@ import type {
   DiagramImageUrl,
   ScheduleType,
   Season,
+  TemplateSupply,
 } from "@/integrations/types"
 
 // ── Firestore taskInstance doc (camelCase) → curated TaskInstance (snake_case) ──
@@ -46,6 +47,22 @@ function toTaskInstance(homeId: string, id: string, d: DocumentData): TaskInstan
  *  forgets is invisible to the type system (every optional field reads as
  *  `undefined` and silently takes a default). `remind_enabled` shipped that way
  *  once — the UI showed every task at its tier default and nothing failed. */
+/** Firestore supplies rows (camelCase, possibly legacy 3-field) → TemplateSupply. */
+export function toTemplateSupplies(raw: unknown): TemplateSupply[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === "object")
+    .map((s) => ({
+      name: typeof s.name === "string" ? s.name : "",
+      category: typeof s.category === "string" ? s.category : "other",
+      part_number: typeof s.partNumber === "string" ? s.partNumber : null,
+      url: typeof s.url === "string" && s.url ? s.url : null,
+      size: typeof s.size === "string" && s.size ? s.size : null,
+      buy_ahead: s.buyAhead === true,
+    }))
+    .filter((s) => s.name !== "")
+}
+
 export function toTaskTemplate(homeId: string, id: string, d: DocumentData): TaskTemplate {
   return {
     task_template_id: id,
@@ -73,6 +90,7 @@ export function toTaskTemplate(homeId: string, id: string, d: DocumentData): Tas
     steps: Array.isArray(d.steps) ? d.steps : (d.steps ?? null),
     source_page: typeof d.sourcePage === "number" ? d.sourcePage : null,
     supplies_mode: (d.suppliesMode ?? "none") as TaskTemplate["supplies_mode"],
+    supplies: toTemplateSupplies(d.supplies),
     source: (d.source ?? "manual") as TaskTemplate["source"],
     is_user_editable: d.isUserEditable ?? true,
     user_modified_at: tiIso(d.userModifiedAt),
@@ -279,7 +297,14 @@ export async function getTaskTemplatesByItem(
 
 export type TaskSupplyEmbed = {
   quantity: string | null
-  supply_item: { name: string; category: string; oem_part_number: string | null } | null
+  supply_item: {
+    name: string
+    category: string
+    oem_part_number: string | null
+    url: string | null
+    size: string | null
+    buy_ahead: boolean
+  } | null
 }
 export type TaskTemplateWithSchedule = TaskTemplate & {
   schedule_rule?: { schedule_type: string; interval_days: number | null }[]
@@ -308,7 +333,7 @@ export async function getTaskTemplatesWithSchedulesByItem(
         const base = toTaskTemplate(homeId, d.id, x)
         // Compose the v1 join shapes from the inlined schedule + supplies.
         const sched = x.schedule as { scheduleType?: string; intervalDays?: number | null } | null
-        const supplies = (x.supplies ?? []) as Array<{ name?: string; category?: string; partNumber?: string | null }>
+        const supplies = toTemplateSupplies(x.supplies)
         return {
           ...base,
           schedule_rule: sched
@@ -316,7 +341,14 @@ export async function getTaskTemplatesWithSchedulesByItem(
             : [],
           task_template_supply: supplies.map((s) => ({
             quantity: null,
-            supply_item: { name: s.name ?? "", category: s.category ?? "other", oem_part_number: s.partNumber ?? null },
+            supply_item: {
+              name: s.name,
+              category: s.category,
+              oem_part_number: s.part_number,
+              url: s.url,
+              size: s.size,
+              buy_ahead: s.buy_ahead,
+            },
           })),
         } as TaskTemplateWithSchedule
       })
@@ -381,6 +413,77 @@ export async function setTaskReminder(
     return { data: true, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to change the reminder" } }
+  }
+}
+
+/**
+ * Changes how often a task repeats. NESTED object, not dotted keys — the
+ * documented set(merge) trap (see taskReviewService): a dotted key is a
+ * literal field NAME under merge semantics, and merge:true deep-merges maps so
+ * anchorDate/season/window survive.
+ */
+export async function setTaskCadence(
+  homeId: string,
+  taskTemplateId: string,
+  scheduleType: ScheduleType,
+  intervalDays: number | null
+): Promise<ServiceResult<true>> {
+  try {
+    await writeBatch(db)
+      .set(
+        doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
+        {
+          schedule: { scheduleType, intervalDays: intervalDays ?? null },
+          userModifiedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      )
+      .commit()
+    track("task_cadence_set", { homeId, taskTemplateId, scheduleType })
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to change the schedule" } }
+  }
+}
+
+export type TaskSupplyPatch = Partial<Pick<TemplateSupply, "url" | "size" | "buy_ahead" | "name">>
+
+/**
+ * Patches ONE supply row on a template, by index, inside a transaction.
+ *
+ * The array is written whole (Firestore has no array-element update), so a
+ * blind read-modify-write from stale state would clobber siblings the parse
+ * wrote after the read. The transaction re-reads the doc at commit time,
+ * making the patch atomic against concurrent writers.
+ */
+export async function updateTaskSupply(
+  homeId: string,
+  taskTemplateId: string,
+  index: number,
+  patch: TaskSupplyPatch
+): Promise<ServiceResult<TemplateSupply>> {
+  try {
+    const ref = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const updated = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref)
+      if (!snap.exists() || snap.data().deletedAt != null) throw new Error("Task not found")
+      const rows = Array.isArray(snap.data().supplies) ? [...(snap.data().supplies as unknown[])] : []
+      const current = rows[index]
+      if (!current || typeof current !== "object") throw new Error("That supply no longer exists")
+      const row = { ...(current as Record<string, unknown>) }
+      if (patch.name !== undefined) row.name = patch.name
+      if (patch.url !== undefined) row.url = patch.url
+      if (patch.size !== undefined) row.size = patch.size
+      if (patch.buy_ahead !== undefined) row.buyAhead = patch.buy_ahead
+      rows[index] = row
+      tx.set(ref, { supplies: rows, userModifiedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true })
+      return row
+    })
+    track("task_supply_updated", { homeId, taskTemplateId, index: String(index) })
+    return { data: toTemplateSupplies([updated])[0] ?? null!, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update the supply" } }
   }
 }
 
@@ -504,8 +607,9 @@ export type TaskDetail = {
   /** Structured how-to steps from the `steps` column when present; null when the
    *  caller should fall back to parsing `notes`. */
   steps: string[] | null
-  /** Cited supply names for the "You'll need" row; empty when none are linked. */
-  supplies: string[]
+  /** Cited supplies for the "You'll need" row (whole rows since round 19 —
+   *  name plus the user-entered url/size/buy-ahead); empty when none linked. */
+  supplies: TemplateSupply[]
   /** True when the template has never been completed — lets the full task view
    *  show "Start anytime" instead of an untrue "N days overdue" for a brand-new
    *  cadence, matching the Home surfaces. */
@@ -558,12 +662,10 @@ export async function getTaskDetail(
       : null
     const steps = rawSteps && rawSteps.length > 0 ? rawSteps : null
 
-    // Cited supply names from the inlined supplies array ({ name, category,
-    // partNumber } — commitDraft.ts). Empty → the "You'll need" row self-hides.
-    const supplyRows = (tmpl?.supplies ?? []) as Array<{ name?: string }>
-    const supplies = supplyRows
-      .map((s) => (s.name ?? "").trim())
-      .filter(Boolean)
+    // Cited supplies from the inlined array. Was names-only; round 19 keeps
+    // the whole rows so the detail view can render the retailer link and the
+    // buy-ahead state. Empty → the "You'll need" row self-hides.
+    const supplies = toTemplateSupplies(tmpl?.supplies)
 
     // 3. Has this cadence ever been completed? A never-completed past-due task is
     //    "start anytime", not a lapse (mirrors the dashboard's calm framing).

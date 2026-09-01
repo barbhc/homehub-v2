@@ -32,6 +32,9 @@ export {
   archiveTaskTemplate,
   updateTaskCareType,
   setTaskReminder,
+  setTaskCadence,
+  updateTaskSupply,
+  type TaskSupplyPatch,
   computePriorityScore,
   type CreateTaskTemplateInput,
   type UpdateTaskInstanceInput,
@@ -109,6 +112,11 @@ export {
   type EditableTaskInput,
   type CreateTasksResult,
 } from "./services/weekAgenda"
+export {
+  getWeekReminders,
+  type WeekReminder,
+  type WeekRemindersResult,
+} from "./services/weekReminders"
 
 export {
   getHomeUpkeep,
