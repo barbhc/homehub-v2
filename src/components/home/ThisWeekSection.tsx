@@ -144,7 +144,10 @@ function WeekRow({ t, first, completing, onComplete, onOpen }: {
   t: WeekReminder; first: boolean; completing: boolean; onComplete: () => void; onOpen: () => void
 }) {
   const tier = asTier(t.priorityTier)
-  const meta = [t.itemName, t.estimatedMinutes != null ? `${t.estimatedMinutes} min` : null].filter(Boolean).join(" · ")
+  // Tasks' row anatomy: the window phrase rides in the meta line and only the
+  // minutes sit on the right — a wide right-hand chip wrapped titles on phones
+  // (owner, 2026-09-02, on the mockups; the app did the same).
+  const meta = [t.itemName, weekChip(t)].filter(Boolean).join(" · ")
   return (
     <div className="flex items-center gap-2.5 px-3.5 py-3" style={first ? undefined : { borderTop: `1px solid ${LINE}` }}>
       <button type="button" disabled={completing} onClick={onComplete} aria-label={`Mark "${t.title}" done`} className="-ml-1 flex shrink-0 p-1.5 disabled:opacity-40">
@@ -165,7 +168,9 @@ function WeekRow({ t, first, completing, onComplete, onOpen }: {
             {meta && <span className="text-[12.5px]" style={{ color: SUB }}>{meta}</span>}
           </span>
         </span>
-        <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: FAINT }}>{weekChip(t)}</span>
+        {t.estimatedMinutes != null && (
+          <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>
+        )}
         <ChevronRightIcon className="size-4 shrink-0" style={{ color: "#C2CBD4" }} />
       </button>
     </div>

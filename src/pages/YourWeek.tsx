@@ -197,9 +197,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return <span className="pl-0.5 text-xs font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{children}</span>
 }
 
+/**
+ * The Tasks page's row anatomy, on purpose: title full width, the window
+ * phrase INSIDE the meta line, and only the minutes on the right. The first
+ * cut hung "Good to do now" off the right edge as its own column, which on a
+ * 390px phone left the title ~200px and wrapped both it and "Range Hood · 15
+ * min" — the owner spotted it on the mockups (2026-09-02), and the app did the
+ * same thing.
+ */
 function ReminderRow({ t, chip }: { t: WeekReminder; chip: string }) {
   const tier = asTier(t.priorityTier)
-  const meta = [t.itemName, t.estimatedMinutes != null ? `${t.estimatedMinutes} min` : null].filter(Boolean).join(" · ")
+  const meta = [t.itemName, chip].filter(Boolean).join(" · ")
   return (
     <Link to={`/tasks/${t.taskInstanceId}`} className="flex items-center gap-3 px-3.5 py-3">
       <span className="flex size-6 shrink-0 items-center justify-center rounded-full border-2" style={{ borderColor: TEAL }}>
@@ -212,7 +220,9 @@ function ReminderRow({ t, chip }: { t: WeekReminder; chip: string }) {
           {meta && <span className="text-[12.5px]" style={{ color: SUB }}>{meta}</span>}
         </span>
       </span>
-      <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: FAINT }}>{chip}</span>
+      {t.estimatedMinutes != null && (
+        <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>
+      )}
     </Link>
   )
 }
