@@ -4,7 +4,7 @@ import { BellOffIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, SparklesIco
 import type { DashboardTask, MaintenanceTaskFull } from "@/lib/dashboard"
 import { getRecentCompletions } from "@/lib/dashboard"
 import { getItemUnits } from "@/modules/items"
-import { detectWins, comingUp, drawerMeta, dueThisMonth, fmtWhen, GAP_DAYS, type QuickWin, type ComingUpRow } from "@/lib/homeHero"
+import { detectWins, comingUp, drawerMeta, dueThisMonth, fmtWhen, GAP_DAYS, type QuickWin, type ComingUpRow, urgentTasks } from "@/lib/homeHero"
 
 /** Local YYYY-MM-DD (not toISOString, which is UTC and flips the date at night). */
 function localToday(): string {
@@ -136,11 +136,7 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
   // Busy = something is genuinely on you today: overdue, or due today. Due-in-
   // three-days lives in the drawer — that's planning, not interruption.
   const urgent = useMemo(
-    () =>
-      tasks
-        .filter((t) => !justDone.has(t.id))
-        .filter((t) => t.isOverdue || (t.daysUntilDue != null && t.daysUntilDue <= 0))
-        .sort((a, b) => (b.daysOverdue ?? 0) - (a.daysOverdue ?? 0)),
+    () => urgentTasks(tasks.filter((t) => !justDone.has(t.id))),
     [tasks, justDone],
   )
   const heroTask = urgent[0] ?? null
@@ -449,6 +445,12 @@ export function HomeComposed({ tasks, upcoming, homeId, completingId, onComplete
                     onClick={() => navigate(r.itemId ? `/items/${r.itemId}` : "/maintenance")}
                     className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                   >
+                    {/* Round 19: the owner read these rows as "stylistically
+                        plain" beside the rest of the page. The tile is the same
+                        one the guide and warranty rows carry. */}
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-teal-wash)" }}>
+                      <CalendarDaysIcon className="size-[15px]" style={{ color: TEAL }} />
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className={`block truncate ${sc.cuTitle} font-semibold`} style={{ color: INK }}>{r.title}</span>
                       <span className="block truncate text-[12px]" style={{ color: SUB }}>{r.itemName ?? "Whole home"}</span>

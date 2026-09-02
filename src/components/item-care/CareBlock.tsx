@@ -16,11 +16,11 @@
  *
  * Pass `m` for mobile spacing.
  */
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
   AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronRightIcon,
-  ChevronUpIcon, Circle, GitBranchIcon, PackageIcon, RotateCcw, SlidersHorizontalIcon,
+  ChevronUpIcon, Circle, GitBranchIcon, RotateCcw, SlidersHorizontalIcon,
 } from "lucide-react"
 import type { ItemUnit, KnowledgeChunk, Json } from "@/integrations/types"
 import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, type TaskTemplateWithSchedule } from "@/modules/care"
@@ -37,6 +37,8 @@ import { SYMPTOM_TAGS, type ReCheckTrigger } from "@/lib/symptomTaxonomy"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { isAgendaEligible } from "../../../shared/tasks/agendaEligibility"
 import { updateItemUnit } from "@/modules/items/services/itemService"
+import { SupplyRows } from "./SupplyRows"
+import type { TemplateSupply } from "@/integrations/types"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 const TEALD = "var(--hh-teal-deep)", TEAL_WASH = "var(--hh-teal-wash)", CLAY = "var(--hh-clay)"
@@ -123,29 +125,17 @@ function variantTagFor(t: TaskTemplateWithSchedule, variant: string | null, show
   return `${a.map(cap).join(" / ")} only`
 }
 
-// ── Supplies (Q5) ─────────────────────────────────────────────────────────────
-function suppliesOf(t: TaskTemplateWithSchedule): { name: string; part: string | null }[] {
+// ── Supplies (round 19, Item Option B) ────────────────────────────────────────
+/** The template's supply rows, from the item-page embed (widened in round 19
+ *  to carry the user's url / size / buy-ahead alongside the parse's part). */
+function templateSuppliesOf(t: TaskTemplateWithSchedule): TemplateSupply[] {
   const rows = (t as { task_template_supply?: TaskSupplyEmbed[] }).task_template_supply ?? []
   return rows
-    .map((r) => (r.supply_item ? { name: r.supply_item.name, part: r.supply_item.oem_part_number } : null))
-    .filter((s): s is { name: string; part: string | null } => s !== null)
-}
-/** "You'll need" chip row — renders ONLY when the task cites supplies. */
-function SupplyChips({ supplies }: { supplies: { name: string; part: string | null }[] }) {
-  if (supplies.length === 0) return null
-  return (
-    <div>
-      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>You&apos;ll need</div>
-      <div className="flex flex-wrap gap-1.5">
-        {supplies.map((s, i) => (
-          <span key={i} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11.5px] font-semibold" style={{ borderColor: LINE, background: "var(--hh-surface)", color: "#3C4A47" }}>
-            <PackageIcon className="size-3" style={{ color: TEAL }} />
-            {s.name}{s.part && <span className="font-normal" style={{ color: FAINT }}>· {s.part}</span>}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
+    .map((r) => r.supply_item ? {
+      name: r.supply_item.name, category: r.supply_item.category, part_number: r.supply_item.oem_part_number,
+      url: r.supply_item.url, size: r.supply_item.size, buy_ahead: r.supply_item.buy_ahead,
+    } : null)
+    .filter((x): x is TemplateSupply => x !== null)
 }
 
 type BandTone = "teal" | "gold" | "violet" | "slate"
@@ -218,7 +208,10 @@ function tokenOverlap(a: Set<string>, b: Set<string>): number {
   return n
 }
 
-function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onOpenManualPage, last, variantTag, safetyNote }: {
+function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTask, hasManual, onOpenManualPage, last, variantTag, safetyNote }: {
+  homeId: string
+  /** A push or link named THIS task (?task=): open it and bring it into view. */
+  focused?: boolean
   t: TaskTemplateWithSchedule
   due: string | null
   /** Whether this cadence has ever been completed — drives calm "Start anytime". */
@@ -233,7 +226,11 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
   /** Critical safety warning from the manual, attached to this task by keyword. */
   safetyNote?: string
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(!!focused)
+  const rowRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (focused) rowRef.current?.scrollIntoView({ block: "center" })
+  }, [focused])
   const safety = t.risk_level === "safety" || !!safetyNote
   const reminds = willNotify(taskLikeOf(t))
   // HH-82 (Chris, twice): this band said "On a schedule" for three tasks and
@@ -256,7 +253,7 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
   const openTask = () => (canOpenTask ? onOpenTask!(instanceId!) : setOpen((v) => !v))
 
   return (
-    <div style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}>
+    <div ref={rowRef} style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}>
       <div className="flex items-center gap-3 px-4 py-3.5">
         {/* No leading glyph tile. Every row carried an identical wrench in a
             red-or-green square, which read as a status light that meant nothing
@@ -339,7 +336,8 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
                 </div>
               )}
               {actor !== "diy" && <ProTaskNotice actor={actor} />}
-              <SupplyChips supplies={suppliesOf(t)} />
+              {/* Item Option B: the part lives with the task that uses it. */}
+              <SupplyRows homeId={homeId} taskTemplateId={t.task_template_id} supplies={templateSuppliesOf(t)} nextInstanceId={instanceId} />
               {showSteps ? (
                 <StepList steps={steps} />
               ) : actor === "diy" ? (
@@ -571,11 +569,13 @@ export interface CareBlockProps {
    *  end: a sentence telling you the manual is where upkeep comes from, and
    *  nothing to press. */
   onAddManual?: () => void
+  /** Template id named by a push or link (?task=) — that row opens and scrolls into view. */
+  focusTaskId?: string | null
   /** Mobile spacing. */
   m?: boolean
 }
 
-export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, m }: CareBlockProps) {
+export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, focusTaskId = null, m }: CareBlockProps) {
   // One partition, by the same rule the review wizard uses — and since round 18
   // that rule is the KIND of work, not its importance. The bands below are the
   // same four words the review shows, in the same order, because a task filed
@@ -833,6 +833,8 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
             <ScheduleRow
               key={t.task_template_id}
               t={t}
+              homeId={homeId}
+              focused={focusTaskId === t.task_template_id}
               due={isScheduledTask(taskLikeOf(t)) ? dueByTemplate.get(t.task_template_id)?.due ?? null : null}
               completed={completedTemplates.has(t.task_template_id)}
               instanceId={isScheduledTask(taskLikeOf(t)) ? dueByTemplate.get(t.task_template_id)?.instanceId ?? null : null}
@@ -861,6 +863,8 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
             <ScheduleRow
               key={t.task_template_id}
               t={t}
+              homeId={homeId}
+              focused={focusTaskId === t.task_template_id}
               due={isScheduledTask(taskLikeOf(t)) ? dueByTemplate.get(t.task_template_id)?.due ?? null : null}
               completed={completedTemplates.has(t.task_template_id)}
               instanceId={isScheduledTask(taskLikeOf(t)) ? dueByTemplate.get(t.task_template_id)?.instanceId ?? null : null}

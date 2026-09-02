@@ -94,8 +94,9 @@ function SuggestionKV({ k, v, onAdd, last }: { k: string; v: string; onAdd?: () 
 
 export function RefinedItemDetail({
   item, rooms, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
-  reviewAction, recordsSlot, onEditRoom, onEditDetails,
+  reviewAction, recordsSlot, onEditRoom, onEditDetails, focusTaskId = null,
 }: {
+  focusTaskId?: string | null
   item: ItemUnit
   rooms: Room[]
   homeId: string
@@ -356,6 +357,7 @@ export function RefinedItemDetail({
           canOpenManual={canOpenManual}
           onAddManual={onAddManual}
           onItemUpdate={onItemUpdate}
+          focusTaskId={focusTaskId}
           m
         />
 

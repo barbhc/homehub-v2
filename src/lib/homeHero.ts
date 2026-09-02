@@ -160,7 +160,9 @@ export function drawerMeta(
   if (inMonth > 0) parts.push(`${inMonth} in ${month}`)
   if (parts.length === 0) {
     const next = rows.find((r) => r.overdueDays == null)
-    if (next) return `Next: ${next.when}`
+    // A window row's "when" IS its phrase ("Oct-ish"); only a real deadline
+    // (no phrase) earns a date here. Same rule the rows themselves follow.
+    if (next) return `Next: ${next.duePhrase ?? next.when}`
     // Every row is past its target but none is a real deadline — the common
     // case once windows landed. "0 overdue" was literally false here; say what
     // is actually true.
@@ -169,7 +171,11 @@ export function drawerMeta(
   }
   if (overdue === 0) {
     const next = rows.find((r) => r.overdueDays == null)
-    if (next) parts.push(`next ${next.when}`)
+    // "next Wed, Sep 2" beside a row that says "Good to do now" was the
+    // drawer contradicting itself (owner, 2026-09-01). A window row has no
+    // date to promise, and the rows below already carry its phrase — so the
+    // clause is only worth its space for a real deadline.
+    if (next && !next.duePhrase) parts.push(`next ${next.when}`)
   }
   return parts.join(" · ")
 }
@@ -182,4 +188,30 @@ export function dueThisMonth(tasks: Pick<MaintenanceTaskFull, "next_due_date" | 
     const d = parseDay(t.next_due_date)
     return d.getMonth() === m && d.getFullYear() === y && d.getTime() >= parseDay(today).getTime()
   }).length
+}
+
+// ── the hero's own selection, shared ──────────────────────────────────────────
+/** Structural input for urgentTasks — the DashboardTask fields it reads. */
+export interface UrgentInput {
+  id: string
+  isOverdue: boolean
+  daysUntilDue?: number | null
+  daysOverdue?: number | null
+}
+
+/**
+ * "Busy" = something is genuinely on you today: overdue, or due today.
+ * Due-in-three-days lives in the drawer — that's planning, not interruption.
+ * The hero shows the FIRST of these; extracted so the "This week at home"
+ * list can exclude exactly the task the hero visibly names, and nothing more.
+ */
+export function urgentTasks<T extends UrgentInput>(tasks: T[]): T[] {
+  return tasks
+    .filter((t) => t.isOverdue || (t.daysUntilDue != null && t.daysUntilDue <= 0))
+    .sort((a, b) => (b.daysOverdue ?? 0) - (a.daysOverdue ?? 0))
+}
+
+/** The one task the hero card shows, or null when it shows "All quiet". */
+export function heroLeadId(tasks: UrgentInput[]): string | null {
+  return urgentTasks(tasks)[0]?.id ?? null
 }

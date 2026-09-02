@@ -8,6 +8,6 @@
  */
 export {
   todayStr, toleranceDays, dueWindow, dueKindOf, windowPhrase,
-  isTrulyOverdue, safetyPhrase, shortDate, rangeTolerance,
+  isTrulyOverdue, safetyPhrase, shortDate, rangeTolerance, derivedDue,
   type DueKind, type WindowState, type DueWindow,
 } from "../../shared/care/dueWindow"

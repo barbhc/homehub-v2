@@ -1,6 +1,9 @@
-import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
+import { syncTemplateDenormToInstances } from "./denormSync"
+import { computeNextDueDate } from "./nextDueDate"
+import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
 import type {
   TaskTemplate,
   TaskInstance,
@@ -10,6 +13,7 @@ import type {
   DiagramImageUrl,
   ScheduleType,
   Season,
+  TemplateSupply,
 } from "@/integrations/types"
 
 // ── Firestore taskInstance doc (camelCase) → curated TaskInstance (snake_case) ──
@@ -46,6 +50,22 @@ function toTaskInstance(homeId: string, id: string, d: DocumentData): TaskInstan
  *  forgets is invisible to the type system (every optional field reads as
  *  `undefined` and silently takes a default). `remind_enabled` shipped that way
  *  once — the UI showed every task at its tier default and nothing failed. */
+/** Firestore supplies rows (camelCase, possibly legacy 3-field) → TemplateSupply. */
+export function toTemplateSupplies(raw: unknown): TemplateSupply[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === "object")
+    .map((s) => ({
+      name: typeof s.name === "string" ? s.name : "",
+      category: typeof s.category === "string" ? s.category : "other",
+      part_number: typeof s.partNumber === "string" ? s.partNumber : null,
+      url: typeof s.url === "string" && s.url ? s.url : null,
+      size: typeof s.size === "string" && s.size ? s.size : null,
+      buy_ahead: s.buyAhead === true,
+    }))
+    .filter((s) => s.name !== "")
+}
+
 export function toTaskTemplate(homeId: string, id: string, d: DocumentData): TaskTemplate {
   return {
     task_template_id: id,
@@ -65,6 +85,12 @@ export function toTaskTemplate(homeId: string, id: string, d: DocumentData): Tas
     // willNotify resolves to the tier default; false is an explicit "don't
     // remind me" and the two must stay distinguishable.
     remind_enabled: typeof d.remindEnabled === "boolean" ? d.remindEnabled : null,
+    schedule: d.schedule && typeof d.schedule === "object" && typeof (d.schedule as { scheduleType?: unknown }).scheduleType === "string"
+      ? {
+          scheduleType: (d.schedule as { scheduleType: string }).scheduleType as ScheduleType,
+          intervalDays: typeof (d.schedule as { intervalDays?: unknown }).intervalDays === "number" ? (d.schedule as { intervalDays: number }).intervalDays : null,
+        }
+      : null,
     risk_level: (d.riskLevel ?? "comfort") as RiskLevel,
     estimated_minutes: d.estimatedMinutes ?? null,
     default_assignee: d.defaultAssignee ?? null,
@@ -73,6 +99,7 @@ export function toTaskTemplate(homeId: string, id: string, d: DocumentData): Tas
     steps: Array.isArray(d.steps) ? d.steps : (d.steps ?? null),
     source_page: typeof d.sourcePage === "number" ? d.sourcePage : null,
     supplies_mode: (d.suppliesMode ?? "none") as TaskTemplate["supplies_mode"],
+    supplies: toTemplateSupplies(d.supplies),
     source: (d.source ?? "manual") as TaskTemplate["source"],
     is_user_editable: d.isUserEditable ?? true,
     user_modified_at: tiIso(d.userModifiedAt),
@@ -279,7 +306,14 @@ export async function getTaskTemplatesByItem(
 
 export type TaskSupplyEmbed = {
   quantity: string | null
-  supply_item: { name: string; category: string; oem_part_number: string | null } | null
+  supply_item: {
+    name: string
+    category: string
+    oem_part_number: string | null
+    url: string | null
+    size: string | null
+    buy_ahead: boolean
+  } | null
 }
 export type TaskTemplateWithSchedule = TaskTemplate & {
   schedule_rule?: { schedule_type: string; interval_days: number | null }[]
@@ -308,7 +342,7 @@ export async function getTaskTemplatesWithSchedulesByItem(
         const base = toTaskTemplate(homeId, d.id, x)
         // Compose the v1 join shapes from the inlined schedule + supplies.
         const sched = x.schedule as { scheduleType?: string; intervalDays?: number | null } | null
-        const supplies = (x.supplies ?? []) as Array<{ name?: string; category?: string; partNumber?: string | null }>
+        const supplies = toTemplateSupplies(x.supplies)
         return {
           ...base,
           schedule_rule: sched
@@ -316,7 +350,14 @@ export async function getTaskTemplatesWithSchedulesByItem(
             : [],
           task_template_supply: supplies.map((s) => ({
             quantity: null,
-            supply_item: { name: s.name ?? "", category: s.category ?? "other", oem_part_number: s.partNumber ?? null },
+            supply_item: {
+              name: s.name,
+              category: s.category,
+              oem_part_number: s.part_number,
+              url: s.url,
+              size: s.size,
+              buy_ahead: s.buy_ahead,
+            },
           })),
         } as TaskTemplateWithSchedule
       })
@@ -381,6 +422,220 @@ export async function setTaskReminder(
     return { data: true, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to change the reminder" } }
+  }
+}
+
+/**
+ * Changes how often a task repeats — and makes sure the change can come due.
+ *
+ * NESTED object, not dotted keys — the documented set(merge) trap (see
+ * taskReviewService): a dotted key is a literal field NAME under merge
+ * semantics, and merge:true deep-merges maps so anchorDate/season/window
+ * survive.
+ *
+ * Two more things a cadence write owes the surfaces that read it:
+ *
+ * 1. Open occurrences carry a denormalized `scheduleType` (firestore-model.md
+ *    §5) that the week, the agenda and the push sweep phrase from; it is
+ *    synced in the same batch, like every other template field a writer
+ *    touches (denormSync). Their due DATE is left alone: the current
+ *    occurrence is due when it was due, and the next cycle — computed by
+ *    completeTask from the template — takes the new rhythm.
+ *
+ * 2. A task that has never had an occurrence gets its first one. The parse
+ *    only seeds instances for recurring cadences, so a "when needed" tip the
+ *    owner gives a real schedule (the /reminders proposal path, 2026-09-02:
+ *    "Descale the Machine · when needed") would otherwise become a template
+ *    that says "monthly" with nothing that ever comes due — and a reminder on
+ *    it a silent no-op. The first occurrence lands one cadence from today,
+ *    exactly as commitDraft anchors a freshly parsed task: giving a task a
+ *    schedule is the moment its clock starts, not evidence of a backlog.
+ *
+ * A recurring cadence that cannot produce a date (seasonal with no season on
+ * the template) is refused rather than written — the same no-op in a
+ * different coat.
+ */
+export async function setTaskCadence(
+  homeId: string,
+  taskTemplateId: string,
+  scheduleType: ScheduleType,
+  intervalDays: number | null
+): Promise<ServiceResult<true>> {
+  try {
+    const tplRef = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const snap = await getDoc(tplRef)
+    if (!snap.exists() || snap.data().deletedAt != null) return { data: null, error: { message: "Task not found" } }
+    const tpl = snap.data()
+    const now = serverTimestamp()
+    const batch = writeBatch(db)
+    batch.set(
+      tplRef,
+      {
+        schedule: { scheduleType, intervalDays: intervalDays ?? null },
+        userModifiedAt: now,
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    const open = await syncTemplateDenormToInstances(batch, homeId, taskTemplateId, { scheduleType })
+    if (open === 0 && isRecurring(scheduleType)) {
+      const season = ((tpl.schedule as { season?: string | null } | null | undefined)?.season ?? null) as Season | null
+      const dueDate = computeNextDueDate(scheduleType, todayStr(), { intervalDays, season })
+      if (!dueDate) return { data: null, error: { message: "A seasonal task needs a season before it can be scheduled." } }
+      batch.set(doc(collection(db, `homes/${homeId}/taskInstances`)), await firstOccurrence(homeId, taskTemplateId, tpl, scheduleType, dueDate))
+    }
+    await batch.commit()
+    track("task_cadence_set", { homeId, taskTemplateId, scheduleType })
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to change the schedule" } }
+  }
+}
+
+/** The first scheduled occurrence of a template that never had one — the
+ *  shape commitDraft and createTaskFromNote write, denormalized display set
+ *  included (firestore-model.md §5), because that copy is what every surface
+ *  reads. */
+async function firstOccurrence(
+  homeId: string,
+  taskTemplateId: string,
+  tpl: DocumentData,
+  scheduleType: ScheduleType,
+  dueDate: string
+): Promise<DocumentData> {
+  const itemUnitId: string | null = tpl.itemUnitId ?? null
+  let itemName: string | null = null
+  let roomName: string | null = null
+  if (itemUnitId) {
+    const item = await getDoc(doc(db, `homes/${homeId}/items/${itemUnitId}`))
+    if (item.exists()) {
+      itemName = item.data().displayName ?? null
+      const roomId = item.data().roomId
+      if (roomId) {
+        const room = await getDoc(doc(db, `homes/${homeId}/rooms/${roomId}`))
+        roomName = room.exists() ? (room.data().name ?? null) : null
+      }
+    }
+  }
+  const tier = (tpl.priorityTier ?? "recommended") as PriorityTier
+  const { priorityScore, isSafetyCritical } = computePriorityScore(
+    tier,
+    (tpl.riskLevel ?? "comfort") as RiskLevel,
+    dueDate,
+    null,
+    null,
+    tpl.estimatedMinutes ?? null
+  )
+  const now = serverTimestamp()
+  return {
+    taskTemplateId,
+    itemUnitId,
+    status: "scheduled",
+    dueDate,
+    windowStart: null,
+    windowEnd: null,
+    snoozedUntil: null,
+    priorityScore,
+    isSafetyCritical,
+    completedAt: null,
+    completionNotes: null,
+    completionPhotos: [],
+    assignedTo: null,
+    // denorm (§5)
+    title: tpl.title ?? "",
+    priorityTier: tier,
+    careType: tpl.careType ?? null,
+    scopeType: tpl.scopeType ?? (itemUnitId ? "item_unit" : "home"),
+    estimatedMinutes: tpl.estimatedMinutes ?? null,
+    scheduleType,
+    itemName,
+    roomName,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  }
+}
+
+export type TaskSupplyPatch = Partial<Pick<TemplateSupply, "url" | "size" | "buy_ahead" | "name">>
+
+/**
+ * Patches ONE supply row on a template, by index, inside a transaction.
+ *
+ * The array is written whole (Firestore has no array-element update), so a
+ * blind read-modify-write from stale state would clobber siblings the parse
+ * wrote after the read. The transaction re-reads the doc at commit time,
+ * making the patch atomic against concurrent writers.
+ */
+export async function updateTaskSupply(
+  homeId: string,
+  taskTemplateId: string,
+  index: number,
+  patch: TaskSupplyPatch
+): Promise<ServiceResult<TemplateSupply>> {
+  try {
+    const ref = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const updated = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref)
+      if (!snap.exists() || snap.data().deletedAt != null) throw new Error("Task not found")
+      const rows = Array.isArray(snap.data().supplies) ? [...(snap.data().supplies as unknown[])] : []
+      const current = rows[index]
+      if (!current || typeof current !== "object") throw new Error("That supply no longer exists")
+      const row = { ...(current as Record<string, unknown>) }
+      if (patch.name !== undefined) row.name = patch.name
+      if (patch.url !== undefined) row.url = patch.url
+      if (patch.size !== undefined) row.size = patch.size
+      if (patch.buy_ahead !== undefined) row.buyAhead = patch.buy_ahead
+      rows[index] = row
+      tx.set(ref, { supplies: rows, userModifiedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true })
+      return row
+    })
+    track("task_supply_updated", { homeId, taskTemplateId, index: String(index) })
+    return { data: toTemplateSupplies([updated])[0] ?? null!, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update the supply" } }
+  }
+}
+
+/**
+ * Appends ONE user-entered supply row to a template (a part the parse did not
+ * cite). Same transaction discipline as updateTaskSupply: the array is written
+ * whole, so the re-read at commit time is what keeps a concurrent parse write
+ * safe. Never invents a category — user rows are "other".
+ */
+export async function addTaskSupply(
+  homeId: string,
+  taskTemplateId: string,
+  input: { name: string; url?: string | null; size?: string | null; buy_ahead?: boolean }
+): Promise<ServiceResult<{ index: number; supply: TemplateSupply }>> {
+  const name = input.name.trim()
+  if (!name) return { data: null, error: { message: "Give the part a name" } }
+  try {
+    const ref = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const index = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref)
+      if (!snap.exists() || snap.data().deletedAt != null) throw new Error("Task not found")
+      const rows = Array.isArray(snap.data().supplies) ? [...(snap.data().supplies as unknown[])] : []
+      rows.push({
+        name,
+        category: "other",
+        partNumber: null,
+        url: input.url?.trim() || null,
+        size: input.size?.trim() || null,
+        buyAhead: input.buy_ahead === true,
+      })
+      tx.set(ref, { supplies: rows, userModifiedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true })
+      return rows.length - 1
+    })
+    track("task_supply_added", { homeId, taskTemplateId })
+    return {
+      data: {
+        index,
+        supply: { name, category: "other", part_number: null, url: input.url?.trim() || null, size: input.size?.trim() || null, buy_ahead: input.buy_ahead === true },
+      },
+      error: null,
+    }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to add the part" } }
   }
 }
 
@@ -504,8 +759,9 @@ export type TaskDetail = {
   /** Structured how-to steps from the `steps` column when present; null when the
    *  caller should fall back to parsing `notes`. */
   steps: string[] | null
-  /** Cited supply names for the "You'll need" row; empty when none are linked. */
-  supplies: string[]
+  /** Cited supplies for the "You'll need" row (whole rows since round 19 —
+   *  name plus the user-entered url/size/buy-ahead); empty when none linked. */
+  supplies: TemplateSupply[]
   /** True when the template has never been completed — lets the full task view
    *  show "Start anytime" instead of an untrue "N days overdue" for a brand-new
    *  cadence, matching the Home surfaces. */
@@ -558,12 +814,10 @@ export async function getTaskDetail(
       : null
     const steps = rawSteps && rawSteps.length > 0 ? rawSteps : null
 
-    // Cited supply names from the inlined supplies array ({ name, category,
-    // partNumber } — commitDraft.ts). Empty → the "You'll need" row self-hides.
-    const supplyRows = (tmpl?.supplies ?? []) as Array<{ name?: string }>
-    const supplies = supplyRows
-      .map((s) => (s.name ?? "").trim())
-      .filter(Boolean)
+    // Cited supplies from the inlined array. Was names-only; round 19 keeps
+    // the whole rows so the detail view can render the retailer link and the
+    // buy-ahead state. Empty → the "You'll need" row self-hides.
+    const supplies = toTemplateSupplies(tmpl?.supplies)
 
     // 3. Has this cadence ever been completed? A never-completed past-due task is
     //    "start anytime", not a lapse (mirrors the dashboard's calm framing).

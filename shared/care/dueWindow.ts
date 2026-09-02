@@ -184,6 +184,51 @@ export function windowPhrase(
 }
 
 /**
+ * The due semantics every surface should show for one task: what KIND of due
+ * date it has, and how to say it.
+ *
+ * Extracted 2026-09-01 because Home's "Coming up" drawer disagreed with itself
+ * on screen: its overdue rows said "Good to do now" while its forward rows
+ * said "Wed, Sep 2" — for the same kind of task. The forward half came from
+ * `getUpcomingTasks`, whose row type had dropped `scheduleType` entirely, so
+ * it could only print the stored date. A window has no deadline; printing one
+ * invents a promise the task never made (design/due-windows.md).
+ *
+ * This is the derivation `getWeekAgenda` already did inline, minus the two
+ * refinements that need extra context — usage tasks (needs the item's
+ * indicator chunks) and seasonal ones (needs the home's climate). Callers with
+ * that context layer it on top; callers without it get the honest fallback
+ * rather than a date.
+ */
+export function derivedDue(task: {
+  title?: string | null
+  scheduleType?: ScheduleTypeLike
+  careType?: string | null
+  dueDate: string
+  isSafetyCritical?: boolean | null
+}, opts?: {
+  today?: string
+  intervalDays?: number | null
+  intervalDaysMin?: number | null
+  intervalDaysMax?: number | null
+}): { dueKind: DueKind; duePhrase: string; safetyNote: string | null; trulyOverdue: boolean } {
+  const today = opts?.today ?? todayStr()
+  const scheduleType = task.scheduleType ?? null
+  const dueKind = dueKindOf({ title: task.title, scheduleType, careType: task.careType })
+  const range = {
+    intervalDays: opts?.intervalDays,
+    intervalDaysMin: opts?.intervalDaysMin,
+    intervalDaysMax: opts?.intervalDaysMax,
+  }
+  return {
+    dueKind,
+    duePhrase: windowPhrase(task.dueDate, scheduleType, { today, kind: dueKind, ...range }),
+    safetyNote: task.isSafetyCritical ? safetyPhrase(task.dueDate, scheduleType, { today }) : null,
+    trulyOverdue: isTrulyOverdue(task.dueDate, dueKind, { today }),
+  }
+}
+
+/**
  * Does this still deserve red?
  *
  * Only deadlines, and only once actually past. Safety-critical work gets

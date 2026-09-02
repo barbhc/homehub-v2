@@ -73,6 +73,7 @@ export const AI_UNIT_COST: Record<string, number> = {
   importCareUrl: 2, // fetches a page, then summarises it
   chatQuery: 1,
   discussTask: 1,
+  proposeReminders: 1, // one haiku call over the home's task list
   suggestCareNotes: 1,
   productLookup: 1,
   findManual: 1,

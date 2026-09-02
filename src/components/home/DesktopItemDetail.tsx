@@ -297,6 +297,8 @@ function SavedTab({ faqs }: { faqs: ChatFaq[] }) {
 
 // ── Main component ───────────────────────────────────────────────────────────
 export interface DesktopItemDetailProps {
+  /** Template id named by a push or link (?task=) — that row opens and scrolls into view. */
+  focusTaskId?: string | null
   item: ItemUnit
   rooms: Room[]
   homeId: string
@@ -319,7 +321,7 @@ export interface DesktopItemDetailProps {
 type TabId = "tasks" | "guides" | "fix" | "saved" | "activity"
 
 export function DesktopItemDetail({
-  item, rooms, homeId, tasks, chunks, manuals, faqs, historyKey, onBack, onEdit, onOpenManualPage, onItemUpdate, manualSectionProps,
+  item, rooms, homeId, tasks, chunks, manuals, faqs, historyKey, onBack, onEdit, onOpenManualPage, onItemUpdate, manualSectionProps, focusTaskId = null,
 }: DesktopItemDetailProps) {
   const navigate = useNavigate()
   const Glyph = glyphFor(item)
@@ -490,6 +492,7 @@ export function DesktopItemDetail({
               onOpenManualPage={onOpenManualPage}
               onItemUpdate={onItemUpdate}
               onAddManual={() => manualSectionProps.setAddManualOpen(true)}
+              focusTaskId={focusTaskId}
             />
           )}
           {tab === "guides" && <GuidesTab howTo={howToChunks} cleaning={cleaningChunks} onAsk={goAsk} itemName={item.display_name} onOpenManualPage={onOpenManualPage} />}

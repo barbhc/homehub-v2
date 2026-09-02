@@ -8,6 +8,8 @@ import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { TIER, greeting, priorityTier } from "@/lib/redesign/tokens"
 import { HomeComposed } from "@/components/home/HomeComposed"
+import { ThisWeekSection } from "@/components/home/ThisWeekSection"
+import { heroLeadId } from "@/lib/homeHero"
 import { useDisplayName } from "@/hooks/useDisplayName"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)"
@@ -259,6 +261,8 @@ export function DesktopHome({
               onComplete={onComplete}
               onSnooze={onSnooze}
             />
+            {/* Round 19 (Home Option 2): the week, expanded, through the reminder lens. */}
+            <ThisWeekSection homeId={homeId} completingId={completingId} onComplete={onComplete} excludeInstanceIds={heroLeadId(tasks) ? [heroLeadId(tasks)!] : []} />
           </div>
 
           {/* Side rail */}
