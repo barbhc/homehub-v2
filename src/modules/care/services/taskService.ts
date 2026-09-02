@@ -82,6 +82,12 @@ export function toTaskTemplate(homeId: string, id: string, d: DocumentData): Tas
     // willNotify resolves to the tier default; false is an explicit "don't
     // remind me" and the two must stay distinguishable.
     remind_enabled: typeof d.remindEnabled === "boolean" ? d.remindEnabled : null,
+    schedule: d.schedule && typeof d.schedule === "object" && typeof (d.schedule as { scheduleType?: unknown }).scheduleType === "string"
+      ? {
+          scheduleType: (d.schedule as { scheduleType: string }).scheduleType as ScheduleType,
+          intervalDays: typeof (d.schedule as { intervalDays?: unknown }).intervalDays === "number" ? (d.schedule as { intervalDays: number }).intervalDays : null,
+        }
+      : null,
     risk_level: (d.riskLevel ?? "comfort") as RiskLevel,
     estimated_minutes: d.estimatedMinutes ?? null,
     default_assignee: d.defaultAssignee ?? null,

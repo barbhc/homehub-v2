@@ -435,6 +435,12 @@ export interface TaskTemplate {
    * so `willNotify` in shared/tasks/reviewBuckets applies the tier default.
    */
   remind_enabled?: boolean | null
+  /** The template's own cadence, as stored (parse-written; `setTaskCadence`
+   *  rewrites it). Exposed so a surface can tell a recurring task from a tip
+   *  or a setup step WITHOUT a taskInstances read — the pick list on
+   *  /reminders was offering "Allow Motor to Cool After Overload" as a
+   *  reminder because it couldn't. Optional: older constructors omit it. */
+  schedule?: { scheduleType: ScheduleType; intervalDays: number | null } | null
   risk_level: RiskLevel
   estimated_minutes: number | null
   /** Default assignee inherited by generated occurrences (Phase 3); guarded to home_members. */

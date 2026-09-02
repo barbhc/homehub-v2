@@ -9,6 +9,7 @@ import {
   type ProposedReminder,
 } from "@/modules/care"
 import { getItemUnits } from "@/modules/items"
+import { isAgendaEligible } from "@/lib/agendaEligibility"
 import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
 import { normalizeNotificationPrefs, type NotificationPrefs } from "@/lib/notificationPreferences"
 import { cadenceLabel, cadenceLabelInline } from "../../shared/tasks/cadenceLabel"
@@ -27,6 +28,24 @@ const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", T
  * if the owner says yes at the end, the notification style. It cannot delete
  * or hide a task: the corpus stays on Tasks, item pages and search.
  */
+
+/**
+ * What the pick list may OFFER. Two rules, both about honesty:
+ *
+ * 1. Only tasks that recur. The parsed corpus is mostly tips and one-time
+ *    setup steps ("Allow Motor to Cool After Overload", "Verify Clearance
+ *    Around Unit"); on the owner's real home they buried the dozen tasks a
+ *    reminder makes sense for. Curation never deletes them — they stay on the
+ *    item page — they are just not reminders.
+ * 2. Only tasks that would actually notify. The week and the push lanes read
+ *    the agenda, which excludes item-scoped cleaning by the owner's rule; a
+ *    task offered here that the lanes would never send is a broken promise.
+ */
+const RECURRING: ReadonlySet<string> = new Set(["weekly", "monthly", "quarterly", "semiannual", "annual", "seasonal", "every_n_days"])
+export function offerable(t: Pick<TaskTemplate, "schedule" | "care_type" | "scope_type">): boolean {
+  if (!t.schedule || !RECURRING.has(t.schedule.scheduleType)) return false
+  return isAgendaEligible({ careType: t.care_type, scopeType: t.scope_type })
+}
 
 const CADENCE_OPTIONS: ScheduleType[] = ["weekly", "monthly", "quarterly", "semiannual", "annual", "seasonal", "as_needed"]
 
@@ -70,14 +89,14 @@ function PickRow({ title, itemName, onAdd }: { title: string; itemName: string |
   )
 }
 
-const fromTemplate = (t: TaskTemplate, sched: ScheduleType | null, itemName: string | null): Row => ({
+const fromTemplate = (t: TaskTemplate, itemName: string | null): Row => ({
   id: t.task_template_id,
   title: t.title,
   itemName,
   reason: null,
-  scheduleType: sched,
-  intervalDays: null,
-  originalSchedule: sched,
+  scheduleType: t.schedule?.scheduleType ?? null,
+  intervalDays: t.schedule?.intervalDays ?? null,
+  originalSchedule: t.schedule?.scheduleType ?? null,
   checked: true,
   editing: false,
   error: null,
@@ -155,7 +174,7 @@ export default function YourReminders() {
     const q = search.trim().toLowerCase()
     if (!q) return []
     return templates
-      .filter((t) => !inList.has(t.task_template_id))
+      .filter((t) => offerable(t) && !inList.has(t.task_template_id))
       // "coway" should find the purifier's filter as surely as "filter" does.
       .filter((t) => t.title.toLowerCase().includes(q) || (itemNameOf(t) ?? "").toLowerCase().includes(q))
       .slice(0, 8)
@@ -168,7 +187,7 @@ export default function YourReminders() {
   const pickGroups = useMemo(() => {
     const groups = new Map<string, TaskTemplate[]>()
     for (const t of templates) {
-      if (inList.has(t.task_template_id)) continue
+      if (!offerable(t) || inList.has(t.task_template_id)) continue
       const key = itemNameOf(t) ?? "Whole home"
       groups.set(key, [...(groups.get(key) ?? []), t])
     }
@@ -179,7 +198,7 @@ export default function YourReminders() {
   }, [templates, inList, itemNames])
 
   const addTemplate = (t: TaskTemplate) => {
-    setRows((rs) => [...rs, fromTemplate(t, null, itemNameOf(t))])
+    setRows((rs) => [...rs, fromTemplate(t, itemNameOf(t))])
     setSearch("")
   }
 
@@ -379,7 +398,7 @@ export default function YourReminders() {
                   ))}
                 </div>
               )}
-              {!search.trim() && pickGroups.length === 0 && templates.length > 0 && rows.length > 0 && (
+              {!search.trim() && pickGroups.length === 0 && templates.some(offerable) && rows.length > 0 && (
                 <div className="text-[12.5px]" style={{ color: FAINT }}>Every task is on your list.</div>
               )}
             </div>

@@ -44,8 +44,9 @@ const proposal = (id: string, title: string, over: Record<string, unknown> = {})
   current_schedule_type: "quarterly", current_interval_days: null,
   suggested_schedule_type: null, suggested_interval_days: null, remind_already_on: false, priority_tier: "recommended", ...over,
 })
-const template = (id: string, title: string, item_unit_id: string | null = null) =>
-  ({ task_template_id: id, title, item_unit_id, schedule: { scheduleType: "monthly" } })
+const template = (id: string, title: string, item_unit_id: string | null = null, over: Record<string, unknown> = {}) =>
+  ({ task_template_id: id, title, item_unit_id, care_type: "maintenance", scope_type: item_unit_id ? "item_unit" : "home",
+     schedule: { scheduleType: "monthly", intervalDays: null }, ...over })
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -204,5 +205,68 @@ describe("pick from your tasks — the item is the context", () => {
     const list = await screen.findByTestId("pick-list")
     expect(Array.from(list.querySelectorAll("section")).map((g) => g.getAttribute("aria-label"))).toEqual(["Whole home"])
     expect(screen.getByRole("button", { name: "Add Replace the filter" })).toBeInTheDocument()
+  })
+})
+
+/**
+ * The corpus is not the menu. On the owner's real home the first cut of the
+ * pick list offered every parsed template — "Allow Motor to Cool After
+ * Overload" beside the furnace filter — and buried the dozen tasks a reminder
+ * is for. Nothing is deleted; tips stay on the item page. They are just not
+ * reminders, and neither is anything the push lanes would never send.
+ */
+describe("pick from your tasks — only what recurs and would notify", () => {
+  const corpus = () => {
+    getTaskTemplates.mockResolvedValue({
+      data: [
+        template("t1", "Replace the filter", "i-furnace", { schedule: { scheduleType: "quarterly", intervalDays: null } }),
+        template("t2", "Allow motor to cool after overload", "i-blender", { schedule: { scheduleType: "as_needed", intervalDays: null } }),
+        template("t3", "Verify clearance around unit", "i-blender", { schedule: { scheduleType: "setup", intervalDays: null } }),
+        template("t4", "Rinse after each use", "i-blender", { schedule: { scheduleType: "after_each_use", intervalDays: null } }),
+        template("t5", "No schedule at all", "i-blender", { schedule: null }),
+        // Item-scoped CLEANING recurs, but the week + push lanes never carry it
+        // (owner's rule: Home is for maintenance) — offering it would be a lie.
+        template("t6", "Wipe the control panel", "i-blender", { care_type: "cleaning", schedule: { scheduleType: "monthly", intervalDays: null } }),
+        // Home-scoped cleaning IS a household chore and does notify.
+        template("t7", "Wipe down kitchen surfaces", null, { care_type: "cleaning", schedule: { scheduleType: "weekly", intervalDays: null } }),
+      ],
+      error: null,
+    })
+    getItemUnits.mockResolvedValue({
+      data: [{ item_unit_id: "i-furnace", display_name: "Carrier Furnace" }, { item_unit_id: "i-blender", display_name: "Beast Blender" }],
+      error: null,
+    })
+  }
+
+  it("offers the recurring, notifiable tasks and nothing else", async () => {
+    corpus()
+    render(<YourReminders />)
+    fireEvent.click(screen.getByRole("button", { name: "Skip — pick from your tasks" }))
+    const list = await screen.findByTestId("pick-list")
+    const offered = Array.from(list.querySelectorAll("button")).map((b) => b.getAttribute("aria-label"))
+    expect(offered).toEqual(["Add Replace the filter", "Add Wipe down kitchen surfaces"])
+    // The blender has nothing offerable, so it gets no group at all.
+    expect(Array.from(list.querySelectorAll("section")).map((g) => g.getAttribute("aria-label"))).toEqual(["Carrier Furnace", "Whole home"])
+  })
+
+  it("search obeys the same rule — a tip cannot be found by name either", async () => {
+    corpus()
+    render(<YourReminders />)
+    fireEvent.click(screen.getByRole("button", { name: "Skip — pick from your tasks" }))
+    await screen.findByTestId("pick-list")
+    fireEvent.change(screen.getByLabelText("Search your tasks"), { target: { value: "blender" } })
+    expect(screen.queryByRole("button", { name: /^Add / })).not.toBeInTheDocument()
+    expect(screen.getByText(/No tasks match/)).toBeInTheDocument()
+  })
+
+  it("a picked task shows its real cadence, not 'schedule not set'", async () => {
+    corpus()
+    render(<YourReminders />)
+    fireEvent.click(screen.getByRole("button", { name: "Skip — pick from your tasks" }))
+    await screen.findByTestId("pick-list")
+    fireEvent.click(screen.getByRole("button", { name: "Add Replace the filter" }))
+    const row = screen.getByLabelText("Replace the filter").closest("label")!
+    expect(row.textContent).toMatch(/quarter/i)
+    expect(row.textContent).not.toContain("schedule not set")
   })
 })
