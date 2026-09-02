@@ -102,6 +102,23 @@ describe("drawerMeta — the closed row still answers", () => {
     const rows = comingUp([task({ next_due_date: "2026-10-12" })], TODAY)
     expect(drawerMeta(rows, TODAY)).toBe("Next: Mon, Oct 12")
   })
+
+  // Owner, 2026-09-01: "5 in September · next Wed, Sep 2" sat above a row
+  // reading "Good to do now" — one drawer, two vocabularies. A window row has
+  // no date to promise; the header says a date only for a real deadline.
+  it("a window row never earns a weekday date in the header", () => {
+    const rows = comingUp([
+      task({ next_due_date: "2026-08-15", duePhrase: "Good to do now" }),
+      task({ next_due_date: "2026-08-29", duePhrase: "Aug-ish" }),
+    ], TODAY)
+    expect(drawerMeta(rows, TODAY)).toBe("2 in August")
+    expect(drawerMeta(rows, TODAY)).not.toMatch(/Sat|Sun|Mon|Tue|Wed|Thu|Fri/)
+  })
+
+  it("nothing this month + a window row → its phrase, not its date", () => {
+    const rows = comingUp([task({ next_due_date: "2026-10-12", duePhrase: "Oct-ish" })], TODAY)
+    expect(drawerMeta(rows, TODAY)).toBe("Next: Oct-ish")
+  })
 })
 
 describe("dueThisMonth", () => {
