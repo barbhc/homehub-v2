@@ -29,6 +29,8 @@ vi.mock("@/modules/care", () => ({
   deleteTaskTemplate: (...a: unknown[]) => deleteTaskTemplate(...a),
   archiveTaskTemplate: (...a: unknown[]) => archiveTaskTemplate(...a),
 }))
+const getItemUnits = vi.fn()
+vi.mock("@/modules/items", () => ({ getItemUnits: (...a: unknown[]) => getItemUnits(...a) }))
 vi.mock("@/lib/userPreferences", () => ({
   getNotificationPrefs: (...a: unknown[]) => getNotificationPrefs(...a),
   setNotificationPrefs: (...a: unknown[]) => setNotificationPrefs(...a),
@@ -42,11 +44,13 @@ const proposal = (id: string, title: string, over: Record<string, unknown> = {})
   current_schedule_type: "quarterly", current_interval_days: null,
   suggested_schedule_type: null, suggested_interval_days: null, remind_already_on: false, priority_tier: "recommended", ...over,
 })
-const template = (id: string, title: string) => ({ task_template_id: id, title, schedule: { scheduleType: "monthly" } })
+const template = (id: string, title: string, item_unit_id: string | null = null) =>
+  ({ task_template_id: id, title, item_unit_id, schedule: { scheduleType: "monthly" } })
 
 beforeEach(() => {
   vi.clearAllMocks()
   getTaskTemplates.mockResolvedValue({ data: [template("t1", "Replace the furnace filter"), template("t9", "Flush the water heater")], error: null })
+  getItemUnits.mockResolvedValue({ data: [], error: null })
   setTaskReminder.mockResolvedValue({ data: true, error: null })
   setTaskCadence.mockResolvedValue({ data: true, error: null })
   getNotificationPrefs.mockResolvedValue({ push_mode: "curated+essential", events: {}, weekly_digest: { enabled: true, day: 0, hour: 17 }, quiet_hours: null, lead_time_days: 0 })
@@ -130,5 +134,75 @@ describe("YourReminders", () => {
     expect(setNotificationPrefs).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole("button", { name: "Just my list" }))
     await waitFor(() => expect(setNotificationPrefs).toHaveBeenCalledWith("u1", expect.objectContaining({ push_mode: "curated" })))
+  })
+})
+
+/**
+ * Owner, 2026-09-01, on the live pick list: "there's no context on which
+ * items these are for." A task title alone ("Replace the filter") is a
+ * riddle; the item is the context. And the Skip path used to land on an
+ * empty search box — nothing to pick from until you guessed a word.
+ */
+describe("pick from your tasks — the item is the context", () => {
+  const withItems = () => {
+    getTaskTemplates.mockResolvedValue({
+      data: [
+        template("t1", "Replace the filter", "i-furnace"),
+        template("t2", "Flush the tank", "i-heater"),
+        template("t3", "Test smoke alarms", null),
+      ],
+      error: null,
+    })
+    getItemUnits.mockResolvedValue({
+      data: [
+        { item_unit_id: "i-furnace", display_name: "Carrier Furnace" },
+        { item_unit_id: "i-heater", display_name: "Rheem Water Heater" },
+      ],
+      error: null,
+    })
+  }
+
+  it("lists every task under its item WITHOUT searching, whole-home last", async () => {
+    withItems()
+    render(<YourReminders />)
+    fireEvent.click(screen.getByRole("button", { name: "Skip — pick from your tasks" }))
+    const list = await screen.findByTestId("pick-list")
+    const groups = Array.from(list.querySelectorAll("section")).map((g) => g.getAttribute("aria-label"))
+    expect(groups).toEqual(["Carrier Furnace", "Rheem Water Heater", "Whole home"])
+    expect(screen.getByRole("button", { name: "Add Replace the filter" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Add Test smoke alarms" })).toBeInTheDocument()
+  })
+
+  it("search finds a task by its ITEM's name, and the hit says which item", async () => {
+    withItems()
+    render(<YourReminders />)
+    fireEvent.click(screen.getByRole("button", { name: "Skip — pick from your tasks" }))
+    await screen.findByTestId("pick-list")
+    fireEvent.change(screen.getByLabelText("Search your tasks"), { target: { value: "rheem" } })
+    expect(screen.getByRole("button", { name: "Add Flush the tank" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Add Replace the filter" })).not.toBeInTheDocument()
+    expect(screen.getByText("Rheem Water Heater")).toBeInTheDocument()
+  })
+
+  it("a picked task carries its item onto the list", async () => {
+    withItems()
+    render(<YourReminders />)
+    fireEvent.click(screen.getByRole("button", { name: "Skip — pick from your tasks" }))
+    await screen.findByTestId("pick-list")
+    fireEvent.click(screen.getByRole("button", { name: "Add Replace the filter" }))
+    const row = screen.getByLabelText("Replace the filter").closest("label")!
+    expect(row.textContent).toContain("Carrier Furnace")
+    // …and it has left the pick list.
+    expect(screen.queryByRole("button", { name: "Add Replace the filter" })).not.toBeInTheDocument()
+  })
+
+  it("item names failing to load never hides the tasks", async () => {
+    withItems()
+    getItemUnits.mockResolvedValue({ data: null, error: new Error("offline") })
+    render(<YourReminders />)
+    fireEvent.click(screen.getByRole("button", { name: "Skip — pick from your tasks" }))
+    const list = await screen.findByTestId("pick-list")
+    expect(Array.from(list.querySelectorAll("section")).map((g) => g.getAttribute("aria-label"))).toEqual(["Whole home"])
+    expect(screen.getByRole("button", { name: "Add Replace the filter" })).toBeInTheDocument()
   })
 })

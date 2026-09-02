@@ -8,6 +8,7 @@ import {
   proposeReminders, getTaskTemplates, setTaskReminder, setTaskCadence,
   type ProposedReminder,
 } from "@/modules/care"
+import { getItemUnits } from "@/modules/items"
 import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
 import { normalizeNotificationPrefs, type NotificationPrefs } from "@/lib/notificationPreferences"
 import { cadenceLabel, cadenceLabelInline } from "../../shared/tasks/cadenceLabel"
@@ -55,10 +56,24 @@ const fromProposal = (p: ProposedReminder): Row => ({
   error: null,
 })
 
-const fromTemplate = (t: TaskTemplate, sched: ScheduleType | null): Row => ({
+/** One task in the pick list: what it is, and — when the group header doesn't
+ *  already say so — which item it belongs to. */
+function PickRow({ title, itemName, onAdd }: { title: string; itemName: string | null; onAdd: () => void }) {
+  return (
+    <div className="flex items-center gap-3 px-3.5 py-2.5">
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[14px] font-medium" style={{ color: INK }}>{title}</span>
+        {itemName && <span className="block truncate text-[12px]" style={{ color: SUB }}>{itemName}</span>}
+      </span>
+      <button type="button" onClick={onAdd} aria-label={`Add ${title}`} className="shrink-0 text-[12.5px] font-bold" style={{ color: TEAL }}>Add</button>
+    </div>
+  )
+}
+
+const fromTemplate = (t: TaskTemplate, sched: ScheduleType | null, itemName: string | null): Row => ({
   id: t.task_template_id,
   title: t.title,
-  itemName: null,
+  itemName,
   reason: null,
   scheduleType: sched,
   intervalDays: null,
@@ -83,6 +98,9 @@ export default function YourReminders() {
   const [rows, setRows] = useState<Row[]>([])
   const [templates, setTemplates] = useState<TaskTemplate[]>([])
   const [templatesError, setTemplatesError] = useState<string | null>(null)
+  // item id → display name. A task title alone ("Replace the filter") says
+  // nothing about WHICH filter; the owner hit exactly that on the pick list.
+  const [itemNames, setItemNames] = useState<Map<string, string>>(new Map())
   const [search, setSearch] = useState("")
   const [applying, setApplying] = useState(false)
   const [turnedOn, setTurnedOn] = useState(0)
@@ -95,10 +113,14 @@ export default function YourReminders() {
   useEffect(() => {
     if (!homeId) return
     let alive = true
-    void getTaskTemplates(homeId).then((res) => {
+    void Promise.all([getTaskTemplates(homeId), getItemUnits(homeId)]).then(([res, items]) => {
       if (!alive) return
       if (res.error || !res.data) setTemplatesError(res.error?.message ?? "Couldn't load your tasks")
       else setTemplates(res.data)
+      // Names are context, not the list: if they fail, the tasks still show,
+      // and the rows say "Whole home" rather than nothing. The task fetch
+      // failing is the visible error above.
+      if (items.data) setItemNames(new Map(items.data.map((i) => [i.item_unit_id, i.display_name])))
     })
     return () => { alive = false }
   }, [homeId])
@@ -126,16 +148,38 @@ export default function YourReminders() {
   const skipToPick = () => { setRows([]); setStage("proposal") }
 
   const inList = useMemo(() => new Set(rows.map((r) => r.id)), [rows])
+  const itemNameOf = (t: TaskTemplate): string | null =>
+    t.item_unit_id ? (itemNames.get(t.item_unit_id) ?? null) : null
+
   const searchHits = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return []
     return templates
-      .filter((t) => !inList.has(t.task_template_id) && t.title.toLowerCase().includes(q))
+      .filter((t) => !inList.has(t.task_template_id))
+      // "coway" should find the purifier's filter as surely as "filter" does.
+      .filter((t) => t.title.toLowerCase().includes(q) || (itemNameOf(t) ?? "").toLowerCase().includes(q))
       .slice(0, 8)
-  }, [search, templates, inList])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, templates, inList, itemNames])
+
+  // The pick list, with no search typed: every task not already on the list,
+  // grouped under the item it belongs to. Landing on an empty search box and
+  // being told to "pick from your tasks" was the gap the owner reported.
+  const pickGroups = useMemo(() => {
+    const groups = new Map<string, TaskTemplate[]>()
+    for (const t of templates) {
+      if (inList.has(t.task_template_id)) continue
+      const key = itemNameOf(t) ?? "Whole home"
+      groups.set(key, [...(groups.get(key) ?? []), t])
+    }
+    return [...groups.entries()]
+      .sort((a, b) => (a[0] === "Whole home" ? 1 : b[0] === "Whole home" ? -1 : a[0].localeCompare(b[0])))
+      .map(([name, list]) => [name, [...list].sort((a, b) => a.title.localeCompare(b.title))] as const)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates, inList, itemNames])
 
   const addTemplate = (t: TaskTemplate) => {
-    setRows((rs) => [...rs, fromTemplate(t, null)])
+    setRows((rs) => [...rs, fromTemplate(t, null, itemNameOf(t))])
     setSearch("")
   }
 
@@ -314,15 +358,29 @@ export default function YourReminders() {
               {searchHits.length > 0 && (
                 <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] divide-y divide-[var(--hh-line)]" style={{ background: "var(--hh-surface)" }}>
                   {searchHits.map((t) => (
-                    <div key={t.task_template_id} className="flex items-center gap-3 px-3.5 py-2.5">
-                      <span className="min-w-0 flex-1 truncate text-[14px] font-medium" style={{ color: INK }}>{t.title}</span>
-                      <button type="button" onClick={() => addTemplate(t)} aria-label={`Add ${t.title}`} className="text-[12.5px] font-bold" style={{ color: TEAL }}>Add</button>
-                    </div>
+                    <PickRow key={t.task_template_id} title={t.title} itemName={itemNameOf(t) ?? "Whole home"} onAdd={() => addTemplate(t)} />
                   ))}
                 </div>
               )}
               {search.trim() && searchHits.length === 0 && !templatesError && (
                 <div className="text-[12.5px]" style={{ color: FAINT }}>No tasks match &ldquo;{search.trim()}&rdquo;.</div>
+              )}
+              {!search.trim() && pickGroups.length > 0 && (
+                <div className="flex flex-col gap-3" data-testid="pick-list">
+                  {pickGroups.map(([name, list]) => (
+                    <section key={name} aria-label={name}>
+                      <h3 className="mb-1.5 px-1 font-mono text-[10.5px] font-extrabold uppercase tracking-[0.12em]" style={{ color: FAINT }}>{name}</h3>
+                      <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] divide-y divide-[var(--hh-line)]" style={{ background: "var(--hh-surface)" }}>
+                        {list.map((t) => (
+                          <PickRow key={t.task_template_id} title={t.title} itemName={null} onAdd={() => addTemplate(t)} />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+              {!search.trim() && pickGroups.length === 0 && templates.length > 0 && rows.length > 0 && (
+                <div className="text-[12.5px]" style={{ color: FAINT }}>Every task is on your list.</div>
               )}
             </div>
 
