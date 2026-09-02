@@ -13,6 +13,7 @@ import { isAgendaEligible } from "@/lib/agendaEligibility"
 import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
 import { normalizeNotificationPrefs, type NotificationPrefs } from "@/lib/notificationPreferences"
 import { cadenceLabel, cadenceLabelInline } from "../../shared/tasks/cadenceLabel"
+import { isRecurring } from "../../shared/tasks/reviewBuckets"
 import type { ScheduleType, TaskTemplate } from "@/integrations/types"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
@@ -40,14 +41,26 @@ const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", T
  * 2. Only tasks that would actually notify. The week and the push lanes read
  *    the agenda, which excludes item-scoped cleaning by the owner's rule; a
  *    task offered here that the lanes would never send is a broken promise.
+ *
+ * The proposal path is held to the same two rules on the server
+ * (`offerableRow` in proposeReminders.ts) — and, because hosting and functions
+ * deploy separately, guarded here too: see `hasCadence` and `propose`.
  */
-const RECURRING: ReadonlySet<string> = new Set(["weekly", "monthly", "quarterly", "semiannual", "annual", "seasonal", "every_n_days"])
-export function offerable(t: Pick<TaskTemplate, "schedule" | "care_type" | "scope_type">): boolean {
-  if (!t.schedule || !RECURRING.has(t.schedule.scheduleType)) return false
+function offerable(t: Pick<TaskTemplate, "schedule" | "care_type" | "scope_type">): boolean {
+  if (!isRecurring(t.schedule?.scheduleType)) return false
   return isAgendaEligible({ careType: t.care_type, scopeType: t.scope_type })
 }
 
-const CADENCE_OPTIONS: ScheduleType[] = ["weekly", "monthly", "quarterly", "semiannual", "annual", "seasonal", "as_needed"]
+/**
+ * Cadences the owner can CHOOSE here. Fixed rhythms only. "When needed" is
+ * not a reminder cadence — a task with no schedule never comes due, so a
+ * reminder on it never fires. That was the silent no-op seen live 2026-09-02:
+ * "Descale the Machine · Nespresso Coffee · when needed" proposed, ticked,
+ * turned on, never heard from again. Seasonal needs a season this page cannot
+ * ask for, and every_n_days an interval; both are kept only as a row's
+ * CURRENT cadence (see `cadenceChoicesFor`), never offered as a new one.
+ */
+const CADENCE_CHOICES: ScheduleType[] = ["weekly", "monthly", "quarterly", "semiannual", "annual"]
 
 type Row = {
   id: string
@@ -57,23 +70,36 @@ type Row = {
   scheduleType: ScheduleType | null
   intervalDays: number | null
   originalSchedule: ScheduleType | null
+  originalInterval: number | null
   checked: boolean
   editing: boolean
   error: string | null
 }
 
-const fromProposal = (p: ProposedReminder): Row => ({
-  id: p.task_template_id,
-  title: p.title,
-  itemName: p.item_name,
-  reason: p.reason,
-  scheduleType: p.suggested_schedule_type ?? p.current_schedule_type,
-  intervalDays: p.suggested_interval_days ?? p.current_interval_days,
-  originalSchedule: p.current_schedule_type,
-  checked: true,
-  editing: false,
-  error: null,
-})
+/** True when the row can carry a reminder as it stands: a cadence that
+ *  produces a due date. A row without one is shown, with the reason and the
+ *  picker open, and cannot be turned on until the owner chooses — it is never
+ *  given a cadence on their behalf (suggest, never assume). */
+const hasCadence = (r: Pick<Row, "scheduleType">): boolean => isRecurring(r.scheduleType)
+
+const fromProposal = (p: ProposedReminder): Row => {
+  const scheduleType = p.suggested_schedule_type ?? p.current_schedule_type
+  return {
+    id: p.task_template_id,
+    title: p.title,
+    itemName: p.item_name,
+    reason: p.reason,
+    scheduleType,
+    intervalDays: p.suggested_interval_days ?? p.current_interval_days,
+    originalSchedule: p.current_schedule_type,
+    originalInterval: p.current_interval_days,
+    checked: true,
+    // A row that needs a cadence opens its picker at once — the choice is the
+    // one thing standing between it and a reminder.
+    editing: !isRecurring(scheduleType),
+    error: null,
+  }
+}
 
 /** One task in the pick list: what it is, and — when the group header doesn't
  *  already say so — which item it belongs to. */
@@ -97,10 +123,19 @@ const fromTemplate = (t: TaskTemplate, itemName: string | null): Row => ({
   scheduleType: t.schedule?.scheduleType ?? null,
   intervalDays: t.schedule?.intervalDays ?? null,
   originalSchedule: t.schedule?.scheduleType ?? null,
+  originalInterval: t.schedule?.intervalDays ?? null,
   checked: true,
-  editing: false,
+  editing: !isRecurring(t.schedule?.scheduleType),
   error: null,
 })
+
+/** The picker's options: the fixed rhythms, plus the row's own cadence when it
+ *  is one this page cannot construct (seasonal, every_n_days) so "keep it as
+ *  it is" stays selectable. */
+const cadenceChoicesFor = (r: Row): ScheduleType[] =>
+  r.originalSchedule && isRecurring(r.originalSchedule) && !CADENCE_CHOICES.includes(r.originalSchedule)
+    ? [...CADENCE_CHOICES, r.originalSchedule]
+    : CADENCE_CHOICES
 
 type Stage = "describe" | "proposal" | "done"
 
@@ -155,7 +190,17 @@ export default function YourReminders() {
     setProposeError(null)
     try {
       const res = await proposeReminders({ homeId, focusText: focus.trim() })
-      setRows(res.proposals.map(fromProposal))
+      // The lanes never send item-scoped cleaning (the owner's rule, in
+      // isAgendaEligible), and the server no longer proposes it — but a page
+      // can outrun the callable behind it, so a proposal the loaded templates
+      // say would never notify is not listed. The same silence the pick list
+      // keeps: nothing is deleted, it is just not a reminder.
+      const byId = new Map(templates.map((t) => [t.task_template_id, t]))
+      const wouldNotify = (p: ProposedReminder) => {
+        const t = byId.get(p.task_template_id)
+        return !t || isAgendaEligible({ careType: t.care_type, scopeType: t.scope_type })
+      }
+      setRows(res.proposals.filter(wouldNotify).map(fromProposal))
       setStage("proposal")
     } catch (e) {
       setProposeError(e instanceof Error ? e.message : "Couldn't propose reminders right now")
@@ -205,21 +250,30 @@ export default function YourReminders() {
   const patch = (id: string, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...p } : r)))
 
   const chosen = rows.filter((r) => r.checked)
+  // Ticked, but with no cadence that comes due. These hold the button until
+  // the owner picks how often — or unticks them. Never silently "on".
+  const blocked = chosen.filter((r) => !hasCadence(r))
 
   const applyRow = async (r: Row): Promise<boolean> => {
     if (!homeId) return false
-    const on = await setTaskReminder(homeId, r.id, true)
-    if (on.error) { patch(r.id, { error: on.error.message }); return false }
+    if (!hasCadence(r)) { patch(r.id, { error: "Pick how often first — a reminder needs a schedule." }); return false }
+    // Schedule BEFORE flag. A reminder flagged on a task whose schedule then
+    // failed to save is exactly the silent no-op this page exists to prevent;
+    // a schedule saved without its flag is merely a task to retry.
     if (r.scheduleType && r.scheduleType !== r.originalSchedule) {
       const cad = await setTaskCadence(homeId, r.id, r.scheduleType, r.intervalDays)
-      if (cad.error) { patch(r.id, { error: `Reminder is on, but the schedule didn't save: ${cad.error.message}` }); return false }
+      if (cad.error) { patch(r.id, { error: `The schedule didn't save: ${cad.error.message}` }); return false }
+      // Saved — a retry of the flag need not write the schedule again.
+      patch(r.id, { originalSchedule: r.scheduleType, originalInterval: r.intervalDays })
     }
+    const on = await setTaskReminder(homeId, r.id, true)
+    if (on.error) { patch(r.id, { error: on.error.message }); return false }
     patch(r.id, { error: null })
     return true
   }
 
   const turnOn = async () => {
-    if (chosen.length === 0) return
+    if (chosen.length === 0 || blocked.length > 0) return
     setApplying(true)
     const results = await Promise.all(chosen.map(applyRow))
     setApplying(false)
@@ -329,6 +383,11 @@ export default function YourReminders() {
                             {r.editing ? "Done" : "Change"}
                           </button>
                         </span>
+                        {!hasCadence(r) && (
+                          <span className="mt-0.5 block text-[12px] font-semibold" style={{ color: CLAY }}>
+                            Needs a schedule to remind you — pick how often.
+                          </span>
+                        )}
                         {r.reason && <span className="mt-0.5 block text-[12px]" style={{ color: FAINT }}>{r.reason}</span>}
                       </span>
                       <span className="mt-0.5 shrink-0" style={{ color: r.checked ? TEAL : "#9AA29C" }}>
@@ -340,12 +399,19 @@ export default function YourReminders() {
                         <label className="text-[12.5px] font-semibold" style={{ color: SUB }}>How often?</label>
                         <select
                           aria-label={`How often for ${r.title}`}
-                          value={r.scheduleType ?? ""}
-                          onChange={(e) => patch(r.id, { scheduleType: (e.target.value || null) as ScheduleType | null, intervalDays: null })}
+                          value={hasCadence(r) ? (r.scheduleType as ScheduleType) : ""}
+                          onChange={(e) => {
+                            const v = (e.target.value || null) as ScheduleType | null
+                            // Back to the original keeps its interval; anything else has none.
+                            patch(r.id, { scheduleType: v, intervalDays: v === r.originalSchedule ? r.originalInterval : null })
+                          }}
                           className="rounded-lg border px-2 py-1 text-[13px]"
                           style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
                         >
-                          {CADENCE_OPTIONS.map((c) => <option key={c} value={c}>{cadenceLabel(c)}</option>)}
+                          {!hasCadence(r) && <option value="" disabled>Choose…</option>}
+                          {cadenceChoicesFor(r).map((c) => (
+                            <option key={c} value={c}>{cadenceLabel(c, c === r.originalSchedule ? r.originalInterval : null)}</option>
+                          ))}
                         </select>
                       </div>
                     )}
@@ -406,13 +472,20 @@ export default function YourReminders() {
             <button
               type="button"
               onClick={() => void turnOn()}
-              disabled={chosen.length === 0 || applying}
+              disabled={chosen.length === 0 || blocked.length > 0 || applying}
               className="flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white disabled:opacity-50"
               style={{ background: TEAL }}
             >
               {applying && <Loader2Icon className="size-4 animate-spin" />}
               Turn these on · {chosen.length}
             </button>
+            {blocked.length > 0 && (
+              <div role="status" className="text-center text-[12.5px] font-semibold" style={{ color: CLAY }}>
+                {blocked.length === 1
+                  ? `“${blocked[0].title}” needs a schedule first — pick how often, or untick it.`
+                  : `${blocked.length} tasks need a schedule first — pick how often, or untick them.`}
+              </div>
+            )}
             <div className="text-center text-[12px]" style={{ color: FAINT }}>Nothing else will notify you. Every task stays where it is.</div>
           </div>
         )}

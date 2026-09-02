@@ -7,7 +7,7 @@
  * than vanishing into a success screen.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import YourReminders from "./YourReminders"
 
 const proposeReminders = vi.fn()
@@ -268,5 +268,125 @@ describe("pick from your tasks — only what recurs and would notify", () => {
     const row = screen.getByLabelText("Replace the filter").closest("label")!
     expect(row.textContent).toMatch(/quarter/i)
     expect(row.textContent).not.toContain("schedule not set")
+  })
+})
+
+/**
+ * Seen live 2026-09-02: the proposal offered "Descale the Machine · Nespresso
+ * Coffee · when needed". A reminder on a task with no recurring schedule never
+ * produces a due occurrence, so it never notifies — turning it on was a silent
+ * no-op dressed as success. The pick list already refused such tasks
+ * (`offerable`); the proposal path is now held to the same standard on the
+ * server, and THIS is the client's own guard, because hosting and functions
+ * deploy separately and a page can outrun the callable behind it.
+ */
+describe("a proposed row with no cadence", () => {
+  const nespresso = (over: Record<string, unknown> = {}) =>
+    proposal("t8", "Descale the machine", { item_name: "Nespresso Coffee", current_schedule_type: "as_needed", ...over })
+
+  it("cannot be turned on: the reason is on the row, the picker is open, and the button stays shut", async () => {
+    await describeAndPropose([proposal("t1", "Replace the furnace filter"), nespresso()])
+    expect(screen.getByText("Needs a schedule to remind you — pick how often.")).toBeInTheDocument()
+    // The picker is already open, on "Choose…" — no cadence was picked FOR the owner.
+    const select = screen.getByLabelText("How often for Descale the machine")
+    expect(select).toHaveValue("")
+    // "When needed" is not a reminder cadence; it is not on offer.
+    expect(within(select).queryByRole("option", { name: "When needed" })).toBeNull()
+    expect(within(select).getByRole("option", { name: "Monthly" })).toBeInTheDocument()
+    // The recurring row's picker stays closed until asked.
+    expect(screen.queryByLabelText("How often for Replace the furnace filter")).not.toBeInTheDocument()
+
+    const button = screen.getByRole("button", { name: /Turn these on · 2/ })
+    expect(button).toBeDisabled()
+    expect(screen.getByRole("status")).toHaveTextContent("“Descale the machine” needs a schedule first — pick how often, or untick it.")
+    fireEvent.click(button)
+    expect(setTaskReminder).not.toHaveBeenCalled()
+    expect(setTaskCadence).not.toHaveBeenCalled()
+  })
+
+  it.each(["after_each_use", "setup", null])("%s is the same: no cadence, no reminder", async (schedule) => {
+    await describeAndPropose([nespresso({ current_schedule_type: schedule })])
+    expect(screen.getByRole("button", { name: /Turn these on · 1/ })).toBeDisabled()
+    expect(screen.getByLabelText("How often for Descale the machine")).toHaveValue("")
+    expect(screen.getByRole("status")).toHaveTextContent("needs a schedule first")
+  })
+
+  it("with a cadence chosen, the schedule is written BEFORE the reminder, and the row turns on", async () => {
+    await describeAndPropose([nespresso()])
+    fireEvent.change(screen.getByLabelText("How often for Descale the machine"), { target: { value: "quarterly" } })
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
+    const button = screen.getByRole("button", { name: /Turn these on · 1/ })
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    await waitFor(() => expect(screen.getByText("1 reminder on.")).toBeInTheDocument())
+    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t8", "quarterly", null)
+    expect(setTaskReminder).toHaveBeenCalledWith("h1", "t8", true)
+    expect(setTaskCadence.mock.invocationCallOrder[0]).toBeLessThan(setTaskReminder.mock.invocationCallOrder[0])
+  })
+
+  it("unticking it is the other way out — the rest turn on without it", async () => {
+    await describeAndPropose([proposal("t1", "Replace the furnace filter"), nespresso()])
+    fireEvent.click(screen.getByLabelText("Descale the machine"))
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /Turn these on · 1/ }))
+    await waitFor(() => expect(screen.getByText("1 reminder on.")).toBeInTheDocument())
+    expect(setTaskReminder).toHaveBeenCalledTimes(1)
+    expect(setTaskReminder).toHaveBeenCalledWith("h1", "t1", true)
+    expect(setTaskCadence).not.toHaveBeenCalled()
+  })
+
+  it("a schedule that fails to save leaves the reminder OFF — never a flag on a task that cannot come due", async () => {
+    await describeAndPropose([nespresso()])
+    fireEvent.change(screen.getByLabelText("How often for Descale the machine"), { target: { value: "monthly" } })
+    setTaskCadence.mockResolvedValue({ data: null, error: { message: "permission denied" } })
+    fireEvent.click(screen.getByRole("button", { name: /Turn these on · 1/ }))
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("The schedule didn't save: permission denied")
+    expect(setTaskReminder).not.toHaveBeenCalled()
+    expect(screen.queryByText(/reminders? on\./)).not.toBeInTheDocument()
+
+    // Retry: the schedule again, then the flag.
+    setTaskCadence.mockResolvedValue({ data: true, error: null })
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }))
+    await waitFor(() => expect(screen.getByText("1 reminder on.")).toBeInTheDocument())
+    expect(setTaskCadence).toHaveBeenCalledTimes(2)
+    expect(setTaskReminder).toHaveBeenCalledWith("h1", "t8", true)
+  })
+
+  it("the picker keeps a seasonal row's own cadence selectable, but never offers seasonal to another", async () => {
+    await describeAndPropose([
+      proposal("t2", "Service AC before summer", { current_schedule_type: "seasonal" }),
+      nespresso(),
+    ])
+    fireEvent.click(screen.getAllByRole("button", { name: "Change" })[0])
+    const seasonal = screen.getByLabelText("How often for Service AC before summer")
+    expect(seasonal).toHaveValue("seasonal")
+    expect(within(seasonal).getByRole("option", { name: "Seasonal" })).toBeInTheDocument()
+    const machine = screen.getByLabelText("How often for Descale the machine")
+    expect(within(machine).queryByRole("option", { name: "Seasonal" })).toBeNull()
+  })
+})
+
+describe("a proposal the lanes would never send is not listed", () => {
+  it("drops item-scoped cleaning the loaded templates know about, and counts what is left", async () => {
+    getTaskTemplates.mockResolvedValue({
+      data: [
+        template("t1", "Replace the furnace filter", "i-furnace"),
+        template("t6", "Wipe the control panel", "i-blender", { care_type: "cleaning", schedule: { scheduleType: "monthly", intervalDays: null } }),
+      ],
+      error: null,
+    })
+    proposeReminders.mockResolvedValue({ ok: true, total_templates: 2, proposals: [
+      proposal("t1", "Replace the furnace filter"),
+      proposal("t6", "Wipe the control panel", { item_name: "Beast Blender" }),
+    ] })
+    render(<YourReminders />)
+    // Let the templates land before proposing — the guard reads them.
+    await act(async () => {})
+    fireEvent.change(screen.getByLabelText("What do you want to stay on top of?"), { target: { value: "the blender and the filter" } })
+    fireEvent.click(screen.getByRole("button", { name: "Propose my reminders" }))
+    await screen.findByText("1 proposed · from what you told us")
+    expect(screen.getByLabelText("Replace the furnace filter")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Wipe the control panel")).not.toBeInTheDocument()
   })
 })

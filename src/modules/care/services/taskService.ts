@@ -1,6 +1,9 @@
 import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
+import { syncTemplateDenormToInstances } from "./denormSync"
+import { computeNextDueDate } from "./nextDueDate"
+import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
 import type {
   TaskTemplate,
   TaskInstance,
@@ -423,10 +426,34 @@ export async function setTaskReminder(
 }
 
 /**
- * Changes how often a task repeats. NESTED object, not dotted keys — the
- * documented set(merge) trap (see taskReviewService): a dotted key is a
- * literal field NAME under merge semantics, and merge:true deep-merges maps so
- * anchorDate/season/window survive.
+ * Changes how often a task repeats — and makes sure the change can come due.
+ *
+ * NESTED object, not dotted keys — the documented set(merge) trap (see
+ * taskReviewService): a dotted key is a literal field NAME under merge
+ * semantics, and merge:true deep-merges maps so anchorDate/season/window
+ * survive.
+ *
+ * Two more things a cadence write owes the surfaces that read it:
+ *
+ * 1. Open occurrences carry a denormalized `scheduleType` (firestore-model.md
+ *    §5) that the week, the agenda and the push sweep phrase from; it is
+ *    synced in the same batch, like every other template field a writer
+ *    touches (denormSync). Their due DATE is left alone: the current
+ *    occurrence is due when it was due, and the next cycle — computed by
+ *    completeTask from the template — takes the new rhythm.
+ *
+ * 2. A task that has never had an occurrence gets its first one. The parse
+ *    only seeds instances for recurring cadences, so a "when needed" tip the
+ *    owner gives a real schedule (the /reminders proposal path, 2026-09-02:
+ *    "Descale the Machine · when needed") would otherwise become a template
+ *    that says "monthly" with nothing that ever comes due — and a reminder on
+ *    it a silent no-op. The first occurrence lands one cadence from today,
+ *    exactly as commitDraft anchors a freshly parsed task: giving a task a
+ *    schedule is the moment its clock starts, not evidence of a backlog.
+ *
+ * A recurring cadence that cannot produce a date (seasonal with no season on
+ * the template) is refused rather than written — the same no-op in a
+ * different coat.
  */
 export async function setTaskCadence(
   homeId: string,
@@ -435,21 +462,97 @@ export async function setTaskCadence(
   intervalDays: number | null
 ): Promise<ServiceResult<true>> {
   try {
-    await writeBatch(db)
-      .set(
-        doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
-        {
-          schedule: { scheduleType, intervalDays: intervalDays ?? null },
-          userModifiedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      )
-      .commit()
+    const tplRef = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const snap = await getDoc(tplRef)
+    if (!snap.exists() || snap.data().deletedAt != null) return { data: null, error: { message: "Task not found" } }
+    const tpl = snap.data()
+    const now = serverTimestamp()
+    const batch = writeBatch(db)
+    batch.set(
+      tplRef,
+      {
+        schedule: { scheduleType, intervalDays: intervalDays ?? null },
+        userModifiedAt: now,
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    const open = await syncTemplateDenormToInstances(batch, homeId, taskTemplateId, { scheduleType })
+    if (open === 0 && isRecurring(scheduleType)) {
+      const season = ((tpl.schedule as { season?: string | null } | null | undefined)?.season ?? null) as Season | null
+      const dueDate = computeNextDueDate(scheduleType, todayStr(), { intervalDays, season })
+      if (!dueDate) return { data: null, error: { message: "A seasonal task needs a season before it can be scheduled." } }
+      batch.set(doc(collection(db, `homes/${homeId}/taskInstances`)), await firstOccurrence(homeId, taskTemplateId, tpl, scheduleType, dueDate))
+    }
+    await batch.commit()
     track("task_cadence_set", { homeId, taskTemplateId, scheduleType })
     return { data: true, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to change the schedule" } }
+  }
+}
+
+/** The first scheduled occurrence of a template that never had one — the
+ *  shape commitDraft and createTaskFromNote write, denormalized display set
+ *  included (firestore-model.md §5), because that copy is what every surface
+ *  reads. */
+async function firstOccurrence(
+  homeId: string,
+  taskTemplateId: string,
+  tpl: DocumentData,
+  scheduleType: ScheduleType,
+  dueDate: string
+): Promise<DocumentData> {
+  const itemUnitId: string | null = tpl.itemUnitId ?? null
+  let itemName: string | null = null
+  let roomName: string | null = null
+  if (itemUnitId) {
+    const item = await getDoc(doc(db, `homes/${homeId}/items/${itemUnitId}`))
+    if (item.exists()) {
+      itemName = item.data().displayName ?? null
+      const roomId = item.data().roomId
+      if (roomId) {
+        const room = await getDoc(doc(db, `homes/${homeId}/rooms/${roomId}`))
+        roomName = room.exists() ? (room.data().name ?? null) : null
+      }
+    }
+  }
+  const tier = (tpl.priorityTier ?? "recommended") as PriorityTier
+  const { priorityScore, isSafetyCritical } = computePriorityScore(
+    tier,
+    (tpl.riskLevel ?? "comfort") as RiskLevel,
+    dueDate,
+    null,
+    null,
+    tpl.estimatedMinutes ?? null
+  )
+  const now = serverTimestamp()
+  return {
+    taskTemplateId,
+    itemUnitId,
+    status: "scheduled",
+    dueDate,
+    windowStart: null,
+    windowEnd: null,
+    snoozedUntil: null,
+    priorityScore,
+    isSafetyCritical,
+    completedAt: null,
+    completionNotes: null,
+    completionPhotos: [],
+    assignedTo: null,
+    // denorm (§5)
+    title: tpl.title ?? "",
+    priorityTier: tier,
+    careType: tpl.careType ?? null,
+    scopeType: tpl.scopeType ?? (itemUnitId ? "item_unit" : "home"),
+    estimatedMinutes: tpl.estimatedMinutes ?? null,
+    scheduleType,
+    itemName,
+    roomName,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
   }
 }
 
