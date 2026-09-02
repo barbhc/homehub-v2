@@ -105,3 +105,34 @@ describe("YourWeek", () => {
     await waitFor(() => expect(screen.getAllByText("Replace the furnace filter").length).toBeGreaterThan(0))
   })
 })
+
+/**
+ * The second look at the mockups noticed Your week's "Coming up" said "Sep 16"
+ * for the same task Tasks called "Sep-ish" — the app disagreeing with itself,
+ * the same invented-date bug the Home drawer had (design/due-windows.md).
+ * A window task carries no deadline; its phrase is the only honest chip.
+ */
+describe("YourWeek — Coming up speaks in windows", () => {
+  it("a window task shows its phrase, never the stored date; a deadline keeps 'By …'", async () => {
+    getWeekReminders.mockResolvedValue({
+      data: {
+        items: [
+          row(),
+          row({ taskInstanceId: "i2", title: "Descale the Nespresso", dueDate: "2026-10-12", duePhrase: "Oct-ish", windowState: "upcoming", supplies: [] }),
+          row({ taskInstanceId: "i3", title: "Register the warranty", dueDate: "2026-10-30", dueKind: "deadline", duePhrase: "By Oct 30", supplies: [] }),
+        ],
+        hiddenCount: 0,
+      },
+      error: null,
+    })
+    render(<YourWeek />)
+    await waitFor(() => expect(screen.getByText("Coming up")).toBeInTheDocument())
+    expect(screen.getByText("Oct-ish")).toBeInTheDocument()
+    expect(screen.getByText("By Oct 30")).toBeInTheDocument()
+    // The absence that IS the requirement: no chip reads "Oct 12" or
+    // "Mon, Oct 12". Anchored to a whole chip — the page's own range subtitle
+    // ("Tue, Sep 1 – Tue, Sep 8") is a legitimate date and must not trip it.
+    expect(screen.queryAllByText(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \w{3} \d{1,2}$/)).toHaveLength(0)
+    expect(screen.queryAllByText(/^\w{3} \d{1,2}$/)).toHaveLength(0)
+  })
+})

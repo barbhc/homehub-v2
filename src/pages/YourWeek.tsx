@@ -4,7 +4,7 @@ import { BellIcon, CheckIcon, ChevronLeftIcon, ExternalLinkIcon, ShoppingBagIcon
 import { PageContainer } from "@/components/layout"
 import { useCurrentHome } from "@/modules/home"
 import { addShoppingItem, type WeekReminder } from "@/modules/care"
-import { useWeekReminders, isoDaysFromNow, dayChip, weekChip } from "@/hooks/useWeekReminders"
+import { useWeekReminders, isoDaysFromNow, weekChip } from "@/hooks/useWeekReminders"
 import { buyFirstRows, type BuyFirstRow } from "@/lib/buyFirst"
 import { TIER, type Tier, shortDate } from "@/lib/redesign/tokens"
 
@@ -147,7 +147,7 @@ export default function YourWeek() {
                     {later.map((t) => (
                       <Link key={t.taskInstanceId} to={`/tasks/${t.taskInstanceId}`} className="flex items-center gap-3 px-3.5 py-2.5">
                         <span className="min-w-0 flex-1 truncate text-[14.5px] font-medium" style={{ color: SUB }}>{t.title}</span>
-                        <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: FAINT }}>{dayChip(t.dueDate, false)}</span>
+                        <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: FAINT }}>{t.duePhrase}</span>
                       </Link>
                     ))}
                   </div>
