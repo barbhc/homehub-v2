@@ -45,7 +45,7 @@ import {
   deleteRoutineTask,
   type RoutineTemplate,
 } from "@/lib/cleanSession"
-import { getManualsByHome, parseManualAndWait, getKnowledgeChunksByHome, getFaqsByHome } from "@/modules/knowledge"
+import { getManualsByHome, parseManualAndWait, getKnowledgeChunksByHome, getFaqsByHome, deleteManualDocument } from "@/modules/knowledge"
 import { getItemUnits } from "@/modules/items"
 import { getTaskTemplates } from "@/modules/care"
 import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
@@ -578,6 +578,22 @@ export default function Settings() {
     setRescanRunning(false)
   }, [homeId, rescanRunning])
 
+  // HH-154: a row that says "Not scanned" with no way to act on it is a dead
+  // end — the owner had three of them. Every row can now be rescanned or
+  // removed on its own.
+  const handleRescanOne = useCallback((m: ManualWithName) => { runRescan([m]) }, [runRescan])
+  const [removingManual, setRemovingManual] = useState<string | null>(null)
+  const [manualError, setManualError] = useState<string | null>(null)
+  const handleRemoveManual = useCallback(async (m: ManualWithName) => {
+    if (!homeId || removingManual) return
+    setRemovingManual(m.manual_id)
+    setManualError(null)
+    const res = await deleteManualDocument(homeId, m.manual_id)
+    setRemovingManual(null)
+    if (res.error) { setManualError(`Could not remove ${m.display_name}: ${res.error.message}`); return }
+    setManuals((prev) => prev.filter((x) => x.manual_id !== m.manual_id))
+  }, [homeId, removingManual])
+
   const handleRescanAll = useCallback(() => {
     runRescan(manuals)
   }, [manuals, runRescan])
@@ -718,7 +734,12 @@ export default function Settings() {
               Custom Tasks
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Home-level tasks for cleaning and maintenance. You can also add tasks from the Tasks page.
+              {/* HH-153 (owner, 2026-09-05): this promised a door that does not
+                  exist — nothing on the Tasks page adds a task. Say what the box
+                  is for, and point at the door that IS there. */}
+              Tasks for the whole home rather than one item — cleaning, maintenance,
+              anything on a schedule. Tasks that belong to an item are added from
+              that item&apos;s page.
             </p>
 
             {loading ? (
@@ -1071,9 +1092,38 @@ export default function Settings() {
                           {awaitingReview ? "Read — not saved" : "Not scanned"}
                         </span>
                       )}
+
+                      {/* HH-154: per-row actions. Without these a stuck manual
+                          was permanent — "Rescan All" was the only lever and it
+                          re-ran every manual to fix one. */}
+                      <span className="flex shrink-0 items-center gap-2.5 text-xs font-bold" style={{ color: "var(--hh-teal)" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleRescanOne(m)}
+                          disabled={rescanRunning || state?.status === "scanning"}
+                          className="disabled:opacity-40"
+                        >
+                          Rescan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleRemoveManual(m)}
+                          disabled={removingManual === m.manual_id}
+                          className="disabled:opacity-40"
+                          style={{ color: "var(--hh-clay)" }}
+                        >
+                          {removingManual === m.manual_id ? "Removing…" : "Remove"}
+                        </button>
+                      </span>
                     </div>
                   )
                 })}
+              </div>
+            )}
+
+            {manualError && (
+              <div role="alert" className="mb-3 text-xs font-medium" style={{ color: "var(--hh-clay)" }}>
+                {manualError}
               </div>
             )}
 

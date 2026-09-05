@@ -58,13 +58,48 @@ const ingestReferenceCallable = callable<{ homeId: string; manualId: string }, {
 )
 
 /**
- * Creates a manual_document for an item under homes/{homeId}/manuals.
+ * Creates a manual_document for an item under homes/{homeId}/manuals — or
+ * REUSES the one already there for the same item and source.
+ *
+ * HH-154 (owner, 2026-09-05): "Why is the rice cooker saved 4 times here?" —
+ * four records for one appliance, one scanned and three stuck at "Not scanned"
+ * forever. Every add minted a fresh document with no check for an existing one,
+ * so a retried upload became a duplicate rather than a replacement. Matching on
+ * (itemUnitId, sourceRef) makes a re-add idempotent: the same manual added
+ * again updates the record it already has, and the parse state that record
+ * carries is reset so the new file is actually read.
  */
 export async function createManualDocument(
   homeId: string,
   input: CreateManualDocumentInput
 ): Promise<ServiceResult<ManualDocument>> {
   try {
+    const existing = await getDocs(
+      query(
+        collection(db, `homes/${homeId}/manuals`),
+        where("deletedAt", "==", null),
+        where("itemUnitId", "==", input.item_unit_id),
+        where("sourceRef", "==", input.source_ref),
+      )
+    ).catch(() => null)
+    const hit = existing?.docs?.[0]
+    if (hit) {
+      await writeBatch(db)
+        .update(hit.ref, {
+          title: input.title,
+          label: input.label ?? null,
+          sourceType: input.source_type,
+          role: input.role ?? "primary",
+          // A replaced file has not been read yet, whatever the old one said.
+          parsedAt: null,
+          parse: null,
+          draft: null,
+          updatedAt: serverTimestamp(),
+        })
+        .commit()
+      const again = await getDoc(hit.ref)
+      return { data: toManual(hit.ref.id, again.data() ?? {}), error: null }
+    }
     const ref = doc(collection(db, `homes/${homeId}/manuals`))
     const now = serverTimestamp()
     await writeBatch(db)

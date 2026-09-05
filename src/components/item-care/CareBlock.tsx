@@ -19,12 +19,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
-  AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronRightIcon,
-  ChevronUpIcon, Circle, GitBranchIcon, PackageIcon, RotateCcw, SlidersHorizontalIcon,
+  AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronUpIcon, Circle, GitBranchIcon, PackageIcon, RotateCcw, SlidersHorizontalIcon,
 } from "lucide-react"
 import type { ItemUnit, KnowledgeChunk, Json } from "@/integrations/types"
 import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, type TaskTemplateWithSchedule } from "@/modules/care"
-import { dueLabel } from "@/lib/redesign/tokens"
+import { dueKindOf, windowPhrase } from "@/lib/dueWindow"
 import { reviewBucketFor, isScheduledTask, willNotify, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { getTaskGuidance } from "@/pages/item-detail/utils"
@@ -85,6 +84,21 @@ function freqLabel(t: TaskTemplateWithSchedule): string {
 function manualPageOf(t: TaskTemplateWithSchedule): number | null {
   const meta = (t as unknown as { metadata?: { diagram_pages?: { page: number }[] } }).metadata
   return meta?.diagram_pages?.[0]?.page ?? null
+}
+/**
+ * What a row says about WHEN, in the app's one vocabulary.
+ *
+ * HH-150 (owner, 2026-09-05): the row printed "Tue, Sep 22" while the task page
+ * for the SAME task said "Sep-ish · Window: Sep 15–29". A recurring task has no
+ * deadline — printing its stored date invents a promise it never made
+ * (design/due-windows.md). Only a real deadline keeps a date, and it reads
+ * "By Sep 30". This is the third surface to get the fix: Home and Your week
+ * were done days earlier and this one was not swept.
+ */
+function duePhraseOf(t: TaskTemplateWithSchedule, due: string): string {
+  const scheduleType = t.schedule_rule?.[0]?.schedule_type ?? null
+  const kind = dueKindOf({ title: t.title, scheduleType, careType: t.care_type ?? null })
+  return windowPhrase(due, scheduleType, { today: new Date().toISOString().slice(0, 10), kind })
 }
 function dueDays(dateStr: string): number {
   const today = new Date().toISOString().slice(0, 10)
@@ -257,13 +271,19 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
 
   return (
     <div style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}>
-      <div className="flex items-center gap-3 px-4 py-3.5">
+      {/* HH-155 (owner, 2026-09-05): "the task names are squeezed to the left".
+          The right side used to stack FOUR controls — cadence chip, bell,
+          "See how", chevron — which left the title about 140px of a 390px
+          screen, so "Inspect and Clean Vent Ductwork" wrapped to two lines.
+          The title now owns the full width and the cadence joins the meta line
+          where the minutes already live. Same anatomy the week lists took. */}
+      <div data-testid="care-row" className="flex items-center gap-3 px-4 py-3.5">
         {/* No leading glyph tile. Every row carried an identical wrench in a
             red-or-green square, which read as a status light that meant nothing
             — the same "red dots look like warnings" note that removed the tier
             dots. Safety already has its own badge, and the bell says the one
             thing worth scanning for. */}
-        <div onClick={openTask} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+        <div onClick={openTask} className="min-w-0 flex-1 cursor-pointer">
           <div className="min-w-0 flex-1">
             {/* The bell used to live HERE, left of the title. Round 18 moved it
                 to the right of the row, beside a standardized cadence chip,
@@ -283,7 +303,7 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
                 {variantTag && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}><GitBranchIcon className="size-2.5" />{variantTag}</span>}
               </div>
             </div>
-            <div className="mt-0.5 text-[12px]" style={{ color: SUB }}>
+            <div className="mt-1 text-[12px]" style={{ color: SUB }}>
               {/* Join non-empty parts: an unscheduled row has no cadence label,
                   and blindly prefixing the separator rendered a stray "· 15 min". */}
               {/* HH-97 (was HH-82's leading chip): the off-agenda marker lives
@@ -295,8 +315,12 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
                   mono, same box as the review's. What stays here is what the
                   chip cannot carry: effort, and the due phrase, which is the
                   most important thing on the row. */}
-              {[t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Deep Clean"].filter(Boolean).join(" · ")}
-              {days != null && <span style={{ color: neverStarted ? SUB : dueStatusColor(days), fontWeight: !neverStarted && days <= 7 ? 700 : 500 }}> · {neverStarted ? "Start anytime" : dueLabel(days)}</span>}
+              {[freqLabel(t), t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Deep Clean"].filter(Boolean).join(" · ")}
+              {due != null && days != null && (
+                <span style={{ color: neverStarted ? SUB : dueStatusColor(days), fontWeight: !neverStarted && days <= 7 ? 700 : 500 }}>
+                  {" · "}{neverStarted ? "Start anytime" : duePhraseOf(t, due)}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -306,24 +330,15 @@ function ScheduleRow({ t, due, completed, instanceId, onOpenTask, hasManual, onO
             then I would like a bell … to just show that notifications are on."
             Colouring the chip would make cadences incomparable down the column,
             which is the one thing a column of cadences is for. */}
-        {freqLabel(t) && (
-          <span className="shrink-0 rounded-lg border px-1.5 py-0.5 text-[11px] font-mono tabular-nums whitespace-nowrap"
-            style={{ borderColor: LINE, background: "var(--hh-surface2, transparent)", color: SUB }}>
-            {freqLabel(t)}
-          </span>
-        )}
-        {reminds && (
-          <BellRingIcon className="size-[14px] shrink-0" style={{ color: TEAL }} aria-label="Notifies you" />
-        )}
+        {/* The bell's slot is ALWAYS this wide, so "See how" sits at one x down
+            the whole column whether or not a row notifies — the reason the old
+            chevron slot existed, kept where it still earns its width. */}
+        <span className="flex w-[14px] shrink-0 justify-center">
+          {reminds && <BellRingIcon className="size-[14px]" style={{ color: TEAL }} aria-label="Notifies you" />}
+        </span>
         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
           {open ? "Hide" : "See how"}{open ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
         </button>
-        {/* The slot is ALWAYS this wide. Rendering the chevron only for rows with
-            an open instance made "See how" sit at two different x positions down
-            the same list, which reads as sloppy rather than as meaningful. */}
-        <span className="w-4 shrink-0">
-          {canOpenTask && <ChevronRightIcon onClick={openTask} className="size-4 cursor-pointer" style={{ color: "#C2CBD4" }} />}
-        </span>
       </div>
       {open && (
         <div className="px-4 pb-4 pt-1.5" style={{ background: SLATE_SOFT }}>
@@ -850,10 +865,14 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
       {fCleaning.length > 0 && (
         <Band tone="gold" title="Cleaning" count={fCleaning.length}>
           {fCleaning.every((t) => !isAgendaEligible({ careType: t.care_type ?? null, scopeType: t.scope_type ?? null })) && (
-            <div className="px-0.5 pb-1.5 text-[11.5px]" style={{ color: SUB }}>
-              In your cleaning guides — nothing reminds you.{" "}
-              <Link to="/clean" className="font-bold underline underline-offset-2" style={{ color: TEAL }}>
-                Open guides
+            /* HH-151 (owner, 2026-09-05): "looks too close to header and
+               stylistically different". It was an 11.5px one-off with almost no
+               padding, jammed under the gold band. It now sits INSIDE the band
+               on the rows' own inset and type, and the link says where it goes. */
+            <div className="border-t px-4 py-2.5 text-[12px] leading-snug" style={{ borderColor: LINE, color: SUB }}>
+              These live in your cleaning guides — nothing here reminds you.{" "}
+              <Link to="/clean" className="font-bold" style={{ color: TEAL }}>
+                Open guides ›
               </Link>
             </div>
           )}

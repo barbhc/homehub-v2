@@ -181,6 +181,32 @@ grep, not by the docs' own status lines.
 
 ---
 
+## 4a. Pro tasks — flagging work that needs a technician (HH-152)
+
+**Owner, 2026-09-05, on the dryer's duct-cleaning task:** *"In the manual,
+cleaning out the ductwork specifically says to hire a qualified technician. How
+can I flag tasks for scheduling a technician?"* Decided to the roadmap the same
+day. Two halves, and they are not the same size.
+
+**The half she asked for — a "Needs a pro" call.** `Assigned to` on the task
+page offers Anyone or a household member (`RefinedTaskDetail.tsx:239–245`) and
+nothing else. The product answer is a third option that hands the task to the
+Providers tab, so "who does this" and "who to call" are one flow. **Mock first**
+— it touches the task page, the Providers tab and probably the week lists.
+Estimate 4–8 hours plus a design pass.
+
+**The half underneath, which is the safety one.** The task row ALREADY renders a
+**Pro** badge when a task's `actor` is `pro` or `hazardous` (`CareBlock.tsx`
+`ScheduleRow`). This task did not get one: the manual says hire a technician and
+the app handed her DIY steps. That is `classifyActorFromText` and the parse
+taxonomy failing, not a missing button — and it is the pro-task safety model
+(gas, combustion, electrical, ducting) doing the one thing it exists to prevent.
+It goes through the parse-eval gate (`scripts/parse-eval/run.ts` against
+goldens) before any prompt change ships. **This half does not wait on the flag,
+and should be scheduled first.**
+
+---
+
 ## 4b. The sample home — PARKED until the add-item flow and item page are final
 
 **Owner, 2026-08-27:** *"I wanna be able to do a session to really think through

@@ -19,6 +19,141 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-09-05 — round 19 (owner's run, 8 reports in 10 minutes · all decided same day)
+
+Pulled 49 records from App Store Connect (not truncated). Eight are new, all
+from the owner's own pass between 16:45 and 16:55 on build 202608170005; a
+ninth ("Same old page", 27 Aug) was a third copy of HH-142 and folded into it.
+No crashes. Every one of the 41 items from rounds 12–18 is still in Apple's
+inbox — nothing has been deleted since 2026-08-30, and the deletion sweep is
+still the outstanding action.
+
+**Owner's decisions, same day: seven Fix now, one to the roadmap — and a
+standing instruction recorded on every affected item: _"For all of the fix now
+issues that have a design element, show me the change in a mockup before making
+the changes."_ No code has been written for any of them.**
+
+| ID | Report | Sev | What is actually happening | Call |
+|---|---|---|---|---|
+| HH-148 | "Dishwasher item page isn't loading" | S2 | Not reproducible — the same item loads in under 8 s on the branch build against her data, and her console showed QUIC network errors at that moment. The defect is that `ItemDetailPage` has no timeout: a stalled Storage or Firestore request holds "Loading…" forever. The page already owns a "Could not load this item · Try again" state (`ItemDetailPage.tsx:222–296`); nothing routes a hang into it. | Fix now |
+| HH-149 | "When I search for dishwasher, it doesn't appear on the Ask page" | S2 | The picker matches name, brand and model (`FilterBar.tsx:42–46`) over every active item (`useChatFilters` → `getItemUnits`), and the item is named "Dishwasher" — the query would have matched. The list was EMPTY when she typed: still loading, or the items fetch failed and only wrote to `console.error`. Either way the UI says "No appliances match", which is a lie about her home. | Fix now |
+| HH-150 | "Specific dates shown for tasks instead of time ranges" | S3 | Beyond a week out the row prints the stored date (`dueLabel` → `shortDate`, `src/lib/redesign/tokens.ts:66–75`) — "Tue, Sep 22" — while the task page for the same task says "Sep-ish · Window: Sep 15–29". Same invented-date habit fixed on Home and Your week in PR #197; the item page's rows were not in that PR. | Fix now |
+| HH-151 | "'In your cleaning guides…' line looks too close to header and stylistically different" | S4 | A one-off 11.5 px line with almost no padding, sitting directly under the gold Cleaning band (`CareBlock.tsx:852–858`), in neither the band's nor the row's type. | Fix now |
+| HH-153 | "Custom tasks says you can set them up from the Tasks page, but I don't see how" | S3 | The sentence is real (`Settings.tsx:751`) and the affordance is not: nothing on the Tasks page adds a task — only Deep Clean has an "Add a task…" field. A broken promise in copy. | Fix now |
+| HH-154 | "Why is the rice cooker saved 4 times here?" | S2 | Every successful add creates a new manual record with no check for an existing one on the same item (`useManualManagement.ts:175`, `SmartAddItem.tsx:365`). Four attempts left four records, three of them "Not scanned" — and nothing will ever scan them. The Manuals list also has no per-row Remove or Rescan. | Fix now |
+| HH-155 | "The task names are squeezed to the left" | S3 | The row's right side stacks four controls — cadence chip, bell, "See how ⌄", chevron (`CareBlock.tsx` `ScheduleRow`) — leaving the title roughly 140 px of a 390 px screen, so "Inspect and Clean Vent Ductwork" wraps to two lines. Exactly the anatomy fixed on Your week and Home this week. | Fix now |
+| HH-152 | "In the manual, cleaning out the ductwork specifically says to hire a qualified technician. How can I flag tasks for scheduling a technician?" | S2 | Two halves. (1) There is no way to say "this one needs a pro": `Assigned to` offers Anyone or a household member (`RefinedTaskDetail.tsx:239–245`). (2) The sharper half — the row already renders a **Pro** badge when `actor` is `pro`/`hazardous`, and this task did not get one. The manual says hire a technician and the app handed her DIY steps, which is the pro-task safety model failing at parse, not a missing button. | Roadmap |
+
+### The pattern this round paid for twice
+
+HH-150 and HH-155 are the same two fixes that landed on Home and Your week days
+earlier, in the same week, from the same owner sessions. Both were fixed where
+they were reported and nowhere else. The item page's task rows are a THIRD
+surface rendering the same task, and nobody swept it. Before closing round 19:
+grep every surface that renders a task row and fix the whole set at once.
+
+---
+
+## 2026-09-02 — rounds 12–18 reconciled (41 reports, 24–28 Aug · none of them new)
+
+**Headline: the "41 new" pull is not 41 new reports. It is HH-107 → HH-147 —
+every report from rounds 12 through 18 — already triaged, already decided,
+already fixed and verified live. They came back as "new" because they were
+never deleted in App Store Connect, so Apple's inbox still holds them and the
+seen-marker no longer matches. The one action is a deletion sweep, not a fix
+round.**
+
+Worked from `feedback/ledger.json` (pulled 2026-08-30, ledger last touched
+2026-08-31 — no fresh network pull this session). Every one of the 41 Apple
+records matches a ledger entry by timestamp and text, 41 for 41. Every entry is
+`status: awaiting-deletion`. Two records were spot-checked against their own
+screenshots and six fixes were re-verified in today's source, not taken on
+trust:
+
+| Claim | Verified today |
+|---|---|
+| HH-140 — the untouched "Review them all" step 1 is gone | `"Review them all"` now appears in `src/` and `e2e/` **only inside absence assertions** (`toHaveCount(0)`) |
+| HH-128/146 — empty files refused | `ManualStep.tsx:164` — "This file came through empty…" |
+| HH-139 — a label photo beats what was typed | `IdentifyStep.tsx:355` carries the fix and a comment naming the old `data.brand \|\| r.brand` bug |
+| HH-145 — the burst ceiling was too tight | `shared/quota/policy.ts:260` — `BURST_UNIT_LIMIT = 45` (was 25), and the deployed bundle agrees |
+| HH-124 — a parked scan resumes without the user | `retryAwaitingCapacity` is exported from the functions index; the closed-app half landed after all |
+| HH-119 — the review's three doors | `TaskReviewSheet` still has exactly three call sites (`ParsePickupCard`, `ReviewItemTasksButton`, `ManualSection`) |
+
+### The 41, by Apple record
+
+Severity is what the report was worth **when it arrived**. Everything below is
+live unless the last column says otherwise.
+
+| # | ID | Report | Sev | What was actually happening | State |
+|---|---|---|---|---|---|
+| 1 | HH-145 | "There's an error with my scan" | S2 | Not a failure. A rate limit wearing a failure's clothes — the shot shows "The scan failed" directly above "Reading the manual — 124 pages", still running. `refusal.ts` matched only ceiling wording, so the burst message fell through to `The scan failed:` | ✅ #193 + functions 8/30 |
+| 2 | HH-144 | Essential/Recommended/Optional is less useful than maintenance/cleaning/usage/setup | S3 | She was right about the axis: on her Sharp, tier grouping spent 6 headings to split 3 cleaning jobs three ways. Became round 18's kind-first review | ✅ #185 |
+| 3 | HH-142 | "Same old page" (2 Apple records, 54s apart) | S2 | Round 14 approved a card with no sheet; only the card's words were built and the sheet stayed. Superseded by round 18 | ✅ #185 · **2 records to delete** |
+| 4 | HH-143 | "Formatting is off in the notice" | S4 | `ParsePickupCard`'s fixed-width button squeezed the title into a 92px column, 14 wrapped lines. Stacks under 480px now | ✅ #196 |
+| 5 | HH-141 | "Finished reading your manual" over "you haven't added a manual yet" | S2 | `hasParsedManual` = `parsed_at !== null`, and `parsed_at` stays null until the draft is committed — so a finished-but-uncommitted parse read as no manual | ✅ 8/26 |
+| 6 | HH-140 | "Same old design is still here" | S2 | The fifth report, and the one that explained the other four: "Review them all" led to step 1, which no redesign had ever touched. Every earlier fix landed on the reported door and left this one open | ✅ #185 |
+| 7 | HH-139 | Label photo should overwrite the typed brand | S2 | Confirmed in her screenshot: Brand "GE Café" above model SHPM65Z55N/01, a Bosch. `data.brand \|\| r.brand` let whatever was typed win. The item would have saved under the wrong manufacturer | ✅ #181 |
+| 8 | HH-138 | "It said it found the manual" on the identify page | S2 | The card rendered a web-page **title** — "Bosch SHPM65Z55N/01 Manuals" — as a product name, and claimed a manual we had not verified. Same shot as #7 | ✅ 8/26 |
+| 9 | HH-137 | "The old list of tasks is still showing up" | S2 | Fourth report of one thing. #134 removed the contradiction, not the screen. Her objection was never wording: why review at all when nothing needs a decision | ✅ #182 → #185 |
+| 10 | HH-147 | "Again the old design, no maintenance task" | S2 | Same screen as #9, filed 2 days before round 18 reached production | ✅ #185 |
+| 11 | HH-135 | Scanning message is small; wants more life in it | S4 | 11.5px over three lines with a static spinner for a four-minute wait. Now one line plus an indeterminate rail | ✅ #180 |
+| 12 | HH-136 | Add-a-photo block sits above the item name | S3 | A dashed 150px CTA for an optional nicety was the first thing on the page. Now a 44px control beside the name. *(Same Apple record as #11 — one record, two asks)* | ✅ #179 |
+| 13 | HH-134 | Sharp manual scanned, still the old view | S2 | The card offered "Review & schedule" for rows it had just said need no reminder, and behind it sat "Nothing needs a reminder" over "Save all 11" | ✅ #178 |
+| 14 | HH-133 | Can't reach the service-provider field | S2 | Last input, flush to the footer, keyboard covers it, nothing left to scroll. Also in that shot: a microwave asked for Fuel type, and Installation date pre-filled with today | ✅ #174 |
+| 15 | HH-132 | Tray says the Zojirushi is "actively scanning" — is it? | S3 | No. A parked scan counted as active (correct) but the tray labels every active stage "working", so it reported a running scan that wasn't | ✅ #174 |
+| 16 | HH-131 | Scan button still live with no capacity left | S3 | Pressing it spent a request to be told no, and nothing said whether she had to come back and do anything | ✅ #174 |
+| 17 | HH-146 | "5.9 MB but it says zero bites" | S2 | Same bug as #20, separate Apple record. Fixed ~4 hours after it was sent | ✅ 8/25 |
+| 18 | HH-130 | Brand/model not carried to the manual step; no Back | S2 | Asked to go find a manual for a model number the app was holding and not showing, on a screen with no way back | ✅ #174 |
+| 19 | HH-129 | Wants a pre-filled Google search link | S3 | Feature request, not a bug — a sensible bridge while our own manual search stays weak | ✅ #174 |
+| 20 | HH-128 | "Check the file has content before accepting it" | S2 | Correct, and it was a data bug: iOS hands the picker a 0-byte placeholder for an un-downloaded iCloud file. The guard only checked for *too big*, so an empty PDF was uploaded, scanned, and turned into confident nonsense | ✅ #174 |
+| 21 | HH-127 | Strange pop-up on the Sharp microwave | S2 | #24 through a door the fix didn't cover, and self-contradicting: "Nothing here needs a reminder" above "Save all 11" | ✅ #174 |
+| 22 | HH-126 | Add-a-manual from the item page is the old design | S2 | A second door the redesign never reached — same shape as #29. Opened with Link selected and "Find it for me" prominent, the exact ranking #33 was about | ✅ #174 |
+| 23 | HH-125 | "Why is this named Pan for NSLACO5?" | S2 | The name came out of the manual, not brand+model, so `composeItemName` kept a phrase that isn't what the thing is — and rename lived behind Edit in Details & records, not where she was standing | ✅ #174 |
+| 24 | HH-124 | AI limit is a terrible dead end | S2 | A ceiling *we* set, rendered in alarm-red as an error she caused, with a "Try again" that would fail identically and a midnight-**UTC** clock. Now reads as queued, and the scan actually resumes | ✅ #171 + `retryAwaitingCapacity` |
+| 25 | HH-123 | Don't bury the label photo under "can't find the label" | S3 | A deliberate reversal of the round-11 call, and the right one — field use showed the OCR is good enough to be a first-class route, not a failure fallback | ✅ #171 |
+| 26 | HH-122 | **Stuck in landscape after shooting a label** | **S1** | Root cause was native, not web: `Info.plist` listed both landscape orientations for iPhone, and no screen in the product has a landscape layout. Rotating to shoot a nameplate rotated the app into a design that doesn't exist | ✅ TestFlight 202608250654 (the only item here that needed a build) |
+| 27 | HH-121 | "I'm not sure what this page is. It just popped up." | S3 | The consolidated review auto-opening 95 minutes after the scan, on a manual with no maintenance, with no sentence saying why it appeared | ✅ #171 |
+| 28 | HH-120 | "Wonky text" after dismissing the popup | S2 | A regression from #167: the review's new inline mode rendered inside a narrow layout slot and collapsed to one word per line, with two review surfaces mounted at once | ✅ #169 |
+| 29 | HH-119 | Old pop-up showing all tasks | S2 | `TaskReviewSheet` had three callers and only one passed `focus`; the other two silently defaulted to the pre-round-10 review. The consolidated view was wired into one door of three | ✅ #169 |
+| 30 | HH-118 | Bottom drawer repeats what's above it | S3 | The pill said "1 manual parsing" under a card already saying "Scanning your manual — 24 pages", named no item, and overlapped the page | ✅ #169 |
+| 31 | HH-117 | Say the scan continues if I leave | S3 | Folded into #32 — the promise was stated on the item page and not at the moment she was watching a spinner deciding if she was trapped | ✅ #169 |
+| 32 | HH-116 | No exit / no "you can leave" while uploading | S3 | Same as #31, one screen earlier | ✅ #169 |
+| 33 | HH-115 | The three manual sources read as equals | S3 | Order was right, weight wasn't: three same-size white cards. Upload now dominates, link names `.pdf`, "Find it for me" is visibly demoted and badged Beta | ✅ #169 |
+| 34 | HH-114 | Picked the right model, got no specs | S3 | The approved screen showed a spec list as *proof we found the right unit* — the defence against a wrong manual becoming a wrong care plan. `productLookup` returned the fields; the card never rendered them | ✅ #169 |
+| 35 | HH-113 | "Incomplete steps" reminder gives no context | S3 | The resume gate said "You have an incomplete setup" while holding the item name, brand, model, step and age in the saved session. It also still carried the pre-round-11 title, which is why her first screen looked stale | ✅ #168 |
+| 36 | HH-107 | Found manuals are bad results | S2 | Everything needed to reject them was computed and then ignored — `documentKind()` had already labelled result 1 a parts list, and `rankCandidates()` had no confidence floor. Round 7 added *information* where a *gate* was needed, which is why it came back | ✅ #167 |
+| 37 | HH-108 | Can't exit the manual Preview | S2 | The close × was a 16×16px tap target in the shared sheet component — app-wide, and here the only exit. Now 44px across all 10 sheets and 10 dialogs, plus an explicit Done | ✅ #171 |
+| 38 | HH-109 | Upload PDF is at the top but its drop zone is below the search | S3 | `ManualStep` rendered toggle → search → panel, and the search auto-fired on mount, pushing the drop zone below the fold. The file's own comment said upload was the default path; the layout said otherwise | ✅ #167 |
+| 39 | HH-110 | The add page is one long form; mock a split flow first | S3 | HH-63 returning — that ask was answered by *collapsing* the extras behind a disclosure rather than splitting them, so opening the disclosure put her back in one long form | ✅ #167 |
+| 40 | HH-111 | Warranty fields have serial but no purchase date | S2 | A regression with a stale justification: the code comment said the fields "live on the Purchase step now", and PR #161 had retired that step | ✅ #167 |
+| 41 | HH-112 | Name shouldn't default to brand + model | S3 | `data.subType` already held "Refrigerator"; the default used the model string anyway, and the helper promised an improvement instead of saying she could rename it any time | ✅ #167 |
+
+### What made 41 shipped items look like 41 new bugs
+
+Nothing was mis-triaged. The pull is honest about what is in Apple's inbox and
+the inbox is stale — **rounds 12–18 were fixed but never deleted in App Store
+Connect.** Six of the 41 (`HH-107`–`HH-112`) are also already written up above
+as round 11, so this log double-counted them until now.
+
+Two records need deleting twice over: HH-142 is two Apple records with identical
+text 54 seconds apart, and HH-128/HH-146 are two records of the same 0-byte
+complaint.
+
+### One real gap, found with the code open rather than from a report
+
+`TaskReviewSheet` takes `freezeRiskFalse`, which suppresses winterizing work for
+a home that never freezes. **Two of its three callers pass it; `ManualSection`
+does not** — the same one-door-of-three shape as HH-119. Logged in `BACKLOG.md`
+§"One review door skips the freeze-risk suppression", not fixed.
+
+### The pattern rounds 12–18 paid for six times
+
+HH-121 → HH-127 → HH-134 → HH-137 → HH-142 → HH-140 is one complaint reported
+six times, and the first five fixes all landed on the screen named in the
+screenshot while another door stayed open. HH-140 is the one that found the
+cause. `CLAUDE.md` rule 6 — make the safe value the default and grep every call
+site — was written from exactly this.
+
 ## 2026-08-24 — round 11 (owner's add-item run · 6 reports in 7 minutes)
 
 **Headline: the owner stopped the patch cycle. All six approved Fix now, then
