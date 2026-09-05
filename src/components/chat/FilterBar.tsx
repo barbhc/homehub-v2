@@ -13,6 +13,40 @@ type FilterBarProps = {
   onRoomToggle: (roomId: string) => void
   onItemSelect: (id: string | null) => void
   variant?: "full" | "centered" | "compact"
+  /** True while the item list is still on its way — see itemsEmptyNote. */
+  itemsLoading?: boolean
+  /** Set when the item list FAILED to load; renders with a retry. */
+  itemsError?: string | null
+  onRetryItems?: () => void
+}
+
+/**
+ * What the picker says when it has nothing to show.
+ *
+ * HH-149 (owner, 2026-09-05): typing "Dishw" said "No appliances match" while
+ * her Dishwasher sat in Items. The matcher was fine — the LIST was empty,
+ * because it was still loading or had failed and told only the console. Three
+ * different facts had been collapsed into one confident sentence. "No
+ * appliances match" is now said ONLY when the list actually arrived and really
+ * has no match.
+ */
+function ItemsEmptyNote({ loading, error, onRetry, query, className }: {
+  loading: boolean; error: string | null; onRetry?: () => void; query: string; className: string
+}) {
+  if (loading) return <div className={className}>Loading your items…</div>
+  if (error) {
+    return (
+      <div className={className} role="alert">
+        <span>Couldn&apos;t load your items.</span>{" "}
+        {onRetry && (
+          <button type="button" onClick={onRetry} className="font-bold underline underline-offset-2">
+            Try again
+          </button>
+        )}
+      </div>
+    )
+  }
+  return <div className={className}>No appliances match &quot;{query}&quot;</div>
 }
 
 function itemLabel(item: ItemOption): string {
@@ -28,6 +62,9 @@ export function FilterBar({
   onRoomToggle,
   onItemSelect,
   variant = "full",
+  itemsLoading = false,
+  itemsError = null,
+  onRetryItems,
 }: FilterBarProps) {
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
@@ -170,9 +207,10 @@ export function FilterBar({
               </ul>
             )}
             {open && query.trim().length >= 2 && filtered.length === 0 && (
-              <div className="absolute top-full mt-1 left-0 right-0 z-50 rounded-lg border border-border bg-card shadow-lg px-3 py-2 text-xs text-muted-foreground">
-                No appliances match "{query}"
-              </div>
+              <ItemsEmptyNote
+                loading={itemsLoading} error={itemsError} onRetry={onRetryItems} query={query}
+                className="absolute top-full mt-1 left-0 right-0 z-50 rounded-lg border border-border bg-card shadow-lg px-3 py-2 text-xs text-muted-foreground"
+              />
             )}
           </div>
         </div>
@@ -261,9 +299,10 @@ export function FilterBar({
             </ul>
           )}
           {open && query.trim().length >= 2 && filtered.length === 0 && (
-            <div className="absolute top-full mt-1 left-0 z-50 rounded-lg border border-border bg-card shadow-lg px-3 py-2 text-xs text-muted-foreground min-w-[200px]">
-              No appliances match "{query}"
-            </div>
+            <ItemsEmptyNote
+              loading={itemsLoading} error={itemsError} onRetry={onRetryItems} query={query}
+              className="absolute top-full mt-1 left-0 z-50 rounded-lg border border-border bg-card shadow-lg px-3 py-2 text-xs text-muted-foreground min-w-[200px]"
+            />
           )}
         </div>
       </div>
@@ -359,9 +398,10 @@ export function FilterBar({
           )}
 
           {open && query.trim().length >= 2 && filtered.length === 0 && (
-            <div className="absolute top-full mt-1 left-0 right-0 z-50 rounded-md border border-border bg-card shadow-md px-3 py-2 text-xs text-muted-foreground">
-              No appliances match "{query}"
-            </div>
+            <ItemsEmptyNote
+              loading={itemsLoading} error={itemsError} onRetry={onRetryItems} query={query}
+              className="absolute top-full mt-1 left-0 right-0 z-50 rounded-md border border-border bg-card shadow-md px-3 py-2 text-xs text-muted-foreground"
+            />
           )}
         </div>
       </div>

@@ -57,6 +57,9 @@ import {
   HistorySection,
 } from "./item-detail"
 
+/** How long the item page waits before it stops pretending and offers a retry. */
+const LOAD_TIMEOUT_MS = 10_000
+
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -160,6 +163,18 @@ export default function ItemDetailPage() {
     if (!home || !id) return
     let cancelled = false
     setLoading(true)
+    // HH-148 (owner, 2026-09-05): "Dishwasher item page isn't loading" — a bare
+    // "Loading..." that never resolved. The .catch below covers a REJECTED
+    // request; this covers the other half, a request that simply never settles
+    // (her console showed dropped QUIC connections at that moment). Without a
+    // timeout the page waits forever and the only way out is to kill the app.
+    // Ten seconds, then the page's own "Could not load this item · Try again".
+    const stall = setTimeout(() => {
+      if (cancelled) return
+      setLoading(false)
+      setError("The connection dropped before your item arrived.")
+    }, LOAD_TIMEOUT_MS)
+    const settled = () => clearTimeout(stall)
     Promise.all([
       getItemUnit(home.home_id, id),
       getTaskTemplatesWithSchedulesByItem(home.home_id, id),
@@ -168,6 +183,7 @@ export default function ItemDetailPage() {
       getRooms(home.home_id),
       getFaqsByItem(home.home_id, id),
     ]).then(async ([itemRes, tasksRes, chunksRes, manualsRes, roomsRes, faqsRes]) => {
+      settled()
       if (cancelled) return
       setLoading(false)
       setItem(itemRes.data ?? null)
@@ -223,11 +239,12 @@ export default function ItemDetailPage() {
       // phone one dropped request is enough, and an infinite spinner is
       // indistinguishable from the app just being slow — which is exactly how
       // it was reported. Surface it and let them retry.
+      settled()
       if (cancelled) return
       setLoading(false)
       setError(e instanceof Error ? e.message : "Could not load this item.")
     })
-    return () => { cancelled = true }
+    return () => { cancelled = true; clearTimeout(stall) }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-fetch when home_id or id changes
   }, [home?.home_id, id, reloadKey])
 
@@ -276,7 +293,14 @@ export default function ItemDetailPage() {
   if (loading) {
     return (
       <PageContainer>
-        <p className="text-muted-foreground">Loading...</p>
+        {/* The item's own shape while it loads, not the word "Loading" on an
+            empty screen — the approved round-19 mock. */}
+        <div className="animate-pulse py-2" aria-busy="true" aria-label="Loading this item">
+          <div className="h-7 w-3/5 rounded-md bg-muted" />
+          <div className="mt-2 h-4 w-2/5 rounded-md bg-muted/70" />
+          <div className="mt-5 h-[60px] rounded-xl bg-muted/60" />
+          <div className="mt-3 h-[60px] rounded-xl bg-muted/60" />
+        </div>
       </PageContainer>
     )
   }

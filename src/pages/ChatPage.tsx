@@ -43,7 +43,7 @@ export default function ChatPage() {
   const { home } = useCurrentHome()
   const { user } = useAuth()
   const homeId = home?.home_id ?? ""
-  const { rooms, items, loading: filtersLoading } = useChatFilters(homeId)
+  const { rooms, items, loading: filtersLoading, error: filtersError, reload: reloadFilters } = useChatFilters(homeId)
 
   // Pre-scope to an item when arriving from "Fix a problem" (/chat?item=ID).
   // This is how troubleshooting now enters Ask — scoped to the appliance, with
@@ -401,6 +401,9 @@ export default function ChatPage() {
                 selectedItemId={selectedItemId}
                 onRoomToggle={handleRoomToggle}
                 onItemSelect={handleItemSelect}
+                itemsLoading={filtersLoading}
+                itemsError={filtersError}
+                onRetryItems={reloadFilters}
               />
             </div>
           )}
@@ -486,6 +489,9 @@ export default function ChatPage() {
                 selectedItemId={selectedItemId}
                 onRoomToggle={handleRoomToggle}
                 onItemSelect={handleItemSelect}
+                itemsLoading={filtersLoading}
+                itemsError={filtersError}
+                onRetryItems={reloadFilters}
               />
             </div>
           )}
