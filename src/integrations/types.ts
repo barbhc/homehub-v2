@@ -58,6 +58,19 @@ export type ScopeType = "home" | "item_unit"
 export type CareType = "cleaning" | "maintenance" | "mixed"
 export type PriorityTier = "essential" | "recommended" | "optional"
 export type RiskLevel = "safety" | "prevent_damage" | "performance" | "comfort"
+/** One "you'll need" row inlined on a task template. `part_number` comes from
+ *  the parse; `url`/`size`/`buy_ahead` are user-entered (round 19) and written
+ *  only by `updateTaskSupply` — the parse path never invents them. */
+export type TemplateSupply = {
+  name: string
+  category: string
+  part_number: string | null
+  /** Plain retailer link — any store, never Amazon-assumed. */
+  url: string | null
+  size: string | null
+  buy_ahead: boolean
+}
+
 export type SuppliesMode = "none" | "suggested" | "required"
 export type TaskSource = "manual" | "user" | "cho_generated"
 export type ScheduleType =
@@ -422,6 +435,12 @@ export interface TaskTemplate {
    * so `willNotify` in shared/tasks/reviewBuckets applies the tier default.
    */
   remind_enabled?: boolean | null
+  /** The template's own cadence, as stored (parse-written; `setTaskCadence`
+   *  rewrites it). Exposed so a surface can tell a recurring task from a tip
+   *  or a setup step WITHOUT a taskInstances read — the pick list on
+   *  /reminders was offering "Allow Motor to Cool After Overload" as a
+   *  reminder because it couldn't. Optional: older constructors omit it. */
+  schedule?: { scheduleType: ScheduleType; intervalDays: number | null } | null
   risk_level: RiskLevel
   estimated_minutes: number | null
   /** Default assignee inherited by generated occurrences (Phase 3); guarded to home_members. */
@@ -435,6 +454,10 @@ export interface TaskTemplate {
    *  Absent on queries that don't select it; null when unknown. */
   source_page?: number | null
   supplies_mode: SuppliesMode
+  /** Inlined parse supplies (commitDraft), extended round 19 with the user-
+   *  entered retailer link, size, and buy-ahead flag. Legacy rows carry only
+   *  the first three fields; the mapper defaults the rest. */
+  supplies: TemplateSupply[]
   source: TaskSource
   is_user_editable: boolean
   user_modified_at: string | null

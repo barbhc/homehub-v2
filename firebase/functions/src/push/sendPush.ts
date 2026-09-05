@@ -1,20 +1,24 @@
 /**
- * FCM push (v1 send-push-notifications + send-test-push edge fns → Firebase-native).
+ * Push delivery (v1 send-push-notifications + send-test-push edge fns → Firebase-native).
  * Tokens live at users/{uid}/private/fcmTokens as { tokens: string[] } (model §1).
  *
- * NOTE: FCM sends have no emulator — these compile + run structurally, but a real
- * push must be verified on the OWNER's device (desktop + iOS PWA) per the plan's
- * Phase 4 gate. Invalid tokens are pruned on send (standard FCM hygiene).
+ * This file owns the two things that need the Firebase runtime — the token
+ * lanes (`sendToUser`) and the scheduled/callable wrappers. What to send and
+ * when lives in lanes.ts (pure) and sweep.ts (orchestration with an injected
+ * sender), so the decision table is unit-tested and the whole sweep runs
+ * against the emulator with a fake sender.
+ *
+ * NOTE: FCM sends have no emulator — a real push must be verified on the
+ * OWNER's device. `previewDigest` exists so that proof is one deliberate call
+ * to the caller's own devices, not a Sunday-evening wait.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
-import { dueKindOf, safetyPhrase, type DueKind } from "../../../../shared/care/dueWindow.js"
 import { onSchedule } from "firebase-functions/v2/scheduler"
 import { defineSecret } from "firebase-functions/params"
 import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { getMessaging } from "firebase-admin/messaging"
 import { isApnsToken, sendApns } from "./apns.js"
-import { isAgendaEligible } from "../../../../shared/tasks/agendaEligibility.js"
-import { remindsWhenDue } from "../../../../shared/tasks/reviewBuckets.js"
+import { composeDigestForUser, runPushSweep } from "./sweep.js"
 
 const REGION = "us-central1"
 
@@ -43,7 +47,7 @@ async function getTokens(db: Firestore, uid: string): Promise<string[]> {
  * FCM prunes on not-registered only; APNs prunes on 410/BadDeviceToken only.
  * Transient failures never prune — a timeout is not evidence.
  */
-async function sendToUser(
+export async function sendToUser(
   db: Firestore,
   uid: string,
   notification: { title: string; body: string },
@@ -102,190 +106,48 @@ export const sendTestPush = onCall({ region: REGION, secrets: APNS_SECRETS }, as
 })
 
 /**
- * Scheduled reminder (0 15 * * * ≈ 7–8am Pacific).
+ * The hourly sweep. Replaces `sendPushDaily`, which fired at "0 15 * * *" in
+ * America/Los_Angeles — 3 PM, not the morning its own comment promised: v1
+ * ran that expression in UTC, and the port kept the digits while adding the
+ * timezone. Hourly is what makes a per-user digest hour and a per-user quiet
+ * window honest with ONE function to deploy; the lanes gate themselves inside
+ * (lanes.ts). Cost: ~168 invocations a week reading a handful of prefs docs.
  *
- * Two lanes, because two kinds of work deserve different urgency
- * (design/due-windows.md):
- *
- *   DEADLINES — a real date exists (warranty closing, a recall). Pushed the
- *   day they are due, every day, as before. This is what red is for.
- *
- *   WINDOWS — everything else, which is almost everything. A filter change has
- *   no deadline, so a day-of alarm invents one. These are batched into a single
- *   SUNDAY digest: "3 things worth doing this month". Push volume for a normal
- *   home drops to ≤1 digest a week plus true deadlines, which is the design
- *   doc's done-criterion.
- *
- * One function, not two crons: the digest is the same daily run checking the
- * day of week. A second scheduled function would be a second thing to deploy
- * and a second thing to forget.
+ * Deploy cutover: the old job must be deleted explicitly —
+ * `firebase functions:delete sendPushDaily` — or it keeps firing at 3 PM
+ * beside this one. `firebase functions:list` afterwards must show
+ * sendPushSweep and NOT sendPushDaily.
  */
-/**
- * Drops every pending task whose owner has not agreed to be interrupted about
- * it: their explicit `remindEnabled`, or the tier default when they never chose
- * (`remindsByDefault` — Essential reminds, everything else stays quiet).
- *
- * `remindsWhenDue`, not `willNotify` — see that function for why re-bucketing
- * at send time would silence promoted per-use tasks.
- *
- * Mutates `byHome` in place and removes homes left with nothing, so the send
- * loop below never has to know this happened.
- */
-async function filterToAgreed<T extends { templatePath: string | null }>(
-  db: Firestore,
-  byHome: Map<string, T[]>,
-): Promise<void> {
-  const paths = [...new Set([...byHome.values()].flat().map((t) => t.templatePath).filter((p): p is string => !!p))]
-  if (paths.length === 0) return
-
-  // getAll takes the whole list, but chunk anyway: one runaway home should not
-  // turn a scheduled job into a single 10k-document read.
-  const agreed = new Map<string, boolean>()
-  for (let i = 0; i < paths.length; i += 300) {
-    const snaps = await db.getAll(...paths.slice(i, i + 300).map((p) => db.doc(p)))
-    for (const snap of snaps) {
-      if (!snap.exists) continue
-      agreed.set(snap.ref.path, remindsWhenDue(
-        snap.get("priorityTier") as string | null,
-        snap.get("remindEnabled") as boolean | null | undefined,
-      ))
-    }
-  }
-
-  for (const [home, tasks] of byHome) {
-    // A task whose template has vanished keeps its instance's own judgement
-    // rather than being silenced by a lookup failure.
-    const kept = tasks.filter((t) => (t.templatePath ? agreed.get(t.templatePath) !== false : true))
-    if (kept.length === 0) byHome.delete(home)
-    else byHome.set(home, kept)
-  }
-}
-
-const DIGEST_WEEKDAY = 0 // Sunday, in the home's display timezone
-export const sendPushDaily = onSchedule(
-  { region: REGION, schedule: "0 15 * * *", timeZone: "America/Los_Angeles", secrets: APNS_SECRETS },
+export const sendPushSweep = onSchedule(
+  { region: REGION, schedule: "0 * * * *", timeZone: "America/Los_Angeles", secrets: APNS_SECRETS },
   async () => {
-    const db = getFirestore()
-    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date())
-
-    // Due/overdue instances across all homes, grouped by home.
-    const due = await db
-      .collectionGroup("taskInstances")
-      .where("status", "==", "scheduled")
-      .where("deletedAt", "==", null)
-      .where("dueDate", "<=", today)
-      .get()
-
-    // Keep the tasks themselves, not just a count: a notification that can name
-    // the one thing due — and open it — is worth more than one that says "1 task"
-    // and drops you on the Home screen to go find it.
-    // Sunday in Pacific — the digest lane only runs then.
-    const weekday = new Date(`${today}T12:00:00Z`).getUTCDay()
-    const isDigestDay = weekday === DIGEST_WEEKDAY
-
-    type Pending = { id: string; title: string; itemName: string | null; kind: DueKind; safety: boolean; templatePath: string | null }
-    const byHome = new Map<string, Pending[]>()
-    for (const d of due.docs) {
-      const homeRef = d.ref.parent.parent
-      if (!homeRef) continue
-      // Same eligibility as the Home agenda. Without it the push counted tasks
-      // the app deliberately hides (item-scoped cleaning), and the owner's
-      // phone announced "22 tasks due today" over a Home screen showing 3 —
-      // an alert that contradicts the app it opens teaches people to ignore both.
-      if (!isAgendaEligible({ careType: d.get("careType") as string | null, scopeType: d.get("scopeType") as string | null })) continue
-      const title = (d.get("title") as string) ?? "A task"
-      const scheduleType = (d.get("scheduleType") as string | null) ?? null
-      const kind = dueKindOf({ title, scheduleType })
-      const dueDate = (d.get("dueDate") as string) ?? today
-      const safety =
-        !!d.get("isSafetyCritical") &&
-        safetyPhrase(dueDate, scheduleType, { today }) !== null
-
-      // Deadlines push the day they land. Everything else waits for Sunday —
-      // and a lapsed SAFETY check rides the digest too rather than going
-      // silent: firm, but not an alarm on a random Tuesday.
-      if (kind !== "deadline" && !isDigestDay) continue
-
-      const list = byHome.get(homeRef.path) ?? []
-      list.push({
-        id: d.id, title, itemName: (d.get("itemName") as string | null) ?? null, kind, safety,
-        templatePath: (d.get("taskTemplateId") as string | null)
-          ? `${homeRef.path}/taskTemplates/${d.get("taskTemplateId") as string}`
-          : null,
-      })
-      byHome.set(homeRef.path, list)
-    }
-
-    // Honour the reminder switch. Everything above answers "is this due?"; this
-    // answers "did they agree to be interrupted about it?" — and until now
-    // nothing did. The app told people "Off by default — turn it on if you want
-    // one" beside every Recommended task, then pushed them anyway, and silently
-    // ignored an Essential whose reminder had been turned off. A notification
-    // the app promised would not arrive is the one failure that teaches people
-    // to distrust every other one.
-    //
-    // Read from the TEMPLATE, not a denormalized copy on the instance: this
-    // flag changes long after the instance is written (that is the entire point
-    // of the task screen's toggle), and a denormalized field with no sync path
-    // is how the agenda went stale before. Bounded work — the candidate list is
-    // already filtered to due + agenda-eligible + digest-day.
-    await filterToAgreed(db, byHome)
-
-    let notified = 0
-    for (const [homePath, tasks] of byHome) {
-      const count = tasks.length
-      if (count === 0) continue
-      const members = await db.collection(`${homePath}/members`).get()
-
-      // One task: say which, and deep-link straight to it. Several: summarise
-      // and open the Tasks list, because picking one for the user would be a
-      // guess. The url is a PATH, never an absolute link — the client refuses
-      // anything else.
-      const deadlines = tasks.filter((t) => t.kind === "deadline")
-      const windows = tasks.filter((t) => t.kind !== "deadline")
-
-      // A deadline is never buried inside a digest — if one is due, it leads.
-      const only = deadlines.length === 1 && windows.length === 0 ? deadlines[0]
-        : count === 1 ? tasks[0]
-        : null
-
-      let title: string
-      let body: string
-      if (deadlines.length > 0) {
-        title = deadlines.length === 1 ? "Deadline today" : `${deadlines.length} deadlines today`
-        const names = deadlines.slice(0, 2).map((t) => t.title).join(" · ")
-        body = windows.length > 0
-          ? `${names}. Plus ${windows.length} other thing${windows.length > 1 ? "s" : ""} worth doing.`
-          : names
-      } else if (only) {
-        title = "Worth doing this week"
-        body = `${only.title}${only.itemName ? ` · ${only.itemName}` : ""}`
-      } else {
-        // The digest. Names, not a bare count: "3 tasks" sends you hunting.
-        title = `${count} things worth doing`
-        const named = tasks.slice(0, 3).map((t) => t.title).join(" · ")
-        const rest = count > 3 ? ` and ${count - 3} more` : ""
-        const safetyNote = tasks.some((t) => t.safety) ? " Includes a safety check." : ""
-        body = `${named}${rest}. No rush on a day — pick a morning.${safetyNote}`
-      }
-      // The home id rides in the URL, not in `data`: the APNs lane forwards
-      // only {title, body, url}, so a data-only field would be silently dropped
-      // on exactly the platform that matters. Without it, a push about the
-      // second home tapped while the first is selected opens a task that isn't
-      // in the current home.
-      const homeId = homePath.split("/")[1]
-      const url = only ? `/tasks/${only.id}?home=${homeId}` : `/maintenance?home=${homeId}`
-
-      for (const m of members.docs) {
-        const res = await sendToUser(
-          db,
-          m.id,
-          { title, body },
-          { homePath, count: String(count), url },
-        )
-        notified += res.sent
-      }
-    }
-    console.log(`sendPushDaily: digestDay=${isDigestDay} homes=${byHome.size} pushesSent=${notified}`)
+    await runPushSweep(getFirestore(), new Date(), sendToUser)
   }
 )
+
+/**
+ * Compose the caller's Sunday digest for a home NOW — the same code path the
+ * sweep takes on their chosen day/hour, with the clock made irrelevant.
+ * `send: true` delivers it to the CALLER's own devices only, never to other
+ * members: this is how a deploy is proven on one phone without a spam risk.
+ */
+export const previewDigest = onCall({ region: REGION, secrets: APNS_SECRETS }, async (request) => {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
+  const homeId = typeof request.data?.homeId === "string" ? request.data.homeId : null
+  if (!homeId) throw new HttpsError("invalid-argument", "homeId is required.")
+  const db = getFirestore()
+  const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
+  if (!member.exists) throw new HttpsError("permission-denied", "Not a member of that home.")
+
+  const digest = await composeDigestForUser(db, uid, `homes/${homeId}`, new Date())
+  if (!digest) return { ok: true as const, empty: true as const, sent: 0 }
+
+  let sent = 0
+  if (request.data?.send === true) {
+    const res = await sendToUser(db, uid, { title: digest.title, body: digest.body }, { homePath: `homes/${homeId}`, url: digest.url })
+    sent = res.sent
+    if (sent === 0) throw new HttpsError("failed-precondition", "No registered devices for this account.")
+  }
+  return { ok: true as const, empty: false as const, ...digest, sent }
+})

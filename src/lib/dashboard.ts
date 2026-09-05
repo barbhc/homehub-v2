@@ -8,7 +8,7 @@ import { db } from "@/integrations/firebase"
 import type { TopConcernKey } from "@/modules/home/services/homeProfileService"
 import type { CareType, RiskLevel, ScheduleType } from "@/integrations/types"
 import {
-  dueKindOf, dueWindow, isTrulyOverdue, safetyPhrase, windowPhrase,
+  dueKindOf, dueWindow, isTrulyOverdue, safetyPhrase, windowPhrase, derivedDue,
   type DueKind, type WindowState,
 } from "@/lib/dueWindow"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
@@ -565,6 +565,13 @@ export interface MaintenanceTaskFull {
   completionCount: number
   /** Whether this is a cleaning or maintenance task — used for routing */
   careType: CareType | null
+  /** Due SEMANTICS, derived at read time (design/due-windows.md). Present on
+   *  the upcoming feed so Home's "Coming up" can say "Good to do now" instead
+   *  of inventing a date a window task never promised. Optional because the
+   *  other constructors of this type predate them. */
+  dueKind?: DueKind
+  duePhrase?: string | null
+  safetyNote?: string | null
 }
 
 type TaskInstanceFull = {
@@ -650,7 +657,30 @@ export async function getUpcomingTasks(propertyId: string): Promise<MaintenanceT
           ? { display_name: (r.itemName as string) ?? "", room_id: null, room: r.roomName ? { name: r.roomName as string } : null }
           : null,
       }
-      return toMaintenanceTaskFull(row, todayStr, null, 0)
+      // The stored dueDate alone is not the answer: a window task has no
+      // deadline, so printing its date manufactures one. Derive the same
+      // semantics getWeekAgenda derives — one shared helper, so the two
+      // surfaces cannot drift into two vocabularies again (they had).
+      const due = derivedDue(
+        {
+          title: r.title as string,
+          scheduleType: (r.scheduleType as string | null) ?? null,
+          careType: (r.careType as string | null) ?? null,
+          dueDate: (r.dueDate as string) ?? todayStr,
+          isSafetyCritical: (r.isSafetyCritical as boolean | null) ?? null,
+        },
+        {
+          today: todayStr,
+          intervalDaysMin: (r.intervalDaysMin as number | null) ?? null,
+          intervalDaysMax: (r.intervalDaysMax as number | null) ?? null,
+        },
+      )
+      return {
+        ...toMaintenanceTaskFull(row, todayStr, null, 0),
+        dueKind: due.dueKind,
+        duePhrase: due.duePhrase,
+        safetyNote: due.safetyNote,
+      }
     })
 }
 

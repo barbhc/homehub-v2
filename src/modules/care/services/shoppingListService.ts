@@ -48,6 +48,9 @@ export type AddShoppingItemInput = {
   quantity?: string | null
   supplyItemId?: string | null
   sourceTaskInstanceId?: string | null
+  /** Round 19: "I have one" writes a row born as `have` — the skip-a-cycle
+   *  marker keyed to the current instance. Defaults to "needed". */
+  status?: ShoppingStatus
 }
 
 export async function addShoppingItem(homeId: string, input: AddShoppingItemInput): Promise<ServiceResult<ShoppingListItem>> {
@@ -60,7 +63,7 @@ export async function addShoppingItem(homeId: string, input: AddShoppingItemInpu
         quantity: input.quantity ?? null,
         supplyItemId: input.supplyItemId ?? null,
         sourceTaskInstanceId: input.sourceTaskInstanceId ?? null,
-        status: "needed",
+        status: input.status ?? "needed",
         createdAt: now,
         updatedAt: now,
         deletedAt: null,

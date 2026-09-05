@@ -332,7 +332,7 @@ export function RefinedTaskDetail({
 
           {/* How to — designed numbered steps (warnings split into a caution
               callout) + supplies, instead of a raw instructions textarea. */}
-          <HowToSteps notes={detail.notes} steps={detail.steps} supplies={detail.supplies} />
+          <HowToSteps notes={detail.notes} steps={detail.steps} supplies={detail.supplies.map((s) => s.name)} />
 
           {/* Manual reference — where this how-to came from; opens the item page
               (which has the manual viewer). */}
