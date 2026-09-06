@@ -3,7 +3,7 @@ import { isAwaitingReview } from "@/lib/manualReviewState"
 import { FeedbackButton } from "@/components/FeedbackButton"
 import { SUPPORT_EMAIL } from "@/lib/feedback"
 import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
-import { AlertCircleIcon, BellIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2, ShoppingBagIcon, ChevronRightIcon } from "lucide-react"
+import { AlertCircleIcon, BellIcon, HomeIcon as HomeSetupIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2, ShoppingBagIcon, ChevronRightIcon } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
 import { CardContent } from "@/components/ui/card"
@@ -140,6 +140,7 @@ const SETTINGS_NAV: [string, string][] = [
   ["manuals", "Manuals"],
   ["data", "Export data"],
   ["reminders", "Your reminders"],
+  ["home-setup", "Your home"],
   ["notifications", "Notifications"],
   ["privacy", "Data & privacy"],
 ]
@@ -1276,6 +1277,29 @@ export default function Settings() {
               <span className="mt-0.5 block text-[13px]" style={{ color: "var(--hh-sub)" }}>Describe it in your own words · edit any time</span>
             </span>
             <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: "var(--hh-faint)" }} />
+          </Link>
+        </CardContent>
+      </SectionCard>
+
+      <SectionCard id="home-setup" className="mt-6 scroll-mt-6">
+        <CardContent className="p-4">
+          <h2 className="text-sm font-semibold text-foreground mb-3">Your home</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            A few questions about the house — alarms, the water heater, pests, gutters — unlock the care no manual covers. You add each suggestion yourself.
+          </p>
+          <Link
+            to="/home-setup"
+            className="flex items-center gap-3 rounded-2xl px-4 py-3"
+            style={{ background: "var(--hh-surface2)", border: "1px solid var(--hh-line)" }}
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-teal-wash)" }}>
+              <HomeSetupIcon className="size-[18px]" style={{ color: "var(--hh-teal)" }} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-foreground">Set up your home</span>
+              <span className="block text-xs text-muted-foreground">Answer what you know; skip the rest</span>
+            </span>
+            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
           </Link>
         </CardContent>
       </SectionCard>

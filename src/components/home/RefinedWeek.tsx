@@ -5,6 +5,8 @@ import {
   SparklesIcon, XIcon,
 } from "lucide-react"
 import { getWeekAgenda, countHiddenCleaning, markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
+import { useCareSuggestions } from "@/hooks/useCareSuggestions"
+import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
@@ -337,6 +339,9 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
+  // The care library's standing group — outside the existing groups and never
+  // in their counts, so seeing every existing task is untouched (owner, 2026-09-06).
+  const care = useCareSuggestions(homeId)
   const insight = useMemo(() => computeInsight(all), [all])
   const tierCounts = useMemo(() => tierFilterCounts(items, item), [items, item])
   const activeTier = TIER_FILTERS.find((t) => t.value === tier) ?? TIER_FILTERS[0]
@@ -563,6 +568,28 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               <Link to="/clean" className="block px-0.5 pb-2 text-[12.5px]" style={{ color: SUB }}>
                 {hiddenCleaning} cleaning job{hiddenCleaning === 1 ? "" : "s"} for your items live in <b style={{ color: TEAL }}>Deep Clean</b> →
               </Link>
+            )}
+            {(care.rows.length > 0 || care.error) && (
+              <div className="mb-4" data-testid="suggested-group">
+                <div className="mb-2 flex items-center gap-1.5 pl-0.5">
+                  <span className="size-2 rounded-full" style={{ background: "var(--hh-gold, #8A5A12)" }} />
+                  <span className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: "var(--hh-gold, #8A5A12)" }}>Suggested</span>
+                  <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
+                  <div className="flex-1" />
+                  <span className="text-[12px]" style={{ color: FAINT }}>typical for your home</span>
+                </div>
+                <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
+                  {care.error ? (
+                    <div role="alert" className="flex items-center gap-3 px-4 py-3 text-[13px]" style={{ color: CLAY }}>
+                      <span className="flex-1">Couldn&apos;t load suggestions: {care.error}</span>
+                      <button type="button" onClick={care.reload} className="font-bold" style={{ color: TEAL }}>Try again</button>
+                    </div>
+                  ) : care.rows.map((s, i) => (
+                    <SuggestedRow key={`${s.itemUnitId ?? "home"}:${s.entry.key}`} suggestion={s} itemName={s.itemName ?? "Whole home"} onAdd={() => care.add(s)} onDismiss={() => care.dismiss(s)} last={i === care.rows.length - 1} />
+                  ))}
+                  <div className="px-4 py-2 text-[11.5px]" style={{ color: FAINT, borderTop: "1px solid var(--hh-line)" }}>Always last, never counted above.</div>
+                </div>
+              </div>
             )}
           </div>
         ) : (
