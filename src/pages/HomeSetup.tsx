@@ -105,6 +105,11 @@ export default function HomeSetup() {
       setDismissed(profile.data?.dismissed_care ?? [])
       setHomeTasks((templates.data ?? []).filter((t) => t.scope_type === "home" && t.is_active && !t.deleted_at))
       setLoading(false)
+    }).catch((e: unknown) => {
+      // A thrown rejection (not a ServiceResult error) must not strand the spinner.
+      if (!alive) return
+      setLoadError(e instanceof Error ? e.message : String(e))
+      setLoading(false)
     })
     return () => { alive = false }
   }, [homeId, reloadKey])
