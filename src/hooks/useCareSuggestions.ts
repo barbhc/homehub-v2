@@ -26,17 +26,25 @@ export function useCareSuggestions(homeId: string | null | undefined) {
     let alive = true
     setLoading(true)
     void (async () => {
-      const [items, templates, profile] = await Promise.all([
-        getItemUnits(homeId, { statusFilter: ["active", "stored"] }),
-        getTaskTemplates(homeId),
-        getHomeProfile(homeId),
-      ])
-      if (!alive) return
-      const failed = items.error ?? templates.error ?? profile.error
-      if (failed || !items.data || !templates.data) { setError(failed?.message ?? "Could not load your home"); setLoading(false); return }
-      setRows(placeAll(items.data, templates.data, profile.data?.care_facts ?? {}, profile.data?.dismissed_care ?? []))
-      setError(null)
-      setLoading(false)
+      try {
+        const [items, templates, profile] = await Promise.all([
+          getItemUnits(homeId, { statusFilter: ["active", "stored"] }),
+          getTaskTemplates(homeId),
+          getHomeProfile(homeId),
+        ])
+        if (!alive) return
+        const failed = items.error ?? templates.error ?? profile.error
+        if (failed || !items.data || !templates.data) { setError(failed?.message ?? "Could not load your home"); setLoading(false); return }
+        setRows(placeAll(items.data, templates.data, profile.data?.care_facts ?? {}, profile.data?.dismissed_care ?? []))
+        setError(null)
+        setLoading(false)
+      } catch (e: unknown) {
+        // A thrown rejection must land in the same visible error state as a
+        // ServiceResult error — never a spinner that outlives the request.
+        if (!alive) return
+        setError(e instanceof Error ? e.message : String(e))
+        setLoading(false)
+      }
     })()
     return () => { alive = false }
   }, [homeId, reloadKey])
