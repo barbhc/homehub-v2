@@ -283,6 +283,8 @@ export interface ItemUnit {
   warranty_expiry_date: string | null
   manufactured_year: number | null
   recall_status: RecallStatus | null
+  /** Care-library suggestion keys the owner said "not this one" to (design/care-library.md). */
+  dismissed_care?: string[]
   recall_checked_at: string | null
   recall_notes: string | null
   tags: string[]

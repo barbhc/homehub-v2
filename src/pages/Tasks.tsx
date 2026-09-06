@@ -9,6 +9,8 @@ import { EmptyState } from "@/components/layout"
 import { MaintenanceTaskRow } from "@/components/maintenance/MaintenanceTaskRow"
 import { getAllMaintenanceTasks, type MaintenanceTaskFull } from "@/lib/dashboard"
 import { markTaskInstanceDone, snoozeTaskInstance } from "@/modules/care"
+import { useCareSuggestions } from "@/hooks/useCareSuggestions"
+import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { useCurrentHome, getRooms } from "@/modules/home"
 import { cn } from "@/lib/utils"
 
@@ -79,6 +81,9 @@ function groupByRoom(
 export default function Tasks() {
   const { home } = useCurrentHome()
   const homeId = home?.home_id ?? null
+  // The care library's standing group — after every existing task, never in
+  // the counts above (owner, 2026-09-06: "don't interrupt the core Task function").
+  const care = useCareSuggestions(homeId)
 
   const [rooms, setRooms] = useState<Array<{ room_id: string; name: string }>>([])
   const [allTasks, setAllTasks] = useState<MaintenanceTaskFull[]>([])
@@ -386,6 +391,30 @@ export default function Tasks() {
           </CardContent>
         </SectionCard>
       </section>
+
+      {(care.rows.length > 0 || care.error) && (
+        <section className="mt-6" data-testid="suggested-group" aria-label="Suggested">
+          <div className="mb-2 flex items-center gap-1.5 pl-0.5">
+            <span className="size-2 rounded-full" style={{ background: "var(--hh-gold, #8A5A12)" }} />
+            <span className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: "var(--hh-gold, #8A5A12)" }}>Suggested</span>
+            <span className="text-[13.5px] font-bold text-muted-foreground">{care.rows.length}</span>
+            <div className="flex-1" />
+            <span className="text-[12px] text-muted-foreground">typical for your home</span>
+          </div>
+          <SectionCard>
+            <CardContent className="p-0">
+              {care.error ? (
+                <div role="alert" className="flex items-center gap-3 px-4 py-3 text-sm text-destructive">
+                  <span className="flex-1">Couldn&apos;t load suggestions: {care.error}</span>
+                  <Button variant="outline" size="sm" onClick={care.reload}>Try again</Button>
+                </div>
+              ) : care.rows.map((s, i) => (
+                <SuggestedRow key={`${s.itemUnitId ?? "home"}:${s.entry.key}`} suggestion={s} itemName={s.itemName ?? "Whole home"} onAdd={() => care.add(s)} onDismiss={() => care.dismiss(s)} last={i === care.rows.length - 1} />
+              ))}
+            </CardContent>
+          </SectionCard>
+        </section>
+      )}
 
       {/* Bulk action bar */}
       {hasSelection && (

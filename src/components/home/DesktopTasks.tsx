@@ -4,6 +4,8 @@ import {
   CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon, SparklesIcon, XIcon,
 } from "lucide-react"
 import { getWeekAgenda, markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
+import { useCareSuggestions } from "@/hooks/useCareSuggestions"
+import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
@@ -207,6 +209,7 @@ function TierPill({ active, color, onClick, children, dot, count }: {
 }
 
 export function DesktopTasks({ homeId }: { homeId: string | null }) {
+  const care = useCareSuggestions(homeId)
   const navigate = useNavigate()
   const [tier, setTier] = useTierFilter()
   // Item filtering is the "Item" lens now; kept as a constant so the shared
@@ -391,6 +394,27 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                       onOpenGuide={() => openGuide(t)}
                     />
                   ))}
+            {(care.rows.length > 0 || care.error) && (
+              <div data-testid="suggested-group">
+                <div className="mb-3 flex items-center gap-2.5 pl-0.5">
+                  <span className="size-[9px] rounded-full" style={{ background: "var(--hh-gold, #8A5A12)" }} />
+                  <span className="text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: "var(--hh-gold, #8A5A12)" }}>Suggested</span>
+                  <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
+                  <div className="flex-1" />
+                  <span className="text-[12.5px]" style={{ color: FAINT }}>typical for your home</span>
+                </div>
+                <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
+                  {care.error ? (
+                    <div role="alert" className="flex items-center gap-3 px-4 py-3 text-[13px]" style={{ color: CLAY }}>
+                      <span className="flex-1">Couldn&apos;t load suggestions: {care.error}</span>
+                      <button type="button" onClick={care.reload} className="font-bold" style={{ color: TEAL }}>Try again</button>
+                    </div>
+                  ) : care.rows.map((s, i) => (
+                    <SuggestedRow key={`${s.itemUnitId ?? "home"}:${s.entry.key}`} suggestion={s} itemName={s.itemName ?? "Whole home"} onAdd={() => care.add(s)} onDismiss={() => care.dismiss(s)} last={i === care.rows.length - 1} />
+                  ))}
+                </div>
+              </div>
+            )}
                 </div>
               </div>
             ))

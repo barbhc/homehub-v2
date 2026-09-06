@@ -533,6 +533,7 @@ export default function ItemDetailPage() {
         <div className="mx-auto w-full max-w-[460px]">
           <RefinedItemDetail
             key={item.item_unit_id}
+            onTaskAdded={() => setReloadKey((k) => k + 1)}
             item={item}
             rooms={rooms}
             homeId={home!.home_id}
@@ -602,6 +603,7 @@ export default function ItemDetailPage() {
       <div className="hidden lg:block">
         <DesktopItemDetail
           key={item.item_unit_id}
+          onTaskAdded={() => setReloadKey((k) => k + 1)}
           item={item}
           rooms={rooms}
           homeId={home!.home_id}
