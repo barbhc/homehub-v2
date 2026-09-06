@@ -587,7 +587,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                   ) : care.rows.map((s, i) => (
                     <SuggestedRow key={`${s.itemUnitId ?? "home"}:${s.entry.key}`} suggestion={s} itemName={s.itemName ?? "Whole home"} onAdd={() => care.add(s)} onDismiss={() => care.dismiss(s)} last={i === care.rows.length - 1} />
                   ))}
-                  <div className="px-4 py-2 text-[11.5px]" style={{ color: FAINT, borderTop: "1px solid var(--hh-line)" }}>Always last, never counted above. Grows when you add an item or answer a setup question; shrinks as you add or dismiss.</div>
+                  <div className="px-4 py-2 text-[11.5px]" style={{ color: FAINT, borderTop: "1px solid var(--hh-line)" }}>Always last, never counted above.</div>
                 </div>
               </div>
             )}

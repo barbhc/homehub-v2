@@ -134,6 +134,8 @@ All app data is path-tenanted under `homes/{homeId}/…`; membership at `homes/{
 | `admissions/{uid}` | `get` self only; **`list` denied** | **denied** | `:267` — admission cannot be self-granted |
 | collectionGroup `members` | signed-in **where `uid == auth.uid`** | — | serves "find all my memberships" |
 
+**Care library (2026-09-06, `feat/care-library`):** three fields ride on existing member-writable docs, no rules change — `homes/{homeId}.careFacts` (the setup answers, `CareFacts` in `shared/care/library.ts`) and `.dismissedCare` (dismissed home-level suggestion keys); `items/{id}.dismissedCare` (per-item dismissals); library-added `taskTemplates` carry `externalKey: "library:<key>"` + `metadata.library` so provenance is visible on the row. The library itself is pure client/shared code — no function, key, or quota.
+
 **Storage** (`storage.rules`): new uploads are keyed `homes/{homeId}/…` and `get` requires a member doc in that home via cross-service `firestore.exists()` (`:66-68`). Writes stay path+uid scoped (`:73-91`) so they remain emulator-verifiable. Legacy objects keep their old paths and remain readable by any signed-in non-anonymous user, narrowed to `prefix != 'homes'` (`:108-110`) — see Gap #3.
 
 **Verified against production**, not just the emulator (`npm run smoke:storage`, 2026-08-19):
