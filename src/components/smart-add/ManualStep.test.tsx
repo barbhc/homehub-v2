@@ -129,3 +129,20 @@ describe("ManualStep — the CTA reflects whether there is anything to scan", ()
     expect(document.body.textContent).not.toContain("0.0 MB")
   })
 })
+
+describe("the sources read as alternatives — the 'or' rule (owner QA, 2026-09-06)", () => {
+  it("joins Upload and Paste a link with a decorative 'or', in that order", () => {
+    render(<ManualStep {...props} />)
+    const rule = screen.getByTestId("manual-or-rule")
+    // Decorative: screen readers get the two headings, not a stray "or".
+    expect(rule).toHaveAttribute("aria-hidden", "true")
+    expect(rule.textContent?.trim()).toBe("or")
+    const body = document.body.textContent ?? ""
+    const upload = body.indexOf("Upload the PDF")
+    const link = body.indexOf("Paste a link")
+    const or = body.indexOf("or", upload + "Upload the PDF".length)
+    expect(upload).toBeGreaterThan(-1)
+    expect(or).toBeGreaterThan(upload)
+    expect(or).toBeLessThan(link)
+  })
+})

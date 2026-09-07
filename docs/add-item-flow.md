@@ -111,6 +111,9 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 - The subtitle carries **the brand and model just typed**, and Back returns to
   them. — HH-130
 - **Upload leads** and holds the only filled button. — HH-109, HH-115
+- Upload and Paste a link are joined by the same **"or" rule** as the identify
+  step's type-or-scan, so the sources read as alternatives, not a list. —
+  owner QA, 2026-09-06 (care-library branch)
 - Paste a link says it **must end in .pdf**, and offers a pre-filled Google
   search for this exact model. — HH-129
 - "Let us find it" is **last, muted, badged Beta**, and says how it goes
