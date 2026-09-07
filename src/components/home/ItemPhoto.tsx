@@ -102,8 +102,52 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
   // call-to-action above the name was spending the top of the page on the one
   // screen where the benefit does not apply. It is a tap target beside the
   // title instead — always there, never first.
+  // Owner, 2026-09-06, QA'ing the care-library branch: "the camera icon is
+  // sitting on top of a photo of the item." HH-136 (#179) redesigned only the
+  // EMPTY state of this 44px variant; with a photo present it fell through to
+  // the tile, whose two 32px corner controls were built for the 132px desktop
+  // tile and covered the picture. At this size the photo IS the control: the
+  // whole thumb replaces the photo, and nothing sits on top of it. Product-
+  // photo search stays where it fits — the empty state and the desktop tile.
+  if (photoUrl && emptyVariant === "icon") {
+    return (
+      <>
+        <label
+          className={cn("relative block size-11 shrink-0 cursor-pointer overflow-hidden rounded-xl", className)}
+          style={{ background: "#fff", border: "1px solid var(--hh-line)" }}
+          aria-label={uploading ? "Uploading photo" : "Replace photo"}
+          title="Replace photo"
+          data-testid="item-photo-thumb"
+        >
+          <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} disabled={uploading} />
+          <img
+            src={photoUrl}
+            alt={item.display_name}
+            decoding="async"
+            onLoad={() => setLoaded(true)}
+            onError={() => {
+              if (!retried) {
+                invalidateCachedStorageUrl(item.photo_storage_ref)
+                setRetried(true)
+                void mutate(["storage-url", item.photo_storage_ref])
+              }
+            }}
+            className={cn("h-full w-full object-contain mix-blend-multiply transition-opacity duration-300", loaded ? "opacity-100" : "opacity-0")}
+          />
+          {uploading && (
+            <span className="absolute inset-0 grid place-items-center" style={{ background: FROST }} aria-hidden="true">
+              <Loader2Icon className="size-4 animate-spin" style={{ color: INK }} />
+            </span>
+          )}
+        </label>
+        {error && <p role="alert" className="text-[11.5px] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
+      </>
+    )
+  }
+
   if (!photoUrl && emptyVariant === "icon") {
     return (
+      <>
       <label
         className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[1.5px] border-dashed transition-colors hover:bg-muted"
         style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
@@ -115,6 +159,8 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
           ? <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
           : <CameraIcon className="size-[18px]" aria-hidden="true" />}
       </label>
+      {error && <p role="alert" className="text-[11.5px] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
+      </>
     )
   }
 
