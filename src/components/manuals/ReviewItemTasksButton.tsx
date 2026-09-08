@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useImperativeHandle, useState, type Ref } from "react"
 import { Loader2Icon, SlidersHorizontalIcon } from "lucide-react"
 import { TaskReviewSheet } from "./TaskReviewSheet"
 import { loadItemTasksForReview, saveItemTaskReview, type ExistingTaskReview } from "@/modules/care/services/taskReviewService"
@@ -16,12 +16,15 @@ import type { ReviewEditSummary } from "./TaskReviewFeedback"
  * post-parse-only screen. This is how a home gets calm rather than just staying
  * that way.
  */
-export function ReviewItemTasksButton({
-  homeId,
+export type ReviewItemTasksHandle = { open: () => void }
+
+export function ReviewItemTasksButton({homeId,
   itemUnitId,
   itemName,
   taskCount,
-  onDone, compact }: {
+  onDone, compact, ref }: {
+  /** HH-157: a task row's Edit opens this same review — the page holds the handle. */
+  ref?: Ref<ReviewItemTasksHandle>
   homeId: string
   itemUnitId: string
   itemName: string
@@ -51,6 +54,7 @@ export function ReviewItemTasksButton({
     setReview(res.data)
     setOpen(true)
   }
+  useImperativeHandle(ref, () => ({ open: () => { void start() } }))
 
   const handleSave = async (tasks: PreviewTask[], chunks: PreviewChunk[], edits: ReviewEditSummary): Promise<string | null> => {
     if (!review) return "Nothing to save"
