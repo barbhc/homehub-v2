@@ -100,6 +100,7 @@ function toItemUnit(id: string, homeId: string, d: DocumentData): ItemUnit {
     warranty_expiry_date: d.warrantyExpiryDate ?? null,
     manufactured_year: d.manufacturedYear ?? null,
     recall_status: d.recallStatus ?? null,
+    dismissed_care: Array.isArray(d.dismissedCare) ? d.dismissedCare.filter((k: unknown) => typeof k === "string") : [],
     recall_checked_at: isoOrNull(d.recallCheckedAt),
     recall_notes: d.recallNotes ?? null,
     tags: Array.isArray(d.tags) ? d.tags : [],

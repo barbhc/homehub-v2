@@ -1,5 +1,6 @@
 import { doc, getDoc, runTransaction, serverTimestamp, Timestamp, type DocumentData } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
+import type { CareFacts } from "../../../../shared/care/library"
 import type { ServiceResult } from "./homeService"
 
 export type HomeType = "house" | "condo" | "townhouse" | "apartment" | "other"
@@ -47,6 +48,10 @@ export type HomeProfile = {
   /** True if pipes/appliances can freeze here. `false` suppresses winterizing
    *  (freeze_prep) tasks during a parse; null = unknown (no effect). */
   freeze_risk: boolean | null
+  /** Home-setup answers that gate the care library's building-level entries. */
+  care_facts: CareFacts
+  /** Home-level suggestion keys the owner dismissed. */
+  dismissed_care: string[]
   completed_at: string | null
   created_at: string
   updated_at: string
@@ -62,6 +67,8 @@ export type HomeProfileUpsert = {
   freeze_risk?: boolean | null
   /** When omitted, caller hasn't finished the flow. Pass `new Date().toISOString()` on completion. */
   completed_at?: string | null
+  care_facts?: CareFacts
+  dismissed_care?: string[]
 }
 
 // home_profile is folded onto the home doc (firestore-model.md §2).
@@ -79,6 +86,8 @@ function toHomeProfile(homeId: string, d: DocumentData): HomeProfile {
     preferred_mode: (d.preferredMode ?? "unset") as PreferredMode,
     climate: (d.climate ?? null) as Climate | null,
     freeze_risk: typeof d.freezeRisk === "boolean" ? d.freezeRisk : null,
+    care_facts: (d.careFacts && typeof d.careFacts === "object") ? (d.careFacts as CareFacts) : {},
+    dismissed_care: Array.isArray(d.dismissedCare) ? d.dismissedCare.filter((k: unknown) => typeof k === "string") : [],
     completed_at: hpIso(d.profileCompletedAt),
     created_at: hpIso(d.createdAt) ?? "",
     updated_at: hpIso(d.updatedAt) ?? "",
@@ -95,6 +104,8 @@ function patchToFields(patch: HomeProfileUpsert): DocumentData {
   if (patch.preferred_mode !== undefined) f.preferredMode = patch.preferred_mode
   if (patch.climate !== undefined) f.climate = patch.climate
   if (patch.freeze_risk !== undefined) f.freezeRisk = patch.freeze_risk
+  if (patch.care_facts !== undefined) f.careFacts = patch.care_facts
+  if (patch.dismissed_care !== undefined) f.dismissedCare = patch.dismissed_care
   if (patch.completed_at !== undefined)
     f.profileCompletedAt = patch.completed_at ? Timestamp.fromDate(new Date(patch.completed_at)) : null
   return f

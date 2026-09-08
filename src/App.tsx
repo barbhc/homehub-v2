@@ -96,6 +96,7 @@ const TaskDetail = lazyWithRetry(() => import("@/pages/TaskDetail"))
 const Maintenance = lazyWithRetry(() => import("@/pages/Maintenance"))
 const YourWeek = lazyWithRetry(() => import("@/pages/YourWeek"))
 const YourReminders = lazyWithRetry(() => import("@/pages/YourReminders"))
+const HomeSetup = lazyWithRetry(() => import("@/pages/HomeSetup"))
 const DeepClean = lazyWithRetry(() => import("@/pages/DeepClean"))
 const CleanGuide = lazyWithRetry(() => import("@/pages/CleanGuide"))
 const CarePage = lazyWithRetry(() => import("@/pages/CarePage"))
@@ -203,6 +204,7 @@ function App() {
                 <Route path="/maintenance" element={<Maintenance />} />
                 <Route path="/week" element={<YourWeek />} />
                 <Route path="/reminders" element={<YourReminders />} />
+                <Route path="/home-setup" element={<HomeSetup />} />
                 <Route path="/inventory">
                   <Route index element={<Inventory />} />
                   <Route path="add" element={<AddItem />} />

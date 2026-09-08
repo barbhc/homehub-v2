@@ -137,3 +137,5 @@ export {
   removeShoppingItem,
   type AddShoppingItemInput,
 } from "./services/shoppingListService"
+export { addLibraryTask,
+  addCustomHomeTask, dismissLibrarySuggestion, applyLibraryBackstop, libraryKeyOf, LIBRARY_KEY_PREFIX } from "./services/careSuggestionService"

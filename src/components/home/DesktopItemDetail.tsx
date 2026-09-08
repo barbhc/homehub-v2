@@ -304,6 +304,7 @@ export interface DesktopItemDetailProps {
   homeId: string
   /** Full task list for this item; CareBlock routes by schedule_type. */
   tasks: TaskTemplateWithSchedule[]
+  onTaskAdded?: () => void
   chunks: KnowledgeChunk[]
   manuals: ManualDocument[]
   faqs: ChatFaq[]
@@ -321,7 +322,7 @@ export interface DesktopItemDetailProps {
 type TabId = "tasks" | "guides" | "fix" | "saved" | "activity"
 
 export function DesktopItemDetail({
-  item, rooms, homeId, tasks, chunks, manuals, faqs, historyKey, onBack, onEdit, onOpenManualPage, onItemUpdate, manualSectionProps, focusTaskId = null,
+  item, rooms, homeId, tasks, chunks, manuals, faqs, historyKey, onBack, onEdit, onOpenManualPage, onItemUpdate, manualSectionProps, focusTaskId = null, onTaskAdded,
 }: DesktopItemDetailProps) {
   const navigate = useNavigate()
   const Glyph = glyphFor(item)
@@ -493,6 +494,7 @@ export function DesktopItemDetail({
               onItemUpdate={onItemUpdate}
               onAddManual={() => manualSectionProps.setAddManualOpen(true)}
               focusTaskId={focusTaskId}
+            onTaskAdded={onTaskAdded}
             />
           )}
           {tab === "guides" && <GuidesTab howTo={howToChunks} cleaning={cleaningChunks} onAsk={goAsk} itemName={item.display_name} onOpenManualPage={onOpenManualPage} />}

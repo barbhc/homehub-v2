@@ -24,6 +24,9 @@ import {
 } from "lucide-react"
 import type { ItemUnit, KnowledgeChunk, Json } from "@/integrations/types"
 import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, type TaskTemplateWithSchedule } from "@/modules/care"
+import { addLibraryTask, dismissLibrarySuggestion, applyLibraryBackstop, archiveTaskTemplate, libraryKeyOf } from "@/modules/care"
+import { SuggestedRow, SuggestedSource, KIND_LABELS } from "@/components/care/SuggestedRow"
+import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
 import { dueKindOf, windowPhrase } from "@/lib/dueWindow"
 import { reviewBucketFor, isScheduledTask, willNotify, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
@@ -223,7 +226,7 @@ function tokenOverlap(a: Set<string>, b: Set<string>): number {
   return n
 }
 
-function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTask, hasManual, onOpenManualPage, last, variantTag, safetyNote }: {
+function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTask, hasManual, onOpenManualPage, last, variantTag, safetyNote, onLibraryTaskRemoved }: {
   homeId: string
   /** A push or link named THIS task (?task=): open it and bring it into view. */
   focused?: boolean
@@ -240,6 +243,8 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
   variantTag?: string | null
   /** Critical safety warning from the manual, attached to this task by keyword. */
   safetyNote?: string
+  /** A library-added task was archived from its own row: the page refetches. */
+  onLibraryTaskRemoved?: () => void
 }) {
   const [open, setOpen] = useState(!!focused)
   const rowRef = useRef<HTMLDivElement>(null)
@@ -266,6 +271,12 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
   // toggling the inline how-to when there's no open instance to open.
   const canOpenTask = !!(instanceId && onOpenTask)
   const openTask = () => (canOpenTask ? onOpenTask!(instanceId!) : setOpen((v) => !v))
+  const [rowError, setRowError] = useState<string | null>(null)
+  const archiveLibraryTask = async () => {
+    const res = await archiveTaskTemplate(homeId, t.task_template_id)
+    if (!res.success) { setRowError(res.error || "Couldn't remove this task"); return }
+    onLibraryTaskRemoved?.()
+  }
 
   return (
     <div ref={rowRef} style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}>
@@ -320,6 +331,16 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                 </span>
               )}
             </div>
+            {rowError && <div role="alert" className="mt-1 text-[11.5px] font-medium" style={{ color: CLAY }}>{rowError}</div>}
+            {libraryKeyOf(t) && (
+              /* Provenance stays visible on a task that came from the library,
+                 with the one-tap way back — nothing should ever read as if it
+                 came from the manual when it didn't. */
+              <div className="mt-1 flex items-center gap-2 text-[11.5px]" style={{ color: FAINT }}>
+                <span>Added from typical care{entryByKey(libraryKeyOf(t)!)?.source ? ` · ${entryByKey(libraryKeyOf(t)!)!.source}` : ""}</span>
+                <button type="button" onClick={(e) => { e.stopPropagation(); void archiveLibraryTask() }} className="font-semibold" style={{ color: TEAL }}>Not this one</button>
+              </div>
+            )}
           </div>
         </div>
         {/* ONE cadence chip, identical on every scheduled row, with the bell
@@ -589,9 +610,11 @@ export interface CareBlockProps {
   focusTaskId?: string | null
   /** Mobile spacing. */
   m?: boolean
+  /** A library suggestion became a task (or a backstop landed): the page refetches. */
+  onTaskAdded?: () => void
 }
 
-export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, focusTaskId = null, m }: CareBlockProps) {
+export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, focusTaskId = null, m, onTaskAdded }: CareBlockProps) {
   // One partition, by the same rule the review wizard uses — and since round 18
   // that rule is the KIND of work, not its importance. The bands below are the
   // same four words the review shows, in the same order, because a task filed
@@ -705,6 +728,37 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
   const fCleaning = cleaning.filter(vis)
   const fUsageTasks = usageTasks.filter(vis)
   const fSetup = setupTasks.filter(vis)
+
+  // ── the care library: what this kind of item typically needs and this one lacks ──
+  // Pure (shared/care/library.ts); the manual wins — anything a parsed task
+  // already covers is never offered. Dismissals live on the item doc.
+  const [dismissedLocal, setDismissedLocal] = useState<string[]>([])
+  const suggestions = useMemo(
+    () => suggestionsForItem(item, tasks.map((t) => ({ title: t.title, scheduleType: t.schedule_rule?.[0]?.schedule_type ?? null })), [...(item.dismissed_care ?? []), ...dismissedLocal]),
+    [item, tasks, dismissedLocal],
+  )
+  const kindLabel = KIND_LABELS[kindOf(item) ?? ""] ?? "items like this"
+  const addSuggestion = async (key: string) => {
+    const sug = suggestions.find((x) => x.entry.key === key)
+    if (!sug) return { error: { message: "That suggestion is gone" } }
+    if (sug.backstopFor) {
+      const tpl = tasks.find((t) => t.title === sug.backstopFor!.title)
+      if (!tpl) return { error: { message: "Could not find the task to back up" } }
+      const res = await applyLibraryBackstop(homeId, tpl.task_template_id, sug.entry)
+      if (res.error) return { error: res.error }
+    } else {
+      const res = await addLibraryTask(homeId, item.item_unit_id, sug.entry)
+      if (res.error) return { error: res.error }
+    }
+    onTaskAdded?.()
+    return { error: null }
+  }
+  const dismissSuggestion = async (key: string) => {
+    const res = await dismissLibrarySuggestion(homeId, item.item_unit_id, key)
+    if (res.error) return { error: res.error }
+    setDismissedLocal((d) => [...d, key])
+    return { error: null }
+  }
   // Order the schedule sensibly: genuinely due/overdue first (soonest first),
   // with never-started cadences ("Start anytime") sinking to the bottom instead
   // of dominating the top with alarming back-dated "overdue" dates.
@@ -847,6 +901,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
         <Band tone="teal" title="Maintenance" count={fMaintenance.length}>
           {orderInBand(fMaintenance).map((t, i) => (
             <ScheduleRow
+              onLibraryTaskRemoved={onTaskAdded}
               key={t.task_template_id}
               t={t}
               homeId={homeId}
@@ -881,6 +936,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
           )}
           {orderInBand(fCleaning).map((t, i) => (
             <ScheduleRow
+              onLibraryTaskRemoved={onTaskAdded}
               key={t.task_template_id}
               t={t}
               homeId={homeId}
@@ -896,6 +952,21 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
               safetyNote={critical && criticalTaskIds.has(t.task_template_id) ? critical.content : undefined}
             />
           ))}
+        </Band>
+      )}
+
+      {suggestions.length > 0 && (
+        <Band tone="gold" title="Suggested" count={suggestions.length} note={`typical for ${kindLabel}`}>
+          {suggestions.map((sug, i) => (
+            <SuggestedRow
+              key={sug.entry.key}
+              suggestion={sug}
+              onAdd={() => addSuggestion(sug.entry.key)}
+              onDismiss={() => dismissSuggestion(sug.entry.key)}
+              last={i === suggestions.length - 1}
+            />
+          ))}
+          <SuggestedSource kindLabel={kindLabel} />
         </Band>
       )}
 

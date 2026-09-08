@@ -27,6 +27,13 @@ vi.mock("@/modules/care", () => ({
   getTaskDetail: (...a: unknown[]) => getTaskDetail(...a),
 }))
 vi.mock("react-router-dom", () => ({ useNavigate: () => vi.fn() }))
+// The standing Suggested group fetches items/templates/profile on its own; this
+// file tests the check-off contract, so the library is quiet here. (Without the
+// mock its fetch fails in jsdom and the group's own error alert trips the
+// "no error" control case.)
+vi.mock("@/hooks/useCareSuggestions", () => ({
+  useCareSuggestions: () => ({ rows: [], loading: false, error: null, add: vi.fn(), dismiss: vi.fn(), reload: vi.fn() }),
+}))
 
 const TASK = {
   taskInstanceId: "ti-1",

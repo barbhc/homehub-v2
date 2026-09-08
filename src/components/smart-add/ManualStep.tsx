@@ -295,6 +295,18 @@ export function ManualStep({
             </Button>
           </div>
 
+          {/* Owner, 2026-09-06, QA'ing the care-library branch: "what happened
+              to the Or between these options?" The identify step states the
+              relationship between typing and scanning with an "or" rule
+              (HH-123); this sheet listed its sources without one, so upload
+              and the link read as a list rather than as alternatives. Same
+              rule, same markup. */}
+          <div className="my-1 flex items-center gap-3" aria-hidden="true" data-testid="manual-or-rule">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-xs font-semibold text-muted-foreground">or</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
           {/* Second: paste a link. Says what kind of link, because pasting the
               product page instead of the PDF is the mistake that happens. */}
           <div className="rounded-xl border bg-card shadow-sm">

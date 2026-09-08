@@ -93,7 +93,7 @@ function SuggestionKV({ k, v, onAdd, last }: { k: string; v: string; onAdd?: () 
 }
 
 export function RefinedItemDetail({
-  item, rooms, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, density = "cozy",
+  item, rooms, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, onTaskAdded, density = "cozy",
   reviewAction, recordsSlot, onEditRoom, onEditDetails, focusTaskId = null,
 }: {
   focusTaskId?: string | null
@@ -102,6 +102,7 @@ export function RefinedItemDetail({
   homeId: string
   /** Full task list for this item; CareBlock routes by schedule_type. */
   tasks: TaskTemplateWithSchedule[]
+  onTaskAdded?: () => void
   chunks: KnowledgeChunk[]
   hasManual: boolean
   parsingManual?: boolean
@@ -359,6 +360,7 @@ export function RefinedItemDetail({
           onItemUpdate={onItemUpdate}
           focusTaskId={focusTaskId}
           m
+        onTaskAdded={onTaskAdded}
         />
 
         {/* HH-91 / round-9 redesign: Ask sits BELOW the upkeep it answers
