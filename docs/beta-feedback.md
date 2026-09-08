@@ -499,3 +499,11 @@ TestFlight build (last two fix rounds, PR #53 and PR #56, hadn't reached him).
 created during his session. Nothing leaked; the public link is safe. The scare
 came from correct behaviour being indistinguishable from a breach — which is
 why #4–#7 were treated as a real (UX) bug rather than dismissed.
+
+## Round 20 — 2026-09-08 (the owner's own report)
+
+| # | ID | Report | Sev | What was actually happening | State |
+|---|---|---|---|---|---|
+| 1 | HH-157 | Replaced the fridge's water filter, ticked every step on the item page — no way to mark the task done or edit it, so the six-month reminder never comes | S2 | The item page's expanded task row (`CareBlock.tsx` ScheduleRow) shows the part editor, the tickable steps and the why, and nothing that completes the task; Mark done lives only on Home, Tasks and `/tasks/:id`, reached by tapping the headline with nothing on the row saying so. Ticking steps looks like recording the job while nothing is — the next instance is never minted. Fix: Mark done + Snooze inside the expanded row (same `markTaskInstanceDone` Home uses, ticked steps clear on completion), an Edit link into Review tasks, and a full-view link. Mock first. | ⏳ |
+
+**The pattern, again:** every surface that shows a task row must carry the task's actions, or say where they are. Round 19 fixed the row's shape; this is the same rule applied to its verbs.

@@ -10,16 +10,20 @@
  * These are BEHAVIOURAL: render the rows and read what they actually say.
  */
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { render, screen, waitFor, within, fireEvent } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import type { ItemUnit } from "@/integrations/types"
 import { CareBlock } from "./CareBlock"
 
 const instances = vi.hoisted(() => ({ open: [] as unknown[], done: [] as unknown[] }))
+const svc = vi.hoisted(() => ({ done: vi.fn(), snooze: vi.fn(), unsnooze: vi.fn() }))
 vi.mock("@/modules/care", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   getTaskInstances: vi.fn((_h: string, opts: { status?: string[] }) =>
     Promise.resolve({ data: opts?.status?.includes("done") ? instances.done : instances.open, error: null })),
+  markTaskInstanceDone: (...a: unknown[]) => svc.done(...a),
+  snoozeTaskInstance: (...a: unknown[]) => svc.snooze(...a),
+  unsnoozeTaskInstance: (...a: unknown[]) => svc.unsnooze(...a),
 }))
 vi.mock("@/pages/item-detail/useSetupCompletion", () => ({
   useSetupCompletion: () => ({ done: new Set<string>(), toggle: vi.fn(), allDone: false }),
@@ -127,5 +131,80 @@ describe("HH-151 — the cleaning-guides line belongs to its band", () => {
     renderRows([task({ task_template_id: "c1", title: "Clean Dryer Exterior", care_type: "cleaning", risk_level: null, estimated_minutes: 5 })])
     expect(await screen.findByText(/These live in your cleaning guides/)).toBeTruthy()
     expect(screen.getByRole("link", { name: /Open guides/ })).toHaveAttribute("href", "/clean")
+  })
+})
+
+/**
+ * HH-157 — the owner replaced the fridge's water filter, ticked every step on
+ * this row, and found nowhere to mark it done: the next instance was never
+ * minted and the six-month reminder never came. The row now carries the
+ * task's verbs (E2 on the canvas): Mark done, then Snooze · Edit · Open task.
+ */
+describe("HH-157 — the row carries the task's verbs", () => {
+  const openRow = async () => {
+    await screen.findByText("Inspect and Clean Vent Ductwork")
+    fireEvent.click(screen.getByRole("button", { name: /See how/i }))
+    return await screen.findByTestId("row-actions")
+  }
+  const renderWithEdit = (open: unknown[]) => {
+    instances.open = open
+    instances.done = []
+    const onEditTask = vi.fn()
+    render(
+      <MemoryRouter>
+        <CareBlock item={item} homeId="h1" tasks={[task()] as never} chunks={[]} hasManual onAddManual={vi.fn()} onEditTask={onEditTask} />
+      </MemoryRouter>,
+    )
+    return { onEditTask }
+  }
+
+  it("the open row shows Mark done, then Snooze · Edit · Open task", async () => {
+    svc.done.mockReset(); svc.snooze.mockReset()
+    renderWithEdit([openInstance("t1", iso(17))])
+    const acts = await openRow()
+    expect(within(acts).getByRole("button", { name: "Mark done" })).toBeTruthy()
+    expect(within(acts).getByRole("button", { name: /Snooze/ })).toBeTruthy()
+    expect(within(acts).getByRole("button", { name: /Edit/ })).toBeTruthy()
+    expect(within(acts).getByRole("button", { name: /Open task/ })).toBeTruthy()
+  })
+
+  it("Mark done completes the instance Home would, and the row says what happened", async () => {
+    svc.done.mockReset().mockResolvedValue({ success: true, data: {}, nextInstanceId: "i-next" })
+    renderWithEdit([openInstance("t1", iso(17))])
+    const acts = await openRow()
+    fireEvent.click(within(acts).getByRole("button", { name: "Mark done" }))
+    await waitFor(() => expect(svc.done).toHaveBeenCalledWith("h1", "i-t1"))
+    expect((await screen.findByTestId("row-done")).textContent).toMatch(/Done today/)
+    expect(screen.queryByRole("button", { name: "Mark done" })).toBeNull()
+  })
+
+  it("a failed completion says so on the row and keeps it — never a silent no-op", async () => {
+    svc.done.mockReset().mockResolvedValue({ success: false, error: "You're offline" })
+    renderWithEdit([openInstance("t1", iso(17))])
+    const acts = await openRow()
+    fireEvent.click(within(acts).getByRole("button", { name: "Mark done" }))
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/offline/i))
+    expect(within(acts).getByRole("button", { name: "Mark done" })).toBeTruthy()
+    expect(screen.queryByTestId("row-done")).toBeNull()
+  })
+
+  it("Snooze pushes two weeks and offers the way back", async () => {
+    svc.snooze.mockReset().mockResolvedValue({ success: true })
+    renderWithEdit([openInstance("t1", iso(17))])
+    const acts = await openRow()
+    fireEvent.click(within(acts).getByRole("button", { name: /Snooze/ }))
+    await waitFor(() => expect(svc.snooze).toHaveBeenCalledTimes(1))
+    const [home, inst, until] = svc.snooze.mock.calls[0] as [string, string, string]
+    expect([home, inst]).toEqual(["h1", "i-t1"])
+    expect(until).toBe(iso(14))
+    expect((await screen.findByText(/Snoozed until/)).textContent).toMatch(/Snoozed until/)
+    expect(screen.getByRole("button", { name: /Undo/ })).toBeTruthy()
+  })
+
+  it("Edit opens Review tasks; a task with nothing scheduled keeps only Edit", async () => {
+    const { onEditTask } = renderWithEdit([openInstance("t1", iso(17))])
+    const acts = await openRow()
+    fireEvent.click(within(acts).getByRole("button", { name: /Edit/ }))
+    expect(onEditTask).toHaveBeenCalledTimes(1)
   })
 })

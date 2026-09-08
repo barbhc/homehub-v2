@@ -18,13 +18,13 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import {
-  AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronUpIcon,
-  Circle, GitBranchIcon, RotateCcw, SlidersHorizontalIcon,
-} from "lucide-react"
+import { AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronUpIcon, Circle, GitBranchIcon, RotateCcw, SlidersHorizontalIcon, Check, BellOff, Pencil, ArrowUpRight } from "lucide-react"
 import type { ItemUnit, KnowledgeChunk, Json } from "@/integrations/types"
 import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, type TaskTemplateWithSchedule } from "@/modules/care"
 import { addLibraryTask, dismissLibrarySuggestion, applyLibraryBackstop, archiveTaskTemplate, libraryKeyOf } from "@/modules/care"
+import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
+import { UndoBar } from "@/components/ui/UndoBar"
+import { addDays, todayStr } from "@/components/home/tasks/shared"
 import { SuggestedRow, SuggestedSource, KIND_LABELS } from "@/components/care/SuggestedRow"
 import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
 import { dueKindOf, windowPhrase } from "@/lib/dueWindow"
@@ -226,7 +226,7 @@ function tokenOverlap(a: Set<string>, b: Set<string>): number {
   return n
 }
 
-function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTask, hasManual, onOpenManualPage, last, variantTag, safetyNote, onLibraryTaskRemoved }: {
+function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTask, hasManual, onOpenManualPage, last, variantTag, safetyNote, onLibraryTaskRemoved, onMarkDone, onSnooze, onEditTask }: {
   homeId: string
   /** A push or link named THIS task (?task=): open it and bring it into view. */
   focused?: boolean
@@ -245,7 +245,24 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
   safetyNote?: string
   /** A library-added task was archived from its own row: the page refetches. */
   onLibraryTaskRemoved?: () => void
+  /** HH-157 — the row's verbs. Each resolves with an error to show in place, or null. */
+  onMarkDone?: (instanceId: string) => Promise<{ error: string | null }>
+  onSnooze?: (instanceId: string) => Promise<{ error: string | null }>
+  onEditTask?: () => void
 }) {
+  const [actBusy, setActBusy] = useState<"done" | "snooze" | null>(null)
+  const [actError, setActError] = useState<string | null>(null)
+  const [justDone, setJustDone] = useState(false)
+  const runAction = async (kind: "done" | "snooze") => {
+    if (!instanceId) return
+    const fn = kind === "done" ? onMarkDone : onSnooze
+    if (!fn) return
+    setActBusy(kind); setActError(null)
+    const res = await fn(instanceId)
+    setActBusy(null)
+    if (res.error) { setActError(res.error); return }
+    if (kind === "done") setJustDone(true)
+  }
   const [open, setOpen] = useState(!!focused)
   const rowRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -376,7 +393,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
               {/* Item Option B: the part lives with the task that uses it. */}
               <SupplyRows homeId={homeId} taskTemplateId={t.task_template_id} supplies={templateSuppliesOf(t)} nextInstanceId={instanceId} />
               {showSteps ? (
-                <StepList steps={steps} />
+                <StepList key={instanceId ?? "none"} steps={steps} />
               ) : actor === "diy" ? (
                 <div className="text-[13.5px]" style={{ color: SUB }}>
                   {hasManual ? "Open the manual for step-by-step instructions." : "Add this item's manual to unlock steps."}
@@ -389,6 +406,49 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
               {page != null && onOpenManualPage && <ManualBlurb page={page} onOpen={() => onOpenManualPage(page)} />}
             </div>
           </div>
+          {/* HH-157 (E2): the task's verbs, where the task lives. Mark done owns
+              a line; Snooze · Edit · Open task share the next. A task with no
+              open instance (nothing scheduled) keeps only Edit. */}
+          {(instanceId || onEditTask) && (
+            <div className="mt-3 flex flex-col gap-2" data-testid="row-actions">
+              {instanceId && onMarkDone && (
+                justDone ? (
+                  <div className="flex items-center gap-2 rounded-[12px] border px-3 py-2.5 text-[13px]" style={{ background: TEAL_WASH, borderColor: "color-mix(in srgb, var(--hh-teal) 25%, transparent)", color: "var(--hh-teal-deep)" }} data-testid="row-done">
+                    <CheckCircle2 className="size-4 shrink-0" style={{ color: TEAL }} />
+                    <span><b>Done today.</b>{due ? ` Next one lands ${duePhraseOf(t, due).replace(/^In /, "in ")}.` : ""}</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void runAction("done")}
+                    disabled={actBusy !== null}
+                    className="flex w-full items-center justify-center gap-2 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60"
+                    style={{ background: TEAL }}
+                  >
+                    <Check className="size-4" strokeWidth={2.6} />{actBusy === "done" ? "Marking done…" : "Mark done"}
+                  </button>
+                )
+              )}
+              <div className="flex gap-1.5">
+                {instanceId && onSnooze && (
+                  <button type="button" onClick={() => void runAction("snooze")} disabled={actBusy !== null} className="flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border px-2 py-2.5 text-[12.5px] font-bold disabled:opacity-60" style={{ borderColor: LINE, background: "var(--hh-surface)", color: INK }}>
+                    <BellOff className="size-3.5" />{actBusy === "snooze" ? "Snoozing…" : "Snooze"}
+                  </button>
+                )}
+                {onEditTask && (
+                  <button type="button" onClick={onEditTask} className="flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border px-2 py-2.5 text-[12.5px] font-bold" style={{ borderColor: LINE, background: "var(--hh-surface)", color: INK }}>
+                    <Pencil className="size-3.5" />Edit
+                  </button>
+                )}
+                {instanceId && onOpenTask && (
+                  <button type="button" onClick={() => onOpenTask(instanceId)} className="flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border px-2 py-2.5 text-[12.5px] font-bold" style={{ borderColor: LINE, background: "var(--hh-surface)", color: INK }}>
+                    <ArrowUpRight className="size-3.5" />Open task
+                  </button>
+                )}
+              </div>
+              {actError && <div role="alert" className="text-[12.5px] font-medium" style={{ color: CLAY }}>{actError}</div>}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -612,9 +672,11 @@ export interface CareBlockProps {
   m?: boolean
   /** A library suggestion became a task (or a backstop landed): the page refetches. */
   onTaskAdded?: () => void
+  /** HH-157: "Edit" on a task row opens the item's Review tasks sheet. */
+  onEditTask?: () => void
 }
 
-export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, focusTaskId = null, m, onTaskAdded }: CareBlockProps) {
+export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, focusTaskId = null, m, onTaskAdded, onEditTask }: CareBlockProps) {
   // One partition, by the same rule the review wizard uses — and since round 18
   // that rule is the KIND of work, not its importance. The bands below are the
   // same four words the review shows, in the same order, because a task filed
@@ -639,6 +701,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
   // Templates with at least one completed instance — a never-completed cadence
   // reads as calm "Start anytime", not "N days overdue" (app-wide calm model).
   const [completedTemplates, setCompletedTemplates] = useState<Set<string>>(new Set())
+  const [instanceTick, setInstanceTick] = useState(0)
   useEffect(() => {
     let cancelled = false
     Promise.all([
@@ -665,7 +728,35 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
       // that Sentry reports and nobody can act on.
     })
     return () => { cancelled = true }
-  }, [homeId, item.item_unit_id, taskIdsKey])
+  }, [homeId, item.item_unit_id, taskIdsKey, instanceTick])
+
+  // ── HH-157: the task's verbs live on its row ─────────────────────────────
+  // Owner, 2026-09-08: replaced the fridge's water filter, ticked every step
+  // here, found nowhere to mark it done — the next instance was never minted
+  // and the six-month reminder never came. Mark done and Snooze below are the
+  // same completion and snooze Home uses; the instances refetch so the row
+  // shows when the next one lands.
+  const [undo, setUndo] = useState<{ message: string; onUndo?: () => void } | null>(null)
+  const refetchInstances = () => setInstanceTick((n) => n + 1)
+  const completeInstance = async (instanceId: string): Promise<{ error: string | null }> => {
+    const r = await markTaskInstanceDone(homeId, instanceId)
+    if (!r.success) return { error: r.error ?? "Couldn't mark it done" }
+    refetchInstances()
+    setUndo({ message: "Marked done" })
+    return { error: null }
+  }
+  const snoozeInstance = async (instanceId: string): Promise<{ error: string | null }> => {
+    const until = addDays(todayStr(), 14)
+    const r = await snoozeTaskInstance(homeId, instanceId, until)
+    if (!r.success) return { error: r.error ?? "Couldn't snooze it" }
+    refetchInstances()
+    const when = new Date(`${until}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    setUndo({
+      message: `Snoozed until ${when}`,
+      onUndo: () => { void unsnoozeTaskInstance(homeId, instanceId).then((x) => { if (x.success) refetchInstances() }) },
+    })
+    return { error: null }
+  }
 
   const critical = useMemo(
     () => chunks.find((c) => c.chunk_type === "safety" && c.content_level === "critical"),
@@ -902,6 +993,9 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
           {orderInBand(fMaintenance).map((t, i) => (
             <ScheduleRow
               onLibraryTaskRemoved={onTaskAdded}
+              onMarkDone={completeInstance}
+              onSnooze={snoozeInstance}
+              onEditTask={onEditTask}
               key={t.task_template_id}
               t={t}
               homeId={homeId}
@@ -937,6 +1031,9 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
           {orderInBand(fCleaning).map((t, i) => (
             <ScheduleRow
               onLibraryTaskRemoved={onTaskAdded}
+              onMarkDone={completeInstance}
+              onSnooze={snoozeInstance}
+              onEditTask={onEditTask}
               key={t.task_template_id}
               t={t}
               homeId={homeId}
@@ -955,6 +1052,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
         </Band>
       )}
 
+      {undo && <UndoBar message={undo.message} onUndo={undo.onUndo} onDismiss={() => setUndo(null)} />}
       {suggestions.length > 0 && (
         <Band tone="gold" title="Suggested" count={suggestions.length} note={`typical for ${kindLabel}`}>
           {suggestions.map((sug, i) => (
