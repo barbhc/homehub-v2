@@ -62,8 +62,8 @@ describe("dueKindOf", () => {
 })
 
 describe("windowPhrase", () => {
-  it("says Oct-ish, not a fake-precise date", () => {
-    expect(windowPhrase("2026-10-15", "quarterly", { today: T })).toBe("Oct-ish")
+  it("says In Oct, not a fake-precise date", () => {
+    expect(windowPhrase("2026-10-15", "quarterly", { today: T })).toBe("In Oct")
   })
 
   it("says 'been a while' instead of counting days overdue", () => {

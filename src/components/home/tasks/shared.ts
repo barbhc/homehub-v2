@@ -342,24 +342,29 @@ export function dayLabel(day: number, now: Date = new Date()): string {
 // steps — so the expanded row shows what's real and links to the full guide
 // rather than inventing supplies/steps.
 
-export function useTaskDetail(homeId: string | null, taskInstanceId: string | null, enabled: boolean) {
-  const [detail, setDetail] = useState<TaskDetail | null>(null)
-  const [loading, setLoading] = useState(false)
-
+export function useTaskDetail(homeId: string | null, taskInstanceId: string | null, enabled: boolean, attempt = 0) {
+  // One state object keyed by what was asked for: a stale answer for another
+  // task never shows, and `loading` is derived rather than set — no setState
+  // in the effect body. A failed read lands in `error` (Home's open row shows
+  // it with a retry via `attempt`) instead of a spinner that never ends.
+  const key = enabled && homeId && taskInstanceId ? `${homeId}|${taskInstanceId}|${attempt}` : null
+  const [answer, setAnswer] = useState<{ key: string; detail: TaskDetail | null; error: string | null } | null>(null)
   useEffect(() => {
-    if (!enabled || !homeId || !taskInstanceId) return
+    if (!key || !homeId || !taskInstanceId) return
     let cancelled = false
-    setLoading(true)
-    setDetail(null)
-    void getTaskDetail(homeId, taskInstanceId).then((res) => {
-      if (cancelled) return
-      setDetail(res.data ?? null)
-      setLoading(false)
-    })
+    getTaskDetail(homeId, taskInstanceId)
+      .then((res) => {
+        if (cancelled) return
+        setAnswer({ key, detail: res.data ?? null, error: res.error ? res.error.message : null })
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        setAnswer({ key, detail: null, error: e instanceof Error ? e.message : String(e) })
+      })
     return () => {
       cancelled = true
     }
-  }, [homeId, taskInstanceId, enabled])
-
-  return { detail, loading }
+  }, [key, homeId, taskInstanceId])
+  const current = answer && answer.key === key ? answer : null
+  return { detail: current?.detail ?? null, loading: !!key && !current, error: current?.error ?? null }
 }

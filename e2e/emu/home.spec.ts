@@ -2,8 +2,7 @@ import { test, expect } from "@playwright/test"
 
 /**
  * Home feed against the seeded emulator — proves getDashboardTasks reads the
- * denormalized taskInstances end-to-end (the hero + Upcoming list, where Fix A's
- * UPCOMING_CAP renders). Secondary surfaces (warranties/notices/upkeep) are on
+ * denormalized taskInstances end-to-end (Home's one list, design/home-focus.md). Secondary surfaces (warranties/notices/upkeep) are on
  * the inert shim for now, so they render empty rather than crashing the page.
  */
 const visible = { visible: true } as const
@@ -18,13 +17,14 @@ test.describe("emulator e2e — home feed", () => {
     await expect(page.getByText(/Failed to load|Something went wrong/i)).toHaveCount(0)
   })
 
-  test("See how expands a task's real detail (getTaskDetail end-to-end)", async ({ page }) => {
+  test("the first task is open on arrival, and See details reaches its real detail (getTaskDetail end-to-end)", async ({ page }) => {
     await page.goto("/home")
-    // The furnace filter (essential, most overdue) is the Focus hero; its "See
-    // how" is a <button> (Agenda rows use a <span>), so the role selector lands
-    // on the hero card.
+    // Home, focused: the week's first task opens by default; its "See details"
+    // is the one door to the full view.
     await expect(page.getByText("Replace HVAC furnace filter").filter(visible)).toBeVisible({ timeout: 20_000 })
-    await page.getByRole("button", { name: /See how/ }).filter(visible).first().click()
+    const open = page.locator('[data-testid="week-row"][data-open="true"]').filter(visible).first()
+    await expect(open).toBeVisible()
+    await open.getByRole("link", { name: /See details/ }).click()
     // The template's justification (why-it-matters) renders only after
     // getTaskDetail resolves the taskInstance → taskTemplate read.
     await expect(

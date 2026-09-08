@@ -32,7 +32,7 @@ type SampleTask = {
   title: string
   item: string
   /** Window phrase, NEVER a day count — the sample teaches the app's real
-   *  vocabulary (HH-78): "Been a while", "This week", "Sep-ish". */
+   *  vocabulary (HH-78): "Been a while", "This week", "In Sep". */
   when: string
   tier: "essential" | "recommended" | "optional"
   cadence: string
@@ -79,7 +79,7 @@ const TASKS: SampleTask[] = [
   {
     title: "Flush the water heater",
     item: "Rheem Performance Water Heater",
-    when: "Sep-ish",
+    when: "In Sep",
     tier: "recommended",
     cadence: "Yearly",
     minutes: 45,

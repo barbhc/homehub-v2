@@ -172,11 +172,11 @@ default, "this isn't right" always one tap away.
 
 ```mermaid
 flowchart LR
-    A[Home /home\n"A good week for these"] --> B[Tasks /maintenance\nlenses + calendar]
+    A[Home /home\n"This week", first task open] --> B[Tasks /maintenance\nlenses + calendar]
     B --> C[Row expands:\nMark done / Snooze / View full guide]
     C --> D[Task detail /tasks/:id\nwindow phrase, steps]
     D --> E[Mark done → completeTask\nnext instance minted]
-    A --> F[Snooze +14 from the hero\nvisible Undo]
+    A --> F[Snooze +14 from the open row\nvisible Undo]
     D --> G["This isn't right"\nchips + sweep + Discuss]
 ```
 
@@ -187,8 +187,14 @@ Key mechanics:
   lapsed safety earns **"Worth doing — N safety checks have skipped a cycle"**
   (`computeInsight`); seasonal windows resolve against home climate; an empty
   agenda explains what's withheld.
-- Desktop rows expand in place (Mark done / Snooze / **View full guide** →
-  `/tasks/:id`); mobile rows navigate directly.
+- Home is ONE list (`ThisWeekList`, design/home-focus.md): the week's tasks
+  with the first open; any row opens the same way and closes the other; the
+  open row shows when · cadence · minutes, one prep line ("You'll need…" /
+  "Schedule a visit with a technician."), Mark done / Snooze / **See details**
+  → `/tasks/:id`. "All tasks" is the only door out. The stat band, the swipe
+  face, the Coming-up drawer and the 7-day strip are gone.
+- Tasks: desktop rows expand in place (Mark done / Snooze / **View full
+  guide** → `/tasks/:id`); mobile rows navigate directly.
 - **Complete** → `completeTask` callable: one transaction marks done, computes
   the next due, suppresses duplicates, mints the next instance. (Browser-level
   Mark done needs the functions emulator — covered server-side by
@@ -201,8 +207,9 @@ Key mechanics:
 - Push: deadlines the day they land; everything else in the Sunday digest —
   selection uses the same agenda filter, so a push can't contradict the screen.
 
-**Spec coverage:** `journey.spec.ts` J4 (hero → agenda → expanded row → detail
-→ snooze + undo) · `emu/tasks`, `emu/home`, `emu/item-detail` ·
+**Spec coverage:** `journey.spec.ts` J4 (Home's open row → agenda → expanded
+row → detail → snooze + undo) · `emu/tasks`, `emu/home`, `emu/home-week`,
+`emu/item-detail` ·
 `completeTask.emu`, `rollForward.emu`, `discussTask.emu` (server).
 
 ---

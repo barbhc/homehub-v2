@@ -46,7 +46,7 @@ export type WeekAgendaItem = {
   dueKind: DueKind
   /** Where today sits relative to this task's window. */
   windowState: WindowState
-  /** How to say when it wants doing: "Oct-ish", "Been a while", "By Sep 30". */
+  /** How to say when it wants doing: "In Oct", "Been a while", "By Sep 30". */
   duePhrase: string
   /** Firm, dateless pressure for safety work that skipped a cycle; else null. */
   safetyNote: string | null

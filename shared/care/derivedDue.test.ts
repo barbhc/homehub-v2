@@ -24,9 +24,9 @@ describe("derivedDue — one derivation for every surface", () => {
     expect(d.trulyOverdue).toBe(false)
   })
 
-  it("far ahead reads month-ish — still not a hard date", () => {
+  it("far ahead reads the month — still not a hard date", () => {
     const d = derivedDue({ title: "Run tub clean cycle", scheduleType: "annual", dueDate: "2027-02-10" }, { today: TODAY })
-    expect(d.duePhrase).toBe("Feb-ish")
+    expect(d.duePhrase).toBe("In Feb")
   })
 
   it("a DEADLINE keeps its date — it is the one kind that earned one", () => {
@@ -43,7 +43,7 @@ describe("derivedDue — one derivation for every surface", () => {
     const wide = derivedDue(task, { today: TODAY })
     const narrow = derivedDue(task, { today: TODAY, intervalDaysMin: 28, intervalDaysMax: 34 })
     expect(wide.duePhrase).toBe("Good to do now")
-    expect(narrow.duePhrase).toBe("Sep-ish")
+    expect(narrow.duePhrase).toBe("In Sep")
   })
 
   it("safety-critical work carries its firm note only once a cycle has lapsed", () => {

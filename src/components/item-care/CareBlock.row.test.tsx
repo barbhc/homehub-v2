@@ -4,7 +4,7 @@
  * HH-155 "the task names are squeezed to the left": the row's right side
  * stacked four controls, leaving the title ~140px of a 390px screen.
  * HH-150 "specific dates shown for tasks instead of time ranges": the row
- * printed "Tue, Sep 22" while the task page said "Sep-ish".
+ * printed "Tue, Sep 22" while the task page said "In Sep".
  * HH-151: the cleaning-guides line floated under the band in its own type.
  *
  * These are BEHAVIOURAL: render the rows and read what they actually say.
@@ -73,7 +73,7 @@ describe("HH-150 — a row speaks in windows, never an invented date", () => {
       expect(t).toMatch(/min/)
       return t
     })
-    expect(text).toMatch(/-ish|Good to do now|This week|Been a while/)
+    expect(text).toMatch(/In \w{3}|Good to do now|This week|Been a while/)
     // The absence that IS the requirement: no "Tue, Sep 22" anywhere on the row.
     expect(text).not.toMatch(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \w{3} \d{1,2}/)
   })
