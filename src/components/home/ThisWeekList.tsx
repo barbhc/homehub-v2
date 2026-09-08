@@ -27,7 +27,7 @@ const EDGE = "color-mix(in srgb, var(--hh-teal) 45%, transparent)"
 
 export type ThisWeekVariant = "mobile" | "desktop"
 const SCALE = {
-  mobile: { rowPad: "px-3.5 py-3", title: "text-[14px]", openTitle: "text-[16px]", meta: "text-[11.5px]", bodyPad: "pl-[50px] pr-3.5 pb-3.5" },
+  mobile: { rowPad: "px-3.5 py-3", title: "text-[14px]", openTitle: "text-[16px]", meta: "text-[11.5px]", bodyPad: "pl-[46px] pr-3.5 pb-3.5" },
   desktop: { rowPad: "px-5 py-3.5", title: "text-[15px]", openTitle: "text-[17px]", meta: "text-[12.5px]", bodyPad: "pl-[58px] pr-5 pb-4" },
 } as const
 
@@ -199,7 +199,7 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
           type="button"
           onClick={onComplete}
           disabled={completing}
-          className="rounded-[11px] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
+          className="shrink-0 whitespace-nowrap rounded-[11px] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
           style={{ background: TEAL }}
         >
           Mark done
@@ -207,12 +207,12 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
         <button
           type="button"
           onClick={onSnooze}
-          className="rounded-[11px] border px-3.5 py-2 text-[12.5px] font-semibold"
+          className="shrink-0 whitespace-nowrap rounded-[11px] border px-3.5 py-2 text-[12.5px] font-semibold"
           style={{ borderColor: LINE, background: SURFACE, color: SUB }}
         >
           <BellOffIcon className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />Snooze
         </button>
-        <Link to={`/tasks/${row.id}`} className="ml-auto inline-flex items-center gap-0.5 text-[12.5px] font-bold" style={{ color: TEAL }}>
+        <Link to={`/tasks/${row.id}`} className="ml-auto inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
           See details <ChevronRightIcon className="size-3" aria-hidden />
         </Link>
       </div>
