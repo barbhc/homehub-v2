@@ -527,3 +527,18 @@ a port will do this again, so both were taken rather than either:
 --port 5173`, uptime 14 days, serving a `homehub-2068d` bundle. The guard was
 verified by pointing it at that exact server and watching it refuse, rather
 than by reasoning about it.
+
+## Home rebuild — two prep features deferred on purpose (2026-09-08)
+
+The Home redesign (design canvas "Homehub Home, focused", round 5) shows one
+prep line inside the open task — "You'll need an Affresh washer tablet." or
+"Schedule a visit with your HVAC technician." — as a reminder only. The owner
+chose to keep it that simple. Two things it deliberately does NOT do yet:
+
+- **Track how many of a supply you have on hand** ("You have 3"), with Buy /
+  Have it on the task. Substrate exists: `shoppingList` service (UI-less) and
+  the buy-ahead supply fields from the reminders plan.
+- **Book the technician from the task** — Call / Book against the provider in
+  Service providers, and a way to record the visit as the task's completion.
+
+Both wait until the simple line has been lived with for a few weeks.
