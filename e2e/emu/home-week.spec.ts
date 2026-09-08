@@ -63,7 +63,13 @@ test.describe("emulator e2e — Home: This week", () => {
     await expect(rows()).toHaveCount(before - 1, { timeout: 15_000 })
     await expect(rows().first()).toHaveAttribute("data-open", "true")
     await expect(rows().first()).not.toContainText(leadTitle)
-    // Snooze is reversible, and says so.
-    await expect(page.getByRole("button", { name: /Undo/ }).filter(visible)).toBeVisible({ timeout: 10_000 })
+    // Snooze is reversible, and says so — and this walk puts the seed back the
+    // way it found it, because home.spec runs after it on the same emulator.
+    const undo = page.getByRole("button", { name: /Undo/ }).filter(visible)
+    await expect(undo).toBeVisible({ timeout: 10_000 })
+    await undo.click()
+    await expect(rows()).toHaveCount(before, { timeout: 15_000 })
+    await expect(rows().first()).toContainText(leadTitle)
+    await expect(rows().first()).toHaveAttribute("data-open", "true")
   })
 })
