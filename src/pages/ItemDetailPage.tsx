@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
-import { ReviewItemTasksButton } from "@/components/manuals/ReviewItemTasksButton"
+import { ReviewItemTasksButton, type ReviewItemTasksHandle } from "@/components/manuals/ReviewItemTasksButton"
 import { ParsePickupCard } from "@/components/manuals/ParsePickupCard"
 import { anyAwaitingReview } from "@/lib/manualReviewState"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
@@ -79,6 +79,8 @@ export default function ItemDetailPage() {
   const [error, setError] = useState<string | null>(null)
   /** Bumped by "Try again" to re-run the fetch effect. */
   const [reloadKey, setReloadKey] = useState(0)
+  // HH-157: a row's Edit opens the same review the Review tasks button does.
+  const reviewRef = useRef<ReviewItemTasksHandle>(null)
   const [manualPdfUrl, setManualPdfUrl] = useState<string | null>(null)
   const [allHomeTags, setAllHomeTags] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
@@ -534,6 +536,7 @@ export default function ItemDetailPage() {
           <RefinedItemDetail
             key={item.item_unit_id}
             onTaskAdded={() => setReloadKey((k) => k + 1)}
+          onEditTask={() => reviewRef.current?.open()}
             item={item}
             rooms={rooms}
             homeId={home!.home_id}
@@ -554,6 +557,7 @@ export default function ItemDetailPage() {
             reviewAction={
               home && id && tasks.length > 0 ? (
                 <ReviewItemTasksButton
+                  ref={reviewRef}
                   homeId={home.home_id}
                   itemUnitId={id}
                   itemName={manualSectionProps.itemName ?? "This item"}
