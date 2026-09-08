@@ -101,6 +101,12 @@ function manualPageOf(t: TaskTemplateWithSchedule): number | null {
  * "By Sep 30". This is the third surface to get the fix: Home and Your week
  * were done days earlier and this one was not swept.
  */
+/** "In Oct" / "Oct-ish" → "in Oct"; anything else ("Good to do now") reads as is. */
+function landsPhrase(phrase: string): string {
+  const m = phrase.match(/^(?:In )?(\w{3})(?:-ish)?$/)
+  return m ? `in ${m[1]}` : phrase.charAt(0).toLowerCase() + phrase.slice(1)
+}
+
 function duePhraseOf(t: TaskTemplateWithSchedule, due: string): string {
   const scheduleType = t.schedule_rule?.[0]?.schedule_type ?? null
   const kind = dueKindOf({ title: t.title, scheduleType, careType: t.care_type ?? null })
@@ -415,7 +421,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                 justDone ? (
                   <div className="flex items-center gap-2 rounded-[12px] border px-3 py-2.5 text-[13px]" style={{ background: TEAL_WASH, borderColor: "color-mix(in srgb, var(--hh-teal) 25%, transparent)", color: "var(--hh-teal-deep)" }} data-testid="row-done">
                     <CheckCircle2 className="size-4 shrink-0" style={{ color: TEAL }} />
-                    <span><b>Done today.</b>{due ? ` Next one lands ${duePhraseOf(t, due).replace(/^In /, "in ")}.` : ""}</span>
+                    <span><b>Done today.</b>{due ? ` Next one lands ${landsPhrase(duePhraseOf(t, due))}.` : ""}</span>
                   </div>
                 ) : (
                   <button
