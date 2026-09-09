@@ -15,6 +15,7 @@ import { canAssignTasks } from "@/modules/care"
 import { TaskFeedbackSheet } from "@/components/care/TaskFeedbackSheet"
 import { classifyActorFromText } from "@/lib/taskActor"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
+import { SupplyRows } from "@/components/item-care/SupplyRows"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { TaskEditSheet } from "@/components/tasks/TaskEditSheet"
 import { getManualsByItem } from "@/modules/knowledge"
@@ -332,7 +333,24 @@ export function RefinedTaskDetail({
 
           {/* How to — designed numbered steps (warnings split into a caution
               callout) + supplies, instead of a raw instructions textarea. */}
-          <HowToSteps notes={detail.notes} steps={detail.steps} supplies={detail.supplies.map((s) => s.name)} />
+          <HowToSteps notes={detail.notes} steps={detail.steps} />
+
+          {/* You'll need — the same part editor the item page's row carries
+              (Item Option B), not read-only chips: the parsed name is often the
+              manual's generic phrase, and this is where she rewrites it with
+              the exact part, size and link (owner, 2026-09-08). */}
+          {homeId && (
+            <div data-testid="task-supplies">
+              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>You&apos;ll need</div>
+              <SupplyRows
+                homeId={homeId}
+                taskTemplateId={detail.taskTemplateId}
+                supplies={detail.supplies}
+                nextInstanceId={detail.taskInstanceId}
+                onChange={(next) => setDetail((x) => (x ? { ...x, supplies: next } : x))}
+              />
+            </div>
+          )}
 
           {/* Manual reference — where this how-to came from; opens the item page
               (which has the manual viewer). */}

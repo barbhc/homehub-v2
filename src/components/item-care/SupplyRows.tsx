@@ -40,7 +40,7 @@ export function SupplyRows({
 
   const commit = (next: TemplateSupply[]) => { setRows(next); onChange?.(next) }
 
-  const patchRow = async (i: number, patch: Partial<Pick<TemplateSupply, "url" | "size" | "buy_ahead">>) => {
+  const patchRow = async (i: number, patch: Partial<Pick<TemplateSupply, "name" | "url" | "size" | "buy_ahead">>) => {
     const before = rows
     const optimistic = rows.map((r, k) => (k === i ? { ...r, ...patch } : r))
     setRows(optimistic)
@@ -89,7 +89,10 @@ export function SupplyRows({
     <div className="flex flex-col gap-2">
       {rows.map((s, i) => (
         <SupplyRow
-          key={`${s.name}:${i}`}
+          // Keyed by position, not name: a rename must not remount the row, or the
+          // editor "closes" on the optimistic update before the write has landed
+          // and a quick navigation drops the save (found by the e2e walk).
+          key={i}
           supply={s}
           have={haveState[i]}
           canHave={!!nextInstanceId}
@@ -121,11 +124,15 @@ function SupplyRow({
   supply: TemplateSupply
   have: { id: string } | "saving" | undefined
   canHave: boolean
-  onPatch: (p: Partial<Pick<TemplateSupply, "url" | "size" | "buy_ahead">>) => Promise<boolean>
+  onPatch: (p: Partial<Pick<TemplateSupply, "name" | "url" | "size" | "buy_ahead">>) => Promise<boolean>
   onHave: () => void
   onUndoHave: () => void
 }) {
   const [editing, setEditing] = useState(false)
+  // Owner, 2026-09-08: the parsed name is often the manual's generic phrase
+  // ("Field-supplied return air filter (e.g. 16×25 or 20×25)"); the editor lets
+  // her replace it with the exact part she buys, not just add a size beside it.
+  const [name, setName] = useState(supply.name)
   const [url, setUrl] = useState(supply.url ?? "")
   const [size, setSize] = useState(supply.size ?? "")
   const [saving, setSaving] = useState(false)
@@ -134,7 +141,7 @@ function SupplyRow({
 
   const save = async () => {
     setSaving(true)
-    const ok = await onPatch({ url: url.trim() || null, size: size.trim() || null })
+    const ok = await onPatch({ name: name.trim() || supply.name, url: url.trim() || null, size: size.trim() || null })
     setSaving(false)
     if (ok) setEditing(false)
   }
@@ -152,13 +159,18 @@ function SupplyRow({
             Buy <ExternalLinkIcon className="size-3" />
           </a>
         )}
-        <button type="button" onClick={() => setEditing((v) => !v)} className="shrink-0 text-[12px] font-semibold" style={{ color: FAINT }} aria-label={`${supply.url ? "Edit" : "Add"} link for ${supply.name}`}>
-          {editing ? "Cancel" : supply.url ? "Edit" : "Add link"}
+        <button type="button" onClick={() => setEditing((v) => !v)} className="shrink-0 text-[12px] font-semibold" style={{ color: FAINT }} aria-label={`${editing ? "Cancel editing" : "Edit"} ${supply.name}`}>
+          {editing ? "Cancel" : "Edit"}
         </button>
       </div>
 
       {editing && (
         <div className="ml-6 flex flex-col gap-1.5">
+          <input
+            type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Part name (e.g. 16x25x1 MERV 8 filter)"
+            aria-label={`Part name for ${supply.name}`}
+            className="rounded-lg border px-2.5 py-1.5 text-[13px] outline-none" style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
+          />
           <input
             type="url" inputMode="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Link to the part at any store"
             aria-label={`Link for ${supply.name}`}
