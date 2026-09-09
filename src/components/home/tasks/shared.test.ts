@@ -122,11 +122,13 @@ describe("computeInsight — Start here, or nothing", () => {
     expect(computeInsight(tasks)).toBe(null)
   })
 
-  // ── the room hint must be TRUE ────────────────────────────────────────────
-  // Reported from a real session: three tasks, one per room, produced "Most of
-  // your list is in the Home — knock it out in one pass." One of three is not
-  // "most", and asserting something we haven't verified is the one thing this
-  // product must not do. The banner now has to earn its place.
+  // ── room clusters are not insights ─────────────────────────────────────────
+  // History: the room hint once fired on any non-empty list ("Most of your
+  // list is in the Home — knock it out in one pass" over three tasks in three
+  // rooms), was then tightened to a true majority, and was finally retired on
+  // 2026-09-08: even when true ("6 of your 11 tasks are in the Kitchen") it
+  // changed nothing about what to do next, and because it was recomputed on
+  // every visit the dismiss never stuck. A head-count by room says nothing.
 
   it("REGRESSION: one task per room says nothing at all", () => {
     const tasks = [
@@ -137,27 +139,10 @@ describe("computeInsight — Start here, or nothing", () => {
     expect(computeInsight(tasks)).toBe(null)
   })
 
-  it("a real majority in one room, and enough of them to be worth a trip → banner", () => {
+  it("a real room majority is still not an insight — 6 of 11 in the Kitchen says nothing", () => {
     const tasks = [
-      task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }),
-      task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }),
-      task({ roomName: "Garage" }),
-    ]
-    const insight = computeInsight(tasks)!
-    expect(insight.kind).toBe("calm")
-    // States the actual numbers rather than the vague "most".
-    expect(insight.text).toMatch(/4 of your 5 tasks are in the Kitchen/)
-  })
-
-  it("a bare majority of only two is not worth a banner", () => {
-    const tasks = [task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }), task({ roomName: "Garage" })]
-    expect(computeInsight(tasks)).toBe(null)
-  })
-
-  it("an exact tie is never 'most' — half is not a majority", () => {
-    const tasks = [
-      task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }), task({ roomName: "Kitchen" }),
-      task({ roomName: "Garage" }), task({ roomName: "Garage" }), task({ roomName: "Garage" }),
+      ...Array.from({ length: 6 }, () => task({ roomName: "Kitchen" })),
+      ...Array.from({ length: 5 }, () => task({ roomName: "Garage" })),
     ]
     expect(computeInsight(tasks)).toBe(null)
   })
