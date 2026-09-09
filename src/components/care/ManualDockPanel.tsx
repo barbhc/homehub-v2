@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type CSSProperties, type ReactNode, t
 import {
   ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, ExternalLink, Loader2, Check,
 } from "lucide-react"
+import { withChunkRetry } from "@/lib/chunkRetry"
 
 /**
  * Resizable split manual viewer (design option 4). Docks beside the item page —
@@ -41,8 +42,9 @@ export function ManualDockPanel({
     if (!open || !pdfUrl) return
     let cancelled = false
     setLoading(true); setError(false)
-    import("./renderManualPage").then(({ renderManualPage }) =>
-      renderManualPage(pdfUrl, currentPage)
+    withChunkRetry(
+      () => import("./renderManualPage").then(({ renderManualPage }) => renderManualPage(pdfUrl, currentPage)),
+      "manual dock",
     ).then((r) => {
       if (cancelled) return
       setBlobUrl(r.blobUrl); setTotalPages(r.totalPages)
