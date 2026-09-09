@@ -15,6 +15,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { pdfProxySource } from "@/integrations/firebase"
+import { withChunkRetry } from "@/lib/chunkRetry"
 
 interface ManualPageSheetProps {
   open: boolean
@@ -105,14 +106,16 @@ export function ManualPageSheet({
         // Reuse already-loaded PDF doc, or load fresh
         let pdf = pdfDocRef.current
         if (!pdf) {
-          const pdfjsLib = await import("pdfjs-dist")
-          const { default: pdfWorkerUrl } = await import(
-            "pdfjs-dist/build/pdf.worker.mjs?url"
-          )
-          pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          pdf = (await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise) as any
+          // Reloads once when the deploy replaced these assets under the tab.
+          pdf = await withChunkRetry(async () => {
+            const pdfjsLib = await import("pdfjs-dist")
+            const { default: pdfWorkerUrl } = await import(
+              "pdfjs-dist/build/pdf.worker.mjs?url"
+            )
+            pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return (await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise) as any
+          }, "manual page sheet")
           pdfDocRef.current = pdf
         }
 

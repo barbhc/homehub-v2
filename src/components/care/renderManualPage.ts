@@ -4,6 +4,7 @@
 // display size is controlled by CSS in the viewer.
 
 import { pdfProxySource } from "@/integrations/firebase"
+import { withChunkRetry } from "@/lib/chunkRetry"
 
 const pageBlobCache = new Map<string, string>()
 const totalPagesCache = new Map<string, number>()
@@ -20,10 +21,15 @@ export type RenderedPage = { blobUrl: string; totalPages: number; page: number }
 export async function renderManualPage(pdfUrl: string, page: number): Promise<RenderedPage> {
   let pdf = pdfDocCache.get(pdfUrl)
   if (!pdf) {
-    const pdfjsLib = await import("pdfjs-dist")
-    const { default: pdfWorkerUrl } = await import("pdfjs-dist/build/pdf.worker.mjs?url")
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
-    pdf = await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise
+    // pdf.js, its worker and this chunk are all lazily fetched, so a tab left
+    // open across a deploy asks for asset names that are gone. withChunkRetry
+    // reloads once instead of leaving the viewer on "Couldn't render this page".
+    pdf = await withChunkRetry(async () => {
+      const pdfjsLib = await import("pdfjs-dist")
+      const { default: pdfWorkerUrl } = await import("pdfjs-dist/build/pdf.worker.mjs?url")
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+      return await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise
+    }, "manual page renderer")
     pdfDocCache.set(pdfUrl, pdf)
   }
 

@@ -1,4 +1,5 @@
 import { pdfProxySource } from "@/integrations/firebase"
+import { withChunkRetry } from "@/lib/chunkRetry"
 import { uploadDiagramImage } from "@/modules/inventory/services/storageService"
 import { updateChunkDiagramUrls } from "./knowledgeService"
 import { updateTaskDiagramUrls } from "@/modules/care/services/taskService"
@@ -44,12 +45,14 @@ export async function renderAndStoreDiagrams(
   // pdfjs-dist: 1-based pages
   const uniquePages = getUniquePages(nonEmptyTargets)
 
-  // Lazy-load pdfjs and its worker so the 2.1MB worker stays out of the main bundle.
-  const pdfjsLib = await import("pdfjs-dist")
-  const { default: pdfWorkerUrl } = await import("pdfjs-dist/build/pdf.worker.mjs?url")
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
-
-  const pdf = await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise
+  // Lazy-load pdfjs and its worker so the 2.1MB worker stays out of the main
+  // bundle; reload once if the deploy replaced them under an open tab.
+  const pdf = await withChunkRetry(async () => {
+    const pdfjsLib = await import("pdfjs-dist")
+    const { default: pdfWorkerUrl } = await import("pdfjs-dist/build/pdf.worker.mjs?url")
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+    return await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise
+  }, "manual diagram renderer")
 
   const pageUrlMap = new Map<number, string>()
 
