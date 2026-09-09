@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
-  AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon,
-  SparklesIcon, XIcon,
+  AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon, XIcon,
 } from "lucide-react"
 import { getWeekAgenda, countHiddenCleaning, markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
 import { useCareSuggestions } from "@/hooks/useCareSuggestions"
@@ -360,7 +359,6 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const totalAll = useMemo(() => applyTierFilter(items, "all", item).length, [items, item])
 
   const total = all.length
-  const totalMins = all.reduce((a, t) => a + (t.estimatedMinutes ?? 0), 0)
   const dayTasks = selDay == null ? [] : tasksDueOnDay(all, selDay)
 
   const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id))
@@ -393,8 +391,11 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                 // lists work. Say where it went.
                 ? `Nothing on the schedule — ${hiddenCleaning} cleaning job${hiddenCleaning === 1 ? "" : "s"} live in your guides.`
                 : "Nothing due — enjoy the calm.")
-            : tier === "all" ? `${total} to do · ~${Math.round(totalMins / 5) * 5} min total`
-            : `${total} of ${totalAll} · ~${Math.round(totalMins / 5) * 5} min`}
+            // Just the count. A whole-list minute total ("~300 min") reads as a
+            // bill, not a plan; the per-group minutes below are where a pass
+            // gets planned (owner, 2026-09-08).
+            : tier === "all" ? `${total} to do`
+            : `${total} of ${totalAll}`}
         </div>
         {actionError && (
           <div role="alert" className="mt-2 text-[13.5px] font-medium" style={{ color: CLAY }}>
@@ -412,9 +413,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
           >
             <span className="absolute inset-y-0 left-0 w-1" style={{ background: insight.tone }} />
             <span className="ml-1 flex size-[38px] shrink-0 items-center justify-center rounded-[11px]" style={{ background: insight.tone }}>
-              {insight.kind === "start"
-                ? <FlagIcon className="size-[19px] text-white" strokeWidth={2.4} />
-                : <SparklesIcon className="size-[19px] text-white" strokeWidth={2.4} />}
+              <FlagIcon className="size-[19px] text-white" strokeWidth={2.4} />
             </span>
             <span className="min-w-0 flex-1">
               <span className="mb-0.5 block text-[10.5px] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</span>
