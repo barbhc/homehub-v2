@@ -231,7 +231,7 @@ export function useTierFilter(): [string, (t: string) => void] {
 
 // ── "Start here" insight ────────────────────────────────────────────────────
 
-export type Insight = { kind: "start" | "calm"; label: string; text: string; tone: string }
+export type Insight = { kind: "start"; label: string; text: string; tone: string }
 
 export function computeInsight(tasks: WeekAgendaItem[]): Insight | null {
   // Deadlines first — the only thing that is genuinely late.
@@ -256,26 +256,11 @@ export function computeInsight(tasks: WeekAgendaItem[]): Insight | null {
       text: `${safety} safety check${safety > 1 ? "s have" : " has"} skipped a cycle.`,
     }
   }
-  // The room hint only earns a banner when it is actually TRUE and actually
-  // useful. It used to fire on any non-empty list, so three tasks spread one per
-  // room produced "Most of your list is in the Home — knock it out in one pass."
-  // That is not a weak tip, it is a false statement about the user's home, and
-  // stating things we haven't verified is the one thing this product must not
-  // do. Needs a real majority AND enough tasks for "one pass" to mean anything.
-  const counts = new Map<string, number>()
-  for (const t of tasks) {
-    const r = roomOf(t)
-    counts.set(r, (counts.get(r) ?? 0) + 1)
-  }
-  const busiest = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]
-  if (busiest && busiest[1] >= 3 && busiest[1] / tasks.length > 0.5) {
-    return {
-      kind: "calm",
-      label: "Good to know",
-      tone: TEAL,
-      text: `${busiest[1]} of your ${tasks.length} tasks are in the ${busiest[0]} — worth one pass.`,
-    }
-  }
+  // Room clusters ("6 of your 11 tasks are in the Kitchen — worth one pass")
+  // are deliberately NOT surfaced. The rule was true but not useful, and
+  // because it was recomputed from the list on every visit the dismiss never
+  // stuck — the same note greeted the owner every time (2026-09-08). A banner
+  // has to change what you do next; a head-count by room does not.
   // Nothing worth saying. Say nothing: callers hide the banner entirely rather
   // than fill the top of the screen with a platitude.
   return null

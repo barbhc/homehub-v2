@@ -257,7 +257,6 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const totalAll = useMemo(() => applyTierFilter(items, "all", item).length, [items, item])
 
   const total = all.length
-  const totalMins = all.reduce((a, t) => a + (t.estimatedMinutes ?? 0), 0)
   const dayTasks = selDay == null ? null : tasksDueOnDay(all, selDay)
 
   const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id))
@@ -273,8 +272,10 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
           <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>This week</h1>
           <div className="mt-1.5 text-[14px]" style={{ color: SUB }}>
             {loading ? "Loading…" : total === 0 ? "Nothing due — enjoy the calm."
-              : tier === "all" ? `${total} thing${total === 1 ? "" : "s"} across your home · about ${Math.round(totalMins / 5) * 5} min total`
-              : `${total} of ${totalAll} across your home · about ${Math.round(totalMins / 5) * 5} min`}
+              // Just the count — a whole-list minute total reads as a bill, not a
+              // plan; the per-group minutes are where a pass gets planned.
+              : tier === "all" ? `${total} thing${total === 1 ? "" : "s"} across your home`
+              : `${total} of ${totalAll} across your home`}
           </div>
         </div>
         <button
@@ -295,9 +296,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
         >
           <span className="absolute inset-y-0 left-0 w-1" style={{ background: insight.tone }} />
           <span className="ml-1 flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ background: insight.tone }}>
-            {insight.kind === "start"
-              ? <FlagIcon className="size-5 text-white" strokeWidth={2.4} />
-              : <SparklesIcon className="size-5 text-white" strokeWidth={2.4} />}
+            <FlagIcon className="size-5 text-white" strokeWidth={2.4} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[10.5px] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</div>
