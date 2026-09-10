@@ -762,6 +762,9 @@ export type TaskDetail = {
   /** Cited supplies for the "You'll need" row (whole rows since round 19 —
    *  name plus the user-entered url/size/buy-ahead); empty when none linked. */
   supplies: TemplateSupply[]
+  /** The template's cadence, for a "Monthly" pill without a second read. */
+  scheduleType: ScheduleType | null
+  intervalDays: number | null
   /** True when the template has never been completed — lets the full task view
    *  show "Start anytime" instead of an untrue "N days overdue" for a brand-new
    *  cadence, matching the Home surfaces. */
@@ -817,6 +820,7 @@ export async function getTaskDetail(
     // Cited supplies from the inlined array. Was names-only; round 19 keeps
     // the whole rows so the detail view can render the retailer link and the
     // buy-ahead state. Empty → the "You'll need" row self-hides.
+    const schedule = (tmpl?.schedule ?? null) as { scheduleType?: string; intervalDays?: number | null } | null
     const supplies = toTemplateSupplies(tmpl?.supplies)
 
     // 3. Has this cadence ever been completed? A never-completed past-due task is
@@ -869,6 +873,8 @@ export async function getTaskDetail(
         notes: tmpl?.instructionsOverride ?? null,
         steps,
         supplies,
+        scheduleType: (schedule?.scheduleType as ScheduleType | undefined) ?? null,
+        intervalDays: typeof schedule?.intervalDays === "number" ? schedule.intervalDays : null,
         neverCompleted,
         manualPage,
         itemUnitId: inst.itemUnitId ?? null,

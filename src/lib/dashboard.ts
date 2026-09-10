@@ -70,7 +70,7 @@ export interface DashboardTask {
   /** Due semantics — derived, never stored. See src/lib/dueWindow.ts. */
   dueKind: DueKind
   windowState: WindowState
-  /** "Oct-ish" · "Been a while" · "By Sep 30". */
+  /** "In Oct" · "Been a while" · "By Sep 30". */
   duePhrase: string
   /** Firm, dateless pressure for lapsed safety work; null otherwise. */
   safetyNote: string | null

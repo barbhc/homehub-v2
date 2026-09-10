@@ -108,7 +108,7 @@ describe("YourWeek", () => {
 
 /**
  * The second look at the mockups noticed Your week's "Coming up" said "Sep 16"
- * for the same task Tasks called "Sep-ish" — the app disagreeing with itself,
+ * for the same task Tasks called "In Sep" — the app disagreeing with itself,
  * the same invented-date bug the Home drawer had (design/due-windows.md).
  * A window task carries no deadline; its phrase is the only honest chip.
  */
@@ -118,7 +118,7 @@ describe("YourWeek — Coming up speaks in windows", () => {
       data: {
         items: [
           row(),
-          row({ taskInstanceId: "i2", title: "Descale the Nespresso", dueDate: "2026-10-12", duePhrase: "Oct-ish", windowState: "upcoming", supplies: [] }),
+          row({ taskInstanceId: "i2", title: "Descale the Nespresso", dueDate: "2026-10-12", duePhrase: "In Oct", windowState: "upcoming", supplies: [] }),
           row({ taskInstanceId: "i3", title: "Register the warranty", dueDate: "2026-10-30", dueKind: "deadline", duePhrase: "By Oct 30", supplies: [] }),
         ],
         hiddenCount: 0,
@@ -127,7 +127,7 @@ describe("YourWeek — Coming up speaks in windows", () => {
     })
     render(<YourWeek />)
     await waitFor(() => expect(screen.getByText("Coming up")).toBeInTheDocument())
-    expect(screen.getByText("Oct-ish")).toBeInTheDocument()
+    expect(screen.getByText("In Oct")).toBeInTheDocument()
     expect(screen.getByText("By Oct 30")).toBeInTheDocument()
     // The absence that IS the requirement: no chip reads "Oct 12" or
     // "Mon, Oct 12". Anchored to a whole chip — the page's own range subtitle

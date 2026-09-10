@@ -140,7 +140,9 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 function monthish(dateStr: string): string {
   const m = Number(dateStr.slice(5, 7))
-  return `${MONTHS[m - 1] ?? "soon"}-ish`
+  // Owner, 2026-09-07: "Sep-ish is starting to look less serious." Same
+  // honesty (a month, not an invented day), plainer clothes.
+  return `In ${MONTHS[m - 1] ?? "soon"}`
 }
 
 /** "Aug 25" — a real date, for the kinds that have one. */
@@ -153,7 +155,7 @@ export function shortDate(dateStr: string): string {
 /**
  * How to say when this wants doing.
  *
- * Short forms on purpose (owner review, 2026-08-20): "Oct-ish" beats "anytime
+ * Short forms on purpose (owner review, 2026-08-20): "In Oct" beats "anytime
  * this fall". The phrase never implies precision the schedule doesn't have.
  */
 export function windowPhrase(

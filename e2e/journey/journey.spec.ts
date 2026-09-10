@@ -392,10 +392,12 @@ test.describe("journey walks", () => {
     await signInSeeded(page)
 
     await page.goto("/home")
-    const heroKicker = page.getByText(/A good week for these|need you/).filter(visible).first()
-    await expect(heroKicker).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J4", "home-hero", "Hero: window kicker ('A good week for these'), stat band, Mark done + Snooze",
-      heroKicker)
+    // Home, focused (design/home-focus.md): one list, the first task open —
+    // pills, a prep line when it needs something, Mark done + Snooze.
+    const openRow = page.locator('[data-testid="week-row"][data-open="true"]').filter(visible).first()
+    await expect(openRow).toBeVisible({ timeout: 20_000 })
+    await snap(page, "J4", "home-week", "Home: 'This week' with the first task open — pills, Mark done + Snooze, See details; no stat band, no drawer",
+      openRow)
 
     await page.goto("/maintenance")
     await expect(page.getByText("Replace HVAC furnace filter").filter(visible).first()).toBeVisible({ timeout: 20_000 })

@@ -95,7 +95,7 @@ function manualPageOf(t: TaskTemplateWithSchedule): number | null {
  * What a row says about WHEN, in the app's one vocabulary.
  *
  * HH-150 (owner, 2026-09-05): the row printed "Tue, Sep 22" while the task page
- * for the SAME task said "Sep-ish · Window: Sep 15–29". A recurring task has no
+ * for the SAME task said "In Sep · Window: Sep 15–29". A recurring task has no
  * deadline — printing its stored date invents a promise it never made
  * (design/due-windows.md). Only a real deadline keeps a date, and it reads
  * "By Sep 30". This is the third surface to get the fix: Home and Your week
