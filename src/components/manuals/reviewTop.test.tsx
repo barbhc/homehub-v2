@@ -23,6 +23,7 @@ const preview = (tasks: unknown[]): PreviewResult =>
 const sheet = (data: PreviewResult, props: Record<string, unknown> = {}) =>
   render(
     <TaskReviewSheet
+      freezeRiskFalse={false}
       open onOpenChange={vi.fn()} itemName="Bosch SHPM65Z55N/01"
       previewData={data} onSave={vi.fn()} saving={false} focus="all" {...props}
     />,

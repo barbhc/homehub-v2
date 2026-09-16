@@ -50,6 +50,7 @@ const DRAFT: PreviewResult = {
 function renderSheet(onSave = vi.fn().mockResolvedValue(null)) {
   render(
     <TaskReviewSheet
+      freezeRiskFalse={false}
       open
       onOpenChange={vi.fn()}
       itemName="Dryer"

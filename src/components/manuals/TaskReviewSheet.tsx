@@ -354,8 +354,17 @@ interface TaskReviewSheetProps {
   /** The home is marked freeze-free, so freeze-prep tasks are suppressed before
    *  the review rather than at save. Passed IN rather than read from context:
    *  this component is rendered in tests without providers, and a hook here
-   *  crashes every one of them — the same way a useAuth call did in round 18. */
-  freezeRiskFalse?: boolean
+   *  crashes every one of them — the same way a useAuth call did in round 18.
+   *
+   *  REQUIRED, not defaulted. It used to default to `false`, and the one door
+   *  that never passed it (the item page's manual section) showed freeze-prep
+   *  tasks in the review that `commitDraft` then dropped at save — the exact
+   *  "shown in review, gone after saving" report, live on one door of three
+   *  (found 2026-08-30, fixed 2026-09-16). There is no safe boolean default:
+   *  `false` shows work the server discards, `true` hides work a freezing home
+   *  needs. Every door answers from the home profile, and a fourth door that
+   *  forgets fails to compile. */
+  freezeRiskFalse: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   itemName: string
@@ -387,7 +396,7 @@ export function TaskReviewSheet({
   open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, focus = "maintenance",
   presentation = "sheet",
   alreadySaved = false,
-  freezeRiskFalse = false,
+  freezeRiskFalse,
 }: TaskReviewSheetProps) {
   const initial = useMemo(() => rowsFrom(previewData, freezeRiskFalse), [previewData, freezeRiskFalse])
   const [rows, setRows] = useState<ReviewRow[]>(initial)
