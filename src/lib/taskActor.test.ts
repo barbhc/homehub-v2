@@ -67,6 +67,54 @@ describe("classifyTaskActor", () => {
     ).toBe("pro")
   })
 
+  // ── HH-152 (2026-09-05): the manual said "qualified technician", the row said DIY ──
+  it("reads the manual's own 'by a qualified technician' as a pro task", () => {
+    expect(
+      classifyTaskActor(
+        task({
+          title: "Clean the Exhaust Duct",
+          instructions_override:
+            "Have the entire exhaust duct system cleaned by a qualified technician every 18 months.",
+          justification: "Lint buildup in the duct restricts airflow and is a fire hazard.",
+        })
+      )
+    ).toBe("pro")
+  })
+
+  it("reads 'hire / contact a professional' phrasing as pro, in any field", () => {
+    expect(classifyTaskActor(task({
+      title: "Clean the dryer ductwork",
+      justification: "The manual says to hire a qualified technician to clean the ductwork.",
+    }))).toBe("pro")
+    expect(classifyTaskActor(task({
+      title: "Annual tune-up",
+      description: "Professional service is recommended once a year before the heating season.",
+    }))).toBe("pro")
+    expect(classifyTaskActor(task({
+      title: "Inspect the sealed system",
+      instructions_override: "The sealed refrigeration system is not user-serviceable.",
+    }))).toBe("pro")
+  })
+
+  it("does NOT flip a homeowner task to pro over a troubleshooting fallback", () => {
+    expect(classifyTaskActor(task({
+      title: "Clean the lint filter",
+      instructions_override:
+        "Pull the lint screen out and roll the lint off with your fingers. If drying times increase, contact a qualified technician.",
+    }))).toBe("diy")
+    expect(classifyTaskActor(task({
+      title: "Run a cleaning cycle",
+      justification: "Keeps the drum fresh; should the odor persist, call a service technician.",
+    }))).toBe("diy")
+  })
+
+  it("hazardous still wins over a pro directive", () => {
+    expect(classifyTaskActor(task({
+      title: "Check the gas line",
+      instructions_override: "Have the gas line inspected by a licensed technician.",
+    }))).toBe("hazardous")
+  })
+
   it("leaves genuine homeowner tasks as diy", () => {
     expect(
       classifyTaskActor(
