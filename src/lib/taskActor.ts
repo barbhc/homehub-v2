@@ -30,6 +30,67 @@ const HAZARD_PATTERN =
 const PRO_PATTERN =
   /\b(manometer|static pressure|temperature rise|\bbtu\b|line voltage|\bvac\b|24\s*v\b|control board|blower speed|capacitor|amperage|rollout|limit switch|heat exchanger|refrigerant|combustion analysis|flue gas)/i
 
+/**
+ * The manual's own words for "this is a technician's job".
+ *
+ * A dryer's manual says the exhaust duct is cleaned "by a qualified
+ * technician"; the parsed task carried that sentence and still classified as
+ * DIY, so the owner got a checklist where the app should have offered a pro
+ * (HH-152, 2026-09-05). The patterns above only know a technician's TOOLS;
+ * this one knows the manual's VERBS — "have it done by", "hire", "must be
+ * performed by", "not user-serviceable".
+ *
+ * Matched as directives on purpose. A troubleshooting fallback in an otherwise
+ * homeowner task — "if the noise persists, contact a qualified technician" —
+ * must not flip the whole task to pro, so a match inside an "if / persists /
+ * still" sentence is ignored (see isFallbackAdvice).
+ */
+const PRO_PERSON =
+  "(?:technician|professional|electrician|plumber|installer|contractor|servicer|dealer|" +
+  "service (?:agent|center|centre|provider|company|technician|person|personnel)|" +
+  "hvac (?:tech|technician|contractor|professional))"
+const PRO_QUALIFIER = "(?:qualified|licensed|certified|trained|authori[sz]ed|professional|experienced|competent)"
+const PRO_DIRECTIVE_PATTERN = new RegExp(
+  [
+    // "by a qualified technician", "by an authorized servicer", "by your dealer"
+    `\\bby (?:a|an|your|the) (?:${PRO_QUALIFIER} )?${PRO_PERSON}\\b`,
+    // "hire / call / contact / schedule / have a (qualified) technician"
+    `\\b(?:hire|call|contact|schedule|arrange for|consult|have|use|employ) (?:a|an|your|the) (?:${PRO_QUALIFIER} )?${PRO_PERSON}\\b`,
+    // "qualified technician only", "professional service is required"
+    `\\b${PRO_QUALIFIER} ${PRO_PERSON} (?:only|is required|is recommended|should|must)\\b`,
+    `\\bprofessional(?:ly)? (?:service|servicing|installation|installed|inspection|inspected|cleaning|cleaned|maintenance)\\b`,
+    // The manual closing the door on the owner outright.
+    `\\bnot (?:a )?user[- ]serviceable\\b`,
+    `\\bdo not attempt to (?:service|repair|disassemble|open)\\b`,
+  ].join("|"),
+  "gi",
+)
+
+/** Words that turn a pro directive into fallback advice about a symptom. */
+const FALLBACK_LEAD = /\b(?:if|persists?|still|unable|cannot|can't|fails?|failure|problem|trouble|otherwise|doubt)\b/i
+
+/**
+ * True when the match at `index` sits in a sentence that leads with a
+ * condition — "If drying takes longer, contact a technician" — which is advice
+ * for a symptom, not who does the task.
+ */
+function isFallbackAdvice(text: string, index: number): boolean {
+  const sentenceStart = Math.max(
+    text.lastIndexOf(". ", index), text.lastIndexOf("; ", index),
+    text.lastIndexOf("! ", index), text.lastIndexOf("? ", index), text.lastIndexOf("\n", index),
+  )
+  return FALLBACK_LEAD.test(text.slice(sentenceStart + 1, index))
+}
+
+/** The manual tells the owner, in so many words, to bring in a professional. */
+function hasProDirective(text: string): boolean {
+  PRO_DIRECTIVE_PATTERN.lastIndex = 0
+  for (let m = PRO_DIRECTIVE_PATTERN.exec(text); m; m = PRO_DIRECTIVE_PATTERN.exec(text)) {
+    if (!isFallbackAdvice(text, m.index)) return true
+  }
+  return false
+}
+
 function taskText(task: TaskTemplateWithSchedule): string {
   const t = task as unknown as {
     title?: string
@@ -59,5 +120,6 @@ export function classifyTaskActor(task: TaskTemplateWithSchedule): TaskActor {
 export function classifyActorFromText(text: string): TaskActor {
   if (HAZARD_PATTERN.test(text)) return "hazardous"
   if (PRO_PATTERN.test(text)) return "pro"
+  if (hasProDirective(text)) return "pro"
   return "diy"
 }
