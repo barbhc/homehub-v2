@@ -35,6 +35,7 @@ import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useManualUrls, isDeadLegacyManualUrl } from "@/hooks/useManualManagement"
 import { updateManualLabel } from "@/modules/knowledge"
+import { useHomeProfile } from "@/modules/home"
 import type { ManualDocument } from "@/integrations/types"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 
@@ -138,6 +139,10 @@ export function ManualSection({
    *  One-shot; cleared when the dialog closes. */
   const [findRequested, setFindRequested] = useState(false)
   const primaryManuals = manuals.filter((m) => m.role !== "reference")
+  /** The review suppresses freeze-prep for a freeze-free home BEFORE showing it —
+   *  the server applies the same rule at save, so a review that skipped it here
+   *  showed tasks that then vanished (the one door that had been missing this). */
+  const { profile } = useHomeProfile(homeId)
   const referenceManuals = manuals.filter((m) => m.role === "reference")
   const manualUrls = useManualUrls(manuals)
 
@@ -597,6 +602,7 @@ export function ManualSection({
           }}
           itemName={itemName ?? manuals.find((m) => m.manual_id === parsedManualId)?.title ?? "Manual"}
           previewData={previewResult}
+          freezeRiskFalse={profile?.freeze_risk === false}
           onSave={handleSave}
           saving={saving}
           onFeedback={(p) => {

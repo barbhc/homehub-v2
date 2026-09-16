@@ -54,6 +54,7 @@ const ALL_SIX: PreviewResult = {
 function renderStepOne(data: PreviewResult = ALL_SIX) {
   render(
     <TaskReviewSheet
+      freezeRiskFalse={false}
       open onOpenChange={vi.fn()} itemName="Sharp SMD2470ASY24"
       previewData={data} onSave={vi.fn().mockResolvedValue(null)} saving={false}
       focus="all"
