@@ -18,6 +18,7 @@ import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
 import { rankChunks } from "./chunkRanking.js"
 import { chargeAiQuota, type QuotaHold } from "../lib/quota.js"
@@ -169,6 +170,22 @@ export const chatQuery = onRequest(
     const scopedIds = new Set(scopedItems.map((i) => i.id))
     const nameByItem = new Map(items.map((i) => [i.id, i.displayName]))
 
+    // --- Warranty on record (see warrantyContext.ts) ---
+    // The parser writes warranty terms to the ITEM, never to a chunk, so a
+    // warranty question is answered from the item documents already in hand.
+    // Computed before the manuals bail-out below: an item whose warranty card
+    // was typed in by hand may have no manual at all.
+    const warrantyFacts: WarrantyFacts[] = isWarrantyQuestion(question)
+      ? itemsSnap.docs
+          .filter((d) => scopedIds.has(d.id))
+          .map((d) => warrantyFactsFromDoc(nameByItem.get(d.id) ?? "Item", (field) => d.get(field)))
+          .filter((f): f is WarrantyFacts => f !== null)
+      : []
+    const warrantyBlock = formatWarrantyBlock(warrantyFacts, new Date().toISOString().slice(0, 10))
+    const warrantySources: ChatSource[] = warrantyFacts.map((f) => ({
+      title: "Warranty on record", item_name: f.itemName, source_type: "manual",
+    }))
+
     // --- Manuals for the in-scope items ---
     const manualsSnap = await db.collection(`homes/${homeId}/manuals`).where("deletedAt", "==", null).get()
     const manuals: ManualRow[] = manualsSnap.docs
@@ -179,7 +196,7 @@ export const chatQuery = onRequest(
         sourceType: (d.get("sourceType") as string) ?? "url",
         sourceRef: (d.get("sourceRef") as string) ?? "",
       }))
-    if (manuals.length === 0) return done([])
+    if (manuals.length === 0 && warrantyBlock.length === 0) return done([])
 
     // --- Decide PDF vs chunk retrieval ---
     const fetchPdf = makeFetchPdf()
@@ -260,11 +277,16 @@ export const chatQuery = onRequest(
         for (const r of webResults) webSourcesExtra.push({ title: r.title, item_name: "Web", source_type: "web", url: r.url })
       }
     }
-    const sources = [...baseSources, ...webSourcesExtra]
+    const sources = [...baseSources, ...warrantySources, ...webSourcesExtra]
 
     const webSearchRules =
       webContextBlock.length > 0
         ? "\n- Web search results are appended below the manual content when available. You may reference them to supplement the manual, but always prefer manual information when both cover the same topic. Cite web sources by their title when you use them."
+        : ""
+
+    const warrantyRules =
+      warrantyBlock.length > 0
+        ? '\n- A "Warranty on record" block, when present, is what the app has stored for that item: its coverage, purchase and expiry dates, exclusions and registration. Treat it as the authority for warranty questions — quote its dates and terms exactly, and do not contradict it from general knowledge. If it lacks something the person asked about, say what is and is not on record.'
         : ""
 
     let chunkContext = ""
@@ -280,21 +302,21 @@ Rules:
 - Use numbered steps for procedures.
 - Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
 - If the manual doesn't cover the specific question, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
-- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}`
+- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}`
       : `You are a helpful home assistant. Answer questions about the user's home appliances using the provided manual excerpts.
 
 Rules:
 - Only state specific details (button names, sequences, settings) if they appear explicitly in the excerpts. Never use vague placeholders like "the relevant buttons" — if the exact detail isn't in the excerpts, say so directly.
 - Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
 - If the answer isn't in the excerpts, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
-- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}`
+- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}`
 
     type ContentBlock = PdfDoc | { type: "text"; text: string }
     const userTextContent = hasPdfs
-      ? [question, webContextBlock].filter((s) => s.length > 0).join("\n\n")
+      ? [question, warrantyBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
       : chunkContext
-        ? [question, "---", chunkContext, webContextBlock].filter((s) => s.length > 0).join("\n\n")
-        : [question, webContextBlock].filter((s) => s.length > 0).join("\n\n")
+        ? [question, "---", chunkContext, warrantyBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
+        : [question, warrantyBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
     const userContent: ContentBlock[] = hasPdfs
       ? [...pdfDocs, { type: "text", text: userTextContent }]
       : [{ type: "text", text: userTextContent }]
