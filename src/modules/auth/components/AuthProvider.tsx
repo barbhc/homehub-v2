@@ -23,6 +23,7 @@ import { isNativePlatform } from "@/lib/native"
 import { clearPersistedDashboardCache } from "@/lib/swrPersist"
 import { track, identifyUser, resetAnalyticsIdentity } from "@/lib/analytics"
 import type { AuthUser } from "@/modules/auth/types/auth"
+import { withChunkRetry } from "@/lib/chunkRetry"
 
 type AuthState = {
   user: AuthUser | null
@@ -168,7 +169,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // sign-in still works.
       if (isNativePlatform()) {
         try {
-          const { signInWithAppleNative, AppleNativeUnavailable, AppleNativeCancelled } = await import("@/lib/nativeAppleAuth")
+          const { signInWithAppleNative, AppleNativeUnavailable, AppleNativeCancelled } =
+            await withChunkRetry(() => import("@/lib/nativeAppleAuth"), "native Apple sign-in")
           try {
             await signInWithAppleNative()
             return { error: null }
@@ -178,7 +180,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // plugin not synced into this build yet → graceful fallback below
           }
         } catch (importErr) {
-          void importErr // module/plugin unavailable → fall through to redirect
+          // A stale chunk after a deploy reloads once inside withChunkRetry and
+          // never reaches here; anything else (module/plugin unavailable) falls
+          // through to the web redirect.
+          void importErr
         }
         await signInWithRedirect(auth, provider)
         return { error: null } // completes on the return load via getRedirectResult

@@ -23,6 +23,10 @@ let initialized = false
 export async function initAnalytics(): Promise<void> {
   const key = import.meta.env.VITE_POSTHOG_KEY as string | undefined
   if (!key || initialized) return
+  // Deliberately a bare import, not withChunkRetry: ad blockers refuse this
+  // chunk by name, and "failed to fetch" is a normal condition here — a reload
+  // would punish those users once per session for nothing. A stale build is
+  // caught by the next lazy load that matters.
   posthog = (await import("posthog-js")).default
   posthog.init(key, {
     api_host: (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || "https://us.i.posthog.com",
