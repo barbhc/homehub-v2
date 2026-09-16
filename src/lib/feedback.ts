@@ -45,6 +45,8 @@ async function collectContext(extra?: Record<string, string | undefined>): Promi
   let build = "web"
   let platform = "web"
   try {
+    // Not withChunkRetry on purpose: this runs from the crash screen, and a
+    // reload there would throw away the report the person is about to send.
     const { Capacitor } = await import("@capacitor/core")
     platform = Capacitor.getPlatform()
     if (Capacitor.isNativePlatform()) {

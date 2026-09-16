@@ -61,6 +61,7 @@ import { db, callable } from "@/integrations/firebase"
 
 const sendTestPushCallable = callable<void, { ok: boolean; sent?: number }>("sendTestPush")
 import type { ManualDocument, Room } from "@/integrations/types"
+import { withChunkRetry } from "@/lib/chunkRetry"
 
 type ManualWithName = ManualDocument & { display_name: string }
 type ManualStatus = "idle" | "scanning" | "success" | "error"
@@ -246,12 +247,12 @@ export default function Settings() {
   const [pushError, setPushError] = useState<string | null>(null)
 
   const loadPushDiag = useCallback(async () => {
-    const { Capacitor } = await import("@capacitor/core")
+    const { Capacitor } = await withChunkRetry(() => import("@capacitor/core"), "push diagnostics")
     const native = Capacitor.isNativePlatform()
     let permission = "n/a"
     if (native) {
       try {
-        const { PushNotifications } = await import("@capacitor/push-notifications")
+        const { PushNotifications } = await withChunkRetry(() => import("@capacitor/push-notifications"), "push diagnostics")
         permission = (await PushNotifications.checkPermissions()).receive
       } catch (e) {
         permission = `error: ${e instanceof Error ? e.message : "unknown"}`
@@ -264,7 +265,7 @@ export default function Settings() {
     let build = "n/a"
     if (native) {
       try {
-        const { App } = await import("@capacitor/app")
+        const { App } = await withChunkRetry(() => import("@capacitor/app"), "push diagnostics")
         const info = await App.getInfo()
         build = `${info.version} (${info.build})`
       } catch {
