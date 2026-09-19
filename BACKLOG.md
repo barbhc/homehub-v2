@@ -56,7 +56,6 @@ sitting — both under an hour.
 
 | Decision | Note |
 |---|---|
-| **Approve the `chatQuery` functions deploy** (#210) | Merged to `main`; nothing reaches Ask until `firebase deploy --only functions:chatQuery`. Standing rule: functions deploys are per-deploy approval. |
 | Delete 49 resolved reports in App Store Connect | Destructive; the API key can't be trusted with it. |
 | **Unpark the sample home?** (§4b) | Its stated precondition — a final add-item flow and item page — is now met (#161–#163, #200). The session it was waiting for can be scheduled. |
 | Decide the fate of the v1 Supabase project (§2a) | A paused project can be restored; a deleted one cannot. `scripts/import/` waits on this. |
@@ -317,7 +316,7 @@ Each line says what verified it. Nothing here is a claim from a status doc.
 | GitHub Actions billing blocks CI (audit P2) | Resolved 2026-08-21; red `main` is signal again. |
 | 6 moderate CVEs (audit P2) | Now 1 high, different package (`@xmldom/xmldom` via `@capacitor/cli`); #2 in §1. |
 | **One review door skips the freeze-risk suppression** | **#208 (2026-09-16).** `ManualSection` reads the home profile; `freezeRiskFalse` is required, so a fourth door cannot forget it. |
-| **Ask cannot answer warranty questions** | **#210 (2026-09-16), deploy pending.** A "Warranty on record" block from the item's fields, with the expiry arithmetic done server-side. |
+| **Ask cannot answer warranty questions** | **#210 (2026-09-16), deployed by the owner 2026-09-19.** A "Warranty on record" block from the item's fields, with the expiry arithmetic done server-side. `gcloud functions describe` shows the update; the first real answer is the owner's own question. |
 | **HH-152, the safety half** | **#207 (2026-09-16).** See §4a. |
 | **Bare dynamic imports outside stale-chunk recovery** | **#206 + #209.** Manual viewer, Apple sign-in, push diagnostics wrapped; analytics and crash-screen feedback annotated. |
 | ~~Controls stretch on desktop~~ (scan card) | Fixed 2026-08-27; the sweep remains (above). |
