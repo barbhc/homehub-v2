@@ -24,7 +24,7 @@ import { createHash } from "node:crypto"
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { buildPrompt, samplingParamsFor, EXTRACTION_TOOL, extractParsedResult } from "../../shared/parse/parsePrompt"
+import { buildPrompt, buildExtractionRequest, extractionContent, extractParsedResult } from "../../shared/parse/parsePrompt"
 import { titleSimilarity, TITLE_MATCH_THRESHOLD } from "../../shared/parse/parseCore"
 import { pairByBestScore } from "./pairing.js"
 import { classifyTaskKind } from "../../shared/tasks/taxonomy"
@@ -225,26 +225,21 @@ function diffClassifications(golden: IndexRow[], next: IndexRow[]) {
   return { tierChanges, careChanges, scheduleChanges }
 }
 
-// ── Anthropic call (mirrors parse-manual: temp 0.1, document block, 20k out) ──
+// ── Anthropic call (mirrors the parse worker via buildExtractionRequest) ──
 async function extract(pdfBase64: string, model: string) {
   const started = Date.now()
+  // Same request production sends (buildExtractionRequest): forced tool on
+  // Sonnet; auto tool_choice + checked call + fallback beta on Opus 5.5.
+  const req = buildExtractionRequest(model, pdfBase64, buildPrompt())
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({
-      model,
-      ...samplingParamsFor(model),
-      tools: [EXTRACTION_TOOL],
-      tool_choice: { type: "tool", name: EXTRACTION_TOOL.name },
-      max_tokens: 20000,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
-          { type: "text", text: buildPrompt() },
-        ],
-      }],
-    }),
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_KEY,
+      "anthropic-version": "2023-06-01",
+      ...(req.betas.length ? { "anthropic-beta": req.betas.join(",") } : {}),
+    },
+    body: JSON.stringify(req.params),
   })
   if (!res.ok) throw new Error(`Anthropic HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`)
   const data = await res.json()
@@ -258,7 +253,7 @@ async function extract(pdfBase64: string, model: string) {
   let parsed: RawParse
   try {
     // Forced-tool extraction — the API delivers already-parsed JSON.
-    parsed = extractParsedResult(data) as RawParse
+    parsed = extractParsedResult(extractionContent(data, req.toolCallUnforced)) as RawParse
   } catch (e) {
     // Save the raw response so an extraction failure is debuggable — this is
     // exactly what production can't show us.

@@ -7,6 +7,12 @@
  * module dependency-free (no Deno/node imports) so both runtimes can load it.
  */
 
+import {
+  SERVER_SIDE_FALLBACK_BETA,
+  assertNotRefused,
+  rejectsForcedToolChoice,
+} from "./modelParams.js"
+
 export interface ParseCorrection {
   original_type: string
   corrected_type: string
@@ -204,7 +210,9 @@ CONFIDENCE: 0-1 per section. notes: brief explanation of difficulties.${correcti
  * Found by the eval harness on its first full corpus run (2026-07-01).
  */
 export function samplingParamsFor(model: string): { temperature?: number } {
-  return /opus-4-8|-5\b|fable/.test(model) ? {} : { temperature: 0.1 }
+  // opus-5-5 / sonnet-5 are listed explicitly (2026-09 migration) rather than
+  // left to the `-5\b` catch-all, so this gate can't silently stop matching.
+  return /opus-4-8|opus-5|sonnet-5|fable|mythos|-5\b/.test(model) ? {} : { temperature: 0.1 }
 }
 
 /**
@@ -251,6 +259,56 @@ export const EXTRACTION_TOOL = {
 
 type ClaudeContentBlock = { type: string; name?: string; input?: unknown; text?: string }
 
+const ARRAY_FIELDS = new Set(["chunks", "tasks"])
+const OBJECT_FIELDS = new Set(["cleaning_guide", "warranty", "confidence"])
+
+function tryJson(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined // caller treats "not JSON" as "not repairable" and leaves the field as-is
+  }
+}
+
+/**
+ * Claude Sonnet 5 sometimes JSON-encodes a tool argument as a STRING instead
+ * of emitting the array/object (the permissive EXTRACTION_TOOL schema allows
+ * it). Measured on the eval corpus 2026-09-23: ~1 in 4 runs on the LG washer
+ * manual, in two shapes —
+ *   1. `chunks: "[{...}]"` — the array, encoded; the other fields are fine.
+ *   2. `chunks: "[{...}], \"tasks\": [...], ... }"` — the model never closed the
+ *      string, so the REST of the object is inside it and `tasks` is missing.
+ * Both are the tool call's own arguments, recovered deterministically; the
+ * result still goes through runParse's array guard and the normalizers. A
+ * string that doesn't decode to the right type is left alone (and fails the
+ * guard as before).
+ */
+export function repairStringifiedFields(input: Record<string, unknown>): Record<string, unknown> {
+  let out = input
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof value !== "string" || !(ARRAY_FIELDS.has(key) || OBJECT_FIELDS.has(key))) continue
+    const wantArray = ARRAY_FIELDS.has(key)
+    const direct = tryJson(value)
+    if (wantArray ? Array.isArray(direct) : direct !== null && typeof direct === "object" && !Array.isArray(direct)) {
+      out = { ...out, [key]: direct }
+      console.warn(`[parse] repaired stringified tool argument "${key}"`)
+      continue
+    }
+    // Shape 2: the unclosed string swallowed the rest of the object.
+    const swallowed = tryJson(`{${JSON.stringify(key)}:${value}`)
+    if (swallowed && typeof swallowed === "object" && !Array.isArray(swallowed)) {
+      const rec = swallowed as Record<string, unknown>
+      if (wantArray ? Array.isArray(rec[key]) : rec[key] !== null && typeof rec[key] === "object") {
+        const { [key]: _stringified, ...rest } = out
+        void _stringified
+        out = { ...rec, ...rest }
+        console.warn(`[parse] repaired tool argument "${key}" that swallowed the rest of the extraction`)
+      }
+    }
+  }
+  return out
+}
+
 /**
  * Pulls the extraction result from a Claude response: prefers the forced
  * tool_use block's already-parsed input; falls back to text-block JSON for
@@ -259,7 +317,119 @@ type ClaudeContentBlock = { type: string; name?: string; input?: unknown; text?:
 export function extractParsedResult(claudeData: { content?: ClaudeContentBlock[] }): unknown {
   const blocks = claudeData?.content ?? []
   const tool = blocks.find((b) => b.type === "tool_use" && b.name === EXTRACTION_TOOL.name)
-  if (tool && tool.input && typeof tool.input === "object") return tool.input
+  if (tool && tool.input && typeof tool.input === "object") return repairStringifiedFields(tool.input as Record<string, unknown>)
   const lastText = [...blocks].reverse().find((b) => b.type === "text")
   return JSON.parse(extractJsonObject(lastText?.text ?? "{}"))
+}
+
+// ── Extraction request (shared by the parse worker and both eval harnesses) ──
+
+/** System line for models where the extraction tool can't be forced. */
+const STEER_TO_TOOL = `Deliver the extraction by calling the ${EXTRACTION_TOOL.name} tool exactly once, with every chunk and task in that single call. Do not reply with text.`
+
+export interface ExtractionRequest {
+  /** Messages API body. */
+  params: Record<string, unknown>
+  /** Beta headers; non-empty means "send via the beta endpoint". */
+  betas: string[]
+  /** Send as a stream (then read the final message). Required by the SDK when
+   *  max_tokens is above its non-streaming ceiling (~21k tokens). */
+  stream: boolean
+  /** tool_choice is "auto", so the tool call is not guaranteed: the caller
+   *  must check one was made (extractionContent throws NoToolCallError) and
+   *  retry. */
+  toolCallUnforced: boolean
+}
+
+/**
+ * THE extraction request, per model. One builder so production and the eval
+ * harnesses can't drift on the parts that 400.
+ *
+ * - Sonnet / Haiku: the forced EXTRACTION_TOOL, as before, with no `thinking`
+ *   field (a forced call doesn't think; explicitly DISABLING it made Sonnet 5
+ *   stringify `chunks` in 4/16 runs — see modelParams.ts). Sonnet 5 gets more
+ *   output room: its tokenizer counts ~30% more tokens for the same text.
+ * - Opus 5.5 rejects forced tool_choice (400). Structured outputs
+ *   (`output_config.format`) was the first choice, but the full extraction
+ *   schema is too big for it: the API answers "The compiled grammar is too
+ *   large" even with every union removed (tested 2026-09-23), and a schema
+ *   small enough to compile drops scenarios, tables, supplies and re-check
+ *   triggers. So this route uses the documented alternative: the SAME tool
+ *   with tool_choice "auto", a system line steering to it, and a check that
+ *   the call happened. The JSON still arrives as the tool_use block's parsed
+ *   `input` against EXTRACTION_TOOL's schema — exactly what the forced path
+ *   returned (it was never strict either) — never parsed out of free text.
+ *   Thinking is always on, so effort is explicit and max_tokens has room for
+ *   thinking + the ~18k-token reply. Server-side fallbacks retry a safety
+ *   decline on another model.
+ */
+export function buildExtractionRequest(model: string, pdfBase64: string, prompt: string): ExtractionRequest {
+  const messages = [
+    {
+      role: "user",
+      content: [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
+        { type: "text", text: prompt },
+      ],
+    },
+  ]
+  if (rejectsForcedToolChoice(model)) {
+    return {
+      params: {
+        model,
+        // 32k (thinking + ~18k reply) is over the SDK's non-streaming ceiling,
+        // so this request streams; callers read stream.finalMessage().
+        max_tokens: 32000,
+        output_config: { effort: "medium" },
+        system: STEER_TO_TOOL,
+        tools: [EXTRACTION_TOOL],
+        tool_choice: { type: "auto" },
+        fallbacks: "default",
+        messages,
+      },
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      stream: true,
+      toolCallUnforced: true,
+    }
+  }
+  return {
+    params: {
+      model,
+      max_tokens: /^claude-sonnet-5\b/.test(model) ? 21000 : 16000,
+      ...samplingParamsFor(model),
+      tools: [EXTRACTION_TOOL],
+      tool_choice: { type: "tool", name: EXTRACTION_TOOL.name },
+      messages,
+    },
+    betas: [],
+    stream: false,
+    toolCallUnforced: false,
+  }
+}
+
+/** The model answered without calling EXTRACTION_TOOL (possible only when the
+ *  call can't be forced). Worth one retry. */
+export class NoToolCallError extends Error {
+  constructor(stopReason: string | null | undefined) {
+    super(`malformed extraction: the model did not call ${EXTRACTION_TOOL.name} (stop_reason ${stopReason ?? "?"})`)
+    this.name = "NoToolCallError"
+  }
+}
+
+/**
+ * Check an extraction response before extractParsedResult reads it. Refusals
+ * throw (never read a decline as an empty extraction). On the unforced-tool
+ * route a missing tool call throws NoToolCallError instead of falling through
+ * to extractParsedResult's text-JSON fallback.
+ */
+export function extractionContent(
+  res: { stop_reason?: string | null; content?: ClaudeContentBlock[] },
+  toolCallUnforced: boolean,
+): { content: ClaudeContentBlock[] } {
+  assertNotRefused(res)
+  const blocks = res.content ?? []
+  if (toolCallUnforced && !blocks.some((b) => b.type === "tool_use" && b.name === EXTRACTION_TOOL.name)) {
+    throw new NoToolCallError(res.stop_reason)
+  }
+  return { content: blocks }
 }

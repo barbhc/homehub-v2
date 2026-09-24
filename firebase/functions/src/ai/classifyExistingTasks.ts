@@ -15,10 +15,11 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
 import Anthropic from "@anthropic-ai/sdk"
 import { chargeAiQuota } from "../lib/quota.js"
+import { assertNotRefused, thinkingParamsFor } from "../../../../shared/parse/modelParams.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
-const MODEL = "claude-haiku-4-5-20251001"
+const MODEL = "claude-haiku-4-5"
 const BATCH_SIZE = 25
 
 type CareType = "cleaning" | "maintenance" | "mixed"
@@ -393,6 +394,7 @@ export const classifyExistingTasks = onCall(
           res = await client.messages.create({
             model: MODEL,
             max_tokens: 4096,
+            ...thinkingParamsFor(MODEL),
             system: SYSTEM_PROMPT,
             messages: [{ role: "user", content: buildUserPrompt(batch, itemMap) }],
           })
@@ -400,6 +402,14 @@ export const classifyExistingTasks = onCall(
           // No output, no charge.
           await hold.refund()
           throw e
+        }
+        try {
+          assertNotRefused(res)
+        } catch (e) {
+          // A decline produced no output, so it isn't billed — refund it, and
+          // surface it as a real error rather than an empty classification.
+          await hold.refund()
+          throw new HttpsError("unavailable", e instanceof Error ? e.message : "Classifier declined")
         }
         const text = res.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("")
         const parsed = parseClassifierOutput(text)

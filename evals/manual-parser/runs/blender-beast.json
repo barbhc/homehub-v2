@@ -1,15 +1,257 @@
 {
  "chunks": [
   {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Never Blend Hot Ingredients",
+   "content": "Never blend hot ingredients — this causes excessive steam and pressure buildup which can separate the vessel from the base, resulting in injury or property damage.",
+   "tags": [
+    "safety",
+    "hot",
+    "pressure"
+   ],
+   "scenarios": [
+    {
+     "condition": "User wants to blend hot soup or liquid",
+     "steps": [
+      "Allow ingredients to cool to room temperature before adding to vessel",
+      "Never blend hot or steaming ingredients",
+      "If the LED flashes red, the contents are too hot to safely blend - power off and let cool"
+     ]
+    }
+   ],
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Never Blend Carbonated Ingredients or Leavening Agents",
+   "content": "Never blend carbonated ingredients or rising/leavening agents (baking powder, baking soda, yeast, etc.) as they can cause excessive pressure buildup, potentially causing injury or property damage.",
+   "tags": [
+    "safety",
+    "carbonated",
+    "leavening"
+   ],
+   "scenarios": [
+    {
+     "condition": "User wants to blend carbonated drinks or baking ingredients",
+     "steps": [
+      "Do not add carbonated beverages to the vessel",
+      "Do not add baking powder, baking soda, yeast, cream of tartar, or similar leavening agents",
+      "Choose non-carbonated, non-leavened ingredients instead"
+     ]
+    }
+   ],
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Blade Assembly and Interlock Safety",
+   "content": "Blades are extremely sharp; never operate the blender without the vessel properly assembled to the blade housing, and never try to defeat the interlock mechanism.",
+   "tags": [
+    "safety",
+    "blades",
+    "interlock"
+   ],
+   "scenarios": [
+    {
+     "condition": "Assembling or handling the blade assembly",
+     "steps": [
+      "Always grasp the blade assembly by its housing, never touch the blade edge",
+      "Ensure the vessel is properly and fully installed before operating",
+      "Never attempt to bypass or defeat the safety interlock"
+     ]
+    }
+   ],
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Electric Shock Prevention",
+   "content": "Do not put the cord, plug, or base in water or other liquid, do not use extension cords, and do not operate with a damaged cord or plug.",
+   "tags": [
+    "safety",
+    "electric shock",
+    "cord"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Keep Hands and Objects Clear of Vessel",
+   "content": "Keep hands, hair, clothing, and utensils out of the vessel while powered on; a scraper may only be used when the appliance is not running.",
+   "tags": [
+    "safety",
+    "hands",
+    "vessel"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Power Down Before Removing Vessel",
+   "content": "Always turn the power switch off and wait until the motor has fully stopped, blades stop spinning, and ingredients settle before removing the blending vessel from the base.",
+   "tags": [
+    "safety",
+    "power off",
+    "vessel removal"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "One Minute Max Run Time",
+   "content": "Never operate the unit for longer than one minute continuously; blade friction over prolonged periods can build heat and pressure in a closed vessel, risking injury or damage.",
+   "tags": [
+    "safety",
+    "run time",
+    "overheat"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Keep Ventilation Holes Clear",
+   "content": "Ensure the ventilation holes on the rear of the blender base are kept clean and never obstructed, to prevent overheating.",
+   "tags": [
+    "safety",
+    "ventilation",
+    "overheat"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Do Not Store Ingredients With Blade Attached",
+   "content": "Never store food in the blending vessel with the blade assembly attached, as active ingredients can release gases and build dangerous pressure; use the Storage Lid instead after allowing gases to escape.",
+   "tags": [
+    "safety",
+    "storage",
+    "gas buildup"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Placement and Usage Restrictions",
+   "content": "Always use the blender on a dry, stable, level surface at least 12 inches from the counter edge, never on/near hot surfaces, and never outdoors or in a microwave/dishwasher.",
+   "tags": [
+    "safety",
+    "placement",
+    "surface"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Do Not Overfill or Run Empty",
+   "content": "Do not overfill the vessel beyond the MAX line and do not operate the blender with an empty vessel, both of which can damage the motor.",
+   "tags": [
+    "safety",
+    "overfill",
+    "empty vessel"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Thermal Overload Reset",
+   "content": "If the blender overheats, a thermal switch will activate and shut off the motor; power off and let the unit cool for approximately one hour before using again.",
+   "tags": [
+    "safety",
+    "thermal switch",
+    "overheat"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
    "chunk_type": "specs",
    "content_level": null,
-   "title": "B10 Blender Technical Specifications",
-   "content": "The Beast B10 Health Blender operates at 120 VAC, 60 Hz, with a maximum wattage of 1000W. It is for household use only.",
+   "title": "Model & Electrical Specifications",
+   "content": "This manual covers Model B10, rated 120 VAC, 60 Hz, max wattage 1000 W.",
    "tags": [
     "specs",
     "voltage",
-    "wattage",
-    "b10"
+    "model"
    ],
    "scenarios": null,
    "source_pages": [
@@ -22,14 +264,12 @@
   {
    "chunk_type": "specs",
    "content_level": null,
-   "title": "Parts Included with B10",
-   "content": "Standard B10 includes: B10 Blender Base (with Standby Switch, Power Switch, Power Cord), Blade Assembly, 1000mL Blending Vessel, Vessel Drinking Lid, Carry Cap, and Storage Lid. B10+ Bundle adds a 500mL Blending Vessel and an Additional Storage Lid.",
+   "title": "What's Included",
+   "content": "B10 package includes: Blender Base, Blade Assembly, 1000mL Blending Vessel, Vessel Drinking Lid, Carry Cap, and Storage Lid; B10+ bundle adds a 500mL Blending Vessel and an additional Storage Lid.",
    "tags": [
+    "specs",
     "parts",
-    "included",
-    "b10",
-    "bundle",
-    "vessel"
+    "accessories"
    ],
    "scenarios": null,
    "source_pages": [
@@ -44,13 +284,12 @@
   {
    "chunk_type": "specs",
    "content_level": null,
-   "title": "Vessel Max Fill Volumes",
-   "content": "The 500mL Blending Vessel has a maximum fill volume of 350mL when used for blending. The 1000mL Blending Vessel has a maximum fill volume of 700mL when used for blending.",
+   "title": "Max Fill Lines for Blending",
+   "content": "The 500mL vessel has a maximum fill of 350mL for blending; the 1000mL vessel has a maximum fill of 700mL for blending.",
    "tags": [
-    "fill",
-    "capacity",
-    "vessel",
-    "max-fill"
+    "specs",
+    "fill line",
+    "capacity"
    ],
    "scenarios": null,
    "source_pages": [
@@ -59,262 +298,115 @@
    "diagram_pages": [
     7
    ],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "critical",
-   "title": "Never Blend Hot Ingredients",
-   "content": "Never blend hot ingredients — excessive steam and pressure can build up in the vessel, potentially causing the vessel and blender base to separate, resulting in personal injury and/or property damage.",
-   "tags": [
-    "hot",
-    "steam",
-    "pressure",
-    "injury",
-    "safety"
-   ],
-   "scenarios": [
+   "table_data": [
     {
-     "condition": "You have hot liquid or food you want to blend",
-     "steps": [
-      "Allow contents to cool to room temperature before placing in the Blending Vessel.",
-      "If the LED shows a flashing red light, the contents are too hot — power off and wait.",
-      "Never seal hot contents in the vessel."
+     "table_title": "Max Fill Lines",
+     "columns": [
+      "Vessel",
+      "Max Fill for Blending"
+     ],
+     "rows": [
+      [
+       "500mL Vessel",
+       "350mL"
+      ],
+      [
+       "1000mL Vessel",
+       "700mL"
+      ]
      ]
     }
    ],
-   "source_pages": [
-    5
-   ],
-   "diagram_pages": [],
-   "table_data": null,
    "applies_to": []
   },
   {
-   "chunk_type": "safety",
-   "content_level": "critical",
-   "title": "Never Blend Carbonated or Leavening Ingredients",
-   "content": "Never blend carbonated ingredients or rising agents (leavens such as baking powder, baking soda, yeast, egg whites, whey protein, sea moss) — these produce foam and pressure buildup that can cause personal injury or property damage.",
+   "chunk_type": "specs",
+   "content_level": null,
+   "title": "LED Light Indicator Meanings",
+   "content": "The base LED indicates status: off=unit off, solid amber=on with no blade/vessel connected, solid white=ready to blend, solid green=blending in progress, flashing amber=motor overload, flashing red=contents too hot to blend.",
    "tags": [
-    "carbonated",
-    "leavening",
-    "pressure",
-    "safety",
-    "injury"
+    "specs",
+    "led",
+    "indicator"
    ],
-   "scenarios": [
+   "scenarios": null,
+   "source_pages": [
+    8
+   ],
+   "diagram_pages": [
+    8
+   ],
+   "table_data": [
     {
-     "condition": "Recipe calls for carbonated or leavening ingredients",
-     "steps": [
-      "Do not add carbonated beverages, baking soda, baking powder, yeast, egg whites, whey protein, sea moss, cream of tartar, cultured or fermented ingredients, or salt of hartshorn to the Beast Blender.",
-      "Use alternative non-carbonated, non-leavening ingredients instead."
+     "table_title": "B10 Blender Light Indicators",
+     "columns": [
+      "LED Behavior",
+      "Meaning"
+     ],
+     "rows": [
+      [
+       "Light Off",
+       "Unit Off"
+      ],
+      [
+       "Amber - Solid",
+       "Unit On, No Blade and/or Vessel Connected"
+      ],
+      [
+       "White - Solid",
+       "Unit On, Ready to Blend"
+      ],
+      [
+       "Green - Solid",
+       "Unit On, Blending In Progress"
+      ],
+      [
+       "Amber - Flashing",
+       "Motor Overload"
+      ],
+      [
+       "Red - Flashing",
+       "Vessel Contents Too Hot to Safely Blend"
+      ]
      ]
     }
    ],
-   "source_pages": [
-    5
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Blade and Vessel Safety During Operation",
-   "content": "Never operate the blender without the vessel properly assembled to the blade housing; never place the blade assembly on the base without the blending vessel attached. Always wait until the motor has stopped completely before removing the blending vessel.",
-   "tags": [
-    "blade",
-    "vessel",
-    "assembly",
-    "safety",
-    "motor"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Electrical Safety and Power Cord",
-   "content": "Do not put the cord, plug, or base in water or any other liquid. Do not operate with a damaged cord or plug. Do not let the power cord hang over the edge of a counter or touch hot surfaces. Extension cords are not recommended.",
-   "tags": [
-    "electrical",
-    "cord",
-    "shock",
-    "safety"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Motor Run Time Limit",
-   "content": "Never operate the unit for longer than one minute — blade friction for prolonged periods can cause heat and pressure buildup in the closed vessel, creating a risk of personal injury and/or property damage.",
-   "tags": [
-    "motor",
-    "run-time",
-    "overheat",
-    "safety"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Ventilation Holes Must Stay Clear",
-   "content": "Ensure the ventilation holes on the rear of the blender base are kept clean and never obstructed to prevent overheating.",
-   "tags": [
-    "ventilation",
-    "airflow",
-    "overheating",
-    "safety"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "contextual",
-   "title": "Storing Ingredients in the Blending Vessel",
-   "content": "Never store ingredients in the blending vessel with the blade assembly attached — some foods release gases that expand in a sealed container, creating pressure buildup and risk of injury. To store, first remove the lid to let gases escape, then cover with the Storage Lid and refrigerate.",
-   "tags": [
-    "storage",
-    "pressure",
-    "safety",
-    "vessel"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    6
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "contextual",
-   "title": "Overfill and Empty Vessel Warnings",
-   "content": "Do not overfill the blending vessel — fill only to the MAX line. Do not operate with an empty vessel, as this may cause damage to the motor.",
-   "tags": [
-    "overfill",
-    "max-fill",
-    "motor",
-    "safety"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    6
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "contextual",
-   "title": "Thermal Overload Shutoff",
-   "content": "If the blender overheats, a thermal switch will activate and shut off the motor. To reset, power off the unit and let it cool for approximately one hour before using again.",
-   "tags": [
-    "thermal",
-    "overheating",
-    "shutoff",
-    "reset"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    6
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "reference",
-   "title": "General Use Restrictions",
-   "content": "Do not use the blender outdoors, under the influence of drugs or alcohol, or with a voltage converter. Do not use attachments not recommended by the manufacturer. Always use on a dry, stable, level surface within 12 inches of the edge of the work surface.",
-   "tags": [
-    "restrictions",
-    "safety",
-    "use",
-    "accessories"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    6,
-    7
-   ],
-   "diagram_pages": [],
-   "table_data": null,
    "applies_to": []
   },
   {
    "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "First-Time Disassembly and Wash",
-   "content": "Before first use, remove the Blade Assembly from the Blending Vessel by turning counterclockwise (blades are sharp — handle with care). Hand wash all parts except the B10 Blender Base and Power Cord in warm, soapy water; rinse and dry thoroughly. Do not immerse the base or place the Blade Assembly in a dishwasher.",
+   "content_level": "everyday",
+   "title": "First-Time Setup and Cleaning",
+   "content": "Before first use, remove the blade assembly by turning it counterclockwise, then hand wash all parts except the base and power cord in warm soapy water, rinse, and dry.",
    "tags": [
-    "first-use",
     "setup",
-    "wash",
-    "blade",
-    "vessel"
+    "first use",
+    "washing"
    ],
    "scenarios": null,
    "source_pages": [
     7
    ],
-   "diagram_pages": [
-    7
-   ],
+   "diagram_pages": [],
    "table_data": null,
    "applies_to": []
   },
   {
    "chunk_type": "how_to",
    "content_level": "everyday",
-   "title": "How to Use the B10 Blender (Full Cycle)",
-   "content": "Plug the base into a 120V outlet and press the rear Power Switch to turn on. Fill the Blending Vessel (at least 25% liquid, chop large ingredients, do not exceed MAX line), attach the Blade Assembly clockwise, then mount the vessel onto the base by twisting clockwise until it clicks. Press the Standby Switch for more than 1 second to begin the 1-minute timed blend cycle (blends 20s, slows, blends 25s, slows, blends 15s, then stops). After blending, unmount the vessel counter-clockwise, remove the Blade Assembly counter-clockwise, then power off with the rear Power Switch.",
+   "title": "How to Use the B10 Blender (Blend Cycle)",
+   "content": "Plug in and power on the base, fill the vessel with ingredients (at least 25% liquid, MAX line respected), attach the blade assembly clockwise, mount the vessel onto the base by twisting clockwise until it clicks, then press the Standby Switch for >1 second to start the automatic 1-minute timed blend cycle (20s blend, brief slowdown, 25s blend, brief slowdown, 15s blend, then stop).",
    "tags": [
+    "blending",
     "operation",
-    "blend",
-    "cycle",
-    "standby",
-    "power"
+    "blend cycle"
    ],
    "scenarios": null,
    "source_pages": [
-    9,
-    10
+    9
    ],
    "diagram_pages": [
-    9,
-    10
+    9
    ],
    "table_data": null,
    "applies_to": []
@@ -322,39 +414,38 @@
   {
    "chunk_type": "how_to",
    "content_level": "everyday",
-   "title": "Pulse Blending",
-   "content": "Press the Standby Switch for less than 1 second to pulse the blades. Repeat until the desired consistency is achieved — useful for coarsely chopping ingredients without fully emulsifying them.",
+   "title": "Finishing a Blend and Storage Options",
+   "content": "After blending, unmount the vessel by twisting counterclockwise, remove the blade assembly by turning counterclockwise, power off the base, then drink directly, attach the Drinking Lid and Carry Cap for on-the-go, or use the Storage Lid to refrigerate for later.",
+   "tags": [
+    "blending",
+    "finish",
+    "storage lid",
+    "drinking lid"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    10
+   ],
+   "diagram_pages": [
+    10
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Pulse Function for Coarse Chopping",
+   "content": "Press the Standby Switch for less than 1 second to pulse the blades, useful for coarsely chopping ingredients like coffee beans, salsa, or onions without fully emulsifying them; repeat until desired texture is reached.",
    "tags": [
     "pulse",
     "chop",
-    "standby",
-    "operation"
+    "texture"
    ],
    "scenarios": null,
    "source_pages": [
-    10
-   ],
-   "diagram_pages": [
-    10
-   ],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "everyday",
-   "title": "Serving and Storing Your Blend",
-   "content": "Drink directly from the Blending Vessel, add the Vessel Drinking Lid and Carry Cap to take it on-the-go, or use the Storage Lid to store the blend in the refrigerator for later.",
-   "tags": [
-    "serving",
-    "storage",
-    "carry",
-    "lid",
-    "on-the-go"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    10
+    10,
+    11
    ],
    "diagram_pages": [
     10
@@ -365,13 +456,12 @@
   {
    "chunk_type": "how_to",
    "content_level": "reference",
-   "title": "Shake Method for Stuck Ingredients",
-   "content": "If ingredients become stuck during blending, remove the Blade Assembly with Blending Vessel from the Blender Base, shake the vessel up and down thoroughly, then reattach to the Blender Base to finish blending.",
+   "title": "Shake Method to Loosen Stuck Ingredients",
+   "content": "If tough foods or limited liquid cause contents to stick, remove the blade assembly with vessel from the base, shake vigorously up and down, then reattach to the base to continue blending.",
    "tags": [
-    "stuck",
-    "shake",
-    "tips",
-    "troubleshooting"
+    "stuck ingredients",
+    "shake method",
+    "tips"
    ],
    "scenarios": null,
    "source_pages": [
@@ -385,13 +475,12 @@
    "chunk_type": "specs",
    "content_level": null,
    "title": "Vessel Fill Example Chart",
-   "content": "Reference chart for ingredient types, amounts, and operating times per vessel size.",
+   "content": "Example ingredient loads and operating times: 1000mL vessel blends 280g carrots+420g water in 60s or grinds 600g wheat/rice/corn in 60s; 500mL vessel blends 140g carrots+210g water in 60s or grinds 100g coffee beans/spices in 20s.",
    "tags": [
-    "vessel",
+    "specs",
+    "chart",
     "capacity",
-    "blending",
-    "grinding",
-    "chart"
+    "operating time"
    ],
    "scenarios": null,
    "source_pages": [
@@ -402,8 +491,8 @@
     {
      "table_title": "Vessel Fill Example Chart",
      "columns": [
-      "Mode",
-      "Type/Load",
+      "Type",
+      "Load",
       "Attachment",
       "Capacity",
       "Operating Time"
@@ -412,28 +501,28 @@
       [
        "BLENDING",
        "Carrots & Water",
-       "1000mL Vessel (700mL Max Fill) with Blade Assembly",
-       "280g Carrots + 420g Water",
+       "1000mL Blending Vessel (700mL Max Fill) with Blade Assembly",
+       "280g Carrots / 420g Water",
        "60s"
       ],
       [
        "GRINDING",
        "Wheat, Rice, Corn",
-       "1000mL Vessel (700mL Max Fill) with Blade Assembly",
+       "1000mL Blending Vessel (700mL Max Fill) with Blade Assembly",
        "600g",
        "60s"
       ],
       [
        "BLENDING",
        "Carrots & Water",
-       "500mL Vessel (350mL Max Fill) with Blade Assembly",
-       "140g Carrots + 210g Water",
+       "500mL Blending Vessel (350mL Max Fill) with Blade Assembly",
+       "140g Carrots / 210g Water",
        "60s"
       ],
       [
        "GRINDING",
        "Coffee Beans, Spices",
-       "500mL Vessel (350mL Max Fill) with Blade Assembly",
+       "500mL Blending Vessel (350mL Max Fill) with Blade Assembly",
        "100g",
        "20s"
       ]
@@ -443,104 +532,31 @@
    "applies_to": []
   },
   {
-   "chunk_type": "specs",
-   "content_level": null,
-   "title": "B10 LED Light Indicator Reference",
-   "content": "The LED on the blender base indicates operational status at a glance.",
-   "tags": [
-    "led",
-    "indicator",
-    "light",
-    "status"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    8
-   ],
-   "diagram_pages": [
-    8
-   ],
-   "table_data": [
-    {
-     "table_title": "B10 Blender LED Light Indicators",
-     "columns": [
-      "LED Behavior",
-      "Meaning"
-     ],
-     "rows": [
-      [
-       "Light Off",
-       "Unit Off"
-      ],
-      [
-       "Amber – Solid",
-       "Unit On, No Blade and/or Vessel Connected"
-      ],
-      [
-       "White – Solid",
-       "Unit On, Ready to Blend"
-      ],
-      [
-       "Green – Solid",
-       "Unit On, Blending In Progress"
-      ],
-      [
-       "Amber – Flashing",
-       "Motor Overload"
-      ],
-      [
-       "Red – Flashing",
-       "Vessel Contents Too Hot to Safely Blend"
-      ]
-     ]
-    }
-   ],
-   "applies_to": []
-  },
-  {
    "chunk_type": "troubleshooting",
-   "content_level": null,
-   "title": "LED Indicator Troubleshooting",
-   "content": "Use the LED light behavior to diagnose common issues with the B10 Blender.",
+   "title": "No Visible Light on Base",
+   "content": "If the LED shows no light, the unit is not powered on; confirm it is plugged into a working 120V outlet and press the power switch at the back.",
    "tags": [
-    "led",
     "troubleshooting",
-    "indicator",
-    "light"
+    "no power"
    ],
    "scenarios": null,
    "source_pages": [
-    12
+    19
    ],
    "diagram_pages": [],
    "table_data": [
     {
-     "table_title": "LED Troubleshooting",
+     "table_title": "Troubleshooting - No Light",
      "columns": [
-      "LED Display",
-      "Meaning",
+      "Symptom",
+      "Cause",
       "Fix"
      ],
      "rows": [
       [
        "No Visible Light",
        "Unit not powered on",
-       "Ensure base is plugged into a functioning 120V outlet; press the rear Power Switch to turn on."
-      ],
-      [
-       "Solid Amber",
-       "Blade Assembly and/or Blending Vessel not properly connected",
-       "Firmly thread Blade Assembly onto Vessel, then twist Vessel+Blade onto base clockwise until it clicks and LED turns solid white."
-      ],
-      [
-       "Flashing Amber",
-       "Motor overloaded",
-       "Power off via rear Power Switch; wait 30 seconds. If contents are stuck, use Shake Method. If overfilled, remove Blade Assembly and reduce contents to below Max Fill line. If light persists, motor may be overheated — allow 1 hour to cool."
-      ],
-      [
-       "Flashing Red",
-       "Vessel contents too hot to safely blend",
-       "Power off; wait 30 seconds for reset. Ensure contents are at or below room temperature before blending again."
+       "Confirm outlet works, press power switch at rear"
       ]
      ]
     }
@@ -549,38 +565,130 @@
   },
   {
    "chunk_type": "troubleshooting",
-   "content_level": null,
-   "title": "Motor Laboring / Inefficient Blending",
-   "content": "If the motor sounds like it is laboring and blending is not efficient, the vessel may be overfilled or contents may be stuck.",
+   "title": "Solid Amber Light - Blade/Vessel Not Connected",
+   "content": "A solid amber light means the base is powered but the blade assembly and/or vessel is not properly connected; confirm the blade is firmly threaded and the vessel is twisted onto the base until it clicks, showing solid white when ready.",
    "tags": [
-    "motor",
-    "stuck",
-    "overfill",
-    "performance"
+    "troubleshooting",
+    "amber light",
+    "connection"
    ],
    "scenarios": null,
    "source_pages": [
-    12
+    19
    ],
    "diagram_pages": [],
    "table_data": [
     {
-     "table_title": "Motor Laboring Troubleshooting",
+     "table_title": "Troubleshooting - Solid Amber",
      "columns": [
-      "Problem",
+      "Symptom",
       "Cause",
       "Fix"
      ],
      "rows": [
       [
-       "Motor laboring, blending inefficient",
-       "Contents stuck in vessel",
-       "Use the Shake Method: remove vessel+blade from base, shake up and down, reattach and continue blending."
-      ],
+       "Solid Amber Light",
+       "Blade assembly and/or vessel not properly connected",
+       "Confirm blade is firmly threaded to vessel; twist vessel onto base until it clicks"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "title": "Flashing Amber Light - Motor Overload",
+   "content": "A flashing amber light indicates motor overload; power off, wait 30 seconds, then use the Shake Method if contents are stuck, reduce fill if overfilled, or let the motor cool for an hour if the light persists.",
+   "tags": [
+    "troubleshooting",
+    "motor overload",
+    "amber flashing"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    19
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Troubleshooting - Flashing Amber",
+     "columns": [
+      "Symptom",
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
       [
-       "Motor laboring, blending inefficient",
-       "Vessel overfilled beyond Max Fill line",
-       "Remove Blade Assembly from vessel, remove enough contents to bring fill below Max Fill line, then reattach and continue from step 4 of the How to Use instructions."
+       "Flashing Amber Light",
+       "Motor overloaded",
+       "Power off, wait 30s; free stuck ingredients (Shake Method) or reduce fill below Max Line; if persists, cool for 1 hour"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "title": "Flashing Red Light - Contents Too Hot",
+   "content": "A flashing red light means vessel contents are too hot to safely blend; power off, wait 30 seconds, and ensure contents are at or below room temperature before continuing.",
+   "tags": [
+    "troubleshooting",
+    "red light",
+    "too hot"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Troubleshooting - Flashing Red",
+     "columns": [
+      "Symptom",
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
+      [
+       "Flashing Red Light",
+       "Contents too hot to safely blend",
+       "Power off, wait 30s, ensure contents are at/below room temperature"
+      ]
+     ]
+    }
+   ],
+   "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "title": "Motor Laboring or Inefficient Blending",
+   "content": "If the motor sounds like it's laboring and blending is inefficient, the vessel may be overfilled or contents stuck; use the Shake Method to free ingredients, or remove excess contents below the Max Fill line and continue.",
+   "tags": [
+    "troubleshooting",
+    "laboring motor",
+    "inefficient blend"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    20
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Troubleshooting - Laboring Motor",
+     "columns": [
+      "Symptom",
+      "Cause",
+      "Fix"
+     ],
+     "rows": [
+      [
+       "Motor Laboring / Inefficient Blending",
+       "Vessel overfilled or contents stuck",
+       "Use Shake Method or reduce fill below Max Fill line, then continue blending"
       ]
      ]
     }
@@ -590,18 +698,16 @@
   {
    "chunk_type": "care",
    "content_level": "everyday",
-   "title": "Cleaning After Each Use",
-   "content": "After each use, rinse the Blade Assembly under tap water (use a soapy sponge if needed; do not place in dishwasher; dry on a drying rack). Rinse Blending Vessels and clean with the Beast brush (if included), or place Blending Vessels on the top rack of the dishwasher only. Clean the Blender Base periodically with a damp towel or sponge.",
+   "title": "Routine Cleaning After Each Use",
+   "content": "Clean the product immediately after each use as described in the Before Use section: hand wash removable parts in warm soapy water, rinse, and dry.",
    "tags": [
     "cleaning",
-    "blade",
-    "vessel",
-    "base",
-    "after-use"
+    "after use",
+    "hand wash"
    ],
    "scenarios": null,
    "source_pages": [
-    13
+    21
    ],
    "diagram_pages": [],
    "table_data": null,
@@ -610,19 +716,16 @@
   {
    "chunk_type": "care",
    "content_level": "everyday",
-   "title": "Stain Prevention for Light-Colored Components",
-   "content": "White and grey colored components are susceptible to staining from turmeric, beets, carrots, and other bright-colored ingredients. If these ingredients contact light-colored components, immediately follow the cleaning instructions to minimize staining.",
+   "title": "Rinse and Dry Blade Assembly",
+   "content": "Rinse the Blade Assembly under tap water with a soapy sponge if necessary and dry on a drying rack; never place the Blade Assembly in the dishwasher, and never remove the gasket from it.",
    "tags": [
-    "stain",
     "cleaning",
-    "white",
-    "grey",
-    "turmeric",
-    "beets"
+    "blade assembly",
+    "gasket"
    ],
    "scenarios": null,
    "source_pages": [
-    13
+    21
    ],
    "diagram_pages": [],
    "table_data": null,
@@ -630,18 +733,35 @@
   },
   {
    "chunk_type": "care",
-   "content_level": "reference",
-   "title": "Ventilation Hole Maintenance",
-   "content": "Ensure the ventilation holes on the rear of the blender base are kept clean and never obstructed to prevent motor overheating.",
+   "content_level": "everyday",
+   "title": "Clean Blending Vessels",
+   "content": "Rinse the Blending Vessels and clean with the Beast brush if included; vessels may optionally be placed on the top rack of the dishwasher only.",
    "tags": [
-    "ventilation",
-    "airflow",
+    "cleaning",
+    "vessel",
+    "dishwasher"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    21
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Wipe Down Blender Base",
+   "content": "Clean the Blender Base periodically with a damp towel or sponge; never immerse the base or power cord in water.",
+   "tags": [
+    "cleaning",
     "base",
-    "maintenance"
+    "exterior"
    ],
    "scenarios": null,
    "source_pages": [
-    5
+    21
    ],
    "diagram_pages": [],
    "table_data": null,
@@ -650,18 +770,16 @@
   {
    "chunk_type": "care",
    "content_level": "reference",
-   "title": "Blade Particle Cleaning",
-   "content": "Use a small brush (not included) to remove particles of food lodged underneath the blades. Never remove the gasket from the Beast Blade Assembly.",
+   "title": "Prevent Staining on Light-Colored Parts",
+   "content": "White and grey components can stain from turmeric, beets, carrots, or other bright ingredients; rinse these components immediately if contact occurs.",
    "tags": [
-    "blade",
-    "brush",
-    "particles",
-    "gasket",
-    "cleaning"
+    "cleaning",
+    "staining",
+    "light colored parts"
    ],
    "scenarios": null,
    "source_pages": [
-    13
+    21
    ],
    "diagram_pages": [],
    "table_data": null,
@@ -670,101 +788,100 @@
  ],
  "tasks": [
   {
-   "title": "First-Time Parts Wash",
-   "description": "Disassemble and hand wash all parts (except the base and power cord) before using the blender for the first time.",
+   "title": "Wash Removable Parts Before First Use",
+   "description": "Disassemble the blender and hand wash all removable parts before using it for the first time.",
    "care_type": "cleaning",
-   "justification": "Removes manufacturing residues and ensures food-safe surfaces before first use.",
-   "priority_tier": "essential",
-   "risk_level": "prevent_damage",
-   "estimated_minutes": 15,
+   "justification": "Removes manufacturing residues and ensures food-safe first use.",
+   "priority_tier": "recommended",
+   "risk_level": "comfort",
+   "estimated_minutes": 10,
    "schedule_type": "setup",
    "interval_days": null,
-   "instructions_text": "Remove the Blade Assembly from the Blending Vessel by turning it counterclockwise (blades are sharp — handle carefully). Hand wash all parts except the B10 Blender Base and Power Cord in warm, soapy water. Rinse and dry thoroughly before assembling.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Remove the Blade Assembly from the Blending Vessel by turning it counterclockwise. Hand wash all parts except the Blender Base and Power Cord in warm soapy water, then rinse and dry thoroughly.",
    "source_page": 7,
    "tags": [
-    "first-use",
     "setup",
-    "wash",
-    "blade",
-    "vessel"
+    "first use"
    ],
-   "diagram_pages": [
-    7
-   ],
+   "diagram_pages": [],
    "symptom_tags": [],
    "re_check_triggers": [],
    "applies_to": [],
    "supplies": []
   },
   {
-   "title": "Clean Blade Assembly",
-   "description": "Rinse and clean the Blade Assembly after each use to prevent food buildup and maintain hygiene.",
-   "care_type": "maintenance",
-   "justification": "Food particles lodged under the blades can harbor bacteria and degrade blade performance over time.",
-   "priority_tier": "essential",
-   "risk_level": "prevent_damage",
-   "estimated_minutes": 5,
-   "schedule_type": "after_each_use",
-   "interval_days": null,
-   "instructions_text": "Rinse the Blade Assembly under tap water. Use a soapy sponge if needed. Use a small brush (not included) to remove any food particles lodged underneath the blades. Do not place the Blade Assembly in the dishwasher. Dry on a drying rack. Never remove the gasket from the Blade Assembly.",
-   "source_page": 13,
-   "tags": [
-    "blade",
-    "cleaning",
-    "after-use",
-    "brush"
-   ],
-   "diagram_pages": [],
-   "symptom_tags": [
-    "performance_drop",
-    "odor"
-   ],
-   "re_check_triggers": [],
-   "applies_to": [],
-   "supplies": []
-  },
-  {
-   "title": "Clean Blending Vessels",
-   "description": "Rinse and clean the Blending Vessels after each use to maintain hygiene and prevent staining.",
+   "title": "Hand Wash Removable Parts After Each Use",
+   "description": "Wash the vessel, lids, and blade assembly by hand after every use.",
    "care_type": "cleaning",
-   "justification": "Residue left in the vessel can cause odors and staining, especially from brightly colored ingredients like turmeric or beets.",
+   "justification": "Prevents food residue buildup, staining, and odor from leftover ingredients.",
    "priority_tier": "recommended",
-   "risk_level": "performance",
-   "estimated_minutes": 5,
-   "schedule_type": "after_each_use",
-   "interval_days": null,
-   "instructions_text": "Rinse the Blending Vessel and clean with the Beast brush (if included). Alternatively, place Blending Vessels on the top rack of the dishwasher only. If bright-colored ingredients (turmeric, beets, carrots) contacted the vessel, clean immediately to minimize staining.",
-   "source_page": 13,
-   "tags": [
-    "vessel",
-    "cleaning",
-    "dishwasher",
-    "stain"
-   ],
-   "diagram_pages": [],
-   "symptom_tags": [
-    "odor"
-   ],
-   "re_check_triggers": [],
-   "applies_to": [],
-   "supplies": []
-  },
-  {
-   "title": "Clean Blender Base",
-   "description": "Wipe the Blender Base periodically with a damp towel or sponge to keep it clean.",
-   "care_type": "cleaning",
-   "justification": "Keeping the base clean prevents buildup of food residue and maintains the appearance of the unit.",
-   "priority_tier": "optional",
    "risk_level": "comfort",
    "estimated_minutes": 5,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Hand wash all removable parts (vessel, lids, blade assembly) in warm soapy water immediately after use. Rinse thoroughly and dry.",
+   "source_page": 21,
+   "tags": [
+    "cleaning",
+    "after use"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "odor",
+    "wont_clean"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Rinse and Dry Blade Assembly",
+   "description": "Rinse the sharp blade assembly under tap water and dry on a rack after each use.",
+   "care_type": "cleaning",
+   "justification": "Keeps blades free of food buildup and prevents corrosion or odor; the gasket must never be removed.",
+   "priority_tier": "recommended",
+   "risk_level": "performance",
+   "estimated_minutes": 3,
+   "schedule_type": "after_each_use",
+   "interval_days": null,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Rinse the Blade Assembly under running water, using a soapy sponge if needed. Dry it on a drying rack. Never place it in the dishwasher and never remove the gasket.",
+   "source_page": 21,
+   "tags": [
+    "blade",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "odor",
+    "wont_clean"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Wipe Down Blender Base",
+   "description": "Wipe the exterior of the Blender Base periodically with a damp cloth.",
+   "care_type": "cleaning",
+   "justification": "Cosmetic only — keeps the base free of spills and dust; the base must never be submerged.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 2,
    "schedule_type": "as_needed",
    "interval_days": null,
-   "instructions_text": "Wipe the Blender Base with a damp towel or sponge. Do not immerse the base in water or other liquids. Do not use abrasive cleaners.",
-   "source_page": 13,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Wipe the Blender Base with a damp towel or sponge as needed. Do not immerse the base or power cord in water.",
+   "source_page": 21,
    "tags": [
-    "base",
-    "cleaning",
-    "wipe"
+    "exterior",
+    "cleaning"
    ],
    "diagram_pages": [],
    "symptom_tags": [],
@@ -773,32 +890,82 @@
    "supplies": []
   },
   {
-   "title": "Clear Rear Ventilation Holes",
-   "description": "Periodically check and clear the ventilation holes on the rear of the blender base to prevent motor overheating.",
-   "care_type": "maintenance",
-   "justification": "Blocked ventilation holes cause heat buildup that can trigger the thermal shutoff or permanently damage the motor.",
-   "priority_tier": "recommended",
-   "risk_level": "prevent_damage",
-   "estimated_minutes": 5,
+   "title": "Rinse Light-Colored Parts After Staining Contact",
+   "description": "Immediately rinse white or grey components if they touch turmeric, beets, carrots, or other bright ingredients.",
+   "care_type": "cleaning",
+   "justification": "Prevents permanent staining of light-colored plastic components.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 2,
    "schedule_type": "as_needed",
    "interval_days": null,
-   "instructions_text": "Inspect the ventilation holes on the rear of the Blender Base. If any holes are blocked by dust or debris, gently clear them with a dry cloth or soft brush. Ensure the area around the base is kept clear during operation.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "If light-colored (white/grey) components contact staining ingredients like turmeric, beets, or carrots, rinse them immediately with soapy water.",
+   "source_page": 21,
+   "tags": [
+    "staining",
+    "cleaning"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Keep Ventilation Holes Clear",
+   "description": "Check and keep the rear ventilation holes on the blender base free of dust and obstructions.",
+   "care_type": "maintenance",
+   "justification": "Blocked vents can cause the motor to overheat, triggering thermal shutdown or reducing lifespan.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 2,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Periodically inspect the ventilation holes on the rear of the Blender Base and wipe away any dust or debris blocking them.",
    "source_page": 5,
    "tags": [
     "ventilation",
-    "airflow",
-    "base",
+    "maintenance"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
     "overheating"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Cool Down After Thermal Overload",
+   "description": "If the unit overheats and the thermal switch trips, power off and let it cool before resuming use.",
+   "care_type": "maintenance",
+   "justification": "Restarting an overheated motor too soon can damage it further; the manual requires about an hour of cooldown.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
+   "estimated_minutes": 60,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "If the motor overheats and shuts off, power off the unit at the rear switch and let it sit for approximately one hour before using it again.",
+   "source_page": 7,
+   "tags": [
+    "overheat",
+    "reset"
    ],
    "diagram_pages": [],
    "symptom_tags": [
     "overheating",
-    "performance_drop"
+    "wont_start"
    ],
    "re_check_triggers": [
     {
      "trigger": "overheating",
-     "description": "Blender shuts off unexpectedly or the motor feels excessively hot during use",
+     "description": "Blender stops mid-cycle or LED flashes amber repeatedly",
      "severity": "warning"
     }
    ],
@@ -808,64 +975,58 @@
  ],
  "cleaning_guide": {
   "weekly": {
-   "title": "Weekly Cleaning",
+   "title": "After Each Use",
    "steps": [
-    "Rinse the Blade Assembly under tap water; use a soapy sponge if needed and a small brush to remove food particles under the blades.",
-    "Rinse Blending Vessels and clean with the Beast brush, or place on the top rack of the dishwasher.",
-    "Wipe the Blender Base with a damp towel or sponge — do not immerse in water.",
-    "Check that the ventilation holes on the rear of the base are clear of debris."
+    "Remove Blade Assembly and Blending Vessel from base",
+    "Hand wash Blade Assembly, vessel, and lids in warm soapy water",
+    "Rinse blade assembly under tap water, do not remove gasket",
+    "Dry all parts thoroughly on a rack",
+    "Wipe Blender Base with a damp cloth"
    ],
    "supplies": [
-    "Warm soapy water",
-    "Small brush (not included)",
-    "Damp towel or sponge",
-    "Beast brush (if included)"
+    "mild dish soap",
+    "soft sponge",
+    "drying rack"
    ]
   },
   "deep_clean": {
-   "title": "Deep Clean",
+   "title": "Periodic Deep Care",
    "steps": [
-    "Unplug the blender base from the electrical outlet before disassembling.",
-    "Remove the Blade Assembly from the Blending Vessel by turning counterclockwise (handle carefully — blades are sharp).",
-    "Hand wash the Blade Assembly under tap water with a soapy sponge; use a small brush to remove all food particles lodged under the blades. Do not place in dishwasher.",
-    "Wash Blending Vessels thoroughly with warm soapy water and the Beast brush, or run on the top rack of the dishwasher.",
-    "Wipe the Blender Base with a damp cloth; inspect and clear all rear ventilation holes.",
-    "Dry all parts thoroughly on a drying rack before reassembling."
+    "Inspect and clear rear ventilation holes on the base",
+    "Rinse any light-colored parts immediately if stained by turmeric, beets, or carrots",
+    "Place Blending Vessels on top rack of dishwasher only, if desired",
+    "Never place Blade Assembly or Base in dishwasher or water"
    ],
    "supplies": [
-    "Warm soapy water",
-    "Small brush (not included)",
-    "Beast brush (if included)",
-    "Damp cloth"
+    "Beast brush (optional)",
+    "soft cloth"
    ]
   }
  },
  "warranty": {
   "duration_months": 24,
-  "coverage": "The Beast B10 Blender is warranted to be free from defects in material and workmanship for two (2) years from date of purchase in the USA or Canada. During this period, the exclusive remedy is repair or replacement of the product or any defective component at no extra charge (proof of purchase required).",
+  "coverage": "Beast Health, LLC warrants the B10 blender against defects in material and workmanship for 2 years from date of purchase in the USA or Canada; Beast will repair or replace defective products or components at its discretion, with proof of purchase required.",
   "exclusions": [
-   "Damage by abuse or misuse",
-   "Improper maintenance",
-   "Failure to follow safeguards or warnings",
-   "Normal wear and tear",
-   "Special, incidental, or consequential damages",
-   "Commercial use",
-   "Use of non-manufacturer-approved attachments or accessories"
+   "damage from abuse or misuse",
+   "failure to maintain product properly",
+   "failure to follow safeguards or warnings",
+   "normal wear and tear",
+   "special, incidental, and consequential damages"
   ],
   "registration_required": null,
   "contact": "customerservice@thebeast.com"
  },
  "manufactured_year": 2020,
  "confidence": {
-  "overall": 0.92,
-  "safety": 0.97,
-  "how_to": 0.95,
-  "care": 0.9,
-  "troubleshooting": 0.93,
-  "notes": "Manual is clear and well-structured. Manufactured year inferred from copyright notice '2020 Beast Health, LLC' on back cover. No explicit manufacture date code found. Care section is relatively brief with limited cadence specifics beyond 'after each use' and 'periodically'."
+  "overall": 0.9,
+  "safety": 0.95,
+  "how_to": 0.9,
+  "care": 0.85,
+  "troubleshooting": 0.9,
+  "notes": "Manual is clear and well-structured; manufactured_year taken from copyright notice on final page."
  },
  "truncated": false,
- "model": "claude-sonnet-4-6",
- "promptHash": "d564709261ca",
- "at": "2026-08-19T17:30:19.817Z"
+ "model": "claude-sonnet-5",
+ "promptHash": "435d515d2463",
+ "at": "2026-09-24T01:20:43.537Z"
 }

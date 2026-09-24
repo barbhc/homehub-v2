@@ -81,7 +81,7 @@ Context: ${JSON.stringify(context)}
 ${existingText}
 
 Generate 5-8 unique care tip suggestions. Return ONLY valid JSON: { "suggestions": [ { "title": "...", "content": "...", "chunk_type": "care|how_to|troubleshooting", "category": "..." (only for home scope) } ] }`
-  const raw = await callClaude({ model: "claude-sonnet-4-6", maxTokens: 4096, system: SUGGEST_SYSTEM, content: [{ type: "text", text: userPrompt }] })
+  const raw = await callClaude({ model: "claude-sonnet-5", maxTokens: 4096, system: SUGGEST_SYSTEM, content: [{ type: "text", text: userPrompt }] })
   return parseSuggestions(raw)
 }
 
@@ -121,7 +121,7 @@ ${truncated}
 
 Return ONLY valid JSON: { "suggestions": [ { "title": "...", "content": "...", "chunk_type": "care|how_to|troubleshooting", "category": "..." (only for home scope) } ] }
 Generate 3-8 actionable tips. chunk_type: care for general care, how_to for step-by-step instructions, troubleshooting for problem-solution.`
-  const raw = await callClaude({ model: "claude-sonnet-4-6", maxTokens: 4096, system: IMPORT_SYSTEM, content: [{ type: "text", text: userPrompt }] })
+  const raw = await callClaude({ model: "claude-sonnet-5", maxTokens: 4096, system: IMPORT_SYSTEM, content: [{ type: "text", text: userPrompt }] })
   return parseSuggestions(raw)
 }
 

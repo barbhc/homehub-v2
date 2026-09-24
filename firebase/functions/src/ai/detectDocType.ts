@@ -46,7 +46,7 @@ export async function runDetectDocType(callClaude: CallClaudeText, pdfBase64: st
   let rawText: string
   try {
     rawText = await callClaude({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
       maxTokens: 256,
       content: [
         { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },

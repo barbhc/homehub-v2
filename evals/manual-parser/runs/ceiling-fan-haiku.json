@@ -1,153 +1,13 @@
 {
  "chunks": [
   {
-   "chunk_type": "how_to",
-   "content_level": "everyday",
-   "title": "Remote Control Overview",
-   "content": "The Haiku fan remote uses a CR 2025 3V lithium battery and controls power, speed, light, timer, Whoosh, and Sleep modes. Press Power to turn the fan on/off (resumes at last speed); use Speed arrows to adjust fan speed; press Light to toggle and use Light arrows for brightness.",
-   "tags": [
-    "remote",
-    "power",
-    "speed",
-    "light",
-    "battery"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    4
-   ],
-   "diagram_pages": [
-    4
-   ],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "everyday",
-   "title": "Set Timer Mode",
-   "content": "Press the Timer button 1–7 times (once per hour) to program the end time. The fan runs at the last speed setting until the time period ends, then stops.",
-   "tags": [
-    "timer",
-    "remote",
-    "mode"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    4
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "everyday",
-   "title": "Activate Whoosh Mode",
-   "content": "Set the maximum fan speed using the Speed arrow buttons, then press the Whoosh button. Whoosh Mode silently varies fan speed to simulate natural cooling breezes.",
-   "tags": [
-    "whoosh",
-    "mode",
-    "remote",
-    "speed"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    4
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "everyday",
-   "title": "Activate Sleep Mode",
-   "content": "Set the fan speed and Timer, then press the Sleep button. Sleep Mode reduces fan speed every hour until the lowest set speed is reached, then turns the fan off when the timer expires. Sleep Mode is only active when Timer Mode is used.",
-   "tags": [
-    "sleep",
-    "mode",
-    "timer",
-    "remote"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    3,
-    4
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "Reverse Fan Direction",
-   "content": "Press Power to turn off the fan and wait for it to come to a complete stop. Then press the Whoosh button three times, then press Power; repeat to return to forward operation. Haiku Home does not recommend reversing — instead, run the fan at slow speed in winter.",
-   "tags": [
-    "reverse",
-    "direction",
-    "winter",
-    "remote"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "Replace Remote Battery",
-   "content": "The remote operates on a CR 2025 3V lithium battery. When replacing, properly dispose of the old battery.",
-   "tags": [
-    "remote",
-    "battery",
-    "cr2025",
-    "replacement"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    4
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "Optional Wall Control and SenseME",
-   "content": "The Haiku Wall Control adds smart SenseME™ technology and can connect fans to a Nest Learning Thermostat™ to save up to 30% on HVAC costs. Refer to the wall control owner's manual for operating instructions.",
-   "tags": [
-    "optional-accessory",
-    "wall control",
-    "senseme",
-    "nest",
-    "smart"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    2
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
    "chunk_type": "specs",
-   "content_level": null,
-   "title": "Fan Model and Technology",
-   "content": "Fan model: L3127. Uses direct current, permanent magnetics, and hand-balanced airfoils for ultra-efficiency. Patent-pending Thin Sheet™ airfoils are inspired by airplane wings for smooth, quiet airflow at all speeds.",
+   "content_level": "reference",
+   "title": "Fan Model and Overview",
+   "content": "Haiku ceiling fan model L3127 uses DC motor with permanent magnetics and hand-balanced Thin Sheet airfoils for efficient, quiet airflow.",
    "tags": [
     "model",
-    "specs",
-    "dc motor",
-    "airfoil",
-    "efficiency"
+    "specs"
    ],
    "scenarios": null,
    "source_pages": [
@@ -160,14 +20,67 @@
   },
   {
    "chunk_type": "specs",
-   "content_level": null,
-   "title": "Remote Control Battery Spec",
-   "content": "The Haiku fan remote control operates on a CR 2025 3V lithium battery.",
+   "content_level": "reference",
+   "title": "Optional Wall Control Accessory",
+   "content": "A Haiku Wall Control accessory can be added for SenseME smart technology and can connect fans to a Nest Learning Thermostat to save up to 30% on HVAC costs.",
+   "tags": [
+    "optional-accessory-wall-control",
+    "smart-home"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    2
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Use Comfort Modes",
+   "content": "Sleep Mode gradually reduces fan speed hourly until the lowest set speed, then turns off; Timer Mode runs the fan at a set speed until time expires; Whoosh Mode silently varies fan speed to simulate a natural breeze.",
+   "tags": [
+    "modes",
+    "sleep",
+    "timer",
+    "whoosh"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    3
+   ],
+   "diagram_pages": [],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Operate the Remote Control",
+   "content": "Use Power to turn the fan on/off, Speed arrows to adjust fan speed, Light button and arrows to control on/off and brightness, Timer button (press 1-7 times) to set auto-off, Whoosh to activate breeze mode after setting max speed, and Sleep (with Timer) to activate Sleep Mode.",
    "tags": [
     "remote",
+    "operation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4
+   ],
+   "diagram_pages": [
+    4
+   ],
+   "table_data": null,
+   "applies_to": []
+  },
+  {
+   "chunk_type": "specs",
+   "content_level": "reference",
+   "title": "Remote Control Battery",
+   "content": "The remote operates on a single CR2025 3V lithium coin cell battery.",
+   "tags": [
     "battery",
-    "cr2025",
-    "specs"
+    "remote"
    ],
    "scenarios": null,
    "source_pages": [
@@ -178,35 +91,140 @@
    "applies_to": []
   },
   {
-   "chunk_type": "care",
-   "content_level": "everyday",
-   "title": "Clean Fan Airfoils",
-   "content": "Dust the airfoils regularly. If dirty, clean with a damp cloth and ordinary soap and water — do not use solvents, gasoline, or chemical cleaners as these cause surface distortion and damage.",
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Reverse Fan Direction",
+   "content": "To reverse the fan, press Power to turn it off, wait for a complete stop, then press Whoosh three times followed by Power; repeat to return to forward operation. Haiku recommends simply running the fan at a slow speed in winter instead of reversing it.",
    "tags": [
-    "cleaning",
-    "airfoils",
-    "maintenance",
-    "annual"
+    "reverse",
+    "direction",
+    "winter"
    ],
    "scenarios": null,
    "source_pages": [
-    7
+    5
    ],
    "diagram_pages": [],
    "table_data": null,
    "applies_to": []
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "title": "Fan Won't Start / Power Issues",
+   "content": "Check that supply power is adequate, circuit breaker/fuse and wall switch function, and that all wiring is secure and properly grounded.",
+   "tags": [
+    "wont_start",
+    "electrical"
+   ],
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": {
+    "table_title": "Troubleshooting - Power",
+    "columns": [
+     "Issue",
+     "What to do"
+    ],
+    "rows": [
+     [
+      "The fan will not start",
+      "Verify that supply power is adequate. Check your circuit breaker or fuse and wall switch for functionality."
+     ],
+     [
+      "The fan will not start",
+      "Make sure that all wires are securely connected and the fan is properly wired and grounded."
+     ]
+    ]
+   }
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "title": "Fan Noisy During Operation",
+   "content": "Check all mounting and fan hardware for looseness and tighten; ensure no fan parts rub against the motor unit while rotating.",
+   "tags": [
+    "noise"
+   ],
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": [],
+   "table_data": {
+    "table_title": "Troubleshooting - Noise",
+    "columns": [
+     "Issue",
+     "What to do"
+    ],
+    "rows": [
+     [
+      "The fan is noisy during operation",
+      "Check all mounting and fan hardware. If loose, tighten."
+     ],
+     [
+      "The fan is noisy during operation",
+      "Make sure there are no fan parts rubbing on the motor unit when the fan rotates."
+     ]
+    ]
+   }
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "title": "Startup Jerk, LED Flashing, Fan Wobble",
+   "content": "Slight jerking on startup is normal; LED flashing indicates a mode/speed change notification; wobble is fixed by securing mounting hardware and ensuring airfoils are aligned and fastened (replace airfoils only as a full set, never individually).",
+   "tags": [
+    "vibration",
+    "noise",
+    "physical_damage"
+   ],
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": [],
+   "table_data": {
+    "table_title": "Troubleshooting - Other",
+    "columns": [
+     "Issue",
+     "What to do"
+    ],
+    "rows": [
+     [
+      "The fan jerks upon startup",
+      "This is normal and may happen occasionally upon startup. An initial slight jerking forward and backward does not affect fan operation."
+     ],
+     [
+      "Why are the LED indicators flashing?",
+      "The LED indicators flash when an operating mode is being adjusted to notify you when the fan has changed speeds or modes."
+     ],
+     [
+      "The fan wobbles",
+      "Make sure that all mounting hardware is secure and tight. Make sure that all the airfoils are aligned properly and are securely fastened to the fan hub. Airfoils must be replaced as a set. Do not replace individual airfoils. If an airfoil is damaged, contact Haiku Customer Service."
+     ]
+    ]
+   }
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Do Not Replace Individual Airfoils",
+   "content": "If an airfoil is damaged, it must be replaced along with the full set rather than individually, and Haiku Customer Service should be contacted for replacement parts.",
+   "tags": [
+    "airfoils",
+    "physical_damage"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": []
   },
   {
    "chunk_type": "care",
    "content_level": "reference",
    "title": "Annual Maintenance Checklist",
-   "content": "Each year: check the safety cable installation, secure all mounting and airfoil hardware, verify wire nuts and ground wire connections, and clean the airfoils. Contact Haiku Customer Service at www.haikuhome.com/service for assistance or replacement parts.",
+   "content": "Once a year, check the safety cable, secure mounting and airfoil hardware, verify wiring/ground connections, and clean the airfoils to ensure safe, efficient operation.",
    "tags": [
     "annual",
-    "maintenance",
-    "safety cable",
-    "hardware",
-    "wiring"
+    "maintenance"
    ],
    "scenarios": null,
    "source_pages": [
@@ -217,217 +235,17 @@
    "applies_to": []
   },
   {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Wiring and Grounding Safety",
-   "content": "Ensure all wires are securely connected and the fan is properly wired and grounded. Verify wire nuts are secure and the ground wire is securely connected during annual maintenance.",
-   "tags": [
-    "wiring",
-    "grounding",
-    "electrical",
-    "safety"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5,
-    7
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Airfoil Replacement Safety",
-   "content": "Airfoils must be replaced as a complete set — do not replace individual airfoils. If an airfoil is damaged, contact Haiku Customer Service.",
-   "tags": [
-    "airfoil",
-    "replacement",
-    "safety",
-    "damage"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    6
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Chemical Cleaner Warning",
-   "content": "Do not use solvents, gasoline, or any other chemical cleaners on the fan. These may cause surface distortion and damage to the fan.",
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Clean Airfoils Properly",
+   "content": "Dust airfoils regularly and clean with a damp cloth using ordinary soap and water only; never use solvents, gasoline, or other chemical cleaners as they can distort and damage the fan surface.",
    "tags": [
     "cleaning",
-    "safety",
-    "chemicals",
-    "damage"
+    "airfoils"
    ],
    "scenarios": null,
    "source_pages": [
     7
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Safety Cable Check",
-   "content": "Annually verify the safety cable is properly installed by sliding the wiring cover down the extension tube and examining the safety cable and hardware. This is a critical retention safety check.",
-   "tags": [
-    "safety cable",
-    "annual",
-    "installation",
-    "hardware"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    7
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "troubleshooting",
-   "content_level": null,
-   "title": "Fan Won't Start / Power Issues",
-   "content": "If the fan will not start, check power supply and wiring connections.",
-   "tags": [
-    "wont_start",
-    "power",
-    "wiring",
-    "circuit breaker"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5
-   ],
-   "diagram_pages": [],
-   "table_data": [
-    {
-     "table_title": "Fan Won't Start",
-     "columns": [
-      "Issue",
-      "What to Do"
-     ],
-     "rows": [
-      [
-       "Fan will not start",
-       "Verify supply power is adequate; check circuit breaker or fuse and wall switch."
-      ],
-      [
-       "Fan will not start",
-       "Make sure all wires are securely connected and the fan is properly wired and grounded."
-      ]
-     ]
-    }
-   ],
-   "applies_to": []
-  },
-  {
-   "chunk_type": "troubleshooting",
-   "content_level": null,
-   "title": "Fan Noise and Wobble",
-   "content": "Noise and wobble are usually caused by loose hardware or misaligned airfoils.",
-   "tags": [
-    "noise",
-    "vibration",
-    "wobble",
-    "hardware",
-    "airfoil"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5,
-    6
-   ],
-   "diagram_pages": [],
-   "table_data": [
-    {
-     "table_title": "Fan Noise and Wobble",
-     "columns": [
-      "Issue",
-      "What to Do"
-     ],
-     "rows": [
-      [
-       "Fan is noisy during operation",
-       "Check all mounting and fan hardware; tighten if loose."
-      ],
-      [
-       "Fan is noisy during operation",
-       "Make sure no fan parts are rubbing on the motor unit when the fan rotates."
-      ],
-      [
-       "Fan wobbles",
-       "Make sure all mounting hardware is secure and tight."
-      ],
-      [
-       "Fan wobbles",
-       "Make sure all airfoils are aligned properly and securely fastened to the fan hub. Airfoils must be replaced as a set; contact Haiku Customer Service if damaged."
-      ]
-     ]
-    }
-   ],
-   "applies_to": []
-  },
-  {
-   "chunk_type": "troubleshooting",
-   "content_level": null,
-   "title": "Startup Jerk and LED Flashing",
-   "content": "A slight jerk on startup is normal and does not affect operation. LED indicators flash when an operating mode is being adjusted to notify you of speed or mode changes.",
-   "tags": [
-    "startup",
-    "led",
-    "flashing",
-    "normal"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    6
-   ],
-   "diagram_pages": [],
-   "table_data": [
-    {
-     "table_title": "Startup and LED Behavior",
-     "columns": [
-      "Issue",
-      "What to Do"
-     ],
-     "rows": [
-      [
-       "Fan jerks upon startup",
-       "Normal behavior — an initial slight jerking forward and backward does not affect fan operation."
-      ],
-      [
-       "LED indicators flashing",
-       "LEDs flash when an operating mode is being adjusted to notify you when the fan has changed speeds or modes."
-      ]
-     ]
-    }
-   ],
-   "applies_to": []
-  },
-  {
-   "chunk_type": "troubleshooting",
-   "content_level": null,
-   "title": "How to Reverse Fan Direction",
-   "content": "To reverse the fan: turn it off with Power, wait for a complete stop, press Whoosh three times, then press Power. Repeat to return to forward operation.",
-   "tags": [
-    "reverse",
-    "direction",
-    "whoosh",
-    "remote"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5
    ],
    "diagram_pages": [],
    "table_data": null,
@@ -436,53 +254,22 @@
  ],
  "tasks": [
   {
-   "title": "Replace Remote Battery",
-   "description": "Replace the CR 2025 3V lithium battery in the remote control when it no longer responds.",
-   "care_type": "maintenance",
-   "justification": "A dead battery renders the remote non-functional, leaving the fan uncontrollable.",
-   "priority_tier": "recommended",
-   "risk_level": "performance",
-   "estimated_minutes": 5,
-   "schedule_type": "as_needed",
-   "interval_days": null,
-   "instructions_text": "Open the battery compartment on the back of the remote. Remove the old CR 2025 3V lithium battery and dispose of it properly. Insert a new CR 2025 3V lithium battery and close the compartment.",
-   "source_page": 4,
-   "tags": [
-    "remote",
-    "battery",
-    "cr2025"
-   ],
-   "diagram_pages": [],
-   "symptom_tags": [
-    "wont_start"
-   ],
-   "re_check_triggers": [],
-   "applies_to": [],
-   "supplies": [
-    {
-     "name": "CR 2025 3V Lithium Battery",
-     "category": "battery",
-     "part_number": null
-    }
-   ]
-  },
-  {
    "title": "Check Safety Cable",
-   "description": "Annually verify the safety cable is properly installed to ensure the fan is securely retained.",
+   "description": "Verify the fan's safety cable and hardware are properly installed each year.",
    "care_type": "maintenance",
-   "justification": "A loose or improperly installed safety cable could allow the fan to fall, posing a serious safety hazard.",
+   "justification": "A failed or missing safety cable could allow the fan to fall if the mounting fails, posing a physical hazard.",
    "priority_tier": "essential",
    "risk_level": "safety",
    "estimated_minutes": 10,
    "schedule_type": "annual",
-   "interval_days": null,
-   "instructions_text": "Slide the wiring cover down the extension tube to expose the safety cable. Examine the safety cable and all associated hardware to confirm they are properly installed and secure. Slide the wiring cover back up when done.",
+   "interval_days": 365,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Slide the wiring cover down the extension tube and visually examine the safety cable and its attaching hardware for proper installation and wear.",
    "source_page": 7,
    "tags": [
-    "safety cable",
-    "annual",
-    "hardware",
-    "inspection"
+    "safety",
+    "annual"
    ],
    "diagram_pages": [],
    "symptom_tags": [
@@ -494,20 +281,20 @@
   },
   {
    "title": "Secure Mounting and Airfoil Hardware",
-   "description": "Annually check and tighten all mounting hardware and the hardware securing the airfoils to the fan hub.",
+   "description": "Check and tighten the mounting hardware and the hardware holding the airfoils to the fan hub once a year.",
    "care_type": "maintenance",
-   "justification": "Loose hardware causes wobbling, noise, and can lead to fan parts becoming dislodged during operation.",
-   "priority_tier": "essential",
-   "risk_level": "safety",
+   "justification": "Loose hardware can cause wobble, noise, and eventual fan damage or an airfoil coming loose.",
+   "priority_tier": "recommended",
+   "risk_level": "prevent_damage",
    "estimated_minutes": 10,
    "schedule_type": "annual",
-   "interval_days": null,
-   "instructions_text": "Inspect all mounting hardware at the ceiling bracket and extension tube. Check that each airfoil is properly aligned and its fasteners are tight at the fan hub. Tighten any loose hardware with the appropriate tool.",
+   "interval_days": 365,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Inspect all mounting bolts and airfoil fasteners and tighten any that are loose using the appropriate tool.",
    "source_page": 7,
    "tags": [
     "hardware",
-    "airfoil",
-    "mounting",
     "annual"
    ],
    "diagram_pages": [],
@@ -520,22 +307,22 @@
    "supplies": []
   },
   {
-   "title": "Check Fan Wiring Connections",
-   "description": "Annually verify that all wire nuts are secure and the ground wire is properly connected.",
+   "title": "Check Wiring and Ground Connection",
+   "description": "Inspect the wire nuts and ground wire connection once a year to ensure they remain secure.",
    "care_type": "maintenance",
-   "justification": "Loose wiring connections can cause the fan to fail to start or create an electrical hazard.",
-   "priority_tier": "recommended",
+   "justification": "Loose wiring or a disconnected ground wire creates an electrical shock or fire hazard.",
+   "priority_tier": "essential",
    "risk_level": "safety",
    "estimated_minutes": 10,
    "schedule_type": "annual",
-   "interval_days": null,
-   "instructions_text": "Turn off power to the fan at the circuit breaker before inspecting wiring. Check that all wire nuts are tight and secure. Confirm the ground wire is securely connected. Restore power when done.",
+   "interval_days": 365,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Open the wiring cover and check that all wire nuts are tight and the ground wire is securely fastened.",
    "source_page": 7,
    "tags": [
-    "wiring",
-    "grounding",
-    "annual",
-    "electrical"
+    "electrical",
+    "annual"
    ],
    "diagram_pages": [],
    "symptom_tags": [
@@ -547,22 +334,22 @@
    "supplies": []
   },
   {
-   "title": "Clean Fan Airfoils",
-   "description": "Dust and clean the fan airfoils regularly to maintain performance and appearance.",
+   "title": "Clean the Airfoils",
+   "description": "Dust the fan airfoils regularly, and wipe them with a damp cloth using mild soap and water if they get dirty.",
    "care_type": "cleaning",
-   "justification": "Dust buildup on airfoils reduces airflow efficiency and can cause imbalance leading to wobble or noise.",
-   "priority_tier": "recommended",
-   "risk_level": "performance",
-   "estimated_minutes": 15,
-   "schedule_type": "annual",
+   "justification": "Cosmetic dust buildup is removed; using harsh chemicals instead could distort or damage the airfoil surface.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 10,
+   "schedule_type": "as_needed",
    "interval_days": null,
-   "instructions_text": "Dust the airfoils regularly with a dry cloth. If the fan is dirty, wipe the airfoils with a damp cloth and ordinary soap and water. Allow to dry completely before running the fan. Do not use solvents, gasoline, or chemical cleaners.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Dust the airfoils with a soft cloth regularly. If dirty, wipe with a damp cloth using ordinary soap and water.",
    "source_page": 7,
    "tags": [
     "cleaning",
-    "airfoils",
-    "annual",
-    "damp cloth"
+    "airfoils"
    ],
    "diagram_pages": [],
    "symptom_tags": [
@@ -570,48 +357,75 @@
    ],
    "re_check_triggers": [],
    "applies_to": [],
-   "supplies": []
+   "supplies": [
+    {
+     "name": "Mild soap and water",
+     "category": "cleaner",
+     "part_number": null
+    }
+   ]
+  },
+  {
+   "title": "Replace Remote Control Battery",
+   "description": "Replace the CR2025 lithium battery in the remote control when it stops responding.",
+   "care_type": "maintenance",
+   "justification": "A depleted battery prevents the remote from controlling the fan and light.",
+   "priority_tier": "optional",
+   "risk_level": "performance",
+   "estimated_minutes": 5,
+   "schedule_type": "as_needed",
+   "interval_days": null,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Open the battery compartment on the back of the remote, remove the old CR2025 battery, insert a new one, and properly dispose of the old battery.",
+   "source_page": 4,
+   "tags": [
+    "battery",
+    "remote"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "wont_start"
+   ],
+   "re_check_triggers": [],
+   "applies_to": [],
+   "supplies": [
+    {
+     "name": "CR2025 3V lithium battery",
+     "category": "battery",
+     "part_number": "CR2025"
+    }
+   ]
   }
  ],
  "cleaning_guide": {
-  "weekly": {
-   "title": "Weekly Dusting",
-   "steps": [
-    "Dust the fan airfoils with a dry cloth to prevent buildup.",
-    "Wipe down the motor housing exterior with a dry cloth if needed."
-   ],
-   "supplies": [
-    "Dry cloth"
-   ]
-  },
+  "weekly": null,
   "deep_clean": {
-   "title": "Annual Deep Clean",
+   "title": "Annual Fan Cleaning and Inspection",
    "steps": [
-    "Turn off power to the fan at the circuit breaker.",
-    "Wipe airfoils with a damp cloth and ordinary soap and water.",
-    "Wipe the motor housing and extension tube with a damp cloth.",
-    "Allow all surfaces to dry completely before restoring power.",
-    "Do not use solvents, gasoline, or chemical cleaners at any step."
+    "Check the safety cable by sliding the wiring cover down the extension tube and examining the cable and hardware.",
+    "Verify mounting hardware and airfoil-to-hub hardware are securely fastened.",
+    "Check that wire nuts are secure and the ground wire is properly connected.",
+    "Dust airfoils regularly; if dirty, wipe with a damp cloth and mild soap and water."
    ],
    "supplies": [
     "Damp cloth",
-    "Mild soap",
-    "Water"
+    "Mild soap and water"
    ]
   }
  },
  "warranty": null,
  "manufactured_year": 2015,
  "confidence": {
-  "overall": 0.82,
-  "safety": 0.88,
-  "how_to": 0.92,
+  "overall": 0.85,
+  "safety": 0.7,
+  "how_to": 0.9,
   "care": 0.85,
   "troubleshooting": 0.9,
-  "notes": "No warranty section found in this manual. Manufactured year inferred from copyright notice '© 2015 Haiku Home'. Manual is concise with limited detail on some maintenance procedures."
+  "notes": "Manual is short and consumer-focused; no explicit warranty section found. Manufactured year inferred from copyright notice (2015) on revision page."
  },
  "truncated": false,
- "model": "claude-sonnet-4-6",
- "promptHash": "d564709261ca",
- "at": "2026-08-19T17:24:26.489Z"
+ "model": "claude-sonnet-5",
+ "promptHash": "435d515d2463",
+ "at": "2026-09-24T01:17:36.488Z"
 }

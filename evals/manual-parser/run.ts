@@ -7,8 +7,9 @@
  *   npm run eval:parser -- --update-baseline
  *
  * Runs the EXACT production extraction path — the prompt from
- * shared/parse/parsePrompt.ts, the forced EXTRACTION_TOOL, the sampling params
- * from samplingParamsFor(), and the model pickParseModel would choose — then
+ * shared/parse/parsePrompt.ts, the request from buildExtractionRequest() (forced
+ * EXTRACTION_TOOL, or auto + checked call on Opus 5.5; sampling + thinking), and the
+ * model pickParseModel would choose — then
  * scores the output against hand-authored expectations and prints a table.
  *
  * Zero writes to anyone's home: it reads manual metadata and one Storage object
@@ -18,7 +19,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { buildPrompt, samplingParamsFor, EXTRACTION_TOOL, extractParsedResult } from "../../shared/parse/parsePrompt.js"
+import { buildPrompt, buildExtractionRequest, extractionContent, extractParsedResult } from "../../shared/parse/parsePrompt.js"
 import { EVAL_DIR, requireAnthropicKey } from "./lib/env.js"
 import { loadPdfBase64 } from "./lib/pdf.js"
 import { corpusScore, scoreManual, WEIGHTS, type Extraction, type Expectations, type ManualScore } from "./lib/score.js"
@@ -68,27 +69,25 @@ function latestRun(name: string): (Extraction & { model?: string; promptHash?: s
 async function extract(m: (typeof corpus.manuals)[number]): Promise<Extraction & { model: string; promptHash: string; at: string }> {
   const client = new Anthropic({ apiKey: requireAnthropicKey() })
   const pdfBase64 = await loadPdfBase64(m.home_id, m.manual_id)
-  const res = await client.messages.create({
-    model: m.model,
-    max_tokens: 16000,
-    ...samplingParamsFor(m.model),
-    tools: [EXTRACTION_TOOL as unknown as Anthropic.Tool],
-    // Forced tool use, exactly as production does it. Structured output is not
-    // optional here: parsing JSON out of free text is the failure class this
-    // whole pipeline already eliminated, and an eval that used a softer path
-    // would be measuring something the product does not do.
-    tool_choice: { type: "tool", name: EXTRACTION_TOOL.name },
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
-          { type: "text", text: buildPrompt() },
-        ],
-      },
-    ],
-  })
-  const parsed = extractParsedResult({ content: res.content as never }) as Extraction
+  // THE production request (buildExtractionRequest): forced EXTRACTION_TOOL on
+  // Sonnet; the same tool under tool_choice auto + a checked call on Opus 5.5
+  // (which rejects forced tool use).
+  // Structured output is not optional here: parsing JSON out of free text is
+  // the failure class this whole pipeline already eliminated, and an eval that
+  // used a softer path would be measuring something the product does not do.
+  const req = buildExtractionRequest(m.model, pdfBase64, buildPrompt())
+  // Outgoing request body built by the shared builder; the SDK version pinned
+  // here predates the `fallbacks` field, hence the param-type assertion.
+  const res = req.betas.length
+    ? req.stream
+      ? await client.beta.messages
+          .stream({ ...req.params, betas: req.betas } as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming)
+          .finalMessage()
+      : await client.beta.messages.create({ ...req.params, betas: req.betas } as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming)
+    : req.stream
+      ? await client.messages.stream(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming).finalMessage()
+      : await client.messages.create(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming)
+  const parsed = extractParsedResult(extractionContent(res as never, req.toolCallUnforced)) as Extraction
   return {
     ...parsed,
     truncated: res.stop_reason === "max_tokens",
