@@ -209,7 +209,7 @@ export async function runGenerateTasks(
   }
   content.push({ type: "text", text: buildPrompt(gen, hasPdf, brand, itemName, catLabel, typeLabel, fieldsBlock) })
 
-  const rawText = await callClaude({ model: "claude-sonnet-4-6", maxTokens: 4096, content })
+  const rawText = await callClaude({ model: "claude-sonnet-5", maxTokens: 4096, content })
   let parsed: { tasks?: unknown[]; troubleshooting?: unknown[] } = {}
   try {
     parsed = JSON.parse(extractJsonObject(rawText))

@@ -18,7 +18,7 @@ import { withAiQuota } from "../lib/quota.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
-const MODEL = "claude-sonnet-4-6"
+const MODEL = "claude-sonnet-5"
 const MAX_SIBLING_CHUNKS = 4
 
 export interface DiscussInput {

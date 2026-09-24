@@ -1,9 +1,13 @@
+import { MODEL_OPUS, MODEL_SONNET } from "./modelParams.js"
+
 /**
  * Manual-parse model selection — ported VERBATIM from v1
  * `supabase/functions/_shared/mod.ts` (see _v1-mod-reference.ts.txt).
- * Invariant 4 (docs/homehub-v2-implementation-plan.md): Sonnet 4.6 default,
- * escalate to Opus 4.8 for combustion/gas/safety-critical items. Any drift from
- * v1 is a review-blocker until v1 is archived.
+ * Invariant 4 (docs/homehub-v2-implementation-plan.md): Sonnet default,
+ * escalate to Opus for combustion/gas/safety-critical items. Any drift from
+ * v1 is a review-blocker until v1 is archived. Model IDs moved 2026-09:
+ * Sonnet 4.6 → Sonnet 5, Opus 4.8 → Opus 5.5 (the routing rule is unchanged;
+ * the Opus request shape differs — see buildExtractionRequest).
  */
 
 /**
@@ -12,14 +16,15 @@
  * reclassification, confidence swings) and weakest on edge judgment. Sonnet is
  * the steady baseline that handles the vast majority of manuals correctly.
  */
-export const PARSE_MODEL_DEFAULT = "claude-sonnet-4-6"
+export const PARSE_MODEL_DEFAULT = MODEL_SONNET
 /**
  * Escalation model for combustion / gas / safety-critical manuals. Opus 4.8
  * showed the best edge judgment in the eval (setup vs recurring, off-enum
  * cadences, refusing to write hazardous homeowner DIY steps) — worth its
  * ~1.67× cost only on these manuals, which are a small slice of the catalog.
+ * (Opus 5.5 vs Sonnet 5 list price is 2×: $4/$20 vs $2/$10 per MTok.)
  */
-export const PARSE_MODEL_ESCALATED = "claude-opus-4-8"
+export const PARSE_MODEL_ESCALATED = MODEL_OPUS
 
 /** Categories whose manuals are inherently combustion/safety-critical (HVAC,
  *  furnace, boiler, water heater, etc. all live under `system`). */
@@ -31,8 +36,8 @@ const ESCALATE_SIGNAL_RE =
   /\b(gas|propane|lp|combustion|furnace|boiler|burner|flame|water[ -]?heater|hvac|fireplace|generator|woodstove|pellet)\b/i
 
 /**
- * Choose the parsing model for an item. Defaults to Sonnet 4.6; escalates to
- * Opus 4.8 for combustion/gas/safety-critical items — identified by item
+ * Choose the parsing model for an item. Defaults to Sonnet; escalates to
+ * Opus for combustion/gas/safety-critical items — identified by item
  * category (`system`) or a gas/combustion signal in any free-text field
  * (sub_type / display_name / model). Everything else parses fine, and cheaper,
  * on Sonnet, so the blended cost stays close to Sonnet-only.

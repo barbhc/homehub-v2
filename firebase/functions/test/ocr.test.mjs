@@ -80,7 +80,7 @@ test("image fallback sends the image block + pinned model and parses the reply",
   assert.equal(res.brand, "Bosch")
   assert.equal(res.docType, "nameplate")
   // Current Haiku pin — claude-3-5-haiku was retired by Anthropic (404s).
-  assert.equal(seen.model, "claude-haiku-4-5-20251001")
+  assert.equal(seen.model, "claude-haiku-4-5")
   const imageBlock = seen.content.find((b) => b.type === "image")
   assert.ok(imageBlock, "expected an image content block")
   assert.equal(imageBlock.source.media_type, "image/jpeg")

@@ -33,7 +33,7 @@ import { isAgendaEligible } from "../../../../shared/tasks/agendaEligibility.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
-const MODEL = "claude-haiku-4-5-20251001"
+const MODEL = "claude-haiku-4-5"
 export const MAX_PROPOSALS = 15
 const MAX_TEMPLATES = 400
 const MAX_FOCUS_CHARS = 2000

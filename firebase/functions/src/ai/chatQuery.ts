@@ -18,6 +18,7 @@ import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { assertNotRefused, thinkingParamsFor } from "../../../../shared/parse/modelParams.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
 import { rankChunks } from "./chunkRanking.js"
@@ -331,15 +332,20 @@ Rules:
     try {
       const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() })
       const stream = client.messages.stream({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-5",
         max_tokens: 1024,
+        // Sonnet 5 thinks by default; this route streamed thinking-off on
+        // Sonnet 4.6 with a 1024-token answer budget, so keep it off.
+        ...thinkingParamsFor("claude-sonnet-5"),
         system: systemPrompt,
         messages,
       })
       stream.on("text", (text) => {
         res.write(sse({ delta: text }))
       })
-      await stream.finalMessage()
+      // A safety decline is a 200 with stop_reason "refusal": surface it
+      // through the catch below (refund + SSE error), never as a silent answer.
+      assertNotRefused(await stream.finalMessage())
       done(sources)
     } catch (err) {
       // The stream never completed, so refund. This is the case that used to

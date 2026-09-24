@@ -354,7 +354,7 @@ parse: {
   stageAt: Timestamp,        // written on EVERY transition (staleness detection)
   requestId: string,         // per enqueue; worker claims via transaction, ignores stale deliveries
   mode: "commit" | "preview" | "fill_gaps",
-  model: string,             // pickParseModel result (Sonnet 4.6 default → Opus 4.8 for gas/safety)
+  model: string,             // pickParseModel result (Sonnet 5 default → Opus 5.5 for gas/safety)
   attempt: number,
   error: { message: string, stage: string, at: Timestamp } | null,
   summary: { chunks: number, tasks: number, confidence: ParsedConfidence } | null,  // at "done"

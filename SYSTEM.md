@@ -17,7 +17,7 @@ Every claim below was read at source; file:line references are the evidence. Whe
 | Styling | Tailwind CSS 4.1, Radix UI 1.4, `class-variance-authority`, `lucide-react` |
 | Data fetching | SWR 2.4 + per-domain hooks/services under `src/modules/*/services` |
 | Backend | Firebase Cloud Functions **2nd gen, Node 20**, region `us-central1` (`firebase/functions/`) |
-| AI | `@anthropic-ai/sdk` 0.78. Models in use: `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-opus-4-8`, `claude-3-5-haiku-20241022` |
+| AI | `@anthropic-ai/sdk` 0.78. Models in use: `claude-sonnet-5` (thinking disabled on text/chat routes; omitted on forced-tool routes), `claude-haiku-4-5`, `claude-opus-5-5` (manual-parse escalation; extraction tool with tool_choice auto + checked call, streamed, server-side fallback beta `server-side-fallback-2026-07-01`). Per-model request rules: `shared/parse/modelParams.ts` |
 | PDF | `pdfjs-dist` 4.10 (client render, worker from a blob URL), Claude document blocks (server parse) |
 | Native shell | Capacitor 8.4 iOS — push-notifications, camera, apple-sign-in |
 | Monitoring | PostHog (`posthog-js`, `src/lib/analytics.ts:27`) and Sentry (`@sentry/react` 10.65, `src/main.tsx:45`) — **both live**, with Sentry source maps uploaded at build time by `@sentry/vite-plugin`. See Gap #1 for how all of it can silently vanish |

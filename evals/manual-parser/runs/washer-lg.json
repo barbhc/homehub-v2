@@ -1,191 +1,357 @@
 {
  "chunks": [
   {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Explosion/Fire/Shock Hazard Precautions",
+   "content": "Never mix chlorine bleach with ammonia or acids like vinegar as it can produce lethal gas; hydrogen gas can build up in unused hot water systems and is explosive, so run hot taps before use after long idle periods.",
+   "tags": [
+    "explosion",
+    "gas",
+    "bleach",
+    "hydrogen"
+   ],
+   "scenarios": [
+    {
+     "condition": "Gas leak detected (propane, LP gas, etc.)",
+     "steps": [
+      "Do not operate this or any other appliance",
+      "Open a window or door to ventilate the area immediately",
+      "Leave the area and contact your gas supplier"
+     ]
+    },
+    {
+     "condition": "Hot water system unused for two weeks or more",
+     "steps": [
+      "Turn on all hot water faucets before using the appliance",
+      "Let water flow from each faucet for several minutes to release accumulated hydrogen gas",
+      "Do not smoke or use an open flame during this process"
+     ]
+    },
+    {
+     "condition": "Mixing laundry chemicals",
+     "steps": [
+      "Never mix chlorine bleach with ammonia, vinegar, or rust/scale remover",
+      "Follow package directions for all laundry products",
+      "If mixed accidentally, ventilate the area immediately and leave the area"
+     ]
+    }
+   ],
+   "source_pages": [
+    4,
+    5,
+    6,
+    20
+   ],
+   "diagram_pages": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "critical",
+   "title": "Electrical Shock and Grounding Hazards",
+   "content": "The washer must be properly grounded via a 3-prong outlet; never cut the ground prong, use an adapter, or extension cord, and never touch the appliance or cord with wet hands.",
+   "tags": [
+    "electrical",
+    "grounding",
+    "shock"
+   ],
+   "scenarios": [
+    {
+     "condition": "Cord or plug is damaged, worn, or the appliance was submerged",
+     "steps": [
+      "Unplug the washer immediately",
+      "Do not operate it",
+      "Contact LG Customer Information Center or a qualified electrician before resuming use"
+     ]
+    }
+   ],
+   "source_pages": [
+    5,
+    6,
+    10,
+    16
+   ],
+   "diagram_pages": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Steam Cycle Burn Warning",
+   "content": "During steam cycles the door surface becomes very hot; never touch the door or attempt to override the door lock or reach inside during a steam cycle as steam can cause severe burns.",
+   "tags": [
+    "steam",
+    "burn",
+    "door"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    29
+   ],
+   "diagram_pages": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "important",
+   "title": "Moving Parts and Reaching Into Drum",
+   "content": "Never reach into the washer while the tub, drum, or interior parts are moving; press Start/Pause and wait for a complete stop before loading, unloading, or adding items.",
+   "tags": [
+    "moving-parts",
+    "injury"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    5
+   ],
+   "diagram_pages": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Waterproof Items Must Use Bedding Cycle",
+   "content": "Waterproof or water-resistant items (raincoats, mattress covers, plastic mats) must only be washed on the Bedding cycle with low spin, otherwise abnormal vibration may damage the washer, clothes, or surroundings.",
+   "tags": [
+    "waterproof",
+    "bedding-cycle",
+    "vibration"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    7,
+    18
+   ],
+   "diagram_pages": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "contextual",
+   "title": "Fire Hazard from Chemicals and Fabrics",
+   "content": "Never wash or add items previously exposed to gasoline, dry-cleaning solvents, or cooking oil, and never place oily/greasy clothing or flammable materials on or in the washer, as vapors could ignite or explode.",
+   "tags": [
+    "fire",
+    "chemicals",
+    "flammable"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    6
+   ],
+   "diagram_pages": []
+  },
+  {
+   "chunk_type": "safety",
+   "content_level": "reference",
+   "title": "Installation Electrical & Environmental Requirements",
+   "content": "The washer must be installed by qualified personnel on a firm level floor, away from freezing temperatures or humid/outdoor spaces, and moving/installing requires two or more people.",
+   "tags": [
+    "installation",
+    "grounding",
+    "clearance"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    4,
+    7,
+    10
+   ],
+   "diagram_pages": []
+  },
+  {
    "chunk_type": "specs",
    "content_level": null,
    "title": "Product Specifications",
-   "content": "The LG WM3900H/WM3800H washing machine requires 120 VAC @ 60 Hz, supports water pressure of 20–120 psi, and has dimensions of 27\"W x 30¼\"D x 39\"H (55\" depth with door open). Net weight is 187.4 lb (85 kg) with a max spin speed of 1300 RPM.",
+   "content": "120 VAC @ 60Hz electrical requirement, 20-120 psi water pressure, dimensions 27\"W x 30 1/4\"D x 39\"H, net weight 187.4 lb, max spin speed 1300 RPM.",
    "tags": [
     "specs",
-    "electrical",
     "dimensions",
-    "water-pressure",
-    "spin-speed"
+    "electrical"
    ],
    "scenarios": null,
    "source_pages": [
     10
    ],
    "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "critical",
-   "title": "Hydrogen Gas Explosion Risk",
-   "content": "If the hot-water system has not been used for two weeks or more, hydrogen gas may accumulate and is explosive. Before using the washer, turn on all hot water faucets and let water flow for several minutes to release accumulated gas; do not smoke or use open flame during this time.",
-   "tags": [
-    "hydrogen",
-    "explosion",
-    "hot-water",
-    "fire-hazard"
-   ],
-   "scenarios": [
+   "table_data": [
     {
-     "condition": "Hot water system unused for 2+ weeks",
-     "steps": [
-      "Turn on all hot water faucets in the home.",
-      "Let water flow from each faucet for several minutes.",
-      "Do not smoke or use open flame during this process.",
-      "Once gas is cleared, proceed to use the washer normally."
+     "table_title": "Product Specifications",
+     "columns": [
+      "Spec",
+      "Value"
+     ],
+     "rows": [
+      [
+       "Electrical requirements",
+       "120 VAC @ 60 Hz"
+      ],
+      [
+       "Min./Max. water pressure",
+       "20-120 psi (138-827 kPa)"
+      ],
+      [
+       "Dimensions",
+       "27\"(W) x 30 1/4\"(D) x 39\"(H), 55\" (D with door open)"
+      ],
+      [
+       "Net weight",
+       "187.4 lb (85 kg)"
+      ],
+      [
+       "Max spin speed",
+       "1300 RPM"
+      ]
      ]
     }
-   ],
-   "source_pages": [
-    5
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   ]
   },
   {
-   "chunk_type": "safety",
-   "content_level": "critical",
-   "title": "Steam Cycle Door Safety",
-   "content": "Do not touch the door during steam cycles as the surface becomes very hot. Do not attempt to override the door lock or reach into the washer during a steam cycle — steam can cause severe burns.",
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Installation Overview and Location Selection",
+   "content": "Install on a solid, level floor free of slope over 1 inch, keep the power outlet within 60 inches, maintain 1 inch side clearance and 4 inches rear clearance, and avoid carpet or platforms.",
    "tags": [
-    "steam",
-    "burn",
-    "door-lock",
-    "safety"
-   ],
-   "scenarios": [
-    {
-     "condition": "Steam cycle is running",
-     "steps": [
-      "Do not touch the door surface.",
-      "Wait for the door lock indicator to release before opening the door.",
-      "Never force the door open while locked."
-     ]
-    }
-   ],
-   "source_pages": [
-    29
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Flammable Materials and Chemical Safety",
-   "content": "Do not wash items soaked in gasoline, dry-cleaning solvents, or other flammable substances. Never mix chlorine bleach with ammonia or acids such as vinegar — this produces poisonous gas that can cause serious injury or death.",
-   "tags": [
-    "flammable",
-    "bleach",
-    "chemical",
-    "fire-hazard",
-    "poisonous-gas"
+    "installation",
+    "location",
+    "clearance"
    ],
    "scenarios": null,
    "source_pages": [
-    6
+    9,
+    11
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": [
+    9,
+    11
+   ]
   },
   {
-   "chunk_type": "safety",
-   "content_level": "important",
-   "title": "Electrical Safety and Grounding",
-   "content": "The washer must be plugged into a grounded 120 VAC, 60 Hz 3-prong outlet. Never use an extension cord or adapter, cut the ground prong, or operate with a damaged power cord — improper grounding can cause electric shock, fire, or death.",
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Unpack and Remove Shipping Bolts",
+   "content": "Lift the washer off the foam base ensuring the tub support isn't stuck to the bottom, use the included wrench to loosen and remove all four shipping bolts counterclockwise, then install the hole caps.",
    "tags": [
-    "grounding",
-    "electrical",
-    "power-cord",
-    "extension-cord"
+    "shipping-bolts",
+    "unboxing",
+    "installation"
    ],
    "scenarios": null,
    "source_pages": [
-    6,
+    12
+   ],
+   "diagram_pages": [
+    12
+   ]
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Connect Water Supply Lines",
+   "content": "Inspect hose rubber seals, hand-tighten hoses to hot/cold faucets (red=hot, blue=cold) plus 2/3 turn with pliers, flush hoses into a bucket, then attach to the washer's rear inlets and check for leaks.",
+   "tags": [
+    "water-lines",
+    "installation",
+    "hoses"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    13
+   ],
+   "diagram_pages": [
+    13
+   ]
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Connect the Drain Hose",
+   "content": "Clip the elbow bracket within 4 inches of the drain hose end, then insert into a standpipe or hang over a laundry tub edge, and secure with the included tie strap.",
+   "tags": [
+    "drain-hose",
+    "installation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    14
+   ],
+   "diagram_pages": [
+    14
+   ]
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Level the Washer",
+   "content": "Position the washer, adjust the lower leveling feet to raise/lower until level (max 1 inch slope), tighten the locknuts, then rock the washer to confirm it doesn't wobble; use non-skid pads on slippery floors.",
+   "tags": [
+    "leveling",
+    "vibration",
+    "installation"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    15
+   ],
+   "diagram_pages": [
+    15
+   ]
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Connect Power and Test the Washer",
+   "content": "Plug into a grounded 120-VAC 3-prong outlet, then run a test cycle by loading 6 lb of laundry, pressing Power, selecting Rinse+Spin, and pressing Start/Pause to verify fill, balance, and drain.",
+   "tags": [
+    "power",
+    "testing",
+    "installation"
+   ],
+   "scenarios": null,
+   "source_pages": [
     16
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "contextual",
-   "title": "Child Safety and Control Lock",
-   "content": "Do not allow children to play on or in the appliance. Use the Control Lock feature (press and hold for 3 seconds) to disable controls and prevent children from changing cycles or operating the machine.",
-   "tags": [
-    "child-safety",
-    "control-lock",
-    "supervision"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    5,
-    30
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "safety",
-   "content_level": "reference",
-   "title": "Maintenance Safety Warnings",
-   "content": "Disconnect the washer from power before cleaning or performing any user maintenance — turning controls to OFF does not disconnect power. Do not disassemble or repair the appliance yourself; use only authorized factory parts.",
-   "tags": [
-    "maintenance-safety",
-    "unplug",
-    "repair"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    6,
-    35
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": []
   },
   {
    "chunk_type": "how_to",
    "content_level": "everyday",
-   "title": "Basic Washer Operation",
-   "content": "Sort and load laundry, add HE detergent to the dispenser, press Power, turn the Cycle Selector Knob to choose a cycle, adjust settings with modifier buttons, then press Start/Pause. The washer measures load weight briefly before starting; remove clothes promptly when the end-of-cycle melody sounds.",
+   "title": "Basic Washer Operation Sequence",
+   "content": "Sort and load laundry, add HE detergent/bleach/softener to the dispenser, press Power, turn the Cycle Selector Knob to choose a cycle, adjust settings if desired, then press Start/Pause to begin; remove laundry promptly at cycle end.",
    "tags": [
     "operation",
     "cycle",
-    "start",
-    "detergent",
-    "loading"
+    "basics"
    ],
    "scenarios": null,
    "source_pages": [
     17
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": [
+    17
+   ]
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Sorting Laundry for Best Results",
+   "content": "Sort laundry by color, soil level, fabric type, and lint type to avoid poor wash performance, dye transfer, or linting; do not tightly pack the drum and use the Bedding cycle for pillows/comforters.",
+   "tags": [
+    "sorting",
+    "fabric-care"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    18
+   ],
+   "diagram_pages": []
   },
   {
    "chunk_type": "how_to",
    "content_level": "everyday",
-   "title": "Loading the Detergent Dispenser",
-   "content": "Open the dispenser drawer and add HE detergent to the main wash compartment (use the liquid cup for liquid detergent; remove it for powder). Add bleach to the bleach compartment and fabric softener to the softener compartment; close the drawer slowly before starting the cycle.",
+   "title": "Loading the Dispenser Drawer",
+   "content": "Open the drawer and add liquid detergent (with cup in place) or powdered detergent (cup removed) to the main compartment, bleach to its compartment, and softener to its compartment; close the drawer slowly to avoid premature dispensing.",
    "tags": [
-    "detergent",
     "dispenser",
+    "detergent",
     "bleach",
-    "fabric-softener",
-    "HE"
+    "softener"
    ],
    "scenarios": null,
    "source_pages": [
@@ -195,42 +361,51 @@
    ],
    "diagram_pages": [
     19
+   ]
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "HE Detergent Use Guidelines",
+   "content": "Use only High-Efficiency (HE) detergent and less than half the manufacturer's recommended maximum amount; overuse causes oversudsing, poor rinsing, and residue buildup that contributes to odors.",
+   "tags": [
+    "detergent",
+    "he",
+    "oversudsing"
    ],
-   "table_data": null,
-   "applies_to": []
+   "scenarios": null,
+   "source_pages": [
+    21
+   ],
+   "diagram_pages": []
   },
   {
    "chunk_type": "how_to",
    "content_level": "everyday",
-   "title": "Sorting Laundry",
-   "content": "Sort laundry by color (whites, lights, darks), soil level (heavy, normal, light), fabric type (delicates, easy care, sturdy), and lint type (lint producers vs. collectors). Use the Bedding cycle for waterproof or water-resistant items and buoyant items like pillows or comforters.",
+   "title": "Control Panel Overview",
+   "content": "The control panel includes Power On/Off, Cycle Selector Knob, Start/Pause, cycle modifier buttons (Temp., Spin, Soil, Signal), special cycle/option buttons, and a time/status display.",
    "tags": [
-    "sorting",
-    "laundry",
-    "colors",
-    "fabric-type",
-    "bedding"
+    "control-panel",
+    "buttons"
    ],
    "scenarios": null,
    "source_pages": [
-    18
+    22,
+    23
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": [
+    22,
+    23
+   ]
   },
   {
-   "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "Wash Cycles Guide",
-   "content": "The washer offers cycles including Normal, Heavy Duty, Bedding, Sanitary, Allergiene™, Bright Whites™, Tub Clean, Speed Wash, Perm.Press, Delicates, Towels, Sportswear, Drain+Spin, and Downloaded. Each cycle has preset temperature, spin, and soil settings that can be adjusted with modifier buttons.",
+   "chunk_type": "reference",
+   "content_level": null,
+   "title": "Wash Cycle Guide",
+   "content": "Cycle options include Normal, Bright Whites, Perm.Press, Delicates, Towels, Sportswear, Bedding, Speed Wash, Heavy Duty, Sanitary, Allergiene, Tub Clean, and Downloaded, each with distinct temp/spin/soil defaults.",
    "tags": [
-    "wash-cycles",
-    "cycle-selection",
-    "normal",
-    "heavy-duty",
-    "allergiene",
-    "sanitary"
+    "cycles",
+    "cycle-guide"
    ],
    "scenarios": null,
    "source_pages": [
@@ -242,275 +417,300 @@
    "diagram_pages": [],
    "table_data": [
     {
-     "table_title": "Cycle Guide Summary",
+     "table_title": "Cycle Guide (abbreviated)",
      "columns": [
       "Cycle",
-      "Best For",
-      "Notes"
+      "Default Temp",
+      "Default Spin",
+      "Default Soil"
      ],
      "rows": [
       [
        "Normal",
-       "Everyday items except delicates",
-       "Default if Start/Pause pressed without selection"
+       "Warm",
+       "High",
+       "Normal"
       ],
       [
        "Heavy Duty",
-       "Heavily soiled laundry",
-       "More powerful wash motions"
+       "Warm",
+       "High",
+       "Heavy"
       ],
       [
        "Bedding",
-       "King/queen comforters, waterproof items",
-       "Use low spin for waterproof items"
+       "Warm",
+       "Medium",
+       "Normal"
       ],
       [
        "Sanitary",
-       "Bacteria reduction",
-       "Reduces 99% of bacteria via high temp"
+       "-",
+       "High",
+       "Normal"
       ],
       [
-       "Allergiene™",
-       "Allergen reduction",
-       "Automatically uses steam; not for delicates"
+       "Allergiene",
+       "-",
+       "High",
+       "-"
       ],
       [
-       "Bright Whites™",
-       "White items only",
-       "Max 15 lb load"
+       "Bright Whites",
+       "Hot",
+       "High",
+       "Normal"
+      ],
+      [
+       "Sportswear",
+       "Warm",
+       "Medium",
+       "Normal"
+      ],
+      [
+       "Perm.Press",
+       "Warm",
+       "High",
+       "Normal"
+      ],
+      [
+       "Delicates",
+       "Warm",
+       "Medium",
+       "Normal"
+      ],
+      [
+       "Towels",
+       "Warm",
+       "High",
+       "Normal"
       ],
       [
        "Speed Wash",
-       "Lightly soiled small loads",
-       "Max 3 lb; use very little detergent"
-      ],
-      [
-       "Tub Clean",
-       "Drum cleaning",
-       "Run monthly; no laundry in drum"
+       "Hot",
+       "High",
+       "Normal"
       ]
      ]
     }
-   ],
-   "applies_to": []
+   ]
   },
   {
    "chunk_type": "how_to",
    "content_level": "reference",
-   "title": "Option and Modifier Buttons",
-   "content": "Use Temp., Spin, Soil, and Signal modifier buttons to customize cycle settings. Option buttons include Steam, Fresh Care (tumbles up to 19 hrs post-cycle), Pre Wash (15-min prewash), Delay Wash (up to 19 hrs), Add Garments, Turbo Wash™, Cold Wash, Extra Rinse, Rinse+Spin, and Control Lock.",
+   "title": "Cycle Modifier Buttons: Temp, Spin, Soil, Signal",
+   "content": "Use Temp. to select wash/rinse temperature, Spin to set extraction speed (also activates Drain+Spin), Soil to adjust cycle time/wash action for soil level, and Signal to adjust melody/button volume.",
    "tags": [
-    "options",
+    "modifiers",
+    "temp",
+    "spin",
+    "soil"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    28
+   ],
+   "diagram_pages": [
+    28
+   ]
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "reference",
+   "title": "Special Options: Steam, Fresh Care, Pre Wash, Delay Wash",
+   "content": "Steam boosts cleaning with hot steam (not for delicates); Fresh Care tumbles the load periodically up to 19 hours after cycle end to prevent wrinkles; Pre Wash adds a 15-minute soak for heavily soiled items; Delay Wash delays start up to 19 hours.",
+   "tags": [
     "steam",
     "fresh-care",
-    "delay-wash",
+    "pre-wash",
+    "delay-wash"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    29
+   ],
+   "diagram_pages": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Add Garments Mid-Cycle",
+   "content": "Press Add Garments to pause and unlock the door (if temperature/water level allow), add or remove items, close the door, then press Start/Pause to resume; disabled during Tub Clean or Spin for safety.",
+   "tags": [
+    "add-garments",
+    "mid-cycle"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    30
+   ],
+   "diagram_pages": []
+  },
+  {
+   "chunk_type": "how_to",
+   "content_level": "everyday",
+   "title": "Turbo Wash, Cold Wash, Extra Rinse, Rinse+Spin, Control Lock",
+   "content": "Turbo Wash shortens cycle time; Cold Wash saves energy using cooler water with longer wash times; Extra Rinse adds rinses; Rinse+Spin runs a standalone rinse/spin; Control Lock disables all buttons except Power (hold 3 seconds to toggle).",
+   "tags": [
     "turbo-wash",
+    "cold-wash",
     "extra-rinse",
     "control-lock"
    ],
    "scenarios": null,
    "source_pages": [
-    28,
-    29,
     30
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": []
   },
   {
    "chunk_type": "how_to",
    "content_level": "reference",
    "title": "LG SmartThinQ App Setup and Features",
-   "content": "Download the LG SmartThinQ app from Google Play or Apple App Store, turn off mobile data, connect your smartphone to your 2.4 GHz Wi-Fi router, then register the appliance. Features include remote start, cycle download, Tub Clean Coach, Smart Diagnosis™, energy monitoring, and push alerts.",
+   "content": "Connect a smartphone to the same 2.4GHz Wi-Fi network as the washer, install the SmartThinQ app, and use it for Remote Start, cycle downloads, Tub Clean Coach, Smart Diagnosis, energy monitoring, and push alerts.",
    "tags": [
     "smartthinq",
     "wifi",
-    "remote-start",
     "app",
-    "smart-diagnosis"
+    "remote-start"
    ],
    "scenarios": null,
    "source_pages": [
     31,
     32
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": [
+    31
+   ]
   },
   {
    "chunk_type": "how_to",
    "content_level": "reference",
-   "title": "Smart Diagnosis™ via Phone",
-   "content": "Call LG Customer Information Center (US: 1-800-243-0000; Canada: 1-888-542-2623), place the phone mouthpiece near the Smart Diagnosis™ icon, then press and hold the Temp. button for 3 seconds. Keep the phone in place until tone transmission finishes; the agent will analyze the data.",
+   "title": "Smart Diagnosis via Phone or App",
+   "content": "Call the LG Customer Information Center, hold the phone near the Smart Diagnosis icon, press and hold Temp. for 3 seconds to transmit diagnostic tones, or use the Smart Diagnosis feature in the SmartThinQ app directly.",
    "tags": [
     "smart-diagnosis",
     "troubleshooting",
-    "customer-service",
-    "phone"
+    "support"
    ],
    "scenarios": null,
    "source_pages": [
     34
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "Care in Cold Climates – Storing the Washer",
-   "content": "To winterize: turn off water supply, disconnect and drain hoses, add 1 gallon of nontoxic RV antifreeze to the empty drum, run Spin for 1 minute, then unplug and dry the drum. To restore after storage, run a complete Speed Wash cycle with detergent (no laundry).",
-   "tags": [
-    "winterizing",
-    "cold-climate",
-    "antifreeze",
-    "storage",
-    "freeze-protection"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    39
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": [
+    34
+   ]
   },
   {
    "chunk_type": "care",
    "content_level": "everyday",
-   "title": "Care After Each Wash Cycle",
-   "content": "After each cycle, wipe the door and inside of the door seal to remove moisture, then leave the door open to allow the drum interior to dry. Wipe the exterior with a dry cloth to remove any moisture.",
+   "title": "Care After Each Wash",
+   "content": "Wipe the door and inside of the door seal to remove moisture after each cycle and leave the door open to dry the drum interior.",
    "tags": [
-    "after-wash",
     "door-seal",
-    "moisture",
-    "drum",
+    "drying",
     "daily-care"
    ],
    "scenarios": null,
    "source_pages": [
     35
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": []
   },
   {
    "chunk_type": "care",
    "content_level": "reference",
-   "title": "Cleaning the Exterior",
-   "content": "Wipe spills immediately and clean the exterior with a damp cloth; wash the door inside and out with a damp cloth and dry with a soft cloth. Do not use harsh chemicals, abrasive cleaners, or solvents.",
-   "tags": [
-    "exterior",
-    "cleaning",
-    "door",
-    "damp-cloth"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    35
-   ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "care",
-   "content_level": "reference",
-   "title": "Tub Clean Cycle – Drum Cleaning",
-   "content": "Run the Tub Clean cycle monthly (or more often under heavy use) with a drum cleaner, lime scale remover, liquid chlorine bleach, powdered cleaner, or cleaning tablets added to the appropriate dispenser compartment. Never load laundry during Tub Clean; leave the door open after the cycle to dry completely.",
+   "title": "Cleaning the Drum with Tub Clean",
+   "content": "Add drum cleaner, lime scale remover, liquid bleach, powdered cleaner, or cleaning tablets per compartment instructions, then run the Tub Clean cycle monthly (weekly for 3 weeks if mildew already exists) with the drum empty.",
    "tags": [
     "tub-clean",
     "drum",
-    "monthly",
-    "mildew",
-    "odor",
-    "mineral-buildup"
+    "descale",
+    "mildew"
    ],
    "scenarios": null,
    "source_pages": [
     35,
     36
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": []
   },
   {
    "chunk_type": "care",
    "content_level": "reference",
-   "title": "Cleaning the Detergent Dispenser Drawer",
-   "content": "Pull out the dispenser drawer weekly, press the disengage button to remove it fully, take out the inserts, and clean with warm water using a soft cloth or brush. Use water only; dry with a towel before replacing.",
+   "title": "Removing Mineral Buildup",
+   "content": "In hard water areas, use a descaler on the drum periodically and always run Tub Clean after descaling; use stainless steel cleaner with a soft cloth for scale spots and never use steel wool.",
    "tags": [
-    "dispenser",
-    "drawer",
-    "weekly",
-    "detergent-buildup",
-    "scale"
+    "descale",
+    "hard-water",
+    "stainless-steel"
    ],
    "scenarios": null,
    "source_pages": [
     36
    ],
-   "diagram_pages": [
-    36
-   ],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": []
   },
   {
    "chunk_type": "care",
-   "content_level": "reference",
-   "title": "Cleaning the Door Seal",
-   "content": "Monthly, wear rubber gloves and goggles, dilute 3/4 cup (177 ml) of liquid chlorine bleach in 1 gallon (3.8 L) of water, wipe all around the door seal with a soaked sponge or cloth, then wipe dry and leave the door open to dry completely. Never use undiluted bleach on the seal.",
+   "content_level": "everyday",
+   "title": "Clean the Detergent Dispenser Drawer",
+   "content": "Slide out and press the disengage button to remove the drawer, remove and rinse the inserts with warm water only, wipe dry, and replace weekly to prevent scale buildup.",
+   "tags": [
+    "dispenser-drawer",
+    "cleaning",
+    "weekly"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    36,
+    37
+   ],
+   "diagram_pages": [
+    36
+   ]
+  },
+  {
+   "chunk_type": "care",
+   "content_level": "everyday",
+   "title": "Clean the Door Seal",
+   "content": "Wearing gloves and goggles, wipe the door seal monthly with a solution of 3/4 cup liquid chlorine bleach diluted in 1 gallon of water, then wipe dry and leave the door open to air dry.",
    "tags": [
     "door-seal",
-    "monthly",
     "bleach",
-    "mold",
-    "gasket"
+    "monthly"
    ],
    "scenarios": null,
    "source_pages": [
     37
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": []
   },
   {
    "chunk_type": "care",
    "content_level": "reference",
-   "title": "Cleaning the Water Inlet Filters",
-   "content": "Turn off water faucets, unscrew the inlet hoses from the back of the washer, carefully remove the filter screens, soak them in white vinegar or lime scale remover, rinse thoroughly, press back into place, flush the hoses, then reattach. Clean when the IE error code appears or if the washer fills slowly.",
+   "title": "Clean the Water Inlet Filters",
+   "content": "Turn off faucets, unscrew hoses, remove filters from the valves, soak in white vinegar or lime scale remover, rinse, reinstall, and flush the hoses before reattaching.",
    "tags": [
     "inlet-filter",
-    "water-filter",
-    "lime-scale",
-    "hard-water",
-    "IE-error"
+    "descale",
+    "water-supply"
    ],
    "scenarios": null,
    "source_pages": [
     37
    ],
-   "diagram_pages": [],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": []
   },
   {
    "chunk_type": "care",
    "content_level": "reference",
-   "title": "Cleaning the Drain Pump Filter",
-   "content": "Turn off and unplug the washer, open the drain pump filter cover, drain remaining water via the drain hose, twist the pump filter counterclockwise to remove, clean the filter and opening, then reinsert and close the cover. Clean when the OE error code appears or periodically to prevent clogging.",
+   "title": "Clean the Drain Pump Filter",
+   "content": "Unplug the washer, open the drain pump filter cover, drain remaining water via the hose plug, twist the pump filter counterclockwise to remove and clean it, then reinstall everything in reverse order.",
    "tags": [
     "drain-pump-filter",
-    "OE-error",
-    "drainage",
-    "clogging"
+    "clogged",
+    "cleaning"
    ],
    "scenarios": null,
    "source_pages": [
@@ -518,131 +718,33 @@
    ],
    "diagram_pages": [
     38
-   ],
-   "table_data": null,
-   "applies_to": []
+   ]
   },
   {
-   "chunk_type": "how_to",
+   "chunk_type": "care",
    "content_level": "reference",
-   "title": "Installation Overview",
-   "content": "Installation sequence: choose proper location → unpack and remove shipping bolts → connect water lines → connect drain hose → level the washer → connect to power supply → run a test cycle. Tools needed: pliers and a level.",
+   "title": "Cold Climate Storage and Winterizing",
+   "content": "To store the washer in freezing conditions, drain and disconnect hoses, add 1 gallon of RV antifreeze to the empty drum, run a brief spin/drain cycle to distribute it, then dry and store upright; run a Speed Wash cycle to remove antifreeze before reuse.",
    "tags": [
-    "installation",
-    "setup",
-    "shipping-bolts",
-    "water-lines",
-    "drain",
-    "leveling"
+    "winterizing",
+    "antifreeze",
+    "cold-climate"
    ],
    "scenarios": null,
    "source_pages": [
-    9
+    39
    ],
-   "diagram_pages": [
-    9
-   ],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "Connecting Water Lines",
-   "content": "Inspect rubber seals in both ends of new hoses, connect blue hose to cold and red hose to hot faucets (hand-tight plus 2/3 turn with pliers), flush hoses into a bucket, then attach to the washer's hot and cold inlets and check for leaks. Replace hoses every 5 years; never reuse old hoses.",
-   "tags": [
-    "water-lines",
-    "hoses",
-    "installation",
-    "hot-cold",
-    "leaks"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    13
-   ],
-   "diagram_pages": [
-    13
-   ],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "Connecting the Drain Hose",
-   "content": "Clip the elbow bracket within 4 inches of the drain hose end, then insert into a standpipe or hang over a laundry tub, and secure with a tie strap. The drain hose end must be 29.5–96 inches above the washer bottom and no more than 60 inches from the washer; never create an airtight seal.",
-   "tags": [
-    "drain-hose",
-    "standpipe",
-    "laundry-tub",
-    "installation",
-    "elbow-bracket"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    14
-   ],
-   "diagram_pages": [
-    14
-   ],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "Leveling the Washer",
-   "content": "Position the washer, adjust the lower leveling feet (turn to raise or lower), tighten the locknuts counterclockwise when level, then push/rock the top edges to confirm no rocking. Maximum allowable slope is 1 inch side-to-side or front-to-back; use non-skid pads on slippery floors.",
-   "tags": [
-    "leveling",
-    "leveling-feet",
-    "vibration",
-    "non-skid-pads",
-    "installation"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    15
-   ],
-   "diagram_pages": [
-    15
-   ],
-   "table_data": null,
-   "applies_to": []
-  },
-  {
-   "chunk_type": "how_to",
-   "content_level": "reference",
-   "title": "Removing Shipping Bolts",
-   "content": "Lift the washer off the foam base, use the included wrench to loosen all four shipping bolts counterclockwise starting from the bottom two, wiggle and pull out the bolt assemblies, then install the four hole caps. Save the bolt assemblies for future transport.",
-   "tags": [
-    "shipping-bolts",
-    "unpacking",
-    "installation",
-    "vibration"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    12
-   ],
-   "diagram_pages": [
-    12
-   ],
-   "table_data": null,
-   "applies_to": []
+   "diagram_pages": []
   },
   {
    "chunk_type": "troubleshooting",
    "content_level": null,
-   "title": "Noise Troubleshooting",
-   "content": "Most washer noises are normal operation; rattling/clanking may indicate foreign objects in the drum or pump, and vibration usually indicates unlevel feet, unremoved shipping bolts, or uneven load distribution.",
+   "title": "Noises You Might Hear",
+   "content": "Common noises like spraying, humming, sloshing, and added water are normal operation; rattling, thumping, vibrating, or squeaking usually indicate foreign objects, unbalanced loads, un-leveled feet, or leftover shipping bolts.",
    "tags": [
     "noise",
     "vibration",
-    "rattling",
-    "water-hammer",
-    "troubleshooting"
+    "rattling"
    ],
    "scenarios": null,
    "source_pages": [
@@ -651,7 +753,7 @@
    "diagram_pages": [],
    "table_data": [
     {
-     "table_title": "Noise Troubleshooting",
+     "table_title": "Noises You Might Hear",
      "columns": [
       "Noise",
       "Possible Cause",
@@ -660,51 +762,42 @@
      "rows": [
       [
        "Spraying/Hissing",
-       "Water circulating",
+       "Water spraying during cycle",
        "Normal operation"
       ],
       [
-       "Humming/Gurgling",
-       "Drain pump operating",
-       "Normal operation"
-      ],
-      [
-       "Rattling/Clanking",
+       "Rattling/clanking",
        "Foreign objects in drum or pump",
-       "Stop washer, check drum and drain filter; call service if continues"
+       "Stop washer, check drum and drain filter"
       ],
       [
        "Thumping",
-       "Heavy load or out-of-balance load",
+       "Heavy or unbalanced load",
        "Pause and redistribute load"
       ],
       [
        "Vibrating",
-       "Shipping bolts not removed, uneven load, or unlevel feet",
-       "Remove bolts, redistribute load, or level washer"
+       "Shipping bolts not removed / not level",
+       "Remove shipping bolts; relevel washer"
       ],
       [
-       "Banging when filling (Water Hammer)",
-       "Home plumbing flexes when valve shuts",
-       "Install water hammer arrestors; check water pressure"
+       "Banging (water hammer)",
+       "Plumbing moves when valves shut off",
+       "Install a water hammer arrestor"
       ]
      ]
     }
-   ],
-   "applies_to": []
+   ]
   },
   {
    "chunk_type": "troubleshooting",
    "content_level": null,
-   "title": "Operation Troubleshooting",
-   "content": "Common issues include water leaking, washer not draining, excessive sudsing, washer not turning on or operating, and washer not filling properly — most caused by installation, detergent, or power issues.",
+   "title": "Operation Problems: Leaks, No Power, No Drain",
+   "content": "Water leaks are often caused by loose hose connections, clogged house drains, oversized loads above the drum, or oversudsing; no power issues stem from unplugged cords or tripped breakers.",
    "tags": [
     "leaking",
-    "drainage",
-    "sudsing",
-    "wont-start",
-    "filling",
-    "troubleshooting"
+    "no-power",
+    "drain"
    ],
    "scenarios": null,
    "source_pages": [
@@ -724,51 +817,85 @@
      "rows": [
       [
        "Water leaking",
-       "Loose inlet hose, clogged drain, drain hose out of drain, large item above drum, oversudsing",
-       "Check/tighten hoses; check drain; use Bedding cycle for large items; use less HE detergent"
+       "Loose inlet hose connection",
+       "Check and tighten connections"
+      ],
+      [
+       "Water leaking",
+       "Load above top of drum",
+       "Use Bedding cycle, don't overload"
       ],
       [
        "Washer will not drain",
-       "Kinked drain hose or drain too far from washer",
-       "Straighten hose; ensure drain is within 5 ft of washer"
-      ],
-      [
-       "Excessive sudsing",
-       "Too much or non-HE detergent",
-       "Use only HE detergent; reduce amount"
+       "Kinked or misplaced drain hose",
+       "Check hose position, no more than 5 ft away"
       ],
       [
        "Washer will not turn on",
-       "Unplugged, blown fuse, or power outage",
-       "Check plug, reset breaker, replace fuse"
+       "Cord unplugged or breaker tripped",
+       "Reconnect cord, reset breaker"
       ],
       [
-       "Washer will not operate",
-       "Control lock on, lid open, water off, controls not set",
-       "Disable control lock; close door; turn on water; re-select cycle and press Start/Pause"
-      ],
-      [
-       "Washer not filling properly",
-       "Clogged filter, kinked hoses, water off, or HE efficiency",
-       "Clean inlet filters; check hoses; turn on faucets fully"
+       "Bleach does not dispense",
+       "Dispenser cover not installed or clogged",
+       "Reinstall cover, clean reservoir"
       ]
      ]
     }
-   ],
-   "applies_to": []
+   ]
   },
   {
    "chunk_type": "troubleshooting",
    "content_level": null,
-   "title": "Performance Troubleshooting",
-   "content": "Performance issues such as wrinkling, staining, poor stain removal, and odor are typically caused by improper sorting, overloading, incorrect detergent use, or infrequent cleaning of the drum and door seal.",
+   "title": "Water Fill and Level Issues",
+   "content": "Slow filling is usually due to clogged inlet filters, kinked hoses, or low water pressure; low or invisible water in the drum during wash is normal for HE washers and does not indicate a fault.",
+   "tags": [
+    "fill",
+    "water-level",
+    "he-washer"
+   ],
+   "scenarios": null,
+   "source_pages": [
+    44
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Fill Problems",
+     "columns": [
+      "Problem",
+      "Possible Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "Washer not filling properly",
+       "Filter clogged",
+       "Clean inlet filters"
+      ],
+      [
+       "Washer not filling properly",
+       "Inlet hoses kinked",
+       "Check hoses"
+      ],
+      [
+       "Water level too low / not visible",
+       "HE energy efficiency design",
+       "Normal operation"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Performance Issues: Wrinkling, Staining, Odor",
+   "content": "Wrinkling results from delayed unloading or overloading; staining from bleach/softener overfilled or added directly to the drum; odor from unclean door seal, drain filter, or new rubber smell that fades with use.",
    "tags": [
     "wrinkling",
     "staining",
-    "odor",
-    "stain-removal",
-    "performance",
-    "troubleshooting"
+    "odor"
    ],
    "scenarios": null,
    "source_pages": [
@@ -787,142 +914,36 @@
      "rows": [
       [
        "Wrinkling",
-       "Not unloaded promptly, overloaded, or reversed hoses",
-       "Remove clothes immediately; don't overfill; check hose connections"
+       "Washer not unloaded promptly",
+       "Remove items as soon as cycle ends"
       ],
       [
        "Staining",
-       "Bleach/softener dispensed too soon, added directly to drum, or improper sorting",
-       "Don't overfill dispenser; always use dispensers; sort dark from light"
-      ],
-      [
-       "Poor stain removal",
-       "Wrong options or previously set stains",
-       "Select Heavy soil; pre-treat set stains"
+       "Bleach/softener added directly to drum",
+       "Always use dispenser compartments"
       ],
       [
        "Odor",
-       "New rubber, dirty door gasket/seal, or dirty drain pump filter",
-       "Run washer a few times; clean gasket and seal monthly; clean drain pump filter regularly"
+       "Door seal/gasket not cleaned regularly",
+       "Clean gasket and door seal regularly"
+      ],
+      [
+       "Odor",
+       "Drain pump filter has debris",
+       "Clean drain pump filter regularly"
       ]
      ]
     }
-   ],
-   "applies_to": []
+   ]
   },
   {
    "chunk_type": "troubleshooting",
    "content_level": null,
-   "title": "Error Codes",
-   "content": "The washer displays error codes for specific faults; most can be resolved by the user without a service call.",
-   "tags": [
-    "error-codes",
-    "IE",
-    "UE",
-    "OE",
-    "LE",
-    "FE",
-    "PE",
-    "Sud",
-    "FF",
-    "CL",
-    "tCL"
-   ],
-   "scenarios": null,
-   "source_pages": [
-    47,
-    48
-   ],
-   "diagram_pages": [],
-   "table_data": [
-    {
-     "table_title": "Error Codes",
-     "columns": [
-      "Code",
-      "Meaning",
-      "Solution"
-     ],
-     "rows": [
-      [
-       "IE",
-       "Washer fills slowly or not at all",
-       "Open faucets fully; check/clean inlet filters; check hoses for kinks; check water pressure"
-      ],
-      [
-       "UE",
-       "Unbalanced load",
-       "Redistribute load; add items if load too small; separate heavy and light items"
-      ],
-      [
-       "dE / dE1 / dE2",
-       "Tub does not rotate or door not secured",
-       "Close and secure door; if persists, unplug and call service"
-      ],
-      [
-       "OE",
-       "Water drains slowly or not at all",
-       "Check drain hose for kinks; ensure drain is ≤96 inches above washer bottom"
-      ],
-      [
-       "EE",
-       "Control error",
-       "Unplug 60 seconds, reconnect, try again; call service if repeats"
-      ],
-      [
-       "FE",
-       "Water level too high (faulty valve)",
-       "Close faucets, unplug, call service"
-      ],
-      [
-       "PE",
-       "Water level sensor not working",
-       "Close faucets, unplug, call service"
-      ],
-      [
-       "LE",
-       "Motor error",
-       "Let stand 30 minutes, restart; call service if persists"
-      ],
-      [
-       "Sud",
-       "Too many suds",
-       "Reduce detergent; run Rinse+Spin cycle"
-      ],
-      [
-       "PF",
-       "Water level sensor error",
-       "Unplug and call service"
-      ],
-      [
-       "FF",
-       "Frozen hose or drain pump",
-       "See Care in Cold Climates section"
-      ],
-      [
-       "CL",
-       "Control Lock activated",
-       "Press and hold Control Lock for 3 seconds to deactivate"
-      ],
-      [
-       "tCL",
-       "Tub Clean needed",
-       "Run Tub Clean cycle"
-      ]
-     ]
-    }
-   ],
-   "applies_to": []
-  },
-  {
-   "chunk_type": "troubleshooting",
-   "content_level": null,
-   "title": "Wi-Fi Connectivity Troubleshooting",
-   "content": "Wi-Fi connection issues are usually caused by incorrect password, mobile data left on, wrong SSID format, non-2.4 GHz router, or the appliance being too far from the router.",
+   "title": "Wi-Fi Connection Troubleshooting",
+   "content": "Connection failures are usually due to incorrect passwords, mobile data left on, non-2.4GHz routers, or excessive distance from the router; a Wi-Fi repeater can help extend range.",
    "tags": [
     "wifi",
-    "smartthinq",
-    "connectivity",
-    "troubleshooting"
+    "connectivity"
    ],
    "scenarios": null,
    "source_pages": [
@@ -939,68 +960,139 @@
      ],
      "rows": [
       [
-       "Cannot connect to Wi-Fi",
-       "Wrong password",
-       "Delete network and re-register"
-      ],
-      [
-       "Cannot connect to Wi-Fi",
-       "Mobile data on",
-       "Turn off mobile data before registering"
-      ],
-      [
-       "Cannot connect to Wi-Fi",
-       "SSID has special characters",
-       "Use only English letters and numbers for SSID"
-      ],
-      [
-       "Cannot connect to Wi-Fi",
-       "Router not 2.4 GHz",
+       "Trouble connecting to Wi-Fi",
+       "Router frequency is not 2.4 GHz",
        "Set router to 2.4 GHz"
       ],
       [
-       "Cannot connect to Wi-Fi",
+       "Trouble connecting to Wi-Fi",
        "Appliance too far from router",
-       "Move router closer or install Wi-Fi repeater"
+       "Move router closer or add a Wi-Fi repeater"
       ]
      ]
     }
+   ]
+  },
+  {
+   "chunk_type": "troubleshooting",
+   "content_level": null,
+   "title": "Error Codes Reference",
+   "content": "Error codes like IE (fill), UE (unbalanced), dE (door), OE (drain), tE (control), FE (overfill), PE (sensor), LE (motor), Sud (oversudsing), FF (frozen lines), CL (control lock), and tCL (tub clean needed) each map to specific causes and fixes.",
+   "tags": [
+    "error-codes",
+    "IE",
+    "UE",
+    "OE",
+    "LE"
    ],
-   "applies_to": []
+   "scenarios": null,
+   "source_pages": [
+    47,
+    48
+   ],
+   "diagram_pages": [],
+   "table_data": [
+    {
+     "table_title": "Error Codes",
+     "columns": [
+      "Code",
+      "Cause",
+      "Solution"
+     ],
+     "rows": [
+      [
+       "IE",
+       "Slow/no water fill; low pressure or clogged filters",
+       "Clean inlet filters, check faucets fully open"
+      ],
+      [
+       "UE",
+       "Unbalanced load",
+       "Redistribute load manually"
+      ],
+      [
+       "dE / dE1 / dE2",
+       "Door not secured",
+       "Close and secure door; call service if persists"
+      ],
+      [
+       "OE",
+       "Drain hose kinked/clogged or too high",
+       "Check hose position and clear clogs"
+      ],
+      [
+       "tE",
+       "Control error",
+       "Unplug 60 seconds, reconnect, retry"
+      ],
+      [
+       "FE",
+       "Water level too high (faulty valve)",
+       "Close faucets, unplug, call for service"
+      ],
+      [
+       "PE",
+       "Water level sensor malfunction",
+       "Close faucets, unplug, call for service"
+      ],
+      [
+       "LE",
+       "Motor error",
+       "Let stand 30 min, restart; call service if persists"
+      ],
+      [
+       "Sud",
+       "Too many suds detected",
+       "Reduce detergent; run Rinse+Spin"
+      ],
+      [
+       "FF",
+       "Inlet/drain hose or pump frozen",
+       "See Care in Cold Climates"
+      ],
+      [
+       "CL",
+       "Control Lock activated (not an error)",
+       "Hold Control Lock 3 seconds to disable"
+      ],
+      [
+       "tCL",
+       "Tub Clean needed (not an error)",
+       "Run Tub Clean cycle"
+      ]
+     ]
+    }
+   ]
   }
  ],
  "tasks": [
   {
-   "title": "Remove Shipping Bolts",
-   "description": "Remove all four shipping bolts and the foam tub support before first use.",
+   "title": "Remove Shipping Bolts and Hole Caps",
+   "description": "Remove the four shipping bolts and retainers before first use and install the plastic hole caps.",
    "care_type": "maintenance",
-   "justification": "Failure to remove shipping bolts causes severe vibration, noise, and can permanently damage the washer.",
+   "justification": "Failing to remove shipping bolts causes severe vibration and permanent internal damage.",
    "priority_tier": "essential",
    "risk_level": "prevent_damage",
    "estimated_minutes": 15,
    "schedule_type": "setup",
    "interval_days": null,
-   "instructions_text": "Lift the washer off the foam base. Use the included wrench to loosen all four shipping bolts counterclockwise, starting with the bottom two. Wiggle and pull out the bolt assemblies. Install the four hole caps in the bolt holes. Save the bolt assemblies for future transport.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Lift the washer off the foam base. Use the included wrench to turn all four shipping bolts counterclockwise starting with the bottom two, wiggle and pull out the bolt assemblies, then snap the hole caps into the empty holes.",
    "source_page": 12,
    "tags": [
     "shipping-bolts",
-    "installation",
-    "unpacking"
+    "installation"
    ],
    "diagram_pages": [
     12
    ],
    "symptom_tags": [
     "vibration",
-    "noise"
+    "noise",
+    "physical_damage"
    ],
-   "re_check_triggers": [
-    {
-     "trigger": "vibration",
-     "description": "Washer vibrates excessively or makes loud banging noises during operation",
-     "severity": "warning"
-    }
-   ],
+   "re_check_triggers": [],
    "applies_to": [],
    "supplies": []
   },
@@ -1008,18 +1100,18 @@
    "title": "Level the Washer",
    "description": "Adjust the leveling feet so the washer sits flat and stable on the floor.",
    "care_type": "maintenance",
-   "justification": "An unlevel washer causes excessive vibration, noise, and can lead to machine malfunction.",
+   "justification": "An unlevel washer vibrates excessively, causing noise and potential machine malfunction.",
    "priority_tier": "essential",
    "risk_level": "prevent_damage",
-   "estimated_minutes": 20,
+   "estimated_minutes": 15,
    "schedule_type": "setup",
    "interval_days": null,
-   "instructions_text": "Position the washer in its final location. Adjust the lower leveling feet by turning them to raise or lower each corner. Use a carpenter's level across the top. Tighten the locknuts counterclockwise when level. Push or rock the top edges to confirm the washer does not rock. Install non-skid pads under the front leveling feet if the floor is slippery.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Place a level across the top of the washer, adjust the lower leveling feet by turning them to raise or lower each corner, then tighten the locknuts. Rock the top of the washer to confirm it doesn't wobble; use non-skid pads if the floor is slippery.",
    "source_page": 15,
    "tags": [
-    "leveling",
-    "installation",
-    "vibration"
+    "leveling"
    ],
    "diagram_pages": [
     15
@@ -1031,12 +1123,7 @@
    "re_check_triggers": [
     {
      "trigger": "vibration",
-     "description": "Washer vibrates excessively or walks during spin cycle",
-     "severity": "warning"
-    },
-    {
-     "trigger": "noise",
-     "description": "Washer makes loud thumping or banging noises during operation",
+     "description": "Washer vibrates, walks, or rocks excessively during spin",
      "severity": "warning"
     }
    ],
@@ -1044,21 +1131,22 @@
    "supplies": []
   },
   {
-   "title": "Connect Water Supply Lines",
-   "description": "Connect new hot and cold water inlet hoses to the washer and faucets at installation.",
+   "title": "Connect and Check Water Supply Hoses",
+   "description": "Install new inlet hoses correctly to the hot/cold faucets and washer, and check for leaks.",
    "care_type": "maintenance",
-   "justification": "Improperly connected or old hoses can leak or burst, causing flooding and property damage.",
+   "justification": "Old, loose, or incorrectly connected hoses can burst or leak, causing flooding and property damage.",
    "priority_tier": "essential",
    "risk_level": "prevent_damage",
    "estimated_minutes": 20,
    "schedule_type": "setup",
    "interval_days": null,
-   "instructions_text": "Inspect rubber seals in both ends of new hoses. Connect the blue hose to the cold faucet and the red hose to the hot faucet — hand-tight plus 2/3 turn with pliers. Flush hoses into a bucket to clear debris. Attach the hot water line to the hot inlet and cold to the cold inlet on the back of the washer. Turn on both faucets fully and check for leaks at both ends.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Connect the blue hose to the cold faucet and red hose to the hot faucet, hand-tighten then add 2/3 turn with pliers. Flush the hoses into a bucket, attach them to the washer's rear inlets, turn faucets on fully, and check both ends for leaks.",
    "source_page": 13,
    "tags": [
-    "water-lines",
     "hoses",
-    "installation"
+    "water-supply"
    ],
    "diagram_pages": [
     13
@@ -1069,14 +1157,14 @@
    "re_check_triggers": [
     {
      "trigger": "leaking",
-     "description": "You notice water around the washer or at hose connections",
-     "severity": "safety"
+     "description": "Water pools around the hose connections or under the washer",
+     "severity": "warning"
     }
    ],
    "applies_to": [],
    "supplies": [
     {
-     "name": "Hot/cold water inlet hoses (new)",
+     "name": "Hot/cold water inlet hoses",
      "category": "accessory",
      "part_number": null
     }
@@ -1084,19 +1172,20 @@
   },
   {
    "title": "Connect and Secure Drain Hose",
-   "description": "Properly route and secure the drain hose to a standpipe or laundry tub at installation.",
+   "description": "Attach the drain hose to a standpipe or laundry tub using the elbow bracket and tie strap.",
    "care_type": "maintenance",
-   "justification": "An improperly secured drain hose can come loose during draining, causing flooding and property damage.",
+   "justification": "An improperly secured drain hose can come loose and flood the area during draining.",
    "priority_tier": "essential",
    "risk_level": "prevent_damage",
-   "estimated_minutes": 15,
+   "estimated_minutes": 10,
    "schedule_type": "setup",
    "interval_days": null,
-   "instructions_text": "Clip the elbow bracket within 4 inches of the drain hose end. Insert the hose into a standpipe or hang it over a laundry tub. Secure with the included tie strap. Ensure the drain end is 29.5–96 inches above the washer bottom and no more than 60 inches from the washer. Never create an airtight seal between the hose and drain.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Clip the elbow bracket within 4 inches of the drain hose end, insert the hose into the standpipe or hang it over the laundry tub edge, then secure it in place with the included tie strap.",
    "source_page": 14,
    "tags": [
-    "drain-hose",
-    "installation"
+    "drain-hose"
    ],
    "diagram_pages": [
     14
@@ -1108,12 +1197,7 @@
    "re_check_triggers": [
     {
      "trigger": "leaking",
-     "description": "Water appears on the floor near the washer during or after a cycle",
-     "severity": "safety"
-    },
-    {
-     "trigger": "drainage",
-     "description": "Washer does not drain or drains slowly",
+     "description": "Water leaks or backs up near the drain during a cycle",
      "severity": "warning"
     }
    ],
@@ -1121,20 +1205,54 @@
    "supplies": []
   },
   {
-   "title": "Test the Washer After Installation",
-   "description": "Run a test Rinse+Spin cycle after installation to verify proper water supply, leveling, and drainage.",
+   "title": "Verify Grounded Power Connection",
+   "description": "Plug the washer into a properly grounded 3-prong 120V outlet.",
    "care_type": "maintenance",
-   "justification": "A test cycle confirms the washer is correctly installed and identifies leaks, vibration, or drainage problems before regular use.",
+   "justification": "Improper grounding creates a risk of electric shock in the event of a malfunction.",
+   "priority_tier": "essential",
+   "risk_level": "safety",
+   "estimated_minutes": 5,
+   "schedule_type": "setup",
+   "interval_days": null,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Confirm the outlet is a grounded, 3-prong, 120 VAC 60 Hz outlet located within 60 inches of the washer, and plug the power cord in directly without an adapter or extension cord.",
+   "source_page": 16,
+   "tags": [
+    "grounding",
+    "electrical"
+   ],
+   "diagram_pages": [],
+   "symptom_tags": [
+    "electrical"
+   ],
+   "re_check_triggers": [
+    {
+     "trigger": "electrical",
+     "description": "Sparks, burning smell, or shock felt when touching the washer",
+     "severity": "safety"
+    }
+   ],
+   "applies_to": [],
+   "supplies": []
+  },
+  {
+   "title": "Run Initial Test Cycle",
+   "description": "Run a test wash cycle after installation to confirm proper fill, balance, and drain.",
+   "care_type": "maintenance",
+   "justification": "Confirms the installation is correct before regular use, preventing leaks or vibration damage later.",
    "priority_tier": "recommended",
    "risk_level": "prevent_damage",
    "estimated_minutes": 30,
    "schedule_type": "setup",
    "interval_days": null,
-   "instructions_text": "Load approximately 6 pounds of laundry (about 6 thick bath towels). Press Power, then press Rinse+Spin, then press Start/Pause. Check that water supplies correctly, the machine does not rock or vibrate excessively, and it drains well during the spin cycle.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Load about 6 lb of laundry (roughly 6 towels), press Power, select Rinse+Spin, then press Start/Pause. Check that water fills properly, the machine doesn't vibrate excessively, and it drains well during spin.",
    "source_page": 16,
    "tags": [
-    "installation",
-    "test-cycle"
+    "test-cycle",
+    "installation"
    ],
    "diagram_pages": [],
    "symptom_tags": [
@@ -1148,38 +1266,34 @@
   },
   {
    "title": "Run Tub Clean Cycle",
-   "description": "Run the Tub Clean cycle monthly to remove detergent buildup, residue, and prevent mildew or musty odors in the drum.",
+   "description": "Run the Tub Clean cycle monthly to remove detergent buildup, mildew, and residue from the empty drum.",
    "care_type": "maintenance",
-   "justification": "Residue buildup in the drum leads to mildew, musty odors, and reduced wash performance; the tCL alert will appear when cleaning is needed.",
+   "justification": "Skipping this allows residue buildup that leads to mildew, musty odors, and reduced wash performance.",
    "priority_tier": "recommended",
    "risk_level": "performance",
-   "estimated_minutes": 60,
+   "estimated_minutes": 90,
    "schedule_type": "monthly",
-   "interval_days": null,
-   "instructions_text": "Make sure the drum is empty. Add a drum cleaner, lime scale remover, or liquid chlorine bleach to the appropriate dispenser compartment (or place a cleaning tablet directly in the drum). Close the door, press Power, turn the cycle selector to Tub Clean, and press Start/Pause. After the cycle ends, open the door and allow the drum to dry completely. If mildew or musty smell already exists, run Tub Clean once a week for three consecutive weeks.",
+   "interval_days": 30,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "With the drum empty, add drum cleaner, lime scale remover, or bleach to the appropriate dispenser compartment (or a cleaning tablet directly in the drum), select the Tub Clean cycle, and press Start/Pause. Leave the door open afterward so the drum can dry completely. If mildew or musty smell is already present, run this cycle weekly for three consecutive weeks instead.",
    "source_page": 35,
    "tags": [
     "tub-clean",
-    "drum",
-    "monthly",
-    "mildew",
+    "descale",
     "odor"
    ],
    "diagram_pages": [],
    "symptom_tags": [
     "odor",
+    "wont_clean",
     "performance_drop"
    ],
    "re_check_triggers": [],
    "applies_to": [],
    "supplies": [
     {
-     "name": "Drum cleaner or cleaning tablets",
-     "category": "cleaner",
-     "part_number": null
-    },
-    {
-     "name": "Liquid chlorine bleach",
+     "name": "Drum cleaner or lime scale remover",
      "category": "cleaner",
      "part_number": null
     }
@@ -1187,28 +1301,28 @@
   },
   {
    "title": "Clean the Detergent Dispenser Drawer",
-   "description": "Remove and clean the detergent dispenser drawer weekly to prevent scale and detergent buildup.",
-   "care_type": "cleaning",
-   "justification": "Detergent residue and scale buildup in the dispenser can clog compartments and prevent proper dispensing of detergent, bleach, or softener.",
+   "description": "Pull out and clean the detergent dispenser drawer and its inserts to remove scale buildup.",
+   "care_type": "maintenance",
+   "justification": "Leftover detergent buildup can clog compartments, preventing proper dispensing and causing residue on clothes.",
    "priority_tier": "recommended",
    "risk_level": "performance",
    "estimated_minutes": 10,
    "schedule_type": "weekly",
-   "interval_days": null,
-   "instructions_text": "Slide the dispenser drawer out as far as it will go. Press down on the disengage button and pull the drawer out completely. Remove the inserts. Clean the inserts and drawer with warm water using a soft cloth or brush. Use water only — no harsh cleaners. Dry with a towel and replace the drawer.",
+   "interval_days": 7,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Slide the drawer out fully, press the disengage button, and pull it out. Remove the inserts, rinse them and the drawer with warm water only using a soft cloth or brush, wipe dry, and reinstall.",
    "source_page": 36,
    "tags": [
     "dispenser",
-    "drawer",
-    "weekly",
-    "detergent-buildup"
+    "cleaning"
    ],
    "diagram_pages": [
     36
    ],
    "symptom_tags": [
     "wont_clean",
-    "performance_drop"
+    "odor"
    ],
    "re_check_triggers": [],
    "applies_to": [],
@@ -1216,27 +1330,26 @@
   },
   {
    "title": "Clean the Door Seal",
-   "description": "Wipe and disinfect the door seal monthly to prevent mold, mildew, and odor buildup.",
-   "care_type": "cleaning",
-   "justification": "Dirt, hair, and lint on the door seal can cause leakage and odors; mold growth on the gasket is a common source of musty smells.",
+   "description": "Wipe down the door seal/gasket monthly with a diluted bleach solution to prevent dirt buildup.",
+   "care_type": "maintenance",
+   "justification": "Neglected door seals accumulate dirt, mold, and odor and small trapped items can damage clothing.",
    "priority_tier": "recommended",
    "risk_level": "performance",
    "estimated_minutes": 10,
    "schedule_type": "monthly",
-   "interval_days": null,
-   "instructions_text": "Wear rubber gloves and protective goggles. Dilute 3/4 cup (177 ml) of liquid chlorine bleach in 1 gallon (3.8 L) of water. Soak a sponge or soft cloth in the diluted solution and wipe all around the door seal. Wipe dry with a towel. Leave the door open to allow the seal to dry completely. Never use undiluted bleach on the seal.",
+   "interval_days": 30,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Wear rubber gloves and goggles, dilute 3/4 cup liquid chlorine bleach in 1 gallon of water, and wipe all around the door seal with a soaked sponge or cloth. Wipe dry afterward and leave the door open to let the seal dry completely. Do not use undiluted bleach as it can damage the seal.",
    "source_page": 37,
    "tags": [
     "door-seal",
-    "monthly",
-    "mold",
-    "gasket",
     "bleach"
    ],
    "diagram_pages": [],
    "symptom_tags": [
     "odor",
-    "leaking"
+    "wont_clean"
    ],
    "re_check_triggers": [],
    "applies_to": [],
@@ -1250,21 +1363,21 @@
   },
   {
    "title": "Clean the Water Inlet Filters",
-   "description": "Remove and clean the water inlet valve filter screens when the washer fills slowly or the IE error code appears.",
+   "description": "Remove and clean the screens inside the water inlet valves to clear sediment or scale.",
    "care_type": "maintenance",
-   "justification": "Clogged inlet filters restrict water flow, causing slow filling or the IE error code; operating without filters can cause the valve to stick open and flood.",
+   "justification": "Clogged inlet filters cause slow or no water fill and can trigger fill error codes.",
    "priority_tier": "recommended",
-   "risk_level": "prevent_damage",
+   "risk_level": "performance",
    "estimated_minutes": 20,
    "schedule_type": "as_needed",
    "interval_days": null,
-   "instructions_text": "Turn off both water faucets completely. Unscrew the hot and cold water hoses from the back of the washer. Carefully remove the filter screens from the water valve inlets. Remove foreign objects and soak the filters in white vinegar or a lime scale remover. Rinse thoroughly and press them back into place. Flush the hoses by running water into a bucket, then reattach the hoses.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Turn off both faucets, unscrew the hoses from the back of the washer, carefully pull out the filters, and soak them in white vinegar or lime scale remover to remove debris. Rinse thoroughly, press back into place, flush the hoses with a few gallons of water, then reattach.",
    "source_page": 37,
    "tags": [
     "inlet-filter",
-    "water-filter",
-    "IE-error",
-    "hard-water"
+    "descale"
    ],
    "diagram_pages": [],
    "symptom_tags": [
@@ -1273,150 +1386,91 @@
    ],
    "re_check_triggers": [],
    "applies_to": [],
-   "supplies": [
-    {
-     "name": "White vinegar or lime scale remover",
-     "category": "cleaner",
-     "part_number": null
-    }
-   ]
+   "supplies": []
   },
   {
    "title": "Clean the Drain Pump Filter",
-   "description": "Periodically clean the drain pump filter to prevent clogging and drainage failure.",
+   "description": "Clean the drain pump filter periodically to prevent clogs from foreign objects.",
    "care_type": "maintenance",
-   "justification": "A clogged drain pump filter causes the washer to fail to drain and triggers the OE error code.",
+   "justification": "A clogged drain pump filter prevents the washer from draining properly and can cause leaks.",
    "priority_tier": "recommended",
-   "risk_level": "prevent_damage",
+   "risk_level": "performance",
    "estimated_minutes": 15,
    "schedule_type": "as_needed",
    "interval_days": null,
-   "instructions_text": "Turn off the machine and unplug it. Open the drain pump filter cover at the front bottom of the washer. Unclip the small drain hose and remove its plug to drain remaining water into a bucket. Twist the pump filter counterclockwise to remove it. Clean the filter and the opening. Replace the plug on the drain hose and reattach it. Insert the pump filter and close the cover.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Turn off and unplug the washer, open the drain pump filter cover, unclip the drain hose and remove its plug to drain remaining water into a bucket, then twist the pump filter counterclockwise to remove and clean it. Recap the drain hose, reinsert the filter, and close the cover.",
    "source_page": 38,
    "tags": [
     "drain-pump-filter",
-    "OE-error",
-    "drainage"
+    "clogged"
    ],
    "diagram_pages": [
     38
    ],
    "symptom_tags": [
     "drainage",
-    "error_code"
+    "odor",
+    "leaking"
    ],
    "re_check_triggers": [],
    "applies_to": [],
    "supplies": []
   },
   {
-   "title": "Inspect and Replace Water Inlet Hoses",
-   "description": "Periodically inspect the water inlet hoses for cracks, leaks, and wear, and replace them every five years.",
+   "title": "Winterize Washer for Cold Storage",
+   "description": "Protect the washer from freeze damage if it will sit unused in an area exposed to freezing temperatures.",
    "care_type": "maintenance",
-   "justification": "Old or cracked hoses can leak or burst, causing flooding and significant property damage.",
+   "justification": "Water left in hoses or the pump can freeze and crack internal components, causing leaks or failure.",
    "priority_tier": "recommended",
    "risk_level": "prevent_damage",
    "estimated_minutes": 30,
-   "schedule_type": "annual",
+   "schedule_type": "seasonal",
    "interval_days": null,
-   "instructions_text": "Periodically check both hot and cold inlet hoses for cracks, splits, bulging, or signs of wear. Do not stretch the hoses intentionally and ensure they are not pinched, crushed, or kinked. Replace both hoses every five years with new hoses — never reuse old hoses. When replacing, follow the water line connection steps in the installation section.",
-   "source_page": 13,
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Turn off the water supply, disconnect and drain the hoses, add 1 gallon of nontoxic RV antifreeze to the empty drum, run a brief Spin cycle to circulate and expel it, then unplug, dry the drum, and store the washer upright. Run a full Speed Wash cycle with detergent (no laundry) before resuming normal use. Never use automotive antifreeze.",
+   "source_page": 39,
    "tags": [
-    "water-hoses",
-    "inspection",
-    "replacement",
-    "leaks"
+    "winterizing",
+    "antifreeze"
    ],
    "diagram_pages": [],
    "symptom_tags": [
+    "physical_damage",
     "leaking"
    ],
    "re_check_triggers": [],
    "applies_to": [],
    "supplies": [
     {
-     "name": "Hot/cold water inlet hoses (new)",
-     "category": "accessory",
-     "part_number": null
-    }
-   ]
-  },
-  {
-   "title": "Wipe Washer Exterior",
-   "description": "Wipe the exterior surfaces of the washer with a damp cloth to keep it clean and free of spills.",
-   "care_type": "cleaning",
-   "justification": "Spills of detergent, bleach, or softener on the exterior can cause corrosion, discoloration, or damage to the surface and controls.",
-   "priority_tier": "optional",
-   "risk_level": "comfort",
-   "estimated_minutes": 5,
-   "schedule_type": "as_needed",
-   "interval_days": null,
-   "instructions_text": "Wipe up any spills immediately. Clean the exterior with a damp cloth. Do not use harsh chemicals, abrasive cleaners, or solvents. Do not touch the display with sharp objects.",
-   "source_page": 35,
-   "tags": [
-    "exterior",
-    "cleaning",
-    "damp-cloth"
-   ],
-   "diagram_pages": [],
-   "symptom_tags": [],
-   "re_check_triggers": [],
-   "applies_to": [],
-   "supplies": []
-  },
-  {
-   "title": "Winterize the Washer",
-   "description": "Prepare the washer for storage in freezing temperatures by adding RV antifreeze and draining the system.",
-   "care_type": "maintenance",
-   "justification": "Freezing temperatures can damage water lines and internal mechanisms of the washer if not properly winterized.",
-   "priority_tier": "recommended",
-   "risk_level": "prevent_damage",
-   "estimated_minutes": 30,
-   "schedule_type": "seasonal",
-   "interval_days": null,
-   "instructions_text": "Turn off the water supply. Disconnect the hoses from the water supply and drain any water from the hoses. Plug the power cord into a grounded outlet. Add 1 gallon of nontoxic RV antifreeze (never automotive antifreeze) to the empty drum and close the door. Press Power, select Spin, then press Start/Pause. Let the drain pump run for one minute, then press Power to shut off. Unplug, dry the drum interior with a soft cloth, close the door, and remove and drain the dispenser inserts. Store upright. To restore after storage, run a complete Speed Wash cycle with detergent (no laundry).",
-   "source_page": 39,
-   "tags": [
-    "winterizing",
-    "cold-climate",
-    "antifreeze",
-    "storage",
-    "freeze-protection"
-   ],
-   "diagram_pages": [],
-   "symptom_tags": [],
-   "re_check_triggers": [],
-   "applies_to": [],
-   "supplies": [
-    {
-     "name": "Nontoxic RV antifreeze (1 gallon)",
+     "name": "Nontoxic RV antifreeze",
      "category": "other",
      "part_number": null
     }
    ]
   },
   {
-   "title": "Leave Door Open After Washing",
-   "description": "Leave the washer door open after each use to allow the drum interior to dry and prevent mold and odor.",
+   "title": "Wipe Down Washer Exterior and Door",
+   "description": "Wipe the door and exterior body of the washer to remove spills and moisture.",
    "care_type": "cleaning",
-   "justification": "Leaving the door closed traps moisture in the drum and door seal, promoting mold growth and musty odors.",
-   "priority_tier": "recommended",
-   "risk_level": "performance",
-   "estimated_minutes": 1,
-   "schedule_type": "after_each_use",
+   "justification": "Cosmetic only — prevents spill residue from damaging the finish and keeps the machine looking clean.",
+   "priority_tier": "optional",
+   "risk_level": "comfort",
+   "estimated_minutes": 5,
+   "schedule_type": "as_needed",
    "interval_days": null,
-   "instructions_text": "After removing laundry, wipe the door and inside of the door seal with a dry cloth to remove moisture. Leave the door open until the drum interior is dry.",
+   "interval_days_min": null,
+   "interval_days_max": null,
+   "instructions_text": "Wipe spills immediately with a damp cloth, then dry with a soft cloth. Clean the door inside and out with a damp cloth and dry with a soft cloth. Do not use volatile chemicals, abrasive cleaners, or sharp objects on the surface or display.",
    "source_page": 35,
    "tags": [
-    "after-wash",
-    "door",
-    "moisture",
-    "odor-prevention"
+    "exterior",
+    "cosmetic"
    ],
    "diagram_pages": [],
-   "symptom_tags": [
-    "odor"
-   ],
+   "symptom_tags": [],
    "re_check_triggers": [],
    "applies_to": [],
    "supplies": []
@@ -1424,71 +1478,64 @@
  ],
  "cleaning_guide": {
   "weekly": {
-   "title": "Weekly Washer Cleaning",
+   "title": "Weekly Cleaning",
    "steps": [
-    "Remove and clean the detergent dispenser drawer: press the disengage button, pull out the drawer, remove inserts, and wash with warm water using a soft cloth or brush.",
-    "Wipe the door glass and around the door opening with a damp cloth.",
-    "Wipe the exterior surfaces with a damp cloth; immediately clean up any detergent or bleach spills.",
-    "Check the door seal for trapped small items and wipe away any visible moisture or residue."
+    "Pull out and clean the detergent dispenser drawer and inserts with warm water",
+    "Wipe the door and door seal dry after each wash and leave the door open to air the drum"
    ],
    "supplies": [
-    "Warm water",
-    "Soft cloth or brush",
-    "Damp cloth"
+    "Soft cloth",
+    "Warm water"
    ]
   },
   "deep_clean": {
    "title": "Monthly Deep Clean",
    "steps": [
-    "Run the Tub Clean cycle with a drum cleaner, lime scale remover, or liquid chlorine bleach in the appropriate dispenser compartment (or a cleaning tablet placed directly in the empty drum).",
-    "Clean the door seal: dilute 3/4 cup (177 ml) of liquid chlorine bleach in 1 gallon (3.8 L) of water, wipe all around the seal with a soaked sponge, then wipe dry and leave the door open to dry.",
-    "Clean the water inlet filters if the washer fills slowly: turn off faucets, remove hoses, soak filters in white vinegar or lime scale remover, rinse, and reinstall.",
-    "Clean the drain pump filter: unplug the washer, open the filter cover, drain remaining water, remove and clean the filter, then reinstall.",
-    "Leave the door open after the Tub Clean cycle to allow the drum to dry completely."
+    "Run the Tub Clean cycle with the drum empty using drum cleaner, bleach, or a cleaning tablet",
+    "Wipe the door seal with a diluted bleach solution (3/4 cup bleach to 1 gallon water) and let it air dry",
+    "Clean the water inlet filters by soaking in white vinegar or descaler if fill is slow",
+    "Clean the drain pump filter if drainage is slow or noisy",
+    "Remove mineral/lime buildup from the drum with a descaler, then run Tub Clean again"
    ],
    "supplies": [
-    "Drum cleaner or cleaning tablets",
+    "Drum cleaner or lime scale remover",
     "Liquid chlorine bleach",
-    "White vinegar or lime scale remover",
-    "Rubber gloves",
-    "Protective goggles",
-    "Soft cloth or sponge"
+    "White vinegar",
+    "Soft cloth"
    ]
   }
  },
  "warranty": {
   "duration_months": 12,
-  "coverage": "LG will repair or replace defective parts and labor for any internal/functional parts for 1 year from original retail purchase. The stainless steel drum is covered for parts only for 3 years, and the DD Motor (Stator, Rotor, Hall Sensor) is covered for parts only for 10 years. Valid only for original retail purchaser in the US or Canada.",
+  "coverage": "LG covers parts and labor for internal/functional defects for 1 year from original retail purchase; the stainless steel drum is covered for parts only for 3 years; the direct drive motor (stator, rotor, hall sensor) is covered for parts only for 10 years, with labor charged after year one.",
   "exclusions": [
-   "Service trips to deliver, pick up, or install the product",
+   "Service trips for delivery, pickup, installation, or instruction",
    "Damage from power failures or inadequate electrical service",
-   "Damage from leaky or broken water pipes, frozen pipes, or restricted drain lines",
-   "Damage from operating in a corrosive atmosphere or contrary to owner's manual",
-   "Damage from accidents, pests, lightning, wind, fire, floods, or acts of God",
-   "Unauthorized modification or alteration",
-   "Incorrect electrical current, voltage, or plumbing codes",
-   "Commercial or industrial use",
-   "Use of accessories or cleaning products not approved by LG",
-   "Transportation damage (scratches, dents, chips) not reported within 1 week of delivery",
-   "Display, open box, discounted, or refurbished products",
-   "Products with removed or altered serial numbers",
-   "Increases in utility costs",
-   "Misuse, abuse, improper installation, repair, or maintenance"
+   "Damage from leaky/frozen pipes or inadequate water/air supply",
+   "Damage from corrosive atmosphere or misuse contrary to owner's manual",
+   "Damage from accidents, pests, lightning, fire, floods, acts of God",
+   "Damage from unauthorized modification or improper installation",
+   "Damage from incorrect electrical current/voltage or unapproved accessories",
+   "Cosmetic transport damage not reported within 1 week of delivery",
+   "Products with missing/altered serial numbers",
+   "Utility cost increases",
+   "Commercial or non-household use",
+   "Costs of removing the unit from the home for repair"
   ],
   "registration_required": null,
-  "contact": "1-800-243-0000 (US) | 1-888-542-2623 (Canada) | http://www.lg.com"
+  "contact": "1-800-243-0000 (USA) / 1-888-542-2623 (Canada), http://www.lg.com"
  },
- "manufactured_year": 2018,
+ "manufactured_year": 2019,
  "confidence": {
-  "overall": 0.92,
-  "safety": 0.95,
-  "how_to": 0.92,
-  "care": 0.93,
-  "troubleshooting": 0.9,
-  "notes": "Manual is clear and well-structured. Manufactured year estimated from copyright notice (2018-2019); 2018 used as the earlier bound. Some maintenance intervals (drain pump filter, inlet filter) are stated as 'periodically' without explicit cadence, so 'as_needed' was used."
+  "overall": 0.88,
+  "safety": 0.9,
+  "how_to": 0.9,
+  "care": 0.85,
+  "troubleshooting": 0.85,
+  "notes": "Manual is a standard consumer user_manual for an LG front-load washer; clear maintenance/cleaning sections and error code tables. Manufactured year inferred from revision date (090219) and copyright range 2018-2019."
  },
  "truncated": false,
- "model": "claude-sonnet-4-6",
- "promptHash": "d564709261ca",
- "at": "2026-08-19T17:12:46.449Z"
+ "model": "claude-sonnet-5",
+ "promptHash": "435d515d2463",
+ "at": "2026-09-24T01:11:16.472Z"
 }

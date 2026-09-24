@@ -311,7 +311,7 @@ export async function runProductLookup(
     // Haiku 4.5 — same pin as classifyExistingTasks. The previous
     // claude-3-5-haiku-20241022 was RETIRED by Anthropic and 404'd every
     // lookup in prod (surfaced as a silent 503 → no identity card, ever).
-    model: "claude-haiku-4-5-20251001",
+    model: "claude-haiku-4-5",
     maxTokens: 800,
     tool: CLAIM_TOOL as unknown as Record<string, unknown>,
     content: [{ type: "text", text: buildPrompt(brand, model, category) }],

@@ -43,7 +43,7 @@ Return ONLY a JSON array of sections, no other text:
  *  for a bad model response — returns []. */
 export async function runIngestReference(callClaude: CallClaudeText, pdfBase64: string): Promise<ReferenceSection[]> {
   const raw = await callClaude({
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-5",
     maxTokens: 8192,
     content: [
       { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
