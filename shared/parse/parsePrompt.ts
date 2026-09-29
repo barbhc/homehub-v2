@@ -368,7 +368,19 @@ export function buildExtractionRequest(model: string, pdfBase64: string, prompt:
     {
       role: "user",
       content: [
-        { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
+        // Prompt-cache breakpoint on the PDF. Cache prefixes run tools → system
+        // → messages, and the per-call prompt text sits AFTER this block, so
+        // the cached prefix is tools + system + PDF: identical whenever the
+        // same manual goes to the same model within 5 minutes (retries,
+        // rescans, eval re-runs — a 2026-09-23 migration session sent the
+        // same ~155K-token manuals dozens of times uncached). Reads bill at
+        // ~10% of input; the write costs 1.25×, so a lone parse pays ~25%
+        // more on input and every repeat pays ~90% less.
+        {
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
+          cache_control: { type: "ephemeral" },
+        },
         { type: "text", text: prompt },
       ],
     },

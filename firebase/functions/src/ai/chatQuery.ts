@@ -18,6 +18,7 @@ import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
+import { buildChatMessages, type PdfDoc } from "../../../../shared/chat/chatMessages.js"
 import { assertNotRefused, thinkingParamsFor } from "../../../../shared/parse/modelParams.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
@@ -201,7 +202,6 @@ export const chatQuery = onRequest(
 
     // --- Decide PDF vs chunk retrieval ---
     const fetchPdf = makeFetchPdf()
-    type PdfDoc = { type: "document"; source: { type: "base64"; media_type: string; data: string }; title?: string }
     const pdfDocs: PdfDoc[] = []
     const pdfSources: ChatSource[] = []
     if (manuals.length <= MAX_PDF_MANUALS) {
@@ -312,21 +312,15 @@ Rules:
 - If the answer isn't in the excerpts, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
 - Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}`
 
-    type ContentBlock = PdfDoc | { type: "text"; text: string }
     const userTextContent = hasPdfs
       ? [question, warrantyBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
       : chunkContext
         ? [question, "---", chunkContext, warrantyBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
         : [question, warrantyBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
-    const userContent: ContentBlock[] = hasPdfs
-      ? [...pdfDocs, { type: "text", text: userTextContent }]
-      : [{ type: "text", text: userTextContent }]
 
     const trimmedHistory = (Array.isArray(history) ? history : []).slice(-MAX_HISTORY_TURNS)
-    const messages = [
-      ...trimmedHistory.map((h) => ({ role: h.role, content: h.content })),
-      { role: "user" as const, content: userContent },
-    ] as Anthropic.MessageParam[]
+    // PDFs lead the first user turn with a cache breakpoint — see shared/chat/chatMessages.ts.
+    const messages: Anthropic.MessageParam[] = buildChatMessages(trimmedHistory, userTextContent, pdfDocs)
 
     // --- Stream Claude ---
     try {

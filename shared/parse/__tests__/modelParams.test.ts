@@ -88,3 +88,15 @@ describe("repairStringifiedFields (Sonnet 5 stringified tool arguments)", () => 
     expect(repairStringifiedFields(input)).toBe(input)
   })
 })
+
+describe("extraction prompt caching", () => {
+  // tools → system → PDF is the cached prefix; the per-call prompt text must
+  // come after the breakpoint or every call would write a new cache entry.
+  it.each([MODEL_SONNET, MODEL_OPUS])("%s: breakpoint on the PDF, prompt text after it", (model) => {
+    const req = buildExtractionRequest(model, "cGRm", "prompt")
+    const content = (req.params.messages as Array<{ content: Array<Record<string, unknown>> }>)[0].content
+    expect(content[0].type).toBe("document")
+    expect(content[0].cache_control).toEqual({ type: "ephemeral" })
+    expect(content[1]).toEqual({ type: "text", text: "prompt" })
+  })
+})
