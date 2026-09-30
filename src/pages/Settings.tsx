@@ -44,7 +44,9 @@ import {
   deleteRoutineTask,
   type RoutineTemplate,
 } from "@/lib/cleanSession"
-import { getManualsByHome, parseManualAndWait, getKnowledgeChunksByHome, getFaqsByHome, deleteManualDocument } from "@/modules/knowledge"
+import { getManualsByHome, getKnowledgeChunksByHome, getFaqsByHome, deleteManualDocument } from "@/modules/knowledge"
+import { openPendingReview, rescanForReviewAndWait, startRescanForReview } from "@/lib/manualRescan"
+import { isCapacityRefusal } from "@/lib/scanCapacity"
 import { getItemUnits } from "@/modules/items"
 import { getTaskTemplates } from "@/modules/care"
 import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
@@ -64,8 +66,10 @@ import type { ManualDocument, Room } from "@/integrations/types"
 import { withChunkRetry } from "@/lib/chunkRetry"
 
 type ManualWithName = ManualDocument & { display_name: string }
-type ManualStatus = "idle" | "scanning" | "success" | "error"
-type ManualScanState = { status: ManualStatus; error?: string; chunks?: number; tasks?: number }
+/** `ready`: read, and waiting for its review on the item page — never saved from here.
+ *  `queued`: refused for capacity and recorded to start itself (HH-124). */
+type ManualStatus = "idle" | "scanning" | "ready" | "queued" | "error"
+type ManualScanState = { status: ManualStatus; error?: string }
 
 const SCHEDULE_OPTIONS = [
   "weekly",
@@ -579,6 +583,9 @@ export default function Settings() {
     })
   }, [homeId])
 
+  // "Rescan all": one manual at a time, each read left for its review on the
+  // item page. It used to run in COMMIT mode and write every manual's tasks
+  // into the home unreviewed — see lib/manualRescan.
   const runRescan = useCallback(async (targets: ManualWithName[]) => {
     if (!homeId || rescanRunning || targets.length === 0) return
     setRescanRunning(true)
@@ -586,22 +593,15 @@ export default function Settings() {
     for (let i = 0; i < targets.length; i++) {
       const m = targets[i]
       setManualStates((prev) => ({ ...prev, [m.manual_id]: { status: "scanning" } }))
-      const result = await parseManualAndWait(m.manual_id, { homeId, mode: "commit" })
-      if (result.ok) {
-        setManualStates((prev) => ({
-          ...prev,
-          [m.manual_id]: { status: "success", chunks: result.chunks, tasks: result.tasks },
-        }))
-        // Update parsed_at in local state
-        setManuals((prev) =>
-          prev.map((x) => x.manual_id === m.manual_id ? { ...x, parsed_at: new Date().toISOString() } : x)
-        )
-      } else {
-        setManualStates((prev) => ({
-          ...prev,
-          [m.manual_id]: { status: "error", error: result.error },
-        }))
-      }
+      const result = await rescanForReviewAndWait(homeId, m)
+      setManualStates((prev) => ({
+        ...prev,
+        [m.manual_id]: result.ok
+          ? { status: "ready" }
+          : isCapacityRefusal(result.error)
+            ? { status: "queued" }
+            : { status: "error", error: result.error },
+      }))
       if (i < targets.length - 1) {
         await new Promise((r) => setTimeout(r, 5000))
       }
@@ -613,7 +613,28 @@ export default function Settings() {
   // HH-154: a row that says "Not scanned" with no way to act on it is a dead
   // end — the owner had three of them. Every row can now be rescanned or
   // removed on its own.
-  const handleRescanOne = useCallback((m: ManualWithName) => { runRescan([m]) }, [runRescan])
+  //
+  // A row's Rescan hands off like the add wizard does: start a fresh read and
+  // go to the item page, which watches it land and opens the review there.
+  const handleRescanOne = useCallback(async (m: ManualWithName) => {
+    if (!homeId || rescanRunning) return
+    setManualStates((prev) => ({ ...prev, [m.manual_id]: { status: "scanning" } }))
+    const started = await startRescanForReview(homeId, m)
+    if (started.ok) {
+      navigate(started.reviewPath)
+      return
+    }
+    setManualStates((prev) => ({
+      ...prev,
+      [m.manual_id]: started.queued ? { status: "queued" } : { status: "error", error: started.error },
+    }))
+  }, [homeId, rescanRunning, navigate])
+
+  // Read and not saved: the review is waiting, so go to it — a new read would
+  // throw the waiting one away.
+  const handleOpenReview = useCallback((m: ManualWithName) => {
+    navigate(openPendingReview(m))
+  }, [navigate])
   const [removingManual, setRemovingManual] = useState<string | null>(null)
   const [manualError, setManualError] = useState<string | null>(null)
   const handleRemoveManual = useCallback(async (m: ManualWithName) => {
@@ -1062,7 +1083,7 @@ export default function Settings() {
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
               {manuals.length} manual{manuals.length !== 1 ? "s" : ""} uploaded.
-              Rescan to regenerate tasks and knowledge from the PDF.
+              Rescan reads a manual again — nothing changes until you review it.
             </p>
 
             {manuals.length > 0 && (
@@ -1084,8 +1105,10 @@ export default function Settings() {
                       {/* Status icon */}
                       {state?.status === "scanning" ? (
                         <Loader2Icon className="size-3.5 animate-spin text-primary shrink-0" />
-                      ) : state?.status === "success" ? (
-                        <CheckCircle2Icon className="size-3.5 text-green-600 shrink-0" />
+                      ) : state?.status === "ready" ? (
+                        <CheckCircle2Icon className="size-3.5 shrink-0" style={{ color: "var(--hh-teal)" }} />
+                      ) : state?.status === "queued" ? (
+                        <CircleDotIcon className="size-3.5 text-muted-foreground shrink-0" />
                       ) : state?.status === "error" ? (
                         <AlertCircleIcon className="size-3.5 text-destructive shrink-0" />
                       ) : parsedDate ? (
@@ -1102,10 +1125,12 @@ export default function Settings() {
                       {/* Status text */}
                       {state?.status === "scanning" ? (
                         <span className="text-xs text-muted-foreground shrink-0">Scanning…</span>
-                      ) : state?.status === "success" ? (
-                        <span className="text-xs text-green-700 shrink-0">
-                          {state.tasks} tasks, {state.chunks} chunks
-                        </span>
+                      ) : state?.status === "ready" ? (
+                        // Read, not saved: what it found waits for the review.
+                        <span className="text-xs shrink-0" style={{ color: "var(--hh-teal)" }}>Ready to review</span>
+                      ) : state?.status === "queued" ? (
+                        // HH-124: a ceiling is not a failure — it starts itself.
+                        <span className="text-xs text-muted-foreground shrink-0">Queued</span>
                       ) : state?.status === "error" ? (
                         <span className="text-xs text-destructive shrink-0 max-w-[200px] truncate" title={state.error}>
                           {state.error}
@@ -1129,14 +1154,24 @@ export default function Settings() {
                           was permanent — "Rescan All" was the only lever and it
                           re-ran every manual to fix one. */}
                       <span className="flex shrink-0 items-center gap-2.5 text-xs font-bold" style={{ color: "var(--hh-teal)" }}>
-                        <button
-                          type="button"
-                          onClick={() => handleRescanOne(m)}
-                          disabled={rescanRunning || state?.status === "scanning"}
-                          className="disabled:opacity-40"
-                        >
-                          Rescan
-                        </button>
+                        {/* A read waiting to be saved offers its review, not
+                            another read; everything else can be read again —
+                            and either way it ends in the item page's review,
+                            never in a save from here. */}
+                        {state?.status === "ready" || (!state && awaitingReview) ? (
+                          <button type="button" onClick={() => handleOpenReview(m)}>
+                            Review
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void handleRescanOne(m)}
+                            disabled={rescanRunning || state?.status === "scanning"}
+                            className="disabled:opacity-40"
+                          >
+                            Rescan
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => void handleRemoveManual(m)}
@@ -1665,7 +1700,7 @@ export default function Settings() {
           </p>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>
-              <span className="font-medium text-foreground">AI chat &amp; parsing</span> — Your
+              <span className="font-medium text-foreground">AI chat &amp; manual scanning</span> — Your
               questions and uploaded PDF manuals are sent to Anthropic (Claude) for answers and task
               extraction. Anthropic does not train on this data.
             </p>

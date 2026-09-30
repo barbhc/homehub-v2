@@ -7,6 +7,7 @@ type ChatThreadProps = {
   messages: ChatMessage[]
   onSaveFaq?: (question: string, answer: string, itemUnitId: string | null) => void
   onWebSearch?: (messageId: string) => void
+  onRetry?: (messageId: string) => void
   activeFilter?: ChatFilter
   homeId: string
 }
@@ -15,6 +16,7 @@ export function ChatThread({
   messages,
   onSaveFaq,
   onWebSearch,
+  onRetry,
   activeFilter,
   homeId,
 }: ChatThreadProps) {
@@ -42,6 +44,9 @@ export function ChatThread({
             precedingQuestion={precedingQuestion}
             onSaveFaq={onSaveFaq}
             onWebSearch={onWebSearch}
+            // Only an answer to a question is re-asked in place; a failed
+            // web search is retried from the answer it followed.
+            onRetry={precedingQuestion !== undefined ? onRetry : undefined}
             activeFilterType={activeFilter?.type}
             activeFilterValue={activeFilter?.value}
             homeId={homeId}
