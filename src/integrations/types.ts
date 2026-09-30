@@ -68,6 +68,9 @@ export type TemplateSupply = {
   /** Plain retailer link — any store, never Amazon-assumed. */
   url: string | null
   size: string | null
+  /** Where the household keeps spares of this part ("Hall closet, top shelf").
+   *  User-entered on the part card; the parse never writes it (2026-09-27). */
+  location: string | null
   buy_ahead: boolean
 }
 

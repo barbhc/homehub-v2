@@ -38,6 +38,7 @@ beforeEach(() => {
   detailFor.map = {
     lead: { title: "Clean Aluminum Mesh Filters", estimatedMinutes: 15, scheduleType: "monthly", intervalDays: null, supplies: [], justification: null, notes: null },
     tub: { title: "Run Tub Clean Cycle", estimatedMinutes: 30, scheduleType: "monthly", intervalDays: null, supplies: [{ name: "Affresh washer tablet" }], justification: null, notes: null },
+    filter: { title: "Replace HVAC furnace filter", estimatedMinutes: 10, scheduleType: "quarterly", intervalDays: null, supplies: [{ name: "16×25×1 MERV 8 pleated filter", location: "Hall closet, top shelf" }], justification: null, notes: null },
   }
   detailFor.error = null
 })
@@ -64,6 +65,18 @@ describe("ThisWeekList", () => {
     await waitFor(() => expect(rows[1]).toHaveAttribute("data-open", "true"))
     expect(rows[0]).toHaveAttribute("data-open", "false")
     expect(within(rows[1]).getByTestId("prep-line").textContent).toBe("You'll need an Affresh washer tablet.")
+  })
+
+  it("5b: the one part's place follows the sentence as a pill; no place, no pill", () => {
+    renderList([urgent("filter", "Replace HVAC furnace filter")], [ahead("tub", "Run Tub Clean Cycle", 3)])
+    const rows = screen.getAllByTestId("week-row")
+    const line = within(rows[0]).getByTestId("prep-line")
+    // Names that start with a number read bare (the existing withArticle rule).
+    expect(line.textContent).toMatch(/^You'll need 16×25×1 MERV 8 pleated filter\./)
+    expect(within(line).getByTestId("prep-place")).toHaveTextContent("Kept in Hall closet, top shelf")
+    // The tablet has no place on record: its line is the sentence alone.
+    fireEvent.click(screen.getByRole("button", { name: /^Run Tub Clean Cycle/ }))
+    expect(within(rows[1]).queryByTestId("prep-place")).toBeNull()
   })
 
   it("Mark done and Snooze act on the open task's instance", () => {

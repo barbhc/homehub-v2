@@ -157,7 +157,7 @@ function templateSuppliesOf(t: TaskTemplateWithSchedule): TemplateSupply[] {
   return rows
     .map((r) => r.supply_item ? {
       name: r.supply_item.name, category: r.supply_item.category, part_number: r.supply_item.oem_part_number,
-      url: r.supply_item.url, size: r.supply_item.size, buy_ahead: r.supply_item.buy_ahead,
+      url: r.supply_item.url, size: r.supply_item.size, location: r.supply_item.location ?? null, buy_ahead: r.supply_item.buy_ahead,
     } : null)
     .filter((x): x is TemplateSupply => x !== null)
 }

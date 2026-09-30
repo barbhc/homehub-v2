@@ -13,11 +13,11 @@
  */
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { BellOffIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, PhoneIcon, PackageIcon, ShieldIcon } from "lucide-react"
+import { BellOffIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, MapPinIcon, PhoneIcon, PackageIcon, ShieldIcon } from "lucide-react"
 import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@/lib/dashboard"
 import { useTaskDetail, todayStr } from "@/components/home/tasks/shared"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
-import { weekRows, nextUpRows, prepLine, timelyWarranty, fmtShortDate, type HomeWeekRow } from "@/lib/homeWeek"
+import { weekRows, nextUpRows, prepLine, prepPlace, timelyWarranty, fmtShortDate, type HomeWeekRow } from "@/lib/homeWeek"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
@@ -172,6 +172,7 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
   const { detail, loading, error } = useTaskDetail(homeId, row.id, true, attempt)
   const cadence = detail ? cadenceLabel(detail.scheduleType, detail.intervalDays) : null
   const prep = prepLine(detail)
+  const place = prepPlace(detail)
   return (
     <div className={`flex flex-col gap-2.5 ${sc.bodyPad}`} data-testid="week-row-body">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -191,7 +192,20 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
           <span className="flex size-[22px] shrink-0 items-center justify-center rounded-[7px] border" style={{ background: SURFACE, borderColor: LINE, color: TEAL }}>
             {/technician/i.test(prep) ? <PhoneIcon className="size-3" /> : <PackageIcon className="size-3" />}
           </span>
-          <span>{prep}</span>
+          <span className="flex min-w-0 flex-col items-start gap-1.5">
+            <span>{prep}</span>
+            {place && (
+              <span
+                data-testid="prep-place"
+                className="inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-semibold"
+                style={{ borderColor: "color-mix(in srgb, var(--hh-teal) 25%, transparent)", background: "var(--hh-teal-wash)", color: "var(--hh-teal-deep)" }}
+              >
+                <MapPinIcon className="size-3 shrink-0" style={{ color: TEAL }} aria-hidden />
+                <span className="sr-only">Kept in </span>
+                <span className="truncate">{place}</span>
+              </span>
+            )}
+          </span>
         </div>
       )}
       <div className="flex items-center gap-2 pt-0.5">

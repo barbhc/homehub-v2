@@ -94,7 +94,7 @@ describe("getWeekReminders — the notification lens over the week", () => {
       ok([
         template({
           remind_enabled: true,
-          supplies: [{ name: "Furnace filter", category: "filter", part_number: "FPR10", url: "https://filterbuy.com/x", size: "16x25x1", buy_ahead: true }],
+          supplies: [{ name: "Furnace filter", category: "filter", part_number: "FPR10", url: "https://filterbuy.com/x", size: "16x25x1", location: null, buy_ahead: true }],
         }),
       ])
     )

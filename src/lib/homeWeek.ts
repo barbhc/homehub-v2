@@ -94,6 +94,19 @@ export function prepLine(detail: { title: string; justification?: string | null;
   return null
 }
 
+/**
+ * Where the task's one part is kept, for the pill under the prep line (5b,
+ * 2026-09-27). Only when there is exactly ONE part and it has a place: with
+ * several, the sentence says "and N more" and one place would be a guess
+ * about the others.
+ */
+export function prepPlace(detail: { supplies: TemplateSupply[] } | null): string | null {
+  if (!detail) return null
+  const parts = detail.supplies.filter((s) => (s.name ?? "").trim())
+  if (parts.length !== 1) return null
+  return parts[0].location?.trim() || null
+}
+
 function withArticle(name: string): string {
   if (/^(a|an|the|some|your)\s/i.test(name)) return name
   // Plurals and quantities read fine bare: "You'll need Affresh tablets."
