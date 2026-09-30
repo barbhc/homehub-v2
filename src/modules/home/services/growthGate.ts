@@ -1,5 +1,6 @@
 import { doc, getDoc } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
+import { growthGateOn } from "../../../../shared/growth/gate"
 
 /**
  * The client half of the invite gate.
@@ -18,10 +19,14 @@ const redeem = callable<{ code: string }, { ok: true; alreadyAdmitted: boolean }
 /**
  * Is the gate on, and is this user already through it?
  *
- * Fails OPEN — a read error here reports the gate as off, so a transient
- * Firestore hiccup shows the normal form rather than an invite prompt the user
- * has no code for. The rules still refuse the write, so the worst case is a
- * clear rejection instead of a wrong-looking screen.
+ * The gate's STATE is read exactly as the rules read it (shared/growth/gate.ts):
+ * a missing config/growth doc means ON, so the code field shows for a create
+ * the rules would refuse without one.
+ *
+ * A READ ERROR still reports the gate as off — a transient Firestore hiccup
+ * shows the normal form rather than an invite prompt the user has no code for.
+ * That is presentation only: the rules still refuse the write, so the worst
+ * case is a rejection instead of a wrong-looking screen.
  */
 export async function getGateStatus(uid: string): Promise<GateStatus> {
   try {
@@ -30,7 +35,7 @@ export async function getGateStatus(uid: string): Promise<GateStatus> {
       getDoc(doc(db, `admissions/${uid}`)),
     ])
     return {
-      gateOn: cfg.exists() && cfg.get("inviteGateEnabled") === true,
+      gateOn: growthGateOn({ exists: cfg.exists(), inviteGateEnabled: cfg.get("inviteGateEnabled") }),
       admitted: adm.exists(),
     }
   } catch (err) {
