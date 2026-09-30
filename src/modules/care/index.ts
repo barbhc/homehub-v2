@@ -9,10 +9,8 @@ export {
 } from "./services/careNoteService"
 
 export {
-  createTaskFromNote,
   updateTaskSchedule,
   updateTaskNotes,
-  type CreateTaskFromNoteInput,
   type ScheduleInput,
 } from "./services/taskScheduleService"
 

@@ -502,7 +502,7 @@ export async function setTaskCadence(
 }
 
 /** The first scheduled occurrence of a template that never had one — the
- *  shape commitDraft and createTaskFromNote write, denormalized display set
+ *  shape commitDraft writes, denormalized display set
  *  included (firestore-model.md §5), because that copy is what every surface
  *  reads. */
 async function firstOccurrence(

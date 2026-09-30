@@ -30,39 +30,6 @@ export const DASHBOARD_PROPERTY_ID = ""
 export type TaskPriority = "low" | "medium" | "high" | "critical"
 export type TaskEffort = "short" | "medium" | "long"
 
-// ── Tier filtering ─────────────────────────────────────────────────────────
-
-export type TierFilter = {
-  essential: boolean
-  recommended: boolean
-  optional: boolean
-}
-
-export const DEFAULT_TIER_FILTER: TierFilter = {
-  essential: true,
-  recommended: false,
-  optional: false,
-}
-
-/** Map TaskPriority back to tier name */
-export function priorityToTier(p: TaskPriority): "essential" | "recommended" | "optional" {
-  switch (p) {
-    case "critical": return "essential"
-    case "high": return "recommended"
-    default: return "optional"
-  }
-}
-
-export function filterTasksByTier<T extends { priority: TaskPriority }>(
-  tasks: T[],
-  filter: TierFilter
-): T[] {
-  return tasks.filter((t) => {
-    const tier = priorityToTier(t.priority)
-    return filter[tier]
-  })
-}
-
 export interface DashboardTask {
   id: string
   name: string
