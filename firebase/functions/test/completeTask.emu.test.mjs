@@ -23,7 +23,16 @@ async function tpl(H, id, scheduleType, { intervalDays = null, defaultAssignee =
     isActive, deletedAt: null, defaultAssignee,
   })
 }
-async function inst(H, id, templateId, { status = "scheduled", dueDate = "2026-06-18", tier = "recommended", assignedTo = null } = {}) {
+/**
+ * dueDate defaults FAR in the future on purpose. rollForward.emu.test.mjs runs
+ * concurrently on the same emulator and sweeps EVERY home for scheduled
+ * instances due before its TODAY (2026-06-23), asserting `rolled === 1`. A
+ * past-due open instance of ours — one a date test refuses to complete, or any
+ * instance in the moment before its completion — was rolled and counted, and
+ * failed that test (seen: rolled 4). No assertion here reads this date: the
+ * next due date comes from completedOn.
+ */
+async function inst(H, id, templateId, { status = "scheduled", dueDate = "2099-06-18", tier = "recommended", assignedTo = null } = {}) {
   await db.doc(`homes/${H}/taskInstances/${id}`).set({
     taskTemplateId: templateId, itemUnitId: "item1", status, dueDate, deletedAt: null,
     priorityTier: tier, careType: "maintenance", scopeType: "item_unit", estimatedMinutes: 15,
@@ -49,7 +58,7 @@ test("marks done and generates the next occurrence with denorm carried over", as
   const H = "ct-basic"
   await fresh(H)
   await tpl(H, "t1", "monthly")
-  await inst(H, "i1", "t1", { dueDate: "2026-06-18" })
+  await inst(H, "i1", "t1")
   const res = await runCompleteTask(db, { homeId: H, taskInstanceId: "i1", completedOn: "2026-06-23" })
 
   assert.equal(res.completedInstanceId, "i1")
