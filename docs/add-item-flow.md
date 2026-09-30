@@ -130,7 +130,9 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   so a path never repeats); a repeat returns the record already there, its
   scan kept, and the redundant copy is removed. A link is matched by its URL
   and read again. Both doors — this step and the item page — go through
-  `createManualDocument`. — HH-154 (audit 2026-09-29)
+  `createManualDocument`. A browser that cannot hash (no Web Crypto) still
+  attaches the file, says so in the console, stores no hash — never a null
+  one — and falls back to the path match. — HH-154 (audit 2026-09-29)
 - **Upload leads** and holds the only filled button. — HH-109, HH-115
 - Upload and Paste a link are joined by the same **"or" rule** as the identify
   step's type-or-scan, so the sources read as alternatives, not a list. —
