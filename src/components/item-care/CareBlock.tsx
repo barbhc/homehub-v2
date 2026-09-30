@@ -28,7 +28,7 @@ import { addDays, todayStr } from "@/components/home/tasks/shared"
 import { SuggestedRow, SuggestedSource, KIND_LABELS } from "@/components/care/SuggestedRow"
 import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
 import { dueKindOf, windowPhrase } from "@/lib/dueWindow"
-import { reviewBucketFor, isScheduledTask, willNotify, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
+import { reviewBucketFor, isScheduledTask, notifiesPhone, showsInTasks, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { getTaskGuidance } from "@/pages/item-detail/utils"
 import { classifyTaskActor } from "@/lib/taskActor"
@@ -40,6 +40,8 @@ import { SYMPTOM_TAGS, type ReCheckTrigger } from "@/lib/symptomTaxonomy"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { isAgendaEligible } from "../../../shared/tasks/agendaEligibility"
 import { updateItemUnit } from "@/modules/items/services/itemService"
+import { ScanningLine } from "@/components/manuals/ScanningLine"
+import type { ManualReading } from "@/lib/manualReviewState"
 import { SupplyRows } from "./SupplyRows"
 import type { TemplateSupply } from "@/integrations/types"
 
@@ -217,6 +219,23 @@ function Band({ tone, title, count, children, onFirstOpen, defaultOpen = true, n
 function Card({ children }: { children: React.ReactNode }) {
   return <div className="overflow-hidden rounded-[16px] bg-[var(--hh-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.05)]">{children}</div>
 }
+
+/** The space the upkeep rows will fill. Still, not pulsing: the rail is the one
+ *  thing that moves while a manual is read. */
+function Placeholders() {
+  return (
+    <div className="mt-3.5 flex flex-col gap-2" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-[46px] rounded-[16px]" style={{ background: "var(--hh-surface2)", opacity: 1 - i * 0.25 }} />
+      ))}
+    </div>
+  )
+}
+
+/** "a", "a and b", "a, b and c". */
+function joinList(parts: string[]): string {
+  return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`
+}
 // ── Habit bands (read-only) ──────────────────────────────────────────────────
 // ── Schedule hero ────────────────────────────────────────────────────────────
 // Match a safety chunk to the task(s) it describes by keyword overlap, so a
@@ -232,8 +251,10 @@ function tokenOverlap(a: Set<string>, b: Set<string>): number {
   return n
 }
 
-function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTask, hasManual, onOpenManualPage, last, variantTag, safetyNote, onLibraryTaskRemoved, onMarkDone, onSnooze, onEditTask }: {
+function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTask, hasManual, onOpenManualPage, last, variantTag, safetyNote, onLibraryTaskRemoved, onMarkDone, onSnooze, onEditTask, notificationsBlocked }: {
   homeId: string
+  /** This device refused notifications: no bell can ring, so none is drawn. */
+  notificationsBlocked: boolean
   /** A push or link named THIS task (?task=): open it and bring it into view. */
   focused?: boolean
   t: TaskTemplateWithSchedule
@@ -275,7 +296,6 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
     if (focused) rowRef.current?.scrollIntoView({ block: "center" })
   }, [focused])
   const safety = t.risk_level === "safety" || !!safetyNote
-  const reminds = willNotify(taskLikeOf(t))
   // HH-82 (Chris, twice): this band said "On a schedule" for three tasks and
   // the Tasks list showed none of them. Both screens were behaving as designed
   // and they disagreed about what "scheduled" means — this one groups purely by
@@ -283,6 +303,11 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
   // rule. It is the item page that sets the expectation, so it is the item page
   // that has to be honest about where the work actually appears.
   const onAgenda = isAgendaEligible({ careType: t.care_type ?? null, scopeType: t.scope_type ?? null })
+  // A bell is never drawn that cannot be rung (round 18; HH-161 S3c.4). The
+  // push sweep skips everything the agenda skips — item-scoped cleaning never
+  // notifies, whatever its tier — and a phone that refused notifications gets
+  // none. The owner's choice itself is untouched: the bell returns with them.
+  const reminds = notifiesPhone(taskLikeOf(t), t.scope_type ?? null) && !notificationsBlocked
   const actor = classifyTaskActor(t)
   const { steps, cautions } = getTaskGuidance(t)
   const showSteps = actor !== "hazardous" && steps.length > 0
@@ -656,13 +681,18 @@ export interface CareBlockProps {
   tasks: TaskTemplateWithSchedule[]
   chunks: KnowledgeChunk[]
   hasManual: boolean
-  /** HH-87: a manual is mid-parse. The empty state must not offer to add a
-   *  manual that was added minutes ago — it waits, and says so. */
-  parsingManual?: boolean
+  /** HH-161: a manual is being read, with the worker's stage and page count.
+   *  Upkeep carries the reading state itself — the line, the page count and
+   *  the rail — and never offers to add a manual while one is read (HH-87).
+   *  From lib/manualReviewState, over the page's LIVE manual docs. */
+  reading?: ManualReading | null
   /** HH-141: a manual has been READ and its findings are not saved yet. Neither
-   *  "has a manual" nor "mid-parse", and without it the page offered to add the
+   *  "has a manual" nor "being read", and without it the page offered to add the
    *  manual ParsePickupCard was reporting on. See lib/manualReviewState. */
   manualAwaitingReview?: boolean
+  /** This device refused notifications (lib/notifyGate): no row draws a bell.
+   *  Required — every door answers it, the way the review's doors do. */
+  notificationsBlocked: boolean
   onOpenManualPage?: (page: number) => void
   /** Whether the manual PDF actually resolved. Page references render as plain
    *  text when it didn't, rather than as buttons that silently do nothing. */
@@ -682,7 +712,7 @@ export interface CareBlockProps {
   onEditTask?: () => void
 }
 
-export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, focusTaskId = null, m, onTaskAdded, onEditTask }: CareBlockProps) {
+export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = null, manualAwaitingReview, notificationsBlocked, onOpenManualPage, canOpenManual = false, onItemUpdate, onAddManual, focusTaskId = null, m, onTaskAdded, onEditTask }: CareBlockProps) {
   // One partition, by the same rule the review wizard uses — and since round 18
   // that rule is the KIND of work, not its importance. The bands below are the
   // same four words the review shows, in the same order, because a task filed
@@ -880,52 +910,38 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
   }
 
   const nothing = tasks.length === 0
-  // While the manual is being read, Upkeep holds the space its tasks will fill
-  // rather than showing an empty state that contradicts the band above it. The
-  // rows are deliberately blank: the worker writes its draft in one go at the
-  // end, so anything more specific here would be invented. Reserving space is
-  // honest; naming tasks we have not been told about is not.
-  if (nothing && !critical && parsingManual) {
+  // HH-161 (S1): while the manual is being read, Upkeep carries the read — the
+  // line, the page count, the keeps-going promise and the rail — and holds the
+  // space its tasks will fill. The rows are deliberately blank: the worker
+  // writes its draft in one go at the end, so anything more specific here would
+  // be invented. It never says "No upkeep yet — add the manual" and never shows
+  // that button while a read runs, including for a manual added this session
+  // (the page reads its manuals live now, so that manual's stage arrives here).
+  if (nothing && !critical && reading) {
     return (
       <Card>
-        <div className="px-4 py-4" aria-busy="true" aria-live="polite">
-          <p className="mb-3 text-[13px] font-semibold" style={{ color: SUB }}>
-            Reading the manual — upkeep lands here.
-          </p>
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="mb-2 h-[46px] animate-pulse rounded-xl last:mb-0"
-              style={{ background: "var(--hh-surface2)", opacity: 1 - i * 0.25 }}
-            />
-          ))}
+        <div className="p-4" aria-busy="true" aria-live="polite">
+          <ScanningLine reading={reading} />
+          <Placeholders />
         </div>
       </Card>
     )
   }
 
-  // HH-141: read, but nothing saved yet. The findings are real and one tap
-  // away in ParsePickupCard above — so this holds the space they will fill and
-  // says where they are. It deliberately carries NO button: a second primary
-  // next to the card's own would be two doors to one decision, which is the
-  // pattern the review consolidation removed.
+  // HH-141 (S2, S3): read, but nothing saved yet. The findings are one tap
+  // away on the hand-off card above, so this holds the space they will fill
+  // and says where they come from. It deliberately carries NO button: a second
+  // primary next to the card's own would be two doors to one decision, which is
+  // the pattern the review consolidation removed. Nothing is saved before Save
+  // (HH-134), so no rows render yet either.
   if (nothing && !critical && manualAwaitingReview) {
     return (
       <Card>
-        <div className="px-4 py-4" aria-live="polite">
-          <p className="mb-1 text-[15px] font-extrabold tracking-[-0.01em]" style={{ color: "var(--hh-ink)" }}>
-            We read the manual
+        <div className="p-4" aria-live="polite">
+          <p className="text-[13.5px]" style={{ color: SUB }}>
+            Upkeep lands here once you save the review.
           </p>
-          <p className="mb-3 text-[13.5px]" style={{ color: SUB }}>
-            Your upkeep lands here once you save what we found.
-          </p>
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="mb-2 h-[46px] rounded-xl last:mb-0"
-              style={{ background: "var(--hh-surface2)", opacity: 1 - i * 0.25 }}
-            />
-          ))}
+          <Placeholders />
         </div>
       </Card>
     )
@@ -942,7 +958,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
               page, in the same voice as Home's no-upkeep hero — two screens,
               one lesson. The upload/link lanes themselves live in the manual
               section below; this is the headline, not a second set of doors. */}
-          {!hasManual && !parsingManual && (
+          {!hasManual && (
             <p className="text-[15px] font-extrabold tracking-[-0.01em]" style={{ color: "var(--hh-ink)" }}>
               No upkeep yet — add the manual
             </p>
@@ -952,7 +968,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
               ? "No upkeep found in this manual yet."
               : "The manual is where this item's schedule, warranty window and answers come from."}
           </p>
-          {!hasManual && !parsingManual && onAddManual && (
+          {!hasManual && onAddManual && (
             <button
               type="button"
               onClick={onAddManual}
@@ -971,8 +987,47 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
     )
   }
 
+  // HH-161 (S3c): after Save, a manual with no maintenance leaves upkeep that
+  // lives on this page and nowhere else — cleaning, usage and setup never reach
+  // Tasks or Home (isAgendaEligible), and none of it notifies. The review said
+  // "Nothing here goes into Tasks." before Save; the page keeps saying it after,
+  // rather than letting a column of cadences imply a schedule.
+  const usageCount = usageTips.length + fUsageTasks.length
+  const anyInTasks = tasks.some((t) => showsInTasks(taskLikeOf(t), t.scope_type ?? null))
+  const livesHere = fMaintenance.length === 0 && !anyInTasks
+    ? [
+        fCleaning.length > 0 ? `${fCleaning.length} cleaning ${fCleaning.length === 1 ? "tip" : "tips"}` : null,
+        usageCount > 0 ? `${usageCount} usage ${usageCount === 1 ? "tip" : "tips"}` : null,
+        fSetup.length > 0 ? `${fSetup.length} setup ${fSetup.length === 1 ? "step" : "steps"}` : null,
+      ].filter((x): x is string => !!x)
+    : []
+
   return (
     <div className="flex flex-col" style={{ gap: m ? 16 : 20 }}>
+      {/* A read of a manual this item already has upkeep from (Read again, or
+          a second manual): the same line and rail, at the top of the upkeep it
+          may change. The page body says it once, here (HH-161). */}
+      {reading && (
+        <Card>
+          <div className="p-4" aria-busy="true" aria-live="polite">
+            <ScanningLine reading={reading} />
+          </div>
+        </Card>
+      )}
+
+      {livesHere.length > 0 && (
+        <Card>
+          <div className="px-4 py-3.5" data-testid="upkeep-lives-here">
+            <p className="text-[15px] font-extrabold tracking-[-0.01em]" style={{ color: INK }}>
+              Nothing here goes into Tasks
+            </p>
+            <p className="mt-0.5 text-[13.5px]" style={{ color: SUB }}>
+              {joinList(livesHere)} live below.
+            </p>
+          </div>
+        </Card>
+      )}
+
       {supportsVariant && (
         <VariantArea
           options={availableVariants}
@@ -1015,6 +1070,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
               last={i === fMaintenance.length - 1}
               variantTag={variantTagFor(t, activeVariant, showAll)}
               safetyNote={critical && criticalTaskIds.has(t.task_template_id) ? critical.content : undefined}
+              notificationsBlocked={notificationsBlocked}
             />
           ))}
         </Band>
@@ -1053,12 +1109,13 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, parsingManua
               last={i === fCleaning.length - 1}
               variantTag={variantTagFor(t, activeVariant, showAll)}
               safetyNote={critical && criticalTaskIds.has(t.task_template_id) ? critical.content : undefined}
+              notificationsBlocked={notificationsBlocked}
             />
           ))}
         </Band>
       )}
 
-      {undo && <UndoBar message={undo.message} onUndo={undo.onUndo} onDismiss={() => setUndo(null)} />}
+      {undo &&<UndoBar message={undo.message} onUndo={undo.onUndo} onDismiss={() => setUndo(null)} />}
       {suggestions.length > 0 && (
         <Band tone="gold" title="Suggested" count={suggestions.length} note={`typical for ${kindLabel}`}>
           {suggestions.map((sug, i) => (

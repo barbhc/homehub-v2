@@ -30,15 +30,12 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ManualParseProgress } from "@/components/manuals/ManualParseProgress"
 import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/ManualStep"
-import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
-import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useManualUrls, isDeadLegacyManualUrl } from "@/hooks/useManualManagement"
 import { updateManualLabel } from "@/modules/knowledge"
-import { useHomeProfile } from "@/modules/home"
+import { isAwaitingReview, isReading } from "@/lib/manualReviewState"
+import { requestReview } from "@/lib/reviewRequest"
 import type { ManualDocument } from "@/integrations/types"
-import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 
 const LABEL_PRESETS = [
   "Owner's Manual",
@@ -52,15 +49,12 @@ const LABEL_PRESETS = [
 
 interface ManualSectionProps {
   homeId: string
-  /** Item context — the review sheet titles itself with the item, and feedback is
-   *  attributed to it so patterns can be aggregated per product. */
-  itemName?: string
-  itemUnitId?: string | null
   /** Brand + model feed the "search the web" fallback link in the add dialog. */
   brand?: string | null
   model?: string | null
+  /** The item's LIVE manuals (useItemManuals) — a relabel, a read or a delete
+   *  arrives here on its own, so nothing is patched by hand (HH-161). */
   manuals: ManualDocument[]
-  onManualUpdated: (updated: ManualDocument) => void
   // Manual management hook values
   addManualOpen: boolean
   setAddManualOpen: (open: boolean) => void
@@ -77,31 +71,21 @@ interface ManualSectionProps {
   addLoading: boolean
   parsePhase: boolean
   parsingManualId: string | null
-  parsedManualId: string | null
-  setParsedManualId: (v: string | null) => void
-  previewResult: PreviewResult | null
-  setPreviewResult: (v: PreviewResult | null) => void
-  reviewOpen: boolean
-  setReviewOpen: (v: boolean) => void
-  saving: boolean
   deletingManualId: string | null
   handleOpenAddManual: (mode?: AddManualMode) => void
   handleAddManual: (choice: ManualSourceChoice) => Promise<void>
-  handleParseExistingManual: (id: string) => void
-  handleRescanManual: (id: string) => void
+  /** "Read the manual" / "Read again": a preview read that ends in the item's
+   *  hand-off card — this section opens no review of its own (HH-120). */
+  handleReadManual: (id: string) => void
   handleFillGaps: (id: string) => void
   handleDeleteManual: (id: string) => void
-  handleSave: (tasks: PreviewTask[], chunks: PreviewChunk[]) => Promise<string | null>
 }
 
 export function ManualSection({
   homeId,
-  itemName,
-  itemUnitId,
   brand,
   model,
   manuals,
-  onManualUpdated,
   addManualOpen,
   setAddManualOpen,
   addMode,
@@ -112,27 +96,14 @@ export function ManualSection({
   addLoading,
   parsePhase,
   parsingManualId,
-  parsedManualId,
-  setParsedManualId,
-  previewResult,
-  setPreviewResult,
-  reviewOpen,
-  setReviewOpen,
-  saving,
   deletingManualId,
   handleOpenAddManual,
   handleAddManual,
-  handleParseExistingManual,
-  handleRescanManual,
+  handleReadManual,
   handleFillGaps,
   handleDeleteManual,
-  handleSave,
 }: ManualSectionProps) {
   const primaryManuals = manuals.filter((m) => m.role !== "reference")
-  /** The review suppresses freeze-prep for a freeze-free home BEFORE showing it —
-   *  the server applies the same rule at save, so a review that skipped it here
-   *  showed tasks that then vanished (the one door that had been missing this). */
-  const { profile } = useHomeProfile(homeId)
   const referenceManuals = manuals.filter((m) => m.role === "reference")
   const manualUrls = useManualUrls(manuals)
 
@@ -159,7 +130,9 @@ export function ManualSection({
     setSavingLabelId(manualId)
     const result = await updateManualLabel(homeId, manualId, value)
     setSavingLabelId(null)
-    if (result.data) onManualUpdated(result.data)
+    // The live list carries the new label; a failed write leaves the old one
+    // showing, and is logged with what it was for.
+    if (result.error) console.error(`[manuals] could not relabel ${manualId}:`, result.error.message)
     cancelEditLabel()
   }
 
@@ -171,7 +144,10 @@ export function ManualSection({
     const isRef = m.role === "reference"
     const Icon = isRef ? BookOpenIcon : FileTextIcon
     const isEditingLabel = editingLabelId === m.manual_id
-    const isBusy = parsingManualId === m.manual_id
+    // Being read: the live stage says so, and the moment between the tap and
+    // the worker's first write is covered by the hook's own flag.
+    const isBusy = parsingManualId === m.manual_id || isReading(m)
+    const awaitingReview = isAwaitingReview(m)
     const isDeleting = deletingManualId === m.manual_id
     // The "default"/primary indicator is only meaningful with 2+ manuals.
     const showPrimaryDefault = manuals.length > 1 && !isRef
@@ -180,6 +156,10 @@ export function ManualSection({
     if (m.label) metaParts.push(m.label)
     if (isRef) metaParts.push("Reference")
     if (showPrimaryDefault) metaParts.push("default")
+    // Where this manual's read stands, in words — the pill and the Upkeep card
+    // carry the live indicator; this row only names the state (HH-161).
+    if (isBusy) metaParts.push("Reading…")
+    else if (awaitingReview) metaParts.push("Read — not saved")
     return (
       <li
         key={m.manual_id}
@@ -214,8 +194,10 @@ export function ManualSection({
             )}
           </div>
 
-          {/* Live parse progress, then the overflow menu */}
-          <ManualParseProgress isActive={isBusy} />
+          {/* The overflow menu. The countdown bar that sat here ("~28 sec
+              remaining") is retired: it was an estimate, the worker reports a
+              page count and never its position, and the page's one indicator
+              is the pill (HH-161). */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -229,7 +211,15 @@ export function ManualSection({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              {m.parsed_at ? (
+              {awaitingReview ? (
+                // Read, and waiting for its review: the review is the next
+                // step, not another read — which would throw this one away.
+                // It opens the item's one review, on this page.
+                <DropdownMenuItem onClick={() => requestReview(m.manual_id)}>
+                  <CheckIcon className="size-4" />
+                  Review what we found
+                </DropdownMenuItem>
+              ) : m.parsed_at ? (
                 <>
                   {!isRef && (
                     <DropdownMenuItem
@@ -239,32 +229,26 @@ export function ManualSection({
                     >
                       <SparklesIcon className="mt-0.5 size-4" />
                       <span className="flex flex-col">
-                        <span>{isBusy ? "Scanning…" : "Fill gaps"}</span>
+                        <span>{isBusy ? "Reading…" : "Fill gaps"}</span>
                         <span className="text-xs" style={{ color: "var(--hh-faint)" }}>
                           find missing tasks &amp; specs
                         </span>
                       </span>
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem
-                    disabled={isBusy}
-                    onClick={() =>
-                      isRef
-                        ? handleParseExistingManual(m.manual_id)
-                        : handleRescanManual(m.manual_id)
-                    }
-                  >
+                  {/* "Rescan" / "Re-ingest" before HH-161, and a commit with no
+                      review. Now a read that ends in the review. */}
+                  <DropdownMenuItem disabled={isBusy} onClick={() => handleReadManual(m.manual_id)}>
                     <RefreshCwIcon className="size-4" />
-                    {isRef ? "Re-ingest" : "Rescan"}
+                    {isBusy ? "Reading…" : "Read again"}
                   </DropdownMenuItem>
                 </>
               ) : (
-                <DropdownMenuItem
-                  disabled={isBusy}
-                  onClick={() => handleParseExistingManual(m.manual_id)}
-                >
+                <DropdownMenuItem disabled={isBusy} onClick={() => handleReadManual(m.manual_id)}>
                   <SparklesIcon className="size-4" />
-                  Parse
+                  {/* Was "Parse" — developer jargon in the one menu a person
+                      opens to ask for this (scanCopy's vocabulary rule). */}
+                  {isBusy ? "Reading…" : "Read the manual"}
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem onClick={() => startEditLabel(m)}>
@@ -499,7 +483,10 @@ export function ManualSection({
                   className="mt-3 w-full"
                   onClick={() => handleOpenAddManual("upload")}
                 >
-                  Add the manual
+                  {/* Not "Add the manual": this item has one, and a page that
+                      offers to add the manual it is reading contradicts itself
+                      (HH-161). This door adds a second document. */}
+                  Add another manual
                 </Button>
               )}
             </AccordionContent>
@@ -535,7 +522,7 @@ export function ManualSection({
             brand={brand ?? undefined}
             model={model ?? undefined}
             isSaving={addLoading}
-            savingMessage={parsePhase ? (addRole === "reference" ? "Ingesting\u2026" : "Scanning the manual\u2026") : undefined}
+            savingMessage={parsePhase ? "Reading the manual\u2026" : undefined}
             error={addError}
             onRetry={() => setAddError(null)}
             // HH-159: what the user picked goes over as the argument. This used
@@ -567,34 +554,6 @@ export function ManualSection({
         </DialogContent>
       </Dialog>
 
-      {/* Parse review sheet */}
-      {previewResult && (
-        <TaskReviewSheet
-          open={reviewOpen}
-          onOpenChange={(open) => {
-            setReviewOpen(open)
-            if (!open) {
-              setPreviewResult(null)
-              setParsedManualId(null)
-            }
-          }}
-          itemName={itemName ?? manuals.find((m) => m.manual_id === parsedManualId)?.title ?? "Manual"}
-          previewData={previewResult}
-          freezeRiskFalse={profile?.freeze_risk === false}
-          onSave={handleSave}
-          saving={saving}
-          onFeedback={(p) => {
-            void recordParseFeedback(homeId, {
-              manualId: parsedManualId,
-              itemUnitId: itemUnitId ?? null,
-              reasons: p.reasons,
-              note: p.note,
-              edits: p.edits,
-              rescanRequested: p.rescan,
-            })
-          }}
-        />
-      )}
     </>
   )
 }

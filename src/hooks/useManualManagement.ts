@@ -4,29 +4,25 @@ import {
   deleteManualDocument,
   ingestReference,
   getChunksByItem,
-  getManualsByItem,
   parseManualAndWait,
-  previewManualParse,
-  commitReviewedDraft,
 } from "@/modules/knowledge"
 import { startParse } from "@/modules/knowledge/services/parseManualService"
 import { markParsePending, clearParsePending } from "@/lib/parsePickup"
+import { isAwaitingReview } from "@/lib/manualReviewState"
+import { requestReview } from "@/lib/reviewRequest"
 // updateManualLabel intentionally omitted here — ManualSection calls it directly
 import { getTaskTemplatesWithSchedulesByItem } from "@/modules/care"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { uploadManualPdfWithUrl } from "@/modules/inventory/services/storageService"
 import { resolveStorageUrl } from "@/integrations/firebase"
 import useSWR from "swr"
-import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
-import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
-import type { ReviewEditSummary } from "@/components/manuals/TaskReviewFeedback"
 import type { ManualSourceChoice } from "@/components/smart-add/ManualStep"
 import type { KnowledgeChunk, ManualDocument } from "@/integrations/types"
 // Belt for the worker's humanized errors: parse failures recorded BEFORE the
 // worker started storing friendly copy still carry raw API JSON, and raw
 // transport text can reach here from the callable layer. Never render it.
 import { isRateLimitMessage, retryAfterFromMessage } from "../../shared/quota/refusal"
-import { humanizeParseError } from "../../shared/parse/parseErrors"
+import { humanizeParseError, isParseInFlightMessage } from "../../shared/parse/parseErrors"
 
 /**
  * True when a manual points at a file lost in the v1→v2 migration. v1 stored
@@ -88,7 +84,6 @@ interface UseManualManagementParams {
   itemId: string
   homeId: string
   userId: string | undefined
-  setManuals: (fn: (prev: ManualDocument[]) => ManualDocument[]) => void
   setChunks: (chunks: KnowledgeChunk[]) => void
   setTasks: (tasks: TaskTemplateWithSchedule[]) => void
 }
@@ -103,11 +98,26 @@ function describeCommit(action: string, r: { inserted?: number; duplicatesSkippe
   return `${action} finished — ${parts.join(", ")}.`
 }
 
+/**
+ * The item page's manual actions.
+ *
+ * HH-161: this hook no longer keeps a copy of the item's manuals. It used to
+ * patch the page's one-time list by hand — prepend the new record, stamp
+ * `parsed_at` on save, filter on delete — and every patch was a guess about a
+ * document the worker was changing underneath it: a manual added here showed
+ * `parse_stage: null` for as long as the page stayed open. The page now
+ * listens to the documents themselves (useItemManuals), so an add, a read and
+ * a delete arrive on their own, once, however often the same PDF is re-added.
+ *
+ * Every read this page starts is a PREVIEW that ends in the item's hand-off
+ * card (ParsePickupCard) — the add, "Read the manual", and "Read again", which
+ * used to commit in place with no review. ONE review element per page, by
+ * construction (HH-120): this hook no longer opens a review of its own.
+ */
 export function useManualManagement({
   itemId,
   homeId,
   userId,
-  setManuals,
   setChunks,
   setTasks,
 }: UseManualManagementParams) {
@@ -121,22 +131,24 @@ export function useManualManagement({
   const [addLoading, setAddLoading] = useState(false)
   const [parsePhase, setParsePhase] = useState(false)
 
-  // --- Parse / review state ---
+  // --- Read state ---
   const [parseError, setParseError] = useState<string | null>(null)
-  /** A throttled scan waiting to retry itself. Separate from parseError because
+  /** A throttled read waiting to retry itself. Separate from parseError because
    *  it is calm news, not a failure, and must not render in the error style. */
   const [parseNotice, setParseNotice] = useState<string | null>(null)
-  /** What a rescan/fill-gaps actually changed. These are the last two paths
-   *  that write tasks without a review step — they are explicit user actions,
-   *  so a confirmation is the right answer rather than a review sheet, but
-   *  silence is not: "it just added new tasks to the list" was a bug report. */
+  /** What a fill-gaps run actually changed. It is the last path that writes
+   *  tasks without a review step — an explicit user action, so a confirmation
+   *  is the right answer rather than a review sheet, but silence is not: "it
+   *  just added new tasks to the list" was a bug report. */
   const [parseReceipt, setParseReceipt] = useState<string | null>(null)
+  /** A manual whose read this page is starting (or whose fill-gaps run it is
+   *  waiting on) — the live stage takes over once the worker writes one. */
   const [parsingManualId, setParsingManualId] = useState<string | null>(null)
+  /** Reads this page started, by manual: the run's requestId and when. The
+   *  enqueue writes "queued" before it answers, but the page's listener can
+   *  hear of it a moment AFTER the answer — see `startedReadPending`. */
+  const [startedReads, setStartedReads] = useState<ReadonlyMap<string, { requestId: string; at: number }>>(new Map())
   const [deletingManualId, setDeletingManualId] = useState<string | null>(null)
-  const [parsedManualId, setParsedManualId] = useState<string | null>(null)
-  const [previewResult, setPreviewResult] = useState<PreviewResult | null>(null)
-  const [reviewOpen, setReviewOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
 
   // --- Handlers ---
 
@@ -160,6 +172,55 @@ export function useManualManagement({
   }
 
   /**
+   * A throttled request is not a failed one, and must never say it is.
+   *
+   * HH-145: a tester saw "The scan failed" printed directly above her manual
+   * being read perfectly well. A second request inside the same 60-second
+   * window had been throttled, and the client had no way to tell that refusal
+   * apart from a real error, so it used the loudest wording it had.
+   *
+   * Returns true when it handled the refusal — the caller stops there. The wait
+   * comes from the server's own sentence, and the retry is automatic and single:
+   * one silent second attempt is the difference between a pause and a dead end,
+   * while a retry loop would be the runaway the limiter exists to stop.
+   */
+  const handledAsRateLimit = (message: string | undefined, retry: () => void): boolean => {
+    if (!isRateLimitMessage(message)) return false
+    const wait = retryAfterFromMessage(message)
+    setParseError(null)
+    setParseNotice(`One moment — starting to read in ${wait} second${wait === 1 ? "" : "s"}.`)
+    window.setTimeout(() => { setParseNotice(null); retry() }, wait * 1000)
+    return true
+  }
+
+  /**
+   * Start a PREVIEW read that ends in the item's review. Never awaited past the
+   * enqueue: the worker reads server-side, the page watches the live document,
+   * and the hand-off card offers (or, if the page watched it finish, opens) the
+   * review. `failure` is how a refusal is worded for the door that asked.
+   *
+   * One read per manual at a time is the SERVER's rule (Package C): a second
+   * ask is refused with "already being read". That is not a failure here — the
+   * read the user wanted is running, and the page is already showing it, so
+   * this FOLLOWS it and says nothing. It used to report "Manual saved, but the
+   * scan could not start" beside the read that was plainly going.
+   */
+  const startReadForReview = async (manualId: string, failure: string): Promise<void> => {
+    setParsingManualId(manualId)
+    setParseError(null)
+    const started = await startParse(manualId, { homeId, mode: "preview" })
+    if (started.ok) {
+      setStartedReads((prev) => new Map(prev).set(manualId, { requestId: started.requestId, at: Date.now() }))
+    }
+    setParsingManualId(null)
+    if (started.ok) return
+    if (started.inFlight || isParseInFlightMessage(started.error)) return
+    if (handledAsRateLimit(started.error, () => void startReadForReview(manualId, failure))) return
+    clearParsePending(manualId)
+    setParseError(`${failure}: ${humanizeParseError(started.error)}`)
+  }
+
+  /**
    * HH-159: the source comes from the ARGUMENT — what ManualStep hands over
    * when "Scan the manual" is tapped. It used to be read from state the dialog
    * had set a microtask earlier, which this function's closure (the previous
@@ -177,6 +238,7 @@ export function useManualManagement({
       let sourceRef: string
       let sourceType: "url" | "upload"
       let title: string
+      let contentHash: string | null = null
 
       if (choice.type === "url") {
         const url = choice.url.trim()
@@ -188,11 +250,19 @@ export function useManualManagement({
         const file = choice.file
         const uploadRes = await uploadManualPdfWithUrl(homeId, itemId, file, userId ?? null)
         if (uploadRes.error) { setAddError(uploadRes.error.message); return }
-        sourceRef = uploadRes.data!.path
+        sourceRef = uploadRes.data.path
+        // HH-154: the same PDF again is recognised by its bytes. Handing the
+        // hash over saves createManualDocument reading it back from Storage.
+        contentHash = uploadRes.data.contentHash
         sourceType = "upload"
         title = titleInput.trim() || file.name
       }
 
+      // From here the manual is being handed to the reader. Said BEFORE the
+      // record is written: the page's live list shows the record the moment it
+      // exists, and until the read is queued it has no stage — so the page
+      // reads this flag as "starting to read" rather than "no manual" (HH-161).
+      setParsePhase(true)
       const res = await createManualDocument(homeId, {
         item_unit_id: itemId,
         title,
@@ -200,48 +270,47 @@ export function useManualManagement({
         source_ref: sourceRef,
         role: addRole,
         label: labelInput.trim() || null,
+        content_hash: contentHash,
       })
       if (res.error) { setAddError(res.error.message); return }
 
-      setManuals((prev) => [res.data!, ...prev])
+      // No local copy to update: the page's live manuals receive this record
+      // (or, for a PDF this item already has, keep the one row it had).
       setTitleInput("")
-      setParsePhase(true)
 
-      const manualId = res.data!.manual_id
+      const manual = res.data
+      const manualId = manual.manual_id
 
       // 2. Branch on role: reference docs get light ingestion, primary gets full parse
       if (addRole === "reference") {
         const ingestRes = await ingestReference(homeId, manualId)
         if (ingestRes.error) {
-          setParseError(`Document saved, but ingestion failed: ${humanizeParseError(ingestRes.error.message)}`)
+          setParseError(`Document saved, but it could not be read: ${humanizeParseError(ingestRes.error.message)}`)
         } else {
           // Refresh chunks (reference chunks now in DB)
           const chunksRes = await getChunksByItem(homeId, itemId)
           if (chunksRes.data) setChunks(chunksRes.data)
-          setManuals((prev) =>
-            prev.map((m) => (m.manual_id === manualId ? { ...m, parsed_at: new Date().toISOString() } : m)),
-          )
         }
+      } else if (isAwaitingReview(manual)) {
+        // The same PDF again, already read and waiting to be saved (HH-154
+        // returns the record this item has). Reading it again would throw that
+        // review away and bill a second read of identical bytes, so the review
+        // it has is the answer — opened, the way Settings' Review does.
+        requestReview(manualId)
       } else {
         // PREVIEW, then review — not commit. This path used to parse in
         // "commit" mode, so tasks appeared on the item with no review step at
         // all: "I thought there was supposed to be an option to go through
         // tasks... these items just appeared." Commit happens when the user
-        // saves the review sheet.
+        // saves the review.
         //
         // Started, never awaited. Awaiting it held the dialog's spinner for the
         // couple of minutes the worker takes and then threw a review sheet over
-        // the page — on the one screen where the user is most likely adding a
-        // manual to an appliance they already own. The page itself now reports
-        // the read (LiveParseBand) and asks for the review when it lands, so
-        // the user is free the moment the manual is attached.
-        setParsedManualId(manualId)
+        // the page. The page reports the read in its Upkeep card and the pill,
+        // and hands over the review when it lands, so the user is free the
+        // moment the manual is attached.
         markParsePending(manualId)
-        const started = await startParse(manualId, { homeId, mode: "preview" })
-        if (!started.ok) {
-          clearParsePending(manualId)
-          setParseError(`Manual saved, but the scan could not start: ${humanizeParseError(started.error)}`)
-        }
+        await startReadForReview(manualId, "Manual saved, but the read could not start")
       }
       setAddManualOpen(false)
     } finally {
@@ -251,72 +320,26 @@ export function useManualManagement({
   }
 
   // The worker owns parse state in Firestore; parseManualAndWait resolves only
-  // on done/error (watched via onSnapshot), so the old dropped-connection polling
-  // + retry machinery is gone.
+  // on done/error (watched via onSnapshot).
   const refreshItem = async (opts?: { chunks?: boolean }) => {
-    const [chunkRes, taskRes, manualRes] = await Promise.all([
+    const [chunkRes, taskRes] = await Promise.all([
       opts?.chunks ? getChunksByItem(homeId, itemId) : Promise.resolve({ data: null }),
       getTaskTemplatesWithSchedulesByItem(homeId, itemId),
-      getManualsByItem(homeId, itemId),
     ])
     if (chunkRes.data) setChunks(chunkRes.data)
     if (taskRes.data) setTasks(taskRes.data)
-    if (manualRes.data) setManuals(() => manualRes.data!)
   }
-
 
   /**
-   * A throttled request is not a failed one, and must never say it is.
-   *
-   * HH-145: a tester saw "The scan failed" printed directly above her manual
-   * being read perfectly well. A second request inside the same 60-second
-   * window had been throttled, and the client had no way to tell that refusal
-   * apart from a real error, so it used the loudest wording it had.
-   *
-   * Returns true when it handled the refusal — the caller stops there. The wait
-   * comes from the server's own sentence, and the retry is automatic and single:
-   * one silent second attempt is the difference between a pause and a dead end,
-   * while a retry loop would be the runaway the limiter exists to stop.
+   * "Read the manual" on one never read, and "Read again" on one already read
+   * (it was "Rescan", and it COMMITTED in place with no review — the item
+   * page's last path that did, after Settings' rescan was moved to preview).
+   * Both are a preview read that ends in the hand-off card's review, so
+   * nothing changes on the item until the owner saves.
    */
-  const handledAsRateLimit = (message: string | undefined, retry: () => void): boolean => {
-    if (!isRateLimitMessage(message)) return false
-    const wait = retryAfterFromMessage(message)
-    setParseError(null)
-    setParseNotice(`One moment — starting your scan in ${wait} second${wait === 1 ? "" : "s"}.`)
-    window.setTimeout(() => { setParseNotice(null); retry() }, wait * 1000)
-    return true
-  }
-
-  const handleParseExistingManual = async (manualId: string) => {
+  const handleReadManual = async (manualId: string) => {
     if (!homeId) return
-    setParsedManualId(manualId)
-    setParsingManualId(manualId)
-    setParseError(null)
-    const result = await previewManualParse(homeId, manualId)
-    setParsingManualId(null)
-    if (!result.ok) {
-      if (handledAsRateLimit(result.error, () => void handleParseExistingManual(manualId))) return
-      setParseError(`The scan failed: ${humanizeParseError(result.error)}`)
-      return
-    }
-    setPreviewResult(result)
-    setReviewOpen(true)
-  }
-
-  const handleRescanManual = async (manualId: string) => {
-    if (!homeId || !itemId) return
-    setParsingManualId(manualId)
-    setParseError(null)
-    // commit mode reconciles in place (fuzzy match; no delete/insert churn) — this
-    // IS the rescan behavior. The worker seeds instances; no follow-up needed.
-    const result = await parseManualAndWait(manualId, { homeId, mode: "commit" })
-    setParsingManualId(null)
-    if (result.ok) {
-      await refreshItem()
-      setParseReceipt(describeCommit("Rescan", result))
-    } else if (!handledAsRateLimit(result.error, () => void handleRescanManual(manualId))) {
-      setParseError(`Rescan failed: ${humanizeParseError(result.error)}`)
-    }
+    await startReadForReview(manualId, "The read could not start")
   }
 
   const handleFillGaps = async (manualId: string) => {
@@ -333,63 +356,26 @@ export function useManualManagement({
     }
   }
 
+  /**
+   * Is a read this page started still on its way to the live list? True from
+   * the enqueue's answer until the manual's document carries that run (by
+   * requestId) — at most a minute, so a run replaced from another device can
+   * never pin the page to "starting". Without it, a manual added here showed,
+   * for that moment, as a record with no stage: "No upkeep yet — add the
+   * manual", right after the dialog closed.
+   */
+  const startedReadPending = (manuals: ManualDocument[], now: number = Date.now()): boolean =>
+    manuals.some((m) => {
+      const run = startedReads.get(m.manual_id)
+      return !!run && now - run.at < 60_000 && m.parse_request_id !== run.requestId
+    })
+
   const handleDeleteManual = async (manualId: string) => {
     setDeletingManualId(manualId)
     const result = await deleteManualDocument(homeId, manualId)
     setDeletingManualId(null)
-    if (result.error) {
-      setParseError(`Could not delete manual: ${result.error.message}`)
-    } else {
-      setManuals((prev) => prev.filter((m) => m.manual_id !== manualId))
-    }
-  }
-
-  const handleSave = async (
-    tasksToSave: PreviewTask[],
-    chunksToSave: PreviewChunk[],
-    edits?: ReviewEditSummary
-  ): Promise<string | null> => {
-    if (!parsedManualId) return "No manual selected — please try scanning again."
-    if (!homeId) return "No home context — please reload and try again."
-    setSaving(true)
-    // commitReviewedDraft re-normalizes + commits server-side, and commitDraft
-    // already seeds recurring instances — no client-side generateTaskInstances.
-    const res = await commitReviewedDraft(homeId, parsedManualId, chunksToSave, tasksToSave)
-    setSaving(false)
-    if (!res.ok) return `Save failed: ${res.error}`
-    // Corrections made during a fresh-parse review are parser feedback too —
-    // recorded on save, not only when the user files a complaint.
-    if (edits && edits.total > 0) {
-      void recordParseFeedback(homeId, {
-        manualId: parsedManualId,
-        itemUnitId: itemId ?? null,
-        source: "review_save",
-        reasons: [],
-        note: "",
-        edits,
-        rescanRequested: false,
-      })
-    }
-    const savedManualId = parsedManualId
-    setReviewOpen(false)
-    setPreviewResult(null)
-    setParsedManualId(null)
-    if (homeId && itemId) {
-      const [chunksRes, tasksRes] = await Promise.all([
-        getChunksByItem(homeId, itemId),
-        getTaskTemplatesWithSchedulesByItem(homeId, itemId),
-      ])
-      if (chunksRes.data) setChunks(chunksRes.data)
-      if (tasksRes.data) setTasks(tasksRes.data)
-    }
-    setManuals((prev) =>
-      prev.map((m) =>
-        m.manual_id === savedManualId
-          ? { ...m, parsed_at: new Date().toISOString() }
-          : m
-      )
-    )
-    return null
+    // Nothing to remove locally on success — the live list drops it.
+    if (result.error) setParseError(`Could not delete manual: ${result.error.message}`)
   }
 
   return {
@@ -408,30 +394,21 @@ export function useManualManagement({
     addLoading,
     parsePhase,
 
-    // Parse / review state
+    // Read state
     parseError,
     parseNotice,
     parseReceipt,
     setParseReceipt,
     setParseError,
     parsingManualId,
-    setParsingManualId,
     deletingManualId,
-    parsedManualId,
-    setParsedManualId,
-    previewResult,
-    setPreviewResult,
-    reviewOpen,
-    setReviewOpen,
-    saving,
+    startedReadPending,
 
     // Handlers
     handleOpenAddManual,
     handleAddManual,
-    handleParseExistingManual,
-    handleRescanManual,
+    handleReadManual,
     handleFillGaps,
     handleDeleteManual,
-    handleSave,
   }
 }

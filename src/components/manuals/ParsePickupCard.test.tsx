@@ -1,269 +1,283 @@
 /**
- * "I thought the review was supposed to open" — HH-48, beta round 6 (Chris).
+ * The hand-off — HH-161's "the top card goes back to its one job".
  *
- * He reported the review flow as missing while looking at a page that had a
- * "Review tasks" button on it. The affordance existed; the moment did not. The
- * card now opens the sheet itself — and the risk in doing that is the opposite
- * failure, a sheet that ambushes you every time you open an item you looked at
- * last week. These pin both halves: it opens when the user is waiting on the
- * parse, and it stays shut when they are not.
+ * The card used to be three things with three watches: a reading band pinned
+ * above the page, round 14's no-maintenance card, and the hand-off. It is now
+ * ONE card, fed the page's live manuals as props, and these pin the mock's
+ * lines for it (design/mocks/scan-indicator, S2 and S3):
+ *
+ *  - one card, "We read the ‹item› manual", and a button that counts what the
+ *    review will ask about — its Maintenance section, or every row when there
+ *    is no maintenance;
+ *  - no reading band, and nothing of round 14's card, anywhere;
+ *  - it opens the review by itself only when the page watched the read finish,
+ *    once per read per session (HH-48) — with or without maintenance;
+ *  - one review element, ever (HH-120);
+ *  - nothing saved before Save (HH-134).
+ *
+ * The review is the REAL TaskReviewSheet, so "the count on the card equals the
+ * count in the review" is read off the review itself, not asserted twice.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { MemoryRouter } from "react-router-dom"
+import type { ManualDocument } from "@/integrations/types"
+import type { PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 
-const { watchParse, readPreviewDraft, isParsePending } = vi.hoisted(() => ({
-  watchParse: vi.fn(),
+const svc = vi.hoisted(() => ({
   readPreviewDraft: vi.fn(),
+  commitReviewedDraft: vi.fn(),
+  recordParseFeedback: vi.fn(),
   isParsePending: vi.fn(),
+  clearParsePending: vi.fn(),
 }))
 
-vi.mock("@/modules/knowledge/services/parseManualService", () => ({
-  watchParse,
-  readPreviewDraft,
-  commitReviewedDraft: vi.fn(),
-  toUiStage: (s: string) => s,
-  // The real list, verbatim — the card's active-banner gate depends on it, and
-  // a stub like ["queued"] would quietly change what these tests exercise.
-  ACTIVE_PARSE_STAGES: ["queued", "started", "pdf_fetched", "claude_call", "claude_responded", "committing"],
+vi.mock("@/modules/knowledge/services/parseManualService", async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  readPreviewDraft: (...a: unknown[]) => svc.readPreviewDraft(...a),
+  commitReviewedDraft: (...a: unknown[]) => svc.commitReviewedDraft(...a),
 }))
-vi.mock("@/lib/parsePickup", () => ({ isParsePending, clearParsePending: vi.fn() }))
-vi.mock("@/modules/knowledge/services/parseFeedbackService", () => ({ recordParseFeedback: vi.fn() }))
-vi.mock("./ReviewItemTasksButton", () => ({ ReviewItemTasksButton: () => <button>Review tasks</button> }))
-// Only the COMPONENT is stubbed. `draftMaintenanceCount` is deliberately kept
-// real: it is the shared definition of "is there maintenance here", and the
-// entire point of HH-127 is that the gate and the sheet cannot disagree about
-// it. Mocking the whole module would have replaced the thing under test with
-// `undefined` and made the gate look broken — which is exactly what happened
-// on the first run of this change.
-vi.mock("./TaskReviewSheet", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./TaskReviewSheet")>()),
-  TaskReviewSheet: ({ open, presentation }: { open: boolean; presentation?: string }) =>
-    open ? <div data-testid="review-sheet" data-presentation={presentation ?? "sheet"} /> : null,
+vi.mock("@/modules/knowledge/services/parseFeedbackService", () => ({
+  recordParseFeedback: (...a: unknown[]) => svc.recordParseFeedback(...a),
+}))
+vi.mock("@/lib/parsePickup", () => ({
+  isParsePending: (id: string) => svc.isParsePending(id),
+  clearParsePending: (id: string) => svc.clearParsePending(id),
+}))
+vi.mock("@/hooks/useNotificationsBlocked", () => ({ useNotificationsBlocked: () => false }))
+vi.mock("@/modules/home", () => ({
+  useHomeProfile: () => ({ profile: null, isLoading: false, error: undefined, refresh: vi.fn() }),
 }))
 
 import { ParsePickupCard } from "./ParsePickupCard"
+import { requestReview } from "@/lib/reviewRequest"
 
-// HH-127: this fixture used to be `{ title }` and nothing else, which passed
-// only because the old gate asked "is it not cleaning?". The gate now uses the
-// review sheet's OWN definition — included, on a schedule, and maintenance —
-// so the fixture has to look like a real parsed task. A stub thin enough to
-// pass a weaker check is how the two definitions drifted apart unnoticed.
-const DRAFT = {
-  tasks: [{ title: "Replace the HEPA Filter", care_type: "maintenance", schedule_type: "monthly" }],
-  chunks: [],
+const t = (title: string, care_type: PreviewTask["care_type"], schedule_type: PreviewTask["schedule_type"], priority_tier: PreviewTask["priority_tier"] = "recommended"): PreviewTask => ({
+  title, description: null, care_type, priority_tier, risk_level: "performance", estimated_minutes: 10,
+  schedule_type, interval_days: null, instructions_text: null, symptom_tags: [], re_check_triggers: [],
+})
+
+/** S4's dishwasher: six maintenance rows, four cleaning, two setup — twelve. */
+const BOSCH: PreviewResult = {
+  ok: true, chunks: [],
+  tasks: [
+    t("Check the door seal", "maintenance", "annual", "essential"),
+    t("Clean the filter", "maintenance", "monthly"),
+    t("Descale", "maintenance", "quarterly"),
+    t("Clean the spray arms", "maintenance", "semiannual"),
+    t("Clean the drain pump", "maintenance", "annual", "optional"),
+    t("Check the drain hose", "maintenance", "annual", "optional"),
+    t("Clean the tub and door edges", "cleaning", "monthly"),
+    t("Clean the cutlery basket", "cleaning", "monthly", "optional"),
+    t("Wipe the door", "cleaning", "as_needed"),
+    t("Wipe the panel", "cleaning", "as_needed", "optional"),
+    t("Level the dishwasher", "maintenance", "setup"),
+    t("Connect the drain", "maintenance", "setup"),
+  ],
 }
 
-/** Drive watchParse through a stage sequence, synchronously on subscribe. */
-function stages(...seq: string[]) {
-  watchParse.mockImplementation((_home: string, id: string, cb: (s: string, p: unknown) => void) => {
-    for (const s of seq) cb(s, { summary: { tasks: 1 } })
-    void id
-    return () => {}
-  })
+/** S3b's microwave: four cleaning and two setup — no maintenance at all. */
+const SHARP: PreviewResult = {
+  ok: true, chunks: [],
+  tasks: [
+    t("Clean the waveguide cover", "cleaning", "monthly"),
+    t("Wipe the drawer interior", "cleaning", "weekly", "optional"),
+    t("Clean the door seals", "cleaning", "as_needed"),
+    t("Wipe the control panel", "cleaning", "as_needed", "optional"),
+    t("Verify the drawer is grounded", "maintenance", "setup", "essential"),
+    t("Level the drawer front", "maintenance", "setup"),
+  ],
 }
 
-// The once-per-session guard is module-level BY DESIGN — it has to survive the
-// item page remounting — which means it also survives between tests here. Each
-// case therefore gets its own manual id, and the one case that deliberately
-// reuses an id is the one asserting the guard works.
-const view = (manualId: string) =>
-  render(
-    <ParsePickupCard
-      homeId="h1"
-      itemUnitId="i1"
-      itemName="Levoit Core 300"
-      manualIds={[manualId]}
-      onReviewSaved={() => {}}
-    />
+/** A live manual doc, as useItemManuals maps it. */
+const manual = (id: string, over: Partial<ManualDocument> = {}): ManualDocument => ({
+  manual_id: id, item_unit_id: "i1", title: "Owner's manual", label: null, source_type: "upload",
+  source_ref: `homes/h1/manuals/${id}.pdf`, role: "primary", version: null, language: "en",
+  parsed_at: null, parse_stage: "done", parse_mode: "preview", parse_request_id: `req-${id}`,
+  parse_stage_at: "2026-09-30T10:00:00.000Z", parse_pages: 42, parse_tasks: 12, has_preview_draft: true,
+  parse_draft: null, content_hash: null, created_at: "2026-09-30T09:00:00.000Z", updated_at: "2026-09-30T10:00:00.000Z",
+  deleted_at: null, ...over,
+})
+
+const NONE: ReadonlySet<string> = new Set()
+
+function view(manuals: ManualDocument[], watched: ReadonlySet<string> = NONE, itemName = "Bosch dishwasher", onReviewSaved = vi.fn()) {
+  const r = render(
+    <MemoryRouter>
+      <ParsePickupCard homeId="h1" itemUnitId="i1" itemName={itemName} manuals={manuals} watched={watched} onReviewSaved={onReviewSaved} />
+    </MemoryRouter>,
   )
+  return { ...r, onReviewSaved }
+}
+
+/** The review's own heading — "‹item›" over "N things from the manual". */
+const reviews = () => screen.queryAllByText(/\d+ things? from the manual/)
+/** A review section header's count, read off the review itself. */
+const sectionCount = (title: string) => {
+  const heading = screen.getAllByText(new RegExp(`^${title}$`)).find((el) => el.closest("div")?.textContent?.match(/\d+$/))!
+  return Number(heading.closest("div")!.textContent!.match(/(\d+)$/)![1])
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.resetModules()
-  readPreviewDraft.mockResolvedValue(DRAFT)
-  isParsePending.mockReturnValue(false)
+  localStorage.clear()
+  svc.isParsePending.mockReturnValue(false)
+  svc.commitReviewedDraft.mockResolvedValue({ ok: true, chunks: 0, tasks: 12 })
 })
 
-describe("ParsePickupCard — the parse-to-review handoff", () => {
-  it("opens the review when a parse it watched run finishes with a draft", async () => {
-    stages("queued", "claude_call", "done")
-    view("m-watched")
-    await waitFor(() => expect(screen.getByTestId("review-sheet")).toBeInTheDocument())
+describe("the hand-off card — one job (S2, S3)", () => {
+  it("S2.1 — 'We read the Bosch dishwasher manual' and 'Review 6 upkeep tasks'; the 6 is the review's Maintenance count", async () => {
+    svc.readPreviewDraft.mockResolvedValue(BOSCH)
+    view([manual("m-bosch")])
+    const card = await screen.findByTestId("handoff-card")
+    expect(within(card).getByText("We read the Bosch dishwasher manual")).toBeInTheDocument()
+    const button = within(card).getByRole("button", { name: "Review 6 upkeep tasks" })
+
+    fireEvent.click(button)
+    await waitFor(() => expect(reviews()).toHaveLength(1))
+    expect(sectionCount("Maintenance")).toBe(6)
   })
 
-  it("opens the review for a parse the user's own wizard started", async () => {
-    // No active stage observed here — the user left the wizard and came back to
-    // a finished parse. The handoff flag is what says they are waiting on it.
-    isParsePending.mockReturnValue(true)
-    stages("done")
-    view("m-wizard")
-    await waitFor(() => expect(screen.getByTestId("review-sheet")).toBeInTheDocument())
+  it("S3.1 — no maintenance: 'Review 6 tips & steps', the 6 being every row the review lists", async () => {
+    svc.readPreviewDraft.mockResolvedValue(SHARP)
+    view([manual("m-sharp")], NONE, "Sharp microwave")
+    const card = await screen.findByTestId("handoff-card")
+    expect(within(card).getByText("We read the Sharp microwave manual")).toBeInTheDocument()
+    fireEvent.click(within(card).getByRole("button", { name: "Review 6 tips & steps" }))
+    expect(await screen.findByText("6 things from the manual")).toBeInTheDocument()
   })
 
-  it("stays SHUT for a draft that was already sitting there", async () => {
-    // The ambush case: an old unreviewed draft, arrived at by opening the item.
-    // The card still offers it; nothing opens by itself.
-    stages("done")
-    view("m-stale")
-    await waitFor(() => expect(screen.getByText("Review & schedule")).toBeInTheDocument())
-    expect(screen.queryByTestId("review-sheet")).not.toBeInTheDocument()
+  it("S3.2 — no other card, and round 14's sentence is nowhere (not rendered)", async () => {
+    svc.readPreviewDraft.mockResolvedValue(SHARP)
+    view([manual("m-sharp-2")], NONE, "Sharp microwave")
+    await screen.findByTestId("handoff-card")
+    expect(screen.getAllByTestId("handoff-card")).toHaveLength(1)
+    expect(document.body.textContent).not.toMatch(/No maintenance in this manual/)
+    expect(document.body.textContent).not.toMatch(/nothing will remind you/)
+    expect(screen.queryByText(/We finished reading/)).toBeNull()
+    expect(screen.queryByRole("button", { name: "See what we found" })).toBeNull()
   })
 
-  it("stays SHUT when the tasks are already committed", async () => {
-    // No draft ⇒ nothing is waiting on the user's approval; the tasks are live
-    // and reviewing them is a choice, not a step.
-    readPreviewDraft.mockResolvedValue(null)
-    isParsePending.mockReturnValue(true)
-    stages("queued", "done")
-    view("m-committed")
-    await waitFor(() => expect(screen.getByText("Review tasks")).toBeInTheDocument())
-    expect(screen.queryByTestId("review-sheet")).not.toBeInTheDocument()
+  it("S1.1 / S2.2 — it never renders a reading line or rail, whatever the manual is doing", async () => {
+    svc.readPreviewDraft.mockResolvedValue(BOSCH)
+    view([manual("m-reading", { parse_stage: "claude_call", has_preview_draft: false })])
+    await act(async () => {})
+    expect(screen.queryByRole("progressbar")).toBeNull()
+    expect(screen.queryByText(/Reading the manual/)).toBeNull()
+    expect(screen.queryByTestId("handoff-card")).toBeNull()
   })
 
-  it("opens once per manual, not on every return to the item", async () => {
-    stages("queued", "done")
-    const first = view("m-once")
-    await waitFor(() => expect(screen.getByTestId("review-sheet")).toBeInTheDocument())
+  it("renders nothing for a manual whose findings are saved", async () => {
+    svc.readPreviewDraft.mockResolvedValue(null)
+    view([manual("m-saved", { parsed_at: "2026-09-30T10:05:00.000Z", has_preview_draft: false })])
+    await act(async () => {})
+    expect(screen.queryByTestId("handoff-card")).toBeNull()
+    expect(svc.readPreviewDraft).not.toHaveBeenCalled()
+  })
+})
+
+describe("it opens by itself only when the page watched the read finish (HH-48, S2.4, S3.3)", () => {
+  it("watched → the review opens in place of the card, with maintenance", async () => {
+    svc.readPreviewDraft.mockResolvedValue(BOSCH)
+    view([manual("m-watched")], new Set(["m-watched"]))
+    await waitFor(() => expect(reviews()).toHaveLength(1))
+    // In flow it REPLACES the card — never wrapped inside it (HH-120).
+    expect(screen.queryByTestId("handoff-card")).toBeNull()
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
+  it("watched → it opens the same way with NO maintenance (round 14's 'never opens by itself' is gone)", async () => {
+    svc.readPreviewDraft.mockResolvedValue(SHARP)
+    view([manual("m-watched-sharp")], new Set(["m-watched-sharp"]), "Sharp microwave")
+    expect(await screen.findByText("6 things from the manual")).toBeInTheDocument()
+  })
+
+  it("not watched → the card waits, even for a read the wizard flagged", async () => {
+    svc.isParsePending.mockReturnValue(true)
+    svc.readPreviewDraft.mockResolvedValue(BOSCH)
+    view([manual("m-came-back")])
+    await screen.findByTestId("handoff-card")
+    expect(reviews()).toHaveLength(0)
+  })
+
+  it("once per read per session — coming back to the item does not open it again", async () => {
+    svc.readPreviewDraft.mockResolvedValue(BOSCH)
+    const first = view([manual("m-once")], new Set(["m-once"]))
+    await waitFor(() => expect(reviews()).toHaveLength(1))
     first.unmount()
 
-    // Same manual, same session — the user navigated away and came back.
-    view("m-once")
-    await waitFor(() => expect(screen.getByText("Review & schedule")).toBeInTheDocument())
-    expect(screen.queryByTestId("review-sheet")).not.toBeInTheDocument()
+    view([manual("m-once")], new Set(["m-once"]))
+    await screen.findByTestId("handoff-card")
+    expect(reviews()).toHaveLength(0)
+  })
+
+  it("a NEW read of the same manual, watched, is news of its own", async () => {
+    svc.readPreviewDraft.mockResolvedValue(BOSCH)
+    const first = view([manual("m-twice")], new Set(["m-twice"]))
+    await waitFor(() => expect(reviews()).toHaveLength(1))
+    first.unmount()
+
+    view([manual("m-twice", { parse_request_id: "req-second-read" })], new Set(["m-twice"]))
+    await waitFor(() => expect(reviews()).toHaveLength(1))
   })
 })
 
-/**
- * HH-120. PR #167 gave the review an `inline` mode so it could be a section of
- * the page rather than a drawer — and rendered it INSIDE this card, a narrow
- * horizontal flex row built for a one-line status. The review collapsed to one
- * word per line and sat behind the drawer another caller had opened, so two
- * review surfaces were mounted at once.
- *
- * The guarantee is structural, not visual: in flow the card is REPLACED by the
- * review, never wrapped around it.
- */
-describe("ParsePickupCard — the in-flow review replaces the card", () => {
-  it("renders the review INSTEAD of the card once a watched scan finishes", async () => {
-    isParsePending.mockReturnValue(true)
-    readPreviewDraft.mockResolvedValue(DRAFT)
-    // A run we sat and watched: active stages, then done.
-    stages("queued", "claude_call", "done")
-
-    render(
-      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-inline"]} itemName="Dryer"
-        onReviewSaved={vi.fn()} />
-    )
-
-    const sheet = await screen.findByTestId("review-sheet")
-    expect(sheet).toHaveAttribute("data-presentation", "inline")
-    // The card's own chrome is gone — not merely hidden behind the review.
-    expect(screen.queryByRole("button", { name: /Dismiss/ })).not.toBeInTheDocument()
+describe("one review, and only Save saves (HH-120, HH-134)", () => {
+  it("never mounts two reviews — the card's tap opens ONE drawer", async () => {
+    svc.readPreviewDraft.mockResolvedValue(BOSCH)
+    view([manual("m-one")])
+    const card = await screen.findByTestId("handoff-card")
+    fireEvent.click(within(card).getByRole("button", { name: /Review 6 upkeep tasks/ }))
+    await waitFor(() => expect(reviews()).toHaveLength(1))
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
   })
 
-  it("keeps the drawer for someone who came back later", async () => {
-    isParsePending.mockReturnValue(true)
-    readPreviewDraft.mockResolvedValue(DRAFT)
-    // Already finished on arrival: we never watched it run.
-    stages("done")
+  it("nothing is committed until Save — then the draft is committed, feedback-free, and the page refreshes", async () => {
+    svc.readPreviewDraft.mockResolvedValue(SHARP)
+    const { onReviewSaved } = view([manual("m-save")], new Set(["m-save"]), "Sharp microwave")
+    await screen.findByText("6 things from the manual")
+    expect(svc.commitReviewedDraft).not.toHaveBeenCalled()
 
-    render(
-      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-return"]} itemName="Dryer"
-        onReviewSaved={vi.fn()} />
-    )
-
-    const sheet = await screen.findByTestId("review-sheet")
-    expect(sheet).toHaveAttribute("data-presentation", "sheet")
-  })
-
-  it("never mounts two reviews at once", async () => {
-    isParsePending.mockReturnValue(true)
-    readPreviewDraft.mockResolvedValue(DRAFT)
-    stages("queued", "done")
-
-    render(
-      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-single"]} itemName="Dryer"
-        onReviewSaved={vi.fn()} />
-    )
-
-    await screen.findByTestId("review-sheet")
-    await waitFor(() => expect(screen.getAllByTestId("review-sheet")).toHaveLength(1))
+    fireEvent.click(screen.getByRole("button", { name: "Save all 6" }))
+    await waitFor(() => expect(svc.commitReviewedDraft).toHaveBeenCalledTimes(1))
+    expect(svc.commitReviewedDraft.mock.calls[0][1]).toBe("m-save")
+    await waitFor(() => expect(onReviewSaved).toHaveBeenCalledTimes(1))
+    expect(svc.clearParsePending).toHaveBeenCalledWith("m-save")
   })
 })
 
-/**
- * HH-121 — "I'm not sure what this page is. It just popped up."
- *
- * Round 12's default flip was right, but it made the NO-MAINTENANCE branch the
- * thing that auto-opens — a full-height sheet with nothing to decide, arriving
- * unannounced ninety-five minutes after the scan.
- *
- * The rule these pin: a sheet may interrupt for a DECISION, never for an
- * announcement.
- */
-describe("ParsePickupCard — nothing opens itself without a decision to make", () => {
-  const NO_MAINTENANCE = {
-    tasks: [
-      { title: "Clean the waveguide cover", care_type: "cleaning" },
-      { title: "Wipe vent area after use", care_type: "cleaning" },
-    ],
-    chunks: [],
-  }
+describe("the pill's Review opens this review in place (S2.3)", () => {
+  it("a request for this manual opens the drawer — no navigation, and even over a dismissed card", async () => {
+    svc.readPreviewDraft.mockResolvedValue(BOSCH)
+    view([manual("m-asked")])
+    const card = await screen.findByTestId("handoff-card")
+    fireEvent.click(within(card).getByRole("button", { name: "Dismiss" }))
+    expect(screen.queryByTestId("handoff-card")).toBeNull()
 
-  it("does NOT open a sheet when the scan found no maintenance", async () => {
-    isParsePending.mockReturnValue(true)
-    readPreviewDraft.mockResolvedValue(NO_MAINTENANCE)
-    stages("queued", "done")
-
-    render(
-      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-none"]} itemName="Sharp microwave"
-        onReviewSaved={vi.fn()} />
-    )
-
-    await screen.findByText(/We finished reading the Sharp microwave manual/)
-    expect(screen.queryByTestId("review-sheet")).not.toBeInTheDocument()
+    act(() => { requestReview("m-asked") })
+    await waitFor(() => expect(reviews()).toHaveLength(1))
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
   })
 
-  it("still opens it when there IS maintenance to decide about", async () => {
-    isParsePending.mockReturnValue(true)
-    readPreviewDraft.mockResolvedValue({
-      tasks: [{ title: "Replace the HEPA Filter", care_type: "maintenance" }],
-      chunks: [],
-    })
-    stages("queued", "done")
+  it("a request for another item's manual leaves this page alone", async () => {
+    svc.readPreviewDraft.mockResolvedValue(BOSCH)
+    view([manual("m-here")])
+    await screen.findByTestId("handoff-card")
+    act(() => { requestReview("m-elsewhere") })
+    await act(async () => {})
+    expect(reviews()).toHaveLength(0)
+  })
+})
 
-    render(
-      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-some"]} itemName="Air purifier"
-        onReviewSaved={vi.fn()} />
-    )
-
-    expect(await screen.findByTestId("review-sheet")).toBeInTheDocument()
+describe("a read that failed", () => {
+  it("is said, when this page watched it", async () => {
+    view([manual("m-err", { parse_stage: "error", has_preview_draft: false })], new Set(["m-err"]))
+    expect(await screen.findByText(/We couldn.t finish reading the manual/)).toBeInTheDocument()
   })
 
-  it("names the item and says how many things it saved", async () => {
-    isParsePending.mockReturnValue(true)
-    readPreviewDraft.mockResolvedValue(NO_MAINTENANCE)
-    stages("queued", "done")
-
-    render(
-      <ParsePickupCard homeId="h1" itemUnitId="i1" manualIds={["m-count"]} itemName="Sharp microwave"
-        onReviewSaved={vi.fn()} />
-    )
-
-    await screen.findByText(/We finished reading the Sharp microwave manual/)
-    // "some things" would be useless; the count is the reassurance.
-    //
-    // HH-134: this asserted "We saved 2 …" about a draft that runParse had NOT
-    // committed — commitDraft, which the review's Save triggers, is what writes
-    // them. The test held the false tense in place for three rounds. The count
-    // is still the reassurance; the tense is now true.
-    expect(screen.getByText(/2 guides, setup steps and tips are ready to keep/)).toBeInTheDocument()
-    // HH-137: the card says what was FOUND before saying nothing will remind
-    // you. Unlike the sheet, this card IS about a manual it just read, so
-    // naming it here is honest.
-    expect(screen.getByText(/No maintenance in this manual, so nothing will remind you/)).toBeInTheDocument()
-    // And the button must not offer to schedule what the card just said needs
-    // no reminder.
-    expect(screen.getByRole("button", { name: "See what we found" })).toBeInTheDocument()
+  it("stays quiet for an old failure nobody is waiting on", async () => {
+    view([manual("m-old-err", { parse_stage: "error", has_preview_draft: false })])
+    await act(async () => {})
+    expect(screen.queryByText(/We couldn.t finish reading the manual/)).toBeNull()
   })
 })

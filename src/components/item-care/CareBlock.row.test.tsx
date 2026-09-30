@@ -63,7 +63,7 @@ function renderRows(tasks: unknown[], open: unknown[] = [], done: unknown[] = []
   instances.done = done
   render(
     <MemoryRouter>
-      <CareBlock item={item} homeId="h1" tasks={tasks as never} chunks={[]} hasManual onAddManual={vi.fn()} />
+      <CareBlock item={item} homeId="h1" tasks={tasks as never} chunks={[]} hasManual notificationsBlocked={false} onAddManual={vi.fn()} />
     </MemoryRouter>,
   )
 }
@@ -117,7 +117,7 @@ describe("HH-155 — the title owns the row", () => {
   it("the row no longer carries a trailing chevron competing for width", async () => {
     const { container } = render(
       <MemoryRouter>
-        <CareBlock item={item} homeId="h1" tasks={[task()] as never} chunks={[]} hasManual onAddManual={vi.fn()} />
+        <CareBlock item={item} homeId="h1" tasks={[task()] as never} chunks={[]} hasManual notificationsBlocked={false} onAddManual={vi.fn()} />
       </MemoryRouter>,
     )
     await screen.findByText("Inspect and Clean Vent Ductwork")
@@ -152,7 +152,7 @@ describe("HH-157 — the row carries the task's verbs", () => {
     const onEditTask = vi.fn()
     render(
       <MemoryRouter>
-        <CareBlock item={item} homeId="h1" tasks={[task()] as never} chunks={[]} hasManual onAddManual={vi.fn()} onEditTask={onEditTask} />
+        <CareBlock item={item} homeId="h1" tasks={[task()] as never} chunks={[]} hasManual notificationsBlocked={false} onAddManual={vi.fn()} onEditTask={onEditTask} />
       </MemoryRouter>,
     )
     return { onEditTask }

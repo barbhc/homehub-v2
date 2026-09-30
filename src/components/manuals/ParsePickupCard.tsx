@@ -1,23 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { CheckIcon, XIcon } from "lucide-react"
-import {
-  watchParse,
-  toUiStage,
-  ACTIVE_PARSE_STAGES,
-  readPreviewDraft,
-  commitReviewedDraft,
-  type ParseStage,
-} from "@/modules/knowledge/services/parseManualService"
-import { draftMaintenanceCount, TaskReviewSheet } from "./TaskReviewSheet"
+import { readPreviewDraft, commitReviewedDraft } from "@/modules/knowledge/services/parseManualService"
+import { draftReviewCounts, TaskReviewSheet } from "./TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
+import type { ReviewEditSummary } from "./TaskReviewFeedback"
+import type { ManualDocument } from "@/integrations/types"
 import { clearParsePending, isParsePending } from "@/lib/parsePickup"
-import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
-import { ReviewItemTasksButton } from "./ReviewItemTasksButton"
+import { isAwaitingReview } from "@/lib/manualReviewState"
+import { onReviewRequest, pendingReviewFor, takeReviewRequest } from "@/lib/reviewRequest"
+import { useNotificationsBlocked } from "@/hooks/useNotificationsBlocked"
 import { useHomeProfile } from "@/modules/home"
 
 /**
- * Manuals whose review we have already opened by ourselves, this session.
+ * Reads whose review we have already opened by ourselves, this session, keyed
+ * by manual AND run — a later read of the same manual is news of its own.
  *
  * Module-level rather than component state because the item page remounts on
  * every navigation, and "we opened this for you once" must survive that — a
@@ -26,250 +23,161 @@ import { useHomeProfile } from "@/modules/home"
  */
 const autoOpened = new Set<string>()
 
-const ACTIVE_STAGES = ACTIVE_PARSE_STAGES
-
-/** Upkeep in a draft — what the review actually asks about. Cleaning jobs and
- *  per-use tips are saved without a question, so counting them here would
- *  promise a longer review than the sheet delivers. */
-/** Everything the scan kept, for the "here is what we saved" line. */
-function savedCount(draft: PreviewResult): number {
-  return draft.tasks?.length ?? 0
-}
-
-// HH-127: this used to compute its own answer and disagreed with the sheet on
-// setup tasks — see draftHasSchedulableMaintenance for what that cost.
-function maintenanceCount(draft: PreviewResult): number {
-  return draftMaintenanceCount(draft)
-}
-
-const STAGE_LINE: Record<string, string> = {
-  uploading: "Starting…",
-  queued: "Waiting for a scanning slot…",
-  reading: "Scanning the document end to end…",
-  extracting: "Pulling out care steps and schedules…",
-  saving: "Saving results to your home…",
-}
-
-interface ManualParseState {
-  stage: ParseStage
-  tasks: number | null
-  /** Page count, once the worker has fetched the PDF. */
-  pages: number | null
+/** The button's words: what the review will ask about (HH-161 S2.1, S3.1). */
+function reviewLabel(counts: { total: number; maintenance: number }): string {
+  if (counts.maintenance > 0) return `Review ${counts.maintenance} upkeep ${counts.maintenance === 1 ? "task" : "tasks"}`
+  if (counts.total === 1) return "Review 1 tip or step"
+  if (counts.total > 1) return `Review ${counts.total} tips & steps`
+  return "Review what we found"
 }
 
 /**
- * Item-page pickup for a parse whose results are waiting to be reviewed.
+ * The item page's hand-off: a finished read, delivered to the review.
  *
- * Originally gated ONLY on the wizard's localStorage handoff flag — which the
- * item-page attach path never sets. The audit smoke walked that path as a
- * brand-new user: the parse finished, previewDraft held 7 tasks, and this card
- * rendered null forever. The page said "no manual yet" one line above
- * "Manuals & References (1)", and the tasks were unreachable. A dead end on
- * the product's key flow.
+ * HH-161 gave this card back its one job. It used to be three things — a
+ * reading band pinned ABOVE the page (above "‹ Items"), round 14's separate
+ * no-maintenance card ("No maintenance in this manual, so nothing will remind
+ * you"), and this hand-off — each with its own watch on the manual. The read
+ * now lives in the Upkeep card and the pill; the no-maintenance card is gone
+ * (one review serves both cases, round 18); what is left is ONE card, between
+ * the name and Upkeep, saying the manual was read and offering its review.
  *
- * So the DATA is now the gate: a finished manual that still HAS a previewDraft
- * is by definition awaiting review — commitManualDraft deletes the draft on
- * save, so a lingering draft cannot mean anything else. The flag remains only
- * as the fast path for in-flight wizard parses (live progress before any
- * draft exists) and for surfacing errors from the wizard handoff.
+ * It reads the page's LIVE manuals (useItemManuals), through the one
+ * definition of "waiting for review" (lib/manualReviewState), and keeps no
+ * watch of its own.
+ *
+ * It opens the review by itself only when this page WATCHED the read finish
+ * (HH-48) — once per read, per session, with or without maintenance (S2.4,
+ * S3.3). A read that finished while nobody was looking waits for a tap: here,
+ * or the pill's Review, which asks this card to open it in place.
+ *
+ * Exactly one review element, rendered in one place: in place of the card when
+ * it opened itself (the page's own next section — round 11), or as a drawer
+ * beside it when someone tapped Review. Nothing is saved before Save (HH-134).
  */
 export function ParsePickupCard({
   homeId,
   itemUnitId,
   itemName,
-  manualIds,
+  manuals,
+  watched,
   onReviewSaved,
 }: {
   homeId: string
   itemUnitId: string
   itemName: string
-  manualIds: string[]
+  /** The item's live manual docs (useItemManuals). */
+  manuals: ManualDocument[]
+  /** Manuals whose current read this page watched run (useItemManuals). */
+  watched: ReadonlySet<string>
   onReviewSaved: () => void
 }) {
   // Freeze-prep is suppressed before the review rather than at save.
   const { profile } = useHomeProfile(homeId)
-  const [byManual, setByManual] = useState<Record<string, ManualParseState>>({})
+  const freezeRiskFalse = profile?.freeze_risk === false
+  const notificationsBlocked = useNotificationsBlocked()
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({})
-  /** The uncommitted draft for the manual being picked up, if it still has one.
-   *  Present ⇒ the wizard previewed and the user left before saving. */
-  const [draft, setDraft] = useState<PreviewResult | null>(null)
-  const [draftOpen, setDraftOpen] = useState(false)
-  const [draftSaving, setDraftSaving] = useState(false)
+  const [loaded, setLoaded] = useState<{ key: string; draft: PreviewResult } | null>(null)
+  const [open, setOpen] = useState<"inline" | "sheet" | null>(null)
+  const [saving, setSaving] = useState(false)
+  /** Bumped when a door asks for a review, so the pickup below is re-chosen. */
+  const [, setAsked] = useState(0)
 
-  /** Manuals we watched actually RUN here, as opposed to finding already done.
-   *  Watching one finish is the strongest evidence the user is waiting on it. */
-  const watchedRunning = useRef<Set<string>>(new Set())
+  // What the callbacks below read. They run outside render (a draft arriving,
+  // a door asking), so they read the latest values through refs.
+  const watchedRef = useRef(watched)
+  const openRef = useRef(open)
+  useEffect(() => { watchedRef.current = watched; openRef.current = open })
+  /** The run whose draft is on hand. */
+  const loadedRef = useRef<{ manualId: string; runKey: string } | null>(null)
 
-  const idsKey = manualIds.join(",")
-  useEffect(() => {
-    const ids = idsKey ? idsKey.split(",") : []
-    const unsubs = ids.map((manualId) =>
-      watchParse(homeId, manualId, (stage, parse) => {
-        if (ACTIVE_STAGES.includes(stage)) watchedRunning.current.add(manualId)
-        setByManual((prev) => ({
-          ...prev,
-          [manualId]: {
-            stage,
-            tasks: parse.summary?.tasks ?? null,
-            // Sticky: pdfPages is written once, at pdf_fetched, and later
-            // snapshots do not repeat it.
-            pages: parse.pdfPages ?? prev[manualId]?.pages ?? null,
-          },
-        }))
-      })
-    )
-    return () => unsubs.forEach((u) => u())
-  }, [homeId, idsKey])
-
-  // HH-87: the in-flight banner is DATA-gated. It used to require the wizard's
-  // handoff flag, on the theory that item-page adds had their own inline
-  // progress — true only while the add dialog stayed open. The owner added a
-  // manual, closed the dialog, and the page offered to add one: the parse was
-  // running and nothing on the page would say so. A manual in an active stage
-  // is the evidence, however the parse began. (The done/error pickup below
-  // keeps its own gates — this widens only the live state.)
-  const active = useMemo(
-    () => Object.entries(byManual).find(([, s]) => ACTIVE_STAGES.includes(s.stage)),
-    [byManual]
-  )
-  // Draft probe for every finished manual. Bounded: an item has a handful of
-  // manuals at most, and committed ones return null immediately.
-  const [draftsById, setDraftsById] = useState<Record<string, PreviewResult | null>>({})
-  const doneIdsKey = Object.entries(byManual)
-    .filter(([, s]) => s.stage === "done")
-    .map(([id]) => id)
-    .sort()
-    .join(",")
-  useEffect(() => {
-    const ids = doneIdsKey ? doneIdsKey.split(",") : []
-    let cancelled = false
-    for (const id of ids) {
-      readPreviewDraft(homeId, id)
-        .then((d) => { if (!cancelled) setDraftsById((prev) => (prev[id] === d ? prev : { ...prev, [id]: d })) })
-        .catch(() => { if (!cancelled) setDraftsById((prev) => ({ ...prev, [id]: null })) })
+  /**
+   * Open the review for a run whose draft is here: a door's request opens it in
+   * place, as a drawer over the page (S2.3); a read this page watched finish
+   * opens it by itself, once, as the page's next section (HH-48, S2.4/S3.3).
+   * Either way at most one review is open — a request while one is open is
+   * simply spent.
+   */
+  const openIfDue = useCallback((manualId: string, runKey: string) => {
+    const asked = takeReviewRequest(manualId)
+    if (openRef.current) return
+    if (asked) {
+      setDismissed((prev) => ({ ...prev, [manualId]: false }))
+      setOpen("sheet")
+    } else if (watchedRef.current.has(manualId) && !autoOpened.has(runKey)) {
+      autoOpened.add(runKey)
+      setOpen("inline")
     }
-    return () => { cancelled = true }
-  }, [homeId, doneIdsKey])
+  }, [])
 
-  const pickup = useMemo(
-    () =>
-      Object.entries(byManual).find(
-        ([id, s]) =>
-          !dismissed[id] &&
-          // Flag-based: the wizard handed off (done or error both surface).
-          (((s.stage === "done" || s.stage === "error") && isParsePending(id)) ||
-            // Data-based: a finished parse with an unreviewed draft, however it
-            // was started. This is what the item-page attach path produces.
-            (s.stage === "done" && !!draftsById[id]))
-      ),
-    [byManual, dismissed, draftsById]
-  )
+  useEffect(() => onReviewRequest((manualId) => {
+    const here = loadedRef.current
+    // The draft is already on hand: open it now. Otherwise choose the pickup
+    // again — the asked-for manual wins — and its draft's arrival opens it.
+    if (here && here.manualId === manualId) openIfDue(manualId, here.runKey)
+    else setAsked((n) => n + 1)
+  }), [openIfDue])
 
-  // Look for a draft as soon as a finished parse is picked up. A manual that
-  // committed has none (commitManualDraft clears it), so absence is the signal
-  // that the tasks are already live.
-  const pickupId = pickup?.[0] ?? null
+  const awaiting = manuals.filter(isAwaitingReview)
+  // A review someone asked for wins, even over a card they dismissed; otherwise
+  // the first read waiting that has not been waved away. (Read at render: a
+  // request bumps `asked`, which is what renders this again.)
+  const requested = pendingReviewFor()
+  const pickup =
+    awaiting.find((m) => m.manual_id === requested) ??
+    awaiting.find((m) => !dismissed[m.manual_id]) ??
+    null
+  /** One read of one manual — a new read (new requestId) is a new hand-off. */
+  const runKey = pickup ? `${pickup.manual_id}:${pickup.parse_request_id ?? ""}` : null
+  const draftKey = pickup ? `${runKey}:${pickup.parse_stage_at ?? ""}` : null
+
+  const pickupId = pickup?.manual_id ?? null
   useEffect(() => {
-    if (!pickupId) { setDraft(null); return }
+    if (!pickupId || !draftKey || !runKey) return
     let cancelled = false
-    readPreviewDraft(homeId, pickupId)
-      .then((d) => {
-        if (cancelled) return
-        setDraft(d)
-        // The handoff (HH-48). `d` non-null means nothing has been saved yet, so
-        // this is the review-and-amend moment rather than a look at live tasks.
-        // Requires the user's own involvement — either their wizard flagged this
-        // parse, or we sat and watched it run — so a stale draft from some
-        // earlier visit never ambushes them on arrival.
-        const theirs = isParsePending(pickupId) || watchedRunning.current.has(pickupId)
-        // HH-121: "I'm not sure what this page is. It just popped up."
-        //
-        // Round 12 made focus="maintenance" the default, which was right — but
-        // it also made the NO-MAINTENANCE branch the thing that auto-opens, and
-        // that branch has nothing to decide. The owner got a full-height sheet
-        // reading "Nothing here needs a reminder" over eleven rows, ninety-five
-        // minutes after the scan, with nothing explaining its arrival.
-        //
-        // The rule: a sheet may interrupt for a DECISION, never for an
-        // announcement. With no maintenance there is no decision, so the card
-        // below says what happened and takes over nothing.
-        if (d && theirs && maintenanceCount(d) > 0 && !autoOpened.has(pickupId)) {
-          autoOpened.add(pickupId)
-          setDraftOpen(true)
-        }
-      })
-      .catch(() => { if (!cancelled) setDraft(null) })
+    readPreviewDraft(homeId, pickupId).then(
+      (d) => {
+        if (cancelled || !d) return
+        setLoaded({ key: draftKey, draft: d })
+        loadedRef.current = { manualId: pickupId, runKey }
+        openIfDue(pickupId, runKey)
+      },
+      (e: unknown) => {
+        // The card simply does not appear; the pill still offers the review
+        // and the Upkeep card still says where the findings are.
+        if (!cancelled) console.warn("[pickup] could not read the draft:", e instanceof Error ? e.message : e)
+      },
+    )
     return () => { cancelled = true }
-  }, [homeId, pickupId])
+  }, [homeId, pickupId, draftKey, runKey, openIfDue])
+
+  const draft = loaded && loaded.key === draftKey ? loaded.draft : null
 
   const dismiss = (manualId: string) => {
     clearParsePending(manualId)
     setDismissed((prev) => ({ ...prev, [manualId]: true }))
   }
 
-  if (active) {
-    const ui = toUiStage(active[1].stage)
-    const pages = active[1].pages
-    // HH-135 (design A). This was a bordered card holding an 11.5px paragraph
-    // over three lines — "the text is quite small and I'm wondering if there's a
-    // more delightful animation". A four-minute wait shown as a small static
-    // block reads as nothing happening.
-    //
-    // So: one readable line saying what is happening, a 3px rail carrying the
-    // motion, and the leave-is-safe promise cut to a single clause instead of a
-    // sentence. The rail is indeterminate ON PURPOSE — we know the page count
-    // but not how far through them Claude is, and a bar that implies progress
-    // it cannot measure is the kind of small lie this product does not tell.
-    //
-    // PLACEMENT NOTE: design A drew this under the item name. It renders above
-    // the page instead because the page used to mount BOTH the mobile and
-    // desktop trees (CSS hid one), so a copy inside a tree would have mounted
-    // twice — two review sheets, which is HH-120. Since HH-159 the page renders
-    // ONE tree, so that reason is gone; moving it still means hoisting the parse
-    // watch out of this component, which is not a copy-and-polish change.
-    return (
-      <div className="mb-4">
-        <div className="flex items-baseline justify-between gap-3">
-          <p className="text-[14.5px] font-bold" style={{ color: "var(--hh-ink)" }}>
-            Reading the manual
-          </p>
-          {pages ? (
-            <span className="shrink-0 text-[12px] tabular-nums" style={{ color: "var(--hh-sub)" }}>
-              {pages} pages
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-0.5 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
-          {STAGE_LINE[ui] ?? "Working…"} {SCAN_KEEPS_GOING_SHORT}
-        </p>
-        <div
-          className="mt-2 h-[3px] w-full overflow-hidden rounded-full"
-          style={{ background: "var(--hh-line)" }}
-          role="progressbar"
-          aria-label="Reading the manual"
-        >
-          <div className="hh-scanrail h-full rounded-full" style={{ background: "var(--hh-teal)" }} />
-        </div>
-      </div>
-    )
-  }
+  // A read that failed, which this page watched or the add wizard handed over.
+  // (One that failed weeks ago, on a visit nobody is waiting on, stays quiet —
+  // the manual row can still start it again.)
+  const failed = manuals.find((m) =>
+    m.parse_stage === "error" && !dismissed[m.manual_id] && (watched.has(m.manual_id) || isParsePending(m.manual_id)))
 
-  if (!pickup) return null
-  const [manualId, state] = pickup
-
-  if (state.stage === "error") {
+  if (!pickup || !draft) {
+    if (!failed) return null
     return (
       <div
-        className="mb-4 flex items-center gap-3 rounded-xl border px-4 py-3"
+        className="flex items-center gap-3 rounded-xl border px-4 py-3"
         style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}
       >
         <p className="min-w-0 flex-1 text-[13px]" style={{ color: "var(--hh-clay)" }}>
-          We couldn't finish reading the manual. You can retry from the manual card below.
+          We couldn&apos;t finish reading the manual. You can try again from Manuals &amp; References.
         </p>
         <button
           type="button"
           aria-label="Dismiss"
-          onClick={() => dismiss(manualId)}
+          onClick={() => dismiss(failed.manual_id)}
           className="shrink-0 rounded-full p-1"
           style={{ color: "var(--hh-sub)" }}
         >
@@ -279,40 +187,46 @@ export function ParsePickupCard({
     )
   }
 
-  // Did we sit and watch this scan run? That is the owner's own distinction
-  // between "still in the flow" (a section of the page) and "came back later"
-  // (a drawer over what you were already looking at).
-  const inFlow = watchedRunning.current.has(manualId)
+  const manualId = pickup.manual_id
+  const counts = draftReviewCounts(draft, freezeRiskFalse)
 
-  // One review element, rendered in exactly one place — either as this card's
-  // replacement (in flow) or as a drawer beside it (came back later). Building
-  // it once is what makes "only ONE review is ever mounted" structural.
-  const reviewSheet = draft ? (
+  // The one review element, built once and rendered in exactly one place —
+  // which is what makes "only ONE review is ever mounted" structural.
+  const reviewSheet = (
     <TaskReviewSheet
-      freezeRiskFalse={profile?.freeze_risk === false}
-      open={draftOpen}
-      onOpenChange={setDraftOpen}
+      freezeRiskFalse={freezeRiskFalse}
+      notificationsBlocked={notificationsBlocked}
+      open={open !== null}
+      onOpenChange={(o) => { if (!o) setOpen(null) }}
       itemName={itemName}
       previewData={draft}
-      // The one review this flow asks for. Cleaning, setup and tips are
-      // saved and shown on the page; only upkeep needs a decision here.
       focus="maintenance"
-      // Round 11: in the flow it is a SECTION of the page; out of the flow
-      // it is a drawer. `watchedRunning` already knows which — it holds the
-      // manuals whose scan we sat and watched. Someone who stayed is still
-      // in the flow and should not be handed something to dismiss; someone
-      // who left and came back is already somewhere on this page, and
-      // sliding the review over that genuinely IS a detour.
-      presentation={inFlow ? "inline" : "sheet"}
-      saving={draftSaving}
-      onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[]) => {
-        setDraftSaving(true)
+      // Round 11: in the flow it is a SECTION of the page; out of the flow it
+      // is a drawer. Someone who stayed and watched is still in the flow and
+      // should not be handed something to dismiss; someone who tapped Review
+      // is already somewhere on this page, and sliding it over that IS a detour.
+      presentation={open === "inline" ? "inline" : "sheet"}
+      saving={saving}
+      onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[], edits: ReviewEditSummary) => {
+        setSaving(true)
         const res = await commitReviewedDraft(homeId, manualId, chunks, tasks)
-        setDraftSaving(false)
+        setSaving(false)
         if (!res.ok) return res.error
-        setDraftOpen(false)
-        setDraft(null)
-        dismiss(manualId)
+        // Corrections made in a fresh read's review are parser feedback too —
+        // recorded on save, not only when someone files a complaint (PR #25).
+        if (edits.total > 0) {
+          void recordParseFeedback(homeId, {
+            manualId,
+            itemUnitId,
+            source: "review_save",
+            reasons: [],
+            note: "",
+            edits,
+            rescanRequested: false,
+          })
+        }
+        setOpen(null)
+        clearParsePending(manualId)
         onReviewSaved()
         return null
       }}
@@ -327,125 +241,61 @@ export function ParsePickupCard({
         })
       }}
     />
-  ) : null
+  )
 
-  // HH-120. In-flow the review is a SECTION of the page, which is what the owner
-  // asked for — but PR #167 rendered it INSIDE this card, a narrow horizontal
-  // flex row, and the review is built for a full-width sheet. It collapsed to
-  // one word per line and sat behind the drawer another caller had opened, so
-  // two review surfaces were mounted at once.
-  //
-  // The card is REPLACED by it, never wrapped around it: same content, same
-  // controls, the page's own width.
-  if (draft && draftOpen && inFlow) {
-    return (
-      <div className="mb-4">
-        {reviewSheet}
-      </div>
-    )
-  }
+  // HH-120. In flow the review REPLACES the card — never rendered inside it, a
+  // narrow row built for one line, where it collapsed to a word per line.
+  if (open === "inline") return <div>{reviewSheet}</div>
+
+  // A card someone waved away stays away, unless a door asked for its review.
+  if (dismissed[manualId] && open === null) return null
 
   return (
-    /* HH-143. This was ONE `items-center` row: icon + text + a
-       `whitespace-nowrap shrink-0` button + dismiss. The button reserves its
-       full 133px whatever happens, so the text column was squeezed to what was
-       left — measured on the running app at 92px on a 375pt phone, NARROWER
-       THAN THE BUTTON BESIDE IT, turning a one-sentence notice into 14 wrapped
-       lines and a 286px-tall card. `items-center` then floated the tick and the
-       button against the middle of that column, which is the ragged look in the
-       report. The owner reported it from a 430pt phone, which is the best case.
-
-       The button now drops below the text until the CARD (not the viewport —
-       this notice also sits in narrower parents) has room for both. Threshold
-       measured, not picked: see the table in the PR. */
+    /* HH-143: the action row drops below the sentence until the CARD (not the
+       viewport — the card sits in narrower parents) has room for both. The
+       threshold was measured, not picked: see e2e/emu/notice-fit.spec.ts. */
     <div
-      className="@container mb-4 rounded-xl border px-4 py-3"
+      data-testid="handoff-card"
+      className="@container rounded-xl border px-4 py-3"
       style={{ borderColor: "var(--hh-teal)", background: "var(--hh-surface)" }}
     >
-     <div className="flex flex-col gap-2.5 @min-[30rem]:flex-row @min-[30rem]:items-center @min-[30rem]:gap-3">
-      <div className="flex min-w-0 flex-1 items-start gap-3 @min-[30rem]:items-center">
-      <span
-        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full @min-[30rem]:mt-0"
-        style={{ background: "color-mix(in srgb, var(--hh-teal) 15%, transparent)" }}
-      >
-        <CheckIcon className="size-3.5" style={{ color: "var(--hh-teal)" }} />
-      </span>
-      <div className="min-w-0 flex-1">
-        {/* Counted from the draft, not from the parse summary: the summary
-            counts everything the manual yielded, and this card is about the
-            only part that needs a decision. */}
-        <p className="text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
-          {draft
-            ? maintenanceCount(draft) > 0
-              ? `${maintenanceCount(draft)} maintenance ${maintenanceCount(draft) === 1 ? "task" : "tasks"} to review`
-              // HH-121: say what HAPPENED, and name the thing it happened to.
-              // "Manual read" on its own is a status, not an explanation.
-              : `We finished reading the ${itemName} manual`
-            : `Manual read${state.tasks != null ? ` — ${state.tasks} suggested ${state.tasks === 1 ? "task" : "tasks"}` : ""}`}
-        </p>
-        <p className="text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
-          {draft
-            ? maintenanceCount(draft) > 0
-              ? "Set how often each repeats and whether it reminds you. Nothing is scheduled until you say so."
-              // HH-134: this said "We saved N …" about an UNCOMMITTED draft.
-              // runParse writes previewDraft only; commitDraft is what saves.
-              // So the card was reporting work that had not happened, next to
-              // the button that does it.
-              // HH-137: same clarification as the sheet — say what was FOUND,
-              // then why that means nothing will remind you. The card and the
-              // screen behind it have to give the same account of the parse.
-              : `No maintenance in this manual, so nothing will remind you. ${savedCount(draft)} ${savedCount(draft) === 1 ? "guide" : "guides, setup steps and tips"} are ready to keep.`
-            : "They're saved already — review to adjust or remove any."}
-        </p>
+      <div className="flex flex-col gap-2.5 @min-[30rem]:flex-row @min-[30rem]:items-center @min-[30rem]:gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span
+            className="flex size-6 shrink-0 items-center justify-center rounded-full"
+            style={{ background: "color-mix(in srgb, var(--hh-teal) 15%, transparent)" }}
+          >
+            <CheckIcon className="size-3.5" style={{ color: "var(--hh-teal)" }} />
+          </span>
+          {/* Says what happened, and names the thing it happened to (HH-121).
+              The same words with or without maintenance: round 18 retired the
+              card that explained an absence. */}
+          <p className="min-w-0 flex-1 text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+            We read the {itemName} manual
+          </p>
+        </div>
+        {/* Action and dismiss travel together: on one row they sit where they
+            always did; stacked, the action leads and the dismiss sits far right. */}
+        <div className="flex items-center justify-between gap-3 @min-[30rem]:shrink-0 @min-[30rem]:justify-start">
+          <button
+            type="button"
+            onClick={() => setOpen("sheet")}
+            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold"
+            style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
+          >
+            {reviewLabel(counts)}
+          </button>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => dismiss(manualId)}
+            className="shrink-0 rounded-full p-1"
+            style={{ color: "var(--hh-sub)" }}
+          >
+            <XIcon className="size-4" />
+          </button>
+        </div>
       </div>
-      {/* Two different "review" buttons, because there are two different
-          states behind them. A wizard parse the user walked away from leaves an
-          UNCOMMITTED draft and zero tasks — the committed-task loader would
-          open an empty sheet. When a draft is present we review THAT and commit
-          on save; otherwise the tasks are already live and we review those. */}
-      </div>
-      {/* Action and dismiss travel together. On one row they sit exactly where
-          they always did; stacked, `justify-between` puts the action at the
-          left and the dismiss at the far right — two independent controls,
-          which is the one shape that contract is actually for. */}
-      <div className="flex items-center justify-between gap-3 @min-[30rem]:shrink-0 @min-[30rem]:justify-start">
-      {draft ? (
-        <button
-          type="button"
-          onClick={() => setDraftOpen(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold"
-          style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
-        >
-          {/* HH-134: "Review & schedule" over a card that just said nothing
-              needs a reminder was the invitation half of the contradiction.
-              With nothing to schedule the offer is to LOOK, and the sheet
-              behind it is where saving happens. */}
-          {maintenanceCount(draft) > 0 ? "Review & schedule" : "See what we found"}
-        </button>
-      ) : (
-        <ReviewItemTasksButton
-          homeId={homeId}
-          itemUnitId={itemUnitId}
-          itemName={itemName}
-          taskCount={state.tasks ?? 1}
-          compact
-          onDone={() => {
-            dismiss(manualId)
-            onReviewSaved()
-          }}
-        />
-      )}
-      <button
-        type="button"
-        aria-label="Dismiss"
-        onClick={() => dismiss(manualId)}
-        className="shrink-0 rounded-full p-1"
-        style={{ color: "var(--hh-sub)" }}
-      >
-        <XIcon className="size-4" />
-      </button>
-      </div>
-     </div>
       {reviewSheet}
     </div>
   )

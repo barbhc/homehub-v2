@@ -17,12 +17,21 @@
  * duplicating them is how two code paths drift apart.
  */
 import type { PreviewTask } from "@/modules/knowledge/types/previewTypes"
-import { willNotify } from "../../shared/tasks/reviewBuckets"
+import { notifiesPhone } from "../../shared/tasks/reviewBuckets"
 
-/** Tasks in this save that are set to notify. The ones worth naming in the ask. */
+/**
+ * Where "turn on in Settings" goes: the app's own Notifications section.
+ * There is no native hook in the app that opens the phone's Settings page for
+ * Homehub, so this is the one door the app has — its Enable button asks the OS.
+ */
+export const NOTIFICATION_SETTINGS_PATH = "/settings#notifications"
+
+/** Tasks in this save that are set to notify. The ones worth naming in the ask.
+ *  Everything a manual yields is item-scoped, so its cleaning never notifies
+ *  (the push sweep skips what the agenda skips) — whatever its switch says. */
 export function tasksWantingNotification(tasks: PreviewTask[]): PreviewTask[] {
   return tasks.filter((t) =>
-    willNotify({
+    notifiesPhone({
       care_type: t.care_type,
       priority_tier: t.priority_tier,
       schedule_type: t.schedule_type,
@@ -32,7 +41,7 @@ export function tasksWantingNotification(tasks: PreviewTask[]): PreviewTask[] {
       // default `reviewBucketFor` uses.
       risk_level: t.risk_level,
       remind_enabled: (t as { remind_enabled?: boolean | null }).remind_enabled ?? null,
-    }),
+    }, "item_unit"),
   )
 }
 

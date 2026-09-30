@@ -2,20 +2,22 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, XIcon, Undo2Icon } from "lucide-react"
+import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, PackageIcon, XIcon, Undo2Icon } from "lucide-react"
 import {
   reviewBucketFor,
   isScheduledTask,
   willNotify,
+  showsInTasks,
+  notifiesPhone,
   remindsByDefault,
   asTier,
   sortWithinBucket,
-  summarize,
   isRecurring,
   REVIEW_BUCKET_ORDER,
   REVIEW_BUCKET_COPY,
   type ReviewBucket,
 } from "../../../shared/tasks/reviewBuckets"
+import { NotificationSettingsLink } from "./NotificationSettingsLink"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { splitInterval, toDays, type IntervalUnit } from "../../../shared/care/interval"
@@ -199,25 +201,21 @@ interface ReviewRow {
 }
 
 /**
- * How many things in this draft would the maintenance review actually ask
- * about?
+ * What the hand-off card promises about this draft: how many rows the review
+ * lists, and how many of them sit in its Maintenance section.
  *
- * HH-127. ParsePickupCard had its OWN answer to this — "not cleaning and not
- * after_each_use" — and that counted SETUP tasks as maintenance. This sheet
- * does not: a setup task is not on a schedule, so `nothingToSchedule` ignores
- * it. The two definitions disagreed on exactly one case, and that case is a
- * manual full of cleaning advice plus a couple of install checks. The gate
- * opened the sheet; the sheet then said "Nothing here needs a reminder."
+ * HH-127's lesson, kept: the card and the sheet must count the SAME rows, so
+ * this is derived from the rows the sheet renders — with the same freeze-prep
+ * correction (`freezeRiskFalse`) — rather than re-implemented beside it. When a
+ * decision exists in two places, the copy that is not on screen is the one
+ * that drifts.
  *
- * So there is one definition now, derived from the same rows the sheet renders
- * rather than re-implemented beside it. This is the HH-119 lesson again: when a
- * decision exists in two places, the copy that is not on screen is the one that
- * drifts.
+ * HH-161 (S2.1, S3.1): "Review 6 upkeep tasks" is the Maintenance section's
+ * count; with none, "Review 6 tips & steps" is every row the review lists.
  */
-export function draftMaintenanceCount(data: PreviewResult): number {
-  return rowsFrom(data).filter(
-    (r) => r.included && isScheduledTask(taskLikeOf(r)) && r.kind === "maintenance",
-  ).length
+export function draftReviewCounts(data: PreviewResult, freezeRiskFalse: boolean): { total: number; maintenance: number } {
+  const rows = rowsFrom(data, freezeRiskFalse)
+  return { total: rows.length, maintenance: rows.filter((r) => bucketOfRow(r) === "maintenance").length }
 }
 
 /**
@@ -318,8 +316,20 @@ const bucketOfRow = (r: ReviewRow): ReviewBucket => reviewBucketFor(taskLikeOf(r
  *  its care_type happens to be. */
 const displayKind = (r: ReviewRow): KindChoice =>
   r.kind === "usage" ? "usage" : r.schedule === "setup" ? "setup" : r.kind
-/** Single source of truth for the bell — the same function the item page uses. */
+/** The owner's reminder choice for this row (or its tier's default) — what the
+ *  switch shows and what Save writes. Not the same as a bell: see `canRing`. */
 const remindsOfRow = (r: ReviewRow): boolean => willNotify(taskLikeOf(r))
+/** Everything a review lists is one item's upkeep: item-scoped. */
+const ROW_SCOPE = "item_unit"
+/** HH-161 (S4.1): on a schedule AND on the agenda — the rows the Tasks page
+ *  will list. Item-scoped cleaning is scheduled and still never shows there. */
+const inTasksRow = (r: ReviewRow): boolean => r.included && r.kind !== "usage" && showsInTasks(taskLikeOf(r), ROW_SCOPE)
+/** Would a bell on this row ring, if the phone allows it? The same rule the
+ *  item page and the push sweep use (notifiesPhone). */
+const canRing = (r: ReviewRow): boolean => r.included && notifiesPhone(taskLikeOf(r), ROW_SCOPE)
+/** A cadence that never reaches Tasks: it lives on the item page (S4.4). */
+const livesOnItemPage = (r: ReviewRow): boolean =>
+  r.included && r.kind !== "usage" && isScheduledTask(taskLikeOf(r)) && !showsInTasks(taskLikeOf(r), ROW_SCOPE)
 
 interface TaskReviewSheetProps {
   /**
@@ -365,6 +375,20 @@ interface TaskReviewSheetProps {
    *  needs. Every door answers from the home profile, and a fourth door that
    *  forgets fails to compile. */
   freezeRiskFalse: boolean
+  /**
+   * This device refused notifications (lib/notifyGate, useNotificationsBlocked).
+   * Round 18's rule — "a bell is never drawn that cannot be rung" — had no
+   * caller until HH-161 (S5): while this is true no bell renders anywhere on
+   * the screen, a row that would ring says "Reminders off — turn on in
+   * Settings" instead, and the summary says none will notify. The rows keep the
+   * owner's choice, so the bells come back with permission, without another
+   * review.
+   *
+   * REQUIRED for the reason `freezeRiskFalse` is: there is no safe literal. A
+   * door that forgets it fails to compile instead of drawing bells on a phone
+   * that said no — or hiding them from one that said yes.
+   */
+  notificationsBlocked: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   itemName: string
@@ -397,6 +421,7 @@ export function TaskReviewSheet({
   presentation = "sheet",
   alreadySaved = false,
   freezeRiskFalse,
+  notificationsBlocked,
 }: TaskReviewSheetProps) {
   const initial = useMemo(() => rowsFrom(previewData, freezeRiskFalse), [previewData, freezeRiskFalse])
   const [rows, setRows] = useState<ReviewRow[]>(initial)
@@ -433,13 +458,16 @@ export function TaskReviewSheet({
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...next } : r)))
   }, [])
 
-  const counts = useMemo(() => {
-    const s = summarize(rows.filter((r) => r.included).map((r) => ({
-      care_type: r.kind === "usage" ? "operating" : r.kind,
-      priority_tier: r.tier, schedule_type: r.schedule, keep_as_task: r.kind !== "usage",
-    })))
-    return { ...s, tasks: rows.filter((r) => r.included && r.kind !== "usage").length }
-  }, [rows])
+  // The summary's two channels, counted off the rows exactly as the rows draw
+  // themselves (HH-161): "N will show up in Tasks" is what the Tasks page will
+  // list, and "M of those will also notify your phone" is the bells on screen.
+  const counts = useMemo(() => ({
+    total: rows.filter((r) => r.included).length,
+    inTasks: rows.filter(inTasksRow).length,
+    bells: notificationsBlocked ? 0 : rows.filter(canRing).length,
+  }), [rows, notificationsBlocked])
+  /** A bell on this row — only where it can ring, on a phone that allows it. */
+  const bellOn = (r: ReviewRow) => canRing(r) && !notificationsBlocked
 
 
   const edits: ReviewEditSummary = useMemo(() => {
@@ -584,7 +612,7 @@ export function TaskReviewSheet({
         >
           <span className="font-semibold">Goes to</span>
           <b className="font-extrabold">{REVIEW_BUCKET_COPY[bucketOfRow(r)].title}</b>
-          {remindsOfRow(r) && <BellRingIcon className="size-[13px] shrink-0" aria-label="will remind you" />}
+          {bellOn(r) && <BellRingIcon className="size-[13px] shrink-0" aria-label="will remind you" />}
         </div>
 
         {/* The one destructive choice on this screen, stated only when it applies. */}
@@ -763,29 +791,50 @@ export function TaskReviewSheet({
                 </span>
               </div>
             )}
-            {onSched && (
-              <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-xl border border-border bg-background px-2.5 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={remindsOfRow(r)}
-                  onChange={(e) => patch(r.id, { remindEnabled: e.target.checked })}
-                  className="size-[18px] shrink-0 accent-[var(--hh-teal,#1B6B5A)]"
-                />
+            {/* HH-161 (S4.4): a cleaning job keeps its cadence and lives on the
+                item page — the push sweep never sends it, whatever a switch
+                says, so there is no switch. Said, not disabled (round 18). */}
+            {onSched && !showsInTasks(taskLikeOf(r), ROW_SCOPE) && (
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-border bg-background px-2.5 py-2.5">
+                <BellOffIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[12.5px] font-semibold">Remind me when it&apos;s due</span>
+                  <span className="block text-[12.5px] font-semibold">No notification</span>
                   <span className="block text-[11px] text-muted-foreground">
-                    {r.remindEnabled == null
-                      // The TIER, not the bucket — see remindsByDefault. Passing
-                      // a bucket here is what would have silently switched every
-                      // on-screen bell off once the buckets were renamed.
-                      ? remindsByDefault(asTier(r.tier))
-                        ? "On by default for Essential — you can turn it off"
-                        : "Off by default — turn it on if you want one"
-                      : remindsOfRow(r) ? "You turned this on" : "You turned this off"}
+                    Cleaning lives on the item page — it never notifies you.
                   </span>
                 </span>
-                {remindsOfRow(r) && <BellRingIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} />}
-              </label>
+              </div>
+            )}
+            {onSched && showsInTasks(taskLikeOf(r), ROW_SCOPE) && (
+              <div className="mt-3 rounded-xl border border-border bg-background px-2.5 py-2.5">
+                <label className="flex cursor-pointer items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={remindsOfRow(r)}
+                    onChange={(e) => patch(r.id, { remindEnabled: e.target.checked })}
+                    className="size-[18px] shrink-0 accent-[var(--hh-teal,#1B6B5A)]"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[12.5px] font-semibold">Remind me when it&apos;s due</span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      {r.remindEnabled == null
+                        // The TIER, not the bucket — see remindsByDefault. Passing
+                        // a bucket here is what would have silently switched every
+                        // on-screen bell off once the buckets were renamed.
+                        ? remindsByDefault(asTier(r.tier))
+                          ? "On by default for Essential — you can turn it off"
+                          : "Off by default — turn it on if you want one"
+                        : remindsOfRow(r) ? "You turned this on" : "You turned this off"}
+                    </span>
+                  </span>
+                  {bellOn(r) && <BellRingIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} />}
+                </label>
+                {/* S5: the switch still records the choice — it is what brings
+                    the bell back — but this phone will not ring it. */}
+                {notificationsBlocked && remindsOfRow(r) && (
+                  <RemindersOff className="mt-1.5 pl-[28px]" linkFocusable />
+                )}
+              </div>
             )}
           </>
         )}
@@ -842,7 +891,7 @@ export function TaskReviewSheet({
     const kindSaysSomething = !!kind && kind.id !== b
     const rail = r.kind === "usage" ? SECTION_RAIL[b] : TIER_RAIL[r.tier] ?? SECTION_RAIL[b]
     const scheduled = isScheduledTask(taskLikeOf(r))
-    const reminds = r.included && remindsOfRow(r)
+    const reminds = bellOn(r)
     return (
       <button key={r.id} type="button"
         onClick={(e) => expandAnchored(r.id, e.currentTarget)}
@@ -850,7 +899,17 @@ export function TaskReviewSheet({
           r.included ? "bg-card border-border" : "border-dashed border-border opacity-50"}`}>
         <span aria-hidden="true" className="w-[3px] self-stretch min-h-[26px] shrink-0 rounded-full"
           style={{ background: r.included ? rail ?? "transparent" : "transparent" }} />
-        <span className={`flex-1 min-w-0 text-[14px] font-semibold tracking-[-0.005em] ${r.included ? "" : "line-through text-muted-foreground"}`}>{r.title}</span>
+        <span className="flex flex-1 min-w-0 flex-col">
+          <span className={`text-[14px] font-semibold tracking-[-0.005em] ${r.included ? "" : "line-through text-muted-foreground"}`}>{r.title}</span>
+          {/* Where the row goes, said under its title (HH-161): a cadence
+              that never reaches Tasks lives on the item page (S4.4), and a row
+              that would notify, on a phone that refused, says so instead of
+              drawing a bell (S5.2). */}
+          {livesOnItemPage(r) && (
+            <span className="mt-px text-[11.5px] font-medium text-muted-foreground">Lives on the item page</span>
+          )}
+          {notificationsBlocked && canRing(r) && <RemindersOff className="mt-px" />}
+        </span>
 
         {r.included && kindSaysSomething && (
           <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
@@ -1008,31 +1067,47 @@ export function TaskReviewSheet({
                     What saving these does
                   </span>
                 )}
+                {/* HH-161 (S4.1): the number the Tasks page will list — the
+                    same rows, by the same agenda rule (showsInTasks). It used
+                    to count every row with a cadence, so two cleaning jobs the
+                    Tasks page never shows made "6" read "8". */}
                 <div className="flex items-start gap-2 text-[13px] leading-snug">
                   <CalendarCheckIcon className="mt-[3px] size-[14px] shrink-0" style={{ color: "var(--hh-teal)" }} />
                   <span>
-                    {counts.scheduled === 0
-                      ? <>Nothing here goes on a schedule.</>
+                    {counts.inTasks === 0
+                      ? <>Nothing here goes into Tasks.</>
                       : <>
-                          <b className="font-bold">{counts.scheduled} will show up in Tasks</b>
-                          {" "}when {counts.scheduled === 1 ? "it needs" : "they need"} doing.
+                          <b className="font-bold">{counts.inTasks} will show up in Tasks</b>
+                          {" "}when {counts.inTasks === 1 ? "it needs" : "they need"} doing.
                         </>}
                   </span>
                 </div>
-                <div className="flex items-start gap-2 text-[13px] leading-snug">
-                  {counts.notifying > 0
-                    ? <BellRingIcon className="mt-[3px] size-[14px] shrink-0" style={{ color: "var(--hh-teal)" }} />
-                    : <BellOffIcon className="mt-[3px] size-[14px] shrink-0 text-muted-foreground" />}
-                  <span>
-                    {counts.notifying === 0
-                      ? <>None will notify your phone.</>
-                      : <><b className="font-bold">{counts.notifying} of those will also notify your phone.</b></>}
-                    {showFirstRun && !alreadySaved && <> Tap a task to change that.</>}
-                  </span>
-                </div>
+                {/* The second channel, only about the first: with nothing
+                    going into Tasks there is nothing to notify about, so the
+                    line is left out rather than stating a zero (S3b.2). It
+                    counts the bells on screen (S4.2), and a phone that refused
+                    notifications is named as the reason there are none (S5.3). */}
+                {counts.inTasks > 0 && (
+                  <div className="flex items-start gap-2 text-[13px] leading-snug">
+                    {counts.bells > 0
+                      ? <BellRingIcon className="mt-[3px] size-[14px] shrink-0" style={{ color: "var(--hh-teal)" }} />
+                      : <BellOffIcon className="mt-[3px] size-[14px] shrink-0 text-muted-foreground" />}
+                    <span>
+                      {notificationsBlocked
+                        ? <>None will notify you. Notifications are off on this phone.</>
+                        : counts.bells === 0
+                          ? <>None will notify your phone.</>
+                          : <><b className="font-bold">{counts.bells} of those will also notify your phone.</b></>}
+                      {showFirstRun && !alreadySaved && !notificationsBlocked && <> Tap a task to change that.</>}
+                    </span>
+                  </div>
+                )}
                 {showFirstRun && !alreadySaved && (
                   <div className="flex items-start gap-2 text-[13px] leading-snug">
-                    <BellOffIcon className="mt-[3px] size-[14px] shrink-0 text-muted-foreground" />
+                    {/* Not a bell: this line is about WHERE rows live, and a
+                        review with nothing to notify about draws no bell of
+                        any kind (HH-161 S3b.3). */}
+                    <PackageIcon className="mt-[3px] size-[14px] shrink-0 text-muted-foreground" />
                     <span>Cleaning, usage and setup stay on the item page.</span>
                   </div>
                 )}
@@ -1178,6 +1253,22 @@ function InlineHeader({ className, children }: { className?: string; children: R
 
 function InlineTitle({ className, children }: { className?: string; children: React.ReactNode }) {
   return <h2 className={cn("text-foreground", className)}>{children}</h2>
+}
+
+/**
+ * HH-161 (S5.2): what a row that WOULD notify says on a phone that refused
+ * notifications — muted, under its title, in place of the bell. The cadence
+ * chip stays; only the promise changes.
+ */
+function RemindersOff({ className, linkFocusable = false }: { className?: string; linkFocusable?: boolean }) {
+  return (
+    <span className={cn("flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground", className)}>
+      <BellOffIcon className="size-3 shrink-0" aria-hidden />
+      <span>
+        Reminders off — <NotificationSettingsLink focusable={linkFocusable}>turn on in Settings</NotificationSettingsLink>
+      </span>
+    </span>
+  )
 }
 
 function PriorityDot({ tier }: { tier: PriorityTier }) {
