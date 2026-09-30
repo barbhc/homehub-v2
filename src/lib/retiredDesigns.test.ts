@@ -41,10 +41,34 @@ const RETIRED_COMPONENTS = [
   // The item page asked for purchase details twice, in two shapes, and both
   // opened the same sheet. The owner kept the one that matches the page.
   "PurchaseNudge",       // -> WarrantyPanel, retitled "Warranty and purchase information"
+  // Dead-code sweep (audit 2026-09-29): unrendered pieces of retired designs,
+  // deleted rather than left to be edited as if they were live.
+  "ParseProgressStep",   // wizard "Reading your manual" screen -> the item page's scan rail (#161)
+  "UrgentTasksCard",     // retired dashboard -> Home, focused (one list)
+  "UpcomingTasksCard",   // retired dashboard -> Home, focused
+  "QuickActionsRow",     // retired dashboard -> RefinedHome's Ask module
+  "QuickActionCard",     // retired dashboard
+  "DashboardCalendar",   // Home's hidden month calendar -> none; Tasks is the schedule
+  "StatRow",             // Home's stat band -> removed from Home (design/home-focus.md)
+  "MaintenanceTaskRow",  // the /tasks list's row -> RefinedWeek / DesktopTasks rows
+  "HowToAccordion",      // -> the item page's Guides
+  "TroubleshootingAccordion", // -> the item page's Fix it, and Ask
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */
-const RETIRED_PAGES = ["InventoryItemSetup"]
+const RETIRED_PAGES = [
+  "InventoryItemSetup",
+  // URL-only pages on retired designs, deleted with their routes (audit
+  // 2026-09-29, D5). /tasks's page was `Tasks` — a name too common to guard by
+  // word, so its route is pinned below instead.
+  "FaqPage",       // /faq, the Care Guide -> item pages + House notes
+  "CarePage",      // /care -> Tasks (/maintenance)
+  "SchedulePage",  // /schedule -> Tasks (/maintenance)
+  "CleaningPage",  // /cleaning -> Clean (/clean)
+]
+
+/** Their paths: nothing may route them again, whatever the component is called. */
+const RETIRED_ROUTES = ["/faq", "/tasks", "/care", "/schedule", "/cleaning"]
 
 /** Wizard steps that no longer have a screen. */
 const RETIRED_STEPS = ["plan", "purchase"]
@@ -99,6 +123,13 @@ describe("the add-item flow has one way in and no way into an old screen", () =>
 
   it("has no /setup route — that was a second, retired wizard", () => {
     expect(app.text).not.toMatch(/path=":id\/setup"/)
+  })
+
+  it("routes none of the deleted URL-only pages (/tasks/:id, the task page, stays)", () => {
+    for (const path of RETIRED_ROUTES) {
+      expect(app.text, `App.tsx routes ${path} again`).not.toContain(`path="${path}"`)
+    }
+    expect(app.text).toContain('path="/tasks/:taskInstanceId"')
   })
 
   it("only SmartAddItem creates items, so there is one add flow to keep honest", () => {

@@ -11,10 +11,13 @@
  * prevents infinite reload loops if the import keeps failing for a real
  * reason (e.g. offline, or a genuine runtime bug in the chunk).
  *
- * Companion fix: vercel.json's SPA rewrite now excludes `/assets/`, so a
- * missing asset 404s cleanly instead of being served as HTML — otherwise
- * the browser raises the confusing "'text/html' is not a valid JavaScript
- * MIME type" TypeError before this handler ever sees the failure.
+ * Hosting note: firebase.json's SPA rewrite (`**` → /index.html) also catches
+ * a missing `/assets/` file, so a stale chunk comes back as index.html with a
+ * 200 and the import fails on its MIME type ("'text/html' is not a valid
+ * JavaScript MIME type") rather than a 404. That still rejects the import(),
+ * so the reload below still runs. (This used to cite a vercel.json rewrite
+ * that excluded /assets/; that belonged to the Vercel deploy and has no
+ * Firebase Hosting equivalent.)
  */
 import { lazy, type ComponentType } from "react"
 

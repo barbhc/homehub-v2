@@ -125,8 +125,8 @@ const ITEMS: SampleItem[] = [
   },
 ]
 
-/** The app's tier rails — clay/teal/slate, exactly as TierBadge and the item
- *  page use them. The sample was inventing its own urgency dots and saying
+/** The app's tier rails — clay/teal/slate, exactly as the review sheet's
+ *  TIER_RAIL uses them. The sample was inventing its own urgency dots and saying
  *  "5 days overdue", which is the vocabulary the due-window redesign removed:
  *  the demo must not pitch a harsher app than the one being sold. */
 const TIER_RAIL: Record<SampleTask["tier"], string> = {
