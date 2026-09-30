@@ -19,25 +19,31 @@ rules_version = '2';
 // retroactively protected by this change; that needs an object migration
 // (tracked in docs/launch-readiness.md).
 //
-// WRITES stay scoped by path + uid (no Firestore lookup), which is what keeps
-// them verifiable on the emulator.
+// WRITES are membership-scoped too (since 2026-09-30). They used to check only
+// the path: manuals/ and photos/ matched the caller's own uid segment under ANY
+// homeId string, and receipts/ + images/ needed nothing but a non-anonymous
+// sign-in — so any account could overwrite another home's diagram renders, or
+// park unlimited 50 MB objects under homes it had never joined. Each write
+// clause runs its cheap checks first and the Firestore lookup last, so a
+// request that fails on the path or size never costs a document read.
 //
 // CROSS-SERVICE PREREQUISITE (this is not optional, and it is not in the rules):
-// firestore.exists() only resolves if the Firebase Rules service agent holds
-// `roles/firebaserules.firestoreServiceAgent` on the project. The Firebase
-// console and an INTERACTIVE `firebase deploy` prompt to grant it; a
-// non-interactive deploy does not, and then the call returns falsy and this gate
-// denies EVERY caller, members included — photos and manuals stop rendering
-// while the rules still look correct. Grant it with:
+// firestore.exists() only resolves if the Cloud Storage for Firebase service
+// agent holds `roles/firebaserules.firestoreServiceAgent` on the project. The
+// Firebase console prompts for it; a non-interactive `firebase deploy` does
+// not, and then every call returns falsy and this gate denies EVERY caller,
+// members included — uploads fail and photos stop rendering while the rules
+// still look correct. The principal is the @gcp-sa-firebasestorage agent — NOT
+// @firebase-rules, which was the wrong turn on 19 Aug (docs/launch-readiness.md):
 //
-//   gcloud beta services identity create --service=firebaserules.googleapis.com \
-//     --project=<project>            # provisions service-<num>@firebase-rules...
 //   gcloud projects add-iam-policy-binding <project> \
-//     --member=serviceAccount:service-<num>@firebase-rules.iam.gserviceaccount.com \
+//     --member=serviceAccount:service-<projectNumber>@gcp-sa-firebasestorage.iam.gserviceaccount.com \
 //     --role=roles/firebaserules.firestoreServiceAgent
 //
-// Verify with the post-deploy smoke check in docs/launch-readiness.md — the
-// emulator cannot prove this and its three tests ship skipped.
+// Verify in production with `npm run smoke:storage` (docs/launch-readiness.md).
+// The EMULATOR does resolve these calls — against the Firestore project the
+// emulator suite was STARTED with, which is why firebase/storage.rules.test.ts
+// seeds membership in GCLOUD_PROJECT (what `emulators:exec` exports).
 //
 // Anything rendered via plain <img>/<a>/fetch (no auth header) uses
 // token-bearing getDownloadURL URLs — see src/integrations/firebase/storage.ts
@@ -67,27 +73,36 @@ service firebase.storage {
       allow get: if isUser() && isHomeMember(homeId);
     }
 
-    // Manual PDFs — only the uploader's own uid segment. delete needs its own
-    // clause (request.resource is null on deletes; a size condition on a
-    // combined `write` would deny every delete and break removeManualPdf).
+    // Manual PDFs — a member of THIS home, writing under their own uid
+    // segment. delete needs its own clause (request.resource is null on
+    // deletes; a size condition on a combined `write` would deny every delete
+    // and break removeManualPdf).
     match /homes/{homeId}/manuals/{userId}/{itemId}/{fileName} {
-      allow create, update: if isSelf(userId) && request.resource.size < 50 * 1024 * 1024;
-      allow delete: if isSelf(userId);
+      allow create, update: if isUser() && isSelf(userId)
+        && request.resource.size < 50 * 1024 * 1024
+        && isHomeMember(homeId);
+      allow delete: if isUser() && isSelf(userId) && isHomeMember(homeId);
     }
 
-    // Item photos — uid-scoped.
+    // Item photos — a member of THIS home, under their own uid segment.
     match /homes/{homeId}/photos/{userId}/{itemId}/{fileName} {
-      allow create, update: if isSelf(userId) && request.resource.size < 50 * 1024 * 1024;
+      allow create, update: if isUser() && isSelf(userId)
+        && request.resource.size < 50 * 1024 * 1024
+        && isHomeMember(homeId);
     }
 
-    // Receipts — no uid in the path (v1 convention): any authed, size-capped.
+    // Receipts — no uid in the path (v1 convention): any member, size-capped.
     match /homes/{homeId}/receipts/{itemUnitId}/{fileName} {
-      allow create, update: if isUser() && request.resource.size < 50 * 1024 * 1024;
+      allow create, update: if isUser()
+        && request.resource.size < 50 * 1024 * 1024
+        && isHomeMember(homeId);
     }
 
-    // Diagram page renders — any authed, smaller cap (JPEG pages).
+    // Diagram page renders — any member, smaller cap (JPEG pages).
     match /homes/{homeId}/images/{manualId}/{fileName} {
-      allow create, update: if isUser() && request.resource.size < 20 * 1024 * 1024;
+      allow create, update: if isUser()
+        && request.resource.size < 20 * 1024 * 1024
+        && isHomeMember(homeId);
     }
 
     // ---- legacy objects (uploaded before the re-key; no homeId in the path) ----
