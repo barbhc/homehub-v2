@@ -19,6 +19,22 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-09-29 — round 21 (owner's run, 4 reports in 6 minutes · all decided same day)
+
+Four screenshots from the owner's own pass on build 202608170005, all on the
+item page and its neighbours. Decided Fix now on 2026-09-29, as part of the
+clean-up plan the same evening's audit produced. Round 20 (HH-157) is logged
+at the end of this file.
+
+| ID | Report | What was happening | Call |
+|---|---|---|---|
+| HH-158 | "Pages are slow to load" | Items loaded in a plain effect with no cache, so every visit sat on a skeleton until Firestore answered — and the skeleton was the pre-redesign Inventory page. | Fix now — ✅ #221: Items cached like Home, a skeleton shaped like the real page, "Still loading…" when slow; Tasks reads its agenda once |
+| HH-159 | "I uploaded the file for the manual but now it's asking for the URL" | The item page's add-manual dialog read the chosen file from a stale closure, so every door failed its first tap; and the page mounted its phone and desktop trees at once, so one tap opened two dialogs (HH-126 and HH-120, back). | Fix now — ✅ #223: the choice is passed in, one tree per width, and the page no longer starts a second scan on arrival |
+| HH-160 | "…the connection dropped and yet it's still scanning the manual" | HH-148's ten-second stall guard set an error that a late success never cleared, so the banner sat over a page that had loaded. | Fix now — ✅ #223: slow is not failed ("Still loading…" + Try again), and a late answer wins |
+| HH-161 | "This reading manual progress bar at the top is different from the design…" | Two scan indicators: the top card, and the tray pill that stands down on this page (HH-118). Under the card, Upkeep said "No upkeep yet — add the manual", because the page's manual flags come from a one-time read. | Fix now — mock approved for build (Package E2): one indicator, the pill on every page; Upkeep carries the reading state |
+
+---
+
 ## 2026-09-05 — round 19 (owner's run, 8 reports in 10 minutes · all decided same day)
 
 Pulled 49 records from App Store Connect (not truncated). Eight are new, all
@@ -31,7 +47,9 @@ still the outstanding action.
 **Owner's decisions, same day: seven Fix now, one to the roadmap — and a
 standing instruction recorded on every affected item: _"For all of the fix now
 issues that have a design element, show me the change in a mockup before making
-the changes."_ No code has been written for any of them.**
+the changes."_** All seven shipped the same day in #199, each design change
+mocked and approved first. HH-148 came back as HH-160 (round 21, above), and
+HH-154's re-upload half is still open (Package E3).
 
 | ID | Report | Sev | What is actually happening | Call |
 |---|---|---|---|---|

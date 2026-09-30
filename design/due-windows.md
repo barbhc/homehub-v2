@@ -1,6 +1,8 @@
 # Due windows — when a task is "due" without a deadline
 
-**Status**: backlog, approved direction (owner, 2026-08-20) — not scheduled
+**Status**: shipped — Phases 1–3 and seasonal × climate (see "Status (2026-08-20)" below);
+the logic is `shared/care/dueWindow.ts`. One wording has moved on since: "Oct-ish" is now
+"In Oct" (owner, 2026-09-07).
 **Composes with**: P2-7 chosen option B (confirm-next-date) — see Prior art
 **Owner ask, verbatim intent**: maintenance rarely has to happen *by* a date; date-specific "overdue" triggers unnecessary stress. Filters should be done *within a window*. Propose the change and the per-category considerations.
 
@@ -161,6 +163,7 @@ per *suggest-never-assume*.
 - **Safety pressure approved**: "Monthly check · skipped July" is the right
   firmness for smoke/CO detectors — honest, dateless, no red.
 - **Window phrasing**: short forms win — "Oct-ish" over "anytime this fall".
+  (Since 2026-09-07 it reads "In Oct": "Sep-ish is starting to look less serious.")
 - **Agenda group header**: "Coming up" (reusing the header Home already
   taught), not "Windows opening soon".
 - **Completion is one tap, adjust by exception.** "Mark done" completes

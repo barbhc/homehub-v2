@@ -4,6 +4,10 @@
 Net −527 lines. Kept as the record of why, and of the one coupling that had to
 be handled (the pickup card, below — it was real).
 
+> **Historical.** The wizard this reworked was later replaced: it now ends at the
+> manual, and the review happens on the item page (#161–#163, round 18). See
+> `docs/add-item-flow.md`.
+
 Verified against the emulator with the real callable: a manual carrying a
 previewDraft has 0 task templates, `commitManualDraft` creates them, and the
 draft is cleared afterwards so it cannot reappear.

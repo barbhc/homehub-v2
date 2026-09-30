@@ -1,5 +1,12 @@
 # Desktop Tasks ("This week") — fixes to match the redesign
 
+> **Status: superseded — historical.** Written for the desktop Tasks tab of the
+> v1 port (2026-07-11). What replaced it: the week agenda (`getWeekAgenda`,
+> one read shared by `RefinedWeek` and `DesktopTasks`), which leaves item-scoped
+> cleaning out (`shared/tasks/agendaEligibility.ts`) and speaks in due windows.
+> §2's "anything in the past = overdue" is replaced by `design/due-windows.md`:
+> only a passed deadline says Overdue. Kept for the reasoning; don't build from it.
+
 **Scope:** the desktop **Tasks** tab.
 **Source of truth:** the unified "This week" agenda direction (mobile reference: `hh-week.jsx` → `WeekAgenda`; desktop table reference: `dt-screens-a.jsx` → `DesktopTasks`). The "This week" framing with Appliance/Clean source chips is the right direction — keep it. Three things are broken.
 
