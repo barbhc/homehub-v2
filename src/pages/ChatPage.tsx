@@ -145,6 +145,21 @@ export default function ChatPage() {
     setActiveConvoId(null)
   }, [])
 
+  /** Append streamed text to one answer bubble. */
+  const appendToAnswer = useCallback((id: string, delta: string) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, content: m.content + delta, isStreaming: true } : m))
+    )
+  }, [])
+
+  /** Turn one answer bubble into its failure — which is also what unlocks the composer. */
+  const failAnswer = useCallback((id: string, errMsg: string) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, content: errMsg, isStreaming: false, isError: true } : m))
+    )
+    setIsStreaming(false)
+  }, [])
+
   const handleSend = useCallback(
     (text: string) => {
       if (!homeId || isStreaming) return
@@ -193,15 +208,7 @@ export default function ChatPage() {
         history,
         filter: activeFilter,
         homeId,
-        onDelta: (delta) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: m.content + delta, isStreaming: true }
-                : m
-            )
-          )
-        },
+        onDelta: (delta) => appendToAnswer(assistantId, delta),
         onDone: (sources, inferredItem) => {
           let finalContent = ""
           setMessages((prev) => {
@@ -220,19 +227,65 @@ export default function ChatPage() {
             void refreshConversations()
           })
         },
-        onError: (errMsg) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: errMsg, isStreaming: false, isError: true }
-                : m
-            )
-          )
-          setIsStreaming(false)
-        },
+        onError: (errMsg) => failAnswer(assistantId, errMsg),
       })
     },
-    [homeId, isStreaming, messages, activeFilter, user?.id, refreshConversations]
+    [homeId, isStreaming, messages, activeFilter, user?.id, refreshConversations, appendToAnswer, failAnswer]
+  )
+
+  /**
+   * HH-28: ask a failed answer's question again, in place — the failed bubble
+   * becomes the new answer. The question itself was saved to the conversation
+   * when it was first asked, so only the answer is saved now.
+   */
+  const handleRetry = useCallback(
+    (messageId: string) => {
+      if (!homeId || isStreaming) return
+      const idx = messages.findIndex((m) => m.id === messageId)
+      if (idx < 1 || !messages[idx].isError || messages[idx - 1].role !== "user") return
+
+      const question = messages[idx - 1].content
+      // What came before the failed exchange, minus other failures: an error
+      // line is ours, not something the assistant said.
+      const history = messages
+        .slice(0, idx - 1)
+        .filter((m) => !m.isError)
+        .map((m) => ({ role: m.role, content: m.content }))
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, content: "", isStreaming: true, isError: false, sources: undefined, inferredItem: undefined }
+            : m
+        )
+      )
+      setIsStreaming(true)
+
+      let answer = ""
+      streamChatQuery({
+        question,
+        history,
+        filter: activeFilter,
+        homeId,
+        onDelta: (delta) => {
+          answer += delta
+          appendToAnswer(messageId, delta)
+        },
+        onDone: (sources, inferredItem) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === messageId ? { ...m, isStreaming: false, sources, inferredItem } : m))
+          )
+          setIsStreaming(false)
+          const convoId = convoIdRef.current
+          if (!convoId) return
+          void appendMessage(homeId, convoId, { role: "assistant", content: answer, sources }).then(() =>
+            refreshConversations()
+          )
+        },
+        onError: (errMsg) => failAnswer(messageId, errMsg),
+      })
+    },
+    [homeId, isStreaming, messages, activeFilter, refreshConversations, appendToAnswer, failAnswer]
   )
 
   const handleWebSearch = useCallback(
@@ -263,15 +316,7 @@ export default function ChatPage() {
         filter: activeFilter,
         homeId,
         allowWebSearch: true,
-        onDelta: (delta) => {
-          setMessages((p) =>
-            p.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: m.content + delta, isStreaming: true }
-                : m
-            )
-          )
-        },
+        onDelta: (delta) => appendToAnswer(assistantId, delta),
         onDone: (sources, inferredItem) => {
           setMessages((p) =>
             p.map((m) =>
@@ -280,19 +325,10 @@ export default function ChatPage() {
           )
           setIsStreaming(false)
         },
-        onError: (errMsg) => {
-          setMessages((p) =>
-            p.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: errMsg, isStreaming: false, isError: true }
-                : m
-            )
-          )
-          setIsStreaming(false)
-        },
+        onError: (errMsg) => failAnswer(assistantId, errMsg),
       })
     },
-    [homeId, isStreaming, messages, activeFilter]
+    [homeId, isStreaming, messages, activeFilter, appendToAnswer, failAnswer]
   )
 
   const suggestions = getSuggestions(selectedRoomIds, selectedItemId, rooms, items)
@@ -433,6 +469,7 @@ export default function ChatPage() {
             messages={messages}
             onSaveFaq={handleSaveFaq}
             onWebSearch={handleWebSearch}
+            onRetry={handleRetry}
             activeFilter={activeFilter}
             homeId={homeId}
           />

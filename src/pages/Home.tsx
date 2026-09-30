@@ -274,7 +274,8 @@ function EmptyHomeHero() {
           <div className="flex items-start gap-2.5">
             <FileTextIcon className="size-5 shrink-0 text-primary mt-0.5" />
             <div>
-              <div className="text-sm font-semibold text-foreground">Parse manuals</div>
+              {/* The app SCANS a manual — never "parse" (lib/scanCopy.ts). */}
+              <div className="text-sm font-semibold text-foreground">Scan manuals</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 Upload a PDF and we extract the key info.
               </div>

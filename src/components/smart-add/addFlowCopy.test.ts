@@ -28,6 +28,8 @@ const read = (p: string) =>
     .replace(/^\s*\/\/.*$/gm, "")
 const identify = read("./IdentifyStep.tsx")
 const page = read("../../pages/SmartAddItem.tsx")
+/** What the confirm writes — shared by the create and the HH-130 re-identify. */
+const write = read("./identifyWrite.ts")
 const detailsSheet = read("../item-care/ItemDetailsSheet.tsx")
 
 /**
@@ -176,9 +178,12 @@ describe("purchase details belong to the item page, not the wizard", () => {
   it("what a scan already read is saved with the item, so nothing is lost", () => {
     // The old Purchase step took these as prefill. With that step gone, the
     // create call is the only thing standing between a scanned receipt and the
-    // item record.
-    expect(page).toContain("purchase_date: identifyData.purchaseDate")
-    expect(page).toContain("price_paid: identifyData.purchasePrice")
+    // item record. The fields are built once, in identifyWrite, and spread into
+    // both the create and HH-130's re-identify (identifyWrite.test.ts checks
+    // the values themselves).
+    expect(write).toContain("purchase_date: orNull(data.purchaseDate)")
+    expect(write).toContain("price_paid: data.purchasePrice")
+    expect(page).toContain("createItemUnit({ home_id: propertyId, ...write.fields })")
   })
 
   it("the item page can collect the same fields later", () => {
@@ -241,7 +246,7 @@ describe("the shortest path to a parsed manual", () => {
 
   it("composes a name rather than leaving the item unnamed", () => {
     expect(page).toContain("composedName")
-    expect(page).toContain("display_name: composedName")
+    expect(write).toContain("const display_name = composeItemName(")
   })
 
   it("still requires a name in the lane where nothing else identifies the item", () => {

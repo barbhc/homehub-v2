@@ -59,6 +59,32 @@ describe("upload paths are home-scoped", () => {
     expect(res.data?.path).toMatch(/^homes\/h1\/manuals\/uid-9\/item1\/manual_\d+\.pdf$/)
   })
 
+  it("manual PDFs carry the SHA-256 of their bytes — returned, and stamped on the object (HH-154)", async () => {
+    // sha256("x"): the path is fresh on every upload; this is what repeats.
+    const SHA_OF_X = "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+    const res = await uploadManualPdf("h1", "item1", file, "uid-9")
+    expect(res.data?.contentHash).toBe(SHA_OF_X)
+    expect(uploadBytes.mock.calls[0][2]).toMatchObject({ customMetadata: { sha256: SHA_OF_X } })
+  })
+
+  it("a browser that cannot hash still uploads the manual — with no hash, and says so", async () => {
+    // No crypto.subtle (an insecure http origin): the dedupe is lost, the
+    // manual is not. No invented hash reaches the object or the caller.
+    vi.stubGlobal("crypto", {})
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    try {
+      const res = await uploadManualPdf("h1", "item1", file, "uid-9")
+      expect(res.error).toBeNull()
+      expect(res.data?.path).toMatch(/manual_\d+\.pdf$/)
+      expect(res.data?.contentHash).toBeNull()
+      expect(uploadBytes.mock.calls[0][2]).not.toHaveProperty("customMetadata")
+      expect(warn.mock.calls[0]?.[0]).toMatch(/could not hash the manual/)
+    } finally {
+      warn.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
   it("receipts: homes/{homeId}/receipts/{itemUnitId}/…", async () => {
     const res = await uploadReceiptImage("h1", "item1", file, "uid-9")
     expect(res.data?.path).toMatch(/^homes\/h1\/receipts\/item1\/\d+-m\.pdf$/)

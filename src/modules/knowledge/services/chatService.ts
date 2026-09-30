@@ -35,8 +35,28 @@ export type ChatMessage = {
 }
 
 /**
+ * What a stream that closed without finishing says.
+ *
+ * HH-28: the server ends every answer with a `done` event, or an `error` one.
+ * A connection that simply closed before either — a proxy timeout, an app sent
+ * to the background, a function killed mid-answer — used to resolve NOTHING:
+ * the typing cursor blinked on and the composer stayed locked for good. It is
+ * an error like any other, so the thread unlocks and offers to try again.
+ */
+export const INCOMPLETE_ANSWER = "The answer stopped before it finished."
+
+type StreamEvent = {
+  delta?: string
+  done?: boolean
+  sources?: ChatSource[]
+  inferred_item?: InferredItem
+  error?: string
+}
+
+/**
  * Streams a chat query from the chatQuery Cloud Function (onRequest + SSE).
- * Calls onDelta for each text chunk, onDone when complete.
+ * Calls onDelta for each text chunk, then EXACTLY ONE of onDone or onError —
+ * a stream that ends without saying which is an onError (INCOMPLETE_ANSWER).
  */
 export async function streamChatQuery(params: {
   question: string
@@ -50,11 +70,37 @@ export async function streamChatQuery(params: {
 }): Promise<void> {
   const { question, history, filter, homeId, allowWebSearch, onDelta, onDone, onError } = params
 
+  // Exactly one ending reaches the caller: the first done or error wins.
+  let ended = false
+  const finish = (sources: ChatSource[], inferredItem?: InferredItem) => {
+    if (ended) return
+    ended = true
+    onDone(sources, inferredItem)
+  }
+  const fail = (message: string) => {
+    if (ended) return
+    ended = true
+    onError(message)
+  }
+  /** One SSE `data:` payload. */
+  const handle = (raw: string) => {
+    let data: StreamEvent
+    try {
+      data = JSON.parse(raw) as StreamEvent
+    } catch {
+      return // not an event the server sends (it sends only JSON) — skip the line
+    }
+    if (data.delta && !ended) onDelta(data.delta)
+    // An answer can cite nothing; `done` is the end whether or not sources came with it.
+    if (data.done === true) finish(Array.isArray(data.sources) ? data.sources : [], data.inferred_item)
+    if (data.error) fail(data.error)
+  }
+
   try {
   // getIdToken() auto-refreshes if the token is expired.
   const token = await auth.currentUser?.getIdToken().catch(() => undefined)
   if (!token) {
-    onError("Authentication required. Please sign in again.")
+    fail("Authentication required. Please sign in again.")
     return
   }
 
@@ -82,19 +128,18 @@ export async function streamChatQuery(params: {
     } catch {
       if (text) msg = text.slice(0, 200)
     }
-    onError(msg)
+    fail(msg)
     return
   }
 
   const reader = res.body?.getReader()
   if (!reader) {
-    onError("No response body")
+    fail("No response body")
     return
   }
 
   const decoder = new TextDecoder()
   let buffer = ""
-  const sources: ChatSource[] = []
 
   while (true) {
     const { done, value } = await reader.read()
@@ -105,47 +150,23 @@ export async function streamChatQuery(params: {
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue
       const raw = line.slice(6).trim()
-      if (!raw) continue
-      try {
-        const data = JSON.parse(raw) as {
-          delta?: string
-          done?: boolean
-          sources?: ChatSource[]
-          inferred_item?: InferredItem
-          error?: string
-        }
-        if (data.delta) onDelta(data.delta)
-        if (data.done === true && data.sources) {
-          sources.push(...data.sources)
-          onDone(data.sources, data.inferred_item)
-        }
-        if (data.error) onError(data.error)
-      } catch {
-        // skip non-JSON lines
-      }
+      if (raw) handle(raw)
     }
   }
+  buffer += decoder.decode()
   if (buffer.startsWith("data: ")) {
-    try {
-      const data = JSON.parse(buffer.slice(6).trim()) as {
-        delta?: string
-        done?: boolean
-        sources?: ChatSource[]
-        inferred_item?: InferredItem
-        error?: string
-      }
-      if (data.delta) onDelta(data.delta)
-      if (data.done === true && data.sources && sources.length === 0) onDone(data.sources, data.inferred_item)
-      if (data.error) onError(data.error)
-    } catch {
-      // ignore
-    }
+    const raw = buffer.slice(6).trim()
+    if (raw) handle(raw)
   }
+  // The stream closed. If it never said done or error, the answer is
+  // unfinished — say so, rather than leave the cursor blinking and the
+  // composer locked (HH-28).
+  fail(INCOMPLETE_ANSWER)
   } catch (err) {
     // A dropped connection rejects fetch() or reader.read(); before this catch
     // that rejection escaped the function — no onError, no onDone — and the UI
     // showed a typing indicator that never resolved, with the composer locked.
     // A tester sat in front of exactly that.
-    onError(err instanceof Error ? err.message : "Lost the connection — please try again.")
+    fail(err instanceof Error ? err.message : "Lost the connection — please try again.")
   }
 }

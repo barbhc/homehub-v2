@@ -9,9 +9,11 @@ import {
   type IdentifyMode,
 } from "@/components/smart-add/IdentifyStep"
 import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/ManualStep"
+import { identityWrite } from "@/components/smart-add/identifyWrite"
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
-import { createItemUnit } from "@/modules/items"
+import { createItemUnit, getItemUnit, getItemUnits, updateItemUnit } from "@/modules/items"
+import type { ItemUnit } from "@/integrations/types"
 import { runPostCreateLookup } from "@/modules/inventory/services/postCreateLookup"
 import { uploadManualPdf, removeManualPdf, uploadItemPhoto } from "@/modules/inventory/services/storageService"
 import { resolveStorageUrl } from "@/integrations/firebase"
@@ -34,10 +36,7 @@ import {
 import { markParsePending } from "@/lib/parsePickup"
 import { resumeSummary } from "@/lib/resumeSummary"
 import { isCapacityRefusal, queueScan } from "@/lib/scanCapacity"
-import { composeItemName } from "@/lib/itemName"
-import { categoryLabel } from "@/lib/categoryLabel"
 import { getRooms } from "@/modules/home"
-import { getItemUnits } from "@/modules/items"
 
 type ManualClassificationGate = {
   choices: ManualSourceChoice[]
@@ -188,42 +187,53 @@ export default function SmartAddItem() {
     if (!propertyId) return
     setError(null)
     setActionLoading(true)
+    // HH-130: Back from the manual step comes round to this button again, and
+    // it used to create a SECOND item every time — the first left orphaned,
+    // with no manual. Once this session has made its item, a confirm
+    // re-identifies that item instead. Read as it is now (the lookup may have
+    // filled its category since); a failed read stops here rather than guess,
+    // because guessing wrong is how the duplicate gets made.
+    let current: ItemUnit | null = null
+    if (itemId) {
+      const read = await getItemUnit(propertyId, itemId)
+      if (read.error) {
+        setActionLoading(false)
+        setError(read.error.message)
+        return
+      }
+      // null: the item is gone (deleted from another tab) — make a new one.
+      current = read.data
+    }
     // Firestore item (homes/{homeId}/items): `category` is the specific type
     // slug (matches sub_type); the RoomSelector's locationId is a room id.
     // Round 11: the name is the KIND of thing — "Refrigerator", not
     // "Fisher & Paykel RF135BDRUX4". The room is appended ONLY when the plain
     // type is already taken in this home, so a kitchen full of items doesn't
     // read "Kitchen… Kitchen… Kitchen…". Rules and fallbacks live in
-    // composeItemName; both reads are needed to answer "is this name taken".
+    // composeItemName (via identityWrite); both reads are needed to answer
+    // "is this name taken" — by any item other than this one.
     const [existing, rooms] = await Promise.all([
       getItemUnits(propertyId),
       getRooms(propertyId),
     ])
-    const composedName = composeItemName({
-      typed: identifyData.name,
-      typeLabel: categoryLabel({
-        item_category: identifyData.itemCategory,
-        sub_type: identifyData.subType,
-      }),
-      brand: identifyData.brand,
-      model: identifyData.model,
-      room: rooms.data?.find((r) => r.room_id === identifyData.locationId)?.name ?? null,
-      existingNames: (existing.data ?? []).map((i) => i.display_name),
+    const write = identityWrite({
+      mode: identifyMode,
+      data: identifyData,
+      current,
+      roomName: rooms.data?.find((r) => r.room_id === identifyData.locationId)?.name ?? null,
+      otherNames: (existing.data ?? [])
+        .filter((i) => i.item_unit_id !== current?.item_unit_id)
+        .map((i) => i.display_name),
     })
-    const result = await createItemUnit({
-      home_id: propertyId,
-      room_id: identifyData.locationId,
-      display_name: composedName,
-      category: identifyData.subType ?? "other",
-      item_category: identifyData.itemCategory,
-      sub_type: identifyData.subType,
-      category_fields: identifyData.categoryFields,
-      brand: identifyData.brand.trim() || null,
-      model: identifyData.model.trim() || null,
-      serial_number: identifyData.serialNumber.trim() || null,
-      purchase_date: identifyData.purchaseDate?.trim() || null,
-      price_paid: identifyData.purchasePrice,
-    })
+    const composedName = write.fields.display_name
+    const result = current
+      ? await updateItemUnit(propertyId, current.item_unit_id, {
+          ...write.fields,
+          // A different product: the specs the lookup suggested were for the
+          // old one. The fresh lookup below suggests its own.
+          ...(write.sameProduct ? {} : { lookup_suggestions: null }),
+        })
+      : await createItemUnit({ home_id: propertyId, ...write.fields })
     setActionLoading(false)
     if (result.error) {
       setError(result.error.message)
@@ -248,9 +258,13 @@ export default function SmartAddItem() {
     // or abandoned lookup costs only the suggestions. Whatever it finds —
     // category, a type-based name for a "Brand Model" placeholder, spec
     // suggestions — lands on the item doc and surfaces on the item page.
-    void runPostCreateLookup(created).catch((e) => {
-      console.warn("[smart-add] post-create lookup failed:", e instanceof Error ? e.message : e)
-    })
+    // A re-identified item that is still the same product already has its
+    // lookup (or has one in flight); asking again would only cost a call.
+    if (!current || !write.sameProduct) {
+      void runPostCreateLookup(created).catch((e) => {
+        console.warn("[smart-add] post-create lookup failed:", e instanceof Error ? e.message : e)
+      })
+    }
 
     // An appliance goes on to its manual — that is the step that makes the rest
     // of the app work, and it earns far more attachments as a screen the user is
@@ -262,23 +276,28 @@ export default function SmartAddItem() {
     // one-step form advertising a five-step Stepper — step 2 was reachable only
     // by resuming an old session.
     if (identifyMode === "appliance") {
+      // A re-identified item keeps its session's start time: "You started this
+      // an hour ago" is about the item, not about the last press of the button.
+      const startedAt = current ? getWizardSession()?.createdAt : undefined
       setItemId(created.item_unit_id)
       setWizardSession({
         itemId: created.item_unit_id,
         propertyId,
         step: "manual",
         itemName: composedName,
-        brand: identifyData.brand.trim() || null,
-        model: identifyData.model.trim() || null,
+        brand: write.fields.brand,
+        model: write.fields.model,
         locationId: identifyData.locationId,
         itemCategory: identifyData.itemCategory,
         subType: identifyData.subType,
         categoryFields: identifyData.categoryFields,
         purchaseDate: identifyData.purchaseDate ?? null,
         purchasePrice: identifyData.purchasePrice,
-        hasManual: false,
+        // Whether a manual is already attached is about the item, and a
+        // re-identify does not detach it.
+        hasManual: current ? hasManual : false,
         hasTasks: false,
-        createdAt: new Date().toISOString(),
+        createdAt: startedAt ?? new Date().toISOString(),
       })
       setStep("manual")
       return
@@ -286,7 +305,7 @@ export default function SmartAddItem() {
 
     clearWizardSession()
     navigate(`/items/${created.item_unit_id}`)
-  }, [propertyId, identifyData, identifyMode, labelPhotoFile, user?.id, navigate])
+  }, [propertyId, itemId, hasManual, identifyData, identifyMode, labelPhotoFile, user?.id, navigate])
 
   /**
    * Kick the parse off and LEAVE. The wizard's job ends when the manual is
@@ -346,16 +365,16 @@ export default function SmartAddItem() {
         for (const choice of choices) {
           let sourceType: "url" | "upload" = "url"
           let sourceRef = ""
+          let contentHash: string | null = null
 
           if (choice.type === "upload") {
             setSavingMessage("Uploading PDF…")
             const uploadRes = await uploadManualPdf(propertyId, itemId, choice.file, user?.id)
             if (!uploadRes.data?.path) throw new Error("Upload failed")
             sourceRef = uploadRes.data.path
+            contentHash = uploadRes.data.contentHash
             sourceType = "upload"
             uploadFilename = choice.file.name
-            firstUrl = (await resolveStorageUrl(sourceRef).catch(() => null)) ?? firstUrl
-            uploadPaths.push(sourceRef)
           } else {
             sourceRef = choice.url
             firstUrl = firstUrl ?? choice.url
@@ -367,9 +386,19 @@ export default function SmartAddItem() {
             title: choice.type === "upload" ? choice.file.name : sourceRef,
             source_type: sourceType,
             source_ref: sourceRef,
+            content_hash: contentHash,
           })
           if (!manualRes.data) {
             throw new Error(manualRes.error?.message ?? "Could not save manual record")
+          }
+          if (sourceType === "upload") {
+            // HH-154: the same PDF again (a retry after a refused scan) comes
+            // back as the record this item already has, pointing at ITS copy —
+            // the one just uploaded was redundant and is gone. So the preview
+            // URL and Replace's clean-up list follow the record, not the upload.
+            const stored = manualRes.data.source_ref
+            firstUrl = (await resolveStorageUrl(stored).catch(() => null)) ?? firstUrl
+            uploadPaths.push(stored)
           }
           manualIds.push(manualRes.data.manual_id)
           if (!firstManualId) firstManualId = manualRes.data.manual_id
