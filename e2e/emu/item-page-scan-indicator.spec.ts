@@ -155,8 +155,7 @@ const bells = (root: Locator) => root.locator("svg.lucide-bell-ring")
 const anyBell = (root: Locator) => root.locator("svg.lucide-bell-ring, svg.lucide-bell-off, svg.lucide-bell")
 
 async function shot(page: Page, label: string, name: string) {
-  if (label !== "390px") return
-  await page.screenshot({ path: `${SHOTS}/${name}.png` })
+  await page.screenshot({ path: `${SHOTS}/${name}${label === "390px" ? "" : "-desktop"}.png` })
 }
 
 function describeAt(label: "390px" | "desktop", viewport: { width: number; height: number }) {
@@ -304,9 +303,14 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       const dialog = page.getByRole("dialog")
       await expect(dialog.getByText("6 things from the manual")).toBeVisible()
       // S3b.1 — Cleaning then Setup; no Maintenance section (not rendered).
-      await expect(dialog.getByText("Maintenance", { exact: true })).toHaveCount(0)
-      await expect(dialog.getByText("Cleaning", { exact: true })).toBeVisible()
-      await expect(dialog.getByText("Setup", { exact: true })).toBeVisible()
+      // Read by each section's own sub-line: a section header's text also
+      // carries its count ("Cleaning4"), so a heading match would be brittle.
+      await expect(dialog.getByText("Keeps it working. Turn a notification on for any of these.")).toHaveCount(0)
+      const cleaningSub = dialog.getByText("Keeps it nice. Lives on the item page.")
+      const setupSub = dialog.getByText("Once, when you install it.")
+      await expect(cleaningSub).toBeVisible()
+      await expect(setupSub).toBeVisible()
+      expect((await cleaningSub.boundingBox())!.y).toBeLessThan((await setupSub.boundingBox())!.y)
       // S3b.2 — the summary.
       await expect(dialog.getByText("Nothing here goes into Tasks.")).toBeVisible()
       await expect(dialog.getByText("Nothing is saved until you press Save.")).toBeVisible()
@@ -314,8 +318,9 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       // S3b.3 — zero bells of any kind.
       await expect(anyBell(dialog)).toHaveCount(0)
       // S3b.4 — cadences kept, each with "Lives on the item page".
-      await expect(dialog.getByText("Lives on the item page")).toHaveCount(2)
-      await expect(dialog.getByText("when needed")).toHaveCount(2)
+      // Exact: the Cleaning section's own sub-line also contains the words.
+      await expect(dialog.getByText("Lives on the item page", { exact: true })).toHaveCount(2)
+      await expect(dialog.getByText("when needed", { exact: true })).toHaveCount(2)
       // S3b.5 — and Save is the only thing that saves.
       expect(commit.count()).toBe(0)
       const save = dialog.getByRole("button", { name: "Save all 6" })
@@ -344,7 +349,16 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
   })
 
   test.describe(`HH-161 — the review with notifications ON (${label})`, () => {
-    test.use({ viewport, permissions: ["notifications"] })
+    // Headless Chromium answers "denied" for notifications whatever the
+    // context grants (probed: `permissions: ["notifications"]` and
+    // grantPermissions both leave Notification.permission "denied"), so the
+    // phone that said YES is stood in for at the one thing the app reads.
+    test.use({ viewport })
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        Object.defineProperty(Notification, "permission", { configurable: true, get: () => "granted" })
+      })
+    })
     const itemId = `e2e-scan-ind-on-${suffix}`
     const manualId = `manual-scan-ind-on-${suffix}`
     const name = `Scan Walk Bosch ${suffix}`

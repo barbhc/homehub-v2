@@ -93,7 +93,13 @@ test.describe("emulator e2e — task review", () => {
     await page.reload()
     await expect(page.getByText("Bosch 800 Series Dishwasher").filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
     await page.getByRole("button", { name: /^Review tasks$/ }).filter({ visible: true }).first().click()
-    await page.getByRole("button", { name: /Descale the dishwasher/ }).first().click()
+    // Open the row by its TITLE. Headless Chromium has refused notifications,
+    // so this row — now reminding — carries "Reminders off — turn on in
+    // Settings" under its title (HH-161 S5.2), and a click at the row's centre
+    // lands on that link and leaves for Settings.
+    const row = page.getByRole("button", { name: /Descale the dishwasher/ }).first()
+    await expect(row).toContainText("Reminders off — turn on in Settings", { timeout: 10_000 })
+    await row.getByText("Descale the dishwasher", { exact: true }).click()
     await expect(page.getByText("How often?")).toBeVisible({ timeout: 10_000 })
 
     // Cleaning → Maintenance and Monthly → Quarterly survived the round trip...
