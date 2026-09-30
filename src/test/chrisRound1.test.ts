@@ -108,8 +108,17 @@ describe("HH-89 — the manual entry looks like what it does", () => {
     // search card, the shortcut opens ManualStep with its search panel already
     // expanded. The PROMISE is unchanged and still asserted — tapping
     // "Find it for me" must not make you ask for the search a second time.
-    expect(src).toContain('initialPanel={findRequested ? "search" : undefined}')
-    expect(src).toContain("if (!open) setFindRequested(false)")
+    //
+    // HH-159 moved the "which panel" choice into the hook's open handler, the
+    // one way every door opens the dialog. The old local findRequested flag
+    // was cleared only by a USER close, so after a scan that closed the dialog
+    // itself, the next door opened on the search again. Now each door names
+    // its panel and the default is upload, so "once" holds by construction.
+    expect(src).toContain('handleOpenAddManual("search")')
+    expect(src).toContain('initialPanel={addMode === "upload" ? undefined : addMode}')
+    const hook = read("../hooks/useManualManagement.ts")
+    expect(hook).toContain('const handleOpenAddManual = (mode: AddManualMode = "upload") => {')
+    expect(hook).toMatch(/const handleOpenAddManual = [\s\S]{0,200}setAddMode\(mode\)/)
   })
 })
 

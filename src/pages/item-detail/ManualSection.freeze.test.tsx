@@ -49,23 +49,20 @@ function renderDoor() {
       manuals={[]}
       onManualUpdated={noop}
       addManualOpen={false} setAddManualOpen={noop}
-      addMode="url" setAddMode={noop}
+      addMode="upload"
       addRole="primary" setAddRole={noop}
-      urlInput="" setUrlInput={noop}
       titleInput="" setTitleInput={noop}
       labelInput="" setLabelInput={noop}
-      setUploadFile={noop}
       addError={null} setAddError={noop}
       addLoading={false}
       parsePhase={false}
-      setManualParseError={noop}
       parsingManualId={null}
       parsedManualId="manual-1" setParsedManualId={noop}
       previewResult={draft} setPreviewResult={noop}
       reviewOpen setReviewOpen={noop}
       saving={false}
       deletingManualId={null}
-      handleOpenAddManual={noop} handleAddManual={noop}
+      handleOpenAddManual={noop} handleAddManual={vi.fn().mockResolvedValue(undefined)}
       handleParseExistingManual={noop} handleRescanManual={noop} handleFillGaps={noop}
       handleDeleteManual={noop}
       handleSave={vi.fn().mockResolvedValue(null)}
