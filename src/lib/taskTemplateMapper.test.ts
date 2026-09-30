@@ -7,7 +7,7 @@
  * types were satisfied, 341 tests passed. Only running the page caught it.
  */
 import { describe, it, expect } from "vitest"
-import { toTaskTemplate } from "@/modules/care/services/taskService"
+import { toTaskTemplate, toTemplateSupplies } from "@/modules/care/services/taskService"
 import { willNotify } from "../../shared/tasks/reviewBuckets"
 
 const doc = (over: Record<string, unknown> = {}) => ({
@@ -62,5 +62,19 @@ describe("toTaskTemplate — the reminder switch survives the round trip", () =>
         remind_enabled: t.remind_enabled,
       }),
     ).toBe(false)
+  })
+})
+
+describe("toTemplateSupplies — where the spare is kept survives the round trip", () => {
+  // A field this mapper forgets reads as undefined and silently becomes null:
+  // the place would save, then vanish on the next load.
+  it("reads the place, trimmed", () => {
+    const [row] = toTemplateSupplies([{ name: "Furnace filter", location: "  Hall closet, top shelf " }])
+    expect(row.location).toBe("Hall closet, top shelf")
+  })
+  it("a legacy row without the field, or a blank one, reads as no place", () => {
+    expect(toTemplateSupplies([{ name: "Furnace filter", category: "filter", partNumber: "FPR10" }])[0].location).toBeNull()
+    expect(toTemplateSupplies([{ name: "Furnace filter", location: "   " }])[0].location).toBeNull()
+    expect(toTemplateSupplies([{ name: "Furnace filter", location: 42 }])[0].location).toBeNull()
   })
 })

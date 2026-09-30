@@ -61,6 +61,7 @@ export function toTemplateSupplies(raw: unknown): TemplateSupply[] {
       part_number: typeof s.partNumber === "string" ? s.partNumber : null,
       url: typeof s.url === "string" && s.url ? s.url : null,
       size: typeof s.size === "string" && s.size ? s.size : null,
+      location: typeof s.location === "string" && s.location.trim() ? s.location.trim() : null,
       buy_ahead: s.buyAhead === true,
     }))
     .filter((s) => s.name !== "")
@@ -312,6 +313,7 @@ export type TaskSupplyEmbed = {
     oem_part_number: string | null
     url: string | null
     size: string | null
+    location: string | null
     buy_ahead: boolean
   } | null
 }
@@ -356,6 +358,7 @@ export async function getTaskTemplatesWithSchedulesByItem(
               oem_part_number: s.part_number,
               url: s.url,
               size: s.size,
+              location: s.location,
               buy_ahead: s.buy_ahead,
             },
           })),
@@ -556,7 +559,7 @@ async function firstOccurrence(
   }
 }
 
-export type TaskSupplyPatch = Partial<Pick<TemplateSupply, "url" | "size" | "buy_ahead" | "name">>
+export type TaskSupplyPatch = Partial<Pick<TemplateSupply, "url" | "size" | "location" | "buy_ahead" | "name">>
 
 /**
  * Patches ONE supply row on a template, by index, inside a transaction.
@@ -584,6 +587,7 @@ export async function updateTaskSupply(
       if (patch.name !== undefined) row.name = patch.name
       if (patch.url !== undefined) row.url = patch.url
       if (patch.size !== undefined) row.size = patch.size
+      if (patch.location !== undefined) row.location = patch.location?.trim() || null
       if (patch.buy_ahead !== undefined) row.buyAhead = patch.buy_ahead
       rows[index] = row
       tx.set(ref, { supplies: rows, userModifiedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true })
@@ -605,7 +609,7 @@ export async function updateTaskSupply(
 export async function addTaskSupply(
   homeId: string,
   taskTemplateId: string,
-  input: { name: string; url?: string | null; size?: string | null; buy_ahead?: boolean }
+  input: { name: string; url?: string | null; size?: string | null; location?: string | null; buy_ahead?: boolean }
 ): Promise<ServiceResult<{ index: number; supply: TemplateSupply }>> {
   const name = input.name.trim()
   if (!name) return { data: null, error: { message: "Give the part a name" } }
@@ -621,6 +625,7 @@ export async function addTaskSupply(
         partNumber: null,
         url: input.url?.trim() || null,
         size: input.size?.trim() || null,
+        location: input.location?.trim() || null,
         buyAhead: input.buy_ahead === true,
       })
       tx.set(ref, { supplies: rows, userModifiedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true })
@@ -630,12 +635,47 @@ export async function addTaskSupply(
     return {
       data: {
         index,
-        supply: { name, category: "other", part_number: null, url: input.url?.trim() || null, size: input.size?.trim() || null, buy_ahead: input.buy_ahead === true },
+        supply: {
+          name, category: "other", part_number: null,
+          url: input.url?.trim() || null, size: input.size?.trim() || null,
+          location: input.location?.trim() || null, buy_ahead: input.buy_ahead === true,
+        },
       },
       error: null,
     }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to add the part" } }
+  }
+}
+
+/**
+ * The places this home already keeps parts ("Hall closet", "Under the sink"),
+ * most used first — the quick-fill chips in the part card's place editor.
+ * Read on demand when the editor opens, never on a page view: it scans every
+ * template, which is fine once per edit and wasteful per render.
+ */
+export async function getSupplyPlaces(homeId: string, limit = 6): Promise<ServiceResult<string[]>> {
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/taskTemplates`))
+    const counts = new Map<string, { label: string; n: number }>()
+    for (const d of snap.docs) {
+      const x = d.data()
+      if (x.deletedAt != null || x.isActive === false) continue
+      for (const s of toTemplateSupplies(x.supplies)) {
+        if (!s.location) continue
+        const key = s.location.toLowerCase()
+        const hit = counts.get(key)
+        if (hit) hit.n += 1
+        else counts.set(key, { label: s.location, n: 1 })
+      }
+    }
+    const places = [...counts.values()]
+      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label))
+      .slice(0, limit)
+      .map((p) => p.label)
+    return { data: places, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load places" } }
   }
 }
 

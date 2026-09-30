@@ -163,6 +163,10 @@ page watches it.
 - Purchase, warranty and category fields live in **Details & records**,
   scrollable to the last field with the keyboard open. — HH-96, HH-111, HH-133
 - Category fields **match the category** — no fuel type on a microwave. — HH-133
+- A task's part is a **card** inside its row (and on the task page's *You'll
+  need*): the name, the facts as pills — **where the spare is kept** first, in
+  teal — Buy as a button, everything else behind the pencil. One tap on the
+  place edits just the place. — design/spares-and-notes.md (2026-09-27)
 - Three states, not two: no manual · being read · **read, nothing saved yet**.
   A finished-but-uncommitted parse is stage "done" with a null `parsed_at`
   (`commitDraft` is the only writer of it), and the third state holds the space

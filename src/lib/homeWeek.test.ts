@@ -3,7 +3,7 @@
  * two week sections used to do four different ways (design/home-focus.md).
  */
 import { describe, it, expect } from "vitest"
-import { weekRows, nextUpRows, prepLine, timelyWarranty, isoDaysFrom } from "./homeWeek"
+import { weekRows, nextUpRows, prepLine, prepPlace, timelyWarranty, isoDaysFrom } from "./homeWeek"
 import type { DashboardTask, MaintenanceTaskFull } from "./dashboard"
 
 const TODAY = "2026-09-07"
@@ -68,6 +68,21 @@ describe("prepLine — one reminder, or nothing", () => {
   it("a plain DIY task with nothing to buy shows no line at all", () => {
     expect(prepLine({ title: "Wipe the door seal", justification: null, notes: null, supplies: [] })).toBeNull()
     expect(prepLine(null)).toBeNull()
+  })
+})
+
+describe("prepPlace — the pill under the prep line (5b)", () => {
+  it("names where the task's one part is kept", () => {
+    expect(prepPlace({ supplies: [{ name: "16×25×1 filter", location: "Hall closet, top shelf" }] as never })).toBe("Hall closet, top shelf")
+  })
+  it("no place on record → no pill", () => {
+    expect(prepPlace({ supplies: [{ name: "16×25×1 filter", location: null }] as never })).toBeNull()
+    expect(prepPlace({ supplies: [{ name: "16×25×1 filter" }] as never })).toBeNull()
+    expect(prepPlace({ supplies: [{ name: "filter", location: "   " }] as never })).toBeNull()
+    expect(prepPlace(null)).toBeNull()
+  })
+  it("several parts → no pill: one place would be a guess about the others", () => {
+    expect(prepPlace({ supplies: [{ name: "descaler", location: "Under the sink" }, { name: "cloth", location: "Laundry" }] as never })).toBeNull()
   })
 })
 

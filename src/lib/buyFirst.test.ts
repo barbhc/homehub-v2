@@ -4,7 +4,7 @@ import type { WeekReminder } from "@/modules/care/services/weekReminders"
 import type { ShoppingListItem, TemplateSupply } from "@/integrations/types"
 
 const supply = (over: Partial<TemplateSupply> = {}): TemplateSupply => ({
-  name: "Furnace filter", category: "filter", part_number: "FPR10", url: "https://filterbuy.com/x", size: "16x25x1", buy_ahead: true, ...over,
+  name: "Furnace filter", category: "filter", part_number: "FPR10", url: "https://filterbuy.com/x", size: "16x25x1", location: null, buy_ahead: true, ...over,
 })
 const reminder = (over: Partial<WeekReminder> = {}): WeekReminder =>
   ({ taskInstanceId: "i1", taskTemplateId: "t1", title: "Replace the furnace filter", itemName: "Furnace", dueDate: "2026-09-12", duePhrase: "Sat", supplies: [supply()], ...over }) as WeekReminder
