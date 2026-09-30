@@ -59,8 +59,15 @@ beforeEach(async () => {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore()
     await setDoc(doc(db, `homes/${HOME}`), { name: "Test", timezone: "America/Los_Angeles", createdBy: OWNER, deletedAt: null })
-    await setDoc(doc(db, `homes/${HOME}/members/${OWNER}`), { role: "owner", isPrimary: true })
-    await setDoc(doc(db, `homes/${HOME}/members/${MEMBER}`), { role: "member", isPrimary: false })
+    // `uid` on every member row, as every real writer stamps it (createHome,
+    // acceptInvite, the v1 import). The rules now require uid == doc id on any
+    // create/update, so a seed without it would test a shape that cannot exist.
+    await setDoc(doc(db, `homes/${HOME}/members/${OWNER}`), { uid: OWNER, role: "owner", isPrimary: true })
+    await setDoc(doc(db, `homes/${HOME}/members/${MEMBER}`), { uid: MEMBER, role: "member", isPrimary: false })
+    // The growth gate FAILS CLOSED when this doc is missing, so state "off"
+    // explicitly for every suite that creates homes without being ABOUT the
+    // gate. The "growth gate" suite overwrites or deletes it per case.
+    await setDoc(doc(db, "config/growth"), { inviteGateEnabled: false })
   })
 })
 
@@ -68,6 +75,9 @@ const asOwner = () => testEnv.authenticatedContext(OWNER).firestore()
 const asMember = () => testEnv.authenticatedContext(MEMBER).firestore()
 const asOutsider = () => testEnv.authenticatedContext(OUTSIDER).firestore()
 const asAnon = () => testEnv.unauthenticatedContext().firestore()
+/** A signed-in ANONYMOUS-provider token — what anyone can mint per request. */
+const asAnonProvider = (uid = "anon-uid") =>
+  testEnv.authenticatedContext(uid, { firebase: { sign_in_provider: "anonymous" } }).firestore()
 
 describe("tenant isolation", () => {
   it("member reads and writes home data", async () => {
@@ -162,8 +172,12 @@ describe("member management + roles", () => {
     await assertFails(setDoc(doc(asMember(), `homes/${HOME}/members/${OUTSIDER}`), { role: "member", isPrimary: false }))
   })
 
-  it("owner can add another member", async () => {
-    await assertSucceeds(setDoc(doc(asOwner(), `homes/${HOME}/members/${OUTSIDER}`), { role: "member", isPrimary: false }))
+  it("an owner can NOT write another user into the home (no force-join; joins are acceptInvite)", async () => {
+    // Was "owner can add another member". With uid pinned, that branch was a
+    // force-join: the victim's membership lookup returns the owner's home —
+    // flagged primary if the owner likes — so a fresh device lands in it.
+    await assertFails(setDoc(doc(asOwner(), `homes/${HOME}/members/${OUTSIDER}`), { uid: OUTSIDER, role: "member", isPrimary: false }))
+    await assertFails(setDoc(doc(asOwner(), `homes/${HOME}/members/${OUTSIDER}`), { uid: OUTSIDER, role: "member", isPrimary: true }))
   })
 
   it("a member cannot self-escalate their role", async () => {
@@ -185,6 +199,80 @@ describe("member management + roles", () => {
       await setDoc(doc(ctx.firestore(), `homes/${HOME}/members/${MEMBER}`), { role: "member", isPrimary: false })
     })
     await assertFails(deleteDoc(doc(asOutsider(), `homes/${HOME}/members/${MEMBER}`)))
+    await assertSucceeds(deleteDoc(doc(asOwner(), `homes/${HOME}/members/${MEMBER}`)))
+  })
+})
+
+/**
+ * B2 — a member doc's `uid` field must equal its doc id.
+ *
+ * The collection-group lookup (homeService) and hasAnyMembership (functions)
+ * find a user's homes by that FIELD. Unpinned, a row at members/{anything}
+ * carrying a victim's uid planted a pointer the victim's lookup returned — a
+ * home they could not read, which failed their whole home list — and they
+ * could not delete it, because delete is keyed to the path.
+ */
+describe("member uid is pinned to the doc id (no planted membership pointers)", () => {
+  const bootstrap = (memberDocId: string, memberData: Record<string, unknown>) => {
+    const db = asOutsider()
+    const batch = writeBatch(db)
+    batch.set(doc(db, "homes/boot-home"), { name: "New", createdBy: OUTSIDER, deletedAt: null })
+    batch.set(doc(db, `homes/boot-home/members/${memberDocId}`), memberData)
+    return batch.commit()
+  }
+
+  it("bootstrap create with uid == doc id works (the control)", async () => {
+    await assertSucceeds(bootstrap(OUTSIDER, { uid: OUTSIDER, role: "owner", isPrimary: true }))
+  })
+
+  it("bootstrap create carrying someone ELSE's uid is refused", async () => {
+    await assertFails(bootstrap(OUTSIDER, { uid: OWNER, role: "owner", isPrimary: true }))
+  })
+
+  it("a member row with no uid at all is refused", async () => {
+    await assertFails(bootstrap(OUTSIDER, { role: "owner", isPrimary: true }))
+  })
+
+  it("an owner cannot plant a pointer at an arbitrary doc id", async () => {
+    // The original attack: the owner branch accepted any doc id + any uid.
+    await assertFails(setDoc(doc(asOwner(), `homes/${HOME}/members/planted-row`), { uid: OUTSIDER, role: "member", isPrimary: true }))
+  })
+
+  it("self-update cannot re-point the row's uid", async () => {
+    await assertFails(updateDoc(doc(asMember(), `homes/${HOME}/members/${MEMBER}`), { uid: OUTSIDER }))
+  })
+
+  it("an owner cannot re-point another member's uid either", async () => {
+    await assertFails(updateDoc(doc(asOwner(), `homes/${HOME}/members/${MEMBER}`), { uid: OUTSIDER }))
+  })
+
+  it("an update may not strip uid", async () => {
+    await assertFails(setDoc(doc(asMember(), `homes/${HOME}/members/${MEMBER}`), { role: "member", isPrimary: true }))
+  })
+})
+
+/**
+ * Owner rows are removed only through the removeMember callable, which counts
+ * owners inside a transaction and refuses the last one. The rule used to let
+ * any owner delete any row directly, which made that guard advisory.
+ */
+describe("owner rows cannot be deleted from the client (last-owner guard lives in removeMember)", () => {
+  const OWNER2 = "owner2-uid"
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `homes/${HOME}/members/${OWNER2}`), { uid: OWNER2, role: "owner", isPrimary: false })
+    })
+  })
+
+  it("one owner cannot delete another owner's row", async () => {
+    await assertFails(deleteDoc(doc(asOwner(), `homes/${HOME}/members/${OWNER2}`)))
+  })
+
+  it("an owner cannot self-delete their own row (they could be the last)", async () => {
+    await assertFails(deleteDoc(doc(asOwner(), `homes/${HOME}/members/${OWNER}`)))
+  })
+
+  it("an owner still removes a plain member directly (the control)", async () => {
     await assertSucceeds(deleteDoc(doc(asOwner(), `homes/${HOME}/members/${MEMBER}`)))
   })
 })
@@ -319,7 +407,9 @@ describe("invites (hardened: members-only; acceptance is server-side)", () => {
 
   it("a member can create, read, and delete invites", async () => {
     await assertSucceeds(getDoc(doc(asMember(), `homes/${HOME}/invites/inv1`)))
-    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/invites/inv2`), { token: "t2", role: "member" }))
+    // createdBy is now required and must be the caller (acceptInvite judges the
+    // invite by its creator's role, so the field has to be true).
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/invites/inv2`), { token: "t2", role: "member", createdBy: MEMBER }))
     await assertSucceeds(deleteDoc(doc(asMember(), `homes/${HOME}/invites/inv2`)))
   })
 
@@ -329,6 +419,59 @@ describe("invites (hardened: members-only; acceptance is server-side)", () => {
 
   it("a non-member cannot self-accept by writing acceptedBy (acceptance is the callable's job)", async () => {
     await assertFails(updateDoc(doc(asOutsider(), `homes/${HOME}/invites/inv1`), { acceptedBy: OUTSIDER }))
+  })
+})
+
+/**
+ * B1 — invite role escalation.
+ *
+ * `create, update: if isMember(homeId)` with any fields let a plain member write
+ * an owner invite and accept it (with the SAME account, since acceptInvite then
+ * merged the role onto their existing row). Now: any member may invite at an
+ * open role (member/guest — shared/home/roles.ts); only an owner may mint
+ * owner/admin; createdBy must be the caller; and invites are never
+ * client-updated.
+ */
+describe("invite roles: a member can't mint power they don't have", () => {
+  const invite = (role: unknown, createdBy: string) => ({ token: `t-${String(role)}`, role, createdBy, acceptedBy: null })
+
+  it("a member CANNOT create an owner invite", async () => {
+    await assertFails(setDoc(doc(asMember(), `homes/${HOME}/invites/x-owner`), invite("owner", MEMBER)))
+  })
+
+  it("a member CANNOT create an admin invite (legacy label, name claims power)", async () => {
+    await assertFails(setDoc(doc(asMember(), `homes/${HOME}/invites/x-admin`), invite("admin", MEMBER)))
+  })
+
+  it("a member CAN create member and guest invites", async () => {
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/invites/ok-member`), invite("member", MEMBER)))
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/invites/ok-guest`), invite("guest", MEMBER)))
+  })
+
+  it("an owner CAN create owner and admin invites", async () => {
+    await assertSucceeds(setDoc(doc(asOwner(), `homes/${HOME}/invites/o-owner`), invite("owner", OWNER)))
+    await assertSucceeds(setDoc(doc(asOwner(), `homes/${HOME}/invites/o-admin`), invite("admin", OWNER)))
+  })
+
+  it("nobody may invite at a role outside the vocabulary, or with no role", async () => {
+    await assertFails(setDoc(doc(asOwner(), `homes/${HOME}/invites/o-super`), invite("superuser", OWNER)))
+    await assertFails(setDoc(doc(asOwner(), `homes/${HOME}/invites/o-none`), { token: "t-none", createdBy: OWNER }))
+  })
+
+  it("an invite must carry its creator's OWN uid (no borrowing the owner's name)", async () => {
+    await assertFails(setDoc(doc(asMember(), `homes/${HOME}/invites/forged`), invite("member", OWNER)))
+    await assertFails(setDoc(doc(asMember(), `homes/${HOME}/invites/unsigned`), { token: "t-u", role: "member" }))
+  })
+
+  it("a non-member cannot create invites at all", async () => {
+    await assertFails(setDoc(doc(asOutsider(), `homes/${HOME}/invites/intruder`), invite("member", OUTSIDER)))
+  })
+
+  it("nobody can EDIT an invite from the client — not even the owner", async () => {
+    // Re-role, re-sign, or clear acceptedBy to reuse a spent invite.
+    await assertFails(updateDoc(doc(asMember(), `homes/${HOME}/invites/inv1`), { role: "owner" }))
+    await assertFails(updateDoc(doc(asMember(), `homes/${HOME}/invites/inv1`), { acceptedBy: null, token: "reuse" }))
+    await assertFails(updateDoc(doc(asOwner(), `homes/${HOME}/invites/inv1`), { role: "guest" }))
   })
 })
 
@@ -388,11 +531,52 @@ describe("growth gate (invite codes)", () => {
       await setDoc(doc(ctx.firestore(), `admissions/${uid}`), { code: "TESTCODE" })
     })
 
-  it("FAILS OPEN when config/growth does not exist", async () => {
-    // Deploying these rules before the flag doc exists must not lock every
-    // existing user out of creating a home. The safe direction for a growth
-    // throttle, which is not the security boundary — membership is.
-    await assertSucceeds(newHome(asNewcomer(), "home-nogate"))
+  const deleteGate = () =>
+    testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await deleteDoc(doc(ctx.firestore(), "config/growth"))
+    })
+
+  it("FAILS CLOSED when config/growth does not exist", async () => {
+    // Was "FAILS OPEN": a missing flag doc let every new account create a home,
+    // and a home unlocks every paid function. Existing members are unaffected
+    // either way — the gate guards only CREATING a home (last case below).
+    await deleteGate()
+    await assertFails(newHome(asNewcomer(), "home-nogate"))
+  })
+
+  it("…but an admitted user still gets in with config/growth missing", async () => {
+    await deleteGate()
+    await admit(NEWCOMER)
+    await assertSucceeds(newHome(asNewcomer(), "home-nogate-admitted"))
+  })
+
+  it("treats a doc with no flag, or a flag that is not exactly false, as ON", async () => {
+    for (const cfg of [{}, { inviteGateEnabled: "false" }, { inviteGateEnabled: 0 }, { inviteGateEnabled: null }]) {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), "config/growth"), cfg)
+      })
+      await assertFails(newHome(asNewcomer(), `home-cfg-${JSON.stringify(cfg).replace(/\W/g, "")}`))
+    }
+  })
+
+  it("an ANONYMOUS-provider token cannot create a home — gate off", async () => {
+    await setGate(false)
+    await assertFails(
+      setDoc(doc(asAnonProvider(), "homes/home-anon"), { name: "Throwaway", createdBy: "anon-uid", deletedAt: null }),
+    )
+  })
+
+  it("an ANONYMOUS-provider token cannot create a home — even when admitted", async () => {
+    await setGate(true)
+    await admit("anon-uid")
+    await assertFails(
+      setDoc(doc(asAnonProvider(), "homes/home-anon-admitted"), { name: "Throwaway", createdBy: "anon-uid", deletedAt: null }),
+    )
+  })
+
+  it("a non-anonymous token with the same shape of request succeeds (the control)", async () => {
+    await setGate(false)
+    await assertSucceeds(newHome(asNewcomer(), "home-real-user"))
   })
 
   it("lets anyone create a home while the gate is OFF", async () => {

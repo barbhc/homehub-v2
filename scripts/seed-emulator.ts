@@ -480,8 +480,20 @@ async function verify(): Promise<void> {
   console.log(`    serviceProviders = ${providers.data().count}`)
 }
 
+// ── 0. Growth gate: explicitly OFF ────────────────────────────────────────────
+// firestore.rules FAILS CLOSED on a missing config/growth doc (only admitted
+// users may create a home). The emulator used to rely on the old fail-open
+// default for the journey walk's brand-new account (J1 creates its home through
+// the onboarding screen), so the seed now states "off" instead of inheriting it.
+// To exercise the gate itself, overwrite this doc — the rules suite does.
+async function seedGrowthGate(): Promise<void> {
+  await db.doc("config/growth").set({ inviteGateEnabled: false, updatedAt: NOW })
+}
+
 async function main(): Promise<void> {
   console.log(`\nSeeding emulator (frozen today = ${SEED_TODAY})…`)
+  await seedGrowthGate()
+  console.log("✓ config/growth (invite gate OFF)")
   const uid = await getOrCreateUser()
   console.log(`✓ auth user ${TEST_EMAIL} (${uid})`)
   await seedHome(uid)
