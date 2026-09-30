@@ -94,7 +94,7 @@ export const suggestCareNotes = onCall({ region: REGION, secrets: [ANTHROPIC_API
   }
   return withAiQuota(getFirestore(), request.auth.uid, "suggestCareNotes", async () => {
     try {
-      const suggestions = await runSuggestCareNotes(makeCallClaudeText(ANTHROPIC_API_KEY.value()), scope, context ?? {})
+      const suggestions = await runSuggestCareNotes(makeCallClaudeText(ANTHROPIC_API_KEY.value(), "suggestCareNotes"), scope, context ?? {})
       return { suggestions }
     } catch (e) {
       throw new HttpsError("unavailable", e instanceof Error ? e.message : "Suggest care notes failed")
@@ -153,7 +153,7 @@ export const importCareUrl = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
   }
 
   try {
-    const suggestions = await runImportCareUrl(makeCallClaudeText(ANTHROPIC_API_KEY.value()), stripHtml(html), scope, context ?? {})
+    const suggestions = await runImportCareUrl(makeCallClaudeText(ANTHROPIC_API_KEY.value(), "importCareUrl"), stripHtml(html), scope, context ?? {})
     return { suggestions }
   } catch (e) {
     await hold.refund()

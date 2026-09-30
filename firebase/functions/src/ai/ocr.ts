@@ -174,7 +174,7 @@ export const ocr = onCall(
     // One charge covers the whole request, image fallback included.
     const hold = await chargeAiQuota(getFirestore(), request.auth.uid, "ocr")
     const base64 = image.replace(/^data:image\/\w+;base64,/, "")
-    const callClaude = makeCallClaudeText(ANTHROPIC_API_KEY.value())
+    const callClaude = makeCallClaudeText(ANTHROPIC_API_KEY.value(), "ocr")
 
     let text = ""
     let visionError: string | null = null

@@ -246,7 +246,7 @@ export const generateTasks = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
   await requireAnyMembership(getFirestore(), request.auth.uid)
   return withAiQuota(getFirestore(), request.auth.uid, "generateTasks", async () => {
     try {
-      return await runGenerateTasks(makeCallClaudeText(ANTHROPIC_API_KEY.value()), (request.data ?? {}) as GenerateTasksInput)
+      return await runGenerateTasks(makeCallClaudeText(ANTHROPIC_API_KEY.value(), "generateTasks"), (request.data ?? {}) as GenerateTasksInput)
     } catch (e) {
       if (e instanceof Error && e.message.includes("URL not allowed")) throw new HttpsError("permission-denied", e.message)
       throw new HttpsError("internal", e instanceof Error ? e.message : "Task generation failed")

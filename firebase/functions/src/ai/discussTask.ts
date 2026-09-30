@@ -191,7 +191,7 @@ export const discussTask = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY]
   if (!member.exists) throw new HttpsError("permission-denied", "Not a member of this home.")
   return withAiQuota(db, uid, "discussTask", async () => {
     try {
-      return await runDiscussTask(makeCallClaudeTool(ANTHROPIC_API_KEY.value()), db, {
+      return await runDiscussTask(makeCallClaudeTool(ANTHROPIC_API_KEY.value(), "discussTask"), db, {
         homeId,
         taskTemplateId,
         question: question.trim(),

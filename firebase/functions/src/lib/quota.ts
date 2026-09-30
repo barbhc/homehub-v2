@@ -276,6 +276,16 @@ function spendConfigFrom(snap: DocumentSnapshot): SpendConfig {
 }
 
 /**
+ * config/spend read OUTSIDE a charge — for the one setting in it that is not a
+ * cap: `parseCacheBreakpoint`, which the parse worker reads per attempt. Same
+ * parser and the same once-per-instance problem log as the charge's read.
+ * Throws only if Firestore does; callers decide what a failed read means.
+ */
+export async function readSpendConfig(db: Firestore, configDoc: string = SPEND_CONFIG_DOC): Promise<SpendConfig> {
+  return spendConfigFrom(await db.doc(configDoc).get())
+}
+
+/**
  * Consume units of `uid`'s daily quota AND the app-wide monthly ceiling, or
  * throw `resource-exhausted`.
  *
