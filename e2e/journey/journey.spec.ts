@@ -161,22 +161,36 @@ test.describe("journey walks", () => {
 
     await page.waitForURL(/\/items\//, { timeout: 20_000 })
     await expect(page.getByText("Journey Kettle").filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J1", "item-page", "Item page: new item by name; 'no manual yet' care block invites the manual",
+    // One tree (HH-159): the page renders its phone layout OR its desktop one,
+    // so the Upkeep door is in the DOM once, not once per layout.
+    await expect(page.getByRole("button", { name: "Add the manual", exact: true, includeHidden: true })).toHaveCount(1)
+    await snap(page, "J1", "item-page", "Item page: the new item by name first; Upkeep leads “No upkeep yet — add the manual” with one Add the manual door (HH-91)",
       page.getByRole("button", { name: /Add the manual/ }).filter(visible).first())
 
     // Home now knows the item exists but has no upkeep — the nudge names the
     // next step (add a manual) instead of celebrating an empty schedule.
     await page.goto("/home")
-    // A first visit brings the product tour; capture it, then close it (Esc —
-    // allowClose) so the page underneath can be asserted.
-    const tour = page.getByText("Welcome to Homehub!").filter(visible).first()
-    if (await tour.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await snap(page, "J1", "product-tour", "First-run tour popover (1 of 5) over the dashboard", tour)
-      await page.keyboard.press("Escape")
-    }
+    // A first visit brings the product tour (useFeatureTour: on /home, nothing
+    // else open, ~600 ms after the preference read); capture it, then close it
+    // (Esc — allowClose) so the page underneath can be asserted.
+    //
+    // This used to wait for "Welcome to Homehub!" with isVisible(), which never
+    // waits — and the title has been "Welcome" since the tour stopped naming
+    // the product (tourOrder.test.ts). The capture was silently skipped on
+    // every run. It is required now: a first visit without the tour is a
+    // broken J1, not an optional screenshot.
+    const tour = page.locator(".homehub-tour-popover")
+    await expect(tour).toBeVisible({ timeout: 15_000 })
+    await expect(tour.locator(".driver-popover-title")).toHaveText("Welcome")
+    await snap(page, "J1", "product-tour", "First-run tour popover, step 1 of 5, titled “Welcome” and pointing at Home in the nav — says the app shows upkeep here and that phone notifications are separate",
+      tour, { viewportOnly: true })
+    await page.keyboard.press("Escape")
+    await expect(tour).toHaveCount(0)
     const upkeepHero = page.getByText(/No upkeep yet/i).filter(visible).first()
     await expect(upkeepHero).toBeVisible({ timeout: 15_000 })
-    await snap(page, "J1", "home-after-first-item", "Home: 'No upkeep yet' banner pointing at the manual step; Journey Kettle under 'Finish setting up'",
+    // HH-80: the profile was skipped, and its banner still yields to this.
+    await expect(page.getByText("Finish your home profile")).toHaveCount(0)
+    await snap(page, "J1", "home-after-first-item", "Home: “No upkeep yet — add a manual” names the next step (Pick an item / Add another item) — not a profile nag, and not an empty schedule dressed as calm (HH-80)",
       upkeepHero)
   })
 
@@ -245,15 +259,13 @@ test.describe("journey walks", () => {
     // so it describes THIS screen, not the round-12 one. The old note still
     // read "no disclosure, no Back" — two lines under an assertion that Back is
     // visible, and after HH-123 put a scan row and a disclosure on the screen.
-    await snap(page, "J2", "appliance-lane", "Type it or scan it, as one visible choice: the subtitle names both routes, an \u201cor\u201d rule sits between the model field and the scan row, the rarer routes stay folded under \u201cMore ways to identify it\u201d, and Back stays because the lane chooser is a state rather than a route",
+    await snap(page, "J2", "appliance-lane", "Type it or scan it, as one visible choice: the subtitle names both routes, an \u201cor\u201d rule sits between the model field and the scan row, the two rarer routes stay folded under \u201cIf you can\u2019t scan the label\u201d, and Back stays because the lane chooser is a state rather than a route",
       toManual)
     await toManual.click()
 
-    // Step 2 of 2 — and there is no step 3. Reading, Review and Purchase left
-    // the wizard when the item page took the job over.
-    //
-    // Assert on what a PHONE shows: the stepper's labels are `hidden sm:inline`,
-    // so at 390px the step names are not on screen at all — only the numbers.
+    // Screen 2 of 2 — and there is no screen 3. Reading, Review and Purchase
+    // left the wizard when the item page took the job over, and the Stepper
+    // that numbered the screens is retired (retiredDesigns.test.ts).
     const scan = page.getByRole("button", { name: /Scan the manual/i }).filter(visible).first()
     await expect(page.getByRole("heading", { name: /^Add the manual$/i }).filter(visible).first())
       .toBeVisible({ timeout: 15_000 })
@@ -314,14 +326,17 @@ test.describe("journey walks", () => {
     const itemHeading = page.getByRole("heading", { name: "LG DLGX3901B" }).filter(visible).first()
     await expect(itemHeading).toBeVisible({ timeout: 20_000 })
     // HH-118: the tray pill repeated the card above it and covered content. It
-    // stands down on the page already showing that scan.
-    await expect(page.getByText(/item[s]? scanning/)).toHaveCount(0)
+    // stands down on the page already showing that scan. (The pill says
+    // "N scanning"; this matched "item scanning", which it never says. Here the
+    // stubbed enqueue writes no parse stage, so there is no scan to count —
+    // e2e/emu/item-page-manual.spec.ts walks HH-118 with one.)
+    await expect(page.getByText(/\d+ scanning/)).toHaveCount(0)
     await snap(page, "J2", "living-item-page",
-      "Landed on the item page seconds after adding — no Reading screen. Purchase nudge names what the data buys",
+      "Landed on the item page the moment the manual was attached — the wizard did not wait for the scan (no Reading screen, no review step). The enqueue is stubbed and writes no parse stage, so Upkeep's “No upkeep yet” under “Manuals & References (1)” is the stub's doing, not production's; e2e/emu/item-page-manual.spec.ts walks the scan state",
       itemHeading)
   })
 
-  test("J3 — review: existing tasks through the review wizard", async ({ page }) => {
+  test("J3 — review: existing tasks through the one-screen review", async ({ page }) => {
     // The "Review tasks" entry lives in the item page's Upkeep heading on the
     // MOBILE layout (see e2e/emu/task-review.spec.ts) — walk this one at phone
     // width, which also gives the gallery its mobile coverage.
