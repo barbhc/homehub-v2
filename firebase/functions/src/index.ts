@@ -21,12 +21,16 @@ export { sendTestPush, sendPushSweep } from "./push/sendPush.js"
 export { completeTask } from "./tasks/completeTask.js"
 export { acceptInvite, removeMember, getInviteDetails } from "./invites/inviteActions.js"
 export { redeemInviteCode } from "./growth/redeemInviteCode.js"
-export { generateTasks } from "./ai/generateTasks.js"
+// generateTasks, suggestCareNotes and importCareUrl were retired (2026-09-30,
+// dead-code sweep): their only client callers — the never-called
+// planGenerationService, and the URL-only /faq page — were deleted. Deploying
+// this does not delete them — after the hosting deploy that removed those
+// callers: `firebase functions:delete suggestCareNotes importCareUrl
+// generateTasks --project homehub-2068d --force`.
 export { detectDocType } from "./ai/detectDocType.js"
 export { ocr } from "./ai/ocr.js"
 export { productLookup } from "./ai/productLookup.js"
 export { chatQuery } from "./ai/chatQuery.js"
-export { suggestCareNotes, importCareUrl } from "./ai/careSuggestions.js"
 export { ingestReference } from "./ai/ingestReference.js"
 export { classifyExistingTasks } from "./ai/classifyExistingTasks.js"
 export { discussTask } from "./ai/discussTask.js"
