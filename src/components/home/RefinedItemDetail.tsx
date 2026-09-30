@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { NotesSection } from "@/components/notes/NotesSection"
 import { itemSubtitle } from "@/lib/itemSubtitle"
 import { Link } from "react-router-dom"
 import {
@@ -402,6 +403,10 @@ export function RefinedItemDetail({
         {/* HH-96: one way in for the whole section, not an "Add" on every empty
             row. A column of open fields for a serial number nobody means to
             type reads as a page that is never finished — the owner's call. */}
+        {/* Notes — what you'd otherwise have to remember about this item
+            (design/spares-and-notes.md §2). Reference half of the page, first. */}
+        <NotesSection homeId={homeId} item={item} onItemUpdate={onItemUpdate} />
+
         <SectionLabel action={onEditDetails ? (
           <button type="button" onClick={onEditDetails}
             className="shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"

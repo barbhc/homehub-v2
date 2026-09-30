@@ -91,6 +91,7 @@ const Inventory = lazyWithRetry(() => import("@/pages/Inventory"))
 // longer routed.
 const AddItem = lazyWithRetry(() => import("@/pages/SmartAddItem"))
 const InventoryDetail = lazyWithRetry(() => import("@/pages/InventoryDetail"))
+const NotesPage = lazyWithRetry(() => import("@/pages/NotesPage"))
 const Tasks = lazyWithRetry(() => import("@/pages/Tasks"))
 const TaskDetail = lazyWithRetry(() => import("@/pages/TaskDetail"))
 const Maintenance = lazyWithRetry(() => import("@/pages/Maintenance"))
@@ -208,6 +209,8 @@ function App() {
                 <Route path="/inventory">
                   <Route index element={<Inventory />} />
                   <Route path="add" element={<AddItem />} />
+                  <Route path="notes" element={<NotesPage />} />
+                  <Route path="rooms/:roomId/notes" element={<NotesPage />} />
                   <Route path=":id" element={<InventoryDetail />} />
                 </Route>
                 <Route path="/tasks" element={<Tasks />} />

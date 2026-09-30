@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { NotesSection } from "@/components/notes/NotesSection"
 import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
 import { anyAwaitingReview } from "@/lib/manualReviewState"
 import { itemSubtitle } from "@/lib/itemSubtitle"
@@ -514,6 +515,9 @@ export function DesktopItemDetail({
   
           {/* Warranty — status-first */}
           <WarrantyPanel item={item} homeId={homeId} onEdit={onEdit} onItemUpdate={onItemUpdate} />
+
+          {/* Notes — the same section as the phone's (design/spares-and-notes.md §2) */}
+          <NotesSection homeId={homeId} item={item} onItemUpdate={onItemUpdate} />
 
           {/* Manuals — reuse the existing manager/list (renders its own card) */}
           <ManualSection {...manualSectionProps} />

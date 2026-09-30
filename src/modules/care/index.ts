@@ -5,6 +5,9 @@ export {
   createCareNote,
   updateCareNote,
   deleteCareNote,
+  getHomeNotes,
+  promoteLegacyItemNote,
+  clearLegacyItemNote,
 } from "./services/careNoteService"
 
 export {
