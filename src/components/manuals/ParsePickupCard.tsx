@@ -80,6 +80,9 @@ export function ParsePickupCard({
   const [loaded, setLoaded] = useState<{ key: string; draft: PreviewResult } | null>(null)
   const [open, setOpen] = useState<"inline" | "sheet" | null>(null)
   const [saving, setSaving] = useState(false)
+  /** Runs saved here. The save's answer can beat the listener's news of it by
+   *  a moment; without this the card would flash back for that moment. */
+  const [savedRuns, setSavedRuns] = useState<ReadonlySet<string>>(new Set())
   /** Bumped when a door asks for a review, so the pickup below is re-chosen. */
   const [, setAsked] = useState(0)
 
@@ -118,7 +121,7 @@ export function ParsePickupCard({
     else setAsked((n) => n + 1)
   }), [openIfDue])
 
-  const awaiting = manuals.filter(isAwaitingReview)
+  const awaiting = manuals.filter((m) => isAwaitingReview(m) && !savedRuns.has(`${m.manual_id}:${m.parse_request_id ?? ""}`))
   // A review someone asked for wins, even over a card they dismissed; otherwise
   // the first read waiting that has not been waved away. (Read at render: a
   // request bumps `asked`, which is what renders this again.)
@@ -225,6 +228,7 @@ export function ParsePickupCard({
             rescanRequested: false,
           })
         }
+        setSavedRuns((prev) => new Set(prev).add(`${manualId}:${pickup.parse_request_id ?? ""}`))
         setOpen(null)
         clearParsePending(manualId)
         onReviewSaved()

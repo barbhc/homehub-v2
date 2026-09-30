@@ -243,6 +243,10 @@ describe("one review, and only Save saves (HH-120, HH-134)", () => {
     expect(svc.commitReviewedDraft.mock.calls[0][1]).toBe("m-save")
     await waitFor(() => expect(onReviewSaved).toHaveBeenCalledTimes(1))
     expect(svc.clearParsePending).toHaveBeenCalledWith("m-save")
+    // The live list has not heard of the save yet (these props still say
+    // "waiting"): the card must not flash back for that moment (S3c.5).
+    expect(screen.queryByTestId("handoff-card")).toBeNull()
+    expect(reviews()).toHaveLength(0)
   })
 })
 
