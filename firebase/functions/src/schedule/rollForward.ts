@@ -20,9 +20,25 @@ export interface RollForwardResult {
   rolled: number
   skippedHasDone: number
   skippedNonRecurring: number
+  /** Batched commits it took to write `rolled`. */
+  batches: number
 }
 
-export async function runRollForward(db: Firestore, today: string): Promise<RollForwardResult> {
+/**
+ * Writes per batch. Firestore refuses a batched write of more than 500
+ * operations; this job used to put every re-anchored instance in the app into
+ * ONE batch, so the first night with 501 rollable rows would have failed and
+ * rolled none of them — every night after, too. 400 leaves headroom for a
+ * field transform added later (those count as an extra write each).
+ */
+export const ROLL_FORWARD_BATCH_SIZE = 400
+
+export async function runRollForward(
+  db: Firestore,
+  today: string,
+  opts?: { batchSize?: number },
+): Promise<RollForwardResult> {
+  const batchSize = opts?.batchSize ?? ROLL_FORWARD_BATCH_SIZE
   // Collection-group sweep across all homes: past-due, still-scheduled, not deleted.
   const candidates = await db
     .collectionGroup("taskInstances")
@@ -31,9 +47,17 @@ export async function runRollForward(db: Firestore, today: string): Promise<Roll
     .where("dueDate", "<", today)
     .get()
 
-  const result: RollForwardResult = { scanned: candidates.size, rolled: 0, skippedHasDone: 0, skippedNonRecurring: 0 }
+  const result: RollForwardResult = { scanned: candidates.size, rolled: 0, skippedHasDone: 0, skippedNonRecurring: 0, batches: 0 }
   const nowTs = Timestamp.now()
-  const batch = db.batch()
+  let batch = db.batch()
+  let pending = 0
+  const flush = async () => {
+    if (pending === 0) return
+    await batch.commit()
+    result.batches += 1
+    batch = db.batch()
+    pending = 0
+  }
 
   for (const inst of candidates.docs) {
     const homeRef = inst.ref.parent.parent // homes/{homeId}
@@ -63,9 +87,11 @@ export async function runRollForward(db: Firestore, today: string): Promise<Roll
 
     batch.set(inst.ref, { dueDate: newDue, updatedAt: nowTs }, { merge: true })
     result.rolled++
+    pending++
+    if (pending >= batchSize) await flush()
   }
 
-  if (result.rolled > 0) await batch.commit()
+  await flush()
   return result
 }
 
@@ -79,6 +105,6 @@ export const rollForwardNeverStarted = onSchedule(
   { region: REGION, schedule: "30 5 * * *", timeZone: "America/Los_Angeles" },
   async () => {
     const res = await runRollForward(getFirestore(), todayInLA())
-    console.log(`rollForward: scanned=${res.scanned} rolled=${res.rolled} hasDone=${res.skippedHasDone} nonRecurring=${res.skippedNonRecurring}`)
+    console.log(`rollForward: scanned=${res.scanned} rolled=${res.rolled} hasDone=${res.skippedHasDone} nonRecurring=${res.skippedNonRecurring} batches=${res.batches}`)
   }
 )
