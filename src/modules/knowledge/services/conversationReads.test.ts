@@ -48,7 +48,26 @@ describe("listConversations", () => {
       ["conv-55", "Question 55", "2026-06-03T07:00:00.000Z"],
     ])
     expect(list?.at(-1)?.title).toBe("Question 10")
-    expect(fakeDb.reads.docsRead).toBe(60)
+    // Was 60: every conversation, cut to 50 on the client.
+    expect(fakeDb.reads.docsRead).toBe(50)
+    expect(fakeDb.reads.log).toEqual(["query homes/h1/chatConversations [orderBy updatedAt desc, limit 50] → 50"])
+  })
+
+  it("fewer than 50: all of them, same order", async () => {
+    fakeDb.load(
+      Object.fromEntries(
+        Object.entries(sixtyConversations()).filter(([path]) => /conv-(0\d|1\d)$/.test(path)),
+      ),
+    )
+    const list = await listConversations(HOME)
+    expect(list).toHaveLength(20)
+    const times = list!.map((c) => c.updated_at)
+    expect(times).toEqual([...times].sort().reverse())
+  })
+
+  it("a failed read is 'persistence off' (null), as before", async () => {
+    fakeDb.failWith = new Error("unavailable")
+    expect(await listConversations(HOME)).toBeNull()
   })
 
   it("no home → no call", async () => {

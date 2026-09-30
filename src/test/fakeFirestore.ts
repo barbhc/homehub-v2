@@ -85,12 +85,15 @@ export const fakeDb = {
    * EMPTY with `fromCache: true` instead of throwing (see src/lib/assertServed.ts).
    */
   offline: false,
+  /** When set, every read rejects with it — a network or rules failure. */
+  failWith: null as Error | null,
   /** Replace the whole database with `docs` (full document path → data) and zero the counters. */
   load(docs: Record<string, Data>): void {
     store.clear()
     for (const [path, data] of Object.entries(docs)) store.set(path, copyData(data))
     fakeDb.resetCounters()
     fakeDb.offline = false
+    fakeDb.failWith = null
     writes.length = 0
     autoId = 0
   },
@@ -276,6 +279,7 @@ export const fakeFirestoreModule = {
   serverTimestamp: () => SERVER_TIMESTAMP,
   async getDocs(ref: CollectionRef | Query) {
     const q: Query = ref.kind === "query" ? ref : { kind: "query", path: ref.path, constraints: [] }
+    if (fakeDb.failWith) throw fakeDb.failWith
     const rows = fakeDb.offline ? [] : runQuery(q)
     reads.queries++
     reads.docsRead += Math.max(1, rows.length)
@@ -290,6 +294,7 @@ export const fakeFirestoreModule = {
     }
   },
   async getDoc(ref: DocRef) {
+    if (fakeDb.failWith) throw fakeDb.failWith
     reads.gets++
     reads.docsRead += 1
     reads.log.push(`get ${ref.path}`)
