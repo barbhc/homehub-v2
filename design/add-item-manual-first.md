@@ -1,5 +1,9 @@
 # Add item, manual-first
 
+> **Status: historical.** The round-5 proposal (2026-08-18). The add flow has
+> been rebuilt several times since (rounds 11–18); the agreement is now
+> `docs/add-item-flow.md`. Kept as the record of the diagnosis.
+
 Round-5 feedback, stated plainly by the owner: *"this is a dead end for a user
 that doesn't realize that the manual is the key source of the tasks and cleaning
 guides."*

@@ -1,3 +1,7 @@
+> **Historical — superseded; see `docs/add-item-flow.md`.** PR #185 merged on
+> 2026-08-28, so the rules below about not merging or deploying it are spent.
+> Kept as the record of how round 18 was decided.
+
 # Round 18 — live handoff
 
 **Written 2026-08-27, mid-QA, because the working session was running out of
