@@ -34,13 +34,18 @@ export interface CompletedRowFacts {
   deleted: boolean
   completedAt: Date | null
   updatedAt: Date | null
+  /** Absent on some legacy rows; then only the noon-stamp test applies. */
+  createdAt?: Date | null
 }
 
 export type RowVerdict =
   | { kind: "not-completed" }
   | { kind: "deleted"; recorded: string }
-  /** completedAt is not noon UTC — not written by completeTask (e.g. the item
-   *  page's log-a-past-completion, a direct status update, the seed). */
+  /** Not a completeTask completion: completedAt isn't noon UTC (a direct
+   *  status update, the seed), or the row was CREATED done — createdAt equals
+   *  updatedAt, which is logTaskCompletion (the item page's "log a past
+   *  completion"). That one writes local noon, which IS 12:00Z on a UTC+0
+   *  device, so the stamp alone can't tell. */
   | { kind: "other-writer"; recorded: string }
   | { kind: "consistent"; recorded: string }
   | { kind: "shifted"; recorded: string; corrected: string; checkedOffAt: Date }
@@ -66,6 +71,11 @@ export function classifyCompletedRow(row: CompletedRowFacts, timeZone: string): 
   const recorded = utcDay(row.completedAt)
   if (row.deleted) return { kind: "deleted", recorded }
   if (!isCompleteTaskStamp(row.completedAt)) return { kind: "other-writer", recorded }
+  // completeTask completes an instance that already existed, so its createdAt
+  // is always earlier than the completion write.
+  if (row.createdAt && row.updatedAt && row.createdAt.getTime() === row.updatedAt.getTime()) {
+    return { kind: "other-writer", recorded }
+  }
   if (!row.updatedAt) return { kind: "unverifiable", recorded, lastWriteDay: null }
   const homeDay = calendarDateIn(timeZone, row.updatedAt)
   if (recorded === homeDay) return { kind: "consistent", recorded }

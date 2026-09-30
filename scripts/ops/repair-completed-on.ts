@@ -25,19 +25,24 @@
  *   · Due dates are NEVER rewritten. When a next instance's due date was
  *     derived from a shifted day, the output says so and what it would have
  *     been; whether to move it is a human decision.
- *   · --until <ISO instant> skips check-offs at or after it. Once the fixed
- *     client is live, a device EAST of the home can legitimately send "its"
- *     date near midnight, which looks the same; pass the deploy time.
+ *   · --until <ISO instant> skips check-offs at or after it, and --apply
+ *     REFUSES without it. Once the fixed client is live, a device EAST of the
+ *     home can legitimately send "its" date near midnight, which looks the
+ *     same; pass the hosting deploy time (or now, if the fix hasn't shipped).
+ *   · The home's timezone field is the reference calendar. createHome writes
+ *     America/Los_Angeles for everyone and nothing lets a person change it, so
+ *     confirm the household really lives on that clock before --apply.
  *
  *   Emulator (FIRESTORE_EMULATOR_HOST set → no credentials, demo-homehub):
  *     FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx tsx scripts/ops/repair-completed-on.ts --home e2e-home
  *   Production — owner/gatekeeper only, never from a test run:
  *     GOOGLE_APPLICATION_CREDENTIALS=<sa.json> FIREBASE_PROJECT_ID=homehub-2068d \
- *       npx tsx scripts/ops/repair-completed-on.ts --home <homeId> [--until <ISO>] [--apply]
+ *       npx tsx scripts/ops/repair-completed-on.ts --home <homeId> [--until <ISO>]            # dry run
+ *     … --home <homeId> --until <ISO> --apply
  */
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app"
 import { FieldValue, getFirestore, Timestamp, type DocumentData } from "firebase-admin/firestore"
-import { DEFAULT_HOME_TIMEZONE } from "../../firebase/functions/src/tasks/completedOn.js"
+import { DEFAULT_HOME_TIMEZONE, isKnownTimeZone } from "../../firebase/functions/src/tasks/completedOn.js"
 import {
   classifyCompletedRow,
   describeNextDue,
@@ -85,6 +90,13 @@ function parseArgs(argv: string[]): { home: string; apply: boolean; until: Date 
   }
   if (!home) die("--home <homeId> is required. This repairs ONE home per run — it never runs project-wide.")
   if (apply && dryRun) die("--apply and --dry-run together is ambiguous; pick one.")
+  if (apply && !until) {
+    die(
+      "--apply needs --until <ISO instant>: the time the fixed client went live (the hosting deploy), " +
+        "or now if it hasn't shipped. After it, a device east of the home can send its own date near " +
+        "midnight and look exactly like a shifted row.",
+    )
+  }
   return { home, apply, until }
 }
 
@@ -106,15 +118,6 @@ function connect(): { label: string } {
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 const asDate = (v: unknown): Date | null => (v instanceof Timestamp ? v.toDate() : null)
-
-function isKnownTimeZone(tz: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: tz })
-    return true
-  } catch {
-    return false // RangeError — main() refuses to guess a zone for a repair
-  }
-}
 
 function homeClock(d: Date, timeZone: string): string {
   return d.toLocaleString("en-US", { timeZone, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
@@ -161,6 +164,10 @@ async function main(): Promise<void> {
     tzNote = ""
   }
   console.log(`Home:   ${homeId} "${homeSnap.get("name") ?? ""}" · timezone ${timeZone} ${tzNote}`.trimEnd())
+  // Every row is judged against this calendar. createHome writes the default
+  // for everyone and nothing lets a person change it, so it is only right if
+  // the household really lives on it.
+  console.log(`        Every row is judged by ${timeZone}'s calendar — confirm the household lives on it before --apply.`)
   if (until) console.log(`Until:  only check-offs before ${until.toISOString()}`)
 
   const instSnap = await db.collection(`homes/${homeId}/taskInstances`).get()
@@ -192,6 +199,7 @@ async function main(): Promise<void> {
         deleted: doc.get("deletedAt") != null,
         completedAt: asDate(doc.get("completedAt")),
         updatedAt: asDate(doc.get("updatedAt")),
+        createdAt: asDate(doc.get("createdAt")),
       },
       timeZone,
     )
@@ -209,7 +217,7 @@ async function main(): Promise<void> {
   console.log(`  shifted — recorded a day off the home's calendar:   ${counts.shifted}${apply ? "" : "  (would repair)"}`)
   console.log(`  consistent:                                        ${counts.consistent}`)
   console.log(`  unverifiable — back-dated, or written again since: ${counts.unverifiable}  (left alone)`)
-  console.log(`  not written by completeTask (completedAt ≠ 12:00Z): ${counts["other-writer"]}  (left alone)`)
+  console.log(`  other writers — created done, or not at 12:00Z:    ${counts["other-writer"]}  (left alone)`)
   console.log(`  soft-deleted:                                      ${counts.deleted}  (left alone)`)
   if (until) console.log(`  shifted-looking but at/after --until:              ${counts["after-until"]}  (left alone)`)
 
@@ -269,7 +277,11 @@ async function main(): Promise<void> {
     `\nTotals: ${counts.shifted} shifted · ${derivedCount} next due date(s) derived from a shifted day (reported, never rewritten)` +
       (apply ? ` · ${applied} written · ${skipped} not written` : ""),
   )
-  console.log(apply ? "Applied.\n" : "Dry run only. Re-run with --apply to write completedAt for the SHIFTED rows above.\n")
+  console.log(
+    apply
+      ? "Applied.\n"
+      : "Dry run only. Re-run with --until <ISO> --apply to write completedAt for the SHIFTED rows above.\n",
+  )
   if (skipped > 0) process.exit(1)
 }
 

@@ -68,6 +68,20 @@ describe("classifyCompletedRow — which rows the old UTC date shifted", () => {
     expect(classifyCompletedRow(row("2026-09-30", "2026-09-30T05:00:00Z"), LA)).toMatchObject({ kind: "shifted", corrected: "2026-09-29" })
   })
 
+  it("a row CREATED done (logTaskCompletion) is left alone, even at 12:00Z from a UTC+0 device", () => {
+    // London in winter logs "today" at 06:00: local noon IS 12:00Z, and LA is still Sep 29.
+    const logged = {
+      status: "done",
+      deleted: false,
+      completedAt: at("2026-09-30T12:00:00Z"),
+      updatedAt: at("2026-09-30T06:00:00Z"),
+      createdAt: at("2026-09-30T06:00:00Z"),
+    }
+    expect(classifyCompletedRow(logged, LA)).toEqual({ kind: "other-writer", recorded: "2026-09-30" })
+    // The same stamp on an instance that existed before its check-off is completeTask's.
+    expect(classifyCompletedRow({ ...logged, createdAt: at("2026-09-01T00:00:00Z") }, LA).kind).toBe("shifted")
+  })
+
   it("rows not stamped at noon UTC were written by another path and are left alone", () => {
     const logged = { status: "done", deleted: false, completedAt: at("2026-09-29T19:00:00Z"), updatedAt: at("2026-09-30T02:30:00Z") }
     expect(classifyCompletedRow(logged, LA)).toEqual({ kind: "other-writer", recorded: "2026-09-29" })
