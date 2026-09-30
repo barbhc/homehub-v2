@@ -2,6 +2,7 @@ import { callable, docRef } from "@/integrations/firebase"
 import { onSnapshot, getDoc, type Unsubscribe } from "firebase/firestore"
 import type { ParseProgressState } from "@/components/smart-add/ParseProgressStep"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "../types/previewTypes"
+import { isParseInFlightMessage, PARSE_ERR } from "../../../../shared/parse/parseErrors"
 
 /**
  * Shape returned by the parse-manual edge function under `confidence`.
@@ -145,23 +146,61 @@ const enqueueParseCallable = callable<
   { ok: true; requestId: string }
 >("enqueueParse")
 
+/** A scan of this manual that is running right now — the one enqueueParse
+ *  refused to start a second, separately billed copy of. */
+export interface InFlightRun {
+  requestId: string
+  mode: ParseMode | null
+}
+
+const MODES: ParseMode[] = ["commit", "preview", "fill_gaps"]
+
+/** The running scan named by an "already being read" refusal, when the
+ *  callable's structured details came through. */
+function inFlightFromDetails(err: unknown): InFlightRun | null {
+  const d = (err as { details?: unknown } | null)?.details
+  if (!d || typeof d !== "object") return null
+  const r = d as Record<string, unknown>
+  if (r.kind !== "parse_in_flight" || typeof r.requestId !== "string" || r.requestId.length === 0) return null
+  return { requestId: r.requestId, mode: MODES.includes(r.mode as ParseMode) ? (r.mode as ParseMode) : null }
+}
+
 /** Kick off a parse. Returns the requestId the worker claims; the manual's
- *  parse.stage becomes "queued" immediately. */
+ *  parse.stage becomes "queued" immediately. A refusal because this manual is
+ *  already being read carries that scan in `inFlight`. */
 export async function startParse(
   manualId: string,
   opts: StartParseOpts
-): Promise<{ ok: true; requestId: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; requestId: string } | { ok: false; error: string; inFlight?: InFlightRun }> {
   try {
     const res = await enqueueParseCallable({ homeId: opts.homeId, manualId, mode: opts.mode })
     return { ok: true, requestId: res.requestId }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not start the scan." }
+    const inFlight = inFlightFromDetails(err)
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not start the scan.",
+      ...(inFlight ? { inFlight } : {}),
+    }
   }
+}
+
+/** Fallback when the refusal's details did not survive the transport: the
+ *  manual itself says which scan is running. */
+async function readRunningScan(homeId: string, manualId: string): Promise<InFlightRun | null> {
+  const snap = await getDoc(docRef(`homes/${homeId}/manuals/${manualId}`))
+  const parse = (snap.data() as { parse?: ManualParseSnapshot } | undefined)?.parse
+  // awaiting_capacity is pending to the USER but not running on the server,
+  // and enqueueParse never refuses a parked manual as in flight.
+  const running = parse?.stage && parse.stage !== "awaiting_capacity" && ACTIVE_PARSE_STAGES.includes(parse.stage)
+  if (!running || typeof parse?.requestId !== "string") return null
+  return { requestId: parse.requestId, mode: MODES.includes(parse.mode as ParseMode) ? (parse.mode as ParseMode) : null }
 }
 
 interface ManualParseSnapshot {
   stage?: ParseStage
   requestId?: string
+  mode?: ParseMode
   error?: { message?: string } | null
   summary?: { chunks?: number; tasks?: number; inserted?: number; duplicatesSkipped?: number; confidence?: unknown } | null
   /** Written by the worker at the pdf_fetched stage. The only concrete fact
@@ -183,8 +222,24 @@ export function watchParse(
   })
 }
 
-/** Start + watch to a terminal state. Resolves on `done` (with real committed
- *  counts) or `error`. `onStage` streams UI progress the whole way. */
+/**
+ * Start + watch to a terminal state. Resolves on `done` (with real committed
+ * counts) or `error`. `onStage` streams UI progress the whole way.
+ *
+ * ONE run, followed by its requestId (C2, 2026-09-30):
+ *  - Only snapshots stamped with the followed requestId count. The worker now
+ *    stamps every stage write with its own requestId; before, a stage write
+ *    carried none, so an OLDER run's `done` satisfied a newer run's watcher and
+ *    the review opened on the wrong draft. A snapshot without a requestId, or
+ *    with another run's, is not ours.
+ *  - If the server says this manual is ALREADY being read by the same kind of
+ *    scan (the item page re-asking for the manual the add wizard just
+ *    started), this follows that scan instead of reporting a failure — the
+ *    result is exactly what was asked for, and it is already paid for.
+ *  - If the followed run is replaced while we watch (seen first, then a
+ *    different requestId), a replacement of the same kind is followed; any
+ *    other ends the wait honestly instead of leaving it open forever.
+ */
 export async function parseManualAndWait(
   manualId: string,
   opts: StartParseOpts,
@@ -192,17 +247,45 @@ export async function parseManualAndWait(
 ): Promise<ParseManualResult> {
   onStage?.("uploading")
   const started = await startParse(manualId, opts)
-  if (!started.ok) {
-    onStage?.("error")
-    return { ok: false, error: started.error }
+  let follow: string
+  if (started.ok) {
+    follow = started.requestId
+  } else {
+    const running =
+      started.inFlight ??
+      (isParseInFlightMessage(started.error)
+        ? // A failed read is not hidden: it falls through to returning the
+          // server's own refusal below, which the caller shows.
+          await readRunningScan(opts.homeId, manualId).catch(() => null)
+        : null)
+    if (running && running.mode === opts.mode) {
+      follow = running.requestId
+    } else {
+      onStage?.("error")
+      return { ok: false, error: started.error }
+    }
   }
   return new Promise<ParseManualResult>((resolve) => {
     let settled = false
+    // Snapshots arrive in order, so once the followed run has been seen, a
+    // different requestId can only be a NEWER run — never a stale cached one.
+    let seenOurs = false
     const unsub = watchParse(opts.homeId, manualId, (stage, parse) => {
-      // Only react to OUR run — ignore a superseding requestId's transitions.
-      if (parse.requestId && parse.requestId !== started.requestId) return
-      onStage?.(toUiStage(stage))
       if (settled) return
+      if (parse.requestId !== follow) {
+        if (!seenOurs || !parse.requestId) return
+        if (parse.mode === opts.mode) {
+          follow = parse.requestId
+        } else {
+          settled = true
+          unsub()
+          onStage?.("error")
+          resolve({ ok: false, error: PARSE_ERR.superseded })
+          return
+        }
+      }
+      seenOurs = true
+      onStage?.(toUiStage(stage))
       if (stage === "done") {
         settled = true
         unsub()

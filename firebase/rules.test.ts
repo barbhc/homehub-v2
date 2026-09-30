@@ -416,6 +416,29 @@ describe("AI spend caps (config/spend) — server-only", () => {
   })
 })
 
+describe("manual-scan charge ledger (parseCharges) — server-only", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "parseCharges/run-1"), {
+        uid: OWNER, fn: "enqueueParse", units: 10, day: "2026-09-30", month: "2026-09", state: "held",
+      })
+    })
+  })
+
+  it("the payer can neither read nor rewrite their own charge (no self-refund)", async () => {
+    await assertFails(getDoc(doc(asOwner(), "parseCharges/run-1")))
+    await assertFails(updateDoc(doc(asOwner(), "parseCharges/run-1"), { units: 10000 }))
+    await assertFails(setDoc(doc(asOwner(), "parseCharges/run-2"), { uid: OWNER, units: 10000, state: "held" }))
+    await assertFails(deleteDoc(doc(asOwner(), "parseCharges/run-1")))
+  })
+
+  it("nobody else can either, and it cannot be listed", async () => {
+    await assertFails(getDoc(doc(asMember(), "parseCharges/run-1")))
+    await assertFails(getDocs(collection(asMember(), "parseCharges")))
+    await assertFails(getDoc(doc(asAnon(), "parseCharges/run-1")))
+  })
+})
+
 describe("growth gate (invite codes)", () => {
   const NEWCOMER = "newcomer-uid"
   const asNewcomer = () => testEnv.authenticatedContext(NEWCOMER).firestore()

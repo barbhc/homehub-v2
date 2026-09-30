@@ -3,43 +3,71 @@
  * fresh requestId on the manual (parse.stage = "queued"), caps in-flight parses
  * per home, then enqueues a Cloud Task for the long-running worker. Returns
  * immediately with the requestId; the client watches parse.stage via onSnapshot.
+ *
+ * ── Check before charging (C1, 2026-09-30) ──────────────────────────────────
+ *
+ * It used to charge 10 units FIRST, check only the home-wide in-flight count,
+ * overwrite the manual's requestId, and enqueue without a task id. So the item
+ * page re-enqueueing the manual the add wizard had just started cost a second
+ * 10 units and a second Claude call, and the two runs raced on one manual.
+ *
+ * Now, in order, before any charge:
+ *   1. THIS manual: a scan that is live (active stage, last write younger than
+ *      STALE_PARSE_MS) is refused — `failed-precondition`, a calm sentence, and
+ *      details naming the live run so the client can follow it instead of
+ *      reporting a failure. An active stage OLDER than that is a dead worker:
+ *      it is superseded (logged, and its charge refunded if it never reached
+ *      Claude), so a stuck manual can always be scanned again.
+ *   2. The home: at most MAX_IN_FLIGHT live scans (stalled ones don't count).
+ * Then the charge, then a TRANSACTION that re-checks step 1 and writes the new
+ * run + its ledger entry together — two enqueues racing for one manual cannot
+ * both win; the loser's charge goes straight back and it is told to follow the
+ * winner. The task is enqueued with id = requestId, so one run can never be
+ * queued twice.
  */
 import { randomUUID } from "node:crypto"
 import { onCall, HttpsError } from "firebase-functions/v2/https"
-import { getFirestore, Timestamp } from "firebase-admin/firestore"
+import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
 import { getFunctions } from "firebase-admin/functions"
 import type { ParseMode } from "./parseTypes.js"
 import { chargeAiQuota, isQuotaExhausted, type QuotaHold } from "../lib/quota.js"
+import { recordParseCharge, refundParseCharge } from "../lib/parseCharges.js"
+import { PARSE_ERR } from "../../../../shared/parse/parseErrors.js"
+import { ACTIVE_STAGES, PARSE_ATTEMPT_DEADLINE_SECONDS, runLiveness } from "./parseState.js"
+import type { ParseTaskPayload } from "./parseWorker.js"
 
 const REGION = "us-central1"
 /** Per-home cap on simultaneously in-flight parses (queue drains a bulk rescan
  *  serially via the worker's maxConcurrentDispatches; this stops runaway fan-out
  *  at enqueue time). */
-const MAX_IN_FLIGHT = 5
-const ACTIVE_STAGES = ["queued", "started", "pdf_fetched", "claude_call", "claude_responded", "committing"]
+export const MAX_IN_FLIGHT = 5
 
-export const enqueueParse = onCall({ region: REGION }, async (request) => {
-  const uid = request.auth?.uid
-  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
+export interface EnqueueDeps {
+  /** Charge the caller for one scan (chargeAiQuota in production). */
+  charge(uid: string): Promise<QuotaHold>
+  /** Hand the run to the worker queue under `taskId` (dedupes). */
+  enqueue(payload: ParseTaskPayload, taskId: string): Promise<void>
+}
 
-  const { homeId, manualId, mode: rawMode } = (request.data ?? {}) as {
-    homeId?: string
-    manualId?: string
-    mode?: ParseMode
-  }
-  if (!homeId || !manualId) throw new HttpsError("invalid-argument", "homeId and manualId are required.")
+export interface EnqueueInput {
+  uid: string
+  homeId: string
+  manualId: string
+  mode: ParseMode
+}
 
-  // FAIL SAFE, not fail destructive. This defaulted to "commit", so a request
-  // that omitted or misspelled the mode wrote tasks straight into someone's
-  // home. "preview" only writes a draft the user must accept, so the worst a
-  // malformed or stale request can now do is prepare something and wait.
-  const VALID: ParseMode[] = ["commit", "preview", "fill_gaps"]
-  const mode: ParseMode = VALID.includes(rawMode as ParseMode) ? (rawMode as ParseMode) : "preview"
-  if (rawMode !== undefined && rawMode !== mode) {
-    console.warn("[enqueueParse] unrecognised mode, defaulting to preview", { rawMode, homeId, manualId })
-  }
+/** The refusal that tells the client a scan of this manual is running now. */
+function inFlight(run: { requestId: string | null; mode: string | null; stage: string }): HttpsError {
+  return new HttpsError("failed-precondition", PARSE_ERR.alreadyReading, {
+    kind: "parse_in_flight",
+    requestId: run.requestId,
+    mode: run.mode,
+    stage: run.stage,
+  })
+}
 
-  const db = getFirestore()
+export async function runEnqueueParse(db: Firestore, deps: EnqueueDeps, input: EnqueueInput): Promise<{ ok: true; requestId: string }> {
+  const { uid, homeId, manualId, mode } = input
 
   // Membership check (Admin SDK bypasses rules — enforce here).
   const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
@@ -49,6 +77,24 @@ export const enqueueParse = onCall({ region: REGION }, async (request) => {
   const manual = await manualRef.get()
   if (!manual.exists) throw new HttpsError("not-found", "Manual not found.")
 
+  // ── 1. This manual, before any charge ─────────────────────────────────────
+  const before = runLiveness(manual.get("parse"), Date.now())
+  if (before.state === "live") throw inFlight(before)
+
+  // ── 2. The home's in-flight cap, stalled runs excluded ────────────────────
+  const active = await db
+    .collection(`homes/${homeId}/manuals`)
+    .where("parse.stage", "in", ACTIVE_STAGES)
+    .select("parse.stage", "parse.stageAt")
+    .get()
+  const nowMs = Date.now()
+  const live = active.docs.filter((d) => runLiveness(d.get("parse"), nowMs).state === "live").length
+  if (live >= MAX_IN_FLIGHT) {
+    // Refused before anything was charged, queued or parsed.
+    throw new HttpsError("resource-exhausted", "Too many parses in progress; try again shortly.")
+  }
+
+  // ── 3. Charge ──────────────────────────────────────────────────────────────
   // The parse worker is the most expensive Claude call in the app — charge the
   // enqueuing user's daily quota here (the worker itself has no caller context).
   //
@@ -63,7 +109,7 @@ export const enqueueParse = onCall({ region: REGION }, async (request) => {
   // hand; they are re-thrown untouched.
   let hold: QuotaHold
   try {
-    hold = await chargeAiQuota(db, uid, "enqueueParse")
+    hold = await deps.charge(uid)
   } catch (err) {
     if (isQuotaExhausted(err)) {
       await manualRef.set(
@@ -81,47 +127,131 @@ export const enqueueParse = onCall({ region: REGION }, async (request) => {
           },
           updatedAt: Timestamp.now(),
         },
-        { merge: true }
+        { merge: true },
       )
     }
     throw err
   }
 
-  // In-flight cap.
-  const inFlight = await db
-    .collection(`homes/${homeId}/manuals`)
-    .where("parse.stage", "in", ACTIVE_STAGES)
-    .count()
-    .get()
-  if (inFlight.data().count >= MAX_IN_FLIGHT) {
-    // Rejected before anything was queued, let alone parsed. Without this the
-    // in-flight cap would quietly cost the user 10 units per bounce.
+  // ── 4. Claim the manual for the new run, atomically ────────────────────────
+  const requestId = randomUUID()
+  const claim = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(manualRef)
+    if (!snap.exists) return { kind: "gone" as const }
+    const now = runLiveness(snap.get("parse"), Date.now())
+    // Someone started a scan between step 1 and here — follow theirs.
+    if (now.state === "live") return { kind: "taken" as const, run: now }
+    const at = Timestamp.now()
+    tx.set(
+      manualRef,
+      {
+        parse: {
+          stage: "queued",
+          stageAt: at,
+          requestId,
+          mode,
+          model: null,
+          attempt: 0,
+          error: null,
+          summary: null,
+          retry: null,
+          awaiting: null,
+        },
+        updatedAt: at,
+      },
+      { merge: true },
+    )
+    if (hold.record) recordParseCharge(tx, db, requestId, hold.record, { homeId, manualId })
+    return { kind: "claimed" as const, superseded: now.state === "stalled" ? now : null }
+  })
+
+  if (claim.kind === "gone") {
     await hold.refund()
-    throw new HttpsError("resource-exhausted", "Too many parses in progress; try again shortly.")
+    throw new HttpsError("not-found", "Manual not found.")
+  }
+  if (claim.kind === "taken") {
+    await hold.refund()
+    throw inFlight(claim.run)
+  }
+  if (claim.superseded) {
+    const s = claim.superseded
+    console.warn("[enqueueParse] superseding a stalled scan", {
+      homeId,
+      manualId,
+      staleRequestId: s.requestId,
+      stage: s.stage,
+      ageMinutes: s.ageMs === null ? null : Math.round(s.ageMs / 60_000),
+    })
+    // A dead run that never reached Claude cost the user for nothing. The
+    // ledger knows: `held` means the Claude call was never started (the worker
+    // moves it to `vendor` first), whatever stage the manual shows.
+    if (s.requestId) {
+      await refundParseCharge(db, s.requestId, { from: ["held"], reason: "stalled; superseded by a new scan" })
+    }
   }
 
-  const requestId = randomUUID()
-  const now = Timestamp.now()
-  await manualRef.set(
+  // ── 5. Hand it to the worker ────────────────────────────────────────────────
+  try {
+    await deps.enqueue({ homeId, manualId, requestId, mode }, requestId)
+  } catch (err) {
+    const code = (err as { code?: unknown })?.code
+    if (code === "functions/task-already-exists") return { ok: true, requestId } // it IS queued
+    console.error(`[enqueueParse] could not enqueue ${homeId}/${manualId} (${requestId}):`, err)
+    // Nothing will ever read this manual: give the charge back and say so,
+    // instead of leaving it "queued" until the stalled-parse sweep notices.
+    await refundParseCharge(db, requestId, { from: ["held"], reason: "enqueue failed" })
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(manualRef)
+      if (snap.get("parse.requestId") !== requestId || snap.get("parse.stage") !== "queued") return
+      const at = Timestamp.now()
+      tx.set(
+        manualRef,
+        {
+          parse: { stage: "error", stageAt: at, requestId, error: { message: PARSE_ERR.notStarted, raw: String(err).slice(0, 500), stage: "queued", at } },
+          updatedAt: at,
+        },
+        { merge: true },
+      )
+    })
+    throw new HttpsError("unavailable", PARSE_ERR.notStarted)
+  }
+
+  return { ok: true, requestId }
+}
+
+export const enqueueParse = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
+
+  const { homeId, manualId, mode: rawMode } = (request.data ?? {}) as {
+    homeId?: unknown
+    manualId?: unknown
+    mode?: unknown
+  }
+  const isId = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 200 && !v.includes("/")
+  if (!isId(homeId) || !isId(manualId)) throw new HttpsError("invalid-argument", "homeId and manualId are required.")
+
+  // FAIL SAFE, not fail destructive. This defaulted to "commit", so a request
+  // that omitted or misspelled the mode wrote tasks straight into someone's
+  // home. "preview" only writes a draft the user must accept, so the worst a
+  // malformed or stale request can now do is prepare something and wait.
+  const VALID: ParseMode[] = ["commit", "preview", "fill_gaps"]
+  const mode: ParseMode = VALID.includes(rawMode as ParseMode) ? (rawMode as ParseMode) : "preview"
+  if (rawMode !== undefined && rawMode !== mode) {
+    console.warn("[enqueueParse] unrecognised mode, defaulting to preview", { rawMode, homeId, manualId })
+  }
+
+  const db = getFirestore()
+  return runEnqueueParse(
+    db,
     {
-      parse: {
-        stage: "queued",
-        stageAt: now,
-        requestId,
-        mode,
-        model: null,
-        attempt: 0,
-        error: null,
-        summary: null,
+      charge: (payer) => chargeAiQuota(db, payer, "enqueueParse"),
+      enqueue: async (payload, taskId) => {
+        await getFunctions()
+          .taskQueue(`locations/${REGION}/functions/parseWorker`)
+          .enqueue(payload, { dispatchDeadlineSeconds: PARSE_ATTEMPT_DEADLINE_SECONDS, id: taskId })
       },
-      updatedAt: now,
     },
-    { merge: true }
+    { uid, homeId, manualId, mode },
   )
-
-  await getFunctions()
-    .taskQueue(`locations/${REGION}/functions/parseWorker`)
-    .enqueue({ homeId, manualId, requestId, mode }, { dispatchDeadlineSeconds: 1800 })
-
-  return { ok: true as const, requestId }
 })

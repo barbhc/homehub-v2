@@ -91,7 +91,10 @@ test("rescan: a fuzzy-retitled task UPDATES in place (no delete/insert)", async 
   assert.equal(idsBefore.length, 2)
 
   // New enqueue: task 1 retitled (fuzzy match), task 2 identical, task 3 new.
-  await db.doc(`homes/${H}/manuals/m1`).set({ parse: { requestId: "reqB" } }, { merge: true })
+  // Seeded the way enqueueParse writes a new run — requestId AND stage
+  // "queued". (Setting only the requestId left the previous run's `done` in
+  // place, which the claim now reads, correctly, as a run that already ended.)
+  await db.doc(`homes/${H}/manuals/m1`).set({ parse: { requestId: "reqB", stage: "queued" } }, { merge: true })
   const second = [
     { title: "Run Odor-Mitigation Citrus Cycle to Refresh the Filters", schedule_type: "monthly", care_type: "cleaning", priority_tier: "recommended", risk_level: "performance" },
     { title: "Test smoke detectors", schedule_type: "semiannual", care_type: "maintenance", priority_tier: "essential", risk_level: "safety" },
@@ -114,8 +117,9 @@ test("malformed extraction refuses to commit (error stage, no chunk swap)", asyn
   await runParse(db, deps(fixture([{ title: "A task", schedule_type: "monthly", care_type: "cleaning", priority_tier: "optional", risk_level: "comfort" }])), { homeId: H, manualId: "m1", requestId: "reqM", mode: "commit", now: NOW })
   assert.equal(await count(`homes/${H}/manuals/m1/chunks`), 1)
 
-  // Now a malformed response (no tool_use, text w/o arrays).
-  await db.doc(`homes/${H}/manuals/m1`).set({ parse: { requestId: "reqBad" } }, { merge: true })
+  // Now a malformed response (no tool_use, text w/o arrays). Seeded as
+  // enqueueParse writes a new run (see the rescan test).
+  await db.doc(`homes/${H}/manuals/m1`).set({ parse: { requestId: "reqBad", stage: "queued" } }, { merge: true })
   const malformed = { content: [{ type: "text", text: "Sorry, I can't read this PDF." }] }
   const out = await runParse(db, deps(malformed), { homeId: H, manualId: "m1", requestId: "reqBad", mode: "commit", now: NOW })
 

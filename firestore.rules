@@ -233,6 +233,11 @@ service cloud.firestore {
     // read by the maintainer eval script — both Admin SDK. Never client-visible
     // (they aggregate cross-home feedback).
     match /parseEvalCandidates/{id} { allow read, write: if false; }
+    // The manual-scan charge ledger (firebase/functions/src/lib/parseCharges.ts):
+    // what each run was charged and whether it may be refunded. Server-only in
+    // both directions — a client that could edit `units` or `state` here could
+    // refund itself quota it spent (that is why it is not on the manual doc).
+    match /parseCharges/{requestId} { allow read, write: if false; }
 
     // Collection-group read for "find all MY memberships"
     // (homeService.getPrimaryHome/getHomes run
