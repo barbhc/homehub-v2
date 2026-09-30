@@ -213,10 +213,28 @@ export interface QuotaHold {
   /** Hand back PART of the charge — the call turned out cheaper than priced
    *  (a manual PDF chatQuery could not fetch). The call itself still counts. */
   release(units: number): Promise<void>
+  /**
+   * Charge MORE for this same call, when its price is only known partway
+   * through: an Ask turn learns how many manual PDFs it will attach after the
+   * charge that let it start. Same caps as the first charge (daily pool,
+   * monthly ceiling, and the burst window, which takes the extra units); the
+   * per-endpoint window is not ticked again — it is one call. Throws the same
+   * refusals chargeAiQuota throws; on a refusal nothing extra is charged and
+   * what was already held is still held (the caller decides whether to refund).
+   */
+  extend(units: number): Promise<void>
 }
 
 /** A hold that costs nothing to release — for paths that never charged. */
-export const NO_CHARGE: QuotaHold = { units: 0, record: null, refund: async () => {}, release: async () => {} }
+export const NO_CHARGE: QuotaHold = {
+  units: 0,
+  record: null,
+  refund: async () => {},
+  release: async () => {},
+  extend: async () => {
+    throw new Error("NO_CHARGE cannot be extended — charge the call first")
+  },
+}
 
 /**
  * Read a stored rate window, tolerating every shape a document can be in:
@@ -441,6 +459,54 @@ export async function chargeAiQuota(
         // over the work in progress. The user is over-charged by `n` units.
         console.error(`quota partial release failed for ${fn} (uid=${uid}, ${n}u on ${dayKey}):`, err)
       }
+    },
+    async extend(extra: number) {
+      if (refunded) throw new Error(`cannot extend a refunded ${fn} charge`)
+      if (!Number.isInteger(extra) || extra <= 0) return
+      const topUpAt = Date.now()
+      await db.runTransaction(async (tx) => {
+        const [dailySnap, monthlySnap, configSnap] = await Promise.all([
+          tx.get(dailyRef),
+          tx.get(monthlyRef),
+          tx.get(configRef),
+        ])
+        const config = spendConfigFrom(configSnap)
+        const ceiling = effectiveMonthlyCeiling(config)
+        const dailyLimit = dailyLimitFor(config, uid, fn)
+        // The burst rule, reused as-is: a per-endpoint window that always has
+        // room (this is the same call, already counted), so only the unit
+        // burst decides.
+        const burst = decideRateLimit({
+          now: topUpAt,
+          fnWindow: { windowStart: topUpAt, value: 0 },
+          fnLimit: 1,
+          burstWindow: readWindow(dailySnap.get("rate.burst")),
+          burstLimit: BURST_UNIT_LIMIT,
+          units: extra,
+        })
+        if (!burst.allowed) throw errorForRate(burst.reason, burst.retryAfterSeconds)
+        const verdict = decideQuota({
+          dailyUnits: (dailySnap.get("units") as number | undefined) ?? 0,
+          dailyLimit,
+          monthlyUnits: (monthlySnap.get("units") as number | undefined) ?? 0,
+          monthlyCeiling: ceiling,
+          units: extra,
+        })
+        if (!verdict.allowed) throw errorForVerdict(verdict.reason, { fn, fnLimit: null })
+        tx.set(
+          dailyRef,
+          { units: FieldValue.increment(extra), rate: { burst: burst.burstWindow }, updatedAt: FieldValue.serverTimestamp() },
+          { merge: true },
+        )
+        tx.set(
+          monthlyRef,
+          { units: FieldValue.increment(extra), updatedAt: FieldValue.serverTimestamp() },
+          { merge: true },
+        )
+      })
+      held += extra
+      record.units += extra
+      hold.units = held
     },
   }
   return hold

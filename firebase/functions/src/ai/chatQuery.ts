@@ -24,10 +24,61 @@ import { pickNotes, formatNotesBlock, noteSources, type NoteInput, type NoteScop
 import { makeFetchPdf } from "../parse/storagePdf.js"
 import { rankChunks } from "./chunkRanking.js"
 import { chargeAiQuota, type QuotaHold } from "../lib/quota.js"
+import { CHAT_MAX_ATTACHED_PDFS, CHAT_UNITS_PER_PDF } from "../../../../shared/quota/policy.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const BRAVE_SEARCH_API_KEY = defineSecret("BRAVE_SEARCH_API_KEY")
 const REGION = "us-central1"
+
+/**
+ * Which in-scope manuals this question will try to attach as WHOLE PDFs: all
+ * of them when there are at most CHAT_MAX_ATTACHED_PDFS, none otherwise (then
+ * the answer comes from parsed excerpts). A URL that fails the SSRF guard is
+ * never fetched, so it is never planned — or priced.
+ */
+export function planPdfAttachments<T extends { sourceType: string; sourceRef: string }>(manuals: T[]): T[] {
+  if (manuals.length > CHAT_MAX_ATTACHED_PDFS) return []
+  return manuals.filter((m) => m.sourceType !== "url" || isAllowedUrl(m.sourceRef))
+}
+
+/**
+ * Pay for the manuals this question attaches, then fetch them.
+ *
+ * An Ask turn used to cost 1 unit whether it sent Claude a sentence or two
+ * ~100K-token PDFs (≈ $0.20 each on Sonnet 5). Now it is 1 + CHAT_UNITS_PER_PDF
+ * per attached PDF, through the same transactional quota path:
+ *
+ *   1. the base unit was charged before any reads (rate limit + pool), so a
+ *      looping client is still refused before it costs a query;
+ *   2. here, the PDFs are priced in one top-up (hold.extend) BEFORE the stream
+ *      opens — a refusal is thrown to the caller, which refunds the base unit
+ *      and answers 429, exactly like the first charge;
+ *   3. a manual that cannot be fetched is not attached, so its units are
+ *      released (hold.release) — the user pays for what Claude actually read.
+ *
+ * The whole hold is refunded by the caller if the stream then fails.
+ */
+export async function chargeAndFetchPdfs<T extends { manualId: string }>(
+  hold: QuotaHold,
+  planned: T[],
+  fetchOne: (manual: T) => Promise<string>,
+): Promise<Array<{ manual: T; base64: string }>> {
+  if (planned.length === 0) return []
+  await hold.extend(CHAT_UNITS_PER_PDF * planned.length)
+  const attached: Array<{ manual: T; base64: string }> = []
+  for (const manual of planned) {
+    try {
+      attached.push({ manual, base64: await fetchOne(manual) })
+    } catch (e) {
+      // Not fatal — the question is answered without this manual — but not
+      // silent either: a manual that never fetches is worth knowing about.
+      console.warn(`[chatQuery] manual ${manual.manualId} could not be fetched; answering without it:`, e instanceof Error ? e.message : e)
+    }
+  }
+  const missing = planned.length - attached.length
+  if (missing > 0) await hold.release(CHAT_UNITS_PER_PDF * missing)
+  return attached
+}
 
 type FilterType = "all" | "item" | "room" | "category"
 interface ChatRequestBody {
@@ -41,7 +92,6 @@ type ChatSource = { title: string; item_name: string; source_type: "manual" | "w
 type WebResult = { title: string; url: string; snippet: string }
 
 const PREFERRED_TYPES = ["care", "how_to", "troubleshooting", "reference"]
-const MAX_PDF_MANUALS = 2
 const MAX_CHUNKS = 30
 const CANDIDATES_PER_MANUAL = 40 // per-manual read cap; ranked down to MAX_CHUNKS
 const MAX_HISTORY_TURNS = 10
@@ -130,22 +180,42 @@ export const chatQuery = onRequest(
 
     // Daily AI quota — not an onCall, so surface it as a plain 429 before SSE.
     // Charged before the stream opens, because once SSE is running the only
-    // way to report a refusal is inside the stream.
+    // way to report a refusal is inside the stream. This is the BASE unit, and
+    // it is charged before any reads on purpose: the rate limit inside it is
+    // what refuses a looping client before the loop costs a query. The manual
+    // PDFs are priced later, once we know how many there are.
     let hold: QuotaHold
     try {
       hold = await chargeAiQuota(db, uid, "chatQuery")
     } catch (e) {
-      res.status(429).json({ error: e instanceof HttpsError ? e.message : "Daily AI limit reached. Please try again tomorrow." })
+      if (e instanceof HttpsError) {
+        res.status(429).json({ error: e.message })
+      } else {
+        // Not a refusal — the accounting itself failed. Saying "daily limit"
+        // here would blame the user for our outage.
+        console.error(`[chatQuery] quota charge failed for ${uid}:`, e)
+        res.status(503).json({ error: "The assistant couldn't start just now. Please try again in a moment." })
+      }
       return
     }
 
-    // From here on we stream SSE.
-    res.set("Content-Type", "text/event-stream")
-    res.set("Cache-Control", "no-cache")
-    res.set("Connection", "keep-alive")
+    // From the first write on, this is an SSE stream. The headers are staged
+    // lazily so that a refusal found before then can still be a plain 429.
+    const openStream = () => {
+      if (res.headersSent) return
+      res.set("Content-Type", "text/event-stream")
+      res.set("Cache-Control", "no-cache")
+      res.set("Connection", "keep-alive")
+    }
     const done = (sources: ChatSource[]) => {
+      openStream()
       res.write(sse({ done: true, sources }))
       res.end()
+    }
+    // Nothing to ask Claude about: no vendor call, so no charge.
+    const nothingToAsk = async () => {
+      await hold.refund()
+      done([])
     }
 
     // --- Resolve in-scope items ---
@@ -156,7 +226,7 @@ export const chatQuery = onRequest(
       category: (d.get("category") as string | null) ?? null,
       displayName: (d.get("displayName") as string | null) ?? "Unknown",
     }))
-    if (items.length === 0) return done([])
+    if (items.length === 0) return nothingToAsk()
 
     let scopedItems = items
     if (filter?.type === "item" && filter.value) {
@@ -167,7 +237,7 @@ export const chatQuery = onRequest(
     } else if (filter?.type === "category" && filter.value) {
       scopedItems = items.filter((i) => i.category === filter.value)
     }
-    if (scopedItems.length === 0) return done([])
+    if (scopedItems.length === 0) return nothingToAsk()
 
     const scopedIds = new Set(scopedItems.map((i) => i.id))
     const nameByItem = new Map(items.map((i) => [i.id, i.displayName]))
@@ -241,29 +311,37 @@ export const chatQuery = onRequest(
         sourceType: (d.get("sourceType") as string) ?? "url",
         sourceRef: (d.get("sourceRef") as string) ?? "",
       }))
-    if (manuals.length === 0 && warrantyBlock.length === 0 && notesBlock.length === 0) return done([])
+    if (manuals.length === 0 && warrantyBlock.length === 0 && notesBlock.length === 0) return nothingToAsk()
 
-    // --- Decide PDF vs chunk retrieval ---
+    // --- Decide PDF vs chunk retrieval, and pay for the PDFs ---
     const fetchPdf = makeFetchPdf()
     type PdfDoc = { type: "document"; source: { type: "base64"; media_type: string; data: string }; title?: string }
     const pdfDocs: PdfDoc[] = []
     const pdfSources: ChatSource[] = []
-    if (manuals.length <= MAX_PDF_MANUALS) {
-      for (const m of manuals) {
-        try {
-          if (m.sourceType === "url" && !isAllowedUrl(m.sourceRef)) continue
-          const base64 = await fetchPdf(m.sourceType, m.sourceRef)
-          const itemName = nameByItem.get(m.itemUnitId) ?? "Appliance"
-          pdfDocs.push({
-            type: "document",
-            source: { type: "base64", media_type: "application/pdf", data: base64 },
-            title: `${itemName} Owner's Manual`,
-          })
-          pdfSources.push({ title: "Owner's Manual", item_name: itemName, source_type: "manual" })
-        } catch {
-          /* skip unreachable manual */
-        }
+    let attached: Array<{ manual: ManualRow; base64: string }>
+    try {
+      attached = await chargeAndFetchPdfs(hold, planPdfAttachments(manuals), (m) => fetchPdf(m.sourceType, m.sourceRef))
+    } catch (e) {
+      // The PDFs did not fit the user's day or the month (or the top-up itself
+      // failed). Nothing has been streamed, so this is still a plain refusal —
+      // and the base unit goes back, since no question was answered.
+      await hold.refund()
+      if (e instanceof HttpsError) {
+        res.status(429).json({ error: e.message })
+      } else {
+        console.error(`[chatQuery] PDF top-up failed for ${uid}:`, e)
+        res.status(503).json({ error: "The assistant couldn't start just now. Please try again in a moment." })
       }
+      return
+    }
+    for (const { manual: m, base64 } of attached) {
+      const itemName = nameByItem.get(m.itemUnitId) ?? "Appliance"
+      pdfDocs.push({
+        type: "document",
+        source: { type: "base64", media_type: "application/pdf", data: base64 },
+        title: `${itemName} Owner's Manual`,
+      })
+      pdfSources.push({ title: "Owner's Manual", item_name: itemName, source_type: "manual" })
     }
 
     // Chunks (used when no PDFs, or as supplement). Read per-manual subcollection.
@@ -378,6 +456,7 @@ Rules:
     ] as Anthropic.MessageParam[]
 
     // --- Stream Claude ---
+    openStream()
     try {
       const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() })
       const stream = client.messages.stream({
