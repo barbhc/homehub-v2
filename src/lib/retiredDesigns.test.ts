@@ -141,6 +141,32 @@ describe("the add-item flow has one way in and no way into an old screen", () =>
   })
 })
 
+describe("no parked UI: a layout hidden at every width is deleted, not kept", () => {
+  // Home, Items and Tasks each carried a replaced layout inside
+  // className="hidden" — never on screen, still mounted, still edited as if it
+  // were live (Maintenance.tsx has the story; the dead-code sweep deleted the
+  // last of them, audit 2026-09-29). `hidden` is fine when a breakpoint shows
+  // the element again (`hidden lg:block`); alone, it is a decoy.
+  const SHOWN_AGAIN = /^(?:sm|md|lg|xl|2xl):(?:block|flex|grid|inline|inline-block|inline-flex|table|contents)$/
+  const alwaysHidden = (code: string) =>
+    [...code.matchAll(/className="([^"]*)"/g)]
+      .map((m) => m[1].split(/\s+/))
+      .filter((classes) => classes.includes("hidden") && !classes.some((c) => SHOWN_AGAIN.test(c)))
+      .map((classes) => classes.join(" "))
+
+  for (const page of ["src/pages/Home.tsx", "src/pages/Inventory.tsx", "src/pages/Maintenance.tsx"]) {
+    it(`${page} mounts nothing that is hidden at every width`, () => {
+      const src = sources.find((s) => s.path === page)
+      expect(src, `${page} not found`).toBeDefined()
+      expect(alwaysHidden(src!.text)).toEqual([])
+    })
+  }
+
+  it("the check itself sees a parked block (guards against a vacuous pass)", () => {
+    expect(alwaysHidden(`<div className="hidden mt-4"><Cal /></div><div className="hidden lg:block" />`)).toEqual(["hidden mt-4"])
+  })
+})
+
 describe("a saved wizard session cannot resume into a deleted screen", () => {
   const wizard = sources.find((s) => s.path.endsWith("src/lib/wizardSession.ts"))!
 
