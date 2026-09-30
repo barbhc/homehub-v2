@@ -1,7 +1,9 @@
 import { test, expect, type Locator, type Page } from "@playwright/test"
 import fs from "node:fs"
 import path from "node:path"
-import { TEST_EMAIL, TEST_PASSWORD } from "../seed-config"
+import { getApps, initializeApp } from "firebase-admin/app"
+import { getFirestore, Timestamp } from "firebase-admin/firestore"
+import { EMULATOR_PROJECT_ID, TEST_EMAIL, TEST_PASSWORD } from "../seed-config"
 import { assertEmulatorBackendVia } from "../assertEmulatorBackend"
 
 /**
@@ -210,12 +212,30 @@ test.describe("journey walks", () => {
         body: JSON.stringify({ result: { docType: "manual", confidence: 0.95, reason: "stub" } }),
       })
     )
-    await page.route("**/enqueueParse", (route) =>
-      route.fulfill({
-        status: 200, contentType: "application/json",
+    // The enqueue, faked the way the server behaves: it claims the manual for
+    // the read ("queued") BEFORE it answers. Without that write the item page
+    // could never show a read, and the step below would assert on nothing
+    // (HH-161; the admin SDK writes to the EMULATOR only — the same guard as
+    // e2e/emu/item-page-manual.spec.ts).
+    if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error("FIRESTORE_EMULATOR_HOST is not set — J2 writes to the EMULATOR only")
+    const adminDb = getFirestore(getApps()[0] ?? initializeApp({ projectId: EMULATOR_PROJECT_ID }))
+    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "POST, OPTIONS" }
+    await page.route("**/enqueueParse", async (route) => {
+      if (route.request().method() !== "POST") return route.fulfill({ status: 204, headers: cors })
+      const body = route.request().postDataJSON() as { data?: { homeId?: string; manualId?: string; mode?: string } } | null
+      const { homeId, manualId, mode } = body?.data ?? {}
+      if (homeId && manualId) {
+        const now = Timestamp.now()
+        await adminDb.doc(`homes/${homeId}/manuals/${manualId}`).set({
+          parse: { stage: "queued", stageAt: now, requestId: "req-journey", mode: mode ?? "preview", model: null, attempt: 0, error: null, summary: null },
+          updatedAt: now,
+        }, { merge: true })
+      }
+      return route.fulfill({
+        status: 200, headers: cors, contentType: "application/json",
         body: JSON.stringify({ result: { ok: true, requestId: "req-journey" } }),
       })
-    )
+    })
     await signInSeeded(page)
 
     await page.goto("/inventory/add")
@@ -325,14 +345,19 @@ test.describe("journey walks", () => {
     await page.waitForURL(/\/items\//, { timeout: 30_000 })
     const itemHeading = page.getByRole("heading", { name: "LG DLGX3901B" }).filter(visible).first()
     await expect(itemHeading).toBeVisible({ timeout: 20_000 })
-    // HH-118: the tray pill repeated the card above it and covered content. It
-    // stands down on the page already showing that scan. (The pill says
-    // "N scanning"; this matched "item scanning", which it never says. Here the
-    // stubbed enqueue writes no parse stage, so there is no scan to count —
-    // e2e/emu/item-page-manual.spec.ts walks HH-118 with one.)
-    await expect(page.getByText(/\d+ scanning/)).toHaveCount(0)
+    // HH-161 (supersedes HH-118): ONE reading indicator, and it shows HERE too
+    // — the pill, on the item whose manual is being read. (This used to match
+    // "item scanning", which the pill never said, and then assert the ABSENCE
+    // of a count the stub could not produce.) The seeded Sharp microwave waits
+    // for its review, so the pill may add "· 1 ready to review".
+    const pill = page.getByRole("button", { name: /\d+ (reading|queued|ready to review)/ })
+    await expect(pill).toHaveText(/(^|· )1 reading( ·|$)/, { timeout: 15_000 })
+    // …and the page body says it once, inside Upkeep, where the tasks will
+    // land — never "No upkeep yet — add the manual" under a manual being read.
+    await expect(page.getByText("Reading the manual", { exact: true })).toHaveCount(1)
+    await expect(page.getByText("No upkeep yet — add the manual")).toHaveCount(0)
     await snap(page, "J2", "living-item-page",
-      "Landed on the item page the moment the manual was attached — the wizard did not wait for the scan (no Reading screen, no review step). The enqueue is stubbed and writes no parse stage, so Upkeep's “No upkeep yet” under “Manuals & References (1)” is the stub's doing, not production's; e2e/emu/item-page-manual.spec.ts walks the scan state",
+      "Landed on the item page the moment the manual was attached — the wizard did not wait for the read (no Reading screen, no review step). The Upkeep card carries the read (“Reading the manual”, the keeps-going line, one sweeping rail — no page count yet, the worker has not fetched the PDF) and the pill above the tab bar says “1 reading” on this item's own page; nothing about the read sits above “‹ Items”",
       itemHeading)
   })
 
@@ -354,13 +379,15 @@ test.describe("journey walks", () => {
     // is a monthly cleaning job, so this walk covers the case that produced six
     // reports — a manual with no maintenance — and the screen now handles it by
     // simply having no Maintenance section rather than by explaining an absence.
-    const summary = page.getByText(/show(s)? up in Tasks/i).first()
+    //
+    // HH-161: the summary speaks in the Tasks page's own terms. An ITEM
+    // cleaning job lives on the item page — the Tasks page never lists it and
+    // the push sweep never sends it — so nothing here goes into Tasks, and with
+    // nothing there, there is no notify line. (This walk used to assert "shows
+    // up in Tasks" for it — the false promise D1 found.)
+    const summary = page.getByText("Nothing here goes into Tasks.").first()
     await expect(summary).toBeVisible({ timeout: 10_000 })
-
-    // The two channels, stated apart. This is the owner's correction: "there
-    // are items that are scheduled to be reminded within the app even if
-    // there's no notification." A monthly clean DOES come back; it does not buzz.
-    await expect(page.getByText(/None will notify your phone/i).first()).toBeVisible()
+    await expect(page.getByText(/will show up in Tasks|will notify/i)).toHaveCount(0)
 
     // No step machinery, and exactly ONE review mounted (HH-120).
     await expect(page.getByText(/Step \d of 2/)).toHaveCount(0)
@@ -375,7 +402,7 @@ test.describe("journey walks", () => {
     await expect(page.getByText(/This manual is cleaning/)).toHaveCount(0)
 
     await snap(page, "J3", "review-one-screen",
-      "Four sections by kind, Setup last. The summary must state BOTH channels separately — what shows up in Tasks, and what notifies — and must not claim these are already saved while the primary button is what saves them",
+      "Sections by kind, Setup last. The dishwasher's only task is ITEM cleaning, so the summary reads “Nothing here goes into Tasks.” with no notify line, the Cleaning row carries its cadence chip and “Lives on the item page” and NO bell — and nothing claims these are already saved while the primary button is what saves them",
       summary, { viewportOnly: true })
 
     // HH-134, pinned here because this is the state the owner reported three

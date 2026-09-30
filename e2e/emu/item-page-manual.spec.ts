@@ -84,11 +84,11 @@ async function fakeEnqueue(page: Page, db: Firestore): Promise<{ count: () => nu
   return { count: () => calls }
 }
 
-/** What the tray pill says is scanning, as a number — 0 when it says nothing. */
-async function trayScanning(page: Page): Promise<number> {
-  const pill = page.getByRole("button", { name: /\d+ scanning/ })
+/** What the tray pill says is being read, as a number — 0 when it says nothing. */
+async function trayReading(page: Page): Promise<number> {
+  const pill = page.getByRole("button", { name: /\d+ reading/ })
   if ((await pill.count()) === 0) return 0
-  return Number((await pill.first().textContent())?.match(/(\d+) scanning/)?.[1] ?? 0)
+  return Number((await pill.first().textContent())?.match(/(\d+) reading/)?.[1] ?? 0)
 }
 
 /** Every role=dialog in the DOM, hidden or not. */
@@ -163,14 +163,14 @@ function describeAt(label: string, viewport: { width: number; height: number }) 
       await expect(rail).toHaveCount(1, { timeout: 15_000 })
       await expect(rail).not.toHaveAttribute("aria-valuenow")
 
-      // HH-118 — the rule until E2 lands: the tray does not repeat THIS page's
-      // scan, and does count it everywhere else. Measured as a difference, so
-      // a scan another spec left running in the shared emulator cannot decide
-      // it. The tray's listener is its own; give it the moment the rail's took.
-      await page.waitForTimeout(1_500)
-      const here = await trayScanning(page)
+      // HH-161 (supersedes HH-118): ONE indicator. The pill counts THIS read
+      // on this item's own page, and the same count everywhere else. At least
+      // one here (a read another spec left running in the shared emulator may
+      // add to it), and the same number on another page.
+      await expect.poll(() => trayReading(page), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
+      const here = await trayReading(page)
       await page.goto("/inventory")
-      await expect.poll(() => trayScanning(page), { timeout: 15_000 }).toBe(here + 1)
+      await expect.poll(() => trayReading(page), { timeout: 15_000 }).toBe(here)
 
       // Coming back only WATCHES the scan (audit 2026-09-29): no second enqueue.
       await page.goto(`/items/${itemId}`)
@@ -181,24 +181,38 @@ function describeAt(label: string, viewport: { width: number; height: number }) 
       await expect(page.getByRole("heading", { name, exact: true, includeHidden: true })).toHaveCount(1)
     })
 
-    // HH-161 (Package E2). Today the Upkeep card reads the page's one-time
-    // manuals list, where a manual added in-session has parse_stage null — so
-    // it says "No upkeep yet — add the manual" and offers the button under the
-    // band that says the manual is being read. After a reload it reads the
-    // stage and agrees. When E2 lands, remove `.fixme`.
-    test.fixme("HH-161: while the manual just added is being read, Upkeep never offers to add a manual", async ({ page }) => {
+    // HH-161 (Package E2). The Upkeep card used to read the page's one-time
+    // manuals list, where a manual added in-session had parse_stage null — so
+    // it said "No upkeep yet — add the manual" and offered the button under the
+    // band saying the manual was being read. The page reads its manuals live
+    // now, and Upkeep carries the read itself.
+    test("HH-161: while the manual just added is being read, Upkeep never offers to add a manual", async ({ page }) => {
       await fakeEnqueue(page, db)
       await page.goto(`/items/${itemId}`)
       await expect(page.getByRole("heading", { name, exact: true })).toBeVisible({ timeout: 20_000 })
       await page.getByRole("button", { name: /Manuals & References\s*\(0\)/ }).click()
       await page.getByRole("button", { name: "Paste a link instead" }).click()
       await page.getByRole("dialog").locator("#manual-url").fill(MANUAL_URL)
+      // "Never", not just "not at the end": from the tap on, every DOM change
+      // is checked for the contradiction itself — the empty state's words on
+      // the page while it also says the manual is being read.
+      await page.evaluate(() => {
+        const w = window as unknown as { __hhBoth?: number }
+        w.__hhBoth = 0
+        new MutationObserver(() => {
+          const t = document.body.textContent ?? ""
+          if (t.includes("No upkeep yet — add the manual") && t.includes("Reading the manual")) w.__hhBoth! += 1
+        }).observe(document.body, { subtree: true, childList: true, characterData: true })
+      })
       await page.getByRole("dialog").getByRole("button", { name: "Scan the manual" }).click()
       await expect(allDialogs(page)).toHaveCount(0, { timeout: 30_000 })
       await expect(page.getByRole("progressbar", { name: "Reading the manual", includeHidden: true })).toHaveCount(1, { timeout: 15_000 })
 
       await expect(page.getByText("No upkeep yet — add the manual")).toHaveCount(0)
       await expect(page.getByRole("button", { name: "Add the manual", exact: true })).toHaveCount(0)
+      // …said once (the rail above is the only one) and never beside the offer.
+      await expect(page.getByText("Reading the manual", { exact: true })).toHaveCount(1)
+      expect(await page.evaluate(() => (window as unknown as { __hhBoth?: number }).__hhBoth ?? 0)).toBe(0)
     })
   })
 }

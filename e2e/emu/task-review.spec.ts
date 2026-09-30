@@ -28,11 +28,13 @@ test.describe("emulator e2e — task review", () => {
     await expect(entry).toBeVisible({ timeout: 10_000 })
     await entry.click()
 
-    // The summary states both channels apart. The seeded dishwasher's only task
-    // is a monthly cleaning job: it comes back in Tasks, and it does not notify,
-    // because Essential is the only notify-by-default.
-    await expect(page.getByText(/show(s)? up in Tasks/i).first()).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText(/None will notify your phone/i).first()).toBeVisible()
+    // The summary speaks in the Tasks page's own terms (HH-161). The seeded
+    // dishwasher's only task is a monthly ITEM cleaning job, which the Tasks
+    // page never lists (isAgendaEligible) and the push sweep never sends — so
+    // nothing here goes into Tasks, and with nothing there, no notify line.
+    // (This walk used to assert "shows up in Tasks" here: the false promise.)
+    await expect(page.getByText("Nothing here goes into Tasks.").first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText(/will show up in Tasks|will notify/i)).toHaveCount(0)
 
     // It is a Cleaning row, in a Cleaning section — one vocabulary, and the
     // section says what it means rather than promising a reminder.
@@ -48,6 +50,16 @@ test.describe("emulator e2e — task review", () => {
     await expect(page.getByText("How important?")).toBeVisible()
     await expect(page.getByText("How often?")).toBeVisible()
 
+    // As item CLEANING it lives on the item page and can never notify, so the
+    // review offers no reminder switch for it — it says why instead (HH-161,
+    // "a bell is never drawn that cannot be rung").
+    await expect(page.getByRole("checkbox", { name: /Remind me when it/ })).toHaveCount(0)
+    await expect(page.getByText(/Cleaning lives on the item page — it never notifies you/)).toBeVisible()
+
+    // Refile it as Maintenance: now it goes into Tasks, and the summary's
+    // count follows the row (the number the Tasks page will list).
+    await page.getByRole("button", { name: /Maintenance keeps it working/ }).click()
+
     // The cadence editor moved here from the deleted second screen; prove it
     // still works, since losing it was the near-miss of this change.
     await page.getByRole("button", { name: /^Quarterly$/ }).filter({ visible: true }).first().click()
@@ -59,6 +71,7 @@ test.describe("emulator e2e — task review", () => {
     await remind.check()
 
     await page.getByRole("button", { name: /^Done$/ }).click()
+    await expect(page.getByText("1 will show up in Tasks").first()).toBeVisible()
 
     // One button now, and it is the only thing that writes.
     const save = page.getByRole("button", { name: /^Save/ }).last()
@@ -83,12 +96,20 @@ test.describe("emulator e2e — task review", () => {
     await page.getByRole("button", { name: /Descale the dishwasher/ }).first().click()
     await expect(page.getByText("How often?")).toBeVisible({ timeout: 10_000 })
 
-    // Monthly → Quarterly survived the round trip...
+    // Cleaning → Maintenance and Monthly → Quarterly survived the round trip...
+    await expect(page.getByRole("button", { name: /Maintenance keeps it working/ })).toHaveAttribute("aria-pressed", "true")
     await expect(
       page.getByRole("button", { name: /^Quarterly$/ }).filter({ visible: true }).first()
     ).toHaveAttribute("aria-pressed", "true")
 
     // ...and so did the bell, which is stored separately from the tier.
     await expect(page.getByRole("checkbox", { name: /Remind me when it/ })).toBeChecked()
+
+    // Put the seed's kind back. Later specs in this run share the emulator,
+    // and as Maintenance this row would join the Tasks agenda they count.
+    await page.getByRole("button", { name: /Cleaning keeps it nice/ }).click()
+    await page.getByRole("button", { name: /^Done$/ }).click()
+    await page.getByRole("button", { name: /^Save/ }).last().click()
+    await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 15_000 })
   })
 })
