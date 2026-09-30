@@ -233,6 +233,14 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(card).toHaveCount(1, { timeout: 15_000 })
       await expect(card).toContainText(`We read the ${name} manual`)
       await expect(card.getByRole("button", { name: "Review 6 upkeep tasks" })).toBeVisible()
+      // …between the name block and Upkeep: below the name, above the upkeep
+      // it will fill (the phone's "Upkeep" heading; desktop's Tasks tab).
+      const cardY = (await card.boundingBox())!.y
+      expect(cardY).toBeGreaterThan((await page.getByRole("heading", { name, exact: true }).boundingBox())!.y)
+      const upkeepStart = label === "390px"
+        ? page.getByText("Upkeep", { exact: true })
+        : page.getByRole("button", { name: /^Tasks\b/ }).first()
+      expect(cardY).toBeLessThan((await upkeepStart.boundingBox())!.y)
       // S2.2 — no reading line or rail anywhere.
       await expect(page.getByRole("progressbar", { includeHidden: true })).toHaveCount(0)
       await expect(page.getByText("Reading the manual")).toHaveCount(0)
