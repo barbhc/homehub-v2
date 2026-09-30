@@ -62,8 +62,11 @@ const EMPTY_NOTICES: HomeNotices = { recalls: [], missingDetails: [] }
  * `topConcerns` from the profile only applies an ordering BOOST
  * (priorityScoreFor), so tasks depend on the profile alone — one query — rather
  * than on the slowest of seven.
+ *
+ * Exported (with fetchExtras) for src/lib/dashboardReads.test.ts, which runs
+ * both against an in-memory Firestore and pins what one Home load reads.
  */
-async function fetchCore(homeId: string): Promise<DashboardCore> {
+export async function fetchCore(homeId: string): Promise<DashboardCore> {
   const [profileRes, stats] = await Promise.all([
     soft(getHomeProfile(homeId), { data: null, error: null } as Awaited<ReturnType<typeof getHomeProfile>>, "profile"),
     getDashboardStats(homeId), // core — a real failure here surfaces the retry card
@@ -78,7 +81,7 @@ async function fetchCore(homeId: string): Promise<DashboardCore> {
  * Every one fails soft: a flaky query here degrades its own section to empty and
  * never blanks Home. Fetched alongside core, rendered whenever it lands.
  */
-async function fetchExtras(homeId: string): Promise<DashboardExtras> {
+export async function fetchExtras(homeId: string): Promise<DashboardExtras> {
   // getHomeUpkeep is deliberately NOT fetched here any more. Its only consumer
   // was the desktop Home-upkeep card, and it read two ENTIRE collections
   // (taskInstances + taskTemplates) on every dashboard load to render rows the
