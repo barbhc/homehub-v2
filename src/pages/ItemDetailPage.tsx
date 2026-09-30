@@ -369,21 +369,16 @@ export default function ItemDetailPage() {
     addManualOpen: manualMgmt.addManualOpen,
     setAddManualOpen: manualMgmt.setAddManualOpen,
     addMode: manualMgmt.addMode,
-    setAddMode: manualMgmt.setAddMode,
     addRole: manualMgmt.addRole,
     setAddRole: manualMgmt.setAddRole,
-    urlInput: manualMgmt.urlInput,
-    setUrlInput: manualMgmt.setUrlInput,
     titleInput: manualMgmt.titleInput,
     setTitleInput: manualMgmt.setTitleInput,
     labelInput: manualMgmt.labelInput,
     setLabelInput: manualMgmt.setLabelInput,
-    setUploadFile: manualMgmt.setUploadFile,
     addError: manualMgmt.addError,
     setAddError: manualMgmt.setAddError,
     addLoading: manualMgmt.addLoading,
     parsePhase: manualMgmt.parsePhase,
-    setManualParseError: manualMgmt.setParseError,
     parsingManualId: manualMgmt.parsingManualId,
     parsedManualId: manualMgmt.parsedManualId,
     setParsedManualId: manualMgmt.setParsedManualId,
@@ -548,7 +543,9 @@ export default function ItemDetailPage() {
             onBack={() => navigate("/inventory")}
             onOpenManualPage={(page) => openManualPage(page)}
             canOpenManual={!!manualPdfUrl}
-            onAddManual={() => manualMgmt.setAddManualOpen(true)}
+            // The Upkeep door. Through handleOpenAddManual like every other
+            // door, so it opens on upload with the last error and role reset.
+            onAddManual={() => manualMgmt.handleOpenAddManual("upload")}
             onEditCategory={() => setCategoryPickerOpen(true)}
             onItemUpdate={setItem}
             onEditRoom={() => setRoomPickerOpen(true)}

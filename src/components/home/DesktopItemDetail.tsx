@@ -494,7 +494,9 @@ export function DesktopItemDetail({
               manualAwaitingReview={manualAwaitingReview}
               onOpenManualPage={onOpenManualPage}
               onItemUpdate={onItemUpdate}
-              onAddManual={() => manualSectionProps.setAddManualOpen(true)}
+              // Every door opens through handleOpenAddManual (HH-159): upload
+              // first, and nothing left over from the last attempt.
+              onAddManual={() => manualSectionProps.handleOpenAddManual("upload")}
               focusTaskId={focusTaskId}
             onTaskAdded={onTaskAdded}
           onEditTask={onEditTask}

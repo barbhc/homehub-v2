@@ -65,8 +65,9 @@ describe("useManualManagement — add/parse failures are surfaced, not swallowed
     createManualDocument.mockResolvedValue({ data: null, error: { message: "permission-denied" } })
 
     const { result } = mount()
-    act(() => { result.current.setAddMode("url"); result.current.setUrlInput("https://example.com/m.pdf") })
-    await act(async () => { await result.current.handleAddManual() })
+    // HH-159: the source is the argument — what ManualStep handed over — not
+    // state set a render earlier.
+    await act(async () => { await result.current.handleAddManual({ type: "url", url: "https://example.com/m.pdf" }) })
 
     await waitFor(() => expect(result.current.addError).toMatch(/permission-denied/i))
     expect(setManuals).not.toHaveBeenCalled()
@@ -74,8 +75,7 @@ describe("useManualManagement — add/parse failures are surfaced, not swallowed
 
   it("empty URL → addError, and no network call is attempted", async () => {
     const { result } = mount()
-    act(() => { result.current.setAddMode("url"); result.current.setUrlInput("   ") })
-    await act(async () => { await result.current.handleAddManual() })
+    await act(async () => { await result.current.handleAddManual({ type: "url", url: "   " }) })
 
     await waitFor(() => expect(result.current.addError).toMatch(/enter a url/i))
     expect(createManualDocument).not.toHaveBeenCalled()
@@ -89,8 +89,7 @@ describe("useManualManagement — add/parse failures are surfaced, not swallowed
     previewManualParse.mockResolvedValue({ data: null, error: "worker timed out" })
 
     const { result } = mount()
-    act(() => { result.current.setAddMode("url"); result.current.setUrlInput("https://example.com/m.pdf") })
-    await act(async () => { await result.current.handleAddManual() })
+    await act(async () => { await result.current.handleAddManual({ type: "url", url: "https://example.com/m.pdf" }) })
 
     await waitFor(() => expect(result.current.parseError).toBeTruthy())
     // The distinction that matters: saved, but not SCANNED. (Round 12 retired
