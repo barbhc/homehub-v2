@@ -248,7 +248,9 @@ enough to trust a prompt change against.
 - **Functions deploys need explicit per-deploy approval**, separate from the
   standing merge/deploy authorization. `functions:list` on 2026-09-16:
   `sendPushSweep` (scheduled), `graduateFeedback` (scheduled), `previewDigest`
-  and `proposeReminders` (callables) — `sendPushDaily` is gone.
+  and `proposeReminders` (callables) — `sendPushDaily` is gone. `previewDigest`
+  was removed from the code on 2026-09-30; it stays deployed until someone runs
+  `firebase functions:delete previewDigest`.
 - **Native changes need a TestFlight upload** and can only be verified by
   unzipping the IPA.
 - **AI spend is capped**: 50 units/user/UTC-day, 20k/month app-wide

@@ -9,8 +9,15 @@
  * against the emulator with a fake sender.
  *
  * NOTE: FCM sends have no emulator — a real push must be verified on the
- * OWNER's device. `previewDigest` exists so that proof is one deliberate call
- * to the caller's own devices, not a Sunday-evening wait.
+ * OWNER's device: `sendTestPush` is that proof (token registration + delivery),
+ * and the digest's composition is proven against the emulator by
+ * test/sweep.emu.test.mjs.
+ *
+ * `previewDigest` was deleted on 2026-09-30 (audit C7a). It composed a digest
+ * on demand for any member of a home, with no quota or rate limit, by running
+ * the sweep's candidate query — which read every scheduled task instance in
+ * the WHOLE APP per call — and no client ever called it. A deploy of this file
+ * does not remove a deployed function: `firebase functions:delete previewDigest`.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { onSchedule } from "firebase-functions/v2/scheduler"
@@ -18,7 +25,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { getMessaging } from "firebase-admin/messaging"
 import { isApnsToken, sendApns } from "./apns.js"
-import { composeDigestForUser, runPushSweep } from "./sweep.js"
+import { runPushSweep } from "./sweep.js"
 
 const REGION = "us-central1"
 
@@ -124,30 +131,3 @@ export const sendPushSweep = onSchedule(
     await runPushSweep(getFirestore(), new Date(), sendToUser)
   }
 )
-
-/**
- * Compose the caller's Sunday digest for a home NOW — the same code path the
- * sweep takes on their chosen day/hour, with the clock made irrelevant.
- * `send: true` delivers it to the CALLER's own devices only, never to other
- * members: this is how a deploy is proven on one phone without a spam risk.
- */
-export const previewDigest = onCall({ region: REGION, secrets: APNS_SECRETS }, async (request) => {
-  const uid = request.auth?.uid
-  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const homeId = typeof request.data?.homeId === "string" ? request.data.homeId : null
-  if (!homeId) throw new HttpsError("invalid-argument", "homeId is required.")
-  const db = getFirestore()
-  const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
-  if (!member.exists) throw new HttpsError("permission-denied", "Not a member of that home.")
-
-  const digest = await composeDigestForUser(db, uid, `homes/${homeId}`, new Date())
-  if (!digest) return { ok: true as const, empty: true as const, sent: 0 }
-
-  let sent = 0
-  if (request.data?.send === true) {
-    const res = await sendToUser(db, uid, { title: digest.title, body: digest.body }, { homePath: `homes/${homeId}`, url: digest.url })
-    sent = res.sent
-    if (sent === 0) throw new HttpsError("failed-precondition", "No registered devices for this account.")
-  }
-  return { ok: true as const, empty: false as const, ...digest, sent }
-})

@@ -12,7 +12,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore } from "firebase-admin/firestore"
-import { runPushSweep, composeDigestForUser } from "../lib/firebase/functions/src/push/sweep.js"
+import { runPushSweep } from "../lib/firebase/functions/src/push/sweep.js"
 
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be set (run via emulators:exec)")
 if (getApps().length === 0) initializeApp({ projectId: "demo-homehub" })
@@ -102,9 +102,14 @@ test("'I have one' on the shopping list removes the part from both the digest an
   const { sent, send } = fakeSender()
   await runPushSweep(db, new Date("2026-09-07T16:00:00Z"), send)
   assert.equal(sent.some((s) => s.uid === uid && /order this week/.test(s.title)), false, "covered part must not push")
-  const preview = await composeDigestForUser(db, uid, home, new Date("2026-09-07T00:00:00Z"))
-  assert.ok(preview)
-  assert.equal(preview.toBuy, 0)
+  // The digest side, through the sweep itself at the user's digest hour. (This
+  // used to go through composeDigestForUser, which existed only for the
+  // deleted previewDigest callable.)
+  const sunday = fakeSender()
+  await runPushSweep(db, new Date("2026-09-07T00:00:00Z"), sunday.send) // Sunday Sep 6, 17:00 PDT
+  const digest = sunday.sent.find((s) => s.uid === uid && s.title === "Your week at home")
+  assert.ok(digest, "the digest still goes — the part is covered, the reminder is not")
+  assert.doesNotMatch(digest.body, /to buy first/, "a covered part is not counted as something to buy")
 })
 
 test("a user with the task-reminders switch OFF gets no morning push, but their digest still arrives", async () => {

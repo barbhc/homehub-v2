@@ -3,9 +3,7 @@
  *
  * `runPushSweep(db, now, send)` is the whole job; the onSchedule wrapper in
  * sendPush.ts just supplies the real clock and the real sender. That is what
- * lets the emulator test drive it with a fake sender and a chosen `now`, and
- * lets `previewDigest` compose a real user's digest on demand — the same code
- * path the Sunday push takes, with the clock made irrelevant.
+ * lets the emulator test drive it with a fake sender and a chosen `now`.
  */
 import type { Firestore } from "firebase-admin/firestore"
 import { dueKindOf, safetyPhrase } from "../../../../shared/care/dueWindow.js"
@@ -222,27 +220,6 @@ async function deliver(db: Firestore, uid: string, msg: Composed, homePath: stri
   // {title, body, url}, so a data-only field is dropped on the platform that
   // matters. `homePath` in data is for the FCM/web lane's own bookkeeping.
   return send(db, uid, { title: msg.title, body: msg.body }, { homePath, url: msg.url })
-}
-
-/**
- * Compose the caller's digest for one home, as the sweep would on their chosen
- * day and hour — with the clock made irrelevant. Returns null when the week
- * is empty (the sweep sends nothing then either).
- */
-export async function composeDigestForUser(
-  db: Firestore,
-  uid: string,
-  homePath: string,
-  now: Date,
-): Promise<(Composed & { reminders: number; toBuy: number }) | null> {
-  const local = laParts(now)
-  const byHome = await collectCandidates(db, local.date, { homePaths: [homePath] })
-  const home = byHome.get(homePath)
-  if (!home) return null
-  const prefs = await readPrefs(db, uid)
-  const msg = composeDigest(home.pending, prefs, local.date, home.homeId, home.coveredParts)
-  if (!msg) return null
-  return { title: msg.title, body: msg.body, url: msg.url, reminders: msg.reminders.length, toBuy: msg.toBuy }
 }
 
 /** Exposed for tests: the breadth predicate as the sweep applies it. */

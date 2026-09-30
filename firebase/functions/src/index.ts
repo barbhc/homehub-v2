@@ -14,7 +14,10 @@ export { commitManualDraft } from "./parse/commitManualDraft.js"
 export { rollForwardNeverStarted } from "./schedule/rollForward.js"
 export { graduateFeedback } from "./schedule/graduateFeedback.js"
 export { retryAwaitingCapacity } from "./schedule/retryAwaitingCapacity.js"
-export { sendTestPush, sendPushSweep, previewDigest } from "./push/sendPush.js"
+// previewDigest was removed (2026-09-30): an unmetered whole-app read any
+// member could trigger, with no caller. Deploying this does not delete it —
+// `firebase functions:delete previewDigest --project homehub-2068d`.
+export { sendTestPush, sendPushSweep } from "./push/sendPush.js"
 export { completeTask } from "./tasks/completeTask.js"
 export { acceptInvite, removeMember, getInviteDetails } from "./invites/inviteActions.js"
 export { redeemInviteCode } from "./growth/redeemInviteCode.js"
