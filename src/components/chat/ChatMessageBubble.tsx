@@ -1,4 +1,4 @@
-import { BookmarkIcon, BookOpenIcon, BrainIcon, GlobeIcon, ScanSearchIcon } from "lucide-react"
+import { BookmarkIcon, BookOpenIcon, BrainIcon, GlobeIcon, ScanSearchIcon, StickyNoteIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ChatSource } from "@/modules/knowledge/services/chatService"
 import { SaveFaqDialog } from "./SaveFaqDialog"
@@ -8,10 +8,14 @@ import ReactMarkdown from "react-markdown"
 function SourceChip({ source: s }: { source: ChatSource }) {
   const isWeb = s.source_type === "web"
   const isAi = s.source_type === "ai"
+  // The household's own note (design/spares-and-notes.md): "Your note · House".
+  const isNote = s.source_type === "note"
 
   const label = isAi
     ? "General knowledge"
-    : isWeb
+    : isNote
+      ? `Your note · ${s.item_name}`
+      : isWeb
       ? (s.url ? new URL(s.url).hostname.replace(/^www\./, "") : s.item_name)
       : `${s.item_name}${s.title && s.title !== "Manual excerpt" ? ` — ${s.title}` : ""}`
 
@@ -26,7 +30,8 @@ function SourceChip({ source: s }: { source: ChatSource }) {
     >
       {isAi && <BrainIcon className="size-2.5 shrink-0" aria-hidden />}
       {isWeb && <GlobeIcon className="size-2.5 shrink-0" aria-hidden />}
-      {!isAi && !isWeb && <BookOpenIcon className="size-2.5 shrink-0" aria-hidden />}
+      {isNote && <StickyNoteIcon className="size-2.5 shrink-0" aria-hidden />}
+      {!isAi && !isWeb && !isNote && <BookOpenIcon className="size-2.5 shrink-0" aria-hidden />}
       {label}
     </span>
   )

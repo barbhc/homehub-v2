@@ -20,6 +20,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { assertNotRefused, thinkingParamsFor } from "../../../../shared/parse/modelParams.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
+import { pickNotes, formatNotesBlock, noteSources, type NoteInput, type NoteScopeKind } from "./notesContext.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
 import { rankChunks } from "./chunkRanking.js"
 import { chargeAiQuota, type QuotaHold } from "../lib/quota.js"
@@ -36,7 +37,7 @@ interface ChatRequestBody {
   home_id: string
   allow_web_search?: boolean
 }
-type ChatSource = { title: string; item_name: string; source_type: "manual" | "web"; url?: string }
+type ChatSource = { title: string; item_name: string; source_type: "manual" | "web" | "note"; url?: string }
 type WebResult = { title: string; url: string; snippet: string }
 
 const PREFERRED_TYPES = ["care", "how_to", "troubleshooting", "reference"]
@@ -187,6 +188,49 @@ export const chatQuery = onRequest(
       title: "Warranty on record", item_name: f.itemName, source_type: "manual",
     }))
 
+    // --- Your notes (see notesContext.ts) ---
+    // The house's notes, the notes of the rooms in scope and of the items in
+    // scope — plus an item's old single notes text — and only those that match
+    // the question. Before the manuals bail-out: "where's the water shutoff?"
+    // needs no manual at all.
+    const noteInputs: NoteInput[] = []
+    try {
+      const [notesSnap, roomsSnap] = await Promise.all([
+        db.collection(`homes/${homeId}/careNotes`).where("deletedAt", "==", null).get(),
+        db.collection(`homes/${homeId}/rooms`).where("deletedAt", "==", null).get(),
+      ])
+      const roomName = new Map(roomsSnap.docs.map((r) => [r.id, (r.get("name") as string | null) ?? "Room"]))
+      const wholeHome = !filter || filter.type === "all"
+      const roomsInScope = wholeHome
+        ? new Set(roomName.keys())
+        : new Set(scopedItems.map((i) => i.roomId).filter((r): r is string => !!r))
+      for (const d of notesSnap.docs) {
+        const scope = d.get("scope") as NoteScopeKind
+        const content = (d.get("content") as string | null) ?? ""
+        const title = (d.get("title") as string | null) ?? null
+        if (!content.trim()) continue
+        if (scope === "home") {
+          noteInputs.push({ scope, scopeLabel: "House", title, content })
+        } else if (scope === "room") {
+          const roomId = d.get("roomId") as string | null
+          if (roomId && roomsInScope.has(roomId)) noteInputs.push({ scope, scopeLabel: roomName.get(roomId) ?? "Room", title, content })
+        } else if (scope === "item_unit") {
+          const itemId = d.get("itemUnitId") as string | null
+          if (itemId && scopedIds.has(itemId)) noteInputs.push({ scope, scopeLabel: nameByItem.get(itemId) ?? "Item", title, content })
+        }
+      }
+      for (const d of itemsSnap.docs) {
+        const legacy = (d.get("notes") as string | null)?.trim()
+        if (legacy && scopedIds.has(d.id)) noteInputs.push({ scope: "item_unit", scopeLabel: nameByItem.get(d.id) ?? "Item", title: null, content: legacy })
+      }
+    } catch (e) {
+      // Notes supplement the answer; a failed read must not cost it. Logged, never swallowed.
+      console.warn(`[chatQuery] notes read failed for home ${homeId}:`, e instanceof Error ? e.message : e)
+    }
+    const pickedNotes = pickNotes(question, noteInputs)
+    const notesBlock = formatNotesBlock(pickedNotes)
+    const notesSources: ChatSource[] = noteSources(pickedNotes)
+
     // --- Manuals for the in-scope items ---
     const manualsSnap = await db.collection(`homes/${homeId}/manuals`).where("deletedAt", "==", null).get()
     const manuals: ManualRow[] = manualsSnap.docs
@@ -197,7 +241,7 @@ export const chatQuery = onRequest(
         sourceType: (d.get("sourceType") as string) ?? "url",
         sourceRef: (d.get("sourceRef") as string) ?? "",
       }))
-    if (manuals.length === 0 && warrantyBlock.length === 0) return done([])
+    if (manuals.length === 0 && warrantyBlock.length === 0 && notesBlock.length === 0) return done([])
 
     // --- Decide PDF vs chunk retrieval ---
     const fetchPdf = makeFetchPdf()
@@ -278,7 +322,7 @@ export const chatQuery = onRequest(
         for (const r of webResults) webSourcesExtra.push({ title: r.title, item_name: "Web", source_type: "web", url: r.url })
       }
     }
-    const sources = [...baseSources, ...warrantySources, ...webSourcesExtra]
+    const sources = [...baseSources, ...warrantySources, ...notesSources, ...webSourcesExtra]
 
     const webSearchRules =
       webContextBlock.length > 0
@@ -288,6 +332,11 @@ export const chatQuery = onRequest(
     const warrantyRules =
       warrantyBlock.length > 0
         ? '\n- A "Warranty on record" block, when present, is what the app has stored for that item: its coverage, purchase and expiry dates, exclusions and registration. Treat it as the authority for warranty questions — quote its dates and terms exactly, and do not contradict it from general knowledge. If it lacks something the person asked about, say what is and is not on record.'
+        : ""
+
+    const notesRules =
+      notesBlock.length > 0
+        ? '\n- A "Your notes" block, when present, is what this household wrote down about their own home — where things are, what they chose, what they noticed. For those facts it is the authority: say it comes from their notes, quote it, and never contradict it from general knowledge.'
         : ""
 
     let chunkContext = ""
@@ -303,21 +352,21 @@ Rules:
 - Use numbered steps for procedures.
 - Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
 - If the manual doesn't cover the specific question, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
-- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}`
+- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}${notesRules}`
       : `You are a helpful home assistant. Answer questions about the user's home appliances using the provided manual excerpts.
 
 Rules:
 - Only state specific details (button names, sequences, settings) if they appear explicitly in the excerpts. Never use vague placeholders like "the relevant buttons" — if the exact detail isn't in the excerpts, say so directly.
 - Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
 - If the answer isn't in the excerpts, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
-- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}`
+- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}${notesRules}`
 
     type ContentBlock = PdfDoc | { type: "text"; text: string }
     const userTextContent = hasPdfs
-      ? [question, warrantyBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
+      ? [question, warrantyBlock, notesBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
       : chunkContext
-        ? [question, "---", chunkContext, warrantyBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
-        : [question, warrantyBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
+        ? [question, "---", chunkContext, warrantyBlock, notesBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
+        : [question, warrantyBlock, notesBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
     const userContent: ContentBlock[] = hasPdfs
       ? [...pdfDocs, { type: "text", text: userTextContent }]
       : [{ type: "text", text: userTextContent }]
