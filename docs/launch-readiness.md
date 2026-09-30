@@ -264,18 +264,24 @@ prefixes would have broken existing photos and manuals.
 
 ## Post-deploy smoke check — Storage rules (REQUIRED, not optional)
 
-The membership gate uses cross-service `firestore.exists()`, which **the Storage
-emulator does not resolve** (verified on firebase-tools 15.23.0: same rule body,
-member denied with the Firestore call, allowed with a plain auth check). So it
-cannot be proven locally and its three rules tests ship skipped. It has to be
-proven against the real project, immediately after deploying:
+The membership gate — on reads, and since 2026-09-30 on writes too — uses
+cross-service `firestore.exists()`. **Correction (2026-09-30):** this section
+used to say the Storage emulator does not resolve that call. It does, on the
+same firebase-tools 15.23.0 — against the Firestore project the emulator suite
+was *started* with (the storage emulator passes its own project id to the
+lookup). The probe behind the old claim most likely ran against an emulator
+started under a different project from the one it seeded, where the lookup
+finds nothing. `npm run test:rules:emu` now exercises the gate for real (member
+admitted, outsider refused, reads and writes). What the emulator still cannot
+prove is the production IAM grant below, so the gate must also be proven
+against the real project, immediately after deploying:
 
 ```bash
 firebase deploy --only storage
 ```
 
-This is now a script — `npm run smoke:storage` (scripts/smoke-storage-rules.mjs).
-It asserts all four cases against the real project with throwaway users and
+This is a script — `npm run smoke:storage` (scripts/smoke-storage-rules.mjs).
+It asserts seven cases against the real project with throwaway users and
 synthetic paths, and cleans up after itself:
 
 ```bash
@@ -287,9 +293,17 @@ WEB_API_KEY=<VITE_FIREBASE_API_KEY> npm run smoke:storage
 2. a member reads a legacy-path object → 200 (legacy clause intact)
 3. a signed-in non-member reads the same object → 403 (the tenant gate)
 4. an unauthenticated caller reads it → 403 (no public reads)
+5. a member uploads into their own home → 200 (the write canary: if this
+   fails, every upload in the app fails)
+6. a non-member uploads under their own uid in that home → 403 (the old
+   any-homeId write hole)
+7. a non-member uploads a receipt into that home → 403 (the old
+   any-signed-in write hole)
 
-**If only #1 fails, the rules are fine and the IAM grant is missing.** Do NOT
-widen the rule to make it pass. See below.
+**If only #1 and #5 fail, the rules are fine and the IAM grant is missing.** Do
+NOT widen the rule to make it pass. See below. The same script runs against the
+emulators when all three emulator hosts are set (see its header) — that is how
+it was proven before anyone pointed it at production.
 
 ### The cross-service IAM grant (learned the hard way, 19 Aug 2026)
 

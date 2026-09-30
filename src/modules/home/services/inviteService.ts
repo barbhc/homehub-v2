@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import type { ServiceResult } from "./homeService"
+import { DEFAULT_INVITE_ROLE, type HomeRole } from "../../../../shared/home/roles"
 
 export type HomeInvite = {
   invite_id: string
@@ -41,6 +42,8 @@ export type InviteDetails = {
   accepted_by: string | null
   home: { name: string } | null
   creator: { full_name: string | null } | null
+  /** The signed-in user already belongs to this home — accepting would be refused. */
+  already_member: boolean
 }
 
 function invIso(v: unknown): string {
@@ -67,7 +70,7 @@ const acceptInviteCallable = callable<{ token: string }, { success: boolean; hom
 const removeMemberCallable = callable<{ homeId: string; userId: string }, { success: boolean; error?: string }>("removeMember")
 const getInviteDetailsCallable = callable<
   { token: string },
-  { found: boolean; home_id?: string; home_name?: string; role?: string; expires_at?: string; accepted?: boolean; creator_name?: string | null }
+  { found: boolean; home_id?: string; home_name?: string; role?: string; expires_at?: string; accepted?: boolean; creator_name?: string | null; already_member?: boolean }
 >("getInviteDetails")
 
 /** Unguessable invite token. */
@@ -77,11 +80,18 @@ function newToken(): string {
 
 /**
  * Creates an invite link for the given home (7-day expiry).
+ *
+ * Defaults to "member", a role any member may hand out (shared/home/roles.ts).
+ * It used to default to "admin" — a label nothing in the app checks, which the
+ * rules now accept only from an owner, so that default would have broken every
+ * non-owner's Invite button. `userId` must be the caller's own uid: the rules
+ * pin createdBy to it, and acceptInvite judges the invite by that creator's
+ * role at accept time.
  */
 export async function createInvite(
   homeId: string,
   userId: string,
-  role: "admin" | "member" | "guest" = "admin"
+  role: Exclude<HomeRole, "admin"> = DEFAULT_INVITE_ROLE
 ): Promise<ServiceResult<HomeInvite>> {
   try {
     const ref = doc(collection(db, `homes/${homeId}/invites`))
@@ -154,6 +164,8 @@ export async function getInviteByToken(token: string): Promise<ServiceResult<Inv
         accepted_by: res.accepted ? "used" : null,
         home: res.home_name ? { name: res.home_name } : null,
         creator: { full_name: res.creator_name ?? null },
+        // Absent from a server that predates the field — treated as "no".
+        already_member: res.already_member === true,
       },
       error: null,
     }

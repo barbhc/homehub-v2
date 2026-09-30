@@ -11,6 +11,7 @@ import {
   writeBatch,
   Timestamp,
   type DocumentData,
+  type DocumentSnapshot,
 } from "firebase/firestore"
 import { db, auth } from "@/integrations/firebase"
 import type { Home, Room } from "@/integrations/types"
@@ -63,6 +64,26 @@ function toRoom(id: string, homeId: string, d: DocumentData): Room {
 
 function err(e: unknown): { data: null; error: { message: string } } {
   return { data: null, error: { message: e instanceof Error ? e.message : "Request failed" } }
+}
+
+/**
+ * A membership row pointing at a home the caller cannot read.
+ *
+ * Before firestore.rules pinned a member doc's `uid` to its doc id, anyone
+ * could write a row carrying a VICTIM's uid into a home the victim was not in.
+ * The victim's collection-group lookup found it, the home read was refused, and
+ * one refused read failed the whole lookup — "couldn't load your homes", or
+ * onboarding's hard stop. Rows like that can still exist until the ops scan
+ * (scripts/ops/scan-membership-anomalies.ts) clears them, so a refused home is
+ * skipped and logged. ONLY permission-denied is skipped: offline/unavailable
+ * still fails the lookup, because a partial list must never read as "these are
+ * all your homes" (the duplicate-home incident).
+ */
+function isPermissionDenied(e: unknown): boolean {
+  return (e as { code?: unknown } | null)?.code === "permission-denied"
+}
+function logSkippedHome(homeId: string): void {
+  console.warn(`[homeService] skipped home ${homeId}: membership points at a home this account cannot read (permission-denied)`)
 }
 
 export type CreateHomeInput = {
@@ -178,7 +199,15 @@ export async function getMyHomes(): Promise<ServiceResult<MyHomes>> {
       return { data: { homes: [], primaryHomeId: null }, error: null }
     }
 
-    const snaps = await Promise.all(memberships.map((m) => getDoc(doc(db, `homes/${m.homeId}`))))
+    // allSettled, not all: one home this account can't read must not sink the
+    // rest (see isPermissionDenied). Still fanned out in parallel.
+    const settled = await Promise.allSettled(memberships.map((m) => getDoc(doc(db, `homes/${m.homeId}`))))
+    const snaps: DocumentSnapshot[] = []
+    for (const [i, r] of settled.entries()) {
+      if (r.status === "fulfilled") snaps.push(r.value)
+      else if (isPermissionDenied(r.reason)) logSkippedHome(memberships[i].homeId)
+      else throw r.reason
+    }
     const primaryIds = new Set(memberships.filter((m) => m.isPrimary).map((m) => m.homeId))
 
     const homes = snaps.flatMap((snap) => {
@@ -234,10 +263,25 @@ export async function getPrimaryHome(): Promise<ServiceResult<Home | null>> {
       }
       return { data: null, error: null }
     }
-    const chosen = memberships.find((m) => m.isPrimary) ?? memberships[0]
-    const snap = await getDoc(doc(db, `homes/${chosen.homeId}`))
-    if (!snap.exists() || snap.get("deletedAt") != null) return { data: null, error: null }
-    return { data: toHome(snap.id, snap.data()), error: null }
+    // Primary first, then the rest — the same pick as before for any account
+    // whose rows are all readable. A row pointing at a home this account can't
+    // read is skipped instead of failing the lookup: a planted primary used to
+    // win here and hard-stop onboarding (see isPermissionDenied).
+    const candidates = [...memberships.filter((m) => m.isPrimary), ...memberships.filter((m) => !m.isPrimary)]
+    for (const m of candidates) {
+      let snap
+      try {
+        snap = await getDoc(doc(db, `homes/${m.homeId}`))
+      } catch (e) {
+        if (!isPermissionDenied(e)) throw e
+        logSkippedHome(m.homeId)
+        continue
+      }
+      if (!snap.exists() || snap.get("deletedAt") != null) return { data: null, error: null }
+      return { data: toHome(snap.id, snap.data()), error: null }
+    }
+    // Every row pointed at a home this account can't read: it has no home.
+    return { data: null, error: null }
   } catch (e) {
     return err(e)
   }

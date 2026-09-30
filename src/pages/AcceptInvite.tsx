@@ -32,6 +32,9 @@ export default function AcceptInvite() {
     getInviteByToken(token).then((res) => {
       if (res.error) { setState("error"); setError("Invite not found or has been revoked."); return }
       const inv = res.data!
+      // Already in this home: say so instead of offering "Join". The server
+      // refuses the accept either way — it used to re-role the member instead.
+      if (inv.already_member) { setState("error"); setError(`You're already a member of ${inv.home?.name ?? "this home"}.`); return }
       if (inv.accepted_by) { setState("error"); setError("This invite has already been used."); return }
       if (new Date(inv.expires_at) < new Date()) { setExpired(true); setState("error"); setError("This invite has expired."); return }
       setInvite(inv)

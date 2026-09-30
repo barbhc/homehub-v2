@@ -309,8 +309,12 @@ v1 has **78 RLS policies**, but the effective model is simpler than the count su
   `taskInstances` create/update — `assignedTo == null || exists(members/{assignedTo})`. Same guard on
   `taskTemplates.defaultAssignee`.
 - **Self-only:** `users/{uid}` writes are `request.auth.uid == uid`; `users/{uid}/private/**` is
-  self-only for read too. Member docs: self can create/update own row (bootstrap + self-join +
-  `isPrimary`); role changes and removing *other* members require `owner`.
+  self-only for read too. Member docs: the client creates exactly one — its own owner row when it
+  creates the home (every other join is `acceptInvite`); self may update own row (`isPrimary`, never
+  `role`); role changes and removing *other* members require `owner`; the `uid` field must equal the
+  doc id on every create/update; an `owner` row is never client-deletable (removeMember only).
+  Invites: any member may create one at `member`/`guest`, only an owner at `owner`/`admin`
+  (`shared/home/roles.ts`); `createdBy` must be the caller; no client updates. (2026-09-30)
 - **Global collections:** `supplyCatalog` (+ options) is **read: authed, write: server-only**
   (Admin SDK). `webRetrievals` / `productLookupCache` are server-only (read+write false for clients).
 - **Soft-delete:** rules enforce shape/auth; the `deletedAt == null` list filter is a query concern,
@@ -450,13 +454,15 @@ snoozed]` is an equality-class query → uses the same index as `status ==`.
    never wrote the catalog directly from an unprivileged client path.
 2. **Last-owner guard + remove-other-member move to a callable.** v1's `remove_home_member`
    (SECURITY DEFINER) refuses to remove the last owner and lets an owner remove others. Firestore rules
-   can't count docs, so: rules allow self-leave + owner-removes-member, and the **last-owner guard lives
-   in a `removeMember` callable** (Phase 5, Admin SDK) — the app calls the callable, which is the only
-   path that can safely check "is this the last owner?".
-3. **Invite acceptance is trust-the-flow in rules, validated in a callable.** v1 accept ran through a
-   definer function. v2 rules let a signed-in invitee read an invite (by token) and self-create their
-   member doc; token/expiry validation is enforced in the `acceptInvite` callable (Phase 5). Rules are
-   the floor, the callable is the gate.
+   can't count docs, so: rules allow self-leave + owner-removes-member for NON-owner rows only, and the
+   **last-owner guard lives in a `removeMember` callable** (Phase 5, Admin SDK), which counts owners
+   inside a transaction — the only path that can safely check "is this the last owner?", and since
+   2026-09-30 the only path that can remove an owner at all.
+3. **Invite acceptance is validated in a callable.** v1 accept ran through a definer function. v2 rules
+   give invitees no client access (invites are members-only; the member row is written by the Admin
+   SDK); the `acceptInvite` callable validates token/expiry, refuses callers who are already members
+   (it used to merge the invite's role onto their row), and confers a privileged role only if the
+   invite's creator is an owner at accept time (`effectiveInviteRole`, `shared/home/roles.ts`).
 4. **Role self-escalation is blocked** (v1 left self-update of `role` unguarded aside from the
    home_id-pivot guard). v2 rules forbid a member changing their own `role` (owner-only), which is
    stricter and safer.

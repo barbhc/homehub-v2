@@ -48,20 +48,49 @@ service cloud.firestore {
     // creation gates the whole app with one rule.
     //
     // Flag-controlled, per the requirement that it can be turned off later
-    // WITHOUT a code change: flip config/growth.inviteGateEnabled to false (or
-    // delete the doc) and this evaluates true for everyone, no deploy involved.
-    function growthGateOn() {
+    // WITHOUT a code change: set config/growth.inviteGateEnabled to false and
+    // this admits everyone, no deploy involved.
+    //
+    // FAILS CLOSED. The gate is OFF only when config/growth exists and holds
+    // inviteGateEnabled: false — the boolean, exactly. A missing doc, a missing
+    // field or any other value means ON: only admitted users may create a home.
+    // It used to fail OPEN ("deploying before the flag doc exists must not lock
+    // existing users out"), which made one absent config doc a switch that
+    // opened the gate. That reasoning never needed the open state: EXISTING
+    // users are unaffected either way, because the gate only guards CREATING a
+    // home. Mirror for the onboarding screen + ops scripts: shared/growth/gate.ts.
+    function growthGateOff() {
       return exists(/databases/$(database)/documents/config/growth)
-        && get(/databases/$(database)/documents/config/growth).data.get('inviteGateEnabled', false) == true;
+        && get(/databases/$(database)/documents/config/growth).data.get('inviteGateEnabled', true) == false;
     }
-    // Deliberately FAILS OPEN when config/growth is absent. Deploying these
-    // rules before the flag doc exists must not lock every existing user out of
-    // creating a home. That is safe because this is a growth throttle, not a
-    // security boundary — tenant isolation is membership, which is unchanged —
-    // and no client can write or delete config/growth to force the open state.
     function admitted() {
-      return !growthGateOn()
+      return growthGateOff()
         || exists(/databases/$(database)/documents/admissions/$(request.auth.uid));
+    }
+    // Anonymous-provider tokens cost nothing to mint — one per request, against
+    // the public API key — so a home owned by one is a free, disposable key to
+    // every paid function (they all require membership). The app never signs in
+    // anonymously; only a script would.
+    function isAnonymous() {
+      return request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    // Member docs are found by their `uid` FIELD (the collection-group read at
+    // the bottom of this file, hasAnyMembership in functions), so the field must
+    // be the doc id. Absent counts as a mismatch.
+    function memberUidPinned(memberUid) {
+      return request.resource.data.get('uid', null) == memberUid;
+    }
+
+    // Invite roles. Mirror of shared/home/roles.ts (OPEN_INVITE_ROLES and
+    // HOME_ROLES) — shared/home/roles.test.ts fails if these literals drift.
+    // Only `owner` carries power anywhere in the app; `admin` is a legacy label
+    // nothing checks, and is kept OFF the open list because its name claims power.
+    function openInviteRole(role) {
+      return role in ['member', 'guest'];
+    }
+    function homeRole(role) {
+      return role in ['owner', 'admin', 'member', 'guest'];
     }
 
     // assignee (if present & non-null) must be a member of this home.
@@ -89,10 +118,12 @@ service cloud.firestore {
 
     // ---- homes ----
     match /homes/{homeId} {
-      // A signed-in user may create a home, but MUST stamp it with their own uid
-      // as `createdBy` (homeService.createHome). That field is what the member
-      // create rule below checks before letting anyone take the owner row.
+      // A signed-in, non-anonymous user may create a home, but MUST stamp it
+      // with their own uid as `createdBy` (homeService.createHome). That field is
+      // what the member create rule below checks before letting anyone take the
+      // owner row.
       allow create: if isSignedIn()
+        && !isAnonymous()
         && request.resource.data.createdBy == request.auth.uid
         && admitted();
       allow read: if isMember(homeId);
@@ -123,21 +154,38 @@ service cloud.firestore {
         //
         // getAfter (not get) is required: createHome commits the home doc and this
         // member doc in ONE batch, and get() cannot see the pending home write.
+        //
+        // `uid` must equal the doc id. Without that pin a row at
+        // members/{anything} carrying someone ELSE's uid planted a membership
+        // pointer in the victim's collection-group lookup — a home they could
+        // not read, which failed their whole home list — and they could not
+        // delete it, because delete is keyed to the path.
+        //
+        // The owner branch (`|| isOwner(homeId)`) is gone. It let an owner write
+        // ANY user into their home, and with the uid pinned that is still a
+        // force-join: the victim's lookup now returns the attacker's home —
+        // flagged primary if the attacker likes — so a fresh device can land
+        // there and start saving into it. No client path ever used it; every
+        // real join is acceptInvite (Admin SDK).
         allow create: if isSignedIn()
-          && (
-            (request.auth.uid == memberUid
-              && request.resource.data.role == 'owner'
-              && getAfter(/databases/$(database)/documents/homes/$(homeId)).data.get('createdBy', '') == request.auth.uid)
-            || isOwner(homeId)
-          );
-        // Self-update (e.g. isPrimary) but NOT self-escalating role; owner may update
-        // any member. Role changes are owner-only (blocks self-escalation).
-        allow update: if isOwner(homeId)
-          || (request.auth.uid == memberUid
-              && request.resource.data.role == resource.data.role);
-        // Self-leave or owner-removes-member. The last-owner guard is enforced in the
-        // removeMember callable (rules can't count docs).
-        allow delete: if request.auth.uid == memberUid || isOwner(homeId);
+          && memberUidPinned(memberUid)
+          && request.auth.uid == memberUid
+          && request.resource.data.role == 'owner'
+          && getAfter(/databases/$(database)/documents/homes/$(homeId)).data.get('createdBy', '') == request.auth.uid;
+        // Self-update (e.g. isPrimary) but NOT self-escalating role; owner may
+        // update any member. Role changes are owner-only (blocks
+        // self-escalation). Nobody may re-point a row's uid.
+        allow update: if memberUidPinned(memberUid)
+          && (isOwner(homeId)
+            || (request.auth.uid == memberUid
+                && request.resource.data.role == resource.data.role));
+        // Self-leave or owner-removes-member — but never an OWNER's row. Rules
+        // can't count owners, so removing an owner (an owner leaving included)
+        // goes through the removeMember callable, which refuses the last one.
+        // Before this, any owner could delete any row directly and the
+        // callable's last-owner guard was advisory.
+        allow delete: if (request.auth.uid == memberUid || isOwner(homeId))
+          && resource.data.get('role', '') != 'owner';
       }
 
       // ---- invites ----
@@ -150,7 +198,20 @@ service cloud.firestore {
         // previously LIST /homes/{homeId}/invites given a homeId).
         // (A collection-group read rule for the accept-page token lookup is
         // deliberately deferred until sharing ships — see the checkpoint plan.)
-        allow read, create, update, delete: if isMember(homeId);
+        allow read, delete: if isMember(homeId);
+        // Any member may invite, but only at a role they are allowed to hand
+        // out, and stamped with their own uid: acceptInvite re-checks the
+        // creator's CURRENT role at accept time, so createdBy must be the real
+        // creator. This used to be `create, update: if isMember` with any
+        // fields — a member wrote an owner invite and accepted it themselves.
+        allow create: if isMember(homeId)
+          && request.resource.data.get('createdBy', null) == request.auth.uid
+          && (openInviteRole(request.resource.data.get('role', null))
+            || (isOwner(homeId) && homeRole(request.resource.data.get('role', null))));
+        // No client edits an invite: acceptance is acceptInvite (Admin SDK) and
+        // revoking is a delete. An update rule let a member re-role an invite,
+        // re-point createdBy, or clear acceptedBy to reuse a spent one.
+        allow update: if false;
       }
 
       // ---- task instances (assignee guard) ----
@@ -240,6 +301,10 @@ service cloud.firestore {
     // provable field check — the where-clause guarantees resource.data.uid ==
     // request.auth.uid, so the LIST is allowed. Writes/co-member reads stay on the
     // path-scoped /homes/{homeId}/members rule above.
+    //
+    // This trusts the uid FIELD (so does hasAnyMembership in functions) — which
+    // is why the member create/update rules pin it to the doc id. Rows written
+    // before that pin: scripts/ops/scan-membership-anomalies.ts.
     match /{path=**}/members/{memberUid} {
       allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
     }

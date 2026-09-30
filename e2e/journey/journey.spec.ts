@@ -122,7 +122,7 @@ test.describe("journey walks", () => {
 
     // First landing signed-in with no home → "Set up your home".
     await expect(page.getByText("Set up your home").filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J1", "home-setup", "Set up your home: name field (+ sample-home escape hatch); invite gate fails open on emulator")
+    await snap(page, "J1", "home-setup", "Set up your home: name field, no invite-code field (the seed turns the gate OFF; a missing flag would now mean ON)")
     await page.getByPlaceholder(/My House, Downtown Apartment/).fill("Journey Test Home")
     await page.getByRole("button", { name: /^Continue$/ }).click()
 

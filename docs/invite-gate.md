@@ -89,11 +89,18 @@ admission cannot be self-granted.
 
 ## Deliberate decisions worth not re-litigating
 
-**It fails OPEN when `config/growth` is missing.** Deploying the rules before the
-flag doc exists must not lock every existing user out of creating a home. That is
-safe because this is a *throttle*, not the security boundary — tenant isolation
-is membership, and it is untouched — and no client can write or delete
-`config/growth` to force the open state.
+**It fails CLOSED when `config/growth` is missing** — reversed on 2026-09-30
+(security audit, plan item A6). It used to fail OPEN, on the reasoning that
+deploying the rules before the flag doc existed must not lock existing users out
+of creating a home. But the gate never touches existing users (see below), and a
+home is what unlocks every paid function — so "the flag doc is missing" became a
+state that silently let every new account in. Now the gate is OFF only when
+`config/growth` holds `inviteGateEnabled: false`, the boolean, exactly; a
+missing doc, a missing field, or any other value means ON. The onboarding
+screen and `invite-codes.ts status` read it the same way (`shared/growth/gate.ts`),
+and `scripts/ops/scan-membership-anomalies.ts` reports the doc's state before a
+rules deploy. **Anonymous-provider accounts can never create a home**, gate on or
+off — the app never signs in anonymously, and an anonymous uid is free to mint.
 
 **Redeeming twice consumes one use, not two.** A user who taps twice, or
 reinstalls, would otherwise burn the second use of a code that only had one and
@@ -116,6 +123,7 @@ When the ring widens and the gate stops earning its keep:
 
 1. `npx tsx scripts/ops/invite-codes.ts off`
 2. Watch spend for a week (`aiSpendGlobal/{yyyy-mm}`) before deleting anything.
-3. Only then consider removing the rule, the callable and this document — and if
-   you do, delete `config/growth` **last**, since its absence is what makes the
-   rules fail open.
+3. Only then consider removing the rule, the callable and this document. Do NOT
+   delete `config/growth` while the rule still checks it: its absence now means
+   the gate is ON. Remove the `admitted()` check from the rules first, then the
+   doc.
