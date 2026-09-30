@@ -1,18 +1,18 @@
 /**
  * SWR-powered dashboard data hook.
  * Caches dashboard queries so revisiting Home shows data instantly,
- * then revalidates in the background. Also auto-revalidates on
- * tab focus and network reconnect.
+ * then revalidates in the background. Also auto-revalidates on network
+ * reconnect, and on tab focus at most every FOCUS_THROTTLE_MS.
  */
 
 import useSWR from "swr"
 import {
-  getDashboardTasks,
-  getDashboardStats,
-  getUpcomingTasks,
-  getExpiringWarranties,
-  getInsights,
-  getHomeNotices,
+  deriveDashboardTasks,
+  deriveDashboardStats,
+  deriveUpcomingTasks,
+  deriveExpiringWarranties,
+  deriveInsights,
+  deriveHomeNotices,
   type DashboardTasksResult,
   type DashboardStats,
   type MaintenanceTaskFull,
@@ -20,7 +20,8 @@ import {
   type ExpiringWarrantyItem,
   type HomeNotices,
 } from "./dashboard"
-import { getDeepCleanGuides, type DeepCleanGuide } from "./cleanSession"
+import { deepCleanGuidesFrom, type DeepCleanGuide } from "./cleanSession"
+import { homeReadsForThisRound, readTaskTemplates } from "./homeReads"
 import { getHomeProfile } from "@/modules/home/services/homeProfileService"
 import { persistSwrSnapshot } from "./swrPersist"
 import { markBoot } from "./bootTiming"
@@ -62,13 +63,21 @@ const EMPTY_NOTICES: HomeNotices = { recalls: [], missingDetails: [] }
  * `topConcerns` from the profile only applies an ordering BOOST
  * (priorityScoreFor), so tasks depend on the profile alone — one query — rather
  * than on the slowest of seven.
+ *
+ * Stats and tasks come from ONE set of reads (homeReads.ts — items, open
+ * instances, recent completions), which fetchExtras shares when SWR starts both
+ * in the same round. The task list no longer waits on a second round trip.
+ *
+ * Exported (with fetchExtras) for src/lib/dashboardReads.test.ts, which runs
+ * both against an in-memory Firestore and pins what one Home load reads.
  */
-async function fetchCore(homeId: string): Promise<DashboardCore> {
-  const [profileRes, stats] = await Promise.all([
+export async function fetchCore(homeId: string): Promise<DashboardCore> {
+  const [profileRes, reads] = await Promise.all([
     soft(getHomeProfile(homeId), { data: null, error: null } as Awaited<ReturnType<typeof getHomeProfile>>, "profile"),
-    getDashboardStats(homeId), // core — a real failure here surfaces the retry card
+    homeReadsForThisRound(homeId), // core — a real failure here surfaces the retry card
   ])
-  const tasks = await getDashboardTasks(homeId, profileRes.data?.top_concerns ?? [])
+  const stats = deriveDashboardStats(reads)
+  const tasks = deriveDashboardTasks(reads, profileRes.data?.top_concerns ?? [])
   markBoot("dash:core")
   return { stats, tasks }
 }
@@ -78,24 +87,35 @@ async function fetchCore(homeId: string): Promise<DashboardCore> {
  * Every one fails soft: a flaky query here degrades its own section to empty and
  * never blanks Home. Fetched alongside core, rendered whenever it lands.
  */
-async function fetchExtras(homeId: string): Promise<DashboardExtras> {
+export async function fetchExtras(homeId: string): Promise<DashboardExtras> {
   // getHomeUpkeep is deliberately NOT fetched here any more. Its only consumer
   // was the desktop Home-upkeep card, and it read two ENTIRE collections
   // (taskInstances + taskTemplates) on every dashboard load to render rows the
   // agenda already carried. Removing the card removed the query with it.
-  const [upcoming, expiringWarranties, notices, cleaningGuides] = await Promise.all([
-    soft(getUpcomingTasks(homeId), [], "upcoming"),
-    soft(getExpiringWarranties(homeId), [], "warranties"),
-    soft(getHomeNotices(homeId), EMPTY_NOTICES, "notices"),
-    soft(getDeepCleanGuides(homeId), [], "cleaningGuides"),
+  //
+  // Every section derives from the reads fetchCore started in this same round;
+  // the templates (for the deep-clean guides) are the only read of extras' own.
+  const reads = homeReadsForThisRound(homeId)
+  const templates = readTaskTemplates(homeId)
+  const [upcoming, expiringWarranties, notices, cleaningGuides, insights] = await Promise.all([
+    soft(reads.then(deriveUpcomingTasks), [], "upcoming"),
+    soft(reads.then(deriveExpiringWarranties), [], "warranties"),
+    soft(reads.then(deriveHomeNotices), EMPTY_NOTICES, "notices"),
+    soft(templates.then((t) => deepCleanGuidesFrom(homeId, t, () => reads)), [], "cleaningGuides"),
+    soft(reads.then(deriveInsights), [], "insights"),
   ])
   markBoot("dash:extras")
-  // Insights read the warranties, so this one genuinely is second.
-  const insights = await soft(getInsights(homeId, expiringWarranties), [], "insights")
   return { upcoming, insights, expiringWarranties, notices, cleaningGuides }
 }
 
 const TIMED_OUT = "Loading your home timed out. Check your connection and try again."
+
+/**
+ * Coming back to the app revalidates Home at most this often; each focus used
+ * to refetch the whole dashboard (SWR's 5 s default). Opening Home, a reconnect
+ * and refresh() — every check-off and snooze — still refetch at once.
+ */
+export const FOCUS_THROTTLE_MS = 5 * 60_000
 
 /**
  * Two keys, not one. Home's skeleton gates on CORE only, so the supplementary
@@ -111,6 +131,7 @@ export function useDashboard(homeId: string | null) {
     () => withTimeout(fetchCore(homeId!), LOAD_TIMEOUT_MS, TIMED_OUT),
     {
       revalidateOnFocus: true,
+      focusThrottleInterval: FOCUS_THROTTLE_MS,
       revalidateOnReconnect: true,
       dedupingInterval: 5000,
       keepPreviousData: true,
@@ -123,6 +144,7 @@ export function useDashboard(homeId: string | null) {
     () => withTimeout(fetchExtras(homeId!), LOAD_TIMEOUT_MS, TIMED_OUT),
     {
       revalidateOnFocus: true,
+      focusThrottleInterval: FOCUS_THROTTLE_MS,
       revalidateOnReconnect: true,
       dedupingInterval: 5000,
       keepPreviousData: true,

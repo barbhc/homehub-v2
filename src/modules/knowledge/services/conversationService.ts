@@ -3,6 +3,9 @@ import {
   collection,
   doc,
   getDocs,
+  limit,
+  orderBy,
+  query,
   serverTimestamp,
   updateDoc,
   Timestamp,
@@ -63,6 +66,9 @@ function fromSources(sources: ChatSource[] | null | undefined): DocumentData[] |
   }))
 }
 
+/** How many conversations the rail shows — and now, how many are read. */
+const RAIL_CONVERSATIONS = 50
+
 /**
  * Lists conversations for a home, most-recent first. Returns `null` on any
  * error so the caller falls back to in-memory mode.
@@ -72,7 +78,13 @@ export async function listConversations(
 ): Promise<ConversationSummary[] | null> {
   if (!homeId) return null
   try {
-    const snap = await getDocs(collection(db, `homes/${homeId}/chatConversations`))
+    // Only the rail's worth, newest first — a single-field order, so no
+    // composite index. It used to read every conversation the home ever had
+    // and cut the list to 50 here. (Every writer sets updatedAt, which the
+    // order needs: a document without it would not be returned.)
+    const snap = await getDocs(
+      query(collection(db, `homes/${homeId}/chatConversations`), orderBy("updatedAt", "desc"), limit(RAIL_CONVERSATIONS))
+    )
     return snap.docs
       .map((d) => {
         const x = d.data()
@@ -83,8 +95,9 @@ export async function listConversations(
           updated_at: convoIso(x.updatedAt),
         }
       })
-      .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
-      .slice(0, 50)
+      // Conversations touched in the same instant (the seed writes three) keep
+      // document-id order, as the whole-collection read returned them.
+      .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? "") || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   } catch {
     return null
   }

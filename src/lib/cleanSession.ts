@@ -17,7 +17,8 @@ import {
 } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { ScheduleType } from "@/integrations/types"
-import { generateTaskInstances } from "@/modules/care"
+import { generateTaskInstances, plannedInstanceDue } from "@/modules/care"
+import { readOpenInstances, readRecentDone, readTaskTemplates, type HomeReads, type ReadDoc } from "@/lib/homeReads"
 
 /** Timestamp | ISO string → ISO string ("" when absent). */
 function clnIso(v: unknown): string {
@@ -90,24 +91,44 @@ export async function getCleaningTasks(
   homeId: string,
   mode: CleanSessionMode = "cleaning"
 ): Promise<CleanTask[]> {
+  // One pass over the home's completions, templates, open instances and items.
+  // All of the done history: the Deep Clean session shows each row's last-done
+  // date, which a bounded window would misreport.
+  const docs = (snap: { docs: Array<{ id: string; data(): DocumentData }> }): ReadDoc[] =>
+    snap.docs.map((d) => ({ id: d.id, data: d.data() }))
+  const [doneSnap, templates, live, itemSnap] = await Promise.all([
+    getDocs(query(collection(db, `homes/${homeId}/taskInstances`), where("status", "==", "done"))),
+    readTaskTemplates(homeId),
+    readOpenInstances(homeId),
+    getDocs(collection(db, `homes/${homeId}/items`)),
+  ])
+  return composeCleaningTasks(homeId, mode, { done: docs(doneSnap), templates, live, items: docs(itemSnap) })
+}
+
+/** What composeCleaningTasks works from, however the caller read it. */
+interface CleaningInputs {
+  /** `done` instances — all of them, or a window when only the ranking is needed (see deepCleanGuidesFrom). */
+  done: ReadDoc[]
+  /** Every template, deleted ones included: a live instance still takes minutes/description from one. */
+  templates: ReadDoc[]
+  /** Open instances (scheduled/snoozed, not deleted), in document-id order. */
+  live: ReadDoc[]
+  /** Items, for CleanTask.roomId (not denormalized onto the instance); null when no caller needs it. */
+  items: ReadDoc[] | null
+}
+
+async function composeCleaningTasks(homeId: string, mode: CleanSessionMode, inputs: CleaningInputs): Promise<CleanTask[]> {
   const today = todayStr()
   const careTypes = mode === "cleaning" ? ["cleaning", "mixed"] : ["maintenance", "mixed"]
 
-  // One pass over the home's instances, templates, and items. The instance
-  // carries the denormalized display set (title/careType/scopeType/scheduleType/
-  // itemName/roomName); the template map adds description + instructions, the
-  // item map adds room_id (not denormalized onto the instance).
-  const [doneSnap, tplSnap, instSnap, itemSnap] = await Promise.all([
-    getDocs(query(collection(db, `homes/${homeId}/taskInstances`), where("status", "==", "done"))),
-    getDocs(collection(db, `homes/${homeId}/taskTemplates`)),
-    getDocs(collection(db, `homes/${homeId}/taskInstances`)),
-    getDocs(collection(db, `homes/${homeId}/items`)),
-  ])
+  // The instance carries the denormalized display set (title/careType/
+  // scopeType/scheduleType/itemName/roomName); the template map adds
+  // description + instructions, the item map adds room_id.
 
   // 1. Completion map: templateId → last completed calendar date.
   const lastByTemplate = new Map<string, string>()
-  doneSnap.docs
-    .map((d) => d.data())
+  inputs.done
+    .map((d) => d.data)
     .filter((x) => x.completedAt != null)
     .sort((a, b) => clnIso(b.completedAt).localeCompare(clnIso(a.completedAt)))
     .forEach((x) => {
@@ -116,24 +137,26 @@ export async function getCleaningTasks(
 
   // 2. Template + item maps.
   const tplById = new Map<string, DocumentData>()
-  const activeTpls: Array<{ id: string; itemUnitId: string | null }> = []
-  tplSnap.docs.forEach((d) => {
-    const x = d.data()
-    tplById.set(d.id, x)
+  const activeTpls: Array<{ id: string; itemUnitId: string | null; schedule: DocumentData | null }> = []
+  inputs.templates.forEach(({ id, data: x }) => {
+    tplById.set(id, x)
     if ((x.isActive ?? true) && x.deletedAt == null && careTypes.includes(x.careType)) {
-      activeTpls.push({ id: d.id, itemUnitId: x.itemUnitId ?? null })
+      activeTpls.push({ id, itemUnitId: x.itemUnitId ?? null, schedule: x.schedule ?? null })
     }
   })
   const roomIdByItem = new Map<string, string | null>()
-  itemSnap.docs.forEach((d) => roomIdByItem.set(d.id, d.data().roomId ?? null))
+  inputs.items?.forEach((d) => roomIdByItem.set(d.id, d.data.roomId ?? null))
 
-  // 3. Ensure every active template has a scheduled instance (best-effort;
-  // generateTaskInstances is a no-op until the create subsystem lands, and the
-  // seed already carries one instance per template).
+  // 3. Ensure every active template has a scheduled instance (best-effort; the
+  // seed already carries one instance per template). Only templates whose
+  // cadence would get one: generateTaskInstances reads the template back
+  // before deciding, and for an as-needed or after-each-use template — most
+  // parsed cleaning steps, which never get an instance — that read answered
+  // "nothing to create" on every Home load.
   const scheduledTemplateIds = new Set(
-    instSnap.docs.filter((d) => d.data().status === "scheduled" && d.data().deletedAt == null).map((d) => d.data().taskTemplateId)
+    inputs.live.filter((d) => d.data.status === "scheduled" && d.data.deletedAt == null).map((d) => d.data.taskTemplateId)
   )
-  const needInstances = activeTpls.filter((t) => !scheduledTemplateIds.has(t.id))
+  const needInstances = activeTpls.filter((t) => !scheduledTemplateIds.has(t.id) && plannedInstanceDue(t.id, t.schedule) !== null)
   if (needInstances.length > 0) {
     await Promise.all(
       needInstances.map((t) =>
@@ -143,8 +166,8 @@ export async function getCleaningTasks(
   }
 
   // 4. Compose from scheduled/snoozed instances whose (denorm) care_type matches.
-  const instanceTasks: CleanTask[] = instSnap.docs
-    .map((d) => ({ id: d.id, x: d.data() }))
+  const instanceTasks: CleanTask[] = inputs.live
+    .map((d) => ({ id: d.id, x: d.data }))
     .filter(({ x }) => (x.status === "scheduled" || x.status === "snoozed") && x.deletedAt == null && careTypes.includes(x.careType))
     .map(({ id, x }) => {
       const tpl = tplById.get(x.taskTemplateId)
@@ -189,27 +212,31 @@ export type RoutineTemplate = {
  */
 export async function getRoutineTemplates(homeId: string): Promise<RoutineTemplate[]> {
   try {
-    const snap = await getDocs(collection(db, `homes/${homeId}/taskTemplates`))
-    return snap.docs
-      .map((d) => ({ id: d.id, x: d.data() }))
-      .filter(
-        ({ x }) =>
-          x.scopeType === "home" &&
-          (x.itemUnitId ?? null) == null &&
-          x.source === "user" &&
-          (x.isActive ?? true) &&
-          x.deletedAt == null
-      )
-      .sort((a, b) => clnIso(b.x.createdAt).localeCompare(clnIso(a.x.createdAt)))
-      .map(({ id, x }) => ({
-        task_template_id: id,
-        title: x.title ?? "",
-        schedule_type: (x.schedule as { scheduleType?: string } | null)?.scheduleType ?? "monthly",
-        estimated_minutes: x.estimatedMinutes ?? null,
-      }))
+    return routineTemplatesFrom(await readTaskTemplates(homeId))
   } catch (e) {
     throw new Error(`Failed to load routine templates: ${e instanceof Error ? e.message : "unknown"}`)
   }
+}
+
+/** The routines among templates already read — user-made, home-scoped, active; newest first. */
+function routineTemplatesFrom(templates: ReadDoc[]): RoutineTemplate[] {
+  return templates
+    .map((d) => ({ id: d.id, x: d.data }))
+    .filter(
+      ({ x }) =>
+        x.scopeType === "home" &&
+        (x.itemUnitId ?? null) == null &&
+        x.source === "user" &&
+        (x.isActive ?? true) &&
+        x.deletedAt == null
+    )
+    .sort((a, b) => clnIso(b.x.createdAt).localeCompare(clnIso(a.x.createdAt)))
+    .map(({ id, x }) => ({
+      task_template_id: id,
+      title: x.title ?? "",
+      schedule_type: (x.schedule as { scheduleType?: string } | null)?.scheduleType ?? "monthly",
+      estimated_minutes: x.estimatedMinutes ?? null,
+    }))
 }
 
 /** A short, guide-level deep-clean entry for the desktop Home rail. */
@@ -231,30 +258,50 @@ const DEEP_CLEAN_GUIDE_CAP = 5
  * card. We want ~4–5 guide-level entries with an "All →" to /clean for the rest.
  *
  * Source preference:
- *  1. `getRoutineTemplates` — home cleaning ROUTINE templates (scope_type=home,
- *     item_unit_id null). These are already guide-level, not per-step.
- *  2. Fallback: `getCleaningTasks` DE-DUPLICATED by item (one row per appliance,
- *     e.g. "Clean the Range", not each sub-step), capped at the same limit.
+ *  1. Routine templates (as `getRoutineTemplates`) — home cleaning ROUTINE
+ *     templates (scope_type=home, item_unit_id null). Already guide-level.
+ *  2. Fallback: the cleaning tasks (as `getCleaningTasks`) DE-DUPLICATED by item
+ *     (one row per appliance, e.g. "Clean the Range", not each sub-step),
+ *     capped at the same limit.
  */
 export async function getDeepCleanGuides(homeId: string): Promise<DeepCleanGuide[]> {
+  const templates = await readTaskTemplates(homeId)
+  return deepCleanGuidesFrom(homeId, templates, async () => {
+    const [live, recentDone] = await Promise.all([readOpenInstances(homeId), readRecentDone(homeId)])
+    return { live, recentDone }
+  })
+}
+
+/**
+ * getDeepCleanGuides from templates already read, with the instance reads the
+ * fallback needs supplied by the caller — Home passes the ones its load already
+ * made, and a home with routines never waits on them at all.
+ *
+ * The fallback ranks by computeCleanScore, which caps staleness at 90 days, so
+ * DONE_HISTORY_DAYS of completions ranks exactly as the whole history did: a
+ * template last done 91+ days ago scores the same as one never done.
+ */
+export async function deepCleanGuidesFrom(
+  homeId: string,
+  templates: ReadDoc[],
+  instances: () => Promise<Pick<HomeReads, "live" | "recentDone">>,
+): Promise<DeepCleanGuide[]> {
   // 1. Prefer guide-level routine templates.
-  try {
-    const routines = await getRoutineTemplates(homeId)
-    if (routines.length > 0) {
-      return routines.slice(0, DEEP_CLEAN_GUIDE_CAP).map((r) => ({
-        id: r.task_template_id,
-        title: r.title,
-        estimatedMinutes: r.estimated_minutes,
-        itemUnitId: null,
-      }))
-    }
-  } catch {
-    // Non-fatal — fall through to the per-item fallback below.
+  const routines = routineTemplatesFrom(templates)
+  if (routines.length > 0) {
+    return routines.slice(0, DEEP_CLEAN_GUIDE_CAP).map((r) => ({
+      id: r.task_template_id,
+      title: r.title,
+      estimatedMinutes: r.estimated_minutes,
+      itemUnitId: null,
+    }))
   }
 
   // 2. Fallback: collapse granular cleaning steps to one entry per item, sorted
-  // by clean-priority so the most relevant guides surface first.
-  const tasks = await getCleaningTasks(homeId, "cleaning")
+  // by clean-priority so the most relevant guides surface first. (A guide has
+  // no room, so the items are not read.)
+  const { live, recentDone } = await instances()
+  const tasks = await composeCleaningTasks(homeId, "cleaning", { done: recentDone, templates, live, items: null })
   const byItem = new Map<string, DeepCleanGuide>()
   for (const t of [...tasks].sort((a, b) => b.priorityScore - a.priorityScore)) {
     // De-dup by appliance (item_unit) so one guide covers all of its cleaning

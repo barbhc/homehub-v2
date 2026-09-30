@@ -183,6 +183,43 @@ describe("HomeProvider multi-home selection", () => {
     await waitFor(() => expect(screen.getByTestId("home").textContent).toBe("My House"))
   })
 
+  it("a load that lands after a newer one applies nothing — the newer answer stands", async () => {
+    // The first lookup hangs; a refresh for the home just created answers first.
+    let resolveFirst!: (v: unknown) => void
+    getMyHomes.mockReturnValueOnce(new Promise((r) => { resolveFirst = r }))
+    renderProvider()
+    getMyHomes.mockResolvedValue(two)
+    await act(async () => { screen.getByText("select-h2").click() })
+    await waitFor(() => expect(screen.getByTestId("home").textContent).toBe("Parents SF"))
+
+    // Now the stale first answer arrives — a list from before h2 existed.
+    await act(async () => {
+      resolveFirst({ data: { homes: [mkHome("h1", "My House")], primaryHomeId: "h1" }, error: null })
+    })
+    await waitFor(() => expect(screen.getByTestId("homes").textContent).toBe("My House,Parents SF"))
+    expect(screen.getByTestId("home").textContent).toBe("Parents SF")
+    expect(JSON.parse(localStorage.getItem(CACHE_KEY)!).home.home_id).toBe("h2")
+  })
+
+  it("a failed lookup that lands late does not overwrite a newer success", async () => {
+    getMyHomes.mockResolvedValueOnce(two)
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId("home").textContent).toBe("My House"))
+
+    // A retry hangs and then fails; a refresh started after it succeeds first.
+    let rejectRetry!: (e: unknown) => void
+    getMyHomes.mockReturnValueOnce(new Promise((_, reject) => { rejectRetry = reject }))
+    await act(async () => { screen.getByText("retry").click() })
+    getMyHomes.mockResolvedValue(two)
+    await act(async () => { screen.getByText("select-h2").click() })
+    await waitFor(() => expect(screen.getByTestId("home").textContent).toBe("Parents SF"))
+
+    await act(async () => { rejectRetry(new Error("socket closed")) })
+    await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"))
+    expect(screen.getByTestId("error").textContent).toBe("none")
+    expect(screen.getByTestId("home").textContent).toBe("Parents SF")
+  })
+
   it("refresh(selectHomeId) selects a home that wasn't loaded yet — the just-created case", async () => {
     getMyHomes.mockResolvedValueOnce({
       data: { homes: [mkHome("h1", "My House")], primaryHomeId: "h1" },

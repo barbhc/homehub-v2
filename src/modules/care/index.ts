@@ -26,6 +26,7 @@ export {
   type TaskTemplateWithSchedule,
   type TaskSupplyEmbed,
   getTaskInstances,
+  getTaskInstancesForItem,
   getTaskDetail,
   type TaskDetail,
   updateTaskInstance,
@@ -65,6 +66,7 @@ export {
   getScheduleRulesByTemplate,
   createScheduleRule,
   generateTaskInstances,
+  plannedInstanceDue,
   type CreateScheduleRuleInput,
   type GenerateInstancesInput,
 } from "./services/scheduleService"

@@ -14,15 +14,24 @@
  */
 import { onRequest, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
+import * as logger from "firebase-functions/logger"
 import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { assertNotRefused, thinkingParamsFor } from "../../../../shared/parse/modelParams.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
-import { pickNotes, formatNotesBlock, noteSources, type NoteInput, type NoteScopeKind } from "./notesContext.js"
+import { pickNotes, formatNotesBlock, noteSources, type NoteInput } from "./notesContext.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
-import { rankChunks } from "./chunkRanking.js"
+import { queryTerms, rankChunks } from "./chunkRanking.js"
+import {
+  ReadTally,
+  askReadsLogFields,
+  readAskNotes,
+  readChunkCandidates,
+  readScopedManuals,
+  type AskOutcome,
+} from "./askReads.js"
 import { chargeAiQuota, type QuotaHold } from "../lib/quota.js"
 import { CHAT_MAX_ATTACHED_PDFS, CHAT_UNITS_PER_PDF } from "../../../../shared/quota/policy.js"
 
@@ -92,8 +101,7 @@ type ChatSource = { title: string; item_name: string; source_type: "manual" | "w
 type WebResult = { title: string; url: string; snippet: string }
 
 const PREFERRED_TYPES = ["care", "how_to", "troubleshooting", "reference"]
-const MAX_CHUNKS = 30
-const CANDIDATES_PER_MANUAL = 40 // per-manual read cap; ranked down to MAX_CHUNKS
+const MAX_CHUNKS = 30 // candidates (askReads.ts: ≤40 per manual, ≤120 per question) are ranked down to this
 const MAX_HISTORY_TURNS = 10
 
 const CORS = {
@@ -177,6 +185,13 @@ export const chatQuery = onRequest(
       res.status(403).json({ error: "Forbidden" })
       return
     }
+    // Every document this question reads, logged once it is answered (or not)
+    // — so a read regression shows up in Cloud Logging, not on the bill. The
+    // quota transaction's own reads are chargeAiQuota's, not counted here.
+    const tally = new ReadTally()
+    tally.docs("member", 1)
+    const logReads = (outcome: AskOutcome) =>
+      logger.info("chatQuery reads", askReadsLogFields(homeId, filter?.type ?? "all", outcome, tally))
 
     // Daily AI quota — not an onCall, so surface it as a plain 429 before SSE.
     // Charged before the stream opens, because once SSE is running the only
@@ -216,10 +231,12 @@ export const chatQuery = onRequest(
     const nothingToAsk = async () => {
       await hold.refund()
       done([])
+      logReads("nothing-to-ask")
     }
 
     // --- Resolve in-scope items ---
     const itemsSnap = await db.collection(`homes/${homeId}/items`).where("deletedAt", "==", null).get()
+    tally.query("items", itemsSnap.size)
     const items: ItemRow[] = itemsSnap.docs.map((d) => ({
       id: d.id,
       roomId: (d.get("roomId") as string | null) ?? null,
@@ -241,6 +258,8 @@ export const chatQuery = onRequest(
 
     const scopedIds = new Set(scopedItems.map((i) => i.id))
     const nameByItem = new Map(items.map((i) => [i.id, i.displayName]))
+    const categoryByItem = new Map(items.map((i) => [i.id, i.category]))
+    const wholeHome = !filter || filter.type === "all"
 
     // --- Warranty on record (see warrantyContext.ts) ---
     // The parser writes warranty terms to the ITEM, never to a chunk, so a
@@ -262,48 +281,29 @@ export const chatQuery = onRequest(
     // The house's notes, the notes of the rooms in scope and of the items in
     // scope — plus an item's old single notes text — and only those that match
     // the question. Before the manuals bail-out: "where's the water shutoff?"
-    // needs no manual at all.
+    // needs no manual at all. A question with no terms to match can match no
+    // note (pickNotes), so it reads none; the rest read only what their scope
+    // reaches (readAskNotes).
     const noteInputs: NoteInput[] = []
-    try {
-      const [notesSnap, roomsSnap] = await Promise.all([
-        db.collection(`homes/${homeId}/careNotes`).where("deletedAt", "==", null).get(),
-        db.collection(`homes/${homeId}/rooms`).where("deletedAt", "==", null).get(),
-      ])
-      const roomName = new Map(roomsSnap.docs.map((r) => [r.id, (r.get("name") as string | null) ?? "Room"]))
-      const wholeHome = !filter || filter.type === "all"
-      const roomsInScope = wholeHome
-        ? new Set(roomName.keys())
-        : new Set(scopedItems.map((i) => i.roomId).filter((r): r is string => !!r))
-      for (const d of notesSnap.docs) {
-        const scope = d.get("scope") as NoteScopeKind
-        const content = (d.get("content") as string | null) ?? ""
-        const title = (d.get("title") as string | null) ?? null
-        if (!content.trim()) continue
-        if (scope === "home") {
-          noteInputs.push({ scope, scopeLabel: "House", title, content })
-        } else if (scope === "room") {
-          const roomId = d.get("roomId") as string | null
-          if (roomId && roomsInScope.has(roomId)) noteInputs.push({ scope, scopeLabel: roomName.get(roomId) ?? "Room", title, content })
-        } else if (scope === "item_unit") {
-          const itemId = d.get("itemUnitId") as string | null
-          if (itemId && scopedIds.has(itemId)) noteInputs.push({ scope, scopeLabel: nameByItem.get(itemId) ?? "Item", title, content })
+    if (queryTerms(question).length > 0) {
+      try {
+        noteInputs.push(...(await readAskNotes(db, { homeId, wholeHome, scopedItems, scopedIds, nameByItem }, tally)))
+        for (const d of itemsSnap.docs) {
+          const legacy = (d.get("notes") as string | null)?.trim()
+          if (legacy && scopedIds.has(d.id)) noteInputs.push({ scope: "item_unit", scopeLabel: nameByItem.get(d.id) ?? "Item", title: null, content: legacy })
         }
+      } catch (e) {
+        // Notes supplement the answer; a failed read must not cost it. Logged, never swallowed.
+        console.warn(`[chatQuery] notes read failed for home ${homeId}:`, e instanceof Error ? e.message : e)
       }
-      for (const d of itemsSnap.docs) {
-        const legacy = (d.get("notes") as string | null)?.trim()
-        if (legacy && scopedIds.has(d.id)) noteInputs.push({ scope: "item_unit", scopeLabel: nameByItem.get(d.id) ?? "Item", title: null, content: legacy })
-      }
-    } catch (e) {
-      // Notes supplement the answer; a failed read must not cost it. Logged, never swallowed.
-      console.warn(`[chatQuery] notes read failed for home ${homeId}:`, e instanceof Error ? e.message : e)
     }
     const pickedNotes = pickNotes(question, noteInputs)
     const notesBlock = formatNotesBlock(pickedNotes)
     const notesSources: ChatSource[] = noteSources(pickedNotes)
 
     // --- Manuals for the in-scope items ---
-    const manualsSnap = await db.collection(`homes/${homeId}/manuals`).where("deletedAt", "==", null).get()
-    const manuals: ManualRow[] = manualsSnap.docs
+    const manualDocs = await readScopedManuals(db, homeId, wholeHome, scopedIds, tally)
+    const manuals: ManualRow[] = manualDocs
       .filter((d) => scopedIds.has((d.get("itemUnitId") as string) ?? ""))
       .map((d) => ({
         manualId: d.id,
@@ -332,6 +332,7 @@ export const chatQuery = onRequest(
         console.error(`[chatQuery] PDF top-up failed for ${uid}:`, e)
         res.status(503).json({ error: "The assistant couldn't start just now. Please try again in a moment." })
       }
+      logReads("refused")
       return
     }
     for (const { manual: m, base64 } of attached) {
@@ -353,31 +354,17 @@ export const chatQuery = onRequest(
       // by relevance to the question and keep the top MAX_CHUNKS. v1 pulled first-N
       // in manual order, so a home-wide question only ever saw the earliest,
       // chunk-heavy manuals (washer/Nespresso) and never read the Furnace etc.
-      type Candidate = ChunkRow & { id: string; strong: string; body: string }
-      const perManual = await Promise.all(
-        manuals.map(async (m): Promise<Candidate[]> => {
-          const cs = await db
-            .collection(`homes/${homeId}/manuals/${m.manualId}/chunks`)
-            .where("deletedAt", "==", null)
-            .where("chunkType", "in", PREFERRED_TYPES)
-            .limit(CANDIDATES_PER_MANUAL)
-            .get()
-          const displayName = nameByItem.get(m.itemUnitId) ?? "Unknown"
-          return cs.docs.map((c) => {
-            const title = (c.get("title") as string | null) ?? null
-            const content = (c.get("content") as string) ?? ""
-            const tags = (c.get("tags") as string[] | undefined) ?? []
-            const scenarios = (c.get("scenarios") as string[] | undefined) ?? []
-            const appliesTo = (c.get("appliesTo") as string[] | undefined) ?? []
-            const sectionCategory = (c.get("sectionCategory") as string | null) ?? ""
-            const strong = [displayName, title ?? "", sectionCategory, ...tags, ...scenarios, ...appliesTo]
-              .join(" ")
-              .toLowerCase()
-            return { id: c.id, title, content, displayName, strong, body: content.toLowerCase() }
-          })
-        })
+      // At most CHUNK_READ_BUDGET candidates in all — see planChunkReads.
+      const candidates = await readChunkCandidates(
+        db,
+        homeId,
+        question,
+        manuals,
+        { name: (id) => nameByItem.get(id), category: (id) => categoryByItem.get(id) },
+        PREFERRED_TYPES,
+        tally,
       )
-      for (const c of rankChunks(question, perManual.flat(), MAX_CHUNKS)) {
+      for (const c of rankChunks(question, candidates, MAX_CHUNKS)) {
         chunks.push({ title: c.title, content: c.content, displayName: c.displayName })
         chunkSourceKeys.set(c.id, { title: c.title ?? "Manual excerpt", item_name: c.displayName, source_type: "manual" })
       }
@@ -475,6 +462,7 @@ Rules:
       // through the catch below (refund + SSE error), never as a silent answer.
       assertNotRefused(await stream.finalMessage())
       done(sources)
+      logReads("answered")
     } catch (err) {
       // The stream never completed, so refund. This is the case that used to
       // tell someone "your limit resets at midnight UTC" after our own outage
@@ -491,6 +479,7 @@ Rules:
               : "Stream failed"
       res.write(sse({ error: friendly }))
       res.end()
+      logReads("failed")
     }
   },
 )
