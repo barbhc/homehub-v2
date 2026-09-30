@@ -33,10 +33,11 @@
 
 ## Vendor-side spend alarms (verified 2026-08-19)
 
-The in-app monthly ceiling (`shared/quota/policy.ts`, PR #91) is the first line of
-defence, but it is **our own code** — a bug in the ceiling, a deploy that drops the
-env var, or a paid call added without a `chargeAiQuota` wrapper all bypass it
-silently. The vendor-side alarms below are the ones that still fire when our
+The in-app monthly ceiling (`shared/quota/policy.ts`, PR #91; since 2026-09-30 a
+number in the server-only `config/spend` document, with `0` as the kill switch —
+`docs/rollback.md` §3) is the first line of defence, but it is **our own code** —
+a bug in the ceiling, or a paid call added without a `chargeAiQuota` wrapper,
+bypasses it silently. The vendor-side alarms below are the ones that still fire when our
 accounting is the thing that broke.
 
 **Two vendors, two bills, and they do not overlap.** This is the part that is easy
@@ -116,7 +117,9 @@ Once done, tick this box and record the numbers actually chosen:
       units (PR #91), and per-endpoint rate limits capping the *minute* (PR #97).
       The last one matters separately: quotas cap the day, and a stuck retry can
       spend a whole day's allowance in five seconds — the cap works and the user
-      still loses. Details in `shared/quota/policy.ts`.
+      still loses. Details in `shared/quota/policy.ts`. **Now (2026-09-30):** the
+      numbers live in `config/spend` — defaults 50/user/day, 1,500/month, owner
+      override 1,000/day — set with `scripts/ops/set-spend-config.ts`.
 - [ ] **Close the Storage public-read:** `storage.rules` currently has `allow read: if true` on all paths — every uploaded manual, item photo, and receipt is readable by URL. Scope reads to home members (and migrate the "tokenless public URL" call sites that depend on it).
 - [ ] **Add product analytics** (recommend PostHog; Firebase Analytics also fine). Instrument the funnel + engagement events — this is what makes the feedback round measurable against the product-notes metrics:
   - funnel: `sign_up`, `home_created`, `first_item_added`, `item_content_viewed`, `task_checked` (with timestamps → time-to-complete-required-tasks, time-to-first-AHA)

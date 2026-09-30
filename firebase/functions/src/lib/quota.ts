@@ -10,6 +10,11 @@
  *   3. Not every call costs the same. Shipping a whole PDF to Opus is not one
  *      chat turn. -> cost-weighted units, not raw call counts.
  *
+ * The numbers come from the server-only `config/spend` document, read inside
+ * the SAME transaction as the counters (shared/quota/policy.ts explains the
+ * document and its defaults). `monthlyCeilingUnits: 0` there stops every paid
+ * call in the app on the next request — no deploy.
+ *
  * Charge AFTER auth + membership + input validation and BEFORE the paid work,
  * so rejected requests never burn quota. Then hand the charge back with
  * `hold.refund()` if the vendor produced nothing -- an Anthropic outage must
@@ -21,19 +26,22 @@
  * default-denies, so no client can read or reset them.
  */
 import { HttpsError } from "firebase-functions/v2/https"
-import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore"
+import { FieldValue, Timestamp, type DocumentSnapshot, type Firestore, type Transaction } from "firebase-admin/firestore"
 import {
   BURST_UNIT_LIMIT,
-  DAILY_AI_LIMIT,
+  DAILY_CALL_CAP,
+  dailyCallLimitFor,
+  dailyLimitFor,
   decideQuota,
   decideRateLimit,
-  monthlyCeiling,
-  dailyCallLimitFor,
+  effectiveMonthlyCeiling,
+  parseSpendConfig,
   rateLimitFor,
   unitCostFor,
   utcDayKey,
   utcMonthKey,
   type RateWindow,
+  type SpendConfig,
 } from "../../../../shared/quota/policy.js"
 import { isQuotaExhaustedMessage } from "../../../../shared/quota/refusal.js"
 
@@ -41,12 +49,16 @@ export {
   AI_RATE_LIMIT,
   AI_UNIT_COST,
   BURST_UNIT_LIMIT,
-  DAILY_AI_LIMIT,
+  DEFAULT_DAILY_UNITS,
   DEFAULT_MONTHLY_UNIT_CEILING,
+  DEFAULT_SPEND_CONFIG,
   RATE_WINDOW_MS,
   decideQuota,
   decideRateLimit,
-  monthlyCeiling,
+  dailyCallLimitFor,
+  dailyLimitFor,
+  effectiveMonthlyCeiling,
+  parseSpendConfig,
   rateLimitFor,
   unitCostFor,
   utcDayKey,
@@ -56,13 +68,30 @@ export {
   type RateState,
   type RateVerdict,
   type RateWindow,
+  type SpendConfig,
 } from "../../../../shared/quota/policy.js"
 
+/** The server-only caps document. firestore.rules gives clients nothing here. */
+export const SPEND_CONFIG_DOC = "config/spend"
+
+/**
+ * The refusal a user reads. Every sentence here must still be recognised by
+ * `isQuotaExhaustedMessage` (shared/quota/refusal.ts) — including by the
+ * client ALREADY DEPLOYED, whose copy of that matcher is older than this file:
+ * that is why each one still leads with a phrase the old matcher knows
+ * ("daily ai limit", "monthly ai budget", "manual scans today").
+ * test/refusalRecognition.emu.test.mjs pins it.
+ *
+ * `ctx.fn` decides whether "saved and queued" is true. It is for a manual scan
+ * — a refused scan is parked and retryAwaitingCapacity starts it later — and it
+ * was false for everything else: an Ask question refused at the cap was told
+ * its work was queued, and nothing was.
+ */
 export function errorForVerdict(
   reason: "daily" | "global" | "invalid" | "fnDaily",
-  limit: number,
-  ctx?: { fn: string; fnLimit: number | null },
+  ctx?: { fn?: string; fnLimit?: number | null },
 ): HttpsError {
+  const isScan = ctx?.fn === "enqueueParse"
   switch (reason) {
     case "fnDaily":
       // Named for the thing the user did, not for the function that ran. The
@@ -71,9 +100,11 @@ export function errorForVerdict(
       // name into a sentence a homeowner reads.
       return new HttpsError(
         "resource-exhausted",
-        ctx?.fn === "enqueueParse"
-          ? `That's ${ctx.fnLimit} manual scans today — the daily limit. Your manual is saved and queued.`
-          : `Daily limit reached for this action (${ctx?.fnLimit}). Your work is saved and queued.`,
+        isScan
+          ? ctx?.fnLimit
+            ? `That's ${ctx.fnLimit} manual scans today — the daily limit. Your manual is saved and queued.`
+            : "Daily AI limit reached for manual scans. Your manual is saved and queued."
+          : `Daily limit reached for this action (${ctx?.fnLimit ?? 0}). It frees up again within a day.`,
         // Same shape the ceiling refusals use, so the retry job and the client
         // both treat it as "come back later", not as a failure.
         { kind: "quota_exhausted", scope: "daily" },
@@ -81,13 +112,12 @@ export function errorForVerdict(
     case "daily":
       return new HttpsError(
         "resource-exhausted",
-        `Daily AI limit reached (${limit} actions per day). Your work is saved and queued.`,
-        // HH-124: the message no longer names midnight UTC or tells anyone to
-        // "try again tomorrow". It said both, and both were wrong — UTC is our
-        // clock rather than theirs, and a parse refused here is now retried FOR
-        // them by retryAwaitingCapacity, so instructing them to come back and
-        // redo it describes work that already has an owner.
-        //
+        // No number: units are not "actions" (a scan is 10 of them), so "50
+        // actions per day" told someone who had done six things that they had
+        // done fifty. No clock either (HH-124): UTC midnight is ours, not theirs.
+        isScan
+          ? "Daily AI limit reached. Your manual is saved and queued — it scans automatically when there's room."
+          : "Daily AI limit reached — it frees up again within a day.",
         // `scope` is what the retry job branches on. Matching the sentence with
         // a regex would make this copy load-bearing, and the whole reason the
         // client keeps its own wording is that server copy can only change with
@@ -97,7 +127,9 @@ export function errorForVerdict(
     case "global":
       return new HttpsError(
         "resource-exhausted",
-        "Homehub has hit its monthly AI budget. This isn't something you did — your work is saved and queued.",
+        isScan
+          ? "Homehub has hit its monthly AI budget. This isn't something you did — your manual is saved and queued."
+          : "Homehub has hit its monthly AI budget. This isn't something you did — AI features are paused for now.",
         { kind: "quota_exhausted", scope: "global" },
       )
     default:
@@ -159,14 +191,50 @@ export function quotaScope(err: unknown): "daily" | "global" | null {
   return details.scope === "daily" || details.scope === "global" ? details.scope : null
 }
 
+/** Where a charge landed — enough to hand it back from another process. */
+export interface ChargeRecord {
+  uid: string
+  fn: string
+  units: number
+  /** usage/{uid}/daily/{day} — the day it was charged, not the day it is refunded. */
+  day: string
+  /** aiSpendGlobal/{month}. */
+  month: string
+}
+
 /** A charge already made. Give it back if the paid call produced nothing. */
 export interface QuotaHold {
+  /** Units still held — `release()` lowers it. */
   units: number
+  /** Where it was charged. Null for NO_CHARGE. */
+  record: ChargeRecord | null
+  /** Hand back everything still held and count the call as failed. Idempotent. */
   refund(): Promise<void>
+  /** Hand back PART of the charge — the call turned out cheaper than priced
+   *  (a manual PDF chatQuery could not fetch). The call itself still counts. */
+  release(units: number): Promise<void>
+  /**
+   * Charge MORE for this same call, when its price is only known partway
+   * through: an Ask turn learns how many manual PDFs it will attach after the
+   * charge that let it start. Same caps as the first charge (daily pool,
+   * monthly ceiling, and the burst window, which takes the extra units); the
+   * per-endpoint window is not ticked again — it is one call. Throws the same
+   * refusals chargeAiQuota throws; on a refusal nothing extra is charged and
+   * what was already held is still held (the caller decides whether to refund).
+   */
+  extend(units: number): Promise<void>
 }
 
 /** A hold that costs nothing to release — for paths that never charged. */
-export const NO_CHARGE: QuotaHold = { units: 0, refund: async () => {} }
+export const NO_CHARGE: QuotaHold = {
+  units: 0,
+  record: null,
+  refund: async () => {},
+  release: async () => {},
+  extend: async () => {
+    throw new Error("NO_CHARGE cannot be extended — charge the call first")
+  },
+}
 
 /**
  * Read a stored rate window, tolerating every shape a document can be in:
@@ -188,12 +256,38 @@ function globalDoc(db: Firestore, monthKey: string) {
   return db.doc(`aiSpendGlobal/${monthKey}`)
 }
 
+/** The last problem set logged, so a broken config/spend is reported once per
+ *  instance rather than once per call. */
+let loggedConfigProblems = ""
+
+/** config/spend as the charge sees it. Problems are logged, never thrown: a
+ *  malformed document must not turn into an outage of every paid function
+ *  (parseSpendConfig already picked the safe value for each bad field). */
+function spendConfigFrom(snap: DocumentSnapshot): SpendConfig {
+  const { config, problems } = parseSpendConfig(snap.exists ? snap.data() : undefined)
+  if (problems.length > 0) {
+    const key = problems.join(" | ")
+    if (key !== loggedConfigProblems) {
+      loggedConfigProblems = key
+      console.error(`[quota] ${SPEND_CONFIG_DOC} has problems: ${key}`)
+    }
+  }
+  return config
+}
+
 /**
- * Consume `unitCostFor(fn)` units of `uid`'s daily quota AND the app-wide
- * monthly ceiling, or throw `resource-exhausted`.
+ * Consume units of `uid`'s daily quota AND the app-wide monthly ceiling, or
+ * throw `resource-exhausted`.
  *
  * Both counters move inside one transaction, so a call blocked by the global
  * ceiling does not silently burn the caller's daily allowance on the way out.
+ * The caps are read from config/spend in that same transaction.
+ *
+ * There is deliberately no per-call-site limit argument any more (C6): that
+ * argument was compared with the user's TOTAL daily units across every
+ * function, so findManual's "60 searches a day" meant "refuse anyone who has
+ * spent 60 units on anything". A function that needs a different pool gets a
+ * relative multiplier in policy.ts (DAILY_POOL_MULTIPLIER).
  *
  * `fns.<fn>.charged` and `fns.<fn>.failed` on the monthly doc give per-function
  * attempt and failure counts (successes = charged - failed) — the cheapest
@@ -203,24 +297,44 @@ export async function chargeAiQuota(
   db: Firestore,
   uid: string,
   fn: string,
-  limit: number = DAILY_AI_LIMIT,
-  unitsOverride?: number,
+  opts?: {
+    /** For a call site whose cost genuinely differs from its function's
+     *  default — a cache hit that skips every vendor the miss path fans out
+     *  to, or an Ask turn carrying manual PDFs. */
+    units?: number
+    /** The caps document to read. Production never passes it; the emulator
+     *  tests point it at their own document so a test that throws the kill
+     *  switch cannot stop the test files running beside it. */
+    configDoc?: string
+    /** The clock. Production never passes it. The emulator suites run in
+     *  parallel, and every charge transacts on the app-wide
+     *  `aiSpendGlobal/{month}` document; a suite that pins its own date gets
+     *  its own month's document instead of aborting on the others' locks. */
+    at?: Date
+  },
 ): Promise<QuotaHold> {
-  const dayKey = utcDayKey()
-  const monthKey = utcMonthKey()
-  // Override for a call site whose cost genuinely differs from its function's
-  // default -- e.g. a cache hit that skips every vendor the miss path fans out to.
-  const units = unitsOverride ?? unitCostFor(fn)
-  const ceiling = monthlyCeiling()
+  const clock = () => opts?.at?.getTime() ?? Date.now()
+  const dayKey = utcDayKey(new Date(clock()))
+  const monthKey = utcMonthKey(new Date(clock()))
+  const units = opts?.units ?? unitCostFor(fn)
 
   const dailyRef = db.doc(`usage/${uid}/daily/${dayKey}`)
   const monthlyRef = globalDoc(db, monthKey)
+  const configRef = db.doc(opts?.configDoc ?? SPEND_CONFIG_DOC)
 
-  const nowMs = Date.now()
+  const nowMs = clock()
 
   await db.runTransaction(async (tx) => {
     // Firestore requires every read before any write in a transaction.
-    const [dailySnap, monthlySnap] = await Promise.all([tx.get(dailyRef), tx.get(monthlyRef)])
+    const [dailySnap, monthlySnap, configSnap] = await Promise.all([
+      tx.get(dailyRef),
+      tx.get(monthlyRef),
+      tx.get(configRef),
+    ])
+    const config = spendConfigFrom(configSnap)
+    const ceiling = effectiveMonthlyCeiling(config)
+    const dailyLimit = dailyLimitFor(config, uid, fn)
+    const fnCallLimit = dailyCallLimitFor(fn, config)
 
     // ── Rate limit ────────────────────────────────────────────────────────
     // Read off the SAME snapshot the quota check uses, so throttling costs no
@@ -255,30 +369,30 @@ export async function chargeAiQuota(
 
     const verdict = decideQuota({
       dailyUnits,
-      dailyLimit: limit,
+      dailyLimit,
       monthlyUnits,
       monthlyCeiling: ceiling,
       units,
       fnCallsToday,
-      fnCallLimit: dailyCallLimitFor(fn),
+      fnCallLimit,
     })
 
     if (!verdict.allowed) {
       if (verdict.reason === "global") {
         console.error(
-          `MONTHLY AI CEILING HIT: ${monthlyUnits}/${ceiling} units. Every paid ` +
-            `function is refusing calls until the next UTC month.`,
+          ceiling === 0
+            ? `AI KILL SWITCH ON: ${SPEND_CONFIG_DOC}.monthlyCeilingUnits is 0 (or AI_MONTHLY_UNIT_CEILING stopped it). ` +
+                `Every paid function is refusing calls.`
+            : `MONTHLY AI CEILING HIT: ${monthlyUnits}/${ceiling} units. Every paid ` +
+                `function is refusing calls until the next UTC month or a higher ceiling in ${SPEND_CONFIG_DOC}.`,
         )
       }
       if (verdict.reason === "invalid") {
         console.error(
-          `quota misconfigured for ${fn}: units=${units} dailyLimit=${limit} ceiling=${ceiling}`,
+          `quota misconfigured for ${fn}: units=${units} dailyLimit=${dailyLimit} ceiling=${ceiling}`,
         )
       }
-      throw errorForVerdict(verdict.reason, limit, {
-        fn,
-        fnLimit: dailyCallLimitFor(fn),
-      })
+      throw errorForVerdict(verdict.reason, { fn, fnLimit: fnCallLimit })
     }
 
     tx.set(
@@ -314,9 +428,12 @@ export async function chargeAiQuota(
     )
   })
 
+  const record: ChargeRecord = { uid, fn, units, day: dayKey, month: monthKey }
+  let held = units
   let refunded = false
-  return {
+  const hold: QuotaHold = {
     units,
+    record,
     async refund() {
       // Idempotent: handlers refund on a specific failure path and again in a
       // catch-all, and both can fire for one request. The daily doc aggregates
@@ -325,49 +442,144 @@ export async function chargeAiQuota(
       if (refunded) return
       refunded = true
       try {
-        await db.runTransaction(async (tx) => {
-          const [dailySnap, monthlySnap] = await Promise.all([
-            tx.get(dailyRef),
-            tx.get(monthlyRef),
-          ])
-          const dailyUnits = (dailySnap.get("units") as number | undefined) ?? 0
-          const dailyCount = (dailySnap.get("count") as number | undefined) ?? 0
-          const monthlyUnits = (monthlySnap.get("units") as number | undefined) ?? 0
-          const monthlyCalls = (monthlySnap.get("calls") as number | undefined) ?? 0
-
-          // Floored at zero so a refund can never mint quota.
-          tx.set(
-            dailyRef,
-            {
-              units: Math.max(dailyUnits - units, 0),
-              count: Math.max(dailyCount - 1, 0),
-              updatedAt: FieldValue.serverTimestamp(),
-            },
-            { merge: true },
-          )
-          tx.set(
-            monthlyRef,
-            {
-              units: Math.max(monthlyUnits - units, 0),
-              calls: Math.max(monthlyCalls - 1, 0),
-              // `charged` is deliberately NOT decremented: it is the attempt
-              // count, and attempts minus failures is what tells us whether a
-              // deployed function actually works.
-              fns: { [fn]: { failed: FieldValue.increment(1) } },
-              updatedAt: FieldValue.serverTimestamp(),
-            },
-            { merge: true },
-          )
-        })
+        await giveBack(db, record, held, { wholeCall: true })
+        held = 0
+        hold.units = 0
       } catch (err) {
         // Not rethrown: the caller is already handling the failure that
         // triggered this refund, and losing that error to a bookkeeping error
         // would be worse. Logged with everything needed to reconcile by hand.
         refunded = false // let a later catch-all retry it
-        console.error(`quota refund failed for ${fn} (uid=${uid}, ${units}u on ${dayKey}):`, err)
+        console.error(`quota refund failed for ${fn} (uid=${uid}, ${held}u on ${dayKey}):`, err)
       }
     },
+    async release(part: number) {
+      const n = Math.min(Math.max(0, Math.floor(part)), held)
+      if (refunded || n === 0) return
+      try {
+        await giveBack(db, record, n, { wholeCall: false })
+        held -= n
+        hold.units = held
+      } catch (err) {
+        // Same reasoning as refund(): logged for reconciliation, never thrown
+        // over the work in progress. The user is over-charged by `n` units.
+        console.error(`quota partial release failed for ${fn} (uid=${uid}, ${n}u on ${dayKey}):`, err)
+      }
+    },
+    async extend(extra: number) {
+      if (refunded) throw new Error(`cannot extend a refunded ${fn} charge`)
+      if (!Number.isInteger(extra) || extra <= 0) return
+      // Same clock as the charge, so the burst window it wrote is the one read.
+      const topUpAt = clock()
+      await db.runTransaction(async (tx) => {
+        const [dailySnap, monthlySnap, configSnap] = await Promise.all([
+          tx.get(dailyRef),
+          tx.get(monthlyRef),
+          tx.get(configRef),
+        ])
+        const config = spendConfigFrom(configSnap)
+        const ceiling = effectiveMonthlyCeiling(config)
+        const dailyLimit = dailyLimitFor(config, uid, fn)
+        // The burst rule, reused as-is: a per-endpoint window that always has
+        // room (this is the same call, already counted), so only the unit
+        // burst decides.
+        const burst = decideRateLimit({
+          now: topUpAt,
+          fnWindow: { windowStart: topUpAt, value: 0 },
+          fnLimit: 1,
+          burstWindow: readWindow(dailySnap.get("rate.burst")),
+          burstLimit: BURST_UNIT_LIMIT,
+          units: extra,
+        })
+        if (!burst.allowed) throw errorForRate(burst.reason, burst.retryAfterSeconds)
+        const verdict = decideQuota({
+          dailyUnits: (dailySnap.get("units") as number | undefined) ?? 0,
+          dailyLimit,
+          monthlyUnits: (monthlySnap.get("units") as number | undefined) ?? 0,
+          monthlyCeiling: ceiling,
+          units: extra,
+        })
+        if (!verdict.allowed) throw errorForVerdict(verdict.reason, { fn, fnLimit: null })
+        tx.set(
+          dailyRef,
+          { units: FieldValue.increment(extra), rate: { burst: burst.burstWindow }, updatedAt: FieldValue.serverTimestamp() },
+          { merge: true },
+        )
+        tx.set(
+          monthlyRef,
+          { units: FieldValue.increment(extra), updatedAt: FieldValue.serverTimestamp() },
+          { merge: true },
+        )
+      })
+      held += extra
+      record.units += extra
+      hold.units = held
+    },
   }
+  return hold
+}
+
+/**
+ * The refund writes, for a transaction that has already read both counter docs
+ * (Firestore wants every read before any write). Floored at zero so a refund
+ * can never mint quota.
+ *
+ * `wholeCall` = the call itself produced nothing: its `count`/`calls` come off
+ * too and it is tallied as `failed`. A partial release leaves those alone — the
+ * call happened, it just cost less than it was priced at.
+ */
+export function writeRefund(
+  tx: Transaction,
+  db: Firestore,
+  record: ChargeRecord,
+  units: number,
+  snaps: { daily: DocumentSnapshot; monthly: DocumentSnapshot },
+  opts: { wholeCall: boolean },
+): void {
+  const dailyUnits = (snaps.daily.get("units") as number | undefined) ?? 0
+  const dailyCount = (snaps.daily.get("count") as number | undefined) ?? 0
+  const monthlyUnits = (snaps.monthly.get("units") as number | undefined) ?? 0
+  const monthlyCalls = (snaps.monthly.get("calls") as number | undefined) ?? 0
+  tx.set(
+    db.doc(`usage/${record.uid}/daily/${record.day}`),
+    {
+      units: Math.max(dailyUnits - units, 0),
+      ...(opts.wholeCall ? { count: Math.max(dailyCount - 1, 0) } : {}),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
+  tx.set(
+    globalDoc(db, record.month),
+    {
+      units: Math.max(monthlyUnits - units, 0),
+      ...(opts.wholeCall
+        ? {
+            calls: Math.max(monthlyCalls - 1, 0),
+            // `charged` is deliberately NOT decremented: it is the attempt
+            // count, and attempts minus failures is what tells us whether a
+            // deployed function actually works.
+            fns: { [record.fn]: { failed: FieldValue.increment(1) } },
+          }
+        : {}),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
+}
+
+/** The two counter docs a charge record points at. */
+export function counterRefs(db: Firestore, record: ChargeRecord) {
+  return { daily: db.doc(`usage/${record.uid}/daily/${record.day}`), monthly: globalDoc(db, record.month) }
+}
+
+async function giveBack(db: Firestore, record: ChargeRecord, units: number, opts: { wholeCall: boolean }): Promise<void> {
+  if (units <= 0 && !opts.wholeCall) return
+  const refs = counterRefs(db, record)
+  await db.runTransaction(async (tx) => {
+    const [daily, monthly] = await Promise.all([tx.get(refs.daily), tx.get(refs.monthly)])
+    writeRefund(tx, db, record, units, { daily, monthly }, opts)
+  })
 }
 
 /**
@@ -390,9 +602,9 @@ export async function withAiQuota<T>(
   uid: string,
   fn: string,
   work: () => Promise<T>,
-  opts?: { limit?: number; units?: number },
+  opts?: { units?: number },
 ): Promise<T> {
-  const hold = await chargeAiQuota(db, uid, fn, opts?.limit ?? DAILY_AI_LIMIT, opts?.units)
+  const hold = await chargeAiQuota(db, uid, fn, opts)
   try {
     return await work()
   } catch (err) {
@@ -402,15 +614,50 @@ export async function withAiQuota<T>(
 }
 
 /**
- * @deprecated Use `chargeAiQuota`, which also enforces the app-wide monthly
- * ceiling and returns a hold you can refund. Kept so any call site not yet
- * migrated still charges something rather than nothing.
+ * Rate-limit (and, where DAILY_CALL_CAP names it, day-cap) an endpoint that
+ * spends no AI units — proxyPdf's egress. Same per-user usage doc and the same
+ * `decideRateLimit` rule as the AI calls, in one transaction; the AI unit
+ * counters are never touched.
+ *
+ * Throws `resource-exhausted`: `kind: "rate_limited"` (wait seconds) or
+ * `kind: "call_cap"` (done for today).
  */
-export async function consumeDailyAiQuota(
-  db: Firestore,
-  uid: string,
-  fn: string,
-  limit: number = DAILY_AI_LIMIT,
-): Promise<void> {
-  await chargeAiQuota(db, uid, fn, limit)
+export async function enforceCallLimits(db: Firestore, uid: string, fn: string): Promise<void> {
+  const dailyRef = db.doc(`usage/${uid}/daily/${utcDayKey()}`)
+  const nowMs = Date.now()
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(dailyRef)
+    const verdict = decideRateLimit({
+      now: nowMs,
+      fnWindow: readWindow(snap.get(`rate.fns.${fn}`)),
+      fnLimit: rateLimitFor(fn),
+      // Zero units: this call adds nothing to the AI burst window, and the
+      // window is read only so the shared rule stays the one rule.
+      burstWindow: readWindow(snap.get("rate.burst")),
+      burstLimit: BURST_UNIT_LIMIT,
+      units: 0,
+    })
+    if (!verdict.allowed) throw errorForRate(verdict.reason, verdict.retryAfterSeconds)
+
+    const cap = DAILY_CALL_CAP[fn]
+    const used = (snap.get(`fns.${fn}`) as number | undefined) ?? 0
+    if (cap !== undefined && used + 1 > cap) {
+      throw new HttpsError("resource-exhausted", "That's today's limit for this — it resets within a day.", {
+        kind: "call_cap",
+        fn,
+        cap,
+      })
+    }
+
+    tx.set(
+      dailyRef,
+      {
+        fns: { [fn]: FieldValue.increment(1) },
+        rate: { fns: { [fn]: verdict.fnWindow } },
+        updatedAt: FieldValue.serverTimestamp(),
+        expiresAt: Timestamp.fromMillis(Date.now() + 2 * 86400_000),
+      },
+      { merge: true },
+    )
+  })
 }

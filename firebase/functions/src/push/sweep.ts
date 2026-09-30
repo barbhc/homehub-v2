@@ -1,19 +1,45 @@
 /**
- * The hourly push sweep — gather, decide (lanes.ts), send (injected).
+ * The hourly push sweep — decide who is due (lanes.ts), gather only for them,
+ * send (injected).
  *
  * `runPushSweep(db, now, send)` is the whole job; the onSchedule wrapper in
  * sendPush.ts just supplies the real clock and the real sender. That is what
- * lets the emulator test drive it with a fake sender and a chosen `now`, and
- * lets `previewDigest` compose a real user's digest on demand — the same code
- * path the Sunday push takes, with the clock made irrelevant.
+ * lets the emulator test drive it with a fake sender and a chosen `now`.
+ *
+ * ── Order of work (C8, 2026-09-30) ──────────────────────────────────────────
+ *
+ * The sweep used to START with the expensive part: one collection-group query
+ * for every scheduled task instance in the app due within 30 days — with no
+ * lower bound, so every overdue row was re-read every hour forever — then the
+ * templates, then each home's shopping list and members, then two documents
+ * per member. All of it every hour, although the lanes can only fire for a
+ * user at a handful of hours a day (the first morning tick, the buy-ahead
+ * tick, their digest hour).
+ *
+ * Now it asks the cheap question first:
+ *   1. every membership (one collection-group read of `members`);
+ *   2. each user's prefs + push state (two docs per user, batched);
+ *   3. `decideLanes` per user — the SAME decision the send path makes;
+ *   4. only for homes where at least one member has a lane firing: that home's
+ *      candidates, bounded to [today − CANDIDATE_LOOKBACK_DAYS, today + 30].
+ * A tick where nobody is due reads memberships and user docs and nothing else.
+ * Every tick logs `docsRead` (structured) so the drop can be checked in Cloud
+ * Logging rather than taken on trust.
+ *
+ * Who gets a push is decided exactly as before: the same lanes, the same
+ * composition, homes visited in the same order (earliest eligible instance
+ * first, as the old app-wide query returned them), and state updated between
+ * a user's homes the way the old per-home re-read did. The one deliberate
+ * change is the lower bound — see CANDIDATE_LOOKBACK_DAYS.
  */
 import type { Firestore } from "firebase-admin/firestore"
+import * as logger from "firebase-functions/logger"
 import { dueKindOf, safetyPhrase } from "../../../../shared/care/dueWindow.js"
 import { isAgendaEligible } from "../../../../shared/tasks/agendaEligibility.js"
 import { normalizeNotificationPrefs, type NotificationPrefs } from "../../../../shared/notifications/preferences.js"
 import {
   addDays, agreed, buyAheadRows, composeBuyAhead, composeDigest, composeMorning, decideLanes, laParts,
-  type Composed, type Pending, type PendingSupply, type PushState,
+  type Composed, type LocalParts, type Pending, type PendingSupply, type PushState,
 } from "./lanes.js"
 
 export type Sender = (
@@ -26,14 +52,55 @@ export type Sender = (
 /** Widest horizon any lane looks at: buy-ahead with the maximum lead time. */
 const CANDIDATE_HORIZON_DAYS = 30
 
+/**
+ * How long an OVERDUE instance keeps riding pushes.
+ *
+ * Before 2026-09-30 there was no lower bound: an overdue deadline was
+ * announced as "Deadline today" every morning for as long as it stayed
+ * scheduled, a lapsed reminder rode every weekly digest indefinitely, and the
+ * query re-read every such row app-wide every hour. Sixty days keeps two full
+ * monthly cycles of "you skipped this" in the digest and the morning deadline
+ * push, and drops rows nobody is going to act on because a phone buzzed.
+ *
+ * DELIBERATE BEHAVIOUR CHANGE, scoped: rows overdue by more than this stop
+ * appearing in pushes — including lapsed safety-critical work in the digest.
+ * They remain on the Home page and in the Tasks list exactly as before; only
+ * the phone stops being told. Widening this is one number.
+ */
+export const CANDIDATE_LOOKBACK_DAYS = 60
+
+/** Documents per getAll round trip. */
+const BATCH = 300
+
 type HomeCandidates = { homeId: string; homePath: string; pending: Pending[]; coveredParts: Set<string> }
 
-async function readTemplates(db: Firestore, paths: string[]): Promise<Map<string, { remindEnabled: boolean | null; priorityTier: string | null; supplies: PendingSupply[] }>> {
+/** Firestore's `__name__` order: path segment by segment, not the raw string
+ *  ("homes/a" sorts before "homes/a-b", which plain string order reverses). */
+export function compareDocPaths(a: string, b: string): number {
+  const as = a.split("/")
+  const bs = b.split("/")
+  for (let i = 0; i < Math.min(as.length, bs.length); i++) {
+    if (as[i] !== bs[i]) return as[i] < bs[i] ? -1 : 1
+  }
+  return as.length - bs.length
+}
+
+/** Documents read, by what they were read for. Firestore bills an empty query
+ *  as one read, so each query counts at least 1. */
+export type SweepReads = { members: number; userDocs: number; instances: number; templates: number; shopping: number }
+
+async function readTemplates(
+  db: Firestore,
+  paths: string[],
+  reads: SweepReads,
+): Promise<Map<string, { remindEnabled: boolean | null; priorityTier: string | null; supplies: PendingSupply[] }>> {
   const out = new Map<string, { remindEnabled: boolean | null; priorityTier: string | null; supplies: PendingSupply[] }>()
   // Chunked getAll: one runaway home must not turn a scheduled job into a
   // single 10k-document read.
-  for (let i = 0; i < paths.length; i += 300) {
-    const snaps = await db.getAll(...paths.slice(i, i + 300).map((p) => db.doc(p)))
+  for (let i = 0; i < paths.length; i += BATCH) {
+    const chunk = paths.slice(i, i + BATCH)
+    const snaps = await db.getAll(...chunk.map((p) => db.doc(p)))
+    reads.templates += chunk.length
     for (const snap of snaps) {
       if (!snap.exists) continue
       const raw = snap.get("supplies")
@@ -59,56 +126,84 @@ async function readTemplates(db: Firestore, paths: string[]): Promise<Map<string
 }
 
 /**
- * Every scheduled, agenda-eligible instance due within the widest horizon,
- * grouped by home, joined to its template (reminder flag, tier, supplies) and
- * to the home's have/bought shopping rows. Filtering by lane happens later,
- * per user, because the answer depends on the user's mode.
+ * Every scheduled, agenda-eligible instance due in
+ * [today − CANDIDATE_LOOKBACK_DAYS, today + CANDIDATE_HORIZON_DAYS] in the
+ * given homes, joined to its template (reminder flag, tier, supplies) and to
+ * the home's have/bought shopping rows. Filtering by lane happens later, per
+ * user, because the answer depends on the user's mode.
+ *
+ * One query per home, on the existing COLLECTION index (status, deletedAt,
+ * dueDate). Homes come back in the order the old app-wide collection-group
+ * query produced them — by their earliest eligible instance (dueDate, then
+ * document path) — because a user in two homes is sent the morning push for
+ * the FIRST of them, and that must not change.
  */
-export async function collectCandidates(db: Firestore, today: string, opts?: { homePaths?: string[] }): Promise<Map<string, HomeCandidates>> {
+export async function collectCandidates(
+  db: Firestore,
+  today: string,
+  homePaths: string[],
+  reads: SweepReads = { members: 0, userDocs: 0, instances: 0, templates: 0, shopping: 0 },
+): Promise<Map<string, HomeCandidates>> {
+  const lower = addDays(today, -CANDIDATE_LOOKBACK_DAYS)
   const horizon = addDays(today, CANDIDATE_HORIZON_DAYS)
-  const due = await db
-    .collectionGroup("taskInstances")
-    .where("status", "==", "scheduled")
-    .where("deletedAt", "==", null)
-    .where("dueDate", "<=", horizon)
-    .get()
+
+  const perHome = await Promise.all(
+    homePaths.map(async (homePath) => {
+      const snap = await db
+        .collection(`${homePath}/taskInstances`)
+        .where("status", "==", "scheduled")
+        .where("deletedAt", "==", null)
+        .where("dueDate", ">=", lower)
+        .where("dueDate", "<=", horizon)
+        .get()
+      return { homePath, docs: snap.docs }
+    }),
+  )
+
+  const found: Array<{ home: HomeCandidates; first: { dueDate: string; path: string } }> = []
+  const templatePaths = new Set<string>()
+  for (const { homePath, docs } of perHome) {
+    reads.instances += Math.max(docs.length, 1)
+    const entry: HomeCandidates = { homeId: homePath.split("/")[1], homePath, pending: [], coveredParts: new Set<string>() }
+    let first: { dueDate: string; path: string } | null = null
+    for (const d of docs) {
+      // Same eligibility as the Home agenda — a push must never count tasks the
+      // app deliberately hides (item-scoped cleaning).
+      if (!isAgendaEligible({ careType: d.get("careType") as string | null, scopeType: d.get("scopeType") as string | null })) continue
+
+      const title = (d.get("title") as string) ?? "A task"
+      const scheduleType = (d.get("scheduleType") as string | null) ?? null
+      const dueDate = (d.get("dueDate") as string) ?? today
+      const taskTemplateId = (d.get("taskTemplateId") as string | null) ?? null
+      if (taskTemplateId) templatePaths.add(`${homePath}/taskTemplates/${taskTemplateId}`)
+      // Query order is (dueDate, document path) — the key the old query sorted by.
+      first ??= { dueDate, path: d.ref.path }
+
+      entry.pending.push({
+        id: d.id,
+        taskTemplateId,
+        itemUnitId: (d.get("itemUnitId") as string | null) ?? null,
+        title,
+        itemName: (d.get("itemName") as string | null) ?? null,
+        dueDate,
+        isDeadline: dueKindOf({ title, scheduleType }) === "deadline",
+        safety: !!d.get("isSafetyCritical") && safetyPhrase(dueDate, scheduleType, { today }) !== null,
+        remindEnabled: null,
+        priorityTier: (d.get("priorityTier") as string | null) ?? null,
+        supplies: [],
+      })
+    }
+    if (first !== null) found.push({ home: entry, first })
+  }
+  found.sort(
+    (a, b) =>
+      (a.first.dueDate < b.first.dueDate ? -1 : a.first.dueDate > b.first.dueDate ? 1 : 0) ||
+      compareDocPaths(a.first.path, b.first.path),
+  )
 
   const byHome = new Map<string, HomeCandidates>()
-  const templatePaths = new Set<string>()
-  for (const d of due.docs) {
-    const homeRef = d.ref.parent.parent
-    if (!homeRef) continue
-    if (opts?.homePaths && !opts.homePaths.includes(homeRef.path)) continue
-    // Same eligibility as the Home agenda — a push must never count tasks the
-    // app deliberately hides (item-scoped cleaning).
-    if (!isAgendaEligible({ careType: d.get("careType") as string | null, scopeType: d.get("scopeType") as string | null })) continue
-
-    const title = (d.get("title") as string) ?? "A task"
-    const scheduleType = (d.get("scheduleType") as string | null) ?? null
-    const dueDate = (d.get("dueDate") as string) ?? today
-    const taskTemplateId = (d.get("taskTemplateId") as string | null) ?? null
-    const templatePath = taskTemplateId ? `${homeRef.path}/taskTemplates/${taskTemplateId}` : null
-    if (templatePath) templatePaths.add(templatePath)
-
-    const entry = byHome.get(homeRef.path) ?? { homeId: homeRef.id, homePath: homeRef.path, pending: [], coveredParts: new Set<string>() }
-    entry.pending.push({
-      id: d.id,
-      taskTemplateId,
-      itemUnitId: (d.get("itemUnitId") as string | null) ?? null,
-      title,
-      itemName: (d.get("itemName") as string | null) ?? null,
-      dueDate,
-      isDeadline: dueKindOf({ title, scheduleType }) === "deadline",
-      safety: !!d.get("isSafetyCritical") && safetyPhrase(dueDate, scheduleType, { today }) !== null,
-      remindEnabled: null,
-      priorityTier: (d.get("priorityTier") as string | null) ?? null,
-      supplies: [],
-    })
-    byHome.set(homeRef.path, entry)
-  }
-
-  const templates = await readTemplates(db, [...templatePaths])
-  for (const home of byHome.values()) {
+  const templates = await readTemplates(db, [...templatePaths], reads)
+  for (const { home } of found) {
     for (const p of home.pending) {
       const tpl = p.taskTemplateId ? templates.get(`${home.homePath}/taskTemplates/${p.taskTemplateId}`) : undefined
       if (!tpl) continue
@@ -119,6 +214,7 @@ export async function collectCandidates(db: Firestore, today: string, opts?: { h
     // "I have one" / "bought" rows keyed to an instance cover that part for
     // this cycle. Read once per home, never per user.
     const shop = await db.collection(`${home.homePath}/shoppingList`).where("deletedAt", "==", null).get()
+    reads.shopping += Math.max(shop.size, 1)
     for (const s of shop.docs) {
       const status = s.get("status")
       const inst = s.get("sourceTaskInstanceId")
@@ -127,58 +223,126 @@ export async function collectCandidates(db: Firestore, today: string, opts?: { h
         home.coveredParts.add(`${inst}::${name.trim().toLowerCase()}`)
       }
     }
+    byHome.set(home.homePath, home)
   }
   return byHome
 }
 
-async function readPrefs(db: Firestore, uid: string): Promise<NotificationPrefs> {
-  // A prefs read failure must not silence a user: defaults are today's
-  // behavior, and the push still goes. The failure is logged, not swallowed.
-  try {
-    const snap = await db.doc(`users/${uid}/private/preferences`).get()
-    return normalizeNotificationPrefs(snap.exists ? snap.get("notifications") : undefined)
-  } catch (e) {
-    console.error(`push: prefs read failed for ${uid}, using defaults`, e)
-    return normalizeNotificationPrefs(undefined)
+/**
+ * Who belongs to which home, from one collection-group read of `members`.
+ * Only `homes/{homeId}/members/{uid}` documents count. Homes are listed in
+ * path order and members in id order — the order the old per-home
+ * `members` read returned them in.
+ */
+async function readMemberships(db: Firestore, reads: SweepReads) {
+  const snap = await db.collectionGroup("members").get()
+  reads.members += Math.max(snap.size, 1)
+  const homesByUser = new Map<string, string[]>()
+  const membersByHome = new Map<string, string[]>()
+  for (const d of snap.docs) {
+    const home = d.ref.parent.parent
+    if (!home || home.parent.id !== "homes" || home.parent.parent !== null) continue
+    const uid = d.id
+    homesByUser.set(uid, [...(homesByUser.get(uid) ?? []), home.path])
+    membersByHome.set(home.path, [...(membersByHome.get(home.path) ?? []), uid])
   }
+  return { homesByUser, membersByHome }
 }
 
-async function readPushState(db: Firestore, uid: string): Promise<PushState> {
-  const snap = await db.doc(`users/${uid}/private/pushState`).get()
-  return snap.exists ? (snap.data() as PushState) : {}
+/**
+ * Every user's notification prefs and push state, two documents each, in
+ * batched round trips. A read failure fails the tick rather than guessing at
+ * state: pushing without the dedupe state would repeat pushes, and the next
+ * tick retries (the morning and buy-ahead lanes are deferred, not dropped).
+ */
+async function readUserState(db: Firestore, uids: string[], reads: SweepReads) {
+  const prefs = new Map<string, NotificationPrefs>()
+  const state = new Map<string, PushState>()
+  const perChunk = Math.floor(BATCH / 2)
+  for (let i = 0; i < uids.length; i += perChunk) {
+    const chunk = uids.slice(i, i + perChunk)
+    const refs = chunk.flatMap((uid) => [db.doc(`users/${uid}/private/preferences`), db.doc(`users/${uid}/private/pushState`)])
+    const snaps = await db.getAll(...refs)
+    reads.userDocs += refs.length
+    chunk.forEach((uid, j) => {
+      const p = snaps[j * 2]
+      const s = snaps[j * 2 + 1]
+      prefs.set(uid, normalizeNotificationPrefs(p.exists ? p.get("notifications") : undefined))
+      state.set(uid, s.exists ? (s.data() as PushState) : {})
+    })
+  }
+  return { prefs, state }
+}
+
+const anyLane = (local: LocalParts, prefs: NotificationPrefs, state: PushState) => {
+  const l = decideLanes(local, prefs, state)
+  return l.morning || l.digest || l.buyAhead
 }
 
 export type SweepReport = {
+  /** Users whose prefs and state were read. */
+  usersChecked: number
+  /** Users with at least one lane firing at this tick. */
+  usersDue: number
+  /** Homes with a due member — the only homes whose tasks were read. */
+  homesDue: number
+  /** Due homes that had candidates. */
   homes: number
+  /** Due members visited in those homes. */
   users: number
   morning: number
   digest: number
   buyAhead: number
   pushesSent: number
+  /** Every document this tick read, and what for. */
+  docsRead: number
+  reads: SweepReads
 }
 
 /**
- * One tick. For every home with candidates → every member → their prefs and
- * state decide which lanes fire NOW; each lane composes, sends, and records
- * its dedupe key in the same pass.
+ * One tick. Decide who is due → gather candidates for their homes only → for
+ * every due member of every home with candidates, the lanes that fire NOW
+ * compose, send, and record their dedupe key in the same pass.
  */
 export async function runPushSweep(db: Firestore, now: Date, send: Sender): Promise<SweepReport> {
   const local = laParts(now)
-  const byHome = await collectCandidates(db, local.date)
-  const report: SweepReport = { homes: byHome.size, users: 0, morning: 0, digest: 0, buyAhead: 0, pushesSent: 0 }
+  const reads: SweepReads = { members: 0, userDocs: 0, instances: 0, templates: 0, shopping: 0 }
+
+  const { homesByUser, membersByHome } = await readMemberships(db, reads)
+  const uids = [...homesByUser.keys()]
+  const { prefs, state } = await readUserState(db, uids, reads)
+
+  const due = new Set(uids.filter((uid) => anyLane(local, prefs.get(uid)!, state.get(uid)!)))
+  const homesDue = [...new Set([...due].flatMap((uid) => homesByUser.get(uid) ?? []))]
+
+  const byHome = homesDue.length > 0 ? await collectCandidates(db, local.date, homesDue, reads) : new Map<string, HomeCandidates>()
+  const report: SweepReport = {
+    usersChecked: uids.length,
+    usersDue: due.size,
+    homesDue: homesDue.length,
+    homes: byHome.size,
+    users: 0,
+    morning: 0,
+    digest: 0,
+    buyAhead: 0,
+    pushesSent: 0,
+    docsRead: 0,
+    reads,
+  }
 
   for (const home of byHome.values()) {
-    const members = await db.collection(`${home.homePath}/members`).get()
-    for (const m of members.docs) {
+    for (const uid of membersByHome.get(home.homePath) ?? []) {
+      if (!due.has(uid)) continue
       report.users += 1
-      const uid = m.id
-      const prefs = await readPrefs(db, uid)
-      const state = await readPushState(db, uid)
-      const lanes = decideLanes(local, prefs, state)
+      const userPrefs = prefs.get(uid)!
+      // The state as it stands NOW, after any earlier home's pushes this tick —
+      // what the old per-home re-read of pushState returned.
+      const userState = state.get(uid)!
+      const lanes = decideLanes(local, userPrefs, userState)
       const patch: Partial<PushState> = {}
 
       if (lanes.morning) {
-        const msg = composeMorning(home.pending, prefs, local.date, home.homeId)
+        const msg = composeMorning(home.pending, userPrefs, local.date, home.homeId)
         if (msg) {
           report.pushesSent += (await deliver(db, uid, msg, home.homePath, send)).sent
           report.morning += 1
@@ -189,7 +353,7 @@ export async function runPushSweep(db: Firestore, now: Date, send: Sender): Prom
       }
 
       if (lanes.digest) {
-        const msg = composeDigest(home.pending, prefs, local.date, home.homeId, home.coveredParts)
+        const msg = composeDigest(home.pending, userPrefs, local.date, home.homeId, home.coveredParts)
         if (msg) {
           report.pushesSent += (await deliver(db, uid, msg, home.homePath, send)).sent
           report.digest += 1
@@ -198,22 +362,29 @@ export async function runPushSweep(db: Firestore, now: Date, send: Sender): Prom
       }
 
       if (lanes.buyAhead) {
-        const rows = buyAheadRows(home.pending, prefs, local.date, home.coveredParts, state)
+        const rows = buyAheadRows(home.pending, userPrefs, local.date, home.coveredParts, userState)
         const msg = composeBuyAhead(rows, home.homeId)
         if (msg) {
           report.pushesSent += (await deliver(db, uid, msg, home.homePath, send)).sent
           report.buyAhead += 1
-          patch.buyAheadSent = { ...(state.buyAheadSent ?? {}), ...Object.fromEntries(rows.map((r) => [r.key, local.date])) }
+          patch.buyAheadSent = { ...(userState.buyAheadSent ?? {}), ...Object.fromEntries(rows.map((r) => [r.key, local.date])) }
         }
         patch.lastBuyAheadDate = local.date
       }
 
       if (Object.keys(patch).length > 0) {
         await db.doc(`users/${uid}/private/pushState`).set(patch, { merge: true })
+        state.set(uid, { ...userState, ...patch })
       }
     }
   }
-  console.log(`sendPushSweep: ${local.date} ${local.hhmm} homes=${report.homes} users=${report.users} morning=${report.morning} digest=${report.digest} buyAhead=${report.buyAhead} sent=${report.pushesSent}`)
+
+  report.docsRead = reads.members + reads.userDocs + reads.instances + reads.templates + reads.shopping
+  logger.info("sendPushSweep tick", {
+    date: local.date,
+    time: local.hhmm,
+    ...report,
+  })
   return report
 }
 
@@ -222,27 +393,6 @@ async function deliver(db: Firestore, uid: string, msg: Composed, homePath: stri
   // {title, body, url}, so a data-only field is dropped on the platform that
   // matters. `homePath` in data is for the FCM/web lane's own bookkeeping.
   return send(db, uid, { title: msg.title, body: msg.body }, { homePath, url: msg.url })
-}
-
-/**
- * Compose the caller's digest for one home, as the sweep would on their chosen
- * day and hour — with the clock made irrelevant. Returns null when the week
- * is empty (the sweep sends nothing then either).
- */
-export async function composeDigestForUser(
-  db: Firestore,
-  uid: string,
-  homePath: string,
-  now: Date,
-): Promise<(Composed & { reminders: number; toBuy: number }) | null> {
-  const local = laParts(now)
-  const byHome = await collectCandidates(db, local.date, { homePaths: [homePath] })
-  const home = byHome.get(homePath)
-  if (!home) return null
-  const prefs = await readPrefs(db, uid)
-  const msg = composeDigest(home.pending, prefs, local.date, home.homeId, home.coveredParts)
-  if (!msg) return null
-  return { title: msg.title, body: msg.body, url: msg.url, reminders: msg.reminders.length, toBuy: msg.toBuy }
 }
 
 /** Exposed for tests: the breadth predicate as the sweep applies it. */

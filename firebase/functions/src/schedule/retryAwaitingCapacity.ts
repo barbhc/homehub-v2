@@ -33,7 +33,10 @@ import { onSchedule } from "firebase-functions/v2/scheduler"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
 import { getFunctions } from "firebase-admin/functions"
 import { randomUUID } from "node:crypto"
-import { chargeAiQuota, quotaScope } from "../lib/quota.js"
+import { chargeAiQuota, quotaScope, type QuotaHold } from "../lib/quota.js"
+import { recordParseCharge, refundParseCharge } from "../lib/parseCharges.js"
+import { PARSE_ATTEMPT_DEADLINE_SECONDS } from "../parse/parseState.js"
+import { runStalledParseSweep } from "../parse/stalledParseSweep.js"
 
 const REGION = "us-central1"
 
@@ -58,10 +61,12 @@ export interface CapacityRetryResult {
 }
 
 export interface RetryEffects {
-  /** Charge the parked user. Throws the same errors `chargeAiQuota` throws. */
-  charge(uid: string): Promise<void>
-  /** Hand the manual to the parse worker. */
-  enqueue(payload: { homeId: string; manualId: string; requestId: string; mode: string }): Promise<void>
+  /** Charge the parked user. Throws the same errors `chargeAiQuota` throws.
+   *  The hold (when there is one) goes into the run's ledger so the worker or
+   *  the stalled-parse sweep can refund a run that never reached Claude. */
+  charge(uid: string): Promise<QuotaHold | void>
+  /** Hand the manual to the parse worker, under `taskId` (dedupes). */
+  enqueue(payload: { homeId: string; manualId: string; requestId: string; mode: string }, taskId: string): Promise<void>
 }
 
 export async function runCapacityRetry(
@@ -111,8 +116,9 @@ export async function runCapacityRetry(
       continue
     }
 
+    let hold: QuotaHold | void
     try {
-      await effects.charge(uid)
+      hold = await effects.charge(uid)
     } catch (err) {
       const scope = quotaScope(err)
       if (scope === "global") {
@@ -132,25 +138,52 @@ export async function runCapacityRetry(
     }
 
     const requestId = randomUUID()
-    const now = Timestamp.now()
-    await doc.ref.set(
-      {
-        parse: {
-          stage: "queued",
-          stageAt: now,
-          requestId,
-          mode,
-          attempt: 0,
-          error: null,
-          // Clearing this is what stops a started manual being picked up twice.
-          awaiting: null,
+    // The restart and its ledger entry land together — and only if the manual
+    // is still parked. Someone may have started it by hand since the query.
+    const claimed = await db.runTransaction(async (tx) => {
+      const cur = await tx.get(doc.ref)
+      if (!cur.exists || cur.get("parse.stage") !== "awaiting_capacity") return false
+      const now = Timestamp.now()
+      tx.set(
+        doc.ref,
+        {
+          parse: {
+            stage: "queued",
+            stageAt: now,
+            requestId,
+            mode,
+            attempt: 0,
+            error: null,
+            retry: null,
+            // Clearing this is what stops a started manual being picked up twice.
+            awaiting: null,
+          },
+          updatedAt: now,
         },
-        updatedAt: now,
-      },
-      { merge: true },
-    )
+        { merge: true },
+      )
+      if (hold?.record) recordParseCharge(tx, db, requestId, hold.record, { homeId: homeRef.id, manualId: doc.id })
+      return true
+    })
+    if (!claimed) {
+      if (hold) await hold.refund()
+      continue
+    }
 
-    await effects.enqueue({ homeId: homeRef.id, manualId: doc.id, requestId, mode })
+    try {
+      await effects.enqueue({ homeId: homeRef.id, manualId: doc.id, requestId, mode }, requestId)
+    } catch (err) {
+      // Nothing will read it: refund, and put it back in the queue for the
+      // next sweep rather than leave it "queued" with no task behind it.
+      console.error(`retryAwaitingCapacity: enqueue failed for ${homeRef.id}/${doc.id}:`, err)
+      await refundParseCharge(db, requestId, { from: ["held"], reason: "enqueue failed" })
+      await doc.ref.set(
+        { parse: { stage: "awaiting_capacity", stageAt: Timestamp.now(), awaiting: { uid, since: since ?? Timestamp.now() } } },
+        { merge: true },
+      )
+      result.stillRefused += 1
+      continue
+    }
     result.restarted += 1
   }
 
@@ -191,16 +224,26 @@ export const retryAwaitingCapacity = onSchedule(
   },
   async () => {
     const db = getFirestore()
+
+    // First, end any scan whose worker died (parse/stalledParseSweep.ts): it
+    // frees the home's in-flight slots before capacity work starts. Isolated —
+    // a failure here (a missing index, say) is logged and must never stop the
+    // capacity retries below.
+    try {
+      const swept = await runStalledParseSweep(db, Date.now())
+      console.log(`stalledParseSweep: scanned=${swept.scanned} ended=${swept.ended} refunded=${swept.refunded}`)
+    } catch (err) {
+      console.error("stalledParseSweep failed; capacity retries continue:", err)
+    }
+
     const result = await runCapacityRetry(
       db,
       {
-        charge: async (uid) => {
-          await chargeAiQuota(db, uid, "enqueueParse")
-        },
-        enqueue: async (payload) => {
+        charge: (uid) => chargeAiQuota(db, uid, "enqueueParse"),
+        enqueue: async (payload, taskId) => {
           await getFunctions()
             .taskQueue(`locations/${REGION}/functions/parseWorker`)
-            .enqueue(payload, { dispatchDeadlineSeconds: 1800 })
+            .enqueue(payload, { dispatchDeadlineSeconds: PARSE_ATTEMPT_DEADLINE_SECONDS, id: taskId })
         },
       },
       Date.now(),

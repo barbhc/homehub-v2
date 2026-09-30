@@ -34,11 +34,16 @@ export interface ParseConfidence {
   notes: string
 }
 
-/** Shape written under `manuals/{manualId}.parse`. */
+/** Shape written under `manuals/{manualId}.parse`. Every write a run makes
+ *  carries its `requestId` and stamps `stageAt` with the time of that write
+ *  (runParse.ts: one run, one result; parseState.ts: staleness). */
 export interface ParseState {
   stage: ParseStage
   stageAt: FirebaseFirestore.Timestamp
   requestId: string
+  /** Set while a run waits for Cloud Tasks' retry after a transient failure
+   *  (stage is back at `queued`); cleared when the retry claims the run. */
+  retry?: { afterStage: ParseStage; reason: string; at: FirebaseFirestore.Timestamp } | null
   mode: ParseMode
   model: string
   attempt: number

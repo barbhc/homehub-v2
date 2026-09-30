@@ -136,6 +136,13 @@ page watches it.
   to re-enqueue any unread manual under ten minutes old — the wizard's own,
   already enqueued — so every add with a manual was charged twice, and again
   on each refetch. — audit 2026-09-29 (HH-159)
+- **One scan per manual at a time — enforced by the server too.** Any door
+  that asks again for a manual that is being read (a scan tapped mid-read, a
+  second device) **follows the scan already running** — same result, charged
+  once — instead of starting a second, separately billed one. A scan that
+  stops writing for 35 minutes is ended as an error the manual card can
+  restart, never left "reading" forever; a scan retrying after a transient
+  failure shows as queued, not failed. — audit 2026-09-29, Package C (C1/C2)
 
 ## The item page — where the value arrives
 

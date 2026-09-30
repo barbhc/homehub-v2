@@ -13,6 +13,8 @@ import assert from "node:assert/strict"
 import { getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { runCapacityRetry, MAX_PARKED_MS } from "../lib/firebase/functions/src/schedule/retryAwaitingCapacity.js"
+import { runEnqueueParse } from "../lib/firebase/functions/src/parse/enqueueParse.js"
+import { chargeAiQuota } from "../lib/firebase/functions/src/lib/quota.js"
 
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be set (run via emulators:exec)")
 if (getApps().length === 0) initializeApp({ projectId: "demo-homehub" })
@@ -198,4 +200,54 @@ test("preserves the parse mode it was parked with", async () => {
   await runCapacityRetry(db, s.effects, NOW)
   assert.equal(s.enqueued[0].mode, "fill_gaps")
   assert.equal((await db.doc(`homes/${H}/manuals/m1`).get()).get("parse.mode"), "fill_gaps")
+})
+
+// Lives here rather than in enqueueParse.emu.test.mjs: a parked manual is
+// visible to this file's app-wide sweep, and the two files run concurrently.
+// Its charges use their own clock (aiSpendGlobal/2031-03) so they never queue
+// behind the other suites' transactions on the current month's document.
+const CAP_AT = new Date("2031-03-15T12:00:00Z")
+
+test("enqueueParse still parks a quota refusal (HH-124); the restart records its charge and dedupes by requestId", async () => {
+  const H = home(`cap-enqueue-${Date.now()}`)
+  const uid = `cap-uid-${Date.now()}`
+  await db.doc(`homes/${H}/members/${uid}`).set({ uid, role: "owner" })
+  await db.doc(`homes/${H}/manuals/m1`).set({ itemUnitId: "i1", sourceType: "upload", sourceRef: "manuals/x.pdf" })
+
+  // A day with no allowance: the charge is refused as a CEILING, so it parks.
+  const broke = `config/spend-cap-${Date.now()}-a`
+  await db.doc(broke).set({ dailyUnitsDefault: 0 })
+  await assert.rejects(
+    () =>
+      runEnqueueParse(
+        db,
+        { charge: (u) => chargeAiQuota(db, u, "enqueueParse", { configDoc: broke, at: CAP_AT }), enqueue: async () => {} },
+        { uid, homeId: H, manualId: "m1", mode: "preview" },
+      ),
+    (err) => err.details?.scope === "daily",
+  )
+  const parked = (await db.doc(`homes/${H}/manuals/m1`).get()).get("parse")
+  assert.equal(parked.stage, "awaiting_capacity")
+  assert.equal(parked.awaiting.uid, uid)
+
+  // Capacity again: the sweep restarts it on the parker's quota, writes the
+  // ledger entry in the same transaction, and enqueues under the requestId.
+  const enqueued = []
+  const res = await runCapacityRetry(
+    db,
+    {
+      charge: (u) => chargeAiQuota(db, u, "enqueueParse", { configDoc: `config/spend-cap-${Date.now()}-b`, at: CAP_AT }),
+      enqueue: async (payload, taskId) => {
+        enqueued.push({ payload, taskId })
+      },
+    },
+    Date.now(),
+  )
+  assert.equal(res.restarted, 1)
+  const restarted = (await db.doc(`homes/${H}/manuals/m1`).get()).get("parse")
+  assert.equal(restarted.stage, "queued")
+  assert.equal(enqueued[0].taskId, restarted.requestId, "one run can never be queued twice")
+  const ledger = (await db.doc(`parseCharges/${restarted.requestId}`).get()).data()
+  assert.equal(ledger.state, "held")
+  assert.equal(ledger.uid, uid)
 })

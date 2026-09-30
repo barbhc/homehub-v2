@@ -55,6 +55,29 @@ test("does not roll non-recurring (seasonal/as_needed/setup)", async () => {
   assert.equal(due, PAST)
 })
 
+test("writes in chunks: every rollable instance lands, however many batches it takes (C8)", async () => {
+  // The job used to put every re-anchored instance in the app into ONE batch;
+  // Firestore refuses more than 500 writes in a batch, so the first night with
+  // 501 rollable rows would roll none — and every night after. A batch size of
+  // 2 stands in for the real 400 so the test stays fast.
+  const H = "rf-chunked"
+  await tpl(H, "t1", "monthly")
+  for (let i = 0; i < 5; i++) await inst(H, `c${i}`, "t1")
+  const res = await runRollForward(db, TODAY, { batchSize: 2 })
+  for (let i = 0; i < 5; i++) {
+    const due = (await db.doc(`homes/${H}/taskInstances/c${i}`).get()).get("dueDate")
+    assert.equal(due, "2026-07-23", `c${i} must be rolled`)
+  }
+  assert.ok(res.rolled >= 5)
+  assert.equal(res.batches, Math.ceil(res.rolled / 2), "one commit per full chunk, plus the remainder")
+})
+
+test("nothing to roll commits nothing", async () => {
+  const res = await runRollForward(db, "1970-01-01")
+  assert.equal(res.rolled, 0)
+  assert.equal(res.batches, 0)
+})
+
 test("ignores instances that are not past-due", async () => {
   const H = "rf-future"
   await tpl(H, "t1", "weekly")

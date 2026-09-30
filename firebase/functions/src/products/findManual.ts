@@ -23,8 +23,6 @@ import { requireAnyMembership } from "../lib/membership.js"
 
 const BRAVE_SEARCH_API_KEY = defineSecret("BRAVE_SEARCH_API_KEY")
 const REGION = "us-central1"
-/** Generous: this is one search per appliance added, not per keystroke. */
-const FIND_MANUAL_DAILY_LIMIT = 60
 const CACHE_TTL_DAYS = 30
 const MAX_CANDIDATES = 4
 
@@ -110,6 +108,22 @@ export function rankCandidates(results: BraveResult[], brand: string, model: str
     .slice(0, MAX_CANDIDATES)
 }
 
+/**
+ * The charge for one search: the user's shared daily pool, like every other
+ * paid call.
+ *
+ * This used to pass `60` as the limit — meant as "60 searches a day" — and the
+ * quota transaction compared it with the user's TOTAL units across every
+ * function. So findManual refused anyone who had spent 60 units on anything
+ * (the owner, at 1,000/day, lost manual search after one busy add session),
+ * and with the default pool now at 50 the same literal would have let
+ * findManual alone run past everyone's cap. Exported so the regression test
+ * drives exactly this call.
+ */
+export function chargeFindManual(db: Firestore, uid: string, opts?: { configDoc?: string }) {
+  return chargeAiQuota(db, uid, "findManual", opts)
+}
+
 async function braveSearch(key: string, query: string): Promise<BraveResult[]> {
   const url = new URL("https://api.search.brave.com/res/v1/web/search")
   url.searchParams.set("q", query)
@@ -162,7 +176,7 @@ export const findManual = onCall(
     // the UI keeps upload/paste-URL available either way.
     if (!key) return { candidates: [], source: "unavailable" }
 
-    const hold = await chargeAiQuota(db, uid, "findManual", FIND_MANUAL_DAILY_LIMIT)
+    const hold = await chargeFindManual(db, uid)
 
     // Two passes: the precise one first, then a looser fallback, because
     // filetype: is a hint rather than a guarantee on most engines.

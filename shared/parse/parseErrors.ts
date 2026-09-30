@@ -46,7 +46,29 @@ export const PARSE_ERR = {
     `The site wouldn't let us download that link (HTTP ${status}). Open it in your browser, download the PDF, then upload it here.`,
   generic:
     "Reading the manual failed on our side. Try again in a minute — if it keeps happening, upload the PDF directly instead of a link.",
+  /** enqueueParse refused a second scan of a manual that is being read right
+   *  now (the scan in flight is not affected). isParseInFlightMessage below
+   *  must keep matching it. */
+  alreadyReading: "This manual is already being read — it'll be ready in a few minutes.",
+  /** The stalled-parse sweep ended a scan whose worker stopped writing. */
+  stalled: "This scan stopped partway through on our side. Scanning it again will start it fresh.",
+  /** The scan was saved but could not be handed to the worker queue. */
+  notStarted: "We couldn't start this scan just now. Try again in a minute.",
+  /** A scan the client was following was replaced by a different kind of scan
+   *  of the same manual (e.g. a rescan started elsewhere). */
+  superseded: "A newer scan of this manual took over from this one.",
 } as const
+
+/**
+ * Is this the "already being read" refusal? The client uses it to FOLLOW the
+ * scan already running instead of reporting a failure (the item page used to
+ * start a second, separately billed scan of a manual the add wizard had just
+ * started). Matched on the sentence because callable error details do not
+ * survive every client transport; the functions test pins the pairing.
+ */
+export function isParseInFlightMessage(message: string | null | undefined): boolean {
+  return !!message && /already being read/i.test(message)
+}
 
 /** Does this string read as raw transport/API output rather than a sentence
  *  written for a person? */

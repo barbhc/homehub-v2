@@ -516,6 +516,71 @@ describe("AI usage quota docs (usage/{uid}/daily/{day}) — Admin-SDK-only", () 
   })
 })
 
+describe("AI spend caps (config/spend) — server-only", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "config/spend"), {
+        monthlyCeilingUnits: 1500,
+        dailyUnitsDefault: 50,
+        dailyUnitsOverrides: { [OWNER]: 1000 },
+        scansPerDay: 50,
+      })
+    })
+  })
+
+  it("no signed-in user can read it — it names accounts in its override map", async () => {
+    // The config wildcard used to allow `get` on every config doc to anyone
+    // signed in. Rules OR together, so a narrower deny could not have fixed it;
+    // the wildcard itself had to become an allowlist.
+    await assertFails(getDoc(doc(asOwner(), "config/spend")))
+    await assertFails(getDoc(doc(asMember(), "config/spend")))
+    await assertFails(getDoc(doc(asOutsider(), "config/spend")))
+    await assertFails(getDoc(doc(asAnon(), "config/spend")))
+  })
+
+  it("no client can write it — not even to raise its own cap or lift the kill switch", async () => {
+    await assertFails(setDoc(doc(asOwner(), "config/spend"), { monthlyCeilingUnits: 999999 }))
+    await assertFails(updateDoc(doc(asOwner(), "config/spend"), { [`dailyUnitsOverrides.${OWNER}`]: 999999 }))
+    await assertFails(deleteDoc(doc(asOwner(), "config/spend")))
+    await assertFails(setDoc(doc(asMember(), "config/spend"), { monthlyCeilingUnits: 0 }))
+  })
+
+  it("the config collection cannot be listed", async () => {
+    await assertFails(getDocs(collection(asOwner(), "config")))
+  })
+
+  it("the growth flag stays readable — the allowlist keeps what the client needs", async () => {
+    await assertSucceeds(getDoc(doc(asMember(), "config/growth")))
+  })
+
+  it("any other config doc is closed by default", async () => {
+    await assertFails(getDoc(doc(asMember(), "config/anythingElse")))
+  })
+})
+
+describe("manual-scan charge ledger (parseCharges) — server-only", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "parseCharges/run-1"), {
+        uid: OWNER, fn: "enqueueParse", units: 10, day: "2026-09-30", month: "2026-09", state: "held",
+      })
+    })
+  })
+
+  it("the payer can neither read nor rewrite their own charge (no self-refund)", async () => {
+    await assertFails(getDoc(doc(asOwner(), "parseCharges/run-1")))
+    await assertFails(updateDoc(doc(asOwner(), "parseCharges/run-1"), { units: 10000 }))
+    await assertFails(setDoc(doc(asOwner(), "parseCharges/run-2"), { uid: OWNER, units: 10000, state: "held" }))
+    await assertFails(deleteDoc(doc(asOwner(), "parseCharges/run-1")))
+  })
+
+  it("nobody else can either, and it cannot be listed", async () => {
+    await assertFails(getDoc(doc(asMember(), "parseCharges/run-1")))
+    await assertFails(getDocs(collection(asMember(), "parseCharges")))
+    await assertFails(getDoc(doc(asAnon(), "parseCharges/run-1")))
+  })
+})
+
 describe("growth gate (invite codes)", () => {
   const NEWCOMER = "newcomer-uid"
   const asNewcomer = () => testEnv.authenticatedContext(NEWCOMER).firestore()
