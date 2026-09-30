@@ -45,6 +45,22 @@ describe("a row's Rescan — the add wizard's hand-off, not a commit", () => {
     expect(isParsePending("m-1")).toBe(false)
   })
 
+  it("a manual already being read is handed off to that read — not a failure, not a second scan", async () => {
+    svc.startParse.mockResolvedValue({
+      ok: false,
+      error: "This manual is already being read — it'll be ready in a few minutes.",
+      inFlight: { requestId: "running-1", mode: "preview" },
+    })
+    expect(await startRescanForReview("h1", manual)).toEqual({ ok: true, reviewPath: "/items/item-1" })
+    expect(isParsePending("m-1")).toBe(true)
+    expect(isScanQueued("m-1")).toBe(false)
+  })
+
+  it("…also when the refusal's details did not survive the transport", async () => {
+    svc.startParse.mockResolvedValue({ ok: false, error: "This manual is already being read — it'll be ready in a few minutes." })
+    expect(await startRescanForReview("h1", manual)).toEqual({ ok: true, reviewPath: "/items/item-1" })
+  })
+
   it("a real failure says so, and flags nothing", async () => {
     svc.startParse.mockResolvedValue({ ok: false, error: "Manual not found" })
     const res = await startRescanForReview("h1", manual)

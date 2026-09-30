@@ -18,6 +18,7 @@ import { parseManualAndWait, startParse } from "@/modules/knowledge/services/par
 import type { ParseManualResult } from "@/modules/knowledge/services/parseManualService"
 import { markParsePending } from "@/lib/parsePickup"
 import { isCapacityRefusal, queueScan } from "@/lib/scanCapacity"
+import { isParseInFlightMessage } from "../../shared/parse/parseErrors"
 
 type ManualRef = Pick<ManualDocument, "manual_id" | "item_unit_id">
 
@@ -38,6 +39,13 @@ export type RescanStart =
 export async function startRescanForReview(homeId: string, m: ManualRef): Promise<RescanStart> {
   const started = await startParse(m.manual_id, { homeId, mode: "preview" })
   if (!started.ok) {
+    // The manual is being read right now (the server refuses a second,
+    // separately billed scan — Package C). That read is the thing to watch,
+    // not a failure: hand off to it exactly as if this one had started.
+    if (started.inFlight || isParseInFlightMessage(started.error)) {
+      markParsePending(m.manual_id)
+      return { ok: true, reviewPath: reviewPathFor(m) }
+    }
     const queued = isCapacityRefusal(started.error)
     if (queued) queueScan(m.manual_id, m.item_unit_id, Date.now())
     return { ok: false, error: started.error, queued }
