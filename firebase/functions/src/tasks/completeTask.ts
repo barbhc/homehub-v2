@@ -16,7 +16,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
 import { addCadence, seasonalNextDue, type ScheduleType } from "../schedule/cadence.js"
-import { calendarDateIn, checkCompletedOn, homeTimeZone } from "./completedOn.js"
+import { calendarDateIn, checkCompletedOn, homeTimeZone, isCalendarDate } from "./completedOn.js"
 
 const REGION = "us-central1"
 const NO_NEXT: ReadonlySet<string> = new Set(["after_each_use", "as_needed", "setup"])
@@ -159,11 +159,46 @@ export async function runCompleteTask(db: Firestore, input: RunCompleteTaskInput
   })
 }
 
+/** A Firestore document id: one path segment, so it can't address another doc. */
+const DOC_ID = /^[^/]+$/
+
+/**
+ * The request body, checked field by field rather than cast — the callable's
+ * type says nothing about what arrives. `completedOn` and `backdated` are
+ * passed on as-is: checkCompletedOn owns their rules. Everything else must
+ * already be what the core writes. (Shared schema contracts for every callable
+ * are a follow-up: audit 2026-09-29, refactor #8.)
+ */
+function readInput(data: unknown): Omit<CompleteTaskInput, "completedOn" | "backdated"> & {
+  completedOn: unknown
+  backdated: unknown
+} {
+  const d: Record<string, unknown> = data !== null && typeof data === "object" ? { ...data } : {}
+  const { homeId, taskInstanceId, nextDueOverride, completionNotes } = d
+  if (typeof homeId !== "string" || !DOC_ID.test(homeId) || typeof taskInstanceId !== "string" || !DOC_ID.test(taskInstanceId)) {
+    throw new HttpsError("invalid-argument", "homeId and taskInstanceId are required.")
+  }
+  if (nextDueOverride != null && !isCalendarDate(nextDueOverride)) {
+    throw new HttpsError("invalid-argument", "nextDueOverride must be a date (YYYY-MM-DD) or null.")
+  }
+  if (completionNotes != null && typeof completionNotes !== "string") {
+    throw new HttpsError("invalid-argument", "completionNotes must be text or null.")
+  }
+  return {
+    homeId,
+    taskInstanceId,
+    completedOn: d.completedOn,
+    backdated: d.backdated,
+    nextDueOverride: nextDueOverride ?? null,
+    completionNotes: completionNotes ?? null,
+  }
+}
+
 /**
  * The callable's body without the transport, so tests can drive it on a fixed
- * clock. The completion date is checked BEFORE the try below: that catch turns
- * everything it sees into "internal", and a date the caller got wrong is an
- * invalid-argument, not our failure.
+ * clock. Every input check runs BEFORE the try below: that catch turns
+ * everything it sees into "internal", and a bad request — a date the caller
+ * got wrong included — is an invalid-argument, not our failure.
  */
 export async function handleCompleteTask(
   db: Firestore,
@@ -172,16 +207,13 @@ export async function handleCompleteTask(
   now: Date = new Date(),
 ): Promise<CompleteTaskResult> {
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  // Pre-existing cast; completedOn/backdated are re-checked as `unknown` by
-  // checkCompletedOn. Shared schema contracts for every callable are a
-  // follow-up (audit 2026-09-29, refactor #8).
-  const { homeId, taskInstanceId, completedOn, backdated, nextDueOverride, completionNotes } = (data ?? {}) as CompleteTaskInput
-  if (!homeId || !taskInstanceId) throw new HttpsError("invalid-argument", "homeId and taskInstanceId are required.")
+  const { homeId, taskInstanceId, completedOn, backdated, nextDueOverride, completionNotes } = readInput(data)
 
-  const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
+  // One round trip for both; nothing from the home doc is used unless the
+  // caller turns out to be a member.
+  const [member, home] = await db.getAll(db.doc(`homes/${homeId}/members/${uid}`), db.doc(`homes/${homeId}`))
   if (!member.exists) throw new HttpsError("permission-denied", "Not a member of this home.")
 
-  const home = await db.doc(`homes/${homeId}`).get()
   const homeToday = calendarDateIn(homeTimeZone(home.get("timezone"), homeId), now)
   const date = checkCompletedOn({ completedOn, backdated }, homeToday)
   if (!date.ok) throw new HttpsError("invalid-argument", date.message)

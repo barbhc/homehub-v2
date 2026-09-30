@@ -58,7 +58,8 @@ export function calendarDateIn(timeZone: string, instant: Date): string {
   return `${part("year")}-${part("month")}-${part("day")}`
 }
 
-function isKnownTimeZone(tz: string): boolean {
+/** A zone name ICU knows ("America/New_York"); false for anything else. */
+export function isKnownTimeZone(tz: string): boolean {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: tz })
     return true

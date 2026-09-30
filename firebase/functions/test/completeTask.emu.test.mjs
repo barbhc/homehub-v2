@@ -231,6 +231,31 @@ test("callable: a bad date is invalid-argument end to end — never internal", a
   assert.equal(await statusOf(H, "i1"), "scheduled")
 })
 
+test("callable: the rest of a malformed request is invalid-argument too — never internal", async () => {
+  // These used to be cast, not checked: a garbage nextDueOverride reached the
+  // transaction and died there as "internal" (RangeError in addDaysYmd).
+  const H = "ct-date-malformed"
+  await fresh(H)
+  await homeDoc(H, "America/Los_Angeles")
+  await member(H, "u1")
+  await tpl(H, "t1", "monthly")
+  await inst(H, "i1", "t1")
+  const call = (data) => completeTask.run({ data, auth: { uid: "u1" } })
+  await rejectsWith(call({ homeId: H, taskInstanceId: "i1", nextDueOverride: "banana" }), "invalid-argument")
+  await rejectsWith(call({ homeId: H, taskInstanceId: "i1", nextDueOverride: 20261029 }), "invalid-argument")
+  await rejectsWith(call({ homeId: H, taskInstanceId: "i1", completionNotes: 42 }), "invalid-argument")
+  await rejectsWith(call({ homeId: H, taskInstanceId: "" }), "invalid-argument")
+  await rejectsWith(call({ homeId: `${H}/members/u1/x`, taskInstanceId: "i1" }), "invalid-argument")
+  await rejectsWith(call({ homeId: 7, taskInstanceId: "i1" }), "invalid-argument")
+  await rejectsWith(call(null), "invalid-argument")
+  assert.equal(await statusOf(H, "i1"), "scheduled")
+  // …while a well-formed override and notes still go through untouched.
+  const res = await call({ homeId: H, taskInstanceId: "i1", nextDueOverride: "2099-01-01", completionNotes: "used the long brush" })
+  const next = await db.doc(`homes/${H}/taskInstances/${res.nextInstanceId}`).get()
+  assert.equal(next.get("dueDate"), "2099-01-01")
+  assert.equal((await db.doc(`homes/${H}/taskInstances/i1`).get()).get("completionNotes"), "used the long brush")
+})
+
 test("callable: the home's today on the real clock goes through", async () => {
   const H = "ct-date-callable-ok"
   await fresh(H)
