@@ -131,14 +131,18 @@ Key mechanics (the agreement is `docs/add-item-flow.md`; fuller data trace in
 - **Doc-type honesty:** `detectDocType` gates spec sheets/warranties (*Use
   anyway / Replace*); `modelMismatch` warns on wrong variants — warn, never block.
 - **Parse pipeline:** `enqueueParse` (membership + quota: 10 units, in-flight
-  cap 5/home; writes `parse.stage = "queued"` before it returns) → Cloud Task →
-  `parseWorker` → stages on `manuals/{id}.parse.stage` → `previewDraft`.
-  Preview **never commits** without review. The wizard starts the scan and
-  leaves; the item page **watches it and never starts one** (audit 2026-09-29).
-- **Spend caps:** per-user daily and app-wide monthly unit ceilings, per-minute
-  rate and burst caps — the numbers live in `shared/quota/policy.ts` (enforced in
-  `firebase/functions/src/lib/quota.ts`); a throttled call costs nothing; quota
-  refusals surface as calm notices, never errors.
+  cap 5/home; a manual already being read is refused before any charge and the
+  client follows that scan; writes `parse.stage = "queued"` before it returns)
+  → Cloud Task → `parseWorker` → stages on `manuals/{id}.parse.stage` →
+  `previewDraft`. Preview **never commits** without review. The wizard starts
+  the scan and leaves; the item page **watches it and never starts one** (audit
+  2026-09-29).
+- **Spend caps:** per-user daily and app-wide monthly unit ceilings live in the
+  server-only `config/spend` doc (defaults and rules in `shared/quota/policy.ts`,
+  enforced in `firebase/functions/src/lib/quota.ts`; `monthlyCeilingUnits: 0` is
+  the kill switch, `docs/rollback.md`), plus per-minute rate and burst caps; a
+  throttled call costs nothing; quota refusals surface as calm notices, never
+  errors.
 
 **Spec coverage:** `journey.spec.ts` J2 (appliance lane → the ranked manual
 step → the item page, enqueue stubbed) · `emu/smart-add` (simple-lane create,

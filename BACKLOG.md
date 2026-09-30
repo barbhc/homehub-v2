@@ -38,12 +38,12 @@ separate (§8).
 - #220 — check-offs record the home's calendar day (A5), plus housekeeping (A7)
 - #221 — Items cached like Home; Tasks reads its agenda once (HH-158)
 - #223 — item page: Add the manual works on the first tap, one tree, one scan per add, slow ≠ failed (HH-159, HH-160)
+- #222 — Package C, the server guards: spend caps in `config/spend` with a kill switch, per-PDF Ask pricing, one-run parses, a cheaper push sweep. Its functions deploy is separate and needs approval (§8)
 
 **Still open:**
 
 | Package | What |
 |---|---|
-| C | Server guards — spend caps in config with a kill switch, per-PDF Ask pricing, one-run parses, a cheaper push sweep (PR #222, open; its functions deploy needs approval) |
 | E2 | One scan indicator (HH-161, mock approved). The same change retires round 14's no-maintenance card, the review's "N will show up in Tasks" over item cleaning, and bells that cannot ring |
 | E3 | The regressions found alongside: Back → a duplicate item (HH-130), "Brand Model" names (HH-112), re-upload duplicates (HH-154), desktop Tasks' empty state (HH-94), Settings Rescan skipping the review, empty Ask answers, leftover "Overdue" / "Parse manuals", the v1 build-script branch guard (HH-122) |
 | F | Retire the v1 Supabase project: back up, then delete; rotate the keys it shares |
