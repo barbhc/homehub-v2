@@ -51,6 +51,12 @@ const fake = vi.hoisted(() => ({
   startParse: vi.fn(),
   previewManualParse: vi.fn(),
   parseManualAndWait: vi.fn(),
+  /** The add wizard's writes: each becomes the item getItemUnit answers with. */
+  createItemUnit: vi.fn(),
+  updateItemUnit: vi.fn(),
+  /** The Tasks agenda, and the item-scoped cleaning it withholds. */
+  agenda: [] as unknown[],
+  hiddenCleaning: 0,
 }))
 
 vi.mock("firebase/firestore", async (orig) => ({
@@ -69,15 +75,26 @@ vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1" } }) })
 vi.mock("@/modules/home", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   useCurrentHome: () => ({ home: fake.home }),
+  useCurrentPropertyCompat: () => ({ property: { id: fake.home.home_id, name: fake.home.name }, loading: false, refresh: async () => {} }),
   useHomeProfile: () => ({ profile: null, isLoading: false, error: undefined, refresh: () => {} }),
   getRooms: async () => ({ data: [], error: null }),
 }))
 vi.mock("@/modules/items", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   getItemUnit: async () => ({ data: fake.item, error: null }),
+  getItemUnits: async () => ({ data: fake.item ? [fake.item] : [], error: null }),
+  createItemUnit: (...a: unknown[]) => fake.createItemUnit(...a),
+  updateItemUnit: (...a: unknown[]) => fake.updateItemUnit(...a),
+}))
+// The wizard's post-create lookup is a callable; here it finds nothing.
+vi.mock("@/modules/inventory/services/productLookupService", () => ({
+  lookupProduct: async () => ({ data: null, error: { message: "contract test: no lookups" } }),
+  lookupBrandForModel: async () => null,
 }))
 vi.mock("@/modules/care", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
+  getWeekAgenda: async () => ({ data: fake.agenda, error: null }),
+  countHiddenCleaning: async () => fake.hiddenCleaning,
   getTaskTemplatesWithSchedulesByItem: async () => ({ data: fake.tasks, error: null }),
   getTaskInstances: async (_home: string, opts?: { status?: string[] }) => ({
     data: opts?.status?.includes("done") ? fake.doneInstances : fake.openInstances,
@@ -117,6 +134,10 @@ import { ParseTrayPill } from "@/components/manuals/ParseTrayPill"
 import { CareBlock } from "@/components/item-care/CareBlock"
 import { ThisWeekList } from "@/components/home/ThisWeekList"
 import { whenLabel } from "@/components/home/tasks/shared"
+import { DesktopTasks } from "@/components/home/DesktopTasks"
+import { RefinedWeek } from "@/components/home/RefinedWeek"
+import SmartAddItem from "@/pages/SmartAddItem"
+import { cleanDueLabel } from "@/lib/cleanDue"
 import { derivedDue } from "@/lib/dueWindow"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 import { REVIEW_BUCKET_ORDER, REVIEW_BUCKET_COPY } from "../../shared/tasks/reviewBuckets"
@@ -238,6 +259,17 @@ beforeEach(() => {
   // must not — not on an unhandled rejection inside the page.
   fake.previewManualParse.mockResolvedValue({ ok: false, error: "contract test: no scans here" })
   fake.parseManualAndWait.mockResolvedValue({ ok: false, error: "contract test: no scans here" })
+  fake.agenda = []
+  fake.hiddenCleaning = 0
+  fake.createItemUnit.mockImplementation(async (input: Record<string, unknown>) => {
+    const fields = Object.fromEntries(Object.entries(input).filter(([k]) => k !== "home_id"))
+    fake.item = { ...ITEM, ...fields, item_unit_id: "item-new" }
+    return { data: fake.item, error: null }
+  })
+  fake.updateItemUnit.mockImplementation(async (_home: string, id: string, fields: Record<string, unknown>) => {
+    fake.item = { ...(fake.item as object), ...fields, item_unit_id: id }
+    return { data: fake.item, error: null }
+  })
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -290,10 +322,25 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
       "selected 'Owner manual' as a second filled button (ManualSection.tsx); the wizard door complies (ManualStep.test.tsx)",
   )
 
-  it.todo(
-    "HH-130 · Screen 3: Back, then 'Add the manual', updates the item Screen 2 created — never a second item " +
-      "(E3: SmartAddItem.handleIdentifyConfirm creates unconditionally)",
-  )
+  it("HH-130 · Screen 3: Back, then 'Add the manual', updates the item Screen 2 created — never a second item", async () => {
+    render(withSwr(h(MemoryRouter, { initialEntries: ["/inventory/add"] },
+      h(Routes, null, h(Route, { path: "/inventory/add", element: h(SmartAddItem) })))))
+    fireEvent.click(screen.getByRole("button", { name: /Appliance or device/ }))
+    fireEvent.change(document.getElementById("identify-brand")!, { target: { value: "Coway" } })
+    fireEvent.change(document.getElementById("identify-model")!, { target: { value: "AP-1512HH" } })
+    fireEvent.click(screen.getByRole("button", { name: /^Add the manual$/ }))
+    await screen.findByRole("heading", { name: "Add the manual" })
+    // Screen 3 carries the brand and model just typed, and Back returns to them…
+    expect(screen.getByText("For your Coway AP-1512HH.")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /^Back$/ }))
+    expect(await screen.findByDisplayValue("AP-1512HH")).toBeInTheDocument()
+    // …and going forward again is the SAME item, not a second one.
+    fireEvent.click(screen.getByRole("button", { name: /^Add the manual$/ }))
+    await screen.findByRole("heading", { name: "Add the manual" })
+    expect(fake.createItemUnit).toHaveBeenCalledTimes(1)
+    expect(fake.updateItemUnit).toHaveBeenCalledTimes(1)
+    expect(fake.updateItemUnit.mock.calls[0][1]).toBe("item-new")
+  })
 
   it("HH-116 / HH-117 · leaving is safe and said out loud on every surface showing a live scan", async () => {
     // The item page while the scan runs…
@@ -536,13 +583,14 @@ describe("Home, Tasks and the item page speak one calm language", () => {
   it("Calm tiers · no NEW screen labels a task 'Overdue' outside the deadline gate (known breaches listed and routed)", () => {
     // The label — "Overdue", or the "N days overdue" count — in text a user can
     // read. ALLOWED: the Tasks rows' whenLabel (returns it only when
-    // t.trulyOverdue), and tokens.dueLabel (its one caller, RefinedTaskDetail,
-    // uses it only for deadline-kind tasks).
-    const ALLOWED = ["src/components/home/tasks/shared.ts", "src/lib/redesign/tokens.ts"]
+    // t.trulyOverdue), tokens.dueLabel (its one caller, RefinedTaskDetail,
+    // uses it only for deadline-kind tasks), and cleanDueLabel (the /clean hub
+    // since E3 — returns it only when isTrulyOverdue, i.e. a passed deadline).
+    const ALLOWED = ["src/components/home/tasks/shared.ts", "src/lib/redesign/tokens.ts", "src/lib/cleanDue.ts"]
     // KNOWN breaches, one-directional: fixing one needs no edit here, adding a
     // new one fails. The todo below is the rule with this list empty.
+    // (DeepClean.tsx left this list in E3: its label is cleanDueLabel now.)
     const KNOWN = [
-      "src/pages/DeepClean.tsx", // /clean hub — E3 replaces the word
       "src/pages/CarePage.tsx", // /care, URL-only route — H (dead routes)
       "src/components/maintenance/MaintenanceTaskRow.tsx", // /tasks, URL-only route — H
       "src/components/dashboard/TaskRow.tsx", // unrendered — H (dead code)
@@ -556,7 +604,15 @@ describe("Home, Tasks and the item page speak one calm language", () => {
     expect(offenders).toEqual([])
   })
 
-  it.todo("Calm tiers · and the known 'Overdue' breaches are gone (E3: DeepClean; H: /care, /tasks, components/dashboard)")
+  it("Calm tiers · the /clean hub says 'Overdue' only for a passed deadline — cadence work has 'Been a while' (E3)", () => {
+    const task = (title: string, scheduleType: string, due: string) =>
+      cleanDueLabel({ title, scheduleType, dueDate: due, isOverdue: true })
+    expect(task("Wipe the fridge gaskets", "monthly", iso(-60))).toEqual({ text: "Been a while", overdue: true })
+    expect(task("Wipe the fridge gaskets", "monthly", iso(-2)).text).toBe("Good to do now")
+    expect(task("Renew the water softener warranty", "as_needed", iso(-3))).toEqual({ text: "Overdue", overdue: true })
+  })
+
+  it.todo("Calm tiers · and the known 'Overdue' breaches are gone (H: /care, /tasks, components/dashboard)")
 
   it("HH-150 · an item row says what Home and Tasks say — the window, never an invented date", async () => {
     // Round 19's lesson: the item page was the THIRD surface to render a task
@@ -578,8 +634,12 @@ describe("Home, Tasks and the item page speak one calm language", () => {
     expect(filesSaying(/from the Tasks page/i)).toEqual([])
   })
 
-  it.todo(
-    "HH-94 / HH-82 · an empty Tasks list accounts for the cleaning it withholds — on desktop too " +
-      "(E3: DesktopTasks' 'Nothing due — enjoy the calm.' has no hidden-cleaning line; RefinedWeek has it)",
-  )
+  it("HH-94 / HH-82 · an empty Tasks list accounts for the cleaning it withholds — on desktop too", async () => {
+    fake.agenda = []
+    fake.hiddenCleaning = 2
+    render(withSwr(h(MemoryRouter, null, h(RefinedWeek, { homeId: "home-1" }), h(DesktopTasks, { homeId: "home-1" }))))
+    // Both trees, the same words — one implementation (nothingDueLine).
+    expect(await screen.findAllByText("Nothing on the schedule — 2 cleaning jobs live in your guides.")).toHaveLength(2)
+    expect(screen.queryByText(/enjoy the calm/)).toBeNull()
+  })
 })

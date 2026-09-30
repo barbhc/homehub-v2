@@ -275,9 +275,13 @@ export function IdentifyStep({
     }
   }, [labelPreviewUrl])
 
-  // Appliance lane: keep the Name synced to "<brand> <model>" while the user
-  // hasn't named it themselves. Once they type their own name (or identity
-  // apply sets the product name), the placeholder never touches it again.
+  // Appliance lane: keep the (hidden) Name synced to "<brand> <model>" so that
+  // switching to the simple lane — "I don't have a model number", or Back to
+  // the lane chooser — starts that lane's Name field from what was typed. It is
+  // NEVER the item's name: this lane has no name field, so nothing in it was
+  // typed, and identityWrite ignores it (HH-112 — passing it on as a typed name
+  // is what kept items called "Brand Model"). Once a name is typed in the
+  // simple lane, the placeholder never touches it again.
   useEffect(() => {
     if (mode !== "appliance") return
     const composed = `${data.brand.trim()} ${data.model.trim()}`.trim()

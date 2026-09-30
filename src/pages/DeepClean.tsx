@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { cleanDueLabel as dueLabel, daysUntilDue } from "@/lib/cleanDue"
 import { splitCautions } from "@/lib/cautions"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
 
@@ -66,24 +67,6 @@ function formatStaleDays(days: number): string {
   if (days < 60) return "1 month ago"
   if (days < 90) return "2 months ago"
   return "3+ months ago"
-}
-
-/** Signed whole-day delta from today; negative = past due. null dates sort late. */
-function daysUntilDue(dateStr: string | null): number {
-  if (!dateStr) return 9999
-  const a = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00")
-  const b = new Date(dateStr + "T00:00:00")
-  return Math.round((b.getTime() - a.getTime()) / 86400000)
-}
-
-/** Short due label for the hub "This week" list. Overdue in clay, never red. */
-function dueLabel(t: CleanTask): { text: string; overdue: boolean } {
-  if (t.isOverdue) return { text: "Overdue", overdue: true }
-  const n = daysUntilDue(t.dueDate)
-  if (n <= 0) return { text: "Today", overdue: false }
-  if (n === 1) return { text: "Tomorrow", overdue: false }
-  if (n <= 7) return { text: `${n} days`, overdue: false }
-  return { text: "Later", overdue: false }
 }
 
 export default function DeepClean() {

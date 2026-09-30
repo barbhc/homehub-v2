@@ -31,9 +31,15 @@ describe("empty Tasks must not contradict the item page", () => {
   })
 
   it("the empty state explains where the work went", () => {
-    const src = read("../components/home/RefinedWeek.tsx")
-    expect(src).toContain("hiddenCleaning")
-    expect(src).toContain("live in your guides")
+    // HH-94: the line is one implementation (nothingDueLine) that the phone
+    // AND desktop pages both render — desktop's own copy never learned the
+    // count. The words themselves are checked in DesktopTasks.test.tsx.
+    for (const page of ["RefinedWeek", "DesktopTasks"]) {
+      const src = read(`../components/home/${page}.tsx`)
+      expect(src, page).toContain("hiddenCleaning")
+      expect(src, page).toContain("nothingDueLine(hiddenCleaning)")
+    }
+    expect(read("../components/home/tasks/shared.ts")).toContain("in your guides")
     // The count moved into the agenda hook RefinedWeek shares with DesktopTasks
     // (one fetch per home). Still only counted when the agenda is actually
     // empty — no cost on the common path.

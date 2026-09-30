@@ -14,7 +14,7 @@ import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
   addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
-  TIER_FILTERS, tierFilterCounts,
+  nothingDueLine, TIER_FILTERS, tierFilterCounts,
   tasksDueOnDay, todayStr, useTaskDetail, type Lens, CLAY, TEAL,
 } from "./tasks/shared"
 
@@ -390,11 +390,9 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               first read says nothing here: "Nothing due" about tasks we never
               read would be a confident wrong answer. */}
           {loading ? "Loading…" : loadFailed ? null : total === 0
-            ? (hiddenCleaning > 0
-                // Never leave the user staring at "nothing" while an item page
-                // lists work. Say where it went.
-                ? `Nothing on the schedule — ${hiddenCleaning} cleaning job${hiddenCleaning === 1 ? "" : "s"} live in your guides.`
-                : "Nothing due — enjoy the calm.")
+            // Never leave the user staring at "nothing" while an item page
+            // lists work — the line says where it went. Shared with desktop.
+            ? nothingDueLine(hiddenCleaning)
             // Just the count. A whole-list minute total ("~300 min") reads as a
             // bill, not a plan; the per-group minutes below are where a pass
             // gets planned (owner, 2026-09-08).

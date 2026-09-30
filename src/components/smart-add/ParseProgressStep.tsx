@@ -111,7 +111,7 @@ export function ParseProgressStep({ progress, parsedChunks, parsedTasks, onConti
 
       <div className="relative">
         <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-white/40 mb-2">
-          Manual Analysis
+          Manual scan
         </p>
         <h2 className="font-display text-2xl font-semibold text-white leading-snug">
           {isDone ? "Scan complete" : isError ? "Couldn't finish" : "Scanning your manual…"}

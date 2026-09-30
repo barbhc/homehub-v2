@@ -1,6 +1,7 @@
 import { ref, uploadBytes, deleteObject, getDownloadURL } from "firebase/storage"
 import { doc, serverTimestamp, writeBatch } from "firebase/firestore"
 import { storage, db, callable } from "@/integrations/firebase"
+import { sha256Hex } from "@/lib/contentHash"
 
 /** Max upload size in bytes. */
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 // 50 MB
@@ -13,6 +14,33 @@ export type UploadWithUrlResult =
   | { data: { path: string; url: string }; error: null }
   | { data: null; error: { message: string } }
 
+/** A manual upload: where it landed, and the SHA-256 of what was uploaded
+ *  (null only where the browser could not hash it — see manualContentHash). */
+export type ManualUploadResult =
+  | { data: { path: string; contentHash: string | null }; error: null }
+  | { data: null; error: { message: string } }
+
+export type ManualUploadWithUrlResult =
+  | { data: { path: string; url: string; contentHash: string | null }; error: null }
+  | { data: null; error: { message: string } }
+
+/** The custom-metadata key a manual upload carries its content hash under. */
+export const MANUAL_HASH_METADATA_KEY = "sha256"
+
+/**
+ * HH-154: the identity a re-upload of the same PDF is recognised by. A missing
+ * hash only costs the dedupe — never the upload — so a browser without Web
+ * Crypto still attaches the manual, and says why it could not dedupe.
+ */
+async function manualContentHash(file: File): Promise<string | null> {
+  try {
+    return await sha256Hex(file)
+  } catch (e) {
+    console.warn("[storage] could not hash the manual; a re-upload of it will not be recognised:", e instanceof Error ? e.message : e)
+    return null
+  }
+}
+
 /**
  * Upload a PDF to Cloud Storage. Path:
  *   homes/{homeId}/manuals/{userId}/{itemId}/manual_{ts}.{ext}
@@ -21,19 +49,27 @@ export type UploadWithUrlResult =
  * of that home (storage.rules) — without it, no path family carried a homeId and
  * any signed-in user who learned a path could fetch the object. userId is still
  * REQUIRED: writes stay scoped to the caller's own uid segment.
+ *
+ * The file's SHA-256 is returned AND stamped on the object's custom metadata,
+ * so createManualDocument can recognise the same PDF uploaded again (HH-154)
+ * even from a caller that only hands it the path.
  */
 export async function uploadManualPdf(
   homeId: string,
   itemId: string,
   file: File,
   userId?: string | null
-): Promise<UploadResult> {
+): Promise<ManualUploadResult> {
   if (!userId) return { data: null, error: { message: "Not signed in." } }
   const ext = file.name.split(".").pop() || "pdf"
   const path = `homes/${homeId}/manuals/${userId}/${itemId}/manual_${Date.now()}.${ext}`
+  const contentHash = await manualContentHash(file)
   try {
-    await uploadBytes(ref(storage, path), file, { contentType: file.type || "application/pdf" })
-    return { data: { path }, error: null }
+    await uploadBytes(ref(storage, path), file, {
+      contentType: file.type || "application/pdf",
+      ...(contentHash ? { customMetadata: { [MANUAL_HASH_METADATA_KEY]: contentHash } } : {}),
+    })
+    return { data: { path, contentHash }, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Upload failed" } }
   }
@@ -168,12 +204,12 @@ export async function uploadManualPdfWithUrl(
   itemId: string,
   file: File,
   userId?: string | null
-): Promise<UploadWithUrlResult> {
+): Promise<ManualUploadWithUrlResult> {
   const result = await uploadManualPdf(homeId, itemId, file, userId)
   if (result.error) return result
-  const path = result.data!.path
+  const { path, contentHash } = result.data
   try {
-    return { data: { path, url: await getDownloadURL(ref(storage, path)) }, error: null }
+    return { data: { path, url: await getDownloadURL(ref(storage, path)), contentHash }, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Upload failed" } }
   }

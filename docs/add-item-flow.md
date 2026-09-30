@@ -66,6 +66,13 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   Taking one field from the photo and one from memory manufactures a product
   that does not exist. — HH-139
 - The label **never sets the item's name** in this lane. — HH-112, HH-125
+- **Nothing in this lane is a typed name.** There is no name field here; the
+  hidden "Brand Model" IdentifyStep keeps is only for switching to the simple
+  lane. So the item is created named for its TYPE when the category is known
+  (a label scan read it) — *Air purifier*, never *Coway AP-1512HH* — and
+  otherwise with the exact "Brand Model" placeholder the lookup renames. Only
+  the simple lane's visible Name field is the user's name. — HH-112 (audit
+  2026-09-29: the hidden name had been reaching `composeItemName` as typed)
 - **The words are the homeowner's, not the trade's.** The screen says *label*,
   never *nameplate* — that is what an installer calls it. It names *the brand
   and model*, the two fields on screen, never *both fields*, which describes our
@@ -113,6 +120,19 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 
 - The subtitle carries **the brand and model just typed**, and Back returns to
   them. — HH-130
+- **Back, then "Add the manual" again, is the same item.** The session holds
+  the item it made, and a second confirm re-identifies it in place — never a
+  second item with the first orphaned. Same brand and model: what the lookup
+  already found is kept. A corrected one is a different product: the old
+  findings are dropped and the lookup runs again. — HH-130 (audit 2026-09-29)
+- **The same PDF twice is one manual.** An upload is matched to the item's
+  manuals by the SHA-256 of its bytes (every upload gets a fresh storage path,
+  so a path never repeats); a repeat returns the record already there, its
+  scan kept, and the redundant copy is removed. A link is matched by its URL
+  and read again. Both doors — this step and the item page — go through
+  `createManualDocument`. A browser that cannot hash (no Web Crypto) still
+  attaches the file, says so in the console, stores no hash — never a null
+  one — and falls back to the path match. — HH-154 (audit 2026-09-29)
 - **Upload leads** and holds the only filled button. — HH-109, HH-115
 - Upload and Paste a link are joined by the same **"or" rule** as the identify
   step's type-or-scan, so the sources read as alternatives, not a list. —
@@ -158,6 +178,10 @@ page watches it.
   the room appended only when that name is taken (*Air filter — Garage*, via
   `composeItemName`). A name the user typed is never touched. Editable like any
   field.
+- **Decided against the item as it is when the lookup lands**, not as it was
+  when it started: a rename on the name (HH-125) or a category chosen
+  meanwhile is kept, and an item re-identified on Back (HH-130) gets none of
+  the old product's findings. — audit 2026-09-29
 - **Specs arrive as suggestions inline on their own field rows** — italic,
   greyed, behind a per-field Add — never as a card announcing a find, and never
   auto-applied (HH-114's rule, relocated here). Applied-ness is DERIVED: a key
@@ -233,6 +257,12 @@ setup."*
 - It never claims rows are saved while the button underneath is what saves
   them. `runParse` writes `previewDraft` only; `commitDraft` is what
   saves. — HH-134
+- **Every read ends here — a rescan too.** Settings → Manuals' Rescan starts a
+  PREVIEW and hands off to the item page exactly as the wizard does
+  (`markParsePending`); "Rescan all" reads one manual at a time and leaves each
+  for its review; a manual already "Read — not saved" offers Review, not
+  another read. None of them commits. They used to run in commit mode and
+  write tasks with no review at all. — audit 2026-09-29
 - **The one-by-one walkthrough survives**, speaking the same four words.
   Reclassifying a row visibly moves it between sections. It is the only route
   tasks from older parses have into the new vocabulary. — HH-144
@@ -272,6 +302,12 @@ this file exists to prevent.
 | `e2e/emu/item-page-manual.spec.ts` | The item page's link lane, from a seeded appliance with no manual: one dialog opening on the link field, the Google search for this model, one scan, the live rail, the tray standing down here and counting it elsewhere, no second scan on return. HH-161's "Upkeep never offers a manual it is reading" is `test.fixme` until E2 | live |
 | `e2e/emu/smart-add.spec.ts`, the wizard hand-off | More than ONE enqueue per add with a manual, counted only after the item page has finished loading (HH-159) | live |
 | `src/pages/item-detail/useItemDetailLoad.test.ts` | A stall treated as a failure, a late success that does not win, or a refetch that swaps the page for the skeleton (HH-160) | live |
+| `src/pages/SmartAddItem.test.tsx` + `src/components/smart-add/identifyWrite.test.ts` | Back → "Add the manual" again creating a second item; the appliance lane's hidden "Brand Model" reaching the name as typed (HH-130, HH-112) | live |
+| `e2e/emu/smart-add.spec.ts`, Back from the manual step | More than one item — in Firestore or on the Items list — after Add the manual → Back → Add the manual (HH-130) | live |
+| `src/modules/inventory/services/postCreateLookup.test.ts`, "as it is now" | A lookup landing on an item renamed, re-categorised or re-identified while it ran (HH-125, HH-130) | live |
+| `src/modules/knowledge/services/manualDedupe.test.ts` | A re-upload of the same PDF — at a new path, as every upload is — minting a second record (HH-154) | live |
+| `e2e/emu/smart-add.spec.ts`, the same PDF twice | Through the real Storage and Firestore emulators: a scan retried with the same file leaving two records, or two stored PDFs (HH-154) | live |
+| `src/lib/manualRescan.test.ts` | A rescan from Settings that commits instead of ending in the review | live |
 | `seedUnreviewedManual` in `scripts/seed-emulator.ts` | **The gap, now closed.** A read-but-unsaved manual with no maintenance in it — the state all five repeated reports came from, which no test could visit because every seeded manual was committed and every seeded item already had tasks | live |
 
 The last row was the most valuable thing on this page, and it is now closed.

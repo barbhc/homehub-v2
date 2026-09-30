@@ -1,9 +1,16 @@
-import { BookmarkIcon, BookOpenIcon, BrainIcon, GlobeIcon, ScanSearchIcon, StickyNoteIcon } from "lucide-react"
+import { BookmarkIcon, BookOpenIcon, BrainIcon, GlobeIcon, RotateCcwIcon, ScanSearchIcon, StickyNoteIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ChatSource } from "@/modules/knowledge/services/chatService"
 import { SaveFaqDialog } from "./SaveFaqDialog"
 import { useState } from "react"
 import ReactMarkdown from "react-markdown"
+
+/**
+ * HH-28: "empty answers say so honestly." An answer that finished with no text
+ * rendered as an empty bubble — a shape with nothing in it, which reads as the
+ * app breaking rather than as "nothing matched". One calm line instead.
+ */
+export const EMPTY_ANSWER = "I couldn't find anything in your manuals for that."
 
 function SourceChip({ source: s }: { source: ChatSource }) {
   const isWeb = s.source_type === "web"
@@ -60,6 +67,8 @@ type ChatMessageBubbleProps = {
   precedingQuestion?: string
   onSaveFaq?: (question: string, answer: string, itemUnitId: string | null) => void
   onWebSearch?: (messageId: string) => void
+  /** Ask a failed answer's question again, in place (HH-28). */
+  onRetry?: (messageId: string) => void
   activeFilterType?: "all" | "item" | "room" | "category"
   activeFilterValue?: string
   homeId: string
@@ -70,12 +79,15 @@ export function ChatMessageBubble({
   precedingQuestion,
   onSaveFaq,
   onWebSearch,
+  onRetry,
   activeFilterType,
   activeFilterValue,
   homeId,
 }: ChatMessageBubbleProps) {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const isUser = message.role === "user"
+  /** Whitespace is not an answer — a finished bubble of blanks is an empty one. */
+  const hasText = !!message.content?.trim()
 
   return (
     <>
@@ -94,7 +106,7 @@ export function ChatMessageBubble({
             message.isError && "text-destructive"
           )}
         >
-          {message.content ? (
+          {hasText || (message.isStreaming && message.content) ? (
             <div className={cn(
               "text-sm break-words",
               !isUser && "prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 prose-blockquote:border-l-2 prose-blockquote:pl-3 prose-blockquote:text-muted-foreground dark:prose-invert"
@@ -106,8 +118,22 @@ export function ChatMessageBubble({
             </div>
           ) : message.isStreaming ? (
             <span className="inline-block w-2 h-4 bg-current animate-pulse" />
+          ) : !isUser && !message.isError ? (
+            <p className="text-sm text-muted-foreground">{EMPTY_ANSWER}</p>
           ) : null}
         </div>
+        {!isUser && message.isError && onRetry && (
+          // HH-28: an answer that failed or stopped short unlocks the composer
+          // AND offers the one thing worth doing next, beside the failure.
+          <button
+            type="button"
+            onClick={() => onRetry(message.id)}
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border rounded-md px-2.5 py-1 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors mt-1"
+          >
+            <RotateCcwIcon className="size-3" aria-hidden />
+            Try again
+          </button>
+        )}
         {!isUser && message.inferredItem && !message.isStreaming && (
           <div className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 mt-1">
             <ScanSearchIcon className="size-3 shrink-0" aria-hidden />
@@ -123,7 +149,7 @@ export function ChatMessageBubble({
         {!isUser &&
           !message.isStreaming &&
           !message.isError &&
-          message.content &&
+          hasText &&
           onWebSearch &&
           shouldOfferWebSearch(message) && (
             <button
@@ -138,7 +164,7 @@ export function ChatMessageBubble({
         {!isUser &&
           !message.isStreaming &&
           !message.isError &&
-          message.content &&
+          hasText &&
           onSaveFaq &&
           precedingQuestion !== undefined && (
             <button
