@@ -51,7 +51,7 @@ flowchart LR
 | 5 | **"Your home profile is set — where to next?"**: *Add your first item* / *Take me to my home page*. Asked, not assumed (HH-93) | `/onboarding/profile` | `OnboardingProfile.tsx` (`ProfileDone`) | — |
 | 6 | Lane chooser → simple lane: **Name on the main column** → Add item | `/inventory/add` | `IdentifyStep.tsx`, `SmartAddItem.tsx` → `createItemUnit` | `homes/{id}/items/{id}` |
 | 6b | Appliance lane instead: brand + model → **Add the manual** (the button and the next screen share the words) → attaching it starts the scan and lands on the item page (J2) | `/inventory/add` | `SmartAddItem.tsx` → `startParseAndLeave` | `homes/{id}/manuals/{id}`, `parse.stage` |
-| 7 | Item page: the name first; Upkeep leads **"No upkeep yet — add the manual"** with one **Add the manual** door (HH-91). One tree for the width, so one of each (HH-159). While a manual is being read: **"Reading the manual"** — one line and an indeterminate rail, and "You can close the app — these keep going." (HH-135, HH-116); the tray pill stands down on this page (HH-118) | `/items/:id` | `ItemDetailPage.tsx` (`useIsDesktop`), `CareBlock.tsx`, `ParsePickupCard.tsx`, `ParseTrayPill.tsx` | — |
+| 7 | Item page: the name first; Upkeep leads **"No upkeep yet — add the manual"** with one **Add the manual** door (HH-91). One tree for the width, so one of each (HH-159). While a manual is being read: **"Reading the manual"** inside the Upkeep card — one line, the worker's page count, an indeterminate rail, and "You can close the app — these keep going." (HH-135, HH-116) — and the pill says **"1 reading"** on this page too: one indicator, everywhere (HH-161, superseding HH-118) | `/items/:id` | `ItemDetailPage.tsx` (`useIsDesktop`), `CareBlock.tsx`, `ParsePickupCard.tsx`, `ParseTrayPill.tsx` | — |
 | 7b | Scan done → **the review, one screen**: Maintenance → Cleaning → Usage → Setup, each row carrying its own cadence and bell. A section of the page for anyone who watched the scan run, a drawer for anyone who came back; it opens itself only when there is maintenance to decide (HH-121). With none, round 14's card reports instead ("We finished reading the … manual") — superseded in `docs/add-item-flow.md`, to be retired by the HH-161 work (Package E2) | `/items/:id` | `ParsePickupCard.tsx`, `TaskReviewSheet.tsx` | `commitManualDraft` → `taskTemplates`, `taskInstances` |
 | 8 | Home: the first-run tour (5 steps, the first titled **"Welcome"**, Esc-closable), then **"No upkeep yet — add a manual"** (Pick an item / Add another item) — the profile banner yields to it (HH-80) | `/home` | `useFeatureTour`, `tourSteps.ts`, `Home.tsx` | — |
 
@@ -97,8 +97,8 @@ flowchart LR
     D -->|I'll add it later| F
     E --> F
     F --> G[Add the manual from the item page\nthe same ManualStep, one dialog]
-    G --> H[Scan: queued → reading →\nextracting → done]
-    H --> I[The review opens itself\nwhen there is maintenance to decide]
+    G --> H[Read: queued → reading →\nextracting → done]
+    H --> I[The review opens itself\nif the page watched it finish;\notherwise the hand-off card waits]
 ```
 
 Key mechanics (the agreement is `docs/add-item-flow.md`; fuller data trace in
@@ -126,8 +126,9 @@ Key mechanics (the agreement is `docs/add-item-flow.md`; fuller data trace in
 - **Naming (HH-112):** `composeItemName` names the item for what it is — the
   category label, with the room appended only when that name is taken. Known
   gap: an appliance-lane add still starts as "Brand Model" (Package E3).
-- **Vocabulary:** the app SCANS a manual. Never "parse" (jargon) and never
-  "read" (which implies we are opening it for the user to read).
+- **Vocabulary:** the app READS a manual — "Reading the manual", "1 reading",
+  "Read again". Never "parse" (jargon); "scan" is for the camera's label read
+  (HH-161 retired the old "never read" rule).
 - **Doc-type honesty:** `detectDocType` gates spec sheets/warranties (*Use
   anyway / Replace*); `modelMismatch` warns on wrong variants — warn, never block.
 - **Parse pipeline:** `enqueueParse` (membership + quota: 10 units, in-flight
@@ -148,7 +149,9 @@ Key mechanics (the agreement is `docs/add-item-flow.md`; fuller data trace in
 step → the item page, enqueue stubbed) · `emu/smart-add` (simple-lane create,
 OCR states, exactly one enqueue per add) · `emu/item-add-manual` (the item
 page's upload doors at 390px and desktop) · `emu/item-page-manual` (the link
-lane from a seeded appliance, the scan's live state, the tray) · `emu/scan-fit`
+lane from a seeded appliance, the read's live state, the pill) ·
+`emu/item-page-scan-indicator` (HH-161's frames: the read in Upkeep, the pill on
+the item and on Home, the hand-off, the review in place) · `emu/scan-fit`
 · `emu/storage` · `emu/knowledge*` · `worker.emu`, `quota.emu` (server) ·
 parser quality: `evals/manual-parser/`.
 
@@ -161,8 +164,9 @@ and every correction teaches the parser.
 
 ```mermaid
 flowchart LR
-    A[previewDraft ready] --> B[The review opens itself — once,\nif the parse was yours and found maintenance]
-    A --> B2[Otherwise the card offers it]
+    A[previewDraft ready] --> B[The review opens itself — once,\nif this page watched the read finish]
+    A --> B2[Otherwise the hand-off card offers it:\nReview N upkeep tasks / tips & steps]
+    P[The pill: 1 ready to review] --> B2
     R[Review tasks\non the item's Upkeep heading] --> C
     B --> C[ONE screen: Maintenance → Cleaning → Usage → Setup\nkind / cadence / bell / skip on every row]
     B2 --> C
@@ -180,14 +184,19 @@ Key mechanics:
   (HH-142). There is no step 2 and no "Next" — each row carries its cadence
   chip and its bell, and the walkthrough survives for going one by one (HH-144).
 - **The summary states two channels, apart:** how many show up in Tasks when
-  due, and how many also notify the phone. Essential is the only
-  notify-by-default. Known gap: the Tasks count includes item-scoped cleaning,
-  which the Tasks list leaves out (Package E2).
-- **Three doors, one screen (HH-119):** `ParsePickupCard` (after a scan),
-  **Review tasks** on the item's Upkeep heading (`ReviewItemTasksButton`, the
-  phone layout), and the manual section's own review (`ManualSection`). The
-  `focus` prop defaults to the approved review, so a door that passes nothing
-  gets it; `src/lib/designContracts.test.ts` fails if a fourth door appears.
+  due — counted by the Tasks page's own rule, so item cleaning ("Lives on the
+  item page") is not in it, and with nothing there it reads "Nothing here goes
+  into Tasks." — and how many also notify the phone: the bells on screen.
+  Essential is the only notify-by-default. No bell on item cleaning, and none
+  anywhere on a phone that refused notifications ("Reminders off — turn on in
+  Settings"; HH-161).
+- **Two doors, one screen (HH-119):** `ParsePickupCard` (after a read — the
+  add, "Read the manual", "Read again"; the pill's and Settings' Review open it
+  too) and **Review tasks** on the item's Upkeep heading
+  (`ReviewItemTasksButton`, the phone layout). The manual section's own review
+  is gone (HH-161). The `focus` prop defaults to the approved review, so a door
+  that passes nothing gets it; `src/lib/designContracts.test.ts` fails if a
+  third door appears.
 - It never claims rows are saved while its button is what saves them (HH-134):
   tasks already on the item say **Done**; a fresh parse says **Save all N**.
 - Thin-manual warning first (`shared/parse/pdfShape.ts`).
@@ -202,8 +211,11 @@ Key mechanics:
 
 **Spec coverage:** `journey.spec.ts` J3 (phone-width walk of the one-screen
 review from **Review tasks** on the seeded dishwasher — its tasks are already
-saved, so it ends on Done and writes nothing) · `emu/task-review` (the review
-WRITE: a cadence and a bell changed, saved, read back) · `emu/notice-fit` ·
+saved, so it ends on Done and writes nothing; its only task is item cleaning,
+so "Nothing here goes into Tasks.") · `emu/task-review` (the review WRITE: a
+row refiled as Maintenance, a cadence and a bell changed, saved, read back) ·
+`emu/notice-fit` (the hand-off card's layout) · `emu/item-page-scan-indicator`
+(the count, the bells, notifications refused) ·
 `TaskReviewSheet.*.test.tsx`, `src/lib/designContracts.test.ts` ·
 `commitManualDraft.emu`, `lastDoneAnchor.emu` (server).
 
