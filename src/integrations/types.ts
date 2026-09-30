@@ -352,6 +352,10 @@ export interface ManualDocument {
    *  HH-87: parsed_at alone conflates "no manual" with "manual mid-parse". */
   parse_stage: string | null
   parse_draft: Json | null
+  /** SHA-256 of an uploaded file — how a re-upload of the same PDF is
+   *  recognised (HH-154). Null for links and for uploads from before it was
+   *  recorded; optional so synthetic/preview objects need not carry it. */
+  content_hash?: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null

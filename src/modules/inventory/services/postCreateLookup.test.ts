@@ -13,6 +13,7 @@ import type { ItemUnit } from "@/integrations/types"
 
 const lookupProduct = vi.fn()
 const updateItemUnit = vi.fn()
+const getItemUnit = vi.fn()
 const getItemUnits = vi.fn()
 const getRooms = vi.fn()
 
@@ -21,6 +22,7 @@ vi.mock("@/modules/inventory/services/productLookupService", () => ({
 }))
 vi.mock("@/modules/items", () => ({
   updateItemUnit: (...a: unknown[]) => updateItemUnit(...a),
+  getItemUnit: (...a: unknown[]) => getItemUnit(...a),
   getItemUnits: (...a: unknown[]) => getItemUnits(...a),
 }))
 vi.mock("@/modules/home", () => ({
@@ -29,6 +31,13 @@ vi.mock("@/modules/home", () => ({
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }))
 
 import { runPostCreateLookup } from "./postCreateLookup"
+
+/** Looks `item` up with the item unchanged when the answer lands — the common
+ *  case. The lookup re-reads the item before it writes (see the last block). */
+const run = (item: ItemUnit) => {
+  getItemUnit.mockResolvedValue({ data: item, error: null })
+  return runPostCreateLookup(item)
+}
 
 const baseItem = (over: Partial<ItemUnit> = {}): ItemUnit =>
   ({
@@ -89,19 +98,19 @@ beforeEach(() => {
 describe("runPostCreateLookup", () => {
   it("a miss writes NOTHING — the page cannot know a search happened", async () => {
     lookupProduct.mockResolvedValue(found({ identity: null, candidates: [] }))
-    await runPostCreateLookup(baseItem())
+    await run(baseItem())
     expect(updateItemUnit).not.toHaveBeenCalled()
   })
 
   it("an error writes nothing and does not throw", async () => {
     lookupProduct.mockResolvedValue({ data: null, error: { message: "quota" } })
-    await expect(runPostCreateLookup(baseItem())).resolves.toBeUndefined()
+    await expect(run(baseItem())).resolves.toBeUndefined()
     expect(updateItemUnit).not.toHaveBeenCalled()
   })
 
   it("category fills a blank silently, and the placeholder name becomes the kind of thing", async () => {
     lookupProduct.mockResolvedValue(found())
-    await runPostCreateLookup(baseItem())
+    await run(baseItem())
     const updates = updateItemUnit.mock.calls[0][2]
     expect(updates.item_category).toBe("major_appliance")
     expect(updates.display_name).toBe("Dishwasher")
@@ -110,19 +119,19 @@ describe("runPostCreateLookup", () => {
   it("appends the room only when the plain name is taken", async () => {
     getItemUnits.mockResolvedValue({ data: [{ item_unit_id: "other", display_name: "Dishwasher" }], error: null })
     lookupProduct.mockResolvedValue(found())
-    await runPostCreateLookup(baseItem())
+    await run(baseItem())
     expect(updateItemUnit.mock.calls[0][2].display_name).toBe("Dishwasher — Kitchen")
   })
 
   it("never renames an item the user named themselves", async () => {
     lookupProduct.mockResolvedValue(found())
-    await runPostCreateLookup(baseItem({ display_name: "Beer fridge" }))
+    await run(baseItem({ display_name: "Beer fridge" }))
     expect(updateItemUnit.mock.calls[0][2].display_name).toBeUndefined()
   })
 
   it("never overwrites a category the user chose — and then leaves the name alone too", async () => {
     lookupProduct.mockResolvedValue(found())
-    await runPostCreateLookup(baseItem({ item_category: "small_appliance", sub_type: "kettle" }))
+    await run(baseItem({ item_category: "small_appliance", sub_type: "kettle" }))
     const updates = updateItemUnit.mock.calls.length ? updateItemUnit.mock.calls[0][2] : {}
     expect(updates.item_category).toBeUndefined()
     expect(updates.display_name).toBeUndefined()
@@ -132,7 +141,7 @@ describe("runPostCreateLookup", () => {
     lookupProduct.mockResolvedValue(
       found({ candidates: [{ key: "filter_type", label: "Filter type", value: "HEPA", rationale: null }] }),
     )
-    await runPostCreateLookup(baseItem())
+    await run(baseItem())
     const updates = updateItemUnit.mock.calls[0][2]
     expect(updates.lookup_suggestions).toEqual([{ key: "filter_type", label: "Filter type", value: "HEPA" }])
     expect(updates.category_fields).toBeUndefined()
@@ -147,12 +156,61 @@ describe("runPostCreateLookup", () => {
         ],
       }),
     )
-    await runPostCreateLookup(baseItem({ category_fields: { filter_type: "charcoal" } }))
+    await run(baseItem({ category_fields: { filter_type: "charcoal" } }))
     expect(updateItemUnit.mock.calls[0][2].lookup_suggestions).toBeUndefined()
   })
 
   it("skips entirely without a usable brand+model", async () => {
-    await runPostCreateLookup(baseItem({ brand: "", model: "X" }))
+    await run(baseItem({ brand: "", model: "X" }))
     expect(lookupProduct).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * The lookup takes seconds; the item does not stand still while it runs. Its
+ * findings are applied to the item as it is when they LAND, never to the
+ * snapshot it started from.
+ */
+describe("runPostCreateLookup — decided against the item as it is now", () => {
+  it("writes nothing when the add flow re-identified the item meanwhile (HH-130)", async () => {
+    // Back from the manual step, the model corrected, "Add the manual" again:
+    // the item is now a different product, and this lookup was for the old one.
+    lookupProduct.mockResolvedValue(found())
+    getItemUnit.mockResolvedValue({ data: baseItem({ model: "DD24DAX9-B", display_name: "Fisher & Paykel DD24DAX9-B" }), error: null })
+    await runPostCreateLookup(baseItem())
+    expect(updateItemUnit).not.toHaveBeenCalled()
+  })
+
+  it("keeps a name the owner gave it on the item page while the lookup was out (HH-125)", async () => {
+    lookupProduct.mockResolvedValue(found())
+    getItemUnit.mockResolvedValue({ data: baseItem({ display_name: "Upstairs dishwasher" }), error: null })
+    await runPostCreateLookup(baseItem())
+    const updates = updateItemUnit.mock.calls[0][2]
+    expect(updates.display_name).toBeUndefined()
+    // The category was still blank, so it is still filled.
+    expect(updates.item_category).toBe("major_appliance")
+  })
+
+  it("does not overwrite a category chosen while the lookup was out", async () => {
+    lookupProduct.mockResolvedValue(found())
+    getItemUnit.mockResolvedValue({ data: baseItem({ item_category: "small_appliance", sub_type: "kettle" }), error: null })
+    await runPostCreateLookup(baseItem())
+    const updates = updateItemUnit.mock.calls.length ? updateItemUnit.mock.calls[0][2] : {}
+    expect(updates.item_category).toBeUndefined()
+    expect(updates.display_name).toBeUndefined()
+  })
+
+  it("writes nothing to an item deleted while the lookup was out", async () => {
+    lookupProduct.mockResolvedValue(found())
+    getItemUnit.mockResolvedValue({ data: null, error: null })
+    await runPostCreateLookup(baseItem())
+    expect(updateItemUnit).not.toHaveBeenCalled()
+  })
+
+  it("writes nothing when the item cannot be re-read — never a guess", async () => {
+    lookupProduct.mockResolvedValue(found())
+    getItemUnit.mockResolvedValue({ data: null, error: { message: "offline" } })
+    await expect(runPostCreateLookup(baseItem())).resolves.toBeUndefined()
+    expect(updateItemUnit).not.toHaveBeenCalled()
   })
 })

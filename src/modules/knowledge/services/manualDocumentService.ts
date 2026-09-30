@@ -10,8 +10,10 @@ import {
   Timestamp,
   type DocumentData,
 } from "firebase/firestore"
-import { db, callable } from "@/integrations/firebase"
+import { getMetadata, ref as storageRef } from "firebase/storage"
+import { db, callable, storage } from "@/integrations/firebase"
 import type { ManualDocument, ManualSourceType, ManualRole } from "@/integrations/types"
+import { MANUAL_HASH_METADATA_KEY, removeManualPdf } from "@/modules/inventory/services/storageService"
 
 export type ServiceResult<T> =
   | { data: T; error: null }
@@ -26,6 +28,11 @@ export type CreateManualDocumentInput = {
   label?: string | null
   version?: string | null
   language?: string | null
+  /**
+   * SHA-256 of an uploaded file (uploadManualPdf returns it). Omitted, it is
+   * read back from the uploaded object's metadata — pass it to skip that read.
+   */
+  content_hash?: string | null
 }
 
 // ── Firestore manual doc (camelCase) → curated ManualDocument (snake_case) ──────
@@ -47,6 +54,7 @@ function toManual(id: string, d: DocumentData): ManualDocument {
     parsed_at: manIso(d.parsedAt),
     parse_stage: (d.parse as { stage?: string } | null)?.stage ?? null,
     parse_draft: d.draft ?? null,
+    content_hash: typeof d.contentHash === "string" ? d.contentHash : null,
     created_at: manIso(d.createdAt) ?? "",
     updated_at: manIso(d.updatedAt) ?? "",
     deleted_at: manIso(d.deletedAt),
@@ -58,30 +66,87 @@ const ingestReferenceCallable = callable<{ homeId: string; manualId: string }, {
 )
 
 /**
+ * The content hash an upload was stamped with (uploadManualPdf), for a caller
+ * that handed over only the path. Unreadable → null: the manual is still
+ * attached, it just cannot be recognised as a repeat.
+ */
+async function storedContentHash(path: string): Promise<string | null> {
+  try {
+    const meta = await getMetadata(storageRef(storage, path))
+    const hash = meta.customMetadata?.[MANUAL_HASH_METADATA_KEY]
+    return typeof hash === "string" && hash ? hash : null
+  } catch (e) {
+    console.warn("[manuals] could not read the upload's content hash; a repeat of it will not be recognised:", e instanceof Error ? e.message : e)
+    return null
+  }
+}
+
+/**
  * Creates a manual_document for an item under homes/{homeId}/manuals — or
- * REUSES the one already there for the same item and source.
+ * REUSES the one already there for the same item and the same manual.
  *
  * HH-154 (owner, 2026-09-05): "Why is the rice cooker saved 4 times here?" —
  * four records for one appliance, one scanned and three stuck at "Not scanned"
  * forever. Every add minted a fresh document with no check for an existing one,
- * so a retried upload became a duplicate rather than a replacement. Matching on
- * (itemUnitId, sourceRef) makes a re-add idempotent: the same manual added
- * again updates the record it already has, and the parse state that record
- * carries is reset so the new file is actually read.
+ * so a retried upload became a duplicate rather than a replacement.
+ *
+ * "The same manual" means:
+ *  - an UPLOAD: the same bytes. Every upload lands at a fresh timestamped path,
+ *    so the path never repeats — the first fix matched on it and missed every
+ *    re-upload. The SHA-256 of the file does repeat. A second upload of an
+ *    identical file returns the record already there, untouched: identical
+ *    content means its scan (or the draft awaiting review) is still right. The
+ *    copy just uploaded is redundant and is removed.
+ *  - a LINK: the same URL. What a URL serves can change, so the record's parse
+ *    state is reset and the link is actually read again.
  */
 export async function createManualDocument(
   homeId: string,
   input: CreateManualDocumentInput
 ): Promise<ServiceResult<ManualDocument>> {
   try {
+    const manuals = collection(db, `homes/${homeId}/manuals`)
+    const contentHash =
+      input.source_type === "upload"
+        ? (input.content_hash ?? (await storedContentHash(input.source_ref)))
+        : null
+
+    if (contentHash) {
+      const same = await getDocs(
+        query(
+          manuals,
+          where("deletedAt", "==", null),
+          where("itemUnitId", "==", input.item_unit_id),
+          where("contentHash", "==", contentHash),
+        )
+      ).catch((e: unknown) => {
+        // Same policy as the lookup below: a failed check never blocks the add.
+        console.warn("[manuals] duplicate check failed; adding without it:", e instanceof Error ? e.message : e)
+        return null
+      })
+      const twin = same?.docs?.[0]
+      if (twin) {
+        if (twin.get("sourceRef") !== input.source_ref) {
+          const removed = await removeManualPdf(input.source_ref)
+          // Best effort: an orphaned copy costs storage, never the manual.
+          if (removed.error) console.warn("[manuals] could not remove the redundant upload:", removed.error.message)
+        }
+        return { data: toManual(twin.id, twin.data()), error: null }
+      }
+    }
+
     const existing = await getDocs(
       query(
-        collection(db, `homes/${homeId}/manuals`),
+        manuals,
         where("deletedAt", "==", null),
         where("itemUnitId", "==", input.item_unit_id),
         where("sourceRef", "==", input.source_ref),
       )
-    ).catch(() => null)
+    ).catch((e: unknown) => {
+      // A failed lookup must not block the add; it falls through to creating.
+      console.warn("[manuals] duplicate check failed; adding without it:", e instanceof Error ? e.message : e)
+      return null
+    })
     const hit = existing?.docs?.[0]
     if (hit) {
       await writeBatch(db)
@@ -100,7 +165,7 @@ export async function createManualDocument(
       const again = await getDoc(hit.ref)
       return { data: toManual(hit.ref.id, again.data() ?? {}), error: null }
     }
-    const ref = doc(collection(db, `homes/${homeId}/manuals`))
+    const ref = doc(manuals)
     const now = serverTimestamp()
     await writeBatch(db)
       .set(ref, {
@@ -109,6 +174,8 @@ export async function createManualDocument(
         label: input.label ?? null,
         sourceType: input.source_type,
         sourceRef: input.source_ref,
+        // What the next upload of this same file is recognised by (HH-154).
+        contentHash,
         role: input.role ?? "primary",
         version: input.version ?? null,
         language: input.language ?? null,

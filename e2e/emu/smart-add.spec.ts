@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
+import { getApps, initializeApp } from "firebase-admin/app"
+import { getFirestore } from "firebase-admin/firestore"
 
 /**
  * Smart Add (P0) against the seeded emulator — proves the flagship add-item flow
@@ -255,5 +257,56 @@ test.describe("emulator e2e — the wizard ends at the manual", () => {
     // What the pickup card then SAYS is the item page's contract, and it reads
     // a parse stage the stubbed callable never writes — asserting it here would
     // only be testing the stub.
+  })
+})
+
+/**
+ * HH-130. Back from "Add the manual" returns to the brand and model, as the
+ * owner asked — and pressing "Add the manual" again used to CREATE a second
+ * item, leaving the first orphaned with no manual. Counted in the store (the
+ * admin SDK, emulator only) AND on the Items list, because a list that happens
+ * to dedupe by name would pass a UI-only check.
+ */
+async function liveItemsWithModel(model: string): Promise<number> {
+  if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error("FIRESTORE_EMULATOR_HOST is not set — this spec reads the EMULATOR only")
+  const app = getApps()[0] ?? initializeApp({ projectId: "demo-homehub" })
+  const snap = await getFirestore(app).collection("homes/e2e-home/items").where("model", "==", model).get()
+  return snap.docs.filter((d) => d.get("deletedAt") == null).length
+}
+
+test.describe("emulator e2e — Back from the manual step (HH-130)", () => {
+  test("Add the manual → Back → Add the manual again is still ONE item", async ({ page }) => {
+    // Unique per run: specs in one run share the seeded home.
+    const model = `HH130-${Date.now().toString(36).toUpperCase()}`
+    await page.goto("/inventory/add")
+    await page.getByRole("button", { name: /Appliance or device/ }).click()
+    await page.locator("#identify-brand").fill("Emu")
+    await page.locator("#identify-model").fill(model)
+    await page.getByRole("button", { name: /^Add the manual$/i }).filter(visible).first().click()
+    await expect(page.getByRole("heading", { name: /^Add the manual$/i }).filter(visible).first())
+      .toBeVisible({ timeout: 15_000 })
+    await expect.poll(() => liveItemsWithModel(model), { timeout: 10_000 }).toBe(1)
+
+    // Back carries the brand and model back to their fields…
+    await page.getByRole("button", { name: /^Back$/ }).filter(visible).first().click()
+    await expect(page.locator("#identify-brand")).toHaveValue("Emu")
+    await expect(page.locator("#identify-model")).toHaveValue(model)
+
+    // …and going forward again is the same item, not a second one.
+    await page.getByRole("button", { name: /^Add the manual$/i }).filter(visible).first().click()
+    await expect(page.getByRole("heading", { name: /^Add the manual$/i }).filter(visible).first())
+      .toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(`For your Emu ${model}.`)).toBeVisible()
+    // Give a second create the time it would take to land before counting.
+    await page.waitForTimeout(1_500)
+    expect(await liveItemsWithModel(model)).toBe(1)
+
+    // The Items list says the same: one row, not two.
+    await page.getByRole("button", { name: /I'll add it later/i }).filter(visible).first().click()
+    await expect(page).toHaveURL(/\/items\//, { timeout: 15_000 })
+    await page.goto("/inventory")
+    await expect(page.getByRole("link", { name: new RegExp(model) }).filter(visible).first())
+      .toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole("link", { name: new RegExp(model) }).filter(visible)).toHaveCount(1)
   })
 })
