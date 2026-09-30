@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore"
 import { db, auth } from "@/integrations/firebase"
 import type { Home, Room } from "@/integrations/types"
+import { assertServed } from "@/lib/assertServed"
 
 export type ServiceResult<T> =
   | { data: T; error: null }
@@ -298,12 +299,18 @@ export async function getHome(homeId: string): Promise<ServiceResult<Home | null
   }
 }
 
-/** Fetches rooms for a home. */
-export async function getRooms(homeId: string): Promise<ServiceResult<Room[]>> {
+/**
+ * Fetches rooms for a home.
+ *
+ * `refuseOfflineEmpty`: an EMPTY read served from the local cache (offline) is
+ * an error, not "no rooms" — see assertServed.
+ */
+export async function getRooms(homeId: string, options?: { refuseOfflineEmpty?: boolean }): Promise<ServiceResult<Room[]>> {
   try {
     const snap = await getDocs(
       query(collection(db, `homes/${homeId}/rooms`), where("deletedAt", "==", null), orderBy("name"))
     )
+    if (options?.refuseOfflineEmpty) assertServed(snap, "rooms")
     return { data: snap.docs.map((d) => toRoom(d.id, homeId, d.data())), error: null }
   } catch (e) {
     return err(e)

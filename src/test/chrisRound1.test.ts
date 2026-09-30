@@ -34,8 +34,11 @@ describe("empty Tasks must not contradict the item page", () => {
     const src = read("../components/home/RefinedWeek.tsx")
     expect(src).toContain("hiddenCleaning")
     expect(src).toContain("live in your guides")
-    // Only counted when the agenda is actually empty — no cost on the common path.
-    expect(src).toContain("countHiddenCleaning")
+    // The count moved into the agenda hook RefinedWeek shares with DesktopTasks
+    // (one fetch per home). Still only counted when the agenda is actually
+    // empty — no cost on the common path.
+    const hook = read("../hooks/useWeekAgenda.ts")
+    expect(hook).toMatch(/length === 0 \? await countHiddenCleaning\(/)
   })
 })
 

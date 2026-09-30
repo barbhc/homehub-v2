@@ -5,8 +5,15 @@
  * One read each of items, templates and the home doc; the library does the
  * rest in memory. Errors surface (the group shows them); an empty result is
  * only ever a real empty.
+ *
+ * SWR-backed and keyed by home. /maintenance mounts RefinedWeek and
+ * DesktopTasks together and both call this hook; as a plain effect each ran
+ * its own three reads, so every visit paid for them twice. One key per home
+ * means one fetch the two trees share. Not persisted: the group is "always
+ * last, never counted", so it loads behind the agenda and gates nothing.
  */
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
+import useSWR, { useSWRConfig } from "swr"
 import { getItemUnits } from "@/modules/items"
 import { getTaskTemplates, addLibraryTask, dismissLibrarySuggestion, applyLibraryBackstop } from "@/modules/care"
 import { getHomeProfile } from "@/modules/home"
@@ -15,41 +22,50 @@ import { suggestionsForItem, suggestionsForHome, type Suggestion, type CareFacts
 
 export type PlacedSuggestion = Suggestion & { itemUnitId: string | null; itemName: string | null; /** the template a backstop applies to */ backstopTemplateId?: string }
 
+const NO_ROWS: PlacedSuggestion[] = []
+
+/** Throws on a failed read (a ServiceResult error or a rejection alike), so the group shows the failure — never a false "nothing to suggest". */
+async function fetchSuggestions(homeId: string): Promise<PlacedSuggestion[]> {
+  const [items, templates, profile] = await Promise.all([
+    getItemUnits(homeId, { statusFilter: ["active", "stored"] }),
+    getTaskTemplates(homeId),
+    getHomeProfile(homeId),
+  ])
+  const failed = items.error ?? templates.error ?? profile.error
+  if (failed || !items.data || !templates.data) throw new Error(failed?.message ?? "Could not load your home")
+  return placeAll(items.data, templates.data, profile.data?.care_facts ?? {}, profile.data?.dismissed_care ?? [])
+}
+
 export function useCareSuggestions(homeId: string | null | undefined) {
-  const [rows, setRows] = useState<PlacedSuggestion[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [reloadKey, setReloadKey] = useState(0)
+  const key = homeId ? `care-suggestions:${homeId}` : null
+  const { mutate: mutateKey } = useSWRConfig()
+  const { data, error, mutate } = useSWR<PlacedSuggestion[]>(key, () => fetchSuggestions(homeId!), {
+    // Read on mount, as the effect did — not on every focus/reconnect (SWR's
+    // default). Three whole-collection reads for a group that is "always last,
+    // never counted" don't earn a refetch each time the app comes forward.
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 5000,
+    keepPreviousData: false,
+  })
 
-  useEffect(() => {
-    if (!homeId) { setLoading(false); return }
-    let alive = true
-    setLoading(true)
-    void (async () => {
-      try {
-        const [items, templates, profile] = await Promise.all([
-          getItemUnits(homeId, { statusFilter: ["active", "stored"] }),
-          getTaskTemplates(homeId),
-          getHomeProfile(homeId),
-        ])
-        if (!alive) return
-        const failed = items.error ?? templates.error ?? profile.error
-        if (failed || !items.data || !templates.data) { setError(failed?.message ?? "Could not load your home"); setLoading(false); return }
-        setRows(placeAll(items.data, templates.data, profile.data?.care_facts ?? {}, profile.data?.dismissed_care ?? []))
-        setError(null)
-        setLoading(false)
-      } catch (e: unknown) {
-        // A thrown rejection must land in the same visible error state as a
-        // ServiceResult error — never a spinner that outlives the request.
-        if (!alive) return
-        setError(e instanceof Error ? e.message : String(e))
-        setLoading(false)
-      }
-    })()
-    return () => { alive = false }
-  }, [homeId, reloadKey])
-
-  const remove = (s: PlacedSuggestion) => setRows((rs) => rs.filter((r) => !(r.entry.key === s.entry.key && r.itemUnitId === s.itemUnitId)))
+  // Take an added/dismissed row off the shared list — both trees at once. The
+  // write already landed, so no refetch; the next read agrees with it.
+  const remove = useCallback(
+    (s: PlacedSuggestion) => {
+      if (!key) return
+      mutateKey<PlacedSuggestion[]>(
+        key,
+        (rs) => rs?.filter((r) => !(r.entry.key === s.entry.key && r.itemUnitId === s.itemUnitId)),
+        { revalidate: false },
+      ).catch((e: unknown) => {
+        // The write already succeeded; a failed local removal only means the
+        // row lingers until the next read. Logged, never surfaced as a failure.
+        console.warn(`[care suggestions] could not update ${key}:`, e instanceof Error ? e.message : e)
+      })
+    },
+    [key, mutateKey],
+  )
 
   const add = useCallback(async (s: PlacedSuggestion) => {
     if (!homeId) return { error: { message: "No home" } }
@@ -59,7 +75,7 @@ export function useCareSuggestions(homeId: string | null | undefined) {
     if (res.error) return { error: res.error }
     remove(s)
     return { error: null }
-  }, [homeId])
+  }, [homeId, remove])
 
   const dismiss = useCallback(async (s: PlacedSuggestion) => {
     if (!homeId) return { error: { message: "No home" } }
@@ -67,9 +83,16 @@ export function useCareSuggestions(homeId: string | null | undefined) {
     if (res.error) return { error: res.error }
     remove(s)
     return { error: null }
-  }, [homeId])
+  }, [homeId, remove])
 
-  return { rows, loading, error, add, dismiss, reload: () => setReloadKey((k) => k + 1) }
+  return {
+    rows: data ?? NO_ROWS,
+    loading: key !== null && data === undefined && error === undefined,
+    error: error ? (error instanceof Error ? error.message : String(error)) : null,
+    add,
+    dismiss,
+    reload: () => void mutate(),
+  }
 }
 
 /** Pure: items × templates × facts → placed suggestions, items first, then the home. */

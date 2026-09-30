@@ -12,8 +12,15 @@
  * the task is still listed — a task that did not complete must not disappear.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render as rtlRender, screen, fireEvent, waitFor } from "@testing-library/react"
+import { SWRConfig } from "swr"
 import { RefinedWeek } from "./RefinedWeek"
+
+// The agenda is SWR-cached (useWeekAgenda), so each test gets a fresh cache —
+// otherwise a later test would read an earlier one's agenda, including the
+// task the success case removed.
+const render = (ui: React.ReactElement) =>
+  rtlRender(<SWRConfig value={{ provider: () => new Map(), shouldRetryOnError: false }}>{ui}</SWRConfig>)
 
 const getWeekAgenda = vi.fn()
 const markTaskInstanceDone = vi.fn()

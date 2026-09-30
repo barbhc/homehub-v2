@@ -17,6 +17,30 @@ export function shouldShowHomeSkeleton(isLoading: boolean, hasDashboardData: boo
 }
 
 /**
+ * The same rule, generalised for the other pages that paint from a warm cache
+ * (Items, Tasks): what a page shows given what it holds.
+ *
+ *  · Data — fresh, in-memory or a persisted snapshot — always paints: mid-
+ *    revalidation, and even when the latest refresh failed (the page adds a
+ *    quiet "last saved view" note instead of hiding what it has).
+ *  · With nothing to paint, a failure beats a skeleton.
+ *  · Otherwise the page is waiting.
+ *
+ * It takes no `isLoading`, deliberately. SWR turns isLoading back on for every
+ * automatic error retry while there is no data, so gating on it flips the page
+ * skeleton ↔ error for as long as a failure lasts. And before a home is
+ * selected SWR has no key and reports isLoading false — gating on it would
+ * fall through to the empty state and say a home we haven't read has nothing
+ * in it.
+ */
+export type PageLoadState = "content" | "error" | "loading"
+
+export function pageLoadState(hasData: boolean, hasError: boolean): PageLoadState {
+  if (hasData) return "content"
+  return hasError ? "error" : "loading"
+}
+
+/**
  * How long the shimmering skeleton may run before it has to say something.
  *
  * A tester's first sign-in produced a screen of shimmer that he reported as "a

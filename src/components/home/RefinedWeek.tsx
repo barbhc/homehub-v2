@@ -3,8 +3,11 @@ import { Link, useNavigate } from "react-router-dom"
 import {
   AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon, XIcon,
 } from "lucide-react"
-import { getWeekAgenda, countHiddenCleaning, markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
+import { markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
 import { useCareSuggestions } from "@/hooks/useCareSuggestions"
+import { useWeekAgenda } from "@/hooks/useWeekAgenda"
+import { LoadErrorState, StaleDataNote } from "@/components/layout"
+import { pageLoadState } from "@/lib/homeLoadingGate"
 import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
@@ -19,8 +22,8 @@ const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", B
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
 const PAD = 20
 
-// How far ahead to pull so the month calendar + "Later" group have real content.
-const HORIZON_DAYS = 31
+// The agenda (and how far ahead it reaches) lives in useWeekAgenda, shared with DesktopTasks.
+const NO_TASKS: WeekAgendaItem[] = []
 
 type View = "list" | "calendar"
 
@@ -281,31 +284,23 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   // tier helpers keep their signature.
   const item = "all"
   const [openId, setOpenId] = useState<string | null>(null)
-  /** Scheduled work the agenda hides by design (item-scoped cleaning). */
-  const [hiddenCleaning, setHiddenCleaning] = useState(0)
   const [selDay, setSelDay] = useState<number | null>(null)
   const [dismissed, setDismissed] = useState(false)
-  const [items, setItems] = useState<WeekAgendaItem[]>([])
-  const [loading, setLoading] = useState(true)
+  // The agenda is shared with DesktopTasks (one fetch per home, persisted for a
+  // warm start). What to show is decided by what we HOLD — see pageLoadState.
+  const agenda = useWeekAgenda(homeId)
+  const { removeTask } = agenda
+  const items = agenda.data?.items ?? NO_TASKS
+  /** Scheduled work the agenda hides by design (item-scoped cleaning). */
+  const hiddenCleaning = agenda.data?.hiddenCleaning ?? 0
+  const loadState = pageLoadState(agenda.data !== undefined, agenda.error !== undefined)
+  const loading = loadState === "loading"
+  const loadFailed = loadState === "error"
   const [pendingId, setPendingId] = useState<string | null>(null)
   // Done/Snooze both used to discard their result: the row closed either way and
   // a failed check-off left the task in place with nothing said. The task then
   // reappears on the next load looking like the tap never registered.
   const [actionError, setActionError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    if (!homeId) return
-    const res = await getWeekAgenda(homeId, { days: HORIZON_DAYS })
-    if (!res.error && (res.data?.length ?? 0) === 0) {
-      setHiddenCleaning(await countHiddenCleaning(homeId))
-    } else {
-      setHiddenCleaning(0)
-    }
-    setItems(res.data ?? [])
-    setLoading(false)
-  }, [homeId])
-
-  useEffect(() => { void load() }, [load])
 
   const onDone = useCallback(async (id: string) => {
     if (!homeId) return
@@ -319,8 +314,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
       return
     }
     setOpenId(null)
-    setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
-  }, [homeId])
+    removeTask(id)
+  }, [homeId, removeTask])
 
   const onSnooze = useCallback(async (id: string) => {
     if (!homeId) return
@@ -333,8 +328,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
       return
     }
     setOpenId(null)
-    setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
-  }, [homeId])
+    removeTask(id)
+  }, [homeId, removeTask])
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
@@ -379,13 +374,22 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
+      {/* A refresh failed behind an agenda we still hold: keep it, and say so
+          quietly at the top of the screen — where Home and Items say it. */}
+      {agenda.error && agenda.data && (
+        <div className="pb-4" style={{ paddingInline: PAD }}>
+          <StaleDataNote onRetry={() => void agenda.refresh()} />
+        </div>
+      )}
       {/* Header */}
       <div className="pt-2" style={{ paddingInline: PAD }}>
         <h1 className="text-[28px] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Tasks</h1>
         <div className="mt-1.5 text-[13.5px]" style={{ color: SUB }}>
           {/* When a filter is on, the headline must say so — "2 to do" while
-              hiding nine more read as the whole truth and wasn't. */}
-          {loading ? "Loading…" : total === 0
+              hiding nine more read as the whole truth and wasn't. A failed
+              first read says nothing here: "Nothing due" about tasks we never
+              read would be a confident wrong answer. */}
+          {loading ? "Loading…" : loadFailed ? null : total === 0
             ? (hiddenCleaning > 0
                 // Never leave the user staring at "nothing" while an item page
                 // lists work. Say where it went.
@@ -516,7 +520,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                       : <span className="size-[7px] shrink-0" />}
                     <span className="flex-1 text-[13.5px] font-bold" style={{ color: INK }}>{o.label}</span>
                     {/* The count is the point: it says what you'd get, before you pick. */}
-                    <span className="font-mono text-[11px]" style={{ color: SUB }}>{tierCounts[o.value]}</span>
+                    {/* Only once the agenda is read: "0" about tasks we couldn't load is a claim. */}
+                    {loadState === "content" && <span className="font-mono text-[11px]" style={{ color: SUB }}>{tierCounts[o.value]}</span>}
                     {tier === o.value && <CheckIcon className="size-4" style={{ color: TEAL }} />}
                   </button>
                 ))}
@@ -530,6 +535,12 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
       <div className="flex-1 pb-4">
         {loading ? (
           <div className="py-10 text-center text-[14px]" style={{ color: SUB }}>Loading…</div>
+        ) : loadFailed ? (
+          <LoadErrorState
+            title="Couldn't load your tasks"
+            message={agenda.error?.message ?? "Something went wrong."}
+            onRetry={() => void agenda.refresh()}
+          />
         ) : view === "list" ? (
           <div style={{ padding: `17px ${PAD}px 0` }}>
             {groups.length === 0 && (
