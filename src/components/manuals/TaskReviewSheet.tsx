@@ -327,9 +327,6 @@ const inTasksRow = (r: ReviewRow): boolean => r.included && r.kind !== "usage" &
 /** Would a bell on this row ring, if the phone allows it? The same rule the
  *  item page and the push sweep use (notifiesPhone). */
 const canRing = (r: ReviewRow): boolean => r.included && notifiesPhone(taskLikeOf(r), ROW_SCOPE)
-/** A cadence that never reaches Tasks: it lives on the item page (S4.4). */
-const livesOnItemPage = (r: ReviewRow): boolean =>
-  r.included && r.kind !== "usage" && isScheduledTask(taskLikeOf(r)) && !showsInTasks(taskLikeOf(r), ROW_SCOPE)
 
 interface TaskReviewSheetProps {
   /**
@@ -830,9 +827,11 @@ export function TaskReviewSheet({
                   {bellOn(r) && <BellRingIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} />}
                 </label>
                 {/* S5: the switch still records the choice — it is what brings
-                    the bell back — but this phone will not ring it. */}
+                    the bell back — but this phone will not ring it. The way to
+                    fix that sits HERE, beside the switch, where tapping it is
+                    deliberate (owner, #228 review). */}
                 {notificationsBlocked && remindsOfRow(r) && (
-                  <RemindersOff className="mt-1.5 pl-[28px]" linkFocusable />
+                  <RemindersOff className="mt-1.5 pl-[28px]" withSettingsLink />
                 )}
               </div>
             )}
@@ -901,13 +900,15 @@ export function TaskReviewSheet({
           style={{ background: r.included ? rail ?? "transparent" : "transparent" }} />
         <span className="flex flex-1 min-w-0 flex-col">
           <span className={`text-[14px] font-semibold tracking-[-0.005em] ${r.included ? "" : "line-through text-muted-foreground"}`}>{r.title}</span>
-          {/* Where the row goes, said under its title (HH-161): a cadence
-              that never reaches Tasks lives on the item page (S4.4), and a row
-              that would notify, on a phone that refused, says so instead of
-              drawing a bell (S5.2). */}
-          {livesOnItemPage(r) && (
-            <span className="mt-px text-[11.5px] font-medium text-muted-foreground">Lives on the item page</span>
-          )}
+          {/* A row that would notify, on a phone that refused, says so under
+              its title instead of drawing a bell (S5.2) — a STATUS, never a
+              link: this whole row is the button that opens it, so a link here
+              was a mis-tap that left the review and lost its edits (owner,
+              #228 review). "Turn on in Settings" lives in the opened row.
+
+              Cleaning with a cadence carries no line of its own: the Cleaning
+              section's header already says it lives on the item page, and the
+              missing bell says the rest (owner, #228 review). */}
           {notificationsBlocked && canRing(r) && <RemindersOff className="mt-px" />}
         </span>
 
@@ -1102,7 +1103,11 @@ export function TaskReviewSheet({
                     </span>
                   </div>
                 )}
-                {showFirstRun && !alreadySaved && (
+                {/* With nothing going into Tasks, "Nothing here goes into
+                    Tasks." has already said this — two sentences for one fact
+                    (owner, #228 review, S3b.2). It stays where it adds
+                    something: beside a count of what DOES go into Tasks. */}
+                {showFirstRun && !alreadySaved && counts.inTasks > 0 && (
                   <div className="flex items-start gap-2 text-[13px] leading-snug">
                     {/* Not a bell: this line is about WHERE rows live, and a
                         review with nothing to notify about draws no bell of
@@ -1257,15 +1262,17 @@ function InlineTitle({ className, children }: { className?: string; children: Re
 
 /**
  * HH-161 (S5.2): what a row that WOULD notify says on a phone that refused
- * notifications — muted, under its title, in place of the bell. The cadence
- * chip stays; only the promise changes.
+ * notifications — muted, in place of the bell. The cadence chip stays; only
+ * the promise changes. Collapsed, it is a status and nothing else; opened, it
+ * carries the way back ("Turn on in Settings") beside the reminder switch.
  */
-function RemindersOff({ className, linkFocusable = false }: { className?: string; linkFocusable?: boolean }) {
+function RemindersOff({ className, withSettingsLink = false }: { className?: string; withSettingsLink?: boolean }) {
   return (
     <span className={cn("flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground", className)}>
       <BellOffIcon className="size-3 shrink-0" aria-hidden />
       <span>
-        Reminders off — <NotificationSettingsLink focusable={linkFocusable}>turn on in Settings</NotificationSettingsLink>
+        Reminders off
+        {withSettingsLink && <> — <NotificationSettingsLink>Turn on in Settings</NotificationSettingsLink></>}
       </span>
     </span>
   )

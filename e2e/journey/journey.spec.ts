@@ -402,7 +402,7 @@ test.describe("journey walks", () => {
     await expect(page.getByText(/This manual is cleaning/)).toHaveCount(0)
 
     await snap(page, "J3", "review-one-screen",
-      "Sections by kind, Setup last. The dishwasher's only task is ITEM cleaning, so the summary reads “Nothing here goes into Tasks.” with no notify line, the Cleaning row carries its cadence chip and “Lives on the item page” and NO bell — and nothing claims these are already saved while the primary button is what saves them",
+      "Sections by kind, Setup last. The dishwasher's only task is ITEM cleaning, so the summary reads “Nothing here goes into Tasks.” with no notify line, the Cleaning row carries its cadence chip and NO bell (the Cleaning header, not the row, says it lives on the item page) — and nothing claims these are already saved while the primary button is what saves them",
       summary, { viewportOnly: true })
 
     // HH-134, pinned here because this is the state the owner reported three

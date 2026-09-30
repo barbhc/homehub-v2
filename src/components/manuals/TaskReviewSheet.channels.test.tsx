@@ -9,6 +9,13 @@
  *  - "M of those will also notify your phone" is the number of bells on screen,
  *    and a bell is drawn only where it can ring — never on item cleaning, never
  *    on a phone that refused notifications.
+ *
+ * Refined after the owner's review of #228 (2026-09-30): cleaning rows carry
+ * no "Lives on the item page" line of their own (the Cleaning header says it);
+ * a no-maintenance summary does not say "Cleaning, usage and setup stay on the
+ * item page." beside "Nothing here goes into Tasks."; and a refused phone's
+ * collapsed row says only "Reminders off" — "Turn on in Settings" is in the
+ * opened row, beside the reminder switch.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { fireEvent, render, screen, within } from "@testing-library/react"
@@ -134,14 +141,15 @@ describe("S4 — a count that matches Tasks", () => {
     expect(cleaningChip.className).toBe(chip.className)
   })
 
-  it("S4.4 — a cleaning row with a cadence says 'Lives on the item page' under its title and never shows a bell, whatever its tier", () => {
+  it("S4.4 — a cleaning row with a cadence never shows a bell, whatever its tier; the Cleaning header says where it lives, not the row", () => {
     sheet(BOSCH, false)
     for (const title of ["Clean the tub and door edges", "Clean the cutlery basket"]) {
-      expect(within(row(title)).getByText("Lives on the item page")).toBeInTheDocument()
       expect(within(row(title)).queryByLabelText("Notifies you")).toBeNull()
+      // No per-row line (not rendered): the header already says it.
+      expect(row(title).textContent).not.toMatch(/Lives on the item page/)
     }
-    // "when needed" cleaning never says it — it has no cadence to explain.
-    expect(within(row("Wipe the door")).queryByText("Lives on the item page")).toBeNull()
+    expect(screen.getByText("Keeps it nice. Lives on the item page.")).toBeInTheDocument()
+    expect(screen.queryByText("Lives on the item page")).toBeNull()
   })
 
   it("S4.4 — opened, a cadenced cleaning row offers no reminder switch, and says why", () => {
@@ -171,6 +179,21 @@ describe("S3b — the no-maintenance review", () => {
     expect(screen.queryByText(/notify you|notify your phone/)).toBeNull()
   })
 
+  it("S3b.2 — on a person's FIRST review too: no second sentence saying where cleaning lives (not rendered)", () => {
+    localStorage.clear()
+    sheet(SHARP, false)
+    expect(screen.getByText("Nothing here goes into Tasks.")).toBeInTheDocument()
+    expect(screen.getByText("Nothing is saved until you press Save.")).toBeInTheDocument()
+    expect(screen.queryByText("Cleaning, usage and setup stay on the item page.")).toBeNull()
+  })
+
+  it("…while beside a count of what DOES go into Tasks, a first review still says where the rest lives", () => {
+    localStorage.clear()
+    sheet(BOSCH, false)
+    expect(screen.getByText("6 will show up in Tasks")).toBeInTheDocument()
+    expect(screen.getByText("Cleaning, usage and setup stay on the item page.")).toBeInTheDocument()
+  })
+
   it("S3b.3 — zero bells: no bell icon of any kind on the screen", () => {
     sheet(SHARP, false)
     expect(anyBell()).toHaveLength(0)
@@ -183,11 +206,14 @@ describe("S3b — the no-maintenance review", () => {
     expect(anyBell()).toHaveLength(0)
   })
 
-  it("S3b.4 — cadenced cleaning keeps its real cadence in the same chip, each with 'Lives on the item page'; the others say 'when needed'", () => {
+  it("S3b.4 — cadenced cleaning keeps its real cadence in the same chip, with no bell; the Cleaning header says where it lives; the others say 'when needed'", () => {
     sheet(SHARP, false)
-    expect(within(row("Clean the waveguide cover")).getByText("Monthly")).toBeInTheDocument()
-    expect(within(row("Wipe the drawer interior")).getByText("Weekly")).toBeInTheDocument()
-    expect(screen.getAllByText("Lives on the item page")).toHaveLength(2)
+    for (const [title, cadence] of [["Clean the waveguide cover", "Monthly"], ["Wipe the drawer interior", "Weekly"]]) {
+      expect(within(row(title)).getByText(cadence)).toBeInTheDocument()
+      expect(row(title).querySelector("svg.lucide-bell-ring, svg.lucide-bell-off, svg.lucide-bell")).toBeNull()
+      expect(row(title).textContent).not.toMatch(/Lives on the item page/)
+    }
+    expect(screen.getByText("Keeps it nice. Lives on the item page.")).toBeInTheDocument()
     expect(within(row("Clean the door seals")).getByText("when needed")).toBeInTheDocument()
     expect(within(row("Wipe the control panel")).getByText("when needed")).toBeInTheDocument()
   })
@@ -210,19 +236,36 @@ describe("S5 — notifications refused on this phone", () => {
     expect(bells()).toHaveLength(0)
   })
 
-  it("S5.2 — the Essential row keeps its 'Yearly' chip and says 'Reminders off — turn on in Settings', muted, under its title", () => {
+  it("S5.2 — the Essential row keeps its 'Yearly' chip and says 'Reminders off' under its title — a status, not a link", () => {
     sheet(BOSCH, true)
     const essential = row("Check the door seal")
     expect(within(essential).getByText("Yearly")).toBeInTheDocument()
-    expect(essential.textContent).toContain("Reminders off — turn on in Settings")
+    expect(within(essential).getByText("Reminders off")).toBeInTheDocument()
+    // The collapsed row IS the button that opens it: nothing inside it may
+    // lead away from the review (not rendered).
+    expect(within(essential).queryByRole("link")).toBeNull()
+    expect(essential.textContent).not.toMatch(/Settings/)
     // Only the row that would have rung says it.
     expect(row("Clean the filter").textContent).not.toContain("Reminders off")
     expect(row("Clean the tub and door edges").textContent).not.toContain("Reminders off")
   })
 
-  it("S5.2 — 'turn on in Settings' opens the app's Notifications settings, without expanding the row", () => {
+  it("S5.2 — tapping the collapsed row anywhere opens it, and never leaves the review", () => {
     sheet(BOSCH, true)
-    fireEvent.click(within(row("Check the door seal")).getByRole("link", { name: "turn on in Settings" }))
+    fireEvent.click(within(row("Check the door seal")).getByText("Reminders off"))
+    expect(screen.getByTestId("where").textContent).toBe("/items/i1")
+    expect(screen.getByRole("checkbox", { name: /Remind me when it/ })).toBeInTheDocument()
+  })
+
+  it("S5.2 — opened, 'Turn on in Settings' sits beside the reminder switch and opens the app's Notifications section", () => {
+    sheet(BOSCH, true)
+    fireEvent.click(row("Check the door seal"))
+    const toggle = screen.getByRole("checkbox", { name: /Remind me when it/ })
+    const link = screen.getByRole("link", { name: "Turn on in Settings" })
+    // Beside the switch: in the same reminder block.
+    expect(toggle.closest("div")!.contains(link)).toBe(true)
+    expect(link.closest("div")!.textContent).toContain("Reminders off — Turn on in Settings")
+    fireEvent.click(link)
     expect(screen.getByTestId("where").textContent).toBe("/settings#notifications")
   })
 
@@ -241,7 +284,7 @@ describe("S5 — notifications refused on this phone", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /Remind me when it/ }))
     fireEvent.click(screen.getByRole("button", { name: "Done" }))
     expect(bells()).toHaveLength(0)
-    expect(row("Clean the filter").textContent).toContain("Reminders off — turn on in Settings")
+    expect(within(row("Clean the filter")).getByText("Reminders off")).toBeInTheDocument()
 
     // The phone says yes (the hook re-reads on return from Settings): the SAME
     // review now draws both bells — the default one and the one chosen.

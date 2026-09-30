@@ -93,14 +93,17 @@ test.describe("emulator e2e — task review", () => {
     await page.reload()
     await expect(page.getByText("Bosch 800 Series Dishwasher").filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
     await page.getByRole("button", { name: /^Review tasks$/ }).filter({ visible: true }).first().click()
-    // Open the row by its TITLE. Headless Chromium has refused notifications,
-    // so this row — now reminding — carries "Reminders off — turn on in
-    // Settings" under its title (HH-161 S5.2), and a click at the row's centre
-    // lands on that link and leaves for Settings.
+    // Headless Chromium has refused notifications, so this row — now reminding
+    // — says "Reminders off" under its title (HH-161 S5.2). It is a status,
+    // not a link: the row is the button that opens it, and a link inside it
+    // used to catch a tap at the row's centre and leave the review for
+    // Settings (owner, #228 review). So the centre is where this taps.
     const row = page.getByRole("button", { name: /Descale the dishwasher/ }).first()
-    await expect(row).toContainText("Reminders off — turn on in Settings", { timeout: 10_000 })
-    await row.getByText("Descale the dishwasher", { exact: true }).click()
+    await expect(row).toContainText("Reminders off", { timeout: 10_000 })
+    await expect(row.getByRole("link")).toHaveCount(0)
+    await row.click()
     await expect(page.getByText("How often?")).toBeVisible({ timeout: 10_000 })
+    expect(new URL(page.url()).pathname).toBe("/items/dishwasher")
 
     // Cleaning → Maintenance and Monthly → Quarterly survived the round trip...
     await expect(page.getByRole("button", { name: /Maintenance keeps it working/ })).toHaveAttribute("aria-pressed", "true")

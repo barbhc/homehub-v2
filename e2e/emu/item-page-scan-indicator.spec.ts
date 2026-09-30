@@ -21,6 +21,15 @@ import { DESKTOP_VIEWPORT, EMULATOR_PROJECT_ID, SEED_TODAY } from "../seed-confi
  *
  * Screenshots of each state go to $SCAN_SHOTS_DIR (default test-results/…,
  * which git ignores) — for putting beside the mock's frames, not for the repo.
+ *
+ * The owner's review of #228 (2026-09-30) refined five things, pinned here
+ * with the frames they touch: the hand-off card says "We read the manual" (the
+ * item's name is the heading above it); a cleaning row carries no "Lives on
+ * the item page" line of its own; the tray names the ITEM first; a
+ * no-maintenance summary says one thing once; and a refused phone's collapsed
+ * row says only "Reminders off", with "Turn on in Settings" in the opened row
+ * and the phone's menu named in Settings. Plus the gatekeeper's check: the
+ * pill never covers the page's last card.
  */
 const HOME = "e2e-home"
 const SHOTS = process.env.SCAN_SHOTS_DIR ?? "test-results/scan-indicator"
@@ -209,6 +218,20 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(page.getByText(/page \d+ of \d+/)).toHaveCount(0)
       await shot(page, label, "s1-item-reading")
 
+      // The pill never covers the page's end (HH-118's actual complaint, now
+      // answered by clearance): scrolled all the way down, the last card —
+      // "Delete item", quiet and last — ends above the pill's top edge.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+      await expect.poll(() => page.evaluate(() =>
+        Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1)).toBe(true)
+      const lastCard = page.getByRole("button", { name: "Delete item" })
+      await expect(lastCard).toBeInViewport()
+      const lastBox = (await lastCard.boundingBox())!
+      const pillBox = (await pill(page).boundingBox())!
+      expect(lastBox.y + lastBox.height, "the last card ends above the pill's top edge").toBeLessThanOrEqual(pillBox.y)
+      await shot(page, label, "s1-item-bottom-clearance")
+      await page.evaluate(() => window.scrollTo(0, 0))
+
       // ── S6: the same read, from Home ─────────────────────────────────────
       await page.goto("/home")
       await expect(pill(page)).toHaveText(/(^|· )1 reading( ·|$)/, { timeout: 20_000 })
@@ -216,10 +239,14 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(page.getByText("Reading the manual")).toHaveCount(0)
       await expect(page.getByRole("progressbar")).toHaveCount(0)
       await shot(page, label, "s6-home-pill")
-      // S6.2 — the tray: the manual, "42 pages", and the keeps-going line.
+      // S6.2 — the tray: the ITEM first with "42 pages" (owner, #228 review:
+      // people think in items), the manual's title as the line beneath it,
+      // and the keeps-going line.
       await pill(page).click()
-      await expect(page.getByText(title)).toBeVisible()
-      await expect(page.getByText("42 pages", { exact: true })).toBeVisible()
+      const trayRow = page.getByRole("listitem").filter({ hasText: title })
+      await expect(trayRow).toContainText(`${name} · 42 pages`)
+      const nameY = (await trayRow.getByText(name, { exact: true }).boundingBox())!.y
+      expect(nameY).toBeLessThan((await trayRow.getByText(title, { exact: true }).boundingBox())!.y)
       await expect(page.getByText("You can close the app — these keep going.").first()).toBeVisible()
       await shot(page, label, "s6-home-tray")
 
@@ -229,9 +256,12 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await page.goto(`/items/${itemId}`)
       await expect(page.getByRole("heading", { name, exact: true })).toBeVisible({ timeout: 20_000 })
       // S2.1 — exactly one hand-off card, and its count is the Maintenance count.
+      // "We read the manual": the item's name is the heading right above it,
+      // so the card does not say it again (owner, #228 review).
       const card = page.getByTestId("handoff-card")
       await expect(card).toHaveCount(1, { timeout: 15_000 })
-      await expect(card).toContainText(`We read the ${name} manual`)
+      await expect(card).toContainText("We read the manual")
+      await expect(card).not.toContainText(name)
       await expect(card.getByRole("button", { name: "Review 6 upkeep tasks" })).toBeVisible()
       // …between the name block and Upkeep: below the name, above the upkeep
       // it will fill (the phone's "Upkeep" heading; desktop's Tasks tab).
@@ -257,6 +287,7 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       const url = page.url()
       await pill(page).click()
       const row = page.getByRole("listitem").filter({ hasText: title })
+      await expect(row).toContainText(`${name} — ready to review`)
       await row.getByRole("button", { name: "Review" }).click()
       const dialog = page.getByRole("dialog")
       await expect(dialog).toHaveCount(1)
@@ -269,15 +300,42 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       // S5.3 — the Tasks line unchanged; the second line says why.
       await expect(dialog.getByText("6 will show up in Tasks")).toBeVisible()
       await expect(dialog.getByText("None will notify you. Notifications are off on this phone.")).toBeVisible()
-      // S5.2 — the Essential row keeps its chip and says so, muted.
+      // S5.2 — the Essential row keeps its chip and says so, muted — as a
+      // STATUS: the collapsed row is the button that opens it, so nothing in
+      // it may lead away from the review (owner, #228 review).
       const essential = dialog.getByRole("button", { name: /Check the door seal/ }).first()
       await expect(essential).toContainText("Yearly")
-      await expect(essential).toContainText("Reminders off — turn on in Settings")
-      // S4.4 — cadenced cleaning lives on the item page, and never rings.
-      await expect(dialog.getByRole("button", { name: /Clean the tub and door edges/ }).first()).toContainText("Lives on the item page")
+      await expect(essential).toContainText("Reminders off")
+      await expect(essential).not.toContainText("Settings")
+      await expect(essential.getByRole("link")).toHaveCount(0)
+      // S4.4 — cadenced cleaning never rings, and carries no line of its own:
+      // the Cleaning header says where it lives.
+      const cleaning = dialog.getByRole("button", { name: /Clean the tub and door edges/ }).first()
+      await expect(cleaning).not.toContainText("Lives on the item page")
+      await expect(anyBell(cleaning)).toHaveCount(0)
+      await expect(dialog.getByText("Keeps it nice. Lives on the item page.")).toBeVisible()
       // S4.5 — Save saves every row the review lists.
       await expect(dialog.getByRole("button", { name: "Save all 12" })).toBeVisible()
       await shot(page, label, "s5-review-notifications-off")
+
+      // S5.2, opened: a tap anywhere on the row opens it (never Settings), and
+      // "Turn on in Settings" sits beside the reminder switch.
+      await essential.click()
+      const remind = dialog.getByRole("checkbox", { name: /Remind me when it/ })
+      await expect(remind).toBeVisible()
+      expect(page.url()).toBe(url)
+      const toSettings = dialog.getByRole("link", { name: "Turn on in Settings" })
+      await expect(toSettings).toBeVisible()
+      await shot(page, label, "s5-review-row-opened")
+      // …and Settings' Notifications section names where the switch is. This
+      // is a browser, so it names the browser's settings; the iPhone app's
+      // sentence is pinned in notifyGate.test.ts.
+      await toSettings.click()
+      await expect(page).toHaveURL(/\/settings#notifications$/)
+      await expect(page.getByTestId("notifications-refused")).toHaveText(
+        "Notifications are off for Homehub in this browser. Turn them on in the browser’s site settings.")
+      await page.getByTestId("notifications-refused").scrollIntoViewIfNeeded()
+      await shot(page, label, "s5-settings-refused")
     })
 
     test("S3 → S3b → S3c: no maintenance — the same hand-off, one screen, nothing into Tasks, saved only on Save", async ({ page }) => {
@@ -293,7 +351,8 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       // ── S3: the SAME hand-off card ─────────────────────────────────────────
       const card = page.getByTestId("handoff-card")
       await expect(card).toHaveCount(1, { timeout: 15_000 })
-      await expect(card).toContainText(`We read the ${name} manual`)
+      await expect(card).toContainText("We read the manual")
+      await expect(card).not.toContainText(name)
       const review = card.getByRole("button", { name: "Review 6 tips & steps" })
       await expect(review).toBeVisible()
       // S3.2 — no other card, and round 14's sentence nowhere.
@@ -319,15 +378,20 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(cleaningSub).toBeVisible()
       await expect(setupSub).toBeVisible()
       expect((await cleaningSub.boundingBox())!.y).toBeLessThan((await setupSub.boundingBox())!.y)
-      // S3b.2 — the summary.
+      // S3b.2 — the summary: one sentence per fact. This context's first
+      // review would also have said "Cleaning, usage and setup stay on the
+      // item page." — the same fact twice (owner, #228 review).
       await expect(dialog.getByText("Nothing here goes into Tasks.")).toBeVisible()
       await expect(dialog.getByText("Nothing is saved until you press Save.")).toBeVisible()
       await expect(dialog.getByText(/notify/)).toHaveCount(0)
+      await expect(dialog.getByText("Cleaning, usage and setup stay on the item page.")).toHaveCount(0)
       // S3b.3 — zero bells of any kind.
       await expect(anyBell(dialog)).toHaveCount(0)
-      // S3b.4 — cadences kept, each with "Lives on the item page".
-      // Exact: the Cleaning section's own sub-line also contains the words.
-      await expect(dialog.getByText("Lives on the item page", { exact: true })).toHaveCount(2)
+      // S3b.4 — cadences kept, no bells (S3b.3), and no per-row "Lives on the
+      // item page" (not rendered): the Cleaning header above says it.
+      await expect(dialog.getByRole("button", { name: /Clean the waveguide cover/ }).first()).toContainText("Monthly")
+      await expect(dialog.getByRole("button", { name: /Wipe the drawer interior/ }).first()).toContainText("Weekly")
+      await expect(dialog.getByText("Lives on the item page", { exact: true })).toHaveCount(0)
       await expect(dialog.getByText("when needed", { exact: true })).toHaveCount(2)
       // S3b.5 — and Save is the only thing that saves.
       expect(commit.count()).toBe(0)
@@ -396,10 +460,12 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       const essential = dialog.getByRole("button", { name: /Check the door seal/ }).first()
       await expect(essential.getByLabel("Notifies you")).toHaveCount(1)
       await expect(essential).toContainText("Yearly")
-      // S4.4 — a cleaning row with a cadence: "Lives on the item page", no bell.
+      // S4.4 — a cleaning row with a cadence: no bell, whatever its tier, and
+      // no line of its own — the Cleaning header says where it lives.
       const cleaning = dialog.getByRole("button", { name: /Clean the tub and door edges/ }).first()
-      await expect(cleaning).toContainText("Lives on the item page")
       await expect(cleaning.getByLabel("Notifies you")).toHaveCount(0)
+      await expect(cleaning).not.toContainText("Lives on the item page")
+      await expect(dialog.getByText("Keeps it nice. Lives on the item page.")).toBeVisible()
       await expect(dialog.getByRole("button", { name: "Save all 12" })).toBeVisible()
       await shot(page, label, "s4-review-count-matches-tasks")
     })

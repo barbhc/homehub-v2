@@ -186,12 +186,14 @@ Key mechanics:
   (HH-142). There is no step 2 and no "Next" — each row carries its cadence
   chip and its bell, and the walkthrough survives for going one by one (HH-144).
 - **The summary states two channels, apart:** how many show up in Tasks when
-  due — counted by the Tasks page's own rule, so item cleaning ("Lives on the
-  item page") is not in it, and with nothing there it reads "Nothing here goes
-  into Tasks." — and how many also notify the phone: the bells on screen.
-  Essential is the only notify-by-default. No bell on item cleaning, and none
-  anywhere on a phone that refused notifications ("Reminders off — turn on in
-  Settings"; HH-161).
+  due — counted by the Tasks page's own rule, so item cleaning (its section:
+  "Lives on the item page") is not in it, and with nothing there it reads
+  "Nothing here goes into Tasks." — and how many also notify the phone: the
+  bells on screen. Essential is the only notify-by-default. No bell on item
+  cleaning, and none anywhere on a phone that refused notifications: the
+  collapsed row says "Reminders off", and the opened row offers "Turn on in
+  Settings" beside its switch (HH-161, as the owner's review of #228 refined
+  it).
 - **Two doors, one screen (HH-119):** `ParsePickupCard` (after a read — the
   add, "Read the manual", "Read again"; the pill's and Settings' Review open it
   too) and **Review tasks** on the item's Upkeep heading

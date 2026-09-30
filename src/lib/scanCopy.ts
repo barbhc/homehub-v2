@@ -28,7 +28,7 @@ export const SCAN_KEEPS_GOING_SHORT = "You can close the app — these keep goin
  * The vocabulary rule, kept next to the copy it governs.
  *
  * The app READS a manual — "Reading the manual", "1 reading", "We read the
- * Bosch dishwasher manual", "Read again". Never "parse" (developer jargon).
+ * manual", "Read again". Never "parse" (developer jargon).
  *
  * This said the opposite until HH-161: the app "scans", and never "reads"
  * (which was thought to suggest opening the document for the user to read).

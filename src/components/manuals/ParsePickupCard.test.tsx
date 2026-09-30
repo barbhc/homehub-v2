@@ -6,9 +6,10 @@
  * ONE card, fed the page's live manuals as props, and these pin the mock's
  * lines for it (design/mocks/scan-indicator, S2 and S3):
  *
- *  - one card, "We read the ‹item› manual", and a button that counts what the
+ *  - one card, "We read the manual", and a button that counts what the
  *    review will ask about — its Maintenance section, or every row when there
- *    is no maintenance;
+ *    is no maintenance. It does not repeat the item's name: it sits under the
+ *    item's own heading (owner, #228 review);
  *  - no reading band, and nothing of round 14's card, anywhere;
  *  - it opens the review by itself only when the page watched the read finish,
  *    once per read per session (HH-48) — with or without maintenance;
@@ -126,11 +127,14 @@ beforeEach(() => {
 })
 
 describe("the hand-off card — one job (S2, S3)", () => {
-  it("S2.1 — 'We read the Bosch dishwasher manual' and 'Review 6 upkeep tasks'; the 6 is the review's Maintenance count", async () => {
+  it("S2.1 — 'We read the manual' and 'Review 6 upkeep tasks'; the 6 is the review's Maintenance count", async () => {
     svc.readPreviewDraft.mockResolvedValue(BOSCH)
     view([manual("m-bosch")])
     const card = await screen.findByTestId("handoff-card")
-    expect(within(card).getByText("We read the Bosch dishwasher manual")).toBeInTheDocument()
+    // Not "We read the Bosch dishwasher manual": the card sits under the
+    // item's own name, and saying it twice was the owner's first note.
+    expect(within(card).getByText("We read the manual")).toBeInTheDocument()
+    expect(card.textContent).not.toMatch(/Bosch/)
     const button = within(card).getByRole("button", { name: "Review 6 upkeep tasks" })
 
     fireEvent.click(button)
@@ -142,7 +146,8 @@ describe("the hand-off card — one job (S2, S3)", () => {
     svc.readPreviewDraft.mockResolvedValue(SHARP)
     view([manual("m-sharp")], NONE, "Sharp microwave")
     const card = await screen.findByTestId("handoff-card")
-    expect(within(card).getByText("We read the Sharp microwave manual")).toBeInTheDocument()
+    expect(within(card).getByText("We read the manual")).toBeInTheDocument()
+    expect(card.textContent).not.toMatch(/Sharp microwave/)
     fireEvent.click(within(card).getByRole("button", { name: "Review 6 tips & steps" }))
     expect(await screen.findByText("6 things from the manual")).toBeInTheDocument()
   })

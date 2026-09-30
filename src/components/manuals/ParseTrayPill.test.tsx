@@ -6,7 +6,7 @@
  * Frames S1.3, S2.3, S3.5, S6.1–S6.4 of design/mocks/scan-indicator.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { act, fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import type { ParseTray, TrayEntry } from "@/hooks/useParseTray"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
@@ -14,6 +14,19 @@ import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 const fake = vi.hoisted(() => ({ tray: { parsing: [], ready: [] } as ParseTray }))
 vi.mock("@/hooks/useParseTray", () => ({ useParseTray: () => fake.tray }))
 vi.mock("@/modules/home", () => ({ useCurrentHome: () => ({ home: { home_id: "h1" } }) }))
+// The tray's item names (useItemNames reads each item doc once). Only ids a
+// case names are answered — null for an item that is gone — and every read is
+// recorded, so "once, never per stage" can be counted. The rest stay unread,
+// so cases that do not look at names are not re-rendered by one landing.
+const items = vi.hoisted(() => ({ names: {} as Record<string, string | null>, reads: [] as string[] }))
+vi.mock("@/modules/items", () => ({
+  getItemUnit: (_homeId: string, id: string) => {
+    items.reads.push(id)
+    if (!(id in items.names)) return new Promise(() => {})
+    const name = items.names[id]
+    return Promise.resolve({ data: name === null ? null : { item_unit_id: id, display_name: name }, error: null })
+  },
+}))
 
 import { ParseTrayPill } from "./ParseTrayPill"
 import { onReviewRequest, pendingReviewFor, takeReviewRequest } from "@/lib/reviewRequest"
@@ -27,14 +40,18 @@ function Where() {
   return <span data-testid="where">{l.pathname}</span>
 }
 
-function at(path: string) {
-  return render(
+function tree(path: string) {
+  return (
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="*" element={<><Where /><ParseTrayPill /></>} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
   )
+}
+
+function at(path: string) {
+  return render(tree(path))
 }
 
 const pill = (name: RegExp | string) => screen.getByRole("button", { name })
@@ -95,14 +112,62 @@ describe("one indicator, on every page — no stand-down (HH-161 supersedes HH-1
   })
 })
 
-describe("S6.2 — the tray", () => {
-  it("names the manual, the worker's page count, and 'You can close the app — these keep going.'", () => {
-    fake.tray = { parsing: [entry({})], ready: [] }
+describe("S6.2 — the tray names the ITEM first (owner, #228 review: people think in items)", () => {
+  /** `first` comes before `second` on screen (document order). */
+  const before = (first: HTMLElement, second: HTMLElement) =>
+    expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+  it("a reading row: 'Dishwasher · 42 pages', the manual's title as the small line beneath — and the keeps-going line", async () => {
+    items.names["item-21"] = "Dishwasher"
+    fake.tray = { parsing: [entry({ manualId: "m21", itemUnitId: "item-21" })], ready: [] }
     at("/home")
     fireEvent.click(pill("1 reading"))
-    expect(screen.getByText("Bosch dishwasher manual")).toBeInTheDocument()
-    expect(screen.getByText("42 pages")).toBeInTheDocument()
+    const row = screen.getByRole("listitem")
+    const name = await within(row).findByText("Dishwasher")
+    before(name, within(row).getByText("· 42 pages"))
+    before(name, within(row).getByText("Bosch dishwasher manual"))
+    expect(within(row).getByText("Bosch dishwasher manual").className).toContain("text-[11px]")
     expect(screen.getByText(SCAN_KEEPS_GOING_SHORT)).toBeInTheDocument()
+  })
+
+  it("a ready row: 'Microwave — ready to review' and its Review, the manual beneath", async () => {
+    items.names["item-22"] = "Microwave"
+    fake.tray = { parsing: [], ready: [entry({ manualId: "m22", itemUnitId: "item-22", title: "Sharp manual.pdf", stage: "done" })] }
+    at("/home")
+    fireEvent.click(pill("1 ready to review"))
+    const row = screen.getByRole("listitem")
+    const name = await within(row).findByText("Microwave")
+    before(name, within(row).getByText("— ready to review"))
+    before(name, within(row).getByText("Sharp manual.pdf"))
+    expect(within(row).getByRole("button", { name: "Review" })).toBeInTheDocument()
+  })
+
+  it("reads each item's name ONCE — never again for the stages the worker writes after", async () => {
+    items.names["item-23"] = "Dryer"
+    const reads = () => items.reads.filter((id) => id === "item-23").length
+    fake.tray = { parsing: [entry({ manualId: "m23", itemUnitId: "item-23", stage: "queued", pages: null })], ready: [] }
+    const view = at("/home")
+    fireEvent.click(pill("1 reading"))
+    await within(screen.getByRole("listitem")).findByText("Dryer")
+    for (const [stage, pages] of [["pdf_fetched", 42], ["claude_call", 42], ["claude_responded", 42], ["committing", 42]] as const) {
+      fake.tray = { parsing: [entry({ manualId: "m23", itemUnitId: "item-23", stage, pages })], ready: [] }
+      view.rerender(tree("/home"))
+    }
+    fake.tray = { parsing: [], ready: [entry({ manualId: "m23", itemUnitId: "item-23", stage: "done" })] }
+    view.rerender(tree("/home"))
+    expect(within(screen.getByRole("listitem")).getByText("Dryer")).toBeInTheDocument()
+    expect(reads()).toBe(1)
+  })
+
+  it("until the name is read — or for an item that is gone — the manual's title leads, once", async () => {
+    items.names["item-24"] = null
+    fake.tray = { parsing: [entry({ manualId: "m24", itemUnitId: "item-24", title: "Gone item manual" }), entry({ manualId: "m25", itemUnitId: "item-25", title: "Unread item manual" })], ready: [] }
+    at("/home")
+    fireEvent.click(pill("2 reading"))
+    await waitFor(() => expect(items.reads).toContain("item-24"))
+    for (const title of ["Gone item manual", "Unread item manual"]) {
+      expect(screen.getAllByText(title)).toHaveLength(1)
+    }
   })
 })
 

@@ -18,7 +18,7 @@ import { test, expect } from "@playwright/test"
  *
  * HH-161: this was round 14's no-maintenance card ("We finished reading the…
  * See what we found"), which is gone. The seeded microwave — read, nothing
- * saved — now shows the ONE hand-off card ("We read the … manual" + "Review
+ * saved — now shows the ONE hand-off card ("We read the manual" + "Review
  * …"), and it lives INSIDE the item's tree, between the name and Upkeep: so at
  * 768pt, where the page is still the phone layout (one tree, `lg` is 1024), the
  * card is phone-width and stacks; the desktop tree gives it a wide row.
@@ -30,7 +30,7 @@ import { test, expect } from "@playwright/test"
 async function measure(page: import("@playwright/test").Page) {
   const card = page.getByTestId("handoff-card")
   await expect(card).toHaveCount(1, { timeout: 15_000 })
-  const title = card.getByText(/^We read the .+ manual$/)
+  const title = card.getByText("We read the manual", { exact: true })
   await expect(title).toBeVisible()
   return title.evaluate((t) => {
     const cardEl = t.closest('[data-testid="handoff-card"]') as HTMLElement

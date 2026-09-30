@@ -645,7 +645,11 @@ describe("The review — the one decision (AIF, round 18)", () => {
     }))))
     expect(document.querySelectorAll("svg.lucide-bell-ring")).toHaveLength(0)
     expect(screen.getByText("None will notify you. Notifications are off on this phone.")).toBeInTheDocument()
-    expect(screen.getByText("Check the door seal").closest("button")!.textContent).toContain("Reminders off — turn on in Settings")
+    // The collapsed row says "Reminders off" as a status; the way to fix it is
+    // in the opened row, never a link inside the row's own button (owner, #228).
+    const doorSeal = screen.getByText("Check the door seal").closest("button")!
+    expect(doorSeal.textContent).toContain("Reminders off")
+    expect(doorSeal.querySelector("a, [role='link']")).toBeNull()
     // Wired, not just written: the doors read the gate (useNotificationsBlocked
     // calls notifyGate's notificationsBlocked), so it has production callers.
     const gateCallers = SOURCES.filter((s) => /\bnotificationsBlocked\(\{/.test(s.code)).map((s) => s.path)

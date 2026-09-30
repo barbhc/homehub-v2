@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { Loader2Icon, CheckIcon, ClockIcon, XIcon } from "lucide-react"
 import { useCurrentHome } from "@/modules/home"
 import { useParseTray, type TrayEntry } from "@/hooks/useParseTray"
+import { useItemNames } from "@/hooks/useItemNames"
 import { SCAN_KEEPS_GOING_SHORT, scanProgressLabel } from "@/lib/scanCopy"
 import { requestReview } from "@/lib/reviewRequest"
 
@@ -36,12 +37,32 @@ const isQueued = (stage: string) => stage === "awaiting_capacity"
 /** The item page's id, when that is the page on screen. */
 const itemOnScreen = (pathname: string) => /^\/items\/([^/]+)/.exec(pathname)?.[1] ?? null
 
+/**
+ * A tray row names the ITEM first — "Dishwasher · 42 pages", "Microwave —
+ * ready to review" — with the manual's title as the small line beneath:
+ * people think in items, not file names (owner, #228 review). Until the
+ * item's name has been read, the title leads, as it always did.
+ */
+function RowText({ name, title, status }: { name: string | undefined; title: string; status: string }) {
+  return (
+    <span className="flex min-w-0 flex-1 flex-col">
+      <span className="flex min-w-0 items-baseline">
+        <span className="min-w-0 truncate font-semibold" style={{ color: "var(--hh-ink)" }}>{name ?? title}</span>
+        <span className="shrink-0 whitespace-pre tabular-nums" style={{ color: "var(--hh-sub)" }}>{status}</span>
+      </span>
+      {name && <span className="truncate text-[11px]" style={{ color: "var(--hh-sub)" }}>{title}</span>}
+    </span>
+  )
+}
+
 export function ParseTrayPill() {
   const { home } = useCurrentHome()
   const tray = useParseTray(home?.home_id ?? null)
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  // Read once per item and cached (useItemNames): never a read per stage.
+  const names = useItemNames(home?.home_id ?? null, [...tray.parsing, ...tray.ready].map((e) => e.itemUnitId))
 
   // HH-161 SUPERSEDES HH-118. The pill used to stand down on the item page
   // already showing that read, because the page carried its own copy — a band
@@ -100,19 +121,20 @@ export function ParseTrayPill() {
                   {isQueued(e.stage)
                     ? <ClockIcon className="size-3.5 shrink-0" style={{ color: "var(--hh-teal)" }} />
                     : <Loader2Icon className="size-3.5 shrink-0 motion-safe:animate-spin" style={{ color: "var(--hh-teal)" }} />}
-                  <span className="min-w-0 flex-1 truncate" style={{ color: "var(--hh-ink)" }}>{e.title}</span>
                   {/* What the owner asked the tray to add: how far along, per
                       item. Honest — the worker's page count once it has one,
                       never a position it does not report. */}
-                  <span className="shrink-0 tabular-nums">
-                    {e.pages != null ? scanProgressLabel(null, e.pages) : (STAGE_WORD[e.stage] ?? "working")}
-                  </span>
+                  <RowText
+                    name={names.get(e.itemUnitId)}
+                    title={e.title}
+                    status={` · ${e.pages != null ? scanProgressLabel(null, e.pages) : (STAGE_WORD[e.stage] ?? "working")}`}
+                  />
                 </li>
               ))}
               {ready.map((e) => (
                 <li key={e.manualId} className="flex items-center gap-2 text-[12.5px]">
                   <CheckIcon className="size-3.5 shrink-0" style={{ color: "var(--hh-teal)" }} />
-                  <span className="min-w-0 flex-1 truncate" style={{ color: "var(--hh-ink)" }}>{e.title}</span>
+                  <RowText name={names.get(e.itemUnitId)} title={e.title} status=" — ready to review" />
                   <button
                     type="button"
                     onClick={() => review(e)}

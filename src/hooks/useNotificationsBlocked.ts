@@ -23,19 +23,12 @@ export async function readNotificationPermission(): Promise<NotifyPermission> {
 }
 
 /**
- * Has this device refused notifications? Round 18's rule, wired at last
- * (HH-161 S5): "a bell is never drawn that cannot be rung" — while this is
- * true the review and the item page draw no bells and say why instead.
- *
- * Re-read whenever the app comes back to the foreground, because the fix for a
- * refusal happens OUTSIDE the app (the phone's Settings). Nothing the owner
- * chose is changed by it: a row keeps its reminder choice, so its bell returns
- * the moment permission does, without another review (S5.4).
- *
- * Unknown (the native read still in flight) counts as not refused — the same
- * as every screen before this hook existed.
+ * This device's notification permission, kept current: re-read whenever the
+ * app comes back to the foreground, because the fix for a refusal happens
+ * OUTSIDE the app (the phone's Settings). `null` while the native read is
+ * still in flight — unknown, which every caller treats as "not refused".
  */
-export function useNotificationsBlocked(): boolean {
+export function useNotificationPermission(): NotifyPermission | null {
   const [permission, setPermission] = useState<NotifyPermission | null>(() =>
     isNativePlatform() ? null : webPermission())
 
@@ -63,5 +56,22 @@ export function useNotificationsBlocked(): boolean {
     }
   }, [])
 
+  return permission
+}
+
+/**
+ * Has this device refused notifications? Round 18's rule, wired at last
+ * (HH-161 S5): "a bell is never drawn that cannot be rung" — while this is
+ * true the review and the item page draw no bells and say why instead.
+ *
+ * Nothing the owner chose is changed by it: a row keeps its reminder choice,
+ * so its bell returns the moment permission does, without another review
+ * (S5.4) — useNotificationPermission re-reads when the app comes back.
+ *
+ * Unknown (the native read still in flight) counts as not refused — the same
+ * as every screen before this hook existed.
+ */
+export function useNotificationsBlocked(): boolean {
+  const permission = useNotificationPermission()
   return permission !== null && notificationsBlocked({ permission, alreadySubscribed: permission === "granted" })
 }

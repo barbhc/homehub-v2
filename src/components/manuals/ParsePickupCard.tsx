@@ -271,11 +271,14 @@ export function ParsePickupCard({
           >
             <CheckIcon className="size-3.5" style={{ color: "var(--hh-teal)" }} />
           </span>
-          {/* Says what happened, and names the thing it happened to (HH-121).
-              The same words with or without maintenance: round 18 retired the
-              card that explained an absence. */}
+          {/* Says what happened. The same words with or without maintenance:
+              round 18 retired the card that explained an absence. It does not
+              name the item: the card sits under the item's own name, and "We
+              read the Bosch dishwasher manual" beneath "Bosch dishwasher" said
+              it twice (owner, #228 review). The pill's tray, which has no
+              heading, is where rows name their item. */}
           <p className="min-w-0 flex-1 text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
-            We read the {itemName} manual
+            We read the manual
           </p>
         </div>
         {/* Action and dismiss travel together: on one row they sit where they

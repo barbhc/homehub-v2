@@ -38,6 +38,9 @@ import { useAppearance, type Appearance } from "@/lib/theme"
 import { useAuth } from "@/modules/auth"
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, isSubscribed as checkIsSubscribed } from "@/lib/pushNotifications"
 import { isNativePlatform, isNativePushRegistered, registerNativePush, unregisterNativePush } from "@/lib/nativePush"
+import { getNativePlatform } from "@/lib/native"
+import { notificationsRefusedHelp } from "@/lib/notifyGate"
+import { useNotificationPermission } from "@/hooks/useNotificationsBlocked"
 import {
   getRoutineTemplates,
   saveRoutineTask,
@@ -231,6 +234,10 @@ export default function Settings() {
   // (no serviceWorker/PushManager), so OR in the native check.
   const isNative = isNativePlatform()
   const [pushSupported] = useState(() => isNative || isPushSupported())
+  // The review's "Turn on in Settings" lands here; when this device has
+  // refused notifications, this section says where the switch is (owner,
+  // #228 review). Re-read when the app comes back from the phone's Settings.
+  const notifyPermission = useNotificationPermission()
   const [pushSubscribed, setPushSubscribed] = useState(false)
   const [pushToggling, setPushToggling] = useState(false)
   // Read-only push diagnostics. Three rounds of this have now been spent
@@ -1383,6 +1390,11 @@ export default function Settings() {
                 ? "You'll receive reminders for due and overdue tasks."
                 : "Enable push notifications to get reminders when tasks are due."}
             </p>
+            {notifyPermission === "denied" && (
+              <p data-testid="notifications-refused" className="mt-1.5 text-sm text-foreground">
+                {notificationsRefusedHelp(getNativePlatform())}
+              </p>
+            )}
             {pushError && (
               <p className="text-sm text-destructive mt-1.5" role="alert">
                 {pushError}

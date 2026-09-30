@@ -163,9 +163,16 @@ page watches it.
   scan"), which existed only because the item page carried a second copy of
   the read above "‹ Items"; that copy is gone (see the item page, below), and
   HH-118's actual complaint — the pill covering content — is answered by the
-  clearance, not by hiding the pill. — HH-161, mock 2026-09-30
+  clearance, not by hiding the pill (pinned: scrolled to the end of the item
+  page, its last card ends above the pill). — HH-161, mock 2026-09-30
+  - **The tray names the ITEM first** — "Dishwasher · 42 pages", "Microwave —
+    ready to review" and its Review — with the manual's title as the small
+    line beneath: people think in items, not file names. Each item's name is
+    read once per session (`useItemNames`), never per stage the worker
+    writes; until it lands, the title leads. — owner's review of #228,
+    2026-09-30 (S6.2 amended)
 - **"Reading" is the word for a manual's read** — "Reading the manual", "1
-  reading", "We read the ‹item› manual", "Read the manual", "Read again" — on
+  reading", "We read the manual", "Read the manual", "Read again" — on
   the surfaces the mock draws: the item page (Upkeep, the manual's menu, the
   hand-off), the pill and its tray, and the review. Never "parse".
   `lib/scanCopy.ts`'s rule said the opposite ("never read") and is retired with
@@ -262,9 +269,12 @@ page watches it.
     what we found and answers come from your manual." — HH-141; the rescan
     case HH-161 (the tray and the page used to disagree about it)
 - **The hand-off card has one job**: one card between the name block and
-  Upkeep — "We read the ‹item› manual" and "Review N upkeep tasks" (N = the
+  Upkeep — "We read the manual" and "Review N upkeep tasks" (N = the
   review's Maintenance section) or, with no Maintenance section, "Review N tips
-  & steps" (N = every row the review lists). The same card with or without
+  & steps" (N = every row the review lists). It does not repeat the item's
+  name, which is the heading right above it (owner's review of #228,
+  2026-09-30; S2.1 and S3.1 amended — the mock drew "We read the Bosch
+  dishwasher manual"). The same card with or without
   maintenance; no reading band, and none of round 14's card. It opens the
   review by itself **only when this page watched the read finish** (HH-48) —
   once per read, per session, as the page's next section — otherwise the card
@@ -323,11 +333,18 @@ setup."*
   - **"N will show up in Tasks" counts only what the Tasks page will list** —
     the same rule the Tasks feed, Home and the push sweep use
     (`isAgendaEligible`, via `showsInTasks`). Item cleaning with a cadence is
-    not counted; its row says "Lives on the item page" under its title. It
+    not counted, and its row carries no bell and no line of its own — the
+    Cleaning section's header ("Keeps it nice. Lives on the item page.")
+    already says where it lives (owner's review of #228, 2026-09-30: the mock
+    drew a per-row "Lives on the item page"; S3b.4 and S4.4 amended). It
     used to count every row with a cadence, so two cleaning jobs made "6"
     read "8". With nothing going into Tasks the line reads "Nothing here goes
-    into Tasks." and the notify line is left out rather than stating a zero.
-    — HH-161, mock 2026-09-30 (S4.1, S3b.2)
+    into Tasks." and the notify line is left out rather than stating a zero —
+    and so is a first review's "Cleaning, usage and setup stay on the item
+    page.", the same fact said twice: that summary is "Nothing here goes into
+    Tasks." and "Nothing is saved until you press Save." and nothing else
+    (owner's review of #228; S3b.2 amended). — HH-161, mock 2026-09-30 (S4.1,
+    S3b.2)
   - **"M of those will also notify your phone" is the bells on screen.**
     — HH-161 (S4.2)
 - **Essential is the only notify-by-default**, and the switch overrides in both
@@ -342,13 +359,19 @@ setup."*
   - never on item cleaning, whatever its tier or switch — the push sweep skips
     what the agenda skips (`notifiesPhone`), on the review and the item page;
   - with notifications refused on this phone, no bell anywhere. On the
-    review, the row that would ring keeps its cadence chip and says
-    "Reminders off — turn on in Settings", and the summary says "None will
-    notify you. Notifications are off on this phone."; on the item page the
-    row simply carries no bell. The link goes to the app's own Notifications
-    section (`/settings#notifications`), not the phone's Settings page as the
-    mock draws it: the app has no native hook that opens that page, and
-    Settings does not yet scroll to the section on arrival;
+    review, the collapsed row that would ring keeps its cadence chip and says
+    "Reminders off" — a status, never a link: the collapsed row is the button
+    that opens it, and a link inside it caught taps meant for the row, leaving
+    the review and its unsaved edits. Opened, "Turn on in Settings" sits
+    beside the reminder switch. The summary says "None will notify you.
+    Notifications are off on this phone."; on the item page the row simply
+    carries no bell. The link goes to the app's own Notifications section
+    (`/settings#notifications`), which, on a device that refused, says where
+    the switch is: "Notifications are off for Homehub on this phone. Open
+    iPhone Settings → Homehub → Notifications." (on the web, the browser's
+    site settings). A native deep link into the phone's Settings is a
+    separate follow-up, and Settings does not yet scroll to the section on
+    arrival. — owner's review of #228, 2026-09-30 (S5.2 amended);
   - the owner's choice is kept, so the bell returns with permission, without
     another review. — HH-161, mock 2026-09-30 (S5)
 - It never claims rows are saved while the button underneath is what saves
@@ -383,6 +406,22 @@ this file exists to prevent.
 The approved mock is `design/mocks/scan-indicator/` — the HTML with each
 frame's "must be true" list, and the eight frames as PNGs.
 
+The owner reviewed the build's screenshots (#228, 2026-09-30) and refined five
+things before merge. The mock's lines S2.1, S3.1, S3b.2, S3b.4, S4.4, S5.2 and
+S6.2 were amended in the HTML to match; the PNGs still show the first drawing,
+and where they differ, the amended line governs:
+
+1. The hand-off card says "We read the manual" — the item's name is the
+   heading right above it (S2.1, S3.1).
+2. The review's cleaning rows carry no "Lives on the item page" line; the
+   Cleaning header says it and the missing bell tells the rest (S3b.4, S4.4).
+3. The tray names the item first, the manual's title beneath (S6.2).
+4. A no-maintenance summary says "Nothing here goes into Tasks." and "Nothing
+   is saved until you press Save." only (S3b.2).
+5. A refused phone's collapsed row says "Reminders off", a status, not a link;
+   "Turn on in Settings" is in the opened row beside the reminder switch, and
+   Settings' Notifications section names the phone's menu (S5.2).
+
 | Rule | Why it no longer applies |
 |---|---|
 | HH-118: *"The tray stands down on a page already showing that scan"* | The agreed design was always ONE indicator, at the bottom of every page. The page's own copy — a band above "‹ Items" — is gone; the read lives in the Upkeep card, and the pill shows on the item's own page too. HH-118's complaint (the pill covering content) is answered by bottom clearance. |
@@ -414,9 +453,9 @@ frame's "must be true" list, and the eight frames as PNGs.
 | `src/components/item-care/CareBlock.reading.test.tsx` | Upkeep not carrying the read (line, worker's page count, one sweeping rail), offering the manual while one is read, a guessed page count; after Save with no maintenance, the "Nothing here goes into Tasks" heading, the cadences, and no bell on item cleaning (HH-161 S1, S3c) | live |
 | `src/hooks/useItemManuals.test.ts` | The page's manuals not following the worker's writes (created → queued → reading → done → saved), or a run the page never saw running counted as watched (HH-161) | live |
 | `src/components/manuals/ParsePickupCard.test.tsx` | The hand-off growing a second job (a reading band, round 14's card), a count that is not the review's, opening by itself for a read nobody watched, opening twice, two reviews, or a save before Save (HH-161 S2, S3) | live |
-| `src/components/manuals/ParseTrayPill.test.tsx` | The pill standing down on the item being read, saying "scanning", or navigating away from the page whose review it should open in place (HH-161, superseding HH-118) | live |
-| `src/components/manuals/TaskReviewSheet.channels.test.tsx` | "N will show up in Tasks" counting what Tasks never lists, a notify count that is not the bells on screen, a bell on item cleaning or on a phone that refused, a no-maintenance review with a Maintenance section or a notify line (HH-161 S3b, S4, S5) | live |
-| `e2e/emu/item-page-scan-indicator.spec.ts` | The mock's frames against the real emulators at 390px and desktop: the read in Upkeep and the pill on the item and on Home; the hand-off; the review opening in place from the pill; notifications refused and granted; no maintenance through Save (HH-161) | live |
+| `src/components/manuals/ParseTrayPill.test.tsx` | The pill standing down on the item being read, saying "scanning", or navigating away from the page whose review it should open in place (HH-161, superseding HH-118); a tray row leading with a file name instead of its item, or reading an item's name again for every stage the worker writes (owner's review of #228) | live |
+| `src/components/manuals/TaskReviewSheet.channels.test.tsx` | "N will show up in Tasks" counting what Tasks never lists, a notify count that is not the bells on screen, a bell on item cleaning or on a phone that refused, a no-maintenance review with a Maintenance section, a notify line or one fact said twice, a per-row "Lives on the item page", or a link inside a collapsed row (HH-161 S3b, S4, S5, as the owner's review of #228 refined them) | live |
+| `e2e/emu/item-page-scan-indicator.spec.ts` | The mock's frames against the real emulators at 390px and desktop: the read in Upkeep and the pill on the item and on Home; the pill covering the page's last card; the tray naming items; the hand-off; the review opening in place from the pill; notifications refused (the collapsed row's status, the opened row's link, Settings' sentence) and granted; no maintenance through Save (HH-161, with the owner's #228 refinements) | live |
 | `src/pages/item-detail/ManualSection.addManual.test.tsx` | An item-page door that fails its first "Add the manual", a retry that re-sends the previous file, or a reopened dialog still carrying the last error, document type or panel (HH-159) | live |
 | `e2e/emu/item-add-manual.spec.ts` | Two add-manual dialogs or two item headings in the DOM at 390px or desktop, or more than one scan started per add (HH-159) | live |
 | `e2e/emu/item-page-manual.spec.ts` | The item page's link lane, from a seeded appliance with no manual: one dialog opening on the link field, the Google search for this model, one read, the live rail, the pill counting it here and elsewhere alike, no second read on return; and HH-161's "Upkeep never offers a manual it is reading", checked on every DOM change from the tap on | live |
