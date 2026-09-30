@@ -22,8 +22,9 @@ import {
 } from "./dashboard"
 import { getDeepCleanGuides, type DeepCleanGuide } from "./cleanSession"
 import { getHomeProfile } from "@/modules/home/services/homeProfileService"
-import { persistDashboardSnapshot } from "./swrPersist"
+import { persistSwrSnapshot } from "./swrPersist"
 import { markBoot } from "./bootTiming"
+import { LOAD_TIMEOUT_MS, withTimeout } from "./withTimeout"
 
 interface DashboardCore {
   tasks: DashboardTasksResult
@@ -94,16 +95,7 @@ async function fetchExtras(homeId: string): Promise<DashboardExtras> {
   return { upcoming, insights, expiringWarranties, notices, cleaningGuides }
 }
 
-/** Reject after `ms` so a hung Firestore query surfaces the retry card instead
- *  of trapping the user on the loading skeleton forever (no default SWR timeout). */
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("Loading your home timed out. Check your connection and try again.")), ms)
-    ),
-  ])
-}
+const TIMED_OUT = "Loading your home timed out. Check your connection and try again."
 
 /**
  * Two keys, not one. Home's skeleton gates on CORE only, so the supplementary
@@ -116,25 +108,25 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 export function useDashboard(homeId: string | null) {
   const core = useSWR<DashboardCore>(
     homeId ? `dashboard:core:${homeId}` : null,
-    () => withTimeout(fetchCore(homeId!), 20_000),
+    () => withTimeout(fetchCore(homeId!), LOAD_TIMEOUT_MS, TIMED_OUT),
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       dedupingInterval: 5000,
       keepPreviousData: true,
-      onSuccess: (fresh, key) => persistDashboardSnapshot(key, fresh),
+      onSuccess: (fresh, key) => persistSwrSnapshot(key, fresh),
     },
   )
 
   const extras = useSWR<DashboardExtras>(
     homeId ? `dashboard:extras:${homeId}` : null,
-    () => withTimeout(fetchExtras(homeId!), 20_000),
+    () => withTimeout(fetchExtras(homeId!), LOAD_TIMEOUT_MS, TIMED_OUT),
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       dedupingInterval: 5000,
       keepPreviousData: true,
-      onSuccess: (fresh, key) => persistDashboardSnapshot(key, fresh),
+      onSuccess: (fresh, key) => persistSwrSnapshot(key, fresh),
     },
   )
 

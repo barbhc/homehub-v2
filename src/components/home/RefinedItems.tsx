@@ -41,6 +41,29 @@ function ItemThumb({ item, size }: { item: ItemUnit; size: number }) {
 
 type SortMode = "room" | "category" | "recent"
 
+/**
+ * The phone Items header — the title and the round "+". Shared with the loading
+ * skeleton (ItemsSkeleton) so the page always loads under the header it lands
+ * on: the skeleton used to be the pre-redesign page, titled "Inventory" with an
+ * "Add Item" pill, and swapped to this one when the list arrived.
+ */
+export function ItemsPhoneHeader({ density = "cozy" }: { density?: "spacious" | "cozy" | "compact" }) {
+  const d = dens(density)
+  return (
+    <div className="flex items-center justify-between px-5 pt-2.5" style={{ paddingInline: d.pad }}>
+      <h1 className="text-[28px] font-extrabold tracking-[-0.7px]" style={{ color: INK }}>Items</h1>
+      <Link
+        to="/inventory/add"
+        aria-label="Add item"
+        className="flex items-center justify-center rounded-full"
+        style={{ width: d.tap + 6, height: d.tap + 6, background: TEAL }}
+      >
+        <PlusIcon className="size-5 text-white" strokeWidth={2.6} />
+      </Link>
+    </div>
+  )
+}
+
 export function RefinedItems({
   items,
   rooms,
@@ -92,18 +115,7 @@ export function RefinedItems({
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-2.5" style={{ paddingInline: d.pad }}>
-        <h1 className="text-[28px] font-extrabold tracking-[-0.7px]" style={{ color: INK }}>Items</h1>
-        <Link
-          to="/inventory/add"
-          aria-label="Add item"
-          className="flex items-center justify-center rounded-full"
-          style={{ width: d.tap + 6, height: d.tap + 6, background: TEAL }}
-        >
-          <PlusIcon className="size-5 text-white" strokeWidth={2.6} />
-        </Link>
-      </div>
+      <ItemsPhoneHeader density={density} />
 
       <div className="flex flex-1 flex-col px-5 pt-4" style={{ paddingInline: d.pad }}>
         {/* House notes — shutoffs, breakers, paint: what belongs to no single item */}

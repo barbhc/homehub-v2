@@ -13,6 +13,7 @@ import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
 import { taskSource, effortToMinutes, frequencyToSchedule, type TaskSource } from "./taskMapping"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
+import { assertServed } from "@/lib/assertServed"
 
 /**
  * Unified "This week" agenda read model (Phase 2) and the v1.1 task-creation
@@ -122,9 +123,15 @@ export function getLastAgendaWithheld(): AgendaWithheld {
   return lastWithheld
 }
 
+/**
+ * `refuseOfflineEmpty`: an EMPTY instances read served from the local cache
+ * (offline) is an error, not "nothing due" — for a caller that would otherwise
+ * say "enjoy the calm" or persist the empty agenda as its warm snapshot. See
+ * assertServed.
+ */
 export async function getWeekAgenda(
   homeId: string,
-  opts?: { days?: number }
+  opts?: { days?: number; refuseOfflineEmpty?: boolean }
 ): Promise<ServiceResult<WeekAgendaItem[]>> {
   const today = todayStr()
   const horizon = addDaysStr(today, opts?.days ?? 7)
@@ -150,6 +157,7 @@ export async function getWeekAgenda(
     // emulator rejects). Composite index still declared for prod scale.
     const col = collection(db, `homes/${homeId}/taskInstances`)
     const snap = await getDocs(query(col, where("deletedAt", "==", null)))
+    if (opts?.refuseOfflineEmpty) assertServed(snap, "tasks")
 
     const all = snap.docs.map(
       (d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>

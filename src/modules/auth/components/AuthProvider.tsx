@@ -20,7 +20,7 @@ import {
 } from "firebase/auth"
 import { auth } from "@/integrations/firebase"
 import { isNativePlatform } from "@/lib/native"
-import { clearPersistedDashboardCache } from "@/lib/swrPersist"
+import { clearPersistedSwrCache } from "@/lib/swrPersist"
 import { track, identifyUser, resetAnalyticsIdentity } from "@/lib/analytics"
 import type { AuthUser } from "@/modules/auth/types/auth"
 import { withChunkRetry } from "@/lib/chunkRetry"
@@ -133,9 +133,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
-    // Drop the persisted dashboard cache so the next account on this device
-    // never briefly sees the previous user's Home.
-    clearPersistedDashboardCache()
+    // Drop the persisted Home / Items / Tasks snapshots so the next account on
+    // this device never briefly sees the previous user's home.
+    clearPersistedSwrCache()
     clearCachedHome()
     await fbSignOut(auth)
   }, [])

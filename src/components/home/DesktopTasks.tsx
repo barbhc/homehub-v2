@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon, SparklesIcon, XIcon,
 } from "lucide-react"
-import { getWeekAgenda, markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
+import { markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
 import { useCareSuggestions } from "@/hooks/useCareSuggestions"
+import { useWeekAgenda } from "@/hooks/useWeekAgenda"
+import { LoadErrorState, StaleDataNote } from "@/components/layout"
+import { pageLoadState } from "@/lib/homeLoadingGate"
 import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
@@ -18,7 +21,8 @@ import {
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)"
 const LINE = "var(--hh-line2)", SURFACE = "var(--hh-surface)"
 
-const HORIZON_DAYS = 31
+// The agenda (and how far ahead it reaches) lives in useWeekAgenda, shared with RefinedWeek.
+const NO_TASKS: WeekAgendaItem[] = []
 
 // ── Expanded two-column detail (why · notes left · actions right) ─────────────
 function DkDetail({
@@ -219,18 +223,15 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [selDay, setSelDay] = useState<number | null>(null)
   const [dismissed, setDismissed] = useState(false)
-  const [items, setItems] = useState<WeekAgendaItem[]>([])
-  const [loading, setLoading] = useState(true)
+  // Shared with RefinedWeek: one fetch per home, persisted for a warm start.
+  // What to show is decided by what we HOLD — see pageLoadState.
+  const agenda = useWeekAgenda(homeId)
+  const { removeTask } = agenda
+  const items = agenda.data?.items ?? NO_TASKS
+  const loadState = pageLoadState(agenda.data !== undefined, agenda.error !== undefined)
+  const loading = loadState === "loading"
+  const loadFailed = loadState === "error"
   const [pendingId, setPendingId] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    if (!homeId) return
-    const res = await getWeekAgenda(homeId, { days: HORIZON_DAYS })
-    setItems(res.data ?? [])
-    setLoading(false)
-  }, [homeId])
-
-  useEffect(() => { void load() }, [load])
 
   const onDone = useCallback(async (id: string) => {
     if (!homeId) return
@@ -238,8 +239,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
     const res = await markTaskInstanceDone(homeId, id)
     setPendingId(null)
     setOpenId(null)
-    if (res.success) setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
-  }, [homeId])
+    if (res.success) removeTask(id)
+  }, [homeId, removeTask])
 
   const onSnooze = useCallback(async (id: string) => {
     if (!homeId) return
@@ -247,8 +248,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
     const res = await snoozeTaskInstance(homeId, id, addDays(todayStr(), 7))
     setPendingId(null)
     setOpenId(null)
-    if (res.success) setItems((xs) => xs.filter((x) => x.taskInstanceId !== id))
-  }, [homeId])
+    if (res.success) removeTask(id)
+  }, [homeId, removeTask])
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
@@ -271,7 +272,9 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
         <div className="min-w-0">
           <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>This week</h1>
           <div className="mt-1.5 text-[14px]" style={{ color: SUB }}>
-            {loading ? "Loading…" : total === 0 ? "Nothing due — enjoy the calm."
+            {/* A failed first read says nothing here — "Nothing due" about tasks
+                we never read would be a confident wrong answer. */}
+            {loading ? "Loading…" : loadFailed ? null : total === 0 ? "Nothing due — enjoy the calm."
               // Just the count — a whole-list minute total reads as a bill, not a
               // plan; the per-group minutes are where a pass gets planned.
               : tier === "all" ? `${total} thing${total === 1 ? "" : "s"} across your home`
@@ -287,6 +290,9 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
           <SparklesIcon className="size-[17px]" style={{ color: TEAL }} /> Ask Homehub
         </button>
       </div>
+
+      {/* A refresh failed behind an agenda we still hold: keep it, say so quietly. */}
+      {agenda.error && agenda.data && <StaleDataNote className="mb-6" onRetry={() => void agenda.refresh()} />}
 
       {/* "Start here" insight banner — dismissible */}
       {!loading && !dismissed && insight && total > 0 && (
@@ -353,6 +359,12 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
         <div className="flex flex-col gap-[26px]">
           {loading ? (
             <div className="py-16 text-center text-[15px]" style={{ color: SUB }}>Loading…</div>
+          ) : loadFailed ? (
+            <LoadErrorState
+              title="Couldn't load your tasks"
+              message={agenda.error?.message ?? "Something went wrong."}
+              onRetry={() => void agenda.refresh()}
+            />
           ) : groups.length === 0 ? (
             tier === "focus" && totalAll > 0 ? (
               <div className="py-16 text-center">

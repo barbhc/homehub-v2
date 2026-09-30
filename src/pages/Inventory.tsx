@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useMemo } from "react"
 import { Link } from "react-router-dom"
-import { PageContainer, PageHeader, EmptyState } from "@/components/layout"
+import { PageContainer, PageHeader, EmptyState, LoadErrorState, StaleDataNote } from "@/components/layout"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
   Plus,
   // Item-type icons
@@ -12,15 +11,16 @@ import {
   Car, Wifi, Speaker, Sofa, ShowerHead, Toilet, ChefHat, Cctv,
 } from "lucide-react"
 import { useCurrentHome } from "@/modules/home"
-import { getRooms } from "@/modules/home"
-import { getItemUnits } from "@/modules/items"
 import { RefinedItems } from "@/components/home/RefinedItems"
+import { ItemsSkeleton } from "@/components/home/ItemsSkeleton"
 import { useNotes } from "@/components/notes/useNotes"
 import { getHomeNotes } from "@/modules/care"
 import { DesktopItems } from "@/components/home/DesktopItems"
+import { useHomeItems } from "@/lib/useHomeItems"
+import { pageLoadState } from "@/lib/homeLoadingGate"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
-import type { ItemUnit } from "@/integrations/types"
+import type { ItemUnit, Room } from "@/integrations/types"
 
 // ---------------------------------------------------------------------------
 // Icon resolution — keyword match on display_name, fallback to category
@@ -173,36 +173,24 @@ function RoomSection({
 // Inventory page
 // ---------------------------------------------------------------------------
 
+// Stable empties, so the memos below don't recompute on every render before
+// the list arrives.
+const NO_ITEMS: ItemUnit[] = []
+const NO_ROOMS: Room[] = []
+
 export default function Inventory() {
   const { home } = useCurrentHome()
-  const [items, setItems] = useState<ItemUnit[]>([])
-  const [rooms, setRooms] = useState<Array<{ room_id: string; name: string }>>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const homeId = home?.home_id ?? null
+  // Items + rooms, cached like Home: a revisit paints at once, a relaunch paints
+  // the persisted snapshot while it revalidates, a hung read times out into
+  // the error state. A failed read throws, so it is never cached as "no items".
+  const { data, error, refresh } = useHomeItems(homeId)
+  const items = data?.items ?? NO_ITEMS
+  const rooms = data?.rooms ?? NO_ROOMS
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null) // null = All
   // Notes load on their own: a failed notes read must never cost the item list.
-  const homeNotes = useNotes(home?.home_id ? `home-notes:${home.home_id}` : null, () => getHomeNotes(home!.home_id))
-
-  useEffect(() => {
-    if (!home?.home_id) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true)
-    Promise.all([
-      getItemUnits(home.home_id),
-      getRooms(home.home_id),
-    ]).then(([itemsRes, roomsRes]) => {
-      setItems(itemsRes.data ?? [])
-      setRooms(roomsRes.data ?? [])
-      setError(itemsRes.error?.message ?? roomsRes.error?.message ?? null)
-      setLoading(false)
-    }).catch((e: unknown) => {
-      // Without this a rejected query skips the .then entirely, so setLoading
-      // never runs and the page spins forever with nothing on screen. One
-      // dropped request on a phone is enough.
-      setError(e instanceof Error ? e.message : "Could not load your items.")
-      setLoading(false)
-    })
-  }, [home?.home_id])
+  const homeNotes = useNotes(homeId ? `home-notes:${homeId}` : null, () => getHomeNotes(homeId!))
+  const retry = () => void refresh()
 
   const grouped = useMemo(() => {
     const byRoom = new Map<string | null, ItemUnit[]>()
@@ -233,49 +221,55 @@ export default function Inventory() {
   // Items visible in current tab
   const visibleRoomOrder = activeRoomId === null ? roomOrder : [activeRoomId]
 
+  // What to show is decided by what we HOLD, never by SWR's isLoading (true
+  // while a warm snapshot revalidates) — see pageLoadState.
+  const view = pageLoadState(data !== undefined, error !== undefined)
+  if (view === "loading") {
+    return (
+      <PageContainer>
+        {/* Keyed by home: a switch mid-load restarts the "Still loading…" wait. */}
+        <ItemsSkeleton key={homeId ?? "no-home"} onRetry={retry} />
+      </PageContainer>
+    )
+  }
+  if (view === "error") {
+    return (
+      <PageContainer>
+        <LoadErrorState title="Couldn't load your items" message={error?.message ?? "Something went wrong."} onRetry={retry} />
+      </PageContainer>
+    )
+  }
+
   return (
     <PageContainer>
-      {(loading || items.length === 0) && (
-        <PageHeader
-          title="Inventory"
-          action={
-            <Button asChild className="gap-2" size="sm">
-              <Link to="/inventory/add">
-                <Plus className="h-4 w-4" aria-hidden />
-                Add Item
-              </Link>
-            </Button>
-          }
-        />
+      {/* A refresh failed behind a list we still hold: show the list, say so quietly.
+          Aligned with the phone list's own gutter, and with the page at lg+. */}
+      {error && (
+        <div className="-mx-6 lg:mx-0">
+          <div className="mx-auto w-full max-w-[460px] px-5 lg:max-w-none lg:px-0">
+            <StaleDataNote onRetry={retry} />
+          </div>
+        </div>
       )}
 
-      {error && <p className="text-destructive text-sm -mt-2">{error}</p>}
-
-      {loading ? (
-        <div className="space-y-6" aria-busy="true" aria-label="Loading inventory">
-          {/* Skeleton tab bar */}
-          <div className="flex gap-2 overflow-hidden">
-            {[80, 64, 96, 72, 80].map((w, i) => (
-              <Skeleton key={i} className="h-7 rounded-full shrink-0" style={{ width: w }} />
-            ))}
-          </div>
-          {[1, 2].map((g) => (
-            <div key={g} className="space-y-2">
-              <Skeleton className="h-4 w-24 ml-1" />
-              <div className="grid grid-cols-3 gap-2">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="bg-card border border-border rounded-xl p-3 flex flex-col items-center gap-2">
-                    <Skeleton className="size-12 rounded-xl" />
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-2.5 w-12" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : items.length === 0 ? (
-        <EmptyState
+      {items.length === 0 ? (
+        <>
+          {/* The empty state keeps its pre-redesign header ("Inventory" + "Add
+              Item"). It no longer shows while loading — ItemsSkeleton is the
+              redesigned page — but retitling the empty state is the owner's
+              call, so it is left as it was. */}
+          <PageHeader
+            title="Inventory"
+            action={
+              <Button asChild className="gap-2" size="sm">
+                <Link to="/inventory/add">
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Add Item
+                </Link>
+              </Button>
+            }
+          />
+          <EmptyState
           title="No items yet"
           description="Start with one appliance you'd hate to have break — the boiler, the washer, the fridge."
           teach="Photograph the label with the model number on it. Homehub finds the manual, reads it, and shows you the care it specifies before anything becomes a reminder."
@@ -293,6 +287,7 @@ export default function Inventory() {
             </Button>
           }
         />
+        </>
       ) : (
         <>
         {/* Redesigned Items — list (mobile) · card grid (desktop) */}
