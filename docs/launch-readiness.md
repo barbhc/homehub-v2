@@ -266,10 +266,12 @@ prefixes would have broken existing photos and manuals.
 
 The membership gate — on reads, and since 2026-09-30 on writes too — uses
 cross-service `firestore.exists()`. **Correction (2026-09-30):** this section
-used to say the Storage emulator does not resolve that call. It does — against
-the Firestore project the emulator suite was *started* with. The probe behind
-the old claim seeded membership in a different project, so the lookup found
-nothing. `npm run test:rules:emu` now exercises the gate for real (member
+used to say the Storage emulator does not resolve that call. It does, on the
+same firebase-tools 15.23.0 — against the Firestore project the emulator suite
+was *started* with (the storage emulator passes its own project id to the
+lookup). The probe behind the old claim most likely ran against an emulator
+started under a different project from the one it seeded, where the lookup
+finds nothing. `npm run test:rules:emu` now exercises the gate for real (member
 admitted, outsider refused, reads and writes). What the emulator still cannot
 prove is the production IAM grant below, so the gate must also be proven
 against the real project, immediately after deploying:

@@ -15,11 +15,12 @@
  * API as the owner (rules bypassed), and removed again in afterAll.
  *
  * Until 2026-09-30 this file said the emulator "does not resolve cross-service
- * firestore.exists()" and shipped the read-gate cases skipped. That probe ran
- * against an emulator started under a DIFFERENT project from the one it seeded,
- * so the lookup found nothing. Under `npm run test:rules:emu` (--project
+ * firestore.exists()" and shipped the read-gate cases skipped. On the same
+ * firebase-tools (15.23.0), under `npm run test:rules:emu` (--project
  * demo-homehub-rules, same as the seed) the member is admitted and the
- * outsider refused — the gate is exercised for real, and those cases run.
+ * outsider refused — the gate is exercised for real, and those cases run. The
+ * old probe most likely ran against an emulator started under a different
+ * project from the one it seeded, where the lookup finds nothing.
  *
  * Against an already-running emulator started with another project (the dev
  * emulator is demo-homehub), set GCLOUD_PROJECT to that project. The premise
