@@ -362,15 +362,34 @@ export interface ExtractionRequest {
  *   Thinking is always on, so effort is explicit and max_tokens has room for
  *   thinking + the ~18k-token reply. Server-side fallbacks retry a safety
  *   decline on another model.
+ *
+ * `opts.cacheBreakpoint` (default OFF) puts a prompt-cache breakpoint on the
+ * PDF. The cached prefix is then tools + system + PDF — the prompt text sits
+ * after it, so a rescan or fill-gaps pass with different prompt text still
+ * matches. It pays only when the SAME PDF goes to the SAME model again within
+ * five minutes of the previous request's START (a retry; a rescan right after
+ * a scan): the write bills 1.25× input and a re-read 0.1× (0.05× on Opus 5.5).
+ * A one-off parse never re-sends its PDF, so there it only adds 25% to the
+ * input bill — which is why it is a switch (config/spend.parseCacheBreakpoint,
+ * read by parseWorker) and not the default. Off, the request is byte-identical
+ * to the one sent before the option existed
+ * (__tests__/fixtures/extraction-requests.json pins both states).
  */
-export function buildExtractionRequest(model: string, pdfBase64: string, prompt: string): ExtractionRequest {
+export function buildExtractionRequest(
+  model: string,
+  pdfBase64: string,
+  prompt: string,
+  opts: { cacheBreakpoint?: boolean } = {},
+): ExtractionRequest {
+  const document = {
+    type: "document",
+    source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
+    ...(opts.cacheBreakpoint ? { cache_control: { type: "ephemeral" } } : {}),
+  }
   const messages = [
     {
       role: "user",
-      content: [
-        { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
-        { type: "text", text: prompt },
-      ],
+      content: [document, { type: "text", text: prompt }],
     },
   ]
   if (rejectsForcedToolChoice(model)) {
