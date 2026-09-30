@@ -12,6 +12,8 @@ import {
   type DueKind, type WindowState,
 } from "@/lib/dueWindow"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
+// An offline cache-miss is a failure, never an empty home — see the helper.
+import { assertServed } from "@/lib/assertServed"
 
 /** Due-soon window: tasks due within this many days count as "urgent". */
 export const DUE_SOON_DAYS = 7
@@ -471,23 +473,6 @@ export async function fetchDashboardTasks(
 ): Promise<DashboardTasksResult | null> {
   if (!propertyId) return null
   return getDashboardTasks(propertyId, topConcerns)
-}
-
-/**
- * Refuse to present an offline cache-miss as a real, empty home.
- *
- * Firestore's getDocs falls back to the LOCAL cache when it can't reach the
- * server, and resolves — no throw. On a device whose cache is cold that yields
- * an empty snapshot indistinguishable from "this home genuinely has nothing",
- * which is how a dropped connection rendered the new-user "Add your first item"
- * hero over a home with 14 items. `fromCache` is the only honest signal, so an
- * empty cache-served read is reported as the failure it is; SWR then keeps the
- * last good snapshot and Home shows it behind a "last saved view" note.
- */
-function assertServed(snap: { metadata: { fromCache: boolean }; empty: boolean }, what: string): void {
-  if (snap.metadata.fromCache && snap.empty) {
-    throw new Error(`Couldn't reach the server to load your ${what}.`)
-  }
 }
 
 export async function getDashboardStats(propertyId: string): Promise<DashboardStats> {

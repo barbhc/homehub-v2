@@ -132,13 +132,17 @@ page watches it.
 - Leaving is safe and **said out loud** on every surface showing a live
   scan. — HH-116, HH-117
 - The tray **stands down** on a page already showing that scan. — HH-118
-- **One scan per manual at a time.** Asking again for a manual that is being
-  read (the item page used to, the moment the wizard handed off) **follows the
-  scan already running** — same result, charged once — instead of starting a
-  second, separately billed one. A scan that stops writing for 35 minutes is
-  ended as an error the manual card can restart, never left "reading" forever;
-  a scan retrying after a transient failure shows as queued, not failed.
-  — audit 2026-09-29, Package C (C1/C2)
+- The item page **watches the scan and never starts one** on arrival. It used
+  to re-enqueue any unread manual under ten minutes old — the wizard's own,
+  already enqueued — so every add with a manual was charged twice, and again
+  on each refetch. — audit 2026-09-29 (HH-159)
+- **One scan per manual at a time — enforced by the server too.** Any door
+  that asks again for a manual that is being read (a scan tapped mid-read, a
+  second device) **follows the scan already running** — same result, charged
+  once — instead of starting a second, separately billed one. A scan that
+  stops writing for 35 minutes is ended as an error the manual card can
+  restart, never left "reading" forever; a scan retrying after a transient
+  failure shows as queued, not failed. — audit 2026-09-29, Package C (C1/C2)
 
 ## The item page — where the value arrives
 
@@ -182,6 +186,20 @@ page watches it.
   A finished-but-uncommitted parse is stage "done" with a null `parsed_at`
   (`commitDraft` is the only writer of it), and the third state holds the space
   without a button — the pickup card above owns that decision. — HH-141
+- **One tree for the width, never two.** The page renders the phone layout OR
+  the desktop one (`useIsDesktop`, Tailwind's `lg`), not both with CSS hiding
+  one: a portaled dialog escapes `display:none`, so two trees meant one tap
+  opened two add-manual dialogs and two reviews. — HH-159
+- **"Add the manual" works on the first tap, from every door** — Upkeep, the
+  drop-zone, Paste a link, Find it for me, the compact button, Re-upload. Each
+  opens through the same handler, which names its panel (upload unless the door
+  says otherwise) and clears the last attempt's error and document type; what
+  was picked goes to the scan as an argument, never as state set a moment
+  before. — HH-159
+- The page's own load has four states, and **slow is not failed**: after 10 s
+  the skeleton stays and says "Still loading…" with Try again, a late answer
+  still wins, and only a failure is the dead end. A refetch keeps the item on
+  screen. The error banner is for actions and scans only. — HH-160
 
 ## The review — the one decision
 
@@ -225,7 +243,7 @@ this file exists to prevent.
 |---|---|
 | HH-121 / HH-127: *"with maintenance it opens; without, a card reports"* | The owner rejected both the long list AND round 14's card: *"it really is unsatisfying as somebody who has just waited to see their manual scanned."* One screen serves both cases. |
 | HH-119: *"opens on the schedule screen, focused on maintenance"* | There is no second screen to open on. |
-| HH-120: *"exactly one review is ever mounted"* | Satisfied by construction — there is one screen. |
+| HH-120: *"exactly one review is ever mounted"* | Satisfied by construction — there is one screen, and the item page renders one tree. (It briefly was not: with both trees mounted, the manual section's review and add dialog opened twice — HH-159.) |
 | HH-137: the finding-first sentence | Replaced by the two-channel summary, because "nothing here will remind you" contradicted the weekly cadences beneath it. |
 
 
@@ -245,6 +263,10 @@ this file exists to prevent.
 | `src/lib/reviewBuckets.agreement.test.ts` | The review, the task page and `sendPush` disagreeing about whether one task notifies | live |
 | `remindsByDefault(tier: PriorityTierName)` | **The compiler.** Passing a bucket where a tier belongs fails `tsc -b`; a runtime test could not catch it, because today the bucket for a scheduled row IS the tier | live |
 | `src/components/item-care/CareBlock.awaiting.test.tsx` | The page offering to add a manual it has already read | live |
+| `src/pages/item-detail/ManualSection.addManual.test.tsx` | An item-page door that fails its first "Add the manual", a retry that re-sends the previous file, or a reopened dialog still carrying the last error, document type or panel (HH-159) | live |
+| `e2e/emu/item-add-manual.spec.ts` | Two add-manual dialogs or two item headings in the DOM at 390px or desktop, or more than one scan started per add (HH-159) | live |
+| `e2e/emu/smart-add.spec.ts`, the wizard hand-off | More than ONE enqueue per add with a manual, counted only after the item page has finished loading (HH-159) | live |
+| `src/pages/item-detail/useItemDetailLoad.test.ts` | A stall treated as a failure, a late success that does not win, or a refetch that swaps the page for the skeleton (HH-160) | live |
 | `seedUnreviewedManual` in `scripts/seed-emulator.ts` | **The gap, now closed.** A read-but-unsaved manual with no maintenance in it — the state all five repeated reports came from, which no test could visit because every seeded manual was committed and every seeded item already had tasks | live |
 
 The last row was the most valuable thing on this page, and it is now closed.

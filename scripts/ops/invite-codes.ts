@@ -18,6 +18,7 @@
  */
 import { db as firestore } from "../import/lib/target.js"
 import { generateCode, normalizeCode } from "../../shared/growth/inviteCode.js"
+import { growthGateOn } from "../../shared/growth/gate.js"
 
 const db = firestore()
 const [cmd, ...rest] = process.argv.slice(2)
@@ -36,7 +37,12 @@ async function setGate(on: boolean) {
 
 async function status() {
   const cfg = await db.doc("config/growth").get()
-  const on = cfg.exists && cfg.get("inviteGateEnabled") === true
+  // Read exactly as firestore.rules reads it: a MISSING doc means ON.
+  const on = growthGateOn({ exists: cfg.exists, inviteGateEnabled: cfg.get("inviteGateEnabled") })
+  if (!cfg.exists) {
+    console.log("config/growth is MISSING — the rules fail closed, so the gate is ON.")
+    console.log("Run `on` or `off` to make that an explicit decision.\n")
+  }
   const codes = await db.collection("inviteCodes").get()
   const admissions = await db.collection("admissions").get()
   const live = codes.docs.filter((d: FirebaseFirestore.QueryDocumentSnapshot) => {

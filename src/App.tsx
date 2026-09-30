@@ -13,7 +13,7 @@ const PreviewGallery = import.meta.env.DEV
 import { SWRConfig } from "swr"
 import { trackPageview } from "@/lib/analytics"
 import { usePushDeepLink } from "@/hooks/usePushDeepLink"
-import { readPersistedDashboardFallback } from "@/lib/swrPersist"
+import { readPersistedSwrFallback } from "@/lib/swrPersist"
 import { AuthProvider, AuthGate, useAuth } from "@/modules/auth"
 import { HomeProvider, HomeGate } from "@/modules/home"
 import { AppLayout } from "@/components/AppLayout"
@@ -69,12 +69,13 @@ function ScrollToTop() {
 }
 
 /**
- * Warm-start data, read from localStorage ONCE at module scope (before the first
- * render, so Home never flashes a skeleton it doesn't need) and kept in a stable
- * config object — a fresh object literal on every render would hand SWR a new
- * `fallback` identity each time.
+ * Warm-start data — the last Home, Items list and Tasks agenda — read from
+ * localStorage ONCE at module scope (before the first render, so none of those
+ * pages flashes a skeleton it doesn't need) and kept in a stable config object:
+ * a fresh object literal on every render would hand SWR a new `fallback`
+ * identity each time.
  */
-const SWR_CONFIG = { fallback: readPersistedDashboardFallback() }
+const SWR_CONFIG = { fallback: readPersistedSwrFallback() }
 
 // All routes use lazyWithRetry so stale-chunk errors after a deploy force a
 // single hard reload instead of crashing the ErrorBoundary. See the helper
@@ -131,10 +132,11 @@ function TroubleshootRedirect() {
 function App() {
   return (
     <ErrorBoundary>
-      {/* Warm start: the last dashboard, read from localStorage once at module
-          scope, is handed to SWR as `fallback` so reopening Home paints instantly
-          instead of a blank skeleton. Deliberately NOT a custom cache `provider`
-          — see swrPersist.ts for the StrictMode teardown that wedged Home. */}
+      {/* Warm start: the last Home, Items and Tasks data, read from localStorage
+          once at module scope, is handed to SWR as `fallback` so reopening those
+          pages paints instantly instead of a blank skeleton. Deliberately NOT a
+          custom cache `provider` — see swrPersist.ts for the StrictMode teardown
+          that wedged Home. */}
       <SWRConfig value={SWR_CONFIG}>
       <BrowserRouter>
         <AuthProvider>

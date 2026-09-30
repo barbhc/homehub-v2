@@ -1,25 +1,34 @@
 /**
  * Storage security-rules tests.
  *
- * Reads are tenant-scoped by path: new uploads live under homes/{homeId}/… and
- * reading one requires a membership doc in that home. Writes stay scoped by
- * path + uid (no Firestore lookup), which is what keeps them checkable here.
+ * Everything under homes/{homeId}/… is membership-scoped for reads AND writes:
+ * the rules call firestore.exists(homes/{homeId}/members/{uid}), a cross-service
+ * lookup. Writes additionally keep their path shapes (own uid segment for
+ * manuals/photos) and size caps. Legacy objects outside homes/ stay readable by
+ * signed-in non-anonymous users (see storage.rules).
  *
- * EMULATOR LIMITATION — read the skipped block at the bottom before trusting a
- * green run: the Storage emulator does not resolve cross-service
- * firestore.exists() calls, so the membership gate itself cannot be exercised
- * locally. That was verified directly, not assumed: with an identical rule body
- * the member read is DENIED, and with the firestore call swapped for a plain
- * `request.auth != null` the same read SUCCEEDS. Those cases are written out and
- * skipped so they run the day the emulator supports it; until then the gate is
- * proven by the post-deploy smoke check in docs/launch-readiness.md.
+ * WHERE THE MEMBERSHIP LOOKUP LOOKS — read this before trusting a red run. The
+ * Storage emulator resolves firestore.exists() against the Firestore project
+ * the emulator suite was STARTED with (`emulators:exec --project X`, which
+ * exports X to the script as GCLOUD_PROJECT) — not this file's test projectId.
+ * So membership docs are seeded THERE, through the Firestore emulator's REST
+ * API as the owner (rules bypassed), and removed again in afterAll.
  *
- * What IS covered here: the new home-scoped write shapes, the uid scoping within
- * them, the narrowed legacy prefixes, and the absence of a catch-all (an
- * unmatched shape must deny).
+ * Until 2026-09-30 this file said the emulator "does not resolve cross-service
+ * firestore.exists()" and shipped the read-gate cases skipped. On the same
+ * firebase-tools (15.23.0), under `npm run test:rules:emu` (--project
+ * demo-homehub-rules, same as the seed) the member is admitted and the
+ * outsider refused — the gate is exercised for real, and those cases run. The
+ * old probe most likely ran against an emulator started under a different
+ * project from the one it seeded, where the lookup finds nothing.
  *
- * Requires the Storage emulator:
- *   firebase emulators:exec --only firestore,storage --project demo-homehub-rules 'npm run test:rules'
+ * Against an already-running emulator started with another project (the dev
+ * emulator is demo-homehub), set GCLOUD_PROJECT to that project. The premise
+ * check in beforeAll fails the whole file, with this explanation, if the
+ * lookup is resolving somewhere else — a loud red instead of a false green.
+ *
+ * Requires the Storage + Firestore emulators:
+ *   npm run test:rules:emu
  */
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
@@ -32,43 +41,104 @@ import {
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing"
 import { ref, uploadBytes, deleteObject, getBytes, getDownloadURL, listAll } from "firebase/storage"
-import { doc, setDoc } from "firebase/firestore"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const HOME = "home-1"
+/** A second, real home ME is NOT a member of (OTHER is). */
+const HOME2 = "home-2"
 const ME = "uid-me"
 const OTHER = "uid-other"
+/** A member of HOME whose token is anonymous-provider. */
+const ANON_MEMBER = "anon-member-uid"
 const BYTES = new Uint8Array([37, 80, 68, 70]) // "%PDF"
+const PROBE = `homes/${HOME}/photos/${ME}/premise/probe.jpg`
 
 let testEnv: RulesTestEnvironment
+
+/** host:port from the emulator env var `emulators:exec` sets, else the default.
+ *  Same reason as rules.test.ts: two emulator suites on one machine collide on
+ *  the default ports, and a suite that silently talks to SOMEONE ELSE'S
+ *  emulator is worse than one that fails to connect. */
+function emulatorAt(envValue: string | undefined, fallback: string): { host: string; port: number } {
+  const [host, port] = (envValue || fallback).split(":")
+  return { host, port: Number(port) }
+}
+const FIRESTORE = emulatorAt(process.env.FIRESTORE_EMULATOR_HOST, "127.0.0.1:8080")
+/** The project the Storage emulator resolves firestore.exists() in (see top). */
+const LOOKUP_PROJECT = process.env.GCLOUD_PROJECT || "demo-homehub-rules"
+const MEMBERSHIPS: Array<[homeId: string, uid: string]> = [
+  [HOME, ME],
+  [HOME, ANON_MEMBER],
+  [HOME2, OTHER],
+]
+
+/** Write or delete homes/{homeId}/members/{uid} in LOOKUP_PROJECT, as the
+ *  emulator's owner (bypasses Firestore rules). */
+async function membership(homeId: string, uid: string, present: boolean): Promise<void> {
+  const url =
+    `http://${FIRESTORE.host}:${FIRESTORE.port}/v1/projects/${LOOKUP_PROJECT}` +
+    `/databases/(default)/documents/homes/${homeId}/members/${uid}`
+  const res = await fetch(
+    url,
+    present
+      ? {
+          method: "PATCH",
+          headers: { Authorization: "Bearer owner", "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: { uid: { stringValue: uid }, role: { stringValue: "member" } } }),
+        }
+      : { method: "DELETE", headers: { Authorization: "Bearer owner" } },
+  )
+  if (!res.ok) {
+    throw new Error(`membership ${present ? "seed" : "cleanup"} ${homeId}/${uid} in ${LOOKUP_PROJECT}: HTTP ${res.status} ${await res.text()}`)
+  }
+}
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: "demo-homehub-rules",
     storage: {
       rules: readFileSync(resolve(__dirname, "../storage.rules"), "utf8"),
-      host: "127.0.0.1",
-      port: 9199,
+      ...emulatorAt(process.env.FIREBASE_STORAGE_EMULATOR_HOST, "127.0.0.1:9199"),
     },
-    // Needed to seed membership docs for the (currently skipped) tenant-read block.
     firestore: {
       rules: readFileSync(resolve(__dirname, "../firestore.rules"), "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
+      ...FIRESTORE,
     },
   })
+  for (const [homeId, uid] of MEMBERSHIPS) await membership(homeId, uid, true)
+
+  // Premise: a member can read their own home. If this fails, every "member
+  // may" case below would fail too — for a reason this file can name.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await uploadBytes(ref(ctx.storage(), PROBE), BYTES)
+  })
+  try {
+    await getBytes(ref(testEnv.authenticatedContext(ME).storage(), PROBE))
+  } catch (e) {
+    throw new Error(
+      `Premise failed: a MEMBER of ${HOME} was refused a read in it. Either the membership gate in ` +
+        `storage.rules is broken, or the Storage emulator resolves firestore.exists() in a different ` +
+        `project than ${LOOKUP_PROJECT} — it uses the project it was STARTED with, which emulators:exec ` +
+        `exports as GCLOUD_PROJECT. Run \`npm run test:rules:emu\`, or set GCLOUD_PROJECT to the running ` +
+        `emulator's --project. Cause: ${e instanceof Error ? e.message : String(e)}`,
+    )
+  }
 })
 
 afterAll(async () => {
+  // Leave nothing behind in LOOKUP_PROJECT — it may be a shared dev emulator's.
+  for (const [homeId, uid] of MEMBERSHIPS) await membership(homeId, uid, false)
   await testEnv?.cleanup()
 })
 
 const asMe = () => testEnv.authenticatedContext(ME).storage()
 const asOther = () => testEnv.authenticatedContext(OTHER).storage()
 const asAnon = () => testEnv.unauthenticatedContext().storage()
+const asAnonMember = () =>
+  testEnv.authenticatedContext(ANON_MEMBER, { firebase: { sign_in_provider: "anonymous" } }).storage()
 
-describe("manual PDFs (homes/{homeId}/manuals/{userId}/…) — uid-scoped writes", () => {
+describe("manual PDFs (homes/{homeId}/manuals/{userId}/…) — a member, own uid segment", () => {
   it("owner writes + deletes under their own uid segment", async () => {
     await assertSucceeds(uploadBytes(ref(asMe(), `homes/${HOME}/manuals/${ME}/item1/manual_1.pdf`), BYTES))
     await assertSucceeds(deleteObject(ref(asMe(), `homes/${HOME}/manuals/${ME}/item1/manual_1.pdf`)))
@@ -88,24 +158,62 @@ describe("manual PDFs (homes/{homeId}/manuals/{userId}/…) — uid-scoped write
   it("unauthenticated writes are denied", async () => {
     await assertFails(uploadBytes(ref(asAnon(), `homes/${HOME}/manuals/${ME}/item1/manual_4.pdf`), BYTES))
   })
+
+  // B3: the path's uid segment was the ONLY check, so any account could write
+  // under its own uid in a home it had never joined — any homeId string worked.
+  it("a signed-in NON-member cannot write under their OWN uid segment in a foreign home", async () => {
+    await assertFails(uploadBytes(ref(asOther(), `homes/${HOME}/manuals/${OTHER}/item1/manual_5.pdf`), BYTES))
+  })
+
+  it("a member of one home cannot write into another just by naming it", async () => {
+    await assertFails(uploadBytes(ref(asMe(), `homes/${HOME2}/manuals/${ME}/item1/manual_6.pdf`), BYTES))
+    await assertFails(uploadBytes(ref(asMe(), `homes/any-string-at-all/manuals/${ME}/item1/manual_7.pdf`), BYTES))
+  })
+
+  it("a non-member cannot delete, even under their own uid segment", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(ref(ctx.storage(), `homes/${HOME}/manuals/${OTHER}/item1/left-behind.pdf`), BYTES)
+    })
+    await assertFails(deleteObject(ref(asOther(), `homes/${HOME}/manuals/${OTHER}/item1/left-behind.pdf`)))
+  })
 })
 
-describe("photos (homes/{homeId}/photos/{userId}/…) — uid-scoped writes", () => {
+describe("photos (homes/{homeId}/photos/{userId}/…) — a member, own uid segment", () => {
   it("own segment allowed; other's segment denied", async () => {
     await assertSucceeds(uploadBytes(ref(asMe(), `homes/${HOME}/photos/${ME}/item1/photo.jpg`), BYTES))
     await assertFails(uploadBytes(ref(asOther(), `homes/${HOME}/photos/${ME}/item1/photo.jpg`), BYTES))
   })
+
+  it("a signed-in NON-member cannot write under their OWN uid segment in a foreign home", async () => {
+    await assertFails(uploadBytes(ref(asOther(), `homes/${HOME}/photos/${OTHER}/item1/photo.jpg`), BYTES))
+  })
 })
 
-describe("receipts + diagram images — any authed (no uid in path), never anonymous", () => {
-  it("any signed-in user can write receipts/ and images/ within a home", async () => {
-    await assertSucceeds(uploadBytes(ref(asOther(), `homes/${HOME}/receipts/item-9/123-receipt.jpg`), BYTES))
-    await assertSucceeds(uploadBytes(ref(asOther(), `homes/${HOME}/images/manual-9/page_4.jpg`), BYTES))
+describe("receipts + diagram images — members only (no uid in path), never anonymous", () => {
+  it("a member can write receipts/ and images/ in their home", async () => {
+    await assertSucceeds(uploadBytes(ref(asMe(), `homes/${HOME}/receipts/item-9/123-receipt.jpg`), BYTES))
+    await assertSucceeds(uploadBytes(ref(asMe(), `homes/${HOME}/images/manual-9/page_4.jpg`), BYTES))
+  })
+
+  // Was "any signed-in user can write receipts/ and images/ within a home" —
+  // i.e. overwrite another home's diagram renders. Now refused.
+  it("a signed-in NON-member cannot write receipts/ or images/ into someone else's home", async () => {
+    await assertFails(uploadBytes(ref(asOther(), `homes/${HOME}/receipts/item-9/123-receipt.jpg`), BYTES))
+    await assertFails(uploadBytes(ref(asOther(), `homes/${HOME}/images/manual-9/page_4.jpg`), BYTES))
   })
 
   it("unauthenticated cannot write them", async () => {
     await assertFails(uploadBytes(ref(asAnon(), `homes/${HOME}/receipts/item-9/x.jpg`), BYTES))
     await assertFails(uploadBytes(ref(asAnon(), `homes/${HOME}/images/manual-9/x.jpg`), BYTES))
+  })
+})
+
+describe("anonymous-provider tokens never write, even with a membership row", () => {
+  it("manuals, photos, receipts and images all refuse an anonymous member", async () => {
+    await assertFails(uploadBytes(ref(asAnonMember(), `homes/${HOME}/manuals/${ANON_MEMBER}/i/m.pdf`), BYTES))
+    await assertFails(uploadBytes(ref(asAnonMember(), `homes/${HOME}/photos/${ANON_MEMBER}/i/p.jpg`), BYTES))
+    await assertFails(uploadBytes(ref(asAnonMember(), `homes/${HOME}/receipts/i/r.jpg`), BYTES))
+    await assertFails(uploadBytes(ref(asAnonMember(), `homes/${HOME}/images/m/page_1.jpg`), BYTES))
   })
 })
 
@@ -174,24 +282,15 @@ describe("legacy objects — still readable, but no longer covering homes/", () 
 })
 
 /**
- * The membership gate itself. SKIPPED, and not because it is unimportant — it is
- * the whole point of Finding 2. The Storage emulator does not resolve
- * cross-service firestore.exists(), so every case below fails locally for the
- * wrong reason (the call returns falsy, so even the MEMBER is denied and the
- * "outsider denied" assertions would pass vacuously — a false green, which is
- * worse than a skip).
- *
- * Verified by probe on this machine, firebase-tools 15.23.0:
- *   rule `firestore.exists(.../members/$(request.auth.uid))` → member DENIED
- *   rule `request.auth != null` (same path)                  → member ALLOWED
- *
- * Until the emulator supports it, the gate is proven by the post-deploy smoke
- * check in docs/launch-readiness.md, run against the real project.
+ * The membership READ gate. Shipped skipped until 2026-09-30 on the belief the
+ * emulator could not resolve the cross-service call; it can (see the top of
+ * this file), so these run. The premise check in beforeAll guarantees the
+ * "member may" case is not failing for the wrong reason, and the "outsider may
+ * not" cases are paired with it so neither can pass vacuously.
  */
-describe.skip("tenant-scoped reads (needs cross-service rules — see block comment)", () => {
+describe("tenant-scoped reads (membership of THIS home)", () => {
   beforeAll(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `homes/${HOME}/members/${ME}`), { uid: ME, role: "owner" })
       await uploadBytes(ref(ctx.storage(), `homes/${HOME}/photos/${ME}/item1/photo.jpg`), BYTES)
     })
   })

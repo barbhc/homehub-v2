@@ -19,6 +19,10 @@ export default defineConfig({
       // eval that measures nothing, which is worse than no eval. Only the pure
       // scoring module is collected; the runner needs credentials and an API.
       "evals/**/*.{test,spec}.ts",
+      // Pure halves of the ops scripts. A data repair decides which production
+      // rows it rewrites, so its rule is gated like product code; the CLI that
+      // reads and writes is proven against the emulator, not here.
+      "scripts/**/*.{test,spec}.ts",
     ],
   },
   resolve: {

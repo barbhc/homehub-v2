@@ -12,6 +12,10 @@ import {
 } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
+import { assertServed } from "@/lib/assertServed"
+// The Items page caches its list; every write below that changes what the list
+// shows patches that cache too (see the module for why the service is the seam).
+import { removeItemFromCache, upsertItemInCache } from "@/lib/homeItemsCache"
 import type { ItemCategory, ItemUnit, ItemUnitStatus } from "@/integrations/types"
 
 export type ServiceResult<T> =
@@ -192,7 +196,9 @@ export async function createItemUnit(input: CreateItemUnitInput): Promise<Servic
         if (count === 1) track("first_item_added", { home_id: input.home_id })
       })
       .catch(() => {})
-    return { data: toItemUnit(ref.id, input.home_id, snap.data() ?? {}), error: null }
+    const created = toItemUnit(ref.id, input.home_id, snap.data() ?? {})
+    upsertItemInCache(created)
+    return { data: created, error: null }
   } catch (e) {
     return err(e)
   }
@@ -214,16 +220,25 @@ export async function updateItemUnit(
     await writeBatch(db).set(ref, updates, { merge: true }).commit()
     const snap = await getDoc(ref)
     if (!snap.exists()) return { data: null, error: { message: "Item not found" } }
-    return { data: toItemUnit(ref.id, homeId, snap.data()), error: null }
+    const updated = toItemUnit(ref.id, homeId, snap.data())
+    upsertItemInCache(updated)
+    return { data: updated, error: null }
   } catch (e) {
     return err(e)
   }
 }
 
-/** Fetches item_units for a home. Defaults to active; pass statusFilter for others. */
+/**
+ * Fetches item_units for a home. Defaults to active; pass statusFilter for others.
+ *
+ * `refuseOfflineEmpty`: report an EMPTY read that was served from the local
+ * cache (offline) as an error instead of as "no items" — for a caller that
+ * would otherwise show the empty state or persist the empty list as its warm
+ * snapshot. See assertServed.
+ */
 export async function getItemUnits(
   homeId: string,
-  options?: { statusFilter?: ItemUnitStatus[] }
+  options?: { statusFilter?: ItemUnitStatus[]; refuseOfflineEmpty?: boolean }
 ): Promise<ServiceResult<ItemUnit[]>> {
   try {
     const statuses = options?.statusFilter?.length ? options.statusFilter : (["active"] as ItemUnitStatus[])
@@ -232,6 +247,7 @@ export async function getItemUnits(
     const snap = await getDocs(
       query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null), where("status", "in", statuses))
     )
+    if (options?.refuseOfflineEmpty) assertServed(snap, "items")
     const items = snap.docs
       .map((docSnap) => toItemUnit(docSnap.id, homeId, docSnap.data()))
       .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
@@ -292,6 +308,9 @@ export async function softDeleteItemUnit(homeId: string, itemUnitId: string): Pr
     }
 
     await batch.commit()
+    // Off the cached Items list before the caller navigates back to it
+    // (ItemDetailPage goes straight to /inventory on success).
+    removeItemFromCache(homeId, itemUnitId)
     return { success: true }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Request failed" }

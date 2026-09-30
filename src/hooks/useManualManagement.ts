@@ -20,6 +20,7 @@ import useSWR from "swr"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import type { ReviewEditSummary } from "@/components/manuals/TaskReviewFeedback"
+import type { ManualSourceChoice } from "@/components/smart-add/ManualStep"
 import type { KnowledgeChunk, ManualDocument } from "@/integrations/types"
 // Belt for the worker's humanized errors: parse failures recorded BEFORE the
 // worker started storing friendly copy still carry raw API JSON, and raw
@@ -76,6 +77,13 @@ export function useManualUrls(manuals: ManualDocument[]): Record<string, string 
   return data ?? {}
 }
 
+/**
+ * Which door opened the add-manual dialog, which is which of ManualStep's panels
+ * it opens on: "upload" leads (HH-109, HH-115), "url" is "Paste a link
+ * instead", "search" is "Find it for me" (HH-89).
+ */
+export type AddManualMode = "upload" | "url" | "search"
+
 interface UseManualManagementParams {
   itemId: string
   homeId: string
@@ -105,12 +113,10 @@ export function useManualManagement({
 }: UseManualManagementParams) {
   // --- Add Manual dialog state ---
   const [addManualOpen, setAddManualOpen] = useState(false)
-  const [addMode, setAddMode] = useState<"url" | "upload">("url")
+  const [addMode, setAddMode] = useState<AddManualMode>("upload")
   const [addRole, setAddRole] = useState<"primary" | "reference">("primary")
-  const [urlInput, setUrlInput] = useState("")
   const [titleInput, setTitleInput] = useState("")
   const [labelInput, setLabelInput] = useState("")
-  const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [addError, setAddError] = useState<string | null>(null)
   const [addLoading, setAddLoading] = useState(false)
   const [parsePhase, setParsePhase] = useState(false)
@@ -136,17 +142,33 @@ export function useManualManagement({
 
   // HH-89: the entry lanes preset the mode — a drop-zone that opens on the
   // Link tab would be a small lie about what was just tapped.
-  const handleOpenAddManual = (mode: "url" | "upload" = "url") => {
+  //
+  // HH-159: this is the ONLY way the dialog opens, from every door on the page.
+  // Radix calls the dialog's onOpenChange for a close, never for an open we
+  // make ourselves, so a reset placed there never ran: a reopened dialog showed
+  // the last attempt's error and kept a leftover "Reference doc" role, which
+  // turned the Upkeep door into an upload that generates no upkeep. Upload is
+  // the default because it is the lane that leads (HH-109).
+  const handleOpenAddManual = (mode: AddManualMode = "upload") => {
     setAddManualOpen(true)
     setAddError(null)
+    setParseError(null)
     setAddMode(mode)
     setAddRole("primary")
     setLabelInput("")
     setTitleInput("")
-    setUrlInput("")
   }
 
-  const handleAddManual = async () => {
+  /**
+   * HH-159: the source comes from the ARGUMENT — what ManualStep hands over
+   * when "Scan the manual" is tapped. It used to be read from state the dialog
+   * had set a microtask earlier, which this function's closure (the previous
+   * render's) had never seen: every door failed its first attempt with "Enter a
+   * URL" or "Select a PDF file", and a retry after swapping the file uploaded
+   * the PREVIOUS one. The wizard has always worked this way (SmartAddItem's
+   * handleManualConfirm), which is why only the item page broke.
+   */
+  const handleAddManual = async (choice: ManualSourceChoice) => {
     if (!itemId) return
     setAddError(null)
     setAddLoading(true)
@@ -156,15 +178,14 @@ export function useManualManagement({
       let sourceType: "url" | "upload"
       let title: string
 
-      if (addMode === "url") {
-        const url = urlInput.trim()
+      if (choice.type === "url") {
+        const url = choice.url.trim()
         if (!url) { setAddError("Enter a URL"); return }
         sourceRef = url
         sourceType = "url"
         title = titleInput.trim() || "Manual from URL"
       } else {
-        const file = uploadFile
-        if (!file) { setAddError("Select a PDF file"); return }
+        const file = choice.file
         const uploadRes = await uploadManualPdfWithUrl(homeId, itemId, file, userId ?? null)
         if (uploadRes.error) { setAddError(uploadRes.error.message); return }
         sourceRef = uploadRes.data!.path
@@ -183,9 +204,7 @@ export function useManualManagement({
       if (res.error) { setAddError(res.error.message); return }
 
       setManuals((prev) => [res.data!, ...prev])
-      setUrlInput("")
       setTitleInput("")
-      setUploadFile(null)
       setParsePhase(true)
 
       const manualId = res.data!.manual_id
@@ -378,17 +397,12 @@ export function useManualManagement({
     addManualOpen,
     setAddManualOpen,
     addMode,
-    setAddMode,
     addRole,
     setAddRole,
-    urlInput,
-    setUrlInput,
     titleInput,
     setTitleInput,
     labelInput,
     setLabelInput,
-    uploadFile,
-    setUploadFile,
     addError,
     setAddError,
     addLoading,

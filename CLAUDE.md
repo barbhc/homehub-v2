@@ -47,7 +47,15 @@ npm run test:e2e:journey:emu   # walk the 4 core journeys with step screenshots
 
 ## Non-negotiables (full list + rationale in the implementation plan)
 1. One matcher: `titleSimilarity`/`TITLE_MATCH_THRESHOLD` imported from `shared/parse/parseCore`.
-2. Extraction = forced tool call (`EXTRACTION_TOOL`) + `samplingParamsFor(model)` — always.
+2. Extraction = the `EXTRACTION_TOOL` call built by `buildExtractionRequest(model)` — always.
+   `tool_choice` is FORCED on every model that accepts it (Sonnet 5 — the default — and Haiku,
+   with `samplingParamsFor(model)`). Only models that 400 on forced tool use
+   (`rejectsForcedToolChoice`; in production, Opus 5.5, the gas/safety escalation) send the
+   same tool with `tool_choice: "auto"` + a steering system line, and a reply without the tool
+   call throws `NoToolCallError` (one retry) — never a text-JSON fallback. (Structured outputs
+   was tried for Opus: "compiled grammar is too large".) Either way the result must be the tool
+   call's `input`, and it must pass `runParse`'s `chunks`/`tasks` array guard before it is
+   normalized.
 3. `planTaskReconciliation` stays pure; never delete completion-bearing tasks.
 4. Never commit breadcrumb/`_error` drafts.
 5. Prompt changes go through `scripts/parse-eval/run.ts` (unpiped) vs goldens BEFORE deploy.

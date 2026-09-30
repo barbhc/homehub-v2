@@ -31,7 +31,7 @@ Verified-in-code facts driving the redesign fixes:
 ## Engineering invariants (verify at every phase gate; violations are review-blockers)
 
 1. **ONE matcher**: `titleSimilarity`/`TITLE_MATCH_THRESHOLD` imported from `parseCore.ts` everywhere. Never reimplement.
-2. **Forced tool call** extraction via `EXTRACTION_TOOL` (`parsePrompt.ts:207`) — Opus emits malformed free-text JSON ~50% without it.
+2. **Forced tool call** extraction via `EXTRACTION_TOOL` (`parsePrompt.ts:207`) — Opus emits malformed free-text JSON ~50% without it. *Amended 2026-09-30:* forced on every model that accepts it; Opus 5.5 rejects forced `tool_choice` (HTTP 400), so its route sends the same tool with `tool_choice: "auto"` and fails (`NoToolCallError`, one retry) when the tool isn't called — still never free-text JSON. Exact rule: CLAUDE.md non-negotiable 2 and `buildExtractionRequest`.
 3. `samplingParamsFor(model)` (`parsePrompt.ts:179`) on every extraction call — Opus 4.8+/Claude 5 reject `temperature` with HTTP 400.
 4. `pickParseModel`: Sonnet 4.6 default → Opus 4.8 for gas/combustion/safety. Port verbatim from `supabase/functions/_shared/mod.ts` (~155–196).
 5. **Commitable-draft guard**: never commit breadcrumb/`_error` objects; a draft is committable only with real extraction arrays.

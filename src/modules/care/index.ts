@@ -69,7 +69,7 @@ export {
   type GenerateInstancesInput,
 } from "./services/scheduleService"
 
-export { computeNextDueDate } from "./services/nextDueDate"
+export { computeNextDueDate, localDateString } from "./services/nextDueDate"
 
 export {
   getFeedbackContext,

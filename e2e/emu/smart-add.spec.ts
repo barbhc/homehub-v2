@@ -196,6 +196,16 @@ test.describe("emulator e2e — the wizard ends at the manual", () => {
         body: JSON.stringify({ result: { ok: true, requestId: "req-e2e-1" } }),
       })
     })
+    // The item page resolves the new manual's download URL as the LAST step of
+    // its load (six reads, then resolveManualUrl). Counted here so the enqueue
+    // assertion below can wait for that moment instead of passing before the
+    // page has had its chance to enqueue again.
+    let itemPageManualUrlReads = 0
+    page.on("response", (res) => {
+      const u = res.url()
+      if (res.request().method() === "GET" && u.includes("/o/homes%2F") && u.includes("manual_")
+        && /\/items\//.test(page.url())) itemPageManualUrlReads += 1
+    })
 
     await page.goto("/inventory/add")
     await page.getByRole("button", { name: /Appliance or device/ }).click()
@@ -225,10 +235,18 @@ test.describe("emulator e2e — the wizard ends at the manual", () => {
 
     // The handoff: parse enqueued, wizard gone, item page showing.
     await expect(page).toHaveURL(/\/items\//, { timeout: 30_000 })
-    expect(enqueued).toBeGreaterThan(0)
-    // The item page renders a mobile and a desktop tree; .first() can land on
-    // the one the breakpoint hides.
     await expect(page.getByText("Emu PR1-9000").filter(visible).first()).toBeVisible({ timeout: 15_000 })
+
+    // EXACTLY one scan per add (HH-159). The item page used to re-enqueue the
+    // wizard's manual on arrival — its parsed_at is still null and it is under
+    // ten minutes old — and enqueueParse charges before it checks anything, so
+    // every add with a manual was paid for twice. That second enqueue fired
+    // right after the page resolved the manual's URL, so wait for the page to
+    // get that far, then give it time to misbehave. Asserting any earlier
+    // passes vacuously: `> 0` was true the moment the wizard enqueued.
+    await expect.poll(() => itemPageManualUrlReads, { timeout: 20_000 }).toBeGreaterThan(0)
+    await page.waitForTimeout(3_000)
+    expect(enqueued).toBe(1)
 
     // The user is never shown a Reading screen or a Purchase step again.
     await expect(page.getByText(/Reading the manual — this takes a minute/)).toHaveCount(0)

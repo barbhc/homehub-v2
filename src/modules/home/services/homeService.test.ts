@@ -11,7 +11,7 @@
  *    primary (data created before the add-home flow passed isPrimary: false),
  *    otherwise "which home is primary" depends on iteration order.
  */
-import { describe, expect, it, vi, beforeEach } from "vitest"
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
 
 const getDocs = vi.fn()
 const getDoc = vi.fn()
@@ -50,7 +50,7 @@ vi.mock("@/integrations/firebase", () => ({
   auth: { currentUser: { uid: "uid-1" } },
 }))
 
-import { getMyHomes, createHome } from "./homeService"
+import { getMyHomes, getPrimaryHome, createHome } from "./homeService"
 
 /** A membership doc as myMemberships reads it: homeId from the parent's parent. */
 const membership = (homeId: string, isPrimary: boolean) => ({
@@ -147,6 +147,105 @@ describe("getMyHomes", () => {
     await getMyHomes()
     // Sequential reads would never overlap; this is the boot-budget guard.
     expect(maxInFlight).toBeGreaterThan(1)
+  })
+})
+
+/**
+ * A membership row pointing at a home the account can't read.
+ *
+ * Before firestore.rules pinned member `uid` to the doc id, anyone could plant
+ * a row carrying a victim's uid in a home the victim wasn't in. The lookup found
+ * it, the home read came back permission-denied, and Promise.all turned that
+ * one refusal into "couldn't load your homes" — or, via getPrimaryHome with the
+ * plant flagged primary, onboarding's hard stop. Such rows can outlive the rule
+ * change, so the lookups skip them. Only permission-denied: anything else still
+ * fails loudly, because a partial list must never pass for the whole one.
+ */
+describe("a planted membership row cannot sink the lookup", () => {
+  const denied = Object.assign(new Error("Missing or insufficient permissions."), { code: "permission-denied" })
+  const offline = Object.assign(new Error("Failed to get document because the client is offline."), { code: "unavailable" })
+  let warn: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+  })
+  afterEach(() => warn.mockRestore())
+
+  const byPath = (map: Record<string, unknown>) => async (ref: { path: string }) => {
+    const v = map[ref.path.split("/").pop()!]
+    if (v instanceof Error) throw v
+    return v
+  }
+
+  it("getMyHomes returns the readable homes and logs the skipped id", async () => {
+    getDocs.mockResolvedValue({
+      docs: [membership("planted", true), membership("mine", false)],
+      metadata: { fromCache: false },
+    })
+    getDoc.mockImplementation(byPath({ planted: denied, mine: homeSnap("mine", "My House", "2026-01-01T00:00:00Z") }))
+
+    const res = await getMyHomes()
+    expect(res.error).toBeNull()
+    expect(res.data?.homes.map((h) => h.home_id)).toEqual(["mine"])
+    // The plant was flagged primary; it must not become the primary by default.
+    expect(res.data?.primaryHomeId).toBeNull()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("skipped home planted"))
+  })
+
+  it("getMyHomes still FAILS on a non-permission error — never a partial list", async () => {
+    getDocs.mockResolvedValue({
+      docs: [membership("h1", true), membership("h2", false)],
+      metadata: { fromCache: false },
+    })
+    getDoc.mockImplementation(byPath({ h1: homeSnap("h1", "My House", "2026-01-01T00:00:00Z"), h2: offline }))
+
+    const res = await getMyHomes()
+    expect(res.data).toBeNull()
+    expect(res.error?.message).toMatch(/offline/i)
+  })
+
+  it("getPrimaryHome passes over a planted PRIMARY to the real home", async () => {
+    getDocs.mockResolvedValue({
+      docs: [membership("planted", true), membership("mine", false)],
+      metadata: { fromCache: false },
+    })
+    getDoc.mockImplementation(byPath({ planted: denied, mine: homeSnap("mine", "My House", "2026-01-01T00:00:00Z") }))
+
+    const res = await getPrimaryHome()
+    expect(res.error).toBeNull()
+    expect(res.data?.home_id).toBe("mine")
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("skipped home planted"))
+  })
+
+  it("getPrimaryHome with ONLY unreadable rows means no home — not a hard error", async () => {
+    getDocs.mockResolvedValue({ docs: [membership("planted", true)], metadata: { fromCache: false } })
+    getDoc.mockImplementation(byPath({ planted: denied }))
+
+    const res = await getPrimaryHome()
+    expect(res).toEqual({ data: null, error: null })
+  })
+
+  it("getPrimaryHome still FAILS on a non-permission error", async () => {
+    getDocs.mockResolvedValue({ docs: [membership("h1", true)], metadata: { fromCache: false } })
+    getDoc.mockImplementation(byPath({ h1: offline }))
+
+    const res = await getPrimaryHome()
+    expect(res.data).toBeNull()
+    expect(res.error?.message).toMatch(/offline/i)
+  })
+
+  it("getPrimaryHome's pick is unchanged when every row is readable (primary wins)", async () => {
+    getDocs.mockResolvedValue({
+      docs: [membership("h1", false), membership("h2", true)],
+      metadata: { fromCache: false },
+    })
+    getDoc.mockImplementation(byPath({
+      h1: homeSnap("h1", "First", "2026-01-01T00:00:00Z"),
+      h2: homeSnap("h2", "Primary", "2026-06-01T00:00:00Z"),
+    }))
+
+    const res = await getPrimaryHome()
+    expect(res.data?.home_id).toBe("h2")
+    expect(warn).not.toHaveBeenCalled()
   })
 })
 

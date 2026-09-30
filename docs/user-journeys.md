@@ -59,8 +59,10 @@ flowchart LR
 - `AuthGate` / `HomeGate`; the **`fromCache` guard** in `homeService.getMyHomes` —
   an empty membership read served from cache is an *error*, never "no home"
   (the duplicate-home-incident fix). `HomeOnboarding` re-checks before creating.
-- **Invite gate** (`docs/invite-gate.md`): rules require `createdBy == auth.uid && admitted()`;
-  `admitted()` fails open when `config/growth` is absent (so the emulator needs no code).
+- **Invite gate** (`docs/invite-gate.md`): rules require a non-anonymous caller,
+  `createdBy == auth.uid` and `admitted()`. `admitted()` fails CLOSED when `config/growth`
+  is absent, so `npm run seed:emu` writes `config/growth: {inviteGateEnabled: false}` —
+  that seeded doc is why this walk needs no code.
 - **The funnel handoff** (regressed → fixed in #150): Index must not let its
   signed-in redirect stomp the navigation to `/onboarding/profile`
   (`funnelingRef`), `refresh(homeId)` polls until the members collection-group

@@ -7,8 +7,10 @@ import { DesktopTasks } from "@/components/home/DesktopTasks"
  * The Tasks page (routed at /maintenance — the bottom nav calls it "Tasks").
  *
  * A routing shell, and only that. Everything this page used to do now lives in
- * the two components below, each of which fetches its own week agenda:
- * RefinedWeek on phones, DesktopTasks at lg+.
+ * the two components below: RefinedWeek on phones, DesktopTasks at lg+. Both
+ * are mounted (CSS picks one), so their data comes from shared SWR hooks —
+ * useWeekAgenda and useCareSuggestions, keyed by home — and one visit costs one
+ * agenda read and one suggestions read, not one per tree.
  *
  * What was here until now: 263 lines of superseded UI — an "All Tasks" header,
  * status tabs, tier chips, a room select, a Group-by control, a task list, a

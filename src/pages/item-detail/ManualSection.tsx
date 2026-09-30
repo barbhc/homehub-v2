@@ -1,4 +1,5 @@
 import { useState } from "react"
+import type { AddManualMode } from "@/hooks/useManualManagement"
 import {
   BookOpenIcon,
   CheckIcon,
@@ -30,7 +31,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ManualParseProgress } from "@/components/manuals/ManualParseProgress"
-import { ManualStep } from "@/components/smart-add/ManualStep"
+import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/ManualStep"
 import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useManualUrls, isDeadLegacyManualUrl } from "@/hooks/useManualManagement"
@@ -63,22 +64,18 @@ interface ManualSectionProps {
   // Manual management hook values
   addManualOpen: boolean
   setAddManualOpen: (open: boolean) => void
-  addMode: "url" | "upload"
-  setAddMode: (mode: "url" | "upload") => void
+  /** Set by the door that opened the dialog; picks ManualStep's first panel. */
+  addMode: AddManualMode
   addRole: "primary" | "reference"
   setAddRole: (role: "primary" | "reference") => void
-  urlInput: string
-  setUrlInput: (v: string) => void
   titleInput: string
   setTitleInput: (v: string) => void
   labelInput: string
   setLabelInput: (v: string) => void
-  setUploadFile: (file: File | null) => void
   addError: string | null
   setAddError: (v: string | null) => void
   addLoading: boolean
   parsePhase: boolean
-  setManualParseError: (v: string | null) => void
   parsingManualId: string | null
   parsedManualId: string | null
   setParsedManualId: (v: string | null) => void
@@ -88,8 +85,8 @@ interface ManualSectionProps {
   setReviewOpen: (v: boolean) => void
   saving: boolean
   deletingManualId: string | null
-  handleOpenAddManual: (mode?: "url" | "upload") => void
-  handleAddManual: () => void
+  handleOpenAddManual: (mode?: AddManualMode) => void
+  handleAddManual: (choice: ManualSourceChoice) => Promise<void>
   handleParseExistingManual: (id: string) => void
   handleRescanManual: (id: string) => void
   handleFillGaps: (id: string) => void
@@ -107,16 +104,13 @@ export function ManualSection({
   onManualUpdated,
   addManualOpen,
   setAddManualOpen,
-  setAddMode,
+  addMode,
   addRole,
   setAddRole,
-  setUrlInput,
-  setUploadFile,
   addError,
   setAddError,
   addLoading,
   parsePhase,
-  setManualParseError,
   parsingManualId,
   parsedManualId,
   setParsedManualId,
@@ -134,10 +128,6 @@ export function ManualSection({
   handleDeleteManual,
   handleSave,
 }: ManualSectionProps) {
-  /** HH-89: "Find it for me" opens the dialog with the search already running —
-   *  tapping it IS the ask, so making them tap again inside would be a stutter.
-   *  One-shot; cleared when the dialog closes. */
-  const [findRequested, setFindRequested] = useState(false)
   const primaryManuals = manuals.filter((m) => m.role !== "reference")
   /** The review suppresses freeze-prep for a freeze-free home BEFORE showing it —
    *  the server applies the same rule at save, so a review that skipped it here
@@ -487,11 +477,15 @@ export function ManualSection({
                     Paste a link instead
                   </Button>
                   {brand && model && (
+                    // HH-89: tapping it IS the ask, so the dialog opens with the
+                    // search panel already expanded rather than making them ask
+                    // twice. The mode is set on every open, so it is one-shot by
+                    // construction — the next door opens on its own panel.
                     <Button
                       size="sm"
                       variant="ghost"
                       className="mt-1.5 w-full text-muted-foreground"
-                      onClick={() => { setFindRequested(true); handleOpenAddManual("url") }}
+                      onClick={() => handleOpenAddManual("search")}
                     >
                       Find it for me ·&nbsp;
                       <span className="rounded-full border px-1.5 text-[10px] font-bold" style={{ borderColor: "var(--hh-line2)" }}>Beta</span>
@@ -503,7 +497,7 @@ export function ManualSection({
                   size="sm"
                   variant="outline"
                   className="mt-3 w-full"
-                  onClick={() => handleOpenAddManual()}
+                  onClick={() => handleOpenAddManual("upload")}
                 >
                   Add the manual
                 </Button>
@@ -513,18 +507,10 @@ export function ManualSection({
         </Accordion>
       </SectionCard>
 
-      {/* Add manual dialog */}
-      <Dialog
-        open={addManualOpen}
-        onOpenChange={(open) => {
-          setAddManualOpen(open)
-          if (!open) setFindRequested(false)
-          if (open) {
-            setAddError(null)
-            setManualParseError(null)
-          }
-        }}
-      >
+      {/* Add manual dialog. Radix calls onOpenChange only when the user CLOSES
+          it; every open goes through handleOpenAddManual, which is where the
+          last attempt's error, role and panel are reset (HH-159). */}
+      <Dialog open={addManualOpen} onOpenChange={setAddManualOpen}>
         <DialogContent aria-describedby={undefined} className="max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add the manual</DialogTitle>
@@ -545,27 +531,19 @@ export function ManualSection({
             asking the user to classify a document they had not picked yet.
           */}
           <ManualStep
-            initialPanel={findRequested ? "search" : undefined}
+            initialPanel={addMode === "upload" ? undefined : addMode}
             brand={brand ?? undefined}
             model={model ?? undefined}
             isSaving={addLoading}
             savingMessage={parsePhase ? (addRole === "reference" ? "Ingesting\u2026" : "Scanning the manual\u2026") : undefined}
             error={addError}
             onRetry={() => setAddError(null)}
+            // HH-159: what the user picked goes over as the argument. This used
+            // to set mode/URL/file in state and call handleAddManual a
+            // microtask later — whose closure was the previous render's, so it
+            // read the state from BEFORE the pick.
             onConfirm={(choices) => {
-              const first = choices[0]
-              if (!first) return
-              if (first.type === "url") {
-                setAddMode("url")
-                setUrlInput(first.url)
-              } else {
-                setAddMode("upload")
-                setUploadFile(first.file)
-              }
-              // Deferred to a microtask so the hook sees the state above before
-              // it reads it — handleAddManual works off addMode/urlInput/
-              // uploadFile rather than arguments.
-              queueMicrotask(() => handleAddManual())
+              if (choices[0]) void handleAddManual(choices[0])
             }}
           />
           <div className="mt-4 border-t border-border pt-3">
