@@ -8,9 +8,7 @@
  * collections (commit "test(clean): pin…"), so narrowing the reads must
  * reproduce them exactly — and `reads` records what each call costs.
  */
-process.env.TZ = "America/Los_Angeles"
-
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("firebase/firestore", async () => (await import("@/test/fakeFirestore")).fakeFirestoreModule)
 vi.mock("@/integrations/firebase", () => ({ db: {}, auth: { currentUser: null }, callable: vi.fn(() => vi.fn()) }))
@@ -21,6 +19,13 @@ const { HOME_ID, FIXTURE_NOW, homeWithHistory } = await import("./dashboardReads
 
 const reads = () => ({ queries: fakeDb.reads.queries, gets: fakeDb.reads.gets, docsRead: fakeDb.reads.docsRead })
 
+// The snapshots hold local-calendar dates: pin the zone they were written in.
+beforeAll(() => {
+  vi.stubEnv("TZ", "America/Los_Angeles")
+})
+afterAll(() => {
+  vi.unstubAllEnvs()
+})
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXTURE_NOW })
 })
@@ -33,7 +38,9 @@ describe("no user routines", () => {
 
   it("getCleaningTasks — cleaning", async () => {
     expect(await getCleaningTasks(HOME_ID, "cleaning")).toMatchSnapshot()
-    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 4, gets: 8, docsRead: 84 })
+    // Was 4 queries + 8 gets = 84: every instance (done ones twice) and a
+    // template probe for the as-needed and after-each-use cleaning templates.
+    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 4, gets: 6, docsRead: 66 })
   })
 
   it("getCleaningTasks — maintenance", async () => {
@@ -42,7 +49,9 @@ describe("no user routines", () => {
 
   it("getDeepCleanGuides", async () => {
     expect(await getDeepCleanGuides(HOME_ID)).toMatchSnapshot()
-    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 5, gets: 8, docsRead: 105 })
+    // Was 5 queries + 8 gets = 105: templates twice, every instance, every
+    // completion and every item (a guide shows no room).
+    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 3, gets: 6, docsRead: 54 })
   })
 
   it("getRoutineTemplates", async () => {

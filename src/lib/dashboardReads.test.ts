@@ -12,14 +12,12 @@
  *    come back (audit 2026-09-29 B, Part 1: one Home load read `items` five
  *    times and `taskInstances` five times, done history included).
  */
-process.env.TZ = "America/Los_Angeles"
-
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("firebase/firestore", async () => (await import("@/test/fakeFirestore")).fakeFirestoreModule)
 vi.mock("@/integrations/firebase", () => ({ db: {}, auth: { currentUser: null }, callable: vi.fn(() => vi.fn()) }))
 
-const { fakeDb } = await import("@/test/fakeFirestore")
+const { fakeDb, Timestamp } = await import("@/test/fakeFirestore")
 const { fetchCore, fetchExtras } = await import("./useDashboard")
 const { HOME_ID, FIXTURE_NOW, homeWithHistory } = await import("./dashboardReads.fixture")
 
@@ -59,6 +57,13 @@ function rendered(core: Core) {
   }
 }
 
+// The snapshots hold local-calendar dates: pin the zone they were written in.
+beforeAll(() => {
+  vi.stubEnv("TZ", "America/Los_Angeles")
+})
+afterAll(() => {
+  vi.unstubAllEnvs()
+})
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXTURE_NOW })
 })
@@ -80,14 +85,23 @@ describe("one Home load — a home with history, no user routines (the usual cas
     expect(fakeDb.writes.map((w) => ({ path: w.path, title: w.data.title, dueDate: w.data.dueDate, status: w.data.status }))).toMatchSnapshot()
   })
 
-  it("reads", async () => {
+  it("reads each collection once — items, open instances, 90 days of completions, templates", async () => {
     await loadHome()
+    // Was 12 queries + 9 gets = 224 documents: items ×5, taskInstances ×5 (three
+    // of them every instance, done history included), taskTemplates ×2, and a
+    // template probe for each as-needed/after-each-use cleaning template.
     expect(readCounts(), fakeDb.reads.log.join("\n")).toEqual({
-      queries: 12,
-      gets: 9,
-      docsRead: 224,
-      byCollection: { items: 5, taskInstances: 5, taskTemplates: 2 },
+      queries: 4,
+      gets: 7, // profile + the instance generateTaskInstances still starts (template, item, room) ×2
+      docsRead: 62,
+      byCollection: { items: 1, taskInstances: 2, taskTemplates: 1 },
     })
+    expect(fakeDb.reads.log.filter((l) => l.startsWith("query"))).toEqual([
+      "query homes/h1/items [deletedAt == null] → 7",
+      'query homes/h1/taskInstances [status in ["scheduled","snoozed"], deletedAt == null] → 17',
+      'query homes/h1/taskInstances [completedAt >= "ts:2026-03-25T00:00:00.000Z"] → 10',
+      "query homes/h1/taskTemplates → 21",
+    ])
   })
 })
 
@@ -102,11 +116,12 @@ describe("one Home load — with user routines (guides come from the routines)",
 
   it("reads", async () => {
     await loadHome()
+    // Was 8 queries = 142 documents (items ×4, taskInstances ×3).
     expect(readCounts(), fakeDb.reads.log.join("\n")).toEqual({
-      queries: 8,
+      queries: 4,
       gets: 1,
-      docsRead: 142,
-      byCollection: { items: 4, taskInstances: 3, taskTemplates: 1 },
+      docsRead: 58,
+      byCollection: { items: 1, taskInstances: 2, taskTemplates: 1 },
     })
   })
 })
@@ -114,7 +129,7 @@ describe("one Home load — with user routines (guides come from the routines)",
 describe("fields Home never renders", () => {
   beforeEach(() => fakeDb.load(homeWithHistory()))
 
-  it("suggested + neverCompleted", async () => {
+  it("suggested + neverCompleted look back DONE_HISTORY_DAYS", async () => {
     const { core } = await loadHome()
     expect({
       suggested: core.tasks.suggested.map((t) => t.id),
@@ -122,5 +137,45 @@ describe("fields Home never renders", () => {
         [...core.tasks.overdue, ...core.tasks.dueSoon].map((t) => [t.id, t.neverCompleted]),
       ),
     }).toMatchSnapshot()
+    // The one change from whole-history reads: the smoke alarms were last tested
+    // 2025-05-01, outside the window, so this flag — which nothing renders — now
+    // says never. The task view's "Start anytime" asks getTaskDetail, not this.
+    expect(core.tasks.overdue.find((t) => t.id === "i-smoke")?.neverCompleted).toBe(true)
+  })
+})
+
+describe("revalidation rounds", () => {
+  beforeEach(() => fakeDb.load(homeWithHistory()))
+
+  it("a later round reads again — the refetch after a check-off sees the write", async () => {
+    const first = await loadHome()
+    expect(first.core.stats.completedThisMonth).toBe(3)
+
+    // What completeTask does: the essential filter is done today, its next one scheduled.
+    const inst = `homes/${HOME_ID}/taskInstances`
+    fakeDb.store.set(`${inst}/i-filter`, { ...fakeDb.store.get(`${inst}/i-filter`), status: "done", completedAt: Timestamp.fromDate(FIXTURE_NOW) })
+    fakeDb.store.set(`${inst}/i-filter-next`, { ...fakeDb.store.get(`${inst}/i-filter`), status: "scheduled", completedAt: null, dueDate: "2026-07-23" })
+    fakeDb.resetCounters()
+
+    const second = await loadHome()
+    expect(fakeDb.reads.queries).toBe(4)
+    expect(second.core.stats.completedThisMonth).toBe(4)
+    expect(second.core.tasks.overdue.map((t) => t.id)).not.toContain("i-filter")
+    expect(second.extras.upcoming.map((t) => t.id)).toContain("i-filter-next")
+  })
+
+  it("a fetcher that starts on its own reads for itself", async () => {
+    await fetchCore(HOME_ID)
+    await new Promise((r) => setTimeout(r, 0))
+    await fetchExtras(HOME_ID)
+    expect(readCounts().byCollection).toEqual({ items: 2, taskInstances: 4, taskTemplates: 1 })
+  })
+
+  it("an offline, empty items read fails core — never an empty home — and extras fail soft", async () => {
+    fakeDb.offline = true
+    const core = fetchCore(HOME_ID)
+    const extras = fetchExtras(HOME_ID)
+    await expect(core).rejects.toThrow("Couldn't reach the server to load your home.")
+    expect(await extras).toEqual({ upcoming: [], insights: [], expiringWarranties: [], notices: { recalls: [], missingDetails: [] }, cleaningGuides: [] })
   })
 })

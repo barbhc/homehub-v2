@@ -10,9 +10,7 @@
  * per tier-log entry. The snapshots were written by that implementation, so
  * the narrowed reads must reproduce them exactly; `reads` records the cost.
  */
-process.env.TZ = "America/Los_Angeles"
-
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("firebase/firestore", async () => (await import("@/test/fakeFirestore")).fakeFirestoreModule)
 vi.mock("@/integrations/firebase", () => ({ db: {}, auth: { currentUser: null }, callable: vi.fn(() => vi.fn()) }))
@@ -49,6 +47,13 @@ function homeWithTierLog() {
 
 const reads = () => ({ queries: fakeDb.reads.queries, gets: fakeDb.reads.gets, docsRead: fakeDb.reads.docsRead })
 
+// The snapshots hold local-calendar dates: pin the zone they were written in.
+beforeAll(() => {
+  vi.stubEnv("TZ", "America/Los_Angeles")
+})
+afterAll(() => {
+  vi.unstubAllEnvs()
+})
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXTURE_NOW })
   fakeDb.load(homeWithTierLog())

@@ -65,6 +65,7 @@ export {
   getScheduleRulesByTemplate,
   createScheduleRule,
   generateTaskInstances,
+  plannedInstanceDue,
   type CreateScheduleRuleInput,
   type GenerateInstancesInput,
 } from "./services/scheduleService"

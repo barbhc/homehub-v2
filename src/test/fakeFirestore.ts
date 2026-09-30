@@ -22,10 +22,12 @@
 type Data = Record<string, unknown>
 
 export class Timestamp {
-  constructor(
-    readonly seconds: number,
-    readonly nanoseconds: number,
-  ) {}
+  readonly seconds: number
+  readonly nanoseconds: number
+  constructor(seconds: number, nanoseconds: number) {
+    this.seconds = seconds
+    this.nanoseconds = nanoseconds
+  }
   static fromMillis(ms: number): Timestamp {
     return new Timestamp(Math.floor(ms / 1000), (ms % 1000) * 1e6)
   }
@@ -78,11 +80,17 @@ export const fakeDb = {
   store,
   reads,
   writes,
+  /**
+   * Answer every query the way the SDK does offline on a cold cache: resolve
+   * EMPTY with `fromCache: true` instead of throwing (see src/lib/assertServed.ts).
+   */
+  offline: false,
   /** Replace the whole database with `docs` (full document path → data) and zero the counters. */
   load(docs: Record<string, Data>): void {
     store.clear()
     for (const [path, data] of Object.entries(docs)) store.set(path, copyData(data))
     fakeDb.resetCounters()
+    fakeDb.offline = false
     writes.length = 0
     autoId = 0
   },
@@ -268,7 +276,7 @@ export const fakeFirestoreModule = {
   serverTimestamp: () => SERVER_TIMESTAMP,
   async getDocs(ref: CollectionRef | Query) {
     const q: Query = ref.kind === "query" ? ref : { kind: "query", path: ref.path, constraints: [] }
-    const rows = runQuery(q)
+    const rows = fakeDb.offline ? [] : runQuery(q)
     reads.queries++
     reads.docsRead += Math.max(1, rows.length)
     reads.log.push(`query ${describeQuery(q)} → ${rows.length}`)
@@ -277,7 +285,7 @@ export const fakeFirestoreModule = {
       docs,
       size: docs.length,
       empty: docs.length === 0,
-      metadata: { fromCache: false, hasPendingWrites: false },
+      metadata: { fromCache: fakeDb.offline, hasPendingWrites: false },
       forEach: (fn: (d: (typeof docs)[number]) => void) => docs.forEach(fn),
     }
   },

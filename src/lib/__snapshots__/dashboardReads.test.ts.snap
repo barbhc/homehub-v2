@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`fields Home never renders > suggested + neverCompleted 1`] = `
+exports[`fields Home never renders > suggested + neverCompleted look back DONE_HISTORY_DAYS 1`] = `
 {
   "neverCompleted": {
     "i-coils": false,
@@ -8,7 +8,7 @@ exports[`fields Home never renders > suggested + neverCompleted 1`] = `
     "i-filter": false,
     "i-mixed": true,
     "i-nodue": true,
-    "i-smoke": false,
+    "i-smoke": true,
     "i-undone": true,
   },
   "suggested": [
