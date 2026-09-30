@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react"
+import type { CareNote } from "@/integrations/types"
+import { HouseNotesCard, RoomNotesLink } from "@/components/notes/ItemsNotes"
+import { roomNoteCounts } from "@/lib/notes"
 import { Link } from "react-router-dom"
 import {
   WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, type LucideIcon,
@@ -31,14 +34,19 @@ function Pill({ active, count, children, onClick }: { active: boolean; count?: n
 }
 
 export function DesktopItems({
-  items, rooms,
+  items, rooms, notes = null, notesError = null,
 }: {
   items: ItemUnit[]
   rooms: Array<{ room_id: string; name: string }>
+  /** Every note in the home — the house card and the room headings read it. */
+  notes?: CareNote[] | null
+  notesError?: string | null
 }) {
   const [sort, setSort] = useState<SortMode>("room")
   const [roomFilter, setRoomFilter] = useState<string | "all">("all")
   const roomName = useMemo(() => new Map(rooms.map((r) => [r.room_id, r.name])), [rooms])
+  const roomIdByName = useMemo(() => new Map(rooms.map((r) => [r.name, r.room_id])), [rooms])
+  const noteCounts = useMemo(() => roomNoteCounts(notes), [notes])
 
   const roomsWithItems = useMemo(() => {
     const ids = [...new Set(items.map((i) => i.room_id).filter(Boolean) as string[])]
@@ -61,6 +69,8 @@ export function DesktopItems({
         <div className="mt-1.5 text-[13px]" style={{ color: SUB }}>{items.length} items across {roomsWithItems.length} rooms</div>
       </div>
 
+      <div className="mb-4 max-w-md"><HouseNotesCard notes={notes} error={notesError} /></div>
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Pill active={roomFilter === "all"} count={items.length} onClick={() => setRoomFilter("all")}>All</Pill>
         {roomsWithItems.map((r) => <Pill key={r.id} active={roomFilter === r.id} count={r.count} onClick={() => setRoomFilter(r.id)}>{r.name}</Pill>)}
@@ -74,7 +84,14 @@ export function DesktopItems({
       <div className="flex flex-col gap-6">
         {groups.map((g) => (
           <div key={g.key ?? "all"}>
-            {g.key && <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>}
+            {g.key && (
+              <div className="mb-3 flex items-center gap-4">
+                <div className="text-[11px] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>
+                {sort === "room" && !notesError && notes !== null && roomIdByName.has(g.key) && (
+                  <RoomNotesLink roomId={roomIdByName.get(g.key)!} roomName={g.key} count={noteCounts.get(roomIdByName.get(g.key)!) ?? 0} />
+                )}
+              </div>
+            )}
             <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
               {g.items.map((it) => {
                 const Glyph = glyphFor(it)

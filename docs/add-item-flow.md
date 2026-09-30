@@ -167,6 +167,10 @@ page watches it.
   need*): the name, the facts as pills — **where the spare is kept** first, in
   teal — Buy as a button, everything else behind the pencil. One tap on the
   place edits just the place. — design/spares-and-notes.md (2026-09-27)
+- **Notes** sit between the Ask card and Details & records (in the rail on
+  desktop): free text started by ideas, never fields. The item's old single
+  notes text shows there as an ordinary note. — design/spares-and-notes.md
+  (2026-09-27)
 - Three states, not two: no manual · being read · **read, nothing saved yet**.
   A finished-but-uncommitted parse is stage "done" with a null `parsed_at`
   (`commitDraft` is the only writer of it), and the third state holds the space

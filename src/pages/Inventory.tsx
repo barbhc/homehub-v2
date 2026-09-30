@@ -15,6 +15,8 @@ import { useCurrentHome } from "@/modules/home"
 import { getRooms } from "@/modules/home"
 import { getItemUnits } from "@/modules/items"
 import { RefinedItems } from "@/components/home/RefinedItems"
+import { useNotes } from "@/components/notes/useNotes"
+import { getHomeNotes } from "@/modules/care"
 import { DesktopItems } from "@/components/home/DesktopItems"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
@@ -178,6 +180,8 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null) // null = All
+  // Notes load on their own: a failed notes read must never cost the item list.
+  const homeNotes = useNotes(home?.home_id ? `home-notes:${home.home_id}` : null, () => getHomeNotes(home!.home_id))
 
   useEffect(() => {
     if (!home?.home_id) return
@@ -294,11 +298,11 @@ export default function Inventory() {
         {/* Redesigned Items — list (mobile) · card grid (desktop) */}
         <div className="lg:hidden -mx-6">
           <div className="mx-auto w-full max-w-[460px]">
-            <RefinedItems items={items} rooms={rooms} />
+            <RefinedItems items={items} rooms={rooms} notes={homeNotes.notes} notesError={homeNotes.error} />
           </div>
         </div>
         <div className="hidden lg:block">
-          <DesktopItems items={items} rooms={rooms} />
+          <DesktopItems items={items} rooms={rooms} notes={homeNotes.notes} notesError={homeNotes.error} />
         </div>
         {/* Old grid kept (hidden) — replaced by RefinedItems/DesktopItems */}
         <div className="hidden">
