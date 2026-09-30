@@ -222,11 +222,11 @@ export function ParsePickupCard({
     // it cannot measure is the kind of small lie this product does not tell.
     //
     // PLACEMENT NOTE: design A drew this under the item name. It renders above
-    // the page instead, because ParsePickupCard is mounted once for BOTH the
-    // mobile and desktop trees (CSS hides one) — moving it into RefinedItemDetail
-    // would mount it twice, and two mounts means two review sheets, which is
-    // HH-120. Doing that properly means hoisting the parse watch out of this
-    // component; it is not a copy-and-polish change.
+    // the page instead because the page used to mount BOTH the mobile and
+    // desktop trees (CSS hid one), so a copy inside a tree would have mounted
+    // twice — two review sheets, which is HH-120. Since HH-159 the page renders
+    // ONE tree, so that reason is gone; moving it still means hoisting the parse
+    // watch out of this component, which is not a copy-and-polish change.
     return (
       <div className="mb-4">
         <div className="flex items-baseline justify-between gap-3">

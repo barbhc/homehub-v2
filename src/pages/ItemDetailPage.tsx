@@ -20,6 +20,7 @@ import {
   updateChunkSourcePages,
 } from "@/modules/knowledge"
 import { useManualManagement, resolveManualUrl } from "@/hooks/useManualManagement"
+import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { track } from "@/lib/analytics"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
@@ -90,7 +91,8 @@ export default function ItemDetailPage() {
   const [knowledgeChunkId, setKnowledgeChunkId] = useState<string | null>(null)
   // Resizable manual dock (design option 4): size is vw on desktop, vh on mobile.
   const [manualDockSize, setManualDockSize] = useState(42)
-  const [isDesktop, setIsDesktop] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches)
+  // HH-159: which ONE tree this page renders, and which way the dock opens.
+  const isDesktop = useIsDesktop()
   // Bump to force HistorySection to refetch. Nothing triggers it since the
   // legacy layout was removed; kept as the section's refreshKey input.
   const [historyKey] = useState(0)
@@ -258,14 +260,6 @@ export default function ItemDetailPage() {
     next.delete("manualPage")
     setSearchParams(next, { replace: true })
   }, [manualPdfUrl, searchParams, setSearchParams])
-
-  // Manual dock orientation: right panel on desktop, bottom panel on mobile.
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)")
-    const on = () => setIsDesktop(mq.matches)
-    mq.addEventListener("change", on)
-    return () => mq.removeEventListener("change", on)
-  }, [])
 
   /** Deleting is destructive and cascades to the item's tasks — every entry
    *  point opens the confirm sheet first; only the sheet calls the service. */
@@ -515,8 +509,32 @@ export default function ItemDetailPage() {
         />
       )}
 
-      {/* Redesigned item detail — RefinedItemDetail (mobile) · DesktopItemDetail (lg+) */}
-      <div className="lg:hidden -mx-4 sm:-mx-6">
+      {/* Redesigned item detail — RefinedItemDetail (phone) OR DesktopItemDetail
+          (lg+), never both. Both used to mount, with CSS hiding one; but each
+          renders its own ManualSection, whose dialog and review sheet are
+          portaled out from under the `display:none`, so one tap opened two of
+          each (HH-159; HH-120 back again). */}
+      {isDesktop ? (
+        <DesktopItemDetail
+          key={item.item_unit_id}
+          onTaskAdded={() => setReloadKey((k) => k + 1)}
+          item={item}
+          rooms={rooms}
+          homeId={home!.home_id}
+          tasks={tasks}
+          chunks={chunks}
+          manuals={manuals}
+          faqs={faqs}
+          historyKey={historyKey}
+          onBack={() => navigate("/inventory")}
+          onEdit={() => setEditOpen(true)}
+          onOpenManualPage={(page) => openManualPage(page)}
+          onItemUpdate={setItem}
+          manualSectionProps={manualSectionProps}
+          focusTaskId={focusTaskId}
+        />
+      ) : (
+      <div className="-mx-4 sm:-mx-6">
         <div className="mx-auto w-full max-w-[460px]">
           <RefinedItemDetail
             key={item.item_unit_id}
@@ -591,26 +609,7 @@ export default function ItemDetailPage() {
           />
         </div>
       </div>
-      <div className="hidden lg:block">
-        <DesktopItemDetail
-          key={item.item_unit_id}
-          onTaskAdded={() => setReloadKey((k) => k + 1)}
-          item={item}
-          rooms={rooms}
-          homeId={home!.home_id}
-          tasks={tasks}
-          chunks={chunks}
-          manuals={manuals}
-          faqs={faqs}
-          historyKey={historyKey}
-          onBack={() => navigate("/inventory")}
-          onEdit={() => setEditOpen(true)}
-          onOpenManualPage={(page) => openManualPage(page)}
-          onItemUpdate={setItem}
-          manualSectionProps={manualSectionProps}
-          focusTaskId={focusTaskId}
-        />
-      </div>
+      )}
 
       {home && (
         <RoomPickerDialog
