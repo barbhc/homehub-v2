@@ -10,7 +10,7 @@ export type ChatFilter = {
 export type ChatSource = {
   title: string
   item_name: string
-  source_type: "manual" | "web" | "ai"
+  source_type: "manual" | "web" | "ai" | "note"
   url?: string
 }
 
