@@ -219,18 +219,22 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await shot(page, label, "s1-item-reading")
 
       // The pill never covers the page's end (HH-118's actual complaint, now
-      // answered by clearance): scrolled all the way down, the last card —
-      // "Delete item", quiet and last — ends above the pill's top edge.
-      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-      await expect.poll(() => page.evaluate(() =>
-        Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1)).toBe(true)
-      const lastCard = page.getByRole("button", { name: "Delete item" })
-      await expect(lastCard).toBeInViewport()
-      const lastBox = (await lastCard.boundingBox())!
-      const pillBox = (await pill(page).boundingBox())!
-      expect(lastBox.y + lastBox.height, "the last card ends above the pill's top edge").toBeLessThanOrEqual(pillBox.y)
-      await shot(page, label, "s1-item-bottom-clearance")
-      await page.evaluate(() => window.scrollTo(0, 0))
+      // answered by clearance): on the phone, scrolled all the way down, the
+      // last card — "Delete item", quiet and last — ends above the pill's top
+      // edge. (Desktop puts the pill bottom-right, beside the columns, and
+      // tucks "Delete item" inside "Manuals & References".)
+      if (label === "390px") {
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+        await expect.poll(() => page.evaluate(() =>
+          Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1)).toBe(true)
+        const lastCard = page.getByRole("button", { name: "Delete item" })
+        await expect(lastCard).toBeInViewport()
+        const lastBox = (await lastCard.boundingBox())!
+        const pillBox = (await pill(page).boundingBox())!
+        expect(lastBox.y + lastBox.height, "the last card ends above the pill's top edge").toBeLessThanOrEqual(pillBox.y)
+        await shot(page, label, "s1-item-bottom-clearance")
+        await page.evaluate(() => window.scrollTo(0, 0))
+      }
 
       // ── S6: the same read, from Home ─────────────────────────────────────
       await page.goto("/home")
@@ -327,15 +331,14 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       const toSettings = dialog.getByRole("link", { name: "Turn on in Settings" })
       await expect(toSettings).toBeVisible()
       await shot(page, label, "s5-review-row-opened")
-      // …and Settings' Notifications section names where the switch is. This
-      // is a browser, so it names the browser's settings; the iPhone app's
-      // sentence is pinned in notifyGate.test.ts.
+      // …and it goes to Settings' Notifications section. What that section
+      // says on a refused device — "Open iPhone Settings → Homehub →
+      // Notifications." — is pinned in NotificationsRefusedNote.test.tsx: this
+      // e2e build carries no web-push key, so its Settings has no
+      // Notifications section to render it in.
       await toSettings.click()
       await expect(page).toHaveURL(/\/settings#notifications$/)
-      await expect(page.getByTestId("notifications-refused")).toHaveText(
-        "Notifications are off for Homehub in this browser. Turn them on in the browser’s site settings.")
-      await page.getByTestId("notifications-refused").scrollIntoViewIfNeeded()
-      await shot(page, label, "s5-settings-refused")
+      await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible()
     })
 
     test("S3 → S3b → S3c: no maintenance — the same hand-off, one screen, nothing into Tasks, saved only on Save", async ({ page }) => {
