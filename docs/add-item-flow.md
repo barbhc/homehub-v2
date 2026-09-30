@@ -164,11 +164,19 @@ page watches it.
   the read above "‹ Items"; that copy is gone (see the item page, below), and
   HH-118's actual complaint — the pill covering content — is answered by the
   clearance, not by hiding the pill. — HH-161, mock 2026-09-30
-- **"Reading", everywhere a read is shown** — "Reading the manual", "1 reading",
-  "We read the ‹item› manual", "Read the manual", "Read again". Never "parse",
-  never "scanning" for the read (a camera still *scans the label*).
+- **"Reading" is the word for a manual's read** — "Reading the manual", "1
+  reading", "We read the ‹item› manual", "Read the manual", "Read again" — on
+  the surfaces the mock draws: the item page (Upkeep, the manual's menu, the
+  hand-off), the pill and its tray, and the review. Never "parse".
   `lib/scanCopy.ts`'s rule said the opposite ("never read") and is retired with
-  it. — HH-161, mock 2026-09-30
+  it. A camera reading a label is still a *scan*. — HH-161, mock 2026-09-30
+  - **Still saying "scan" for the read** — none of them in the mock, each to
+    convert rather than copy: the add dialog's "Scan the manual" and its
+    capacity notice (until the add flow's next redesign); Settings' manual
+    list ("Scanning…", "Scanned ‹date›", "Not scanned", "Rescan", "Rescan
+    All"); Home's first-run "Scan manuals"; the FAQ's empty state; the item
+    history's "manual scan"; and the worker's error sentences
+    (`shared/parse/parseErrors`, verbatim from v1 until v1 is archived).
 - The item page **watches the scan and never starts one** on arrival. It used
   to re-enqueue any unread manual under ten minutes old — the wizard's own,
   already enqueued — so every add with a manual was charged twice, and again
@@ -333,12 +341,14 @@ setup."*
   and on the item page's rows):
   - never on item cleaning, whatever its tier or switch — the push sweep skips
     what the agenda skips (`notifiesPhone`), on the review and the item page;
-  - with notifications refused on this phone, no bell anywhere: the row that
-    would ring keeps its cadence chip and says "Reminders off — turn on in
-    Settings" (the app's own Notifications section, `/settings#notifications`
-    — the app has no native hook that opens the phone's Settings page), and
-    the summary says "None will notify you. Notifications are off on this
-    phone.";
+  - with notifications refused on this phone, no bell anywhere. On the
+    review, the row that would ring keeps its cadence chip and says
+    "Reminders off — turn on in Settings", and the summary says "None will
+    notify you. Notifications are off on this phone."; on the item page the
+    row simply carries no bell. The link goes to the app's own Notifications
+    section (`/settings#notifications`), not the phone's Settings page as the
+    mock draws it: the app has no native hook that opens that page, and
+    Settings does not yet scroll to the section on arrival;
   - the owner's choice is kept, so the bell returns with permission, without
     another review. — HH-161, mock 2026-09-30 (S5)
 - It never claims rows are saved while the button underneath is what saves

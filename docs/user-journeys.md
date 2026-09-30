@@ -127,8 +127,10 @@ Key mechanics (the agreement is `docs/add-item-flow.md`; fuller data trace in
   category label, with the room appended only when that name is taken. Known
   gap: an appliance-lane add still starts as "Brand Model" (Package E3).
 - **Vocabulary:** the app READS a manual — "Reading the manual", "1 reading",
-  "Read again". Never "parse" (jargon); "scan" is for the camera's label read
-  (HH-161 retired the old "never read" rule).
+  "Read again". Never "parse" (jargon). HH-161 retired the old "never read"
+  rule; the add dialog's "Scan the manual", Settings' manual list and a few
+  other lines still say "scan" for the read until they are converted
+  (`docs/add-item-flow.md` lists them). A camera still scans a label.
 - **Doc-type honesty:** `detectDocType` gates spec sheets/warranties (*Use
   anyway / Replace*); `modelMismatch` warns on wrong variants — warn, never block.
 - **Parse pipeline:** `enqueueParse` (membership + quota: 10 units, in-flight

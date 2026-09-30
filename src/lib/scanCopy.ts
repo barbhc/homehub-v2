@@ -34,10 +34,12 @@ export const SCAN_KEEPS_GOING_SHORT = "You can close the app — these keep goin
  * (which was thought to suggest opening the document for the user to read).
  * The two words had drifted apart on screen — the pill said "1 scanning" a
  * card away from "Reading the manual" and "We finished reading" — and the
- * approved one-indicator mock (2026-09-30) settled on "Reading" everywhere a
- * manual's read is shown. What a CAMERA does is still a scan ("Scan the
- * label"), and the add dialog's button keeps "Scan the manual" until the add
- * flow is redesigned. The constants' SCAN_ names are identifiers, not copy.
+ * approved one-indicator mock (2026-09-30) settled on "Reading" for the
+ * surfaces it draws. What a CAMERA does is still a scan ("Scan the label").
+ * Some lines still say "scan" for the read — the add dialog's "Scan the
+ * manual", Settings' manual list, Home's first-run hero and others, listed in
+ * docs/add-item-flow.md — convert them, don't copy them. The constants' SCAN_
+ * names are identifiers, not copy.
  *
  * Round 11 swept for the banned words and missed `${n} manual${s} parsing`
  * because the sweep matched double-quoted strings and that one is a template
