@@ -16,7 +16,7 @@ vi.mock("firebase/firestore", async () => (await import("@/test/fakeFirestore"))
 vi.mock("@/integrations/firebase", () => ({ db: {}, auth: { currentUser: null }, callable: vi.fn(() => vi.fn()) }))
 
 const { fakeDb, Timestamp } = await import("@/test/fakeFirestore")
-const { getTaskInstances, getCompletionHistory, getTierChangeHistory } = await import("./taskService")
+const { getTaskInstances, getTaskInstancesForItem, getCompletionHistory, getTierChangeHistory } = await import("./taskService")
 const { HOME_ID, FIXTURE_NOW, homeWithHistory } = await import("@/lib/dashboardReads.fixture")
 
 const at = (iso: string) => Timestamp.fromDate(new Date(iso))
@@ -65,12 +65,31 @@ afterEach(() => {
 describe("CareBlock's two calls — one item's open and done rows", () => {
   it("open rows", async () => {
     expect(await getTaskInstances(HOME_ID, { item_unit_id: "item-fridge", status: ["scheduled", "snoozed"] })).toMatchSnapshot()
-    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 1, gets: 0, docsRead: 33 })
+    // Was 33: the whole home's instances, to keep this item's three.
+    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 1, gets: 0, docsRead: 3 })
+    expect(fakeDb.reads.log).toEqual([
+      'query homes/h1/taskInstances [itemUnitId == "item-fridge", status in ["scheduled","snoozed"]] → 3',
+    ])
   })
 
   it("done rows", async () => {
     expect(await getTaskInstances(HOME_ID, { item_unit_id: "item-fridge", status: ["done"] })).toMatchSnapshot()
-    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 1, gets: 0, docsRead: 33 })
+    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 1, gets: 0, docsRead: 4 })
+  })
+
+  it("getTaskInstancesForItem is the same read, by name", async () => {
+    const open = await getTaskInstances(HOME_ID, { item_unit_id: "item-fridge", status: ["scheduled", "snoozed"] })
+    const done = await getTaskInstances(HOME_ID, { item_unit_id: "item-fridge", status: ["done"] })
+    const all = await getTaskInstances(HOME_ID, { item_unit_id: "item-fridge" })
+    fakeDb.resetCounters()
+    expect(await getTaskInstancesForItem(HOME_ID, "item-fridge", { status: ["scheduled", "snoozed"] })).toEqual(open)
+    expect(await getTaskInstancesForItem(HOME_ID, "item-fridge", { status: ["done"] })).toEqual(done)
+    expect(await getTaskInstancesForItem(HOME_ID, "item-fridge")).toEqual(all)
+    expect(fakeDb.reads.log).toEqual([
+      'query homes/h1/taskInstances [itemUnitId == "item-fridge", status in ["scheduled","snoozed"]] → 3',
+      'query homes/h1/taskInstances [itemUnitId == "item-fridge", status in ["done"]] → 4',
+      'query homes/h1/taskInstances [itemUnitId == "item-fridge"] → 8',
+    ])
   })
 
   it("an item with nothing on it", async () => {
@@ -101,7 +120,8 @@ describe("the whole-home callers keep their answers", () => {
 describe("the Activity timeline", () => {
   it("completion history for one item", async () => {
     expect(await getCompletionHistory(HOME_ID, "item-fridge", 20)).toMatchSnapshot()
-    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 1, gets: 0, docsRead: 14 })
+    // Was 14: every done row in the home.
+    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 1, gets: 0, docsRead: 4 })
   })
 
   it("completion history honours the limit", async () => {
@@ -110,7 +130,39 @@ describe("the Activity timeline", () => {
 
   it("tier changes for one item, newest first", async () => {
     expect(await getTierChangeHistory(HOME_ID, "item-furnace", 20)).toMatchSnapshot()
-    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 1, gets: 9, docsRead: 19 })
+    // Was 1 query + 9 gets = 19: every log entry, then one getDoc per entry.
+    expect(reads(), fakeDb.reads.log.join("\n")).toEqual({ queries: 2, gets: 0, docsRead: 8 })
+    expect(fakeDb.reads.log).toEqual([
+      'query homes/h1/taskTemplates [itemUnitId == "item-furnace"] → 2',
+      'query homes/h1/tierChangeLog [taskTemplateId in ["tpl-filter","tpl-hvac-service"]] → 6',
+    ])
+  })
+
+  it("tier changes for an item with more than 30 templates: 30 ids per query, one list", async () => {
+    const extra: Record<string, Record<string, unknown>> = {}
+    for (let i = 0; i < 35; i++) {
+      const tpl = `tpl-many-${String(i).padStart(2, "0")}`
+      extra[`homes/${HOME_ID}/taskTemplates/${tpl}`] = { itemUnitId: "item-many", title: `Task ${i}`, deletedAt: null }
+      if (i % 2 === 0) {
+        extra[`homes/${HOME_ID}/tierChangeLog/many-${String(i).padStart(2, "0")}`] = {
+          taskTemplateId: tpl, oldTier: "optional", newTier: "recommended", source: "manual",
+          createdAt: at(`2026-06-${String(1 + (i % 20)).padStart(2, "0")}T10:00:00Z`),
+        }
+      }
+    }
+    fakeDb.load({ ...homeWithTierLog(), ...extra })
+
+    const res = await getTierChangeHistory(HOME_ID, "item-many", 50)
+    expect(fakeDb.reads.log.map((l) => l.replace(/\[.*\]/, "[…]"))).toEqual([
+      "query homes/h1/taskTemplates […] → 35",
+      "query homes/h1/tierChangeLog […] → 15", // tpl-many-00 … -29
+      "query homes/h1/tierChangeLog […] → 3", // tpl-many-30 … -34
+    ])
+    expect(res.data).toHaveLength(18)
+    const when = res.data!.map((e) => e.changedAt)
+    expect(when).toEqual([...when].sort().reverse())
+    expect(res.data![0]).toMatchObject({ id: "many-18", taskTemplateId: "tpl-many-18", taskTitle: "Task 18" })
+    expect((await getTierChangeHistory(HOME_ID, "item-many", 5)).data).toHaveLength(5)
   })
 
   it("tier changes honour the limit", async () => {

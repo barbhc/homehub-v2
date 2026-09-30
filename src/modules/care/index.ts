@@ -26,6 +26,7 @@ export {
   type TaskTemplateWithSchedule,
   type TaskSupplyEmbed,
   getTaskInstances,
+  getTaskInstancesForItem,
   getTaskDetail,
   type TaskDetail,
   updateTaskInstance,

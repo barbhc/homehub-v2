@@ -741,6 +741,23 @@ export type TaskInstanceWithDetails = TaskInstance & {
 }
 
 /**
+ * One item's task instances, with details — the item page's task rows.
+ * Reads only that item's documents (`where itemUnitId ==`), and only the
+ * statuses asked for; same shape and order as getTaskInstances.
+ *
+ * The item page used to ask getTaskInstances for its rows, which read the
+ * home's ENTIRE taskInstances collection to keep one item's — twice per
+ * CareBlock, with CareBlock mounted in both trees (audit 2026-09-29, B).
+ */
+export function getTaskInstancesForItem(
+  homeId: string,
+  itemUnitId: string,
+  opts: { status?: TaskInstanceStatus[] } = {},
+): Promise<ServiceResult<TaskInstanceWithDetails[]>> {
+  return getTaskInstances(homeId, { item_unit_id: itemUnitId, status: opts.status })
+}
+
+/**
  * Fetches task_instances for a home with details (template, item, room). Includes optional filters.
  */
 export async function getTaskInstances(
@@ -757,7 +774,16 @@ export async function getTaskInstances(
     // Single denormalized read — the instance carries title/careType/priorityTier
     // /itemName/roomName (firestore-model.md §5), so the v1 template+item+room
     // joins are already inlined. No caller filters by room_id.
-    const snap = await getDocs(collection(db, `homes/${homeId}/taskInstances`))
+    //
+    // The item and status filters go to the server, so an item's rows read that
+    // item's documents rather than the whole home's (equality + `in`: single-
+    // field indexes, no composite). The client-side filters below still run.
+    const instancesCol = collection(db, `homes/${homeId}/taskInstances`)
+    const narrowing = [
+      ...(filters?.item_unit_id ? [where("itemUnitId", "==", filters.item_unit_id)] : []),
+      ...(filters?.status && filters.status.length > 0 ? [where("status", "in", filters.status)] : []),
+    ]
+    const snap = await getDocs(narrowing.length > 0 ? query(instancesCol, ...narrowing) : instancesCol)
     let instances: TaskInstanceWithDetails[] = snap.docs
       .filter((d) => d.data().deletedAt == null)
       .map((d) => {
@@ -1117,6 +1143,9 @@ export interface TierChangeHistoryEntry {
   changedAt: string
 }
 
+/** Firestore's `in` takes at most 30 values per query. */
+const IN_QUERY_MAX = 30
+
 /**
  * Fetches tier change log entries for tasks belonging to a specific item.
  * Joins through task_template to scope by item_unit_id and pick up the title.
@@ -1127,32 +1156,43 @@ export async function getTierChangeHistory(
   limit?: number
 ): Promise<ServiceResult<TierChangeHistoryEntry[]>> {
   try {
-    // tierChangeLog docs (homes/{homeId}/tierChangeLog) carry the template ref;
-    // resolve title + item scope from the template to filter to this item.
-    const snap = await getDocs(collection(db, `homes/${homeId}/tierChangeLog`))
-    const logs = snap.docs
-      .map((d) => ({ id: d.id, data: d.data() }))
-      .sort((a, b) => (tiIso(b.data.createdAt) ?? "").localeCompare(tiIso(a.data.createdAt) ?? ""))
+    // tierChangeLog docs (homes/{homeId}/tierChangeLog) carry the template ref.
+    // The item's templates come first, in one query — that is the join — and
+    // then only THEIR log entries, 30 template ids per `in` query, in parallel.
+    // Was: every log entry in the home, then one getDoc per entry to learn
+    // which item its template belonged to.
+    const tplSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskTemplates`), where("itemUnitId", "==", itemUnitId))
+    )
+    const titleByTemplate = new Map(tplSnap.docs.map((d) => [d.id, (d.data().title as string | undefined) ?? ""]))
+    const ids = [...titleByTemplate.keys()]
+    const batches: string[][] = []
+    for (let i = 0; i < ids.length; i += IN_QUERY_MAX) batches.push(ids.slice(i, i + IN_QUERY_MAX))
+    const logSnaps = await Promise.all(
+      batches.map((batch) =>
+        getDocs(query(collection(db, `homes/${homeId}/tierChangeLog`), where("taskTemplateId", "in", batch)))
+      )
+    )
 
-    const entries: TierChangeHistoryEntry[] = []
-    for (const { id, data: row } of logs) {
-      const tplId: string = row.taskTemplateId ?? ""
-      if (!tplId) continue
-      const tplSnap = await getDoc(doc(db, `homes/${homeId}/taskTemplates/${tplId}`))
-      if (!tplSnap.exists()) continue
-      const tpl = tplSnap.data()
-      if ((tpl.itemUnitId ?? null) !== itemUnitId) continue
-      entries.push({
+    const entries: TierChangeHistoryEntry[] = logSnaps
+      .flatMap((s) => s.docs.map((d) => ({ id: d.id, data: d.data() })))
+      // Newest first; the same instant keeps document-id order, as the single
+      // whole-collection read returned them.
+      .sort(
+        (a, b) =>
+          (tiIso(b.data.createdAt) ?? "").localeCompare(tiIso(a.data.createdAt) ?? "") ||
+          (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+      )
+      .slice(0, limit ?? 20)
+      .map(({ id, data: row }) => ({
         id,
-        taskTemplateId: tplId,
-        taskTitle: tpl.title ?? "",
+        taskTemplateId: row.taskTemplateId as string,
+        taskTitle: titleByTemplate.get(row.taskTemplateId as string) ?? "",
         oldTier: row.oldTier as PriorityTier,
         newTier: row.newTier as PriorityTier,
         source: row.source ?? "manual",
         changedAt: tiIso(row.createdAt) ?? "",
-      })
-      if (entries.length >= (limit ?? 20)) break
-    }
+      }))
     return { data: entries, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load tier history" } }
@@ -1170,10 +1210,15 @@ export async function getCompletionHistory(
 ): Promise<ServiceResult<CompletionHistoryEntry[]>> {
   try {
     // Done instances carry denorm title/priorityTier + itemUnitId — no template
-    // join needed. Equality on status only (avoids a composite index); the item
-    // scope + ordering are applied client-side.
+    // join needed. This item's done rows only: two equality filters, so
+    // single-field indexes, no composite (it used to read every done row in the
+    // home and keep this item's). Ordering is applied client-side.
     const snap = await getDocs(
-      query(collection(db, `homes/${homeId}/taskInstances`), where("status", "==", "done"))
+      query(
+        collection(db, `homes/${homeId}/taskInstances`),
+        where("itemUnitId", "==", itemUnitId),
+        where("status", "==", "done")
+      )
     )
     const entries: CompletionHistoryEntry[] = snap.docs
       .filter((d) => {
