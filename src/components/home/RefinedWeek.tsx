@@ -374,6 +374,13 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
+      {/* A refresh failed behind an agenda we still hold: keep it, and say so
+          quietly at the top of the screen — where Home and Items say it. */}
+      {agenda.error && agenda.data && (
+        <div className="pb-4" style={{ paddingInline: PAD }}>
+          <StaleDataNote onRetry={() => void agenda.refresh()} />
+        </div>
+      )}
       {/* Header */}
       <div className="pt-2" style={{ paddingInline: PAD }}>
         <h1 className="text-[28px] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Tasks</h1>
@@ -399,8 +406,6 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
             {actionError}
           </div>
         )}
-        {/* A refresh failed behind an agenda we still hold: keep it, say so quietly. */}
-        {agenda.error && agenda.data && <StaleDataNote className="mt-3" onRetry={() => void agenda.refresh()} />}
       </div>
 
       {/* "Start here" insight banner — dismissible */}
@@ -515,7 +520,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                       : <span className="size-[7px] shrink-0" />}
                     <span className="flex-1 text-[13.5px] font-bold" style={{ color: INK }}>{o.label}</span>
                     {/* The count is the point: it says what you'd get, before you pick. */}
-                    <span className="font-mono text-[11px]" style={{ color: SUB }}>{tierCounts[o.value]}</span>
+                    {/* Only once the agenda is read: "0" about tasks we couldn't load is a claim. */}
+                    {loadState === "content" && <span className="font-mono text-[11px]" style={{ color: SUB }}>{tierCounts[o.value]}</span>}
                     {tier === o.value && <CheckIcon className="size-4" style={{ color: TEAL }} />}
                   </button>
                 ))}

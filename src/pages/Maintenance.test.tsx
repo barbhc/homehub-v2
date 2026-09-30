@@ -106,6 +106,8 @@ describe("Tasks page — both trees, one fetch", () => {
     expect(await screen.findAllByText("Couldn't load your tasks")).toHaveLength(2)
     expect(screen.getAllByText("Couldn't reach the server to load your tasks.")).toHaveLength(2)
     expect(screen.queryByText(/Nothing due/)).toBeNull()
+    // Nor "0" on the priority pills: a count of tasks we couldn't read is a claim.
+    expect(screen.queryAllByText("0", { exact: true })).toHaveLength(0)
     expect(svc.getWeekAgenda).toHaveBeenCalledTimes(1)
 
     // Try again (either tree) refetches the shared agenda; both recover.

@@ -267,6 +267,9 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
 
   return (
     <div style={{ maxWidth: 1140, margin: "0 auto", padding: "30px 0 48px" }}>
+      {/* A refresh failed behind an agenda we still hold: keep it, and say so
+          quietly at the top of the screen — where Home and Items say it. */}
+      {agenda.error && agenda.data && <StaleDataNote className="mb-5" onRetry={() => void agenda.refresh()} />}
       {/* Header */}
       <div className="mb-[22px] flex items-end justify-between gap-4">
         <div className="min-w-0">
@@ -290,9 +293,6 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
           <SparklesIcon className="size-[17px]" style={{ color: TEAL }} /> Ask Homehub
         </button>
       </div>
-
-      {/* A refresh failed behind an agenda we still hold: keep it, say so quietly. */}
-      {agenda.error && agenda.data && <StaleDataNote className="mb-6" onRetry={() => void agenda.refresh()} />}
 
       {/* "Start here" insight banner — dismissible */}
       {!loading && !dismissed && insight && total > 0 && (
@@ -347,7 +347,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
               color={o.dot ?? TEAL}
               dot={!!o.dot}
               onClick={() => setTier(o.value)}
-              count={tierCounts[o.value]}
+              // Only once the agenda is read: "0" about tasks we couldn't load is a claim.
+              count={loadState === "content" ? tierCounts[o.value] : undefined}
             >
               {o.label}
             </TierPill>
