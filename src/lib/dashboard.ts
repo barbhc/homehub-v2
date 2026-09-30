@@ -1,6 +1,9 @@
 /**
  * Dashboard data layer: tasks for "What needs my attention right now?"
  * CHO Data Model v1.1: uses task_instance, task_template, item_unit, room
+ *
+ * Home's derivations (derive*) take the collections one Home load already read
+ * (src/lib/homeReads.ts) instead of each reading its own — see useDashboard.
  */
 
 import { collection, getDocs, query, where, Timestamp } from "firebase/firestore"
@@ -12,8 +15,11 @@ import {
   type DueKind, type WindowState,
 } from "@/lib/dueWindow"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
-// An offline cache-miss is a failure, never an empty home — see the helper.
-import { assertServed } from "@/lib/assertServed"
+import type { HomeReads, ReadDoc } from "@/lib/homeReads"
+
+type Row = { id: string } & Record<string, unknown>
+/** `{ id, ...data }` — the row shape these derivations were written against. */
+const asRows = (docs: ReadDoc[]): Row[] => docs.map((d) => ({ id: d.id, ...d.data }) as Row)
 
 /** Due-soon window: tasks due within this many days count as "urgent". */
 export const DUE_SOON_DAYS = 7
@@ -79,10 +85,11 @@ export interface DashboardTask {
   /** Only a real deadline, actually past, still earns red. */
   trulyOverdue: boolean
   /**
-   * True when this task's template has never been completed. A past-due,
-   * never-completed cadence was never actually started, so it's "start
-   * anytime", not a lapse — callers use this to avoid an alarming/untrue
-   * "N days overdue" label on brand-new work.
+   * True when this task's template has no completion in the last
+   * DONE_HISTORY_DAYS (src/lib/homeReads.ts — Home reads no further back). A
+   * past-due, never-completed cadence was never actually started, so it's
+   * "start anytime", not a lapse. Not rendered anywhere today: the task view's
+   * "Start anytime" comes from getTaskDetail, which asks the whole history.
    */
   neverCompleted: boolean
   urgencyLevel: "critical" | "overdue" | "due_today" | "due_soon" | "upcoming"
@@ -164,10 +171,8 @@ const SEASONAL_SUGGESTIONS: SeasonalSuggestion[] = [
   { months: [0], match: null, text: "Review appliance warranties and book any overdue service." },
 ]
 
-export async function getInsights(
-  homeId: string,
-  _expiringWarranties: ExpiringWarrantyItem[]
-): Promise<InsightCard[]> {
+/** This month's seasonal tips, from the items the Home load already read. */
+export function deriveInsights(reads: Pick<HomeReads, "items">): InsightCard[] {
   const cards: InsightCard[] = []
 
   // Warranty alerts now render in their own dedicated WarrantyAlertsCard —
@@ -178,17 +183,12 @@ export async function getInsights(
   const monthSuggestions = SEASONAL_SUGGESTIONS.filter((s) => s.months.includes(month))
   if (monthSuggestions.length === 0) return cards
 
-  // Only fetch inventory if at least one suggestion is appliance-specific.
   // Appliance tips must match a real owned item; universal tips always pass.
   let ownedText: string[] = []
   if (monthSuggestions.some((s) => s.match !== null)) {
     // v1 matched on sub_type + display_name; v2 items carry `category`
     // (e.g. "furnace", "water_heater") + `displayName`, which the regexes hit.
-    const snap = await getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null)))
-    ownedText = snap.docs.map((d) => {
-      const x = d.data()
-      return `${x.category ?? ""} ${x.displayName ?? ""}`
-    })
+    ownedText = reads.items.map(({ data: x }) => `${x.category ?? ""} ${x.displayName ?? ""}`)
   }
 
   const matched = monthSuggestions.filter(
@@ -216,6 +216,7 @@ export interface DashboardTasksResult {
   isMock: boolean
   /** @deprecated Use overdue + dueSoon. Kept for backward compat. */
   needsAttention: DashboardTask[]
+  /** Stalest first, by completions in the last DONE_HISTORY_DAYS (older ones rank as never done). Not rendered anywhere today. */
   suggested: DashboardTask[]
 }
 
@@ -350,24 +351,21 @@ function computeConcernBoost(
   return boost
 }
 
-export async function getDashboardTasks(
-  propertyId: string,
+export function deriveDashboardTasks(
+  reads: Pick<HomeReads, "live" | "recentDone">,
   /**
    * User's top_concerns from home_profile.  When provided, the "suggested"
    * list is reordered so concern-matched tasks (e.g. safety tasks for a
    * surprise_repairs user) float to the top.
    */
   topConcerns: TopConcernKey[] = [],
-): Promise<DashboardTasksResult> {
+): DashboardTasksResult {
   const todayStr = today()
 
-  // One taskInstances read; scheduled rows + completion history derived client-
-  // side from the denormalized fields (§5). risk_level isn't denormed (only used
+  // The open instances the Home load read; scheduled rows derived client-side
+  // from the denormalized fields (§5). risk_level isn't denormed (only used
   // for a suggested-ordering boost) → null is a safe degrade.
-  const snap = await getDocs(query(collection(db, `homes/${propertyId}/taskInstances`), where("deletedAt", "==", null)))
-  const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
-
-  const rows: TaskInstanceRow[] = docs
+  const rows: TaskInstanceRow[] = asRows(reads.live)
     .filter((r) => r.status === "scheduled")
     .sort(
       (a, b) =>
@@ -392,11 +390,12 @@ export async function getDashboardTasks(
     }))
 
   // Completion history per template — drives the "never started" calm framing +
-  // the staleness ranking for the suggested list.
+  // the staleness ranking for the suggested list. The last DONE_HISTORY_DAYS of
+  // it (homeReads.ts); soft-deleted completions never counted here.
   const lastByTemplate = new Map<string, string>()
   const completedTemplateIds = new Set<string>()
-  const done = docs
-    .filter((r) => r.status === "done" && r.completedAt instanceof Timestamp)
+  const done = asRows(reads.recentDone)
+    .filter((r) => r.deletedAt === null && r.status === "done" && r.completedAt instanceof Timestamp)
     .map((r) => ({ tpl: r.taskTemplateId as string, at: (r.completedAt as Timestamp).toDate().toISOString() }))
     .sort((a, b) => b.at.localeCompare(a.at))
   for (const row of done) {
@@ -467,41 +466,27 @@ export async function getDashboardTasks(
   }
 }
 
-export async function fetchDashboardTasks(
-  propertyId: string | null,
-  topConcerns: TopConcernKey[] = [],
-): Promise<DashboardTasksResult | null> {
-  if (!propertyId) return null
-  return getDashboardTasks(propertyId, topConcerns)
-}
-
-export async function getDashboardStats(propertyId: string): Promise<DashboardStats> {
+export function deriveDashboardStats(reads: HomeReads): DashboardStats {
   const todayStr = today()
   const dueSoonEnd = addDays(todayStr, DUE_SOON_DAYS)
   const monthStart = todayStr.slice(0, 7) + "-01"
 
-  // Firestore: item count (client-filter status) + one taskInstances read; the
-  // denormalized careType/priorityTier on each instance replace the template join.
-  const [itemsSnap, instSnap] = await Promise.all([
-    getDocs(query(collection(db, `homes/${propertyId}/items`), where("deletedAt", "==", null))),
-    getDocs(query(collection(db, `homes/${propertyId}/taskInstances`), where("deletedAt", "==", null))),
-  ])
-  assertServed(itemsSnap, "home")
-
-  const totalItems = itemsSnap.docs.filter((d) => d.get("status") === "active").length
+  // Item count (client-filter status) + the open instances; the denormalized
+  // careType/priorityTier on each instance replace the template join.
+  const totalItems = reads.items.filter((d) => d.data.status === "active").length
 
   let overdueTaskCount = 0
   let dueSoonCount = 0
   let completedThisMonth = 0
   let scheduledTaskCount = 0
   let nextUp: { dueDate: string; windowStart: string } | null = null
-  for (const doc of instSnap.docs) {
-    const r = doc.data() as Record<string, unknown>
-    if (r.status === "done") {
-      const c = r.completedAt instanceof Timestamp ? r.completedAt.toDate().toISOString().slice(0, 10) : null
-      if (c && c >= monthStart) completedThisMonth++
-      continue
-    }
+  // The 1st of the month is always inside the done-history window.
+  for (const { data: r } of reads.recentDone) {
+    if (r.deletedAt !== null || r.status !== "done") continue
+    const c = r.completedAt instanceof Timestamp ? r.completedAt.toDate().toISOString().slice(0, 10) : null
+    if (c && c >= monthStart) completedThisMonth++
+  }
+  for (const { data: r } of reads.live) {
     if (r.status !== "scheduled") continue
     // Counted BEFORE the cleaning filter and before any date test: an item
     // whose only upkeep is cleaning still has upkeep, and telling that user
@@ -606,7 +591,7 @@ function toMaintenanceTaskFull(
   }
 }
 
-export async function getUpcomingTasks(propertyId: string): Promise<MaintenanceTaskFull[]> {
+export function deriveUpcomingTasks(reads: Pick<HomeReads, "live">): MaintenanceTaskFull[] {
   const todayStr = today()
   // 45, not 30 — a fencepost that hid every fresh monthly task. commitDraft
   // seeds first-due ONE CALENDAR MONTH out (#58), which is 31 days in seven
@@ -617,9 +602,7 @@ export async function getUpcomingTasks(propertyId: string): Promise<MaintenanceT
   // rows regardless, so the widening costs nothing visually.
   const in30Days = addDays(todayStr, 45)
 
-  const snap = await getDocs(query(collection(db, `homes/${propertyId}/taskInstances`), where("deletedAt", "==", null)))
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
+  return asRows(reads.live)
     .filter((r) => r.status === "scheduled" && (r.dueDate as string) >= todayStr && (r.dueDate as string) <= in30Days)
     // Home is a MAINTENANCE agenda — item-scoped cleaning lives on the Cleaning
     // page + the item's own Cleaning group. weekAgenda already did this; this
@@ -727,13 +710,11 @@ export type ExpiringWarrantyItem = {
 /** Upcoming window (days) for warranty expiration alerts shown on the dashboard. */
 export const WARRANTY_UPCOMING_DAYS = 90
 
-export async function getExpiringWarranties(homeId: string): Promise<ExpiringWarrantyItem[]> {
+export function deriveExpiringWarranties(reads: Pick<HomeReads, "items">): ExpiringWarrantyItem[] {
   const todayStr = today()
   const cutoffEnd = addDays(todayStr, WARRANTY_UPCOMING_DAYS)
 
-  const snap = await getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null)))
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
+  return asRows(reads.items)
     .filter((r) => typeof r.warrantyExpiryDate === "string" && r.warrantyExpiryDate >= todayStr && r.warrantyExpiryDate <= cutoffEnd)
     .sort((a, b) => (a.warrantyExpiryDate as string).localeCompare(b.warrantyExpiryDate as string))
     .map((r) => {
@@ -769,9 +750,8 @@ export interface HomeNotices {
   missingDetails: ItemMissingDetails[]
 }
 
-export async function getHomeNotices(homeId: string): Promise<HomeNotices> {
-  const snap = await getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null)))
-  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
+export function deriveHomeNotices(reads: Pick<HomeReads, "items">): HomeNotices {
+  const rows = asRows(reads.items)
 
   const recalls: RecallNotice[] = rows
     .filter((r) => r.recallStatus === "found")

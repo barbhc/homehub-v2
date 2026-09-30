@@ -49,8 +49,15 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
   // render between user resolving and this load effect re-running) and wrongly
   // redirect to "/" (which then bounces to /home).
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
+  // Each load's number. A load that lands after a newer one started — or after
+  // the user changed, or the provider unmounted — applies nothing: its answer
+  // is for a request nobody is waiting on (audit 2026-09-29, E §9 — a late
+  // response painting the wrong home).
+  const loadSeq = useRef(0)
 
   const load = useCallback(async (selectHomeId?: string) => {
+    const seq = ++loadSeq.current
+    const superseded = () => seq !== loadSeq.current
     if (!user) {
       console.debug("[HomeProvider] No user, clearing home")
       setHome(null)
@@ -78,6 +85,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     try {
       console.debug("[HomeProvider] Loading homes for user", user.id)
       let result = await getMyHomes()
+      if (superseded()) return
       // A home created milliseconds ago can lag the members collection-group
       // query. When the caller NAMES the home it just made, poll briefly for
       // it instead of concluding it doesn't exist — that conclusion left
@@ -87,7 +95,9 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
         const found = !result.error && (result.data?.homes ?? []).some((h) => h.home_id === selectHomeId)
         if (found) break
         await new Promise((r) => setTimeout(r, 400))
+        if (superseded()) return
         result = await getMyHomes()
+        if (superseded()) return
       }
       console.debug(
         "[HomeProvider] getMyHomes →",
@@ -131,23 +141,33 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.error("[HomeProvider] load failed:", err)
+      if (superseded()) return
       // Don't blank a home we already painted from cache: a failed refresh is
       // not evidence the home is gone, and clearing it here would bounce the
       // user to onboarding — the exact mistake that minted duplicate homes.
       if (!cached) setHome(null)
       setError(err instanceof Error ? err.message : "Could not load your home.")
     } finally {
-      setLoadedFor(user.id)
-      // Settled, success or failure — a cross-home deep link may now act on
-      // whatever we know rather than waiting forever.
-      setHomesReady(true)
+      // A superseded load leaves both to the load that replaced it.
+      if (!superseded()) {
+        setLoadedFor(user.id)
+        // Settled, success or failure — a cross-home deep link may now act on
+        // whatever we know rather than waiting forever.
+        setHomesReady(true)
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.id is sufficient; using user object would cause unnecessary re-fetches
   }, [user?.id])
 
+  // A user change (or unmount) orphans the load in flight — see loadSeq.
+  const orphanInFlightLoad = useCallback(() => {
+    loadSeq.current++
+  }, [])
+
   useEffect(() => {
     load()
-  }, [load])
+    return orphanInFlightLoad
+  }, [load, orphanInFlightLoad])
 
   /** Select an already-loaded home. Synchronous by design — see the type. */
   const setCurrentHome = useCallback(

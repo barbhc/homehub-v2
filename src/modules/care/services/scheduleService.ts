@@ -156,6 +156,42 @@ export type GenerateInstancesInput = {
 }
 
 /**
+ * The rule a template's inlined schedule becomes, and the due date a new
+ * instance would get — null when there is none to create (a cadence with no
+ * recurring due date, or one outside [today, toDate]). Null overall when the
+ * template has no schedule. generateTaskInstances and plannedInstanceDue both
+ * decide through this, so the two cannot disagree.
+ */
+function planInstance(
+  taskTemplateId: string,
+  schedule: DocumentData | null | undefined,
+  today: string,
+  toDate: string,
+): { rule: ScheduleRule; dueDate: string | null } | null {
+  const rule = scheduleToRule(taskTemplateId, schedule)
+  if (!rule) return null
+  const dueDate = resolveDueDate(rule, today)
+  return { rule, dueDate: !dueDate || dueDate < today || dueDate > toDate ? null : dueDate }
+}
+
+/**
+ * The due date generateTaskInstances (default window) would give a new
+ * instance of a template with this `schedule`, or null when it would create
+ * none — no schedule, a cadence with no recurring due date (as-needed,
+ * after-each-use, setup), or a date outside [today, today + 365].
+ *
+ * Pure, so a caller already holding the template can skip the call — and the
+ * template read it starts with — when the answer is "nothing to create".
+ */
+export function plannedInstanceDue(
+  taskTemplateId: string,
+  schedule: DocumentData | null | undefined,
+  today: string = todayStr(),
+): string | null {
+  return planInstance(taskTemplateId, schedule, today, addDays(today, 365))?.dueDate ?? null
+}
+
+/**
  * Generates task_instances for a task_template based on its schedule_rules.
  * Fetches the task_template, its schedule_rules, then creates instances.
  * Called by ingest/commit flow or a periodic job.
@@ -172,11 +208,11 @@ export async function generateTaskInstances(
     const tpl = tplSnap.data()
     if (!(tpl.isActive ?? true) || tpl.deletedAt != null) return { data: null, error: { message: "Task template not found" } }
 
-    const rule = scheduleToRule(input.task_template_id, tpl.schedule)
-    if (!rule) return { data: null, error: { message: "No schedule rules" } }
+    const plan = planInstance(input.task_template_id, tpl.schedule, today, toDate)
+    if (!plan) return { data: null, error: { message: "No schedule rules" } }
 
-    const dueDate = resolveDueDate(rule, today)
-    if (!dueDate || dueDate < today || dueDate > toDate) {
+    const { rule, dueDate } = plan
+    if (!dueDate) {
       // Non-recurring types (as_needed/after_each_use/setup) legitimately
       // produce no scheduled instance — success with count 0.
       return { data: { count: 0 }, error: null }
