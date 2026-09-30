@@ -14,7 +14,7 @@ import assert from "node:assert/strict"
 import { getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { runEnqueueParse, MAX_IN_FLIGHT } from "../lib/firebase/functions/src/parse/enqueueParse.js"
-import { chargeAiQuota, utcDayKey, utcMonthKey } from "../lib/firebase/functions/src/lib/quota.js"
+import { chargeAiQuota } from "../lib/firebase/functions/src/lib/quota.js"
 import { isParseInFlightMessage, PARSE_ERR } from "../lib/shared/parse/parseErrors.js"
 
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be set (run via emulators:exec)")
@@ -24,6 +24,12 @@ const db = getFirestore()
 let n = 0
 const fresh = (label) => `enq-${label}-${Date.now()}-${n++}`
 const MIN = 60_000
+// This suite's own clock for charges (aiSpendGlobal/2031-02): the other
+// suites charge in parallel, and the emulator aborts transactions that queue
+// on one hot document.
+const AT = new Date("2031-02-15T12:00:00Z")
+const DAY = "2031-02-15"
+const MONTH = "2031-02"
 
 /** A home with a member and one manual, whose `parse` is whatever the test says. */
 async function seedHome({ parse = null, uid = fresh("uid"), extraManuals = [] } = {}) {
@@ -46,7 +52,7 @@ function deps({ enqueueFails = null, configDoc = `config/spend-enq-${Date.now()}
   return {
     enqueued,
     deps: {
-      charge: (uid) => chargeAiQuota(db, uid, "enqueueParse", { configDoc }),
+      charge: (uid) => chargeAiQuota(db, uid, "enqueueParse", { configDoc, at: AT }),
       enqueue: async (payload, taskId) => {
         if (enqueueFails) throw enqueueFails
         enqueued.push({ payload, taskId })
@@ -54,7 +60,7 @@ function deps({ enqueueFails = null, configDoc = `config/spend-enq-${Date.now()}
     },
   }
 }
-const units = async (uid) => (await db.doc(`usage/${uid}/daily/${utcDayKey()}`).get()).get("units") ?? 0
+const units = async (uid) => (await db.doc(`usage/${uid}/daily/${DAY}`).get()).get("units") ?? 0
 
 test("a manual being read RIGHT NOW is refused before any charge — naming the scan to follow", async () => {
   const { homeId, uid } = await seedHome({ parse: { stage: "claude_call", stageAt: agoTs(2 * MIN), requestId: "running-run", mode: "preview" } })
@@ -88,28 +94,28 @@ test("a start queues the run, records its charge in the ledger, and uses the req
   assert.equal(ledger.state, "held")
   assert.equal(ledger.uid, uid)
   assert.equal(ledger.units, 10)
-  assert.equal(ledger.day, utcDayKey())
-  assert.equal(ledger.month, utcMonthKey())
+  assert.equal(ledger.day, DAY)
+  assert.equal(ledger.month, MONTH)
 })
 
 test("a STALLED scan (no stage write for 35+ min) does not lock the manual — it is replaced, and refunded if it never reached Claude", async () => {
   const stale = fresh("stale-run")
   const payer = fresh("payer")
   const { homeId, uid, manual } = await seedHome({ parse: { stage: "pdf_fetched", stageAt: agoTs(40 * MIN), requestId: stale, mode: "preview" } })
-  await db.doc(`usage/${payer}/daily/2026-09-29`).set({ units: 10, count: 1 })
-  await db.doc(`parseCharges/${stale}`).set({ uid: payer, fn: "enqueueParse", units: 10, day: "2026-09-29", month: "2026-09", state: "held" })
+  await db.doc(`usage/${payer}/daily/2029-03-01`).set({ units: 10, count: 1 })
+  await db.doc(`parseCharges/${stale}`).set({ uid: payer, fn: "enqueueParse", units: 10, day: "2029-03-01", month: "2029-03", state: "held" })
   const { deps: d } = deps()
   const res = await runEnqueueParse(db, d, { uid, homeId, manualId: "m1", mode: "preview" })
   assert.notEqual(res.requestId, stale)
   assert.equal((await manual.get()).get("parse.requestId"), res.requestId)
   assert.equal((await db.doc(`parseCharges/${stale}`).get()).get("state"), "refunded")
-  assert.equal((await db.doc(`usage/${payer}/daily/2026-09-29`).get()).get("units"), 0)
+  assert.equal((await db.doc(`usage/${payer}/daily/2029-03-01`).get()).get("units"), 0)
 })
 
 test("…but a stalled scan whose Claude call had started is replaced WITHOUT a refund", async () => {
   const stale = fresh("vendor-run")
   const { homeId, uid } = await seedHome({ parse: { stage: "claude_call", stageAt: agoTs(40 * MIN), requestId: stale, mode: "preview" } })
-  await db.doc(`parseCharges/${stale}`).set({ uid: "someone", fn: "enqueueParse", units: 10, day: "2026-09-29", month: "2026-09", state: "vendor" })
+  await db.doc(`parseCharges/${stale}`).set({ uid: "someone", fn: "enqueueParse", units: 10, day: "2029-03-01", month: "2029-03", state: "vendor" })
   const { deps: d } = deps()
   await runEnqueueParse(db, d, { uid, homeId, manualId: "m1", mode: "preview" })
   assert.equal((await db.doc(`parseCharges/${stale}`).get()).get("state"), "vendor")
@@ -149,16 +155,12 @@ test("two starts racing for one manual: one wins; the other is refunded and told
   assert.equal((await units(uid)) + (await units(partner)), 10, "one charge between them")
 })
 
-test("a quota refusal still parks the manual for later (HH-124), unchanged", async () => {
-  const configDoc = `config/spend-enq-${Date.now()}-${n++}`
-  await db.doc(configDoc).set({ dailyUnitsDefault: 0 })
-  const { homeId, uid, manual } = await seedHome()
-  const { deps: d } = deps({ configDoc })
-  await assert.rejects(() => runEnqueueParse(db, d, { uid, homeId, manualId: "m1", mode: "preview" }), (err) => err.details?.scope === "daily")
-  const parse = (await manual.get()).get("parse")
-  assert.equal(parse.stage, "awaiting_capacity")
-  assert.equal(parse.awaiting.uid, uid)
-})
+// The HH-124 parking case ("a quota refusal still parks the manual") lives in
+// retryAwaitingCapacity.emu.test.mjs, not here: a parked manual is visible to
+// that suite's app-wide collection-group sweep, and node --test runs the two
+// files concurrently — CI caught the race (the sweep restarted this file's
+// parked manual). In that file it runs in sequence with the sweep's tests and
+// under its home-prefix cleanup.
 
 test("if the task cannot be queued: the charge goes back and the manual says so, instead of sitting 'queued'", async () => {
   const { homeId, uid, manual } = await seedHome()

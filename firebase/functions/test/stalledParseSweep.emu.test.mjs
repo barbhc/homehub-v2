@@ -38,8 +38,8 @@ async function seedManual({ stage, ageMs, ledger = null }) {
   await db.doc(`homes/${homeId}/items/i1`).set({ displayName: "Furnace" })
   await ref.set({ itemUnitId: "i1", sourceType: "upload", sourceRef: "manuals/f.pdf", parse: { stage, stageAt: agoTs(ageMs), requestId, mode: "preview" } })
   if (ledger) {
-    await db.doc(`usage/${uid}/daily/2026-09-30`).set({ units: 10, count: 1 })
-    await db.doc(`parseCharges/${requestId}`).set({ uid, fn: "enqueueParse", units: 10, day: "2026-09-30", month: "2026-09", state: ledger })
+    await db.doc(`usage/${uid}/daily/2029-02-15`).set({ units: 10, count: 1 })
+    await db.doc(`parseCharges/${requestId}`).set({ uid, fn: "enqueueParse", units: 10, day: "2029-02-15", month: "2029-02", state: ledger })
   }
   return { ref, requestId, uid }
 }
@@ -54,7 +54,7 @@ test("a stalled run becomes an error the page can show — same requestId, calm 
   assert.equal(parse.error.message, PARSE_ERR.stalled)
   assert.equal(parse.error.stage, "started")
   assert.equal((await db.doc(`parseCharges/${s.requestId}`).get()).get("state"), "refunded")
-  assert.equal((await db.doc(`usage/${s.uid}/daily/2026-09-30`).get()).get("units"), 0)
+  assert.equal((await db.doc(`usage/${s.uid}/daily/2029-02-15`).get()).get("units"), 0)
 })
 
 test("a stalled run whose Claude call had started is ended but NOT refunded — the sweep cannot know it was free", async () => {

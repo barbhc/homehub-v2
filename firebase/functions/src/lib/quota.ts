@@ -306,17 +306,23 @@ export async function chargeAiQuota(
      *  tests point it at their own document so a test that throws the kill
      *  switch cannot stop the test files running beside it. */
     configDoc?: string
+    /** The clock. Production never passes it. The emulator suites run in
+     *  parallel, and every charge transacts on the app-wide
+     *  `aiSpendGlobal/{month}` document; a suite that pins its own date gets
+     *  its own month's document instead of aborting on the others' locks. */
+    at?: Date
   },
 ): Promise<QuotaHold> {
-  const dayKey = utcDayKey()
-  const monthKey = utcMonthKey()
+  const clock = () => opts?.at?.getTime() ?? Date.now()
+  const dayKey = utcDayKey(new Date(clock()))
+  const monthKey = utcMonthKey(new Date(clock()))
   const units = opts?.units ?? unitCostFor(fn)
 
   const dailyRef = db.doc(`usage/${uid}/daily/${dayKey}`)
   const monthlyRef = globalDoc(db, monthKey)
   const configRef = db.doc(opts?.configDoc ?? SPEND_CONFIG_DOC)
 
-  const nowMs = Date.now()
+  const nowMs = clock()
 
   await db.runTransaction(async (tx) => {
     // Firestore requires every read before any write in a transaction.
@@ -463,7 +469,8 @@ export async function chargeAiQuota(
     async extend(extra: number) {
       if (refunded) throw new Error(`cannot extend a refunded ${fn} charge`)
       if (!Number.isInteger(extra) || extra <= 0) return
-      const topUpAt = Date.now()
+      // Same clock as the charge, so the burst window it wrote is the one read.
+      const topUpAt = clock()
       await db.runTransaction(async (tx) => {
         const [dailySnap, monthlySnap, configSnap] = await Promise.all([
           tx.get(dailyRef),

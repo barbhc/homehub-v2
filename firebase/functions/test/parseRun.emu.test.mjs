@@ -26,8 +26,8 @@ assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be 
 if (getApps().length === 0) initializeApp({ projectId: "demo-homehub" })
 const db = getFirestore()
 const NOW = new Date("2026-06-23T00:00:00Z")
-const DAY = "2026-09-30"
-const MONTH = "2026-09"
+const DAY = "2029-01-15"
+const MONTH = "2029-01"
 
 let n = 0
 const fresh = (label) => `run-${label}-${Date.now()}-${n++}`

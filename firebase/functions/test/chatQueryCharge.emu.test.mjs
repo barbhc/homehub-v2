@@ -16,19 +16,25 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore } from "firebase-admin/firestore"
-import { chargeAiQuota, utcDayKey, BURST_UNIT_LIMIT } from "../lib/firebase/functions/src/lib/quota.js"
+import { chargeAiQuota, BURST_UNIT_LIMIT } from "../lib/firebase/functions/src/lib/quota.js"
 import { chargeAndFetchPdfs, planPdfAttachments } from "../lib/firebase/functions/src/ai/chatQuery.js"
 
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be set (run via emulators:exec)")
 if (getApps().length === 0) initializeApp({ projectId: "demo-homehub" })
 const db = getFirestore()
 
+// This suite's own clock: its charges land on aiSpendGlobal/2031-01, not on
+// the month the other suites are charging in parallel (the emulator aborts
+// transactions that queue on one hot document).
+const AT = new Date("2031-01-15T12:00:00Z")
+const DAY = "2031-01-15"
+
 let n = 0
 const freshUid = (label) => `chat-${label}-${Date.now()}-${n++}`
 // Every test reads its own (absent) caps document — the defaults — so nothing
 // another test file does to config/spend can change these numbers.
 const configDoc = () => `config/spend-chat-${Date.now()}-${n++}`
-const daily = async (uid) => (await db.doc(`usage/${uid}/daily/${utcDayKey()}`).get()).data() ?? {}
+const daily = async (uid) => (await db.doc(`usage/${uid}/daily/${DAY}`).get()).data() ?? {}
 
 const manual = (id, sourceType = "upload", sourceRef = `manuals/${id}.pdf`) => ({ manualId: id, itemUnitId: "item", sourceType, sourceRef })
 const fetchOk = async () => "JVBERi0xLjQK" // "%PDF-1.4"
@@ -50,7 +56,7 @@ test("planning: a URL the SSRF guard refuses is never fetched, so never priced",
 
 test("two attached PDFs cost 1 + 5 + 5", async () => {
   const uid = freshUid("two")
-  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: configDoc() })
+  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: configDoc(), at: AT })
   const attached = await chargeAndFetchPdfs(hold, [manual("a"), manual("b")], fetchOk)
   assert.equal(attached.length, 2)
   assert.equal((await daily(uid)).units, 11)
@@ -62,14 +68,14 @@ test("two attached PDFs cost 1 + 5 + 5", async () => {
 
 test("a question with no PDF still costs exactly the base unit", async () => {
   const uid = freshUid("none")
-  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: configDoc() })
+  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: configDoc(), at: AT })
   assert.deepEqual(await chargeAndFetchPdfs(hold, [], fetchOk), [])
   assert.equal((await daily(uid)).units, 1)
 })
 
 test("a PDF that cannot be fetched is not attached and not paid for", async () => {
   const uid = freshUid("missing")
-  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: configDoc() })
+  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: configDoc(), at: AT })
   const attached = await chargeAndFetchPdfs(hold, [manual("good"), manual("gone")], fetchFailsFor("gone"))
   assert.deepEqual(attached.map((a) => a.manual.manualId), ["good"])
   assert.equal((await daily(uid)).units, 6)
@@ -77,7 +83,7 @@ test("a PDF that cannot be fetched is not attached and not paid for", async () =
 
 test("a failed stream refunds everything — base unit and PDFs", async () => {
   const uid = freshUid("refund")
-  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: configDoc() })
+  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: configDoc(), at: AT })
   await chargeAndFetchPdfs(hold, [manual("a"), manual("b")], fetchOk)
   await hold.refund() // what the handler's stream catch does
   const d = await daily(uid)
@@ -88,8 +94,8 @@ test("a failed stream refunds everything — base unit and PDFs", async () => {
 test("PDFs that do not fit the user's day are refused before the stream opens, and charge nothing extra", async () => {
   const uid = freshUid("capped")
   const cfg = configDoc()
-  await db.doc(`usage/${uid}/daily/${utcDayKey()}`).set({ units: 45, count: 45 })
-  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: cfg }) // 46 of 50
+  await db.doc(`usage/${uid}/daily/${DAY}`).set({ units: 45, count: 45 })
+  const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: cfg, at: AT }) // 46 of 50
   await assert.rejects(
     () => chargeAndFetchPdfs(hold, [manual("a"), manual("b")], fetchOk),
     (err) => {
@@ -109,7 +115,7 @@ test("the PDF units count toward the burst window — a loop of whole-manual que
   let asked = 0
   let refused = null
   for (let i = 0; i < 10 && !refused; i++) {
-    const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: cfg })
+    const hold = await chargeAiQuota(db, uid, "chatQuery", { configDoc: cfg, at: AT })
     try {
       await chargeAndFetchPdfs(hold, [manual("a"), manual("b")], fetchOk)
       asked += 1
