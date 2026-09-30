@@ -7,30 +7,15 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { PageContainer, EmptyState } from "@/components/layout"
 import { useAuth } from "@/modules/auth"
 import { useCurrentHome } from "@/modules/home"
-import { getRooms } from "@/modules/home"
-import { getItemUnit, softDeleteItemUnit, updateItemUnit } from "@/modules/items"
-import {
-  getTaskTemplatesWithSchedulesByItem,
-  type TaskTemplateWithSchedule,
-} from "@/modules/care"
-import {
-  getChunksByItem,
-  getManualsByItem,
-  getFaqsByItem,
-  updateChunkSourcePages,
-} from "@/modules/knowledge"
-import { useManualManagement, resolveManualUrl } from "@/hooks/useManualManagement"
+import { softDeleteItemUnit, updateItemUnit } from "@/modules/items"
+import { getTaskTemplatesWithSchedulesByItem } from "@/modules/care"
+import { updateChunkSourcePages } from "@/modules/knowledge"
+import { useManualManagement } from "@/hooks/useManualManagement"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { track } from "@/lib/analytics"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
-import type {
-  ItemUnit,
-  KnowledgeChunk,
-  ManualDocument,
-  Room,
-  ChatFaq,
-} from "@/integrations/types"
+import type { ManualDocument } from "@/integrations/types"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { ItemDetailsSheet } from "@/components/item-care/ItemDetailsSheet"
@@ -40,7 +25,7 @@ import { startParse } from "@/modules/knowledge/services/parseManualService"
 import { CategoryPickerDialog } from "@/components/home/CategoryPickerDialog"
 import { getCategoryDefinition, type ItemCategoryId } from "@/modules/inventory/constants/itemCategories"
 import { DesktopItemDetail } from "@/components/home/DesktopItemDetail"
-import { Trash2, XIcon } from "lucide-react"
+import { CloudOffIcon, Trash2, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -57,9 +42,7 @@ import {
   SpecsSection,
   HistorySection,
 } from "./item-detail"
-
-/** How long the item page waits before it stops pretending and offers a retry. */
-const LOAD_TIMEOUT_MS = 10_000
+import { useItemDetailLoad } from "./item-detail/useItemDetailLoad"
 
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -70,19 +53,24 @@ export default function ItemDetailPage() {
   const { home } = useCurrentHome()
   const { user } = useAuth()
 
-  const [item, setItem] = useState<ItemUnit | null>(null)
-  const [tasks, setTasks] = useState<TaskTemplateWithSchedule[]>([])
-  const [chunks, setChunks] = useState<KnowledgeChunk[]>([])
-  const [manuals, setManuals] = useState<ManualDocument[]>([])
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [faqs, setFaqs] = useState<ChatFaq[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  /** Bumped by "Try again" to re-run the fetch effect. */
-  const [reloadKey, setReloadKey] = useState(0)
+  // The page's own load (HH-160) — its state and its data — lives in one hook,
+  // apart from actionError below.
+  const load = useItemDetailLoad(home?.home_id, id)
+  const {
+    item, setItem,
+    tasks, setTasks,
+    chunks, setChunks,
+    manuals, setManuals,
+    rooms, setRooms,
+    faqs, setFaqs,
+    manualPdfUrl,
+  } = load
+  /** What a delete, room or category change on this page reported. Never the
+   *  load's state — a stall message in this slot is what sat over a page that
+   *  had loaded fine (HH-160). */
+  const [actionError, setActionError] = useState<string | null>(null)
   // HH-157: a row's Edit opens the same review the Review tasks button does.
   const reviewRef = useRef<ReviewItemTasksHandle>(null)
-  const [manualPdfUrl, setManualPdfUrl] = useState<string | null>(null)
   const [allHomeTags, setAllHomeTags] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -164,85 +152,14 @@ export default function ItemDetailPage() {
     setTasks,
   })
 
-  // Main data fetch
-  useEffect(() => {
-    if (!home || !id) return
-    let cancelled = false
-    setLoading(true)
-    // HH-148 (owner, 2026-09-05): "Dishwasher item page isn't loading" — a bare
-    // "Loading..." that never resolved. The .catch below covers a REJECTED
-    // request; this covers the other half, a request that simply never settles
-    // (her console showed dropped QUIC connections at that moment). Without a
-    // timeout the page waits forever and the only way out is to kill the app.
-    // Ten seconds, then the page's own "Could not load this item · Try again".
-    const stall = setTimeout(() => {
-      if (cancelled) return
-      setLoading(false)
-      setError("The connection dropped before your item arrived.")
-    }, LOAD_TIMEOUT_MS)
-    const settled = () => clearTimeout(stall)
-    Promise.all([
-      getItemUnit(home.home_id, id),
-      getTaskTemplatesWithSchedulesByItem(home.home_id, id),
-      getChunksByItem(home.home_id, id),
-      getManualsByItem(home.home_id, id),
-      getRooms(home.home_id),
-      getFaqsByItem(home.home_id, id),
-    ]).then(async ([itemRes, tasksRes, chunksRes, manualsRes, roomsRes, faqsRes]) => {
-      settled()
-      if (cancelled) return
-      setLoading(false)
-      setItem(itemRes.data ?? null)
-      setTasks(tasksRes.data ?? [])
-      setChunks(chunksRes.data ?? [])
-      setManuals(manualsRes.data ?? [])
-      setRooms(roomsRes.data ?? [])
-      setFaqs(faqsRes.data ?? [])
-
-      // AHA-candidate funnel event: the user is looking at an item's content.
-      // Props let analysis distinguish "opened an empty item" from "saw parsed
-      // manual/care content" without a second event.
-      if (itemRes.data) {
-        track("item_content_viewed", {
-          home_id: home.home_id,
-          item_id: id,
-          chunk_count: chunksRes.data?.length ?? 0,
-          manual_count: manualsRes.data?.length ?? 0,
-          task_count: tasksRes.data?.length ?? 0,
-          faq_count: faqsRes.data?.length ?? 0,
-        })
-      }
-
-      // Resolve PDF URL for "See page X" links
-      const firstManual = (manualsRes.data ?? [])[0]
-      if (firstManual) {
-        const url = await resolveManualUrl(firstManual.source_type, firstManual.source_ref).catch(() => null)
-        if (url && !cancelled) setManualPdfUrl(url)
-      }
-
-      // No scan is started here. The page re-enqueued a preview parse for every
-      // manual with no parsed_at created in the last ten minutes — which is
-      // every manual the wizard had just handed over, already enqueued by
-      // SmartAddItem's startParseAndLeave. enqueueParse charges before it checks
-      // anything, so each add with a manual was charged twice, and again on
-      // every refetch inside those ten minutes. The wizard starts the scan and
-      // this page watches it (ParsePickupCard) — docs/add-item-flow.md,
-      // "started and never awaited".
-    })
-    .catch((e: unknown) => {
-      // Without this the page hangs on "Loading..." forever: a rejection skips
-      // the .then, so setLoading(false) never runs and nothing is shown. On a
-      // phone one dropped request is enough, and an infinite spinner is
-      // indistinguishable from the app just being slow — which is exactly how
-      // it was reported. Surface it and let them retry.
-      settled()
-      if (cancelled) return
-      setLoading(false)
-      setError(e instanceof Error ? e.message : "Could not load this item.")
-    })
-    return () => { cancelled = true; clearTimeout(stall) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-fetch when home_id or id changes
-  }, [home?.home_id, id, reloadKey])
+  // The page's six reads live in useItemDetailLoad. What is no longer here is a
+  // scan started on load: the page re-enqueued a preview parse for every manual
+  // with no parsed_at created in the last ten minutes — which is every manual
+  // the wizard had just handed over, already enqueued by SmartAddItem's
+  // startParseAndLeave. enqueueParse charges before it checks anything, so each
+  // add with a manual was charged twice, and again on every refetch inside those
+  // ten minutes. The wizard starts the scan and this page watches it
+  // (ParsePickupCard) — docs/add-item-flow.md, "started and never awaited".
 
   // Deep-link: arriving via /items/:id?manualPage=N (from a task's "From your
   // manual · p.N" reference) auto-opens the manual viewer at that page. Consume
@@ -274,11 +191,13 @@ export default function ItemDetailPage() {
       navigate("/inventory")
     } else {
       // Keep the sheet open so the error is visible next to the action that failed.
-      setError(`Could not delete item: ${result.error}`)
+      setActionError(`Could not delete item: ${result.error}`)
     }
   }
 
-  if (loading) {
+  // Only for an item this page has not shown yet — a refetch (Try again, a task
+  // added) keeps the page on screen instead of swapping it for this (HH-160).
+  if (load.showSkeleton) {
     return (
       <PageContainer>
         {/* The item's own shape while it loads, not the word "Loading" on an
@@ -289,21 +208,36 @@ export default function ItemDetailPage() {
           <div className="mt-5 h-[60px] rounded-xl bg-muted/60" />
           <div className="mt-3 h-[60px] rounded-xl bg-muted/60" />
         </div>
+        {/* HH-160: slow is not failed. The request is still running and still
+            wins if it lands; this only offers a fresh start meanwhile. */}
+        {load.status === "slow" && (
+          <div className="mt-6 flex flex-col items-center gap-3 text-center" role="status">
+            <p className="text-[13px]" style={{ color: "var(--hh-sub)" }}>Still loading…</p>
+            <button
+              type="button"
+              onClick={load.reload}
+              className="rounded-xl border px-4 py-2 text-[13.5px] font-bold"
+              style={{ borderColor: "var(--hh-line2)", color: "var(--hh-teal)" }}
+            >
+              Try again
+            </button>
+          </div>
+        )}
       </PageContainer>
     )
   }
 
   // A failed load is a dead end without this — the page previously showed the
   // spinner forever and offered no way out.
-  if (error && !item) {
+  if (load.showDeadEnd) {
     return (
       <PageContainer>
         <div className="py-16 text-center">
           <p className="text-[15px] font-semibold text-foreground">Could not load this item.</p>
-          <p className="mt-1 text-[13px] text-muted-foreground">{error}</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">{load.loadError}</p>
           <button
             type="button"
-            onClick={() => { setError(null); setReloadKey((k) => k + 1) }}
+            onClick={load.reload}
             className="mt-4 rounded-xl bg-primary px-4 py-2.5 text-[13.5px] font-bold text-primary-foreground"
           >
             Try again
@@ -388,7 +322,7 @@ export default function ItemDetailPage() {
     const res = await updateItemUnit(home.home_id, item.item_unit_id, { room_id: roomId })
     if (res.error) {
       setItem(prev)
-      setError(`Could not change the room: ${res.error.message}`)
+      setActionError(`Could not change the room: ${res.error.message}`)
     } else if (res.data) {
       setItem(res.data)
     }
@@ -410,7 +344,7 @@ export default function ItemDetailPage() {
     const res = await updateItemUnit(home.home_id, item.item_unit_id, patch)
     if (res.error) {
       setItem(prev)
-      setError(`Could not change the category: ${res.error.message}`)
+      setActionError(`Could not change the category: ${res.error.message}`)
     } else if (res.data) {
       setItem(res.data)
     }
@@ -455,17 +389,34 @@ export default function ItemDetailPage() {
           <span className="min-w-0 flex-1">{manualMgmt.parseNotice}</span>
         </div>
       )}
-      {(error || manualMgmt.parseError) && (
+      {load.status === "failed" && (
+        // A REFETCH failed with the item already on screen (the first load
+        // failing is the dead end above). What is shown is still true, only not
+        // fresh, so this is a quiet note — Home's pattern — not the amber error.
+        <div className="mb-4 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5"
+          style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
+          <CloudOffIcon className="size-4 shrink-0" style={{ color: "var(--hh-sub)" }} aria-hidden />
+          <span className="min-w-0 flex-1 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
+            Couldn&apos;t refresh this item — showing what we had.
+          </span>
+          <button type="button" onClick={load.reload} className="shrink-0 text-[12.5px] font-bold" style={{ color: "var(--hh-teal)" }}>
+            Try again
+          </button>
+        </div>
+      )}
+      {(actionError || manualMgmt.parseError) && (
         // Dismissible. A parse error explains itself once and then just sits
         // there — a tester asked how to clear it and there was no way, so a
         // message about one failed upload followed him around the item forever.
+        // Action and parse errors only: the page's own load never writes here
+        // (HH-160 — a stall message sat here over a page that had loaded).
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-200 mb-4">
-          <span className="min-w-0 flex-1">{error || manualMgmt.parseError}</span>
+          <span className="min-w-0 flex-1">{actionError || manualMgmt.parseError}</span>
           <button
             type="button"
             aria-label="Dismiss"
             onClick={() => {
-              setError(null)
+              setActionError(null)
               manualMgmt.setParseError(null)
             }}
             className="shrink-0 rounded p-0.5 opacity-70 hover:opacity-100"
@@ -517,7 +468,7 @@ export default function ItemDetailPage() {
       {isDesktop ? (
         <DesktopItemDetail
           key={item.item_unit_id}
-          onTaskAdded={() => setReloadKey((k) => k + 1)}
+          onTaskAdded={load.reload}
           item={item}
           rooms={rooms}
           homeId={home!.home_id}
@@ -538,7 +489,7 @@ export default function ItemDetailPage() {
         <div className="mx-auto w-full max-w-[460px]">
           <RefinedItemDetail
             key={item.item_unit_id}
-            onTaskAdded={() => setReloadKey((k) => k + 1)}
+            onTaskAdded={load.reload}
           onEditTask={() => reviewRef.current?.open()}
             item={item}
             rooms={rooms}
@@ -679,7 +630,7 @@ export default function ItemDetailPage() {
         onOpenChange={(open) => {
           if (!open && !deleting) {
             setConfirmDeleteOpen(false)
-            setError(null)
+            setActionError(null)
           }
         }}
       >
@@ -692,9 +643,9 @@ export default function ItemDetailPage() {
                 : "It will no longer appear in your items. Completed history is kept."}
             </DialogDescription>
           </DialogHeader>
-          {error && (
+          {actionError && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
+              {actionError}
             </div>
           )}
           <DialogFooter>
@@ -702,7 +653,7 @@ export default function ItemDetailPage() {
               variant="outline"
               onClick={() => {
                 setConfirmDeleteOpen(false)
-                setError(null)
+                setActionError(null)
               }}
               disabled={deleting}
             >
