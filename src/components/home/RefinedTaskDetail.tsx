@@ -20,6 +20,7 @@ import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { TaskEditSheet } from "@/components/tasks/TaskEditSheet"
 import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
+import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
 import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
@@ -104,15 +105,8 @@ export function RefinedTaskDetail({
   const [manualUrl, setManualUrl] = useState<string | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
   const [dockSize, setDockSize] = useState(52)
-  const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
-  )
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)")
-    const on = () => setIsDesktop(mq.matches)
-    mq.addEventListener("change", on)
-    return () => mq.removeEventListener("change", on)
-  }, [])
+  // Only positions the dock (right panel vs bottom sheet); this page is one tree.
+  const isDesktop = useIsDesktop()
   useEffect(() => {
     const itemId = detail?.itemUnitId
     if (!homeId || !itemId || detail?.manualPage == null) return
