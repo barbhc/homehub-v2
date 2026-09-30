@@ -11,7 +11,7 @@ Read the first section. Everything below it is detail you will not need most nig
 | What is broken | Do this | How long | Phone? |
 |---|---|---|---|
 | **The web app** (blank screen, broken page, bad release) | Firebase Console → **Hosting** → *Release history* → find the previous release → **⋮ → Rollback** | ~30s + ~1 min propagation | ✅ yes |
-| **Spend is running away** | Firebase Console → **Functions** → `AI_MONTHLY_UNIT_CEILING` → set it low (see §3) | ~2 min | ✅ yes |
+| **Spend is running away** | Anthropic Console → **API keys** → disable Homehub's key (see §3) | ~1 min | ✅ yes |
 | **Data is being exposed** (rules mistake) | Firebase Console → **Firestore → Rules** → *History* → pick the previous version → **Publish** | ~1 min | ✅ yes |
 | **A Cloud Function is broken** | Needs a laptop — see §4 | ~5–8 min | ❌ no |
 | **The iOS build is broken** | App Store Connect → TestFlight → expire the build (see §5) | ~2 min | ✅ yes |
@@ -81,20 +81,84 @@ broken costs the night.
 
 ---
 
-## 3. Spend kill switch (no deploy needed)
+## 3. Spend kill switch
 
 If the problem is money — a runaway loop, a stuck retry, an alert from Anthropic
-or GCP — you can stop **every paid AI call in the app** without deploying
-anything, by lowering the app-wide monthly ceiling below what has already been
-spent this month.
+or GCP — **stop the Anthropic key.** It is the only lever today that stops every
+Claude call in the app at once, and the only one you can pull from a phone.
 
-1. Console → **Functions** → any function → **Edit** → *Runtime, build and
-   connections settings* → **Environment variables**.
-2. Set `AI_MONTHLY_UNIT_CEILING` to **`20`**.
-3. Deploy the variable change (the console does this for you, ~2 min).
+> Why not the `AI_MONTHLY_UNIT_CEILING` variable? This page used to say "set it
+> on any function". Functions are 2nd gen: each one is its own Cloud Run service
+> with its own environment, and each paid function reads the ceiling from ITS
+> OWN environment (`monthlyCeiling()` in `shared/quota/policy.ts`). Setting it on
+> one function stops that one function. See "The in-app ceiling" below.
+
+### The key (phone, ~1 minute, stops every Claude call)
+
+1. **console.anthropic.com** → the workspace Homehub's key lives in → **API keys**.
+2. Find the key the functions use (Secret Manager name `ANTHROPIC_API_KEY`) and
+   **disable** it. Prefer disable over delete if the console offers it:
+   re-enabling a disabled key restores everything with no deploy.
+
+Anthropic then refuses every new Claude call from every function — parses
+(~$0.55 each, the four-figure risk), Ask, OCR clean-up, lookups, task
+generation, reminders. A request Anthropic had already accepted may still
+finish, and bill.
+
+**What it does not stop:** Brave Search (Find manual, product images, product
+lookups, Ask's web search) and Google Vision (label OCR) use their own keys.
+They cost cents, not dollars; revoke them in their own consoles only if they are
+what is running away.
+
+**What people see:** every AI feature fails with its usual error ("Reading the
+manual failed on our side. Try again in a minute…" for a scan). Everything
+else — reads, writes, check-offs, sign-in, already-parsed manuals — keeps working.
+
+**Parses in flight** (checked in the code, 2026-09-30):
+
+- Any parse that reaches its Claude call after the key is off fails: the manual
+  goes to `error`, and Cloud Tasks retries it once into the same failure
+  (`parseWorker` — `retryConfig.maxAttempts: 2`).
+- **Its 10 units are NOT refunded.** A parse is charged in `enqueueParse`
+  before it is queued; the refund in `lib/quota.ts` (`hold.refund()`) only runs
+  inside the function that charged, and the worker has none. No money is spent —
+  the charge stays on the user's daily allowance and the app-wide monthly
+  counter. Every "Try again" charges another 10 units until the key is back, and
+  `retryAwaitingCapacity` keeps restarting parked scans (≤25 an hour) into the
+  same failure — tell testers the AI is paused (§7).
+- Interactive calls (Ask, OCR, lookups, generate, discuss…) DO hand their units
+  back when the call fails (`withAiQuota` / `hold.refund()` in `lib/quota.ts`).
+
+**To turn it back on:** re-enable the key — nothing else. If it was deleted:
+create a new key, `firebase functions:secrets:set ANTHROPIC_API_KEY --project
+homehub-2068d`, then redeploy the functions that declare it (a function uses
+the secret version current at its last deploy). That needs a laptop, and it is
+a functions deploy.
+
+### The in-app ceiling (laptop + a functions deploy)
+
+`AI_MONTHLY_UNIT_CEILING` is a real stop only when EVERY function that charges
+quota has it — fifteen of them: `enqueueParse`, `retryAwaitingCapacity`,
+`chatQuery`, `ocr`, `detectDocType`, `ingestReference`, `generateTasks`,
+`classifyExistingTasks`, `discussTask`, `proposeReminders`, `suggestCareNotes`,
+`importCareUrl`, `productLookup`, `findManual`, `searchProductImages`.
+
+One command sets it on all of them:
+
+```bash
+cd ~/Projects/Homehub/homehub-v2
+echo "AI_MONTHLY_UNIT_CEILING=20" >> firebase/functions/.env.homehub-2068d
+firebase deploy --only functions --project homehub-2068d
+```
+
+Hand-editing each function in the Cloud console (**Edit** → *Runtime, build and
+connections settings* → **Environment variables**) also works, fifteen times —
+but the next `firebase deploy --only functions` replaces every function's
+variables with what the `.env` files say (firebase-tools 15.23.0,
+`updateFunction`), so a console-only value silently disappears then.
 
 Every paid function then refuses with *"Homehub has hit its monthly AI budget.
-This isn't something you did — please try again next month."* Reads, writes,
+This isn't something you did — your work is saved and queued."* Reads, writes,
 sign-in, and every already-parsed manual keep working — only new AI calls stop.
 
 > ⚠️ **Do not set it to 0 or 1.** The quota rule treats a ceiling *below the cost
@@ -103,8 +167,12 @@ sign-in, and every already-parsed manual keep working — only new AI calls stop
 > expensive single call is `enqueueParse` at 10 units, so **20 is the lowest safe
 > value**. (`shared/quota/policy.ts` — `decideQuota`, the `invalid` branch.)
 
-To restore: set it back to `20000`, or delete the variable to fall back to
-`DEFAULT_MONTHLY_UNIT_CEILING`.
+To restore: remove the line (or set it to `20000`) and deploy again — the
+default is `DEFAULT_MONTHLY_UNIT_CEILING`.
+
+> **Coming in a later package:** a ceiling kept in a Firestore config document
+> that every function reads at call time — one edit, no deploy, phone-capable.
+> Until it ships, the key above is the only app-wide stop.
 
 ---
 
@@ -137,8 +205,8 @@ indexes, so a query can pass every local suite and still fail in production:
 npx tsx scripts/ops/prod-smoke.ts
 ```
 
-**If you cannot get to a laptop:** use the spend kill switch in §3 to stop the
-paid functions, or accept the breakage until morning. A broken AI feature with a
+**If you cannot get to a laptop:** disable the Anthropic key (§3) to stop the
+paid AI calls, or accept the breakage until morning. A broken AI feature with a
 visible error is survivable overnight; a data or money problem is not.
 
 ---
@@ -216,3 +284,19 @@ inside the wrapper, and ship the native fix at normal speed.
   an hour later.
 - The 20-unit floor on the spend kill switch is read from `decideQuota`'s
   `invalid` branch and `AI_UNIT_COST.enqueueParse = 10`.
+
+## Re-checked 2026-09-30 (§3 rewritten)
+
+- `monthlyCeiling()` reads `process.env.AI_MONTHLY_UNIT_CEILING` inside the
+  function that charges; the fifteen charging functions are every caller of
+  `chargeAiQuota` / `withAiQuota` in `firebase/functions/src`.
+- firebase-tools 15.23.0 `gcp/cloudfunctionsv2.js` `updateFunction` patches
+  `serviceConfig.environmentVariables` as a whole on every deploy — a variable
+  set only in the console does not survive the next functions deploy.
+- A parse's 10 units are charged in `enqueueParse` and never refunded by
+  `parseWorker`/`runParse`; interactive AI calls refund on failure.
+- The Anthropic key is the `ANTHROPIC_API_KEY` secret, declared by `parseWorker`
+  and the `ai/*` functions. Brave Search and Google Vision have their own
+  secrets (`BRAVE_SEARCH_API_KEY`, `GOOGLE_VISION_API_KEY`).
+- NOT verified from here: whether the Anthropic console offers "disable" as
+  well as "delete" for a key, and how fast a revoked key is refused.

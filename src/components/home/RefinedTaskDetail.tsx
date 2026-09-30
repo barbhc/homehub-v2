@@ -7,7 +7,7 @@ import {
   BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon, BellRingIcon,
 } from "lucide-react"
 import {
-  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder,
+  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder, localDateString,
   type TaskDetail,
 } from "@/modules/care"
 import { getHomeMembers, type HomeMember } from "@/modules/home"
@@ -27,17 +27,25 @@ import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 
+/** UTC date. Only dueDaysFromDate still reads it — the date-module follow-up
+ *  (audit 2026-09-29, refactor #2); the Mark done sheet uses the local day. */
 function todayStr() { return new Date().toISOString().slice(0, 10) }
+/** Calendar arithmetic on the device's calendar. Its only caller is the Mark
+ *  done sheet's next window, which it SENDS as nextDueOverride — formatted as
+ *  UTC (toISOString) it came back a day early at UTC+13/+14. */
 function addDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10)
+  const d = new Date(dateStr + "T12:00:00"); d.setDate(d.getDate() + n); return localDateString(d)
 }
 function fmt(dateStr: string | null): string {
   if (!dateStr) return "—"
   return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
+/** "in N days" for the Mark done sheet's next window. Counts from the DEVICE's
+ *  day, like the completedOn the sheet sends; left on the UTC todayStr(), a
+ *  weekly task checked off at 7 pm Pacific would read "in 6 days". */
 function rel(dateStr: string | null): string {
   if (!dateStr) return ""
-  const days = Math.round((new Date(dateStr + "T12:00:00").getTime() - new Date(todayStr() + "T12:00:00").getTime()) / 86400000)
+  const days = Math.round((new Date(dateStr + "T12:00:00").getTime() - new Date(localDateString() + "T12:00:00").getTime()) / 86400000)
   if (days <= 0) return "today"
   if (days < 14) return `in ${days} days`
   if (days < 56) return `in ${Math.round(days / 7)} weeks`
@@ -78,6 +86,9 @@ export function RefinedTaskDetail({
   const [sheetOpen, setSheetOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [done, setDone] = useState<{ nextDue: string | null } | null>(null)
+  /** A check-off the server refused. The page stays un-done and says why —
+   *  it used to show "Done" whatever the callable answered. */
+  const [doneError, setDoneError] = useState<string | null>(null)
   const [reminderError, setReminderError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -221,6 +232,12 @@ export function RefinedTaskDetail({
         <p className="mt-1.5 px-1 text-[12px] font-semibold" style={{ color: "#C2410C" }}>{reminderError}</p>
       )}
     </>
+  ) : null
+
+  // Beside Mark done in BOTH lanes (desktop rail, phone bar) — the same
+  // reason as the reminder control above: one lane is always invisible.
+  const doneErrorNote = doneError ? (
+    <p role="alert" className="px-1 text-[12px] font-semibold" style={{ color: "#C2410C" }}>{doneError}</p>
   ) : null
 
   const assignControl = (
@@ -411,6 +428,7 @@ export function RefinedTaskDetail({
               <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-bold text-white" style={{ background: TEAL }}>
                 <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
               </button>
+              {doneErrorNote && <div className="mt-2">{doneErrorNote}</div>}
             </div>
           )}
 
@@ -442,6 +460,7 @@ export function RefinedTaskDetail({
       {/* Sticky Mark done (mobile only) */}
       {!done && (
         <div className="absolute inset-x-0 bottom-0 border-t border-[var(--hh-line)] px-5 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden" style={{ paddingInline: d.pad, background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
+          {doneErrorNote && <div className="mb-2">{doneErrorNote}</div>}
           <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>
             <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
           </button>
@@ -467,10 +486,15 @@ export function RefinedTaskDetail({
           intervalDays={detail.schedule?.intervalDays ?? null}
           season={detail.schedule?.season ?? null}
           onClose={() => setSheetOpen(false)}
-          onConfirm={async ({ completedOn, nextDue }) => {
+          onConfirm={async ({ completedOn, backdated, nextDue }) => {
             if (!homeId) return
             setSheetOpen(false)
-            await markTaskInstanceDone(homeId, detail.taskInstanceId, null, { completedOn, nextDueOverride: nextDue })
+            setDoneError(null)
+            const res = await markTaskInstanceDone(homeId, detail.taskInstanceId, null, { completedOn, backdated, nextDueOverride: nextDue })
+            if (!res.success) {
+              setDoneError(res.error || "Couldn't mark this done. Try again.")
+              return
+            }
             setDone({ nextDue })
           }}
         />
@@ -533,14 +557,20 @@ function ConfirmDoneSheet({
   intervalDays: number | null
   season: string | null
   onClose: () => void
-  onConfirm: (v: { completedOn: string; nextDue: string | null }) => void
+  onConfirm: (v: { completedOn: string; backdated: boolean; nextDue: string | null }) => void
 }) {
   const [whenDone, setWhenDone] = useState<"today" | "earlier">("today")
   const [bump, setBump] = useState(0)
   /** Adjust is the exception path: hidden until asked for. */
   const [adjusting, setAdjusting] = useState(false)
 
-  const completedOn = whenDone === "today" ? todayStr() : addDays(todayStr(), -5)
+  // The DEVICE's calendar, not todayStr() (UTC): after ~5 pm Pacific the UTC
+  // date is tomorrow. "A few days ago" is five local days back, and says so
+  // (`backdated`) — the server only accepts a date that old when told.
+  const now = new Date()
+  const completedOn = whenDone === "today"
+    ? localDateString(now)
+    : localDateString(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 5))
   const nextDue = useMemo(() => {
     if (!recurring || !scheduleType) return null
     const base = computeNextDueDate(scheduleType, completedOn, {
@@ -609,7 +639,7 @@ function ConfirmDoneSheet({
             )}
           </>
         )}
-        <button onClick={() => onConfirm({ completedOn, nextDue })} className="w-full rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>Confirm</button>
+        <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="w-full rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>Confirm</button>
       </div>
     </>
   )

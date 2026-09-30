@@ -44,7 +44,7 @@ export function computeNextDueDate(
       let anchor = new Date(year, month, 15, 12, 0, 0)
       // Roll to next year if this year's anchor already passed on/before completion.
       if (anchor.getTime() <= base.getTime()) anchor = new Date(year + 1, month, 15, 12, 0, 0)
-      return iso(anchor)
+      return localDateString(anchor)
     }
 
     default:
@@ -62,15 +62,25 @@ const SEASON_MONTH: Record<Season, number> = {
 function addDays(d: Date, n: number): string {
   const x = new Date(d)
   x.setDate(x.getDate() + n)
-  return iso(x)
+  return localDateString(x)
 }
 
 function addMonths(d: Date, n: number): string {
   const x = new Date(d)
   x.setMonth(x.getMonth() + n)
-  return iso(x)
+  return localDateString(x)
 }
 
-function iso(d: Date): string {
+/**
+ * YYYY-MM-DD on THIS DEVICE's calendar (local time) — never
+ * `toISOString().slice(0, 10)`, which is the UTC date and turns a check-off
+ * made after ~5 pm Pacific into tomorrow. Exported for the check-off's
+ * `completedOn` (markTaskInstanceDone, the task page's Mark done sheet); the
+ * server checks it against the home's calendar (completeTask, ±1 day).
+ *
+ * FOLLOW-UP (audit 2026-09-29, refactor #2): one shared, home-timezone-aware
+ * date module replaces this and the ~10 UTC `todayStr()` copies.
+ */
+export function localDateString(d: Date = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
