@@ -29,8 +29,11 @@ export type CreateManualDocumentInput = {
   version?: string | null
   language?: string | null
   /**
-   * SHA-256 of an uploaded file (uploadManualPdf returns it). Omitted, it is
-   * read back from the uploaded object's metadata — pass it to skip that read.
+   * SHA-256 of an uploaded file, as uploadManualPdf returns it. `null` means
+   * the browser could not hash it (uploadManualPdf has already said so): the
+   * record is stored WITHOUT a hash and only its path can match a repeat.
+   * Omitted (a caller that hands over only the path), it is read back from the
+   * uploaded object's metadata.
    */
   content_hash?: string | null
 }
@@ -74,7 +77,9 @@ async function storedContentHash(path: string): Promise<string | null> {
   try {
     const meta = await getMetadata(storageRef(storage, path))
     const hash = meta.customMetadata?.[MANUAL_HASH_METADATA_KEY]
-    return typeof hash === "string" && hash ? hash : null
+    if (typeof hash === "string" && hash) return hash
+    console.warn("[manuals] this upload carries no content hash; only its path can match a repeat of it:", path)
+    return null
   } catch (e) {
     console.warn("[manuals] could not read the upload's content hash; a repeat of it will not be recognised:", e instanceof Error ? e.message : e)
     return null
@@ -96,7 +101,8 @@ async function storedContentHash(path: string): Promise<string | null> {
  *    re-upload. The SHA-256 of the file does repeat. A second upload of an
  *    identical file returns the record already there, untouched: identical
  *    content means its scan (or the draft awaiting review) is still right. The
- *    copy just uploaded is redundant and is removed.
+ *    copy just uploaded is redundant and is removed. A file the browser could
+ *    not hash is stored without one and falls back to the path match below.
  *  - a LINK: the same URL. What a URL serves can change, so the record's parse
  *    state is reset and the link is actually read again.
  */
@@ -106,10 +112,14 @@ export async function createManualDocument(
 ): Promise<ServiceResult<ManualDocument>> {
   try {
     const manuals = collection(db, `homes/${homeId}/manuals`)
+    // An explicit null is the caller saying the file could not be hashed —
+    // nothing to read back. Only an OMITTED hash is looked up on the object.
     const contentHash =
-      input.source_type === "upload"
-        ? (input.content_hash ?? (await storedContentHash(input.source_ref)))
-        : null
+      input.source_type !== "upload"
+        ? null
+        : input.content_hash !== undefined
+          ? input.content_hash
+          : await storedContentHash(input.source_ref)
 
     if (contentHash) {
       const same = await getDocs(
@@ -175,7 +185,9 @@ export async function createManualDocument(
         sourceType: input.source_type,
         sourceRef: input.source_ref,
         // What the next upload of this same file is recognised by (HH-154).
-        contentHash,
+        // Absent — never null — when there is none: a link, or a file the
+        // browser could not hash. Those are matched by their path or URL.
+        ...(contentHash ? { contentHash } : {}),
         role: input.role ?? "primary",
         version: input.version ?? null,
         language: input.language ?? null,

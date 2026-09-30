@@ -151,7 +151,26 @@ describe("an upload is the same manual when its CONTENT is (HH-154)", () => {
     const res = await createManualDocument("h1", upload(1, { content_hash: undefined }))
     expect(res.error).toBeNull()
     expect(set).toHaveBeenCalledTimes(1)
-    expect(set.mock.calls[0][1]).toMatchObject({ contentHash: null })
+    // Absent, not null: nothing is stored that claims to be a hash.
+    expect(set.mock.calls[0][1]).not.toHaveProperty("contentHash")
+  })
+
+  it("a file the browser could not hash: no metadata read, NO contentHash stored, and its path still dedupes", async () => {
+    // uploadManualPdf returns contentHash null when Web Crypto is missing (and
+    // logs it). That null is the caller saying "no hash", not "go look".
+    const unhashed = upload(1, { content_hash: null })
+    const first = await createManualDocument("h1", unhashed)
+    expect(first.error).toBeNull()
+    expect(getMetadata).not.toHaveBeenCalled()
+    expect(set.mock.calls[0][1]).not.toHaveProperty("contentHash")
+    expect(first.data?.content_hash).toBeNull()
+
+    // The same stored file offered again falls back to the path match: still one manual.
+    const again = await createManualDocument("h1", unhashed)
+    expect(again.data?.manual_id).toBe(first.data?.manual_id)
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(live()).toHaveLength(1)
   })
 
   it("a failed duplicate check does not block the add — it falls through to creating", async () => {
@@ -179,8 +198,8 @@ describe("a link is the same manual when its URL is", () => {
     const patch = update.mock.calls[0][1] as Data
     expect(patch.parsedAt).toBeNull()
     expect(patch.parse).toBeNull()
-    // Links are never hashed or read back from Storage.
+    // Links are never hashed or read back from Storage, and carry no hash field.
     expect(getMetadata).not.toHaveBeenCalled()
-    expect(set.mock.calls[0][1]).toMatchObject({ contentHash: null })
+    expect(set.mock.calls[0][1]).not.toHaveProperty("contentHash")
   })
 })
