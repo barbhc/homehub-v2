@@ -164,3 +164,64 @@ export async function deleteCareNote(homeId: string, noteId: string): Promise<Se
     return err(e)
   }
 }
+
+// ── Notes (design/spares-and-notes.md §2) ────────────────────────────────────
+
+/** Every live note in the home — house, room and item — in one read, newest first. */
+export async function getHomeNotes(homeId: string): Promise<ServiceResult<CareNote[]>> {
+  try {
+    const snap = await getDocs(query(notesCol(homeId), where("deletedAt", "==", null)))
+    const notes = snap.docs
+      .map((d) => toCareNote(homeId, d.id, d.data()))
+      .sort((a, b) => (b.updated_at || b.created_at).localeCompare(a.updated_at || a.created_at))
+    return { data: notes, error: null }
+  } catch (e) {
+    return err(e)
+  }
+}
+
+/**
+ * The item's old single `notes` text becomes a real note and the field clears,
+ * in ONE batch — so there is never a moment with both, or neither. The note's
+ * id is fixed (`legacy-<itemId>`), so doing it twice is doing it once.
+ */
+export async function promoteLegacyItemNote(homeId: string, itemUnitId: string, content: string): Promise<ServiceResult<CareNote>> {
+  try {
+    const ref = doc(notesCol(homeId), `legacy-${itemUnitId}`)
+    const now = serverTimestamp()
+    await writeBatch(db)
+      .set(ref, {
+        roomId: null,
+        itemUnitId,
+        scope: "item_unit",
+        category: null,
+        chunkType: "care",
+        title: null,
+        content,
+        source: "user",
+        sourceUrl: null,
+        taskTemplateId: null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })
+      .set(doc(db, `homes/${homeId}/items/${itemUnitId}`), { notes: null, updatedAt: now }, { merge: true })
+      .commit()
+    const snap = await getDoc(ref)
+    return { data: toCareNote(homeId, ref.id, snap.data() ?? {}), error: null }
+  } catch (e) {
+    return err(e)
+  }
+}
+
+/** Deleting the legacy note = clearing the old field. */
+export async function clearLegacyItemNote(homeId: string, itemUnitId: string): Promise<ServiceResult<true>> {
+  try {
+    await writeBatch(db)
+      .set(doc(db, `homes/${homeId}/items/${itemUnitId}`), { notes: null, updatedAt: serverTimestamp() }, { merge: true })
+      .commit()
+    return { data: true, error: null }
+  } catch (e) {
+    return err(e)
+  }
+}

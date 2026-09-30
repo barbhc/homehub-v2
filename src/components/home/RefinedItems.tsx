@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react"
+import type { CareNote } from "@/integrations/types"
+import { HouseNotesCard, RoomNotesLink } from "@/components/notes/ItemsNotes"
+import { roomNoteCounts } from "@/lib/notes"
 import { Link } from "react-router-dom"
 import {
   PlusIcon, SearchIcon, ChevronRightIcon,
@@ -41,10 +44,15 @@ type SortMode = "room" | "category" | "recent"
 export function RefinedItems({
   items,
   rooms,
+  notes = null,
+  notesError = null,
   density = "cozy",
 }: {
   items: ItemUnit[]
   rooms: Array<{ room_id: string; name: string }>
+  /** Every note in the home — the house card and the room headings read it. */
+  notes?: CareNote[] | null
+  notesError?: string | null
   density?: "spacious" | "cozy" | "compact"
 }) {
   const d = dens(density)
@@ -56,6 +64,9 @@ export function RefinedItems({
     for (const r of rooms) m.set(r.room_id, r.name)
     return m
   }, [rooms])
+  // Groups are keyed by room NAME; the room headings need the id for their notes link.
+  const roomIdByName = useMemo(() => new Map(rooms.map((r) => [r.name, r.room_id])), [rooms])
+  const noteCounts = useMemo(() => roomNoteCounts(notes), [notes])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -95,6 +106,9 @@ export function RefinedItems({
       </div>
 
       <div className="flex flex-1 flex-col px-5 pt-4" style={{ paddingInline: d.pad }}>
+        {/* House notes — shutoffs, breakers, paint: what belongs to no single item */}
+        <div className="mb-3"><HouseNotesCard notes={notes} error={notesError} /></div>
+
         {/* Search */}
         <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-[var(--hh-line)] px-3.5 py-2.5" style={{ background: "var(--hh-surface)" }}>
           <SearchIcon className="size-4 shrink-0 text-[var(--hh-faint)]" />
@@ -134,7 +148,12 @@ export function RefinedItems({
           groups.map((g) => (
             <div key={g.key ?? "all"} style={{ marginBottom: d.stack }}>
               {g.key && (
-                <div className="mb-2 pl-0.5 text-xs font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>
+                <div className="mb-2 flex items-center justify-between gap-3 pl-0.5">
+                  <div className="text-xs font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>
+                  {sort === "room" && !notesError && notes !== null && roomIdByName.has(g.key) && (
+                    <RoomNotesLink roomId={roomIdByName.get(g.key)!} roomName={g.key} count={noteCounts.get(roomIdByName.get(g.key)!) ?? 0} />
+                  )}
+                </div>
               )}
               <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
                 {g.items.map((it, i) => (
