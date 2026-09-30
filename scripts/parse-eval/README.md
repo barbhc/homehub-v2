@@ -45,7 +45,19 @@ npx vite-node scripts/parse-eval/run.ts
 
 # After an INTENTIONAL improvement changes the output, re-baseline
 npx vite-node scripts/parse-eval/run.ts -- --update-golden
+
+# The request with production's prompt-cache switch ON
+# (config/spend.parseCacheBreakpoint — a cache breakpoint on the PDF)
+npx vite-node scripts/parse-eval/run.ts -- --cache-breakpoint
 ```
+
+Every manual line reports `in N (cache write W, cache read R)`. With the
+switch off (the default) both are 0 and the request is byte-identical to the
+one sent before the switch existed. With it on, a first run writes the PDF
+(`W` ≈ the PDF's tokens, billed at 1.25×); the same manual run again within
+five minutes of the previous run's *start* reads it (`R` ≈ `W`, billed at
+0.1×). A cache breakpoint does not change what the model sees, so the scores
+should match an unflagged run within the usual run-to-run churn.
 
 The rule: **change `shared/parse/parsePrompt.ts` → run the harness → review the
 diff → only then deploy `parseWorker` / `commitManualDraft`.** A "MISSING task"

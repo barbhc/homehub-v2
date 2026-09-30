@@ -12,6 +12,7 @@ Read the first section. Everything below it is detail you will not need most nig
 |---|---|---|---|
 | **The web app** (blank screen, broken page, bad release) | Firebase Console → **Hosting** → *Release history* → find the previous release → **⋮ → Rollback** | ~30s + ~1 min propagation | ✅ yes |
 | **Spend is running away** | Firebase Console → **Firestore** → `config/spend` → set `monthlyCeilingUnits` to **0**; if Claude calls still go out, Anthropic Console → **API keys** → disable Homehub's key (see §3) | ~1 min, instant effect | ✅ yes |
+| **Prompt caching costs more than it saves** (the `claude usage` logs say DROP — §3, "The prompt cache") | Parse path: Firestore → `config/spend` → set `parseCacheBreakpoint` to **false**. Chat path has no switch: a functions rollback (§4) | ~1 min (parse) | ✅ parse · ❌ chat |
 | **Data is being exposed** (rules mistake) | Firebase Console → **Firestore → Rules** → *History* → pick the previous version → **Publish** | ~1 min | ✅ yes |
 | **A Cloud Function is broken** | Needs a laptop — see §4 | ~5–8 min | ❌ no |
 | **The iOS build is broken** | App Store Connect → TestFlight → expire the build (see §5) | ~2 min | ✅ yes |
@@ -206,6 +207,49 @@ but the next `firebase deploy --only functions` replaces every function's
 variables with what the `.env` files say (firebase-tools 15.23.0,
 `updateFunction`), so a console-only value silently disappears then. To remove
 it: delete the line and deploy again.
+
+### The prompt cache — a cost lever, not a stop (2026-09-30)
+
+Prompt caching re-bills a manual PDF Claude has seen in the last five minutes
+at **0.1×** the input price (0.05× on Opus 5.5) — after the first send wrote it
+at **1.25×**. So it saves money only when the same PDF goes to the same model
+again within five minutes of the previous request's *start*, and costs 25% more
+on the input of every send that is never repeated.
+
+| Path | State | Pays when | Costs when |
+|---|---|---|---|
+| **Ask (chatQuery)** | **On** in code — no switch | a follow-up about the same manual within 5 min (~0.1× instead of 1× on ~100K tokens) | a one-off question (+25% on its input), or a turn whose rule lines differ (web search / warranty / notes) — it writes a new entry |
+| **Manual scan (parseWorker)** | **Off** — `config/spend.parseCacheBreakpoint` | the same PDF re-sent within 5 min: a Cloud Tasks retry, Opus's no-tool retry, a rescan right after a scan | every other scan: +25% on ~100–150K input tokens (≈ +$0.05–0.08 a scan on Sonnet 5) |
+
+A chat turn never reads a scan's cache entry, or the reverse: a prefix must match
+from its first byte, and the two requests differ from the start (different tools
+and system prompt, and chat titles the PDF).
+
+**Flip the parse switch** (no deploy; the next parse attempt reads it):
+
+- phone: Firebase Console → Firestore → `config/spend` → `parseCacheBreakpoint`
+  → `true` or `false` (a boolean — anything else reads as `false`, logged);
+- laptop: `npx tsx scripts/ops/set-spend-config.ts parse-cache on --prod --project=homehub-2068d`
+  (or `off`).
+
+**Is it paying? — the logs.** Every Claude call logs one line with its token
+and cache numbers (`firebase/functions/src/lib/claudeUsage.ts`). Logs Explorer:
+`jsonPayload.message="claude usage"`. A week of them, per call site:
+
+```bash
+gcloud logging read 'jsonPayload.message="claude usage"' --project=homehub-2068d --freshness=7d --limit=100000 --format=json \
+  | jq -r 'group_by(.jsonPayload.callSite)[] | {site: .[0].jsonPayload.callSite, calls: length, write: (map(.jsonPayload.cache_creation_input_tokens) | add), read: (map(.jsonPayload.cache_read_input_tokens) | add)} | "\(.site)\tcalls \(.calls)\twrite \(.write)\tread \(.read)\tnet \(0.9 * .read - 0.25 * .write) → \(if .write == 0 and .read == 0 then "not cached" elif 0.9 * .read > 0.25 * .write then "KEEP" else "DROP" end)"'
+```
+
+`net` is the saving in input-token equivalents (0.9 per token read, minus the
+0.25 premium per token written); multiply by the model's input price for
+dollars ($2/M on Sonnet 5). Keep a path while reads are more than **28%** of
+writes. The chat lines carry `rules` (which of the web-search / warranty /
+notes lines the system prompt had) and the parse lines carry `cacheBreakpoint`,
+`manualId` and `taskAttempt`, so a miss can be traced to its cause. To drop
+the chat path: roll `chatQuery` back (§4) — or, as a fix-forward, remove the
+`cache_control` from `buildChatMessages` (`shared/chat/chatMessages.ts`) and deploy
+`chatQuery`.
 
 ---
 

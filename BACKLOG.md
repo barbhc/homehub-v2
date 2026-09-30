@@ -118,6 +118,7 @@ scales with **pages**, split input/output ~55/45.
 | 3.1 | **Language-aware page selection** | **Now** — every manual, every user | Designed in part; blocked on the corpus (§5) |
 | 3.2 | **Streaming partial results (design B)** | **After the golden corpus grows** | Blocked by schema order, not effort |
 | 3.3 | **Shared parse cache** | **At volume** — deferred by the owner 2026-08-25 | `design/manual-sourcing-and-parse-cache.md` |
+| 3.4 | **Prompt caching** (Anthropic's, per request) | Ask follow-ups: **now**. Scans: only on a re-send within 5 min | Built (`feat/prompt-caching-v2`, supersedes #214); chat on, parse behind a switch; a week of logs decides (§3.4) |
 
 ### 3.1 Language-aware page selection
 
@@ -165,6 +166,26 @@ Correct at one household; changes shape as the beta grows. Cost stops scaling
 with users and starts scaling with distinct appliances (50 homes × 20 items:
 $550 → **$82**). **Revisit when:** more than ~10 active households, or when
 two users first add the same appliance model.
+
+### 3.4 Prompt caching — built, measuring
+
+A cache write bills 1.25× input, a read 0.1× (0.05× on Opus 5.5), and an entry
+lives five minutes from the start of the request that last used it.
+
+- **Ask:** the manual PDFs lead the conversation's first user turn behind one
+  breakpoint (`shared/chat/chatMessages.ts`), so a follow-up about the same
+  manual re-reads ~100K tokens at 0.1×. On in code. A one-off question pays
+  +25% on its input; a turn that adds or drops a web-search / warranty / notes
+  rule line changes the system prompt and writes anew — moving those lines
+  after the breakpoint is a prompt change, so it waits for the chat eval.
+- **Scans:** `config/spend.parseCacheBreakpoint`, **off**. A one-off scan never
+  re-sends its PDF, so the breakpoint only adds 25%; it pays on a retry or a
+  rescan within five minutes. Turn it on for a week to measure.
+- **Deciding:** every Claude call logs a `claude usage` line; the jq in
+  `docs/rollback.md` §3 ("The prompt cache") prints KEEP or DROP per call
+  site (reads must exceed 28% of writes).
+- **Chat eval:** `scripts/chat-eval/` — 10 goldens; offline shape checks in
+  CI, `--live --layout=both` compares with main's layout (paid; gatekeeper).
 
 ---
 
@@ -267,7 +288,7 @@ enough to trust a prompt change against.
 |---|---|---|
 | 7.1 | **Visual baselines are not baked** | `e2e/visual/pages.spec.ts` exists; **zero `-snapshots` directories** (verified 2026-09-16). Re-bake via the workflow — never commit local-platform pixels. |
 | 7.2 | **Item-page manual attach → review → tasks: the attach is walked, the rest is not** | The attach now has walks: `item-add-manual.spec.ts` (#223 — the upload doors, 390px and desktop) and `item-page-manual.spec.ts` (the link lane, and the scan's live state up to `queued`). `task-review.spec.ts` covers the review WRITE from the item page's Review button. Still no walk from an item-page attach INTO the review: it needs a draft the worker never writes in e2e. The emulator seed also uploads no PDF, which is why the manual viewer has no walk either (#206 was proven at the component level and on the preview channel instead). |
-| 7.3 | `chatQuery` has no testable core | It builds the prompt inline in the request handler with a live Claude client, unlike `runDiscussTask`. #210's wiring was verified by reading. Extracting a core would let the assembled prompt be asserted. |
+| 7.3 | `chatQuery`'s retrieval has no testable core | **The request half is done (prompt caching):** `buildChatRequest` (`shared/chat/chatMessages.ts`) assembles the system prompt and messages, pinned to main's own output, and `scripts/chat-eval/` checks it offline and scores answers live. Still inline in the handler: resolving the scope, the notes, warranty and chunk reads, and the web search that feed it. |
 | 7.4 | Parse watch-stages / snapshot tooling | Explicitly optional. Only worth it if parse debugging gets painful again. |
 
 ---
@@ -291,7 +312,8 @@ enough to trust a prompt change against.
   app-wide, 50 scans/user/day; per-uid overrides (the owner: 1,000/day). Change
   it with `scripts/ops/set-spend-config.ts` (no deploy); **kill switch:
   `monthlyCeilingUnits: 0`** (`docs/rollback.md` §3). Rules and defaults:
-  `shared/quota/policy.ts`.
+  `shared/quota/policy.ts`. The same document holds one lever that is not a
+  cap, `parseCacheBreakpoint` (default false — §3.4).
 - **A tab open across a deploy asks for chunks that no longer exist.** Hosting
   rewrites the miss to `index.html`. Routes recover via `lazyWithRetry`; any
   bare `import()` outside it must go through `withChunkRetry`
