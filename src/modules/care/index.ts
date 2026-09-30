@@ -1,7 +1,5 @@
 export {
-  getCareNotesByScope,
   getCareNotesByItem,
-  getCareNotesByHome,
   createCareNote,
   updateCareNote,
   deleteCareNote,

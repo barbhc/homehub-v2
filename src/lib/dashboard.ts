@@ -652,53 +652,6 @@ export function deriveUpcomingTasks(reads: Pick<HomeReads, "live">): Maintenance
     })
 }
 
-export async function getAllMaintenanceTasks(propertyId: string): Promise<MaintenanceTaskFull[]> {
-  const todayStr = today()
-
-  // One taskInstances read (denorm fields replace the template/item joins);
-  // scheduled/snoozed + completion map computed client-side.
-  const snap = await getDocs(query(collection(db, `homes/${propertyId}/taskInstances`), where("deletedAt", "==", null)))
-  const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, unknown>)
-
-  // Per-template completion map: templateId → { lastDate, count }.
-  type CompletionEntry = { lastDate: string; count: number }
-  const completionMap = new Map<string, CompletionEntry>()
-  const completedRows = all
-    .filter((r) => r.status === "done" && r.completedAt instanceof Timestamp)
-    .map((r) => ({ tpl: r.taskTemplateId as string, at: (r.completedAt as Timestamp).toDate().toISOString() }))
-    .sort((a, b) => b.at.localeCompare(a.at))
-  for (const row of completedRows) {
-    const existing = completionMap.get(row.tpl)
-    if (!existing) completionMap.set(row.tpl, { lastDate: row.at.slice(0, 10), count: 1 })
-    else existing.count++
-  }
-
-  const scheduled = all
-    .filter((r) => r.status === "scheduled" || r.status === "snoozed")
-    .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
-
-  return scheduled.map((r) => {
-    // Reconstruct the joined shape toMaintenanceTaskFull expects from denorm fields.
-    const row: TaskInstanceFull = {
-      task_instance_id: r.id,
-      task_template_id: (r.taskTemplateId as string) ?? "",
-      due_date: (r.dueDate as string) ?? todayStr,
-      item_unit_id: (r.itemUnitId as string | null) ?? null,
-      task_template: {
-        title: (r.title as string) ?? "Task",
-        priority_tier: (r.priorityTier as string) ?? "optional",
-        notes: null,
-        care_type: (r.careType as CareType | null) ?? null,
-      },
-      item_unit: r.itemUnitId
-        ? { display_name: (r.itemName as string) ?? "", room_id: null, room: r.roomName ? { name: r.roomName as string } : null }
-        : null,
-    }
-    const completion = completionMap.get(row.task_template_id)
-    return toMaintenanceTaskFull(row, todayStr, completion?.lastDate ?? null, completion?.count ?? 0)
-  })
-}
-
 /** Warranty items expiring within 60 days, ordered soonest first. */
 export type ExpiringWarrantyItem = {
   item_unit_id: string
