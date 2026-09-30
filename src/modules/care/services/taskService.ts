@@ -2,7 +2,7 @@ import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverT
 import { db, callable } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
 import { syncTemplateDenormToInstances } from "./denormSync"
-import { computeNextDueDate } from "./nextDueDate"
+import { computeNextDueDate, localDateString } from "./nextDueDate"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
 import type {
   TaskTemplate,
@@ -117,7 +117,14 @@ export function toTaskTemplate(homeId: string, id: string, d: DocumentData): Tas
 }
 
 const completeTaskCallable = callable<
-  { homeId: string; taskInstanceId: string; completedOn?: string; nextDueOverride?: string | null; completionNotes?: string | null },
+  {
+    homeId: string
+    taskInstanceId: string
+    completedOn?: string
+    backdated?: boolean
+    nextDueOverride?: string | null
+    completionNotes?: string | null
+  },
   { completedInstanceId: string; nextInstanceId: string | null }
 >("completeTask")
 
@@ -142,6 +149,9 @@ const DUENESS_WITHIN_WINDOW = 30
 const DUENESS_DUE_IN_14 = 15
 const EFFORT_PENALTY = 20
 
+/** UTC date — NOT the user's day after ~5 pm Pacific. Check-offs no longer use
+ *  it (markTaskInstanceDone sends `localDateString()`); the remaining uses are
+ *  part of the date-module follow-up (audit 2026-09-29, refactor #2). */
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10)
 }
@@ -982,7 +992,12 @@ export type MarkDoneResult =
  * tasks (via the `complete_task_instance` RPC — see the Phase 1 migration).
  *
  * - `completedOn` (YYYY-MM-DD) is the confirmed completion date from the
- *   completion sheet; the next due date rolls forward from it. Defaults to today.
+ *   completion sheet; the next due date rolls forward from it. Defaults to
+ *   today on THIS DEVICE's calendar — it used to be the UTC date, which
+ *   recorded every check-off after ~5 pm Pacific as tomorrow. The server
+ *   refuses a date more than a day off the home's own today.
+ * - `backdated` says the person chose an earlier day ("A few days ago"), which
+ *   lets `completedOn` sit up to a week back.
  * - `nextDueOverride` (YYYY-MM-DD) lets the sheet's ±-week adjust pin the next
  *   due date explicitly.
  *
@@ -993,7 +1008,7 @@ export async function markTaskInstanceDone(
   homeId: string,
   taskInstanceId: string,
   completionNotes?: string | null,
-  opts?: { completedOn?: string; nextDueOverride?: string | null }
+  opts?: { completedOn?: string; backdated?: boolean; nextDueOverride?: string | null }
 ): Promise<MarkDoneResult & { nextInstanceId?: string | null }> {
   // Firestore: the complete_task_instance RPC is now the completeTask callable
   // (Admin transaction — dup-suppression needs a query-in-transaction; model §9).
@@ -1002,7 +1017,8 @@ export async function markTaskInstanceDone(
     const res = await completeTaskCallable({
       homeId,
       taskInstanceId,
-      completedOn: opts?.completedOn ?? todayStr(),
+      completedOn: opts?.completedOn ?? localDateString(),
+      backdated: opts?.backdated === true,
       nextDueOverride: opts?.nextDueOverride ?? null,
       completionNotes: completionNotes ?? null,
     })
