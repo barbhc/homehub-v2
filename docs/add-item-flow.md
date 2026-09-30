@@ -299,6 +299,7 @@ this file exists to prevent.
 | `e2e/emu/smart-add.spec.ts`, Back from the manual step | More than one item — in Firestore or on the Items list — after Add the manual → Back → Add the manual (HH-130) | live |
 | `src/modules/inventory/services/postCreateLookup.test.ts`, "as it is now" | A lookup landing on an item renamed, re-categorised or re-identified while it ran (HH-125, HH-130) | live |
 | `src/modules/knowledge/services/manualDedupe.test.ts` | A re-upload of the same PDF — at a new path, as every upload is — minting a second record (HH-154) | live |
+| `e2e/emu/smart-add.spec.ts`, the same PDF twice | Through the real Storage and Firestore emulators: a scan retried with the same file leaving two records, or two stored PDFs (HH-154) | live |
 | `src/lib/manualRescan.test.ts` | A rescan from Settings that commits instead of ending in the review | live |
 | `seedUnreviewedManual` in `scripts/seed-emulator.ts` | **The gap, now closed.** A read-but-unsaved manual with no maintenance in it — the state all five repeated reports came from, which no test could visit because every seeded manual was committed and every seeded item already had tasks | live |
 

@@ -310,3 +310,86 @@ test.describe("emulator e2e — Back from the manual step (HH-130)", () => {
     await expect(page.getByRole("link", { name: new RegExp(model) }).filter(visible)).toHaveCount(1)
   })
 })
+
+/**
+ * HH-154 through the real Storage and Firestore emulators: the same PDF
+ * attached twice is ONE manual. The case that happens: the scan fails to
+ * start, the file is still selected, and "Scan the manual" is pressed again —
+ * which uploads the same bytes to a NEW storage path. The dedupe used to match
+ * on that path, so every retry minted a record ("Why is the rice cooker saved
+ * 4 times here?"). It now matches on the SHA-256 of the file.
+ */
+const STORAGE = `http://${process.env.FIREBASE_STORAGE_EMULATOR_HOST ?? "127.0.0.1:9199"}/v0/b/demo-homehub.appspot.com/o`
+
+async function liveManualsFor(itemId: string) {
+  if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error("FIRESTORE_EMULATOR_HOST is not set — this spec reads the EMULATOR only")
+  const app = getApps()[0] ?? initializeApp({ projectId: "demo-homehub" })
+  const snap = await getFirestore(app).collection("homes/e2e-home/manuals").where("itemUnitId", "==", itemId).get()
+  return snap.docs.filter((d) => d.get("deletedAt") == null).map((d) => d.data())
+}
+
+/** Manual PDFs stored for this item, read with the emulator's admin token. */
+async function storedPdfsFor(itemId: string): Promise<string[]> {
+  const res = await fetch(`${STORAGE}?prefix=${encodeURIComponent("homes/e2e-home/manuals/")}`, {
+    headers: { Authorization: "Bearer owner" },
+  })
+  const body = (await res.json()) as { items?: { name: string }[] }
+  return (body.items ?? []).map((o) => o.name).filter((n) => n.includes(`/${itemId}/`))
+}
+
+test.describe("emulator e2e — the same PDF twice is one manual (HH-154)", () => {
+  test("a scan that failed to start, retried with the same file, leaves ONE manual and ONE file", async ({ page }) => {
+    await page.route("**/detectDocType", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ result: { docType: "manual", confidence: 0.95, reason: "stub" } }),
+      })
+    )
+    const scanned: string[] = []
+    await page.route("**/enqueueParse", (route) => {
+      const sent = route.request().postDataJSON() as { data?: { manualId?: string } } | null
+      scanned.push(sent?.data?.manualId ?? "?")
+      return scanned.length === 1
+        ? route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: JSON.stringify({ error: { message: "Couldn't reach the scanner.", status: "INTERNAL" } }),
+          })
+        : route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ result: { ok: true, requestId: "req-hh154" } }),
+          })
+    })
+
+    await page.goto("/inventory/add")
+    await page.getByRole("button", { name: /Appliance or device/ }).click()
+    await page.locator("#identify-brand").fill("Emu")
+    await page.locator("#identify-model").fill(`HH154-${Date.now().toString(36).toUpperCase()}`)
+    await page.getByRole("button", { name: /^Add the manual$/i }).filter(visible).first().click()
+    await expect(page.getByRole("heading", { name: /^Add the manual$/i }).filter(visible).first())
+      .toBeVisible({ timeout: 15_000 })
+
+    await page.setInputFiles('input[accept*="pdf"]', { name: "manual.pdf", mimeType: "application/pdf", buffer: TINY_PDF })
+    await page.getByRole("button", { name: /Scan the manual/i }).filter(visible).first().click()
+    await expect(page.getByText("Couldn't reach the scanner.").filter(visible).first()).toBeVisible({ timeout: 20_000 })
+
+    // The same file is still chosen: press Scan again. It uploads the same
+    // bytes to a fresh path — the case the path-based dedupe never matched.
+    await page.getByRole("button", { name: /Scan the manual/i }).filter(visible).first().click()
+    await expect(page).toHaveURL(/\/items\//, { timeout: 30_000 })
+    const itemId = new URL(page.url()).pathname.split("/items/")[1]
+
+    const manuals = await liveManualsFor(itemId)
+    expect(manuals, "one manual record for the item").toHaveLength(1)
+    expect(manuals[0].contentHash).toMatch(/^[0-9a-f]{64}$/)
+    // Both scan requests named that one manual — the retry scanned the record
+    // the first attempt made, not a copy of it.
+    expect(scanned).toHaveLength(2)
+    expect(new Set(scanned).size).toBe(1)
+    // …and the redundant second upload was removed: one PDF, the record's own.
+    const pdfs = await storedPdfsFor(itemId)
+    expect(pdfs).toEqual([manuals[0].sourceRef])
+  })
+})
