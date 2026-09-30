@@ -90,17 +90,19 @@ Two server-side gates, used consistently:
 | `generateTasks` | onCall | yes | any-home | yes | **yes** |
 | `detectDocType` | onCall | yes | per-home | yes | **yes** |
 | `ocr` | onCall | yes | any-home | yes | **yes** |
-| `productLookup` | onCall | yes | any-home | yes | **yes** |
-| `chatQuery` | **onRequest** | `verifyIdToken` | per-home | yes → 429 | **yes** |
+| `productLookup` | onCall | yes | any-home | yes (brand-only Brave path too, as `brandFromModel`, since 2026-09-30) | **yes** |
+| `chatQuery` | **onRequest** | `verifyIdToken` | per-home | yes → 429; 1 unit + 5 per attached PDF | **yes** |
 | `suggestCareNotes` | onCall | yes | any-home | yes | **yes** |
 | `importCareUrl` | onCall | yes | any-home | yes | **yes** |
 | `ingestReference` | onCall | yes | per-home | yes | **yes** |
 | `classifyExistingTasks` | onCall | yes | per-home | yes | **yes** |
 | `discussTask` | onCall | yes | per-home | yes | **yes** |
 | `searchProductImages` | onCall | yes | any-home | yes | **yes** |
-| `findManual` | onCall | yes | any-home | yes | **yes** |
+| `findManual` | onCall | yes | any-home | yes (the shared daily pool — its private `60` was removed 2026-09-30) | **yes** |
 | `checkRecalls` | onCall | yes | per-home | — | no (fixed public API) |
-| `proxyPdf` | **onRequest** | `verifyIdToken` `:39` | any-home `:45` → 403 | — | no (bandwidth only) |
+| `proxyPdf` | **onRequest** | `verifyIdToken` | any-home → 403; relays only this project's Storage URLs and the caller's own linked-manual URLs, only PDF bytes (2026-09-30) | 10/min, 100/day (`enforceCallLimits`) | no (egress only) |
+
+`previewDigest` (callable) was **removed from the code** on 2026-09-30 — any member could trigger a whole-app read with it, and no client called it. It stays deployed until `firebase functions:delete previewDigest`.
 
 **The two `onRequest` doors** verify the Firebase ID token themselves and both set `Access-Control-Allow-Origin: "*"` (`chatQuery.ts:47`, `proxyPdf.ts:20`). A wildcard ACAO is not itself an authorization hole — the bearer-token check is the gate — but any origin can invoke them from a browser with a stolen token. See Gap #6.
 
@@ -129,7 +131,9 @@ All app data is path-tenanted under `homes/{homeId}/…`; membership at `homes/{
 | `supplyCatalog/**` | any signed-in | **denied** (Admin SDK) | global catalog |
 | `webRetrievals`, `productLookupCache`, `parseEvalCandidates` | **denied** | **denied** | server-only caches |
 | `usage/{uid}/daily/{day}` | **denied** | **denied** | quota counters — user cannot read or reset their own |
-| `config/{doc}` | `get` any signed-in | **denied** | holds `growth.inviteGateEnabled` — the kill switch for the admission gate |
+| `config/{doc}` | `get` signed-in, **`growth` only** (named allowlist, 2026-09-30) | **denied** | `growth.inviteGateEnabled` — the kill switch for the admission gate |
+| `config/spend` | **denied** | **denied** | AI caps + per-uid overrides + the AI kill switch; Admin SDK only (`scripts/ops/set-spend-config.ts`) |
+| `parseCharges/{requestId}` | **denied** | **denied** | manual-scan charge ledger; server-only so no one can edit their way to a refund |
 | `inviteCodes/{code}` | **denied** | **denied** | redeem is server-side only |
 | `admissions/{uid}` | `get` self only; **`list` denied** | **denied** | `:267` — admission cannot be self-granted |
 | collectionGroup `members` | signed-in **where `uid == auth.uid`** | — | serves "find all my memberships" |
@@ -151,11 +155,21 @@ PASS  unauthenticated reads it          -> 403
 
 ## Quotas & spend caps
 
-`consumeDailyAiQuota` (`lib/quota.ts`) — one counter doc per user per UTC day at `usage/{uid}/daily/{yyyy-mm-dd}`, read-and-incremented **transactionally**, default `DAILY_AI_LIMIT = 50`, per-function tallies in `fns`, `expiresAt` set 2 days out for TTL cleanup. Charged **after** auth/membership/validation and **before** the paid work, so rejected requests don't burn quota. Applied to all money-spending callables plus `chatQuery` (surfaced as HTTP 429).
+> Section regenerated from the code on 2026-09-30 (branch `feat/spend-guards-parse-hardening`, Package C). The rest of this file is still the 2026-08-19 generation.
 
-**App-wide monthly ceiling (#91):** cost-weighted units with refunds on failure, on top of the per-user daily cap.
+**Where the numbers live:** the server-only Firestore document **`config/spend`** — `{ monthlyCeilingUnits, dailyUnitsDefault, dailyUnitsOverrides: {uid: n}, scansPerDay, updatedAt }` — read **inside the same transaction as every charge** (`chargeAiQuota`, `firebase/functions/src/lib/quota.ts`), parsed by `parseSpendConfig` (`shared/quota/policy.ts`). Absent → code defaults **1,500 units/month app-wide, 50 units/user/UTC-day, 50 scans/user/day**. Written only by `scripts/ops/set-spend-config.ts` (emulator by default; `--prod --project=` for production); `firestore.rules` gives clients no read or write (the override map names uids). A malformed ceiling fails **closed** (0); malformed per-user numbers fall back to the defaults; problems are logged once per instance.
 
-Not covered: `parseWorker` (quota is charged upstream at `enqueueParse`), and there is still **no org-level Firebase budget cap** — see Gap #7.
+**Kill switch:** `monthlyCeilingUnits: 0` → every paid call refuses as the app's budget (`decideQuota` → `global`, calm copy; scans park as `awaiting_capacity`). `AI_MONTHLY_UNIT_CEILING` (env, per function in gen 2) is an emergency brake that can only **lower** a function's ceiling — never raise it or lift the switch. Runbook: `docs/rollback.md` §3.
+
+**The transaction** (`usage/{uid}/daily/{yyyy-mm-dd}` + `aiSpendGlobal/{yyyy-mm}` + `config/spend`): per-endpoint rate window (`AI_RATE_LIMIT`, default 10/min) and a 45-unit/min burst window checked first (a throttled call costs nothing); then the per-function call cap (`scansPerDay` for `enqueueParse`); then the user's pool (`dailyUnitsOverrides[uid] ?? dailyUnitsDefault`, × `DAILY_POOL_MULTIPLIER` — `productLookup` 3×); then the monthly ceiling. Per-function `charged`/`failed` tallies on the monthly doc. There is no per-call-site limit argument (findManual's old `60` compared against the whole pool). Holds: `refund()` (whole call), `release(n)` (part — an unfetched chat PDF), `extend(n)` (a chat turn's PDFs, priced after the base charge).
+
+**Unit costs** (`AI_UNIT_COST`): `enqueueParse` 10 · `ingestReference`/`generateTasks`/`classifyExistingTasks`/`ocr` 3 · `detectDocType`/`identityResolve`/`importCareUrl` 2 · everything else 1, including `brandFromModel` (productLookup's brand-only Brave search) · **`chatQuery` 1 + 5 per attached manual PDF** (`chatQueryUnits`, ≤ 2 PDFs → max 11).
+
+**Manual scans across processes:** the charge made in `enqueueParse` / `retryAwaitingCapacity` is recorded in the server-only ledger **`parseCharges/{requestId}`** (`held → vendor → billed | refunded`, `lib/parseCharges.ts`) so the worker and the stalled-parse sweep can refund a run that never got a Claude answer, exactly once.
+
+**Non-AI caps:** `proxyPdf` — `enforceCallLimits` on the same usage doc: 10/min and 100/day per user (`DAILY_CALL_CAP`), no AI units.
+
+Not covered: `parseWorker` itself (charged upstream at `enqueueParse`), and there is still **no org-level Firebase budget cap** — see Gap #7. The Anthropic workspace hard limit is the vendor-side backstop (`docs/launch-readiness.md`).
 
 ## Security headers
 

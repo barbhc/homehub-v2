@@ -11,7 +11,7 @@ Read the first section. Everything below it is detail you will not need most nig
 | What is broken | Do this | How long | Phone? |
 |---|---|---|---|
 | **The web app** (blank screen, broken page, bad release) | Firebase Console → **Hosting** → *Release history* → find the previous release → **⋮ → Rollback** | ~30s + ~1 min propagation | ✅ yes |
-| **Spend is running away** | Firebase Console → **Functions** → `AI_MONTHLY_UNIT_CEILING` → set it low (see §3) | ~2 min | ✅ yes |
+| **Spend is running away** | Firebase Console → **Firestore** → `config/spend` → set `monthlyCeilingUnits` to **0** (see §3) | ~1 min, instant effect | ✅ yes |
 | **Data is being exposed** (rules mistake) | Firebase Console → **Firestore → Rules** → *History* → pick the previous version → **Publish** | ~1 min | ✅ yes |
 | **A Cloud Function is broken** | Needs a laptop — see §4 | ~5–8 min | ❌ no |
 | **The iOS build is broken** | App Store Connect → TestFlight → expire the build (see §5) | ~2 min | ✅ yes |
@@ -85,26 +85,51 @@ broken costs the night.
 
 If the problem is money — a runaway loop, a stuck retry, an alert from Anthropic
 or GCP — you can stop **every paid AI call in the app** without deploying
-anything, by lowering the app-wide monthly ceiling below what has already been
-spent this month.
+anything. The caps live in one Firestore document, `config/spend`, which every
+paid call reads inside the transaction that charges it — so a change takes
+effect on the very next call, in every function at once.
 
-1. Console → **Functions** → any function → **Edit** → *Runtime, build and
-   connections settings* → **Environment variables**.
-2. Set `AI_MONTHLY_UNIT_CEILING` to **`20`**.
-3. Deploy the variable change (the console does this for you, ~2 min).
+**From a phone (the console):**
+
+1. Firebase Console → **Firestore Database** → **Data** → collection `config` →
+   document `spend`.
+2. Set the field `monthlyCeilingUnits` to **`0`** (a *number*, not the text
+   "0" — though text fails safe too: any value the code cannot read as a whole
+   number is treated as 0). If there is no `spend` document yet, add it with
+   just that field; every other number falls back to its code default.
+3. Save. That's it — no deploy.
+
+**From a laptop:** `npx tsx scripts/ops/set-spend-config.ts kill --prod --project=homehub-2068d`
 
 Every paid function then refuses with *"Homehub has hit its monthly AI budget.
-This isn't something you did — please try again next month."* Reads, writes,
-sign-in, and every already-parsed manual keep working — only new AI calls stop.
+This isn't something you did"* — a manual scan adds *"your manual is saved and
+queued"* (it parks, and `retryAwaitingCapacity` starts it once the switch is
+off), and everything else adds *"AI features are paused for now."* Reads,
+writes, sign-in, and every already-parsed manual keep working — only new AI
+calls stop.
 
-> ⚠️ **Do not set it to 0 or 1.** The quota rule treats a ceiling *below the cost
-> of a single call* as misconfiguration, not exhaustion, and the user gets
-> *"Usage accounting is misconfigured"* instead of an honest message. The most
-> expensive single call is `enqueueParse` at 10 units, so **20 is the lowest safe
-> value**. (`shared/quota/policy.ts` — `decideQuota`, the `invalid` branch.)
+**0 is the documented value now.** Until 2026-09-30 a ceiling of 0 read as
+*"Usage accounting is misconfigured"*, which is why this page used to say "never
+below 20"; `decideQuota` now reads 0 as the kill switch.
 
-To restore: set it back to `20000`, or delete the variable to fall back to
-`DEFAULT_MONTHLY_UNIT_CEILING`.
+**To restore:** set `monthlyCeilingUnits` back to its previous value —
+`npx tsx scripts/ops/set-spend-config.ts show --prod --project=homehub-2068d`
+prints the document; the code default is **1,500**
+(`scripts/ops/set-spend-config.ts ceiling 1500 --prod --project=homehub-2068d`).
+
+> **Why not `AI_MONTHLY_UNIT_CEILING`?** That env var was the old kill switch
+> and it did not work: gen-2 functions take env vars *per function*, so setting
+> it "on any function" stopped that one function and left the other twenty
+> paying. It still exists as an emergency brake that can only **lower** the
+> ceiling of the function it is set on — it can never raise the document's
+> value or lift the kill switch.
+
+> **If the functions themselves are the problem** (the switch is off in the
+> document and calls are still going out): revoke the API key in the Anthropic
+> console (console.anthropic.com → API keys). That stops every Claude call from
+> every version of every function, immediately; restoring means a new key in
+> Secret Manager and a functions deploy. The Anthropic workspace hard limit is
+> the last line behind both.
 
 ---
 
@@ -129,6 +154,25 @@ radius):
 ```bash
 firebase deploy --only functions:chatQuery --project homehub-2068d
 ```
+
+**Faster, no rebuild — shift traffic back to the previous revision.** Every
+gen-2 function is a Cloud Run service that keeps its earlier revisions. Record
+the serving revision of each function BEFORE a functions deploy, so there is
+something to go back to:
+
+```bash
+gcloud run services list --project homehub-2068d --region us-central1        # service names
+gcloud run revisions list --service <service> --project homehub-2068d --region us-central1
+# back to the one that was serving before:
+gcloud run services update-traffic <service> --to-revisions <revision>=100 \
+  --project homehub-2068d --region us-central1
+```
+
+This moves requests only. The old revision runs its own code and settings, but
+what lives outside the service — Cloud Scheduler jobs, the Cloud Tasks queue's
+retry settings — stays as the latest deploy set it, and the next `firebase
+deploy` of that function routes 100% to a new revision again. Use it to stop the
+bleeding; then redeploy the last good SHA as above.
 
 Afterwards, run the production canary — the Firestore emulator does not enforce
 indexes, so a query can pass every local suite and still fail in production:
@@ -214,5 +258,6 @@ inside the wrapper, and ship the native fix at normal speed.
 - `firebase.json` sets `Cache-Control: no-cache` on the HTML shell, which is what
   makes a Hosting rollback reach the iOS WKWebView on next launch instead of up to
   an hour later.
-- The 20-unit floor on the spend kill switch is read from `decideQuota`'s
-  `invalid` branch and `AI_UNIT_COST.enqueueParse = 10`.
+- ~~The 20-unit floor on the spend kill switch~~ — superseded 2026-09-30: the
+  kill switch is `config/spend.monthlyCeilingUnits: 0`, read by `decideQuota`
+  as "global" (see §3); `firebase/functions/test/quota.emu.test.mjs` pins it.

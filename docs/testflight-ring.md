@@ -46,9 +46,21 @@ undone produces data you cannot act on.
 ## Who to invite
 
 **5–10 people, and no more.** The number is a cost control as much as a research
-one: 10 people at the 50-unit daily cap is 500 units/day against a 20,000/month
-ceiling, so a bad week from a full ring cannot exhaust the budget. It is also
-roughly the number whose feedback one person can actually act on in two weeks.
+one. It is also roughly the number whose feedback one person can actually act on
+in two weeks.
+
+**Size the monthly ceiling to the ring BEFORE inviting it.** The caps live in
+`config/spend` (`scripts/ops/set-spend-config.ts show`). Since 2026-09-30 the
+code defaults are 50 units per tester per day and **1,500 units per month for
+the whole app** — the month sized to sit under a ~$100 Anthropic hard limit
+(a unit ≈ $0.04–0.06: a scan is 10 units ≈ $0.55; an Ask turn with a manual
+attached is 6 units ≈ $0.25). Ten testers at their 50-unit cap would spend
+1,500 in three days; five testers at ~20 units a day, in two weeks. When the
+ceiling is hit, every AI feature pauses app-wide with the calm "monthly AI
+budget" message (scans are queued, not lost). So decide the ring's budget as a
+pair — the Anthropic hard limit, and `monthlyCeilingUnits` ≈ that limit in
+dollars × 18 — and set both before day 1:
+`set-spend-config.ts ceiling <units> --prod --project=homehub-2068d`.
 
 Aim for a mix, because the failure modes differ:
 
@@ -72,7 +84,7 @@ is badly wrong, you find out with three people inconvenienced instead of ten.
 |---|---|---|---|
 | **Sentry volume** | Sentry issues, last 24h | 0–2 new issues/day, none affecting >1 user | any issue hitting **≥2 distinct users**, or **>5 new issues in a day** |
 | **Crash-free sessions** | Sentry | ≥ 99% | < 98% |
-| **App-wide spend** | `aiSpendGlobal/{yyyy-mm}.units` | < 400 units/day across the ring | > 800 units/day, or > 40% of the monthly ceiling before week 2 |
+| **App-wide spend** | `aiSpendGlobal/{yyyy-mm}.units` against `config/spend.monthlyCeilingUnits` | on pace to stay under the ceiling (≤ ceiling ÷ 30 per day) | > 2× that pace on any day, or > 40% of the monthly ceiling before week 2 |
 | **Per-user spend** | `usage/{uid}/daily/{day}.units` | ≤ ~30 units/day for an active user | any user at the 50-unit daily cap **two days running** — that is a loop or a confused user, and both need a look |
 | **Rate-limit hits** | function logs, `rate_limited` | occasional | a user hitting it repeatedly ⇒ a client retry bug, not impatience |
 | **Function failure rate** | `aiSpendGlobal.fns.<fn>.failed` ÷ `.charged` | < 5% | > 15% on any function |

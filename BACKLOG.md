@@ -253,8 +253,12 @@ enough to trust a prompt change against.
   `firebase functions:delete previewDigest`.
 - **Native changes need a TestFlight upload** and can only be verified by
   unzipping the IPA.
-- **AI spend is capped**: 50 units/user/UTC-day, 20k/month app-wide
-  (`shared/quota/policy.ts`), enforced across the paid callables.
+- **AI spend is capped** by the server-only Firestore doc `config/spend`, read
+  inside every charge: code defaults 50 units/user/UTC-day, 1,500/month
+  app-wide, 50 scans/user/day; per-uid overrides (the owner: 1,000/day). Change
+  it with `scripts/ops/set-spend-config.ts` (no deploy); **kill switch:
+  `monthlyCeilingUnits: 0`** (`docs/rollback.md` §3). Rules and defaults:
+  `shared/quota/policy.ts`.
 - **A tab open across a deploy asks for chunks that no longer exist.** Hosting
   rewrites the miss to `index.html`. Routes recover via `lazyWithRetry`; any
   bare `import()` outside it must go through `withChunkRetry`
