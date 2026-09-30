@@ -70,11 +70,14 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   never *nameplate* — that is what an installer calls it. It names *the brand
   and model*, the two fields on screen, never *both fields*, which describes our
   form rather than their appliance. — owner, 2026-08-27
-- **The scan asks for the model number, not the whole label.** "Point at the
-  model number" is the instruction, in the control and in the recovery tips. The
-  older "the label should fill most of the frame" was untrue and worked against
-  itself: it makes people step back, and the read only ever needed the model
-  number legible. — owner, 2026-08-27
+- **The scan asks for the model number, not the whole label.** The control says
+  "Find the model number · We'll do the typing", and the recovery tips (shown
+  after a read comes back empty) lead with "Get closer — the model number should
+  be big and sharp". The older "the label should fill most of the frame" was
+  untrue and worked against itself: it makes people step back, and the read only
+  ever needed the model number legible. — owner, 2026-08-27. (The control said
+  "Point at the model number" until its lines went to `text-sm` that day and it
+  stopped fitting — `e2e/emu/scan-fit.spec.ts`; this line was not amended then.)
 - The camera keeps its **tile on the left**, and the copy is sized to fit beside
   it. The text column there is about **165px on a 375pt phone** — small enough
   that a sentence of ordinary length wraps. `e2e/emu/scan-fit.spec.ts` measures
@@ -254,10 +257,11 @@ this file exists to prevent.
 | Guard | Catches | State |
 |---|---|---|
 | `src/lib/retiredDesigns.test.ts` | Anything rendering a deleted component, a retired route, or a resurrected wizard step | live |
+| `src/lib/designContracts.test.ts` | This file's rules as behaviour, not names: the item page renders one tree and one add-manual dialog at 390px and desktop, and never starts a scan on arrival; zero-byte refusal and the capacity stand-down; every review door gets the one screen, in order; the two-step review's sentences, absent app-wide; one indeterminate rail and the tray's stand-down. A rule the code does not meet yet is an `it.todo` naming its package | live |
 | `src/components/manuals/TaskReviewSheet.saved.test.tsx` | A screen claiming rows are saved while offering the button that saves them | live |
 | `src/components/smart-add/addFlowCopy.test.ts` | Copy and step-union drift | live |
 | Journey walks + their `snap()` notes | Visual drift — but ONLY if the note states the requirement rather than describing the screen | live |
-| **This file** | A change quietly undoing an earlier agreement | new |
+| **This file** | A change quietly undoing an earlier agreement | live |
 | `src/components/manuals/TaskReviewSheet.sections.test.tsx` | A bucket with no rail — the HH-140 mechanism, now impossible because `SECTION_RAIL` is typed `Record<ReviewBucket, string>` | live |
 | `src/components/manuals/TaskReviewSheet.rowstates.test.tsx` | The three timing states drifting — asserts a quiet row's chip is byte-identical to a notifying row's | live |
 | `src/lib/reviewBuckets.agreement.test.ts` | The review, the task page and `sendPush` disagreeing about whether one task notifies | live |
@@ -265,6 +269,7 @@ this file exists to prevent.
 | `src/components/item-care/CareBlock.awaiting.test.tsx` | The page offering to add a manual it has already read | live |
 | `src/pages/item-detail/ManualSection.addManual.test.tsx` | An item-page door that fails its first "Add the manual", a retry that re-sends the previous file, or a reopened dialog still carrying the last error, document type or panel (HH-159) | live |
 | `e2e/emu/item-add-manual.spec.ts` | Two add-manual dialogs or two item headings in the DOM at 390px or desktop, or more than one scan started per add (HH-159) | live |
+| `e2e/emu/item-page-manual.spec.ts` | The item page's link lane, from a seeded appliance with no manual: one dialog opening on the link field, the Google search for this model, one scan, the live rail, the tray standing down here and counting it elsewhere, no second scan on return. HH-161's "Upkeep never offers a manual it is reading" is `test.fixme` until E2 | live |
 | `e2e/emu/smart-add.spec.ts`, the wizard hand-off | More than ONE enqueue per add with a manual, counted only after the item page has finished loading (HH-159) | live |
 | `src/pages/item-detail/useItemDetailLoad.test.ts` | A stall treated as a failure, a late success that does not win, or a refetch that swaps the page for the skeleton (HH-160) | live |
 | `seedUnreviewedManual` in `scripts/seed-emulator.ts` | **The gap, now closed.** A read-but-unsaved manual with no maintenance in it — the state all five repeated reports came from, which no test could visit because every seeded manual was committed and every seeded item already had tasks | live |

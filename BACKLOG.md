@@ -16,12 +16,42 @@ bottom, one line each, with what verified them.
 
 ## Nothing is blocking
 
-Beta feedback is at **zero open items**: 157 decided, 107 deleted from App
-Store Connect, **49 awaiting the owner's deletion** (bookkeeping), one on the
-roadmap (HH-152's product half, §4a).
+Beta feedback: **161 decided**. Of round 21's four Fix nows, HH-158–160 are
+merged (#221, #223) and HH-161, the one scan indicator, is Package E2 (below);
+**49 await the owner's deletion** in App Store Connect (bookkeeping); one is on
+the roadmap (HH-152's product half, §4a).
 
 Migration phases 0–5 are complete and the shim is deleted. Read
 `MIGRATION_STATUS.md` for history, **but do not trust its remaining-work notes**.
+
+---
+
+## Audit 2026-09-29 — the clean-up plan
+
+Six read-only audits (code, cost, v1 retirement, design contracts, the
+feedback ledger, code health) became a plan the owner approved that night,
+split into packages. Merging ships nothing; hosting and functions deploys are
+separate (§8).
+
+**Merged 2026-09-30:**
+- #219 — invite role escalation, pinned member uids, storage write membership, fail-closed growth gate
+- #220 — check-offs record the home's calendar day (A5), plus housekeeping (A7)
+- #221 — Items cached like Home; Tasks reads its agenda once (HH-158)
+- #223 — item page: Add the manual works on the first tap, one tree, one scan per add, slow ≠ failed (HH-159, HH-160)
+- #222 — Package C, the server guards: spend caps in `config/spend` with a kill switch, per-PDF Ask pricing, one-run parses, a cheaper push sweep. Its functions deploy is separate and needs approval (§8)
+
+**Still open:**
+
+| Package | What |
+|---|---|
+| E2 | One scan indicator (HH-161, mock approved). The same change retires round 14's no-maintenance card, the review's "N will show up in Tasks" over item cleaning, and bells that cannot ring |
+| E3 | The regressions found alongside: Back → a duplicate item (HH-130), "Brand Model" names (HH-112), re-upload duplicates (HH-154), desktop Tasks' empty state (HH-94), Settings Rescan skipping the review, empty Ask answers, leftover "Overdue" / "Parse manuals", the v1 build-script branch guard (HH-122) |
+| F | Retire the v1 Supabase project: back up, then delete; rotate the keys it shares |
+| G | Fewer reads — the hourly sweep, Home, the item page, Ask — and PDFs by range |
+| H | Structure — dead routes and code, one responsive component per screen, schema validation at every boundary, lint the whole UI |
+
+`src/lib/designContracts.test.ts` holds the plan's rules as tests; its
+`it.todo`s name the package that turns each one on.
 
 ---
 
@@ -57,7 +87,7 @@ sitting — both under an hour.
 | Decision | Note |
 |---|---|
 | Delete 49 resolved reports in App Store Connect | Destructive; the API key can't be trusted with it. |
-| **Unpark the sample home?** (§4b) | Its stated precondition — a final add-item flow and item page — is now met (#161–#163, #200). The session it was waiting for can be scheduled. |
+| **Unpark the sample home?** (§4b) | Not yet: its precondition — a final add-item flow and item page — is not met. Round 21 and the 2026-09-29 audit reopened the item page; wait for E2. |
 | Decide the fate of the v1 Supabase project (§2a) | A paused project can be restored; a deleted one cannot. `scripts/import/` waits on this. |
 | Invite gate ON or OFF for new testers | Wired: `firestore.rules` + `growthGate.ts` read `config/growth.inviteGateEnabled`. The switch is a config document, not code. |
 | Prune 4 stale worktrees | `.claude/worktrees/{nifty-shtern,wizardly-williamson}` (detached) and `~/Projects/homehub-v2-{security,spend-caps}`. Both branches shipped (#94, #91); nothing unmerged. |
@@ -148,6 +178,7 @@ or `firebase/functions/src` implements sections.
 |---|---|---|---|
 | 4.1 | **Brand registry + parse cache** | `design/manual-sourcing-and-parse-cache.md` | The unbuilt half of HH-107. Manual search still ranks results it has already judged poor; the registry supplies the manufacturer URL for the no-match state. The round-7 fix added a *badge* and the complaint came back. |
 | 4.2 | **Section-aware parser** | `design/section-aware-parser-proposal.md` | Parse quality at the source. |
+| 4.3 | **Home-profile nudge** — ask the one answer that changes tasks (climate) when it does; stop asking how long you've owned | `design/profile-nudge.md` | Approved 2026-08-21, then dropped from this file in #173 with no closure line. The profile is still five steps. |
 
 ---
 
@@ -181,17 +212,19 @@ mobile.
 
 ---
 
-## 4b. The sample home — parked; its precondition is now met
+## 4b. The sample home — parked; its precondition is not met yet
 
 **Owner, 2026-08-27:** park it *"until we finalize and QA fully the add item
 flow and the final item page."* Both entry points were removed (round 18);
 the route survives by direct link; `HomeOnboarding.sample.test.tsx` pins both
 doors shut.
 
-**The add-item flow and item page have since been finalised** (the living item
-page, #161–#163; the care library and Suggested band, #200; the editable
-supplies, #204). The parked session can be scheduled — that is the owner's
-call, in §2. What is known so far, so it starts from evidence (measured
+**The add-item flow and item page are not final.** This file said they were
+(the living item page, #161–#163; the care library and Suggested band, #200;
+the editable supplies, #204) — then round 21 and the 2026-09-29 audit reopened
+the item page. #223 fixed the add-manual door and the page's load; the scan
+indicator (HH-161, E2) is still open. Schedule the parked session after E2 —
+the owner's call, in §2. What is known so far, so it starts from evidence (measured
 2026-08-27 at 375×812): images on the page **0**; manual citations rendered on
 arrival **0**; page-cited sources sitting unused in the fixtures **4**; scroll
 before the call to action ~2 screens. Two open questions: a sample HOME or a
@@ -233,7 +266,7 @@ enough to trust a prompt change against.
 | # | Item | State |
 |---|---|---|
 | 7.1 | **Visual baselines are not baked** | `e2e/visual/pages.spec.ts` exists; **zero `-snapshots` directories** (verified 2026-09-16). Re-bake via the workflow — never commit local-platform pixels. |
-| 7.2 | **Item-page manual attach → review → tasks has no walk** | From the 2026-08-19 audit. `task-review.spec.ts` covers the review WRITE from the item page's Review button; `knowledge*.spec.ts` cover Ask. No walk attaches a manual from the item page and follows it into the review. The emulator seed also uploads no PDF, which is why the manual viewer has no walk either (#206 was proven at the component level and on the preview channel instead). |
+| 7.2 | **Item-page manual attach → review → tasks: the attach is walked, the rest is not** | The attach now has walks: `item-add-manual.spec.ts` (#223 — the upload doors, 390px and desktop) and `item-page-manual.spec.ts` (the link lane, and the scan's live state up to `queued`). `task-review.spec.ts` covers the review WRITE from the item page's Review button. Still no walk from an item-page attach INTO the review: it needs a draft the worker never writes in e2e. The emulator seed also uploads no PDF, which is why the manual viewer has no walk either (#206 was proven at the component level and on the preview channel instead). |
 | 7.3 | `chatQuery` has no testable core | It builds the prompt inline in the request handler with a live Claude client, unlike `runDiscussTask`. #210's wiring was verified by reading. Extracting a core would let the assembled prompt be asserted. |
 | 7.4 | Parse watch-stages / snapshot tooling | Explicitly optional. Only worth it if parse debugging gets painful again. |
 

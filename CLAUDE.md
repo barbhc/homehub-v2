@@ -12,26 +12,25 @@ Hosting: Firebase Hosting (default per plan; owner may revisit before cutover).
 
 ## Commands
 ```bash
-npm run dev          # plain vite (shim boots with inert stubs, no env needed)
+npm run dev          # plain vite — Firebase config from VITE_FIREBASE_* in .env, else the demo config; NOT the emulators
 npm run emu          # Firebase Emulator Suite (demo-homehub — no real project needed)
 npm run dev:emu      # vite with VITE_USE_EMULATORS=true (run `npm run emu` first)
-npm run seed:emu     # deterministic emulator seed (auth now; Firestore lands Phase 2)
+npm run seed:emu     # deterministic emulator seed: the e2e user and its E2E Test Home (items, tasks, manuals)
 npm run build        # tsc -b && vite build  ← the gate; never just tsc --noEmit
-npm test             # vitest (incl. shared/parse suite — 104 tests)
-npx playwright test e2e/smoke/boot.spec.ts --project=smoke   # Phase 1 boot smoke
-npm run test:e2e:journey:emu   # walk the 4 core journeys with step screenshots
+npm test             # vitest — src/, shared/, the eval scorer, scripts' pure halves (vitest.config.ts)
+npx playwright test e2e/smoke/boot.spec.ts --project=smoke   # boot smoke (CI's first browser check)
+npm run test:e2e:journey:emu   # walk the 5 core journeys with step screenshots
                                # (docs/user-journeys.md; /journey-smoke reviews the gallery)
 ```
 
 ## Layout
 - `src/integrations/firebase/` — app/auth/firestore/storage/functions (+ emulator hookup)
 - `src/integrations/types.ts` — **hand-curated** types, same exported names as v1. Never generate.
-- `src/integrations/shim/client.ts` — TEMPORARY Supabase-shaped stub keeping v1 services compiling.
-  Phase 5 removes it service-by-service; gate = zero imports of `@/integrations/shim`.
 - `shared/parse/` — parsePrompt.ts + parseCore.ts, ported VERBATIM from v1
   `supabase/functions/_shared/`. Any drift from v1 is a review-blocker until v1 is archived.
-- `firebase/functions/` — Functions workspace (health check now; parse worker in Phase 3)
-- `firestore.rules` / `storage.rules` — DENY-ALL placeholders until Phase 2
+- `firebase/functions/` — Functions workspace: the parse worker, the AI callables, push, the schedulers
+- `firestore.rules` / `storage.rules` — membership rules (home members read and write their home's
+  subtree; roles gate member management); `npm run test:rules:emu` pins them
 
 ## Product principles (apply to everything, not just tasks)
 
@@ -142,17 +141,6 @@ It covers `SmartAddItem`, `components/smart-add/`, `item-detail/ManualSection`,
 `components/manuals/`, `RefinedItemDetail`, `wizardSession`, and the parse
 worker — the same surface `retiredDesigns.test.ts` guards.
 
-## ACTIVE: round 18 is mid-QA on an open draft PR
-
-**Read `docs/round-18-handoff.md` before touching `feat/kind-first-review`.**
-
-The owner is QA'ing a preview build in the Claude desktop browser and giving
-feedback in real time; each note becomes a change on that branch **before** the
-PR merges. The standing merge-and-deploy authorization below **does not apply to
-PR #185** — she said so explicitly. Do not merge it, and do not deploy it live.
-
-Remove this section when #185 merges.
-
 ## Merging and deploying — standing authorization
 
 **Owner, 2026-08-25: "please merge and deploy without me asking going forward."**
@@ -182,8 +170,8 @@ code. The shell's build number never changes, so it is not evidence of anything.
 ## Gotchas
 - Playwright is pinned to v1's version (baseline comparability). Visual baselines are
   CI-runner-baked; re-bake via workflow, never commit local-platform pixels.
-- The e2e `chromium`/`mobile` projects need auth + seeded data (Phase 2/3 wires them to
-  emulators); until then only the `smoke` project runs in CI.
+- CI runs the boot smoke, then all four emulator suites — `emu`, `a11y`, `device`, `journey`
+  (`npm run test:e2e:all:emu`, reseeding between them) — plus the rules and worker suites.
 - Capacitor deps remain temporarily (3 `src/lib/native*` importers) — replaced by FCM in Phase 4.
-- Functions deploy needs the OWNER's Firebase project (`.firebaserc` placeholder) — Blaze +
-  budget alert first, per plan Phase 1 item 2.
+- `.firebaserc`'s default is the owner's project, `homehub-2068d` (Blaze). A functions deploy
+  still needs her approval every time (above).
