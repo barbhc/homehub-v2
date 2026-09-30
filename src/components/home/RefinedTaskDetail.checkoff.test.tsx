@@ -138,6 +138,33 @@ describe("task page — Mark done", () => {
     })
   })
 
+  describe("on a device at UTC+13 (Auckland, daylight time from Sep 27)", () => {
+    beforeAll(() => {
+      vi.stubEnv("TZ", "Pacific/Auckland")
+    })
+    afterAll(() => {
+      vi.stubEnv("TZ", "America/Los_Angeles")
+    })
+
+    it("sends the next window it shows — not a day early", async () => {
+      // The sheet's next window goes through addDays even with no adjust; it
+      // formatted local noon as UTC, and local noon at UTC+13 is 23:00Z the
+      // day before, so the override it sent was Oct 28.
+      expect(new Date(2026, 9, 29, 12).toISOString().slice(0, 10)).toBe("2026-10-28")
+      markTaskInstanceDone.mockResolvedValue({ success: true, data: {}, nextInstanceId: "ti-2" })
+      await openSheet()
+
+      fireEvent.click(screen.getByRole("button", { name: /^confirm$/i }))
+
+      await waitFor(() => expect(markTaskInstanceDone).toHaveBeenCalledTimes(1))
+      expect(markTaskInstanceDone).toHaveBeenCalledWith("home-1", "ti-1", null, {
+        completedOn: "2026-09-29",
+        backdated: false,
+        nextDueOverride: "2026-10-29",
+      })
+    })
+  })
+
   it("a refused check-off says why and leaves the task NOT done", async () => {
     markTaskInstanceDone.mockResolvedValue({
       success: false,

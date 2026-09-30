@@ -26,9 +26,14 @@ import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 
+/** UTC date. Only dueDaysFromDate still reads it — the date-module follow-up
+ *  (audit 2026-09-29, refactor #2); the Mark done sheet uses the local day. */
 function todayStr() { return new Date().toISOString().slice(0, 10) }
+/** Calendar arithmetic on the device's calendar. Its only caller is the Mark
+ *  done sheet's next window, which it SENDS as nextDueOverride — formatted as
+ *  UTC (toISOString) it came back a day early at UTC+13/+14. */
 function addDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10)
+  const d = new Date(dateStr + "T12:00:00"); d.setDate(d.getDate() + n); return localDateString(d)
 }
 function fmt(dateStr: string | null): string {
   if (!dateStr) return "—"
