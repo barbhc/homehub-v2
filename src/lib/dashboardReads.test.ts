@@ -40,10 +40,17 @@ function readCounts() {
   return { queries: fakeDb.reads.queries, gets: fakeDb.reads.gets, docsRead: fakeDb.reads.docsRead, byCollection }
 }
 
+/** A copy of `o` without `key`. */
+function without<T extends object, K extends keyof T>(o: T, key: K): Omit<T, K> {
+  const copy = { ...o }
+  delete copy[key]
+  return copy
+}
+
 /** Everything Home renders from the core key: drops `suggested` and `neverCompleted`, which nothing renders. */
 function rendered(core: Core) {
-  const { suggested: _suggested, ...tasks } = core.tasks
-  const strip = (list: Core["tasks"]["overdue"]) => list.map(({ neverCompleted: _n, ...t }) => t)
+  const tasks = without(core.tasks, "suggested")
+  const strip = (list: Core["tasks"]["overdue"]) => list.map((t) => without(t, "neverCompleted"))
   return {
     stats: core.stats,
     tasks: {
