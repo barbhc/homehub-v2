@@ -14,7 +14,7 @@ import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
   addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
-  TIER_FILTERS, tierFilterCounts,
+  nothingDueLine, TIER_FILTERS, tierFilterCounts,
   tasksDueOnDay, todayStr, useTaskDetail, whenLabel, type Lens, CLAY, TEAL,
 } from "./tasks/shared"
 
@@ -228,6 +228,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const agenda = useWeekAgenda(homeId)
   const { removeTask } = agenda
   const items = agenda.data?.items ?? NO_TASKS
+  /** Scheduled work the agenda hides by design (item-scoped cleaning) — HH-94. */
+  const hiddenCleaning = agenda.data?.hiddenCleaning ?? 0
   const loadState = pageLoadState(agenda.data !== undefined, agenda.error !== undefined)
   const loading = loadState === "loading"
   const loadFailed = loadState === "error"
@@ -276,8 +278,10 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
           <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>This week</h1>
           <div className="mt-1.5 text-[14px]" style={{ color: SUB }}>
             {/* A failed first read says nothing here — "Nothing due" about tasks
-                we never read would be a confident wrong answer. */}
-            {loading ? "Loading…" : loadFailed ? null : total === 0 ? "Nothing due — enjoy the calm."
+                we never read would be a confident wrong answer. An empty list
+                with cleaning scheduled says where it went (HH-94), in the same
+                words as the phone. */}
+            {loading ? "Loading…" : loadFailed ? null : total === 0 ? nothingDueLine(hiddenCleaning)
               // Just the count — a whole-list minute total reads as a bill, not a
               // plan; the per-group minutes are where a pass gets planned.
               : tier === "all" ? `${total} thing${total === 1 ? "" : "s"} across your home`

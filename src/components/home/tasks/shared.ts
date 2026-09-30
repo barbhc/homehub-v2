@@ -33,6 +33,21 @@ export function daysUntil(dateStr: string): number {
 }
 
 /**
+ * The Tasks headline when there is nothing on the list — and where the work
+ * went, when some was left off it on purpose.
+ *
+ * HH-82 / HH-94: item-scoped cleaning never reaches this feed (it lives in the
+ * item's guides and in Deep Clean), so an empty list with cleaning scheduled is
+ * not "nothing due". The phone and desktop pages each carried their own copy of
+ * this line, and only the phone's ever learned the count; this is the one copy
+ * both render, fed by the count useWeekAgenda carries for an empty agenda.
+ */
+export function nothingDueLine(hiddenCleaning: number): string {
+  if (hiddenCleaning <= 0) return "Nothing due — enjoy the calm."
+  return `Nothing on the schedule — ${hiddenCleaning} cleaning job${hiddenCleaning === 1 ? " lives" : "s live"} in your guides.`
+}
+
+/**
  * Calm "when" label for a row's metadata line. Overdue collapses to the single
  * word "Overdue" (no alarming "50d overdue" precision); on-track rows get a
  * natural-language relative label.
