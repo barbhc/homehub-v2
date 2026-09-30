@@ -132,6 +132,13 @@ page watches it.
 - Leaving is safe and **said out loud** on every surface showing a live
   scan. — HH-116, HH-117
 - The tray **stands down** on a page already showing that scan. — HH-118
+- **One scan per manual at a time.** Asking again for a manual that is being
+  read (the item page used to, the moment the wizard handed off) **follows the
+  scan already running** — same result, charged once — instead of starting a
+  second, separately billed one. A scan that stops writing for 35 minutes is
+  ended as an error the manual card can restart, never left "reading" forever;
+  a scan retrying after a transient failure shows as queued, not failed.
+  — audit 2026-09-29, Package C (C1/C2)
 
 ## The item page — where the value arrives
 
