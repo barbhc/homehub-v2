@@ -1,10 +1,33 @@
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { LoadErrorState } from "@/components/layout/LoadStates"
 import { SKELETON_PATIENCE_MS } from "@/lib/homeLoadingGate"
 import { dens } from "@/lib/redesign/tokens"
 import { ItemsPhoneHeader } from "./RefinedItems"
+import { ItemsDesktopTitle } from "./DesktopItems"
 
-const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)"
+const SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)"
+
+/**
+ * The first read failed and there is nothing cached to show: the page keeps
+ * its own header (the title, and on phones the live "+" — adding an item
+ * doesn't need the list), and says what failed with the one thing to do.
+ */
+export function ItemsLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div>
+      <div className="lg:hidden -mx-6">
+        <div className="mx-auto w-full max-w-[460px]">
+          <ItemsPhoneHeader />
+        </div>
+      </div>
+      <div className="hidden lg:block">
+        <ItemsDesktopTitle />
+      </div>
+      <LoadErrorState title="Couldn't load your items" message={message} onRetry={onRetry} />
+    </div>
+  )
+}
 
 /**
  * The Items page while its list loads, shaped like the page it turns into —
@@ -119,7 +142,7 @@ function DesktopSkeleton({ slow, onRetry }: { slow: boolean; onRetry: () => void
     <div>
       {/* DesktopItems' header: the title, then the count line it fills in. */}
       <div className="mb-4">
-        <h1 className="text-[27px] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Items</h1>
+        <ItemsDesktopTitle />
         <Skeleton className="mt-2.5 h-3.5 w-48" aria-hidden="true" />
       </div>
       <div className="max-w-md">

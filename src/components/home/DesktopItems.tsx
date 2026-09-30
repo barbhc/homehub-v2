@@ -33,6 +33,11 @@ function Pill({ active, count, children, onClick }: { active: boolean; count?: n
   )
 }
 
+/** The desktop Items title — shared with the loading and error states (ItemsSkeleton), like the phone header. */
+export function ItemsDesktopTitle() {
+  return <h1 className="text-[27px] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Items</h1>
+}
+
 export function DesktopItems({
   items, rooms, notes = null, notesError = null,
 }: {
@@ -65,7 +70,7 @@ export function DesktopItems({
   return (
     <div>
       <div className="mb-4">
-        <h1 className="text-[27px] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Items</h1>
+        <ItemsDesktopTitle />
         <div className="mt-1.5 text-[13px]" style={{ color: SUB }}>{items.length} items across {roomsWithItems.length} rooms</div>
       </div>
 

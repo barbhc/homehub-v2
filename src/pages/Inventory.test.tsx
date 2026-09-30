@@ -157,6 +157,9 @@ describe("Items — a failed read says so", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load your items")
     expect(screen.getByRole("alert")).toHaveTextContent("Couldn't reach the server to load your items.")
     expect(screen.queryByText("No items yet")).toBeNull()
+    // The page keeps its header — and the "+", since adding doesn't need the list.
+    expect(screen.getAllByRole("heading", { name: "Items" })).toHaveLength(2)
+    expect(screen.getByRole("link", { name: "Add item" })).toHaveAttribute("href", "/inventory/add")
     expect(localStorage.getItem("hh-swr-dashboard-cache")).toBeNull() // a failure is never persisted
 
     svc.getItemUnits.mockResolvedValue(ok([FURNACE]))

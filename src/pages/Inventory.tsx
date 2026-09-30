@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react"
 import { Link } from "react-router-dom"
-import { PageContainer, PageHeader, EmptyState, LoadErrorState, StaleDataNote } from "@/components/layout"
+import { PageContainer, PageHeader, EmptyState, StaleDataNote } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import {
   Plus,
@@ -12,7 +12,7 @@ import {
 } from "lucide-react"
 import { useCurrentHome } from "@/modules/home"
 import { RefinedItems } from "@/components/home/RefinedItems"
-import { ItemsSkeleton } from "@/components/home/ItemsSkeleton"
+import { ItemsLoadError, ItemsSkeleton } from "@/components/home/ItemsSkeleton"
 import { useNotes } from "@/components/notes/useNotes"
 import { getHomeNotes } from "@/modules/care"
 import { DesktopItems } from "@/components/home/DesktopItems"
@@ -235,7 +235,7 @@ export default function Inventory() {
   if (view === "error") {
     return (
       <PageContainer>
-        <LoadErrorState title="Couldn't load your items" message={error?.message ?? "Something went wrong."} onRetry={retry} />
+        <ItemsLoadError message={error?.message ?? "Something went wrong."} onRetry={retry} />
       </PageContainer>
     )
   }
