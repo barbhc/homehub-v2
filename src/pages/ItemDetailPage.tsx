@@ -218,24 +218,14 @@ export default function ItemDetailPage() {
         if (url && !cancelled) setManualPdfUrl(url)
       }
 
-      // Auto-parse manuals that haven't been parsed yet AND were created
-      // recently (within the last 10 minutes).
-      const TEN_MINUTES = 10 * 60 * 1000
-      const unparsed = (manualsRes.data ?? []).filter(
-        (m) => !m.parsed_at && Date.now() - new Date(m.created_at).getTime() < TEN_MINUTES
-      )
-      // Preview + review, NOT commit. This used to parse in commit mode, which
-      // is the same "tasks just appeared" path that was fixed in the add-manual
-      // handler — and it would have quietly undone that fix, because a review
-      // the user closes without saving leaves the manual unparsed, so the next
-      // visit to the item would commit it behind their back.
-      //
-      // ONE manual, the most recent: each review is a modal sheet, and stacking
-      // them would be worse than the problem.
-      const toReview = unparsed[0]
-      if (toReview) {
-        void manualMgmt.handleParseExistingManual(toReview.manual_id)
-      }
+      // No scan is started here. The page re-enqueued a preview parse for every
+      // manual with no parsed_at created in the last ten minutes — which is
+      // every manual the wizard had just handed over, already enqueued by
+      // SmartAddItem's startParseAndLeave. enqueueParse charges before it checks
+      // anything, so each add with a manual was charged twice, and again on
+      // every refetch inside those ten minutes. The wizard starts the scan and
+      // this page watches it (ParsePickupCard) — docs/add-item-flow.md,
+      // "started and never awaited".
     })
     .catch((e: unknown) => {
       // Without this the page hangs on "Loading..." forever: a rejection skips
