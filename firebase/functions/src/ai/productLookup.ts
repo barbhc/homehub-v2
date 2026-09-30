@@ -12,7 +12,7 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret, defineString } from "firebase-functions/params"
-import { getFirestore, Timestamp } from "firebase-admin/firestore"
+import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
 import { createHash } from "node:crypto"
 import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
 import {
@@ -22,11 +22,10 @@ import {
   type ProductIdentity,
   type VariantCandidate,
 } from "./identityResolver.js"
-import type { DerivedBrand } from "../../../../shared/products/brands.js"
+import { isDistinctiveModel, type DerivedBrand } from "../../../../shared/products/brands.js"
 import { requireAnyMembership } from "../lib/membership.js"
 import { allSpecKeys, isAllowedSpecKey } from "../../../../shared/products/specKeys.js"
 import { chargeAiQuota } from "../lib/quota.js"
-import { DAILY_AI_LIMIT } from "../../../../shared/quota/policy.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 // Brave is a SECRET, matching chatQuery + searchProductImages, which already
@@ -51,14 +50,13 @@ const REGION = "us-central1"
  *      Purifiers" was already cached from the session that reported it. */
 const PROMPT_VERSION = 4
 const CACHE_TTL_DAYS = 30
-/** Lookups fire on every typing pause (~$0.001 each, cache hits charged too),
- *  so the shared 50/day pool starves fast during real add sessions. Higher
- *  allowance on the SAME counter — chat/OCR still cap at the default 50. */
-// Derived, not a literal. This exists to give lookups a HIGHER allowance than
-// the shared default; hard-coding 150 meant that raising the default to 1000
-// silently turned it into a TIGHTER one, throttling the cheapest call in the
-// app while everything else got roomier.
-const LOOKUP_DAILY_LIMIT = DAILY_AI_LIMIT * 3
+// Lookups fire on every typing pause (~$0.001 each, cache hits charged too),
+// so the shared daily pool would starve fast during real add sessions. Their
+// higher allowance on the SAME counter is now a relative multiplier in
+// shared/quota/policy.ts (DAILY_POOL_MULTIPLIER.productLookup = 3), resolved
+// against each user's own limit from config/spend. It used to be a literal
+// passed from here, which is the trap findManual fell into: a hard-coded number
+// silently changes meaning whenever the limit it is compared with moves.
 
 const CATEGORY_IDS = [
   "major_appliance", "small_appliance", "fixture", "system", "structure",
@@ -320,6 +318,46 @@ export async function runProductLookup(
 }
 
 /**
+ * BRAND-ONLY mode's paid step: one Brave search from a model number.
+ *
+ * It used to run with no charge and no rate limit behind the membership check
+ * alone — the one Brave call in the app anyone could loop. Now it is priced and
+ * throttled like the other Brave calls (`brandFromModel`: 1 unit, 10/min), and
+ * charged only when a search will actually go out: no key, or a model too
+ * generic to search (`isDistinctiveModel`), means brandFromModel returns null
+ * without fetching, and nothing is billed for nothing.
+ *
+ * A search that failed (network error or a non-2xx from Brave) is refunded; a
+ * search that ran and simply found no brand is a real answer and stays charged
+ * — the same rule findManual uses. brandFromModel swallows its failures (it is
+ * a suggestion; absence costs nothing), so the failure is observed on the way
+ * through the fetch it is given.
+ */
+export async function runBrandOnlyLookup(
+  db: Firestore,
+  uid: string,
+  model: string,
+  deps: { braveKey: string; fetchJson: typeof fetch; configDoc?: string },
+): Promise<DerivedBrand> {
+  if (!deps.braveKey || !isDistinctiveModel(model)) return null
+  const hold = await chargeAiQuota(db, uid, "brandFromModel", { configDoc: deps.configDoc })
+  let vendorFailed = false
+  const observed: typeof fetch = async (input, init) => {
+    try {
+      const res = await deps.fetchJson(input, init)
+      if (!res.ok) vendorFailed = true
+      return res
+    } catch (e) {
+      vendorFailed = true
+      throw e
+    }
+  }
+  const derived = await brandFromModel(observed, deps.braveKey, model)
+  if (vendorFailed) await hold.refund()
+  return derived
+}
+
+/**
  * Haiku-derived identity — the last layer. Only when the spec lookup actually
  * recognized the product (medium/high): name composes from what the user typed,
  * category hint from the safe fields.
@@ -354,7 +392,10 @@ export const productLookup = onCall(
     // no cache entry, no Claude. The client offers it as a suggestion.
     if (!brand && model) {
       if (model.length < 2) throw new HttpsError("invalid-argument", "model must be at least 2 characters")
-      const derived = await brandFromModel(fetch, BRAVE_SEARCH_API_KEY.value().trim(), model)
+      const derived = await runBrandOnlyLookup(getFirestore(), uid, model, {
+        braveKey: BRAVE_SEARCH_API_KEY.value().trim(),
+        fetchJson: fetch,
+      })
       return {
         safe: { category: null, subType: null },
         candidates: [],
@@ -385,7 +426,7 @@ export const productLookup = onCall(
       if (stored && (!expiresAt || expiresAt.toMillis() > now)) {
         // A cache hit calls no vendor at all, but still costs a unit so a
         // runaway client can't pull thousands of cached rows for free.
-        await chargeAiQuota(db, uid, "productLookup", LOOKUP_DAILY_LIMIT, 1)
+        await chargeAiQuota(db, uid, "productLookup", { units: 1 })
         const identity = (cachedSnap.get("identity") as ProductIdentity | null | undefined) ?? null
         return {
           ...stored,
@@ -400,7 +441,7 @@ export const productLookup = onCall(
     // Miss → charge BEFORE the paid work. Costs more than a hit because this
     // path fans out to Icecat and Brave (resolveExternalIdentity) as well as
     // Claude, which the single default unit cost would under-count.
-    const hold = await chargeAiQuota(db, uid, "productLookup", LOOKUP_DAILY_LIMIT, 2)
+    const hold = await chargeAiQuota(db, uid, "productLookup", { units: 2 })
 
     // Identity layers (Icecat → Brave, sequential first-hit-wins; dormant
     // without keys) run in parallel with the Haiku spec lookup — Haiku's

@@ -248,8 +248,15 @@ service cloud.firestore {
     // The flag itself. Readable so the client can show the code field only when
     // the gate is actually on; writable ONLY by the Admin SDK (no client rule
     // grants write), so nobody can turn their own gate off.
+    //
+    // A NAMED allowlist, not `get: if isSignedIn()` on every config doc: rules
+    // OR together, so a wildcard get here would have out-voted any narrower
+    // deny below. `config/spend` (the AI caps, including the per-uid override
+    // map) must be readable by no client — it names accounts, and it is the
+    // kill switch. Only the Admin SDK reads or writes it
+    // (scripts/ops/set-spend-config.ts; firebase/functions/src/lib/quota.ts).
     match /config/{doc} {
-      allow get: if isSignedIn();
+      allow get: if isSignedIn() && doc in ['growth'];
       allow list, write: if false;
     }
 

@@ -5,79 +5,155 @@
  * Lives in shared/ and imports nothing from firebase so it can be unit-tested
  * by the root vitest run, the same way shared/parse/ssrf.ts is. The Firestore
  * transaction that applies this rule is in
- * firebase/functions/src/lib/quota.ts — it reads the counters and calls
- * decideQuota(), so the check and the increment cannot disagree about what
- * "over the limit" means.
- */
-/**
- * Per user, per UTC day.
+ * firebase/functions/src/lib/quota.ts — it reads the counters AND the
+ * `config/spend` document and calls decideQuota(), so the check and the
+ * increment cannot disagree about what "over the limit" means.
  *
- * Raised from 50 on 2026-08-25 at the owner's request. 50 was sized for a
- * homeowner adding an appliance now and then, and it made testing the app
- * impossible: a manual scan costs 10 units, so 50 was five scans a day BEFORE
- * anything else, and a real QA session spent most of it on the product lookups
- * that fire while you type. The account testing round 14 hit exactly 50/50 and
- * got two scans out of it.
+ * ── Where the caps live (2026-09-30) ─────────────────────────────────────────
  *
- * WHAT THIS NO LONGER PROTECTS: at 1000/day a single user can consume the
- * entire 20,000-unit monthly ceiling in twenty days, and that ceiling refuses
- * every paid call for EVERY user until the next UTC month. The daily cap has
- * stopped being a meaningful cost guard; the monthly ceiling and the per-minute
- * rate limits are what remain.
+ * In a server-only Firestore document, `config/spend`, read inside the same
+ * transaction as every charge:
+ *
+ *   {
+ *     monthlyCeilingUnits: number,                 // app-wide, per UTC month
+ *     dailyUnitsDefault: number,                   // per user, per UTC day
+ *     dailyUnitsOverrides: { [uid]: number },      // per-user exceptions
+ *     scansPerDay: number,                         // per user, counted in CALLS
+ *     updatedAt: Timestamp,
+ *   }
+ *
+ * It replaced two constants and an env var. The env var was the documented
+ * kill switch, and it did not work: gen-2 functions take env vars PER FUNCTION,
+ * so "set AI_MONTHLY_UNIT_CEILING on any function" stopped one function and
+ * left twenty paying. A document read by every charge stops all of them at
+ * once, without a deploy: `monthlyCeilingUnits: 0` is the kill switch.
+ *
+ * Written only by `scripts/ops/set-spend-config.ts` (Admin SDK); firestore.rules
+ * gives clients no read and no write, because the overrides map names uids.
+ *
+ * Absent document → DEFAULT_SPEND_CONFIG below. Precedence for the monthly
+ * ceiling: the document (or the default), then AI_MONTHLY_UNIT_CEILING as an
+ * EMERGENCY BRAKE that can only lower it — never raise it. A leftover env var
+ * must never be able to override the kill switch upward.
  */
-export const DAILY_AI_LIMIT = 1000
 
 /**
- * App-wide units per UTC month. Override with the AI_MONTHLY_UNIT_CEILING env
- * var (functions:config or a .env for the functions runtime).
+ * The numbers the app runs on when `config/spend` does not exist.
  *
- * Sizing: a heavy household runs maybe 30-60 units/day, so 20k/month leaves
- * room for a real beta cohort while still stopping a runaway loop or a shared
- * link long before it becomes a four-figure invoice.
+ * Sized against the Anthropic workspace hard limit rather than against usage
+ * (audit 2026-09-29, Disagreement 2): the in-app ceiling should refuse with the
+ * app's own calm message BEFORE the vendor starts rejecting calls with a raw
+ * error. 1,500 units ≈ 150 manual scans ≈ $80 at the measured $0.55/scan — under
+ * a $100 hard limit.
+ *
+ * 50 units per user per day is the tester allowance (Disagreement 11: the
+ * 1,000/day of 2026-08-25 was raised for the OWNER's QA sessions, and she keeps
+ * it via `dailyUnitsOverrides` — see scripts/ops/set-spend-config.ts). 50 is
+ * one add-with-manual (~20 units) plus a handful of Ask questions.
+ *
+ * WHAT THIS MEANS FOR A RING: the monthly ceiling now binds before the daily
+ * caps do. Ten testers at their 50-unit cap would spend 1,500 in three days.
+ * That is deliberate — the ceiling is the money guard — and raising it is a
+ * document write, not a deploy.
  */
-export const DEFAULT_MONTHLY_UNIT_CEILING = 20_000
+export interface SpendConfig {
+  monthlyCeilingUnits: number
+  dailyUnitsDefault: number
+  dailyUnitsOverrides: Record<string, number>
+  scansPerDay: number
+}
+
+export const DEFAULT_SPEND_CONFIG: Readonly<SpendConfig> = Object.freeze({
+  monthlyCeilingUnits: 1500,
+  dailyUnitsDefault: 50,
+  dailyUnitsOverrides: Object.freeze({}) as Record<string, number>,
+  // Owner, 2026-08-25: "I think it's reasonable to limit someone to 50 scans a
+  // day." Counted in CALLS (see dailyCallLimitFor) — with the daily unit pool
+  // now also at 50, the pool binds first for most users; the scan cap is what
+  // still bounds an override account.
+  scansPerDay: 50,
+})
+
+/** The code default for the per-user daily pool (config/spend absent). */
+export const DEFAULT_DAILY_UNITS = DEFAULT_SPEND_CONFIG.dailyUnitsDefault
+
+/** The code default for the app-wide monthly ceiling (config/spend absent). */
+export const DEFAULT_MONTHLY_UNIT_CEILING = DEFAULT_SPEND_CONFIG.monthlyCeilingUnits
 
 /**
  * What one call to each function costs, in units. 1 unit ~= one cheap Claude
  * call. Anything not listed costs 1.
+ *
+ * Units are per FUNCTION, not per model: a function that changes model keeps
+ * its price unless the work it does changes size. (detectDocType moved to
+ * Haiku 4.5 on 2026-09-30 and stays at 2 — at Haiku's price a whole-PDF
+ * classification is roughly what 2 units were always meant to buy.)
  */
-/**
- * A per-user, per-UTC-day cap on how many times ONE function may be called,
- * counted in CALLS rather than units.
- *
- * Owner, 2026-08-25: "I'd like to limit this per user certainly. I think it's
- * reasonable to limit someone to 50 scans a day."
- *
- * Why this is not just a smaller `DAILY_AI_LIMIT`: the shared pool is spent by
- * everything. Setting it to 500 to buy "50 scans" would deliver FEWER than 50,
- * because the product lookups that fire while you type, the OCR, and the
- * doc-type checks all come out of the same 500 — which is exactly how a 50-unit
- * day produced two scans. A scan cap has to count scans.
- *
- * This is also the cap that maps to money. A parse is the $0.55 item; the rest
- * are fractions of a cent. 50 scans/day is about $27 a day at the measured rate
- * — a real ceiling on the one call that can produce a four-figure invoice.
- */
-export const AI_DAILY_CALL_LIMIT: Record<string, number> = {
-  enqueueParse: 50, // ~$27/day at the measured $0.55 per manual
-}
-
 export const AI_UNIT_COST: Record<string, number> = {
   enqueueParse: 10, // a whole manual PDF, multi-pass, sometimes Opus
   ingestReference: 3,
   generateTasks: 3,
   classifyExistingTasks: 3, // batched over the caller's tasks
   ocr: 3, // Vision + a Claude cleanup pass
-  detectDocType: 2, // first pages of a PDF
+  detectDocType: 2, // a whole PDF on Haiku 4.5
   identityResolve: 2, // several model + search calls per resolution
   importCareUrl: 2, // fetches a page, then summarises it
-  chatQuery: 1,
+  chatQuery: 1, // the BASE price; each attached manual PDF adds CHAT_UNITS_PER_PDF
   discussTask: 1,
   proposeReminders: 1, // one haiku call over the home's task list
   suggestCareNotes: 1,
   productLookup: 1,
+  // productLookup's brand-only mode: one Brave search from a model number.
+  // Its own key so aiSpendGlobal shows whether that path ever fires.
+  brandFromModel: 1,
   findManual: 1,
   searchProductImages: 1,
+}
+
+/**
+ * Ask with the manual attached. When one or two manuals are in scope, chatQuery
+ * sends each WHOLE PDF to Claude — ~100K input tokens, ≈ $0.20 per PDF on
+ * Sonnet 5 — so a flat 1 unit priced an item-scoped question like a sentence.
+ *
+ * 5 units per attached PDF keeps a unit worth roughly the same money whatever
+ * the call (a manual scan is 10 units ≈ $0.55; one PDF ≈ 5 units ≈ $0.20–0.30),
+ * which is what makes the daily and monthly caps mean dollars.
+ */
+export const CHAT_UNITS_PER_PDF = 5
+
+/** chatQuery attaches whole PDFs only when this many manuals or fewer are in
+ *  scope; above it, it answers from parsed excerpts. */
+export const CHAT_MAX_ATTACHED_PDFS = 2
+
+/** What a chat turn costs with `attachedPdfs` manual PDFs attached. */
+export function chatQueryUnits(attachedPdfs: number): number {
+  const n = Number.isInteger(attachedPdfs) && attachedPdfs > 0 ? attachedPdfs : 0
+  return unitCostFor("chatQuery") + CHAT_UNITS_PER_PDF * n
+}
+
+/** The most one call can ever cost. A daily limit or monthly ceiling below this
+ *  cannot admit every call — the ops script warns about it. */
+export const MAX_SINGLE_CALL_UNITS = Math.max(
+  ...Object.values(AI_UNIT_COST),
+  AI_UNIT_COST.chatQuery + CHAT_UNITS_PER_PDF * CHAT_MAX_ATTACHED_PDFS,
+)
+
+/**
+ * Functions allowed to keep drawing on the SAME daily counter past the user's
+ * limit, up to limit × multiplier.
+ *
+ * This replaced a per-call-site `limit` argument, which was a trap: findManual
+ * passed 60 — meaning "60 searches a day" — and the transaction compared it with
+ * the user's TOTAL units across every function, so findManual refused anyone
+ * who had spent 60 units on anything (and, once the default fell to 50, would
+ * have let findManual alone run past everyone's cap). A multiplier is relative
+ * to whatever the user's limit is, so it cannot drift when the limit changes.
+ *
+ * productLookup fires on typing pauses (~$0.001 each, cache hits charged too);
+ * 3× keeps it from being the thing that starves a real add session.
+ */
+export const DAILY_POOL_MULTIPLIER: Record<string, number> = {
+  productLookup: 3,
 }
 
 /** yyyy-mm-dd in UTC (quota day rolls at midnight UTC). */
@@ -90,31 +166,132 @@ export function utcMonthKey(now: Date = new Date()): string {
   return now.toISOString().slice(0, 7)
 }
 
-/** The per-day call cap for a function, or null when it has none. */
-export function dailyCallLimitFor(fn: string): number | null {
-  return AI_DAILY_CALL_LIMIT[fn] ?? null
+/**
+ * The per-day CALL cap for a function, or null when it has none.
+ *
+ * Why the scan cap is not just a smaller daily pool: the pool is spent by
+ * everything, so "50 scans" as units would deliver fewer than 50 — the lookups,
+ * OCR and doc-type checks come out of the same pool. A scan cap has to count
+ * scans.
+ */
+export function dailyCallLimitFor(fn: string, config: SpendConfig = DEFAULT_SPEND_CONFIG): number | null {
+  return fn === "enqueueParse" ? config.scansPerDay : null
 }
 
 export function unitCostFor(fn: string): number {
   return AI_UNIT_COST[fn] ?? 1
 }
 
-export function monthlyCeiling(): number {
-  const raw = process.env.AI_MONTHLY_UNIT_CEILING
-  if (!raw) return DEFAULT_MONTHLY_UNIT_CEILING
-  // Strict: parseInt() would read "1e6" as 1, "50k" as 50 and "20,000" as 20 —
-  // all plausible things to type into an env var, and all of which would
-  // silently set a near-zero ceiling that blocks every call in the app.
-  // Anything that is not a plain run of digits falls back to the default.
+/**
+ * The daily unit limit `uid` is held to when calling `fn`: their override, or
+ * the default, times the function's pool multiplier.
+ */
+export function dailyLimitFor(config: SpendConfig, uid: string, fn: string): number {
+  const own = Object.prototype.hasOwnProperty.call(config.dailyUnitsOverrides, uid)
+    ? config.dailyUnitsOverrides[uid]
+    : config.dailyUnitsDefault
+  return own * (DAILY_POOL_MULTIPLIER[fn] ?? 1)
+}
+
+/**
+ * AI_MONTHLY_UNIT_CEILING, when it is set to a usable number — else null.
+ *
+ * Strict: parseInt() would read "1e6" as 1, "50k" as 50 and "20,000" as 20 —
+ * all plausible things to type into an env var. Anything that is not a plain
+ * run of digits, or is 0, is ignored (and logged): the env var is an emergency
+ * brake, and the kill switch is `monthlyCeilingUnits: 0` in config/spend.
+ */
+export function envMonthlyCeiling(raw: string | undefined = process.env.AI_MONTHLY_UNIT_CEILING): number | null {
+  if (!raw) return null
   const parsed = /^\d+$/.test(raw.trim()) ? Number.parseInt(raw.trim(), 10) : Number.NaN
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    console.error(
-      `AI_MONTHLY_UNIT_CEILING is not a positive integer (got ${JSON.stringify(raw)}); ` +
-        `falling back to ${DEFAULT_MONTHLY_UNIT_CEILING}`,
-    )
-    return DEFAULT_MONTHLY_UNIT_CEILING
+    console.error(`AI_MONTHLY_UNIT_CEILING is not a positive integer (got ${JSON.stringify(raw)}); ignoring it`)
+    return null
   }
   return parsed
+}
+
+/**
+ * The ceiling a charge is held to: the config's, lowered — never raised — by
+ * the env brake.
+ */
+export function effectiveMonthlyCeiling(config: SpendConfig, envCeiling: number | null = envMonthlyCeiling()): number {
+  return envCeiling === null ? config.monthlyCeilingUnits : Math.min(config.monthlyCeilingUnits, envCeiling)
+}
+
+/** A usable config number: a non-negative safe integer. 0 is meaningful (a
+ *  stopped ceiling, a blocked user), so it is allowed. */
+function isCount(v: unknown): v is number {
+  return typeof v === "number" && Number.isSafeInteger(v) && v >= 0
+}
+
+/**
+ * Read a `config/spend` document into a SpendConfig, and say what was wrong
+ * with it. Never throws: the caller is a charge in progress.
+ *
+ * The failure directions are chosen per field, on purpose:
+ *  - `monthlyCeilingUnits` present but unusable → 0. That field is the kill
+ *    switch; someone who typed `"0"` (a string) into the console meant STOP,
+ *    and a guard that quietly fell back to 1,500 would be a kill switch that
+ *    does not kill. Refusing every paid call until the typo is fixed is the
+ *    safe direction for a money guard, and the refusal is logged loudly.
+ *  - the per-user numbers fall back to the code defaults: the monthly ceiling
+ *    still bounds the money while the typo stands.
+ *  - absent fields take the defaults silently — an absent document is the
+ *    normal state before the ops script has ever run.
+ */
+export function parseSpendConfig(raw: unknown): { config: SpendConfig; problems: string[] } {
+  const problems: string[] = []
+  if (raw === undefined || raw === null) {
+    return { config: { ...DEFAULT_SPEND_CONFIG, dailyUnitsOverrides: {} }, problems }
+  }
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    problems.push("config/spend is not an object — treating monthlyCeilingUnits as 0 until it is fixed")
+    return { config: { ...DEFAULT_SPEND_CONFIG, dailyUnitsOverrides: {}, monthlyCeilingUnits: 0 }, problems }
+  }
+  const r = raw as Record<string, unknown>
+
+  let monthlyCeilingUnits = DEFAULT_SPEND_CONFIG.monthlyCeilingUnits
+  if (r.monthlyCeilingUnits !== undefined) {
+    if (isCount(r.monthlyCeilingUnits)) monthlyCeilingUnits = r.monthlyCeilingUnits
+    else {
+      monthlyCeilingUnits = 0
+      problems.push(
+        `config/spend.monthlyCeilingUnits is not a non-negative integer (got ${JSON.stringify(r.monthlyCeilingUnits)}) — treating it as 0`,
+      )
+    }
+  }
+
+  const count = (key: "dailyUnitsDefault" | "scansPerDay"): number => {
+    const v = r[key]
+    if (v === undefined) return DEFAULT_SPEND_CONFIG[key]
+    if (isCount(v)) return v
+    problems.push(`config/spend.${key} is not a non-negative integer (got ${JSON.stringify(v)}) — using ${DEFAULT_SPEND_CONFIG[key]}`)
+    return DEFAULT_SPEND_CONFIG[key]
+  }
+
+  const dailyUnitsOverrides: Record<string, number> = {}
+  if (r.dailyUnitsOverrides !== undefined) {
+    const o = r.dailyUnitsOverrides
+    if (!o || typeof o !== "object" || Array.isArray(o)) {
+      problems.push("config/spend.dailyUnitsOverrides is not a map of uid → units — ignoring it")
+    } else {
+      for (const [uid, units] of Object.entries(o as Record<string, unknown>)) {
+        if (isCount(units)) dailyUnitsOverrides[uid] = units
+        else problems.push(`config/spend.dailyUnitsOverrides.${uid} is not a non-negative integer — ignoring it`)
+      }
+    }
+  }
+
+  return {
+    config: {
+      monthlyCeilingUnits,
+      dailyUnitsDefault: count("dailyUnitsDefault"),
+      dailyUnitsOverrides,
+      scansPerDay: count("scansPerDay"),
+    },
+    problems,
+  }
 }
 
 /**
@@ -142,27 +319,36 @@ export type QuotaVerdict =
 export function decideQuota(s: QuotaState): QuotaVerdict {
   const all = [s.dailyUnits, s.dailyLimit, s.monthlyUnits, s.monthlyCeiling, s.units]
   if (all.some((n) => !Number.isInteger(n))) return { allowed: false, reason: "invalid" }
-  if (s.units <= 0 || s.dailyLimit <= 0 || s.monthlyCeiling <= 0) {
+  // A call that costs nothing would be free AND uncapped — a bad cost table,
+  // not a user who ran out. Negative limits are corrupt data. Both stay out of
+  // the user's lap as "invalid".
+  if (s.units <= 0 || s.dailyLimit < 0 || s.monthlyCeiling < 0) {
     return { allowed: false, reason: "invalid" }
   }
-  // A call that cannot fit under an empty ceiling is a bad cost table, not a
-  // user who ran out. Surfacing it as "invalid" keeps it out of the user's lap.
-  if (s.units > s.dailyLimit || s.units > s.monthlyCeiling) {
-    return { allowed: false, reason: "invalid" }
-  }
+  // A ceiling of 0 is the KILL SWITCH (config/spend.monthlyCeilingUnits: 0),
+  // and it must read as the app's budget — the calm refusal that parks a scan
+  // and says it was not the user's doing. Until 2026-09-30 a 0 ceiling was
+  // "invalid" ("Usage accounting is misconfigured"), which is why the runbook
+  // had to say "never set it below 20". Checked first: when the switch is
+  // thrown, nothing else about this caller matters.
+  if (s.monthlyCeiling === 0) return { allowed: false, reason: "global" }
   // The per-FUNCTION cap is checked before the shared pool, because it is the
   // more specific and more useful thing to be told: "you have used today's
   // scans" beats "you have used today's allowance" when the allowance still has
-  // room for everything else you might do.
+  // room for everything else you might do. A cap of 0 is config ("no scans
+  // today"), not corruption.
   const fnLimit = s.fnCallLimit
   if (fnLimit != null) {
-    if (!Number.isInteger(fnLimit) || fnLimit <= 0) return { allowed: false, reason: "invalid" }
+    if (!Number.isInteger(fnLimit) || fnLimit < 0) return { allowed: false, reason: "invalid" }
     const used = s.fnCallsToday ?? 0
     if (!Number.isInteger(used) || used < 0) return { allowed: false, reason: "invalid" }
     if (used + 1 > fnLimit) return { allowed: false, reason: "fnDaily" }
   }
-  // The caller's own limit is checked first: it is the one that resets
-  // tomorrow rather than next month, so it is the more useful thing to be told.
+  // The caller's own limit next: it is the one that resets tomorrow rather
+  // than next month, so it is the more useful thing to be told. A limit of 0
+  // (a blocked account) and a call bigger than the whole limit both land here —
+  // limits are config now, set per user, so "this call does not fit your day"
+  // is the honest answer, not "the cost table is broken".
   if (s.dailyUnits + s.units > s.dailyLimit) return { allowed: false, reason: "daily" }
   if (s.monthlyUnits + s.units > s.monthlyCeiling) return { allowed: false, reason: "global" }
   return { allowed: true }
@@ -220,8 +406,26 @@ export const AI_RATE_LIMIT: Record<string, number> = {
   discussTask: 10,
   suggestCareNotes: 10,
   productLookup: 10, // the add-item flow fires several of these back to back
+  brandFromModel: 10, // same budget as the other Brave calls
   findManual: 10,
   searchProductImages: 10,
+  // Not an AI call — egress. The manual viewer loads a PDF once per open, so
+  // ten a minute is a person opening ten different manuals.
+  proxyPdf: 10,
+}
+
+/**
+ * Per-user, per-UTC-day CALL caps for endpoints that spend no AI units but do
+ * spend money (enforced by `enforceCallLimits` in lib/quota.ts, not by the unit
+ * pool).
+ *
+ * proxyPdf relays up to 50 MB per call out of Cloud Functions; the per-minute
+ * limit alone would still allow ~14,000 calls a day. 100 manual opens a day is
+ * far past what a person does (each PDF is cached in the viewer and by the
+ * browser for a day), and bounds one account's egress at ~5 GB/day.
+ */
+export const DAILY_CALL_CAP: Record<string, number> = {
+  proxyPdf: 100,
 }
 
 /**
@@ -250,12 +454,18 @@ export const AI_RATE_LIMIT: Record<string, number> = {
  * one re-scan of a label, was refused. That is a person using the app the way
  * onboarding invites them to, not a runaway.
  *
+ * (2026-09-30: the third lookup — brand-from-model — is now charged under its
+ * own key, `brandFromModel`, at the same 1 unit. The total is unchanged.)
+ *
  * 45 covers two full adds (40) with room for a retry, and still stops the case
- * this exists for: a loop burning the 1000-unit day in seconds. At 45/min the
- * daily ceiling is the backstop and reaches it in ~22 minutes, not 5 seconds.
+ * this exists for: a loop burning a day's allowance in seconds. With the
+ * default pool at 50 units a runaway meets the daily cap within about a
+ * minute; for an override account (the owner's 1,000/day) the burst cap is
+ * what keeps that from taking five seconds instead of ~22 minutes.
  *
  * Raising it is a spend decision, so the arithmetic is here rather than in a
- * commit message: the ceiling that bounds cost is DAILY_AI_LIMIT, unchanged.
+ * commit message: what bounds cost is the per-user daily pool and the monthly
+ * ceiling in config/spend.
  */
 export const BURST_UNIT_LIMIT = 45
 

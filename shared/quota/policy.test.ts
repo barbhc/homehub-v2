@@ -1,23 +1,30 @@
-import { describe, it, expect, afterEach } from "vitest"
+import { describe, it, expect, afterEach, vi } from "vitest"
 import {
   AI_UNIT_COST,
   BURST_UNIT_LIMIT,
-  DAILY_AI_LIMIT,
-  dailyCallLimitFor,
-  AI_DAILY_CALL_LIMIT,
-  BURST_UNIT_LIMIT,
-  DEFAULT_MONTHLY_UNIT_CEILING,
-  AI_UNIT_COST,
+  CHAT_MAX_ATTACHED_PDFS,
+  CHAT_UNITS_PER_PDF,
+  DAILY_CALL_CAP,
+  DAILY_POOL_MULTIPLIER,
+  DEFAULT_DAILY_UNITS,
   DEFAULT_MONTHLY_UNIT_CEILING,
   DEFAULT_RATE_LIMIT,
+  DEFAULT_SPEND_CONFIG,
+  MAX_SINGLE_CALL_UNITS,
   RATE_WINDOW_MS,
+  chatQueryUnits,
+  dailyCallLimitFor,
+  dailyLimitFor,
   decideQuota,
   decideRateLimit,
-  monthlyCeiling,
+  effectiveMonthlyCeiling,
+  envMonthlyCeiling,
+  parseSpendConfig,
   rateLimitFor,
   unitCostFor,
   utcDayKey,
   utcMonthKey,
+  type SpendConfig,
 } from "./policy.js"
 
 const base = {
@@ -27,6 +34,32 @@ const base = {
   monthlyCeiling: 1000,
   units: 1,
 }
+
+/**
+ * This list is the flow AS IT ACTUALLY RUNS, and keeping it that way is the
+ * point of the tests that use it. It previously omitted `ocr` and two later
+ * productLookup calls, so it kept passing while the real add grew past the
+ * limit — and a tester was refused mid-onboarding with "The scan failed"
+ * (HH-145). A budget test measuring a flow the app no longer has is worse than
+ * none: it reports headroom that does not exist.
+ */
+const ADD_ONE_APPLIANCE = [
+  "ocr",                 // scanning the label
+  "detectDocType",
+  "enqueueParse",
+  "productLookup",       // identity, from the add screen
+  "productLookup",       // post-create enrichment
+  "brandFromModel",      // brand-from-model, when the scan reads one and not the other
+  "findManual",
+  "searchProductImages",
+]
+const costOf = (fns: string[]) => fns.reduce((n, fn) => n + unitCostFor(fn), 0)
+
+const config = (patch: Partial<SpendConfig> = {}): SpendConfig => ({
+  ...DEFAULT_SPEND_CONFIG,
+  dailyUnitsOverrides: {},
+  ...patch,
+})
 
 describe("decideQuota", () => {
   it("allows a call that fits under both ceilings", () => {
@@ -71,22 +104,49 @@ describe("decideQuota", () => {
     expect(decideQuota({ ...base, monthlyUnits: 999 })).toEqual({ allowed: true })
   })
 
-  it("treats a call costing more than its own daily limit as misconfiguration", () => {
-    expect(decideQuota({ ...base, dailyLimit: 5, units: 10 })).toEqual({
+  it("a call bigger than the user's whole day is 'daily' — limits are per-user config now", () => {
+    // Was "invalid" ("Usage accounting is misconfigured") when the limit was one
+    // constant for everyone. With config/spend setting it per user, a small
+    // limit is a policy, and the honest answer is "this does not fit your day".
+    expect(decideQuota({ ...base, dailyLimit: 5, units: 10 })).toEqual({ allowed: false, reason: "daily" })
+  })
+
+  it("a call bigger than the whole month is 'global', not a crash", () => {
+    expect(decideQuota({ ...base, monthlyCeiling: 5, units: 10, dailyLimit: 50 })).toEqual({
       allowed: false,
-      reason: "invalid",
+      reason: "global",
     })
+  })
+
+  describe("the kill switch (config/spend.monthlyCeilingUnits: 0)", () => {
+    it("refuses as the app's budget — the calm refusal that parks a scan", () => {
+      // It used to be "invalid" ("Usage accounting is misconfigured"), which is
+      // why the old runbook warned never to set the ceiling below 20.
+      expect(decideQuota({ ...base, monthlyCeiling: 0 })).toEqual({ allowed: false, reason: "global" })
+    })
+
+    it("wins over everything else about the caller", () => {
+      expect(decideQuota({ ...base, monthlyCeiling: 0, dailyUnits: 10 })).toEqual({ allowed: false, reason: "global" })
+      expect(decideQuota({ ...base, monthlyCeiling: 0, fnCallsToday: 99, fnCallLimit: 1 })).toEqual({
+        allowed: false,
+        reason: "global",
+      })
+    })
+  })
+
+  it("a blocked account (daily limit 0) is refused as 'daily', not as a crash", () => {
+    expect(decideQuota({ ...base, dailyLimit: 0 })).toEqual({ allowed: false, reason: "daily" })
   })
 
   it.each([
     ["zero units", { units: 0 }],
     ["negative units", { units: -1 }],
     ["fractional units", { units: 1.5 }],
-    ["zero daily limit", { dailyLimit: 0 }],
-    ["zero ceiling", { monthlyCeiling: 0 }],
+    ["negative daily limit", { dailyLimit: -1 }],
+    ["negative ceiling", { monthlyCeiling: -1 }],
     ["NaN counter", { dailyUnits: Number.NaN }],
     ["Infinity ceiling", { monthlyCeiling: Number.POSITIVE_INFINITY }],
-  ])("rejects %s", (_label, patch) => {
+  ])("rejects %s as invalid", (_label, patch) => {
     expect(decideQuota({ ...base, ...patch })).toEqual({ allowed: false, reason: "invalid" })
   })
 })
@@ -105,13 +165,17 @@ describe("cost table", () => {
     expect(unitCostFor("enqueueParse")).toBe(10)
   })
 
-  it("keeps every function callable at least once a day", () => {
+  it("keeps every function callable at least once on the default day", () => {
     for (const [fn, cost] of Object.entries(AI_UNIT_COST)) {
       expect(
-        decideQuota({ ...base, dailyLimit: DAILY_AI_LIMIT, units: cost }),
-        `${fn} costs ${cost}, above its daily limit`,
+        decideQuota({ ...base, dailyLimit: DEFAULT_DAILY_UNITS, units: cost }),
+        `${fn} costs ${cost}, above the default daily pool`,
       ).toEqual({ allowed: true })
     }
+    // …including the dearest call there is: an Ask turn with both manuals attached.
+    expect(decideQuota({ ...base, dailyLimit: DEFAULT_DAILY_UNITS, units: MAX_SINGLE_CALL_UNITS })).toEqual({
+      allowed: true,
+    })
   })
 
   it("keeps every cost well under the monthly ceiling", () => {
@@ -121,31 +185,177 @@ describe("cost table", () => {
   })
 })
 
-describe("monthlyCeiling", () => {
+describe("Ask pays for the manuals it attaches (C4)", () => {
+  it("a question with no PDF costs the base unit", () => {
+    expect(chatQueryUnits(0)).toBe(1)
+  })
+
+  it("each attached PDF adds CHAT_UNITS_PER_PDF", () => {
+    expect(CHAT_UNITS_PER_PDF).toBe(5)
+    expect(chatQueryUnits(1)).toBe(6)
+    expect(chatQueryUnits(2)).toBe(11)
+  })
+
+  it("junk counts cost the base unit, never less", () => {
+    expect(chatQueryUnits(-3)).toBe(1)
+    expect(chatQueryUnits(1.5)).toBe(1)
+    expect(chatQueryUnits(Number.NaN)).toBe(1)
+  })
+
+  it("the dearest call in the app is an Ask turn with the most PDFs chat will attach", () => {
+    expect(MAX_SINGLE_CALL_UNITS).toBe(chatQueryUnits(CHAT_MAX_ATTACHED_PDFS))
+    expect(MAX_SINGLE_CALL_UNITS).toBeGreaterThanOrEqual(AI_UNIT_COST.enqueueParse)
+  })
+
+  it("a full-PDF Ask turn still fits the burst window, so a person asking is never throttled for it", () => {
+    expect(MAX_SINGLE_CALL_UNITS).toBeLessThanOrEqual(BURST_UNIT_LIMIT)
+  })
+})
+
+describe("config/spend → the numbers a charge uses (C5)", () => {
+  it("an absent document is the code defaults, with nothing to report", () => {
+    const { config: c, problems } = parseSpendConfig(undefined)
+    expect(c).toEqual({ monthlyCeilingUnits: 1500, dailyUnitsDefault: 50, dailyUnitsOverrides: {}, scansPerDay: 50 })
+    expect(problems).toEqual([])
+    expect(parseSpendConfig(null).problems).toEqual([])
+  })
+
+  it("the owner's defaults are the numbers the plan set", () => {
+    expect(DEFAULT_MONTHLY_UNIT_CEILING).toBe(1500)
+    expect(DEFAULT_DAILY_UNITS).toBe(50)
+    expect(DEFAULT_SPEND_CONFIG.scansPerDay).toBe(50)
+  })
+
+  it("reads a complete, valid document as written", () => {
+    const { config: c, problems } = parseSpendConfig({
+      monthlyCeilingUnits: 3000,
+      dailyUnitsDefault: 40,
+      dailyUnitsOverrides: { ownerUid: 1000 },
+      scansPerDay: 20,
+      updatedAt: new Date(),
+    })
+    expect(c).toEqual({ monthlyCeilingUnits: 3000, dailyUnitsDefault: 40, dailyUnitsOverrides: { ownerUid: 1000 }, scansPerDay: 20 })
+    expect(problems).toEqual([])
+  })
+
+  it("0 is a real value for every number (kill switch, blocked day, no scans)", () => {
+    const { config: c, problems } = parseSpendConfig({ monthlyCeilingUnits: 0, dailyUnitsDefault: 0, scansPerDay: 0 })
+    expect(c.monthlyCeilingUnits).toBe(0)
+    expect(c.dailyUnitsDefault).toBe(0)
+    expect(c.scansPerDay).toBe(0)
+    expect(problems).toEqual([])
+  })
+
+  it.each([["the string \"0\"", "0"], ["a fraction", 12.5], ["a negative", -1], ["null", null], ["an object", { units: 0 }]])(
+    "a malformed ceiling (%s) FAILS CLOSED — a kill switch typed wrong must still kill",
+    (_label, bad) => {
+      const { config: c, problems } = parseSpendConfig({ monthlyCeilingUnits: bad })
+      expect(c.monthlyCeilingUnits).toBe(0)
+      expect(problems.join(" ")).toMatch(/monthlyCeilingUnits/)
+    },
+  )
+
+  it("malformed per-user numbers fall back to the defaults, and say so", () => {
+    const { config: c, problems } = parseSpendConfig({ dailyUnitsDefault: "lots", scansPerDay: -2 })
+    expect(c.dailyUnitsDefault).toBe(DEFAULT_DAILY_UNITS)
+    expect(c.scansPerDay).toBe(DEFAULT_SPEND_CONFIG.scansPerDay)
+    expect(problems).toHaveLength(2)
+  })
+
+  it("drops a bad override entry and keeps the good ones", () => {
+    const { config: c, problems } = parseSpendConfig({ dailyUnitsOverrides: { good: 1000, bad: "1000", worse: -5 } })
+    expect(c.dailyUnitsOverrides).toEqual({ good: 1000 })
+    expect(problems).toHaveLength(2)
+  })
+
+  it("an override map that is not a map is ignored, not trusted", () => {
+    expect(parseSpendConfig({ dailyUnitsOverrides: [1000] }).config.dailyUnitsOverrides).toEqual({})
+    expect(parseSpendConfig({ dailyUnitsOverrides: "owner:1000" }).problems).toHaveLength(1)
+  })
+
+  it("a document that is not an object fails closed", () => {
+    const { config: c, problems } = parseSpendConfig("stop")
+    expect(c.monthlyCeilingUnits).toBe(0)
+    expect(problems).toHaveLength(1)
+  })
+
+  it("never shares the frozen defaults with a caller", () => {
+    const { config: c } = parseSpendConfig(undefined)
+    c.dailyUnitsOverrides.someone = 5
+    expect(DEFAULT_SPEND_CONFIG.dailyUnitsOverrides).toEqual({})
+  })
+})
+
+describe("whose limit is it (dailyLimitFor)", () => {
+  it("the default, for everyone without an override", () => {
+    expect(dailyLimitFor(config(), "tester", "chatQuery")).toBe(50)
+  })
+
+  it("an override wins for its own uid only — the owner's 1,000/day", () => {
+    const c = config({ dailyUnitsOverrides: { owner: 1000 } })
+    expect(dailyLimitFor(c, "owner", "chatQuery")).toBe(1000)
+    expect(dailyLimitFor(c, "tester", "chatQuery")).toBe(50)
+  })
+
+  it("an override of 0 blocks that account", () => {
+    expect(dailyLimitFor(config({ dailyUnitsOverrides: { abuser: 0 } }), "abuser", "ocr")).toBe(0)
+  })
+
+  it("productLookup's extra headroom is RELATIVE to the user's own limit (the findManual trap, C6)", () => {
+    // A literal passed from the call site silently changes meaning when the
+    // limit it is compared with moves. A multiplier cannot.
+    expect(DAILY_POOL_MULTIPLIER.productLookup).toBe(3)
+    expect(dailyLimitFor(config(), "tester", "productLookup")).toBe(150)
+    expect(dailyLimitFor(config({ dailyUnitsOverrides: { owner: 1000 } }), "owner", "productLookup")).toBe(3000)
+  })
+
+  it("findManual has NO private allowance — it draws on the same pool as everything else", () => {
+    expect(DAILY_POOL_MULTIPLIER.findManual).toBeUndefined()
+    expect(dailyLimitFor(config(), "tester", "findManual")).toBe(dailyLimitFor(config(), "tester", "chatQuery"))
+  })
+
+  it("a uid that collides with an Object.prototype name is not an override", () => {
+    expect(dailyLimitFor(config(), "constructor", "chatQuery")).toBe(50)
+    expect(dailyLimitFor(config(), "__proto__", "chatQuery")).toBe(50)
+  })
+})
+
+describe("the monthly ceiling: config first, env var only as a brake", () => {
   const original = process.env.AI_MONTHLY_UNIT_CEILING
   afterEach(() => {
     if (original === undefined) delete process.env.AI_MONTHLY_UNIT_CEILING
     else process.env.AI_MONTHLY_UNIT_CEILING = original
   })
 
-  it("uses the default when unset", () => {
+  it("unset env → the config's ceiling", () => {
     delete process.env.AI_MONTHLY_UNIT_CEILING
-    expect(monthlyCeiling()).toBe(DEFAULT_MONTHLY_UNIT_CEILING)
+    expect(envMonthlyCeiling()).toBeNull()
+    expect(effectiveMonthlyCeiling(config())).toBe(1500)
   })
 
-  it("reads a valid override", () => {
+  it("a valid env value can LOWER the ceiling", () => {
     process.env.AI_MONTHLY_UNIT_CEILING = "1234"
-    expect(monthlyCeiling()).toBe(1234)
+    expect(envMonthlyCeiling()).toBe(1234)
+    expect(effectiveMonthlyCeiling(config())).toBe(1234)
   })
 
-  it.each(["0", "-5", "banana", "1e6", ""])(
-    "falls back to the default rather than uncapping on %s",
-    (bad) => {
-      // A typo'd env var must never read as "no ceiling".
-      process.env.AI_MONTHLY_UNIT_CEILING = bad
-      expect(monthlyCeiling()).toBe(DEFAULT_MONTHLY_UNIT_CEILING)
-    },
-  )
+  it("but can never RAISE it — a leftover env var must not out-vote the document", () => {
+    process.env.AI_MONTHLY_UNIT_CEILING = "20000"
+    expect(effectiveMonthlyCeiling(config())).toBe(1500)
+  })
+
+  it("and can never lift the kill switch", () => {
+    process.env.AI_MONTHLY_UNIT_CEILING = "20000"
+    expect(effectiveMonthlyCeiling(config({ monthlyCeilingUnits: 0 }))).toBe(0)
+  })
+
+  it.each(["0", "-5", "banana", "1e6", "", "20,000"])("ignores an unusable env value (%s) rather than guessing", (bad) => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    process.env.AI_MONTHLY_UNIT_CEILING = bad
+    expect(envMonthlyCeiling()).toBeNull()
+    expect(effectiveMonthlyCeiling(config())).toBe(1500)
+    vi.restoreAllMocks()
+  })
 })
 
 describe("window keys", () => {
@@ -262,6 +472,15 @@ describe("decideRateLimit", () => {
       allowed: true,
     })
   })
+
+  it("a zero-unit call (proxyPdf's egress) is limited per endpoint and never touches the burst", () => {
+    const v = decideRateLimit({ ...base, units: 0, burstWindow: { windowStart: T0, value: 25 } })
+    expect(v).toMatchObject({ allowed: true })
+    expect(decideRateLimit({ ...base, units: 0, fnWindow: { windowStart: T0, value: 3 } })).toMatchObject({
+      allowed: false,
+      reason: "endpoint",
+    })
+  })
 })
 
 describe("rate-limit table", () => {
@@ -273,26 +492,6 @@ describe("rate-limit table", () => {
     expect(rateLimitFor("somethingNobodyAddedYet")).toBe(DEFAULT_RATE_LIMIT)
     expect(Number.isFinite(rateLimitFor("somethingNobodyAddedYet"))).toBe(true)
   })
-
-  /**
-   * This list is the flow AS IT ACTUALLY RUNS, and keeping it that way is the
-   * point of the test. It previously omitted `ocr` and two later productLookup
-   * calls, so it kept passing while the real add grew past the limit — and a
-   * tester was refused mid-onboarding with "The scan failed" (HH-145). A budget
-   * test measuring a flow the app no longer has is worse than none: it reports
-   * headroom that does not exist.
-   */
-  const ADD_ONE_APPLIANCE = [
-    "ocr",                 // scanning the label
-    "detectDocType",
-    "enqueueParse",
-    "productLookup",       // identity, from the add screen
-    "productLookup",       // post-create enrichment
-    "productLookup",       // brand-from-model, when the scan reads one and not the other
-    "findManual",
-    "searchProductImages",
-  ]
-  const costOf = (fns: string[]) => fns.reduce((n, fn) => n + unitCostFor(fn), 0)
 
   it("lets the most expensive legitimate minute through", () => {
     expect(costOf(ADD_ONE_APPLIANCE)).toBeLessThanOrEqual(BURST_UNIT_LIMIT)
@@ -313,7 +512,7 @@ describe("rate-limit table", () => {
 
   it("stops a runaway well short of the whole daily allowance in one window", () => {
     // The stated purpose: a stuck retry must not spend the day in five seconds.
-    expect(BURST_UNIT_LIMIT).toBeLessThan(DAILY_AI_LIMIT)
+    expect(BURST_UNIT_LIMIT).toBeLessThan(DEFAULT_DAILY_UNITS)
   })
 
   it("keeps every priced endpoint callable at least once per window", () => {
@@ -322,42 +521,56 @@ describe("rate-limit table", () => {
       expect(rateLimitFor(fn), `${fn} has a non-positive rate limit`).toBeGreaterThan(0)
     }
   })
+
+  it("the brand-only Brave search is throttled like the other Brave calls (C7c)", () => {
+    expect(unitCostFor("brandFromModel")).toBe(1)
+    expect(rateLimitFor("brandFromModel")).toBe(rateLimitFor("findManual"))
+  })
+
+  it("proxyPdf has a per-minute AND a per-day call cap (C7b)", () => {
+    expect(rateLimitFor("proxyPdf")).toBeGreaterThan(0)
+    expect(DAILY_CALL_CAP.proxyPdf).toBeGreaterThan(rateLimitFor("proxyPdf"))
+    // 50 MB × cap bounds one account's daily egress.
+    expect(DAILY_CALL_CAP.proxyPdf * 50).toBeLessThanOrEqual(5_000)
+  })
 })
 
-describe("the daily cap's relationships hold after it changes", () => {
-  it("a day's allowance buys a sensible number of the expensive call", () => {
-    // The reason 50 was raised: a manual scan is 10 units, so 50/day was five
-    // scans BEFORE any lookups, OCR or doc-type checks — and a real session
-    // spends most of its budget on those. Pinned as a ratio rather than a
-    // number so this stays meaningful the next time either side moves.
-    const scansPerDay = DAILY_AI_LIMIT / AI_UNIT_COST.enqueueParse
-    expect(scansPerDay).toBeGreaterThanOrEqual(20)
+describe("the daily caps' relationships hold after they change", () => {
+  it("the default day covers two full appliance adds — the tester allowance", () => {
+    // 50 units/day (2026-09-30) was sized as one add-with-manual plus a handful
+    // of questions. If an add ever outgrows half the day, a tester cannot add
+    // two appliances on their first day, which is what onboarding invites.
+    expect(costOf(ADD_ONE_APPLIANCE) * 2).toBeLessThanOrEqual(DEFAULT_DAILY_UNITS)
   })
 
   it("one user cannot outrun the app-wide ceiling in a single day", () => {
     // The guard that actually remains. If a day's allowance ever exceeds the
     // month's, the monthly ceiling stops being a backstop at all — one user
     // could close the app for everyone before lunch.
-    expect(DAILY_AI_LIMIT).toBeLessThan(DEFAULT_MONTHLY_UNIT_CEILING)
+    expect(DEFAULT_DAILY_UNITS).toBeLessThan(DEFAULT_MONTHLY_UNIT_CEILING)
   })
 
   it("the burst limit still bites before the daily one", () => {
-    // Raising the daily cap moves the anti-runaway job onto the rate limiter.
     // If burst ever exceeded the daily allowance, a loop would spend the whole
     // day's budget inside one minute with nothing to stop it.
-    expect(BURST_UNIT_LIMIT).toBeLessThan(DAILY_AI_LIMIT)
+    expect(BURST_UNIT_LIMIT).toBeLessThan(DEFAULT_DAILY_UNITS)
   })
 })
 
 describe("the per-function daily call cap (owner: 50 scans a day)", () => {
   const base = {
-    dailyUnits: 0, dailyLimit: DAILY_AI_LIMIT,
+    dailyUnits: 0, dailyLimit: DEFAULT_DAILY_UNITS,
     monthlyUnits: 0, monthlyCeiling: DEFAULT_MONTHLY_UNIT_CEILING,
     units: AI_UNIT_COST.enqueueParse,
   }
+  const cap = dailyCallLimitFor("enqueueParse")!
+
+  it("comes from config/spend.scansPerDay, 50 by default", () => {
+    expect(cap).toBe(50)
+    expect(dailyCallLimitFor("enqueueParse", config({ scansPerDay: 7 }))).toBe(7)
+  })
 
   it("allows the 50th scan and refuses the 51st", () => {
-    const cap = AI_DAILY_CALL_LIMIT.enqueueParse
     expect(decideQuota({ ...base, fnCallsToday: cap - 1, fnCallLimit: cap })).toEqual({ allowed: true })
     expect(decideQuota({ ...base, fnCallsToday: cap, fnCallLimit: cap }))
       .toEqual({ allowed: false, reason: "fnDaily" })
@@ -374,13 +587,19 @@ describe("the per-function daily call cap (owner: 50 scans a day)", () => {
   it("does not touch functions without a cap", () => {
     // Chat, lookups and OCR keep drawing on the shared pool alone.
     expect(dailyCallLimitFor("chatQuery")).toBeNull()
+    expect(dailyCallLimitFor("findManual")).toBeNull()
     expect(decideQuota({ ...base, units: 1, fnCallsToday: 9999, fnCallLimit: null }))
       .toEqual({ allowed: true })
   })
 
-  it("a nonsense cap is a config error, not the user's problem", () => {
-    expect(decideQuota({ ...base, fnCallsToday: 0, fnCallLimit: 0 }).allowed).toBe(false)
+  it("scansPerDay: 0 pauses scanning — a refusal, not a crash", () => {
+    expect(decideQuota({ ...base, fnCallsToday: 0, fnCallLimit: 0 })).toEqual({ allowed: false, reason: "fnDaily" })
+  })
+
+  it("corrupt counts are a config error, not the user's problem", () => {
     expect(decideQuota({ ...base, fnCallsToday: -1, fnCallLimit: 50 }))
+      .toEqual({ allowed: false, reason: "invalid" })
+    expect(decideQuota({ ...base, fnCallsToday: 0, fnCallLimit: -1 }))
       .toEqual({ allowed: false, reason: "invalid" })
   })
 
@@ -388,7 +607,7 @@ describe("the per-function daily call cap (owner: 50 scans a day)", () => {
     // ~$0.55 a manual measured => 50/day is roughly $27/day for one user.
     // It has to stay affordable against the app-wide month, or one person's
     // full day would close the app for everyone.
-    const dayCost = AI_DAILY_CALL_LIMIT.enqueueParse * AI_UNIT_COST.enqueueParse
+    const dayCost = cap * AI_UNIT_COST.enqueueParse
     expect(dayCost).toBeLessThan(DEFAULT_MONTHLY_UNIT_CEILING / 2)
   })
 })
