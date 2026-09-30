@@ -110,16 +110,19 @@ FCM has no emulator, so verify on a real device after deploy:
 
 ---
 
-## Apple sign-in (Fix D — owner, when ready)
-The client is wired (popup flow) behind `VITE_APPLE_SIGNIN_ENABLED`; it's a no-op stub until
-you complete this. You already have a Team ID + `.p8` key + Key ID from SkinIQ — **reuse them**.
+## Apple sign-in (Fix D)
+The client always offers "Continue with Apple" (popup on the web, the native sheet in the iOS
+shell). The `VITE_APPLE_SIGNIN_ENABLED` flag that used to gate it was `true` in the production
+`.env` and was retired in the dead-code sweep (2026-09-30), so there is nothing to flip — these
+steps are the provider setup, to redo only for a new Services ID or auth domain. You already have
+a Team ID + `.p8` key + Key ID from SkinIQ — **reuse them**.
 1. **Apple Developer** → Identifiers → create a NEW **Services ID** (e.g. `com.homehub.web`).
    Enable "Sign in with Apple", configure it, and add the **Return URL**:
    `https://homehub-2068d.firebaseapp.com/__/auth/handler`
    (and your custom domain's `/__/auth/handler` too, if you use one).
 2. **Firebase console** → Authentication → Sign-in method → **Apple** → enable, and fill in:
    **Services ID** (from step 1), **Apple Team ID**, **Key ID**, and the **`.p8`** private key.
-3. In `.env` set `VITE_APPLE_SIGNIN_ENABLED=true` and redeploy hosting.
+3. No client change or redeploy is needed — the button is always on.
 4. Test on **desktop Safari + iOS** (installed PWA). Gotchas: private-relay emails ARE the account
    email; the user's name arrives only on the FIRST sign-in; with Firebase there's **no 6-month
    secret rotation** (Firebase signs from the key).
