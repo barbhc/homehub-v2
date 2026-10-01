@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon, XIcon,
 } from "lucide-react"
-import { markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
+import type { WeekAgendaItem } from "@/modules/care"
 import { useCareSuggestions } from "@/hooks/useCareSuggestions"
 import { useWeekAgenda } from "@/hooks/useWeekAgenda"
 import { LoadErrorState, StaleDataNote } from "@/components/layout"
@@ -13,10 +13,11 @@ import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
-  addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
+  applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, TIER_FILTERS, tierFilterCounts,
-  tasksDueOnDay, todayStr, useTaskDetail, type Lens, CLAY, TEAL,
+  tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL,
 } from "./tasks/shared"
+import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
@@ -283,53 +284,22 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   // Item filtering is now the "Item" lens; kept as a constant so the shared
   // tier helpers keep their signature.
   const item = "all"
-  const [openId, setOpenId] = useState<string | null>(null)
   const [selDay, setSelDay] = useState<number | null>(null)
   const [dismissed, setDismissed] = useState(false)
   // The agenda is shared with DesktopTasks (one fetch per home, persisted for a
   // warm start). What to show is decided by what we HOLD — see pageLoadState.
   const agenda = useWeekAgenda(homeId)
-  const { removeTask } = agenda
   const items = agenda.data?.items ?? NO_TASKS
   /** Scheduled work the agenda hides by design (item-scoped cleaning). */
   const hiddenCleaning = agenda.data?.hiddenCleaning ?? 0
   const loadState = pageLoadState(agenda.data !== undefined, agenda.error !== undefined)
   const loading = loadState === "loading"
   const loadFailed = loadState === "error"
-  const [pendingId, setPendingId] = useState<string | null>(null)
   // Done/Snooze both used to discard their result: the row closed either way and
   // a failed check-off left the task in place with nothing said. The task then
-  // reappears on the next load looking like the tap never registered.
-  const [actionError, setActionError] = useState<string | null>(null)
-
-  const onDone = useCallback(async (id: string) => {
-    if (!homeId) return
-    setPendingId(id)
-    setActionError(null)
-    const res = await markTaskInstanceDone(homeId, id)
-    setPendingId(null)
-    if (!res.success) {
-      // Leave the row open and the task in the list — it is genuinely not done.
-      setActionError(res.error ?? "Could not complete that task.")
-      return
-    }
-    setOpenId(null)
-    removeTask(id)
-  }, [homeId, removeTask])
-
-  const onSnooze = useCallback(async (id: string) => {
-    if (!homeId) return
-    setPendingId(id)
-    setActionError(null)
-    const res = await snoozeTaskInstance(homeId, id, addDays(todayStr(), 7))
-    setPendingId(null)
-    if (!res.success) {
-      setActionError(res.error ?? "Could not snooze that task.")
-      return
-    }
-    setOpenId(null)
-    removeTask(id)
-  }, [homeId, removeTask])
+  // reappears on the next load looking like the tap never registered. One
+  // implementation with DesktopTasks now — see useAgendaRowActions.
+  const { openId, toggle, pendingId, actionError, onDone, onSnooze } = useAgendaRowActions(homeId, agenda.removeTask)
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
@@ -356,7 +326,6 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const total = all.length
   const dayTasks = selDay == null ? [] : tasksDueOnDay(all, selDay)
 
-  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id))
   const openGuide = (t: WeekAgendaItem) => navigate(`/tasks/${t.taskInstanceId}`)
 
   const renderRow = (t: WeekAgendaItem) => (
@@ -389,9 +358,11 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               hiding nine more read as the whole truth and wasn't. A failed
               first read says nothing here: "Nothing due" about tasks we never
               read would be a confident wrong answer. */}
-          {loading ? "Loading…" : loadFailed ? null : total === 0
+          {loading ? "Loading…" : loadFailed ? null : totalAll === 0
             // Never leave the user staring at "nothing" while an item page
             // lists work — the line says where it went. Shared with desktop.
+            // Only for an EMPTY agenda: a filter that empties a full list
+            // gets "0 of 5" below, never "Nothing on the schedule".
             ? nothingDueLine(hiddenCleaning)
             // Just the count. A whole-list minute total ("~300 min") reads as a
             // bill, not a plan; the per-group minutes below are where a pass
@@ -571,12 +542,9 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                 list, a scheduled cleaning task was simply absent and nothing
                 said so — the explanation only existed in the empty state. The
                 withheld count now closes every list, linking to where the work
-                actually lives. */}
-            {groups.length > 0 && hiddenCleaning > 0 && (
-              <Link to="/clean" className="block px-0.5 pb-2 text-[12.5px]" style={{ color: SUB }}>
-                {hiddenCleaning} cleaning job{hiddenCleaning === 1 ? "" : "s"} for your items live in <b style={{ color: TEAL }}>Deep Clean</b> →
-              </Link>
-            )}
+                actually lives. (An empty agenda says it in the headline, so
+                this waits for one with tasks.) */}
+            {totalAll > 0 && <HiddenCleaningLink count={hiddenCleaning} className="block px-0.5 pb-2 text-[12.5px]" />}
             {(care.rows.length > 0 || care.error) && (
               <div className="mb-4" data-testid="suggested-group">
                 <div className="mb-2 flex items-center gap-1.5 pl-0.5">

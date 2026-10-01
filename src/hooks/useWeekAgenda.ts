@@ -10,7 +10,7 @@
  */
 import { useCallback } from "react"
 import useSWR, { useSWRConfig } from "swr"
-import { countHiddenCleaning, getWeekAgenda, type WeekAgendaItem } from "@/modules/care"
+import { getLastAgendaWithheld, getWeekAgenda, type WeekAgendaItem } from "@/modules/care"
 import { persistSwrSnapshot, WEEK_KEY_PREFIX } from "@/lib/swrPersist"
 import { LOAD_TIMEOUT_MS, withTimeout } from "@/lib/withTimeout"
 
@@ -23,7 +23,11 @@ export const TASKS_HORIZON_DAYS = 31
  */
 export interface WeekAgendaSnapshot {
   items: WeekAgendaItem[]
-  /** Scheduled work the agenda hides by design (item-scoped cleaning), so an empty list can say where it went. */
+  /**
+   * Scheduled work the agenda hides by design (item-scoped cleaning), so the
+   * page can say where it went — in the headline of an empty list, and in the
+   * footer under a full one (HH-94).
+   */
   hiddenCleaning: number
 }
 
@@ -42,9 +46,15 @@ const TIMED_OUT = "Loading your tasks timed out. Check your connection and try a
 async function fetchWeekAgenda(homeId: string): Promise<WeekAgendaSnapshot> {
   const res = await getWeekAgenda(homeId, { days: TASKS_HORIZON_DAYS, refuseOfflineEmpty: true })
   if (res.error) throw new Error(res.error.message)
-  // Only counted when the agenda is actually empty — no cost on the common path.
-  const hiddenCleaning = res.data.length === 0 ? await countHiddenCleaning(homeId) : 0
-  return { items: res.data, hiddenCleaning }
+  // Counted on EVERY read now — HH-94's footer under a full list needs it, and
+  // it was only ever taken for an empty agenda, so that footer could never
+  // render. Still free: getWeekAgenda tallies what it withheld from the very
+  // snapshot it just read, so this costs no second query (countHiddenCleaning
+  // re-read every instance in the home). Read straight after the await, as
+  // getLastAgendaWithheld asks; the item-cleaning tally ignores the horizon,
+  // so another read of this home in flight (Home's getWeekReminders) would
+  // leave the same number.
+  return { items: res.data, hiddenCleaning: getLastAgendaWithheld().itemCleaning }
 }
 
 export function useWeekAgenda(homeId: string | null) {

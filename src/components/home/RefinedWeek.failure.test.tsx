@@ -29,6 +29,8 @@ const getTaskDetail = vi.fn()
 
 vi.mock("@/modules/care", () => ({
   getWeekAgenda: (...a: unknown[]) => getWeekAgenda(...a),
+  // The agenda's own tally of the cleaning it withheld (HH-94) — none here.
+  getLastAgendaWithheld: () => ({ beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 }),
   markTaskInstanceDone: (...a: unknown[]) => markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => snoozeTaskInstance(...a),
   getTaskDetail: (...a: unknown[]) => getTaskDetail(...a),

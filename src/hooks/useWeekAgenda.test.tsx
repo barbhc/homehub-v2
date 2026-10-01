@@ -8,6 +8,11 @@
  * Also pinned: a failed read is an error (never an empty agenda, never
  * persisted), and a check-off's local removal reaches every consumer and the
  * persisted snapshot — so a relaunch can't show a finished task as to-do.
+ *
+ * And the hidden-cleaning count (HH-94) rides on EVERY read — the footer under
+ * a full list needs it — taken from the read the agenda already made, never a
+ * second query. It used to be taken only for an empty agenda, which is why
+ * that footer could never render.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { useEffect } from "react"
@@ -17,14 +22,16 @@ import type { WeekAgendaItem } from "@/modules/care"
 
 const svc = vi.hoisted(() => ({
   getWeekAgenda: vi.fn(),
-  countHiddenCleaning: vi.fn(),
+  getLastAgendaWithheld: vi.fn(),
   getTaskTemplates: vi.fn(),
   getItemUnits: vi.fn(),
   getHomeProfile: vi.fn(),
 }))
+// No countHiddenCleaning: the count must come from the agenda's own read, and a
+// call to anything this mock does not offer fails the test.
 vi.mock("@/modules/care", () => ({
   getWeekAgenda: (...a: unknown[]) => svc.getWeekAgenda(...a),
-  countHiddenCleaning: (...a: unknown[]) => svc.countHiddenCleaning(...a),
+  getLastAgendaWithheld: () => svc.getLastAgendaWithheld(),
   getTaskTemplates: (...a: unknown[]) => svc.getTaskTemplates(...a),
   addLibraryTask: vi.fn(),
   dismissLibrarySuggestion: vi.fn(),
@@ -39,6 +46,8 @@ const { useCareSuggestions } = await import("./useCareSuggestions")
 const task = (id: string, title: string) => ({ taskInstanceId: id, title, dueDate: "2026-10-01", priorityTier: "essential" }) as WeekAgendaItem
 const ok = <T,>(data: T) => ({ data, error: null })
 const never = () => new Promise<never>(() => {})
+/** What getWeekAgenda's last read withheld (weekAgenda.ts tallies it as it reads). */
+const withheld = (itemCleaning: number) => ({ beyondHorizon: 0, nextDueDate: null, itemCleaning })
 
 let removeFromFirst: (id: string) => void = () => {}
 const exposeRemoveTask = (remove: (id: string) => void) => { removeFromFirst = remove }
@@ -69,7 +78,7 @@ const persistedWeek = () => {
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
-  svc.countHiddenCleaning.mockResolvedValue(0)
+  svc.getLastAgendaWithheld.mockReturnValue(withheld(0))
 })
 
 describe("useWeekAgenda", () => {
@@ -81,20 +90,36 @@ describe("useWeekAgenda", () => {
     expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
     expect(svc.getWeekAgenda).toHaveBeenCalledTimes(1)
     expect(svc.getWeekAgenda).toHaveBeenCalledWith("h1", { days: TASKS_HORIZON_DAYS, refuseOfflineEmpty: true })
-    // A non-empty agenda never pays for the hidden-cleaning count.
-    expect(svc.countHiddenCleaning).not.toHaveBeenCalled()
     // …and the result is persisted for the next launch.
     expect(persistedWeek()).toEqual({ items: [task("t1", "Replace the furnace filter")], hiddenCleaning: 0 })
   })
 
+  it("a NON-empty agenda carries the hidden-cleaning count too — from the same read", async () => {
+    // HH-94's footer ("3 cleaning jobs for your items live in Deep Clean")
+    // closes a list with tasks on it. With the count taken only for an empty
+    // agenda, it was always 0 here and the footer never rendered.
+    svc.getWeekAgenda.mockResolvedValue(ok([task("t1", "Replace the furnace filter")]))
+    svc.getLastAgendaWithheld.mockReturnValue(withheld(3))
+
+    renderWith(<><Agenda name="phone" /><Agenda name="desktop" /></>)
+
+    await waitFor(() =>
+      expect(persistedWeek()).toEqual({ items: [task("t1", "Replace the furnace filter")], hiddenCleaning: 3 }),
+    )
+    // One read buys both: the count is the tally of the read just made.
+    expect(svc.getWeekAgenda).toHaveBeenCalledTimes(1)
+    expect(svc.getLastAgendaWithheld).toHaveBeenCalledTimes(1)
+  })
+
   it("an empty agenda carries the hidden-cleaning count, counted once", async () => {
     svc.getWeekAgenda.mockResolvedValue(ok([]))
-    svc.countHiddenCleaning.mockResolvedValue(3)
+    svc.getLastAgendaWithheld.mockReturnValue(withheld(3))
 
     renderWith(<><Agenda name="phone" /><Agenda name="desktop" /></>)
 
     await waitFor(() => expect(persistedWeek()).toEqual({ items: [], hiddenCleaning: 3 }))
-    expect(svc.countHiddenCleaning).toHaveBeenCalledTimes(1)
+    expect(svc.getWeekAgenda).toHaveBeenCalledTimes(1)
+    expect(svc.getLastAgendaWithheld).toHaveBeenCalledTimes(1)
   })
 
   it("a failed read is an error on every consumer — never an empty agenda, never persisted", async () => {

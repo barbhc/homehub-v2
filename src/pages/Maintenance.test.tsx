@@ -16,7 +16,7 @@ import { SWRConfig } from "swr"
 
 const svc = vi.hoisted(() => ({
   getWeekAgenda: vi.fn(),
-  countHiddenCleaning: vi.fn(),
+  getLastAgendaWithheld: vi.fn(),
   markTaskInstanceDone: vi.fn(),
   snoozeTaskInstance: vi.fn(),
   getTaskDetail: vi.fn(),
@@ -26,7 +26,7 @@ const svc = vi.hoisted(() => ({
 }))
 vi.mock("@/modules/care", () => ({
   getWeekAgenda: (...a: unknown[]) => svc.getWeekAgenda(...a),
-  countHiddenCleaning: (...a: unknown[]) => svc.countHiddenCleaning(...a),
+  getLastAgendaWithheld: () => svc.getLastAgendaWithheld(),
   markTaskInstanceDone: (...a: unknown[]) => svc.markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => svc.snoozeTaskInstance(...a),
   getTaskDetail: (...a: unknown[]) => svc.getTaskDetail(...a),
@@ -64,7 +64,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   svc.getWeekAgenda.mockResolvedValue(ok([TASK]))
-  svc.countHiddenCleaning.mockResolvedValue(0)
+  svc.getLastAgendaWithheld.mockReturnValue({ beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 })
   svc.getTaskDetail.mockResolvedValue(ok(null))
   svc.getItemUnits.mockResolvedValue(ok([]))
   svc.getTaskTemplates.mockResolvedValue(ok([]))

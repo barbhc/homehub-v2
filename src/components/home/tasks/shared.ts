@@ -5,8 +5,10 @@
 // real dates and the real room join. Calm tiers only (never red); overdue is a
 // clay dot + the word "Overdue", never a full-orange line or "50d overdue".
 
-import { useEffect, useState } from "react"
-import { getTaskDetail, type TaskDetail, type WeekAgendaItem } from "@/modules/care"
+import { useCallback, useEffect, useState } from "react"
+import {
+  getTaskDetail, markTaskInstanceDone, snoozeTaskInstance, type TaskDetail, type WeekAgendaItem,
+} from "@/modules/care"
 import type { Tier } from "@/lib/redesign/tokens"
 
 // Group accent tones (calm tier palette — clay for overdue, never pure red).
@@ -40,11 +42,94 @@ export function daysUntil(dateStr: string): number {
  * item's guides and in Deep Clean), so an empty list with cleaning scheduled is
  * not "nothing due". The phone and desktop pages each carried their own copy of
  * this line, and only the phone's ever learned the count; this is the one copy
- * both render, fed by the count useWeekAgenda carries for an empty agenda.
+ * both render, fed by the count useWeekAgenda carries with every agenda.
+ *
+ * Only for an EMPTY agenda. A list a filter has emptied is not "nothing on the
+ * schedule" — its headline says how much the filter is hiding instead — and a
+ * non-empty list states the count in HiddenCleaningLink, below its groups.
  */
 export function nothingDueLine(hiddenCleaning: number): string {
   if (hiddenCleaning <= 0) return "Nothing due — enjoy the calm."
   return `Nothing on the schedule — ${hiddenCleaning} cleaning job${hiddenCleaning === 1 ? " lives" : "s live"} in your guides.`
+}
+
+// ── Check-off and snooze, for both trees ─────────────────────────────────────
+
+/** What a row write answers — markTaskInstanceDone and snoozeTaskInstance both fit. */
+type RowWrite = { success: boolean; error?: string }
+
+/**
+ * Done and Snooze for the agenda's rows: ONE implementation, which RefinedWeek
+ * and DesktopTasks both call.
+ *
+ * Each tree used to carry its own copy. The phone's learned to report a failed
+ * write; the desktop's kept reading only `res.success`, so a failed check-off
+ * or snooze closed the row and said nothing. The task then sat there looking
+ * untouched, which reads as "my tap didn't register" — and gets tapped again.
+ *
+ * A failure moves nothing: the task stays listed, and stays open if it was
+ * open (it is genuinely not done), and `actionError` says why. Only a write
+ * that SUCCEEDED closes the row and takes the task off the shared agenda.
+ */
+export function useAgendaRowActions(homeId: string | null, removeTask: (taskInstanceId: string) => void) {
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [pendingId, setPendingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const run = useCallback(
+    async (id: string, write: () => Promise<RowWrite>, failed: string) => {
+      setPendingId(id)
+      setActionError(null)
+      let res: RowWrite
+      try {
+        res = await write()
+      } catch (e) {
+        // A write that throws failed like one that answered "no" — and is said
+        // the same way below, never swallowed.
+        res = { success: false, error: e instanceof Error ? e.message : "" }
+      }
+      setPendingId(null)
+      if (!res.success) {
+        // `||`, not `??`: an empty message would set "" and render nothing —
+        // the silent failure this hook exists to prevent.
+        setActionError(res.error || failed)
+        return
+      }
+      setOpenId(null)
+      removeTask(id)
+    },
+    [removeTask],
+  )
+
+  const onDone = useCallback(
+    async (id: string) => {
+      if (!homeId) return
+      await run(id, () => markTaskInstanceDone(homeId, id), "Could not complete that task.")
+    },
+    [homeId, run],
+  )
+
+  const onSnooze = useCallback(
+    async (id: string) => {
+      if (!homeId) return
+      await run(id, () => snoozeTaskInstance(homeId, id, addDays(todayStr(), 7)), "Could not snooze that task.")
+    },
+    [homeId, run],
+  )
+
+  const toggle = useCallback((id: string) => setOpenId((cur) => (cur === id ? null : id)), [])
+
+  return {
+    /** The expanded row, if any. */
+    openId,
+    toggle,
+    /** The row whose write is in flight — collapsed until it answers. */
+    pendingId,
+    /** Why the last Done/Snooze failed; cleared when the next one starts. */
+    actionError,
+    onDone,
+    onSnooze,
+  }
 }
 
 /**

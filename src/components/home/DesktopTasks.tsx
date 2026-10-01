@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon, SparklesIcon, XIcon,
 } from "lucide-react"
-import { markTaskInstanceDone, snoozeTaskInstance, type WeekAgendaItem } from "@/modules/care"
+import type { WeekAgendaItem } from "@/modules/care"
 import { useCareSuggestions } from "@/hooks/useCareSuggestions"
 import { useWeekAgenda } from "@/hooks/useWeekAgenda"
 import { LoadErrorState, StaleDataNote } from "@/components/layout"
@@ -13,10 +13,11 @@ import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
-  addDays, applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
+  applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, TIER_FILTERS, tierFilterCounts,
-  tasksDueOnDay, todayStr, useTaskDetail, whenLabel, type Lens, CLAY, TEAL,
+  tasksDueOnDay, useAgendaRowActions, useTaskDetail, whenLabel, type Lens, CLAY, TEAL,
 } from "./tasks/shared"
+import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)"
 const LINE = "var(--hh-line2)", SURFACE = "var(--hh-surface)"
@@ -220,38 +221,20 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   // tier helpers keep their signature.
   const item = "all"
   const [lens, setLens] = useState<Lens>("urgency")
-  const [openId, setOpenId] = useState<string | null>(null)
   const [selDay, setSelDay] = useState<number | null>(null)
   const [dismissed, setDismissed] = useState(false)
   // Shared with RefinedWeek: one fetch per home, persisted for a warm start.
   // What to show is decided by what we HOLD — see pageLoadState.
   const agenda = useWeekAgenda(homeId)
-  const { removeTask } = agenda
   const items = agenda.data?.items ?? NO_TASKS
   /** Scheduled work the agenda hides by design (item-scoped cleaning) — HH-94. */
   const hiddenCleaning = agenda.data?.hiddenCleaning ?? 0
   const loadState = pageLoadState(agenda.data !== undefined, agenda.error !== undefined)
   const loading = loadState === "loading"
   const loadFailed = loadState === "error"
-  const [pendingId, setPendingId] = useState<string | null>(null)
-
-  const onDone = useCallback(async (id: string) => {
-    if (!homeId) return
-    setPendingId(id)
-    const res = await markTaskInstanceDone(homeId, id)
-    setPendingId(null)
-    setOpenId(null)
-    if (res.success) removeTask(id)
-  }, [homeId, removeTask])
-
-  const onSnooze = useCallback(async (id: string) => {
-    if (!homeId) return
-    setPendingId(id)
-    const res = await snoozeTaskInstance(homeId, id, addDays(todayStr(), 7))
-    setPendingId(null)
-    setOpenId(null)
-    if (res.success) removeTask(id)
-  }, [homeId, removeTask])
+  // This tree's own copy of Done/Snooze read only `res.success`: a failed write
+  // closed the row and said nothing. It shares the phone's now, error and all.
+  const { openId, toggle, pendingId, actionError, onDone, onSnooze } = useAgendaRowActions(homeId, agenda.removeTask)
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
@@ -262,7 +245,6 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const total = all.length
   const dayTasks = selDay == null ? null : tasksDueOnDay(all, selDay)
 
-  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id))
   const openGuide = (t: WeekAgendaItem) => navigate(`/tasks/${t.taskInstanceId}`)
 
   const tierCounts = useMemo(() => tierFilterCounts(items, item), [items, item])
@@ -280,13 +262,20 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
             {/* A failed first read says nothing here — "Nothing due" about tasks
                 we never read would be a confident wrong answer. An empty list
                 with cleaning scheduled says where it went (HH-94), in the same
-                words as the phone. */}
-            {loading ? "Loading…" : loadFailed ? null : total === 0 ? nothingDueLine(hiddenCleaning)
+                words as the phone — and only an EMPTY agenda says it: a filter
+                that empties a full list gets "0 of 5" instead. */}
+            {loading ? "Loading…" : loadFailed ? null : totalAll === 0 ? nothingDueLine(hiddenCleaning)
               // Just the count — a whole-list minute total reads as a bill, not a
               // plan; the per-group minutes are where a pass gets planned.
               : tier === "all" ? `${total} thing${total === 1 ? "" : "s"} across your home`
               : `${total} of ${totalAll} across your home`}
           </div>
+          {/* Where the phone says it, in the phone's words (useAgendaRowActions). */}
+          {actionError && (
+            <div role="alert" className="mt-2 text-[13.5px] font-medium" style={{ color: CLAY }}>
+              {actionError}
+            </div>
+          )}
         </div>
         <button
           type="button"
@@ -370,70 +359,79 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
               message={agenda.error?.message ?? "Something went wrong."}
               onRetry={() => void agenda.refresh()}
             />
-          ) : groups.length === 0 ? (
-            tier === "focus" && totalAll > 0 ? (
-              <div className="py-16 text-center">
-                <div className="text-[15px] font-semibold" style={{ color: INK }}>You're all caught up on the essentials.</div>
-                <button
-                  type="button"
-                  onClick={() => setTier("all")}
-                  className="mt-2 text-[13.5px] font-bold"
-                  style={{ color: TEAL }}
-                >
-                  Show {totalAll} {totalAll === 1 ? "other task" : "other tasks"} →
-                </button>
-              </div>
-            ) : (
-              <div className="py-16 text-center text-[15px]" style={{ color: SUB }}>Nothing matches these filters.</div>
-            )
           ) : (
-            groups.map((g) => (
-              <div key={g.key}>
-                <div className="mb-3 flex items-center gap-2.5 pl-0.5">
-                  <span className="size-[9px] rounded-full" style={{ background: g.tone }} />
-                  <span className="text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{g.label}</span>
-                  <span className="text-[13.5px] font-bold" style={{ color: g.tone === CLAY ? CLAY : FAINT }}>{g.items.length}</span>
-                  <div className="flex-1" />
-                  {g.mins > 0 && <span className="text-[13px] font-semibold" style={{ color: FAINT }}>{g.mins} min</span>}
+            <>
+              {groups.length === 0 && (
+                tier === "focus" && totalAll > 0 ? (
+                  <div className="py-16 text-center">
+                    <div className="text-[15px] font-semibold" style={{ color: INK }}>You're all caught up on the essentials.</div>
+                    <button
+                      type="button"
+                      onClick={() => setTier("all")}
+                      className="mt-2 text-[13.5px] font-bold"
+                      style={{ color: TEAL }}
+                    >
+                      Show {totalAll} {totalAll === 1 ? "other task" : "other tasks"} →
+                    </button>
+                  </div>
+                ) : (
+                  <div className="py-16 text-center text-[15px]" style={{ color: SUB }}>Nothing matches these filters.</div>
+                )
+              )}
+              {groups.map((g) => (
+                <div key={g.key}>
+                  <div className="mb-3 flex items-center gap-2.5 pl-0.5">
+                    <span className="size-[9px] rounded-full" style={{ background: g.tone }} />
+                    <span className="text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{g.label}</span>
+                    <span className="text-[13.5px] font-bold" style={{ color: g.tone === CLAY ? CLAY : FAINT }}>{g.items.length}</span>
+                    <div className="flex-1" />
+                    {g.mins > 0 && <span className="text-[13px] font-semibold" style={{ color: FAINT }}>{g.mins} min</span>}
+                  </div>
+                  <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
+                    {g.items.map((t, i) => (
+                      <DkRow
+                        key={t.taskInstanceId}
+                        homeId={homeId}
+                        t={t}
+                        expanded={openId === t.taskInstanceId && pendingId !== t.taskInstanceId}
+                        last={i === g.items.length - 1}
+                        onToggle={() => toggle(t.taskInstanceId)}
+                        onDone={() => onDone(t.taskInstanceId)}
+                        onSnooze={() => onSnooze(t.taskInstanceId)}
+                        onOpenGuide={() => openGuide(t)}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
-                  {g.items.map((t, i) => (
-                    <DkRow
-                      key={t.taskInstanceId}
-                      homeId={homeId}
-                      t={t}
-                      expanded={openId === t.taskInstanceId && pendingId !== t.taskInstanceId}
-                      last={i === g.items.length - 1}
-                      onToggle={() => toggle(t.taskInstanceId)}
-                      onDone={() => onDone(t.taskInstanceId)}
-                      onSnooze={() => onSnooze(t.taskInstanceId)}
-                      onOpenGuide={() => openGuide(t)}
-                    />
-                  ))}
-            {(care.rows.length > 0 || care.error) && (
-              <div data-testid="suggested-group">
-                <div className="mb-3 flex items-center gap-2.5 pl-0.5">
-                  <span className="size-[9px] rounded-full" style={{ background: "var(--hh-gold, #8A5A12)" }} />
-                  <span className="text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: "var(--hh-gold, #8A5A12)" }}>Suggested</span>
-                  <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
-                  <div className="flex-1" />
-                  <span className="text-[12.5px]" style={{ color: FAINT }}>typical for your home</span>
+              ))}
+              {/* HH-94 — the phone's footer, in the phone's words: a list with
+                  tasks on it still says where the withheld cleaning lives. */}
+              {totalAll > 0 && <HiddenCleaningLink count={hiddenCleaning} className="block pl-0.5 text-[13px]" />}
+              {/* The care library's standing group: ONCE, after every group —
+                  where the phone puts it. It was nested inside the groups.map,
+                  so it rendered inside every group's card. */}
+              {(care.rows.length > 0 || care.error) && (
+                <div data-testid="suggested-group">
+                  <div className="mb-3 flex items-center gap-2.5 pl-0.5">
+                    <span className="size-[9px] rounded-full" style={{ background: "var(--hh-gold, #8A5A12)" }} />
+                    <span className="text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: "var(--hh-gold, #8A5A12)" }}>Suggested</span>
+                    <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
+                    <div className="flex-1" />
+                    <span className="text-[12.5px]" style={{ color: FAINT }}>typical for your home</span>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
+                    {care.error ? (
+                      <div role="alert" className="flex items-center gap-3 px-4 py-3 text-[13px]" style={{ color: CLAY }}>
+                        <span className="flex-1">Couldn&apos;t load suggestions: {care.error}</span>
+                        <button type="button" onClick={care.reload} className="font-bold" style={{ color: TEAL }}>Try again</button>
+                      </div>
+                    ) : care.rows.map((s, i) => (
+                      <SuggestedRow key={`${s.itemUnitId ?? "home"}:${s.entry.key}`} suggestion={s} itemName={s.itemName ?? "Whole home"} onAdd={() => care.add(s)} onDismiss={() => care.dismiss(s)} last={i === care.rows.length - 1} />
+                    ))}
+                  </div>
                 </div>
-                <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
-                  {care.error ? (
-                    <div role="alert" className="flex items-center gap-3 px-4 py-3 text-[13px]" style={{ color: CLAY }}>
-                      <span className="flex-1">Couldn&apos;t load suggestions: {care.error}</span>
-                      <button type="button" onClick={care.reload} className="font-bold" style={{ color: TEAL }}>Try again</button>
-                    </div>
-                  ) : care.rows.map((s, i) => (
-                    <SuggestedRow key={`${s.itemUnitId ?? "home"}:${s.entry.key}`} suggestion={s} itemName={s.itemName ?? "Whole home"} onAdd={() => care.add(s)} onDismiss={() => care.dismiss(s)} last={i === care.rows.length - 1} />
-                  ))}
-                </div>
-              </div>
-            )}
-                </div>
-              </div>
-            ))
+              )}
+            </>
           )}
         </div>
 
