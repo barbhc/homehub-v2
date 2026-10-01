@@ -29,6 +29,9 @@ const m = vi.hoisted(() => ({
   saveRoutineTask: vi.fn(),
   deleteRoutineTask: vi.fn(),
   getManualsByHome: vi.fn(),
+  unregisterNativePush: vi.fn(),
+  /** Render as the iOS shell (native push) rather than a browser. */
+  native: false,
 }))
 
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1", email: "e2e@homehub.test" }, signOut: vi.fn() }) }))
@@ -50,10 +53,16 @@ vi.mock("@/lib/pushNotifications", () => ({
   unsubscribeFromPush: (...a: unknown[]) => m.unsubscribeFromPush(...a),
 }))
 vi.mock("@/lib/nativePush", () => ({
-  isNativePlatform: () => false,
-  isNativePushRegistered: async () => false,
+  isNativePlatform: () => m.native,
+  // On the phone, reminders start ON (permission granted, not turned off here).
+  isNativePushRegistered: async () => m.native,
   registerNativePush: vi.fn(),
-  unregisterNativePush: vi.fn(),
+  unregisterNativePush: (...a: unknown[]) => m.unregisterNativePush(...a),
+  PushOffError: class PushOffError extends Error {
+    constructor() {
+      super("Couldn't turn off reminders on this phone. Try again, or turn off notifications for Homehub in iOS Settings.")
+    }
+  },
 }))
 vi.mock("@/lib/cleanSession", () => ({
   getRoutineTemplates: (...a: unknown[]) => m.getRoutineTemplates(...a),
@@ -111,6 +120,8 @@ beforeEach(() => {
   m.deleteRoom.mockResolvedValue({ data: true, error: null })
   m.getRoutineTemplates.mockResolvedValue([])
   m.getManualsByHome.mockResolvedValue({ data: [], error: null })
+  m.unregisterNativePush.mockResolvedValue(undefined)
+  m.native = false
 })
 
 const renderSettings = () => render(<MemoryRouter><Settings /></MemoryRouter>)
@@ -158,6 +169,19 @@ describe("Settings — notification preferences", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Disable" }))
 
     expect(await screen.findByText("Couldn't turn off notifications. Check your connection and try again.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Disable" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Enable" })).toBeNull()
+  })
+
+  it("on the phone, a Disable that can't reach this phone's token says so and stays on", async () => {
+    m.native = true
+    const { PushOffError } = await import("@/lib/nativePush")
+    m.unregisterNativePush.mockRejectedValue(new PushOffError())
+    renderSettings()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Disable" }))
+
+    expect(await screen.findByText(/Couldn't turn off reminders on this phone/)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Disable" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Enable" })).toBeNull()
   })

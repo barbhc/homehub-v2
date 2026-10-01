@@ -1,3 +1,4 @@
+import type { PluginListenerHandle } from "@capacitor/core"
 import { PushNotifications } from "@capacitor/push-notifications"
 import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
@@ -23,8 +24,40 @@ let currentUserId = ""
 let listenersReady = false
 let tapListenerReady = false
 let lastToken = ""
+/** The token-persisting listeners, kept so Disable can remove exactly these —
+ *  removeAllListeners() also took the notification-TAP listener with it. */
+let registrationHandles: PluginListenerHandle[] = []
 
 const tokensDoc = (uid: string) => doc(db, `users/${uid}/private/fcmTokens`)
+
+/**
+ * "Reminders off on this phone" — device-local, because Disable removes THIS
+ * device's token. ensureNativePushToken re-registers at every boot (via
+ * AuthProvider) when permission is granted and the server holds no APNs token,
+ * so without this mark the next launch quietly re-added the token and undid
+ * the Disable (audit H6 follow-up).
+ */
+const OFF_KEY = "homehub:native-push-off"
+
+export function isNativePushTurnedOff(): boolean {
+  try {
+    return localStorage.getItem(OFF_KEY) === "1"
+  } catch {
+    // Storage unreadable: no mark to honour — reminders behave as before Disable.
+    return false
+  }
+}
+
+/** Disable could not make this phone stop receiving reminders — said as is. */
+export class PushOffError extends Error {
+  constructor() {
+    super("Couldn't turn off reminders on this phone. Try again, or turn off notifications for Homehub in iOS Settings.")
+    this.name = "PushOffError"
+  }
+}
+
+/** How long Disable waits for APNs to name this phone's token. */
+export const TOKEN_WAIT_MS = 10_000
 
 async function persistToken(token: string): Promise<void> {
   if (!currentUserId) return
@@ -64,16 +97,71 @@ export async function registerDeepLinkListener(): Promise<void> {
 async function ensureListeners(): Promise<void> {
   if (listenersReady) return
   listenersReady = true
-  await PushNotifications.addListener("registration", (token) => {
-    lastToken = token.value
-    void persistToken(token.value)
-  })
-  await PushNotifications.addListener("registrationError", (err) => {
-    console.error("[nativePush] registration error:", err)
-  })
+  registrationHandles = [
+    await PushNotifications.addListener("registration", (token) => {
+      lastToken = token.value
+      void persistToken(token.value)
+    }),
+    await PushNotifications.addListener("registrationError", (err) => {
+      console.error("[nativePush] registration error:", err)
+    }),
+  ]
   // The tap listener is NOT registered here — it must exist before auth
   // resolves or a cold-start tap is lost. See registerDeepLinkListener.
   await registerDeepLinkListener()
+}
+
+/** Removes listeners; a handle that won't go is logged, never thrown. */
+async function removeHandles(handles: PluginListenerHandle[]): Promise<void> {
+  await Promise.all(
+    handles.map((h) =>
+      h.remove().catch((err: unknown) => {
+        console.warn("[nativePush] could not remove a push listener:", err instanceof Error ? err.message : err)
+      }),
+    ),
+  )
+}
+
+/** Stop persisting tokens (Disable). The tap listener stays: a reminder that
+ *  already arrived should still open its task. */
+async function removeRegistrationListeners(): Promise<void> {
+  const handles = registrationHandles
+  registrationHandles = []
+  listenersReady = false
+  await removeHandles(handles)
+}
+
+/**
+ * Ask APNs to name this phone's token again and wait for the answer. register()
+ * is silent (no prompt) and answers with the same token for this install.
+ * Resolves null — never rejects — when no answer comes within TOKEN_WAIT_MS.
+ */
+function freshRegistrationToken(): Promise<string | null> {
+  return new Promise((resolve) => {
+    let handles: PluginListenerHandle[] = []
+    let settled = false
+    const finish = (token: string | null, why?: unknown) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      void removeHandles(handles)
+      if (token === null) console.warn("[nativePush] could not get this phone's push token:", why instanceof Error ? why.message : why)
+      resolve(token)
+    }
+    const timer = setTimeout(() => finish(null, `no registration within ${TOKEN_WAIT_MS}ms`), TOKEN_WAIT_MS)
+    Promise.all([
+      PushNotifications.addListener("registration", (t) => finish(t.value)),
+      PushNotifications.addListener("registrationError", (err) => finish(null, err.error)),
+    ])
+      .then((hs) => {
+        // Settled while these were still being attached (the wait ran out):
+        // they missed finish()'s cleanup, so remove them here.
+        if (settled) return removeHandles(hs)
+        handles = hs
+        return PushNotifications.register()
+      })
+      .catch((err: unknown) => finish(null, err))
+  })
 }
 
 /**
@@ -91,6 +179,12 @@ export async function registerNativePush(
     if (perm.receive !== "granted") return { success: false, error: "Permission denied" }
     await ensureListeners()
     await PushNotifications.register()
+    // Turned back on: the boot re-registration may look after this phone again.
+    try {
+      localStorage.removeItem(OFF_KEY)
+    } catch {
+      // Storage blocked: the mark can't be read either (isNativePushTurnedOff → false).
+    }
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Unknown error" }
@@ -109,9 +203,12 @@ export async function registerNativePush(
  * register() is idempotent and silent once permission exists (no prompt), so
  * this is safe to run at every boot. Returns true if a registration was kicked
  * off, so callers can log/diagnose.
+ *
+ * Never on a phone whose reminders were turned off here: re-registering would
+ * put back the token Disable removed.
  */
 export async function ensureNativePushToken(userId: string): Promise<boolean> {
-  if (!isNativePlatform()) return false
+  if (!isNativePlatform() || isNativePushTurnedOff()) return false
   try {
     const perm = await PushNotifications.checkPermissions()
     if (perm.receive !== "granted") return false
@@ -131,9 +228,10 @@ export async function ensureNativePushToken(userId: string): Promise<boolean> {
   }
 }
 
-/** True if native push permission is already granted on this device. */
+/** True if native push permission is granted on this device and its reminders
+ *  were not turned off here (permission outlives a Disable). */
 export async function isNativePushRegistered(): Promise<boolean> {
-  if (!isNativePlatform()) return false
+  if (!isNativePlatform() || isNativePushTurnedOff()) return false
   try {
     const perm = await PushNotifications.checkPermissions()
     return perm.receive === "granted"
@@ -145,26 +243,40 @@ export async function isNativePushRegistered(): Promise<boolean> {
 }
 
 /**
- * Remove this device's native token from the server.
+ * Turn reminders off on this phone — and only claim it when it is true.
  *
- * The server write THROWS on failure — it used to be swallowed ("best-effort"),
- * so Settings showed notifications off while the server kept the token and
- * kept sending (audit H6). Removing the local listeners stays best-effort.
+ *  1. Stop persisting tokens, so nothing below re-adds the one being removed.
+ *  2. Name this phone's token: the one this launch received, or — usually, as
+ *     registration fired in an earlier launch — ask APNs again and wait.
+ *  3. Remove it from the server (a failure THROWS; Settings says so).
+ *     If APNs never answers, stop delivery at the source instead:
+ *     unregister() releases this install's APNs registration.
+ *  4. Mark the phone "off", so the boot re-registration doesn't undo it.
+ *
+ * Throws PushOffError when neither removal nor unregister() is possible. It
+ * used to return quietly with no token in hand: Settings showed off while the
+ * server kept the token and kept sending (audit H6 follow-up).
  */
 export async function unregisterNativePush(userId: string): Promise<void> {
   if (!isNativePlatform()) return
+  await removeRegistrationListeners()
+  const token = lastToken || (await freshRegistrationToken())
+  if (token) {
+    await setDoc(tokensDoc(userId), { tokens: arrayRemove(token) }, { merge: true })
+    lastToken = ""
+  } else {
+    try {
+      await PushNotifications.unregister()
+    } catch (err) {
+      console.warn("[nativePush] could not unregister this phone from APNs:", err instanceof Error ? err.message : err)
+      throw new PushOffError()
+    }
+  }
   try {
-    await PushNotifications.removeAllListeners()
+    localStorage.setItem(OFF_KEY, "1")
   } catch (err) {
-    console.warn("[nativePush] could not remove the push listeners:", err instanceof Error ? err.message : err)
+    // Off for now, but the next launch's re-registration would undo it.
+    console.warn("[nativePush] could not mark this phone off; the next launch would turn reminders back on:", err instanceof Error ? err.message : err)
+    throw new PushOffError()
   }
-  listenersReady = false
-  if (!lastToken) {
-    // This session never received the token (registration fired in an earlier
-    // launch), so there is no known token to remove from the server.
-    console.warn("[nativePush] no token from this session to remove; the server copy is unchanged")
-    return
-  }
-  await setDoc(tokensDoc(userId), { tokens: arrayRemove(lastToken) }, { merge: true })
-  lastToken = ""
 }

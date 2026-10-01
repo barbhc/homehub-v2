@@ -37,7 +37,7 @@ import { useUserLevel } from "@/hooks/useUserLevel"
 import { useAppearance, type Appearance } from "@/lib/theme"
 import { useAuth } from "@/modules/auth"
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, isSubscribed as checkIsSubscribed } from "@/lib/pushNotifications"
-import { isNativePlatform, isNativePushRegistered, registerNativePush, unregisterNativePush } from "@/lib/nativePush"
+import { isNativePlatform, isNativePushRegistered, PushOffError, registerNativePush, unregisterNativePush } from "@/lib/nativePush"
 import { NotificationsRefusedNote } from "@/components/settings/NotificationsRefusedNote"
 import {
   getRoutineTemplates,
@@ -1489,7 +1489,9 @@ export default function Settings() {
                     // while the server kept the token and kept sending.
                     setPushError(
                       pushSubscribed
-                        ? "Couldn't turn off notifications. Check your connection and try again."
+                        ? e instanceof PushOffError
+                          ? e.message
+                          : "Couldn't turn off notifications. Check your connection and try again."
                         : e instanceof Error ? e.message : "Couldn't enable notifications.",
                     )
                   } finally {
