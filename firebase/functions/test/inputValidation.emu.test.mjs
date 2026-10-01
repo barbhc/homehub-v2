@@ -19,11 +19,19 @@
 import { test, after } from "node:test"
 import assert from "node:assert/strict"
 import { getApps, initializeApp } from "firebase-admin/app"
+import { getAuth } from "firebase-admin/auth"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be set (run via emulators:exec)")
 if (getApps().length === 0) initializeApp({ projectId: "demo-homehub" })
 const db = getFirestore()
+// chatQuery verifies an ID token itself; CI's worker run has no auth emulator,
+// so this file's own Auth instance answers for one known token.
+const ASK_UID = `iv-ask-${Date.now()}`
+getAuth().verifyIdToken = async (token) => {
+  if (token !== "iv-good-token") throw new Error("bad token")
+  return { uid: ASK_UID }
+}
 
 const lib = (p) => import(`../lib/firebase/functions/src/${p}.js`)
 const { classifyExistingTasks } = await lib("ai/classifyExistingTasks")
@@ -35,6 +43,8 @@ const { redeemInviteCode } = await lib("growth/redeemInviteCode")
 const { handleCompleteTask } = await lib("tasks/completeTask")
 const { runRollForward } = await lib("schedule/rollForward")
 const { refundParseCharge } = await lib("lib/parseCharges")
+const { chatQuery } = await lib("ai/chatQuery")
+const { runEnqueueParse } = await lib("parse/enqueueParse")
 
 const RUN = `${Date.now()}`
 const homes = []
@@ -181,7 +191,75 @@ test("classify apply: a reference row only deactivates; a deleted or overridden 
   assert.deepEqual((await db.doc(`homes/${A}/taskTemplates/mine`).get()).data(), mineBefore, "the user's own override wins")
 })
 
+// ─── Ask: a long thread is answered, not refused ─────────────────────────────
+
+test("chatQuery: a 600-turn thread is answered — not a 400", async () => {
+  const H = home("ask-long")
+  await seedMember(H, ASK_UID)
+  // No items: the handler answers "nothing to ask about" (done, no sources)
+  // without calling Claude — the full path past validation, membership and
+  // the quota charge (refunded), end to end.
+  const thread = Array.from({ length: 600 }, (_, i) => ({ role: i % 2 === 0 ? "user" : "assistant", content: `turn ${i}` }))
+  const headers = { authorization: "Bearer iv-good-token", "content-type": "application/json" }
+  const req = {
+    method: "POST",
+    headers,
+    body: { question: "How often do I clean the filter?", history: thread, filter: { type: "all", label: "Whole home" }, home_id: H, allow_web_search: false },
+    query: {},
+    get: (h) => headers[h.toLowerCase()],
+    header: (h) => headers[h.toLowerCase()],
+  }
+  const out = { status: null, json: null, written: [], ended: false }
+  const res = {
+    headersSent: false,
+    set: () => res,
+    status: (c) => ((out.status = c), res),
+    json: (j) => ((out.json = j), res),
+    send: () => res,
+    write: (chunk) => (out.written.push(String(chunk)), true),
+    end: () => ((out.ended = true), res),
+    on: () => res,
+    setHeader: () => {},
+    getHeader: () => undefined,
+  }
+  await chatQuery(req, res)
+  assert.equal(out.status, null, `no error status (got ${out.status} ${JSON.stringify(out.json)})`)
+  assert.ok(out.ended)
+  assert.ok(out.written.some((w) => w.includes('"done":true')), out.written.join(""))
+})
+
 // ─── manual sources: never another home's Storage folder ───────────────────
+
+test("enqueueParse: a manual in another home's folder is refused BEFORE any charge; a legacy one without sourceType still starts", async () => {
+  const A = home("enq-src"), B = home("enq-theirs")
+  await seedMember(A, "iv-u1")
+  await db.doc(`homes/${A}/manuals/theirs`).set({ itemUnitId: "i1", sourceType: "upload", sourceRef: `homes/${B}/manuals/u2/i9/x.pdf` })
+  await db.doc(`homes/${A}/manuals/legacy`).set({ itemUnitId: "i1", sourceRef: `homes/${A}/manuals/iv-u1/i1/manual.pdf` })
+  const charged = []
+  const enqueued = []
+  const deps = {
+    charge: async (uid) => {
+      charged.push(uid)
+      return { record: null, refund: async () => {}, release: async () => {}, extend: async () => {} }
+    },
+    enqueue: async (payload) => {
+      enqueued.push(payload)
+    },
+  }
+  const refused = await runEnqueueParse(db, deps, { uid: "iv-u1", homeId: A, manualId: "theirs", mode: "preview" }).then(
+    () => null,
+    (e) => e,
+  )
+  assert.equal(refused?.code, "failed-precondition")
+  assert.deepEqual(charged, [], "nothing was charged")
+  assert.equal((await db.doc(`homes/${A}/manuals/theirs`).get()).get("parse"), undefined, "and nothing was queued")
+
+  // A manual written before sourceType existed is a Storage path in its own folder: it starts.
+  const ok = await runEnqueueParse(db, deps, { uid: "iv-u1", homeId: A, manualId: "legacy", mode: "preview" })
+  assert.equal(ok.ok, true)
+  assert.deepEqual(charged, ["iv-u1"])
+  assert.equal(enqueued[0].manualId, "legacy")
+})
 
 test("a manual pointing into another home's Storage folder is refused before any charge", async () => {
   const A = home("src-mine"), B = home("src-theirs")

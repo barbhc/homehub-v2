@@ -28,7 +28,7 @@ import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
 import { pickNotes, formatNotesBlock, noteSources, type NoteInput } from "./notesContext.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
-import { manualSource } from "../parse/manualSource.js"
+import { manualSource, type ManualSource } from "../parse/manualSource.js"
 import { z } from "zod"
 import { isDocIdSegment, parseHttpInput, storedText } from "../lib/validate.js"
 import { braveWebResults } from "../lib/externalResponses.js"
@@ -107,12 +107,26 @@ export async function chargeAndFetchPdfs<T extends { manualId: string }>(
  */
 const QUESTION_AND_HOME = "question and home_id are required"
 
+/**
+ * How much of the thread is read. The Ask client sends the WHOLE thread every
+ * time (src/pages/ChatPage.tsx), and normalizeHistory keeps only the last
+ * MAX_HISTORY_TURNS (ten) well-formed turns — so a long thread is sliced to
+ * its tail here, never refused, and only that tail is shape-checked. Twenty
+ * times the ten that are used, so blank or odd turns in between cannot push a
+ * real one out; it also bounds the work one request can ask for.
+ */
+export const CHAT_HISTORY_WINDOW = 200
+
 export const ChatQueryRequest = z.object({
   question: z.string({ error: QUESTION_AND_HOME }).min(1, { error: QUESTION_AND_HOME }).max(10_000, { error: "That question is too long — try a shorter one." }),
   history: z
-    .array(z.object({ role: z.string(), content: z.string().max(50_000) }))
-    .max(500)
-    .nullish(),
+    .preprocess(
+      (h) => (Array.isArray(h) && h.length > CHAT_HISTORY_WINDOW ? h.slice(-CHAT_HISTORY_WINDOW) : h),
+      // 200k characters a turn: far above any turn the app produces (answers
+      // are ≤1,024 tokens; questions ≤10k characters).
+      z.array(z.object({ role: z.string(), content: z.string().max(200_000) })).nullish(),
+    )
+    .optional(),
   filter: z
     .object({
       type: z.enum(["all", "item", "room", "category"]),
@@ -162,6 +176,19 @@ function formatWebContextBlock(searchQuery: string, results: WebResult[]): strin
   for (const r of results) parts.push(`### [${r.title}](${r.url})`, r.snippet)
   parts.push("---")
   return parts.join("\n")
+}
+
+/**
+ * A manual's source as Ask plans PDF attachments. A missing `sourceType` reads
+ * as "url" — Ask's long-standing default, so a manual without one is never
+ * attached whole (and never priced); unlike the parse paths, which read it as
+ * a Storage path. A source that is missing, or in ANOTHER home's Storage
+ * folder, reads as an empty URL, which planPdfAttachments refuses — what a
+ * manual with no source already read as. Its parsed chunks (this home's) are
+ * still searched either way.
+ */
+export function askManualSource(homeId: string, sourceType: unknown, sourceRef: unknown): ManualSource {
+  return manualSource(homeId, sourceType ?? "url", sourceRef) ?? { sourceType: "url", sourceRef: "" }
 }
 
 type ItemRow = { id: string; roomId: string | null; category: string | null; displayName: string }
@@ -332,11 +359,7 @@ export const chatQuery = onRequest(
       .map((d) => ({
         manualId: d.id,
         itemUnitId: storedText(d.get("itemUnitId")) ?? "",
-        // A source that is missing, or in ANOTHER home's Storage folder, is
-        // never attached: it reads as an empty URL, which planPdfAttachments
-        // refuses — what a manual with no source already read as. Its parsed
-        // chunks (this home's) are still searched.
-        ...(manualSource(homeId, d.get("sourceType"), d.get("sourceRef")) ?? { sourceType: "url", sourceRef: "" }),
+        ...askManualSource(homeId, d.get("sourceType"), d.get("sourceRef")),
       }))
     if (manuals.length === 0 && warrantyBlock.length === 0 && notesBlock.length === 0) return nothingToAsk()
 

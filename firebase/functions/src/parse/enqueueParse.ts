@@ -32,6 +32,7 @@ import { getFunctions } from "firebase-admin/functions"
 import { z } from "zod"
 import type { ParseMode } from "./parseTypes.js"
 import { DocId, parseCallableInput } from "../lib/validate.js"
+import { manualSource, MANUAL_SOURCE_UNAVAILABLE } from "./manualSource.js"
 import { parseModeOrPreview } from "./parseMode.js"
 import { chargeAiQuota, isQuotaExhausted, type QuotaHold } from "../lib/quota.js"
 import { recordParseCharge, refundParseCharge } from "../lib/parseCharges.js"
@@ -79,6 +80,12 @@ export async function runEnqueueParse(db: Firestore, deps: EnqueueDeps, input: E
   const manualRef = db.doc(`homes/${homeId}/manuals/${manualId}`)
   const manual = await manualRef.get()
   if (!manual.exists) throw new HttpsError("not-found", "Manual not found.")
+  // Before anything is charged or queued: a manual whose file is missing, or
+  // sits in another home's Storage folder, would only fail in the worker —
+  // after the charge, then refunded. Said now, and nothing is spent.
+  if (!manualSource(homeId, manual.get("sourceType"), manual.get("sourceRef"))) {
+    throw new HttpsError("failed-precondition", MANUAL_SOURCE_UNAVAILABLE)
+  }
 
   // ── 1. This manual, before any charge ─────────────────────────────────────
   const before = runLiveness(manual.get("parse"), Date.now())

@@ -22,12 +22,18 @@ export const MANUAL_SOURCE_UNAVAILABLE = "We couldn't find this manual's file. T
  * signed-in user may read). A ref into ANOTHER home's folder is refused: it
  * used to be downloaded, and then parsed into this home, ingested as chunks,
  * or read aloud by Ask. URL sources are unchanged — isAllowedUrl guards them
- * at fetch time. Null also covers a missing or non-text field.
+ * at fetch time.
+ *
+ * A missing or non-text `sourceType` is a Storage path, read as "upload":
+ * makeFetchPdf has always treated anything but "url" that way, and legacy
+ * manuals without the field must keep scanning — through the same
+ * same-home check. Null means no usable `sourceRef`, or one this home may not read.
  */
 export function manualSource(homeId: string, sourceType: unknown, sourceRef: unknown): ManualSource | null {
-  if (typeof sourceType !== "string" || typeof sourceRef !== "string" || sourceRef.length === 0) return null
-  if (sourceType === "url") return { sourceType, sourceRef }
+  if (typeof sourceRef !== "string" || sourceRef.length === 0) return null
+  const type = typeof sourceType === "string" ? sourceType : "upload"
+  if (type === "url") return { sourceType: type, sourceRef }
   if (sourceRef.startsWith("/")) return null
   if (sourceRef.startsWith("homes/") && !sourceRef.startsWith(`homes/${homeId}/`)) return null
-  return { sourceType, sourceRef }
+  return { sourceType: type, sourceRef }
 }

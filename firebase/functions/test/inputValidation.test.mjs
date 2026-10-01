@@ -61,7 +61,8 @@ const { manualSource } = await lib("parse/manualSource")
 const { detectDocType } = await lib("ai/detectDocType")
 const { ocr, OcrRequest } = await lib("ai/ocr")
 const { productLookup } = await lib("ai/productLookup")
-const { chatQuery } = await lib("ai/chatQuery")
+const { chatQuery, askManualSource, planPdfAttachments, ChatQueryRequest, CHAT_HISTORY_WINDOW } = await lib("ai/chatQuery")
+const { buildChatRequest, MAX_HISTORY_TURNS } = await import("../lib/shared/chat/chatMessages.js")
 const { ingestReference } = await lib("ai/ingestReference")
 const { classifyExistingTasks, ClassifyExistingTasksRequest, MAX_APPLY_ROWS } = await lib("ai/classifyExistingTasks")
 const { discussTask } = await lib("ai/discussTask")
@@ -288,6 +289,24 @@ test("chatQuery: a malformed body is a 400 before any read, charge or stream", a
   req.headers.authorization = "Bearer wrong"
   await chatQuery(req, res)
   assert.equal(out.status, 401)
+})
+
+test("chatQuery: a 600-turn thread is accepted — sliced server-side, and its last ten turns reach Claude", () => {
+  // The Ask client sends the WHOLE thread every time (src/pages/ChatPage.tsx).
+  const thread = Array.from({ length: 600 }, (_, i) => ({ role: i % 2 === 0 ? "user" : "assistant", content: `turn ${i}` }))
+  const parsed = ChatQueryRequest.safeParse(JSON.parse(JSON.stringify({ question: "And the filter?", history: thread, home_id: "h1" })))
+  assert.equal(parsed.success, true, JSON.stringify(parsed.error?.issues?.slice(0, 2)))
+  assert.equal(parsed.data.history.length, CHAT_HISTORY_WINDOW, "read from its tail, never refused")
+  const req = buildChatRequest({ question: "And the filter?", history: parsed.data.history, pdfDocs: [], chunks: [], warrantyBlock: "", notesBlock: "", webContextBlock: "" })
+  const sent = req.params.messages.slice(0, -1).map((m) => m.content)
+  assert.deepEqual(sent, thread.slice(-MAX_HISTORY_TURNS).map((t) => t.content), "exactly the last ten turns, as before")
+  assert.equal(req.meta.droppedHistoryTurns, 0)
+  // A malformed turn long before the window is never read, so it can't refuse the question…
+  const oldJunk = [{ role: "user", content: ["block"] }, ...thread]
+  assert.equal(ChatQueryRequest.safeParse({ question: "q", history: oldJunk, home_id: "h1" }).success, true)
+  // …but one inside the window still can: the turns that are used keep their shape check.
+  const recentJunk = [...thread, { role: "user", content: ["block"] }]
+  assert.equal(ChatQueryRequest.safeParse({ question: "q", history: recentJunk, home_id: "h1" }).success, false)
 })
 
 test("proxyPdf: no usable url is a 400 before any limit bookkeeping or fetch", async () => {
@@ -623,7 +642,26 @@ test("manualSource: this home's Storage folder and legacy paths only — never a
   no("/homes/h2/manuals/x.pdf")
   no("")
   no(7)
-  assert.equal(manualSource("h1", undefined, "manuals/x.pdf"), null)
+})
+
+test("manualSource: a legacy manual with no sourceType is a Storage path — still scanned, still home-scoped", () => {
+  // makeFetchPdf has always read anything but "url" as a Storage path.
+  for (const type of [undefined, null, 7]) {
+    assert.deepEqual(manualSource("h1", type, "homes/h1/manuals/u1/i1/manual.pdf"), { sourceType: "upload", sourceRef: "homes/h1/manuals/u1/i1/manual.pdf" })
+    assert.deepEqual(manualSource("h1", type, "h1/microwave/operation-manual.pdf"), { sourceType: "upload", sourceRef: "h1/microwave/operation-manual.pdf" })
+    // …and the security property is unchanged.
+    assert.equal(manualSource("h1", type, "homes/h2/manuals/u2/i9/their-receipt.pdf"), null)
+    assert.equal(manualSource("h1", type, "/homes/h2/x.pdf"), null)
+    assert.equal(manualSource("h1", type, undefined), null)
+  }
+})
+
+test("Ask keeps its own default: a manual with no sourceType is never attached whole (or priced)", () => {
+  const plan = (sourceType, sourceRef) => planPdfAttachments([{ manualId: "m1", itemUnitId: "i1", ...askManualSource("h1", sourceType, sourceRef) }])
+  assert.equal(plan(undefined, "homes/h1/manuals/u1/i1/manual.pdf").length, 0, "no sourceType reads as a link, as it always did")
+  assert.equal(plan("upload", "homes/h1/manuals/u1/i1/manual.pdf").length, 1)
+  assert.equal(plan("upload", "homes/h2/manuals/u2/i9/theirs.pdf").length, 0, "another home's file is never attached")
+  assert.equal(plan("url", "https://media3.bosch-home.com/Documents/manual.pdf").length, 1)
 })
 
 // ─── checkRecalls: the CPSC response ─────────────────────────────────────────
