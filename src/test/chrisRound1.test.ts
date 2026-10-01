@@ -305,4 +305,15 @@ describe("a failed check-off reads the same on Home and on Tasks", () => {
       expect(tasks, "tasks/shared.ts").toContain(words)
     }
   })
+
+  it("the task page says it with the same sentence — no third wording", () => {
+    // It had its own: "Couldn't mark this done. Try again." It now takes
+    // DONE_FAILED from the Tasks hook; only the server's own date refusals
+    // ("Can't record this as done on …") are shown in their place.
+    const detail = read("../components/home/RefinedTaskDetail.tsx")
+    expect(detail).toMatch(/import \{[^}]*\bDONE_FAILED\b[^}]*\} from "\.\/tasks\/shared"/)
+    expect(detail).toMatch(/setDoneError\(.*\bDONE_FAILED\b/)
+    expect(detail).not.toMatch(/Couldn['’]t mark this done\. (?!Check your connection and try again\.)/)
+    expect(detail).not.toContain("Try again.\"")
+  })
 })

@@ -182,4 +182,18 @@ describe("task page — Mark done", () => {
     expect(screen.queryByText(/^Done/)).not.toBeInTheDocument()
     expect(screen.getAllByRole("button", { name: /mark done/i }).length).toBeGreaterThan(0)
   })
+
+  it("any other failure reads as Home and Tasks say it — never a raw code, never a third wording", async () => {
+    markTaskInstanceDone.mockResolvedValue({ success: false, error: "INTERNAL" })
+    await openSheet()
+
+    fireEvent.click(screen.getByRole("button", { name: /^confirm$/i }))
+
+    const alerts = await screen.findAllByRole("alert")
+    for (const a of alerts) {
+      expect(a).toHaveTextContent("Couldn't mark this done. Check your connection and try again.")
+      expect(a).not.toHaveTextContent("INTERNAL")
+    }
+    expect(screen.queryByText(/^Done/)).not.toBeInTheDocument()
+  })
 })

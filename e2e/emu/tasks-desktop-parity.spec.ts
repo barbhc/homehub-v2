@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { test, expect, type Route } from "@playwright/test"
 
 /**
  * The Tasks page against the seeded emulator — two things the desktop tree had
@@ -19,6 +19,20 @@ import { test, expect } from "@playwright/test"
  */
 const visible = { visible: true } as const
 const FOOTER = /\d+ cleaning jobs? for your items lives? in Deep Clean/
+
+/** The completeTask callable, failed at the network layer — no write lands,
+ *  so nothing in the shared emulator changes. */
+const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "POST, OPTIONS" }
+const refuseCompleteTask = (route: Route) =>
+  route.request().method() !== "POST"
+    ? route.fulfill({ status: 204, headers: cors })
+    : route.fulfill({
+        status: 500, headers: cors, contentType: "application/json",
+        body: JSON.stringify({ error: { status: "INTERNAL", message: "The server could not complete that task." } }),
+      })
+/** A task the seed never lists first, so its row starts below the header. */
+const LOWER_TASK = "Freeze-protect the irrigation backflow"
+const DONE_FAILED = "Couldn't mark this done. Check your connection and try again."
 
 test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () => {
   test("desktop: the footer names the withheld cleaning; Suggested renders once, below every task", async ({ page }) => {
@@ -53,18 +67,10 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
   test("desktop: a failed Mark done on a LOWER row is said on that row, in view", async ({ page }) => {
     // The failure line used to sit in the page header, which a long list
     // scrolls away: a failed check-off near the bottom put nothing readable on
-    // screen. The completeTask callable is failed at the network layer — no
-    // write lands, so nothing in the shared emulator changes.
-    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "POST, OPTIONS" }
-    await page.route("**/completeTask", (route) =>
-      route.request().method() !== "POST"
-        ? route.fulfill({ status: 204, headers: cors })
-        : route.fulfill({
-            status: 500, headers: cors, contentType: "application/json",
-            body: JSON.stringify({ error: { status: "INTERNAL", message: "The server could not complete that task." } }),
-          }))
+    // screen.
+    await page.route("**/completeTask", refuseCompleteTask)
     await page.goto("/maintenance")
-    const title = "Freeze-protect the irrigation backflow"
+    const title = LOWER_TASK
     const row = page.getByTestId("desktop-task-row").filter({ hasText: title }).filter(visible)
     await expect(row).toBeVisible({ timeout: 20_000 })
 
@@ -74,10 +80,34 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
     await expect(alert).toBeVisible({ timeout: 10_000 })
     await expect(alert).toBeInViewport()
     // Home's words for the same failure — never the callable's raw error.
-    await expect(alert).toHaveText("Couldn't mark this done. Check your connection and try again.")
+    await expect(alert).toHaveText(DONE_FAILED)
     // Said once — on the row, not also in the header.
     await expect(page.getByRole("alert").filter(visible)).toHaveCount(1)
     await expect(row).toContainText(title)
+  })
+
+  test("phone (390px): a failed Mark done on a LOWER row is said on that row, in view", async ({ page }) => {
+    // The phone list (RefinedWeek) kept the header line after desktop moved
+    // it. Same failure, same words, same place: under the task it failed on.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.route("**/completeTask", refuseCompleteTask)
+    await page.goto("/maintenance")
+    const rows = page.getByTestId("phone-task-row").filter(visible)
+    const row = rows.filter({ hasText: LOWER_TASK })
+    await expect(row).toBeVisible({ timeout: 20_000 })
+    await expect(rows.first()).not.toContainText(LOWER_TASK)
+
+    await row.getByRole("button", { name: "Mark done" }).click()
+
+    const alert = row.getByRole("alert")
+    await expect(alert).toBeVisible({ timeout: 10_000 })
+    await expect(alert).toBeInViewport()
+    await expect(alert).toHaveText(DONE_FAILED)
+    // Said once — on the row, not also in the header.
+    await expect(page.getByRole("alert").filter(visible)).toHaveCount(1)
+    await expect(row).toContainText(LOWER_TASK)
+    await row.screenshot({ path: test.info().outputPath("tasks-phone-row-refused-checkoff-390.png") })
+    await page.screenshot({ path: test.info().outputPath("tasks-phone-refused-checkoff-390.png") })
   })
 
   test("phone (390px): the same footer, and it goes to Deep Clean", async ({ page }) => {
