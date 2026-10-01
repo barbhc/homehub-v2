@@ -26,7 +26,8 @@ vi.mock("@/modules/care", () => ({
 }))
 vi.mock("@/components/layout", () => ({ PageContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }))
 
-const { default: HomeSetup, categoryStatus, CATEGORIES } = await import("./HomeSetup")
+const { default: HomeSetup } = await import("./HomeSetup")
+const { categoryStatus, CATEGORIES } = await import("./homeSetupCategories")
 
 const renderPage = () => render(<MemoryRouter><HomeSetup /></MemoryRouter>)
 

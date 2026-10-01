@@ -43,6 +43,7 @@ import {
   HistorySection,
 } from "./item-detail"
 import { useItemDetailLoad } from "./item-detail/useItemDetailLoad"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -189,17 +190,21 @@ export default function ItemDetailPage() {
   }
 
   // Deep-link: arriving via /items/:id?manualPage=N (from a task's "From your
-  // manual · p.N" reference) auto-opens the manual viewer at that page. Consume
-  // the param once the PDF is loaded so it doesn't re-open on back/rerender.
-  useEffect(() => {
-    const raw = searchParams.get("manualPage")
-    if (!raw || !manualPdfUrl) return
-    const page = Number(raw)
+  // manual · p.N" reference) auto-opens the manual viewer at that page — in
+  // the render that has both the link and the PDF.
+  const deepLinkPage = searchParams.get("manualPage")
+  if (useDepsChanged([deepLinkPage, manualPdfUrl], { onMount: true }) && deepLinkPage && manualPdfUrl) {
+    const page = Number(deepLinkPage)
     if (Number.isFinite(page) && page > 0) {
       setKnowledgeManualPage(page)
       setKnowledgeChunkId(null)
       setKnowledgeManualPageOpen(true)
     }
+  }
+  // Consume the param once the PDF is loaded so it doesn't re-open on
+  // back/rerender. Changing the URL is a side effect, so it stays an effect.
+  useEffect(() => {
+    if (!searchParams.get("manualPage") || !manualPdfUrl) return
     const next = new URLSearchParams(searchParams)
     next.delete("manualPage")
     setSearchParams(next, { replace: true })

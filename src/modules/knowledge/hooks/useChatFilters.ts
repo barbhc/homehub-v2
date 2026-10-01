@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { getRooms } from "@/modules/home"
 import { getItemUnits } from "@/modules/items"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 type RoomOption = { room_id: string; name: string }
 type ItemOption = { item_unit_id: string; display_name: string; brand: string | null; model: string | null }
@@ -20,16 +21,21 @@ export function useChatFilters(homeId: string | undefined): {
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
 
-  useEffect(() => {
+  // What a read starts with, decided in the render that asks for it (a home,
+  // no home, or a reload) — not by the effect a render later.
+  if (useDepsChanged([homeId, reloadKey], { onMount: true })) {
     if (!homeId) {
       setRooms([])
       setItems([])
       setLoading(false)
-      return
+    } else {
+      setLoading(true)
     }
+  }
 
+  useEffect(() => {
+    if (!homeId) return
     let cancelled = false
-    setLoading(true)
 
     const load = async () => {
       try {

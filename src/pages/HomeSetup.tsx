@@ -18,58 +18,10 @@ import { getTaskTemplates, addLibraryTask, addCustomHomeTask, dismissLibrarySugg
 import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { suggestionsForHome, type CareFacts, type Suggestion } from "../../shared/care/library"
 import type { ScheduleType, TaskTemplate } from "@/integrations/types"
+import { CATEGORIES, categoryStatus, type Category, type FactKey } from "./homeSetupCategories"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const SURFACE = "var(--hh-surface)", LINE = "var(--hh-line)"
-
-type FactKey = keyof CareFacts
-
-/** One category of the questionnaire. `building` is the fact that hands the whole category to the building. */
-type Category = {
-  key: string
-  label: string
-  blurb: string
-  building?: FactKey
-  questions: { fact: FactKey; text: string }[]
-}
-
-export const CATEGORIES: Category[] = [
-  {
-    key: "safety", label: "Safety", blurb: "Alarms and the extinguisher",
-    questions: [
-      { fact: "has_smoke_alarms", text: "Smoke or carbon-monoxide alarms in the home?" },
-      { fact: "has_extinguisher", text: "A fire extinguisher you keep?" },
-    ],
-  },
-  {
-    key: "water", label: "Water heater", blurb: "Tank or tankless",
-    questions: [{ fact: "has_water_heater", text: "A water heater that is yours to look after?" }],
-  },
-  {
-    key: "hvac", label: "Heating & cooling", blurb: "Furnace, boiler, central air",
-    questions: [{ fact: "has_hvac_service", text: "A furnace or central air system you have serviced?" }],
-  },
-  {
-    key: "pests", label: "Pests", blurb: "Termites, birds, rodents", building: "building_handles_pests",
-    questions: [
-      { fact: "termite_risk", text: "Termites a known risk where you live?" },
-      { fact: "birds_roosting", text: "Birds roosting on ledges, balconies or the roof?" },
-      { fact: "rodents", text: "Rodents seen or suspected?" },
-    ],
-  },
-  {
-    key: "exterior", label: "Roof, gutters & exterior", blurb: "What the weather reaches", building: "building_handles_exterior",
-    questions: [{ fact: "has_gutters", text: "Gutters and downspouts on the home?" }],
-  },
-]
-
-/** How a category reads on the list: unanswered, N answered, or handed to the building. */
-export function categoryStatus(c: Category, facts: CareFacts): string {
-  if (c.building && facts[c.building]) return "The building handles it"
-  const answered = c.questions.filter((q) => facts[q.fact] !== undefined).length
-  if (answered === 0) return "Not answered yet"
-  return answered === c.questions.length ? "Answered" : `${answered} of ${c.questions.length} answered`
-}
 
 const CADENCES: { value: ScheduleType; label: string }[] = [
   { value: "monthly", label: "Monthly" },
@@ -94,6 +46,12 @@ export default function HomeSetup() {
   useEffect(() => {
     if (!homeId) return
     let alive = true
+    // Kept in the effect (H5), deliberately one render late: a reload after
+    // "Add" (reloadKey) replaces the page with this spinner, and setting it in
+    // the same render as the add's "Added … to your Tasks." confirmation means
+    // that confirmation is never drawn at all. It barely is now — the reload
+    // unmounts it — and keeping it through the reload is a design call.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- moving the spinner into the render that bumps reloadKey drops CustomTask's "Added" confirmation (HomeSetup.test); keeping it through the reload is a design decision
     setLoading(true)
     setLoadError(null)
     Promise.all([getHomeProfile(homeId), getTaskTemplates(homeId)]).then(([profile, templates]) => {

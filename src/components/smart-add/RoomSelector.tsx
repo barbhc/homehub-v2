@@ -64,6 +64,13 @@ export function RoomSelector({
     if (!guess) return
     const match = rooms.find((r) => r.name.toLowerCase() === guess.toLowerCase())
     if (!match) return
+    // Kept in the effect (H5): the fill has to reach the PARENT through
+    // onChange, which can't happen during render, and it answers rooms
+    // arriving asynchronously and a subtype picked elsewhere in the form.
+    // Marking it ours is batched into that same update — no extra render.
+    // Doing it without an effect means moving the guess into IdentifyStep's
+    // handlers: a change to the add flow, which has its own spec.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- batched with the parent's onChange, which can only be called from an effect here; removing it is an add-flow redesign
     setSuggested(true)
     onChange(match.room_id)
     // onChange is a fresh closure each render in most callers; depending on it

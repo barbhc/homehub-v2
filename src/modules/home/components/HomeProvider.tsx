@@ -164,7 +164,13 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     loadSeq.current++
   }, [])
 
+  // load() is also `refresh`, and its synchronous start — the sign-out reset,
+  // and the warm-start paint from the device cache with its boot mark — is the
+  // logic the duplicate-homes fix rests on. Moving that start into render for
+  // this path alone would leave two copies of it (refresh still needs it), and
+  // markBoot is a side effect that cannot run during render. Kept (H5).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() is shared with refresh(); its synchronous start (sign-out reset, cache paint + markBoot) must not be split into a render-phase copy
     load()
     return orphanInFlightLoad
   }, [load, orphanInFlightLoad])

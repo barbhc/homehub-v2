@@ -27,7 +27,9 @@ const draft = (...titles: string[]): PreviewResult => ({ ok: true, chunks: [], t
 
 const DRYER = draft("Inspect vent ductwork", "Clean the moisture sensors", "Check the drum seal")
 
-function Sheet({ previewData, onSave }: { previewData: PreviewResult; onSave: ReturnType<typeof vi.fn> }) {
+type OnSave = React.ComponentProps<typeof TaskReviewSheet>["onSave"]
+
+function Sheet({ previewData, onSave }: { previewData: PreviewResult; onSave: OnSave }) {
   return (
     <TaskReviewSheet
       freezeRiskFalse={false} notificationsBlocked={false} open onOpenChange={vi.fn()}

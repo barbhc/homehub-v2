@@ -24,6 +24,7 @@ import { collection, onSnapshot, query, where, type DocumentSnapshot } from "fir
 import { db } from "@/integrations/firebase"
 import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
 import { isAwaitingReview, isReading, readingPages } from "@/lib/manualReviewState"
+import { useDepsChanged } from "./useDepsChanged"
 
 export interface TrayEntry {
   /** Pages the read has to get through; null until THIS read has counted them. */
@@ -76,8 +77,11 @@ export function trayEntryFacts(d: DocumentSnapshot) {
 export function useParseTray(homeId: string | null): ParseTray {
   const [tray, setTray] = useState<ParseTray>(EMPTY)
 
+  // No home, no tray — cleared in the render that loses the home.
+  if (useDepsChanged([homeId]) && !homeId) setTray(EMPTY)
+
   useEffect(() => {
-    if (!homeId) { setTray(EMPTY); return }
+    if (!homeId) return
     const q = query(collection(db, `homes/${homeId}/manuals`), where("parse.stage", "in", TRAY_STAGES))
     const unsub = onSnapshot(
       q,

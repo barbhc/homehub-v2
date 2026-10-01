@@ -11,6 +11,7 @@ import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where, Tim
 import { db } from "@/integrations/firebase"
 import { logTaskCompletion } from "@/modules/care"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 export interface SetupCompletion {
   /** task_template_id → task_instance_id for tasks currently marked done. */
@@ -48,11 +49,14 @@ export function useSetupCompletion(
 
   const taskKey = tasks.map((t) => t.task_template_id).join(",")
 
+  // No steps (or no home): nothing is done — cleared in the render that learns
+  // it, not by the effect a render later.
+  if (useDepsChanged([taskKey, homeId, loadAttempt]) && (tasks.length === 0 || !homeId)) {
+    setInstanceMap(new Map())
+  }
+
   useEffect(() => {
-    if (tasks.length === 0 || !homeId) {
-      setInstanceMap(new Map())
-      return
-    }
+    if (tasks.length === 0 || !homeId) return
     // Setup checklists are far below Firestore's 30-value `in` cap.
     const taskIds = tasks.map((t) => t.task_template_id)
     let cancelled = false

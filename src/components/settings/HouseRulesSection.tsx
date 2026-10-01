@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { Loader2Icon, SlidersHorizontalIcon, Trash2 } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
@@ -15,13 +15,14 @@ export function HouseRulesSection({ homeId }: { homeId: string }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    const res = await listHouseRules(homeId)
-    if (res.error) { setError(res.error.message); setRules([]); return }
-    setRules(res.data)
+  // The read lands in its own callback: an effect that calls a component
+  // function which sets state reads, to react-hooks, as setting it there.
+  useEffect(() => {
+    void listHouseRules(homeId).then((res) => {
+      if (res.error) { setError(res.error.message); setRules([]); return }
+      setRules(res.data)
+    })
   }, [homeId])
-
-  useEffect(() => { void load() }, [load])
 
   const handleDelete = async (id: string) => {
     setDeletingId(id); setError(null)

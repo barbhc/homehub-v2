@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Loader2Icon, HomeIcon, CheckCircle2Icon } from "lucide-react"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -100,10 +101,14 @@ export function HomeProfileSection({ homeId }: Props) {
     setKnownUpdatedAt(p?.updated_at ?? undefined)
   }
 
-  useEffect(() => {
-    let cancelled = false
+  // A home switch shows the spinner in the render that switches (it starts on
+  // for the first read); the effect only reads.
+  if (useDepsChanged([homeId])) {
     setLoading(true)
     setError(null)
+  }
+  useEffect(() => {
+    let cancelled = false
     getHomeProfile(homeId).then((result) => {
       if (cancelled) return
       if (result.error) setError(result.error.message)

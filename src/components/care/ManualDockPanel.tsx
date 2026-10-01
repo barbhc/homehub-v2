@@ -3,6 +3,7 @@ import {
   ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, ExternalLink, Loader2, Check,
 } from "lucide-react"
 import { withChunkRetry } from "@/lib/chunkRetry"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 /**
  * Resizable split manual viewer (design option 4). Docks beside the item page —
@@ -34,14 +35,17 @@ export function ManualDockPanel({
   const [zoom, setZoom] = useState(1)
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => {
-    if (open) { setCurrentPage(pageNumber); setZoom(1); setSaved(false) }
-  }, [open, pageNumber])
+  // Opening (or a new cited page) starts at that page, unzoomed — in the render
+  // that opens it, so the old page never paints first.
+  if (useDepsChanged([open, pageNumber]) && open) { setCurrentPage(pageNumber); setZoom(1); setSaved(false) }
 
+  // Asking for a page shows the spinner in the same render; the effect renders it.
+  if (useDepsChanged([open, pdfUrl, currentPage], { onMount: true }) && open && pdfUrl) {
+    setLoading(true); setError(false)
+  }
   useEffect(() => {
     if (!open || !pdfUrl) return
     let cancelled = false
-    setLoading(true); setError(false)
     withChunkRetry(
       () => import("./renderManualPage").then(({ renderManualPage }) => renderManualPage(pdfUrl, currentPage)),
       "manual dock",

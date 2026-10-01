@@ -23,6 +23,13 @@ import { useState } from "react"
  * render. Never for side effects: navigation, network or storage writes, a
  * parent's setter. Those stay in effects or event handlers.
  *
+ * Deps must keep their identity while they are unchanged: primitives, props,
+ * state, memoized values. An object or array built during render is new every
+ * render, so it reads as changed every render — and since a change re-renders
+ * at once, that loops ("Too many re-renders"). An effect with the same deps
+ * merely re-ran; this cannot. Key on the primitive inside (`user?.id`, not
+ * `user`) when the object itself is not stable.
+ *
  * `onMount: true` also reports the first render, the way an effect also runs
  * on mount. Use it when that mount run set something the initial state does
  * not already hold (a loading flag that starts false, an auth check).

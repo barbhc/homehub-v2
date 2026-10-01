@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils"
 import { cleanDueLabel as dueLabel, daysUntilDue } from "@/lib/cleanDue"
 import { splitCautions } from "@/lib/cautions"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 type Step = "setup" | "checklist" | "summary"
 type View = "hub" | "session"
@@ -109,6 +110,10 @@ export default function DeepClean() {
   const [summaryTotal, setSummaryTotal] = useState(0)
   const [summaryMinutes, setSummaryMinutes] = useState(0)
   const [summaryRooms, setSummaryRooms] = useState<string[]>([])
+  /** Picked once, when the session finishes. It was drawn with Math.random()
+   *  during render, so any re-render of the summary swapped the message
+   *  (react-hooks/purity). */
+  const [summaryMessage, setSummaryMessage] = useState(MOTIVATING_MESSAGES[0])
   const [savedCustomIds, setSavedCustomIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -127,10 +132,12 @@ export default function DeepClean() {
   }, [homeId])
 
   // Hub data: curated guides + this-week cleaning tasks (due/overdue, short list).
+  // A home switch (or Try again) shows the loading hub in the render that asks;
+  // the effect only reads.
+  if (useDepsChanged([homeId, hubAttempt]) && homeId) setHubLoading(true)
   useEffect(() => {
     if (!homeId) return
     let cancelled = false
-    setHubLoading(true)
     // Each half fails on its own: logged, and null (not []) so the hub can tell
     // "couldn't read" from "nothing there".
     const failed = (what: string) => (e: unknown) => {
@@ -354,6 +361,7 @@ export default function DeepClean() {
     setSummaryTotal(tasks.length + customTasks.length)
     setSummaryMinutes(minutesTotal)
     setSummaryRooms(roomNames)
+    setSummaryMessage(MOTIVATING_MESSAGES[Math.floor(Math.random() * MOTIVATING_MESSAGES.length)])
     setFinishing(false)
     setStep("summary")
   }, [homeId, tasks, customTasks, completedIds])
@@ -729,7 +737,7 @@ export default function DeepClean() {
           <CardContent className="p-6 text-center space-y-4">
             <div className="text-6xl text-green-500">✓</div>
             <p className="text-lg font-medium">
-              {MOTIVATING_MESSAGES[Math.floor(Math.random() * MOTIVATING_MESSAGES.length)]}
+              {summaryMessage}
             </p>
             <p className="text-muted-foreground">
               {summaryCompleted} of {summaryTotal} tasks completed

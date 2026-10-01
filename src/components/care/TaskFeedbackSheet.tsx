@@ -12,8 +12,9 @@ import { ChatInput } from "@/components/chat/ChatInput"
 import type { PriorityTier, ScheduleType, Season } from "@/integrations/types"
 import { cadenceLabelInline } from "../../../shared/tasks/cadenceLabel"
 import { splitInterval, toDays, type IntervalUnit } from "../../../shared/care/interval"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
-const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)", CLAY = "var(--hh-clay)"
+const INK ="var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)", CLAY = "var(--hh-clay)"
 
 const CHIPS: { key: FeedbackChip; label: string; hint: string }[] = [
   { key: "not_relevant", label: "Not relevant to my home", hint: "Hide it (and similar tasks)" },
@@ -135,10 +136,14 @@ export function TaskFeedbackSheet({
   const isFreezePrep = ctx?.match.by === "seasonalFamily" && ctx.match.family === "freeze_prep"
 
   // On entering confirm for a sweep-eligible chip, load similar tasks (default all checked).
+  // The spinner starts in the render that enters confirm; the read is the effect's.
+  const loadsContext = step === "confirm" && sweepEligible
+  if (useDepsChanged([step, sweepEligible, homeId, taskTemplateId], { onMount: true }) && loadsContext) {
+    setLoadingCtx(true)
+  }
   useEffect(() => {
     if (step !== "confirm" || !sweepEligible) return
     let cancelled = false
-    setLoadingCtx(true)
     getFeedbackContext(homeId, taskTemplateId).then((res) => {
       if (cancelled) return
       setCtx(res.data ?? null)
