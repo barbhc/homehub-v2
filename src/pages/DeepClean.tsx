@@ -224,12 +224,9 @@ export default function DeepClean() {
     setCleanError(null)
     try {
       const all = await getCleaningTasks(homeId, cleanMode)
-      console.log("[DeepClean] all tasks:", all.map((t) => ({ id: t.id, roomId: t.roomId, roomName: t.roomName, title: t.title })))
-      console.log("[DeepClean] effectiveRoomIds:", [...effectiveRoomIds])
       const filtered = wholeHome
         ? all
         : all.filter((t) => t.roomId == null || effectiveRoomIds.has(t.roomId))
-      console.log("[DeepClean] total fetched:", all.length, "after filtering:", filtered.length, "sample:", filtered.slice(0, 3))
       const sorted = [...filtered].sort((a, b) => b.priorityScore - a.priorityScore)
       setTasks(sorted)
       setStep("checklist")
@@ -368,7 +365,8 @@ export default function DeepClean() {
       const result = await saveRoutineTask(homeId, task.title, "monthly", null)
       if ("error" in result) {
         // The Save button stays live; the list says this one didn't take.
-        console.warn(`[clean] could not save "${task.title}" to the routine (home ${homeId}):`, result.error)
+        // The task's own id, not its typed title — what someone wrote stays out of the logs.
+        console.warn(`[clean] could not save custom task ${task.id} to the routine (home ${homeId}):`, result.error)
         setSaveRoutineError(`Couldn't save “${task.title}”. Check your connection and try again.`)
         return
       }

@@ -458,6 +458,7 @@ export default function Settings() {
   const [deletingRoom, setDeletingRoom] = useState(false)
   const editInputRef = useRef<HTMLInputElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
+  const renamingRef = useRef(false)
 
   // Export state
   const [exporting, setExporting] = useState(false)
@@ -550,18 +551,24 @@ export default function Settings() {
       setEditingRoomId(null)
       return
     }
-    if (!homeId) return
+    if (!homeId || renamingRef.current) return
+    // One rename at a time: the editor disabling itself mid-save can blur it,
+    // and blur saves — that must not start a second write.
+    renamingRef.current = true
     setSavingRoom(true)
     setRoomsError(null)
     const res = await renameRoom(homeId, editingRoomId, editingName.trim())
+    renamingRef.current = false
     setSavingRoom(false)
     if (res.error || !res.data) {
-      // The old name stays; the editor closes and the section says why.
+      // The editor stays open with what was typed (as Add room's form does),
+      // and the section says why — Enter tries again, Escape keeps the old name.
       console.warn(`[settings] could not rename room ${editingRoomId} (home ${homeId}):`, res.error?.message)
       setRoomsError("Couldn't rename that room. Check your connection and try again.")
-    } else {
-      setRooms((prev) => prev.map((r) => (r.room_id === editingRoomId ? res.data! : r)))
+      setTimeout(() => editInputRef.current?.focus(), 0)
+      return
     }
+    setRooms((prev) => prev.map((r) => (r.room_id === editingRoomId ? res.data! : r)))
     setEditingRoomId(null)
   }, [homeId, editingRoomId, editingName, rooms])
 
@@ -573,7 +580,8 @@ export default function Settings() {
     setSavingRoom(false)
     if (res.error || !res.data) {
       // The form stays open with the name typed, ready to try again.
-      console.warn(`[settings] could not add room "${newRoomName.trim()}" (home ${homeId}):`, res.error?.message)
+      // Ids and lengths only — what someone typed stays out of the logs.
+      console.warn(`[settings] could not add a room (${newRoomName.trim().length}-char name, home ${homeId}):`, res.error?.message)
       setRoomsError("Couldn't add that room. Check your connection and try again.")
       return
     }

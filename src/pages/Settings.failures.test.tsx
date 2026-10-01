@@ -199,6 +199,21 @@ describe("Settings — rooms and custom tasks", () => {
     expect(screen.getByRole("button", { name: "Kitchen" })).toBeInTheDocument()
   })
 
+  it("a rename the server refuses keeps the editor open with what was typed, and says so", async () => {
+    m.renameRoom.mockResolvedValue({ data: null, error: { message: "permission-denied" } })
+    renderSettings()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Rename Kitchen" }))
+    const input = screen.getByDisplayValue("Kitchen")
+    fireEvent.change(input, { target: { value: "Pantry" } })
+    fireEvent.keyDown(input, { key: "Enter" })
+
+    expect(await screen.findByText("Couldn't rename that room. Check your connection and try again.")).toBeInTheDocument()
+    expect(m.renameRoom).toHaveBeenCalledTimes(1)
+    // Still editing, with the typed name — like Add room's form, ready for Enter again.
+    expect(screen.getByDisplayValue("Pantry")).toBeInTheDocument()
+  })
+
   it("rooms that could not be read say so instead of an empty list", async () => {
     m.getRooms.mockResolvedValue({ data: null, error: { message: "unavailable" } })
     renderSettings()

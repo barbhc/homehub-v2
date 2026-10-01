@@ -68,9 +68,13 @@ export default function ChatPage() {
   const [historyLoadFailed, setHistoryLoadFailed] = useState(false)
   /** A past conversation that could not be opened — tapping it used to do nothing at all. */
   const [openFailedId, setOpenFailedId] = useState<string | null>(null)
-  /** This thread could not be saved to history: leaving it would lose it, so
-   *  it says so above the composer (audit H6 — the writes used to fail silently). */
-  const [threadNotSaved, setThreadNotSaved] = useState(false)
+  /** What of this thread is missing from history — said above the composer,
+   *  because leaving would lose it (audit H6; the writes used to fail silently).
+   *  "whole": the conversation was never created. "part": it exists, but a
+   *  question or an answer didn't append. */
+  const [threadNotSaved, setThreadNotSaved] = useState<"none" | "whole" | "part">("none")
+  /** A part missing never downgrades a whole one missing. */
+  const markNotSaved = useCallback((what: "whole" | "part") => setThreadNotSaved((s) => (s === "whole" ? s : what)), [])
   /** Bumped whenever the thread changes, so a late failure from a thread the
    *  person has left never flags the one they are reading now. */
   const threadSeqRef = useRef(0)
@@ -124,7 +128,7 @@ export default function ChatPage() {
     setActiveConvoId(null)
     convoIdRef.current = null
     threadSeqRef.current += 1
-    setThreadNotSaved(false)
+    setThreadNotSaved("none")
   }, [])
 
   const handleRoomToggle = useCallback((roomId: string) => {
@@ -155,7 +159,7 @@ export default function ChatPage() {
     setActiveConvoId(id)
     convoIdRef.current = id
     threadSeqRef.current += 1
-    setThreadNotSaved(false)
+    setThreadNotSaved("none")
   }, [isStreaming, homeId])
 
   /** Leave the thread and return to the Ask landing. The conversation is kept
@@ -166,7 +170,7 @@ export default function ChatPage() {
     convoIdRef.current = null
     setActiveConvoId(null)
     threadSeqRef.current += 1
-    setThreadNotSaved(false)
+    setThreadNotSaved("none")
   }, [])
 
   /** Append streamed text to one answer bubble. */
@@ -213,19 +217,19 @@ export default function ChatPage() {
       // the service and said above the composer — this thread is not in
       // history, and leaving it would lose it.
       const thread = threadSeqRef.current
-      const notSaved = () => { if (threadSeqRef.current === thread) setThreadNotSaved(true) }
+      const notSaved = (what: "whole" | "part") => { if (threadSeqRef.current === thread) markNotSaved(what) }
       const persistUser = async (): Promise<string | null> => {
         let convoId = convoIdRef.current
         if (!convoId && isFirstTurn) {
           convoId = await createConversation(homeId, user?.id ?? null, text.slice(0, 80))
           if (!convoId) {
-            notSaved()
+            notSaved("whole")
             return null
           }
           convoIdRef.current = convoId
           setActiveConvoId(convoId)
         }
-        if (convoId && !(await appendMessage(homeId, convoId, { role: "user", content: text }))) notSaved()
+        if (convoId && !(await appendMessage(homeId, convoId, { role: "user", content: text }))) notSaved("part")
         return convoId
       }
       const persistPromise = persistUser()
@@ -250,14 +254,14 @@ export default function ChatPage() {
           setIsStreaming(false)
           void persistPromise.then(async (convoId) => {
             if (!convoId) return
-            if (!(await appendMessage(homeId, convoId, { role: "assistant", content: finalContent, sources }))) notSaved()
+            if (!(await appendMessage(homeId, convoId, { role: "assistant", content: finalContent, sources }))) notSaved("part")
             void refreshConversations()
           })
         },
         onError: (errMsg) => failAnswer(assistantId, errMsg),
       })
     },
-    [homeId, isStreaming, messages, activeFilter, user?.id, refreshConversations, appendToAnswer, failAnswer]
+    [homeId, isStreaming, messages, activeFilter, user?.id, refreshConversations, appendToAnswer, failAnswer, markNotSaved]
   )
 
   /**
@@ -307,14 +311,14 @@ export default function ChatPage() {
           if (!convoId) return
           const thread = threadSeqRef.current
           void appendMessage(homeId, convoId, { role: "assistant", content: answer, sources }).then((saved) => {
-            if (!saved && threadSeqRef.current === thread) setThreadNotSaved(true)
+            if (!saved && threadSeqRef.current === thread) markNotSaved("part")
             void refreshConversations()
           })
         },
         onError: (errMsg) => failAnswer(messageId, errMsg),
       })
     },
-    [homeId, isStreaming, messages, activeFilter, refreshConversations, appendToAnswer, failAnswer]
+    [homeId, isStreaming, messages, activeFilter, refreshConversations, appendToAnswer, failAnswer, markNotSaved]
   )
 
   const handleWebSearch = useCallback(
@@ -511,9 +515,11 @@ export default function ChatPage() {
             onRetry={handleRetry}
             activeFilter={activeFilter}
           />
-          {threadNotSaved && (
+          {threadNotSaved !== "none" && (
             <InlineError className="shrink-0 px-4 pt-2">
-              Couldn&apos;t save this conversation to Recent. It stays here until you leave.
+              {threadNotSaved === "whole"
+                ? "Couldn't save this conversation to Recent. It stays here until you leave."
+                : "Part of this conversation didn't save to Recent. It stays here until you leave."}
             </InlineError>
           )}
           {/* Suggestion chips above input (mobile — desktop uses the rail) */}

@@ -114,7 +114,7 @@ describe("Home — a failed check-off or snooze is said on its row", () => {
     expect(await screen.findByText(/Snoozed until/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: "Undo" }))
-    expect(await screen.findByText("Couldn't undo the snooze. Try again.")).toBeInTheDocument()
+    expect(await screen.findByText("Couldn't undo the snooze — tap Undo to try again.")).toBeInTheDocument()
 
     // The retry is the same Undo, and this time it lands.
     fireEvent.click(screen.getByRole("button", { name: "Undo" }))

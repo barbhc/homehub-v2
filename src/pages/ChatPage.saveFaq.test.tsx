@@ -159,4 +159,14 @@ describe("Ask — history failures are said, not swallowed", () => {
     // The answer itself is untouched — persistence never blocks the stream.
     expect(screen.getByText("A 20x25x5 media filter.")).toBeInTheDocument()
   })
+
+  it("an answer that didn't append to a saved thread says PART of it is missing — not the whole", async () => {
+    // The conversation and the question save; the answer does not.
+    svc.appendMessage.mockImplementation(async (_h: string, _c: string, msg: { role: string }) => msg.role === "user")
+    renderPage()
+    await ask("What filter size do I need?")
+
+    expect(await screen.findByText(/Part of this conversation didn't save to Recent/)).toBeInTheDocument()
+    expect(screen.queryByText(/Couldn't save this conversation to Recent/)).toBeNull()
+  })
 })
