@@ -24,6 +24,7 @@ import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, t
 import { addLibraryTask, dismissLibrarySuggestion, applyLibraryBackstop, archiveTaskTemplate, libraryKeyOf } from "@/modules/care"
 import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
 import { UndoBar } from "@/components/ui/UndoBar"
+import { InlineError } from "@/components/layout/LoadStates"
 import { addDays, todayStr } from "@/components/home/tasks/shared"
 import { SuggestedRow, SuggestedSource, KIND_LABELS } from "@/components/care/SuggestedRow"
 import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
@@ -536,7 +537,7 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
   itemUnitId: string
   m?: boolean
 }) {
-  const { isDone, loadingIds, doneCount, toggleDone, markAllDone } = useSetupCompletion(tasks, homeId, itemUnitId)
+  const { isDone, loadingIds, doneCount, toggleDone, markAllDone, error, loadFailed, retryLoad } = useSetupCompletion(tasks, homeId, itemUnitId)
   const allDone = tasks.length > 0 && doneCount === tasks.length
   const [clearing, setClearing] = useState(false)
 
@@ -548,11 +549,15 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
           <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.4px]" style={{ background: allDone ? TEAL_WASH : SLATE_SOFT, color: allDone ? TEAL : SLATE }}>{doneCount}/{tasks.length}</span>
         )}
       </div>
+      {error && (
+        <InlineError className="mb-3" onRetry={loadFailed ? retryLoad : undefined}>{error}</InlineError>
+      )}
       {/* The design's Door 2, inline. Most people adding a manual own the
           appliance already, and asking them to tick nine install steps they
           did years ago is asking them to do our bookkeeping. Only offered
-          while nothing is ticked — after that the checkboxes are the story. */}
-      {doneCount === 0 && (
+          while nothing is ticked — after that the checkboxes are the story.
+          Not while the ticks are unread: "nothing ticked" would be a guess. */}
+      {doneCount === 0 && !loadFailed && (
         <button
           type="button"
           disabled={clearing}
