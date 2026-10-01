@@ -787,10 +787,19 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
     if (!r.success) return { error: r.error ?? "Couldn't snooze it" }
     refetchInstances()
     const when = new Date(`${until}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    setUndo({
-      message: `Snoozed until ${when}`,
-      onUndo: () => { void unsnoozeTaskInstance(homeId, instanceId).then((x) => { if (x.success) refetchInstances() }) },
-    })
+    // A failed undo comes back to the bar with the same Undo — it used to
+    // vanish and leave the task snoozed with nothing said.
+    function undoSnooze() {
+      void unsnoozeTaskInstance(homeId, instanceId).then((x) => {
+        if (x.success) {
+          refetchInstances()
+          return
+        }
+        console.warn(`[item care] could not undo the snooze of ${instanceId} (home ${homeId}):`, x.error)
+        setUndo({ message: "Couldn't undo the snooze. Try again.", onUndo: undoSnooze })
+      })
+    }
+    setUndo({ message: `Snoozed until ${when}`, onUndo: undoSnooze })
     return { error: null }
   }
 

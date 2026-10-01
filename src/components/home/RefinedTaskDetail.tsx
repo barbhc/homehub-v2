@@ -21,6 +21,7 @@ import { TaskEditSheet } from "@/components/tasks/TaskEditSheet"
 import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
+import { InlineError, LoadErrorState } from "@/components/layout/LoadStates"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
 import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
@@ -90,22 +91,34 @@ export function RefinedTaskDetail({
    *  it used to show "Done" whatever the callable answered. */
   const [doneError, setDoneError] = useState<string | null>(null)
   const [reminderError, setReminderError] = useState<string | null>(null)
+  /** An assignment the server refused — rolled back and said beside the control. */
+  const [assignError, setAssignError] = useState<string | null>(null)
+  /** A failed read is NOT "Task not found": that sentence was shown for both. */
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
     if (!homeId) return
     let cancelled = false
     Promise.all([getTaskDetail(homeId, taskInstanceId), getHomeMembers(homeId)]).then(([dRes, mRes]) => {
       if (cancelled) return
+      if (dRes.error) console.warn(`[task] could not load task ${taskInstanceId} (home ${homeId}):`, dRes.error.message)
+      // Without members the assignment control simply stays hidden.
+      if (mRes.error) console.warn(`[task] could not load the members of home ${homeId}:`, mRes.error.message)
+      setLoadFailed(!!dRes.error)
       setDetail(dRes.data ?? null)
       setMembers(mRes.data ?? [])
       setLoading(false)
-    }).catch(() => {
-      // Stop loading so the sheet can render its own empty state instead of
-      // holding a spinner the user cannot dismiss.
-      if (!cancelled) setLoading(false)
+    }).catch((e: unknown) => {
+      // Stop loading and say the read failed — never a spinner the user cannot
+      // dismiss, and never "Task not found" for a task we could not read.
+      if (cancelled) return
+      console.warn(`[task] could not load task ${taskInstanceId} (home ${homeId}):`, e instanceof Error ? e.message : e)
+      setLoadFailed(true)
+      setLoading(false)
     })
     return () => { cancelled = true }
-  }, [homeId, taskInstanceId])
+  }, [homeId, taskInstanceId, loadAttempt])
 
   // ── manual, opened IN PLACE ────────────────────────────────────────────────
   // "Open manual" used to navigate to /items/:id?manualPage=N, which answered
@@ -126,6 +139,7 @@ export function RefinedTaskDetail({
       .then(async (res: Awaited<ReturnType<typeof getManualsByItem>>) => {
         const first = (res.data ?? [])[0]
         if (!first) return
+        // Optional: a PDF that can't be resolved leaves the link to the item page below.
         const url = await resolveManualUrl(first.source_type, first.source_ref).catch(() => null)
         if (url && !cancelled) setManualUrl(url)
       })
@@ -158,11 +172,20 @@ export function RefinedTaskDetail({
     return `Window: ${shortDate(w.start)} – ${shortDate(w.end)}`
   })()
 
+  /** Optimistic, with rollback: the result used to be discarded, so a refused
+   *  assignment kept showing the new name. */
   const assignTo = useCallback(async (userId: string | null) => {
     if (!homeId || !detail) return
+    const before = detail.assignedTo
     setAssignOpen(false)
+    setAssignError(null)
     setDetail((x) => (x ? { ...x, assignedTo: userId } : x))
-    await assignTaskInstance(homeId, detail.taskInstanceId, userId)
+    const res = await assignTaskInstance(homeId, detail.taskInstanceId, userId)
+    if (res.error) {
+      console.warn(`[task] could not assign ${detail.taskInstanceId} (home ${homeId}):`, res.error.message)
+      setDetail((x) => (x ? { ...x, assignedTo: before } : x))
+      setAssignError("Couldn't change who this is assigned to. Check your connection and try again.")
+    }
   }, [homeId, detail])
 
   /** Optimistic, with rollback — a reminder that silently failed to save would
@@ -181,6 +204,20 @@ export function RefinedTaskDetail({
   }, [homeId, detail])
 
   if (loading) return <div className="flex min-h-full items-center justify-center text-[14px]" style={{ background: BG, color: SUB }}>Loading…</div>
+  if (!detail && loadFailed) return (
+    <div className="flex min-h-full flex-col" style={{ background: BG }}>
+      <div className="flex items-center px-3 pt-1 pb-2">
+        <button onClick={onBack} className="inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+          <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} /> Back
+        </button>
+      </div>
+      <LoadErrorState
+        title="Couldn't load this task"
+        message="Check your connection and try again."
+        onRetry={() => { setLoading(true); setLoadAttempt((n) => n + 1) }}
+      />
+    </div>
+  )
   if (!detail) return (
     <div className="flex min-h-full flex-col items-center justify-center gap-3" style={{ background: BG }}>
       <p className="text-[15px]" style={{ color: SUB }}>Task not found.</p>
@@ -263,6 +300,7 @@ export function RefinedTaskDetail({
           ))}
         </div>
       )}
+      {assignError && <InlineError className="mt-1.5 px-1">{assignError}</InlineError>}
     </>
   )
 
@@ -526,6 +564,8 @@ export function RefinedTaskDetail({
             // sweeps instances, so the authoritative shape comes from the server.
             void getTaskDetail(homeId, taskInstanceId).then((r) => {
               if (r.data) setDetail(r.data)
+              // The edit itself saved (the sheet says so); only the refresh failed.
+              else if (r.error) console.warn(`[task] edit saved, but could not re-read ${taskInstanceId}:`, r.error.message)
             })
           }}
         />
