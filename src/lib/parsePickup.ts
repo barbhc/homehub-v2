@@ -34,6 +34,7 @@ export function isParsePending(manualId: string): boolean {
   try {
     return localStorage.getItem(KEY_PREFIX + manualId) !== null
   } catch {
+    // Storage blocked: no pickup banner, the same as the write side's fallback.
     return false
   }
 }

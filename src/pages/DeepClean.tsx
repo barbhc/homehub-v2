@@ -20,7 +20,7 @@ import {
   type CleanSessionMode,
   type DeepCleanGuide,
 } from "@/lib/cleanSession"
-import { PageContainer, PageHeader, SectionCard } from "@/components/layout"
+import { InlineError, PageContainer, PageHeader, SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CardContent } from "@/components/ui/card"
@@ -88,6 +88,12 @@ export default function DeepClean() {
   const [guides, setGuides] = useState<DeepCleanGuide[]>([])
   const [weekTasks, setWeekTasks] = useState<CleanTask[]>([])
   const [hubLoading, setHubLoading] = useState(true)
+  /** Hub reads that failed — said in place of "No cleaning guides yet" and
+   *  "Nothing due this week", which were shown for lists never read (audit H6). */
+  const [guidesFailed, setGuidesFailed] = useState(false)
+  const [weekFailed, setWeekFailed] = useState(false)
+  const [hubAttempt, setHubAttempt] = useState(0)
+  const [saveRoutineError, setSaveRoutineError] = useState<string | null>(null)
   const [tasks, setTasks] = useState<CleanTask[]>([])
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
   const [customTasks, setCustomTasks] = useState<CleanTask[]>([])
@@ -109,6 +115,8 @@ export default function DeepClean() {
     if (!homeId) return
     // Default a room selected on entry so the setup CTA is active immediately.
     getRooms(homeId).then((r) => {
+      // Without rooms the setup still offers "Whole home", so a failure is logged, not blocking.
+      if (r.error) console.warn(`[clean] could not load rooms for home ${homeId}:`, r.error.message)
       const list = r.data ?? []
       setRooms(list)
       setSelectedRoomIds((prev) => {
@@ -123,24 +131,32 @@ export default function DeepClean() {
     if (!homeId) return
     let cancelled = false
     setHubLoading(true)
+    // Each half fails on its own: logged, and null (not []) so the hub can tell
+    // "couldn't read" from "nothing there".
+    const failed = (what: string) => (e: unknown) => {
+      console.warn(`[clean] could not load ${what} for home ${homeId}:`, e instanceof Error ? e.message : e)
+      return null
+    }
     Promise.all([
-      getDeepCleanGuides(homeId).catch(() => []),
-      getCleaningTasks(homeId, "cleaning").catch(() => []),
+      getDeepCleanGuides(homeId).catch(failed("cleaning guides")),
+      getCleaningTasks(homeId, "cleaning").catch(failed("this week's cleaning")),
     ]).then(([g, tasks]) => {
       if (cancelled) return
-      setGuides(g)
+      setGuides(g ?? [])
+      setGuidesFailed(g === null)
       // "This week": due-soon or overdue cleaning tasks, capped to a short list.
-      const due = tasks
+      const due = (tasks ?? [])
         .filter((t) => t.isOverdue || daysUntilDue(t.dueDate) <= 7)
         .sort((a, b) => b.priorityScore - a.priorityScore)
         .slice(0, 6)
       setWeekTasks(due)
+      setWeekFailed(tasks === null)
       setHubLoading(false)
     })
     return () => {
       cancelled = true
     }
-  }, [homeId])
+  }, [homeId, hubAttempt])
 
   const handleWholeHome = useCallback(() => {
     setWholeHome((prev) => {
@@ -348,10 +364,15 @@ export default function DeepClean() {
   const handleSaveCustomToRoutine = useCallback(
     async (task: CleanTask) => {
       if (!homeId || task.source !== "custom") return
+      setSaveRoutineError(null)
       const result = await saveRoutineTask(homeId, task.title, "monthly", null)
-      if (!("error" in result)) {
-        setSavedCustomIds((prev) => new Set(prev).add(task.id))
+      if ("error" in result) {
+        // The Save button stays live; the list says this one didn't take.
+        console.warn(`[clean] could not save "${task.title}" to the routine (home ${homeId}):`, result.error)
+        setSaveRoutineError(`Couldn't save “${task.title}”. Check your connection and try again.`)
+        return
       }
+      setSavedCustomIds((prev) => new Set(prev).add(task.id))
     },
     [homeId]
   )
@@ -388,6 +409,9 @@ export default function DeepClean() {
           guides={guides}
           weekTasks={weekTasks}
           loading={hubLoading}
+          guidesFailed={guidesFailed}
+          weekFailed={weekFailed}
+          onRetry={() => setHubAttempt((n) => n + 1)}
           resuming={sessionInProgress}
           onStart={enterSession}
           onToggleWeekTask={toggleTask}
@@ -736,6 +760,7 @@ export default function DeepClean() {
                     </div>
                   ))}
                 </div>
+                {saveRoutineError && <InlineError className="mt-2">{saveRoutineError}</InlineError>}
               </div>
             )}
 
@@ -786,6 +811,9 @@ function CleanHub({
   guides,
   weekTasks,
   loading,
+  guidesFailed,
+  weekFailed,
+  onRetry,
   resuming,
   onStart,
   onToggleWeekTask,
@@ -794,6 +822,11 @@ function CleanHub({
   guides: DeepCleanGuide[]
   weekTasks: CleanTask[]
   loading: boolean
+  /** The guides could not be read — not "no guides yet". */
+  guidesFailed: boolean
+  /** This week's cleaning could not be read — not "nothing due". */
+  weekFailed: boolean
+  onRetry: () => void
   resuming: boolean
   onStart: () => void
   onToggleWeekTask: (id: string) => void
@@ -846,12 +879,16 @@ function CleanHub({
 
           {/* Cleaning guides grid — curated guide-level list, not per-step. */}
           <div>
-            <HubSectionLabel right={<span className="text-[12.5px] font-semibold" style={{ color: SUB }}>{guides.length} guide{guides.length === 1 ? "" : "s"}</span>}>
+            <HubSectionLabel right={guidesFailed ? undefined : <span className="text-[12.5px] font-semibold" style={{ color: SUB }}>{guides.length} guide{guides.length === 1 ? "" : "s"}</span>}>
               Cleaning guides
             </HubSectionLabel>
             {loading ? (
               <div className="rounded-2xl bg-[var(--hh-surface)] py-12 text-center text-[14px] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
                 Loading…
+              </div>
+            ) : guidesFailed ? (
+              <div className="rounded-2xl bg-[var(--hh-surface)] px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+                <InlineError onRetry={onRetry}>Couldn&apos;t load your cleaning guides.</InlineError>
               </div>
             ) : guides.length === 0 ? (
               <div className="flex items-center gap-3 rounded-2xl bg-[var(--hh-surface)] px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
@@ -898,6 +935,10 @@ function CleanHub({
           {loading ? (
             <div className="rounded-2xl bg-[var(--hh-surface)] py-12 text-center text-[14px] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
               Loading…
+            </div>
+          ) : weekFailed ? (
+            <div className="rounded-2xl bg-[var(--hh-surface)] px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+              <InlineError onRetry={onRetry}>Couldn&apos;t load this week&apos;s cleaning.</InlineError>
             </div>
           ) : weekTasks.length === 0 ? (
             <div className="rounded-2xl bg-[var(--hh-surface)] px-4 py-6 text-center text-[13.5px] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>

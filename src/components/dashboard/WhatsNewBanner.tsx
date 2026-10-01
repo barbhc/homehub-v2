@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { SparklesIcon, XIcon, ChevronRightIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { InlineError } from "@/components/layout/LoadStates"
 import { getPreference, setPreference } from "@/lib/userPreferences"
 import { WHATS_NEW_ENTRIES, type WhatsNewEntry } from "@/lib/whatsNew"
 import { auth } from "@/integrations/firebase"
@@ -32,6 +33,7 @@ export function WhatsNewBanner({ userId }: WhatsNewBannerProps) {
   const [visible, setVisible] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [latest, setLatest] = useState<WhatsNewEntry | null>(null)
+  const [dismissError, setDismissError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -48,8 +50,10 @@ export function WhatsNewBanner({ userId }: WhatsNewBannerProps) {
       try {
         const dismissed = await getPreference<string>(userId, PREF_WHATS_NEW_DISMISSED)
         if (dismissed === current.version) return
-      } catch {
-        // First time or pref fetch failed — show the banner
+      } catch (e) {
+        // Unreadable — show the banner (an announcement shown twice beats one
+        // never shown), and log why.
+        console.warn(`[whats new] could not read the dismissal for ${userId}:`, e instanceof Error ? e.message : e)
       }
       if (!cancelled) {
         setLatest(current)
@@ -60,13 +64,19 @@ export function WhatsNewBanner({ userId }: WhatsNewBannerProps) {
     return () => { cancelled = true }
   }, [userId])
 
+  /** A dismissal the server refused: the banner comes back and says so. It
+   *  used to stay hidden for the session and reappear on the next launch with
+   *  nothing said — a dismissal that silently didn't stick (audit H6). */
   async function handleDismiss() {
     setVisible(false)
+    setDismissError(null)
     if (latest) {
       try {
         await setPreference(userId, PREF_WHATS_NEW_DISMISSED, latest.version)
-      } catch {
-        // Best effort — banner stays dismissed for this session
+      } catch (e) {
+        console.warn(`[whats new] could not save the dismissal for ${userId}:`, e instanceof Error ? e.message : e)
+        setVisible(true)
+        setDismissError("Couldn't save that. Check your connection and try again.")
       }
     }
   }
@@ -109,6 +119,7 @@ export function WhatsNewBanner({ userId }: WhatsNewBannerProps) {
               ))}
             </ul>
           )}
+          {dismissError && <InlineError className="mt-2">{dismissError}</InlineError>}
         </div>
         <button
           type="button"

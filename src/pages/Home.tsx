@@ -174,6 +174,10 @@ export default function Home() {
   const [skeletonSlow, setSkeletonSlow] = useState(false)
   // A receipt for the last action, so a row that vanishes is explained.
   const [undo, setUndo] = useState<{ message: string; onUndo?: () => void } | null>(null)
+  /** A check-off or snooze the server refused, said on the row it belongs to.
+   *  Both used to fail in silence: the row stayed (correctly — the task is not
+   *  done) with nothing to say why, which reads as "my tap didn't register". */
+  const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null)
   /** Instances the user has just completed, hidden until the refetch catches up.
    *  Without this the card stayed on screen after a successful write, looking
    *  untouched, and people tapped Mark done a second time. */
@@ -203,10 +207,14 @@ export default function Home() {
     async (taskId: string) => {
       if (!homeId) return
       setCompletingId(taskId)
+      setActionError(null)
       const result = await markTaskInstanceDone(homeId, taskId)
       if (!result.success) {
-        // Leave it on screen — a task that failed to complete must not vanish.
+        // Leave it on screen — a task that failed to complete must not vanish —
+        // and say so on its row.
+        console.warn(`[home] could not mark task ${taskId} done (home ${homeId}):`, result.error)
         setCompletingId(null)
+        setActionError({ id: taskId, message: "Couldn't mark this done. Check your connection and try again." })
         return
       }
       // Hide it immediately, then wait for the refetch before releasing the
@@ -226,25 +234,49 @@ export default function Home() {
     [homeId, refresh]
   )
 
+  // Undo a snooze. A failed undo comes back to the same bar with the same Undo
+  // — it used to vanish, leaving the task snoozed with nothing said.
+  const undoSnooze = useCallback(
+    (taskId: string) => {
+      if (!homeId) return
+      function attempt() {
+        void unsnoozeTaskInstance(homeId, taskId).then((r) => {
+          if (r.success) {
+            void refresh()
+            return
+          }
+          console.warn(`[home] could not undo the snooze of task ${taskId} (home ${homeId}):`, r.error)
+          setUndo({ message: "Couldn't undo the snooze. Try again.", onUndo: attempt })
+        })
+      }
+      attempt()
+    },
+    [homeId, refresh]
+  )
+
   // Snooze pushes a recurring upkeep task's due date out 2 weeks (spec #7).
   const handleSnooze = useCallback(
     async (taskId: string) => {
       if (!homeId) return
+      setActionError(null)
       const snoozedUntil = addDays(formatLocalDateStr(new Date()), 14)
       const result = await snoozeTaskInstance(homeId, taskId, snoozedUntil)
-      if (!result.success) return
+      if (!result.success) {
+        // The task stays where it was; its row says the snooze didn't take.
+        console.warn(`[home] could not snooze task ${taskId} (home ${homeId}):`, result.error)
+        setActionError({ id: taskId, message: "Couldn't snooze this. Check your connection and try again." })
+        return
+      }
       refresh()
       // Say what happened and offer the way back. Without this the row simply
       // disappeared, which a tester read as having deleted the task.
       const when = new Date(snoozedUntil + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
       setUndo({
         message: `Snoozed until ${when}`,
-        onUndo: () => {
-          void unsnoozeTaskInstance(homeId, taskId).then((r) => { if (r.success) refresh() })
-        },
+        onUndo: () => undoSnooze(taskId),
       })
     },
-    [homeId, refresh]
+    [homeId, refresh, undoSnooze]
   )
 
   // Derived data — must be computed before any early returns to keep hooks stable
@@ -413,6 +445,7 @@ export default function Home() {
               level={level}
               homeId={homeId || null}
               completingId={completingId}
+              actionError={actionError}
               onComplete={handleMarkComplete}
               onSnooze={handleSnooze}
             />
@@ -432,6 +465,7 @@ export default function Home() {
             level={level}
             homeId={homeId || null}
             completingId={completingId}
+            actionError={actionError}
             onComplete={handleMarkComplete}
             onSnooze={handleSnooze}
           />

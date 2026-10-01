@@ -39,6 +39,7 @@ export function isDeadLegacyManualUrl(sourceType: string, sourceRef: string): bo
     const host = new URL(sourceRef).hostname.toLowerCase()
     return host === "supabase.co" || host.endsWith(".supabase.co")
   } catch {
+    // Not a URL at all, so not a dead v1 one: the normal path handles it.
     return false
   }
 }
@@ -64,6 +65,7 @@ export function useManualUrls(manuals: ManualDocument[]): Record<string, string 
     key,
     async () => {
       const entries = await Promise.all(
+        // Per manual: one that can't resolve is shown without its link (null) and never blocks the rest.
         manuals.map(async (m) => [m.manual_id, await resolveManualUrl(m.source_type, m.source_ref).catch(() => null)] as const),
       )
       return Object.fromEntries(entries) as Record<string, string | null>

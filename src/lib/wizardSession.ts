@@ -73,6 +73,7 @@ export function getWizardSession(): WizardSession | null {
     const parsed = JSON.parse(raw) as WizardSession
     return normalizeWizardSession(parsed)
   } catch {
+    // Unreadable or corrupt session: the wizard starts fresh rather than half-resumed.
     return null
   }
 }

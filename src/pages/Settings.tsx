@@ -4,7 +4,7 @@ import { FeedbackButton } from "@/components/FeedbackButton"
 import { SUPPORT_EMAIL } from "@/lib/feedback"
 import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
 import { AlertCircleIcon, BellIcon, HomeIcon as HomeSetupIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2, ShoppingBagIcon, ChevronRightIcon } from "lucide-react"
-import { SectionCard } from "@/components/layout"
+import { InlineError, SectionCard } from "@/components/layout"
 import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -71,6 +71,8 @@ type ManualWithName = ManualDocument & { display_name: string }
  *  `queued`: refused for capacity and recorded to start itself (HH-124). */
 type ManualStatus = "idle" | "scanning" | "ready" | "queued" | "error"
 type ManualScanState = { status: ManualStatus; error?: string }
+/** Which block of notification controls a failed save belongs to — its error is said there. */
+type NotifSection = "events" | "mode" | "digest" | "timing"
 
 const SCHEDULE_OPTIONS = [
   "weekly",
@@ -274,6 +276,7 @@ export default function Settings() {
         const info = await App.getInfo()
         build = `${info.version} (${info.build})`
       } catch {
+        // Said in the diagnostics panel itself: the build reads "unknown".
         build = "unknown"
       }
     }
@@ -322,37 +325,68 @@ export default function Settings() {
   }, [pushSupported, isNative])
 
   // Per-event notification preferences (Push-only — Email was dropped, see
-  // notificationPreferences.ts). Loaded on mount, persisted optimistically on
-  // every change (best-effort; UI never blocks on the save).
+  // notificationPreferences.ts). Loaded on mount, saved optimistically on every
+  // change — and a save that fails puts the switch BACK and says so (audit H6).
+  // Both used to be silent: a failed read showed the defaults as if they were
+  // the user's own (and the next tap wrote those defaults over the real
+  // prefs), and a failed save left a switch "off" that the server still had on.
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS)
+  const [notifLoad, setNotifLoad] = useState<"loading" | "ready" | "failed">("loading")
+  const [notifLoadAttempt, setNotifLoadAttempt] = useState(0)
+  const [notifSaveError, setNotifSaveError] = useState<{ section: NotifSection; message: string } | null>(null)
+  /** What the server last confirmed — where a failed save puts the switches back. */
+  const confirmedNotifPrefs = useRef<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS)
+  const confirmedNotifSeq = useRef(0)
+  const notifSaveSeq = useRef(0)
 
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
     getNotificationPrefs(user.id)
       .then((p) => {
-        if (!cancelled) setNotifPrefs(p)
+        if (cancelled) return
+        confirmedNotifPrefs.current = p
+        setNotifPrefs(p)
+        setNotifLoad("ready")
       })
-      .catch(() => {
-        /* best-effort: keep defaults */
+      .catch((e: unknown) => {
+        if (cancelled) return
+        console.warn(`[settings] could not load notification preferences for ${user.id}:`, e instanceof Error ? e.message : e)
+        setNotifLoad("failed")
       })
     return () => {
       cancelled = true
     }
-  }, [user?.id])
+  }, [user?.id, notifLoadAttempt])
 
-  // Optimistic update: apply locally immediately, save in the background.
+  // Optimistic update: apply locally immediately, save in the background, put
+  // it back if the save fails. Never writes before the real prefs are read —
+  // a change made over the defaults would overwrite every other preference.
   const updateNotifPrefs = useCallback(
-    (next: NotificationPrefs) => {
+    (next: NotificationPrefs, section: NotifSection) => {
+      const uid = user?.id
+      if (!uid || notifLoad !== "ready") return
       const normalized = normalizeNotificationPrefs(next)
       setNotifPrefs(normalized)
-      if (user?.id) {
-        setNotificationPrefs(user.id, normalized).catch(() => {
-          /* best-effort save; local state already reflects intent */
+      setNotifSaveError(null)
+      const seq = ++notifSaveSeq.current
+      setNotificationPrefs(uid, normalized)
+        .then(() => {
+          if (seq > confirmedNotifSeq.current) {
+            confirmedNotifSeq.current = seq
+            confirmedNotifPrefs.current = normalized
+          }
         })
-      }
+        .catch((e: unknown) => {
+          console.warn(`[settings] could not save notification preferences for ${uid}:`, e instanceof Error ? e.message : e)
+          // A later change is in flight and carries the whole state; let it decide.
+          if (seq !== notifSaveSeq.current) return
+          setNotifPrefs(confirmedNotifPrefs.current)
+          // Said under the control that changed, so it is on screen.
+          setNotifSaveError({ section, message: "Couldn't save that change. Check your connection and try again." })
+        })
     },
-    [user?.id]
+    [user?.id, notifLoad]
   )
 
   const toggleNotifEvent = useCallback(
@@ -364,26 +398,26 @@ export default function Settings() {
           ...notifPrefs.events,
           [key]: { push: !notifPrefs.events[key].push },
         },
-      })
+      }, "events")
     },
     [notifPrefs, updateNotifPrefs]
   )
 
   const setNotifLeadTime = useCallback(
     (days: number) => {
-      updateNotifPrefs({ ...notifPrefs, lead_time_days: days })
+      updateNotifPrefs({ ...notifPrefs, lead_time_days: days }, "timing")
     },
     [notifPrefs, updateNotifPrefs]
   )
 
   const setPushMode = useCallback(
-    (mode: PushMode) => updateNotifPrefs({ ...notifPrefs, push_mode: mode }),
+    (mode: PushMode) => updateNotifPrefs({ ...notifPrefs, push_mode: mode }, "mode"),
     [notifPrefs, updateNotifPrefs]
   )
 
   const setWeeklyDigest = useCallback(
     (patch: Partial<NotificationPrefs["weekly_digest"]>) =>
-      updateNotifPrefs({ ...notifPrefs, weekly_digest: { ...notifPrefs.weekly_digest, ...patch } }),
+      updateNotifPrefs({ ...notifPrefs, weekly_digest: { ...notifPrefs.weekly_digest, ...patch } }, "digest"),
     [notifPrefs, updateNotifPrefs]
   )
 
@@ -396,10 +430,12 @@ export default function Settings() {
       updateNotifPrefs({
         ...notifPrefs,
         quiet_hours: start && end ? { start, end, tz: tz || "UTC" } : null,
-      })
+      }, "timing")
     },
     [notifPrefs, updateNotifPrefs]
   )
+  const notifSaveErrorFor = (section: NotifSection) =>
+    notifSaveError?.section === section ? <InlineError className="mx-1 mt-2.5">{notifSaveError.message}</InlineError> : null
 
   const [routines, setRoutines] = useState<RoutineTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -425,12 +461,24 @@ export default function Settings() {
 
   // Export state
   const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   // Rescan state
   const [manuals, setManuals] = useState<ManualWithName[]>([])
   const [manualStates, setManualStates] = useState<Record<string, ManualScanState>>({})
   const [rescanRunning, setRescanRunning] = useState(false)
   const [manualsLoaded, setManualsLoaded] = useState(false)
+  const [manualsLoadFailed, setManualsLoadFailed] = useState(false)
+  const [manualsAttempt, setManualsAttempt] = useState(0)
+
+  // Each section says when its read or a write failed (audit H6). These all
+  // used to fail in silence: a list that never loaded rendered as empty, and a
+  // rename, add or delete that the server refused closed its editor as if it
+  // had worked.
+  const [routinesLoadFailed, setRoutinesLoadFailed] = useState(false)
+  const [routinesError, setRoutinesError] = useState<string | null>(null)
+  const [roomsLoadFailed, setRoomsLoadFailed] = useState(false)
+  const [roomsError, setRoomsError] = useState<string | null>(null)
 
   const loadRoutines = useCallback(async () => {
     if (!homeId) return
@@ -438,6 +486,10 @@ export default function Settings() {
     try {
       const data = await getRoutineTemplates(homeId)
       setRoutines(data)
+      setRoutinesLoadFailed(false)
+    } catch (e) {
+      console.warn(`[settings] could not load custom tasks for home ${homeId}:`, e instanceof Error ? e.message : e)
+      setRoutinesLoadFailed(true)
     } finally {
       setLoading(false)
     }
@@ -453,6 +505,7 @@ export default function Settings() {
     setRoomsLoading(true)
     try {
       const res = await getRooms(homeId)
+      if (res.error) throw new Error(res.error.message)
       setRooms(res.data ?? [])
 
       // Fetch item counts per room
@@ -468,6 +521,10 @@ export default function Settings() {
         }
       }
       setRoomItemCounts(countMap)
+      setRoomsLoadFailed(false)
+    } catch (e) {
+      console.warn(`[settings] could not load rooms for home ${homeId}:`, e instanceof Error ? e.message : e)
+      setRoomsLoadFailed(true)
     } finally {
       setRoomsLoading(false)
     }
@@ -495,54 +552,61 @@ export default function Settings() {
     }
     if (!homeId) return
     setSavingRoom(true)
-    try {
-      const res = await renameRoom(homeId, editingRoomId, editingName.trim())
-      if (res.data) {
-        setRooms((prev) => prev.map((r) => (r.room_id === editingRoomId ? res.data! : r)))
-      }
-    } finally {
-      setSavingRoom(false)
-      setEditingRoomId(null)
+    setRoomsError(null)
+    const res = await renameRoom(homeId, editingRoomId, editingName.trim())
+    setSavingRoom(false)
+    if (res.error || !res.data) {
+      // The old name stays; the editor closes and the section says why.
+      console.warn(`[settings] could not rename room ${editingRoomId} (home ${homeId}):`, res.error?.message)
+      setRoomsError("Couldn't rename that room. Check your connection and try again.")
+    } else {
+      setRooms((prev) => prev.map((r) => (r.room_id === editingRoomId ? res.data! : r)))
     }
+    setEditingRoomId(null)
   }, [homeId, editingRoomId, editingName, rooms])
 
   const handleAddRoom = useCallback(async () => {
     if (!homeId || !newRoomName.trim()) return
     setSavingRoom(true)
-    try {
-      const res = await createRoom({ home_id: homeId, name: newRoomName.trim() })
-      if (res.data) {
-        setRooms((prev) => [...prev, res.data!].sort((a, b) => a.name.localeCompare(b.name)))
-        setNewRoomName("")
-        setAddingRoom(false)
-      }
-    } finally {
-      setSavingRoom(false)
+    setRoomsError(null)
+    const res = await createRoom({ home_id: homeId, name: newRoomName.trim() })
+    setSavingRoom(false)
+    if (res.error || !res.data) {
+      // The form stays open with the name typed, ready to try again.
+      console.warn(`[settings] could not add room "${newRoomName.trim()}" (home ${homeId}):`, res.error?.message)
+      setRoomsError("Couldn't add that room. Check your connection and try again.")
+      return
     }
+    setRooms((prev) => [...prev, res.data!].sort((a, b) => a.name.localeCompare(b.name)))
+    setNewRoomName("")
+    setAddingRoom(false)
   }, [homeId, newRoomName])
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteConfirmRoom || !homeId) return
     setDeletingRoom(true)
-    try {
-      const res = await deleteRoom(homeId, deleteConfirmRoom.room_id)
-      if (res.data) {
-        setRooms((prev) => prev.filter((r) => r.room_id !== deleteConfirmRoom.room_id))
-        setRoomItemCounts((prev) => {
-          const next = { ...prev }
-          delete next[deleteConfirmRoom.room_id]
-          return next
-        })
-      }
-    } finally {
-      setDeletingRoom(false)
-      setDeleteConfirmRoom(null)
+    setRoomsError(null)
+    const res = await deleteRoom(homeId, deleteConfirmRoom.room_id)
+    setDeletingRoom(false)
+    setDeleteConfirmRoom(null)
+    if (res.error || !res.data) {
+      // The room is still there — the list says so rather than looking deleted.
+      console.warn(`[settings] could not delete room ${deleteConfirmRoom.room_id} (home ${homeId}):`, res.error?.message)
+      setRoomsError(`Couldn't delete ${deleteConfirmRoom.name}. Check your connection and try again.`)
+      return
     }
+    setRooms((prev) => prev.filter((r) => r.room_id !== deleteConfirmRoom.room_id))
+    setRoomItemCounts((prev) => {
+      const next = { ...prev }
+      delete next[deleteConfirmRoom.room_id]
+      return next
+    })
   }, [deleteConfirmRoom, homeId])
 
   const handleAdd = useCallback(async () => {
     if (!homeId || !newTitle.trim()) return
     setAdding(true)
+    setRoutinesError(null)
     try {
       const result = await saveRoutineTask(
         homeId,
@@ -550,11 +614,15 @@ export default function Settings() {
         newSchedule,
         newMinutes ? parseInt(newMinutes, 10) : null
       )
-      if (!("error" in result)) {
-        setNewTitle("")
-        setNewMinutes("")
-        await loadRoutines()
+      if ("error" in result) {
+        // The typed task stays in the form, ready to try again.
+        console.warn(`[settings] could not add custom task (home ${homeId}):`, result.error)
+        setRoutinesError("Couldn't add that task. Check your connection and try again.")
+        return
       }
+      setNewTitle("")
+      setNewMinutes("")
+      await loadRoutines()
     } finally {
       setAdding(false)
     }
@@ -562,27 +630,41 @@ export default function Settings() {
 
   const handleDelete = useCallback(
     async (templateId: string) => {
+      // `homeId` was missing from this callback's deps, so a page opened before
+      // the home loaded deleted against an empty home id — refused, in silence.
+      if (!homeId) return
       setDeletingId(templateId)
-      try {
-        const result = await deleteRoutineTask(homeId ?? "", templateId)
-        if (result.ok) {
-          setRoutines((prev) => prev.filter((r) => r.task_template_id !== templateId))
-        }
-      } finally {
-        setDeletingId(null)
+      setRoutinesError(null)
+      const result = await deleteRoutineTask(homeId, templateId)
+      setDeletingId(null)
+      if (!result.ok) {
+        console.warn(`[settings] could not delete custom task ${templateId} (home ${homeId}):`, result.error)
+        setRoutinesError("Couldn't delete that task. Check your connection and try again.")
+        return
       }
+      setRoutines((prev) => prev.filter((r) => r.task_template_id !== templateId))
     },
-    []
+    [homeId]
   )
 
-  // Load manuals list
+  // Load manuals list. A failed read says so — it used to render as
+  // "0 manuals uploaded".
   useEffect(() => {
     if (!homeId) return
-    getManualsByHome(homeId).then((res) => {
-      setManuals(res.data ?? [])
+    let cancelled = false
+    void getManualsByHome(homeId).then((res) => {
+      if (cancelled) return
+      if (res.error) {
+        console.warn(`[settings] could not load manuals for home ${homeId}:`, res.error.message)
+        setManualsLoadFailed(true)
+      } else {
+        setManuals(res.data ?? [])
+        setManualsLoadFailed(false)
+      }
       setManualsLoaded(true)
     })
-  }, [homeId])
+    return () => { cancelled = true }
+  }, [homeId, manualsAttempt])
 
   // "Rescan all": one manual at a time, each read left for its review on the
   // item page. It used to run in COMMIT mode and write every manual's tasks
@@ -660,6 +742,7 @@ export default function Settings() {
   const handleExport = useCallback(async () => {
     if (!homeId) return
     setExporting(true)
+    setExportError(null)
     try {
       const [itemsRes, tasksRes, chunksRes, faqsRes] = await Promise.all([
         getItemUnits(homeId),
@@ -667,6 +750,16 @@ export default function Settings() {
         getKnowledgeChunksByHome(homeId),
         getFaqsByHome(homeId),
       ])
+      // A read that failed used to export as an empty list — a backup missing
+      // whole sections, downloaded as if it were complete.
+      const reads = [["items", itemsRes], ["tasks", tasksRes], ["knowledge", chunksRes], ["saved answers", faqsRes]] as const
+      const missing: string[] = reads.filter(([, r]) => r.error).map(([name]) => name)
+      if (manualsLoadFailed) missing.push("manuals")
+      if (missing.length > 0) {
+        console.warn(`[settings] export refused — could not read ${missing.join(", ")} (home ${homeId})`)
+        setExportError("Couldn't export your data — part of it couldn't be read. Check your connection and try again.")
+        return
+      }
 
       const data = {
         exported_at: new Date().toISOString(),
@@ -688,7 +781,7 @@ export default function Settings() {
     } finally {
       setExporting(false)
     }
-  }, [homeId, manuals])
+  }, [homeId, manuals, manualsLoadFailed])
 
   const failedCount = manuals.filter((m) => manualStates[m.manual_id]?.status === "error").length
 
@@ -800,6 +893,12 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : (
               <>
+                {/* A list that never loaded is not an empty list. */}
+                {routinesLoadFailed && (
+                  <InlineError className="mb-4" onRetry={() => void loadRoutines()}>
+                    Couldn&apos;t load your custom tasks.
+                  </InlineError>
+                )}
                 <div className="space-y-2 mb-4">
                   {routines.map((r) => (
                     <div
@@ -875,6 +974,7 @@ export default function Settings() {
                     {adding ? "Adding…" : "Add"}
                   </Button>
                 </div>
+                {routinesError && <InlineError className="mt-3">{routinesError}</InlineError>}
               </>
             )}
           </CardContent>
@@ -894,6 +994,12 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground">Loading...</p>
             ) : (
               <>
+                {roomsLoadFailed && (
+                  <InlineError className="mb-4" onRetry={() => void loadRooms()}>
+                    Couldn&apos;t load your rooms.
+                  </InlineError>
+                )}
+                {roomsError && <InlineError className="mb-3">{roomsError}</InlineError>}
                 <div className="space-y-1 mb-4">
                   {rooms.map((room) => (
                     <div
@@ -1082,10 +1188,17 @@ export default function Settings() {
             <h2 className="text-sm font-semibold text-foreground mb-1">
               Manuals
             </h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              {manuals.length} manual{manuals.length !== 1 ? "s" : ""} uploaded.
-              Rescan reads a manual again — nothing changes until you review it.
-            </p>
+            {manualsLoadFailed ? (
+              // Not "0 manuals uploaded" — that is a count of a list never read.
+              <InlineError className="mb-4" onRetry={() => setManualsAttempt((n) => n + 1)}>
+                Couldn&apos;t load your manuals.
+              </InlineError>
+            ) : (
+              <p className="text-sm text-muted-foreground mb-4">
+                {manuals.length} manual{manuals.length !== 1 ? "s" : ""} uploaded.
+                Rescan reads a manual again — nothing changes until you review it.
+              </p>
+            )}
 
             {manuals.length > 0 && (
               <div className="space-y-1.5 mb-4">
@@ -1241,6 +1354,7 @@ export default function Settings() {
               )}
               {exporting ? "Exporting…" : "Export All Data"}
             </Button>
+            {exportError && <InlineError className="mt-3">{exportError}</InlineError>}
           </CardContent>
         </SectionCard>
       )}
@@ -1370,7 +1484,14 @@ export default function Settings() {
                       else setPushError(result.error ?? "Couldn't enable notifications.")
                     }
                   } catch (e) {
-                    setPushError(e instanceof Error ? e.message : "Couldn't enable notifications.")
+                    console.warn(`[settings] could not turn notifications ${pushSubscribed ? "off" : "on"}:`, e instanceof Error ? e.message : e)
+                    // Turning OFF used to swallow its own failure and show "off"
+                    // while the server kept the token and kept sending.
+                    setPushError(
+                      pushSubscribed
+                        ? "Couldn't turn off notifications. Check your connection and try again."
+                        : e instanceof Error ? e.message : "Couldn't enable notifications.",
+                    )
                   } finally {
                     setPushToggling(false)
                   }
@@ -1387,11 +1508,7 @@ export default function Settings() {
             {/* The review's "Turn on in Settings" lands here: on a device
                 that refused, say where the switch is (owner, #228 review). */}
             <NotificationsRefusedNote />
-            {pushError && (
-              <p className="text-sm text-destructive mt-1.5" role="alert">
-                {pushError}
-              </p>
-            )}
+            {pushError && <InlineError className="mt-1.5">{pushError}</InlineError>}
             {pushSubscribed && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button
@@ -1434,10 +1551,25 @@ export default function Settings() {
               </div>
             )}
 
+            {/* The prefs below are never shown as defaults standing in for a
+                read that failed or is still running: a change made over them
+                would write those defaults over every other preference. */}
+            {user?.id && notifLoad !== "ready" && (
+              <div className="mt-4">
+                {notifLoad === "failed" ? (
+                  <InlineError onRetry={() => { setNotifLoad("loading"); setNotifLoadAttempt((n) => n + 1) }}>
+                    Couldn&apos;t load your notification settings.
+                  </InlineError>
+                ) : (
+                  <p className="text-[13px]" style={{ color: "var(--hh-sub)" }}>Loading your notification settings…</p>
+                )}
+              </div>
+            )}
+
             {/* Per-event preferences matrix (Push-only). Gates which kinds of
                 push the user receives; the master control above gates whether
                 this device can receive push at all. */}
-            {user?.id && (
+            {user?.id && notifLoad === "ready" && (
               <div className="mt-4">
                 <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>
                   What to notify me about
@@ -1514,6 +1646,7 @@ export default function Settings() {
                     )
                   })}
                 </div>
+                {notifSaveErrorFor("events")}
 
                 <p className="mx-1 mt-2.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
                   Safety &amp; recall notices are always delivered.
@@ -1555,6 +1688,7 @@ export default function Settings() {
                     )
                   })}
                 </div>
+                {notifSaveErrorFor("mode")}
                 <p className="mx-1 mt-2.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
                   Any single reminder can be turned off on its task — the bell. Lapsed safety checks are mentioned in every style.
                 </p>
@@ -1611,6 +1745,7 @@ export default function Settings() {
                     </div>
                   )}
                 </div>
+                {notifSaveErrorFor("digest")}
 
                 {/* Timing: lead time + quiet hours */}
                 <div
@@ -1682,6 +1817,7 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
+                {notifSaveErrorFor("timing")}
               </div>
             )}
           </CardContent>

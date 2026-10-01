@@ -133,6 +133,7 @@ export function lastBootTiming(): {
     const raw = localStorage.getItem(KEY)
     return raw ? JSON.parse(raw) : null
   } catch {
+    // Unreadable or corrupt: diagnostics show "no boot recorded", never break a page.
     return null
   }
 }

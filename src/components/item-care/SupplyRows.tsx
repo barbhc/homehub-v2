@@ -146,7 +146,7 @@ export function SupplyRows({
 
 function domainOf(url: string | null): string | null {
   if (!url) return null
-  try { return new URL(url).hostname.replace(/^www\./, "") } catch { return null }
+  try { return new URL(url).hostname.replace(/^www\./, "") } catch { return null /* not a URL: no domain to show */ }
 }
 
 function PartCard({

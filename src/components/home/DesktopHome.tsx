@@ -56,7 +56,7 @@ function RecallCard({ recall }: { recall: HomeNotices["recalls"][number] }) {
 
 
 export function DesktopHome({
-  tasks, upcoming, nextUp = null, warranties, notices, homeId, completingId, onComplete, onSnooze,
+  tasks, upcoming, nextUp = null, warranties, notices, homeId, completingId, actionError = null, onComplete, onSnooze,
 }: {
   tasks: DashboardTask[]
   /** Forward schedule for the Coming-up drawer. */
@@ -69,6 +69,8 @@ export function DesktopHome({
   level: UserLevel
   homeId: string | null
   completingId: string | null
+  /** A refused check-off or snooze, shown on its row (ThisWeekList). */
+  actionError?: { id: string; message: string } | null
   onComplete: (id: string) => void
   onSnooze: (id: string) => void
 }) {
@@ -104,6 +106,7 @@ export function DesktopHome({
               upcoming={upcoming}
               nextUp={nextUp}
               completingId={completingId}
+              actionError={actionError}
               onComplete={onComplete}
               onSnooze={onSnooze}
             />

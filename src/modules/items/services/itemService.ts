@@ -188,14 +188,17 @@ export async function createItemUnit(input: CreateItemUnitInput): Promise<Servic
       .commit()
     const snap = await getDoc(ref)
     // Funnel events for every add path (SmartAddItem, onboarding, hooks) — the
-    // post-create count doubles as the first-item signal. Fire-and-forget.
+    // post-create count doubles as the first-item signal. Fire-and-forget: the
+    // item is already saved, so a failed count costs only the analytics event.
     void getItemUnits(input.home_id)
       .then((r) => {
         const count = r.data?.length
         track("item_added", { home_id: input.home_id, item_count: count ?? null })
         if (count === 1) track("first_item_added", { home_id: input.home_id })
       })
-      .catch(() => {})
+      .catch((e: unknown) => {
+        console.warn(`[items] item_added analytics failed for home ${input.home_id}:`, e instanceof Error ? e.message : e)
+      })
     const created = toItemUnit(ref.id, input.home_id, snap.data() ?? {})
     upsertItemInCache(created)
     return { data: created, error: null }

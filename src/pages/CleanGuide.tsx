@@ -4,6 +4,7 @@ import { ChevronLeftIcon, ClockIcon, MapPinIcon, SparklesIcon } from "lucide-rea
 import { useCurrentHome } from "@/modules/home"
 import { getItemCleanGuide, type ItemCleanGuide } from "@/lib/cleanSession"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
+import { LoadErrorState } from "@/components/layout/LoadStates"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 
@@ -20,17 +21,30 @@ export default function CleanGuide() {
   const homeId = home?.home_id ?? null
   const [guide, setGuide] = useState<ItemCleanGuide | null>(null)
   const [loading, setLoading] = useState(true)
+  /** A failed read is not "No cleaning guide for this item yet" — that line was
+   *  shown for both (audit H6). */
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!homeId || !itemUnitId) return
     let cancelled = false
     setLoading(true)
     getItemCleanGuide(homeId, itemUnitId)
-      .then((g) => { if (!cancelled) setGuide(g) })
-      .catch(() => { if (!cancelled) setGuide(null) })
+      .then((g) => {
+        if (cancelled) return
+        setGuide(g)
+        setLoadFailed(false)
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        console.warn(`[clean guide] could not load the guide for item ${itemUnitId} (home ${homeId}):`, e instanceof Error ? e.message : e)
+        setGuide(null)
+        setLoadFailed(true)
+      })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [homeId, itemUnitId])
+  }, [homeId, itemUnitId, attempt])
 
   return (
     <div className="mx-auto min-h-[calc(100vh-48px)] w-full max-w-[820px] px-5 pb-16" style={{ background: BG }}>
@@ -42,6 +56,12 @@ export default function CleanGuide() {
 
       {loading ? (
         <div className="py-16 text-center text-[14px]" style={{ color: SUB }}>Loading guide…</div>
+      ) : loadFailed ? (
+        <LoadErrorState
+          title="Couldn't load this guide"
+          message="Check your connection and try again."
+          onRetry={() => setAttempt((n) => n + 1)}
+        />
       ) : !guide ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
           <p className="text-[15px]" style={{ color: SUB }}>No cleaning guide for this item yet.</p>

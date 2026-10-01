@@ -1,4 +1,5 @@
-import { SectionCard } from "@/components/layout"
+import { useRef, useState } from "react"
+import { InlineError, SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/modules/auth"
@@ -18,17 +19,37 @@ const OPTIONS: { value: InterfaceOverride; label: string; hint: string }[] = [
 /**
  * Progressive-complexity override (Phase B). Lets the user opt up or down from
  * the auto-derived level. Writes immediately to localStorage; the whole app
- * re-renders via useInterfaceOverride.
+ * re-renders via useInterfaceOverride. The server copy is the one that
+ * survives a new launch, so a failed save is undone here and said.
  */
 export function InterfaceLevelSection() {
   const current = useInterfaceOverride()
   const { user } = useAuth()
+  const [saveError, setSaveError] = useState<string | null>(null)
+  /** What the server last confirmed — where a failed save puts the choice back. */
+  const confirmed = useRef<InterfaceOverride>(current)
+  const saveSeq = useRef(0)
 
   // Write the cache immediately (the whole app re-renders synchronously), then
-  // persist for cross-device sync (best-effort — the cache is the fallback).
+  // persist. A failed save puts the choice back and says so (audit H6): it used
+  // to be swallowed, and useInterfaceLevelSync then quietly restored the
+  // server's old level on the next launch — the choice "un-made itself".
   const choose = (value: InterfaceOverride) => {
+    setSaveError(null)
     setInterfaceOverride(value)
-    if (user?.id) void setInterfaceLevelPref(user.id, value).catch(() => {})
+    const uid = user?.id
+    if (!uid) return
+    const seq = ++saveSeq.current
+    setInterfaceLevelPref(uid, value)
+      .then(() => {
+        if (seq === saveSeq.current) confirmed.current = value
+      })
+      .catch((e: unknown) => {
+        console.warn(`[settings] could not save interface level "${value}" for ${uid}:`, e instanceof Error ? e.message : e)
+        if (seq !== saveSeq.current) return // a later choice is in flight; it decides
+        setInterfaceOverride(confirmed.current)
+        setSaveError("Couldn't save your choice. Check your connection and try again.")
+      })
   }
 
   return (
@@ -69,6 +90,7 @@ export function InterfaceLevelSection() {
           )
           })}
         </div>
+        {saveError && <InlineError className="mt-3">{saveError}</InlineError>}
       </CardContent>
     </SectionCard>
   )

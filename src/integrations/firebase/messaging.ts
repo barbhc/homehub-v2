@@ -18,7 +18,13 @@ export async function getMessagingIfSupported(): Promise<Messaging | null> {
   if (!messagingPromise) {
     messagingPromise = isSupported()
       .then((ok) => (ok ? getMessaging(firebaseApp) : null))
-      .catch(() => null)
+      .catch((e: unknown) => {
+        // A probe that throws is treated as "unsupported" (web push is then
+        // simply not offered) — but logged, so a broken SDK is not mistaken
+        // for a browser that never had push.
+        console.warn("[messaging] support check failed; web push treated as unavailable:", e instanceof Error ? e.message : e)
+        return null
+      })
   }
   return messagingPromise
 }
@@ -37,13 +43,14 @@ export async function getFcmToken(): Promise<string | null> {
   return getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration })
 }
 
-/** Delete this device's FCM token (best-effort; caller also removes it server-side). */
+/** Delete this device's FCM token. Logged, never thrown: the caller has already
+ *  removed it from the server, which is what stops delivery. */
 export async function deleteFcmToken(): Promise<void> {
   const messaging = await getMessagingIfSupported()
   if (!messaging) return
   try {
     await deleteToken(messaging)
-  } catch {
-    /* ignore */
+  } catch (e) {
+    console.warn("[messaging] could not delete this browser's push token (the server copy is already removed):", e instanceof Error ? e.message : e)
   }
 }
