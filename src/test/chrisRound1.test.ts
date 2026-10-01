@@ -41,11 +41,18 @@ describe("empty Tasks must not contradict the item page", () => {
       expect(src, page).toContain("nothingDueLine(hiddenCleaning)")
     }
     expect(read("../components/home/tasks/shared.ts")).toContain("in your guides")
-    // The count moved into the agenda hook RefinedWeek shares with DesktopTasks
-    // (one fetch per home). Still only counted when the agenda is actually
-    // empty — no cost on the common path.
+    // The count lives in the agenda hook RefinedWeek shares with DesktopTasks
+    // (one fetch per home). This pin used to require it be counted ONLY for an
+    // empty agenda — which is exactly why HH-94's footer under a full list
+    // could never render (2026-09-30). It is counted on every read now, and
+    // still costs nothing: it is getWeekAgenda's own tally of the read it just
+    // made, never a second query — and it comes back WITH the rows, not from a
+    // module-level "last call" that another read in flight could overwrite.
     const hook = read("../hooks/useWeekAgenda.ts")
-    expect(hook).toMatch(/length === 0 \? await countHiddenCleaning\(/)
+    expect(hook).toContain("res.withheld.itemCleaning")
+    expect(hook).not.toContain("countHiddenCleaning(")
+    const agenda = read("../modules/care/services/weekAgenda.ts")
+    expect(agenda).not.toMatch(/\blet lastWithheld\b|getLastAgendaWithheld/)
   })
 })
 
@@ -263,14 +270,39 @@ describe("round 10 — the overnight fallout, pinned", () => {
   })
 
   it("HH-94: a non-empty Tasks list still accounts for withheld cleaning", () => {
-    const week = read("../components/home/RefinedWeek.tsx")
-    expect(week).toContain("groups.length > 0 && hiddenCleaning > 0")
-    expect(week).toContain('Link to="/clean"')
+    // Was pinned on RefinedWeek alone ("groups.length > 0 && hiddenCleaning >
+    // 0"), where it could never render — the count was 0 for any list with
+    // tasks — and desktop had no footer at all. Now ONE footer, which both
+    // trees render whenever the agenda has tasks; the words and the rendering
+    // (and their absence for an empty agenda) are behaviour-tested in
+    // DesktopTasks.test.tsx.
+    for (const page of ["RefinedWeek", "DesktopTasks"]) {
+      const src = read(`../components/home/${page}.tsx`)
+      expect(src, page).toMatch(/totalAll > 0 && <HiddenCleaningLink count=\{hiddenCleaning\}/)
+    }
+    expect(read("../components/home/tasks/HiddenCleaningLink.tsx")).toContain('Link to="/clean"')
   })
 
   it("HH-99: the last-done control speaks the sheet's chip language", () => {
     expect(sheet).toContain("I&rsquo;ve been doing this already")
     // The bare checkbox is gone; it presses like the cadence chips.
     expect(sheet).not.toContain('type="checkbox"\n          checked={open}')
+  })
+})
+
+describe("a failed check-off reads the same on Home and on Tasks", () => {
+  // #230 gave Home's rows these words; the Tasks pages showed the service's raw
+  // error instead (or "Could not complete that task."). One sentence per
+  // failure, wherever the task is — so the two copies must not drift.
+  it("Home and the Tasks hook carry the same two sentences", () => {
+    const home = read("../pages/Home.tsx")
+    const tasks = read("../components/home/tasks/shared.ts")
+    for (const words of [
+      "Couldn't mark this done. Check your connection and try again.",
+      "Couldn't snooze this. Check your connection and try again.",
+    ]) {
+      expect(home, "Home.tsx").toContain(words)
+      expect(tasks, "tasks/shared.ts").toContain(words)
+    }
   })
 })

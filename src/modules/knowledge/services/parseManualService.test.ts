@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { toUiStage, ACTIVE_PARSE_STAGES, type ParseStage } from "./parseManualService"
+import { toUiStage, ACTIVE_PARSE_STAGES, type ParseProgressState, type ParseStage } from "./parseManualService"
 
 describe("toUiStage — worker stage → UI progress mapping (fix B)", () => {
-  const cases: Array<[ParseStage, string]> = [
+  // Typed with the service's own ParseProgressState — the type moved here from
+  // the retired ParseProgressStep.tsx, beside the mapping that produces it.
+  const cases: Array<[ParseStage, ParseProgressState]> = [
     ["queued", "queued"],
     ["awaiting_capacity", "queued"],
     ["started", "reading"],

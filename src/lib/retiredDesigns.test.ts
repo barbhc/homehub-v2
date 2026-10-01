@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { readFileSync, readdirSync, statSync } from "node:fs"
-import { resolve, join } from "node:path"
+import { basename, resolve, join } from "node:path"
 
 /**
  * Retired designs stay retired.
@@ -57,6 +57,18 @@ const RETIRED_COMPONENTS = [
   // remaining") was an ESTIMATE beside a read whose position the worker never
   // reports; the read is shown by the pill and the Upkeep card, honestly.
   "ManualParseProgress", // -> ScanningLine in CareBlock + ParseTrayPill
+  // #229's follow-up (2026-09-30): the pre-redesign item page's task area and
+  // sidebar, exported by item-detail/index.ts and rendered by nothing. Their
+  // jobs live in CareBlock (Upkeep), the task page and NotesSection now. The
+  // two popovers had no importer but TaskSection/TierTaskCard.
+  "TaskSection",            // tabs + tier filter + session mode -> CareBlock (Upkeep)
+  "TierTaskCard",           // glass task card with red/amber rails -> CareBlock rows
+  "SetupChecklistSection",  // -> CareBlock's "First-time setup" band (useSetupCompletion)
+  "HabitsSection",          // as-needed / after-each-use -> CareBlock's "When needed" band
+  "NotesCard",              // item notes textarea -> NotesSection
+  "SidebarActions",         // desktop scroll-to sidebar -> DesktopItemDetail's own header
+  "CompleteTaskPopover",    // -> the task page's check-off (RefinedTaskDetail)
+  "TaskEditPopover",        // -> TaskEditSheet
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */
@@ -100,6 +112,18 @@ const sources = files.map((f) => ({
 }))
 
 describe("retired designs cannot be rendered", () => {
+  it("their files are deleted, not kept as stubs", () => {
+    // ParseProgressStep.tsx outlived its screen by a round as a file holding
+    // one type that another module imported from it — reachable by nothing,
+    // but still a file by a retired design's name, waiting to be edited as if
+    // it were live. "None may exist" now covers the file itself.
+    const all = walk(SRC)
+    const left = [...RETIRED_COMPONENTS, ...RETIRED_PAGES].flatMap((name) =>
+      all.filter((f) => /^[^.]+\.tsx?$/.test(basename(f)) && basename(f).replace(/\.tsx?$/, "") === name),
+    )
+    expect(left.map((f) => f.replace(SRC, "src"))).toEqual([])
+  })
+
   for (const name of [...RETIRED_COMPONENTS, ...RETIRED_PAGES]) {
     it(`nothing imports or renders ${name}`, () => {
       // Matched on an import or a JSX tag rather than the bare word, so a
@@ -201,6 +225,14 @@ describe("the manual step is one component, not two that drift", () => {
     // HH-126: the item page had its own dialog, still carrying the link-first
     // ranking that HH-109 and HH-115 retired in the wizard. Fixing the ranking
     // in one place has to fix it in both.
+    //
+    // 2026-09-30: the approved ManualStep changed BEHAVIOUR, not design. Its
+    // link field swapped itself for the "Manual link added" card on the first
+    // typed character, so a link could only be pasted; the card now waits for
+    // a paste, Enter, or a complete link leaving the field or arriving at once
+    // (ManualStep.test.tsx). Same layout, same copy, same single component —
+    // and because both doors render it, the fix reached both, which is what
+    // this pin is for.
     expect(doors).toEqual([
       "src/pages/SmartAddItem.tsx",
       "src/pages/item-detail/ManualSection.tsx",

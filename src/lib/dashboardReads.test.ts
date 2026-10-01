@@ -88,6 +88,10 @@ describe("one Home load — a home with history, no user routines (the usual cas
   })
 
   it("still starts the instance a recurring cleaning template lost — and writes nothing else", async () => {
+    // ONE write: "Wipe dryer drum". The snapshot also held a second, scheduled
+    // "Wash fridge shelves" — a duplicate of the fixture's SNOOZED instance,
+    // made because a snoozed instance was not counted as open (2026-09-30;
+    // cleanSessionReads.test.ts pins the rule).
     await loadHome()
     expect(fakeDb.writes.map((w) => ({ path: w.path, title: w.data.title, dueDate: w.data.dueDate, status: w.data.status }))).toMatchSnapshot()
   })
@@ -99,8 +103,8 @@ describe("one Home load — a home with history, no user routines (the usual cas
     // template probe for each as-needed/after-each-use cleaning template.
     expect(readCounts(), fakeDb.reads.log.join("\n")).toEqual({
       queries: 4,
-      gets: 7, // profile + the instance generateTaskInstances still starts (template, item, room) ×2
-      docsRead: 62,
+      gets: 4, // profile + the instance generateTaskInstances still starts (template, item, room) — was ×2 with the snoozed duplicate
+      docsRead: 59,
       byCollection: { items: 1, taskInstances: 2, taskTemplates: 1 },
     })
     expect(fakeDb.reads.log.filter((l) => l.startsWith("query"))).toEqual([

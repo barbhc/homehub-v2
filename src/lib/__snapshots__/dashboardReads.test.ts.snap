@@ -649,14 +649,8 @@ exports[`one Home load — a home with history, no user routines (the usual case
 exports[`one Home load — a home with history, no user routines (the usual case) > still starts the instance a recurring cleaning template lost — and writes nothing else 1`] = `
 [
   {
-    "dueDate": "2026-09-21",
-    "path": "homes/h1/taskInstances/auto-0001",
-    "status": "scheduled",
-    "title": "Wash fridge shelves",
-  },
-  {
     "dueDate": "2026-07-23",
-    "path": "homes/h1/taskInstances/auto-0002",
+    "path": "homes/h1/taskInstances/auto-0001",
     "status": "scheduled",
     "title": "Wipe dryer drum",
   },
