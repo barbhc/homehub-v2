@@ -50,6 +50,34 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
     }
   })
 
+  test("desktop: a failed Mark done on a LOWER row is said on that row, in view", async ({ page }) => {
+    // The failure line used to sit in the page header, which a long list
+    // scrolls away: a failed check-off near the bottom put nothing readable on
+    // screen. The completeTask callable is failed at the network layer — no
+    // write lands, so nothing in the shared emulator changes.
+    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "POST, OPTIONS" }
+    await page.route("**/completeTask", (route) =>
+      route.request().method() !== "POST"
+        ? route.fulfill({ status: 204, headers: cors })
+        : route.fulfill({
+            status: 500, headers: cors, contentType: "application/json",
+            body: JSON.stringify({ error: { status: "INTERNAL", message: "The server could not complete that task." } }),
+          }))
+    await page.goto("/maintenance")
+    const title = "Freeze-protect the irrigation backflow"
+    const row = page.getByTestId("desktop-task-row").filter({ hasText: title }).filter(visible)
+    await expect(row).toBeVisible({ timeout: 20_000 })
+
+    await row.getByRole("button", { name: "Mark done" }).click()
+
+    const alert = row.getByRole("alert")
+    await expect(alert).toBeVisible({ timeout: 10_000 })
+    await expect(alert).toBeInViewport()
+    // Said once — on the row, not also in the header.
+    await expect(page.getByRole("alert").filter(visible)).toHaveCount(1)
+    await expect(row).toContainText(title)
+  })
+
   test("phone (390px): the same footer, and it goes to Deep Clean", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto("/maintenance")

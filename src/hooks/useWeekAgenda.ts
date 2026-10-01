@@ -10,7 +10,7 @@
  */
 import { useCallback } from "react"
 import useSWR, { useSWRConfig } from "swr"
-import { getLastAgendaWithheld, getWeekAgenda, type WeekAgendaItem } from "@/modules/care"
+import { getWeekAgenda, type WeekAgendaItem } from "@/modules/care"
 import { persistSwrSnapshot, WEEK_KEY_PREFIX } from "@/lib/swrPersist"
 import { LOAD_TIMEOUT_MS, withTimeout } from "@/lib/withTimeout"
 
@@ -49,12 +49,9 @@ async function fetchWeekAgenda(homeId: string): Promise<WeekAgendaSnapshot> {
   // Counted on EVERY read now — HH-94's footer under a full list needs it, and
   // it was only ever taken for an empty agenda, so that footer could never
   // render. Still free: getWeekAgenda tallies what it withheld from the very
-  // snapshot it just read, so this costs no second query (countHiddenCleaning
-  // re-read every instance in the home). Read straight after the await, as
-  // getLastAgendaWithheld asks; the item-cleaning tally ignores the horizon,
-  // so another read of this home in flight (Home's getWeekReminders) would
-  // leave the same number.
-  return { items: res.data, hiddenCleaning: getLastAgendaWithheld().itemCleaning }
+  // snapshot it just read and returns it WITH the rows, so this costs no
+  // second query, and no other read in flight can swap in its own home's count.
+  return { items: res.data, hiddenCleaning: res.withheld.itemCleaning }
 }
 
 export function useWeekAgenda(homeId: string | null) {

@@ -86,12 +86,14 @@ function DkDetail({
 
 // ── Expandable desktop row ────────────────────────────────────────────────────
 function DkRow({
-  homeId, t, expanded, last, onToggle, onDone, onSnooze, onOpenGuide,
+  homeId, t, expanded, last, error, onToggle, onDone, onSnooze, onOpenGuide,
 }: {
   homeId: string | null
   t: WeekAgendaItem
   expanded: boolean
   last: boolean
+  /** Why this row's Done/Snooze just failed, if it did. */
+  error: string | null
   onToggle: () => void
   onDone: () => void
   onSnooze: () => void
@@ -100,7 +102,7 @@ function DkRow({
   const tier = (t.priorityTier as Tier) ?? "optional"
   const where = t.itemName ?? t.roomName ?? "Home"
   return (
-    <div style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}>
+    <div data-testid="desktop-task-row" style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}>
       <div onClick={onToggle} className="flex cursor-pointer items-center gap-4 px-5 py-[15px]">
         <button
           type="button"
@@ -126,6 +128,14 @@ function DkRow({
           ? <ChevronUpIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />
           : <ChevronDownIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />}
       </div>
+      {/* A failed Done/Snooze is said HERE, beside the task it failed on. In
+          the page header it scrolled away above a long list: a failure on a
+          lower row put nothing readable in the viewport. */}
+      {error && (
+        <div role="alert" className="-mt-1.5 pb-3 pl-[56px] pr-5 text-[13.5px] font-medium" style={{ color: CLAY }}>
+          {error}
+        </div>
+      )}
       {expanded && (
         <DkDetail
           homeId={homeId}
@@ -233,8 +243,9 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const loading = loadState === "loading"
   const loadFailed = loadState === "error"
   // This tree's own copy of Done/Snooze read only `res.success`: a failed write
-  // closed the row and said nothing. It shares the phone's now, error and all.
-  const { openId, toggle, pendingId, actionError, onDone, onSnooze } = useAgendaRowActions(homeId, agenda.removeTask)
+  // closed the row and said nothing. It shares the phone's now, error and all —
+  // said on the row that failed (DkRow), in the phone's words.
+  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze } = useAgendaRowActions(homeId, agenda.removeTask)
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
@@ -270,12 +281,6 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
               : tier === "all" ? `${total} thing${total === 1 ? "" : "s"} across your home`
               : `${total} of ${totalAll} across your home`}
           </div>
-          {/* Where the phone says it, in the phone's words (useAgendaRowActions). */}
-          {actionError && (
-            <div role="alert" className="mt-2 text-[13.5px] font-medium" style={{ color: CLAY }}>
-              {actionError}
-            </div>
-          )}
         </div>
         <button
           type="button"
@@ -361,7 +366,10 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
             />
           ) : (
             <>
-              {groups.length === 0 && (
+              {/* Only when a filter is on. Under an empty agenda with no filter,
+                  "Nothing matches these filters" contradicted the headline's
+                  "Nothing due — enjoy the calm." — there was no filter. */}
+              {groups.length === 0 && tier !== "all" && (
                 tier === "focus" && totalAll > 0 ? (
                   <div className="py-16 text-center">
                     <div className="text-[15px] font-semibold" style={{ color: INK }}>You're all caught up on the essentials.</div>
@@ -395,6 +403,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                         t={t}
                         expanded={openId === t.taskInstanceId && pendingId !== t.taskInstanceId}
                         last={i === g.items.length - 1}
+                        error={failedId === t.taskInstanceId ? actionError : null}
                         onToggle={() => toggle(t.taskInstanceId)}
                         onDone={() => onDone(t.taskInstanceId)}
                         onSnooze={() => onSnooze(t.taskInstanceId)}

@@ -68,18 +68,20 @@ type RowWrite = { success: boolean; error?: string }
  * untouched, which reads as "my tap didn't register" — and gets tapped again.
  *
  * A failure moves nothing: the task stays listed, and stays open if it was
- * open (it is genuinely not done), and `actionError` says why. Only a write
- * that SUCCEEDED closes the row and takes the task off the shared agenda.
+ * open (it is genuinely not done), and `actionError` says why — `failedId`
+ * says WHICH row, so a tree can put the words beside it (desktop does: its
+ * header scrolls away above a long list). Only a write that SUCCEEDED closes
+ * the row and takes the task off the shared agenda.
  */
 export function useAgendaRowActions(homeId: string | null, removeTask: (taskInstanceId: string) => void) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const [failure, setFailure] = useState<{ id: string; message: string } | null>(null)
 
   const run = useCallback(
     async (id: string, write: () => Promise<RowWrite>, failed: string) => {
       setPendingId(id)
-      setActionError(null)
+      setFailure(null)
       let res: RowWrite
       try {
         res = await write()
@@ -92,7 +94,7 @@ export function useAgendaRowActions(homeId: string | null, removeTask: (taskInst
       if (!res.success) {
         // `||`, not `??`: an empty message would set "" and render nothing —
         // the silent failure this hook exists to prevent.
-        setActionError(res.error || failed)
+        setFailure({ id, message: res.error || failed })
         return
       }
       setOpenId(null)
@@ -126,7 +128,9 @@ export function useAgendaRowActions(homeId: string | null, removeTask: (taskInst
     /** The row whose write is in flight — collapsed until it answers. */
     pendingId,
     /** Why the last Done/Snooze failed; cleared when the next one starts. */
-    actionError,
+    actionError: failure?.message ?? null,
+    /** The row that last Done/Snooze failed on. */
+    failedId: failure?.id ?? null,
     onDone,
     onSnooze,
   }

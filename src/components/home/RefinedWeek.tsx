@@ -512,7 +512,10 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
           />
         ) : view === "list" ? (
           <div style={{ padding: `17px ${PAD}px 0` }}>
-            {groups.length === 0 && (
+            {/* Only when a filter is on. Under an empty agenda with no filter,
+                "Nothing matches these filters" contradicted the headline's
+                "Nothing due — enjoy the calm." — there was no filter. */}
+            {groups.length === 0 && tier !== "all" && (
               tier === "focus" && totalAll > 0 ? (
                 // Calm empty-focus state — never a blank page; one tap reveals the rest.
                 <div className="py-10 text-center">

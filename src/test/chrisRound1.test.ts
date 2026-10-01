@@ -46,10 +46,13 @@ describe("empty Tasks must not contradict the item page", () => {
     // empty agenda — which is exactly why HH-94's footer under a full list
     // could never render (2026-09-30). It is counted on every read now, and
     // still costs nothing: it is getWeekAgenda's own tally of the read it just
-    // made, never a second query.
+    // made, never a second query — and it comes back WITH the rows, not from a
+    // module-level "last call" that another read in flight could overwrite.
     const hook = read("../hooks/useWeekAgenda.ts")
-    expect(hook).toContain("getLastAgendaWithheld().itemCleaning")
+    expect(hook).toContain("res.withheld.itemCleaning")
     expect(hook).not.toContain("countHiddenCleaning(")
+    const agenda = read("../modules/care/services/weekAgenda.ts")
+    expect(agenda).not.toMatch(/\blet lastWithheld\b|getLastAgendaWithheld/)
   })
 })
 

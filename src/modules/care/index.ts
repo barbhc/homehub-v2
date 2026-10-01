@@ -107,9 +107,8 @@ export {
 
 export {
   getWeekAgenda,
-  getLastAgendaWithheld,
+  type WeekAgendaResult,
   type AgendaWithheld,
-  countHiddenCleaning,
   createTasksFromEditable,
   type WeekAgendaItem,
   type EditableTaskInput,

@@ -11,8 +11,9 @@
  *
  * And the hidden-cleaning count (HH-94) rides on EVERY read — the footer under
  * a full list needs it — taken from the read the agenda already made, never a
- * second query. It used to be taken only for an empty agenda, which is why
- * that footer could never render.
+ * second query, and handed back WITH the rows (getWeekAgenda's `withheld`), so
+ * no other read in flight can swap in its count. It used to be taken only for
+ * an empty agenda, which is why that footer could never render.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { useEffect } from "react"
@@ -22,16 +23,14 @@ import type { WeekAgendaItem } from "@/modules/care"
 
 const svc = vi.hoisted(() => ({
   getWeekAgenda: vi.fn(),
-  getLastAgendaWithheld: vi.fn(),
   getTaskTemplates: vi.fn(),
   getItemUnits: vi.fn(),
   getHomeProfile: vi.fn(),
 }))
-// No countHiddenCleaning: the count must come from the agenda's own read, and a
+// Nothing but the agenda read: the count must come back WITH its rows, and a
 // call to anything this mock does not offer fails the test.
 vi.mock("@/modules/care", () => ({
   getWeekAgenda: (...a: unknown[]) => svc.getWeekAgenda(...a),
-  getLastAgendaWithheld: () => svc.getLastAgendaWithheld(),
   getTaskTemplates: (...a: unknown[]) => svc.getTaskTemplates(...a),
   addLibraryTask: vi.fn(),
   dismissLibrarySuggestion: vi.fn(),
@@ -46,8 +45,9 @@ const { useCareSuggestions } = await import("./useCareSuggestions")
 const task = (id: string, title: string) => ({ taskInstanceId: id, title, dueDate: "2026-10-01", priorityTier: "essential" }) as WeekAgendaItem
 const ok = <T,>(data: T) => ({ data, error: null })
 const never = () => new Promise<never>(() => {})
-/** What getWeekAgenda's last read withheld (weekAgenda.ts tallies it as it reads). */
-const withheld = (itemCleaning: number) => ({ beyondHorizon: 0, nextDueDate: null, itemCleaning })
+/** getWeekAgenda's answer: the rows, and what that same read withheld. */
+const agenda = (rows: WeekAgendaItem[], itemCleaning = 0) =>
+  ({ data: rows, error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning } })
 
 let removeFromFirst: (id: string) => void = () => {}
 const exposeRemoveTask = (remove: (id: string) => void) => { removeFromFirst = remove }
@@ -78,12 +78,11 @@ const persistedWeek = () => {
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
-  svc.getLastAgendaWithheld.mockReturnValue(withheld(0))
 })
 
 describe("useWeekAgenda", () => {
   it("dedupes: two consumers (RefinedWeek + DesktopTasks) cost ONE agenda read", async () => {
-    svc.getWeekAgenda.mockResolvedValue(ok([task("t1", "Replace the furnace filter")]))
+    svc.getWeekAgenda.mockResolvedValue(agenda([task("t1", "Replace the furnace filter")]))
 
     renderWith(<><Agenda name="phone" /><Agenda name="desktop" /></>)
 
@@ -98,8 +97,7 @@ describe("useWeekAgenda", () => {
     // HH-94's footer ("3 cleaning jobs for your items live in Deep Clean")
     // closes a list with tasks on it. With the count taken only for an empty
     // agenda, it was always 0 here and the footer never rendered.
-    svc.getWeekAgenda.mockResolvedValue(ok([task("t1", "Replace the furnace filter")]))
-    svc.getLastAgendaWithheld.mockReturnValue(withheld(3))
+    svc.getWeekAgenda.mockResolvedValue(agenda([task("t1", "Replace the furnace filter")], 3))
 
     renderWith(<><Agenda name="phone" /><Agenda name="desktop" /></>)
 
@@ -108,18 +106,38 @@ describe("useWeekAgenda", () => {
     )
     // One read buys both: the count is the tally of the read just made.
     expect(svc.getWeekAgenda).toHaveBeenCalledTimes(1)
-    expect(svc.getLastAgendaWithheld).toHaveBeenCalledTimes(1)
   })
 
   it("an empty agenda carries the hidden-cleaning count, counted once", async () => {
-    svc.getWeekAgenda.mockResolvedValue(ok([]))
-    svc.getLastAgendaWithheld.mockReturnValue(withheld(3))
+    svc.getWeekAgenda.mockResolvedValue(agenda([], 3))
 
     renderWith(<><Agenda name="phone" /><Agenda name="desktop" /></>)
 
     await waitFor(() => expect(persistedWeek()).toEqual({ items: [], hiddenCleaning: 3 }))
     expect(svc.getWeekAgenda).toHaveBeenCalledTimes(1)
-    expect(svc.getLastAgendaWithheld).toHaveBeenCalledTimes(1)
+  })
+
+  it("each read keeps its OWN count — two reads in flight cannot swap them", async () => {
+    // The tally used to be a module-level "last call" readback: a read for
+    // another home resolving in between handed this one its count. Here the
+    // other home's read is the one that resolves LAST.
+    let releaseOther: (v: unknown) => void = () => {}
+    svc.getWeekAgenda.mockImplementation((homeId: string) =>
+      homeId === "h1"
+        ? Promise.resolve(agenda([task("t1", "Replace the furnace filter")], 2))
+        : new Promise((r) => { releaseOther = r }),
+    )
+    function Other() {
+      useWeekAgenda("h2")
+      return null
+    }
+    renderWith(<><Other /><Agenda name="phone" /></>)
+    await waitFor(() => expect(svc.getWeekAgenda).toHaveBeenCalledTimes(2))
+    act(() => releaseOther(agenda([], 9)))
+
+    await waitFor(() =>
+      expect(persistedWeek()).toEqual({ items: [task("t1", "Replace the furnace filter")], hiddenCleaning: 2 }),
+    )
   })
 
   it("a failed read is an error on every consumer — never an empty agenda, never persisted", async () => {
@@ -133,7 +151,7 @@ describe("useWeekAgenda", () => {
   })
 
   it("removeTask reaches every consumer and the persisted snapshot, without refetching", async () => {
-    svc.getWeekAgenda.mockResolvedValue(ok([task("t1", "Replace the furnace filter"), task("t2", "Test the smoke alarms")]))
+    svc.getWeekAgenda.mockResolvedValue(agenda([task("t1", "Replace the furnace filter"), task("t2", "Test the smoke alarms")]))
     renderWith(<><Agenda name="phone" exposeRemove /><Agenda name="desktop" /></>)
     expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
 
@@ -149,7 +167,7 @@ describe("useWeekAgenda", () => {
     // Warm start: the snapshot is on screen and this session's read is in flight.
     // SWR discards a read that started before a local change, so without a new
     // one the page would keep a list the server never confirmed.
-    svc.getWeekAgenda.mockReturnValueOnce(never()).mockResolvedValue(ok([task("t2", "Test the smoke alarms")]))
+    svc.getWeekAgenda.mockReturnValueOnce(never()).mockResolvedValue(agenda([task("t2", "Test the smoke alarms")]))
     renderWith(<Agenda name="phone" exposeRemove />, {
       "week:v1:h1": { items: [task("t1", "Replace the furnace filter"), task("t2", "Test the smoke alarms")], hiddenCleaning: 0 },
     })
