@@ -79,6 +79,7 @@ export function RefinedHome({
   homeName,
   onSelectHome,
   completingId,
+  actionError = null,
   onComplete,
   onSnooze,
   density = "cozy",
@@ -97,6 +98,8 @@ export function RefinedHome({
   /** Makes the home name a pill that opens the switcher. Absent = plain text. */
   onSelectHome?: () => void
   completingId: string | null
+  /** A refused check-off or snooze, shown on its row (ThisWeekList). */
+  actionError?: { id: string; message: string } | null
   onComplete: (id: string) => void
   onSnooze: (id: string) => void
   density?: "spacious" | "cozy" | "compact"
@@ -155,6 +158,7 @@ export function RefinedHome({
           upcoming={upcoming}
           nextUp={nextUp}
           completingId={completingId}
+          actionError={actionError}
           onComplete={onComplete}
           onSnooze={onSnooze}
         />

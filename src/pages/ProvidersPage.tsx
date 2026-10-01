@@ -10,6 +10,7 @@ import {
   WrenchIcon,
 } from "lucide-react"
 import { useCurrentHome } from "@/modules/home"
+import { InlineError, LoadErrorState } from "@/components/layout/LoadStates"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -199,7 +200,7 @@ function ProviderDetail({
 export default function ProvidersPage() {
   const { home } = useCurrentHome()
   const homeId = home?.home_id ?? ""
-  const { providers, loading, deletingId, save, remove } = useServiceProviders(homeId)
+  const { providers, loading, deletingId, save, remove, loadFailed, removeError, reload } = useServiceProviders(homeId)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -306,8 +307,12 @@ export default function ProvidersPage() {
           )}
         </header>
 
+        {removeError && <InlineError className="mb-4">{removeError}</InlineError>}
         {loading ? (
           <p className="text-[13.5px]" style={{ color: SUB }}>Loading…</p>
+        ) : loadFailed ? (
+          // A list never read is not "No service providers yet".
+          <LoadErrorState title="Couldn't load your providers" message="Check your connection and try again." onRetry={reload} />
         ) : providers.length === 0 ? (
           // ── Empty state (the user genuinely has zero providers) ──
           <div className="flex flex-col items-center justify-center rounded-2xl bg-[var(--hh-surface)] px-6 py-16 text-center shadow-[0_1px_2px_rgba(15,23,42,0.05)]">

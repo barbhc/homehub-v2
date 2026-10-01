@@ -175,10 +175,15 @@ Every table below has a home in §1/§2 and its read path resolved in §4/§5. *
 - [x] care_note → careNotes
 
 Read models resolved (see §4): `getDashboardTasks`, `getDashboardStats`, `getUpcomingTasks`,
-`getAllMaintenanceTasks`, `getExpiringWarranties`, `getHomeNotices`, `getWeekAgenda`,
+`getExpiringWarranties`, `getHomeNotices`, `getWeekAgenda`,
 `getTaskDetail`, `getTaskInstances`, `getCompletionHistory`, `getTierChangeHistory`,
 `getCleaningTasks`, `getRoutineTemplates`, `getItemCleanGuide`, `getHomeUpkeep`,
-`getCareNotesByScope/ByItem/ByHome`.
+`getCareNotesByItem`.
+
+Since then: `getAllMaintenanceTasks` (the `/tasks` page's read) and `getCareNotesByScope` /
+`getCareNotesByHome` (`/faq`'s) were deleted with those pages in #229; and since #226 the five
+Dashboard read models are `derive*` functions in `src/lib/dashboard.ts` over one shared read of
+the home (`src/lib/homeReads.ts`), not queries of their own.
 
 ---
 
@@ -196,7 +201,7 @@ Each v1 join is listed with the exact tables/FKs it traversed and how v2 satisfi
   Index: `(status, deletedAt, priorityScore desc, dueDate asc)`.
 - **getDashboardStats** — items count + `taskInstances` where `status=done, completedAt >= monthStart`.
   Denorm `careType`/`tier` on instance covers the breakdown. Index `(status, completedAt desc)`.
-- **getUpcomingTasks / getAllMaintenanceTasks** — same denorm shape; add `notes` (template) — surface
+- **getUpcomingTasks** — same denorm shape; add `notes` (template) — surface
   from denorm or a detail `get()` (not shown in list rows → denorm not required, fetch on demand).
 - **getExpiringWarranties / getHomeNotices / getItemIdsWithTasks** — `items`-only reads; the last
   needs "items that have any active item-scoped template" → maintain a boolean `hasTasks` on the item

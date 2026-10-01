@@ -251,6 +251,7 @@ export function HomeMembersSection({ homeId }: Props) {
                               const name = nameDraft.trim()
                               if (!name || !userId) return
                               setSavingName(true)
+                              setActionError(null)
                               try {
                                 await setDoc(
                                   doc(db, `users/${userId}`),
@@ -259,6 +260,11 @@ export function HomeMembersSection({ homeId }: Props) {
                                 )
                                 setNameDraft("")
                                 await load()
+                              } catch (err) {
+                                // The typed name stays in the field; the section
+                                // says it didn't save (it was an unhandled rejection).
+                                console.warn(`[members] could not save the display name for ${userId}:`, err instanceof Error ? err.message : err)
+                                setActionError("Couldn't save your name. Check your connection and try again.")
                               } finally {
                                 setSavingName(false)
                               }

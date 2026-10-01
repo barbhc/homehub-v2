@@ -1,8 +1,6 @@
 import { BookmarkIcon, BookOpenIcon, BrainIcon, GlobeIcon, RotateCcwIcon, ScanSearchIcon, StickyNoteIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ChatSource } from "@/modules/knowledge/services/chatService"
-import { SaveFaqDialog } from "./SaveFaqDialog"
-import { useState } from "react"
 import ReactMarkdown from "react-markdown"
 
 /**
@@ -65,13 +63,16 @@ function shouldOfferWebSearch(message: ChatMessage): boolean {
 type ChatMessageBubbleProps = {
   message: ChatMessage
   precedingQuestion?: string
+  /** Asks the PAGE to open its one save dialog for this answer. The bubble used
+   *  to open a dialog of its own and hand the page `onSaved`, which opened the
+   *  page's dialog too — two dialogs, and a second tap wrote the answer twice
+   *  (audit H6). */
   onSaveFaq?: (question: string, answer: string, itemUnitId: string | null) => void
   onWebSearch?: (messageId: string) => void
   /** Ask a failed answer's question again, in place (HH-28). */
   onRetry?: (messageId: string) => void
   activeFilterType?: "all" | "item" | "room" | "category"
   activeFilterValue?: string
-  homeId: string
 }
 
 export function ChatMessageBubble({
@@ -82,9 +83,7 @@ export function ChatMessageBubble({
   onRetry,
   activeFilterType,
   activeFilterValue,
-  homeId,
 }: ChatMessageBubbleProps) {
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const isUser = message.role === "user"
   /** Whitespace is not an answer — a finished bubble of blanks is an empty one. */
   const hasText = !!message.content?.trim()
@@ -169,7 +168,16 @@ export function ChatMessageBubble({
           precedingQuestion !== undefined && (
             <button
               type="button"
-              onClick={() => setSaveDialogOpen(true)}
+              onClick={() =>
+                onSaveFaq(
+                  precedingQuestion,
+                  message.content,
+                  // The item the answer was scoped or inferred to, else the
+                  // scope filter's item; the page falls back to its own scope.
+                  message.inferredItem?.item_unit_id ??
+                    (activeFilterType === "item" ? activeFilterValue ?? null : null),
+                )
+              }
               className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border rounded-md px-2.5 py-1 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors mt-1"
             >
               <BookmarkIcon className="size-3" aria-hidden />
@@ -177,17 +185,6 @@ export function ChatMessageBubble({
             </button>
           )}
       </div>
-      {onSaveFaq && (
-        <SaveFaqDialog
-          open={saveDialogOpen}
-          onOpenChange={setSaveDialogOpen}
-          question={precedingQuestion ?? ""}
-          answer={message.content}
-          homeId={homeId}
-          defaultItemUnitId={activeFilterType === "item" ? activeFilterValue ?? null : null}
-          onSaved={onSaveFaq}
-        />
-      )}
     </>
   )
 }

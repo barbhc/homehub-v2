@@ -120,6 +120,7 @@ export function readPersistedSwrFallback(): Record<string, unknown> {
     }
     return out
   } catch {
+    // Unreadable or corrupt snapshot: a cold start with no warm cache, not an error.
     return {}
   }
 }

@@ -18,11 +18,22 @@ import type { ChatSource, ChatMessage } from "./chatService"
  * Conversation history for Ask. Backed by `homes/{homeId}/chatConversations`
  * and its `messages` subcollection (firestore-model.md).
  *
- * GRACEFUL DEGRADATION: this feature is optional. Every call returns a "missing"
- * signal (`null` / `false`) instead of throwing on any error, so the Ask page
- * silently falls back to its in-memory single-thread behavior. Callers must
- * treat those results as "persistence is off" and never surface an error.
+ * NEVER THROWS, NEVER SILENT. Every call returns a "missing" signal (`null` /
+ * `false`) instead of throwing, so a failed write never interrupts the answer
+ * being streamed — and every failure is LOGGED here with the ids involved.
+ *
+ * The signal used to mean "persistence is off" (v1's table could be missing)
+ * and the page was told never to surface it. In v2 the collection always
+ * exists, so a null/false with real ids is a FAILURE: the Ask page says so
+ * where the person would lose something — the Recent list, opening a past
+ * conversation, and a conversation that could not be saved to history
+ * (audit H6).
  */
+
+/** One line per failed history read/write, with the ids needed to find it. */
+function logFailure(what: string, e: unknown): void {
+  console.warn(`[ask history] ${what}:`, e instanceof Error ? e.message : e)
+}
 
 export type ConversationSummary = {
   id: string
@@ -70,8 +81,8 @@ function fromSources(sources: ChatSource[] | null | undefined): DocumentData[] |
 const RAIL_CONVERSATIONS = 50
 
 /**
- * Lists conversations for a home, most-recent first. Returns `null` on any
- * error so the caller falls back to in-memory mode.
+ * Lists conversations for a home, most-recent first. Returns `null` when the
+ * read failed (logged) — never an empty list standing in for one.
  */
 export async function listConversations(
   homeId: string
@@ -98,14 +109,15 @@ export async function listConversations(
       // Conversations touched in the same instant (the seed writes three) keep
       // document-id order, as the whole-collection read returned them.
       .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? "") || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-  } catch {
+  } catch (e) {
+    logFailure(`could not list conversations for home ${homeId}`, e)
     return null
   }
 }
 
 /**
  * Loads the messages of a conversation in chronological order. Returns `null`
- * if persistence is unavailable.
+ * when the read failed (logged).
  */
 export async function getConversationMessages(
   homeId: string,
@@ -128,14 +140,15 @@ export async function getConversationMessages(
         }
       })
       .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))
-  } catch {
+  } catch (e) {
+    logFailure(`could not load conversation ${conversationId} (home ${homeId})`, e)
     return null
   }
 }
 
 /**
- * Creates a new conversation. Returns the new id, or `null` if persistence is
- * unavailable (caller proceeds in-memory).
+ * Creates a new conversation. Returns the new id, or `null` when the write
+ * failed (logged) — the answer still streams; the caller says it isn't saved.
  */
 export async function createConversation(
   homeId: string,
@@ -152,14 +165,15 @@ export async function createConversation(
       updatedAt: now,
     })
     return ref.id
-  } catch {
+  } catch (e) {
+    logFailure(`could not create a conversation (home ${homeId})`, e)
     return null
   }
 }
 
 /**
- * Appends a message to a conversation. Best-effort: returns true on success,
- * false (without throwing) when persistence is unavailable.
+ * Appends a message to a conversation. Returns true on success, false (logged,
+ * never thrown) when the write failed.
  */
 export async function appendMessage(
   homeId: string,
@@ -177,12 +191,13 @@ export async function appendMessage(
     // Touch the parent so it sorts to the top of the rail.
     await touchConversation(homeId, conversationId)
     return true
-  } catch {
+  } catch (e) {
+    logFailure(`could not save a ${msg.role} message to conversation ${conversationId} (home ${homeId})`, e)
     return false
   }
 }
 
-/** Renames a conversation. Best-effort. */
+/** Renames a conversation. Returns false (logged) when the write failed. */
 export async function renameConversation(
   homeId: string,
   conversationId: string,
@@ -195,20 +210,25 @@ export async function renameConversation(
       updatedAt: serverTimestamp(),
     })
     return true
-  } catch {
+  } catch (e) {
+    logFailure(`could not rename conversation ${conversationId} (home ${homeId})`, e)
     return false
   }
 }
 
-/** Bumps updatedAt so the conversation sorts to the top. Best-effort. */
+/**
+ * Bumps updatedAt so the conversation sorts to the top. Logged, never thrown:
+ * the message itself is already saved, so a failed bump costs only its place
+ * in the Recent order.
+ */
 export async function touchConversation(homeId: string, conversationId: string): Promise<void> {
   if (!homeId || !conversationId) return
   try {
     await updateDoc(doc(db, `homes/${homeId}/chatConversations/${conversationId}`), {
       updatedAt: serverTimestamp(),
     })
-  } catch {
-    /* ignore — persistence optional */
+  } catch (e) {
+    logFailure(`could not move conversation ${conversationId} to the top of Recent (home ${homeId})`, e)
   }
 }
 

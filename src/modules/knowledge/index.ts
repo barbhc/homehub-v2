@@ -48,6 +48,7 @@ export {
   readPreviewDraft,
   commitReviewedDraft,
   toUiStage,
+  type ParseProgressState,
   type ParseManualResult,
   type PreviewManualResult,
   type CommitReviewedResult,

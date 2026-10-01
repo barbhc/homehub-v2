@@ -18,6 +18,7 @@ function parseContent(content: string): { steps: string[]; supplies: string[] } 
     }
     return null
   } catch {
+    // Not JSON: the caller renders the content as plain text.
     return null
   }
 }

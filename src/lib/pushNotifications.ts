@@ -40,16 +40,25 @@ export async function subscribeToPush(
   }
 }
 
+/**
+ * Turns web push off for this browser: removes its token from the server, then
+ * deletes it locally.
+ *
+ * The server write THROWS on failure. It used to be swallowed ("Silent fail on
+ * unsubscribe"), so Settings showed notifications off while the server still
+ * held the token and kept sending (audit H6).
+ */
 export async function unsubscribeFromPush(userId: string): Promise<void> {
-  try {
-    const token = await getFcmToken().catch(() => null)
-    if (token) {
-      await setDoc(tokensDoc(userId), { tokens: arrayRemove(token) }, { merge: true })
-    }
-    await deleteFcmToken()
-  } catch {
-    // Silent fail on unsubscribe
+  const token = await getFcmToken().catch((e: unknown) => {
+    // No readable token means this browser holds none to remove (unsupported,
+    // or permission already gone) — nothing is being delivered to it.
+    console.warn("[push] could not read this browser's push token; nothing to remove:", e instanceof Error ? e.message : e)
+    return null
+  })
+  if (token) {
+    await setDoc(tokensDoc(userId), { tokens: arrayRemove(token) }, { merge: true })
   }
+  await deleteFcmToken()
 }
 
 export async function isSubscribed(): Promise<boolean> {

@@ -44,12 +44,14 @@ const template = (over: Partial<TaskTemplate> = {}): TaskTemplate =>
 beforeEach(() => vi.resetAllMocks())
 
 const ok = <T,>(data: T) => ({ data, error: null })
+/** getWeekAgenda's answer: the rows, and what that read withheld. */
+const agenda = (rows: WeekAgendaItem[]) => ({ ...ok(rows), withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
 const fail = { data: null, error: { message: "boom" } }
 
 describe("getWeekReminders — the notification lens over the week", () => {
   it("curated mode keeps only explicit remindEnabled === true", async () => {
     vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(
-      ok([agendaRow({ taskTemplateId: "on" }), agendaRow({ taskTemplateId: "null", taskInstanceId: "i2" }), agendaRow({ taskTemplateId: "off", taskInstanceId: "i3" })])
+      agenda([agendaRow({ taskTemplateId: "on" }), agendaRow({ taskTemplateId: "null", taskInstanceId: "i2" }), agendaRow({ taskTemplateId: "off", taskInstanceId: "i3" })])
     )
     vi.mocked(taskService.getTaskTemplates).mockResolvedValue(
       ok([
@@ -66,7 +68,7 @@ describe("getWeekReminders — the notification lens over the week", () => {
 
   it("curated+essential admits the never-chose Essential too", async () => {
     vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(
-      ok([agendaRow({ taskTemplateId: "on" }), agendaRow({ taskTemplateId: "null", taskInstanceId: "i2", priorityTier: "essential" })])
+      agenda([agendaRow({ taskTemplateId: "on" }), agendaRow({ taskTemplateId: "null", taskInstanceId: "i2", priorityTier: "essential" })])
     )
     vi.mocked(taskService.getTaskTemplates).mockResolvedValue(
       ok([
@@ -80,7 +82,7 @@ describe("getWeekReminders — the notification lens over the week", () => {
   })
 
   it("a row whose template is missing survives the join (tier default decides)", async () => {
-    vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(ok([agendaRow({ taskTemplateId: "ghost", priorityTier: "essential" })]))
+    vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(agenda([agendaRow({ taskTemplateId: "ghost", priorityTier: "essential" })]))
     vi.mocked(taskService.getTaskTemplates).mockResolvedValue(ok([]))
     const res = await getWeekReminders("h1", "curated+essential")
     expect(res.data!.items).toHaveLength(1)
@@ -89,7 +91,7 @@ describe("getWeekReminders — the notification lens over the week", () => {
   })
 
   it("supplies ride along from the template", async () => {
-    vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(ok([agendaRow()]))
+    vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(agenda([agendaRow()]))
     vi.mocked(taskService.getTaskTemplates).mockResolvedValue(
       ok([
         template({
@@ -104,7 +106,7 @@ describe("getWeekReminders — the notification lens over the week", () => {
   })
 
   it("a failed template fetch is an ERROR, never an empty week", async () => {
-    vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(ok([agendaRow()]))
+    vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(agenda([agendaRow()]))
     vi.mocked(taskService.getTaskTemplates).mockResolvedValue(fail as never)
     const res = await getWeekReminders("h1", "curated")
     expect(res.data).toBeNull()

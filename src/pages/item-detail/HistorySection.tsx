@@ -153,13 +153,18 @@ export function HistorySection({ homeId, itemId, refreshKey = 0 }: HistorySectio
     ]).then(([completionResult, tierResult]) => {
       if (cancelled) return
       setLoading(false)
+      // History is supplementary and an empty timeline renders NOTHING (never
+      // "no history"), so a failed half hides quietly — but is logged.
+      if (completionResult.error) console.warn(`[history] could not read completions for item ${itemId}:`, completionResult.error.message)
+      if (tierResult.error) console.warn(`[history] could not read tier changes for item ${itemId}:`, tierResult.error.message)
       const completions = completionResult.data ?? []
       const tierChanges = tierResult.data ?? []
       setEvents(toTimelineEvents(completions, tierChanges))
-    }).catch(() => {
-      // History is supplementary: an empty timeline is an acceptable outcome,
-      // an endless spinner is not.
-      if (!cancelled) setLoading(false)
+    }).catch((e: unknown) => {
+      // An empty timeline is an acceptable outcome, an endless spinner is not.
+      if (cancelled) return
+      console.warn(`[history] could not read the history of item ${itemId}:`, e instanceof Error ? e.message : e)
+      setLoading(false)
     })
     return () => {
       cancelled = true

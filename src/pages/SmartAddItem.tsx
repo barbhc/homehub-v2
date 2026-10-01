@@ -397,6 +397,7 @@ export default function SmartAddItem() {
             // the one just uploaded was redundant and is gone. So the preview
             // URL and Replace's clean-up list follow the record, not the upload.
             const stored = manualRes.data.source_ref
+            // Optional: if the record's URL can't resolve, the preview keeps the upload's own URL.
             firstUrl = (await resolveStorageUrl(stored).catch(() => null)) ?? firstUrl
             uploadPaths.push(stored)
           }

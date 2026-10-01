@@ -11,7 +11,7 @@ import {
 import { getItemUnits } from "@/modules/items"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
 import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
-import { normalizeNotificationPrefs, type NotificationPrefs } from "@/lib/notificationPreferences"
+import type { NotificationPrefs } from "@/lib/notificationPreferences"
 import { cadenceLabel, cadenceLabelInline } from "../../shared/tasks/cadenceLabel"
 import { isRecurring } from "../../shared/tasks/reviewBuckets"
 import type { ScheduleType, TaskTemplate } from "@/integrations/types"
@@ -179,9 +179,14 @@ export default function YourReminders() {
     return () => { alive = false }
   }, [homeId])
 
+  // A failed read leaves `prefs` null, so the "Just my list" question is not
+  // asked. It used to fall back to the DEFAULTS — and answering it then saved
+  // those defaults over every preference the person had set (audit H6).
   useEffect(() => {
     if (!uid) return
-    void getNotificationPrefs(uid).then(setPrefs).catch(() => setPrefs(normalizeNotificationPrefs(undefined)))
+    void getNotificationPrefs(uid).then(setPrefs).catch((e: unknown) => {
+      console.warn(`[reminders] could not read notification preferences for ${uid}; not offering the style switch:`, e instanceof Error ? e.message : e)
+    })
   }, [uid])
 
   const propose = async () => {

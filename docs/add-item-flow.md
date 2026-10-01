@@ -139,6 +139,19 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   owner QA, 2026-09-06 (care-library branch)
 - Paste a link says it **must end in .pdf**, and offers a pre-filled Google
   search for this exact model. — HH-129
+- **A link can be typed, key by key.** The field gives way to the "Manual link
+  added" card only once the link is finished — a paste or Enter (any text), or,
+  without being asked, a COMPLETE link (one the scan accepts, pointing past the
+  bare site) when leaving the field or arriving whole (autofill, a search
+  result). Never mid-word; a partial link stays in the field as typed. A press
+  on the step's own controls leaves even a complete link in the field (that
+  control's action runs); a press anywhere else — the item page's "Owner
+  manual" / "Reference doc" — lands first, and the link is chosen after it.
+  The card's X puts a chosen link back in its field to edit. Enter shows the
+  link; Scan stays its own tap. The card used to follow the field's text, so
+  the first typed character replaced the field. Behaviour only: same layout,
+  same copy. — audit 2026-09-30 (Tasks + cleaning leftovers package; gate
+  review of #231)
 - "Let us find it" is **last, muted, badged Beta**, and says how it goes
   wrong. — HH-107, HH-115
 - **Zero-byte files are refused** before any upload or AI spend. — HH-128
@@ -443,6 +456,8 @@ and where they differ, the amended line governs:
 | `src/lib/designContracts.test.ts` | This file's rules as behaviour, not names: the item page renders one tree and one add-manual dialog at 390px and desktop, and never starts a scan on arrival; zero-byte refusal and the capacity stand-down; every review door gets the one screen, in order; the two-step review's sentences, absent app-wide; one indeterminate rail, in Upkeep; the pill on the item's own page (HH-161, which turned HH-118's test around); after attaching a manual, never "No upkeep yet" beside "Reading the manual"; round 14's sentence absent app-wide; the Tasks count excluding item cleaning; no bell on a phone that refused. A rule the code does not meet yet is an `it.todo` naming its package | live |
 | `src/components/manuals/TaskReviewSheet.saved.test.tsx` | A screen claiming rows are saved while offering the button that saves them | live |
 | `src/components/smart-add/addFlowCopy.test.ts` | Copy and step-union drift | live |
+| `src/components/smart-add/ManualStep.test.tsx`, "a link can be TYPED" | The link field swapped for the card mid-word (losing focus and the text), a partial link chosen on leaving the field, a complete one that Enter or leaving does not finish, a paste that no longer finishes at once, an X that throws the link away, or a press swallowed by the swap — the step's own controls, the drop zone, or a button outside the step, Safari's no-focus press included (2026-09-30) | live |
+| `ManualSection.addManual.test.tsx` + `e2e/emu/manual-link-typing.spec.ts` | On the item page's door: a typed link, then "Reference doc" — the tap lost to the swap, or the link not chosen after it; a partial link chosen on leaving the field (2026-09-30) | live |
 | Journey walks + their `snap()` notes | Visual drift — but ONLY if the note states the requirement rather than describing the screen | live |
 | **This file** | A change quietly undoing an earlier agreement | live |
 | `src/components/manuals/TaskReviewSheet.sections.test.tsx` | A bucket with no rail — the HH-140 mechanism, now impossible because `SECTION_RAIL` is typed `Record<ReviewBucket, string>` | live |

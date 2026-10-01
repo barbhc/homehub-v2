@@ -115,8 +115,11 @@ export async function recordParseFeedback(homeId: string, input: ParseFeedbackIn
         deletedAt: null,
       })
     }
-  } catch {
+  } catch (e) {
     // Never block or interrupt a review on feedback — the user's task edits save
-    // through a separate path and must not be coupled to this.
+    // through a separate path and must not be coupled to this. But never lose
+    // it without a trace either: dropped feedback is how pre-#25 corrections
+    // vanished unnoticed.
+    console.warn(`[review feedback] could not record feedback for manual ${input.manualId} (home ${homeId}):`, e instanceof Error ? e.message : e)
   }
 }

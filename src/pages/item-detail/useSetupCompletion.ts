@@ -2,9 +2,9 @@
  * useSetupCompletion — shared "done" state for setup-checklist tasks.
  *
  * Setup tasks are checked off by writing a `done` task_instance (and un-checked
- * by soft-deleting it). Both the mobile SetupChecklistSection and the desktop
- * setup block render their own UI but share this completion logic so the DB
- * behavior stays identical.
+ * by soft-deleting it). Its one caller is CareBlock's Setup rows, which both
+ * item-page layouts render; the retired SetupChecklistSection (deleted
+ * 2026-09-30) used to be the second.
  */
 import { useEffect, useState } from "react"
 import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where, Timestamp } from "firebase/firestore"
@@ -20,10 +20,19 @@ export interface SetupCompletion {
   /** Number of tasks currently done. */
   doneCount: number
   isDone: (taskId: string) => boolean
-  toggleDone: (task: TaskTemplateWithSchedule) => Promise<void>
+  /** Resolves false when the write failed (and `error` says so). */
+  toggleDone: (task: TaskTemplateWithSchedule) => Promise<boolean>
   /** "It's already installed" — clears every remaining step in one go, for the
    *  common case of adding a manual to an appliance installed years ago. */
   markAllDone: () => Promise<void>
+  /** A read or a tick that failed, in words for the checklist to show. Both
+   *  used to be swallowed: a failed read rendered every step unchecked, and a
+   *  failed tick just didn't take, with nothing said (audit H6). */
+  error: string | null
+  /** The read failed — the checklist offers `retryLoad`. */
+  loadFailed: boolean
+  /** Re-reads which steps are done, after a failed read. */
+  retryLoad: () => void
 }
 
 export function useSetupCompletion(
@@ -33,6 +42,9 @@ export function useSetupCompletion(
 ): SetupCompletion {
   const [instanceMap, setInstanceMap] = useState<Map<string, string>>(new Map())
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
+  const [toggleError, setToggleError] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   const taskKey = tasks.map((t) => t.task_template_id).join(",")
 
@@ -69,12 +81,19 @@ export function useSetupCompletion(
           if (!map.has(row.tplId)) map.set(row.tplId, row.id)
         }
         setInstanceMap(map)
+        setLoadFailed(false)
       })
-      .catch(() => { /* non-fatal — checklist renders unchecked */ })
+      .catch((e: unknown) => {
+        // The steps render unchecked — so say we couldn't read them, rather
+        // than letting "nothing done yet" stand as if it were known.
+        if (cancelled) return
+        console.warn(`[setup] could not read which steps are done for item ${itemId} (home ${homeId}):`, e instanceof Error ? e.message : e)
+        setLoadFailed(true)
+      })
     return () => { cancelled = true }
     // taskKey captures the set of task ids without re-running on array identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskKey, homeId])
+  }, [taskKey, homeId, loadAttempt])
 
   /**
    * Every outstanding step at once.
@@ -82,18 +101,21 @@ export function useSetupCompletion(
    * Sequential, not parallel: each completion is a write plus a state update
    * keyed by task id, and firing them together made the map races visible as
    * checkboxes that flickered back. A handful of install steps is a short loop.
+   * Stops at the first failure — one error line, not one per step.
    */
   const markAllDone = async () => {
     for (const task of tasks) {
       if (instanceMap.has(task.task_template_id)) continue
-      await toggleDone(task)
+      if (!(await toggleDone(task))) return
     }
   }
 
-  const toggleDone = async (task: TaskTemplateWithSchedule) => {
+  const toggleDone = async (task: TaskTemplateWithSchedule): Promise<boolean> => {
     const taskId = task.task_template_id
     const wasDone = instanceMap.has(taskId)
     setLoadingIds((prev) => new Set([...prev, taskId]))
+    setToggleError(null)
+    let ok = true
 
     if (wasDone) {
       const instanceId = instanceMap.get(taskId)!
@@ -107,21 +129,30 @@ export function useSetupCompletion(
           next.delete(taskId)
           return next
         })
-      } catch { /* leave checked; the next toggle retries */ }
+      } catch (e) {
+        // Left checked — it is still done on the server — and said.
+        console.warn(`[setup] could not un-check step ${taskId} (home ${homeId}):`, e instanceof Error ? e.message : e)
+        ok = false
+      }
     } else {
       // logTaskCompletion writes the done instance WITH the template's denorm
       // display set (title/tier/careType — firestore-model.md §5).
       const result = await logTaskCompletion(homeId, taskId, itemId, new Date().toISOString())
       if (!result.error && result.data) {
         setInstanceMap((prev) => new Map([...prev, [taskId, result.data!.task_instance_id]]))
+      } else {
+        console.warn(`[setup] could not check off step ${taskId} (home ${homeId}):`, result.error?.message)
+        ok = false
       }
     }
 
+    if (!ok) setToggleError("Couldn't update that step. Check your connection and try again.")
     setLoadingIds((prev) => {
       const next = new Set(prev)
       next.delete(taskId)
       return next
     })
+    return ok
   }
 
   return {
@@ -131,5 +162,8 @@ export function useSetupCompletion(
     isDone: (taskId: string) => instanceMap.has(taskId),
     toggleDone,
     markAllDone,
+    error: toggleError ?? (loadFailed ? "Couldn't load which steps are done." : null),
+    loadFailed,
+    retryLoad: () => setLoadAttempt((n) => n + 1),
   }
 }

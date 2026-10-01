@@ -6,6 +6,7 @@ import { ChatThread } from "@/components/chat/ChatThread"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { SaveFaqDialog } from "@/components/chat/SaveFaqDialog"
 import { getSuggestions } from "@/components/chat/chatSuggestions"
+import { InlineError } from "@/components/layout/LoadStates"
 import { useCurrentHome } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import { useChatFilters } from "@/modules/knowledge/hooks/useChatFilters"
@@ -54,19 +55,32 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
 
-  // ── Conversation history (gracefully degrades when the table is missing) ──
-  // `conversations === null` means persistence is unavailable; the page then
-  // runs exactly as before — a single in-memory thread.
+  // ── Conversation history ──
+  // `conversations === null` means no list has loaded yet. A failed read says
+  // so in Recent (with a retry) rather than claiming there is no history — the
+  // rail's "will appear here once saved" was shown for a list it never read.
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null)
   const [activeConvoId, setActiveConvoId] = useState<string | null>(null)
   // The id of the conversation we're currently persisting into. Held in a ref
   // so the async streaming callbacks always see the latest value.
   const convoIdRef = useRef<string | null>(null)
+  /** The Recent list could not be read. */
+  const [historyLoadFailed, setHistoryLoadFailed] = useState(false)
+  /** A past conversation that could not be opened — tapping it used to do nothing at all. */
+  const [openFailedId, setOpenFailedId] = useState<string | null>(null)
+  /** This thread could not be saved to history: leaving it would lose it, so
+   *  it says so above the composer (audit H6 — the writes used to fail silently). */
+  const [threadNotSaved, setThreadNotSaved] = useState(false)
+  /** Bumped whenever the thread changes, so a late failure from a thread the
+   *  person has left never flags the one they are reading now. */
+  const threadSeqRef = useRef(0)
 
   const refreshConversations = useCallback(async () => {
     if (!homeId) return
     const list = await listConversations(homeId)
-    setConversations(list)
+    // A failed read keeps whatever list we already hold, and says so.
+    setHistoryLoadFailed(list === null)
+    if (list !== null) setConversations(list)
   }, [homeId])
 
   useEffect(() => {
@@ -109,6 +123,8 @@ export default function ChatPage() {
     setMessages([])
     setActiveConvoId(null)
     convoIdRef.current = null
+    threadSeqRef.current += 1
+    setThreadNotSaved(false)
   }, [])
 
   const handleRoomToggle = useCallback((roomId: string) => {
@@ -125,16 +141,22 @@ export default function ChatPage() {
     startNewQuestion()
   }, [startNewQuestion])
 
-  // Load a past conversation into the thread. Silently no-ops if persistence
-  // became unavailable between listing and selecting.
+  // Load a past conversation into the thread. A failed read says so in Recent,
+  // with a retry — the tap used to do nothing at all.
   const handleSelectConversation = useCallback(async (id: string) => {
     if (isStreaming) return
+    setOpenFailedId(null)
     const rows = await getConversationMessages(homeId, id)
-    if (!rows) return
+    if (!rows) {
+      setOpenFailedId(id)
+      return
+    }
     setMessages(toChatMessages(rows))
     setActiveConvoId(id)
     convoIdRef.current = id
-  }, [isStreaming])
+    threadSeqRef.current += 1
+    setThreadNotSaved(false)
+  }, [isStreaming, homeId])
 
   /** Leave the thread and return to the Ask landing. The conversation is kept
    *  (persisted per message); this only resets the view. */
@@ -143,6 +165,8 @@ export default function ChatPage() {
     setIsStreaming(false)
     convoIdRef.current = null
     setActiveConvoId(null)
+    threadSeqRef.current += 1
+    setThreadNotSaved(false)
   }, [])
 
   /** Append streamed text to one answer bubble. */
@@ -185,20 +209,23 @@ export default function ChatPage() {
         content: m.content,
       }))
 
-      // Best-effort persistence. If `createConversation` returns null the table
-      // is missing and we just stay in-memory — the stream below is unaffected.
+      // Persistence never blocks the stream below. A failed write is logged by
+      // the service and said above the composer — this thread is not in
+      // history, and leaving it would lose it.
+      const thread = threadSeqRef.current
+      const notSaved = () => { if (threadSeqRef.current === thread) setThreadNotSaved(true) }
       const persistUser = async (): Promise<string | null> => {
         let convoId = convoIdRef.current
         if (!convoId && isFirstTurn) {
           convoId = await createConversation(homeId, user?.id ?? null, text.slice(0, 80))
-          if (convoId) {
-            convoIdRef.current = convoId
-            setActiveConvoId(convoId)
+          if (!convoId) {
+            notSaved()
+            return null
           }
+          convoIdRef.current = convoId
+          setActiveConvoId(convoId)
         }
-        if (convoId) {
-          await appendMessage(homeId, convoId, { role: "user", content: text })
-        }
+        if (convoId && !(await appendMessage(homeId, convoId, { role: "user", content: text }))) notSaved()
         return convoId
       }
       const persistPromise = persistUser()
@@ -223,7 +250,7 @@ export default function ChatPage() {
           setIsStreaming(false)
           void persistPromise.then(async (convoId) => {
             if (!convoId) return
-            await appendMessage(homeId, convoId, { role: "assistant", content: finalContent, sources })
+            if (!(await appendMessage(homeId, convoId, { role: "assistant", content: finalContent, sources }))) notSaved()
             void refreshConversations()
           })
         },
@@ -278,9 +305,11 @@ export default function ChatPage() {
           setIsStreaming(false)
           const convoId = convoIdRef.current
           if (!convoId) return
-          void appendMessage(homeId, convoId, { role: "assistant", content: answer, sources }).then(() =>
-            refreshConversations()
-          )
+          const thread = threadSeqRef.current
+          void appendMessage(homeId, convoId, { role: "assistant", content: answer, sources }).then((saved) => {
+            if (!saved && threadSeqRef.current === thread) setThreadNotSaved(true)
+            void refreshConversations()
+          })
         },
         onError: (errMsg) => failAnswer(messageId, errMsg),
       })
@@ -334,6 +363,12 @@ export default function ChatPage() {
   const suggestions = getSuggestions(selectedRoomIds, selectedItemId, rooms, items)
   const hasMessages = messages.length > 0
   const hasHistory = conversations !== null && conversations.length > 0
+  // A Recent read that failed, said in Recent itself (rail and phone alike).
+  const recentError = openFailedId ? (
+    <InlineError onRetry={() => void handleSelectConversation(openFailedId)}>Couldn&apos;t open that conversation.</InlineError>
+  ) : historyLoadFailed ? (
+    <InlineError onRetry={() => void refreshConversations()}>Couldn&apos;t load your past questions.</InlineError>
+  ) : null
 
   // Human label for the current scope — shown as the "Topic" chip above an
   // active thread (per the desktop Ask spec).
@@ -370,17 +405,21 @@ export default function ChatPage() {
         {!hasHistory && (
           <div>
             <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>Recent</div>
-            <p
-              className="rounded-2xl border border-dashed border-[var(--hh-line)] px-3.5 py-3 text-[12.5px] leading-relaxed"
-              style={{ color: "var(--hh-faint)" }}
-            >
-              Your past questions will appear here once saved.
-            </p>
+            {/* A failed read is not "nothing saved yet". */}
+            {recentError ?? (
+              <p
+                className="rounded-2xl border border-dashed border-[var(--hh-line)] px-3.5 py-3 text-[12.5px] leading-relaxed"
+                style={{ color: "var(--hh-faint)" }}
+              >
+                Your past questions will appear here once saved.
+              </p>
+            )}
           </div>
         )}
         {hasHistory && (
           <div>
             <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>Recent</div>
+            {recentError && <div className="mb-2.5">{recentError}</div>}
             <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] bg-[var(--hh-surface)]">
               {conversations!.map((c, i) => (
                 <button
@@ -471,8 +510,12 @@ export default function ChatPage() {
             onWebSearch={handleWebSearch}
             onRetry={handleRetry}
             activeFilter={activeFilter}
-            homeId={homeId}
           />
+          {threadNotSaved && (
+            <InlineError className="shrink-0 px-4 pt-2">
+              Couldn&apos;t save this conversation to Recent. It stays here until you leave.
+            </InlineError>
+          )}
           {/* Suggestion chips above input (mobile — desktop uses the rail) */}
           <div className="flex gap-2 px-4 pt-2 overflow-x-auto shrink-0 [&::-webkit-scrollbar]:hidden scrollbar-none lg:hidden">
             {suggestions.map((q) => (
@@ -555,24 +598,27 @@ export default function ChatPage() {
           </div>
 
           {/* Recent questions (mobile — compact list above suggestion chips) */}
-          {hasHistory && (
+          {(hasHistory || recentError) && (
             <div className="w-full max-w-[560px] lg:hidden">
               <div className="mb-2 pl-0.5 text-[12px] font-bold uppercase tracking-[0.6px]" style={{ color: "var(--hh-sub)" }}>Recent</div>
-              <div className="overflow-hidden rounded-2xl bg-[var(--hh-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-                {conversations!.slice(0, 5).map((c, i) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => void handleSelectConversation(c.id)}
-                    disabled={isStreaming}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left disabled:opacity-60"
-                    style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none" }}
-                  >
-                    <ClockIcon className="size-[15px] shrink-0" style={{ color: "var(--hh-faint)" }} />
-                    <span className="min-w-0 flex-1 truncate text-[13.5px]" style={{ color: "#374151" }}>{c.title}</span>
-                  </button>
-                ))}
-              </div>
+              {recentError && <div className="mb-2 pl-0.5">{recentError}</div>}
+              {hasHistory && (
+                <div className="overflow-hidden rounded-2xl bg-[var(--hh-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+                  {conversations!.slice(0, 5).map((c, i) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => void handleSelectConversation(c.id)}
+                      disabled={isStreaming}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left disabled:opacity-60"
+                      style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none" }}
+                    >
+                      <ClockIcon className="size-[15px] shrink-0" style={{ color: "var(--hh-faint)" }} />
+                      <span className="min-w-0 flex-1 truncate text-[13.5px]" style={{ color: "#374151" }}>{c.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -593,7 +639,8 @@ export default function ChatPage() {
       )}
       </div>
 
-      {/* Save-to-item dialog — available on both mobile and desktop */}
+      {/* Save-to-item dialog — available on both mobile and desktop. The ONLY
+          one: every answer's "Save to knowledge base" opens this instance. */}
       <SaveFaqDialog
         open={saveDialog.open}
         onOpenChange={(open) => setSaveDialog((p) => ({ ...p, open }))}

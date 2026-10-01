@@ -370,12 +370,15 @@ export function IdentifyStep({
     // Everything else still only fills blanks: a receipt scan's date or price
     // has no business overwriting something the user chose.
     // Model read, brand not: ask who makes it rather than letting anything
-    // guess. Fire-and-forget — a suggestion that never arrives costs nothing.
+    // guess. Fire-and-forget — a suggestion that never arrives costs nothing
+    // (no brand chip is offered), but the failure is logged.
     if (r.model && !r.brand && brandLookupRef.current !== r.model) {
       brandLookupRef.current = r.model
       void lookupBrandForModel(r.model)
         .then((b) => { if (brandLookupRef.current === r.model) setBrandSuggestion(b) })
-        .catch(() => {})
+        .catch((e: unknown) => {
+          console.warn(`[identify] brand lookup for model ${r.model} failed; no suggestion offered:`, e instanceof Error ? e.message : e)
+        })
     }
 
     const scannedIdentity = applyScannedIdentity(

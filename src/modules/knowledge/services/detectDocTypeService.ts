@@ -32,7 +32,11 @@ export async function detectDocType(homeId: string, manualId: string): Promise<D
       typeof data.confidence === "number" && data.confidence >= 0 && data.confidence <= 1 ? data.confidence : 0
     const reason = typeof data.reason === "string" ? data.reason : "Could not classify"
     return { data: { docType, confidence, reason }, error: null }
-  } catch {
+  } catch (e) {
+    // Neutral "other, confidence 0" claims nothing about the document, so it is
+    // the honest answer to "couldn't classify" — logged so a broken classifier
+    // isn't mistaken for a pile of unclassifiable PDFs.
+    console.warn(`[doc type] could not classify manual ${manualId} (home ${homeId}):`, e instanceof Error ? e.message : e)
     return { data: NEUTRAL, error: null }
   }
 }

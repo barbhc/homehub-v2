@@ -90,6 +90,11 @@ export function useServiceProviders(homeId: string) {
   const [providers, setProviders] = useState<ServiceProvider[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  /** The list could not be read — not "No service providers added yet". */
+  const [loadFailed, setLoadFailed] = useState(false)
+  /** A delete the server refused. It used to throw out of a `void remove()`:
+   *  an unhandled rejection, the row stuck on "Deleting…", nothing said. */
+  const [removeError, setRemoveError] = useState<string | null>(null)
 
   const load = useCallback(async (signal?: { cancelled: boolean }) => {
     setLoading(true)
@@ -97,6 +102,11 @@ export function useServiceProviders(homeId: string) {
       const snap = await getDocs(query(collection(db, `homes/${homeId}/serviceProviders`), where("deletedAt", "==", null)))
       if (signal?.cancelled) return
       setProviders(sortProviders(snap.docs.map((d) => toProvider(homeId, d.id, d.data()))))
+      setLoadFailed(false)
+    } catch (e) {
+      if (signal?.cancelled) return
+      console.warn(`[providers] could not load service providers for home ${homeId}:`, e instanceof Error ? e.message : e)
+      setLoadFailed(true)
     } finally {
       if (!signal?.cancelled) setLoading(false)
     }
@@ -152,15 +162,25 @@ export function useServiceProviders(homeId: string) {
   const remove = useCallback(
     async (providerId: string) => {
       setDeletingId(providerId)
+      setRemoveError(null)
       const now = serverTimestamp()
-      await writeBatch(db)
-        .set(doc(db, `homes/${homeId}/serviceProviders/${providerId}`), { deletedAt: now, updatedAt: now }, { merge: true })
-        .commit()
-      setProviders((prev) => prev.filter((p) => p.provider_id !== providerId))
-      setDeletingId(null)
+      try {
+        await writeBatch(db)
+          .set(doc(db, `homes/${homeId}/serviceProviders/${providerId}`), { deletedAt: now, updatedAt: now }, { merge: true })
+          .commit()
+        setProviders((prev) => prev.filter((p) => p.provider_id !== providerId))
+      } catch (e) {
+        // The provider stays listed — it is still there — and the list says why.
+        console.warn(`[providers] could not delete provider ${providerId} (home ${homeId}):`, e instanceof Error ? e.message : e)
+        setRemoveError("Couldn't delete that provider. Check your connection and try again.")
+      } finally {
+        setDeletingId(null)
+      }
     },
     [homeId]
   )
 
-  return { providers, loading, deletingId, save, remove }
+  const reload = useCallback(() => { void load() }, [load])
+
+  return { providers, loading, deletingId, save, remove, loadFailed, removeError, reload }
 }

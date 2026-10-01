@@ -105,6 +105,16 @@ export async function getCleaningTasks(
   return composeCleaningTasks(homeId, mode, { done: docs(doneSnap), templates, live, items: docs(itemSnap) })
 }
 
+/**
+ * An instance still waiting to be done: scheduled or snoozed, not deleted. The
+ * one rule for both of composeCleaningTasks' questions — "does this template
+ * already have an instance?" and "which instances are on the list?" — and the
+ * server's (completeTask's dup-suppression query).
+ */
+export function isOpenInstance(x: DocumentData): boolean {
+  return (x.status === "scheduled" || x.status === "snoozed") && x.deletedAt == null
+}
+
 /** What composeCleaningTasks works from, however the caller read it. */
 interface CleaningInputs {
   /** `done` instances — all of them, or a window when only the ranking is needed (see deepCleanGuidesFrom). */
@@ -147,16 +157,23 @@ async function composeCleaningTasks(homeId: string, mode: CleanSessionMode, inpu
   const roomIdByItem = new Map<string, string | null>()
   inputs.items?.forEach((d) => roomIdByItem.set(d.id, d.data.roomId ?? null))
 
-  // 3. Ensure every active template has a scheduled instance (best-effort; the
+  // 3. Ensure every active template has an OPEN instance (best-effort; the
   // seed already carries one instance per template). Only templates whose
   // cadence would get one: generateTaskInstances reads the template back
   // before deciding, and for an as-needed or after-each-use template — most
   // parsed cleaning steps, which never get an instance — that read answered
   // "nothing to create" on every Home load.
-  const scheduledTemplateIds = new Set(
-    inputs.live.filter((d) => d.data.status === "scheduled" && d.data.deletedAt == null).map((d) => d.data.taskTemplateId)
+  //
+  // Open = scheduled OR snoozed, as the server's completeTask counts it for
+  // the same decision (firebase/functions/src/tasks/completeTask.ts). Counting
+  // only `scheduled` read a template whose one instance was snoozed as having
+  // none, and generateTaskInstances — which never checks — gave it a second,
+  // scheduled one: snoozing a cleaning job and then opening Home or Deep Clean
+  // put it on the list twice.
+  const openTemplateIds = new Set(
+    inputs.live.filter((d) => isOpenInstance(d.data)).map((d) => d.data.taskTemplateId)
   )
-  const needInstances = activeTpls.filter((t) => !scheduledTemplateIds.has(t.id) && plannedInstanceDue(t.id, t.schedule) !== null)
+  const needInstances = activeTpls.filter((t) => !openTemplateIds.has(t.id) && plannedInstanceDue(t.id, t.schedule) !== null)
   if (needInstances.length > 0) {
     await Promise.all(
       needInstances.map((t) =>
@@ -165,10 +182,10 @@ async function composeCleaningTasks(homeId: string, mode: CleanSessionMode, inpu
     )
   }
 
-  // 4. Compose from scheduled/snoozed instances whose (denorm) care_type matches.
+  // 4. Compose from open (scheduled/snoozed) instances whose (denorm) care_type matches.
   const instanceTasks: CleanTask[] = inputs.live
     .map((d) => ({ id: d.id, x: d.data }))
-    .filter(({ x }) => (x.status === "scheduled" || x.status === "snoozed") && x.deletedAt == null && careTypes.includes(x.careType))
+    .filter(({ x }) => isOpenInstance(x) && careTypes.includes(x.careType))
     .map(({ id, x }) => {
       const tpl = tplById.get(x.taskTemplateId)
       const isRoutine = x.scopeType === "home" && (x.itemUnitId ?? null) == null

@@ -28,8 +28,9 @@ export function useInterfaceLevelSync(userId: string | null | undefined): void {
         if (getInterfaceOverride() !== before) return
         if (level !== before) setInterfaceOverride(level)
       })
-      .catch(() => {
-        /* non-fatal: fall back to the localStorage cache / derived default */
+      .catch((e: unknown) => {
+        // Non-fatal: the localStorage cache / derived default stays in charge.
+        console.warn(`[interface level] could not read the saved level for ${userId}:`, e instanceof Error ? e.message : e)
       })
     return () => {
       cancelled = true

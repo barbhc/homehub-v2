@@ -8,7 +8,6 @@ import {
 import { indicatorDrivenTitles, usagePhrase } from "../../../../shared/care/usageSignal"
 import { seasonForTitle, seasonalWindow, type Climate } from "../../../../shared/care/seasonalWindow"
 import { seasonalFamily } from "../../../../shared/tasks/houseRules"
-import type { ServiceResult } from "./taskService"
 import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
 import { taskSource, effortToMinutes, frequencyToSchedule, type TaskSource } from "./taskMapping"
@@ -69,44 +68,12 @@ function addDaysStr(dateStr: string, days: number): string {
 }
 
 /**
- * Returns scheduled/snoozed task instances due on or before `today + days`
- * (default 7), newest-due last, each tagged with its agenda source. Overdue
- * items are included (they still need doing this week).
- */
-/**
- * How many scheduled tasks the agenda deliberately HIDES.
+ * What one getWeekAgenda call declined to show, and why — counted from the
+ * same snapshot as its rows.
  *
- * Item-scoped cleaning lives in the Deep-Clean guide, not the task feed — a
- * curation decision, not a bug. But a tester with one air fryer whose whole
- * task set is cleaning saw "Nothing due — enjoy the calm" on Tasks while the
- * item page listed three jobs right there. The app contradicting itself is
- * worse than either answer alone, so the empty state needs this number to
- * explain where the work went.
- *
- * Only called WHEN THE AGENDA IS EMPTY, so the common path pays nothing.
- */
-export async function countHiddenCleaning(homeId: string): Promise<number> {
-  try {
-    const snap = await getDocs(
-      query(collection(db, `homes/${homeId}/taskInstances`), where("deletedAt", "==", null))
-    )
-    return snap.docs.filter((d) => {
-      const status = d.get("status")
-      if (status !== "scheduled" && status !== "snoozed") return false
-      return !isAgendaEligible({ careType: d.get("careType"), scopeType: d.get("scopeType") })
-    }).length
-  } catch {
-    // The count only enriches copy; never let it break the empty state.
-    return 0
-  }
-}
-
-/**
- * What the last getWeekAgenda call declined to show, and why.
- *
- * Deliberately a module-level readback rather than a change to the return type:
- * WeekAgendaItem[] is consumed in a dozen places and none of them should have to
- * care. Read it immediately after awaiting getWeekAgenda.
+ * `itemCleaning` is what the Tasks page names (HH-82 / HH-94): item-scoped
+ * cleaning lives in the Deep-Clean guide, not the task feed, and a list that
+ * leaves it out without saying so contradicts the item page that lists it.
  */
 export interface AgendaWithheld {
   /** Eligible, scheduled, but past the horizon the caller asked for. */
@@ -117,13 +84,21 @@ export interface AgendaWithheld {
   itemCleaning: number
 }
 
-let lastWithheld: AgendaWithheld = { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 }
-
-export function getLastAgendaWithheld(): AgendaWithheld {
-  return lastWithheld
-}
+/**
+ * getWeekAgenda's answer: the rows and, WITH them, what it withheld. The tally
+ * used to be a module-level "last call" readback, so two reads in flight for
+ * different homes (a home switch) could hand one home the other's count.
+ * Callers that only want the rows read `data`, exactly as before.
+ */
+export type WeekAgendaResult =
+  | { data: WeekAgendaItem[]; error: null; withheld: AgendaWithheld }
+  | { data: null; error: { message: string }; withheld?: undefined }
 
 /**
+ * Returns scheduled/snoozed task instances due on or before `today + days`
+ * (default 7), newest-due last, each tagged with its agenda source. Overdue
+ * items are included (they still need doing this week).
+ *
  * `refuseOfflineEmpty`: an EMPTY instances read served from the local cache
  * (offline) is an error, not "nothing due" — for a caller that would otherwise
  * say "enjoy the calm" or persist the empty agenda as its warm snapshot. See
@@ -132,7 +107,7 @@ export function getLastAgendaWithheld(): AgendaWithheld {
 export async function getWeekAgenda(
   homeId: string,
   opts?: { days?: number; refuseOfflineEmpty?: boolean }
-): Promise<ServiceResult<WeekAgendaItem[]>> {
+): Promise<WeekAgendaResult> {
   const today = todayStr()
   const horizon = addDaysStr(today, opts?.days ?? 7)
 
@@ -190,7 +165,7 @@ export async function getWeekAgenda(
     // HH-82 (Chris, twice): what this feed LEAVES OUT is invisible, and an
     // empty list reads as "you have nothing" when the truth is "you have three
     // things, and both of our rules happen to hide them". Counted here, where
-    // the reasons are, so the empty state can say which one applied.
+    // the reasons are, and returned with the rows (WeekAgendaResult).
     const pending = all.filter((r) => r.status === "scheduled" || r.status === "snoozed")
     const beyondHorizon = pending.filter(
       (r) => (r.dueDate as string) > horizon &&
@@ -199,7 +174,7 @@ export async function getWeekAgenda(
     const itemCleaning = pending.filter(
       (r) => !isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }),
     )
-    lastWithheld = {
+    const withheld: AgendaWithheld = {
       beyondHorizon: beyondHorizon.length,
       // The soonest thing we are not showing — "3 more, the first on Sep 17" is
       // actionable where a bare count is not.
@@ -274,7 +249,7 @@ export async function getWeekAgenda(
         }
       })
 
-    return { data: items, error: null }
+    return { data: items, error: null, withheld }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Request failed" } }
   }

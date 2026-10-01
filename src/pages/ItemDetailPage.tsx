@@ -147,7 +147,10 @@ export default function ItemDetailPage() {
         setAllHomeTags([...new Set(all)].sort())
         setStoreHistory(snap.docs.map((d) => (d.data().store_name as string | null | undefined) ?? null))
       })
-      .catch(() => { /* non-fatal — both autocompletes just stay empty */ })
+      .catch((e: unknown) => {
+        // Non-fatal — both autocompletes just stay empty — but logged.
+        console.warn(`[item] could not read the home's tags and stores for autocomplete:`, e instanceof Error ? e.message : e)
+      })
     return () => { cancelled = true }
   }, [home])
 

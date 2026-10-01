@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { SparklesIcon, XIcon } from "lucide-react"
 import { useAuth } from "@/modules/auth"
+import { InlineError } from "@/components/layout/LoadStates"
 import { dismissProfileBanner, getDismissedProfileBanners } from "@/lib/userPreferences"
 
 /**
@@ -30,6 +31,8 @@ export function ProfileCompletionBanner({ homeId }: { homeId: string }) {
       return false
     }
   })
+  /** A dismissal the server refused — the banner is back, and says why. */
+  const [dismissError, setDismissError] = useState<string | null>(null)
 
   // Confirm against the server. A dismissal made on another device, or one whose
   // local mirror has been wiped, still counts.
@@ -43,8 +46,9 @@ export function ProfileCompletionBanner({ homeId }: { homeId: string }) {
         setDismissed(true)
         try { window.localStorage.setItem(mirrorKey, "1") } catch { /* mirror is optional */ }
       })
-      .catch(() => {
-        /* a nag we cannot verify is better than a crash — leave it showing */
+      .catch((e: unknown) => {
+        // A nag we cannot verify is better than a crash — leave it showing.
+        console.warn(`[profile banner] could not read dismissals for ${uid}:`, e instanceof Error ? e.message : e)
       })
     return () => { cancelled = true }
   }, [user?.id, homeId, dismissed, mirrorKey])
@@ -53,11 +57,21 @@ export function ProfileCompletionBanner({ homeId }: { homeId: string }) {
 
   const handleDismiss = () => {
     setDismissed(true)
+    setDismissError(null)
     try { window.localStorage.setItem(mirrorKey, "1") } catch { /* mirror is optional */ }
-    // The write that actually matters. Fire-and-forget: the banner is already
-    // gone locally, and a failed write means it returns next launch — annoying,
-    // never wrong.
-    if (user?.id) void dismissProfileBanner(user.id, homeId).catch(() => {})
+    const uid = user?.id
+    if (!uid) return
+    // The write that actually matters. It used to be fire-and-forget with the
+    // failure swallowed — a dismissal that never reached the server, which is
+    // exactly how this banner came back after the owner had answered it. Now a
+    // failed save brings the banner back once, saying so, so "Not now" can be
+    // pressed again (audit H6).
+    dismissProfileBanner(uid, homeId).catch((e: unknown) => {
+      console.warn(`[profile banner] could not save the dismissal for home ${homeId}:`, e instanceof Error ? e.message : e)
+      try { window.localStorage.removeItem(mirrorKey) } catch { /* mirror is optional */ }
+      setDismissed(false)
+      setDismissError("Couldn't save that. Check your connection and try again.")
+    })
   }
 
   return (
@@ -87,6 +101,7 @@ export function ProfileCompletionBanner({ homeId }: { homeId: string }) {
               Not now
             </button>
           </div>
+          {dismissError && <InlineError className="mt-2.5">{dismissError}</InlineError>}
         </div>
         <button
           type="button"

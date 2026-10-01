@@ -16,6 +16,7 @@ export async function pdfProxySource(
   try {
     const parsed = new URL(pdfUrl)
     if (parsed.origin === window.location.origin) return { url: pdfUrl }
+    // No token: load the PDF directly — if CORS refuses it, that is the viewer's own visible load error.
     const token = await auth.currentUser?.getIdToken().catch(() => undefined)
     if (!token) return { url: pdfUrl }
     return {
@@ -23,6 +24,7 @@ export async function pdfProxySource(
       httpHeaders: { Authorization: `Bearer ${token}` },
     }
   } catch {
+    // An unparseable URL goes to pdfjs as-is, which reports its own load error.
     return { url: pdfUrl }
   }
 }
