@@ -28,6 +28,9 @@
  *   ceiling <units>           set only monthlyCeilingUnits (0 = kill switch)
  *   kill                      monthlyCeilingUnits: 0 — every paid AI call refuses with the
  *                             calm "monthly AI budget" message; scans park and resume later
+ *   parse-cache on|off        set only parseCacheBreakpoint — prompt-cache the manual PDF in
+ *                             the parse's Claude request (off by default; docs/rollback.md §3).
+ *                             `apply` keeps whatever value the document already has.
  *   --dry-run                 with any write command: print, write nothing
  *
  *   npx tsx scripts/ops/set-spend-config.ts show
@@ -35,6 +38,7 @@
  *   npx tsx scripts/ops/set-spend-config.ts apply --prod --project=homehub-2068d
  *   npx tsx scripts/ops/set-spend-config.ts kill --prod --project=homehub-2068d
  *   npx tsx scripts/ops/set-spend-config.ts ceiling 1500 --prod --project=homehub-2068d
+ *   npx tsx scripts/ops/set-spend-config.ts parse-cache on --prod --project=homehub-2068d
  */
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app"
 import { getAuth } from "firebase-admin/auth"
@@ -95,6 +99,7 @@ function describe(config: SpendConfig): string {
     `  monthlyCeilingUnits  ${config.monthlyCeilingUnits}${config.monthlyCeilingUnits === 0 ? "   ← KILL SWITCH ON: every paid AI call refuses" : ""}`,
     `  dailyUnitsDefault    ${config.dailyUnitsDefault}`,
     `  scansPerDay          ${config.scansPerDay}`,
+    `  parseCacheBreakpoint ${config.parseCacheBreakpoint}${config.parseCacheBreakpoint ? "   ← parses write the PDF to the prompt cache (1.25× input)" : ""}`,
     `  dailyUnitsOverrides  ${Object.keys(config.dailyUnitsOverrides).length === 0 ? "(none)" : ""}`,
     ...Object.entries(config.dailyUnitsOverrides).map(([uid, n]) => `      ${uid}  ${n}`),
   ]
@@ -142,6 +147,12 @@ async function main(): Promise<void> {
     next = { ...current.config, monthlyCeilingUnits: ceiling }
     write = { monthlyCeilingUnits: ceiling, updatedAt: FieldValue.serverTimestamp() }
     merge = true
+  } else if (cmd === "parse-cache") {
+    const value = positional[0]
+    if (value !== "on" && value !== "off") fail("parse-cache needs on or off: `parse-cache on`.")
+    next = { ...current.config, parseCacheBreakpoint: value === "on" }
+    write = { parseCacheBreakpoint: value === "on", updatedAt: FieldValue.serverTimestamp() }
+    merge = true
   } else if (cmd === "apply") {
     const overrides: Record<string, number> = has("replace-overrides") ? {} : { ...current.config.dailyUnitsOverrides }
     if (!has("no-owner")) {
@@ -162,10 +173,13 @@ async function main(): Promise<void> {
       dailyUnitsDefault: count("--daily", flag("daily"), DEFAULT_SPEND_CONFIG.dailyUnitsDefault),
       scansPerDay: count("--scans", flag("scans"), DEFAULT_SPEND_CONFIG.scansPerDay),
       dailyUnitsOverrides: overrides,
+      // Not a cap — `apply` writes the whole document, so it carries the
+      // switch over unchanged (`parse-cache on|off` is how it changes).
+      parseCacheBreakpoint: current.config.parseCacheBreakpoint,
     }
     write = { ...next, updatedAt: FieldValue.serverTimestamp() }
   } else {
-    fail(`Unknown command ${JSON.stringify(cmd)}. Use show | apply | ceiling <n> | kill.`)
+    fail(`Unknown command ${JSON.stringify(cmd)}. Use show | apply | ceiling <n> | kill | parse-cache on|off.`)
   }
 
   // Validate with the SAME parser every charge uses: a document it would
@@ -184,8 +198,8 @@ async function main(): Promise<void> {
   }
   await ref.set(write, { merge })
   const readBack = parseSpendConfig((await ref.get()).data())
-  console.log(`\n✔ Written. Read back: ceiling ${readBack.config.monthlyCeilingUnits}, default ${readBack.config.dailyUnitsDefault}/day, ${Object.keys(readBack.config.dailyUnitsOverrides).length} override(s), ${readBack.config.scansPerDay} scans/day.`)
-  console.log("  Takes effect on the next paid call — no deploy.\n")
+  console.log(`\n✔ Written. Read back: ceiling ${readBack.config.monthlyCeilingUnits}, default ${readBack.config.dailyUnitsDefault}/day, ${Object.keys(readBack.config.dailyUnitsOverrides).length} override(s), ${readBack.config.scansPerDay} scans/day, parse cache ${readBack.config.parseCacheBreakpoint ? "on" : "off"}.`)
+  console.log("  Takes effect on the next paid call (the parse cache: the next parse attempt) — no deploy.\n")
 }
 
 main().catch((e: unknown) => {

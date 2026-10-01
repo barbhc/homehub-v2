@@ -1,0 +1,533 @@
+{
+  "comment": "What buildExtractionRequest(model, pdfBase64, prompt) returns, per model, with the PDF cache breakpoint OFF and ON. 'off' was captured from origin/main 5e9674b, before the breakpoint option existed: it pins that the default request (config/spend.parseCacheBreakpoint absent or false) is byte-identical to what production sent. 'on' is that same request with cache_control {type: \"ephemeral\"} added to the document block, and nothing else.",
+  "capturedFrom": "origin/main 5e9674b — shared/parse/parsePrompt.ts",
+  "pdfBase64": "cGRm",
+  "prompt": "PROMPT",
+  "requests": {
+    "claude-sonnet-5": {
+      "off": {
+        "params": {
+          "model": "claude-sonnet-5",
+          "max_tokens": 21000,
+          "tools": [
+            {
+              "name": "record_extraction",
+              "description": "Record the complete structured extraction from the manual. Every chunk and task goes in this single call.",
+              "input_schema": {
+                "type": "object",
+                "properties": {
+                  "chunks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "cleaning_guide": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "warranty": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "manufactured_year": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "confidence": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "chunks",
+                  "tasks"
+                ]
+              }
+            }
+          ],
+          "tool_choice": {
+            "type": "tool",
+            "name": "record_extraction"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "document",
+                  "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": "cGRm"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "PROMPT"
+                }
+              ]
+            }
+          ]
+        },
+        "betas": [],
+        "stream": false,
+        "toolCallUnforced": false
+      },
+      "on": {
+        "params": {
+          "model": "claude-sonnet-5",
+          "max_tokens": 21000,
+          "tools": [
+            {
+              "name": "record_extraction",
+              "description": "Record the complete structured extraction from the manual. Every chunk and task goes in this single call.",
+              "input_schema": {
+                "type": "object",
+                "properties": {
+                  "chunks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "cleaning_guide": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "warranty": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "manufactured_year": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "confidence": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "chunks",
+                  "tasks"
+                ]
+              }
+            }
+          ],
+          "tool_choice": {
+            "type": "tool",
+            "name": "record_extraction"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "document",
+                  "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": "cGRm"
+                  },
+                  "cache_control": {
+                    "type": "ephemeral"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "PROMPT"
+                }
+              ]
+            }
+          ]
+        },
+        "betas": [],
+        "stream": false,
+        "toolCallUnforced": false
+      }
+    },
+    "claude-opus-5-5": {
+      "off": {
+        "params": {
+          "model": "claude-opus-5-5",
+          "max_tokens": 32000,
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": "Deliver the extraction by calling the record_extraction tool exactly once, with every chunk and task in that single call. Do not reply with text.",
+          "tools": [
+            {
+              "name": "record_extraction",
+              "description": "Record the complete structured extraction from the manual. Every chunk and task goes in this single call.",
+              "input_schema": {
+                "type": "object",
+                "properties": {
+                  "chunks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "cleaning_guide": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "warranty": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "manufactured_year": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "confidence": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "chunks",
+                  "tasks"
+                ]
+              }
+            }
+          ],
+          "tool_choice": {
+            "type": "auto"
+          },
+          "fallbacks": "default",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "document",
+                  "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": "cGRm"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "PROMPT"
+                }
+              ]
+            }
+          ]
+        },
+        "betas": [
+          "server-side-fallback-2026-07-01"
+        ],
+        "stream": true,
+        "toolCallUnforced": true
+      },
+      "on": {
+        "params": {
+          "model": "claude-opus-5-5",
+          "max_tokens": 32000,
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": "Deliver the extraction by calling the record_extraction tool exactly once, with every chunk and task in that single call. Do not reply with text.",
+          "tools": [
+            {
+              "name": "record_extraction",
+              "description": "Record the complete structured extraction from the manual. Every chunk and task goes in this single call.",
+              "input_schema": {
+                "type": "object",
+                "properties": {
+                  "chunks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "cleaning_guide": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "warranty": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "manufactured_year": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "confidence": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "chunks",
+                  "tasks"
+                ]
+              }
+            }
+          ],
+          "tool_choice": {
+            "type": "auto"
+          },
+          "fallbacks": "default",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "document",
+                  "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": "cGRm"
+                  },
+                  "cache_control": {
+                    "type": "ephemeral"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "PROMPT"
+                }
+              ]
+            }
+          ]
+        },
+        "betas": [
+          "server-side-fallback-2026-07-01"
+        ],
+        "stream": true,
+        "toolCallUnforced": true
+      }
+    },
+    "claude-haiku-4-5": {
+      "off": {
+        "params": {
+          "model": "claude-haiku-4-5",
+          "max_tokens": 16000,
+          "tools": [
+            {
+              "name": "record_extraction",
+              "description": "Record the complete structured extraction from the manual. Every chunk and task goes in this single call.",
+              "input_schema": {
+                "type": "object",
+                "properties": {
+                  "chunks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "cleaning_guide": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "warranty": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "manufactured_year": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "confidence": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "chunks",
+                  "tasks"
+                ]
+              }
+            }
+          ],
+          "tool_choice": {
+            "type": "tool",
+            "name": "record_extraction"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "document",
+                  "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": "cGRm"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "PROMPT"
+                }
+              ]
+            }
+          ]
+        },
+        "betas": [],
+        "stream": false,
+        "toolCallUnforced": false
+      },
+      "on": {
+        "params": {
+          "model": "claude-haiku-4-5",
+          "max_tokens": 16000,
+          "tools": [
+            {
+              "name": "record_extraction",
+              "description": "Record the complete structured extraction from the manual. Every chunk and task goes in this single call.",
+              "input_schema": {
+                "type": "object",
+                "properties": {
+                  "chunks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "cleaning_guide": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "warranty": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "manufactured_year": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "confidence": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "chunks",
+                  "tasks"
+                ]
+              }
+            }
+          ],
+          "tool_choice": {
+            "type": "tool",
+            "name": "record_extraction"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "document",
+                  "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": "cGRm"
+                  },
+                  "cache_control": {
+                    "type": "ephemeral"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "PROMPT"
+                }
+              ]
+            }
+          ]
+        },
+        "betas": [],
+        "stream": false,
+        "toolCallUnforced": false
+      }
+    }
+  }
+}

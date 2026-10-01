@@ -95,7 +95,7 @@ export const ingestReference = onCall({ region: REGION, secrets: [ANTHROPIC_API_
 
   let sections: ReferenceSection[]
   try {
-    sections = await runIngestReference(makeCallClaudeText(ANTHROPIC_API_KEY.value()), pdfBase64)
+    sections = await runIngestReference(makeCallClaudeText(ANTHROPIC_API_KEY.value(), "ingestReference"), pdfBase64)
   } catch (e) {
     // No output, no charge. Note the zero-sections case below is NOT refunded:
     // Claude answered, it just found nothing, and we were billed for that.

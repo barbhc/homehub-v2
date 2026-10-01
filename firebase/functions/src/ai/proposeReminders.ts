@@ -231,7 +231,7 @@ export const proposeReminders = onCall(
     if (offered.length === 0) return { ok: true as const, total_templates: rows.length, proposals: [] }
 
     const proposals = await withAiQuota(db, uid, "proposeReminders", () =>
-      proposeCore(offered, focusText.trim(), makeCallClaudeTool(ANTHROPIC_API_KEY.value())),
+      proposeCore(offered, focusText.trim(), makeCallClaudeTool(ANTHROPIC_API_KEY.value(), "proposeReminders")),
     )
     return { ok: true as const, total_templates: rows.length, proposals }
   },

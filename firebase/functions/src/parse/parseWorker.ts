@@ -20,6 +20,7 @@ import { runParse } from "./runParse.js"
 import { CLAUDE_BUDGET_MS, makeCallClaude } from "./anthropic.js"
 import { makeFetchPdf } from "./storagePdf.js"
 import { PARSE_ATTEMPT_DEADLINE_SECONDS, PARSE_MAX_ATTEMPTS } from "./parseState.js"
+import { readSpendConfig, type SpendConfig } from "../lib/quota.js"
 import type { ParseMode } from "./parseTypes.js"
 
 const REGION = "us-central1"
@@ -55,6 +56,26 @@ export function isFinalAttempt(retryCount: number | undefined): boolean {
   return (retryCount ?? 0) + 1 >= PARSE_MAX_ATTEMPTS
 }
 
+/**
+ * config/spend.parseCacheBreakpoint for this attempt: prompt-cache the manual
+ * PDF in the extraction request (buildExtractionRequest says when that pays).
+ * Read per attempt, so the owner can turn it on or off without a deploy.
+ *
+ * A failed read is logged and means OFF — the request every parse sent before
+ * the switch existed. It must not fail the parse: the switch only chooses
+ * between two request shapes, and a Firestore hiccup here would otherwise stop
+ * a scan that has everything else it needs (and the run's own reads, a moment
+ * later, report any real outage through runParse's usual error path).
+ */
+export async function parseCacheBreakpointFor(read: () => Promise<SpendConfig>): Promise<boolean> {
+  try {
+    return (await read()).parseCacheBreakpoint
+  } catch (e) {
+    console.error("[parseWorker] could not read config/spend.parseCacheBreakpoint; sending the request without the cache breakpoint:", e)
+    return false
+  }
+}
+
 export const parseWorker = onTaskDispatched(
   {
     region: REGION,
@@ -73,10 +94,24 @@ export const parseWorker = onTaskDispatched(
       console.error("[parseWorker] malformed task payload; dropping it", { data: req.data, id: req.id })
       return
     }
+    const db = getFirestore()
+    const cacheBreakpoint = await parseCacheBreakpointFor(() => readSpendConfig(db))
     const outcome = await runParse(
-      getFirestore(),
+      db,
       {
-        callClaude: makeCallClaude(ANTHROPIC_API_KEY.value(), { deadlineAt: startedAt + CLAUDE_BUDGET_MS }),
+        callClaude: makeCallClaude(ANTHROPIC_API_KEY.value(), {
+          deadlineAt: startedAt + CLAUDE_BUDGET_MS,
+          cacheBreakpoint,
+          // On the usage log line, so a retry's cache read can be matched to
+          // the attempt that wrote the entry.
+          logFields: {
+            homeId: payload.homeId,
+            manualId: payload.manualId,
+            requestId: payload.requestId,
+            mode: payload.mode,
+            taskAttempt: (req.retryCount ?? 0) + 1,
+          },
+        }),
         fetchPdf: makeFetchPdf(),
       },
       { ...payload, finalAttempt: isFinalAttempt(req.retryCount) },

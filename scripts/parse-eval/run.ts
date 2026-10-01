@@ -12,6 +12,12 @@
  *   npx vite-node scripts/parse-eval/run.ts -- --list
  *   npx vite-node scripts/parse-eval/run.ts -- --only=foodcycler
  *   npx vite-node scripts/parse-eval/run.ts -- --update-golden
+ *   npx vite-node scripts/parse-eval/run.ts -- --cache-breakpoint
+ *     sends the request production sends with config/spend.parseCacheBreakpoint
+ *     ON (a prompt-cache breakpoint on the PDF). Without it, the request is the
+ *     default (switch off). Each manual line reports the cache write/read
+ *     tokens; the same manual run again within five minutes of the previous
+ *     run's START should read the PDF from the cache.
  *
  * Workflow: change the prompt in _shared/parsePrompt.ts → run the harness →
  * review the diff report → only then deploy parse-manual. When an intentional
@@ -24,10 +30,10 @@ import { createHash } from "node:crypto"
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { buildPrompt, buildExtractionRequest, extractionContent, extractParsedResult } from "../../shared/parse/parsePrompt"
-import { titleSimilarity, TITLE_MATCH_THRESHOLD } from "../../shared/parse/parseCore"
+import { buildPrompt, buildExtractionRequest, extractionContent, extractParsedResult } from "../../shared/parse/parsePrompt.js"
+import { titleSimilarity, TITLE_MATCH_THRESHOLD } from "../../shared/parse/parseCore.js"
 import { pairByBestScore } from "./pairing.js"
-import { classifyTaskKind } from "../../shared/tasks/taxonomy"
+import { classifyTaskKind } from "../../shared/tasks/taxonomy.js"
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, "..", "..")
@@ -226,11 +232,12 @@ function diffClassifications(golden: IndexRow[], next: IndexRow[]) {
 }
 
 // ── Anthropic call (mirrors the parse worker via buildExtractionRequest) ──
-async function extract(pdfBase64: string, model: string) {
+async function extract(pdfBase64: string, model: string, cacheBreakpoint: boolean) {
   const started = Date.now()
   // Same request production sends (buildExtractionRequest): forced tool on
-  // Sonnet; auto tool_choice + checked call + fallback beta on Opus 5.5.
-  const req = buildExtractionRequest(model, pdfBase64, buildPrompt())
+  // Sonnet; auto tool_choice + checked call + fallback beta on Opus 5.5 — and
+  // the PDF cache breakpoint exactly when the production switch would add it.
+  const req = buildExtractionRequest(model, pdfBase64, buildPrompt(), { cacheBreakpoint })
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -246,8 +253,13 @@ async function extract(pdfBase64: string, model: string) {
   const meta = {
     model,
     stopReason: data?.stop_reason ?? "?",
+    // With the cache in play, input_tokens is only the UNCACHED remainder:
+    // the whole prompt is input + cache write + cache read.
     inputTokens: data?.usage?.input_tokens ?? null,
+    cacheWriteTokens: data?.usage?.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: data?.usage?.cache_read_input_tokens ?? 0,
     outputTokens: data?.usage?.output_tokens ?? null,
+    cacheBreakpoint,
     seconds: Math.round((Date.now() - started) / 1000),
   }
   let parsed: RawParse
@@ -271,6 +283,7 @@ async function main() {
   const args = process.argv.slice(2)
   const only = args.find((a) => a.startsWith("--only="))?.slice(7)
   const updateGolden = args.includes("--update-golden")
+  const cacheBreakpoint = args.includes("--cache-breakpoint")
   const corpus = JSON.parse(readFileSync(join(HERE, "corpus.json"), "utf8")) as {
     manuals: Array<{ name: string; home_id: string; manual_id: string; model: string; note?: string }>
   }
@@ -286,7 +299,7 @@ async function main() {
   let failures = 0
 
   for (const m of targets) {
-    console.log(`\n━━ ${m.name} (${m.model}) · prompt ${PROMPT_HASH} ━━`)
+    console.log(`\n━━ ${m.name} (${m.model}) · prompt ${PROMPT_HASH}${cacheBreakpoint ? " · PDF cache breakpoint ON" : ""} ━━`)
     // Resolve PDF from v2 Firestore/Storage (read-only, disk-cached)
     let pdfBase64: string
     try {
@@ -300,14 +313,16 @@ async function main() {
 
     let parsed: RawParse, meta: Awaited<ReturnType<typeof extract>>["meta"]
     try {
-      ;({ parsed, meta } = await extract(pdfBase64, m.model))
+      ;({ parsed, meta } = await extract(pdfBase64, m.model, cacheBreakpoint))
     } catch (e) {
       console.error(`  EXTRACTION FAILED: ${e instanceof Error ? e.message : e}`)
       failures++
       continue
     }
     const s = score(parsed)
-    console.log(`  ${meta.seconds}s · in ${meta.inputTokens} out ${meta.outputTokens} tok · stop ${meta.stopReason}`)
+    console.log(
+      `  ${meta.seconds}s · in ${meta.inputTokens} (cache write ${meta.cacheWriteTokens}, cache read ${meta.cacheReadTokens}) out ${meta.outputTokens} tok · stop ${meta.stopReason}`,
+    )
     console.log(`  chunks ${s.chunks.total} (${Object.entries(s.chunks.byType).map(([k, v]) => `${k}:${v}`).join(" ")}) · source_pages ${s.chunks.withSourcePages}%`)
     console.log(`  tasks ${s.tasks.total} (recurring ${s.tasks.recurring} · setup ${s.tasks.setup} · habit ${s.tasks.habits}) · essential ${s.tasks.essentialShare}%`)
     console.log(`  task coverage: instructions ${s.tasks.coverage.instructions}% · source_page ${s.tasks.coverage.source_page}% · justification ${s.tasks.coverage.justification}% · minutes ${s.tasks.coverage.minutes}% · schedule ${s.tasks.coverage.validSchedule}%`)

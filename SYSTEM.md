@@ -17,7 +17,7 @@ Every claim below was read at source; file:line references are the evidence. Whe
 | Styling | Tailwind CSS 4.1, Radix UI 1.4, `class-variance-authority`, `lucide-react` |
 | Data fetching | SWR 2.4 + per-domain hooks/services under `src/modules/*/services` |
 | Backend | Firebase Cloud Functions **2nd gen, Node 20**, region `us-central1` (`firebase/functions/`) |
-| AI | `@anthropic-ai/sdk` 0.78. Models in use: `claude-sonnet-5` (thinking disabled on text/chat routes; omitted on forced-tool routes), `claude-haiku-4-5`, `claude-opus-5-5` (manual-parse escalation; extraction tool with tool_choice auto + checked call, streamed, server-side fallback beta `server-side-fallback-2026-07-01`). Per-model request rules: `shared/parse/modelParams.ts` |
+| AI | `@anthropic-ai/sdk` 0.78. Models in use: `claude-sonnet-5` (thinking disabled on text/chat routes; omitted on forced-tool routes), `claude-haiku-4-5`, `claude-opus-5-5` (manual-parse escalation; extraction tool with tool_choice auto + checked call, streamed, server-side fallback beta `server-side-fallback-2026-07-01`). Per-model request rules: `shared/parse/modelParams.ts`. Prompt caching (5-minute `ephemeral` breakpoints): Ask's request is built by `buildChatRequest` (`shared/chat/chatMessages.ts`) with the manual PDFs leading the first user turn behind one breakpoint; the parse's PDF gets one only when `config/spend.parseCacheBreakpoint` is true. Every Claude response is logged as a `claude usage` line with its input / cache-write / cache-read / output tokens (`firebase/functions/src/lib/claudeUsage.ts`) |
 | PDF | `pdfjs-dist` 4.10 (client render, worker from a blob URL), Claude document blocks (server parse) |
 | Native shell | Capacitor 8.4 iOS — push-notifications, camera, apple-sign-in |
 | Monitoring | PostHog (`posthog-js`, `src/lib/analytics.ts:27`) and Sentry (`@sentry/react` 10.65, `src/main.tsx:45`) — **both live**, with Sentry source maps uploaded at build time by `@sentry/vite-plugin`. See Gap #1 for how all of it can silently vanish |
@@ -87,13 +87,10 @@ Two server-side gates, used consistently:
 | `removeMember` | onCall | yes | caller-is-owner-or-self | — | no |
 | `getInviteDetails` | onCall | yes | n/a — token-keyed, sanitized | — | no |
 | `redeemInviteCode` | onCall | `:17` | n/a — **by design** (this is how you get in) | — | no |
-| `generateTasks` | onCall | yes | any-home | yes | **yes** |
 | `detectDocType` | onCall | yes | per-home | yes | **yes** |
 | `ocr` | onCall | yes | any-home | yes | **yes** |
 | `productLookup` | onCall | yes | any-home | yes (brand-only Brave path too, as `brandFromModel`, since 2026-09-30) | **yes** |
 | `chatQuery` | **onRequest** | `verifyIdToken` | per-home | yes → 429; 1 unit + 5 per attached PDF | **yes** |
-| `suggestCareNotes` | onCall | yes | any-home | yes | **yes** |
-| `importCareUrl` | onCall | yes | any-home | yes | **yes** |
 | `ingestReference` | onCall | yes | per-home | yes | **yes** |
 | `classifyExistingTasks` | onCall | yes | per-home | yes | **yes** |
 | `discussTask` | onCall | yes | per-home | yes | **yes** |
@@ -157,13 +154,13 @@ PASS  unauthenticated reads it          -> 403
 
 > Section regenerated from the code on 2026-09-30 (branch `feat/spend-guards-parse-hardening`, Package C). The rest of this file is still the 2026-08-19 generation.
 
-**Where the numbers live:** the server-only Firestore document **`config/spend`** — `{ monthlyCeilingUnits, dailyUnitsDefault, dailyUnitsOverrides: {uid: n}, scansPerDay, updatedAt }` — read **inside the same transaction as every charge** (`chargeAiQuota`, `firebase/functions/src/lib/quota.ts`), parsed by `parseSpendConfig` (`shared/quota/policy.ts`). Absent → code defaults **1,500 units/month app-wide, 50 units/user/UTC-day, 50 scans/user/day**. Written only by `scripts/ops/set-spend-config.ts` (emulator by default; `--prod --project=` for production); `firestore.rules` gives clients no read or write (the override map names uids). A malformed ceiling fails **closed** (0); malformed per-user numbers fall back to the defaults; problems are logged once per instance.
+**Where the numbers live:** the server-only Firestore document **`config/spend`** — `{ monthlyCeilingUnits, dailyUnitsDefault, dailyUnitsOverrides: {uid: n}, scansPerDay, parseCacheBreakpoint, updatedAt }` — read **inside the same transaction as every charge** (`parseCacheBreakpoint`, default `false`, is not a cap: `parseWorker` reads it per attempt via `readSpendConfig` and passes it to `buildExtractionRequest`; a failed read or a non-boolean means off) (`chargeAiQuota`, `firebase/functions/src/lib/quota.ts`), parsed by `parseSpendConfig` (`shared/quota/policy.ts`). Absent → code defaults **1,500 units/month app-wide, 50 units/user/UTC-day, 50 scans/user/day**. Written only by `scripts/ops/set-spend-config.ts` (emulator by default; `--prod --project=` for production); `firestore.rules` gives clients no read or write (the override map names uids). A malformed ceiling fails **closed** (0); malformed per-user numbers fall back to the defaults; problems are logged once per instance.
 
 **Kill switch:** `monthlyCeilingUnits: 0` → every paid call refuses as the app's budget (`decideQuota` → `global`, calm copy; scans park as `awaiting_capacity`). `AI_MONTHLY_UNIT_CEILING` (env, per function in gen 2) is an emergency brake that can only **lower** a function's ceiling — never raise it or lift the switch. Runbook: `docs/rollback.md` §3.
 
 **The transaction** (`usage/{uid}/daily/{yyyy-mm-dd}` + `aiSpendGlobal/{yyyy-mm}` + `config/spend`): per-endpoint rate window (`AI_RATE_LIMIT`, default 10/min) and a 45-unit/min burst window checked first (a throttled call costs nothing); then the per-function call cap (`scansPerDay` for `enqueueParse`); then the user's pool (`dailyUnitsOverrides[uid] ?? dailyUnitsDefault`, × `DAILY_POOL_MULTIPLIER` — `productLookup` 3×); then the monthly ceiling. Per-function `charged`/`failed` tallies on the monthly doc. There is no per-call-site limit argument (findManual's old `60` compared against the whole pool). Holds: `refund()` (whole call), `release(n)` (part — an unfetched chat PDF), `extend(n)` (a chat turn's PDFs, priced after the base charge).
 
-**Unit costs** (`AI_UNIT_COST`): `enqueueParse` 10 · `ingestReference`/`generateTasks`/`classifyExistingTasks`/`ocr` 3 · `detectDocType`/`identityResolve`/`importCareUrl` 2 · everything else 1, including `brandFromModel` (productLookup's brand-only Brave search) · **`chatQuery` 1 + 5 per attached manual PDF** (`chatQueryUnits`, ≤ 2 PDFs → max 11).
+**Unit costs** (`AI_UNIT_COST`): `enqueueParse` 10 · `ingestReference`/`classifyExistingTasks`/`ocr` 3 · `detectDocType`/`identityResolve` 2 · everything else 1, including `brandFromModel` (productLookup's brand-only Brave search) · **`chatQuery` 1 + 5 per attached manual PDF** (`chatQueryUnits`, ≤ 2 PDFs → max 11).
 
 **Manual scans across processes:** the charge made in `enqueueParse` / `retryAwaitingCapacity` is recorded in the server-only ledger **`parseCharges/{requestId}`** (`held → vendor → billed | refunded`, `lib/parseCharges.ts`) so the worker and the stalled-parse sweep can refund a run that never got a Claude answer, exactly once.
 

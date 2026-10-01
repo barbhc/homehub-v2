@@ -15,6 +15,7 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
 import Anthropic from "@anthropic-ai/sdk"
 import { chargeAiQuota } from "../lib/quota.js"
+import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { assertNotRefused, thinkingParamsFor } from "../../../../shared/parse/modelParams.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
@@ -403,6 +404,7 @@ export const classifyExistingTasks = onCall(
           await hold.refund()
           throw e
         }
+        logClaudeUsage("classifyExistingTasks", MODEL, res, { batchSize: batch.length })
         try {
           assertNotRefused(res)
         } catch (e) {

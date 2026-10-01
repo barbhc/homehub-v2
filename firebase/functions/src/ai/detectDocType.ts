@@ -139,7 +139,7 @@ export const detectDocType = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
 
   try {
     const pdfBase64 = await makeFetchPdf()(manual.get("sourceType"), manual.get("sourceRef"))
-    const { result, claudeAnswered } = await classifyDocType(makeCallClaudeText(ANTHROPIC_API_KEY.value()), pdfBase64)
+    const { result, claudeAnswered } = await classifyDocType(makeCallClaudeText(ANTHROPIC_API_KEY.value(), "detectDocType"), pdfBase64)
     // No answer from Claude (too long to send, or the call failed) → nothing
     // was bought, so nothing is charged. This used to keep the 2 units when the
     // Claude call failed, because the core swallowed the error.

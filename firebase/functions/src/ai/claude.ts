@@ -5,15 +5,19 @@
  * (already a dependency for the parse worker). Each function injects a
  * `CallClaudeText` so its core is emulator-testable with a fixture response —
  * the same pattern as the parse worker's CallClaude.
+ *
+ * Both factories take the calling function's name, and every response is
+ * logged with its token and prompt-cache numbers (lib/claudeUsage.ts) before
+ * it is read — refusals included, since they are billed calls too.
  */
 import Anthropic from "@anthropic-ai/sdk"
-import { isAllowedUrl, fetchGuarded } from "../../../../shared/parse/ssrf.js"
 import {
   SERVER_SIDE_FALLBACK_BETA,
   assertNotRefused,
   rejectsForcedToolChoice,
   thinkingParamsFor,
 } from "../../../../shared/parse/modelParams.js"
+import { logClaudeUsage, type ClaudeCallSite } from "../lib/claudeUsage.js"
 
 /** A text-in/text-out Claude call. `content` may include document/image blocks. */
 export type CallClaudeText = (args: {
@@ -23,8 +27,9 @@ export type CallClaudeText = (args: {
   content: Array<Record<string, unknown>>
 }) => Promise<string>
 
-/** Real CallClaudeText bound to an API key (concatenates returned text blocks). */
-export function makeCallClaudeText(apiKey: string): CallClaudeText {
+/** Real CallClaudeText bound to an API key (concatenates returned text blocks).
+ *  `callSite` names the function in the usage log. */
+export function makeCallClaudeText(apiKey: string, callSite: ClaudeCallSite): CallClaudeText {
   const client = new Anthropic({ apiKey })
   return async ({ model, maxTokens, system, content }) => {
     const res = await client.messages.create({
@@ -34,6 +39,7 @@ export function makeCallClaudeText(apiKey: string): CallClaudeText {
       ...(system ? { system } : {}),
       messages: [{ role: "user", content: content as unknown as Anthropic.MessageParam["content"] }],
     })
+    logClaudeUsage(callSite, model, res)
     assertNotRefused(res)
     return res.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -79,9 +85,10 @@ function toStructuredOutputSchema(schema: unknown): unknown {
  * for models that accept it (Sonnet, Haiku). Models that 400 on forced tool
  * use (Opus 5.5) get the tool's input_schema as a structured output instead —
  * schema-constrained decoding, so the reply is still structured output, not
- * free-text JSON — and the result is returned in the same shape.
+ * free-text JSON — and the result is returned in the same shape. `callSite`
+ * names the function in the usage log.
  */
-export function makeCallClaudeTool(apiKey: string): CallClaudeTool {
+export function makeCallClaudeTool(apiKey: string, callSite: ClaudeCallSite): CallClaudeTool {
   const client = new Anthropic({ apiKey })
   return async ({ model, maxTokens, system, tool, content }) => {
     const messages = [{ role: "user" as const, content: content as unknown as Anthropic.MessageParam["content"] }]
@@ -103,6 +110,7 @@ export function makeCallClaudeTool(apiKey: string): CallClaudeTool {
       }
       // Outgoing body; the pinned SDK predates the `fallbacks` field.
       const res = await client.beta.messages.create(body as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming)
+      logClaudeUsage(callSite, model, res)
       assertNotRefused(res)
       if (res.stop_reason === "max_tokens") throw new Error("The AI's answer was cut off before it finished. Please try again.")
       const text = res.content
@@ -122,6 +130,7 @@ export function makeCallClaudeTool(apiKey: string): CallClaudeTool {
       tool_choice: { type: "tool", name: String(tool.name) },
       messages,
     })
+    logClaudeUsage(callSite, model, res)
     assertNotRefused(res)
     const block = res.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === String(tool.name),
@@ -134,23 +143,4 @@ export function makeCallClaudeTool(apiKey: string): CallClaudeTool {
 export function extractJsonObject(text: string): string {
   const m = text.match(/\{[\s\S]*\}/)
   return m ? m[0] : "{}"
-}
-
-/**
- * Fetch a PDF from a public URL → base64. Guards SSRF (isAllowedUrl, invariant 8)
- * and caps at 25MB (base64 ≈ 33MB, near Claude's limit). Returns null on failure.
- */
-export async function fetchPdfBase64(url: string): Promise<string | null> {
-  if (!isAllowedUrl(url)) throw new Error("URL not allowed: private or internal addresses are blocked")
-  try {
-    // fetchGuarded re-checks each redirect hop; the isAllowedUrl above only
-    // covers the first one.
-    const res = await fetchGuarded(url)
-    if (!res.ok) return null
-    const buf = Buffer.from(await res.arrayBuffer())
-    if (buf.byteLength > 25 * 1024 * 1024) return null
-    return buf.toString("base64")
-  } catch {
-    return null
-  }
 }

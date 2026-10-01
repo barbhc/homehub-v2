@@ -1,0 +1,146 @@
+{
+  "comment": "Ask (chatQuery) golden set: 10 questions as 5 two-turn conversations over the parse eval's corpus manuals (scripts/parse-eval/corpus.json), each asked with that ONE manual attached whole — the item-scoped question prompt caching is for. Turn 2 is a follow-up in the same conversation, which is the turn that should read the cached PDF. Every expected fact was checked against the manual's own text (not the parser's paraphrase) on 2026-09-30.",
+  "sources": "expected.manualId is the corpus manual; expected.chunks names the passage by the parse eval's chunk title and the PDF pages it sits on. Firestore chunk doc ids are not stable — commitDraft deletes and re-inserts every chunk on each rescan — so the golden pins the passage, not a doc id.",
+  "mustContain": "Each group is one fact; an answer passes a group if it contains ANY of the group's phrases (case-insensitive, dashes and whitespace normalised — see scoreAnswer). An answer passes when it passes every group.",
+  "conversations": [
+    {
+      "id": "foodcycler",
+      "manual": "foodcycler",
+      "manualId": "3dd6282d-4cad-4f45-b5db-d9521a58a34d",
+      "itemName": "FoodCycler FC-50",
+      "turns": [
+        {
+          "id": "foodcycler-replace-filters",
+          "question": "How do I replace the carbon filters?",
+          "expected": {
+            "manualId": "3dd6282d-4cad-4f45-b5db-d9521a58a34d",
+            "chunks": [{ "title": "Replacing the Carbon Filters", "sourcePages": [10] }]
+          },
+          "mustContain": [["back panel"], ["counterclockwise", "counter-clockwise", "counter clockwise"], ["change filter"]]
+        },
+        {
+          "id": "foodcycler-filter-interval",
+          "question": "How often do they need replacing?",
+          "expected": {
+            "manualId": "3dd6282d-4cad-4f45-b5db-d9521a58a34d",
+            "chunks": [{ "title": "Extending Filter Life", "sourcePages": [11] }]
+          },
+          "mustContain": [["3 to 6 months", "3-6 months", "three to six months"], ["500"]]
+        }
+      ]
+    },
+    {
+      "id": "furnace-york",
+      "manual": "furnace-york",
+      "manualId": "3720005b-303e-4e69-b269-1b91f3e66c9f",
+      "itemName": "York TG9S Furnace",
+      "turns": [
+        {
+          "id": "furnace-continuous-amber",
+          "question": "The LED on my furnace control board is flashing amber continuously. What does that mean?",
+          "expected": {
+            "manualId": "3720005b-303e-4e69-b269-1b91f3e66c9f",
+            "chunks": [
+              { "title": "LED Diagnostic Fault Codes", "sourcePages": [38, 39, 40] },
+              { "title": "Flame Sensor Cleaning", "sourcePages": [38] }
+            ]
+          },
+          "mustContain": [["flame sens"], ["1.5"], ["clean"]]
+        },
+        {
+          "id": "furnace-flame-current",
+          "question": "What should that current normally read?",
+          "expected": {
+            "manualId": "3720005b-303e-4e69-b269-1b91f3e66c9f",
+            "chunks": [{ "title": "Flame Sensor Cleaning", "sourcePages": [38] }]
+          },
+          "mustContain": [["3.7"], ["microamp", "micro-amp", "micro amp", "µa"]]
+        }
+      ]
+    },
+    {
+      "id": "nespresso-vertuo",
+      "manual": "nespresso-vertuo",
+      "manualId": "24c0358b-83cc-4daa-8406-f9d819b3a970",
+      "itemName": "Nespresso Vertuo Plus",
+      "turns": [
+        {
+          "id": "nespresso-descale",
+          "question": "How do I descale my Vertuo?",
+          "expected": {
+            "manualId": "24c0358b-83cc-4daa-8406-f9d819b3a970",
+            "chunks": [{ "title": "Descaling Procedure", "sourcePages": [21, 22, 23] }]
+          },
+          "mustContain": [["17 fl", "17 oz", "0.5 l", "0.5l", "500 ml"], ["20 min"], ["lever"]]
+        },
+        {
+          "id": "nespresso-descale-alert",
+          "question": "How will the machine tell me it needs that?",
+          "expected": {
+            "manualId": "24c0358b-83cc-4daa-8406-f9d819b3a970",
+            "chunks": [{ "title": "Descaling Alert and Frequency", "sourcePages": [23] }]
+          },
+          "mustContain": [["green"], ["red"]]
+        }
+      ]
+    },
+    {
+      "id": "dryer-lg",
+      "manual": "dryer-lg",
+      "manualId": "d38bc556-3235-483f-9274-bbc738b13fe2",
+      "itemName": "LG Dryer",
+      "turns": [
+        {
+          "id": "dryer-duct-cleaning",
+          "question": "How often should the dryer's vent ductwork be checked and cleaned?",
+          "expected": {
+            "manualId": "d38bc556-3235-483f-9274-bbc738b13fe2",
+            "chunks": [{ "title": "Inspect and Clean Ductwork", "sourcePages": [49] }]
+          },
+          "mustContain": [
+            ["once per month", "once a month", "monthly", "every month"],
+            ["once per year", "once a year", "annually", "every year", "yearly"]
+          ]
+        },
+        {
+          "id": "dryer-duct-length",
+          "question": "What's the longest exhaust duct run I can use?",
+          "expected": {
+            "manualId": "d38bc556-3235-483f-9274-bbc738b13fe2",
+            "chunks": [{ "title": "Ductwork Length Limits", "sourcePages": [18] }]
+          },
+          "mustContain": [["65 ft", "65 feet", "65-foot", "65 foot"], ["elbow"]]
+        }
+      ]
+    },
+    {
+      "id": "washer-lg",
+      "manual": "washer-lg",
+      "manualId": "150399bc-c86c-40f5-83cf-25b3bd5fc1fd",
+      "itemName": "LG Washer",
+      "turns": [
+        {
+          "id": "washer-drain-filter",
+          "question": "My washer won't drain. How do I clean the drain pump filter?",
+          "expected": {
+            "manualId": "150399bc-c86c-40f5-83cf-25b3bd5fc1fd",
+            "chunks": [{ "title": "Cleaning the Drain Pump Filter", "sourcePages": [38] }]
+          },
+          "mustContain": [["unplug"], ["counterclockwise", "counter-clockwise", "counter clockwise"], ["drain hose"]]
+        },
+        {
+          "id": "washer-tub-clean",
+          "question": "How often should I run Tub Clean?",
+          "expected": {
+            "manualId": "150399bc-c86c-40f5-83cf-25b3bd5fc1fd",
+            "chunks": [{ "title": "Tub Clean Cycle", "sourcePages": [35, 36] }]
+          },
+          "mustContain": [
+            ["once a month", "once per month", "monthly", "every month"],
+            ["more often", "odor", "odour", "mildew", "musty", "heavy use"]
+          ]
+        }
+      ]
+    }
+  ]
+}

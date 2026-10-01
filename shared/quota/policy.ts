@@ -19,8 +19,13 @@
  *     dailyUnitsDefault: number,                   // per user, per UTC day
  *     dailyUnitsOverrides: { [uid]: number },      // per-user exceptions
  *     scansPerDay: number,                         // per user, counted in CALLS
+ *     parseCacheBreakpoint: boolean,               // prompt-cache the parse's PDF (default false)
  *     updatedAt: Timestamp,
  *   }
+ *
+ * `parseCacheBreakpoint` is not a cap: it is the one spend LEVER that lives
+ * here, because it has to be switchable without a deploy. It is read by the
+ * parse worker, not by the charge (parseWorker.ts, buildExtractionRequest).
  *
  * It replaced two constants and an env var. The env var was the documented
  * kill switch, and it did not work: gen-2 functions take env vars PER FUNCTION,
@@ -61,6 +66,12 @@ export interface SpendConfig {
   dailyUnitsDefault: number
   dailyUnitsOverrides: Record<string, number>
   scansPerDay: number
+  /** Put a prompt-cache breakpoint on the manual PDF in the parse's Claude
+   *  request. A cache write bills 1.25× input and a one-off parse never
+   *  re-reads it, so this costs 25% more input per parse unless the same PDF
+   *  goes to Claude again within five minutes (a retry, a rescan). Off by
+   *  default; the owner turns it on to measure (docs/rollback.md §3). */
+  parseCacheBreakpoint: boolean
 }
 
 export const DEFAULT_SPEND_CONFIG: Readonly<SpendConfig> = Object.freeze({
@@ -72,6 +83,7 @@ export const DEFAULT_SPEND_CONFIG: Readonly<SpendConfig> = Object.freeze({
   // now also at 50, the pool binds first for most users; the scan cap is what
   // still bounds an override account.
   scansPerDay: 50,
+  parseCacheBreakpoint: false,
 })
 
 /** The code default for the per-user daily pool (config/spend absent). */
@@ -234,6 +246,8 @@ function isCount(v: unknown): v is number {
  *    safe direction for a money guard, and the refusal is logged loudly.
  *  - the per-user numbers fall back to the code defaults: the monthly ceiling
  *    still bounds the money while the typo stands.
+ *  - `parseCacheBreakpoint` anything but `true`/`false` → false: off is the
+ *    request every parse sent before the switch existed.
  *  - absent fields take the defaults silently — an absent document is the
  *    normal state before the ops script has ever run.
  */
@@ -280,12 +294,19 @@ export function parseSpendConfig(raw: unknown): { config: SpendConfig; problems:
     }
   }
 
+  let parseCacheBreakpoint = DEFAULT_SPEND_CONFIG.parseCacheBreakpoint
+  if (r.parseCacheBreakpoint !== undefined) {
+    if (typeof r.parseCacheBreakpoint === "boolean") parseCacheBreakpoint = r.parseCacheBreakpoint
+    else problems.push(`config/spend.parseCacheBreakpoint is not true or false (got ${JSON.stringify(r.parseCacheBreakpoint)}) — leaving it off`)
+  }
+
   return {
     config: {
       monthlyCeilingUnits,
       dailyUnitsDefault: count("dailyUnitsDefault"),
       dailyUnitsOverrides,
       scansPerDay: count("scansPerDay"),
+      parseCacheBreakpoint,
     },
     problems,
   }

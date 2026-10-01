@@ -24,9 +24,18 @@
  *     and the unforced-tool retry below.
  * So the worker always gets control back with minutes to spare, writes an
  * honest stage, and decides — as a transient failure — whether to retry.
+ *
+ * ── Prompt cache and usage (2026-09-30) ──────────────────────────────────────
+ *
+ * `cacheBreakpoint` is config/spend.parseCacheBreakpoint, read by the worker
+ * for each attempt (default OFF — buildExtractionRequest says when it pays).
+ * Every response — including one without the tool call, which is billed too —
+ * is logged with its token and cache numbers (lib/claudeUsage.ts) before it is
+ * read, so a week of logs with the switch on says whether it earns its keep.
  */
-import Anthropic from "@anthropic-ai/sdk"
+import Anthropic, { type ClientOptions } from "@anthropic-ai/sdk"
 import { buildExtractionRequest, extractionContent, NoToolCallError } from "../../../../shared/parse/parsePrompt.js"
+import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { ParseTimeBudgetError } from "./errorClass.js"
 import { PARSE_ATTEMPT_DEADLINE_SECONDS } from "./parseState.js"
 import type { CallClaude } from "./parseTypes.js"
@@ -73,12 +82,25 @@ export function claudeRequestOptions(
   }
 }
 
+export interface CallClaudeOptions {
+  /** When this attempt's Claude budget ends (epoch ms). Default: CLAUDE_BUDGET_MS from now. */
+  deadlineAt?: number
+  /** Put a prompt-cache breakpoint on the PDF (config/spend.parseCacheBreakpoint). Default off. */
+  cacheBreakpoint?: boolean
+  /** Context for the usage log line: the manual, the run, the Cloud Tasks attempt. */
+  logFields?: Record<string, unknown>
+  /** TESTS ONLY — the SDK's HTTP transport, so a test can see the exact body
+   *  sent without a network. Production never passes it. */
+  fetch?: ClientOptions["fetch"]
+}
+
 /** Build the real CallClaude bound to an API key and one attempt's budget. */
-export function makeCallClaude(apiKey: string, opts: { deadlineAt?: number } = {}): CallClaude {
-  const client = new Anthropic({ apiKey, maxRetries: CLAUDE_SDK_MAX_RETRIES })
+export function makeCallClaude(apiKey: string, opts: CallClaudeOptions = {}): CallClaude {
+  const client = new Anthropic({ apiKey, maxRetries: CLAUDE_SDK_MAX_RETRIES, ...(opts.fetch ? { fetch: opts.fetch } : {}) })
   const deadlineAt = opts.deadlineAt ?? Date.now() + CLAUDE_BUDGET_MS
+  const cacheBreakpoint = opts.cacheBreakpoint === true
   return async ({ model, pdfBase64, prompt }) => {
-    const req = buildExtractionRequest(model, pdfBase64, prompt)
+    const req = buildExtractionRequest(model, pdfBase64, prompt, { cacheBreakpoint })
     const attempts = req.toolCallUnforced ? MAX_ATTEMPTS_UNFORCED : 1
     for (let attempt = 1; ; attempt++) {
       const options = claudeRequestOptions(deadlineAt)
@@ -96,6 +118,7 @@ export function makeCallClaude(apiKey: string, opts: { deadlineAt?: number } = {
         : req.stream
           ? await client.messages.stream(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming, options).finalMessage()
           : await client.messages.create(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming, options)
+      logClaudeUsage("parseWorker", model, res, { ...opts.logFields, cacheBreakpoint, call: attempt })
       try {
         // The SDK's content blocks are the shape extractParsedResult expects.
         return extractionContent(

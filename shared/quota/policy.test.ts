@@ -215,7 +215,13 @@ describe("Ask pays for the manuals it attaches (C4)", () => {
 describe("config/spend → the numbers a charge uses (C5)", () => {
   it("an absent document is the code defaults, with nothing to report", () => {
     const { config: c, problems } = parseSpendConfig(undefined)
-    expect(c).toEqual({ monthlyCeilingUnits: 1500, dailyUnitsDefault: 50, dailyUnitsOverrides: {}, scansPerDay: 50 })
+    expect(c).toEqual({
+      monthlyCeilingUnits: 1500,
+      dailyUnitsDefault: 50,
+      dailyUnitsOverrides: {},
+      scansPerDay: 50,
+      parseCacheBreakpoint: false,
+    })
     expect(problems).toEqual([])
     expect(parseSpendConfig(null).problems).toEqual([])
   })
@@ -232,10 +238,33 @@ describe("config/spend → the numbers a charge uses (C5)", () => {
       dailyUnitsDefault: 40,
       dailyUnitsOverrides: { ownerUid: 1000 },
       scansPerDay: 20,
+      parseCacheBreakpoint: true,
       updatedAt: new Date(),
     })
-    expect(c).toEqual({ monthlyCeilingUnits: 3000, dailyUnitsDefault: 40, dailyUnitsOverrides: { ownerUid: 1000 }, scansPerDay: 20 })
+    expect(c).toEqual({
+      monthlyCeilingUnits: 3000,
+      dailyUnitsDefault: 40,
+      dailyUnitsOverrides: { ownerUid: 1000 },
+      scansPerDay: 20,
+      parseCacheBreakpoint: true,
+    })
     expect(problems).toEqual([])
+  })
+
+  it("the parse cache breakpoint is OFF unless the document says exactly true", () => {
+    // Off is the request every parse sent before the switch existed, so every
+    // doubt resolves to off — and a typo is reported, not guessed at.
+    expect(DEFAULT_SPEND_CONFIG.parseCacheBreakpoint).toBe(false)
+    expect(parseSpendConfig({}).config.parseCacheBreakpoint).toBe(false)
+    expect(parseSpendConfig({ parseCacheBreakpoint: false }).config.parseCacheBreakpoint).toBe(false)
+    expect(parseSpendConfig({ parseCacheBreakpoint: true }).config.parseCacheBreakpoint).toBe(true)
+    for (const typo of ["true", 1, null, { on: true }]) {
+      const { config: c, problems } = parseSpendConfig({ parseCacheBreakpoint: typo })
+      expect(c.parseCacheBreakpoint).toBe(false)
+      expect(problems.join(" ")).toMatch(/parseCacheBreakpoint/)
+      // …and nothing else about the document changes because of it.
+      expect(c.monthlyCeilingUnits).toBe(DEFAULT_MONTHLY_UNIT_CEILING)
+    }
   })
 
   it("0 is a real value for every number (kill switch, blocked day, no scans)", () => {

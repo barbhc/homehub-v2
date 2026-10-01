@@ -10,7 +10,10 @@
  * caller opts in and BRAVE_SEARCH_API_KEY is set. Claude (Sonnet) streamed.
  *
  * Retrieval + prompt wording are ported verbatim from v1 (answer quality depends
- * on the exact system prompts).
+ * on the exact system prompts). The request itself — system prompt, messages,
+ * and where the manual PDFs sit for prompt caching — is built by
+ * buildChatRequest (shared/chat/chatMessages.ts), which the offline chat eval
+ * (scripts/chat-eval) asserts too.
  */
 import { onRequest, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
@@ -19,7 +22,9 @@ import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
-import { assertNotRefused, thinkingParamsFor } from "../../../../shared/parse/modelParams.js"
+import { assertNotRefused } from "../../../../shared/parse/modelParams.js"
+import { buildChatRequest, type PdfDoc } from "../../../../shared/chat/chatMessages.js"
+import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
 import { pickNotes, formatNotesBlock, noteSources, type NoteInput } from "./notesContext.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
@@ -102,7 +107,6 @@ type WebResult = { title: string; url: string; snippet: string }
 
 const PREFERRED_TYPES = ["care", "how_to", "troubleshooting", "reference"]
 const MAX_CHUNKS = 30 // candidates (askReads.ts: ≤40 per manual, ≤120 per question) are ranked down to this
-const MAX_HISTORY_TURNS = 10
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -315,7 +319,6 @@ export const chatQuery = onRequest(
 
     // --- Decide PDF vs chunk retrieval, and pay for the PDFs ---
     const fetchPdf = makeFetchPdf()
-    type PdfDoc = { type: "document"; source: { type: "base64"; media_type: string; data: string }; title?: string }
     const pdfDocs: PdfDoc[] = []
     const pdfSources: ChatSource[] = []
     let attached: Array<{ manual: ManualRow; base64: string }>
@@ -389,78 +392,34 @@ export const chatQuery = onRequest(
     }
     const sources = [...baseSources, ...warrantySources, ...notesSources, ...webSourcesExtra]
 
-    const webSearchRules =
-      webContextBlock.length > 0
-        ? "\n- Web search results are appended below the manual content when available. You may reference them to supplement the manual, but always prefer manual information when both cover the same topic. Cite web sources by their title when you use them."
-        : ""
-
-    const warrantyRules =
-      warrantyBlock.length > 0
-        ? '\n- A "Warranty on record" block, when present, is what the app has stored for that item: its coverage, purchase and expiry dates, exclusions and registration. Treat it as the authority for warranty questions — quote its dates and terms exactly, and do not contradict it from general knowledge. If it lacks something the person asked about, say what is and is not on record.'
-        : ""
-
-    const notesRules =
-      notesBlock.length > 0
-        ? '\n- A "Your notes" block, when present, is what this household wrote down about their own home — where things are, what they chose, what they noticed. For those facts it is the authority: say it comes from their notes, quote it, and never contradict it from general knowledge.'
-        : ""
-
-    let chunkContext = ""
-    if (chunks.length > 0) {
-      chunkContext = chunks.map((c) => `## ${c.displayName} — ${c.title ?? "Excerpt"}\n${c.content}`).join("\n\n")
+    // --- The request ---
+    // System prompt, history, the question — and the manual PDFs at the front
+    // of the conversation behind a prompt-cache breakpoint, so a follow-up
+    // about the same manual re-reads them at 0.1× instead of paying for them
+    // again (shared/chat/chatMessages.ts has the why; the prompt text is
+    // unchanged).
+    const request = buildChatRequest({ question, history, pdfDocs, chunks, warrantyBlock, notesBlock, webContextBlock })
+    if (request.meta.droppedHistoryTurns > 0) {
+      // Not fatal — the question is answered without them — but the Ask
+      // client never sends such turns, so whoever did is worth knowing about.
+      logger.warn("chatQuery dropped malformed history turns", { homeId, dropped: request.meta.droppedHistoryTurns })
     }
-
-    const systemPrompt = hasPdfs
-      ? `You are a helpful home assistant. The user's appliance manual PDF is attached — read it directly to answer their question accurately and specifically.
-
-Rules:
-- Give exact details from the manual: precise button names, sequences, temperatures, settings, part numbers.
-- Use numbered steps for procedures.
-- Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
-- If the manual doesn't cover the specific question, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
-- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}${notesRules}`
-      : `You are a helpful home assistant. Answer questions about the user's home appliances using the provided manual excerpts.
-
-Rules:
-- Only state specific details (button names, sequences, settings) if they appear explicitly in the excerpts. Never use vague placeholders like "the relevant buttons" — if the exact detail isn't in the excerpts, say so directly.
-- Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
-- If the answer isn't in the excerpts, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
-- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}${notesRules}`
-
-    type ContentBlock = PdfDoc | { type: "text"; text: string }
-    const userTextContent = hasPdfs
-      ? [question, warrantyBlock, notesBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
-      : chunkContext
-        ? [question, "---", chunkContext, warrantyBlock, notesBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
-        : [question, warrantyBlock, notesBlock, webContextBlock].filter((s) => s.length > 0).join("\n\n")
-    const userContent: ContentBlock[] = hasPdfs
-      ? [...pdfDocs, { type: "text", text: userTextContent }]
-      : [{ type: "text", text: userTextContent }]
-
-    const trimmedHistory = (Array.isArray(history) ? history : []).slice(-MAX_HISTORY_TURNS)
-    const messages = [
-      ...trimmedHistory.map((h) => ({ role: h.role, content: h.content })),
-      { role: "user" as const, content: userContent },
-    ] as Anthropic.MessageParam[]
 
     // --- Stream Claude ---
     openStream()
     try {
       const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() })
-      const stream = client.messages.stream({
-        model: "claude-sonnet-5",
-        max_tokens: 1024,
-        // Sonnet 5 thinks by default; this route streamed thinking-off on
-        // Sonnet 4.6 with a 1024-token answer budget, so keep it off.
-        ...thinkingParamsFor("claude-sonnet-5"),
-        system: systemPrompt,
-        messages,
-      })
+      const stream = client.messages.stream(request.params)
       stream.on("text", (text) => {
         res.write(sse({ delta: text }))
       })
+      const answer = await stream.finalMessage()
+      // Every answered call is logged with its cache numbers — a declined one
+      // too, so before the refusal check.
+      logClaudeUsage("chatQuery", request.params.model, answer, { homeId, scope: filter?.type ?? "all", ...request.meta })
       // A safety decline is a 200 with stop_reason "refusal": surface it
       // through the catch below (refund + SSE error), never as a silent answer.
-      assertNotRefused(await stream.finalMessage())
+      assertNotRefused(answer)
       done(sources)
       logReads("answered")
     } catch (err) {

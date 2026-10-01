@@ -459,7 +459,7 @@ export const productLookup = onCall(
 
     let core: ProductLookupCore
     try {
-      core = await runProductLookup(makeCallClaudeTool(ANTHROPIC_API_KEY.value()), brand, model, category)
+      core = await runProductLookup(makeCallClaudeTool(ANTHROPIC_API_KEY.value(), "productLookup"), brand, model, category)
     } catch (e) {
       // No output, no charge.
       await hold.refund()
