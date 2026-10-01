@@ -14,13 +14,19 @@ import { getFirestore } from "firebase-admin/firestore"
  * The answer itself is stubbed at the network layer (no functions emulator in
  * this stack, and never a model call) — the same technique chat.spec.ts uses.
  * Everything after the answer — the dialog, the item list, the write — is real.
+ *
+ * Shared seed: specs in one run share it, and knowledge.spec.ts counts the
+ * furnace's saved answers ("Saved answers 1"). So the answer is saved onto the
+ * WASHER, by name, and every doc this spec writes is deleted afterwards.
  */
 const visible = { visible: true } as const
 const HOME = "e2e-home"
+const ITEM_ID = "washer"
+const ITEM_NAME = "Whirlpool Front-Load Washer"
 const ANSWER = "Every three months, or monthly in a dusty house."
 
 /** The admin SDK the seed uses. Refuses without FIRESTORE_EMULATOR_HOST, so it
- *  can never read a real project. */
+ *  can never read or delete in a real project. */
 function emulatorDb() {
   if (!process.env.FIRESTORE_EMULATOR_HOST) {
     throw new Error("FIRESTORE_EMULATOR_HOST is not set — this spec reads the EMULATOR only")
@@ -28,10 +34,8 @@ function emulatorDb() {
   return getFirestore(getApps()[0] ?? initializeApp({ projectId: "demo-homehub" }))
 }
 
-async function savedAnswersFor(question: string): Promise<number> {
-  const snap = await emulatorDb().collection(`homes/${HOME}/chatFaqs`).where("question", "==", question).get()
-  return snap.size
-}
+const answersFor = (question: string) =>
+  emulatorDb().collection(`homes/${HOME}/chatFaqs`).where("question", "==", question).get()
 
 async function askAndAnswer(page: Page, question: string) {
   await page.route("**/chatQuery", async (route) => {
@@ -54,12 +58,19 @@ for (const vp of [
   { name: "desktop", width: 1440, height: 900 },
 ]) {
   test.describe(`emulator e2e — Ask, Save to knowledge base (${vp.name}, ${vp.width}px)`, () => {
+    // Unique per run and per width.
+    const question = `How often does the washer filter need cleaning? (${vp.name} ${Date.now()})`
+
+    // Leave the shared seed as found, pass or fail.
+    test.afterEach(async () => {
+      const snap = await answersFor(question)
+      await Promise.all(snap.docs.map((d) => d.ref.delete()))
+    })
+
     test("one save opens exactly one dialog and writes exactly one saved answer", async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
-      // Unique per run and per width: the specs in one run share the seeded home.
-      const question = `How often does the furnace filter need changing? (${vp.name} ${Date.now()})`
       await askAndAnswer(page, question)
-      expect(await savedAnswersFor(question)).toBe(0)
+      expect((await answersFor(question)).size).toBe(0)
 
       await page.getByRole("button", { name: "Save to knowledge base" }).filter(visible).first().click()
       const dialog = page.getByRole("dialog")
@@ -69,7 +80,7 @@ for (const vp of [
 
       // An unscoped question: the person picks the item it belongs to.
       await dialog.getByRole("combobox").click()
-      await page.getByRole("option").first().click()
+      await page.getByRole("option", { name: new RegExp(`^${ITEM_NAME}`) }).click()
       const save = dialog.getByRole("button", { name: "Save" })
       await expect(save).toBeEnabled()
       await save.click()
@@ -82,8 +93,10 @@ for (const vp of [
       await page.waitForTimeout(1_500)
       await expect(page.getByRole("dialog")).toHaveCount(0)
 
-      await expect.poll(() => savedAnswersFor(question), { timeout: 10_000 }).toBe(1)
-      expect(await savedAnswersFor(question)).toBe(1)
+      await expect.poll(async () => (await answersFor(question)).size, { timeout: 10_000 }).toBe(1)
+      const saved = await answersFor(question)
+      expect(saved.size).toBe(1)
+      expect(saved.docs[0].get("itemUnitId")).toBe(ITEM_ID)
     })
   })
 }
