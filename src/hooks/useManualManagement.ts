@@ -39,6 +39,7 @@ export function isDeadLegacyManualUrl(sourceType: string, sourceRef: string): bo
     const host = new URL(sourceRef).hostname.toLowerCase()
     return host === "supabase.co" || host.endsWith(".supabase.co")
   } catch {
+    // Not a URL at all, so not a dead v1 one: the normal path handles it.
     return false
   }
 }

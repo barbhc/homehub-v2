@@ -21,6 +21,7 @@ function read(): boolean {
   try {
     return localStorage.getItem(KEY) === "true"
   } catch {
+    // Storage unavailable: the beta stays off, its safe default.
     return false
   }
 }

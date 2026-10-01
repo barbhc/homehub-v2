@@ -42,6 +42,7 @@ export function readCachedHome(uid: string | null): Home | null {
     if (parsed?.uid !== uid || !parsed.home?.home_id) return null
     return parsed.home
   } catch {
+    // Unreadable or corrupt cache: a cold start (the network read), not an error.
     return null
   }
 }

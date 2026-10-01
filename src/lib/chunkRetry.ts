@@ -64,6 +64,7 @@ function markReloaded(): boolean {
     sessionStorage.setItem(RELOAD_FLAG, "1")
     return true
   } catch {
+    // Can't record the reload, so the caller won't reload — no loop it can't stop.
     return false
   }
 }

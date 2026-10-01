@@ -33,6 +33,7 @@ export function hostOf(url: string | null | undefined): string | null {
   try {
     return new URL(url).hostname.toLowerCase()
   } catch {
+    // A malformed URL has no host — unknown, as documented above.
     return null
   }
 }

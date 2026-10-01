@@ -276,6 +276,7 @@ export default function Settings() {
         const info = await App.getInfo()
         build = `${info.version} (${info.build})`
       } catch {
+        // Said in the diagnostics panel itself: the build reads "unknown".
         build = "unknown"
       }
     }
