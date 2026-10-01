@@ -97,7 +97,8 @@ export async function streamChatQuery(params: {
   }
 
   try {
-  // getIdToken() auto-refreshes if the token is expired.
+  // getIdToken() auto-refreshes if the token is expired. A failed refresh is
+  // not swallowed: no token falls to the sign-in message just below.
   const token = await auth.currentUser?.getIdToken().catch(() => undefined)
   if (!token) {
     fail("Authentication required. Please sign in again.")
