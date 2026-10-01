@@ -30,7 +30,7 @@ import { pickNotes, formatNotesBlock, noteSources, type NoteInput } from "./note
 import { makeFetchPdf } from "../parse/storagePdf.js"
 import { manualSource } from "../parse/manualSource.js"
 import { z } from "zod"
-import { DocId, parseHttpInput, storedText } from "../lib/validate.js"
+import { isDocIdSegment, parseHttpInput, storedText } from "../lib/validate.js"
 import { queryTerms, rankChunks } from "./chunkRanking.js"
 import {
   ReadTally,
@@ -104,8 +104,10 @@ export async function chargeAndFetchPdfs<T extends { manualId: string }>(
  * drops and counts the rest (shared/chat/chatMessages.ts). The ceilings sit
  * far above what the Ask client sends and only refuse what it cannot.
  */
+const QUESTION_AND_HOME = "question and home_id are required"
+
 export const ChatQueryRequest = z.object({
-  question: z.string().min(1).max(10_000),
+  question: z.string({ error: QUESTION_AND_HOME }).min(1, { error: QUESTION_AND_HOME }).max(10_000, { error: "That question is too long — try a shorter one." }),
   history: z
     .array(z.object({ role: z.string(), content: z.string().max(50_000) }))
     .max(500)
@@ -118,7 +120,7 @@ export const ChatQueryRequest = z.object({
       label: z.string().max(500).nullish(),
     })
     .nullish(),
-  home_id: DocId,
+  home_id: z.string({ error: QUESTION_AND_HOME }).refine(isDocIdSegment, { error: QUESTION_AND_HOME }),
   allow_web_search: z.boolean().nullish(),
 })
 type ChatSource = { title: string; item_name: string; source_type: "manual" | "web" | "note"; url?: string }
@@ -195,7 +197,7 @@ export const chatQuery = onRequest(
       return
     }
 
-    const parsed = parseHttpInput("chatQuery", ChatQueryRequest, req.body, "question and home_id are required")
+    const parsed = parseHttpInput("chatQuery", ChatQueryRequest, req.body, "That question couldn't be sent as it was. Try asking again.")
     if (!parsed.ok) {
       res.status(parsed.status).json({ error: parsed.error })
       return

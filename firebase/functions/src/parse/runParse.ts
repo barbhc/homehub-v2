@@ -127,11 +127,12 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
       const snap = await tx.get(manualRef)
       if (!snap.exists) return { kind: "missing" as const }
       if (snap.get("parse.requestId") !== requestId) return { kind: "stale" as const }
-      const current = snap.get("parse.stage") as ParseStage | undefined
+      const current: unknown = snap.get("parse.stage")
       // Ended already: a duplicate delivery, or the stalled-parse sweep wrote
       // this run off — either way it must not run (and flip a shown error back
       // to "reading").
-      if (current === "done" || current === "error") return { kind: "finished" as const, stage: current }
+      if (current === "done") return { kind: "finished" as const, stage: "done" as const }
+      if (current === "error") return { kind: "finished" as const, stage: "error" as const }
 
       const itemUnitId: string = snap.get("itemUnitId")
       const itemSnap = await tx.get(db.doc(`homes/${homeId}/items/${itemUnitId}`))

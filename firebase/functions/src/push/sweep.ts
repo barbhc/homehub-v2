@@ -34,6 +34,9 @@
  */
 import type { Firestore } from "firebase-admin/firestore"
 import * as logger from "firebase-functions/logger"
+import { z } from "zod"
+import { storedText } from "../lib/validate.js"
+import { storedDocId } from "../lib/storedTask.js"
 import { dueKindOf, safetyPhrase } from "../../../../shared/care/dueWindow.js"
 import { isAgendaEligible } from "../../../../shared/tasks/agendaEligibility.js"
 import { normalizeNotificationPrefs, type NotificationPrefs } from "../../../../shared/notifications/preferences.js"
@@ -117,7 +120,7 @@ async function readTemplates(
       const re = snap.get("remindEnabled")
       out.set(snap.ref.path, {
         remindEnabled: typeof re === "boolean" ? re : null,
-        priorityTier: (snap.get("priorityTier") as string | null) ?? null,
+        priorityTier: storedText(snap.get("priorityTier")),
         supplies,
       })
     }
@@ -169,12 +172,15 @@ export async function collectCandidates(
     for (const d of docs) {
       // Same eligibility as the Home agenda — a push must never count tasks the
       // app deliberately hides (item-scoped cleaning).
-      if (!isAgendaEligible({ careType: d.get("careType") as string | null, scopeType: d.get("scopeType") as string | null })) continue
+      if (!isAgendaEligible({ careType: storedText(d.get("careType")), scopeType: storedText(d.get("scopeType")) })) continue
 
-      const title = (d.get("title") as string) ?? "A task"
-      const scheduleType = (d.get("scheduleType") as string | null) ?? null
-      const dueDate = (d.get("dueDate") as string) ?? today
-      const taskTemplateId = (d.get("taskTemplateId") as string | null) ?? null
+      // Member-written fields (H3a §3): text that isn't text reads as absent,
+      // and the template id becomes a path, so it must be one segment — a
+      // slash in one used to throw inside getAll and end the sweep for everyone.
+      const title = storedText(d.get("title")) ?? "A task"
+      const scheduleType = storedText(d.get("scheduleType"))
+      const dueDate = storedText(d.get("dueDate")) ?? today
+      const taskTemplateId = storedDocId(d.get("taskTemplateId"))
       if (taskTemplateId) templatePaths.add(`${homePath}/taskTemplates/${taskTemplateId}`)
       // Query order is (dueDate, document path) — the key the old query sorted by.
       first ??= { dueDate, path: d.ref.path }
@@ -182,14 +188,14 @@ export async function collectCandidates(
       entry.pending.push({
         id: d.id,
         taskTemplateId,
-        itemUnitId: (d.get("itemUnitId") as string | null) ?? null,
+        itemUnitId: storedText(d.get("itemUnitId")),
         title,
-        itemName: (d.get("itemName") as string | null) ?? null,
+        itemName: storedText(d.get("itemName")),
         dueDate,
         isDeadline: dueKindOf({ title, scheduleType }) === "deadline",
         safety: !!d.get("isSafetyCritical") && safetyPhrase(dueDate, scheduleType, { today }) !== null,
         remindEnabled: null,
-        priorityTier: (d.get("priorityTier") as string | null) ?? null,
+        priorityTier: storedText(d.get("priorityTier")),
         supplies: [],
       })
     }
@@ -255,6 +261,20 @@ async function readMemberships(db: Firestore, reads: SweepReads) {
  * state: pushing without the dedupe state would repeat pushes, and the next
  * tick retries (the morning and buy-ahead lanes are deferred, not dropped).
  */
+/**
+ * A user's push dedupe state. It lives under users/{uid}/private, which the
+ * user can write, and the sweep writes a patch on top of what it reads — so
+ * each field is parsed (H3a §3). One of the wrong type reads as absent, which
+ * at worst repeats a push once; it can no longer reach the lane decisions as
+ * something other than what PushState says.
+ */
+const StoredPushState = z.object({
+  lastMorningDate: z.string().nullish().catch(undefined),
+  lastDigestKey: z.string().nullish().catch(undefined),
+  lastBuyAheadDate: z.string().nullish().catch(undefined),
+  buyAheadSent: z.record(z.string(), z.string()).nullish().catch(undefined),
+}) satisfies z.ZodType<PushState>
+
 async function readUserState(db: Firestore, uids: string[], reads: SweepReads) {
   const prefs = new Map<string, NotificationPrefs>()
   const state = new Map<string, PushState>()
@@ -268,7 +288,7 @@ async function readUserState(db: Firestore, uids: string[], reads: SweepReads) {
       const p = snaps[j * 2]
       const s = snaps[j * 2 + 1]
       prefs.set(uid, normalizeNotificationPrefs(p.exists ? p.get("notifications") : undefined))
-      state.set(uid, s.exists ? (s.data() as PushState) : {})
+      state.set(uid, s.exists ? StoredPushState.parse(s.data() ?? {}) : {})
     })
   }
   return { prefs, state }

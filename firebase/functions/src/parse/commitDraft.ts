@@ -17,6 +17,7 @@ import {
 import type { ParseItemFacts } from "./parseTypes.js"
 import { addCadence, seasonForTask, seasonalNextDue } from "../schedule/cadence.js"
 import { applyHouseRules, type HouseRuleLike } from "../../../../shared/tasks/houseRules.js"
+import { storedCount } from "../lib/validate.js"
 
 /** normalizeChunkRow output (snake_case) → Firestore chunk doc (camelCase). */
 type NormalizedChunk = ReturnType<typeof import("../../../../shared/parse/parseCore.js").normalizeChunkRow>
@@ -74,8 +75,14 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
   const manualSnap = await manualRef.get()
   const committed = manualSnap.get("parse.committedRequestId")
   if (committed === requestId) {
-    const s = manualSnap.get("parse.summary") as { chunks?: number; tasks?: number } | undefined
-    return { chunks: s?.chunks ?? 0, tasks: s?.tasks ?? 0, matched: 0, inserted: 0, flagged: 0, deleted: 0 }
+    return {
+      chunks: storedCount(manualSnap.get("parse.summary.chunks")) ?? 0,
+      tasks: storedCount(manualSnap.get("parse.summary.tasks")) ?? 0,
+      matched: 0,
+      inserted: 0,
+      flagged: 0,
+      deleted: 0,
+    }
   }
 
   // ── Apply the home's learned house rules + climate to the extracted rows,

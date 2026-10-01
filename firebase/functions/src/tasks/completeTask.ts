@@ -207,8 +207,10 @@ export const CompleteTaskRequest = z.object({
     .string({ error: NOTES_MESSAGE })
     .nullish()
     .transform((v) => v ?? null),
-  completedOn: z.unknown(),
-  backdated: z.unknown(),
+  // .optional(): in zod 4 a bare z.unknown() key is REQUIRED, and both of
+  // these may be absent (no date → today at the home).
+  completedOn: z.unknown().optional(),
+  backdated: z.unknown().optional(),
 })
 
 /**

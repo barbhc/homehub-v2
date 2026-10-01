@@ -16,7 +16,7 @@ import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
 import { rankChunks } from "./chunkRanking.js"
 import { withAiQuota } from "../lib/quota.js"
 import { z } from "zod"
-import { DocId, parseCallableInput } from "../lib/validate.js"
+import { isDocIdSegment, parseCallableInput } from "../lib/validate.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -186,12 +186,15 @@ function parseProposal(p: unknown): DiscussProposal | null {
  * sends — the prompt uses the last six turns — and exist so one request
  * cannot carry a novel into a paid call.
  */
+const REQUIRED = "homeId, taskTemplateId and question are required."
+const requiredId = z.string({ error: REQUIRED }).refine(isDocIdSegment, { error: REQUIRED })
+
 export const DiscussTaskRequest = z.object({
-  homeId: DocId,
-  taskTemplateId: DocId,
+  homeId: requiredId,
+  taskTemplateId: requiredId,
   question: z
-    .string()
-    .refine((q) => q.trim().length > 0)
+    .string({ error: REQUIRED })
+    .refine((q) => q.trim().length > 0, { error: REQUIRED })
     .refine((q) => q.length <= 10_000, { error: "That message is too long — try a shorter one." }),
   history: z
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(20_000) }))
@@ -207,7 +210,7 @@ export const discussTask = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY]
     "discussTask",
     DiscussTaskRequest,
     request.data,
-    "homeId, taskTemplateId and question are required.",
+    "That message couldn't be sent as it was. Try again.",
   )
   const db = getFirestore()
   const member = await db.doc(`homes/${homeId}/members/${uid}`).get()

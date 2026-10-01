@@ -32,6 +32,7 @@ import { getFunctions } from "firebase-admin/functions"
 import { z } from "zod"
 import type { ParseMode } from "./parseTypes.js"
 import { DocId, parseCallableInput } from "../lib/validate.js"
+import { parseModeOrPreview } from "./parseMode.js"
 import { chargeAiQuota, isQuotaExhausted, type QuotaHold } from "../lib/quota.js"
 import { recordParseCharge, refundParseCharge } from "../lib/parseCharges.js"
 import { PARSE_ERR } from "../../../../shared/parse/parseErrors.js"
@@ -221,24 +222,11 @@ export async function runEnqueueParse(db: Firestore, deps: EnqueueDeps, input: E
   return { ok: true, requestId }
 }
 
-export const PARSE_MODES = ["commit", "preview", "fill_gaps"] as const satisfies readonly ParseMode[]
-
 /**
- * The request (H3a). `mode` is parsed on its own below: a missing or
- * unrecognised mode is not refused but made "preview" — see there.
+ * The request (H3a). `mode` is parsed on its own: a missing or unrecognised
+ * mode is not refused but made "preview" (parseMode.ts says why).
  */
-export const EnqueueParseRequest = z.object({ homeId: DocId, manualId: DocId, mode: z.unknown() })
-
-/**
- * FAIL SAFE, not fail destructive. This defaulted to "commit", so a request
- * that omitted or misspelled the mode wrote tasks straight into someone's
- * home. "preview" only writes a draft the user must accept, so the worst a
- * malformed or stale request can do is prepare something and wait.
- */
-export function parseModeOrPreview(raw: unknown): { mode: ParseMode; recognised: boolean } {
-  const parsed = z.enum(PARSE_MODES).safeParse(raw)
-  return parsed.success ? { mode: parsed.data, recognised: true } : { mode: "preview", recognised: raw === undefined }
-}
+export const EnqueueParseRequest = z.object({ homeId: DocId, manualId: DocId, mode: z.unknown().optional() })
 
 export const enqueueParse = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid

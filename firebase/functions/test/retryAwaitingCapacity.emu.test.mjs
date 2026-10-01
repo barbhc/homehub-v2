@@ -55,7 +55,11 @@ function refusal(scope) {
   })
 }
 
-async function park(home, manualId, { uid = "u1", agoMs = 60_000, mode = "preview" } = {}) {
+/** Park a manual the way enqueueParse does: on behalf of a MEMBER of the home
+ *  (enqueueParse checks membership before it parks — and the sweep now
+ *  re-checks it, because the manual doc is member-writable). */
+async function park(home, manualId, { uid = "u1", agoMs = 60_000, mode = "preview", member = true } = {}) {
+  if (member) await db.doc(`homes/${home}/members/${uid}`).set({ uid, role: "member" })
   await db.doc(`homes/${home}/manuals/${manualId}`).set({
     parse: {
       stage: "awaiting_capacity",
@@ -179,6 +183,31 @@ test("a parked doc with no owner expires instead of being scanned forever", asyn
   assert.equal(res.expired, 1)
   assert.deepEqual(s.charged, [], "there is no one to charge")
   assert.equal(await stageOf(H, "orphan"), "error")
+})
+
+test("a parked doc naming someone who is not a member here charges nobody (H3a)", async () => {
+  // The manual doc is member-writable: `parse.awaiting.uid` could name any
+  // account in the app. Only a current member of THIS home may be charged.
+  const H = home("cap-forged-owner")
+  await park(H, "forged", { uid: "someone-elses-uid", member: false })
+  await park(H, "garbled", { uid: "u1/../../x", member: false })
+
+  const s = spy()
+  const res = await runCapacityRetry(db, s.effects, NOW)
+
+  assert.equal(res.expired, 2)
+  assert.equal(res.restarted, 0)
+  assert.deepEqual(s.charged, [], "nobody outside the home is charged")
+  assert.equal(await stageOf(H, "forged"), "error")
+  assert.equal(await stageOf(H, "garbled"), "error")
+})
+
+test("an unrecognised stored mode restarts as a preview, never as something the worker drops (H3a)", async () => {
+  const H = home("cap-badmode")
+  await park(H, "m1", { mode: "delete-everything" })
+  const s = spy()
+  await runCapacityRetry(db, s.effects, NOW)
+  assert.equal(s.enqueued[0].mode, "preview")
 })
 
 test("one sweep cannot drain the budget — the batch is bounded", async () => {

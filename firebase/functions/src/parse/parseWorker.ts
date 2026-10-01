@@ -23,12 +23,10 @@ import { PARSE_ATTEMPT_DEADLINE_SECONDS, PARSE_MAX_ATTEMPTS } from "./parseState
 import { readSpendConfig, type SpendConfig } from "../lib/quota.js"
 import { z } from "zod"
 import { checkInput, DocId, logInvalidInput } from "../lib/validate.js"
-import type { ParseMode } from "./parseTypes.js"
+import { ParseModeSchema } from "./parseMode.js"
 
 const REGION = "us-central1"
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
-
-const MODES = ["commit", "preview", "fill_gaps"] as const satisfies readonly ParseMode[]
 
 /** The task body. Unlike enqueueParse, the mode here is required and exact:
  *  only our own enqueue writes it, so anything else is not ours to guess at. */
@@ -36,7 +34,7 @@ export const ParseTaskPayloadSchema = z.object({
   homeId: DocId,
   manualId: DocId,
   requestId: DocId,
-  mode: z.enum(MODES),
+  mode: ParseModeSchema,
 })
 export type ParseTaskPayload = z.output<typeof ParseTaskPayloadSchema>
 

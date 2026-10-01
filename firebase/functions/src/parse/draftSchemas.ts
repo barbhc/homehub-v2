@@ -106,7 +106,7 @@ export const DraftTask = z.object({
   ),
   // The reviewer's own answers — not parser fields (see commitManualDraft).
   remind_enabled: z.boolean().nullish().transform((v) => v ?? null),
-  last_done_on: z.unknown(),
+  last_done_on: z.unknown().optional(), // absent on every row the reviewer didn't date
 }) satisfies z.ZodType<ParsedTask>
 
 export const CommitManualDraftRequest = z.object({

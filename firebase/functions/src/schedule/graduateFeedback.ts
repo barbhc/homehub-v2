@@ -12,7 +12,10 @@
  */
 import { onSchedule } from "firebase-functions/v2/scheduler"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
+import { z } from "zod"
 import { aggregateGraduation, GRADUATION_THRESHOLD, type GraduationRow, type FeedbackPattern } from "../../../../shared/tasks/graduation.js"
+import { SEASONS } from "./cadence.js"
+import { readStored, storedText } from "../lib/validate.js"
 
 const REGION = "us-central1"
 
@@ -20,6 +23,24 @@ export interface GraduationRunResult {
   feedbackScanned: number
   candidates: number
 }
+
+const short = z.string().max(200)
+/** A stored feedback pattern, as shared/tasks/graduation.ts reads one. */
+const StoredFeedbackPattern = z.object({
+  chip: short,
+  action: short,
+  match: z
+    .discriminatedUnion("by", [
+      z.object({ by: z.literal("symptomTags"), tags: z.array(short).max(20) }),
+      z.object({ by: z.literal("seasonalFamily"), family: short }),
+      z.object({ by: z.literal("season"), season: z.enum(SEASONS) }),
+      z.object({ by: z.literal("template"), taskTemplateId: short }),
+    ])
+    .nullable(),
+  toTier: short.nullish(),
+  scheduleType: short.nullish(),
+  season: short.nullish(),
+}) satisfies z.ZodType<FeedbackPattern>
 
 /** Firestore doc-id-safe token for a patternKey (which contains `|` and `:`). */
 function candidateId(patternKey: string): string {
@@ -38,10 +59,15 @@ export async function runGraduation(db: Firestore, threshold = GRADUATION_THRESH
   for (const d of snap.docs) {
     if (d.get("deletedAt") != null) continue
     const homeId = d.ref.parent.parent?.id // homes/{homeId}/taskFeedback/{id}
-    const patternKey = (d.get("patternKey") ?? null) as string | null
-    const pattern = d.get("pattern") as FeedbackPattern | undefined
-    if (!homeId || !patternKey || !pattern) continue // legacy/home-specific rows don't graduate
-    rows.push({ homeId, patternKey, pattern, title: d.get("title") ?? "", createdAt: iso(d.get("createdAt")) })
+    // Feedback docs are member-created, and what is read here is aggregated
+    // ACROSS homes into server-only candidates (H3a §3) — parsed, not cast.
+    const rawKey: unknown = d.get("patternKey")
+    const rawPattern: unknown = d.get("pattern")
+    if (!homeId || rawKey == null || rawPattern == null) continue // legacy/home-specific rows don't graduate
+    const patternKey = typeof rawKey === "string" && rawKey.length > 0 && rawKey.length <= 500 ? rawKey : null
+    const pattern = readStored("graduateFeedback", d.ref.path, StoredFeedbackPattern, rawPattern)
+    if (!patternKey || !pattern) continue
+    rows.push({ homeId, patternKey, pattern, title: storedText(d.get("title")) ?? "", createdAt: iso(d.get("createdAt")) })
   }
 
   const candidates = aggregateGraduation(rows, threshold)
