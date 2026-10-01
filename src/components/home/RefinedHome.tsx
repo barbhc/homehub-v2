@@ -88,7 +88,6 @@ export function RefinedHome({
   /** Forward schedule for the Coming-up drawer. */
   upcoming: MaintenanceTaskFull[]
   nextUp?: { dueDate: string; windowStart: string } | null
-  briefingReady?: boolean
   warranties: ExpiringWarrantyItem[]
   cleaningGuides?: DeepCleanGuide[]
   level: UserLevel

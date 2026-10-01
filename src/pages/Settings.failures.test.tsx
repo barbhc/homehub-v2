@@ -285,6 +285,31 @@ describe("Settings — rooms and custom tasks", () => {
     expect(await screen.findByText("Couldn't load your custom tasks.")).toBeInTheDocument()
   })
 
+  // H5 moved both reads into one reader + one apply each (readRooms/applyRooms,
+  // readRoutines/applyRoutines). Try again is the imperative path through them.
+  it("Try again on rooms reads them again and lists them", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    m.getRooms.mockResolvedValueOnce({ data: null, error: { message: "unavailable" } })
+    renderSettings()
+    const failed = (await screen.findByText("Couldn't load your rooms.")).closest("[role=alert]") as HTMLElement
+    fireEvent.click(within(failed).getByRole("button", { name: "Try again" }))
+    expect(await screen.findByText("Kitchen")).toBeInTheDocument()
+    expect(screen.queryByText("Couldn't load your rooms.")).toBeNull()
+    expect(m.getRooms).toHaveBeenCalledTimes(2)
+  })
+
+  it("Try again on custom tasks reads them again and lists them", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    m.getRoutineTemplates
+      .mockRejectedValueOnce(new Error("Failed to load routine templates: unavailable"))
+      .mockResolvedValueOnce([{ task_template_id: "rt1", title: "Water the ferns", schedule_type: "weekly", estimated_minutes: 5 }])
+    renderSettings()
+    const failed = (await screen.findByText("Couldn't load your custom tasks.")).closest("[role=alert]") as HTMLElement
+    fireEvent.click(within(failed).getByRole("button", { name: "Try again" }))
+    expect(await screen.findByText("Water the ferns")).toBeInTheDocument()
+    expect(screen.queryByText("Couldn't load your custom tasks.")).toBeNull()
+  })
+
   it("manuals that could not be read say so — not '0 manuals uploaded'", async () => {
     m.getManualsByHome.mockResolvedValue({ data: null, error: { message: "unavailable" } })
     renderSettings()

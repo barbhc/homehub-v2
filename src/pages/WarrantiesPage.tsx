@@ -9,6 +9,7 @@ import { getItemUnits } from "@/modules/items"
 import type { ItemUnit } from "@/integrations/types"
 import { warrantyExpiry } from "@/lib/warrantyWindow"
 import { diffDays, localToday } from "../../shared/dates/calendar"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 // Per-item glyph (mirrors RefinedItemDetail) — warranties show the item's own
 // icon, not a uniform shield.
@@ -177,21 +178,26 @@ export default function WarrantiesPage() {
   const [rooms, setRooms] = useState<{ room_id: string; name: string }[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!home) return
-    let cancelled = false
+  const homeId = home?.home_id ?? null
+  // A home switch clears the list to "loading" in the render that switches
+  // (it starts that way for the first read); the effect only reads.
+  if (useDepsChanged([homeId]) && homeId) {
     setItems(null)
     setError(null)
-    getItemUnits(home.home_id).then((res) => {
+  }
+  useEffect(() => {
+    if (!homeId) return
+    let cancelled = false
+    getItemUnits(homeId).then((res) => {
       if (cancelled) return
       if (res.error) setError(res.error.message)
       else setItems(res.data)
     })
-    getRooms(home.home_id).then((r) => { if (!cancelled) setRooms(r.data ?? []) })
+    getRooms(homeId).then((r) => { if (!cancelled) setRooms(r.data ?? []) })
     return () => {
       cancelled = true
     }
-  }, [home?.home_id])
+  }, [homeId])
 
   const roomMap = useMemo(() => new Map(rooms.map((r) => [r.room_id, r.name])), [rooms])
   const rows = useMemo(() => (items ? toWarrantyRows(items, roomMap) : []), [items, roomMap])

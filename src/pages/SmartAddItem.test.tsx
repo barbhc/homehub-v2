@@ -241,3 +241,37 @@ describe("HH-112 — the item is named for what it is, not its model number", ()
     expect(svc.createItemUnit.mock.calls[0][0]).toMatchObject({ display_name: "Beer fridge" })
   })
 })
+
+// H5 (the whole-app lint): the check for a saved session moved from an effect
+// into the render that learns the home, and "You started this {when}" stopped
+// reading the clock during render (it counts to when the page opened).
+describe("a saved session offers to pick up where it left off", () => {
+  const session = (over: Record<string, unknown> = {}) => ({
+    itemId: "item-9", propertyId: "h1", step: "identify", itemName: "Beer fridge", brand: null, model: null,
+    locationId: null, hasManual: false, hasTasks: false,
+    createdAt: new Date(Date.now() - 3 * 3600_000).toISOString(), ...over,
+  })
+
+  it("for this home: names the item and when it was started", () => {
+    localStorage.setItem("homehub-smart-add-session", JSON.stringify(session()))
+    renderWizard()
+    expect(screen.getByText("Pick up where you left off")).toBeInTheDocument()
+    expect(screen.getByText("Beer fridge")).toBeInTheDocument()
+    expect(screen.getByText("You started this 3 hours ago.")).toBeInTheDocument()
+  })
+
+  it("for another home: no prompt, the lane chooser", () => {
+    localStorage.setItem("homehub-smart-add-session", JSON.stringify(session({ propertyId: "another-home" })))
+    renderWizard()
+    expect(screen.queryByText("Pick up where you left off")).toBeNull()
+    expect(screen.getByRole("button", { name: /Everything else/ })).toBeInTheDocument()
+  })
+
+  it("Finish adding it resumes the saved item in its lane", () => {
+    localStorage.setItem("homehub-smart-add-session", JSON.stringify(session()))
+    renderWizard()
+    fireEvent.click(screen.getByRole("button", { name: "Finish adding it" }))
+    expect(screen.queryByText("Pick up where you left off")).toBeNull()
+    expect((document.getElementById("identify-name") as HTMLInputElement).value).toBe("Beer fridge")
+  })
+})

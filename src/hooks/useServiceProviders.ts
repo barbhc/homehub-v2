@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { ServiceProvider } from "@/integrations/types"
+import { useDepsChanged } from "./useDepsChanged"
 
 function providerIso(v: unknown): string {
   if (v instanceof Timestamp) return v.toDate().toISOString()
@@ -81,6 +82,19 @@ function sortProviders(list: ServiceProvider[]): ServiceProvider[] {
   )
 }
 
+type ProvidersRead = { list: ServiceProvider[] } | { error: unknown }
+
+/** One read of the home's providers: the sorted list, or the error. */
+async function readProviders(homeId: string): Promise<ProvidersRead> {
+  try {
+    const snap = await getDocs(query(collection(db, `homes/${homeId}/serviceProviders`), where("deletedAt", "==", null)))
+    return { list: sortProviders(snap.docs.map((d) => toProvider(homeId, d.id, d.data()))) }
+  } catch (error) {
+    // Not swallowed: handed back for the hook to log and say (applyRead).
+    return { error }
+  }
+}
+
 /**
  * Owns the `service_provider` load + create / edit / delete (soft) logic so the
  * Settings section and the standalone Providers page stay consistent. Mutations
@@ -96,27 +110,30 @@ export function useServiceProviders(homeId: string) {
    *  an unhandled rejection, the row stuck on "Deleting…", nothing said. */
   const [removeError, setRemoveError] = useState<string | null>(null)
 
-  const load = useCallback(async (signal?: { cancelled: boolean }) => {
-    setLoading(true)
-    try {
-      const snap = await getDocs(query(collection(db, `homes/${homeId}/serviceProviders`), where("deletedAt", "==", null)))
-      if (signal?.cancelled) return
-      setProviders(sortProviders(snap.docs.map((d) => toProvider(homeId, d.id, d.data()))))
+  /** Lands a read — the list, or the failure (logged and said) — and stops
+   *  the spinner either way. */
+  const applyRead = useCallback((res: ProvidersRead) => {
+    if ("list" in res) {
+      setProviders(res.list)
       setLoadFailed(false)
-    } catch (e) {
-      if (signal?.cancelled) return
-      console.warn(`[providers] could not load service providers for home ${homeId}:`, e instanceof Error ? e.message : e)
+    } else {
+      console.warn(`[providers] could not load service providers for home ${homeId}:`, res.error instanceof Error ? res.error.message : res.error)
       setLoadFailed(true)
-    } finally {
-      if (!signal?.cancelled) setLoading(false)
     }
+    setLoading(false)
   }, [homeId])
 
+  // The first read and a home switch: the spinner starts in the render that
+  // switches (it starts on for the first), and the effect only reads. A read
+  // for a home already left lands nowhere.
+  if (useDepsChanged([homeId])) setLoading(true)
   useEffect(() => {
-    const signal = { cancelled: false }
-    load(signal)
-    return () => { signal.cancelled = true }
-  }, [load])
+    let cancelled = false
+    void readProviders(homeId).then((res) => {
+      if (!cancelled) applyRead(res)
+    })
+    return () => { cancelled = true }
+  }, [homeId, applyRead])
 
   /** Insert or update. Returns the saved row on success, or an error message. */
   const save = useCallback(
@@ -180,7 +197,11 @@ export function useServiceProviders(homeId: string) {
     [homeId]
   )
 
-  const reload = useCallback(() => { void load() }, [load])
+  /** Try again after a failed read. */
+  const reload = useCallback(() => {
+    setLoading(true)
+    void readProviders(homeId).then(applyRead)
+  }, [homeId, applyRead])
 
   return { providers, loading, deletingId, save, remove, loadFailed, removeError, reload }
 }

@@ -4,6 +4,7 @@ import { HouseIcon, Loader2, CheckIcon, ArrowRightIcon, Link2OffIcon, UserCheckI
 import { useAuth } from "@/modules/auth"
 import { AuthScreen, AuthMark, AuthCTA, AUTH } from "@/modules/auth/components/authUi"
 import { getInviteByToken, acceptInvite, type InviteDetails } from "@/modules/home"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 type PageState = "loading" | "ready" | "accepting" | "success" | "error" | "auth-required"
 
@@ -24,10 +25,16 @@ export default function AcceptInvite() {
   const [expired, setExpired] = useState(false)
   const [acceptedHomeName, setAcceptedHomeName] = useState<string | null>(null)
 
+  // What can be said without a read — sign in first, or a link with no token —
+  // is decided in the render that learns it (and on arrival). Keyed on the
+  // user's id: whether there IS one is all this decides.
+  if (useDepsChanged([token, user?.id, authLoading], { onMount: true }) && !authLoading) {
+    if (!user) setState("auth-required")
+    else if (!token) { setState("error"); setError("Invalid invite link.") }
+  }
+
   useEffect(() => {
-    if (authLoading) return
-    if (!user) { setState("auth-required"); return }
-    if (!token) { setState("error"); setError("Invalid invite link."); return }
+    if (authLoading || !user || !token) return
 
     getInviteByToken(token).then((res) => {
       if (res.error) { setState("error"); setError("Invite not found or has been revoked."); return }

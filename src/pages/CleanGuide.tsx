@@ -5,6 +5,7 @@ import { useCurrentHome } from "@/modules/home"
 import { getItemCleanGuide, type ItemCleanGuide } from "@/lib/cleanSession"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
 import { LoadErrorState } from "@/components/layout/LoadStates"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 
@@ -26,10 +27,12 @@ export default function CleanGuide() {
   const [loadFailed, setLoadFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
+  // Another item (or Try again) shows "Loading guide…" in the render that asks;
+  // the effect only reads.
+  if (useDepsChanged([homeId, itemUnitId, attempt]) && homeId && itemUnitId) setLoading(true)
   useEffect(() => {
     if (!homeId || !itemUnitId) return
     let cancelled = false
-    setLoading(true)
     getItemCleanGuide(homeId, itemUnitId)
       .then((g) => {
         if (cancelled) return

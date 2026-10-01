@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { CheckIcon, ChevronLeftIcon, HomeIcon, Loader2Icon, PlusIcon } from "lucide-react"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { createHome } from "@/modules/home"
@@ -42,14 +43,13 @@ export function HomeSwitcherSheet({
   const [error, setError] = useState<string | null>(null)
 
   // Always reopen on the list. Reopening into a half-typed add form would be a
-  // small mystery every time.
-  useEffect(() => {
-    if (open) {
-      setView("list")
-      setName("")
-      setError(null)
-    }
-  }, [open])
+  // small mystery every time. Reset in the render that opens it, so the sheet
+  // never paints the old form first.
+  if (useDepsChanged([open]) && open) {
+    setView("list")
+    setName("")
+    setError(null)
+  }
 
   const submit = async () => {
     const trimmed = name.trim()

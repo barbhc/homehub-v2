@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { SparklesIcon, XIcon } from "lucide-react"
 import type { UserLevel } from "@/hooks/useUserLevel"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 const SEEN_KEY = "homehub:level-seen"
 const RANK: Record<UserLevel, number> = { essentials: 0, engaged: 1, power: 2 }
@@ -23,13 +24,14 @@ const UNLOCK_COPY: Partial<Record<UserLevel, string>> = {
 export function LevelUnlockBanner({ derivedLevel }: { derivedLevel: UserLevel | null }) {
   const [reached, setReached] = useState<UserLevel | null>(null)
 
-  useEffect(() => {
-    if (!derivedLevel) return
+  // Checked whenever the derived level changes (and on mount), in the render
+  // that brings it — no effect setting state a frame later.
+  if (useDepsChanged([derivedLevel], { onMount: true }) && derivedLevel) {
     const seen = (window.localStorage.getItem(SEEN_KEY) as UserLevel | null) ?? "essentials"
     if (RANK[derivedLevel] > RANK[seen] && UNLOCK_COPY[derivedLevel]) {
       setReached(derivedLevel)
     }
-  }, [derivedLevel])
+  }
 
   function dismiss() {
     if (derivedLevel) window.localStorage.setItem(SEEN_KEY, derivedLevel)

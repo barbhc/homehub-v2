@@ -92,14 +92,17 @@ export function tourCanStartNow(
 
 /** `route` is ours, not driver.js's — strip it before handing steps over. */
 function toDriveSteps(steps: TourStep[]): DriveStep[] {
-  return steps.map(({ route: _route, element, ...step }) => ({
-    ...step,
-    element: typeof element === "string" ? visibleTarget(element) : element,
-  }))
+  return steps.map((tourStep) => {
+    const step: TourStep = { ...tourStep }
+    delete step.route
+    const { element } = step
+    return { ...step, element: typeof element === "string" ? visibleTarget(element) : element }
+  })
 }
 
 export function useFeatureTour() {
   const { user } = useAuth()
+  const userId = user?.id
   const navigate = useNavigate()
   const driverRef = useRef<ReturnType<typeof driver> | null>(null)
   const checkedRef = useRef(false)
@@ -204,8 +207,8 @@ export function useFeatureTour() {
    * meant the button did nothing at all, in silence (audit H6).
    */
   const restartTour = useCallback(() => {
-    if (!user?.id) return
-    const uid = user.id
+    if (!userId) return
+    const uid = userId
     setPreference(uid, PREF_TOUR_COMPLETED, false).catch((e: unknown) => {
       console.warn(`[tour] could not reset the tour flag for ${uid}; starting it anyway:`, e instanceof Error ? e.message : e)
     })
@@ -213,7 +216,7 @@ export function useFeatureTour() {
     const d = buildDriver(uid)
     driverRef.current = d
     d.drive()
-  }, [user?.id, buildDriver])
+  }, [userId, buildDriver])
 
   return { restartTour }
 }

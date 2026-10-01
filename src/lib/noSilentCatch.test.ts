@@ -8,8 +8,9 @@
  * `.catch(() => null)` on a write, after which the screen showed success.
  *
  * ESLint's `no-empty` (an error, `allowEmptyCatch: false`) covers empty catch
- * BLOCKS, but only where `lint:new` runs, and it cannot see a handler that is a
- * function body at all. So this scans every app source file (src/ and shared/;
+ * BLOCKS — across the whole app since CI's lint stopped being scoped to new
+ * code (H5) — but it cannot see a handler that is a function body at all.
+ * So this scans every app source file (src/ and shared/;
  * the Functions workspace is out of this package's scope) for:
  *
  *  1. a silent `.catch` HANDLER — one that does nothing or hands back a

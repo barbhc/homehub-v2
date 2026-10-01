@@ -36,10 +36,9 @@ Update the relevant rows in the SAME commit as the work. Statuses: `stub` → `p
 - **e2e:** full flow/visual/a11y suites parked until emulator auth+seed (Phase 2/3); `smoke`
   project (3 tests) is the CI gate meanwhile. Visual baselines copied from v1 for future comparability.
 - **Capacitor kept temporarily** (native*/push importers) — FCM swap is Phase 4; native app post-switch.
-- **Lint gate scoped to new code** (`npm run lint:new`): full-tree eslint carries ~70 pre-existing
-  v1 findings (newer react-hooks plugin rules: set-state-in-effect/purity, etc.) in UI files the
-  plan forbids churning in Phase 1. Each Phase 5 module swap fixes its module's findings and widens
-  the CI scope; done = full-tree `npm run lint` green.
+- **Lint gate — done (H5, 2026-10-01).** It was scoped to new code (`lint:new`) while full-tree
+  eslint carried ~80 pre-existing v1 findings (newer react-hooks rules: set-state-in-effect,
+  purity, refs…). Those are fixed, `lint:new` is gone, and CI runs full-tree `npm run lint`.
 
 ## Services ledger (Phase 5 tracks per-file)
 

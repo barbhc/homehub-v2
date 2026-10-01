@@ -170,7 +170,6 @@ function freshRegistrationToken(): Promise<string | null> {
  */
 export async function registerNativePush(
   userId: string,
-  _homeId: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!isNativePlatform()) return { success: false, error: "Not a native platform" }
   currentUserId = userId

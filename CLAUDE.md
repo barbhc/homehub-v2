@@ -17,6 +17,7 @@ npm run emu          # Firebase Emulator Suite (demo-homehub — no real project
 npm run dev:emu      # vite with VITE_USE_EMULATORS=true (run `npm run emu` first)
 npm run seed:emu     # deterministic emulator seed: the e2e user and its E2E Test Home (items, tasks, manuals)
 npm run build        # tsc -b && vite build  ← the gate; never just tsc --noEmit
+npm run lint         # eslint, the WHOLE app (CI runs this; 0 errors) — eslint.config.js ignores only generated output
 npm test             # vitest — src/, shared/, the eval scorer, scripts' pure halves (vitest.config.ts)
 npx playwright test e2e/smoke/boot.spec.ts --project=smoke   # boot smoke (CI's first browser check)
 npm run test:e2e:journey:emu   # walk the 5 core journeys with step screenshots
@@ -182,6 +183,10 @@ a deploy it stops is a deploy that would have locked testers out.
   CI-runner-baked; re-bake via workflow, never commit local-platform pixels.
 - CI runs the boot smoke, then all four emulator suites — `emu`, `a11y`, `device`, `journey`
   (`npm run test:e2e:all:emu`, reseeding between them) — plus the rules and worker suites.
+- CI lints the whole app (`npm run lint`), so any new error fails the PR. An
+  `// eslint-disable-next-line <rule> -- <reason>` must say why that line is the exception. To
+  reset state when a prop changes, use `useDepsChanged` (`src/hooks/useDepsChanged.ts`) during
+  render rather than `setState` in an effect (react-hooks/set-state-in-effect).
 - Capacitor deps remain temporarily (3 `src/lib/native*` importers) — replaced by FCM in Phase 4.
 - `.firebaserc`'s default is the owner's project, `homehub-2068d` (Blaze). A functions deploy
   still needs her approval every time (above).

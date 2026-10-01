@@ -79,17 +79,25 @@ export default function ChatPage() {
    *  person has left never flags the one they are reading now. */
   const threadSeqRef = useRef(0)
 
-  const refreshConversations = useCallback(async () => {
-    if (!homeId) return
-    const list = await listConversations(homeId)
-    // A failed read keeps whatever list we already hold, and says so.
+  /** Lands a read of Recent. A failed read keeps whatever list we already
+   *  hold, and says so. */
+  const applyConversations = useCallback((list: ConversationSummary[] | null) => {
     setHistoryLoadFailed(list === null)
     if (list !== null) setConversations(list)
-  }, [homeId])
+  }, [])
 
+  const refreshConversations = useCallback(async () => {
+    if (!homeId) return
+    applyConversations(await listConversations(homeId))
+  }, [homeId, applyConversations])
+
+  // The first read, and a home switch. The read lands in its own callback: an
+  // effect calling a function that sets state reads, to react-hooks, as setting
+  // it in the effect.
   useEffect(() => {
-    void refreshConversations()
-  }, [refreshConversations])
+    if (!homeId) return
+    void listConversations(homeId).then(applyConversations)
+  }, [homeId, applyConversations])
 
   // ── Save to {item} dialog state ──
   const [saveDialog, setSaveDialog] = useState<{

@@ -89,7 +89,7 @@ describe("unregisterNativePush — only claims off when it is true", () => {
   it("the token-persisting listener cannot put the token back while it is removed", async () => {
     apnsAnswers()
     const { registerNativePush, unregisterNativePush } = await load()
-    await registerNativePush("uid-1", "home-1")
+    await registerNativePush("uid-1")
     await vi.waitFor(() => expect(fs.setDoc).toHaveBeenCalledWith(expect.anything(), { tokens: { union: APNS } }, { merge: true }))
     fs.setDoc.mockClear()
 
@@ -155,7 +155,7 @@ describe("a phone turned off here stays off", () => {
     apnsAnswers()
     const { registerNativePush, isNativePushRegistered } = await load()
 
-    expect(await registerNativePush("uid-1", "home-1")).toEqual({ success: true })
+    expect(await registerNativePush("uid-1")).toEqual({ success: true })
     expect(localStorage.getItem(OFF_KEY)).toBeNull()
     expect(await isNativePushRegistered()).toBe(true)
   })

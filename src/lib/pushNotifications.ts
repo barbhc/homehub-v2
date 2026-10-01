@@ -7,8 +7,8 @@ import { getFcmToken, deleteFcmToken, isFcmConfigured } from "@/integrations/fir
  * Web push via FCM. A device token (getFcmToken) is stored in the user's
  * fcmTokens array at users/{uid}/private/fcmTokens; the sendPush / sendPushDaily
  * Cloud Functions deliver to it. Replaces the v1 VAPID + push_subscription
- * (Supabase) path. `homeId` is accepted for call-site compatibility but unused —
- * FCM tokens are per-user in the v2 model.
+ * (Supabase) path. Nothing here takes a home: FCM tokens are per-user in the v2
+ * model.
  */
 const tokensDoc = (uid: string) => doc(db, `users/${uid}/private/fcmTokens`)
 
@@ -23,7 +23,6 @@ export async function getPermissionState(): Promise<NotificationPermission> {
 
 export async function subscribeToPush(
   userId: string,
-  _homeId: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!isPushSupported()) return { success: false, error: "Push notifications not supported" }
   try {

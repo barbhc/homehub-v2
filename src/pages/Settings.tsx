@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { isAwaitingReview } from "@/lib/manualReviewState"
 import { FeedbackButton } from "@/components/FeedbackButton"
 import { SUPPORT_EMAIL } from "@/lib/feedback"
@@ -154,9 +155,57 @@ const SETTINGS_NAV: [string, string][] = [
   ["privacy", "Data & privacy"],
 ]
 
+type RoutinesRead = { routines: RoutineTemplate[] } | { error: unknown }
+
+/** One read of the home's custom tasks — the list, or the error. */
+async function readRoutines(homeId: string): Promise<RoutinesRead> {
+  try {
+    return { routines: await getRoutineTemplates(homeId) }
+  } catch (error) {
+    // Not swallowed: handed back to be logged and said (applyRoutines).
+    return { error }
+  }
+}
+
+type RoomsRead =
+  | { rooms: Room[]; counts: Record<string, number>; error: null }
+  | { rooms: Room[] | null; counts: null; error: unknown }
+
+/** One read of the home's rooms and how many items each holds. A room list
+ *  that arrived before the counts failed is still handed back. */
+async function readRooms(homeId: string): Promise<RoomsRead> {
+  let rooms: Room[] | null = null
+  try {
+    const res = await getRooms(homeId)
+    if (res.error) throw new Error(res.error.message)
+    rooms = res.data ?? []
+
+    // Fetch item counts per room
+    const countsSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))
+    )
+
+    const countMap: Record<string, number> = {}
+    for (const d of countsSnap.docs) {
+      const roomId = d.data().roomId as string | null | undefined
+      if (roomId) {
+        countMap[roomId] = (countMap[roomId] ?? 0) + 1
+      }
+    }
+    return { rooms, counts: countMap, error: null }
+  } catch (error) {
+    // Not swallowed: handed back to be logged and said (applyRooms).
+    return { rooms, counts: null, error }
+  }
+}
+
 export default function Settings() {
   const [autoFindManuals, setAutoFindManuals] = useAutoFindManuals()
   const { user, signOut } = useAuth()
+  // The callbacks below depend on the id, not the user object; reading
+  // `user.id` inside them made the compiler infer `user` and skip them
+  // (react-hooks/preserve-manual-memoization).
+  const userId = user?.id
   const { home } = useCurrentHome()
   const { level } = useUserLevel()
   const { appearance, setAppearance } = useAppearance()
@@ -195,7 +244,7 @@ export default function Settings() {
   }, [user?.id])
 
   const handleSaveProfile = useCallback(async () => {
-    if (!user?.id) return
+    if (!userId) return
     const trimmed = profileNameDraft.trim()
     if (trimmed === profileName) return
     setProfileSaving(true)
@@ -205,7 +254,7 @@ export default function Settings() {
       // Upsert-style merge on users/{uid} — creates the doc if it's missing
       // (v1's 0-rows RLS failure mode doesn't exist here).
       await setDoc(
-        doc(db, `users/${user.id}`),
+        doc(db, `users/${userId}`),
         { fullName: trimmed || null, updatedAt: serverTimestamp() },
         { merge: true }
       )
@@ -217,7 +266,7 @@ export default function Settings() {
     } finally {
       setProfileSaving(false)
     }
-  }, [user?.id, profileNameDraft, profileName])
+  }, [userId, profileNameDraft, profileName])
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return
@@ -283,9 +332,9 @@ export default function Settings() {
     }
 
     let tokens: { kind: string; len: number }[] = []
-    if (user?.id) {
+    if (userId) {
       try {
-        const snap = await getDoc(doc(db, `users/${user.id}/private/fcmTokens`))
+        const snap = await getDoc(doc(db, `users/${userId}/private/fcmTokens`))
         const raw = (snap.get("tokens") as string[] | undefined) ?? []
         tokens = raw.map((t) => ({
           kind: /^[0-9a-f]{64}$/i.test(t) ? "APNs (iOS)" : "FCM (web)",
@@ -296,7 +345,7 @@ export default function Settings() {
       }
     }
     setPushDiag({ platform: Capacitor.getPlatform(), native, permission, build, tokens })
-  }, [user?.id])
+  }, [userId])
 
   const handleTestPush = async () => {
     setPushTesting(true)
@@ -484,59 +533,60 @@ export default function Settings() {
   const [roomsLoadFailed, setRoomsLoadFailed] = useState(false)
   const [roomsError, setRoomsError] = useState<string | null>(null)
 
+  // Custom tasks and rooms are each read by ONE function (readRoutines /
+  // readRooms) and land through ONE apply, whether the read is the first, a
+  // home switch, Try again, or the re-read after an add. Before H5 each was a
+  // load() that set its spinner synchronously inside the effect calling it.
+  const applyRoutines = useCallback((res: RoutinesRead) => {
+    if ("routines" in res) {
+      setRoutines(res.routines)
+      setRoutinesLoadFailed(false)
+    } else {
+      console.warn(`[settings] could not load custom tasks for home ${homeId}:`, res.error instanceof Error ? res.error.message : res.error)
+      setRoutinesLoadFailed(true)
+    }
+    setLoading(false)
+  }, [homeId])
+
   const loadRoutines = useCallback(async () => {
     if (!homeId) return
     setLoading(true)
-    try {
-      const data = await getRoutineTemplates(homeId)
-      setRoutines(data)
-      setRoutinesLoadFailed(false)
-    } catch (e) {
-      console.warn(`[settings] could not load custom tasks for home ${homeId}:`, e instanceof Error ? e.message : e)
-      setRoutinesLoadFailed(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [homeId])
-
-  useEffect(() => {
-    loadRoutines()
-  }, [loadRoutines])
+    applyRoutines(await readRoutines(homeId))
+  }, [homeId, applyRoutines])
 
   // Load rooms and item counts
+  const applyRooms = useCallback((res: RoomsRead) => {
+    if (res.rooms) setRooms(res.rooms)
+    if (res.counts !== null) {
+      setRoomItemCounts(res.counts)
+      setRoomsLoadFailed(false)
+    } else {
+      console.warn(`[settings] could not load rooms for home ${homeId}:`, res.error instanceof Error ? res.error.message : res.error)
+      setRoomsLoadFailed(true)
+    }
+    setRoomsLoading(false)
+  }, [homeId])
+
   const loadRooms = useCallback(async () => {
     if (!homeId) return
     setRoomsLoading(true)
-    try {
-      const res = await getRooms(homeId)
-      if (res.error) throw new Error(res.error.message)
-      setRooms(res.data ?? [])
+    applyRooms(await readRooms(homeId))
+  }, [homeId, applyRooms])
 
-      // Fetch item counts per room
-      const countsSnap = await getDocs(
-        query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))
-      )
-
-      const countMap: Record<string, number> = {}
-      for (const d of countsSnap.docs) {
-        const roomId = d.data().roomId as string | null | undefined
-        if (roomId) {
-          countMap[roomId] = (countMap[roomId] ?? 0) + 1
-        }
-      }
-      setRoomItemCounts(countMap)
-      setRoomsLoadFailed(false)
-    } catch (e) {
-      console.warn(`[settings] could not load rooms for home ${homeId}:`, e instanceof Error ? e.message : e)
-      setRoomsLoadFailed(true)
-    } finally {
-      setRoomsLoading(false)
-    }
-  }, [homeId])
-
+  // The first read and a home switch: both spinners start in the render that
+  // switches (they start on for the first), and the effects only read.
+  if (useDepsChanged([homeId]) && homeId) {
+    setLoading(true)
+    setRoomsLoading(true)
+  }
   useEffect(() => {
-    loadRooms()
-  }, [loadRooms])
+    if (!homeId) return
+    void readRoutines(homeId).then(applyRoutines)
+  }, [homeId, applyRoutines])
+  useEffect(() => {
+    if (!homeId) return
+    void readRooms(homeId).then(applyRooms)
+  }, [homeId, applyRooms])
 
   const handleStartEditRoom = useCallback((room: Room) => {
     failedRenameRef.current = null
@@ -1503,8 +1553,8 @@ export default function Settings() {
                       setPushSubscribed(false)
                     } else {
                       const result = isNative
-                        ? await registerNativePush(user.id, homeId)
-                        : await subscribeToPush(user.id, homeId)
+                        ? await registerNativePush(user.id)
+                        : await subscribeToPush(user.id)
                       if (result.success) setPushSubscribed(true)
                       else setPushError(result.error ?? "Couldn't enable notifications.")
                     }
