@@ -44,6 +44,7 @@ export function claimDeepLink(): string | null {
     if (path) sessionStorage.removeItem(KEY)
     return sanitizeDeepLink(path)
   } catch {
+    // Storage blocked: nothing was parked, so the app opens where it would anyway.
     return null
   }
 }

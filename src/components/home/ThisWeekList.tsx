@@ -16,6 +16,7 @@ import { Link } from "react-router-dom"
 import { BellOffIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, MapPinIcon, PhoneIcon, PackageIcon, ShieldIcon } from "lucide-react"
 import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@/lib/dashboard"
 import { useTaskDetail, todayStr } from "@/components/home/tasks/shared"
+import { InlineError } from "@/components/layout/LoadStates"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { weekRows, nextUpRows, prepLine, prepPlace, timelyWarranty, fmtShortDate, type HomeWeekRow } from "@/lib/homeWeek"
 
@@ -27,11 +28,11 @@ const EDGE = "color-mix(in srgb, var(--hh-teal) 45%, transparent)"
 
 export type ThisWeekVariant = "mobile" | "desktop"
 const SCALE = {
-  mobile: { rowPad: "px-3.5 py-3", title: "text-[14px]", openTitle: "text-[16px]", meta: "text-[11.5px]", bodyPad: "pl-[46px] pr-3.5 pb-3.5" },
-  desktop: { rowPad: "px-5 py-3.5", title: "text-[15px]", openTitle: "text-[17px]", meta: "text-[12.5px]", bodyPad: "pl-[58px] pr-5 pb-4" },
+  mobile: { rowPad: "px-3.5 py-3", title: "text-[14px]", openTitle: "text-[16px]", meta: "text-[11.5px]", bodyPad: "pl-[46px] pr-3.5 pb-3.5", notePad: "pl-[46px] pr-3.5 pb-2.5" },
+  desktop: { rowPad: "px-5 py-3.5", title: "text-[15px]", openTitle: "text-[17px]", meta: "text-[12.5px]", bodyPad: "pl-[58px] pr-5 pb-4", notePad: "pl-[58px] pr-5 pb-3" },
 } as const
 
-export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completingId, onComplete, onSnooze, variant = "mobile" }: {
+export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completingId, actionError = null, onComplete, onSnooze, variant = "mobile" }: {
   homeId: string | null
   /** Overdue + due-soon feed (lead first). */
   tasks: DashboardTask[]
@@ -39,6 +40,9 @@ export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completin
   upcoming: MaintenanceTaskFull[]
   nextUp?: { dueDate: string; windowStart: string } | null
   completingId: string | null
+  /** A check-off or snooze the server refused. Said on the row it belongs to —
+   *  the row stays, because the task is not done, and it says why. */
+  actionError?: { id: string; message: string } | null
   onComplete: (instanceId: string) => void
   onSnooze: (instanceId: string) => void
   variant?: ThisWeekVariant
@@ -77,6 +81,7 @@ export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completin
               open={openId === r.id}
               onToggle={() => setChoice(openId === r.id ? null : r.id)}
               completing={completingId === r.id}
+              error={actionError?.id === r.id ? actionError.message : null}
               onComplete={() => onComplete(r.id)}
               onSnooze={() => onSnooze(r.id)}
               sc={sc}
@@ -93,13 +98,14 @@ export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completin
   )
 }
 
-function WeekRow({ row, homeId, first, open, onToggle, completing, onComplete, onSnooze, sc }: {
+function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComplete, onSnooze, sc }: {
   row: HomeWeekRow
   homeId: string | null
   first: boolean
   open: boolean
   onToggle: () => void
   completing: boolean
+  error: string | null
   onComplete: () => void
   onSnooze: () => void
   sc: (typeof SCALE)[ThisWeekVariant]
@@ -150,6 +156,7 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, onComplete, o
           </span>
         </button>
       </div>
+      {error && <InlineError className={sc.notePad}>{error}</InlineError>}
       {open && (
         <OpenBody key={row.id} row={row} homeId={homeId} when={when} clay={clay} completing={completing} onComplete={onComplete} onSnooze={onSnooze} sc={sc} />
       )}

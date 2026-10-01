@@ -319,6 +319,7 @@ export function useTierFilter(): [string, (t: string) => void] {
     try {
       return sessionStorage.getItem(TIER_STORAGE_KEY) || "all"
     } catch {
+      // Storage unavailable (private mode): start unfiltered, as a first visit does.
       return "all"
     }
   })

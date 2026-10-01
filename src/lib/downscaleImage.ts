@@ -36,6 +36,7 @@ export async function downscaleImage(
     // reach Vision/Claude sideways.
     bitmap = await createImageBitmap(file, { imageOrientation: "from-image" })
   } catch {
+    // Undecodable here (HEIC on some browsers): send the original rather than nothing.
     return file
   }
   try {

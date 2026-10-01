@@ -32,6 +32,7 @@ function read(): CacheShape {
     }
     return out
   } catch {
+    // Unreadable or corrupt cache: every URL is resolved fresh instead.
     return {}
   }
 }

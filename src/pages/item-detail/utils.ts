@@ -111,6 +111,7 @@ function tryJsonSteps(text: string): string[] | null {
   try {
     parsed = JSON.parse(t)
   } catch {
+    // Not JSON after all: the caller reads the text as plain steps.
     return null
   }
   const out: string[] = []

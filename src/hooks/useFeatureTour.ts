@@ -152,7 +152,11 @@ export function useFeatureTour() {
           const idx = opts?.state?.activeIndex ?? -1
           const finished = idx === steps.length - 1
           d.destroy()
-          setPreference(uid, PREF_TOUR_COMPLETED, true).catch(() => {})
+          // Nothing on screen waits on this write, so a failure is logged: its
+          // only cost is the tour offering itself again on the next Home visit.
+          setPreference(uid, PREF_TOUR_COMPLETED, true).catch((e: unknown) => {
+            console.warn(`[tour] could not record the tour as seen for ${uid}; it may start again:`, e instanceof Error ? e.message : e)
+          })
           if (finished) navigate("/inventory/add")
         },
       })
@@ -181,8 +185,10 @@ export function useFeatureTour() {
       .then((completed) => {
         if (!completed) startTour()
       })
-      .catch(() => {
-        // Preference unreadable — treat as "not completed".
+      .catch((e: unknown) => {
+        // Preference unreadable — treat as "not completed" (a tour shown twice
+        // beats a new user never seeing it), and log why.
+        console.warn(`[tour] could not read whether ${uid} has seen the tour; offering it:`, e instanceof Error ? e.message : e)
         startTour()
       })
 
@@ -191,17 +197,22 @@ export function useFeatureTour() {
     }
   }, [user?.id, buildDriver])
 
+  /**
+   * Settings' "Restart Tour". The tour starts at once; the flag reset only
+   * matters if it is left half-way (it then resumes on the next Home visit).
+   * It used to wait for that write and swallow its failure — so a failed reset
+   * meant the button did nothing at all, in silence (audit H6).
+   */
   const restartTour = useCallback(() => {
     if (!user?.id) return
     const uid = user.id
-    setPreference(uid, PREF_TOUR_COMPLETED, false)
-      .then(() => {
-        checkedRef.current = false
-        const d = buildDriver(uid)
-        driverRef.current = d
-        d.drive()
-      })
-      .catch(() => {})
+    setPreference(uid, PREF_TOUR_COMPLETED, false).catch((e: unknown) => {
+      console.warn(`[tour] could not reset the tour flag for ${uid}; starting it anyway:`, e instanceof Error ? e.message : e)
+    })
+    checkedRef.current = false
+    const d = buildDriver(uid)
+    driverRef.current = d
+    d.drive()
   }, [user?.id, buildDriver])
 
   return { restartTour }
