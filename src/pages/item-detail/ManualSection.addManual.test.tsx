@@ -250,6 +250,32 @@ describe("ManualSection + useManualManagement — add the manual works on the fi
     expect(startParse).toHaveBeenCalledTimes(1)
   })
 
+  it("a typed link, then 'Reference doc': that tap lands first, THEN the link is chosen", async () => {
+    // The dialog's "What is this document?" buttons sit below ManualStep,
+    // outside it. Swapping the field for the card on the blur of that press
+    // moved them before the click — the tap was lost.
+    const user = userEvent.setup()
+    render(<ItemPageManual />)
+
+    await openManualsSection(user)
+    await user.click(screen.getByRole("button", { name: "Paste a link instead" }))
+    const dialog = await screen.findByRole("dialog")
+    const field = within(dialog).getByPlaceholderText("https://example.com/manual.pdf")
+    await user.click(field)
+    await user.keyboard("https://bosch.example/typed.pdf")
+    const reference = within(dialog).getByRole("button", { name: /Reference doc/ })
+
+    // The press as Safari makes it: the field loses focus to nothing.
+    fireEvent.pointerDown(reference)
+    fireEvent.blur(field)
+    expect(within(dialog).queryByText("Manual link added")).toBeNull() // not before the click
+    fireEvent.click(reference)
+
+    expect(within(dialog).getByText(/won.t generate upkeep/)).toBeInTheDocument() // the tap landed
+    expect(await within(dialog).findByText("Manual link added")).toBeInTheDocument() // then the link was chosen
+    expect(within(dialog).getByText("https://bosch.example/typed.pdf")).toBeInTheDocument()
+  })
+
   it("an upload fails, the file is swapped, and the retry uploads the NEW file", async () => {
     uploadManualPdfWithUrl.mockResolvedValueOnce({ data: null, error: { message: "Upload failed: the network dropped" } })
     const user = userEvent.setup()

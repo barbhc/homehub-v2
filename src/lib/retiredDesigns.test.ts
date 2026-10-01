@@ -229,7 +229,7 @@ describe("the manual step is one component, not two that drift", () => {
     // 2026-09-30: the approved ManualStep changed BEHAVIOUR, not design. Its
     // link field swapped itself for the "Manual link added" card on the first
     // typed character, so a link could only be pasted; the card now waits for
-    // a paste, Enter, leaving the field, or a whole link arriving at once
+    // a paste, Enter, or a complete link leaving the field or arriving at once
     // (ManualStep.test.tsx). Same layout, same copy, same single component —
     // and because both doors render it, the fix reached both, which is what
     // this pin is for.

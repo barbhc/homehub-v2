@@ -9,9 +9,11 @@ import { EMULATOR_PROJECT_ID } from "../seed-config"
  * ManualStep showed its "Manual link added" card whenever the field held any
  * text, so the first typed character replaced the field with the card — focus
  * gone, and a link could only ever be pasted. The card now waits for a paste,
- * Enter, leaving the field, or a whole link arriving at once. jsdom pins that
- * in ManualStep.test.tsx; this walks it through the item page's link lane
- * (the door item-page-manual.spec.ts fills in one go) with real key events.
+ * Enter, or a COMPLETE link leaving the field or arriving at once — and a
+ * press outside the step ("Reference doc") lands before the swap. jsdom pins
+ * that in ManualStep.test.tsx; this walks it through the item page's link lane
+ * (the door item-page-manual.spec.ts fills in one go) with real key events
+ * and real layout.
  *
  * The enqueue is stubbed at the network layer as in item-page-manual.spec.ts:
  * it writes parse.stage = "queued" and answers ok, so Scan completes.
@@ -129,6 +131,41 @@ test.describe("emulator e2e — a manual link can be typed", () => {
     await dialog.locator("#manual-url").fill(URL_TYPED)
     await expect(dialog.getByText("Manual link added")).toBeVisible()
     await expect(dialog.getByRole("button", { name: "Scan the manual" })).toBeEnabled()
+  })
+
+  test("a typed link, then 'Reference doc': that tap lands, THEN the link is chosen", async ({ page }) => {
+    // The dialog's "What is this document?" buttons sit below the step.
+    // Swapping the field for the card on that press's blur moved them before
+    // the click, and the tap was lost.
+    await page.goto(`/items/${itemId}`)
+    await expect(page.getByRole("heading", { name, exact: true })).toBeVisible({ timeout: 20_000 })
+    await page.getByRole("button", { name: /Manuals & References\s*\(0\)/ }).click()
+    await page.getByRole("button", { name: "Paste a link instead" }).click()
+    const dialog = page.getByRole("dialog")
+    const field = dialog.locator("#manual-url")
+    await field.click()
+    await field.pressSequentially(URL_TYPED)
+
+    await dialog.getByRole("button", { name: /Reference doc/ }).click()
+
+    await expect(dialog.getByText(/won.t generate upkeep/)).toBeVisible() // the tap landed
+    await expect(dialog.getByText("Manual link added")).toBeVisible() // then the link was chosen
+  })
+
+  test("a PARTIAL link stays in the field when you leave it", async ({ page }) => {
+    await page.goto(`/items/${itemId}`)
+    await expect(page.getByRole("heading", { name, exact: true })).toBeVisible({ timeout: 20_000 })
+    await page.getByRole("button", { name: /Manuals & References\s*\(0\)/ }).click()
+    await page.getByRole("button", { name: "Paste a link instead" }).click()
+    const dialog = page.getByRole("dialog")
+    const field = dialog.locator("#manual-url")
+    await field.click()
+    await field.pressSequentially("https://lg.exa")
+
+    await dialog.getByRole("heading", { name: "Add the manual" }).click()
+
+    await expect(field).toHaveValue("https://lg.exa")
+    await expect(dialog.getByText("Manual link added")).toHaveCount(0)
   })
 
   test("leaving the field — a tap on the dialog's empty space — finishes a typed link", async ({ page }) => {
