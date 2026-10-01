@@ -22,6 +22,7 @@ import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { splitInterval, toDays, type IntervalUnit } from "../../../shared/care/interval"
 import { earliestLastDone } from "../../../shared/care/lastDone"
+import { localToday } from "../../../shared/dates/calendar"
 
 /** HH-35: the three TIER buckets get the app's own tier colour as a rail,
  *  instead of this screen inventing an emoji vocabulary for a system that
@@ -1286,7 +1287,9 @@ function PriorityDot({ tier }: { tier: PriorityTier }) {
 }
 
 function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, next: Partial<ReviewRow>) => void }) {
-  const today = new Date().toISOString().slice(0, 10)
+  // The person's day: from the UTC date, "I've been doing this already" at
+  // 7 pm Pacific defaulted to — and allowed — tomorrow as the last-done date.
+  const today = localToday()
   const open = row.lastDoneOn !== null
   return (
     // HH-99: this was a bare checkbox and a naked date input — the one control

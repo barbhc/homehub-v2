@@ -15,6 +15,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest"
 import { render as rtlRender, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { SWRConfig } from "swr"
 import { RefinedWeek } from "./RefinedWeek"
+import { localToday } from "../../../shared/dates/calendar"
 
 // The agenda is SWR-cached (useWeekAgenda), so each test gets a fresh cache —
 // otherwise a later test would read an earlier one's agenda, including the
@@ -49,7 +50,7 @@ const TASK = {
   source: "maintenance",
   priorityTier: "essential",
   estimatedMinutes: 10,
-  dueDate: new Date().toISOString().slice(0, 10),
+  dueDate: localToday(),
   isOverdue: false,
   pastDue: false,
   dueKind: "window",

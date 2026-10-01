@@ -15,6 +15,7 @@ import { collection, getDocs, query, where, Timestamp, type DocumentData } from 
 import { db } from "@/integrations/firebase"
 // An offline cache-miss is a failure, never an empty home — see the helper.
 import { assertServed } from "@/lib/assertServed"
+import { addDays, localDateString } from "../../shared/dates/calendar"
 
 /** A document as the derivations see it: its id and its data, nothing else. */
 export type ReadDoc = { id: string; data: DocumentData }
@@ -43,11 +44,14 @@ export interface HomeReads {
  */
 export const DONE_HISTORY_DAYS = 90
 
-/** UTC midnight, DONE_HISTORY_DAYS before today's UTC date (cleanSession's "today"). */
+/**
+ * The calendar day DONE_HISTORY_DAYS before the device's today (the "today"
+ * cleanSession and the dashboard count from), as UTC midnight: completeTask
+ * stamps completedAt at noon UTC OF the completion day, so this bound keeps
+ * every completion from that day on.
+ */
 export function doneHistoryCutoff(now: Date = new Date()): Timestamp {
-  const day = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`)
-  day.setUTCDate(day.getUTCDate() - DONE_HISTORY_DAYS)
-  return Timestamp.fromDate(day)
+  return Timestamp.fromDate(new Date(`${addDays(localDateString(now), -DONE_HISTORY_DAYS)}T00:00:00Z`))
 }
 
 const toReadDocs = (snap: { docs: Array<{ id: string; data(): DocumentData }> }): ReadDoc[] =>

@@ -12,6 +12,7 @@ import {
   downloadJson,
   exportFilename,
 } from "@/modules/home/services/exportService"
+import { localToday } from "../../../shared/dates/calendar"
 
 // ---------------------------------------------------------------------------
 // CSV export helpers
@@ -238,8 +239,7 @@ export function AdminToolsSection({ homeId }: Props) {
         return
       }
       const csv = formatTasksAsCsv(rows)
-      const today = new Date().toISOString().split("T")[0]
-      downloadCsv(`homehub-tasks-${today}.csv`, csv)
+      downloadCsv(`homehub-tasks-${localToday()}.csv`, csv)
     } catch (e) {
       setExportError(e instanceof Error ? e.message : "Unexpected error during export")
     } finally {

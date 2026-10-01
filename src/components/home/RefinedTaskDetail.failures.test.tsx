@@ -25,7 +25,6 @@ vi.mock("@/modules/care", async () => {
     setTaskReminder: vi.fn(),
     canAssignTasks: (n: number) => n > 1,
     computeNextDueDate: dates.computeNextDueDate,
-    localDateString: dates.localDateString,
   }
 })
 vi.mock("@/modules/home", () => ({ getHomeMembers: (...a: unknown[]) => getHomeMembers(...a) }))

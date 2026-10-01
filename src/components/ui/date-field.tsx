@@ -8,6 +8,7 @@ import {
   shiftMonth,
   formatIsoShort,
 } from "@/lib/monthGrid"
+import { localDateString } from "../../../shared/dates/calendar"
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"]
 
@@ -48,7 +49,7 @@ export function DateField({
     return {
       year: now.getFullYear(),
       month: now.getMonth() + 1,
-      iso: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`,
+      iso: localDateString(now),
     }
   }, [])
 

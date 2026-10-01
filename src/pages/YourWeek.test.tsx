@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render as rtlRender, screen, fireEvent, waitFor } from "@testing-library/react"
 import { SWRConfig } from "swr"
 import YourWeek from "./YourWeek"
+import { localDateString } from "../../shared/dates/calendar"
 
 // A fresh SWR cache per render: the page keys on homeId+mode, and without this
 // test 2 would read test 1's cached week instead of its own mocked service.
@@ -39,7 +40,7 @@ vi.mock("react-router-dom", () => ({
 
 const soon = new Date(); soon.setDate(soon.getDate() + 2)
 const far = new Date(); far.setDate(far.getDate() + 20)
-const iso = (d: Date) => d.toISOString().slice(0, 10)
+const iso = (d: Date) => localDateString(d)
 
 const row = (over: Record<string, unknown> = {}) => ({
   taskInstanceId: "i1", taskTemplateId: "t1", title: "Replace the furnace filter", source: "appliance",

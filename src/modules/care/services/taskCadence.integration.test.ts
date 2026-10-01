@@ -25,10 +25,11 @@ import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where } fro
 import { auth, db } from "@/integrations/firebase"
 import { setTaskCadence } from "./taskService"
 import { computeNextDueDate } from "./nextDueDate"
+import { localToday } from "../../../../shared/dates/calendar"
 
 const HOME = "e2e-home"
 const TPL = "tpl-cadence-integration"
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => localToday()
 
 // The first round trip to a cold emulator can take seconds (rules, indexes,
 // the SDK's channel) — the default 5s ran out before the writes it was timing

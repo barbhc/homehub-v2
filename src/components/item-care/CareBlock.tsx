@@ -25,7 +25,8 @@ import { addLibraryTask, dismissLibrarySuggestion, applyLibraryBackstop, archive
 import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
 import { UndoBar } from "@/components/ui/UndoBar"
 import { InlineError } from "@/components/layout/LoadStates"
-import { addDays, doneFailedMessage, SNOOZE_FAILED, todayStr } from "@/components/home/tasks/shared"
+import { doneFailedMessage, SNOOZE_FAILED } from "@/components/home/tasks/shared"
+import { addDays, diffDays, localToday } from "../../../shared/dates/calendar"
 import { SuggestedRow, SuggestedSource, KIND_LABELS } from "@/components/care/SuggestedRow"
 import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
 import { dueKindOf, windowPhrase } from "@/lib/dueWindow"
@@ -113,11 +114,11 @@ function landsPhrase(phrase: string): string {
 function duePhraseOf(t: TaskTemplateWithSchedule, due: string): string {
   const scheduleType = t.schedule_rule?.[0]?.schedule_type ?? null
   const kind = dueKindOf({ title: t.title, scheduleType, careType: t.care_type ?? null })
-  return windowPhrase(due, scheduleType, { today: new Date().toISOString().slice(0, 10), kind })
+  return windowPhrase(due, scheduleType, { today: localToday(), kind })
 }
+/** Signed calendar days from the device's today (it counted from the UTC date). */
 function dueDays(dateStr: string): number {
-  const today = new Date().toISOString().slice(0, 10)
-  return Math.round((new Date(dateStr + "T12:00:00").getTime() - new Date(today + "T12:00:00").getTime()) / 86400000)
+  return diffDays(localToday(), dateStr)
 }
 function dueStatusColor(days: number): string {
   if (days < 0) return CLAY
@@ -792,7 +793,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
     return { error: null }
   }
   const snoozeInstance = async (instanceId: string): Promise<{ error: string | null }> => {
-    const until = addDays(todayStr(), 14)
+    const until = addDays(localToday(), 14)
     const r = await snoozeTaskInstance(homeId, instanceId, until)
     if (!r.success) {
       console.warn(`[item care] could not snooze ${instanceId} (home ${homeId}):`, r.error)

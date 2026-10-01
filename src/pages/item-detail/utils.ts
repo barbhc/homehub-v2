@@ -35,7 +35,9 @@ export const tierTextStyles = {
 
 export function formatDate(iso: string | null): string | null {
   if (!iso) return null
-  return new Date(iso).toLocaleDateString("en-US", {
+  // A bare YYYY-MM-DD parses as UTC midnight, which every US zone shows as the
+  // day before; read it as local noon, like the item page's own fmt().
+  return new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

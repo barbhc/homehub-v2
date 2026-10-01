@@ -2,6 +2,7 @@ import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { PriorityTier, ScheduleType, Season } from "@/integrations/types"
 import type { ServiceResult } from "./taskService"
+import { localToday } from "../../../../shared/dates/calendar"
 
 /**
  * Home-upkeep read model — the live source for the desktop Home "Home upkeep"
@@ -29,10 +30,6 @@ export type HomeUpkeepItem = {
   estimatedMinutes: number | null
 }
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 /**
  * Returns scheduled/snoozed HOME-scoped recurring task instances (item_unit_id
  * null), soonest-due first. Each row carries its cadence (scheduleType / season
@@ -42,7 +39,7 @@ function todayStr(): string {
 export async function getHomeUpkeep(
   homeId: string
 ): Promise<ServiceResult<HomeUpkeepItem[]>> {
-  const today = todayStr()
+  const today = localToday()
 
   try {
     // Instances carry the denorm display fields; season/intervalDays live on the

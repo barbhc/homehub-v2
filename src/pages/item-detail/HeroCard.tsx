@@ -28,6 +28,7 @@ import {
 import { PhotoSearchSheet } from "@/components/inventory/PhotoSearchSheet"
 import { type EditableField, ROOM_NONE, formatDate } from "./utils"
 import { useStorageUrl } from "@/hooks/useStorageUrl"
+import { diffDays, localToday } from "../../../shared/dates/calendar"
 
 /** Select sentinel for the "+ New room…" row (swaps the select for an input). */
 const ROOM_NEW = "__new__"
@@ -171,7 +172,7 @@ export function HeroCard({
     }
     if (field === "manufactured_year") {
       const n = value ? parseInt(value, 10) : NaN
-      const thisYear = new Date().getUTCFullYear()
+      const thisYear = new Date().getFullYear()
       // Reject out-of-range input at the client too; the DB CHECK (1900..2100)
       // will reject it anyway, but surfacing a friendly error is better UX.
       if (!Number.isFinite(n)) {
@@ -655,7 +656,7 @@ export function HeroCard({
                 displayValue={(() => {
                   if (!item.warranty_expiry_date) return null
                   const d = formatDate(item.warranty_expiry_date)
-                  const days = Math.ceil((new Date(item.warranty_expiry_date).getTime() - Date.now()) / 86_400_000)
+                  const days = diffDays(localToday(), item.warranty_expiry_date)
                   if (days < 0) return `${d} (expired)`
                   if (days <= 90) return `${d} (${days}d left)`
                   return d

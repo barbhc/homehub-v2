@@ -11,6 +11,7 @@ import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@
 import { urgentTasks } from "@/lib/homeHero"
 import { classifyActorFromText } from "@/lib/taskActor"
 import type { TemplateSupply } from "@/integrations/types"
+import { addDays } from "../../shared/dates/calendar"
 
 export interface HomeWeekRow {
   /** Task INSTANCE id — what Mark done, Snooze and /tasks/:id take. */
@@ -33,12 +34,6 @@ export const WEEK_DAYS = 7
 export const WEEK_LIMIT = 5
 export const WARRANTY_TIMELY_DAYS = 60
 
-export function isoDaysFrom(today: string, days: number): string {
-  const d = new Date(`${today}T12:00:00`)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
 const fromUrgent = (t: DashboardTask): HomeWeekRow => ({
   id: t.id, title: t.name, itemName: t.itemName, itemId: t.itemId, dueDate: t.dueDate,
   duePhrase: t.duePhrase, trulyOverdue: t.trulyOverdue, safetyNote: t.safetyNote, essential: t.priority === "critical",
@@ -54,7 +49,7 @@ const fromUpcoming = (t: MaintenanceTaskFull): HomeWeekRow => ({
  * Every instance appears once; capped so Home stays one screen.
  */
 export function weekRows(tasks: DashboardTask[], upcoming: MaintenanceTaskFull[], today: string, limit = WEEK_LIMIT): HomeWeekRow[] {
-  const end = isoDaysFrom(today, WEEK_DAYS)
+  const end = addDays(today, WEEK_DAYS)
   const rows: HomeWeekRow[] = urgentTasks(tasks).map(fromUrgent)
   const seen = new Set(rows.map((r) => r.id))
   const ahead = upcoming
@@ -70,7 +65,7 @@ export function weekRows(tasks: DashboardTask[], upcoming: MaintenanceTaskFull[]
 
 /** The quiet week: the next few ahead of the window, so Home still points somewhere. */
 export function nextUpRows(upcoming: MaintenanceTaskFull[], today: string, limit = 2): HomeWeekRow[] {
-  const end = isoDaysFrom(today, WEEK_DAYS)
+  const end = addDays(today, WEEK_DAYS)
   return upcoming
     .filter((t) => t.next_due_date && t.next_due_date > end)
     .sort((a, b) => (a.next_due_date! < b.next_due_date! ? -1 : 1))

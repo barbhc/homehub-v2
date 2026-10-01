@@ -31,12 +31,7 @@ import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 
 import { WhatsNewBanner } from "@/components/dashboard/WhatsNewBanner"
 import { LevelUnlockBanner } from "@/components/dashboard/LevelUnlockBanner"
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatLocalDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
+import { addDays, localToday } from "../../shared/dates/calendar"
 
 // ── Agenda ──────────────────────────────────────────────────────────────────
 
@@ -259,7 +254,7 @@ export default function Home() {
     async (taskId: string) => {
       if (!homeId) return
       setActionError(null)
-      const snoozedUntil = addDays(formatLocalDateStr(new Date()), 14)
+      const snoozedUntil = addDays(localToday(), 14)
       const result = await snoozeTaskInstance(homeId, taskId, snoozedUntil)
       if (!result.success) {
         // The task stays where it was; its row says the snooze didn't take.
@@ -490,12 +485,4 @@ export default function Home() {
       )}
     </div>
   )
-}
-
-// ── Utility ─────────────────────────────────────────────────────────────────
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
 }

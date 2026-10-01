@@ -8,6 +8,13 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
+    // Every unit test runs on the users' clock: Pacific. Vitest hands `env` to
+    // each worker process at spawn, so TZ is set before any module (or Date)
+    // loads — on CI's UTC runners and on every laptop alike. In UTC the local
+    // and UTC calendar dates never differ, so a "which day is today" bug
+    // (shared/dates/calendar.ts) could not fail here; west of UTC it can, from
+    // ~5 pm. Tests that need another zone pin it themselves (vi.stubEnv("TZ")).
+    env: { TZ: "America/Los_Angeles" },
     // Unit tests under src/, plus the firebase-free modules in shared/ that
     // the functions import (spend-cap policy). e2e/*.spec.ts are Playwright
     // specs (run via `npm run test:e2e`) and must not be collected by vitest.

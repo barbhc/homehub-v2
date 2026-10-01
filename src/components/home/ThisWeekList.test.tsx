@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import type { DashboardTask, MaintenanceTaskFull } from "@/lib/dashboard"
+import { addDays, localToday } from "../../../shared/dates/calendar"
 
 const detailFor = vi.hoisted(() => ({ map: {} as Record<string, unknown>, error: null as string | null }))
 vi.mock("@/components/home/tasks/shared", async (orig) => ({
@@ -21,7 +22,7 @@ vi.mock("@/components/home/tasks/shared", async (orig) => ({
 
 const { ThisWeekList, TimelyWarrantyLine } = await import("./ThisWeekList")
 
-const iso = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10) }
+const iso = (days: number) => addDays(localToday(), days)
 
 const urgent = (id: string, name: string, over: Partial<DashboardTask> = {}): DashboardTask =>
   ({ id, name, dueDate: iso(-6), isOverdue: true, isDueSoon: false, itemName: "Range Hood", itemId: "i1", priority: "high", effort: null, daysOverdue: 6, daysUntilDue: null, dueKind: "window", windowState: "lapsed", duePhrase: "Been a while", safetyNote: null, trulyOverdue: false, neverStarted: false, ...over }) as unknown as DashboardTask

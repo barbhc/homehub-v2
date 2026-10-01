@@ -4,9 +4,10 @@ import { BellIcon, CheckIcon, ChevronLeftIcon, ExternalLinkIcon, ShoppingBagIcon
 import { PageContainer } from "@/components/layout"
 import { useCurrentHome } from "@/modules/home"
 import { addShoppingItem, type WeekReminder } from "@/modules/care"
-import { useWeekReminders, isoDaysFromNow, weekChip } from "@/hooks/useWeekReminders"
+import { useWeekReminders, weekChip } from "@/hooks/useWeekReminders"
 import { buyFirstRows, type BuyFirstRow } from "@/lib/buyFirst"
 import { TIER, type Tier, shortDate } from "@/lib/redesign/tokens"
+import { addDays, localToday } from "../../shared/dates/calendar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -33,7 +34,7 @@ export default function YourWeek() {
   const homeId = home?.home_id ?? null
   const { data, error, isLoading, mutate, prefs } = useWeekReminders(homeId, { days: 30 })
 
-  const weekEnd = useMemo(() => isoDaysFromNow(7), [])
+  const weekEnd = useMemo(() => addDays(localToday(), 7), [])
   const thisWeek = useMemo(() => (data?.all ?? []).filter((r) => r.dueDate <= weekEnd), [data, weekEnd])
   const later = useMemo(() => (data?.all ?? []).filter((r) => r.dueDate > weekEnd).slice(0, 4), [data, weekEnd])
   const buyFirst = useMemo(() => buyFirstRows(thisWeek, data?.shopping ?? []), [thisWeek, data])
