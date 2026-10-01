@@ -23,7 +23,7 @@ import { getAuth } from "firebase-admin/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { assertNotRefused } from "../../../../shared/parse/modelParams.js"
-import { buildChatRequest, type PdfDoc } from "../../../../shared/chat/chatMessages.js"
+import { buildChatRequest, normalizeHistory, type PdfDoc } from "../../../../shared/chat/chatMessages.js"
 import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
 import { pickNotes, formatNotesBlock, noteSources, type NoteInput } from "./notesContext.js"
@@ -117,14 +117,33 @@ const QUESTION_AND_HOME = "question and home_id are required"
  */
 export const CHAT_HISTORY_WINDOW = 200
 
+/** One turn: answers are ≤1,024 tokens and questions ≤10k characters, so 50k
+ *  characters is far above any turn the app produces. */
+export const CHAT_TURN_MAX_CHARS = 50_000
+
+/**
+ * The turns actually sent to Claude — normalizeHistory's last ten — together.
+ * The app's own turns top out near 75k characters for ten (five 10k questions,
+ * five ≤1,024-token answers); past this a request would only be refused by
+ * Claude after it was charged.
+ */
+export const CHAT_HISTORY_USED_MAX_CHARS = 150_000
+
 export const ChatQueryRequest = z.object({
   question: z.string({ error: QUESTION_AND_HOME }).min(1, { error: QUESTION_AND_HOME }).max(10_000, { error: "That question is too long — try a shorter one." }),
   history: z
     .preprocess(
       (h) => (Array.isArray(h) && h.length > CHAT_HISTORY_WINDOW ? h.slice(-CHAT_HISTORY_WINDOW) : h),
-      // 200k characters a turn: far above any turn the app produces (answers
-      // are ≤1,024 tokens; questions ≤10k characters).
-      z.array(z.object({ role: z.string(), content: z.string().max(200_000) })).nullish(),
+      z
+        .array(z.object({ role: z.string(), content: z.string().max(CHAT_TURN_MAX_CHARS) }))
+        .nullish()
+        .superRefine((h, ctx) => {
+          if (!h) return
+          const used = normalizeHistory(h).turns.reduce((n, t) => n + t.content.length, 0)
+          if (used > CHAT_HISTORY_USED_MAX_CHARS) {
+            ctx.addIssue({ code: "custom", message: "This conversation is too long to continue — start a new one." })
+          }
+        }),
     )
     .optional(),
   filter: z

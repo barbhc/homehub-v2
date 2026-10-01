@@ -61,7 +61,7 @@ const { manualSource } = await lib("parse/manualSource")
 const { detectDocType } = await lib("ai/detectDocType")
 const { ocr, OcrRequest } = await lib("ai/ocr")
 const { productLookup } = await lib("ai/productLookup")
-const { chatQuery, askManualSource, planPdfAttachments, ChatQueryRequest, CHAT_HISTORY_WINDOW } = await lib("ai/chatQuery")
+const { chatQuery, askManualSource, planPdfAttachments, ChatQueryRequest, CHAT_HISTORY_WINDOW, CHAT_TURN_MAX_CHARS, CHAT_HISTORY_USED_MAX_CHARS } = await lib("ai/chatQuery")
 const { buildChatRequest, MAX_HISTORY_TURNS } = await import("../lib/shared/chat/chatMessages.js")
 const { ingestReference } = await lib("ai/ingestReference")
 const { classifyExistingTasks, ClassifyExistingTasksRequest, MAX_APPLY_ROWS } = await lib("ai/classifyExistingTasks")
@@ -307,6 +307,21 @@ test("chatQuery: a 600-turn thread is accepted — sliced server-side, and its l
   // …but one inside the window still can: the turns that are used keep their shape check.
   const recentJunk = [...thread, { role: "user", content: ["block"] }]
   assert.equal(ChatQueryRequest.safeParse({ question: "q", history: recentJunk, home_id: "h1" }).success, false)
+})
+
+test("chatQuery: 50k characters a turn, and the turns sent to Claude are capped together", () => {
+  const turns = (n, size) => Array.from({ length: n }, (_, i) => ({ role: i % 2 === 0 ? "user" : "assistant", content: "x".repeat(size) }))
+  const ok = (history) => ChatQueryRequest.safeParse({ question: "q", history, home_id: "h1" }).success
+  assert.equal(CHAT_TURN_MAX_CHARS, 50_000)
+  assert.equal(ok(turns(1, CHAT_TURN_MAX_CHARS)), true)
+  assert.equal(ok(turns(1, CHAT_TURN_MAX_CHARS + 1)), false)
+  // Ten kept turns over the total would only be refused by Claude, after the charge.
+  assert.equal(ok(turns(10, 15_001)), false, `10 × 15,001 > ${CHAT_HISTORY_USED_MAX_CHARS}`)
+  assert.equal(ok(turns(10, 15_000)), true)
+  // Only the turns that are SENT count: big turns earlier in a long thread don't refuse it.
+  assert.equal(ok([...turns(20, 40_000), ...turns(10, 1_000)]), true)
+  const msg = ChatQueryRequest.safeParse({ question: "q", history: turns(10, 20_000), home_id: "h1" }).error?.issues?.[0]?.message
+  assert.equal(msg, "This conversation is too long to continue — start a new one.")
 })
 
 test("proxyPdf: no usable url is a 400 before any limit bookkeeping or fetch", async () => {
