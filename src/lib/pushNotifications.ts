@@ -44,17 +44,24 @@ export async function subscribeToPush(
  * Turns web push off for this browser: removes its token from the server, then
  * deletes it locally.
  *
- * The server write THROWS on failure. It used to be swallowed ("Silent fail on
- * unsubscribe"), so Settings showed notifications off while the server still
- * held the token and kept sending (audit H6).
+ * Both failures that would leave reminders arriving THROW, so Settings says so
+ * instead of showing "off" (audit H6):
+ *  - the server write (it used to be swallowed — "Silent fail on unsubscribe");
+ *  - a token we cannot READ while the browser still has permission (e.g. the
+ *    service worker failed to register offline): the server may well hold it,
+ *    and "nothing to remove" would be a guess. Only without permission is an
+ *    unreadable token genuinely nothing — nothing can be delivered here.
  */
 export async function unsubscribeFromPush(userId: string): Promise<void> {
-  const token = await getFcmToken().catch((e: unknown) => {
-    // No readable token means this browser holds none to remove (unsupported,
-    // or permission already gone) — nothing is being delivered to it.
-    console.warn("[push] could not read this browser's push token; nothing to remove:", e instanceof Error ? e.message : e)
-    return null
-  })
+  let token: string | null
+  try {
+    token = await getFcmToken()
+  } catch (e) {
+    const granted = typeof Notification !== "undefined" && Notification.permission === "granted"
+    if (granted) throw e
+    console.warn("[push] could not read this browser's push token, and it has no notification permission — nothing to remove:", e instanceof Error ? e.message : e)
+    token = null
+  }
   if (token) {
     await setDoc(tokensDoc(userId), { tokens: arrayRemove(token) }, { merge: true })
   }

@@ -87,11 +87,13 @@ function ExpandedDetail({
 
 // ── Swipeable + expandable row ────────────────────────────────────────────────
 function TaskRow({
-  homeId, t, expanded, onToggle, onDone, onSnooze, onOpenGuide,
+  homeId, t, expanded, error, onToggle, onDone, onSnooze, onOpenGuide,
 }: {
   homeId: string | null
   t: WeekAgendaItem
   expanded: boolean
+  /** Why this row's Done/Snooze just failed, if it did. */
+  error: string | null
   onToggle: () => void
   onDone: () => void
   onSnooze: () => void
@@ -133,7 +135,7 @@ function TaskRow({
   }
 
   return (
-    <div className="relative overflow-hidden" style={{ borderTop: `0.5px solid ${LINE}` }}>
+    <div data-testid="phone-task-row" className="relative overflow-hidden" style={{ borderTop: `0.5px solid ${LINE}` }}>
       {/* Swipe reveals: right → Done (teal), left → Snooze (amber). Decoration
           only — and it MUST NOT take pointer events. It's `inset-0` on the
           container, so when the row is expanded it covers the detail panel too;
@@ -193,6 +195,20 @@ function TaskRow({
           ? <ChevronUpIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />
           : <ChevronDownIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />}
       </div>
+
+      {/* A failed Done/Snooze is said HERE, on the task it failed on — as on
+          desktop. In the page header it scrolled away above a long list, so a
+          failure on a lower row put nothing readable on screen. Positioned and
+          filled so the swipe-reveal layer never shows through it. */}
+      {error && (
+        <div
+          role="alert"
+          className="relative -mt-1.5 pb-3 text-[13.5px] font-medium"
+          style={{ paddingLeft: 63, paddingRight: PAD - 3, color: CLAY, background: SURFACE }}
+        >
+          {error}
+        </div>
+      )}
 
       {expanded && (
         <ExpandedDetail
@@ -299,7 +315,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   // a failed check-off left the task in place with nothing said. The task then
   // reappears on the next load looking like the tap never registered. One
   // implementation with DesktopTasks now — see useAgendaRowActions.
-  const { openId, toggle, pendingId, actionError, onDone, onSnooze } = useAgendaRowActions(homeId, agenda.removeTask)
+  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze } = useAgendaRowActions(homeId, agenda.removeTask)
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
@@ -334,6 +350,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
       homeId={homeId}
       t={t}
       expanded={openId === t.taskInstanceId && pendingId !== t.taskInstanceId}
+      error={failedId === t.taskInstanceId ? actionError : null}
       onToggle={() => toggle(t.taskInstanceId)}
       onDone={() => onDone(t.taskInstanceId)}
       onSnooze={() => onSnooze(t.taskInstanceId)}
@@ -370,11 +387,6 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
             : tier === "all" ? `${total} to do`
             : `${total} of ${totalAll}`}
         </div>
-        {actionError && (
-          <div role="alert" className="mt-2 text-[13.5px] font-medium" style={{ color: CLAY }}>
-            {actionError}
-          </div>
-        )}
       </div>
 
       {/* "Start here" insight banner — dismissible */}

@@ -9,6 +9,7 @@ import {
 import {
   isNativePlatform,
   isNativePushRegistered,
+  isNativePushTurnedOff,
   registerNativePush,
 } from "@/lib/nativePush"
 
@@ -50,6 +51,12 @@ export function PushOptInNudge({ userId, homeId }: { userId: string; homeId: str
       // Native shell (iOS): use the APNs path; the web-push capability checks
       // below (serviceWorker/PushManager/Notification) don't apply.
       if (isNativePlatform()) {
+        // Turned off on this phone in Settings: offering it straight back on
+        // Home would be a nag about a decision just made.
+        if (isNativePushTurnedOff()) {
+          if (!cancelled) setState("hidden")
+          return
+        }
         const alreadyNative = await isNativePushRegistered()
         if (cancelled) return
         setState(alreadyNative ? "hidden" : "visible")

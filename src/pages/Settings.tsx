@@ -37,7 +37,7 @@ import { useUserLevel } from "@/hooks/useUserLevel"
 import { useAppearance, type Appearance } from "@/lib/theme"
 import { useAuth } from "@/modules/auth"
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, isSubscribed as checkIsSubscribed } from "@/lib/pushNotifications"
-import { isNativePlatform, isNativePushRegistered, registerNativePush, unregisterNativePush } from "@/lib/nativePush"
+import { isNativePlatform, isNativePushRegistered, PushOffError, registerNativePush, unregisterNativePush } from "@/lib/nativePush"
 import { NotificationsRefusedNote } from "@/components/settings/NotificationsRefusedNote"
 import {
   getRoutineTemplates,
@@ -458,6 +458,9 @@ export default function Settings() {
   const [deletingRoom, setDeletingRoom] = useState(false)
   const editInputRef = useRef<HTMLInputElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
+  const renamingRef = useRef(false)
+  /** The rename that just failed — leaving the field does not send it again. */
+  const failedRenameRef = useRef<{ roomId: string; name: string } | null>(null)
 
   // Export state
   const [exporting, setExporting] = useState(false)
@@ -535,33 +538,53 @@ export default function Settings() {
   }, [loadRooms])
 
   const handleStartEditRoom = useCallback((room: Room) => {
+    failedRenameRef.current = null
     setEditingRoomId(room.room_id)
     setEditingName(room.name)
     setTimeout(() => editInputRef.current?.focus(), 0)
   }, [])
 
-  const handleSaveRename = useCallback(async () => {
+  /** `via` is how the save was asked for: Enter in the field, or leaving it. */
+  const handleSaveRename = useCallback(async (via: "enter" | "blur") => {
     if (!editingRoomId || !editingName.trim()) {
       setEditingRoomId(null)
       return
     }
+    const name = editingName.trim()
     const existingRoom = rooms.find((r) => r.room_id === editingRoomId)
-    if (existingRoom && existingRoom.name === editingName.trim()) {
+    if (existingRoom && existingRoom.name === name) {
       setEditingRoomId(null)
       return
     }
-    if (!homeId) return
+    if (!homeId || renamingRef.current) return
+    // Leaving the field never re-sends the rename that just failed. The editor
+    // stays open after a failure, so every tap elsewhere would write, and fail,
+    // again. Enter, or a changed name, tries again.
+    const failed = failedRenameRef.current
+    if (via === "blur" && failed?.roomId === editingRoomId && failed.name === name) return
+    // One rename at a time: the editor disabling itself mid-save can blur it,
+    // and blur saves — that must not start a second write.
+    renamingRef.current = true
     setSavingRoom(true)
     setRoomsError(null)
-    const res = await renameRoom(homeId, editingRoomId, editingName.trim())
+    const res = await renameRoom(homeId, editingRoomId, name)
+    renamingRef.current = false
     setSavingRoom(false)
     if (res.error || !res.data) {
-      // The old name stays; the editor closes and the section says why.
+      // The editor stays open with what was typed (as Add room's form does),
+      // and the section says why — Enter tries again, Escape keeps the old name.
       console.warn(`[settings] could not rename room ${editingRoomId} (home ${homeId}):`, res.error?.message)
       setRoomsError("Couldn't rename that room. Check your connection and try again.")
-    } else {
-      setRooms((prev) => prev.map((r) => (r.room_id === editingRoomId ? res.data! : r)))
+      failedRenameRef.current = { roomId: editingRoomId, name }
+      // Focus goes back only after Enter, when the person was still in the
+      // field. A save that ran because they LEFT it must not pull them back:
+      // each attempt to leave would save, fail and refocus again, with Escape
+      // the only way out.
+      if (via === "enter") setTimeout(() => editInputRef.current?.focus(), 0)
+      return
     }
+    failedRenameRef.current = null
+    setRooms((prev) => prev.map((r) => (r.room_id === editingRoomId ? res.data! : r)))
     setEditingRoomId(null)
   }, [homeId, editingRoomId, editingName, rooms])
 
@@ -573,7 +596,8 @@ export default function Settings() {
     setSavingRoom(false)
     if (res.error || !res.data) {
       // The form stays open with the name typed, ready to try again.
-      console.warn(`[settings] could not add room "${newRoomName.trim()}" (home ${homeId}):`, res.error?.message)
+      // Ids and lengths only — what someone typed stays out of the logs.
+      console.warn(`[settings] could not add a room (${newRoomName.trim().length}-char name, home ${homeId}):`, res.error?.message)
       setRoomsError("Couldn't add that room. Check your connection and try again.")
       return
     }
@@ -1011,9 +1035,9 @@ export default function Settings() {
                           ref={editInputRef}
                           value={editingName}
                           onChange={(e) => setEditingName(e.target.value)}
-                          onBlur={handleSaveRename}
+                          onBlur={() => void handleSaveRename("blur")}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveRename()
+                            if (e.key === "Enter") void handleSaveRename("enter")
                             if (e.key === "Escape") setEditingRoomId(null)
                           }}
                           disabled={savingRoom}
@@ -1489,7 +1513,9 @@ export default function Settings() {
                     // while the server kept the token and kept sending.
                     setPushError(
                       pushSubscribed
-                        ? "Couldn't turn off notifications. Check your connection and try again."
+                        ? e instanceof PushOffError
+                          ? e.message
+                          : "Couldn't turn off notifications. Check your connection and try again."
                         : e instanceof Error ? e.message : "Couldn't enable notifications.",
                     )
                   } finally {

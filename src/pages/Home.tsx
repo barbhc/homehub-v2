@@ -246,7 +246,7 @@ export default function Home() {
             return
           }
           console.warn(`[home] could not undo the snooze of task ${taskId} (home ${homeId}):`, r.error)
-          setUndo({ message: "Couldn't undo the snooze. Try again.", onUndo: attempt })
+          setUndo({ message: "Couldn't undo the snooze — tap Undo to try again.", onUndo: attempt })
         })
       }
       attempt()

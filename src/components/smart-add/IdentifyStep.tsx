@@ -377,7 +377,8 @@ export function IdentifyStep({
       void lookupBrandForModel(r.model)
         .then((b) => { if (brandLookupRef.current === r.model) setBrandSuggestion(b) })
         .catch((e: unknown) => {
-          console.warn(`[identify] brand lookup for model ${r.model} failed; no suggestion offered:`, e instanceof Error ? e.message : e)
+          // The model's length, not the model — what was read off a label stays out of the logs.
+          console.warn(`[identify] brand lookup (${r.model?.length ?? 0}-char model) failed; no suggestion offered:`, e instanceof Error ? e.message : e)
         })
     }
 

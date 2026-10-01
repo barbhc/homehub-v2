@@ -25,7 +25,7 @@ import { addLibraryTask, dismissLibrarySuggestion, applyLibraryBackstop, archive
 import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
 import { UndoBar } from "@/components/ui/UndoBar"
 import { InlineError } from "@/components/layout/LoadStates"
-import { addDays, todayStr } from "@/components/home/tasks/shared"
+import { addDays, doneFailedMessage, SNOOZE_FAILED, todayStr } from "@/components/home/tasks/shared"
 import { SuggestedRow, SuggestedSource, KIND_LABELS } from "@/components/care/SuggestedRow"
 import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
 import { dueKindOf, windowPhrase } from "@/lib/dueWindow"
@@ -779,9 +779,14 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
   // shows when the next one lands.
   const [undo, setUndo] = useState<{ message: string; onUndo?: () => void } | null>(null)
   const refetchInstances = () => setInstanceTick((n) => n + 1)
+  // A failure reads as it does on Home, Tasks and the task page — the
+  // service's raw error goes to the log, never to the row.
   const completeInstance = async (instanceId: string): Promise<{ error: string | null }> => {
     const r = await markTaskInstanceDone(homeId, instanceId)
-    if (!r.success) return { error: r.error ?? "Couldn't mark it done" }
+    if (!r.success) {
+      console.warn(`[item care] could not mark ${instanceId} done (home ${homeId}):`, r.error)
+      return { error: doneFailedMessage(r.error) }
+    }
     refetchInstances()
     setUndo({ message: "Marked done" })
     return { error: null }
@@ -789,7 +794,10 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
   const snoozeInstance = async (instanceId: string): Promise<{ error: string | null }> => {
     const until = addDays(todayStr(), 14)
     const r = await snoozeTaskInstance(homeId, instanceId, until)
-    if (!r.success) return { error: r.error ?? "Couldn't snooze it" }
+    if (!r.success) {
+      console.warn(`[item care] could not snooze ${instanceId} (home ${homeId}):`, r.error)
+      return { error: SNOOZE_FAILED }
+    }
     refetchInstances()
     const when = new Date(`${until}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     // A failed undo comes back to the bar with the same Undo — it used to
@@ -801,7 +809,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
           return
         }
         console.warn(`[item care] could not undo the snooze of ${instanceId} (home ${homeId}):`, x.error)
-        setUndo({ message: "Couldn't undo the snooze. Try again.", onUndo: undoSnooze })
+        setUndo({ message: "Couldn't undo the snooze — tap Undo to try again.", onUndo: undoSnooze })
       })
     }
     setUndo({ message: `Snoozed until ${when}`, onUndo: undoSnooze })

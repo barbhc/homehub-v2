@@ -28,6 +28,7 @@ export function ProfileCompletionBanner({ homeId }: { homeId: string }) {
     try {
       return typeof window !== "undefined" && window.localStorage.getItem(mirrorKey) === "1"
     } catch {
+      // No readable mirror: the server check below decides.
       return false
     }
   })

@@ -305,4 +305,27 @@ describe("a failed check-off reads the same on Home and on Tasks", () => {
       expect(tasks, "tasks/shared.ts").toContain(words)
     }
   })
+
+  it("the task page and the item page say it with the same sentences — no third wording", () => {
+    // The task page had its own ("Couldn't mark this done. Try again."); the
+    // item page showed the service's raw error, else "Couldn't mark it done" /
+    // "Couldn't snooze it". Both now take their words from tasks/shared:
+    // doneFailedMessage, which is DONE_FAILED unless the server refused the
+    // DATE (those sentences say what to check, so they are shown as sent).
+    const shared = read("../components/home/tasks/shared.ts")
+    expect(shared).toMatch(/export function doneFailedMessage\(/)
+    expect(shared).toMatch(/: DONE_FAILED\s*\n\}/) // anything but a date refusal is DONE_FAILED
+    const pages = {
+      "RefinedTaskDetail.tsx": read("../components/home/RefinedTaskDetail.tsx"),
+      "CareBlock.tsx": read("../components/item-care/CareBlock.tsx"),
+    }
+    for (const [file, src] of Object.entries(pages)) {
+      expect(src, file).toMatch(/import \{[^}]*\bdoneFailedMessage\b[^}]*\} from "(\.\/tasks|@\/components\/home\/tasks)\/shared"/)
+      expect(src, file).toMatch(/\bdoneFailedMessage\(\w+\.error\)/)
+      // No wording of its own for a failed check-off or snooze.
+      expect(src, file).not.toMatch(/Couldn['’]t (mark|snooze) (this|it)\b/)
+      expect(src, file).not.toMatch(/\.error \?\? "/)
+    }
+    expect(pages["CareBlock.tsx"]).toMatch(/return \{ error: SNOOZE_FAILED \}/)
+  })
 })

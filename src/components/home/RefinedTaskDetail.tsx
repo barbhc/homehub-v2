@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { dueKindOf, dueWindow, shortDate, windowPhrase } from "@/lib/dueWindow"
 import { Link } from "react-router-dom"
 import {
@@ -22,6 +22,7 @@ import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { InlineError, LoadErrorState } from "@/components/layout/LoadStates"
+import { doneFailedMessage } from "./tasks/shared"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
 import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
@@ -93,6 +94,10 @@ export function RefinedTaskDetail({
   const [reminderError, setReminderError] = useState<string | null>(null)
   /** An assignment the server refused — rolled back and said beside the control. */
   const [assignError, setAssignError] = useState<string | null>(null)
+  /** Who the server last confirmed (load, or a landed assignment). */
+  const confirmedAssignee = useRef<string | null>(null)
+  const assignSeq = useRef(0)
+  const assignConfirmedSeq = useRef(0)
   /** A failed read is NOT "Task not found": that sentence was shown for both. */
   const [loadFailed, setLoadFailed] = useState(false)
   const [loadAttempt, setLoadAttempt] = useState(0)
@@ -107,6 +112,7 @@ export function RefinedTaskDetail({
       if (mRes.error) console.warn(`[task] could not load the members of home ${homeId}:`, mRes.error.message)
       setLoadFailed(!!dRes.error)
       setDetail(dRes.data ?? null)
+      confirmedAssignee.current = dRes.data?.assignedTo ?? null
       setMembers(mRes.data ?? [])
       setLoading(false)
     }).catch((e: unknown) => {
@@ -173,19 +179,28 @@ export function RefinedTaskDetail({
   })()
 
   /** Optimistic, with rollback: the result used to be discarded, so a refused
-   *  assignment kept showing the new name. */
+   *  assignment kept showing the new name. Sequenced, so a LATE failure of an
+   *  older assignment can't roll back a newer one that landed — and a refused
+   *  latest goes back to what the server last confirmed, never to an older
+   *  optimistic name that may itself have failed. */
   const assignTo = useCallback(async (userId: string | null) => {
     if (!homeId || !detail) return
-    const before = detail.assignedTo
+    const seq = ++assignSeq.current
     setAssignOpen(false)
     setAssignError(null)
     setDetail((x) => (x ? { ...x, assignedTo: userId } : x))
     const res = await assignTaskInstance(homeId, detail.taskInstanceId, userId)
-    if (res.error) {
-      console.warn(`[task] could not assign ${detail.taskInstanceId} (home ${homeId}):`, res.error.message)
-      setDetail((x) => (x ? { ...x, assignedTo: before } : x))
-      setAssignError("Couldn't change who this is assigned to. Check your connection and try again.")
+    if (!res.error) {
+      if (seq > assignConfirmedSeq.current) {
+        assignConfirmedSeq.current = seq
+        confirmedAssignee.current = userId
+      }
+      return
     }
+    console.warn(`[task] could not assign ${detail.taskInstanceId} (home ${homeId}):`, res.error.message)
+    if (seq !== assignSeq.current) return // a newer assignment is in flight or landed; it decides
+    setDetail((x) => (x ? { ...x, assignedTo: confirmedAssignee.current } : x))
+    setAssignError("Couldn't change who this is assigned to. Check your connection and try again.")
   }, [homeId, detail])
 
   /** Optimistic, with rollback — a reminder that silently failed to save would
@@ -530,7 +545,10 @@ export function RefinedTaskDetail({
             setDoneError(null)
             const res = await markTaskInstanceDone(homeId, detail.taskInstanceId, null, { completedOn, backdated, nextDueOverride: nextDue })
             if (!res.success) {
-              setDoneError(res.error || "Couldn't mark this done. Try again.")
+              console.warn(`[task] could not mark ${detail.taskInstanceId} done (home ${homeId}):`, res.error)
+              // The server's date refusals say what to check, so they are
+              // shown as sent; anything else reads as it does on Home and Tasks.
+              setDoneError(doneFailedMessage(res.error))
               return
             }
             setDone({ nextDue })
