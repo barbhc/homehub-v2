@@ -43,6 +43,8 @@ vi.mock("@/hooks/useCareSuggestions", () => ({
 
 const { DesktopTasks } = await import("./DesktopTasks")
 const { RefinedWeek } = await import("./RefinedWeek")
+// Home's words for a failed check-off/snooze (#230) — the hook says them on Tasks too.
+const { DONE_FAILED, SNOOZE_FAILED } = await import("./tasks/shared")
 
 const renderWith = (ui: React.ReactElement) =>
   render(
@@ -192,7 +194,7 @@ describe("DesktopTasks — a failed check-off or snooze is said on the row that 
 
     fireEvent.click(within(rowOf(LOWER)).getByLabelText("Mark done"))
 
-    await waitFor(() => expect(within(rowOf(LOWER)).getByRole("alert")).toHaveTextContent("quota exceeded"))
+    await waitFor(() => expect(within(rowOf(LOWER)).getByRole("alert")).toHaveTextContent(DONE_FAILED))
     // Said once, beside the task — the page header carries no copy of it.
     expect(screen.getAllByRole("alert")).toHaveLength(1)
     expect(within(rowOf(FILTER.title)).queryByRole("alert")).toBeNull()
@@ -206,30 +208,35 @@ describe("DesktopTasks — a failed check-off or snooze is said on the row that 
 
     fireEvent.click(within(rowOf(LOWER)).getByRole("button", { name: /^Snooze$/ }))
 
-    await waitFor(() => expect(within(rowOf(LOWER)).getByRole("alert")).toHaveTextContent("network down"))
+    await waitFor(() => expect(within(rowOf(LOWER)).getByRole("alert")).toHaveTextContent(SNOOZE_FAILED))
     expect(screen.getByText(LOWER)).toBeInTheDocument()
     // Collapsed only while the write was in flight; open again now it failed.
     expect(within(rowOf(LOWER)).getByRole("button", { name: /^Snooze$/ })).toBeInTheDocument()
   })
 
-  it("a write that throws is said too — never swallowed", async () => {
+  it("a write that throws is said too — never swallowed — and logged with the task and home", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     svc.markTaskInstanceDone.mockRejectedValue(new Error("You're offline"))
     await settle()
 
     fireEvent.click(within(rowOf(FILTER.title)).getByLabelText("Mark done"))
 
-    await waitFor(() => expect(within(rowOf(FILTER.title)).getByRole("alert")).toHaveTextContent("You're offline"))
+    await waitFor(() => expect(within(rowOf(FILTER.title)).getByRole("alert")).toHaveTextContent(DONE_FAILED))
     expect(screen.getByText(FILTER.title)).toBeInTheDocument()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("ti-1 (home h1)"), "You're offline")
+    warn.mockRestore()
   })
 
-  it("a failure with no message still says something", async () => {
-    svc.snoozeTaskInstance.mockResolvedValue({ success: false, error: "" })
+  it("the person reads Home's words — never the service's raw error", async () => {
+    svc.snoozeTaskInstance.mockResolvedValue({ success: false, error: "FirebaseError: [code=internal]" })
     await settle()
     await expand(LOWER)
 
     fireEvent.click(within(rowOf(LOWER)).getByRole("button", { name: /^Snooze$/ }))
 
-    await waitFor(() => expect(within(rowOf(LOWER)).getByRole("alert")).toHaveTextContent("Could not snooze that task."))
+    const alert = await within(rowOf(LOWER)).findByRole("alert")
+    expect(alert).toHaveTextContent(SNOOZE_FAILED)
+    expect(alert).not.toHaveTextContent(/FirebaseError|internal/)
   })
 
   it("the next try clears it", async () => {

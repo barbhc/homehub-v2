@@ -289,3 +289,20 @@ describe("round 10 — the overnight fallout, pinned", () => {
     expect(sheet).not.toContain('type="checkbox"\n          checked={open}')
   })
 })
+
+describe("a failed check-off reads the same on Home and on Tasks", () => {
+  // #230 gave Home's rows these words; the Tasks pages showed the service's raw
+  // error instead (or "Could not complete that task."). One sentence per
+  // failure, wherever the task is — so the two copies must not drift.
+  it("Home and the Tasks hook carry the same two sentences", () => {
+    const home = read("../pages/Home.tsx")
+    const tasks = read("../components/home/tasks/shared.ts")
+    for (const words of [
+      "Couldn't mark this done. Check your connection and try again.",
+      "Couldn't snooze this. Check your connection and try again.",
+    ]) {
+      expect(home, "Home.tsx").toContain(words)
+      expect(tasks, "tasks/shared.ts").toContain(words)
+    }
+  })
+})

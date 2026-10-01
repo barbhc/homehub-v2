@@ -89,7 +89,9 @@ describe("RefinedWeek — a failed check-off must say so", () => {
 
     fireEvent.click(screen.getByLabelText(/mark done/i))
 
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/quota exceeded/i))
+    // Home's words (#230); the service's raw error goes to the log, not the person.
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Couldn't mark this done. Check your connection and try again."))
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/quota exceeded/i)
     expect(screen.getByText(/replace the furnace filter/i)).toBeInTheDocument()
   })
 
@@ -102,7 +104,7 @@ describe("RefinedWeek — a failed check-off must say so", () => {
     await expandRow()
     fireEvent.click(screen.getByRole("button", { name: /^snooze$/i }))
 
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/network down/i))
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Couldn't snooze this. Check your connection and try again."))
     expect(screen.getByText(/replace the furnace filter/i)).toBeInTheDocument()
   })
 

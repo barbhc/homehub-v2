@@ -73,6 +73,8 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
     const alert = row.getByRole("alert")
     await expect(alert).toBeVisible({ timeout: 10_000 })
     await expect(alert).toBeInViewport()
+    // Home's words for the same failure — never the callable's raw error.
+    await expect(alert).toHaveText("Couldn't mark this done. Check your connection and try again.")
     // Said once — on the row, not also in the header.
     await expect(page.getByRole("alert").filter(visible)).toHaveCount(1)
     await expect(row).toContainText(title)

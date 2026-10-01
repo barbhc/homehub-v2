@@ -59,6 +59,14 @@ export function nothingDueLine(hiddenCleaning: number): string {
 type RowWrite = { success: boolean; error?: string }
 
 /**
+ * What a failed check-off or snooze says — Home's words (Home.tsx, #230), so a
+ * task that won't complete reads the same on Home and on Tasks. The service's
+ * own error is for the log, not the person.
+ */
+export const DONE_FAILED = "Couldn't mark this done. Check your connection and try again."
+export const SNOOZE_FAILED = "Couldn't snooze this. Check your connection and try again."
+
+/**
  * Done and Snooze for the agenda's rows: ONE implementation, which RefinedWeek
  * and DesktopTasks both call.
  *
@@ -79,34 +87,33 @@ export function useAgendaRowActions(homeId: string | null, removeTask: (taskInst
   const [failure, setFailure] = useState<{ id: string; message: string } | null>(null)
 
   const run = useCallback(
-    async (id: string, write: () => Promise<RowWrite>, failed: string) => {
+    async (id: string, what: "done" | "snooze", write: () => Promise<RowWrite>) => {
       setPendingId(id)
       setFailure(null)
       let res: RowWrite
       try {
         res = await write()
       } catch (e) {
-        // A write that throws failed like one that answered "no" — and is said
-        // the same way below, never swallowed.
-        res = { success: false, error: e instanceof Error ? e.message : "" }
+        // A write that throws failed like one that answered "no" — and is
+        // logged and said the same way below, never swallowed.
+        res = { success: false, error: e instanceof Error ? e.message : String(e) }
       }
       setPendingId(null)
       if (!res.success) {
-        // `||`, not `??`: an empty message would set "" and render nothing —
-        // the silent failure this hook exists to prevent.
-        setFailure({ id, message: res.error || failed })
+        console.warn(`[tasks] could not ${what === "done" ? "mark task done" : "snooze task"} ${id} (home ${homeId}):`, res.error)
+        setFailure({ id, message: what === "done" ? DONE_FAILED : SNOOZE_FAILED })
         return
       }
       setOpenId(null)
       removeTask(id)
     },
-    [removeTask],
+    [homeId, removeTask],
   )
 
   const onDone = useCallback(
     async (id: string) => {
       if (!homeId) return
-      await run(id, () => markTaskInstanceDone(homeId, id), "Could not complete that task.")
+      await run(id, "done", () => markTaskInstanceDone(homeId, id))
     },
     [homeId, run],
   )
@@ -114,7 +121,7 @@ export function useAgendaRowActions(homeId: string | null, removeTask: (taskInst
   const onSnooze = useCallback(
     async (id: string) => {
       if (!homeId) return
-      await run(id, () => snoozeTaskInstance(homeId, id, addDays(todayStr(), 7)), "Could not snooze that task.")
+      await run(id, "snooze", () => snoozeTaskInstance(homeId, id, addDays(todayStr(), 7)))
     },
     [homeId, run],
   )
