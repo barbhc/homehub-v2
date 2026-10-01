@@ -7,6 +7,8 @@ import {
 import { useCurrentHome, getRooms } from "@/modules/home"
 import { getItemUnits } from "@/modules/items"
 import type { ItemUnit } from "@/integrations/types"
+import { warrantyExpiry } from "@/lib/warrantyWindow"
+import { diffDays, localToday } from "../../shared/dates/calendar"
 
 // Per-item glyph (mirrors RefinedItemDetail) — warranties show the item's own
 // icon, not a uniform shield.
@@ -22,12 +24,6 @@ function glyphFor(name: string, category: string | null): LucideIcon {
   for (const [re, icon] of GLYPH_KW) if (re.test(hay)) return icon
   return PackageIcon
 }
-/** YYYY-MM-DD `months` after a date — used to derive an end date from duration. */
-function addMonths(dateStr: string, months: number): string {
-  const [y, m, d] = dateStr.split("-").map(Number)
-  return new Date(y, m - 1 + months, d).toISOString().slice(0, 10)
-}
-
 // ── Tokens (redesign palette) ───────────────────────────────────────────────
 const INK = "var(--hh-ink)"
 const SUB = "var(--hh-sub)"
@@ -61,9 +57,9 @@ interface WarrantyRow {
   icon: LucideIcon
 }
 
+/** Calendar days from the device's today to `dateStr` (negative once past). */
 function daysUntil(dateStr: string): number {
-  const [y, m, d] = dateStr.split("-").map(Number)
-  return Math.ceil((new Date(y, m - 1, d).getTime() - Date.now()) / 86_400_000)
+  return diffDays(localToday(), dateStr)
 }
 
 function formatDate(dateStr: string): string {
@@ -86,7 +82,7 @@ function toWarrantyRows(items: ItemUnit[], roomMap: Map<string, string>): Warran
       const expiry =
         it.warranty_expiry_date ??
         (it.purchase_date && it.warranty_duration_months
-          ? addMonths(it.purchase_date, it.warranty_duration_months)
+          ? warrantyExpiry(it.purchase_date, it.warranty_duration_months)
           : null)
       const daysRemaining = expiry ? daysUntil(expiry) : Number.POSITIVE_INFINITY
       let status: WStatus = "active"

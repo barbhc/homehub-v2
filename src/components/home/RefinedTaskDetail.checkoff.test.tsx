@@ -32,7 +32,6 @@ vi.mock("@/modules/care", async () => {
     setTaskReminder: vi.fn(),
     canAssignTasks: () => false,
     computeNextDueDate: dates.computeNextDueDate,
-    localDateString: dates.localDateString,
   }
 })
 vi.mock("@/modules/home", () => ({ getHomeMembers: vi.fn(async () => ({ data: [], error: null })) }))
@@ -195,5 +194,25 @@ describe("task page — Mark done", () => {
       expect(a).not.toHaveTextContent("INTERNAL")
     }
     expect(screen.queryByText(/^Done/)).not.toBeInTheDocument()
+  })
+})
+
+describe("task page — the header counts from the device's day too", () => {
+  it("at 23:30 Pacific a deadline due today reads Today, not '1 day overdue'", async () => {
+    expect(new Date().toISOString().slice(0, 10)).toBe("2026-09-30") // the UTC date it used to count from
+    getTaskDetail.mockResolvedValue({
+      data: {
+        ...DETAIL,
+        title: "Register the furnace warranty",
+        scheduleType: "as_needed",
+        schedule: { scheduleType: "as_needed", intervalDays: null, season: null },
+      },
+      error: null,
+    })
+    render(<RefinedTaskDetail taskInstanceId="ti-1" homeId="home-1" onBack={vi.fn()} />)
+    await screen.findAllByText("Register the furnace warranty")
+
+    expect(screen.getAllByText("Today").length).toBeGreaterThan(0)
+    expect(screen.queryByText(/overdue/i)).not.toBeInTheDocument()
   })
 })

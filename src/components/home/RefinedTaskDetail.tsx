@@ -7,7 +7,7 @@ import {
   BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon, BellRingIcon,
 } from "lucide-react"
 import {
-  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder, localDateString,
+  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder,
   type TaskDetail,
 } from "@/modules/care"
 import { getHomeMembers, type HomeMember } from "@/modules/home"
@@ -26,28 +26,20 @@ import { doneFailedMessage } from "./tasks/shared"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
 import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
+import { addDays, diffDays, localToday } from "../../../shared/dates/calendar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 
-/** UTC date. Only dueDaysFromDate still reads it — the date-module follow-up
- *  (audit 2026-09-29, refactor #2); the Mark done sheet uses the local day. */
-function todayStr() { return new Date().toISOString().slice(0, 10) }
-/** Calendar arithmetic on the device's calendar. Its only caller is the Mark
- *  done sheet's next window, which it SENDS as nextDueOverride — formatted as
- *  UTC (toISOString) it came back a day early at UTC+13/+14. */
-function addDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr + "T12:00:00"); d.setDate(d.getDate() + n); return localDateString(d)
-}
 function fmt(dateStr: string | null): string {
   if (!dateStr) return "—"
   return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 /** "in N days" for the Mark done sheet's next window. Counts from the DEVICE's
- *  day, like the completedOn the sheet sends; left on the UTC todayStr(), a
- *  weekly task checked off at 7 pm Pacific would read "in 6 days". */
+ *  day, like the completedOn the sheet sends; from the UTC date, a weekly task
+ *  checked off at 7 pm Pacific would read "in 6 days". */
 function rel(dateStr: string | null): string {
   if (!dateStr) return ""
-  const days = Math.round((new Date(dateStr + "T12:00:00").getTime() - new Date(localDateString() + "T12:00:00").getTime()) / 86400000)
+  const days = diffDays(localToday(), dateStr)
   if (days <= 0) return "today"
   if (days < 14) return `in ${days} days`
   if (days < 56) return `in ${Math.round(days / 7)} weeks`
@@ -64,8 +56,11 @@ const NON_RECURRING: ScheduleType[] = ["after_each_use", "as_needed", "setup"]
 function recurLabel(t: ScheduleType): string {
   return RECUR_LABEL[t] ?? "on a schedule"
 }
+/** Signed calendar days from the device's today (negative = past). It counted
+ *  from the UTC date, so after ~5 pm Pacific a deadline due today read
+ *  "1 day overdue". */
 function dueDaysFromDate(dateStr: string): number {
-  return Math.round((new Date(dateStr + "T12:00:00").getTime() - new Date(todayStr() + "T12:00:00").getTime()) / 86400000)
+  return diffDays(localToday(), dateStr)
 }
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -622,13 +617,11 @@ function ConfirmDoneSheet({
   /** Adjust is the exception path: hidden until asked for. */
   const [adjusting, setAdjusting] = useState(false)
 
-  // The DEVICE's calendar, not todayStr() (UTC): after ~5 pm Pacific the UTC
-  // date is tomorrow. "A few days ago" is five local days back, and says so
+  // The DEVICE's calendar, not the UTC date: after ~5 pm Pacific the UTC date
+  // is tomorrow. "A few days ago" is five local days back, and says so
   // (`backdated`) — the server only accepts a date that old when told.
-  const now = new Date()
-  const completedOn = whenDone === "today"
-    ? localDateString(now)
-    : localDateString(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 5))
+  const today = localToday()
+  const completedOn = whenDone === "today" ? today : addDays(today, -5)
   const nextDue = useMemo(() => {
     if (!recurring || !scheduleType) return null
     const base = computeNextDueDate(scheduleType, completedOn, {

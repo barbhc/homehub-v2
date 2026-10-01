@@ -157,6 +157,7 @@ import { cleanDueLabel } from "@/lib/cleanDue"
 import { derivedDue } from "@/lib/dueWindow"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 import { REVIEW_BUCKET_ORDER, REVIEW_BUCKET_COPY } from "../../shared/tasks/reviewBuckets"
+import { addDays, localToday } from "../../shared/dates/calendar"
 
 // ─── source, for the rules that are an absence across the app ────────────────
 
@@ -197,11 +198,7 @@ function filesSaying(pattern: RegExp): string[] {
 
 // ─── fixtures ────────────────────────────────────────────────────────────────
 
-const iso = (days: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
+const iso = (days: number) => addDays(localToday(), days)
 
 const ITEM = {
   item_unit_id: "item-1", home_id: "home-1", room_id: null, display_name: "Bosch Dishwasher",

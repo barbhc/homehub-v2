@@ -16,7 +16,14 @@
  * `windowStart`/`windowEnd` DO exist on instances as v1 leftovers and are
  * thoroughly stale (April windows on tasks due in August), which is the
  * denormalized-drift lesson in one field. Derive, don't trust.
+ *
+ * "Today" defaults to the DEVICE's calendar day (shared/dates/calendar.ts) —
+ * it was the UTC date, so after ~5 pm Pacific every window was judged against
+ * tomorrow. The push sweep always passes its own `today` (its Pacific delivery
+ * date, push/lanes.ts), so the default only ever runs on the client.
  */
+
+import { addDays, localToday } from "../dates/calendar.js"
 
 /** How far either side of the target the window reaches, by cadence.
  *
@@ -54,16 +61,6 @@ export interface DueWindow {
   start: string
   end: string
   state: WindowState
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
-export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 /** Half-width of the window for a cadence, in days. */
@@ -104,7 +101,7 @@ export function dueWindow(
     intervalDaysMax?: number | null
   },
 ): DueWindow {
-  const today = opts?.today ?? todayStr()
+  const today = opts?.today ?? localToday()
   const tol = rangeTolerance(opts?.intervalDaysMin, opts?.intervalDaysMax)
     ?? toleranceDays(scheduleType, opts?.intervalDays)
   const start = addDays(dueDate, -tol)
@@ -166,7 +163,7 @@ export function windowPhrase(
     intervalDaysMin?: number | null; intervalDaysMax?: number | null
   },
 ): string {
-  const today = opts?.today ?? todayStr()
+  const today = opts?.today ?? localToday()
   const kind = opts?.kind ?? "window"
   if (kind === "deadline") return `By ${shortDate(dueDate)}`
 
@@ -214,7 +211,7 @@ export function derivedDue(task: {
   intervalDaysMin?: number | null
   intervalDaysMax?: number | null
 }): { dueKind: DueKind; duePhrase: string; safetyNote: string | null; trulyOverdue: boolean } {
-  const today = opts?.today ?? todayStr()
+  const today = opts?.today ?? localToday()
   const scheduleType = task.scheduleType ?? null
   const dueKind = dueKindOf({ title: task.title, scheduleType, careType: task.careType })
   const range = {
@@ -242,7 +239,7 @@ export function isTrulyOverdue(
   kind: DueKind,
   opts?: { today?: string },
 ): boolean {
-  const today = opts?.today ?? todayStr()
+  const today = opts?.today ?? localToday()
   return kind === "deadline" && dueDate < today
 }
 
@@ -262,7 +259,7 @@ export function safetyPhrase(
   scheduleType: ScheduleTypeLike,
   opts?: { today?: string },
 ): string | null {
-  const today = opts?.today ?? todayStr()
+  const today = opts?.today ?? localToday()
   const w = dueWindow(dueDate, scheduleType, { today })
   if (w.state !== "lapsed") return null
   const month = Number(dueDate.slice(5, 7))

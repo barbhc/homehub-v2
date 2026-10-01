@@ -2,6 +2,7 @@ import { collection, doc, getDoc, serverTimestamp, writeBatch, type DocumentData
 import { db } from "@/integrations/firebase"
 import type { ScheduleRule, ScheduleType, Season } from "@/integrations/types"
 import { computePriorityScore } from "./taskService"
+import { addDays, localToday } from "../../../../shared/dates/calendar"
 
 export type ServiceResult<T> =
   | { data: T; error: null }
@@ -13,16 +14,6 @@ const SEASON_ANCHOR: Record<Season, string> = {
   summer: "07-15",
   fall: "10-15",
   winter: "01-15",
-}
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T12:00:00")
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
 }
 
 function getSeasonAnchorYear(season: Season, referenceDate: string): number {
@@ -133,7 +124,7 @@ export async function createScheduleRule(
     const schedule = {
       scheduleType: input.schedule_type,
       intervalDays: input.interval_days ?? null,
-      anchorDate: input.anchor_date ?? todayStr(),
+      anchorDate: input.anchor_date ?? localToday(),
       season: input.season ?? null,
       windowDaysBefore: input.window_days_before ?? 7,
       windowDaysAfter: input.window_days_after ?? 14,
@@ -186,7 +177,7 @@ function planInstance(
 export function plannedInstanceDue(
   taskTemplateId: string,
   schedule: DocumentData | null | undefined,
-  today: string = todayStr(),
+  today: string = localToday(),
 ): string | null {
   return planInstance(taskTemplateId, schedule, today, addDays(today, 365))?.dueDate ?? null
 }
@@ -199,7 +190,7 @@ export function plannedInstanceDue(
 export async function generateTaskInstances(
   input: GenerateInstancesInput
 ): Promise<ServiceResult<{ count: number }>> {
-  const today = input.from_date ?? todayStr()
+  const today = input.from_date ?? localToday()
   const toDate = input.to_date ?? addDays(today, 365)
 
   try {

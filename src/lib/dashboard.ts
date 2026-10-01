@@ -16,6 +16,7 @@ import {
 } from "@/lib/dueWindow"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
 import type { HomeReads, ReadDoc } from "@/lib/homeReads"
+import { addDays, diffDays, localToday } from "../../shared/dates/calendar"
 
 type Row = { id: string } & Record<string, unknown>
 /** `{ id, ...data }` — the row shape these derivations were written against. */
@@ -201,27 +202,9 @@ function tierToPriority(tier: string | null | undefined): TaskPriority {
   }
 }
 
-const today = () => {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString().slice(0, 10)
-}
-
-const addDays = (dateStr: string, days: number): string => {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
-function daysBetween(a: string, b: string): number {
-  const dA = new Date(a)
-  const dB = new Date(b)
-  return Math.round((dB.getTime() - dA.getTime()) / (24 * 60 * 60 * 1000))
-}
-
 function computeUrgency(dueDate: string | null, todayStr: string): DashboardTask["urgencyLevel"] {
   if (!dueDate) return "upcoming"
-  const days = daysBetween(todayStr, dueDate)
+  const days = diffDays(todayStr, dueDate)
   if (days < -14) return "critical"
   if (days < 0) return "overdue"
   if (days === 0) return "due_today"
@@ -249,8 +232,8 @@ function toDashboardTask(
   const priority = tierToPriority(row.task_template?.priority_tier)
   const itemName = row.item_unit?.display_name ?? null
   const itemId = row.item_unit?.item_unit_id ?? null
-  const daysOverdue = due < todayStr ? daysBetween(due, todayStr) : null
-  const daysUntilDue = due >= todayStr ? daysBetween(todayStr, due) : null
+  const daysOverdue = due < todayStr ? diffDays(due, todayStr) : null
+  const daysUntilDue = due >= todayStr ? diffDays(todayStr, due) : null
   const isOverdue = due < todayStr
   const dueSoonEnd = addDays(todayStr, DUE_SOON_DAYS)
   const isDueSoon = due >= todayStr && due <= dueSoonEnd
@@ -327,7 +310,7 @@ export function deriveDashboardTasks(
    */
   topConcerns: TopConcernKey[] = [],
 ): DashboardTasksResult {
-  const todayStr = today()
+  const todayStr = localToday()
 
   // The open instances the Home load read; scheduled rows derived client-side
   // from the denormalized fields (§5). risk_level isn't denormed (only used
@@ -367,6 +350,7 @@ export function deriveDashboardTasks(
     .sort((a, b) => b.at.localeCompare(a.at))
   for (const row of done) {
     completedTemplateIds.add(row.tpl)
+    // UTC day on purpose: completeTask stamps completedAt at noon UTC OF the completion day.
     if (!lastByTemplate.has(row.tpl)) lastByTemplate.set(row.tpl, row.at.slice(0, 10))
   }
 
@@ -411,7 +395,7 @@ export function deriveDashboardTasks(
       const row = rows.find((r) => r.task_instance_id === t.id)
       const templateId = row?.task_template_id ?? ""
       const lastCompleted = lastByTemplate.get(templateId) ?? null
-      const stalenessDays = lastCompleted ? daysBetween(lastCompleted, todayStr) : 99999
+      const stalenessDays = lastCompleted ? diffDays(lastCompleted, todayStr) : 99999
       const concernBoost = computeConcernBoost(t.riskLevel, t.careType, topConcerns)
       return { task: t, effectiveStaleness: stalenessDays + concernBoost }
     })
@@ -434,7 +418,7 @@ export function deriveDashboardTasks(
 }
 
 export function deriveDashboardStats(reads: HomeReads): DashboardStats {
-  const todayStr = today()
+  const todayStr = localToday()
   const dueSoonEnd = addDays(todayStr, DUE_SOON_DAYS)
   const monthStart = todayStr.slice(0, 7) + "-01"
 
@@ -450,6 +434,7 @@ export function deriveDashboardStats(reads: HomeReads): DashboardStats {
   // The 1st of the month is always inside the done-history window.
   for (const { data: r } of reads.recentDone) {
     if (r.deletedAt !== null || r.status !== "done") continue
+    // UTC day on purpose: completeTask stamps completedAt at noon UTC OF the completion day.
     const c = r.completedAt instanceof Timestamp ? r.completedAt.toDate().toISOString().slice(0, 10) : null
     if (c && c >= monthStart) completedThisMonth++
   }
@@ -559,7 +544,7 @@ function toMaintenanceTaskFull(
 }
 
 export function deriveUpcomingTasks(reads: Pick<HomeReads, "live">): MaintenanceTaskFull[] {
-  const todayStr = today()
+  const todayStr = localToday()
   // 45, not 30 — a fencepost that hid every fresh monthly task. commitDraft
   // seeds first-due ONE CALENDAR MONTH out (#58), which is 31 days in seven
   // months of the year, so a monthly task added on the 21st landed due the
@@ -631,7 +616,7 @@ export type ExpiringWarrantyItem = {
 export const WARRANTY_UPCOMING_DAYS = 90
 
 export function deriveExpiringWarranties(reads: Pick<HomeReads, "items">): ExpiringWarrantyItem[] {
-  const todayStr = today()
+  const todayStr = localToday()
   const cutoffEnd = addDays(todayStr, WARRANTY_UPCOMING_DAYS)
 
   return asRows(reads.items)
@@ -639,12 +624,11 @@ export function deriveExpiringWarranties(reads: Pick<HomeReads, "items">): Expir
     .sort((a, b) => (a.warrantyExpiryDate as string).localeCompare(b.warrantyExpiryDate as string))
     .map((r) => {
       const expiry = r.warrantyExpiryDate as string
-      const [y, m, d] = expiry.split("-").map(Number)
       return {
         item_unit_id: r.id,
         display_name: (r.displayName as string) ?? "Item",
         warranty_expiry_date: expiry,
-        days_remaining: Math.ceil((new Date(y, m - 1, d).getTime() - Date.now()) / 86400000),
+        days_remaining: diffDays(todayStr, expiry),
       }
     })
 }

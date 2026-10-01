@@ -23,6 +23,7 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom"
 import { SWRConfig } from "swr"
 import { entryByKey } from "../../../shared/care/library"
+import { localToday } from "../../../shared/dates/calendar"
 
 const svc = vi.hoisted(() => ({
   getWeekAgenda: vi.fn(),
@@ -55,7 +56,7 @@ const renderWith = (ui: React.ReactElement) =>
 
 const task = (id: string, title: string, over: Record<string, unknown> = {}) => ({
   taskInstanceId: id, taskTemplateId: `tt-${id}`, title, source: "maintenance", priorityTier: "essential",
-  estimatedMinutes: 10, dueDate: new Date().toISOString().slice(0, 10), isOverdue: false, pastDue: false,
+  estimatedMinutes: 10, dueDate: localToday(), isOverdue: false, pastDue: false,
   dueKind: "window", windowState: "open", duePhrase: "Good to do now", safetyNote: null, trulyOverdue: false,
   itemUnitId: null, itemName: null, roomName: null, ...over,
 })

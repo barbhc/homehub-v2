@@ -10,6 +10,7 @@ import {
   getTaskDetail, markTaskInstanceDone, snoozeTaskInstance, type TaskDetail, type WeekAgendaItem,
 } from "@/modules/care"
 import type { Tier } from "@/lib/redesign/tokens"
+import { addDays, diffDays, localToday } from "../../../../shared/dates/calendar"
 
 // Group accent tones (calm tier palette — clay for overdue, never pure red).
 export const CLAY = "var(--hh-clay)"
@@ -17,22 +18,6 @@ export const TEAL = "var(--hh-teal)"
 export const SLATE = "var(--hh-slate)"
 
 const TIER_RANK: Record<string, number> = { essential: 0, recommended: 1, optional: 2 }
-
-export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-/** YYYY-MM-DD `days` ahead of `dateStr`. */
-export function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T12:00:00")
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-/** Signed whole-day delta from today (negative = overdue). */
-export function daysUntil(dateStr: string): number {
-  const a = new Date(todayStr() + "T00:00:00")
-  const b = new Date(dateStr + "T00:00:00")
-  return Math.round((b.getTime() - a.getTime()) / 86400000)
-}
 
 /**
  * The Tasks headline when there is nothing on the list — and where the work
@@ -136,7 +121,7 @@ export function useAgendaRowActions(homeId: string | null, removeTask: (taskInst
   const onSnooze = useCallback(
     async (id: string) => {
       if (!homeId) return
-      await run(id, "snooze", () => snoozeTaskInstance(homeId, id, addDays(todayStr(), 7)))
+      await run(id, "snooze", () => snoozeTaskInstance(homeId, id, addDays(localToday(), 7)))
     },
     [homeId, run],
   )
@@ -171,7 +156,7 @@ export function whenLabel(t: WeekAgendaItem): string {
   // Past-due but not a genuine lapse (never started, or non-essential cadence):
   // calm "Start anytime" instead of an alarming day count.
   if (t.pastDue) return "Start anytime"
-  const n = daysUntil(t.dueDate)
+  const n = diffDays(localToday(), t.dueDate)
   if (n <= 0) return "Today"
   if (n === 1) return "Tomorrow"
   if (n <= 7) return `In ${n} days`
@@ -196,9 +181,10 @@ export function itemOf(t: WeekAgendaItem): string {
 }
 
 function sortRows(rows: WeekAgendaItem[]): WeekAgendaItem[] {
+  const today = localToday()
   return [...rows].sort(
     (a, b) =>
-      daysUntil(a.dueDate) - daysUntil(b.dueDate) ||
+      diffDays(today, a.dueDate) - diffDays(today, b.dueDate) ||
       (TIER_RANK[a.priorityTier] ?? 2) - (TIER_RANK[b.priorityTier] ?? 2)
   )
 }

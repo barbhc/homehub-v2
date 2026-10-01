@@ -1,10 +1,24 @@
-import { describe, it, expect } from "vitest"
+import { afterEach, describe, it, expect, vi } from "vitest"
 import { warrantyExpiry } from "./warrantyWindow"
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 describe("warrantyExpiry", () => {
   it("counts calendar months, so the date matches the receipt", () => {
     expect(warrantyExpiry("2026-02-14", 24)).toBe("2028-02-14")
     expect(warrantyExpiry("2026-01-31", 1)).toBe("2026-03-03") // JS month-end roll, unchanged from the wizard
+  })
+
+  it("is the same date on a phone east of Greenwich", () => {
+    // It built local midnight and read it back as UTC — the day before, east
+    // of Greenwich: a 24-month warranty bought in Tokyo ended Feb 13.
+    for (const tz of ["Asia/Tokyo", "Europe/Berlin", "Pacific/Auckland", "America/Los_Angeles"]) {
+      vi.stubEnv("TZ", tz)
+      expect(warrantyExpiry("2026-02-14", 24), tz).toBe("2028-02-14")
+      expect(warrantyExpiry("2026-01-31", 1), tz).toBe("2026-03-03")
+    }
   })
 
   it("returns null rather than a wrong date when either half is missing", () => {

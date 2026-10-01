@@ -65,6 +65,7 @@ import { db, callable } from "@/integrations/firebase"
 const sendTestPushCallable = callable<void, { ok: boolean; sent?: number }>("sendTestPush")
 import type { ManualDocument, Room } from "@/integrations/types"
 import { withChunkRetry } from "@/lib/chunkRetry"
+import { localToday } from "../../shared/dates/calendar"
 
 type ManualWithName = ManualDocument & { display_name: string }
 /** `ready`: read, and waiting for its review on the item page — never saved from here.
@@ -796,7 +797,7 @@ export default function Settings() {
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
       const url = URL.createObjectURL(blob)
-      const date = new Date().toISOString().slice(0, 10)
+      const date = localToday()
       const a = document.createElement("a")
       a.href = url
       a.download = `homehub-export-${date}.json`

@@ -1,4 +1,5 @@
 import type { ScheduleType, Season } from "@/integrations/types"
+import { addDays, addMonths, localDateString } from "../../../../shared/dates/calendar"
 
 /**
  * Computes the next due date for a recurring task from the *completion date*.
@@ -16,8 +17,8 @@ export function computeNextDueDate(
   completedOn: string, // YYYY-MM-DD
   opts?: { intervalDays?: number | null; season?: Season | null }
 ): string | null {
-  const base = new Date(completedOn + "T12:00:00")
-
+  // Calendar arithmetic on the date itself (shared/dates/calendar.ts): the same
+  // component math as the server's cadence.ts, in every zone and across DST.
   switch (scheduleType) {
     case "after_each_use":
     case "as_needed":
@@ -25,20 +26,21 @@ export function computeNextDueDate(
       return null
 
     case "weekly":
-      return addDays(base, 7)
+      return addDays(completedOn, 7)
     case "monthly":
-      return addMonths(base, 1)
+      return addMonths(completedOn, 1)
     case "quarterly":
-      return addMonths(base, 3)
+      return addMonths(completedOn, 3)
     case "semiannual":
-      return addMonths(base, 6)
+      return addMonths(completedOn, 6)
     case "annual":
-      return addMonths(base, 12)
+      return addMonths(completedOn, 12)
     case "every_n_days":
-      return addDays(base, opts?.intervalDays ?? 30)
+      return addDays(completedOn, opts?.intervalDays ?? 30)
 
     case "seasonal": {
       if (!opts?.season) return null
+      const base = new Date(completedOn + "T12:00:00")
       const month = SEASON_MONTH[opts.season]
       const year = base.getFullYear()
       let anchor = new Date(year, month, 15, 12, 0, 0)
@@ -48,7 +50,7 @@ export function computeNextDueDate(
     }
 
     default:
-      return addDays(base, opts?.intervalDays ?? 365)
+      return addDays(completedOn, opts?.intervalDays ?? 365)
   }
 }
 
@@ -57,30 +59,4 @@ const SEASON_MONTH: Record<Season, number> = {
   spring: 3, // Apr
   summer: 6, // Jul
   fall: 9, // Oct
-}
-
-function addDays(d: Date, n: number): string {
-  const x = new Date(d)
-  x.setDate(x.getDate() + n)
-  return localDateString(x)
-}
-
-function addMonths(d: Date, n: number): string {
-  const x = new Date(d)
-  x.setMonth(x.getMonth() + n)
-  return localDateString(x)
-}
-
-/**
- * YYYY-MM-DD on THIS DEVICE's calendar (local time) — never
- * `toISOString().slice(0, 10)`, which is the UTC date and turns a check-off
- * made after ~5 pm Pacific into tomorrow. Exported for the check-off's
- * `completedOn` (markTaskInstanceDone, the task page's Mark done sheet); the
- * server checks it against the home's calendar (completeTask, ±1 day).
- *
- * FOLLOW-UP (audit 2026-09-29, refactor #2): one shared, home-timezone-aware
- * date module replaces this and the ~10 UTC `todayStr()` copies.
- */
-export function localDateString(d: Date = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }

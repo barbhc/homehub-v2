@@ -14,6 +14,7 @@ import { render, screen, waitFor, within, fireEvent } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom"
 import type { ItemUnit } from "@/integrations/types"
 import { CareBlock } from "./CareBlock"
+import { addDays, localToday } from "../../../shared/dates/calendar"
 
 const instances = vi.hoisted(() => ({ open: [] as unknown[], done: [] as unknown[] }))
 const svc = vi.hoisted(() => ({ done: vi.fn(), snooze: vi.fn(), unsnooze: vi.fn() }))
@@ -30,11 +31,7 @@ vi.mock("@/pages/item-detail/useSetupCompletion", () => ({
 }))
 
 const item = { item_unit_id: "i1", display_name: "LG DLGX3901B" } as ItemUnit
-const iso = (days: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
+const iso = (days: number) => addDays(localToday(), days)
 
 /** A maintenance task on a monthly cadence, due far enough out to have shown a date. */
 const task = (over: Record<string, unknown> = {}) => ({

@@ -15,9 +15,10 @@ import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { BellOffIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, MapPinIcon, PhoneIcon, PackageIcon, ShieldIcon } from "lucide-react"
 import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@/lib/dashboard"
-import { useTaskDetail, todayStr } from "@/components/home/tasks/shared"
+import { useTaskDetail } from "@/components/home/tasks/shared"
 import { InlineError } from "@/components/layout/LoadStates"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
+import { localToday } from "../../../shared/dates/calendar"
 import { weekRows, nextUpRows, prepLine, prepPlace, timelyWarranty, fmtShortDate, type HomeWeekRow } from "@/lib/homeWeek"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
@@ -48,7 +49,7 @@ export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completin
   variant?: ThisWeekVariant
 }) {
   const sc = SCALE[variant]
-  const today = todayStr()
+  const today = localToday()
   const rows = useMemo(() => weekRows(tasks, upcoming, today), [tasks, upcoming, today])
   const ahead = useMemo(() => (rows.length === 0 ? nextUpRows(upcoming, today) : []), [rows.length, upcoming, today])
 

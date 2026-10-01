@@ -16,6 +16,8 @@
  *     season-wide window; it never suppresses the task or demands an answer.
  */
 
+import { localToday } from "../dates/calendar.js"
+
 export type Season = "spring" | "summer" | "fall" | "winter"
 export type Climate = "mild" | "moderate" | "cold" | "hot"
 
@@ -72,7 +74,7 @@ export function seasonalWindow(
   climate: Climate | null,
   opts?: { today?: string },
 ): SeasonalWindow {
-  const today = opts?.today ?? new Date().toISOString().slice(0, 10)
+  const today = opts?.today ?? localToday()
   const table = SEASON_MONTHS[season]
   const months = (climate && table[climate]) ?? table.default
   const open = monthInRange(monthOf(today), months)
