@@ -15,6 +15,7 @@
  */
 import { createPrivateKey, createSign } from "node:crypto"
 import { connect } from "node:http2"
+import { apnsReason } from "../lib/externalResponses.js"
 
 /** Raw APNs device tokens are 64 hex chars; FCM registration tokens are not. */
 export function isApnsToken(token: string): boolean {
@@ -90,8 +91,7 @@ export function sendApns(
     req.on("end", () => {
       let reason: string | null = null
       if (status !== 200) {
-        try { reason = (JSON.parse(bodyText) as { reason?: string }).reason ?? bodyText.slice(0, 80) }
-        catch { reason = bodyText.slice(0, 80) || null }
+        reason = apnsReason(bodyText) ?? (bodyText.slice(0, 80) || null)
         console.warn(`[apns] status=${status} reason=${reason} topic=${TOPIC}`)
       }
       done(status, reason)

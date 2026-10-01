@@ -20,6 +20,7 @@ import { requireAnyMembership } from "../lib/membership.js"
 import { chargeAiQuota } from "../lib/quota.js"
 import { z } from "zod"
 import { parseCallableInput } from "../lib/validate.js"
+import { visionFullText } from "../lib/externalResponses.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY")
@@ -162,17 +163,28 @@ async function visionText(apiKey: string, base64: string): Promise<string> {
     const detail = await res.text().catch((e: unknown) => `(response body unreadable: ${e instanceof Error ? e.message : String(e)})`)
     throw new Error(`Vision API ${res.status}: ${detail.slice(0, 300)}`)
   }
-  const data = await res.json()
-  return data.responses?.[0]?.fullTextAnnotation?.text ?? ""
+  return visionFullText(await res.json())
 }
 
 const MISSING_IMAGE = "Missing image (base64)."
 const OCR_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const
 
+/** The uploaded photo must at least BE base64 — the client sends a data URL's
+ *  payload (ocrService: FileReader → the part after the comma); a data-URL
+ *  prefix is tolerated, as the handler strips one. What the bytes depict is
+ *  Vision's call. */
+const DATA_URL_PREFIX = /^data:image\/\w+;base64,/
+export function isBase64Payload(image: string): boolean {
+  return /^[A-Za-z0-9+/]+={0,2}$/.test(image.replace(DATA_URL_PREFIX, ""))
+}
+
 /** The request (H3a). Any other media type — a HEIC photo, none at all — is
  *  sent as JPEG, exactly as before; only the image itself is required. */
 export const OcrRequest = z.object({
-  image: z.string({ error: MISSING_IMAGE }).min(1, { error: MISSING_IMAGE }),
+  image: z
+    .string({ error: MISSING_IMAGE })
+    .min(1, { error: MISSING_IMAGE })
+    .refine(isBase64Payload, { error: "That photo couldn't be read. Try taking it again." }),
   mediaType: z.enum(OCR_MEDIA_TYPES).catch("image/jpeg"),
 })
 
@@ -184,7 +196,7 @@ export const ocr = onCall(
     await requireAnyMembership(getFirestore(), request.auth.uid)
     // One charge covers the whole request, image fallback included.
     const hold = await chargeAiQuota(getFirestore(), request.auth.uid, "ocr")
-    const base64 = image.replace(/^data:image\/\w+;base64,/, "")
+    const base64 = image.replace(DATA_URL_PREFIX, "")
     const callClaude = makeCallClaudeText(ANTHROPIC_API_KEY.value(), "ocr")
 
     let text = ""

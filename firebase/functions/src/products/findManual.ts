@@ -7,6 +7,7 @@ import { chargeAiQuota } from "../lib/quota.js"
 import { requireAnyMembership } from "../lib/membership.js"
 import { z } from "zod"
 import { parseCallableInput } from "../lib/validate.js"
+import { braveWebResults, type BraveWebResult } from "../lib/externalResponses.js"
 
 /**
  * Find the owner's manual PDF from brand + model.
@@ -71,7 +72,7 @@ export function isPdfCandidate(url: string): boolean {
   }
 }
 
-interface BraveResult { title?: string; url?: string; description?: string }
+type BraveResult = Pick<BraveWebResult, "title" | "url" | "description">
 
 export function rankCandidates(results: BraveResult[], brand: string, model: string): ManualCandidate[] {
   const seen = new Set<string>()
@@ -135,8 +136,7 @@ async function braveSearch(key: string, query: string): Promise<BraveResult[]> {
   try {
     const res = await fetch(url.toString(), { headers: { "X-Subscription-Token": key } })
     if (!res.ok) return []
-    const json = (await res.json()) as { web?: { results?: BraveResult[] } }
-    return json.web?.results ?? []
+    return braveWebResults(await res.json())
   } catch {
     return [] // fail-open: no manual found is a fine answer, an error page isn't
   }

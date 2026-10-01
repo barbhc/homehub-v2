@@ -31,6 +31,7 @@ import { makeFetchPdf } from "../parse/storagePdf.js"
 import { manualSource } from "../parse/manualSource.js"
 import { z } from "zod"
 import { isDocIdSegment, parseHttpInput, storedText } from "../lib/validate.js"
+import { braveWebResults } from "../lib/externalResponses.js"
 import { queryTerms, rankChunks } from "./chunkRanking.js"
 import {
   ReadTally,
@@ -150,10 +151,7 @@ async function fetchBraveTop(braveKey: string, query: string, topN: number): Pro
   url.searchParams.set("search_lang", "en")
   const res = await fetch(url.toString(), { headers: { "X-Subscription-Token": braveKey } })
   if (!res.ok) return []
-  const json = (await res.json()) as {
-    web?: { results?: Array<{ title?: string; url?: string; description?: string }> }
-  }
-  return (json.web?.results ?? []).slice(0, topN).map((r) => ({
+  return braveWebResults(await res.json()).slice(0, topN).map((r) => ({
     title: String(r.title ?? ""),
     url: String(r.url ?? ""),
     snippet: stripHtml(String(r.description ?? "")),

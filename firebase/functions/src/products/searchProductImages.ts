@@ -10,6 +10,7 @@ import { requireAnyMembership } from "../lib/membership.js"
 import { withAiQuota } from "../lib/quota.js"
 import { z } from "zod"
 import { parseCallableInput } from "../lib/validate.js"
+import { braveWebResults } from "../lib/externalResponses.js"
 
 const BRAVE_SEARCH_API_KEY = defineSecret("BRAVE_SEARCH_API_KEY")
 const REGION = "us-central1"
@@ -44,17 +45,11 @@ export const searchProductImages = onCall({ region: REGION, secrets: [BRAVE_SEAR
   })
   if (!res.ok) throw new HttpsError("unavailable", `Search failed (HTTP ${res.status})`)
 
-  const data = (await res.json()) as {
-    web?: { results?: Array<{ title?: string; url?: string; thumbnail?: { src?: string; original?: string } }> }
-  }
-  const images: ProductImage[] = (data.web?.results ?? [])
-    .filter((r) => r.thumbnail?.src)
-    .map((r) => ({
-      title: r.title ?? "",
-      thumbnailUrl: r.thumbnail!.src ?? "",
-      imageUrl: r.thumbnail!.original || r.thumbnail!.src || "",
-      sourceUrl: r.url ?? "",
-    }))
+  const images: ProductImage[] = braveWebResults(await res.json()).flatMap((r) => {
+    const src = r.thumbnail?.src
+    if (!src) return []
+    return [{ title: r.title ?? "", thumbnailUrl: src, imageUrl: r.thumbnail?.original || src, sourceUrl: r.url ?? "" }]
+  })
   return { ok: true, images }
   })
 })

@@ -178,7 +178,7 @@ const CALLABLES = [
     { homeId: "h1", manualId: "m1", chunks: [], tasks: Array(MAX_DRAFT_ROWS + 1).fill({ title: "t" }) },
   ]],
   [detectDocType, "detectDocType", [null, { homeId: "h1" }, { homeId: "h1", manualId: "m/1" }]],
-  [ocr, "ocr", [null, { image: "" }, { image: 7, mediaType: "image/png" }]],
+  [ocr, "ocr", [null, { image: "" }, { image: 7, mediaType: "image/png" }, { image: "<svg onload=alert(1)>" }]],
   [productLookup, "productLookup", [{ brand: 7, model: "AB12" }, { brand: "B".repeat(1001), model: "AB12" }]],
   [ingestReference, "ingestReference", [{ homeId: "h1" }, { homeId: "h1", manualId: "" }]],
   [classifyExistingTasks, "classifyExistingTasks", [
@@ -317,6 +317,7 @@ const S = {
   ...(await lib("products/checkRecalls")),
   ...(await lib("push/sendPush")),
   ...(await lib("media/proxyPdf")),
+  ...(await lib("ai/ocr")),
 }
 
 /** The payloads the app actually sends (src/ call sites), plus the same with
@@ -362,6 +363,7 @@ const VALID = [
   ["SearchProductImagesRequest", [{ query: "GE Profile dishwasher", count: 8 }, { query: "GE" }, { query: "GE", count: 50 }]],
   ["FindManualRequest", [{ brand: "GE", model: "CGS750P2M3S1" }]],
   ["SendTestPushRequest", [null, undefined, {}]],
+  ["OcrRequest", [{ image: "/9j/4AAQSkZJRgABAQ==", mediaType: "image/jpeg" }, { image: "data:image/png;base64,iVBORw0KGgo=" }, { image: "AAAA", mediaType: "image/heic" }]],
   ["ProxyPdfQuery", [
     { url: "https://firebasestorage.googleapis.com/v0/b/homehub-2068d.firebasestorage.app/o/homes%2Fh1%2Fmanuals%2Fm.pdf?alt=media&token=abc" },
     { url: "https://media3.bosch-home.com/Documents/manual.pdf", v: "2" },
@@ -634,6 +636,46 @@ test("checkRecalls: the CPSC body is parsed — a non-list is a failed lookup, n
   assert.throws(() => parseCpscResponse({ error: "down" }), RecallLookupError)
   assert.throws(() => parseCpscResponse("<html>"), RecallLookupError)
   assert.deepEqual(parseCpscResponse([]), [])
+})
+
+// ─── third-party responses ──────────────────────────────────────────────────
+
+const X = await lib("lib/externalResponses")
+
+test("Brave: results are read field by field; a body without web.results is no results", () => {
+  const body = {
+    web: {
+      results: [
+        { title: "GE manual", url: "https://ge.com/m.pdf", description: "Owner's manual", thumbnail: { src: "https://t/1.jpg" } },
+        { title: 7, url: "https://x/y.pdf" },
+        "not a result",
+        null,
+      ],
+    },
+  }
+  const r = X.braveWebResults(body)
+  assert.equal(r.length, 2)
+  assert.deepEqual(r[0], { title: "GE manual", url: "https://ge.com/m.pdf", description: "Owner's manual", thumbnail: { src: "https://t/1.jpg" } })
+  assert.equal(r[1].title, undefined, "a field of the wrong type reads as missing")
+  for (const bad of [null, "html", { web: { results: "x" } }, { error: { code: 429 } }, {}]) assert.deepEqual(X.braveWebResults(bad), [])
+})
+
+test("Vision and APNs bodies are parsed, never cast", () => {
+  assert.equal(X.visionFullText({ responses: [{ fullTextAnnotation: { text: "MODEL WM3900HWA" } }] }), "MODEL WM3900HWA")
+  for (const bad of [{ responses: [{ fullTextAnnotation: { text: 7 } }] }, { responses: [] }, { responses: [{ error: { message: "x" } }] }, null, "x"]) {
+    assert.equal(X.visionFullText(bad), "")
+  }
+  assert.equal(X.apnsReason('{"reason":"BadDeviceToken"}'), "BadDeviceToken")
+  assert.equal(X.apnsReason('{"reason":410}'), null)
+  assert.equal(X.apnsReason("<html>"), null)
+})
+
+test("ocr: the upload must be base64 — a data-URL prefix is tolerated, markup is not", () => {
+  assert.equal(OcrRequest.safeParse({ image: "/9j/4AAQSkZJRg==" }).success, true)
+  assert.equal(OcrRequest.safeParse({ image: "data:image/jpeg;base64,/9j/4AAQ" }).success, true)
+  for (const bad of ["not base64!", "<svg/>", "abc=def", "data:text/html;base64,PGh0bWw+"]) {
+    assert.equal(OcrRequest.safeParse({ image: bad }).success, false, bad)
+  }
 })
 
 // ─── and nothing above touched Firestore ─────────────────────────────────────
