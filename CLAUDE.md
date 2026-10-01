@@ -167,6 +167,16 @@ shell loads the live site, so that push is what reaches testers. Always verify
 by fetching the production bundle and grepping it, never by the deploy's exit
 code. The shell's build number never changes, so it is not evidence of anything.
 
+**The deploy builds and checks itself (HH-162).** `firebase.json`'s hosting
+`predeploy` runs `npm run build:hosting`: it refuses to build when the settings
+Vite will inline don't name the target project (no production `.env` in this
+checkout), builds, then refuses to upload a `dist/` that lacks that project's
+config or carries the app's built-in test settings (`demo-api-key`). Without a
+`.env`, `src/integrations/firebase/app.ts` silently falls back to those test
+settings — that is how five deploys on 2026-09-30 broke every sign-in for 14.5
+hours while the served-vs-built byte check stayed green. Never bypass the hook;
+a deploy it stops is a deploy that would have locked testers out.
+
 ## Gotchas
 - Playwright is pinned to v1's version (baseline comparability). Visual baselines are
   CI-runner-baked; re-bake via workflow, never commit local-platform pixels.

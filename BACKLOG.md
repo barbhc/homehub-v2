@@ -16,10 +16,12 @@ bottom, one line each, with what verified them.
 
 ## Nothing is blocking
 
-Beta feedback: **161 decided**. Of round 21's four Fix nows, HH-158–160 are
-merged (#221, #223) and HH-161, the one scan indicator, is Package E2 (below);
-**49 await the owner's deletion** in App Store Connect (bookkeeping); one is on
-the roadmap (HH-152's product half, §4a).
+Beta feedback: **162 decided**. Round 21's four Fix nows are all live (HH-158–160
+via #221, #223; HH-161, the one scan indicator, via #228). HH-162 (Sep 30: sign-in
+failed with auth/api-key-not-valid — five hosting deploys shipped the built-in test
+Firebase settings) is fixed by the hosting predeploy guard (`npm run build:hosting`);
+**53 await the owner's deletion** in App Store Connect (bookkeeping); one is on the
+roadmap (HH-152's product half, §4a).
 
 Migration phases 0–5 are complete and the shim is deleted. Read
 `MIGRATION_STATUS.md` for history, **but do not trust its remaining-work notes**.

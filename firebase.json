@@ -18,6 +18,9 @@
   ],
   "hosting": {
     "public": "dist",
+    "predeploy": [
+      "npm --prefix \"$PROJECT_DIR\" run build:hosting"
+    ],
     "ignore": [
       "firebase.json",
       "**/.*",

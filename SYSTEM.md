@@ -202,7 +202,7 @@ Upload is conditional on `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT`. 
 
 | Target | How | Gating |
 |---|---|---|
-| Hosting | `firebase deploy --only hosting` (serves `dist/`, SPA rewrite to `/index.html`) | **manual** |
+| Hosting | `firebase deploy --only hosting` (serves `dist/`, SPA rewrite to `/index.html`); predeploy `npm run build:hosting` refuses a build without the target project's Firebase settings or carrying the demo config (`scripts/ops/check-hosting-bundle.ts`) | **manual** |
 | Functions | `firebase deploy --only functions` (predeploy runs `npm run bundle` = typecheck + esbuild) | **manual** |
 | Firestore rules + indexes | `firebase deploy --only firestore:rules,firestore:indexes` | **manual** |
 | Storage rules | `firebase deploy --only storage` — **then `npm run smoke:storage`** | **manual** |
