@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { ManualStep } from "./ManualStep"
 
 vi.mock("@/hooks/useAutoFindManuals", () => ({ useAutoFindManuals: () => [false, vi.fn()] }))
@@ -127,6 +128,204 @@ describe("ManualStep — the CTA reflects whether there is anything to scan", ()
       target: { files: [pdf()] },
     })
     expect(document.body.textContent).not.toContain("0.0 MB")
+  })
+})
+
+describe("a link can be TYPED, key by key (2026-09-30)", () => {
+  // The "Manual link added" card used to follow the field's text itself, so
+  // the first typed character replaced the field with the card: focus gone,
+  // nothing more could be typed, and a link could only ever be pasted. The
+  // field now gives way only when the person is done — paste, Enter, leaving
+  // the field, or a whole link arriving at once — never mid-word.
+  const URL = "https://lg.example/DLGX3901B-owners-manual.pdf"
+  const field = () => screen.getByPlaceholderText("https://example.com/manual.pdf")
+  const card = () => screen.queryByText("Manual link added")
+  const openLinkPanel = (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(screen.getByRole("button", { name: /Paste a link/ }))
+
+  it("keeps the field — focused, holding every character — until Enter, then shows the card", async () => {
+    const user = userEvent.setup()
+    const onConfirm = vi.fn()
+    render(<ManualStep {...props} onConfirm={onConfirm} />)
+    await openLinkPanel(user)
+    const input = field()
+    expect(input).toHaveFocus()
+
+    let typed = ""
+    for (const ch of URL) {
+      await user.keyboard(ch)
+      typed += ch
+      // The SAME element: still focused, still in the document, holding all of it.
+      expect(input).toHaveFocus()
+      expect(input).toHaveValue(typed)
+      expect(card()).toBeNull() // not rendered mid-word
+      expect(screen.queryByRole("button", { name: /Scan the manual/ })).toBeNull()
+    }
+
+    await user.keyboard("{Enter}")
+    expect(card()).toBeInTheDocument()
+    expect(screen.getByText(URL)).toBeInTheDocument()
+    // Enter shows the link; scanning it stays a separate, deliberate tap.
+    expect(onConfirm).not.toHaveBeenCalled()
+    await user.click(screen.getByRole("button", { name: /Scan the manual/ }))
+    expect(onConfirm).toHaveBeenCalledWith([{ type: "url", url: URL }])
+  })
+
+  it("leaving the field finishes a COMPLETE link — a tap on empty space, the keyboard's Done", async () => {
+    const user = userEvent.setup()
+    render(<ManualStep {...props} />)
+    await openLinkPanel(user)
+    await user.keyboard(URL)
+    expect(card()).toBeNull()
+
+    await user.click(document.body)
+
+    expect(await screen.findByText("Manual link added")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Scan the manual/ })).toBeEnabled()
+  })
+
+  it("leaving the field with a PARTIAL link keeps it in the field, exactly as typed", async () => {
+    // "https://lg.exa" is a well-formed URL (isAllowedUrl passes it) — and a
+    // link still being typed. Only a link pointing past the bare site is done.
+    const user = userEvent.setup()
+    render(<ManualStep {...props} />)
+    await openLinkPanel(user)
+    await user.keyboard("https://lg.exa")
+
+    await user.click(document.body)
+    fireEvent.blur(field()) // and the keyboard's Done, which presses nothing
+
+    expect(field()).toHaveValue("https://lg.exa")
+    expect(card()).toBeNull()
+    expect(screen.queryByRole("button", { name: /Scan the manual/ })).toBeNull()
+  })
+
+  it("the card's X puts a chosen link back in its field — editable, never retyped", async () => {
+    const user = userEvent.setup()
+    render(<ManualStep {...props} />)
+    await openLinkPanel(user)
+    await user.keyboard(`${URL}{Enter}`)
+    expect(card()).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /Remove this manual/ }))
+
+    expect(card()).toBeNull()
+    const input = field()
+    expect(input).toHaveValue(URL)
+    expect(input).toHaveFocus()
+    await user.keyboard("{Backspace}{Backspace}{Backspace}fx")
+    expect(input).toHaveValue(`${URL.slice(0, -3)}fx`)
+    expect(card()).toBeNull()
+  })
+
+  it("pasting still finishes it at once — any text, as before", async () => {
+    const user = userEvent.setup()
+    render(<ManualStep {...props} />)
+    await openLinkPanel(user)
+    await user.paste("lg.example/manual.pdf")
+    expect(card()).toBeInTheDocument()
+  })
+
+  it("a whole link arriving in one change (autofill, a drop) is finished too", async () => {
+    const user = userEvent.setup()
+    render(<ManualStep {...props} />)
+    await openLinkPanel(user)
+    fireEvent.change(field(), { target: { value: URL } })
+    expect(card()).toBeInTheDocument()
+  })
+
+  it("Enter on an empty field chooses nothing", async () => {
+    const user = userEvent.setup()
+    render(<ManualStep {...props} />)
+    await openLinkPanel(user)
+    await user.keyboard("{Enter}")
+    expect(card()).toBeNull()
+    expect(field()).toBeInTheDocument()
+  })
+
+  it("pressing one of the step's own controls runs THAT control, and leaves even a complete link in the field", async () => {
+    const user = userEvent.setup()
+    const onSkip = vi.fn()
+    render(<ManualStep {...props} onSkip={onSkip} />)
+    await openLinkPanel(user)
+    await user.keyboard(URL)
+
+    await user.click(screen.getByRole("button", { name: /I'll add it later/ }))
+
+    expect(onSkip).toHaveBeenCalledTimes(1)
+    expect(card()).toBeNull()
+    expect(field()).toHaveValue(URL)
+  })
+
+  it("…including where a button takes no focus on press (Safari), so the blur names no target", async () => {
+    // Safari focuses nothing on a button press, so the field's blur carries no
+    // relatedTarget. Without the press guard, the card would replace the panel
+    // between the press and its click — the click lands on nothing.
+    const user = userEvent.setup()
+    const onSkip = vi.fn()
+    render(<ManualStep {...props} onSkip={onSkip} />)
+    await openLinkPanel(user)
+    await user.keyboard(URL)
+    const skip = screen.getByRole("button", { name: /I'll add it later/ })
+
+    fireEvent.pointerDown(skip)
+    fireEvent.blur(field())
+    expect(card()).toBeNull()
+    fireEvent.click(skip)
+    expect(onSkip).toHaveBeenCalledTimes(1)
+
+    // Once that press is over, leaving the field finishes the link again.
+    fireEvent.blur(field())
+    expect(card()).toBeInTheDocument()
+  })
+
+  it("the desktop drop zone (a clickable div) counts as the step's own control too", async () => {
+    const user = userEvent.setup()
+    render(<ManualStep {...props} />)
+    await openLinkPanel(user)
+    await user.keyboard(URL)
+    const zone = screen.getByText("Drop a PDF here").closest<HTMLElement>("[data-step-control]")!
+
+    fireEvent.pointerDown(zone)
+    fireEvent.blur(field())
+    fireEvent.click(zone)
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(card()).toBeNull()
+    expect(field()).toHaveValue(URL)
+  })
+
+  it("a press OUTSIDE the step (the dialog's own buttons) lands first — then the complete link is chosen", async () => {
+    // The item page's dialog puts "Owner manual" / "Reference doc" under the
+    // step. Swapping the field for the card on that press's blur moved the
+    // buttons and lost the tap; the card now waits for the click to land.
+    const user = userEvent.setup()
+    const onRole = vi.fn()
+    render(<div><ManualStep {...props} /><button type="button" onClick={onRole}>Reference doc</button></div>)
+    await openLinkPanel(user)
+    await user.keyboard(URL)
+    const outside = screen.getByRole("button", { name: "Reference doc" })
+
+    fireEvent.pointerDown(outside)
+    fireEvent.blur(field()) // Safari: no relatedTarget
+    expect(card()).toBeNull() // not before the click
+    fireEvent.click(outside)
+
+    expect(onRole).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText("Manual link added")).toBeInTheDocument()
+  })
+
+  it("…the same where the press moves focus to that button (Chrome)", async () => {
+    const user = userEvent.setup()
+    const onRole = vi.fn()
+    render(<div><ManualStep {...props} /><button type="button" onClick={onRole}>Reference doc</button></div>)
+    await openLinkPanel(user)
+    await user.keyboard(URL)
+
+    await user.click(screen.getByRole("button", { name: "Reference doc" }))
+
+    expect(onRole).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText("Manual link added")).toBeInTheDocument()
   })
 })
 

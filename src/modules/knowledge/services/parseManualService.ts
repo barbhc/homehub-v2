@@ -1,6 +1,5 @@
 import { callable, docRef } from "@/integrations/firebase"
 import { onSnapshot, getDoc, type Unsubscribe } from "firebase/firestore"
-import type { ParseProgressState } from "@/components/smart-add/ParseProgressStep"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "../types/previewTypes"
 import { isParseInFlightMessage, PARSE_ERR } from "../../../../shared/parse/parseErrors"
 
@@ -99,7 +98,25 @@ export const ACTIVE_PARSE_STAGES: ParseStage[] = [
   "queued", "started", "pdf_fetched", "claude_call", "claude_responded", "committing",
 ]
 
-/** Map a worker stage to the UI progress state (ParseProgressStep). */
+/**
+ * UI stages for the parse trust arc (fix B), mapped from the worker's
+ * Firestore `parse.stage` by `toUiStage` below: started/pdf_fetched → reading,
+ * claude_* → extracting, committing → saving.
+ *
+ * Lived in components/smart-add/ParseProgressStep.tsx until 2026-09-30, after
+ * that screen was retired (#161) and only this type was left in the file.
+ */
+export type ParseProgressState =
+  | "idle"
+  | "uploading"
+  | "queued"
+  | "reading"
+  | "extracting"
+  | "saving"
+  | "done"
+  | "error"
+
+/** Map a worker stage to the UI progress state (ScanningLine's line, the onStage callbacks). */
 export function toUiStage(stage: ParseStage): ParseProgressState {
   switch (stage) {
     case "queued":

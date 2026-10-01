@@ -211,9 +211,8 @@ describe("ManualSection + useManualManagement — add the manual works on the fi
     const dialog = await screen.findByRole("dialog")
     // HH-89: the lane presets what it names — the link field is already open.
     const field = within(dialog).getByPlaceholderText("https://example.com/manual.pdf")
-    // Pasted, as the lane says. (ManualStep swaps the panel for its "Manual
-    // link added" card on the first character, so it cannot be typed into
-    // key by key — ManualStep's own behaviour, rendered unmodified here.)
+    // Pasted, as the lane says. (Typing works too since 2026-09-30 — the next
+    // case; it used to swap the field for the card on the first character.)
     await user.click(field)
     await user.paste("https://bosch.example/SHPM65Z55N.pdf")
     await user.click(within(dialog).getByRole("button", { name: "Scan the manual" }))
@@ -225,6 +224,56 @@ describe("ManualSection + useManualManagement — add the manual works on the fi
       source_ref: "https://bosch.example/SHPM65Z55N.pdf",
     }))
     expect(startParse).toHaveBeenCalledTimes(1)
+  })
+
+  it("the URL lane can be typed key by key too: Enter shows the link, Scan adds it", async () => {
+    const user = userEvent.setup()
+    render(<ItemPageManual />)
+
+    await openManualsSection(user)
+    await user.click(screen.getByRole("button", { name: "Paste a link instead" }))
+    const dialog = await screen.findByRole("dialog")
+    const field = within(dialog).getByPlaceholderText("https://example.com/manual.pdf")
+    await user.click(field)
+    await user.keyboard("https://bosch.example/typed.pdf")
+    // Still the field, still focused — nothing chosen mid-word.
+    expect(field).toHaveFocus()
+    expect(within(dialog).queryByText("Manual link added")).toBeNull()
+    await user.keyboard("{Enter}")
+    await user.click(within(dialog).getByRole("button", { name: "Scan the manual" }))
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(createManualDocument).toHaveBeenCalledWith("home-1", expect.objectContaining({
+      source_type: "url",
+      source_ref: "https://bosch.example/typed.pdf",
+    }))
+    expect(startParse).toHaveBeenCalledTimes(1)
+  })
+
+  it("a typed link, then 'Reference doc': that tap lands first, THEN the link is chosen", async () => {
+    // The dialog's "What is this document?" buttons sit below ManualStep,
+    // outside it. Swapping the field for the card on the blur of that press
+    // moved them before the click — the tap was lost.
+    const user = userEvent.setup()
+    render(<ItemPageManual />)
+
+    await openManualsSection(user)
+    await user.click(screen.getByRole("button", { name: "Paste a link instead" }))
+    const dialog = await screen.findByRole("dialog")
+    const field = within(dialog).getByPlaceholderText("https://example.com/manual.pdf")
+    await user.click(field)
+    await user.keyboard("https://bosch.example/typed.pdf")
+    const reference = within(dialog).getByRole("button", { name: /Reference doc/ })
+
+    // The press as Safari makes it: the field loses focus to nothing.
+    fireEvent.pointerDown(reference)
+    fireEvent.blur(field)
+    expect(within(dialog).queryByText("Manual link added")).toBeNull() // not before the click
+    fireEvent.click(reference)
+
+    expect(within(dialog).getByText(/won.t generate upkeep/)).toBeInTheDocument() // the tap landed
+    expect(await within(dialog).findByText("Manual link added")).toBeInTheDocument() // then the link was chosen
+    expect(within(dialog).getByText("https://bosch.example/typed.pdf")).toBeInTheDocument()
   })
 
   it("an upload fails, the file is swapped, and the retry uploads the NEW file", async () => {

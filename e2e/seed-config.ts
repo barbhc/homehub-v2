@@ -1,7 +1,7 @@
 /**
  * Single source of truth for E2E test identity and the frozen "today".
  *
- * Imported by BOTH the seed script (`scripts/seed-test-data.ts`) and the
+ * Imported by BOTH the emulator seed (`scripts/seed-emulator.ts`) and the
  * Playwright specs/config, so the seeded task due-dates and the browser clock
  * can never drift apart — that shared anchor is what makes the agenda /
  * overdue / "this week" math deterministic and the screenshots stable.

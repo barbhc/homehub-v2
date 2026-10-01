@@ -97,8 +97,11 @@ vi.mock("@/modules/inventory/services/productLookupService", () => ({
 }))
 vi.mock("@/modules/care", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  getWeekAgenda: async () => ({ data: fake.agenda, error: null }),
-  countHiddenCleaning: async () => fake.hiddenCleaning,
+  // The rows, and — returned with them — the agenda's tally of what it withheld.
+  getWeekAgenda: async () => ({
+    data: fake.agenda, error: null,
+    withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: fake.hiddenCleaning },
+  }),
   getTaskTemplatesWithSchedulesByItem: async () => ({ data: fake.tasks, error: null }),
   getTaskInstances: async (_home: string, opts?: { status?: string[] }) => ({
     data: opts?.status?.includes("done") ? fake.doneInstances : fake.openInstances,

@@ -9,6 +9,12 @@
 > major feature work.
 >
 > _Last generated: 2026-06-19 (branch `claude/homehub-homepage-redesign-0xfaat`)._
+>
+> **Stale — read with care (2026-09-30).** Not regenerated since the June audit, so most screen
+> sections below describe the pre-redesign app. The one correction made since: the five URL-only
+> pages deleted in #229 — `/faq`, `/tasks`, `/care`, `/schedule`, `/cleaning` — are marked
+> **Deleted** below, with where each one's job went. Today's routes are in `src/App.tsx`; the
+> core journeys in `docs/user-journeys.md`; the add flow in `docs/add-item-flow.md`.
 
 ---
 
@@ -34,8 +40,8 @@
 | Onboarding & auth | Index, Onboarding ×2, AcceptInvite, ResetPassword, NotFound | ☐ |
 | Home / dashboard | Home | ☐ |
 | Inventory & items | Inventory, SmartAddItem, ItemSetup, ItemDetail | ☐ |
-| Tasks / care / cleaning | Care, Maintenance, Tasks, DeepClean, Schedule, Cleaning | ☐ |
-| Ask & knowledge | Chat, FAQ | ☐ |
+| Tasks / cleaning | Maintenance (Tasks), DeepClean — Care, Tasks, Schedule, Cleaning deleted (#229) | ☐ |
+| Ask & knowledge | Chat — FAQ deleted (#229) | ☐ |
 | Settings | Settings (+ sections) | ☐ |
 
 ---
@@ -52,8 +58,9 @@ Inventory `/inventory` (always) · Ask `/chat` (always) · Settings `/settings`.
 - ☐ Sign out uses `replace: true` so back button can't loop to an authed screen
 
 > **Mobile IA note:** 5 desktop top-level destinations (Home, Tasks, Inventory, Ask, Settings)
-> already fit the bottom bar, but **Care, Deep Clean, Schedule, Cleaning, FAQ** have no tab —
-> decide where each lives (nested under Tasks? under Home? under a "More"?).
+> already fit the bottom bar, but **Deep Clean** has no tab — decide where it lives (nested under
+> Tasks? under Home? under a "More"?). Care, Schedule, Cleaning and FAQ needed no home: they
+> were deleted in #229 (see their sections below).
 
 ## Cross-cutting #2 — Gating System (`useUserLevel` + `interfaceLevel`)
 
@@ -196,18 +203,15 @@ dashboard · `inventory_first` / unset → default dashboard.
 
 ---
 
-## Tasks / Care / Cleaning (6 overlapping screens)
+## Tasks / Cleaning
 
-> **Redundancy map — resolve during redesign.** `Maintenance` is the canonical management hub.
-> `Care` and `Tasks` are lighter list variants. `Cleaning` is a minimal earlier variant of
-> `DeepClean` (no unique features — candidate to merge). `Schedule` is read-only.
+> **Redundancy resolved (#229, audit 2026-09-29).** Of the six overlapping screens this section
+> listed, `Maintenance` (the Tasks tab) and `DeepClean` remain. `Care`, `Tasks`, `Schedule` and
+> `Cleaning` were reachable only by typing their URLs and rendered pre-redesign screens; they were
+> deleted with their routes — see each one's entry below for where its job went.
 
-### Care — `/care`
-- ☐ **Actions:** mark done (`markTaskInstanceDone`) · snooze 1 week (hardcoded +7d)
-- ☐ View All / Show Less (top 4 by safety + priority score)
-- ☐ **States:** loading · error (no retry, reload only) · empty · grouped (safety-critical → top → rest)
-- ☐ **Badges:** safety-critical · priority tier · care_type label (only surfaced here) · item link + room
-- ☐ **Edge:** status filter `["scheduled","snoozed"]`; no bulk/filters/search/undo
+### Care — `/care` — **Deleted (#229)**
+- Its list (mark done, snooze a week) is the Tasks tab, `/maintenance`.
 
 ### Maintenance ("All Tasks") — `/maintenance` *(canonical; level-gated)*
 - ☐ **Actions:** mark complete (single + bulk) · snooze single + **bulk dropdown (7/14/30d)** · **change tier (bulk)** · **Add task** (AddTaskSheet: title, type maint/clean, frequency, priority, room, est minutes)
@@ -217,11 +221,9 @@ dashboard · `inventory_first` / unset → default dashboard.
 - ☐ **States:** loading skeleton · error+Try again · empty (no match) · grouped list · fixed bulk bar
 - ☐ **Badges/edge:** tier badge with legacy fold (critical→essential, high→recommended, medium/low→optional) · overdue badge red **only for critical** · due-soon blue · frequency · last-completed · expandable description · essential-only overdue stat (excludes recommended/optional past-due)
 
-### Tasks — `/tasks`
-- ☐ **Actions:** mark complete (single+bulk) · bulk snooze
-- ☐ **Filters:** type pills (default **Maintenance**, All, Cleaning) · priority pills · room dropdown · Reset
-- ☐ Selection mode (toggle, select all/clear); room-grouped collapsible headers; no detail sheet
-- ☐ **Edge:** no level gating; type filter excludes/includes cleaning by `careType`
+### Tasks — `/tasks` — **Deleted (#229)**
+- Its list is the Tasks tab, `/maintenance` (grouped by urgency, room or item). The task page,
+  `/tasks/:taskInstanceId`, is a different route and stays.
 
 ### Deep Clean — `/clean` *(primary session workflow)*
 - ☐ **Setup:** session type (cleaning/maintenance) · room(s) or whole-home (exclusive) · time budget (30m/1h/2h/Deep=∞)
@@ -230,32 +232,27 @@ dashboard · `inventory_first` / unset → default dashboard.
 - ☐ **Summary:** motivating message, counts, minutes, rooms · save uncompleted custom tasks to routine (`saveRoutineTask`)
 - ☐ **Edge:** time ∞ = no cap · instruction parsing (JSON/numbered/inline/prose) + caution split · completions only persist on Finish
 
-### Schedule — `/schedule` *(read-only)*
-- ☐ Month calendar of due dates; prev/next month (refetch); today highlight; up to 3 tasks/cell + "+N more"
-- ☐ **States:** loading · populated · empty ("No tasks this month"); no error state; no drill-down
-- ☐ **Edge:** status `["scheduled","snoozed"]` only; informational only
+### Schedule — `/schedule` — **Deleted (#229)**
+- Its month calendar is on the Tasks tab, `/maintenance`: the Calendar lens on phones, the
+  calendar beside the list on desktop.
 
-### Cleaning — `/cleaning` *(minimal; merge candidate)*
-- ☐ Sequential: select room → select tasks → check off → summary; `cleaning_session` row inserted on first transition
-- ☐ **States:** loading · per-step empty states · summary text · no error handling
-- ☐ **Edge:** completions local-only until Finish; no filters/bulk/snooze/custom — **no unique features vs DeepClean**
+### Cleaning — `/cleaning` — **Deleted (#229)**
+- It had no feature Deep Clean (`/clean`) lacks; cleaning sessions are Deep Clean's.
 
 ---
 
 ## Ask & Knowledge
 
 ### Chat ("Ask") — `/chat`
-- ☐ **Actions:** send message (button + Enter) · room filter (multi, additive) · item filter (single; auto-set via `/chat?item=ID`) · web-search augment · **Save answer to FAQ**
+- ☐ **Actions:** send message (button + Enter) · room filter (multi, additive) · item filter (single; auto-set via `/chat?item=ID`) · web-search augment · **Save answer** (it lands on an item — the FAQ page it used to land on was deleted in #229)
 - ☐ Suggestion chips (vary by item vs room vs general); clear filters
 - ☐ **States:** empty (centered hero + chips) · conversation (compact filter strip) · streaming (typing indicator, input disabled) · error
 - ☐ **Edge:** `?item=` scoping is the "Fix a problem" entry point; switching to item clears rooms; web search re-queries with prior context; can infer item from answer
 
-### FAQ ("Care Guide") — `/faq`
-- ☐ **Tabs:** House · Rooms · Items · Saved Q&A (each conditionally shown)
-- ☐ **Actions:** add tip (AddNoteSheet, scope home/room/item) · **Suggest tips** (AI, 3–5/scope) · save suggestion · dismiss suggestion · delete tip · delete FAQ
-- ☐ **Items tab:** search excerpts · chunk-type filter (All/Care/How To/Troubleshooting) · group-by (Item/Category/Room) · expand/collapse
-- ☐ **States:** loading · per-tab empty · suggesting (spinner) · suggestion card (Dismiss/Save)
-- ☐ **Edge:** suggestions keyed per scope; source badges Manual/You/AI/Web; saving a suggestion auto-dismisses it
+### FAQ ("Care Guide") — `/faq` — **Deleted (#229)**
+- House and room tips are House notes (`/inventory/notes`, and each room's notes); an item's tips,
+  manual content and saved answers are on its item page. `scripts/ops/migrate-whole-home-faq.ts`
+  copies whole-home answers saved before then into House notes.
 
 ---
 
@@ -282,4 +279,6 @@ dashboard · `inventory_first` / unset → default dashboard.
 
 - ☐ `/troubleshoot` → `/chat` (preserves `?item=` scope) — the "Fix a problem" path
 - ☐ `/dashboard` → `/home`
-- ☐ `AddItem.tsx` (legacy) and `/cleaning` (minimal) — kept for rollback / overlap; confirm intended fate before mobile build
+- `AddItem.tsx` (legacy) and `/cleaning` (minimal) — both gone. No legacy add page exists (App.tsx's
+  `AddItem` is a lazy alias for `SmartAddItem`); `/cleaning` was deleted with the other URL-only
+  pages in #229.

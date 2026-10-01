@@ -16,7 +16,6 @@ import { SWRConfig } from "swr"
 
 const svc = vi.hoisted(() => ({
   getWeekAgenda: vi.fn(),
-  countHiddenCleaning: vi.fn(),
   markTaskInstanceDone: vi.fn(),
   snoozeTaskInstance: vi.fn(),
   getTaskDetail: vi.fn(),
@@ -26,7 +25,6 @@ const svc = vi.hoisted(() => ({
 }))
 vi.mock("@/modules/care", () => ({
   getWeekAgenda: (...a: unknown[]) => svc.getWeekAgenda(...a),
-  countHiddenCleaning: (...a: unknown[]) => svc.countHiddenCleaning(...a),
   markTaskInstanceDone: (...a: unknown[]) => svc.markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => svc.snoozeTaskInstance(...a),
   getTaskDetail: (...a: unknown[]) => svc.getTaskDetail(...a),
@@ -50,6 +48,8 @@ const TASK = {
   safetyNote: null, trulyOverdue: false, itemUnitId: null, itemName: null, roomName: null,
 }
 const ok = <T,>(data: T) => ({ data, error: null })
+/** getWeekAgenda's answer: the rows, and what that read withheld (none here). */
+const agenda = <T,>(rows: T) => ({ ...ok(rows), withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
 
 const renderPage = () =>
   render(
@@ -63,8 +63,7 @@ const renderPage = () =>
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
-  svc.getWeekAgenda.mockResolvedValue(ok([TASK]))
-  svc.countHiddenCleaning.mockResolvedValue(0)
+  svc.getWeekAgenda.mockResolvedValue(agenda([TASK]))
   svc.getTaskDetail.mockResolvedValue(ok(null))
   svc.getItemUnits.mockResolvedValue(ok([]))
   svc.getTaskTemplates.mockResolvedValue(ok([]))
@@ -111,7 +110,7 @@ describe("Tasks page — both trees, one fetch", () => {
     expect(svc.getWeekAgenda).toHaveBeenCalledTimes(1)
 
     // Try again (either tree) refetches the shared agenda; both recover.
-    svc.getWeekAgenda.mockResolvedValue(ok([TASK]))
+    svc.getWeekAgenda.mockResolvedValue(agenda([TASK]))
     fireEvent.click(screen.getAllByRole("button", { name: /try again/i })[0])
     expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
     expect(screen.queryByText("Couldn't load your tasks")).toBeNull()
