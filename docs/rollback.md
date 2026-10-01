@@ -105,12 +105,13 @@ the second lever, for when our own code is what is going wrong (below).
 
 **From a laptop:** `npx tsx scripts/ops/set-spend-config.ts kill --prod --project=homehub-2068d`
 
-It stops all fifteen functions that charge AI units — `enqueueParse`,
+It stops all twelve functions that charge AI units — `enqueueParse`,
 `retryAwaitingCapacity`, `chatQuery`, `ocr`, `detectDocType`,
-`ingestReference`, `generateTasks`, `classifyExistingTasks`, `discussTask`,
-`proposeReminders`, `suggestCareNotes`, `importCareUrl`, `productLookup`,
-`findManual`, `searchProductImages` — so the Brave Search and Google Vision
-calls behind some of them stop too, not only Claude.
+`ingestReference`, `classifyExistingTasks`, `discussTask`,
+`proposeReminders`, `productLookup`, `findManual`, `searchProductImages` — so
+the Brave Search and Google Vision calls behind some of them stop too, not
+only Claude. (`generateTasks`, `suggestCareNotes` and `importCareUrl` were
+retired on 2026-09-30.)
 
 Every paid function then refuses with *"Homehub has hit its monthly AI budget.
 This isn't something you did"* — a manual scan adds *"your manual is saved and

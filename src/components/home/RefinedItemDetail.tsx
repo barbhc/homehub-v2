@@ -10,6 +10,7 @@ import type { ItemUnit, Room, KnowledgeChunk } from "@/integrations/types"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { dens } from "@/lib/redesign/tokens"
 import { CareBlock } from "@/components/item-care/CareBlock"
+import { askHint, type ItemManualState } from "@/lib/manualReviewState"
 import { categoryLabel } from "@/lib/categoryLabel"
 import { updateItemUnit, getItemUnits } from "@/modules/items"
 import { lateRoomSuggestion, lateNameSuggestion } from "@/lib/lateSuggestions"
@@ -94,8 +95,8 @@ function SuggestionKV({ k, v, onAdd, last }: { k: string; v: string; onAdd?: () 
 }
 
 export function RefinedItemDetail({
-  item, rooms, homeId, tasks, chunks, hasManual, parsingManual, manualAwaitingReview, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, onTaskAdded, onEditTask, density = "cozy",
-  reviewAction, recordsSlot, onEditRoom, onEditDetails, focusTaskId = null,
+  item, rooms, homeId, tasks, chunks, manualState, notificationsBlocked, onBack, onOpenManualPage, canOpenManual, onItemUpdate, onAddManual, onEditCategory, onTaskAdded, onEditTask, density = "cozy",
+  reviewAction, recordsSlot, handoffSlot, onEditRoom, onEditDetails, focusTaskId = null,
 }: {
   focusTaskId?: string | null
   item: ItemUnit
@@ -106,10 +107,14 @@ export function RefinedItemDetail({
   onTaskAdded?: () => void
   onEditTask?: () => void
   chunks: KnowledgeChunk[]
-  hasManual: boolean
-  parsingManual?: boolean
-  /** HH-141: read, findings not saved yet. */
-  manualAwaitingReview?: boolean
+  /** Where the item's manuals stand — ONE account, derived by the page from
+   *  its live manuals (lib/manualReviewState), read here by Upkeep and Ask. */
+  manualState: ItemManualState
+  /** This device refused notifications: no bell on the page (lib/notifyGate). */
+  notificationsBlocked: boolean
+  /** The hand-off card (ParsePickupCard): between the name block and Upkeep,
+   *  where design A drew it (HH-135, HH-161) — never above the page. */
+  handoffSlot?: React.ReactNode
   onBack: () => void
   onOpenManualPage?: (page: number) => void
   canOpenManual?: boolean
@@ -343,6 +348,10 @@ export function RefinedItemDetail({
           </div>
         )}
 
+        {/* HH-161: the hand-off card, when a read is waiting for its review —
+            under the name, above the Upkeep it will fill. */}
+        {handoffSlot}
+
         {/* "I have a question / something's wrong" — high on the page, phrased the
             way a person phrases it. It used to be a link called "Fix a problem"
             at the very bottom, below every reference section, which is the last
@@ -353,9 +362,10 @@ export function RefinedItemDetail({
           homeId={homeId}
           tasks={tasks}
           chunks={chunks}
-          hasManual={hasManual}
-          parsingManual={parsingManual}
-          manualAwaitingReview={manualAwaitingReview}
+          hasManual={manualState.hasManual}
+          reading={manualState.reading}
+          manualAwaitingReview={manualState.awaitingReview}
+          notificationsBlocked={notificationsBlocked}
           onOpenManualPage={onOpenManualPage}
           canOpenManual={canOpenManual}
           onAddManual={onAddManual}
@@ -373,9 +383,9 @@ export function RefinedItemDetail({
         <Link
           to={`/chat?item=${item.item_unit_id}`}
           className="mt-4 flex items-center gap-3 rounded-2xl border px-3.5 py-3"
-          style={hasManual
+          style={manualState.hasManual
             ? { background: "var(--hh-teal-wash)", borderColor: "color-mix(in srgb, var(--hh-teal) 22%, transparent)" }
-            : { background: "var(--hh-surface)", borderColor: "var(--hh-line)", opacity: manualAwaitingReview ? 1 : 0.8 }}
+            : { background: "var(--hh-surface)", borderColor: "var(--hh-line)", opacity: manualState.awaitingReview ? 1 : 0.8 }}
         >
           <span className="grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "var(--hh-surface)" }}>
             <MessageCircleQuestionIcon className="size-[18px]" style={{ color: TEAL }} />
@@ -385,14 +395,10 @@ export function RefinedItemDetail({
             <span className="block text-[11.5px]" style={{ color: SUB }}>
               {/* HH-141: the third state reaches here too. "Works best once the
                 manual is added" sat two cards under one saying we had finished
-                reading it — the same contradiction the Upkeep card had, on the
-                same screen. Answers come from the chunks the SAVE writes, so
-                this state is honest about what unlocks it. */}
-            {hasManual
-              ? "Ask about this item — answers come from your manual"
-              : manualAwaitingReview
-                ? "Save what we found and answers come from your manual."
-                : "Works best once the manual is added."}
+                reading it — and, until HH-161, under a manual being read. Answers
+                come from the chunks the SAVE writes, so each state is honest
+                about what unlocks it. One wording, shared with desktop. */}
+              {askHint(manualState)}
             </span>
           </span>
           <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: TEAL, opacity: 0.6 }} />

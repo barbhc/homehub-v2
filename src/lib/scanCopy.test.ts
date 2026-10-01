@@ -112,9 +112,9 @@ const BANNED = /\b(pars(e|es|ed|ing)|analyz(e|es|ed|ing)|analys(e|es|ed|ing|is))
  * cannot outlive its fix and quietly excuse a new one.
  */
 const PENDING_ELSEWHERE: Array<{ file: string; text: string; why: string }> = [
-  // The item page's manual menu: "Parse" → "Scan". ManualSection.tsx belongs
-  // to the item-page package (E2) in the 2026-09-30 audit round.
-  { file: "pages/item-detail/ManualSection.tsx", text: "Parse", why: "E2 owns ManualSection.tsx" },
+  // Empty. The last entry — the item page's manual menu saying "Parse" — was
+  // fixed by E2 (HH-161): the menu reads "Read the manual" / "Read again" now,
+  // in the vocabulary scanCopy.ts sets. Add an entry only with its owner named.
 ]
 const pending = (file: string, text: string) => PENDING_ELSEWHERE.some((p) => p.file === file && p.text === text)
 

@@ -1,5 +1,3 @@
-// Deploy re-trigger 2026-06-17: the Phase A merge (d30a027) did not fire a
-// Vercel production build automatically; this no-op forces a fresh deploy.
 import { Suspense, useEffect } from "react"
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigationType, useSearchParams } from "react-router-dom"
 import { lazy } from "react"
@@ -87,13 +85,11 @@ const Terms = lazyWithRetry(() => import("@/pages/legal/Terms"))
 const OnboardingProfile = lazyWithRetry(() => import("@/pages/OnboardingProfile"))
 const Home = lazyWithRetry(() => import("@/pages/Home"))
 const Inventory = lazyWithRetry(() => import("@/pages/Inventory"))
-// The Arc 2 redesigned add-item flow (photo-first hero, progressive disclosure,
-// doc-type gate). The legacy AddItem page still exists for rollback but is no
-// longer routed.
+// The add-item flow's one door (docs/add-item-flow.md) — the only page that
+// creates items, which retiredDesigns.test.ts pins.
 const AddItem = lazyWithRetry(() => import("@/pages/SmartAddItem"))
 const InventoryDetail = lazyWithRetry(() => import("@/pages/InventoryDetail"))
 const NotesPage = lazyWithRetry(() => import("@/pages/NotesPage"))
-const Tasks = lazyWithRetry(() => import("@/pages/Tasks"))
 const TaskDetail = lazyWithRetry(() => import("@/pages/TaskDetail"))
 const Maintenance = lazyWithRetry(() => import("@/pages/Maintenance"))
 const YourWeek = lazyWithRetry(() => import("@/pages/YourWeek"))
@@ -101,17 +97,13 @@ const YourReminders = lazyWithRetry(() => import("@/pages/YourReminders"))
 const HomeSetup = lazyWithRetry(() => import("@/pages/HomeSetup"))
 const DeepClean = lazyWithRetry(() => import("@/pages/DeepClean"))
 const CleanGuide = lazyWithRetry(() => import("@/pages/CleanGuide"))
-const CarePage = lazyWithRetry(() => import("@/pages/CarePage"))
 const ItemDetailPage = lazyWithRetry(() => import("@/pages/ItemDetailPage"))
-const SchedulePage = lazyWithRetry(() => import("@/pages/SchedulePage"))
-const CleaningPage = lazyWithRetry(() => import("@/pages/CleaningPage"))
 const WarrantiesPage = lazyWithRetry(() => import("@/pages/WarrantiesPage"))
 const ProvidersPage = lazyWithRetry(() => import("@/pages/ProvidersPage"))
 const Settings = lazyWithRetry(() => import("@/pages/Settings"))
 const ResetPassword = lazyWithRetry(() => import("@/pages/ResetPassword"))
 const AuthPage = lazyWithRetry(() => import("@/pages/AuthPage"))
 const ChatPage = lazyWithRetry(() => import("@/pages/ChatPage"))
-const FaqPage = lazyWithRetry(() => import("@/pages/FaqPage"))
 const SampleHome = lazyWithRetry(() => import("@/pages/SampleHome"))
 const AcceptInvite = lazyWithRetry(() => import("@/pages/AcceptInvite"))
 
@@ -198,10 +190,7 @@ function App() {
                 }
               >
                 <Route path="/home" element={<Home />} />
-                <Route path="/care" element={<CarePage />} />
                 <Route path="/items/:id" element={<ItemDetailPage />} />
-                <Route path="/schedule" element={<SchedulePage />} />
-                <Route path="/cleaning" element={<CleaningPage />} />
                 <Route path="/troubleshoot" element={<TroubleshootRedirect />} />
                 <Route path="/dashboard" element={<Navigate to="/home" replace />} />
                 <Route path="/maintenance" element={<Maintenance />} />
@@ -215,10 +204,8 @@ function App() {
                   <Route path="rooms/:roomId/notes" element={<NotesPage />} />
                   <Route path=":id" element={<InventoryDetail />} />
                 </Route>
-                <Route path="/tasks" element={<Tasks />} />
                 <Route path="/tasks/:taskInstanceId" element={<TaskDetail />} />
                 <Route path="/chat" element={<ChatPage />} />
-                <Route path="/faq" element={<FaqPage />} />
                 <Route path="/clean" element={<DeepClean />} />
                 <Route path="/clean/:itemUnitId" element={<CleanGuide />} />
                 <Route path="/warranties" element={<WarrantiesPage />} />

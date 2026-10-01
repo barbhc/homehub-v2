@@ -25,12 +25,21 @@ type SaveFaqDialogProps = {
   question: string
   answer: string
   homeId: string
+  /** The item the conversation is about, preselected. null = the person picks one. */
   defaultItemUnitId: string | null
   onSaved: (question: string, answer: string, itemUnitId: string | null) => void
 }
 
-const HOME_OPTION = "__home__"
-
+/**
+ * Saves an Ask answer onto an ITEM — its page is where saved answers are shown
+ * (the "Saved answers" tab on desktop, "Saved Q&A" on the phone).
+ *
+ * There is no whole-home choice any more. "Home (not item-specific)" saved
+ * answers that only the Care Guide page (/faq) listed, and that page is gone
+ * (audit 2026-09-29, D5) — so a whole-home save would have been written and
+ * then never shown anywhere. Existing whole-home answers were copied into
+ * House notes by scripts/ops/migrate-whole-home-faq.ts.
+ */
 export function SaveFaqDialog({
   open,
   onOpenChange,
@@ -54,11 +63,11 @@ export function SaveFaqDialog({
   }, [open, homeId, defaultItemUnitId])
 
   const handleSave = async () => {
-    if (!homeId || !question.trim() || !answer.trim()) return
+    if (!homeId || !itemUnitId || !question.trim() || !answer.trim()) return
     setLoading(true)
     const result = await saveFaq({
       home_id: homeId,
-      item_unit_id: itemUnitId === HOME_OPTION || !itemUnitId ? null : itemUnitId,
+      item_unit_id: itemUnitId,
       question: question.trim(),
       answer: answer.trim(),
     })
@@ -67,13 +76,11 @@ export function SaveFaqDialog({
       return
     }
     setSaved(true)
-    onSaved(question, answer, itemUnitId === HOME_OPTION || !itemUnitId ? null : itemUnitId)
+    onSaved(question, answer, itemUnitId)
     setTimeout(() => {
       onOpenChange(false)
     }, 600)
   }
-
-  const selectValue = itemUnitId === null || itemUnitId === HOME_OPTION ? HOME_OPTION : itemUnitId
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -91,16 +98,17 @@ export function SaveFaqDialog({
             <p className="text-sm mt-0.5 line-clamp-3">{answer || "—"}</p>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="faq-item">Link to item (optional)</Label>
+            <Label htmlFor="faq-item">Item</Label>
             <Select
-              value={selectValue}
-              onValueChange={(v) => setItemUnitId(v === HOME_OPTION ? null : v)}
+              // "" shows the placeholder: nothing is chosen until the person
+              // picks, because there is no longer a whole-home default.
+              value={itemUnitId ?? ""}
+              onValueChange={(v) => setItemUnitId(v || null)}
             >
               <SelectTrigger id="faq-item" className="w-full">
-                <SelectValue placeholder="Choose item" />
+                <SelectValue placeholder="Choose an item" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={HOME_OPTION}>Home (not item-specific)</SelectItem>
                 {items.map((i) => (
                   <SelectItem key={i.item_unit_id} value={i.item_unit_id}>
                     {i.display_name}
@@ -110,6 +118,7 @@ export function SaveFaqDialog({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">Saved answers show on the item&apos;s page.</p>
           </div>
         </div>
         <DialogFooter showCloseButton={false}>
@@ -120,7 +129,7 @@ export function SaveFaqDialog({
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={loading}>
+              <Button onClick={handleSave} disabled={loading || !itemUnitId}>
                 {loading ? "Saving…" : "Save"}
               </Button>
             </>

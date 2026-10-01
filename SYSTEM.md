@@ -87,13 +87,10 @@ Two server-side gates, used consistently:
 | `removeMember` | onCall | yes | caller-is-owner-or-self | — | no |
 | `getInviteDetails` | onCall | yes | n/a — token-keyed, sanitized | — | no |
 | `redeemInviteCode` | onCall | `:17` | n/a — **by design** (this is how you get in) | — | no |
-| `generateTasks` | onCall | yes | any-home | yes | **yes** |
 | `detectDocType` | onCall | yes | per-home | yes | **yes** |
 | `ocr` | onCall | yes | any-home | yes | **yes** |
 | `productLookup` | onCall | yes | any-home | yes (brand-only Brave path too, as `brandFromModel`, since 2026-09-30) | **yes** |
 | `chatQuery` | **onRequest** | `verifyIdToken` | per-home | yes → 429; 1 unit + 5 per attached PDF | **yes** |
-| `suggestCareNotes` | onCall | yes | any-home | yes | **yes** |
-| `importCareUrl` | onCall | yes | any-home | yes | **yes** |
 | `ingestReference` | onCall | yes | per-home | yes | **yes** |
 | `classifyExistingTasks` | onCall | yes | per-home | yes | **yes** |
 | `discussTask` | onCall | yes | per-home | yes | **yes** |
@@ -163,7 +160,7 @@ PASS  unauthenticated reads it          -> 403
 
 **The transaction** (`usage/{uid}/daily/{yyyy-mm-dd}` + `aiSpendGlobal/{yyyy-mm}` + `config/spend`): per-endpoint rate window (`AI_RATE_LIMIT`, default 10/min) and a 45-unit/min burst window checked first (a throttled call costs nothing); then the per-function call cap (`scansPerDay` for `enqueueParse`); then the user's pool (`dailyUnitsOverrides[uid] ?? dailyUnitsDefault`, × `DAILY_POOL_MULTIPLIER` — `productLookup` 3×); then the monthly ceiling. Per-function `charged`/`failed` tallies on the monthly doc. There is no per-call-site limit argument (findManual's old `60` compared against the whole pool). Holds: `refund()` (whole call), `release(n)` (part — an unfetched chat PDF), `extend(n)` (a chat turn's PDFs, priced after the base charge).
 
-**Unit costs** (`AI_UNIT_COST`): `enqueueParse` 10 · `ingestReference`/`generateTasks`/`classifyExistingTasks`/`ocr` 3 · `detectDocType`/`identityResolve`/`importCareUrl` 2 · everything else 1, including `brandFromModel` (productLookup's brand-only Brave search) · **`chatQuery` 1 + 5 per attached manual PDF** (`chatQueryUnits`, ≤ 2 PDFs → max 11).
+**Unit costs** (`AI_UNIT_COST`): `enqueueParse` 10 · `ingestReference`/`classifyExistingTasks`/`ocr` 3 · `detectDocType`/`identityResolve` 2 · everything else 1, including `brandFromModel` (productLookup's brand-only Brave search) · **`chatQuery` 1 + 5 per attached manual PDF** (`chatQueryUnits`, ≤ 2 PDFs → max 11).
 
 **Manual scans across processes:** the charge made in `enqueueParse` / `retryAwaitingCapacity` is recorded in the server-only ledger **`parseCharges/{requestId}`** (`held → vendor → billed | refunded`, `lib/parseCharges.ts`) so the worker and the stalled-parse sweep can refund a run that never got a Claude answer, exactly once.
 

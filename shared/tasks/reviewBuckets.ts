@@ -15,9 +15,11 @@
  *   not scheduled   → setup | whenNeeded | tip             (priority still shown,
  *                                                           but nothing fires)
  *
- * Pure and dependency-free so the client, the Functions parse path, and tests all
- * share one definition (same arrangement as parseCore/houseRules/taxonomy).
+ * Pure so the client, the Functions parse path, and tests all share one
+ * definition (same arrangement as parseCore/houseRules/taxonomy). Its one
+ * import is the agenda rule, also pure and shared.
  */
+import { isAgendaEligible } from "./agendaEligibility.js"
 
 /**
  * A section of the review, and of the item page's Upkeep block. These are KINDS
@@ -205,6 +207,35 @@ export function asTier(tier: string | null | undefined): PriorityTierName {
 export function willNotify(t: ReviewTaskLike): boolean {
   if (!isScheduledTask(t)) return false
   return t.remind_enabled ?? remindsByDefault(asTier(t.priority_tier))
+}
+
+/**
+ * Does this task show up in Tasks when it is due?
+ *
+ * HH-161 (S4.1). The review said "8 will show up in Tasks" over two cleaning
+ * jobs the Tasks page never lists: being on a schedule is not enough, because
+ * the agenda withholds item-scoped cleaning (isAgendaEligible — the one rule
+ * the Tasks feed, Home and the push sweep all apply). Counting with the same
+ * rule is what makes the number match the page it names.
+ *
+ * `scopeType` is the task's scope; everything a manual yields is "item_unit".
+ */
+export function showsInTasks(t: ReviewTaskLike, scopeType: string | null): boolean {
+  return isScheduledTask(t) && isAgendaEligible({ careType: t.care_type ?? null, scopeType })
+}
+
+/**
+ * Will the PHONE hear about this task — a bell that can actually ring?
+ *
+ * `willNotify` is the owner's choice (or the tier's default); the push sweep
+ * then skips everything the agenda skips (sweep.ts), so an Essential cleaning
+ * job on an item never buzzes, whatever the switch says. A bell drawn there is
+ * a promise nothing keeps (round 18: "a bell is never drawn that cannot be
+ * rung"). Whether THIS device allows notifications at all is a separate,
+ * per-device question — lib/notifyGate.
+ */
+export function notifiesPhone(t: ReviewTaskLike, scopeType: string | null): boolean {
+  return willNotify(t) && showsInTasks(t, scopeType)
 }
 
 /**

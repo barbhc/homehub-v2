@@ -2,9 +2,9 @@ import { test, expect, gotoStable } from "../fixtures"
 import type { Locator } from "@playwright/test"
 
 /**
- * Behavioural guards for the rebuilt Tasks tab (mobile TasksV3A + desktop
- * DesktopTasksRoom). Pins the redesign's defining interactions so they can't
- * silently regress:
+ * Behavioural guards for the rebuilt Tasks tab (mobile RefinedWeek + desktop
+ * DesktopTasks, both mounted by /maintenance). Pins the redesign's defining
+ * interactions so they can't silently regress:
  *   · the dismissible "Start here" insight banner (desktop)
  *   · Group-by reshaping the list, Urgency → Room (desktop)
  *   · tap-to-expand row detail (mobile)
@@ -20,7 +20,7 @@ const isMobile = (name: string) => name === "mobile"
 
 test.describe("Tasks redesign — desktop", () => {
   test("the 'Start here' insight banner is dismissible", async ({ page }, info) => {
-    test.skip(isMobile(info.project.name), "Desktop layout (DesktopTasksRoom)")
+    test.skip(isMobile(info.project.name), "Desktop layout (DesktopTasks)")
     await gotoStable(page, "/maintenance")
     await expect(vis(page.getByText(/Replace HVAC furnace filter/i))).toBeVisible({ timeout: 20_000 })
 
@@ -34,7 +34,7 @@ test.describe("Tasks redesign — desktop", () => {
   })
 
   test("Group-by reshapes the list (Urgency → Room)", async ({ page }, info) => {
-    test.skip(isMobile(info.project.name), "Desktop layout (DesktopTasksRoom)")
+    test.skip(isMobile(info.project.name), "Desktop layout (DesktopTasks)")
     await gotoStable(page, "/maintenance")
     await expect(vis(page.getByText(/Replace HVAC furnace filter/i))).toBeVisible({ timeout: 20_000 })
 
@@ -50,7 +50,7 @@ test.describe("Tasks redesign — desktop", () => {
 
 test.describe("Tasks redesign — mobile", () => {
   test("tapping a row expands its detail", async ({ page }, info) => {
-    test.skip(!isMobile(info.project.name), "Mobile layout (TasksV3A)")
+    test.skip(!isMobile(info.project.name), "Mobile layout (RefinedWeek)")
     await gotoStable(page, "/maintenance")
     const row = vis(page.getByText(/Replace HVAC furnace filter/i))
     await expect(row).toBeVisible({ timeout: 20_000 })
@@ -62,7 +62,7 @@ test.describe("Tasks redesign — mobile", () => {
   })
 
   test("swiping a row right marks it done", async ({ page }, info) => {
-    test.skip(!isMobile(info.project.name), "Mobile swipe gesture (TasksV3A)")
+    test.skip(!isMobile(info.project.name), "Mobile swipe gesture (RefinedWeek)")
     await gotoStable(page, "/maintenance")
 
     // A recurring task regenerates its next instance on completion, so it's

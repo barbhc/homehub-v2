@@ -8,7 +8,6 @@ import {
 import { coerceInterfaceOverride, type InterfaceOverride } from "./interfaceLevel"
 
 export const PREF_TOUR_COMPLETED = "tour_completed"
-export const PREF_DASHBOARD_TIERS = "dashboard_tier_filter"
 export const PREF_INTERFACE_LEVEL = "interface_level"
 /** Home ids whose "Finish your home profile" banner has been dismissed. */
 export const PREF_PROFILE_BANNER_DISMISSED = "profile_banner_dismissed"

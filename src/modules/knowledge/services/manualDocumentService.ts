@@ -43,7 +43,16 @@ function manIso(v: unknown): string | null {
   if (v instanceof Timestamp) return v.toDate().toISOString()
   return typeof v === "string" ? v : null
 }
-function toManual(id: string, d: DocumentData): ManualDocument {
+/**
+ * Every field the worker writes that a screen reads (HH-161). Exported so the
+ * item page's LIVE listener (useItemManuals) maps a snapshot exactly as the
+ * one-time reads here do — one mapping, however the doc arrived.
+ */
+export function toManual(id: string, d: DocumentData): ManualDocument {
+  const parse = (d.parse ?? null) as {
+    stage?: string; mode?: string; requestId?: string; stageAt?: unknown
+    pdfPages?: number; summary?: { tasks?: number } | null
+  } | null
   return {
     manual_id: id,
     item_unit_id: d.itemUnitId ?? "",
@@ -55,7 +64,13 @@ function toManual(id: string, d: DocumentData): ManualDocument {
     version: d.version ?? null,
     language: d.language ?? null,
     parsed_at: manIso(d.parsedAt),
-    parse_stage: (d.parse as { stage?: string } | null)?.stage ?? null,
+    parse_stage: parse?.stage ?? null,
+    parse_mode: typeof parse?.mode === "string" ? parse.mode : null,
+    parse_request_id: typeof parse?.requestId === "string" ? parse.requestId : null,
+    parse_stage_at: manIso(parse?.stageAt),
+    parse_pages: typeof parse?.pdfPages === "number" ? parse.pdfPages : null,
+    parse_tasks: typeof parse?.summary?.tasks === "number" ? parse.summary.tasks : null,
+    has_preview_draft: d.previewDraft != null,
     parse_draft: d.draft ?? null,
     content_hash: typeof d.contentHash === "string" ? d.contentHash : null,
     created_at: manIso(d.createdAt) ?? "",

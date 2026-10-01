@@ -38,6 +38,7 @@ import { useAppearance, type Appearance } from "@/lib/theme"
 import { useAuth } from "@/modules/auth"
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, isSubscribed as checkIsSubscribed } from "@/lib/pushNotifications"
 import { isNativePlatform, isNativePushRegistered, registerNativePush, unregisterNativePush } from "@/lib/nativePush"
+import { NotificationsRefusedNote } from "@/components/settings/NotificationsRefusedNote"
 import {
   getRoutineTemplates,
   saveRoutineTask,
@@ -1383,6 +1384,9 @@ export default function Settings() {
                 ? "You'll receive reminders for due and overdue tasks."
                 : "Enable push notifications to get reminders when tasks are due."}
             </p>
+            {/* The review's "Turn on in Settings" lands here: on a device
+                that refused, say where the switch is (owner, #228 review). */}
+            <NotificationsRefusedNote />
             {pushError && (
               <p className="text-sm text-destructive mt-1.5" role="alert">
                 {pushError}

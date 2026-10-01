@@ -104,16 +104,13 @@ export const DEFAULT_MONTHLY_UNIT_CEILING = DEFAULT_SPEND_CONFIG.monthlyCeilingU
 export const AI_UNIT_COST: Record<string, number> = {
   enqueueParse: 10, // a whole manual PDF, multi-pass, sometimes Opus
   ingestReference: 3,
-  generateTasks: 3,
   classifyExistingTasks: 3, // batched over the caller's tasks
   ocr: 3, // Vision + a Claude cleanup pass
   detectDocType: 2, // a whole PDF on Haiku 4.5
   identityResolve: 2, // several model + search calls per resolution
-  importCareUrl: 2, // fetches a page, then summarises it
   chatQuery: 1, // the BASE price; each attached manual PDF adds CHAT_UNITS_PER_PDF
   discussTask: 1,
   proposeReminders: 1, // one haiku call over the home's task list
-  suggestCareNotes: 1,
   productLookup: 1,
   // productLookup's brand-only mode: one Brave search from a model number.
   // Its own key so aiSpendGlobal shows whether that path ever fires.
@@ -420,12 +417,9 @@ export const AI_RATE_LIMIT: Record<string, number> = {
   classifyExistingTasks: 3, // already batched — calling it in a loop is a bug
   ocr: 5,
   detectDocType: 5,
-  generateTasks: 5,
-  importCareUrl: 5,
   identityResolve: 6,
   chatQuery: 10,
   discussTask: 10,
-  suggestCareNotes: 10,
   productLookup: 10, // the add-item flow fires several of these back to back
   brandFromModel: 10, // same budget as the other Brave calls
   findManual: 10,

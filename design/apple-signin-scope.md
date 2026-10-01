@@ -1,10 +1,11 @@
 # Scope — "Continue with Apple" sign-in (v2 · Firebase)
 
-**Status: the code is wired and gated behind a flag.** `signInWithApple()` in
-`AuthProvider` uses Firebase `OAuthProvider("apple.com")` + `signInWithPopup`;
-`SignInForm` shows a live Apple button when `VITE_APPLE_SIGNIN_ENABLED === "true"`,
-otherwise a disabled "coming soon" stub. **No further code changes needed** — do
-the Apple + Firebase config below, then flip the flag and redeploy.
+**Status: live, and no longer behind a flag.** `signInWithApple()` in
+`AuthProvider` uses Firebase `OAuthProvider("apple.com")` + `signInWithPopup`
+(the native sheet in the iOS shell), and `SignInForm` always shows the Apple
+button. The `VITE_APPLE_SIGNIN_ENABLED` flag and its disabled "coming soon" stub
+were retired on 2026-09-30 (dead-code sweep) — the flag was `true` in
+production. The flag steps below are the record of how it was turned on.
 
 > ⚠️ This supersedes the old v1 version of this doc, which described **Supabase**
 > providers + a `…supabase.co/auth/v1/callback` return URL + Vercel envs. v2 is

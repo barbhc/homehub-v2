@@ -55,6 +55,7 @@ function renderStepOne(data: PreviewResult = ALL_SIX) {
   render(
     <TaskReviewSheet
       freezeRiskFalse={false}
+      notificationsBlocked={false}
       open onOpenChange={vi.fn()} itemName="Sharp SMD2470ASY24"
       previewData={data} onSave={vi.fn().mockResolvedValue(null)} saving={false}
       focus="all"
@@ -121,13 +122,14 @@ describe("nothing to schedule, reached through step 1", () => {
     ],
   }
 
-  it("states both channels instead of one confusing sentence", () => {
+  it("says nothing goes into Tasks — and states no zero for the channel that follows from it", () => {
     renderStepOne(NOTHING)
-    // Round 18 replaced HH-137's single sentence. The owner: "nothing here will
-    // remind you" was confusing because scheduled items DO come back — they just
-    // don't buzz. Two facts, stated apart.
-    expect(screen.getByText(/Nothing here goes on a schedule/)).toBeTruthy()
-    expect(screen.getByText(/None will notify your phone/)).toBeTruthy()
+    // Round 18 replaced HH-137's single sentence with two channels, stated
+    // apart. HH-161 (S3b.2): the first channel speaks in the Tasks page's own
+    // words, and with nothing going into Tasks there is nothing to notify
+    // about, so the second line is left out rather than stating a zero.
+    expect(screen.getByText("Nothing here goes into Tasks.")).toBeTruthy()
+    expect(screen.queryByText(/will notify|None will notify/)).toBeNull()
   })
 
   it("never claims a schedule it does not have", () => {

@@ -351,6 +351,18 @@ export interface ManualDocument {
   /** Live worker stage (queued…done|error), or null for pre-parse-era docs.
    *  HH-87: parsed_at alone conflates "no manual" with "manual mid-parse". */
   parse_stage: string | null
+  /** HH-161: the rest of what the worker writes as it reads, so every surface
+   *  reads ONE account of the manual (lib/manualReviewState) instead of
+   *  keeping its own watch. The read's mode and request id, the time of its
+   *  last stage write, the PDF's page count (written once, at pdf_fetched), the
+   *  finished draft's task count, and whether a preview draft is waiting —
+   *  asked as a yes/no, so the draft itself is never copied into a list. */
+  parse_mode: string | null
+  parse_request_id: string | null
+  parse_stage_at: string | null
+  parse_pages: number | null
+  parse_tasks: number | null
+  has_preview_draft: boolean
   parse_draft: Json | null
   /** SHA-256 of an uploaded file — how a re-upload of the same PDF is
    *  recognised (HH-154). Null for links and for uploads from before it was

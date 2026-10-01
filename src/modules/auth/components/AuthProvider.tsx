@@ -38,8 +38,6 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null)
 
-const APPLE_ENABLED = import.meta.env.VITE_APPLE_SIGNIN_ENABLED === "true"
-/** localStorage key for the email-link flow (Firebase can't read it back from the link). */
 /** An Apple sign-in via redirect (the native shell — WKWebView blocks popups) reports
  *  failures only on the return page load. Stash the message so SignInForm can show it. */
 export const APPLE_REDIRECT_ERROR_KEY = "homehub:appleRedirectError"
@@ -154,11 +152,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signInWithApple = useCallback(async () => {
-    // Behind VITE_APPLE_SIGNIN_ENABLED; stub path returns a clear error until the
-    // owner completes the Services-ID config.
-    if (!APPLE_ENABLED) {
-      return { error: new Error("Apple sign-in isn't enabled yet.") }
-    }
     const provider = new OAuthProvider("apple.com")
     provider.addScope("email")
     provider.addScope("name")

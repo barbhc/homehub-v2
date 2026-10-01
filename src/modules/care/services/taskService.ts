@@ -10,7 +10,6 @@ import type {
   PriorityTier,
   RiskLevel,
   TaskInstanceStatus,
-  DiagramImageUrl,
   ScheduleType,
   Season,
   TemplateSupply,
@@ -404,9 +403,6 @@ export async function updateTaskCareType(
 }
 
 /**
- * Merges `diagram_image_urls` into task_template.metadata while preserving other keys.
- */
-/**
  * Turns this task's due-date reminder on or off, from the task's own screen.
  *
  * The review sheet sets `remindEnabled` once, at parse time, and until now that
@@ -506,7 +502,7 @@ export async function setTaskCadence(
 }
 
 /** The first scheduled occurrence of a template that never had one — the
- *  shape commitDraft and createTaskFromNote write, denormalized display set
+ *  shape commitDraft writes, denormalized display set
  *  included (firestore-model.md §5), because that copy is what every surface
  *  reads. */
 async function firstOccurrence(
@@ -686,27 +682,6 @@ export async function getSupplyPlaces(homeId: string, limit = 6): Promise<Servic
     return { data: places, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load places" } }
-  }
-}
-
-export async function updateTaskDiagramUrls(
-  homeId: string,
-  taskTemplateId: string,
-  imageUrls: DiagramImageUrl[]
-): Promise<ServiceResult<void>> {
-  try {
-    const ref = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
-    const snap = await getDoc(ref)
-    if (!snap.exists() || snap.data().deletedAt != null)
-      return { data: null, error: { message: "Task template not found" } }
-    const meta = snap.data().metadata
-    const existingMeta = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {}
-    await writeBatch(db)
-      .set(ref, { metadata: { ...existingMeta, diagram_image_urls: imageUrls }, updatedAt: serverTimestamp() }, { merge: true })
-      .commit()
-    return { data: undefined, error: null }
-  } catch (e) {
-    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update diagrams" } }
   }
 }
 

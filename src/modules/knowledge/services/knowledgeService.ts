@@ -17,7 +17,6 @@ import { archiveTaskTemplate, createTaskTemplate } from "@/modules/care/services
 import type {
   KnowledgeChunk,
   ChunkType,
-  DiagramImageUrl,
   ChatFaq,
   ChatFaqInsert,
 } from "@/integrations/types"
@@ -446,30 +445,6 @@ export async function archiveChunk(homeId: string, manualId: string, chunkId: st
     return { data: true, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to archive chunk" } }
-  }
-}
-
-/**
- * Merges `diagram_image_urls` into the chunk's metadata, preserving other keys.
- */
-export async function updateChunkDiagramUrls(
-  homeId: string,
-  manualId: string,
-  chunkId: string,
-  imageUrls: DiagramImageUrl[]
-): Promise<ServiceResult<void>> {
-  try {
-    const ref = doc(db, `homes/${homeId}/manuals/${manualId}/chunks/${chunkId}`)
-    const snap = await getDoc(ref)
-    if (!snap.exists() || snap.data().deletedAt != null) return { data: null, error: { message: "Chunk not found" } }
-    const meta = snap.data().metadata
-    const existingMeta = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {}
-    await writeBatch(db)
-      .set(ref, { metadata: { ...existingMeta, diagram_image_urls: imageUrls }, updatedAt: serverTimestamp() }, { merge: true })
-      .commit()
-    return { data: undefined, error: null }
-  } catch (e) {
-    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update diagrams" } }
   }
 }
 

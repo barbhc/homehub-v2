@@ -11,7 +11,6 @@
  * it is read — refusals included, since they are billed calls too.
  */
 import Anthropic from "@anthropic-ai/sdk"
-import { isAllowedUrl, fetchGuarded } from "../../../../shared/parse/ssrf.js"
 import {
   SERVER_SIDE_FALLBACK_BETA,
   assertNotRefused,
@@ -144,23 +143,4 @@ export function makeCallClaudeTool(apiKey: string, callSite: ClaudeCallSite): Ca
 export function extractJsonObject(text: string): string {
   const m = text.match(/\{[\s\S]*\}/)
   return m ? m[0] : "{}"
-}
-
-/**
- * Fetch a PDF from a public URL → base64. Guards SSRF (isAllowedUrl, invariant 8)
- * and caps at 25MB (base64 ≈ 33MB, near Claude's limit). Returns null on failure.
- */
-export async function fetchPdfBase64(url: string): Promise<string | null> {
-  if (!isAllowedUrl(url)) throw new Error("URL not allowed: private or internal addresses are blocked")
-  try {
-    // fetchGuarded re-checks each redirect hop; the isAllowedUrl above only
-    // covers the first one.
-    const res = await fetchGuarded(url)
-    if (!res.ok) return null
-    const buf = Buffer.from(await res.arrayBuffer())
-    if (buf.byteLength > 25 * 1024 * 1024) return null
-    return buf.toString("base64")
-  } catch {
-    return null
-  }
 }

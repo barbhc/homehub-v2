@@ -1,0 +1,1007 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Homehub scan indicator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap">
+<style>
+/* Layout: one reading column (intro, change table) above a wrapping grid of 390x844 phones; each phone sits under its caption and above the assertions the build must pass. */
+:root {
+  --bg: #E6EBE8;
+  --panel: #F7F9F8;
+  --ink: #0E1614;
+  --sub: #4A5652;
+  --line: rgba(14, 22, 20, 0.13);
+  --accent: #1B6B5A;
+  --accent-soft: rgba(27, 107, 90, 0.09);
+  --bezel: #161B19;
+  --shadow: 0 30px 50px -32px rgba(11, 18, 32, 0.6);
+  --f-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --f-body: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --f-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1311;
+    --panel: #151D1A;
+    --ink: #E8EFEC;
+    --sub: #A2AEA9;
+    --line: rgba(255, 255, 255, 0.12);
+    --accent: #3DBA9C;
+    --accent-soft: rgba(61, 186, 156, 0.12);
+    --bezel: #030504;
+    --shadow: 0 30px 50px -32px rgba(0, 0, 0, 0.9);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1311;
+  --panel: #151D1A;
+  --ink: #E8EFEC;
+  --sub: #A2AEA9;
+  --line: rgba(255, 255, 255, 0.12);
+  --accent: #3DBA9C;
+  --accent-soft: rgba(61, 186, 156, 0.12);
+  --bezel: #030504;
+  --shadow: 0 30px 50px -32px rgba(0, 0, 0, 0.9);
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* &#9472;&#9472; Document &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472; */
+.doc {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-inline: clamp(16px, 4vw, 48px);
+  padding-block: 40px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+.intro { display: flex; flex-direction: column; gap: 14px; max-width: 820px; }
+.eyebrow {
+  margin: 0;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.intro h1 {
+  margin: 0;
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: clamp(28px, 4.2vw, 40px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.lede { margin: 0; font-size: 16.5px; line-height: 1.6; max-width: 68ch; }
+.d-h2 {
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+
+.tbl { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); overflow: hidden; }
+.tbl table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.45; }
+.tbl th, .tbl td { text-align: left; vertical-align: top; padding: 12px 14px; border-top: 1px solid var(--line); }
+.tbl thead th {
+  border-top: 0;
+  font-size: 11.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--sub);
+  font-weight: 700;
+}
+.tbl thead th:nth-child(3) { color: var(--accent); }
+.tbl tbody th { font-weight: 700; width: 16%; }
+.tbl td[data-label="Proposed"] { background: var(--accent-soft); }
+.tbl td[data-label="Why"] { color: var(--sub); }
+@media (max-width: 760px) {
+  .tbl table, .tbl thead, .tbl tbody, .tbl tr, .tbl th, .tbl td { display: block; }
+  .tbl thead { display: none; }
+  .tbl tr { border-top: 1px solid var(--line); padding: 14px 16px; }
+  .tbl tr:first-child { border-top: 0; }
+  .tbl tbody th, .tbl td { border: 0; padding: 4px 0; width: auto; background: transparent; }
+  .tbl tbody th { font-size: 15px; padding-bottom: 6px; }
+  .tbl td[data-label="Proposed"] { background: transparent; }
+  .tbl td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--sub);
+    margin-bottom: 2px;
+  }
+  .tbl td[data-label="Proposed"]::before { color: var(--accent); }
+}
+
+.hint { margin: -6px 0 24px; color: var(--sub); max-width: 70ch; }
+.frames { display: flex; flex-direction: column; gap: 64px; }
+.fgroup { display: flex; flex-direction: column; gap: 20px; }
+.fgroup-h {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--sub);
+}
+.frow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 350px), 1fr));
+  gap: 64px 40px;
+  align-items: start;
+}
+.frame { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.fh, .must { width: 100%; max-width: 410px; margin-inline: auto; }
+.fh { display: flex; gap: 12px; align-items: flex-start; }
+.fid {
+  flex: none;
+  margin-top: 1px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.fh-x { min-width: 0; }
+.fh h3 {
+  margin: 0;
+  font-family: var(--f-display);
+  font-size: 16.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.fh p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--sub); }
+/* Two caption lines reserved, so the phones in one row share a top edge. */
+@media (min-width: 761px) { .fh p { min-height: 2.9em; } .fh h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
+
+.shot {
+  --s: 1;
+  position: relative;
+  width: 100%;
+  max-width: 410px;
+  height: calc(864px * var(--s));
+  margin-inline: auto;
+}
+@media (max-width: 470px) { .shot { --s: 0.86; } }
+@media (max-width: 400px) { .shot { --s: 0.8; } }
+.device {
+  box-sizing: border-box;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 410px;
+  height: 864px;
+  padding: 10px;
+  border-radius: 58px;
+  background: var(--bezel);
+  box-shadow: var(--shadow);
+  transform: scale(var(--s));
+  transform-origin: 0 0;
+}
+
+.must h4 {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--sub);
+  font-weight: 700;
+}
+.must ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.must li { display: grid; grid-template-columns: 42px 1fr; gap: 6px; font-size: 13.5px; line-height: 1.45; }
+.must li > span { min-width: 0; }
+.must code {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+  padding-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 28px 40px;
+  border-top: 1px solid var(--line);
+  padding-top: 32px;
+}
+.note-block { min-width: 0; }
+.note-block.wide { grid-column: 1 / -1; }
+.note-block .d-h2 { font-size: 16px; margin-bottom: 8px; }
+.note-block p { margin: 0; color: var(--sub); font-size: 14px; max-width: 72ch; }
+.note-block code, .matched code {
+  font-family: var(--f-mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.matched {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 10px 32px;
+}
+.matched li { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; color: var(--sub); min-width: 0; }
+
+/* &#9472;&#9472; The phone: the app's LIGHT theme, values from src/index.css &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
+   A screenshot does not follow the viewer's theme, so these tokens are fixed
+   and every colour inside the phone comes from them. */
+.phone {
+  --hh-bg: #F3F5F4;
+  --hh-surface: #FFFFFF;
+  --hh-surface2: #F4F7F6;
+  --hh-ink: #0B1220;
+  --hh-sub: #4B5563;
+  --hh-faint: #5F6A75;
+  --hh-teal: #1B6B5A;
+  --hh-teal-deep: #15564A;
+  --hh-teal-wash: #EAF3EF;
+  --hh-clay: #C2410C;
+  --hh-clay-soft: #FFF1E8;
+  --hh-gold: #8A5A12;
+  --hh-gold-soft: #FBF3E2;
+  --hh-slate: #455C72;
+  --hh-slate-soft: #F1F5F8;
+  --hh-line: rgba(15, 23, 42, 0.07);
+  --hh-line2: rgba(15, 23, 42, 0.12);
+  --t-background: #F3F5F4;
+  --t-foreground: #111827;
+  --t-card: #FFFFFF;
+  --t-muted-foreground: #4B5563;
+  --t-border: #E5E7EB;
+  --t-primary: #1B6B5A;
+  --a-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --m-note-bg: #FFF1B8;
+  --m-note-ink: #5A4600;
+  --m-note-line: #C9A227;
+  position: relative;
+  width: 390px;
+  height: 844px;
+  overflow: hidden;
+  border-radius: 48px;
+  background: var(--hh-bg);
+  color: var(--t-foreground);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: left;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+  isolation: isolate;
+}
+.phone :where(*, *::before, *::after) { box-sizing: border-box; }
+.phone :where(p, h1, h2) { margin: 0; font-size: inherit; font-weight: inherit; }
+.phone svg { display: block; flex: none; }
+.a-teal { color: var(--hh-teal); }
+.a-faint { color: var(--hh-faint); }
+.a-muted { color: var(--t-muted-foreground); }
+
+/* iOS chrome &#8212; decoration */
+.a-sb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 47px;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 26px 0 40px;
+  background: var(--hh-bg);
+  color: #0B1220;
+  font: 600 16px/1 -apple-system, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.2px;
+}
+.a-island {
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  width: 120px;
+  height: 34px;
+  margin-left: -60px;
+  border-radius: 20px;
+  background: #000;
+}
+.a-sb-r { display: flex; align-items: center; gap: 6px; }
+.a-hi {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  width: 134px;
+  height: 5px;
+  margin-left: -67px;
+  border-radius: 3px;
+  background: #0B1220;
+  z-index: 99;
+}
+
+/* AppLayout.tsx &#8212; mobile tab bar */
+.a-tab {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  border-top: 1px solid var(--hh-line);
+  background: color-mix(in srgb, var(--hh-bg) 85%, transparent);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  padding-bottom: 34px;
+}
+.a-tab-row { display: flex; align-items: flex-start; justify-content: space-around; padding: 10px 6px 0; }
+.a-tab-i {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 12px;
+  min-width: 58px;
+  min-height: 44px;
+  color: var(--hh-sub);
+}
+.a-tab-i span { font-size: 10px; line-height: 1.25; font-weight: 500; }
+.a-tab-i.on { color: var(--hh-teal); }
+.a-tab-i.on span { font-weight: 600; }
+
+/* ParseTrayPill.tsx &#8212; bottom: calc(safe-area 34px + 68px) */
+.a-pill-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 102px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+.a-tray {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 9999px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--hh-ink);
+  color: var(--hh-bg);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+.a-tray svg { color: var(--hh-teal); }
+.spin { animation: a-spin 1s linear infinite; }
+@keyframes a-spin { to { transform: rotate(360deg); } }
+
+/* ItemDetailPage p-4 + RefinedItemDetail */
+.a-page { position: absolute; left: 0; right: 0; padding-top: 16px; }
+.a-nav { display: flex; align-items: center; padding: 4px 12px 6px; }
+.a-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hh-teal);
+}
+.a-col { display: flex; flex-direction: column; gap: 17px; padding: 0 20px 40px; }
+.a-idrow { margin-top: 4px; display: flex; align-items: flex-start; gap: 12px; }
+.a-name { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.a-h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--hh-ink); line-height: 1.5; }
+.a-photo {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  border: 1.5px dashed var(--hh-teal);
+  color: var(--hh-teal);
+}
+.a-subt { margin-top: 4px; font-size: 15px; color: var(--hh-sub); }
+.a-pills { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.a-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--hh-surface2);
+  color: var(--hh-ink);
+}
+.a-label { display: flex; align-items: center; gap: 10px; }
+.a-label > b { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; color: var(--hh-ink); }
+.a-label > i { height: 1px; flex: 1; background: var(--hh-line); }
+.a-obtn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  border-radius: 9999px;
+  border: 1px solid var(--hh-teal);
+  color: var(--hh-teal);
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.a-gbtn {
+  flex: none;
+  border-radius: 9999px;
+  border: 1px solid var(--hh-line2);
+  color: var(--hh-teal);
+  padding: 4px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* CareBlock.tsx Card */
+.a-card { overflow: hidden; border-radius: 16px; background: var(--hh-surface); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05); }
+.a-pad { padding: 16px; }
+.a-pad-ex { padding: 14px 16px; }
+
+/* ParsePickupCard.tsx design A, now inside the Upkeep card */
+.a-rl { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.a-rl-t { font-size: 14.5px; font-weight: 700; color: var(--hh-ink); }
+.a-rl-n { flex: none; font-size: 12px; color: var(--hh-sub); font-variant-numeric: tabular-nums; }
+.a-rl-s { margin-top: 2px; font-size: 12.5px; color: var(--hh-sub); }
+.a-rail { margin-top: 8px; height: 3px; width: 100%; overflow: hidden; border-radius: 9999px; background: var(--hh-line); }
+.a-rail-in {
+  height: 100%;
+  width: 25%;
+  border-radius: 9999px;
+  background: var(--hh-teal);
+  animation: hh-scan-sweep 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation-delay: -0.7s;
+}
+@keyframes hh-scan-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+.a-ph { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.a-ph i { display: block; height: 46px; border-radius: 16px; background: var(--hh-surface2); }
+.a-aw { font-size: 13.5px; color: var(--hh-sub); }
+.a-aw + .a-ph { margin-top: 12px; }
+
+/* Hand-off card (ParsePickupCard's stacked layout under 30rem) */
+.a-hand {
+  border-radius: 16px;
+  border: 1px solid var(--hh-teal);
+  background: var(--hh-surface);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.a-hand-top { display: flex; align-items: center; gap: 12px; }
+.a-hand-ck {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--hh-teal) 15%, transparent);
+  color: var(--hh-teal);
+}
+.a-hand-x1 { min-width: 0; flex: 1; }
+.a-hand-t { display: block; font-size: 13.5px; font-weight: 600; color: var(--hh-ink); }
+.a-hand-s { display: block; font-size: 11.5px; color: var(--hh-sub); }
+.a-hand-act { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.a-hand-x { display: flex; padding: 4px; border-radius: 9999px; color: var(--hh-sub); }
+
+/* Ask card */
+.a-ask {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 24px;
+  border: 1px solid var(--hh-line);
+  padding: 12px 14px;
+  background: var(--hh-surface);
+}
+.a-ask.dim { opacity: 0.8; }
+.a-ask.on { background: var(--hh-teal-wash); border-color: color-mix(in srgb, var(--hh-teal) 22%, transparent); }
+.a-ask-i {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--hh-surface);
+  color: var(--hh-teal);
+}
+.a-ask-x { min-width: 0; flex: 1; }
+.a-ask-t { display: block; font-size: 14px; font-weight: 700; letter-spacing: -0.2px; color: var(--hh-teal); }
+.a-ask-s { display: block; font-size: 11.5px; color: var(--hh-sub); }
+.a-ask-c { color: var(--hh-teal); opacity: 0.6; }
+
+/* Notes (NotesSection.tsx) */
+.a-notes { display: flex; flex-direction: column; gap: 17px; }
+.a-ncard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 24px;
+  padding: 14px 16px;
+  background: var(--hh-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+.a-n1 { font-size: 13.5px; font-weight: 600; color: var(--hh-ink); }
+.a-n2 { font-size: 12px; color: var(--hh-sub); }
+.a-ichips { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+.a-ichip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--hh-teal) 35%, transparent);
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--hh-teal);
+}
+
+/* CareBlock.tsx bands and rows */
+.a-bands { display: flex; flex-direction: column; gap: 16px; }
+.a-ex-t { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--hh-ink); }
+.a-ex-s { margin-top: 2px; font-size: 13.5px; color: var(--hh-sub); }
+.a-band { overflow: hidden; border-radius: 15px; border: 1px solid var(--hh-line); background: var(--hh-surface); }
+.a-band-h { display: flex; width: 100%; align-items: center; gap: 8px; padding: 10px 14px; }
+.a-band-h b { font-size: 12.5px; font-weight: 800; letter-spacing: -0.01em; }
+.a-band-h .note { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; color: var(--hh-faint); }
+.a-band-h .n { margin-left: auto; font-family: var(--a-mono); font-size: 10.5px; font-weight: 700; color: var(--hh-faint); }
+.a-band-note { border-top: 1px solid var(--hh-line); padding: 10px 16px; font-size: 12px; line-height: 1.375; color: var(--hh-sub); }
+.a-link { font-weight: 700; color: var(--hh-teal); }
+.a-srow { border-top: 1px solid var(--hh-line); }
+.a-srow-in { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.a-srow-x { min-width: 0; flex: 1; }
+.a-srow-t { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; color: var(--hh-ink); }
+.a-srow-m { margin-top: 4px; font-size: 12px; color: var(--hh-sub); }
+.a-bell-slot { display: flex; width: 14px; flex: none; justify-content: center; }
+.a-seehow {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--hh-teal);
+}
+
+/* TaskReviewSheet.tsx in the Sheet (ui/sheet.tsx, side="bottom", h-[92dvh]) */
+.a-ovl { position: absolute; inset: 0; z-index: 96; background: rgba(0, 0, 0, 0.5); }
+.a-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 776px;
+  z-index: 97;
+  display: flex;
+  flex-direction: column;
+  background: var(--t-background);
+  color: var(--t-foreground);
+  border-top: 1px solid var(--t-foreground);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+.a-sheet-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  opacity: 0.7;
+}
+.a-sh-head { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 8px; border-bottom: 1px solid var(--t-foreground); }
+.a-sh-title { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; }
+.a-sh-sub { font-size: 12.5px; color: var(--t-muted-foreground); }
+.a-sh-body { flex: 1; min-height: 0; overflow: hidden; padding: 12px 16px; }
+.a-sum {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 16px;
+  padding: 10px 12px;
+  background: var(--hh-teal-wash);
+}
+.a-sum-l { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.375; }
+.a-sum-l svg { margin-top: 3px; }
+.a-sum-l b { font-weight: 700; }
+.a-sum-f { font-size: 12.5px; color: var(--t-muted-foreground); }
+.a-walk { margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.a-walk-b {
+  border-radius: 16px;
+  border: 1px solid var(--t-border);
+  background: var(--t-background);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t-foreground);
+}
+.a-walk-t { font-size: 12.5px; color: var(--t-muted-foreground); }
+.a-sec { margin: 14px 0 8px; }
+.a-sec-t { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 800; letter-spacing: -0.015em; }
+.a-sec-n {
+  margin-left: auto;
+  font-family: var(--a-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--t-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.a-sec-s { margin-top: 2px; padding-left: 13px; font-size: 12px; color: var(--t-muted-foreground); }
+.a-setup-b {
+  border-radius: 9999px;
+  border: 1px solid var(--t-border);
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--t-muted-foreground);
+}
+.a-tucked { padding: 0 0 4px 24px; font-size: 11.5px; color: var(--t-muted-foreground); }
+.a-rrow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  border-radius: 16px;
+  border: 1px solid var(--t-border);
+  background: var(--t-card);
+  padding: 10px 12px;
+}
+.a-rail3 { width: 3px; align-self: stretch; min-height: 26px; flex: none; border-radius: 9999px; }
+.a-rt { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
+.a-lives, .a-off {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 1px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--hh-sub);
+}
+.a-off u { text-decoration: underline; text-underline-offset: 2px; }
+.a-chip {
+  flex: none;
+  border-radius: 12px;
+  border: 1px solid var(--t-border);
+  background: var(--t-background);
+  padding: 2px 6px;
+  font-family: var(--a-mono);
+  font-size: 11px;
+  color: var(--t-muted-foreground);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.a-wn {
+  flex: none;
+  font-family: var(--a-mono);
+  font-size: 11px;
+  font-style: italic;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--t-muted-foreground) 75%, transparent);
+}
+.a-rx {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  border: 1px solid var(--t-border);
+  color: var(--t-muted-foreground);
+}
+.a-sh-foot { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid var(--t-foreground); }
+.a-btn {
+  flex: 1;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--t-primary);
+  color: #FFFFFF;
+  font-size: 14px;
+  line-height: 1.43;
+  font-weight: 700;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+/* Mock annotation: not app UI */
+.m-skip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 4px;
+  font-family: var(--a-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--m-note-ink);
+}
+.m-skip i { flex: 1; height: 0; border-top: 1.5px dashed var(--m-note-line); }
+.m-skip span { flex: none; border-radius: 5px; padding: 3px 7px; background: var(--m-note-bg); }
+
+/* RefinedHome.tsx + ThisWeekList.tsx */
+.a-home { position: absolute; top: 47px; left: 0; right: 0; }
+.a-hh { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 20px 0; }
+.a-hh-l { min-width: 0; }
+.a-greet { display: block; font-size: 19px; font-weight: 800; letter-spacing: -0.4px; color: var(--hh-ink); }
+.a-homepill {
+  margin-top: 2px;
+  display: flex;
+  max-width: 100%;
+  width: max-content;
+  align-items: center;
+  gap: 4px;
+  border-radius: 9999px;
+  border: 1px solid var(--hh-line);
+  padding: 3px 8px;
+  font-size: 12px;
+  background: var(--hh-surface);
+  color: var(--hh-sub);
+}
+.a-hh-d { font-size: 12.5px; font-weight: 600; color: var(--hh-sub); }
+.a-hc { display: flex; flex-direction: column; gap: 17px; padding: 16px 20px 0; }
+.a-askm {
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--hh-line2);
+  background: var(--hh-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.a-askm-in { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; }
+.a-askm-p { flex: 1; font-size: 15px; color: var(--hh-sub); }
+.a-askm-w {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid var(--hh-line2);
+  background: var(--hh-surface);
+}
+.a-askm-go {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--hh-teal);
+  color: #FFFFFF;
+}
+.a-week { display: flex; flex-direction: column; gap: 10px; }
+.a-week-h { display: flex; align-items: baseline; justify-content: space-between; padding-left: 2px; }
+.a-week-h span { font-size: 12px; line-height: 1.333; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--hh-sub); }
+.a-week-h .c { font-size: 11.5px; line-height: 1.5; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.a-week-card {
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid var(--hh-line);
+  background: var(--hh-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.a-wr { border-top: 1px solid var(--hh-line); }
+.a-wr.first { border-top: 0; }
+.a-wr.open {
+  background: color-mix(in srgb, var(--hh-teal) 12%, var(--hh-surface));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--hh-teal) 45%, transparent), inset -2px 0 0 color-mix(in srgb, var(--hh-teal) 45%, transparent);
+}
+.a-wr-in { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.a-wck {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 9999px;
+  border: 2px solid var(--hh-teal);
+  background: var(--hh-surface);
+}
+.a-wtx { min-width: 0; flex: 1; }
+.a-wt {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.375;
+  letter-spacing: -0.2px;
+  color: var(--hh-ink);
+}
+.a-wr.open .a-wt { font-size: 16px; }
+.a-wm { margin-top: 2px; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--hh-sub); }
+.a-wm-t { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.a-ess {
+  flex: none;
+  border-radius: 9999px;
+  padding: 1px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--hh-clay-soft);
+  color: var(--hh-clay);
+}
+.a-wchev {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--hh-surface2);
+  color: var(--hh-sub);
+}
+.a-wr.open .a-wchev { background: var(--hh-teal); color: #FFFFFF; }
+.a-wbody { display: flex; flex-direction: column; gap: 10px; padding: 0 14px 14px 46px; }
+.a-wpills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.a-wp {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--hh-surface);
+  color: var(--hh-sub);
+  border: 1px solid var(--hh-line);
+}
+.a-wp.when { color: var(--hh-teal-deep); border-color: color-mix(in srgb, var(--hh-teal) 25%, transparent); }
+.a-wacts { display: flex; align-items: center; gap: 8px; padding-top: 2px; }
+.a-done {
+  flex: none;
+  white-space: nowrap;
+  border-radius: 11px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFFFFF;
+  background: var(--hh-teal);
+}
+.a-snz {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  border-radius: 11px;
+  border: 1px solid var(--hh-line);
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--hh-surface);
+  color: var(--hh-sub);
+}
+.a-det {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--hh-teal);
+}
+.a-week-f {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 14px;
+  border-top: 1px solid var(--hh-line);
+  background: color-mix(in srgb, var(--hh-surface2) 60%, var(--hh-surface));
+}
+.a-week-f span { display: inline-flex; align-items: center; gap: 2px; font-size: 11.5px; font-weight: 700; color: var(--hh-teal); }
+
+@media (prefers-reduced-motion: reduce) {
+  .a-rail-in { animation: none; width: 100%; opacity: 0.45; }
+  .spin { animation: none; }
+}
+
+</style>
+<main class="doc">
+  <header class="intro">
+    <p class="eyebrow">Homehub v2 &#183; Package E2 &#183; HH-161 &#183; design mock, not built</p>
+    <h1>Homehub &#8212; one scan indicator (E2 mock)</h1>
+    <p class="lede">You reported that the reading-manual bar at the top of the item page doesn&#8217;t match the design we agreed on, which was one indicator at the bottom of every page. In this version the bottom pill is that one indicator, everywhere, including the item whose manual is being read. On that item&#8217;s page, the reading state moves into the Upkeep card, where the tasks will appear. The top card goes back to its one job, handing you the review when the read is done, whether or not the manual had maintenance in it. Two honesty fixes ride along. The review&#8217;s count includes only tasks that really appear in Tasks, and a bell is never drawn when it cannot ring.</p>
+  </header>
+
+  <section class="changes" aria-labelledby="chg">
+    <h2 class="d-h2" id="chg">What changes vs today</h2>
+    <div class="tbl">
+      <table>
+        <thead><tr><th scope="col">Where</th><th scope="col">Today</th><th scope="col">Proposed</th><th scope="col">Why</th></tr></thead>
+        <tbody><tr><th scope="row">Item page while a manual is read</th><td data-label="Today">&#8220;Reading the manual&#8221; and its rail sit above &#8220;&#8249;&#160;Items&#8221;, at the very top of the page.</td><td data-label="Proposed">The same line, the page count and the rail sit inside the Upkeep card, where the tasks will land.</td><td data-label="Why">The top of the page is navigation. The read belongs to this item&#8217;s upkeep (HH-161).</td></tr><tr><th scope="row">Bottom pill</th><td data-label="Today">Shows on every page except the item being read, where it stands down (HH-118).</td><td data-label="Proposed">Shows on every page, this item included. On this item its Review opens the review in place.</td><td data-label="Why">One indicator, in the one place it was agreed to live.</td></tr><tr><th scope="row">Upkeep card while reading</th><td data-label="Today">Can say &#8220;No upkeep yet &#8212; add the manual&#8221; under a manual that is being read.</td><td data-label="Proposed">Holds the space the tasks will fill and never offers to add a manual.</td><td data-label="Why">The page must not contradict itself (HH-141, now for a read in progress).</td></tr><tr><th scope="row">Read finished, with maintenance</th><td data-label="Today">The top card, above &#8220;&#8249;&#160;Items&#8221;: &#8220;6 maintenance tasks to review&#8221; and &#8220;Review &amp; schedule&#8221;.</td><td data-label="Proposed">One hand-off card under the name: &#8220;We read the Bosch dishwasher manual&#8221; and &#8220;Review 6 upkeep tasks&#8221;.</td><td data-label="Why">The top card keeps only its original job: handing you the review.</td></tr><tr><th scope="row">Read finished, no maintenance</th><td data-label="Today">A different card: &#8220;No maintenance in this manual, so nothing will remind you.&#8221; Its &#8220;See what we found&#8221; never opens by itself.</td><td data-label="Proposed">The same hand-off card as with maintenance. The review shows only Cleaning and Setup, says &#8220;Nothing here goes into Tasks.&#8221;, and saves nothing until Save.</td><td data-label="Why">One screen serves both cases (round 18). Only Save commits (HH-134).</td></tr><tr><th scope="row">Review summary</th><td data-label="Today">&#8220;8 will show up in Tasks&#8221;, counting two cleaning jobs the Tasks page never shows.</td><td data-label="Proposed">&#8220;6 will show up in Tasks&#8221;. Cleaning rows with a cadence say &#8220;Lives on the item page&#8221;.</td><td data-label="Why">The number has to match what the Tasks page will list.</td></tr><tr><th scope="row">Bells</th><td data-label="Today">Drawn even when the phone has refused notifications, and on Essential cleaning rows, which never notify.</td><td data-label="Proposed">Only where it can ring. With notifications refused, the Essential row says &#8220;Reminders off &#8212; turn on in Settings&#8221;.</td><td data-label="Why">A bell is never drawn that cannot ring (round 18).</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="screens" aria-labelledby="scr">
+    <h2 class="d-h2" id="scr">Screens</h2>
+    <p class="hint">Eight static screens at 390 &#215; 844 in the app&#8217;s light theme, in three rows. Each list under a screen is what the build is checked against.</p>
+    <p class="hint">Refined after the owner&#8217;s review of the build (#228, 2026-09-30): S2.1, S3.1, S3b.2, S3b.4, S4.4, S5.2 and S6.2 were amended below. Where a drawing differs from its amended line, the line governs.</p>
+    <div class="frames"><div class="fgroup"><p class="fgroup-h">Bosch dishwasher &#183; reading, then ready to review</p><div class="frow"><article class="frame" id="s1"><header class="fh"><span class="fid">S1</span><div class="fh-x"><h3>Item page &#183; reading</h3><p>Bosch dishwasher, 42-page manual, read in progress.</p></div></header><div class="shot"><div class="device"><div class="phone" role="img" aria-label="Item page while the manual is being read"><div class="a-sb"><span>9:41</span><span class="a-island"></span><span class="a-sb-r"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M1.4 4.3a9.4 9.4 0 0 1 13.2 0"/><path d="M3.9 7a5.8 5.8 0 0 1 8.2 0"/><path d="M6.5 9.7a2.1 2.1 0 0 1 3 0"/></svg><svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.6v3.8a2 2 0 0 0 0-3.8Z" fill="currentColor" fill-opacity=".45"/></svg></span></div><div class="a-page" style="top:47px"><div class="a-nav"><span class="a-back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Items</span></div><div class="a-col"><div><div class="a-idrow"><div class="a-name"><h1 class="a-h1">Bosch dishwasher</h1><svg class="a-teal" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></div><span class="a-photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span></div><div class="a-subt">Bosch &#183; SHPM88Z75N</div><div class="a-pills"><span class="a-pill"><svg class="a-teal" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>Kitchen</span><span class="a-pill">Dishwasher</span></div></div><div class="a-label"><b>Upkeep</b><i></i></div><div class="a-card"><div class="a-pad" aria-busy="true"><div class="a-rl"><p class="a-rl-t">Reading the manual</p><span class="a-rl-n">42 pages</span></div><p class="a-rl-s">Pulling out care steps and schedules&#8230; You can close the app &#8212; these keep going.</p><div class="a-rail" role="progressbar" aria-label="Reading the manual"><div class="a-rail-in"></div></div><div class="a-ph"><i></i><i style="opacity:.75"></i><i style="opacity:.5"></i></div></div></div><div class="a-ask dim"><span class="a-ask-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></span><span class="a-ask-x"><span class="a-ask-t">Have a question or a problem?</span><span class="a-ask-s">Works best once we&#8217;ve read the manual.</span></span><svg class="a-ask-c" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></div><div class="a-notes"><div class="a-label"><b>Notes</b><i></i><span class="a-gbtn">Add</span></div><div class="a-ncard"><span class="a-n1">Nothing noted yet</span><span class="a-n2">Things you&#8217;d otherwise have to remember.</span><span class="a-ichips"><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Who services it</span><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Quirks &amp; noises</span></span></div></div></div></div><div class="a-pill-wrap"><span class="a-tray"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>1 reading</span></div><nav class="a-tab" aria-label="Tabs"><div class="a-tab-row"><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg><span>Tasks</span></span><span class="a-tab-i on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg><span>Items</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Ask</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><span>Settings</span></span></div></nav><span class="a-hi"></span></div></div></div><div class="must"><h4>Must be true</h4><ol><li><code>S1.1</code><span>No reading line, rail or card renders above &#8220;&#8249;&#160;Items&#8221;. The only reading state on the page body is inside the Upkeep card: &#8220;Reading the manual&#8221;, &#8220;42 pages&#8221;, the keeps-going line and a rail that sweeps rather than fills (a still, faint bar under reduced motion).</span></li><li><code>S1.2</code><span>While a read is running, Upkeep never says &#8220;No upkeep yet &#8212; add the manual&#8221; and shows no &#8220;Add the manual&#8221; button, including for a manual added in this session.</span></li><li><code>S1.3</code><span>The bottom pill reads &#8220;1 reading&#8221; on this item&#8217;s own page, above the tab bar.</span></li><li><code>S1.4</code><span>The Ask card reads &#8220;Works best once we&#8217;ve read the manual.&#8221;</span></li><li><code>S1.5</code><span>&#8220;42 pages&#8221; is the worker&#8217;s page count. The line shows &#8220;page N of 42&#8221; only if the worker ever reports its position; it is never estimated.</span></li></ol></div></article><article class="frame" id="s2"><header class="fh"><span class="fid">S2</span><div class="fh-x"><h3>Item page &#183; read, with maintenance</h3><p>You came back after the read. Had you watched it finish, the review would already be open.</p></div></header><div class="shot"><div class="device"><div class="phone" role="img" aria-label="Item page after the read, with maintenance to review"><div class="a-sb"><span>9:41</span><span class="a-island"></span><span class="a-sb-r"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M1.4 4.3a9.4 9.4 0 0 1 13.2 0"/><path d="M3.9 7a5.8 5.8 0 0 1 8.2 0"/><path d="M6.5 9.7a2.1 2.1 0 0 1 3 0"/></svg><svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.6v3.8a2 2 0 0 0 0-3.8Z" fill="currentColor" fill-opacity=".45"/></svg></span></div><div class="a-page" style="top:47px"><div class="a-nav"><span class="a-back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Items</span></div><div class="a-col"><div><div class="a-idrow"><div class="a-name"><h1 class="a-h1">Bosch dishwasher</h1><svg class="a-teal" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></div><span class="a-photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span></div><div class="a-subt">Bosch &#183; SHPM88Z75N</div><div class="a-pills"><span class="a-pill"><svg class="a-teal" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>Kitchen</span><span class="a-pill">Dishwasher</span></div></div><div class="a-hand"><div class="a-hand-top"><span class="a-hand-ck"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span class="a-hand-x1"><span class="a-hand-t">We read the Bosch dishwasher manual</span></span></div><div class="a-hand-act"><span class="a-obtn">Review 6 upkeep tasks</span><span class="a-hand-x" aria-label="Dismiss"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div></div><div class="a-label"><b>Upkeep</b><i></i></div><div class="a-card"><div class="a-pad"><p class="a-aw">Upkeep lands here once you save the review.</p><div class="a-ph"><i></i><i style="opacity:.75"></i><i style="opacity:.5"></i></div></div></div><div class="a-ask "><span class="a-ask-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></span><span class="a-ask-x"><span class="a-ask-t">Have a question or a problem?</span><span class="a-ask-s">Save what we found and answers come from your manual.</span></span><svg class="a-ask-c" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></div><div class="a-notes"><div class="a-label"><b>Notes</b><i></i><span class="a-gbtn">Add</span></div><div class="a-ncard"><span class="a-n1">Nothing noted yet</span><span class="a-n2">Things you&#8217;d otherwise have to remember.</span><span class="a-ichips"><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Who services it</span><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Quirks &amp; noises</span></span></div></div></div></div><div class="a-pill-wrap"><span class="a-tray"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>1 ready to review</span></div><nav class="a-tab" aria-label="Tabs"><div class="a-tab-row"><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg><span>Tasks</span></span><span class="a-tab-i on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg><span>Items</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Ask</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><span>Settings</span></span></div></nav><span class="a-hi"></span></div></div></div><div class="must"><h4>Must be true</h4><ol><li><code>S2.1</code><span>Exactly one hand-off card, between the name block and Upkeep: &#8220;We read the manual&#8221; and a &#8220;Review 6 upkeep tasks&#8221; button. The 6 equals the Maintenance count in the review. The card does not repeat the item&#8217;s name, which is the heading right above it; the frame still draws the earlier &#8220;We read the Bosch dishwasher manual&#8221;. (Refined after the owner&#8217;s review of #228, 2026-09-30.)</span></li><li><code>S2.2</code><span>No reading line or rail remains anywhere, and no card renders above &#8220;&#8249;&#160;Items&#8221;.</span></li><li><code>S2.3</code><span>The pill reads &#8220;1 ready to review&#8221;. On this page, its Review opens this same review in place, with no navigation.</span></li><li><code>S2.4</code><span>If this page watched the read finish, the review opens by itself, once per session. Otherwise the card waits.</span></li><li><code>S2.5</code><span>The Upkeep card holds the space with no button of its own.</span></li></ol></div></article></div></div><div class="fgroup"><p class="fgroup-h">Sharp microwave &#183; a manual with no maintenance</p><div class="frow"><article class="frame" id="s3"><header class="fh"><span class="fid">S3</span><div class="fh-x"><h3>Item page &#183; read, no maintenance</h3><p>Sharp microwave, read finished, nothing saved yet. The same card as S2.</p></div></header><div class="shot"><div class="device"><div class="phone" role="img" aria-label="Item page after a read that found no maintenance, nothing saved yet"><div class="a-sb"><span>9:41</span><span class="a-island"></span><span class="a-sb-r"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M1.4 4.3a9.4 9.4 0 0 1 13.2 0"/><path d="M3.9 7a5.8 5.8 0 0 1 8.2 0"/><path d="M6.5 9.7a2.1 2.1 0 0 1 3 0"/></svg><svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.6v3.8a2 2 0 0 0 0-3.8Z" fill="currentColor" fill-opacity=".45"/></svg></span></div><div class="a-page" style="top:47px"><div class="a-nav"><span class="a-back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Items</span></div><div class="a-col"><div><div class="a-idrow"><div class="a-name"><h1 class="a-h1">Sharp microwave</h1><svg class="a-teal" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></div><span class="a-photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span></div><div class="a-subt">Sharp &#183; SMD2470ASY24</div><div class="a-pills"><span class="a-pill"><svg class="a-teal" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>Kitchen</span><span class="a-pill">Microwave</span></div></div><div class="a-hand"><div class="a-hand-top"><span class="a-hand-ck"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span class="a-hand-x1"><span class="a-hand-t">We read the Sharp microwave manual</span></span></div><div class="a-hand-act"><span class="a-obtn">Review 6 tips &amp; steps</span><span class="a-hand-x" aria-label="Dismiss"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div></div><div class="a-label"><b>Upkeep</b><i></i></div><div class="a-card"><div class="a-pad"><p class="a-aw">Upkeep lands here once you save the review.</p><div class="a-ph"><i></i><i style="opacity:.75"></i><i style="opacity:.5"></i></div></div></div><div class="a-ask "><span class="a-ask-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></span><span class="a-ask-x"><span class="a-ask-t">Have a question or a problem?</span><span class="a-ask-s">Save what we found and answers come from your manual.</span></span><svg class="a-ask-c" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></div><div class="a-notes"><div class="a-label"><b>Notes</b><i></i><span class="a-gbtn">Add</span></div><div class="a-ncard"><span class="a-n1">Nothing noted yet</span><span class="a-n2">Things you&#8217;d otherwise have to remember.</span><span class="a-ichips"><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Who services it</span><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Quirks &amp; noises</span></span></div></div></div></div><div class="a-pill-wrap"><span class="a-tray"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>1 ready to review</span></div><nav class="a-tab" aria-label="Tabs"><div class="a-tab-row"><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg><span>Tasks</span></span><span class="a-tab-i on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg><span>Items</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Ask</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><span>Settings</span></span></div></nav><span class="a-hi"></span></div></div></div><div class="must"><h4>Must be true</h4><ol><li><code>S3.1</code><span>Exactly one hand-off card, between the name block and Upkeep: &#8220;We read the manual&#8221; and a &#8220;Review 6 tips &amp; steps&#8221; button. The 6 equals the rows in the review (S3b). The frame still draws the earlier &#8220;We read the Sharp microwave manual&#8221;. (Refined after the owner&#8217;s review of #228, 2026-09-30.)</span></li><li><code>S3.2</code><span>No other card, and no sentence about the missing maintenance anywhere, including the old &#8220;No maintenance in this manual, so nothing will remind you.&#8221;</span></li><li><code>S3.3</code><span>If this page watched the read finish, the review opens by itself, once per session, the same as with maintenance. Otherwise the card waits.</span></li><li><code>S3.4</code><span>Nothing is saved before Save: the Upkeep card holds the space (&#8220;Upkeep lands here once you save the review.&#8221;) and no rows render yet.</span></li><li><code>S3.5</code><span>The pill reads &#8220;1 ready to review&#8221;.</span></li></ol></div></article><article class="frame" id="s3b"><header class="fh"><span class="fid">S3b</span><div class="fh-x"><h3>Review &#183; no maintenance</h3><p>Opened from the card or the pill. One screen serves both cases.</p></div></header><div class="shot"><div class="device"><div class="phone" role="img" aria-label="Review sheet for a manual with no maintenance"><div class="a-sb"><span>9:41</span><span class="a-island"></span><span class="a-sb-r"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M1.4 4.3a9.4 9.4 0 0 1 13.2 0"/><path d="M3.9 7a5.8 5.8 0 0 1 8.2 0"/><path d="M6.5 9.7a2.1 2.1 0 0 1 3 0"/></svg><svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.6v3.8a2 2 0 0 0 0-3.8Z" fill="currentColor" fill-opacity=".45"/></svg></span></div><div class="a-page" style="top:47px"><div class="a-nav"><span class="a-back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Items</span></div><div class="a-col"><div><div class="a-idrow"><div class="a-name"><h1 class="a-h1">Sharp microwave</h1><svg class="a-teal" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></div><span class="a-photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span></div><div class="a-subt">Sharp &#183; SMD2470ASY24</div><div class="a-pills"><span class="a-pill"><svg class="a-teal" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>Kitchen</span><span class="a-pill">Microwave</span></div></div><div class="a-hand"><div class="a-hand-top"><span class="a-hand-ck"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span class="a-hand-x1"><span class="a-hand-t">We read the Sharp microwave manual</span></span></div><div class="a-hand-act"><span class="a-obtn">Review 6 tips &amp; steps</span><span class="a-hand-x" aria-label="Dismiss"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div></div><div class="a-label"><b>Upkeep</b><i></i></div><div class="a-card"><div class="a-pad"><p class="a-aw">Upkeep lands here once you save the review.</p><div class="a-ph"><i></i><i style="opacity:.75"></i><i style="opacity:.5"></i></div></div></div><div class="a-ask "><span class="a-ask-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></span><span class="a-ask-x"><span class="a-ask-t">Have a question or a problem?</span><span class="a-ask-s">Save what we found and answers come from your manual.</span></span><svg class="a-ask-c" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></div><div class="a-notes"><div class="a-label"><b>Notes</b><i></i><span class="a-gbtn">Add</span></div><div class="a-ncard"><span class="a-n1">Nothing noted yet</span><span class="a-n2">Things you&#8217;d otherwise have to remember.</span><span class="a-ichips"><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Who services it</span><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Quirks &amp; noises</span></span></div></div></div></div><div class="a-pill-wrap"><span class="a-tray"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>1 ready to review</span></div><nav class="a-tab" aria-label="Tabs"><div class="a-tab-row"><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg><span>Tasks</span></span><span class="a-tab-i on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg><span>Items</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Ask</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><span>Settings</span></span></div></nav><span class="a-hi"></span><div class="a-ovl"></div><div class="a-sheet" role="dialog" aria-label="Review"><span class="a-sheet-x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span><div class="a-sh-head"><h2 class="a-sh-title">Sharp microwave</h2><div class="a-sh-sub">6 things from the manual</div></div><div class="a-sh-body"><div class="a-sum"><div class="a-sum-l"><svg class="a-teal" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg><span>Nothing here goes into Tasks.</span></div><span class="a-sum-f">Nothing is saved until you press Save.</span></div><div class="a-walk"><span class="a-walk-b">Go through them one by one &#8594;</span><span class="a-walk-t">or tap any task to change it</span></div><div class="a-sec"><div class="a-sec-t">Cleaning<span class="a-sec-n">4</span></div><div class="a-sec-s">Keeps it nice. Lives on the item page.</div></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-teal)"></span><span class="a-rt">Clean the waveguide cover<span class="a-lives">Lives on the item page</span></span><span class="a-chip">Monthly</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-slate)"></span><span class="a-rt">Wipe the drawer interior<span class="a-lives">Lives on the item page</span></span><span class="a-chip">Weekly</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-teal)"></span><span class="a-rt">Clean the door seals</span><span class="a-wn">when needed</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-slate)"></span><span class="a-rt">Wipe the control panel</span><span class="a-wn">when needed</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-sec"><div class="a-sec-t">Setup<span class="a-setup-b">Show 2 setup steps</span><span class="a-sec-n">2</span></div><div class="a-sec-s">Once, when you install it.</div></div><div class="a-tucked">Tucked away &#8212; they&#8217;ll be on the item page if you ever need them.</div></div><div class="a-sh-foot"><span class="a-btn">Save all 6</span></div></div></div></div></div><div class="must"><h4>Must be true</h4><ol><li><code>S3b.1</code><span>One screen with Cleaning (4) and Setup (2). No Maintenance section, and no sentence explaining its absence.</span></li><li><code>S3b.2</code><span>The summary reads &#8220;Nothing here goes into Tasks.&#8221; and &#8220;Nothing is saved until you press Save.&#8221;, with no notify line, and nothing else: not &#8220;Cleaning, usage and setup stay on the item page.&#8221;, which says the same thing, even on a person&#8217;s first review. (Refined after the owner&#8217;s review of #228, 2026-09-30.)</span></li><li><code>S3b.3</code><span>Zero bells: no bell icon of any kind on the screen.</span></li><li><code>S3b.4</code><span>Cleaning rows keep their real cadences in the same chip as S4 (&#8220;Monthly&#8221;, &#8220;Weekly&#8221;), with no bell and no line of their own: the Cleaning section&#8217;s header already says they live on the item page. The others say &#8220;when needed&#8221;. The frame still draws a per-row &#8220;Lives on the item page&#8221;. (Refined after the owner&#8217;s review of #228, 2026-09-30.)</span></li><li><code>S3b.5</code><span>The button reads &#8220;Save all 6&#8221;. Pressing it is the only thing that saves.</span></li></ol></div></article><article class="frame" id="s3c"><header class="fh"><span class="fid">S3c</span><div class="fh-x"><h3>Item page &#183; after Save</h3><p>The same page after Save, scrolled 66 px to show both sections.</p></div></header><div class="shot"><div class="device"><div class="phone" role="img" aria-label="Item page after saving the no-maintenance review"><div class="a-sb"><span>9:41</span><span class="a-island"></span><span class="a-sb-r"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M1.4 4.3a9.4 9.4 0 0 1 13.2 0"/><path d="M3.9 7a5.8 5.8 0 0 1 8.2 0"/><path d="M6.5 9.7a2.1 2.1 0 0 1 3 0"/></svg><svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.6v3.8a2 2 0 0 0 0-3.8Z" fill="currentColor" fill-opacity=".45"/></svg></span></div><div class="a-page" style="top:-19px"><div class="a-nav"><span class="a-back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Items</span></div><div class="a-col"><div><div class="a-idrow"><div class="a-name"><h1 class="a-h1">Sharp microwave</h1><svg class="a-teal" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></div><span class="a-photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span></div><div class="a-subt">Sharp &#183; SMD2470ASY24</div><div class="a-pills"><span class="a-pill"><svg class="a-teal" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>Kitchen</span><span class="a-pill">Microwave</span></div></div><div class="a-label"><b>Upkeep</b><i></i><span class="a-obtn">Review tasks</span></div><div class="a-bands"><div class="a-card"><div class="a-pad a-pad-ex"><p class="a-ex-t">Nothing here goes into Tasks</p><p class="a-ex-s">4 cleaning tips and 2 setup steps live below.</p></div></div><div class="a-band"><div class="a-band-h" style="background:var(--hh-gold-soft)"><b style="color:var(--hh-gold)">Cleaning</b><span class="n">4</span><svg class="a-faint" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></div><div class="a-band-note">These live in your cleaning guides &#8212; nothing here reminds you. <span class="a-link">Open guides &#8250;</span></div><div class="a-srow"><div class="a-srow-in"><div class="a-srow-x"><div class="a-srow-t">Wipe the drawer interior</div><div class="a-srow-m">Weekly &#183; 5 min &#183; Deep Clean<span style="color:var(--hh-gold);font-weight:700"> &#183; In Oct</span></div></div><span class="a-bell-slot"></span><span class="a-seehow">See how<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div></div><div class="a-srow"><div class="a-srow-in"><div class="a-srow-x"><div class="a-srow-t">Clean the waveguide cover</div><div class="a-srow-m">Monthly &#183; 5 min &#183; Deep Clean<span style="color:var(--hh-faint);font-weight:500"> &#183; In Oct</span></div></div><span class="a-bell-slot"></span><span class="a-seehow">See how<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div></div><div class="a-srow"><div class="a-srow-in"><div class="a-srow-x"><div class="a-srow-t">Clean the door seals</div><div class="a-srow-m">5 min &#183; Deep Clean</div></div><span class="a-bell-slot"></span><span class="a-seehow">See how<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div></div><div class="a-srow" style="border-top:none"><div class="a-srow-in"><div class="a-srow-x"><div class="a-srow-t">Wipe the control panel</div><div class="a-srow-m">2 min &#183; Deep Clean</div></div><span class="a-bell-slot"></span><span class="a-seehow">See how<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div></div></div><div class="a-band"><div class="a-band-h" style="background:var(--hh-slate-soft)"><b style="color:var(--hh-slate)">Setup</b><span class="note">already installed?</span><span class="n">2</span><svg class="a-faint" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div></div></div><div class="a-ask on"><span class="a-ask-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></span><span class="a-ask-x"><span class="a-ask-t">Have a question or a problem?</span><span class="a-ask-s">Ask about this item &#8212; answers come from your manual</span></span><svg class="a-ask-c" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></div><div class="a-notes"><div class="a-label"><b>Notes</b><i></i><span class="a-gbtn">Add</span></div><div class="a-ncard"><span class="a-n1">Nothing noted yet</span><span class="a-n2">Things you&#8217;d otherwise have to remember.</span><span class="a-ichips"><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Who services it</span><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Quirks &amp; noises</span></span></div></div></div></div><nav class="a-tab" aria-label="Tabs"><div class="a-tab-row"><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg><span>Tasks</span></span><span class="a-tab-i on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg><span>Items</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Ask</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><span>Settings</span></span></div></nav><span class="a-hi"></span></div></div></div><div class="must"><h4>Must be true</h4><ol><li><code>S3c.1</code><span>The six rows are saved and render in kind order: Cleaning (4, open), then Setup (2, closed, &#8220;already installed?&#8221;).</span></li><li><code>S3c.2</code><span>The Upkeep card reads &#8220;Nothing here goes into Tasks&#8221; and &#8220;4 cleaning tips and 2 setup steps live below.&#8221;</span></li><li><code>S3c.3</code><span>Rows with a cadence show it (&#8220;Weekly&#8221;, &#8220;Monthly&#8221;) in the row&#8217;s meta line, where the item page puts cadence today (HH-155).</span></li><li><code>S3c.4</code><span>No row shows a bell, and none of these rows appears in Tasks or on Home.</span></li><li><code>S3c.5</code><span>No hand-off card and no pill remain for this manual.</span></li></ol></div></article></div></div><div class="fgroup"><p class="fgroup-h">Bosch dishwasher &#183; the review, and Home</p><div class="frow"><article class="frame" id="s4"><header class="fh"><span class="fid">S4</span><div class="fh-x"><h3>Review &#183; a count that matches Tasks</h3><p>Opened from the card or the pill. Maintenance rows 4&#8211;6 are skipped to fit; S5 shows them.</p></div></header><div class="shot"><div class="device"><div class="phone" role="img" aria-label="Review sheet with the truthful summary"><div class="a-sb"><span>9:41</span><span class="a-island"></span><span class="a-sb-r"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M1.4 4.3a9.4 9.4 0 0 1 13.2 0"/><path d="M3.9 7a5.8 5.8 0 0 1 8.2 0"/><path d="M6.5 9.7a2.1 2.1 0 0 1 3 0"/></svg><svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.6v3.8a2 2 0 0 0 0-3.8Z" fill="currentColor" fill-opacity=".45"/></svg></span></div><div class="a-page" style="top:47px"><div class="a-nav"><span class="a-back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Items</span></div><div class="a-col"><div><div class="a-idrow"><div class="a-name"><h1 class="a-h1">Bosch dishwasher</h1><svg class="a-teal" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></div><span class="a-photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span></div><div class="a-subt">Bosch &#183; SHPM88Z75N</div><div class="a-pills"><span class="a-pill"><svg class="a-teal" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>Kitchen</span><span class="a-pill">Dishwasher</span></div></div><div class="a-hand"><div class="a-hand-top"><span class="a-hand-ck"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span class="a-hand-x1"><span class="a-hand-t">We read the Bosch dishwasher manual</span></span></div><div class="a-hand-act"><span class="a-obtn">Review 6 upkeep tasks</span><span class="a-hand-x" aria-label="Dismiss"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div></div><div class="a-label"><b>Upkeep</b><i></i></div><div class="a-card"><div class="a-pad"><p class="a-aw">Upkeep lands here once you save the review.</p><div class="a-ph"><i></i><i style="opacity:.75"></i><i style="opacity:.5"></i></div></div></div><div class="a-ask "><span class="a-ask-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></span><span class="a-ask-x"><span class="a-ask-t">Have a question or a problem?</span><span class="a-ask-s">Save what we found and answers come from your manual.</span></span><svg class="a-ask-c" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></div><div class="a-notes"><div class="a-label"><b>Notes</b><i></i><span class="a-gbtn">Add</span></div><div class="a-ncard"><span class="a-n1">Nothing noted yet</span><span class="a-n2">Things you&#8217;d otherwise have to remember.</span><span class="a-ichips"><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Who services it</span><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Quirks &amp; noises</span></span></div></div></div></div><div class="a-pill-wrap"><span class="a-tray"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>1 ready to review</span></div><nav class="a-tab" aria-label="Tabs"><div class="a-tab-row"><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg><span>Tasks</span></span><span class="a-tab-i on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg><span>Items</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Ask</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><span>Settings</span></span></div></nav><span class="a-hi"></span><div class="a-ovl"></div><div class="a-sheet" role="dialog" aria-label="Review"><span class="a-sheet-x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span><div class="a-sh-head"><h2 class="a-sh-title">Bosch dishwasher</h2><div class="a-sh-sub">12 things from the manual</div></div><div class="a-sh-body"><div class="a-sum"><div class="a-sum-l"><svg class="a-teal" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg><span><b>6 will show up in Tasks</b> when they need doing.</span></div><div class="a-sum-l"><svg class="a-teal" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg><span><b>1 of those will also notify your phone.</b></span></div><span class="a-sum-f">Nothing is saved until you press Save.</span></div><div class="a-walk"><span class="a-walk-b">Go through them one by one &#8594;</span><span class="a-walk-t">or tap any task to change it</span></div><div class="a-sec"><div class="a-sec-t">Maintenance<span class="a-sec-n">6</span></div><div class="a-sec-s">Keeps it working. Turn a notification on for any of these.</div></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-clay)"></span><span class="a-rt">Check the door seal</span><span class="a-chip">Yearly</span><svg class="a-teal a-bell" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-teal)"></span><span class="a-rt">Clean the filter</span><span class="a-chip">Monthly</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-teal)"></span><span class="a-rt">Descale</span><span class="a-chip">Every 3 months</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="m-skip"><i></i><span>3 more Maintenance rows &#183; all six in S5</span><i></i></div><div class="a-sec"><div class="a-sec-t">Cleaning<span class="a-sec-n">4</span></div><div class="a-sec-s">Keeps it nice. Lives on the item page.</div></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-teal)"></span><span class="a-rt">Clean the tub and door edges<span class="a-lives">Lives on the item page</span></span><span class="a-chip">Monthly</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-slate)"></span><span class="a-rt">Clean the cutlery basket<span class="a-lives">Lives on the item page</span></span><span class="a-chip">Monthly</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div></div><div class="a-sh-foot"><span class="a-btn">Save all 12</span></div></div></div></div></div><div class="must"><h4>Must be true</h4><ol><li><code>S4.1</code><span>&#8220;6 will show up in Tasks&#8221; counts only rows the Tasks page will list: maintenance with a cadence. The two cleaning rows with a cadence are not counted (today&#8217;s line says 8).</span></li><li><code>S4.2</code><span>&#8220;1 of those will also notify your phone&#8221; matches the bells on screen: one, on the Essential row.</span></li><li><code>S4.3</code><span>The Essential row shows the &#8220;Yearly&#8221; chip with the bell beside it. Every scheduled row&#8217;s chip has the same style.</span></li><li><code>S4.4</code><span>A cleaning row with a cadence never shows a bell, whatever its tier, and carries no line of its own: the Cleaning section&#8217;s header says it lives on the item page. The frame still draws a per-row &#8220;Lives on the item page&#8221;. (Refined after the owner&#8217;s review of #228, 2026-09-30.)</span></li><li><code>S4.5</code><span>The button saves every row the review lists: &#8220;Save all 12&#8221;.</span></li></ol></div></article><article class="frame" id="s5"><header class="fh"><span class="fid">S5</span><div class="fh-x"><h3>Review &#183; notifications refused</h3><p>The same review after the phone has said no to notifications.</p></div></header><div class="shot"><div class="device"><div class="phone" role="img" aria-label="Review sheet while notifications are refused"><div class="a-sb"><span>9:41</span><span class="a-island"></span><span class="a-sb-r"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M1.4 4.3a9.4 9.4 0 0 1 13.2 0"/><path d="M3.9 7a5.8 5.8 0 0 1 8.2 0"/><path d="M6.5 9.7a2.1 2.1 0 0 1 3 0"/></svg><svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.6v3.8a2 2 0 0 0 0-3.8Z" fill="currentColor" fill-opacity=".45"/></svg></span></div><div class="a-page" style="top:47px"><div class="a-nav"><span class="a-back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Items</span></div><div class="a-col"><div><div class="a-idrow"><div class="a-name"><h1 class="a-h1">Bosch dishwasher</h1><svg class="a-teal" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></div><span class="a-photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span></div><div class="a-subt">Bosch &#183; SHPM88Z75N</div><div class="a-pills"><span class="a-pill"><svg class="a-teal" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>Kitchen</span><span class="a-pill">Dishwasher</span></div></div><div class="a-hand"><div class="a-hand-top"><span class="a-hand-ck"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span class="a-hand-x1"><span class="a-hand-t">We read the Bosch dishwasher manual</span></span></div><div class="a-hand-act"><span class="a-obtn">Review 6 upkeep tasks</span><span class="a-hand-x" aria-label="Dismiss"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div></div><div class="a-label"><b>Upkeep</b><i></i></div><div class="a-card"><div class="a-pad"><p class="a-aw">Upkeep lands here once you save the review.</p><div class="a-ph"><i></i><i style="opacity:.75"></i><i style="opacity:.5"></i></div></div></div><div class="a-ask "><span class="a-ask-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></span><span class="a-ask-x"><span class="a-ask-t">Have a question or a problem?</span><span class="a-ask-s">Save what we found and answers come from your manual.</span></span><svg class="a-ask-c" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></div><div class="a-notes"><div class="a-label"><b>Notes</b><i></i><span class="a-gbtn">Add</span></div><div class="a-ncard"><span class="a-n1">Nothing noted yet</span><span class="a-n2">Things you&#8217;d otherwise have to remember.</span><span class="a-ichips"><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Who services it</span><span class="a-ichip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Quirks &amp; noises</span></span></div></div></div></div><div class="a-pill-wrap"><span class="a-tray"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>1 ready to review</span></div><nav class="a-tab" aria-label="Tabs"><div class="a-tab-row"><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg><span>Tasks</span></span><span class="a-tab-i on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg><span>Items</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Ask</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><span>Settings</span></span></div></nav><span class="a-hi"></span><div class="a-ovl"></div><div class="a-sheet" role="dialog" aria-label="Review"><span class="a-sheet-x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span><div class="a-sh-head"><h2 class="a-sh-title">Bosch dishwasher</h2><div class="a-sh-sub">12 things from the manual</div></div><div class="a-sh-body"><div class="a-sum"><div class="a-sum-l"><svg class="a-teal" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg><span><b>6 will show up in Tasks</b> when they need doing.</span></div><div class="a-sum-l"><svg class="a-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05"/></svg><span>None will notify you. Notifications are off on this phone.</span></div><span class="a-sum-f">Nothing is saved until you press Save.</span></div><div class="a-walk"><span class="a-walk-b">Go through them one by one &#8594;</span><span class="a-walk-t">or tap any task to change it</span></div><div class="a-sec"><div class="a-sec-t">Maintenance<span class="a-sec-n">6</span></div><div class="a-sec-s">Keeps it working. Turn a notification on for any of these.</div></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-clay)"></span><span class="a-rt">Check the door seal<span class="a-off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05"/></svg><span>Reminders off &#8212; <u>turn on in Settings</u></span></span></span><span class="a-chip">Yearly</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-teal)"></span><span class="a-rt">Clean the filter</span><span class="a-chip">Monthly</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-teal)"></span><span class="a-rt">Descale</span><span class="a-chip">Every 3 months</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-teal)"></span><span class="a-rt">Clean the spray arms</span><span class="a-chip">Twice a year</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-slate)"></span><span class="a-rt">Clean the drain pump</span><span class="a-chip">Yearly</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div><div class="a-rrow"><span class="a-rail3" style="background:var(--hh-slate)"></span><span class="a-rt">Check the drain hose</span><span class="a-chip">Yearly</span><span class="a-rx"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div></div><div class="a-sh-foot"><span class="a-btn">Save all 12</span></div></div></div></div></div><div class="must"><h4>Must be true</h4><ol><li><code>S5.1</code><span>While notification permission is denied, no bell icon renders anywhere in the review.</span></li><li><code>S5.2</code><span>The Essential row keeps its &#8220;Yearly&#8221; chip and loses its bell. Under its title it reads &#8220;Reminders off&#8221;, muted: a status, not a link, because the collapsed row is the button that opens it. Opened, &#8220;Turn on in Settings&#8221; sits beside the reminder switch and opens the app&#8217;s Notifications section, which says &#8220;Notifications are off for Homehub on this phone. Open iPhone Settings &#8594; Homehub &#8594; Notifications.&#8221; A native deep link into the phone&#8217;s settings is a separate follow-up. (Refined after the owner&#8217;s review of #228, 2026-09-30.)</span></li><li><code>S5.3</code><span>The Tasks line is unchanged (&#8220;6 will show up in Tasks&#8221;). The second line reads &#8220;None will notify you. Notifications are off on this phone.&#8221; with a bell-off icon.</span></li><li><code>S5.4</code><span>The row keeps the owner&#8217;s choice: once notifications are on again, its bell returns without another review.</span></li></ol></div></article><article class="frame" id="s6"><header class="fh"><span class="fid">S6</span><div class="fh-x"><h3>Home &#183; the same pill</h3><p>The same read, seen from Home. The tasks are example rows.</p></div></header><div class="shot"><div class="device"><div class="phone" role="img" aria-label="Home with the reading pill above the tab bar"><div class="a-sb"><span>9:41</span><span class="a-island"></span><span class="a-sb-r"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M1.4 4.3a9.4 9.4 0 0 1 13.2 0"/><path d="M3.9 7a5.8 5.8 0 0 1 8.2 0"/><path d="M6.5 9.7a2.1 2.1 0 0 1 3 0"/></svg><svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.6v3.8a2 2 0 0 0 0-3.8Z" fill="currentColor" fill-opacity=".45"/></svg></span></div><div class="a-home"><div class="a-hh"><span class="a-hh-l"><span class="a-greet">Good morning</span><span class="a-homepill"><svg class="a-teal" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>SF Condo</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></span><span class="a-hh-d">Wed, Sep 30</span></div><div class="a-hc"><div class="a-askm"><div class="a-askm-in"><svg class="a-teal" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><span class="a-askm-p">Ask about your home&#8230;</span><span class="a-askm-w"><svg class="a-teal" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/></svg></span><span class="a-askm-go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span></div></div><section class="a-week"><div class="a-week-h"><span>This week</span><span class="c">3 tasks</span></div><div class="a-week-card"><div class="a-wr open first"><div class="a-wr-in"><span class="a-wck"></span><span class="a-wtx"><span class="a-wt">Clean the range hood filter</span><span class="a-wm"><span class="a-wm-t">Range hood</span></span></span><span class="a-wchev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></span></div><div class="a-wbody"><div class="a-wpills"><span class="a-wp when">This week</span><span class="a-wp">Monthly</span><span class="a-wp">15 min</span></div><div class="a-wacts"><span class="a-done">Mark done</span><span class="a-snz"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05"/></svg>Snooze</span><span class="a-det">See details<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span></div></div></div><div class="a-wr"><div class="a-wr-in"><span class="a-wck"></span><span class="a-wtx"><span class="a-wt">Test smoke &amp; CO detectors</span><span class="a-wm"><span class="a-ess">Essential</span><span class="a-wm-t">Home &#183; Good to do now</span></span></span><span class="a-wchev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div></div><div class="a-wr"><div class="a-wr-in"><span class="a-wck"></span><span class="a-wtx"><span class="a-wt">Replace the fridge water filter</span><span class="a-wm"><span class="a-wm-t">Refrigerator &#183; In Oct</span></span></span><span class="a-wchev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div></div><div class="a-week-f"><span>All tasks<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span></div></div></section></div></div><div class="a-pill-wrap"><span class="a-tray"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>1 reading</span></div><nav class="a-tab" aria-label="Tabs"><div class="a-tab-row"><span class="a-tab-i on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg><span>Tasks</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg><span>Items</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><span>Ask</span></span><span class="a-tab-i"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><span>Settings</span></span></div></nav><span class="a-hi"></span></div></div></div><div class="must"><h4>Must be true</h4><ol><li><code>S6.1</code><span>The pill &#8220;1 reading&#8221; sits above the tab bar on Home, in the same place and style as on the item page.</span></li><li><code>S6.2</code><span>Tapping it opens the tray. Each row names the item first (&#8220;Dishwasher &#183; 42 pages&#8221;, &#8220;Microwave &#8212; ready to review&#8221; with its Review), with the manual&#8217;s title as the small line beneath, and the tray says &#8220;You can close the app &#8212; these keep going.&#8221; (Refined after the owner&#8217;s review of #228, 2026-09-30.)</span></li><li><code>S6.3</code><span>Home shows no other reading indicator: no banner and no card.</span></li><li><code>S6.4</code><span>When the read finishes, the pill changes to &#8220;1 ready to review&#8221; on every page, the item page included.</span></li></ol></div></article></div></div></div>
+  </section>
+
+  <footer class="notes">
+    <div class="note-block">
+      <h2 class="d-h2">Vocabulary</h2>
+      <p>The app says both &#8220;scanning&#8221; (the pill&#8217;s &#8220;1 scanning&#8221;, &#8220;Scanning the document end to end&#8230;&#8221;, and the rule in <code>src/lib/scanCopy.ts</code> that says never &#8220;read&#8221;) and &#8220;reading&#8221; (the design A line, the Upkeep placeholder, &#8220;We finished reading&#8221;). This mock uses &#8220;Reading&#8221; everywhere, so the pill says &#8220;1 reading&#8221;. Adopting it means retiring the &#8220;never read&#8221; rule in scanCopy.ts in the same change.</p>
+    </div>
+    <div class="note-block">
+      <h2 class="d-h2">How the mock was made</h2>
+      <p>Sizes, colours, radii and copy are lifted from the code, and checked against the journey screenshots <code>2188-J3-item-detail</code> and <code>2189-J3-review-one-screen</code> (390 &#215; 844) and the HH-161 report shot. The status bar and home indicator are decoration. The rail and the pill&#8217;s spinner move; both hold still under reduced motion. S3, S3b and S3c use the Sharp microwave from the emulator seed, the app&#8217;s no-maintenance case. The yellow note in S4 marks rows skipped to fit the frame; it is not part of the app.</p>
+    </div>
+    <div class="note-block wide">
+      <h2 class="d-h2">Matched from</h2>
+      <ul class="matched"><li><code>src/index.css</code><span>--hh-* and --t-* light tokens, the radius scale (rounded-xl 16 px, rounded-2xl 24 px), the .hh-scanrail sweep</span></li><li><code>src/lib/redesign/tokens.ts</code><span>cozy density: 20 px gutters, 17 px stack</span></li><li><code>src/components/AppLayout.tsx</code><span>tab bar: 24 px icons, 10 px labels, 85% blurred ground</span></li><li><code>src/components/manuals/ParseTrayPill.tsx</code><span>pill: ink ground, 12.5 px semibold, 68 px above the safe area</span></li><li><code>src/components/manuals/ParsePickupCard.tsx</code><span>design A line, page count and 3 px rail; the hand-off card anatomy</span></li><li><code>src/components/item-care/CareBlock.tsx</code><span>Upkeep card, placeholder rows, gold and slate bands, row anatomy</span></li><li><code>src/components/home/RefinedItemDetail.tsx + ItemPhoto.tsx</code><span>nav, 26 px name, 44 px photo control, pills, section labels, Ask card</span></li><li><code>src/components/manuals/TaskReviewSheet.tsx + ui/sheet.tsx</code><span>92dvh sheet, summary box, walkthrough, section headers, rows, chip, footer</span></li><li><code>shared/tasks/reviewBuckets.ts, agendaEligibility.ts, cadenceLabel.ts</code><span>section copy, what counts as scheduled, cadence words</span></li><li><code>src/components/home/RefinedHome.tsx + ThisWeekList.tsx</code><span>Home header, Ask bar, the one list with its first row open</span></li><li><code>src/lib/scanCopy.ts</code><span>the keeps-going line</span></li><li><code>lucide-react 0.563</code><span>icon paths, drawn inline</span></li></ul>
+    </div>
+  </footer>
+</main>
+<script>
+(function () {
+  var shots = document.querySelectorAll('.shot');
+  function fit(el) {
+    var w = el.clientWidth || 410;
+    el.style.setProperty('--s', Math.min(1, w / 410).toFixed(4));
+  }
+  for (var i = 0; i < shots.length; i++) fit(shots[i]);
+  if ('ResizeObserver' in window) {
+    var ro = new ResizeObserver(function (entries) {
+      for (var j = 0; j < entries.length; j++) fit(entries[j].target);
+    });
+    for (var k = 0; k < shots.length; k++) ro.observe(shots[k]);
+  } else {
+    window.addEventListener('resize', function () {
+      for (var m = 0; m < shots.length; m++) fit(shots[m]);
+    });
+  }
+})();
+</script>

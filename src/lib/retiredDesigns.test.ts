@@ -41,10 +41,38 @@ const RETIRED_COMPONENTS = [
   // The item page asked for purchase details twice, in two shapes, and both
   // opened the same sheet. The owner kept the one that matches the page.
   "PurchaseNudge",       // -> WarrantyPanel, retitled "Warranty and purchase information"
+  // Dead-code sweep (audit 2026-09-29): unrendered pieces of retired designs,
+  // deleted rather than left to be edited as if they were live.
+  "ParseProgressStep",   // wizard "Reading your manual" screen -> the item page's scan rail (#161)
+  "UrgentTasksCard",     // retired dashboard -> Home, focused (one list)
+  "UpcomingTasksCard",   // retired dashboard -> Home, focused
+  "QuickActionsRow",     // retired dashboard -> RefinedHome's Ask module
+  "QuickActionCard",     // retired dashboard
+  "DashboardCalendar",   // Home's hidden month calendar -> none; Tasks is the schedule
+  "StatRow",             // Home's stat band -> removed from Home (design/home-focus.md)
+  "MaintenanceTaskRow",  // the /tasks list's row -> RefinedWeek / DesktopTasks rows
+  "HowToAccordion",      // -> the item page's Guides
+  "TroubleshootingAccordion", // -> the item page's Fix it, and Ask
+  // HH-161: one reading indicator. The manual row's countdown bar ("~28 sec
+  // remaining") was an ESTIMATE beside a read whose position the worker never
+  // reports; the read is shown by the pill and the Upkeep card, honestly.
+  "ManualParseProgress", // -> ScanningLine in CareBlock + ParseTrayPill
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */
-const RETIRED_PAGES = ["InventoryItemSetup"]
+const RETIRED_PAGES = [
+  "InventoryItemSetup",
+  // URL-only pages on retired designs, deleted with their routes (audit
+  // 2026-09-29, D5). /tasks's page was `Tasks` — a name too common to guard by
+  // word, so its route is pinned below instead.
+  "FaqPage",       // /faq, the Care Guide -> item pages + House notes
+  "CarePage",      // /care -> Tasks (/maintenance)
+  "SchedulePage",  // /schedule -> Tasks (/maintenance)
+  "CleaningPage",  // /cleaning -> Clean (/clean)
+]
+
+/** Their paths: nothing may route them again, whatever the component is called. */
+const RETIRED_ROUTES = ["/faq", "/tasks", "/care", "/schedule", "/cleaning"]
 
 /** Wizard steps that no longer have a screen. */
 const RETIRED_STEPS = ["plan", "purchase"]
@@ -101,12 +129,45 @@ describe("the add-item flow has one way in and no way into an old screen", () =>
     expect(app.text).not.toMatch(/path=":id\/setup"/)
   })
 
+  it("routes none of the deleted URL-only pages (/tasks/:id, the task page, stays)", () => {
+    for (const path of RETIRED_ROUTES) {
+      expect(app.text, `App.tsx routes ${path} again`).not.toContain(`path="${path}"`)
+    }
+    expect(app.text).toContain('path="/tasks/:taskInstanceId"')
+  })
+
   it("only SmartAddItem creates items, so there is one add flow to keep honest", () => {
     const creators = sources
       .filter((s) => /\bcreateItemUnit\s*\(/.test(s.text))
       .map((s) => s.path)
       .filter((p) => !p.includes("/services/") && !p.includes("/hooks/") && !p.includes("/modules/"))
     expect(creators).toEqual(["src/pages/SmartAddItem.tsx"])
+  })
+})
+
+describe("no parked UI: a layout hidden at every width is deleted, not kept", () => {
+  // Home, Items and Tasks each carried a replaced layout inside
+  // className="hidden" — never on screen, still mounted, still edited as if it
+  // were live (Maintenance.tsx has the story; the dead-code sweep deleted the
+  // last of them, audit 2026-09-29). `hidden` is fine when a breakpoint shows
+  // the element again (`hidden lg:block`); alone, it is a decoy.
+  const SHOWN_AGAIN = /^(?:sm|md|lg|xl|2xl):(?:block|flex|grid|inline|inline-block|inline-flex|table|contents)$/
+  const alwaysHidden = (code: string) =>
+    [...code.matchAll(/className="([^"]*)"/g)]
+      .map((m) => m[1].split(/\s+/))
+      .filter((classes) => classes.includes("hidden") && !classes.some((c) => SHOWN_AGAIN.test(c)))
+      .map((classes) => classes.join(" "))
+
+  for (const page of ["src/pages/Home.tsx", "src/pages/Inventory.tsx", "src/pages/Maintenance.tsx"]) {
+    it(`${page} mounts nothing that is hidden at every width`, () => {
+      const src = sources.find((s) => s.path === page)
+      expect(src, `${page} not found`).toBeDefined()
+      expect(alwaysHidden(src!.text)).toEqual([])
+    })
+  }
+
+  it("the check itself sees a parked block (guards against a vacuous pass)", () => {
+    expect(alwaysHidden(`<div className="hidden mt-4"><Cal /></div><div className="hidden lg:block" />`)).toEqual(["hidden mt-4"])
   })
 })
 

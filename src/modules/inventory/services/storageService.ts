@@ -215,24 +215,3 @@ export async function uploadManualPdfWithUrl(
   }
 }
 
-/**
- * Upload a rendered PDF page as a JPEG diagram image. Idempotent.
- * Path: homes/{homeId}/images/{manualId}/page_{pageNum}.jpg
- */
-export async function uploadDiagramImage(
-  homeId: string,
-  manualId: string,
-  pageNum: number,
-  blob: Blob
-): Promise<UploadWithUrlResult> {
-  const path = `homes/${homeId}/images/${manualId}/page_${pageNum}.jpg`
-  try {
-    const objectRef = ref(storage, path)
-    await uploadBytes(objectRef, blob, { contentType: "image/jpeg" })
-    // Token URL — it gets PERSISTED into Firestore (diagram_image_urls) and must
-    // stay renderable in a plain <img> under the no-public-read Storage rules.
-    return { data: { path, url: await getDownloadURL(objectRef) }, error: null }
-  } catch (e) {
-    return { data: null, error: { message: e instanceof Error ? e.message : "Upload failed" } }
-  }
-}

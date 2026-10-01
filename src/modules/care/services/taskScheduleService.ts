@@ -13,17 +13,6 @@ export type ScheduleInput = {
   intervalDays?: number
 }
 
-export type CreateTaskFromNoteInput = {
-  homeId: string
-  roomId?: string | null
-  itemUnitId?: string | null
-  title: string
-  description?: string | null
-  priorityTier: PriorityTier
-  careType?: "cleaning" | "maintenance" | "mixed"
-  schedule: ScheduleInput
-}
-
 function computeDueDate(schedule: ScheduleInput): string {
   const d = new Date()
   d.setHours(12, 0, 0, 0)
@@ -50,111 +39,6 @@ function computeDueDate(schedule: ScheduleInput): string {
       d.setFullYear(d.getFullYear() + 10)
   }
   return d.toISOString().slice(0, 10)
-}
-
-export async function createTaskFromNote(
-  input: CreateTaskFromNoteInput
-): Promise<ServiceResult<{ taskTemplateId: string }>> {
-  try {
-    const scopeType = input.itemUnitId ? "item_unit" : "home"
-    const careType = input.careType ?? "cleaning"
-    const intervalDays =
-      input.schedule.scheduleType === "every_n_days" ? (input.schedule.intervalDays ?? 30) : null
-
-    // Denormalize item/room onto the instance (firestore-model.md §5).
-    let itemName: string | null = null
-    let roomName: string | null = null
-    if (input.itemUnitId) {
-      const itemSnap = await getDoc(doc(db, `homes/${input.homeId}/items/${input.itemUnitId}`))
-      if (itemSnap.exists()) {
-        itemName = itemSnap.data().displayName ?? null
-        const roomId = itemSnap.data().roomId
-        if (roomId) {
-          const roomSnap = await getDoc(doc(db, `homes/${input.homeId}/rooms/${roomId}`))
-          roomName = roomSnap.exists() ? (roomSnap.data().name ?? null) : null
-        }
-      }
-    }
-
-    const now = serverTimestamp()
-    const tplRef = doc(collection(db, `homes/${input.homeId}/taskTemplates`))
-    const instRef = doc(collection(db, `homes/${input.homeId}/taskInstances`))
-    const dueDate = computeDueDate(input.schedule)
-    const priorityScore =
-      input.priorityTier === "essential" ? 100 : input.priorityTier === "recommended" ? 60 : 30
-
-    const batch = writeBatch(db)
-    batch.set(tplRef, {
-      scopeType,
-      itemUnitId: input.itemUnitId ?? null,
-      roomId: input.roomId ?? null,
-      title: input.title,
-      description: input.description ?? null,
-      careType,
-      careTypeOverriddenAt: null,
-      justification: null,
-      symptomTags: [],
-      reCheckTriggers: [],
-      priorityTier: input.priorityTier,
-      riskLevel: "comfort",
-      estimatedMinutes: null,
-      defaultAssignee: null,
-      instructionsChunkId: null,
-      instructionsOverride: null,
-      steps: null,
-      sourcePage: null,
-      suppliesMode: "none",
-      supplies: [],
-      source: "user",
-      isUserEditable: true,
-      userModifiedAt: null,
-      isActive: true,
-      metadata: {},
-      manualId: null,
-      externalKey: null,
-      schedule: {
-        scheduleType: input.schedule.scheduleType,
-        intervalDays,
-        anchorDate: new Date().toISOString().slice(0, 10),
-        season: null,
-        windowDaysBefore: 7,
-        windowDaysAfter: 14,
-      },
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-    })
-    batch.set(instRef, {
-      taskTemplateId: tplRef.id,
-      itemUnitId: input.itemUnitId ?? null,
-      status: "scheduled",
-      dueDate,
-      windowStart: null,
-      windowEnd: null,
-      snoozedUntil: null,
-      priorityScore,
-      isSafetyCritical: false,
-      completedAt: null,
-      completionNotes: null,
-      completionPhotos: [],
-      assignedTo: null,
-      title: input.title,
-      priorityTier: input.priorityTier,
-      careType,
-      scopeType,
-      estimatedMinutes: null,
-      scheduleType: input.schedule.scheduleType,
-      itemName,
-      roomName,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-    })
-    await batch.commit()
-    return { data: { taskTemplateId: tplRef.id }, error: null }
-  } catch (e) {
-    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to create task" } }
-  }
 }
 
 export async function updateTaskSchedule(

@@ -1,21 +1,21 @@
 import { useEffect, useState, useRef } from "react"
-import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
 import { ReviewItemTasksButton, type ReviewItemTasksHandle } from "@/components/manuals/ReviewItemTasksButton"
 import { ParsePickupCard } from "@/components/manuals/ParsePickupCard"
-import { anyAwaitingReview } from "@/lib/manualReviewState"
+import { itemManualState } from "@/lib/manualReviewState"
+import { useItemManuals } from "@/hooks/useItemManuals"
+import { useNotificationsBlocked } from "@/hooks/useNotificationsBlocked"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { PageContainer, EmptyState } from "@/components/layout"
 import { useAuth } from "@/modules/auth"
 import { useCurrentHome } from "@/modules/home"
 import { softDeleteItemUnit, updateItemUnit } from "@/modules/items"
 import { getTaskTemplatesWithSchedulesByItem } from "@/modules/care"
-import { updateChunkSourcePages } from "@/modules/knowledge"
-import { useManualManagement } from "@/hooks/useManualManagement"
+import { getChunksByItem, updateChunkSourcePages } from "@/modules/knowledge"
+import { useManualManagement, useManualUrls } from "@/hooks/useManualManagement"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { track } from "@/lib/analytics"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
-import type { ManualDocument } from "@/integrations/types"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { ItemDetailsSheet } from "@/components/item-care/ItemDetailsSheet"
@@ -53,18 +53,27 @@ export default function ItemDetailPage() {
   const { home } = useCurrentHome()
   const { user } = useAuth()
 
+  // HH-161: the item's manuals, LIVE — the one account of every read on this
+  // page. Upkeep, the Ask card, the hand-off card and both trees read it, and
+  // nothing patches a copy of it by hand.
+  const live = useItemManuals(home?.home_id, id)
+  const manuals = live.manuals
   // The page's own load (HH-160) — its state and its data — lives in one hook,
-  // apart from actionError below.
-  const load = useItemDetailLoad(home?.home_id, id)
+  // apart from actionError below. It is ready when the live manuals are too, so
+  // the page never draws "No upkeep yet" for the moment before they answer.
+  const load = useItemDetailLoad(home?.home_id, id, { status: live.status, count: manuals.length })
   const {
     item, setItem,
     tasks, setTasks,
     chunks, setChunks,
-    manuals, setManuals,
     rooms, setRooms,
     faqs, setFaqs,
-    manualPdfUrl,
   } = load
+  // "See page X" links open the newest manual's PDF. Same resolver (and cache
+  // entry) the manual section uses for its "Open manual" links.
+  const manualUrls = useManualUrls(manuals)
+  const manualPdfUrl = manuals[0] ? manualUrls[manuals[0].manual_id] ?? null : null
+  const notificationsBlocked = useNotificationsBlocked()
   /** What a delete, room or category change on this page reported. Never the
    *  load's state — a stall message in this slot is what sat over a page that
    *  had loaded fine (HH-160). */
@@ -147,19 +156,34 @@ export default function ItemDetailPage() {
     itemId: id ?? "",
     homeId: home?.home_id ?? "",
     userId: user?.id,
-    setManuals: (fn) => setManuals(fn),
     setChunks,
     setTasks,
   })
 
-  // The page's six reads live in useItemDetailLoad. What is no longer here is a
+  // The page's reads live in useItemDetailLoad. What is no longer here is a
   // scan started on load: the page re-enqueued a preview parse for every manual
   // with no parsed_at created in the last ten minutes — which is every manual
   // the wizard had just handed over, already enqueued by SmartAddItem's
   // startParseAndLeave. enqueueParse charges before it checks anything, so each
   // add with a manual was charged twice, and again on every refetch inside those
-  // ten minutes. The wizard starts the scan and this page watches it
-  // (ParsePickupCard) — docs/add-item-flow.md, "started and never awaited".
+  // ten minutes. The wizard starts the read and this page watches it (its live
+  // manuals) — docs/add-item-flow.md, "started and never awaited".
+
+  /** A review was saved: its tasks and its chunks (tips, specs, guides) are on
+   *  the item now. The manual's own state arrives through the live list. */
+  const refreshAfterReview = () => {
+    if (!home || !id) return
+    void Promise.all([
+      getTaskTemplatesWithSchedulesByItem(home.home_id, id),
+      getChunksByItem(home.home_id, id),
+    ]).then(([t, c]) => {
+      if (t.data) setTasks(t.data)
+      if (c.data) setChunks(c.data)
+      // Saved either way; a failed refresh shows the page as it was until the
+      // next visit, and says why in the console rather than nowhere.
+      if (t.error || c.error) console.error("[item] could not refresh after the review:", t.error?.message ?? c.error?.message)
+    })
+  }
 
   // Deep-link: arriving via /items/:id?manualPage=N (from a task's "From your
   // manual · p.N" reference) auto-opens the manual viewer at that page. Consume
@@ -256,34 +280,47 @@ export default function ItemDetailPage() {
   }
 
   const specsChunks = chunks.filter((c) => c.chunk_type === "specs")
-  const hasParsedManual = manuals.some((m) => m.parsed_at !== null)
-  // HH-87: mid-parse is neither "has a manual" nor "has none".
-  const parsingManual = manuals.some((m) => ACTIVE_PARSE_STAGES.includes(m.parse_stage as never))
-  // HH-141: a finished parse nobody saved is neither of the two above, and
-  // without this the page offered to add the manual ParsePickupCard just read.
-  const manualAwaitingReview = anyAwaitingReview(manuals)
+  // ONE account of the manuals for the whole page (HH-161): saved, being read
+  // (HH-87), or read and waiting for its review (HH-141). Both trees get this
+  // object; neither recomputes it.
+  // "Starting": this page is handing a manual to the reader, and the worker's
+  // own stage has not reached the live list yet (see startedReadPending).
+  const startingRead =
+    manualMgmt.parsePhase || manualMgmt.parsingManualId !== null || manualMgmt.startedReadPending(manuals)
+  const manualState = itemManualState(manuals, startingRead)
+  const hasParsedManual = manualState.hasManual
+
+  // The hand-off (HH-161): a finished read, delivered to its review — rendered
+  // INSIDE the one tree, between the name and Upkeep, never above the page.
+  const handoff = home && id ? (
+    <ParsePickupCard
+      homeId={home.home_id}
+      itemUnitId={id}
+      itemName={item.display_name || "This item"}
+      manuals={manuals}
+      watched={live.watched}
+      onReviewSaved={refreshAfterReview}
+    />
+  ) : null
 
   // Task splitting (setup / habit / regular) moved into RefinedItemDetail's
   // CareBlock and DesktopItemDetail when the legacy layout was retired — this
   // page just passes `tasks` through.
 
+  // The brand is CONTEXT for the review's title, so prepend it — unless the name
+  // already carries it, which every composed name has since #139.
+  // Unconditional prepending produced "LG LG DLGX3901B" across the review sheet
+  // and the add dialog (owner's round-9 screenshot).
+  const reviewItemName =
+    (item.brand && !item.display_name?.toLowerCase().includes(item.brand.toLowerCase())
+      ? `${item.brand} ${item.display_name ?? ""}`.trim()
+      : item.display_name) || "This item"
+
   const manualSectionProps = {
     homeId: home?.home_id ?? "",
-    // The brand is CONTEXT for the manual search, so prepend it — unless the
-    // name already carries it, which every composed name has since #139.
-    // Unconditional prepending produced "LG LG DLGX3901B" across the review
-    // sheet and the add dialog (owner's round-9 screenshot).
-    itemName: item
-      ? (item.brand && !item.display_name?.toLowerCase().includes(item.brand.toLowerCase())
-          ? `${item.brand} ${item.display_name ?? ""}`.trim()
-          : item.display_name) || "This item"
-      : undefined,
-    itemUnitId: id ?? null,
     brand: item?.brand ?? null,
     model: item?.model ?? null,
     manuals,
-    onManualUpdated: (updated: ManualDocument) =>
-      setManuals((prev) => prev.map((m) => (m.manual_id === updated.manual_id ? updated : m))),
     addManualOpen: manualMgmt.addManualOpen,
     setAddManualOpen: manualMgmt.setAddManualOpen,
     addMode: manualMgmt.addMode,
@@ -298,21 +335,12 @@ export default function ItemDetailPage() {
     addLoading: manualMgmt.addLoading,
     parsePhase: manualMgmt.parsePhase,
     parsingManualId: manualMgmt.parsingManualId,
-    parsedManualId: manualMgmt.parsedManualId,
-    setParsedManualId: manualMgmt.setParsedManualId,
-    previewResult: manualMgmt.previewResult,
-    setPreviewResult: manualMgmt.setPreviewResult,
-    reviewOpen: manualMgmt.reviewOpen,
-    setReviewOpen: manualMgmt.setReviewOpen,
-    saving: manualMgmt.saving,
     deletingManualId: manualMgmt.deletingManualId,
     handleOpenAddManual: manualMgmt.handleOpenAddManual,
     handleAddManual: manualMgmt.handleAddManual,
-    handleParseExistingManual: manualMgmt.handleParseExistingManual,
-    handleRescanManual: manualMgmt.handleRescanManual,
+    handleReadManual: manualMgmt.handleReadManual,
     handleFillGaps: manualMgmt.handleFillGaps,
     handleDeleteManual: manualMgmt.handleDeleteManual,
-    handleSave: manualMgmt.handleSave,
   }
 
   const handlePickRoom = async (roomId: string | null) => {
@@ -446,18 +474,20 @@ export default function ItemDetailPage() {
         </div>
       )}
 
-      {home && id && manuals.length > 0 && (
-        <ParsePickupCard
-          homeId={home.home_id}
-          itemUnitId={id}
-          itemName={item.display_name || "This item"}
-          manualIds={manuals.map((m) => m.manual_id)}
-          onReviewSaved={() => {
-            void getTaskTemplatesWithSchedulesByItem(home.home_id, id).then((r) => {
-              if (r.data) setTasks(r.data)
-            })
-          }}
-        />
+      {live.status === "failed" && (
+        // The manuals listener could not start (a rules or network refusal).
+        // The rest of the item is real, so it stays; only the manual's state is
+        // unknown, and the page says that instead of guessing it.
+        <div className="mb-4 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5"
+          style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
+          <CloudOffIcon className="size-4 shrink-0" style={{ color: "var(--hh-sub)" }} aria-hidden />
+          <span className="min-w-0 flex-1 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
+            Couldn&apos;t load this item&apos;s manuals.
+          </span>
+          <button type="button" onClick={live.retry} className="shrink-0 text-[12.5px] font-bold" style={{ color: "var(--hh-teal)" }}>
+            Try again
+          </button>
+        </div>
       )}
 
       {/* Redesigned item detail — RefinedItemDetail (phone) OR DesktopItemDetail
@@ -474,7 +504,9 @@ export default function ItemDetailPage() {
           homeId={home!.home_id}
           tasks={tasks}
           chunks={chunks}
-          manuals={manuals}
+          manualState={manualState}
+          notificationsBlocked={notificationsBlocked}
+          handoffSlot={handoff}
           faqs={faqs}
           historyKey={historyKey}
           onBack={() => navigate("/inventory")}
@@ -496,9 +528,9 @@ export default function ItemDetailPage() {
             homeId={home!.home_id}
             tasks={tasks}
             chunks={chunks}
-            hasManual={hasParsedManual}
-            parsingManual={parsingManual}
-            manualAwaitingReview={manualAwaitingReview}
+            manualState={manualState}
+            notificationsBlocked={notificationsBlocked}
+            handoffSlot={handoff}
             onBack={() => navigate("/inventory")}
             onOpenManualPage={(page) => openManualPage(page)}
             canOpenManual={!!manualPdfUrl}
@@ -516,7 +548,7 @@ export default function ItemDetailPage() {
                   ref={reviewRef}
                   homeId={home.home_id}
                   itemUnitId={id}
-                  itemName={manualSectionProps.itemName ?? "This item"}
+                  itemName={reviewItemName}
                   taskCount={tasks.length}
                   compact
                   onDone={() => {

@@ -46,18 +46,6 @@ function err(e: unknown): { data: null; error: { message: string } } {
 }
 const notesCol = (homeId: string) => collection(db, `homes/${homeId}/careNotes`)
 
-export async function getCareNotesByScope(homeId: string, scope: CareNoteScope): Promise<ServiceResult<CareNote[]>> {
-  try {
-    const snap = await getDocs(query(notesCol(homeId), where("deletedAt", "==", null), where("scope", "==", scope)))
-    const notes = snap.docs
-      .map((d) => toCareNote(homeId, d.id, d.data()))
-      .sort((a, b) => (a.category ?? "").localeCompare(b.category ?? "") || (b.created_at ?? "").localeCompare(a.created_at ?? ""))
-    return { data: notes, error: null }
-  } catch (e) {
-    return err(e)
-  }
-}
-
 export async function getCareNotesByItem(homeId: string, itemUnitId: string): Promise<ServiceResult<CareNote[]>> {
   try {
     const snap = await getDocs(query(notesCol(homeId), where("deletedAt", "==", null), where("itemUnitId", "==", itemUnitId)))
@@ -65,39 +53,6 @@ export async function getCareNotesByItem(homeId: string, itemUnitId: string): Pr
       .map((d) => toCareNote(homeId, d.id, d.data()))
       .sort((a, b) => (a.chunk_type ?? "").localeCompare(b.chunk_type ?? "") || (b.created_at ?? "").localeCompare(a.created_at ?? ""))
     return { data: notes, error: null }
-  } catch (e) {
-    return err(e)
-  }
-}
-
-/** All item-scoped care notes for a home, with item + room metadata (client join). */
-export async function getCareNotesByHome(
-  homeId: string
-): Promise<ServiceResult<(CareNote & { item_name: string; item_category: string | null; room_name: string | null })[]>> {
-  try {
-    const [notesSnap, itemsSnap, roomsSnap] = await Promise.all([
-      getDocs(query(notesCol(homeId), where("deletedAt", "==", null), where("scope", "==", "item_unit"))),
-      getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))),
-      getDocs(query(collection(db, `homes/${homeId}/rooms`), where("deletedAt", "==", null))),
-    ])
-    const roomNames = new Map(roomsSnap.docs.map((r) => [r.id, (r.get("name") as string) ?? ""]))
-    const itemMap = new Map(
-      itemsSnap.docs.map((i) => [
-        i.id,
-        { display_name: (i.get("displayName") as string) ?? "", category: (i.get("category") as string | null) ?? null, room_id: (i.get("roomId") as string | null) ?? null },
-      ])
-    )
-    const result = notesSnap.docs.map((d) => {
-      const n = toCareNote(homeId, d.id, d.data())
-      const item = n.item_unit_id ? itemMap.get(n.item_unit_id) : null
-      return {
-        ...n,
-        item_name: item?.display_name ?? "Unknown",
-        item_category: item?.category ?? null,
-        room_name: item?.room_id ? roomNames.get(item.room_id) ?? null : null,
-      }
-    })
-    return { data: result, error: null }
   } catch (e) {
     return err(e)
   }
