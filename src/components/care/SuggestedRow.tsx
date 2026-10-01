@@ -104,10 +104,3 @@ export function SuggestedSource({ kindLabel }: { kindLabel: string }) {
     </div>
   )
 }
-
-export const KIND_LABELS: Record<string, string> = {
-  air_purifier: "air purifiers", range_hood: "range hoods", dishwasher: "dishwashers", refrigerator: "refrigerators",
-  furnace: "furnaces", hvac: "heating and cooling", dryer: "dryers", washer: "washers", coffee_machine: "coffee machines",
-  microwave: "microwaves", water_heater: "water heaters", ceiling_fan: "ceiling fans", food_recycler: "food recyclers",
-  oven_range: "ranges", smoke_alarm: "alarms", home: "a home like yours",
-}

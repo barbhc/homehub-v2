@@ -1503,8 +1503,8 @@ export default function Settings() {
                       setPushSubscribed(false)
                     } else {
                       const result = isNative
-                        ? await registerNativePush(user.id, homeId)
-                        : await subscribeToPush(user.id, homeId)
+                        ? await registerNativePush(user.id)
+                        : await subscribeToPush(user.id)
                       if (result.success) setPushSubscribed(true)
                       else setPushError(result.error ?? "Couldn't enable notifications.")
                     }

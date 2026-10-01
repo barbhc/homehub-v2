@@ -11,7 +11,8 @@
  */
 import { describe, it, expect } from "vitest"
 import type { ItemUnit } from "@/integrations/types"
-import { DEFAULT_IDENTIFY_DATA, type IdentifyData } from "./IdentifyStep"
+import type { IdentifyData } from "./IdentifyStep"
+import { DEFAULT_IDENTIFY_DATA } from "./identifyData"
 import { identityWrite, typedItemName } from "./identifyWrite"
 
 const form = (over: Partial<IdentifyData> = {}): IdentifyData => ({ ...DEFAULT_IDENTIFY_DATA, ...over })

@@ -18,7 +18,6 @@ import { shouldShowHomeSkeleton, SKELETON_PATIENCE_MS } from "@/lib/homeLoadingG
 import { UndoBar } from "@/components/ui/UndoBar"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useAuth } from "@/modules/auth"
-import { auth } from "@/integrations/firebase"
 import { useCurrentHome, useHomeProfile } from "@/modules/home"
 import { useUserLevel } from "@/hooks/useUserLevel"
 import { AskFirstHero } from "@/components/dashboard/AskFirstHero"
@@ -32,6 +31,7 @@ import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 import { WhatsNewBanner } from "@/components/dashboard/WhatsNewBanner"
 import { LevelUnlockBanner } from "@/components/dashboard/LevelUnlockBanner"
 import { addDays, localToday } from "../../shared/dates/calendar"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 // ── Agenda ──────────────────────────────────────────────────────────────────
 
@@ -192,8 +192,12 @@ export default function Home() {
   }, [isLoading, stats])
 
   // Only runs while the skeleton is actually what the user is looking at.
+  // Leaving it clears the flag in the render that leaves, so a later skeleton
+  // starts its patience over.
+  const skeletonShown = shouldShowHomeSkeleton(isLoading, !!stats)
+  if (useDepsChanged([skeletonShown]) && !skeletonShown) setSkeletonSlow(false)
   useEffect(() => {
-    if (!shouldShowHomeSkeleton(isLoading, !!stats)) { setSkeletonSlow(false); return }
+    if (!shouldShowHomeSkeleton(isLoading, !!stats)) return
     const t = window.setTimeout(() => setSkeletonSlow(true), SKELETON_PATIENCE_MS)
     return () => window.clearTimeout(t)
   }, [isLoading, stats])
@@ -337,13 +341,6 @@ export default function Home() {
   // yet" over a profile nag. Nothing on the screen was false and nothing was
   // any use. This is the one state where we know exactly what would help.
   const hasItemsNoUpkeep = !isNewUser && (stats?.scheduledTaskCount ?? 0) === 0
-  // HH-95: "the past 30 days" of a brand-new account is an empty story. Ready
-  // once the account is ~3 weeks old or something has actually been completed.
-  const briefingReady = (() => {
-    const created = auth.currentUser?.metadata?.creationTime
-    const ageDays = created ? (Date.now() - new Date(created).getTime()) / 86400000 : 999
-    return ageDays >= 21 || (stats?.completedThisMonth ?? 0) > 0
-  })()
 
   return (
     <div className="flex flex-col pb-8">
@@ -434,7 +431,6 @@ export default function Home() {
               tasks={homeTasks}
               upcoming={upcoming}
             nextUp={stats?.nextUp ?? null}
-            briefingReady={briefingReady}
               warranties={expiringWarranties}
               cleaningGuides={cleaningGuides}
               level={level}
@@ -455,7 +451,6 @@ export default function Home() {
             notices={notices}
             upcoming={upcoming}
             nextUp={stats?.nextUp ?? null}
-            briefingReady={briefingReady}
             cleaningGuides={cleaningGuides}
             level={level}
             homeId={homeId || null}

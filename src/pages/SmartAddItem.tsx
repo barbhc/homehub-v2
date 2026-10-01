@@ -4,10 +4,10 @@ import { PageContainer, PageHeader, SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import {
   IdentifyStep,
-  DEFAULT_IDENTIFY_DATA,
   type IdentifyData,
   type IdentifyMode,
 } from "@/components/smart-add/IdentifyStep"
+import { DEFAULT_IDENTIFY_DATA } from "@/components/smart-add/identifyData"
 import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/ManualStep"
 import { identityWrite } from "@/components/smart-add/identifyWrite"
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"

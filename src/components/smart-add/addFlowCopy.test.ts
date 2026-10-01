@@ -17,7 +17,8 @@ import { resolve } from "node:path"
  *  load-bearing rather than tidy. `accept="image/*"` contains the two
  *  characters that open a block comment, so the naive pattern treated the rest
  *  of that attribute as a comment and deleted everything up to the next real
- *  `*​/` — fifty lines of IdentifyStep, including the model field and its hint.
+ *  comment close (`*` then `/`) — fifty lines of IdentifyStep, including the
+ *  model field and its hint.
  *  Nothing failed. `toContain` on that range failed for a reason that looked
  *  like missing copy, and every `not.toContain` over it passed vacuously, which
  *  is the worse half: a test asserting we no longer say something, agreeing,

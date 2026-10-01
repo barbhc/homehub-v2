@@ -13,22 +13,35 @@ import { dens } from "@/lib/redesign/tokens"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 
-// Compact keyword→glyph resolver (mirrors the Inventory page's intent).
-const KW: [RegExp, LucideIcon][] = [
-  [/fridge|refriger/i, RefrigeratorIcon],
-  [/hvac|furnace|a\/c|air|heat pump/i, WindIcon],
-  [/water heater|boiler|flame|gas/i, FlameIcon],
-  [/wash|dryer|laundry/i, WashingMachineIcon],
-  [/dishwash|oven|range|cook|stove/i, UtensilsIcon],
+// Compact keyword→glyph resolver (mirrors the Inventory page's intent). It
+// answers with a KEY into GLYPHS rather than the component itself: rendering a
+// component a function returned is, as far as react-hooks/static-components can
+// tell, a component created during render. A lookup in a module-level table is
+// visibly one of a fixed set.
+const GLYPHS = {
+  fridge: RefrigeratorIcon,
+  air: WindIcon,
+  flame: FlameIcon,
+  laundry: WashingMachineIcon,
+  kitchen: UtensilsIcon,
+  other: PackageIcon,
+} satisfies Record<string, LucideIcon>
+type GlyphKey = keyof typeof GLYPHS
+const KW: [RegExp, GlyphKey][] = [
+  [/fridge|refriger/i, "fridge"],
+  [/hvac|furnace|a\/c|air|heat pump/i, "air"],
+  [/water heater|boiler|flame|gas/i, "flame"],
+  [/wash|dryer|laundry/i, "laundry"],
+  [/dishwash|oven|range|cook|stove/i, "kitchen"],
 ]
-function glyphFor(item: ItemUnit): LucideIcon {
+function glyphFor(item: ItemUnit): GlyphKey {
   const hay = `${item.display_name} ${item.category ?? ""}`
-  for (const [re, icon] of KW) if (re.test(hay)) return icon
-  return PackageIcon
+  for (const [re, key] of KW) if (re.test(hay)) return key
+  return "other"
 }
 
 function ItemThumb({ item, size }: { item: ItemUnit; size: number }) {
-  const Icon = glyphFor(item)
+  const Icon = GLYPHS[glyphFor(item)]
   return (
     <div
       style={{ width: size, height: size, background: "linear-gradient(135deg,#EEF3F1,#E3ECE8)", color: TEAL }}

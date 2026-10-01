@@ -41,6 +41,7 @@ import {
 } from "@/modules/inventory/constants/itemCategories"
 import { useCurrentHome, getRooms } from "@/modules/home"
 import { cn } from "@/lib/utils"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 export type IdentifyMode = "choice" | "appliance" | "simple"
 
@@ -70,20 +71,6 @@ type IdentifyStepProps = {
   /** Latest snapped label photo (downscaled), or null when cleared — the
    *  parent attaches it to the item after creation. */
   onLabelPhoto?: (file: File | null) => void
-}
-
-export const DEFAULT_IDENTIFY_DATA: IdentifyData = {
-  brand: "",
-  model: "",
-  name: "",
-  serialNumber: "",
-  itemCategory: null,
-  subType: null,
-  categoryFields: {},
-  confidence: 0,
-  locationId: null,
-  purchaseDate: null,
-  purchasePrice: null,
 }
 
 function mergeOcrCategory(raw: string | null | undefined): {
@@ -265,9 +252,9 @@ export function IdentifyStep({
 
   const wantAutoExpand = useMemo(() => hasHiddenAutofill(data, mode), [data, mode])
 
-  useEffect(() => {
-    if (wantAutoExpand) setMoreDetailsOpen(true)
-  }, [wantAutoExpand])
+  // Autofill landing in a hidden field opens the disclosure, in the render that
+  // brings it. Only on the change: closing it again afterwards is the user's call.
+  if (useDepsChanged([wantAutoExpand], { onMount: true }) && wantAutoExpand) setMoreDetailsOpen(true)
 
   useEffect(() => {
     return () => {

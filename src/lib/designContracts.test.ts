@@ -144,7 +144,8 @@ vi.mock("@/pages/item-detail/useSetupCompletion", () => ({
 
 import ItemDetailPage from "@/pages/ItemDetailPage"
 import { ManualStep } from "@/components/smart-add/ManualStep"
-import { IdentifyStep, DEFAULT_IDENTIFY_DATA } from "@/components/smart-add/IdentifyStep"
+import { IdentifyStep } from "@/components/smart-add/IdentifyStep"
+import { DEFAULT_IDENTIFY_DATA } from "@/components/smart-add/identifyData"
 import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { ParseTrayPill } from "@/components/manuals/ParseTrayPill"
 import { CareBlock } from "@/components/item-care/CareBlock"

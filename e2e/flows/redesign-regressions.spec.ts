@@ -19,9 +19,9 @@ const vis = (loc: import("@playwright/test").Locator) => loc.filter({ visible: t
 // by their desktop text/structure. The mobile app has its own layout and is
 // covered by the visual + a11y specs on every page, so scope these guards to
 // the desktop (chromium) project.
-test.beforeEach(({}, testInfo) => {
+test.beforeEach(() => {
   test.skip(
-    testInfo.project.name === "mobile",
+    test.info().project.name === "mobile",
     "Desktop-only behavioral flows; mobile is covered by visual + a11y specs"
   )
 })

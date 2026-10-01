@@ -98,8 +98,8 @@ export function PushOptInNudge({ userId, homeId }: { userId: string; homeId: str
     setState("subscribing")
     setErrorMsg(null)
     const result = isNativePlatform()
-      ? await registerNativePush(userId, homeId)
-      : await subscribeToPush(userId, homeId)
+      ? await registerNativePush(userId)
+      : await subscribeToPush(userId)
     if (result.success) {
       setState("hidden")
     } else {

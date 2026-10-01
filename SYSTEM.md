@@ -22,7 +22,7 @@ Every claim below was read at source; file:line references are the evidence. Whe
 | Native shell | Capacitor 8.4 iOS — push-notifications, camera, apple-sign-in |
 | Monitoring | PostHog (`posthog-js`, `src/lib/analytics.ts:27`) and Sentry (`@sentry/react` 10.65, `src/main.tsx:45`) — **both live**, with Sentry source maps uploaded at build time by `@sentry/vite-plugin`. See Gap #1 for how all of it can silently vanish |
 | Tests | Vitest 4.1 (80 unit files), Playwright 1.59 (29 e2e specs), `@firebase/rules-unit-testing` 5.0, 23 node:test worker files |
-| Lint | ESLint 9.39 — `npm run lint:new` covers only `src/integrations`, `shared`, `e2e/smoke`, `scripts/seed-emulator.ts`, `firebase/functions/src` |
+| Lint | ESLint 9.39 — `npm run lint` (`eslint .`) covers the whole app: `src`, `shared`, `e2e`, `scripts`, `evals`, `firebase/functions/src`; `eslint.config.js` ignores only generated output (H5) |
 
 **Admin SDK versions diverge on purpose.** Root is `firebase-admin@^14.2.0` (a **devDependency** — scripts, seeds and tests only, never in the client bundle). `firebase/functions` stays on `^13`, because `firebase-functions@6.6.0` peer-requires `^11 || ^12 || ^13` and npm refuses the tree otherwise. Moving functions to 14 requires `firebase-functions@7` — see Gap #5.
 
@@ -217,7 +217,7 @@ Caching: `Cache-Control: no-cache` on `**` (so the iOS WKWebView picks up a depl
 
 | Job | Runs |
 |---|---|
-| `checks` | `tsc -b`, `lint:new`, `vitest run`, `vite build`, Playwright boot smoke |
+| `checks` | `tsc -b`, `npm run lint` (whole app), `vitest run`, `vite build`, Playwright boot smoke |
 | `functions` | `npm run typecheck` in `firebase/functions` |
 | `emulator` | **security-rules tests**, parse-worker integration tests, seeded e2e |
 
@@ -239,7 +239,7 @@ Three Storage tests remain **skipped**: the membership gate needs cross-service 
 6. **Both `onRequest` doors send `Access-Control-Allow-Origin: "*"`.** Token verification is the real gate, so not an authorization hole, but an origin allowlist would be strictly better.
 7. **No Firebase budget cap.** Per-user daily quotas and an app-wide monthly ceiling exist in code; a project-level GCP spend ceiling does not.
 8. **`verifyIdToken` is called without `checkRevoked: true`** (`chatQuery.ts:108`, `proxyPdf.ts:39`), so a revoked or disabled account keeps working until its token expires (up to 1 hour).
-9. **`lint:new` covers only part of the tree** — most of `src/` is unlinted in CI, including every component touched by the silent-failure fixes.
+9. ~~**`lint:new` covers only part of the tree**~~ — closed by H5: CI runs `npm run lint` over the whole app, at 0 errors.
 10. **Dead `@supabase/supabase-js` dependency** still in `dependencies`.
 11. **The emulator does not enforce Firestore indexes**, so a missing composite index or the `members.uid` fieldOverride fails only in production.
 12. **GitHub Actions minutes are exhausted until 1 Sept.** 18 of 19 repos are private, so all CI bills against the 3,000-minute Pro allowance; homehub-v2 alone used 1,981 minutes in August. The duplicate-trigger fix removes ~982/month of that.

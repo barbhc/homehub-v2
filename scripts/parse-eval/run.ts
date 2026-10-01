@@ -31,7 +31,6 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { buildPrompt, buildExtractionRequest, extractionContent, extractParsedResult } from "../../shared/parse/parsePrompt.js"
-import { titleSimilarity, TITLE_MATCH_THRESHOLD } from "../../shared/parse/parseCore.js"
 import { pairByBestScore } from "./pairing.js"
 import { classifyTaskKind } from "../../shared/tasks/taxonomy.js"
 
@@ -174,8 +173,8 @@ function score(parsed: RawParse) {
 }
 
 // ── Golden comparison — uses the SAME fuzzy matcher as prod reconciliation
-// (parseCore.titleSimilarity), so a "MISSING" in this report is exactly a task
-// prod's rescan would fail to match.
+// (parseCore.titleSimilarity, via pairing.ts), so a "MISSING" in this report is
+// exactly a task prod's rescan would fail to match.
 function diffTitles(goldenTitles: string[], newTitles: string[]) {
   const { pairs, unmatchedGolden, unmatchedNext } = pairByBestScore(goldenTitles, newTitles)
   return {
