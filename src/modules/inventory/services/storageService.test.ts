@@ -24,7 +24,7 @@ vi.mock("@/integrations/firebase", () => ({
   callable: () => async () => ({ ok: true, images: [] }),
 }))
 
-import { uploadManualPdf, uploadItemPhoto, uploadReceiptImage, uploadDiagramImage } from "./storageService"
+import { uploadManualPdf, uploadItemPhoto, uploadReceiptImage } from "./storageService"
 
 beforeEach(() => uploadBytes.mockReset())
 
@@ -88,10 +88,5 @@ describe("upload paths are home-scoped", () => {
   it("receipts: homes/{homeId}/receipts/{itemUnitId}/…", async () => {
     const res = await uploadReceiptImage("h1", "item1", file, "uid-9")
     expect(res.data?.path).toMatch(/^homes\/h1\/receipts\/item1\/\d+-m\.pdf$/)
-  })
-
-  it("diagram renders: homes/{homeId}/images/{manualId}/page_{n}.jpg", async () => {
-    const res = await uploadDiagramImage("h1", "man-1", 4, new Blob(["x"]))
-    expect(res.data?.path).toBe("homes/h1/images/man-1/page_4.jpg")
   })
 })

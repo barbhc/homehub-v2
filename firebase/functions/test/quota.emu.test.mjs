@@ -105,7 +105,9 @@ test("a loop spread across many endpoints still hits the burst cap", async () =>
   // Each endpoint stays under its own limit; the user is still looping. Only
   // the unit-denominated burst window sees it.
   const uid = freshUid("burst")
-  const spread = ["chatQuery", "discussTask", "suggestCareNotes", "productLookup", "findManual", "searchProductImages"]
+  // All 1-unit endpoints with a 10/min window each. (suggestCareNotes held this
+  // slot until it was retired on 2026-09-30; proposeReminders prices the same.)
+  const spread = ["chatQuery", "discussTask", "proposeReminders", "productLookup", "findManual", "searchProductImages"]
 
   // Rounds derived from the CAP, not hard-coded. This loop used to be six
   // rounds of six 1-unit calls — exactly 36 units, chosen when the cap was 25.

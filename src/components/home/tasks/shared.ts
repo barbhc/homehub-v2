@@ -1,4 +1,4 @@
-// ── Tasks redesign — shared helpers (mobile TasksV3A + desktop DesktopTasksRoom)
+// ── Tasks redesign — shared helpers (mobile RefinedWeek + desktop DesktopTasks)
 // Ported from the design handoff (tasks-redesign{,2,3}.jsx / tasks-desktop.jsx),
 // rebuilt against the real WeekAgenda read model. The prototype's hardcoded
 // "June 2026 / today = 24th" calendar and item→room mapping are replaced with

@@ -707,27 +707,23 @@ describe("Home, Tasks and the item page speak one calm language", () => {
     expect(whenLabel(passedDeadline)).toBe("Overdue")
   })
 
-  it("Calm tiers · no NEW screen labels a task 'Overdue' outside the deadline gate (known breaches listed and routed)", () => {
+  it("Calm tiers · no screen labels a task 'Overdue' outside the deadline gate — the known breaches are gone (H)", () => {
     // The label — "Overdue", or the "N days overdue" count — in text a user can
     // read. ALLOWED: the Tasks rows' whenLabel (returns it only when
     // t.trulyOverdue), tokens.dueLabel (its one caller, RefinedTaskDetail,
     // uses it only for deadline-kind tasks), and cleanDueLabel (the /clean hub
     // since E3 — returns it only when isTrulyOverdue, i.e. a passed deadline).
     const ALLOWED = ["src/components/home/tasks/shared.ts", "src/lib/redesign/tokens.ts", "src/lib/cleanDue.ts"]
-    // KNOWN breaches, one-directional: fixing one needs no edit here, adding a
-    // new one fails. The todo below is the rule with this list empty.
-    // (DeepClean.tsx left this list in E3: its label is cleanDueLabel now.)
-    const KNOWN = [
-      "src/pages/CarePage.tsx", // /care, URL-only route — H (dead routes)
-      "src/components/maintenance/MaintenanceTaskRow.tsx", // /tasks, URL-only route — H
-      "src/components/dashboard/TaskRow.tsx", // unrendered — H (dead code)
-      "src/components/dashboard/UrgentTasksCard.tsx", // unrendered — H (dead code)
-    ]
+    // No known breaches remain. DeepClean.tsx left the list in E3 (its label is
+    // cleanDueLabel now); the dead-code sweep (H) deleted the other four —
+    // CarePage (/care), MaintenanceTaskRow (/tasks), and the unrendered
+    // components/dashboard TaskRow + UrgentTasksCard — so an "Overdue" anywhere
+    // else is a new breach.
     // Case matters for the bare word: lower-case "overdue" is an enum value
     // (urgencyLevel), not something a person reads.
     const saying = [...filesSaying(/^Overdue$/), ...filesSaying(/\bdays?\s+overdue\b/i)]
     const offenders = [...new Set(saying.map((line) => line.split(" :: ")[0]))]
-      .filter((p) => !ALLOWED.includes(p) && !KNOWN.includes(p))
+      .filter((p) => !ALLOWED.includes(p))
     expect(offenders).toEqual([])
   })
 
@@ -738,8 +734,6 @@ describe("Home, Tasks and the item page speak one calm language", () => {
     expect(task("Wipe the fridge gaskets", "monthly", iso(-2)).text).toBe("Good to do now")
     expect(task("Renew the water softener warranty", "as_needed", iso(-3))).toEqual({ text: "Overdue", overdue: true })
   })
-
-  it.todo("Calm tiers · and the known 'Overdue' breaches are gone (H: /care, /tasks, components/dashboard)")
 
   it("HH-150 · an item row says what Home and Tasks say — the window, never an invented date", async () => {
     // Round 19's lesson: the item page was the THIRD surface to render a task

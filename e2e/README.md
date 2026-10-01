@@ -1,116 +1,55 @@
-# E2E + visual + a11y harness
+# E2E harness
 
-Playwright suite that audits the redesign the way the manual screenshot loop did
-— but automatically, deterministically, and in one place. It drives the real app
-against a **seeded throwaway test user**, captures **visual snapshots** of every
-page (desktop + mobile), runs **accessibility** scans, and asserts the
-**redesign behaviours** (the audit fixes) so they can't silently regress.
-
-## One-time setup
-
-1. **Install browsers** (first run only):
-   ```bash
-   npx playwright install --with-deps chromium
-   ```
-2. **Create `.env.test`** from the template and fill it in:
-   ```bash
-   cp .env.test.example .env.test
-   ```
-   You can point it at your **dev** Supabase project — the seed is isolated to a
-   throwaway user + a home named "E2E Test Home" and never touches other data.
-   The `SUPABASE_SERVICE_ROLE_KEY` is only used by the seed script (Settings →
-   API → service_role); it is gitignored and never reaches the browser.
+Playwright suites that drive the real app against the **Firebase Emulator Suite**
+(project `demo-homehub` — never a real project) with a **deterministic seed**: one
+test user and its home, "E2E Test Home" (`homes/e2e-home`), written by
+`scripts/seed-emulator.ts`.
 
 ## Run it
 
 ```bash
-npm run seed:test     # create/reset the test user + deterministic data
-npm run test:e2e      # boot dev server, log in, run all specs (desktop + mobile)
-npm run test:e2e:report   # open the HTML report (snapshots, diffs, traces)
+npm run emu            # terminal 1: the emulator suite (demo-homehub); the specs use auth, firestore, storage
+npm run emu:clear && FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npm run seed:emu
+npx playwright test --config playwright.emu.config.ts      # one suite (see below)
+npm run test:e2e:all:emu   # what CI runs: all four suites in one emulator boot, reseeding between them
 ```
 
-Run a slice:
-```bash
-npx playwright test e2e/flows          # just the behavioural regression guards
-npx playwright test e2e/visual --project=chromium   # desktop visual only
-npx playwright test e2e/a11y           # accessibility only
-```
+Each emulator config starts its own `npm run dev:emu` on `WEB_PORT` (5273 —
+deliberately not Vite's 5173; `PW_WEB_PORT` overrides) and refuses to reuse a
+server already on that port. `auth.setup.ts` signs the seeded user into the Auth
+emulator once and saves the session to `e2e/.auth/user.json`; the suites reuse it.
 
-## Visual baselines
+Clear and reseed before every suite: specs in one run share the seeded state,
+and a reseed alone does not remove what a previous run created.
 
-First run (or after an intentional UI change) generates/updates the committed
-baselines:
-```bash
-npm run test:e2e:update
-```
-Review the new PNGs under `e2e/__screenshots__/<project>/…` before committing —
-that review IS the "is this the intended look?" gate. Subsequent runs fail if a
-page drifts beyond tolerance (`maxDiffPixelRatio: 0.02`), and the report shows a
-pixel diff.
+## Suites
 
-### Prototype as the reference
-The committed design prototype (`design/Homehub Desktop.html`) is the source of
-truth for *what correct looks like*. Capture it for side-by-side review:
-```bash
-CAPTURE_PROTOTYPE=1 npx playwright test e2e/prototype --project=chromium
-# → e2e/prototype-reference/desktop-prototype.png
-```
-This is a **reference**, not a hard gate — a hand-built prototype never
-pixel-matches a real app. The hard gate is app-vs-approved-snapshot; the
-prototype is what you (and the agent) judge a new baseline against.
+| Config | Specs | In CI |
+|---|---|---|
+| `playwright.config.ts` · project `smoke` | `smoke/boot.spec.ts` — landing, sign-in card, auth gate; no emulators | yes (`checks` job) |
+| `playwright.emu.config.ts` | `emu/*.spec.ts` — seeded service-layer round trips | yes |
+| `playwright.a11y.config.ts` | `a11y/` — axe WCAG A/AA at desktop and mobile | yes |
+| `playwright.device.config.ts` | `device/` — layout across viewports | yes |
+| `playwright.journey.config.ts` | `journey/` — the core user journeys with step screenshots (`docs/user-journeys.md`) | yes |
+| `playwright.visual.config.ts` | `visual/pages.spec.ts` — full-page snapshots at desktop + mobile | no |
+
+Not in CI: `flows/` (older behavioural guards, stale selectors), `legacy/`
+(pre-redesign specs, ignored — see `legacy/README.md`), `prototype/` (opt-in
+reference capture), and `smoke/coldstart.spec.ts` (CI runs `smoke/boot.spec.ts`
+by name).
 
 ## Why it's deterministic
 
-- The seed computes every due-date relative to `SEED_TODAY` (`e2e/seed-config.ts`).
-- The Playwright fixture (`e2e/fixtures.ts`) pins the browser clock to that same
-  date, so "overdue / due soon / this week" render identically every run.
-- The test user is forced to **power** interface level so the full desktop nav
-  (Clean / Warranties / Providers) is always present, and the product tour +
-  onboarding are suppressed so nothing overlays the screenshots.
+- The seed computes every due date relative to `SEED_TODAY` (`e2e/seed-config.ts`).
+- The fixture (`e2e/fixtures.ts`) pins the browser clock to that same date and
+  kills animations, so "overdue / due soon / this week" render identically every
+  run.
 
-Change `SEED_TODAY` in one place and re-seed; the clock follows automatically.
+Change `SEED_TODAY` in one place and reseed; the clock follows.
 
-## Layout
+## Visual baselines
 
-```
-e2e/
-  seed-config.ts          shared anchor: SEED_TODAY, test identity, viewport
-  auth.setup.ts           logs in once → e2e/.auth/user.json (storage state)
-  fixtures.ts             clock freeze + motion kill (extends `test`)
-  visual/pages.spec.ts    full-page snapshots of every surface (×2 viewports)
-  a11y/a11y.spec.ts       axe-core WCAG scan, gates critical/serious
-  flows/redesign-regressions.spec.ts   guards the audit fixes (data-binding,
-                                       landing, providers, ask citations)
-  prototype/reference.spec.ts          opt-in prototype reference capture
-  *.spec.ts               pre-existing smoke specs (navigation, dashboard, …)
-scripts/seed-test-data.ts deterministic seed (service-role, idempotent)
-```
-
-## CI gate
-
-`.github/workflows/e2e.yml` runs on PRs to `main` (and pushes to `main`): it
-installs Playwright, builds the app, **seeds** the throwaway test home, runs the
-full suite against a `vite preview` build, and uploads the HTML report +
-`test-results/` as artifacts.
-
-**To turn it on:**
-
-1. Add these repo secrets (Settings → Secrets and variables → Actions):
-   | Secret | Value |
-   |---|---|
-   | `TEST_SUPABASE_URL` | your test/dev project URL |
-   | `TEST_SUPABASE_ANON_KEY` | its publishable anon key |
-   | `TEST_SUPABASE_SERVICE_ROLE_KEY` | service_role key (seed only) |
-   | `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` | optional |
-2. **Bootstrap the visual baselines once** (none are committed yet, so the visual
-   specs would otherwise fail "no snapshot"). Either run locally —
-   ```bash
-   npm run seed:test && npm run test:e2e:update
-   git add e2e/__screenshots__ && git commit -m "test(e2e): visual baselines"
-   ```
-   — or trigger the workflow manually (Actions → E2E → Run workflow →
-   *update baselines* ✓) and commit the `updated-visual-baselines` artifact.
-3. Make **E2E** a required status check (Settings → Branches → `main`).
-
-Until baselines are committed, the **a11y** and **flows** specs are still
-meaningful gates; the **visual** specs go green once baselines land.
+Baselines live under `e2e/__screenshots__/<project>/…` and are browser/OS
+sensitive (see `playwright.visual.config.ts`): never commit pixels baked on a
+local machine. `npm run test:e2e:visual:update` re-bakes against the seeded
+emulator.

@@ -141,11 +141,6 @@ const HEADINGS: Record<Mode, { title: string; sub: string }> = {
   reset: { title: "Reset your password", sub: "Enter your email and we'll send a link to set a new one." },
 }
 
-/** Apple SSO goes live once the Supabase Apple provider is configured; until
- *  then the button shows disabled. Flip VITE_APPLE_SIGNIN_ENABLED=true (Vercel
- *  env) after completing the config in design/apple-signin-scope.md. */
-const APPLE_ENABLED = import.meta.env.VITE_APPLE_SIGNIN_ENABLED === "true"
-
 export function SignInForm({ className, showMark, initialMode = "signin", prefillEmail, onSuccess }: SignInFormProps) {
   const { signIn, signUp, resetPassword, signInWithApple } = useAuth()
   const [mode, setMode] = useState<Mode>(initialMode)
@@ -276,27 +271,13 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
             <div className="flex-1 h-px" style={{ background: "rgba(15,23,42,0.10)" }} />
           </div>
 
-          {/* Apple SSO — live once the Supabase Apple provider is configured
-              (VITE_APPLE_SIGNIN_ENABLED=true); disabled "coming soon" until then. */}
-          {APPLE_ENABLED ? (
-            <button
-              type="button" onClick={handleApple} disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2.5 rounded-[14px] py-[14px] text-[15px] font-bold text-white bg-black disabled:opacity-70"
-            >
-              <AppleLogo size={18} /> {mode === "signup" ? "Sign up with Apple" : "Continue with Apple"}
-            </button>
-          ) : (
-            <>
-              <button
-                type="button" disabled aria-disabled="true"
-                title="Apple sign-in is coming soon"
-                className="w-full inline-flex items-center justify-center gap-2.5 rounded-[14px] py-[14px] text-[15px] font-bold text-white bg-black opacity-50 cursor-not-allowed"
-              >
-                <AppleLogo size={18} /> {mode === "signup" ? "Sign up with Apple" : "Continue with Apple"}
-              </button>
-              <p className="text-center text-[11px] mt-1.5" style={{ color: FAINT }}>Apple sign-in coming soon</p>
-            </>
-          )}
+          {/* Sign in with Apple — Firebase's apple.com provider (design/apple-signin-scope.md). */}
+          <button
+            type="button" onClick={handleApple} disabled={loading}
+            className="w-full inline-flex items-center justify-center gap-2.5 rounded-[14px] py-[14px] text-[15px] font-bold text-white bg-black disabled:opacity-70"
+          >
+            <AppleLogo size={18} /> {mode === "signup" ? "Sign up with Apple" : "Continue with Apple"}
+          </button>
 
           {mode === "signup" && (
             <p className="text-center text-[12.5px] leading-relaxed mt-2.5 px-2" style={{ color: SUB }}>

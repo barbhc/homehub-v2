@@ -4,21 +4,15 @@ import { Link } from "react-router-dom"
 import {
   PlusIcon,
   PackageIcon,
-  SparklesIcon,
-  ClipboardListIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   FileTextIcon,
   BellRingIcon,
   MessageCircleIcon,
-  WrenchIcon,
   CloudOffIcon,
   HomeIcon,
   ChevronDownIcon,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
-import type { DashboardTask, MaintenanceTaskFull } from "@/lib/dashboard"
+import type { DashboardTask } from "@/lib/dashboard"
 import { useDashboard } from "@/lib/useDashboard"
 import { shouldShowHomeSkeleton, SKELETON_PATIENCE_MS } from "@/lib/homeLoadingGate"
 import { UndoBar } from "@/components/ui/UndoBar"
@@ -33,170 +27,15 @@ import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
 import { DesktopHome } from "@/components/home/DesktopHome"
 import { ProfileCompletionBanner } from "@/components/dashboard/ProfileCompletionBanner"
 import { PushOptInNudge } from "@/components/dashboard/PushOptInNudge"
-import { Skeleton } from "@/components/ui/skeleton"
+import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 
 import { WhatsNewBanner } from "@/components/dashboard/WhatsNewBanner"
 import { LevelUnlockBanner } from "@/components/dashboard/LevelUnlockBanner"
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function getGreeting() {
-  const h = new Date().getHours()
-  if (h < 12) return "Good morning"
-  if (h < 17) return "Good afternoon"
-  return "Good evening"
-}
-
 function formatLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-
-function formatTodayDate(): string {
-  return new Date().toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  })
-}
-
-// ── Health Ring ─────────────────────────────────────────────────────────────
-
-// ── Insight Scroll Strip ─────────────────────────────────────────────────────
-
-interface CalendarProps {
-  tasks: MaintenanceTaskFull[]
-  selectedDay: string | null
-  onSelectDay: (day: string | null) => void
-  month: Date
-  onPrevMonth: () => void
-  onNextMonth: () => void
-}
-
-function DashboardCalendar({ tasks, selectedDay, onSelectDay, month, onPrevMonth, onNextMonth }: CalendarProps) {
-  const todayStr = useMemo(() => formatLocalDateStr(new Date()), [])
-
-  // Only show essential (red dot) and recommended (teal dot) tasks
-  const tasksByDay = useMemo(() => {
-    const m = new Map<string, MaintenanceTaskFull[]>()
-    for (const t of tasks) {
-      if (!t.next_due_date) continue
-      // Skip optional tasks on calendar
-      if (t.priority === "medium" || t.priority === "low") continue
-      const key = t.next_due_date
-      const list = m.get(key) ?? []
-      list.push(t)
-      m.set(key, list)
-    }
-    return m
-  }, [tasks])
-
-  const cells = useMemo(() => {
-    const firstOfMonth = new Date(month.getFullYear(), month.getMonth(), 1)
-    const dayOfWeek = firstOfMonth.getDay()
-    const mondayOffset = (dayOfWeek + 6) % 7
-    const start = new Date(firstOfMonth)
-    start.setDate(firstOfMonth.getDate() - mondayOffset)
-
-    const out: Array<{ date: Date; dayStr: string; isOutsideMonth: boolean }> = []
-    for (let i = 0; i < 42; i++) {
-      const d = new Date(start)
-      d.setDate(start.getDate() + i)
-      out.push({
-        date: d,
-        dayStr: formatLocalDateStr(d),
-        isOutsideMonth: d.getMonth() !== month.getMonth(),
-      })
-    }
-    return out
-  }, [month])
-
-  const monthTitle = month.toLocaleDateString(undefined, { month: "long", year: "numeric" })
-
-  return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-3">
-        <button
-          type="button"
-          onClick={onPrevMonth}
-          className="h-11 w-11 md:h-7 md:w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-          aria-label="Previous month"
-        >
-          <ChevronLeftIcon className="size-4" />
-        </button>
-        <span className="text-sm font-semibold text-foreground tracking-wide">{monthTitle}</span>
-        <button
-          type="button"
-          onClick={onNextMonth}
-          className="h-11 w-11 md:h-7 md:w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-          aria-label="Next month"
-        >
-          <ChevronRightIcon className="size-4" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 mb-1">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((h) => (
-          <div
-            key={h}
-            className="text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground pb-1"
-          >
-            {h}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map(({ date, dayStr, isOutsideMonth }) => {
-          const dayTasks = tasksByDay.get(dayStr) ?? []
-          const selected = selectedDay ? dayStr === selectedDay : false
-          const isToday = dayStr === todayStr
-
-          return (
-            <button
-              key={dayStr}
-              type="button"
-              onClick={() => onSelectDay(selected ? null : dayStr)}
-              className={cn(
-                "relative text-left p-1 rounded-lg border border-transparent transition-colors aspect-square flex flex-col items-center justify-start pt-1.5",
-                selected && "bg-foreground border-foreground",
-                !selected && "hover:bg-muted/50",
-                !selected && isOutsideMonth && "opacity-20 pointer-events-none"
-              )}
-              aria-label={`Select ${dayStr}`}
-            >
-              <span
-                className={cn(
-                  "text-[11px] font-medium block",
-                  selected && "text-white",
-                  !selected && isToday && "text-primary font-bold underline underline-offset-2",
-                  !selected && !isToday && "text-muted-foreground"
-                )}
-              >
-                {date.getDate()}
-              </span>
-              {dayTasks.length > 0 && (
-                <div className="flex gap-0.5 mt-1">
-                  {dayTasks.slice(0, 3).map((t) => (
-                    <span
-                      key={t.id}
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full",
-                        selected
-                          ? "bg-white/60"
-                          : t.priority === "critical"
-                            ? "bg-red-500"
-                            : "bg-primary"
-                      )}
-                    />
-                  ))}
-                </div>
-              )}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
 }
 
 // ── Agenda ──────────────────────────────────────────────────────────────────
@@ -305,38 +144,6 @@ function EmptyHomeHero() {
   )
 }
 
-// ── Skeleton ────────────────────────────────────────────────────────────────
-
-function HomeSkeleton({ patienceExpired = false }: { patienceExpired?: boolean }) {
-  return (
-    <div className="px-4 pt-4 space-y-5 max-w-5xl mx-auto">
-      {/* Once the wait stops being brief, say something. Shimmer alone reads as
-          a broken screen — a tester reported exactly this as "a blank Home
-          Screen", and there was nothing on it to tell him otherwise. */}
-      {patienceExpired && (
-        <div
-          className="rounded-xl border px-3.5 py-3 text-[13px]"
-          style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)", color: "var(--hh-sub)" }}
-        >
-          Still setting up your home — this can take a moment on a first sign-in
-          or a slow connection.
-        </div>
-      )}
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-8 w-44 rounded-lg" />
-      </div>
-      <Skeleton className="h-4 w-52" />
-      <div className="grid grid-cols-3 gap-3">
-        <Skeleton className="h-16 rounded-xl" />
-        <Skeleton className="h-16 rounded-xl" />
-        <Skeleton className="h-16 rounded-xl" />
-      </div>
-      <Skeleton className="h-64 rounded-2xl" />
-      <Skeleton className="h-48 rounded-2xl" />
-    </div>
-  )
-}
-
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -371,10 +178,6 @@ export default function Home() {
    *  Without this the card stayed on screen after a successful write, looking
    *  untouched, and people tapped Mark done a second time. */
   const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set())
-
-  // Calendar state
-  const [calendarMonth, setCalendarMonth] = useState(() => new Date())
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   // The boot is "done" when Home shows real content rather than a skeleton —
   // that is the moment the user stops waiting, which is what we are measuring.
@@ -445,21 +248,10 @@ export default function Home() {
   )
 
   // Derived data — must be computed before any early returns to keep hooks stable
-  const todayStr = formatLocalDateStr(new Date())
-
-  // Essential overdue tasks only (the stat that matters for health score)
   const notJustDone = useCallback(
     (t: { id: string }) => !justCompleted.has(t.id),
     [justCompleted],
   )
-  const overdueEssential = (dashTasks?.overdueEssential ?? []).filter(notJustDone)
-  // Due today: essential + recommended tasks due today that aren't already overdue
-  const dueSoonAll = (dashTasks?.dueSoon ?? []).filter(notJustDone)
-  const dueToday = useMemo(
-    () => dueSoonAll.filter((t) => t.dueDate === todayStr && (t.priority === "critical" || t.priority === "high")),
-    [dueSoonAll, todayStr]
-  )
-  const todayTasks = useMemo(() => [...overdueEssential, ...dueToday], [overdueEssential, dueToday])
 
   // Redesigned mobile Home (RefinedHome) feed: overdue + due-soon, deduped.
   const homeTasks = useMemo(() => {
@@ -470,46 +262,6 @@ export default function Home() {
     }
     return out
   }, [dashTasks, notJustDone])
-
-  // This week: upcoming essential + recommended, not today
-
-  // All calendar tasks (for dots): essential + recommended, include overdue
-  const calendarTasks: MaintenanceTaskFull[] = useMemo(() => {
-    const fromUpcoming = upcoming.filter(
-      (t) => t.priority === "critical" || t.priority === "high"
-    )
-    const fromOverdue: MaintenanceTaskFull[] = overdueEssential.map((t) => ({
-      id: t.id,
-      title: t.name,
-      description: null,
-      task_template_id: "",
-      notes: null,
-      next_due_date: t.dueDate,
-      is_recurring: false,
-      frequency_value: null,
-      frequency_unit: null,
-      item_id: t.itemId,
-      itemName: t.itemName,
-      locationId: null,
-      locationName: null,
-      priority: t.priority,
-      effort: t.effort,
-      isOverdue: t.isOverdue,
-      isDueSoon: t.isDueSoon,
-      lastCompletedAt: null,
-      completionCount: 0,
-      careType: t.careType,
-    }))
-    const seen = new Set<string>()
-    const combined: MaintenanceTaskFull[] = []
-    for (const t of [...fromOverdue, ...fromUpcoming]) {
-      if (!seen.has(t.id)) {
-        seen.add(t.id)
-        combined.push(t)
-      }
-    }
-    return combined
-  }, [upcoming, overdueEssential])
 
   // Skeleton ONLY when there is genuinely nothing to paint — see
   // shouldShowHomeSkeleton for why `isLoading` alone was the wrong gate.
@@ -586,38 +338,6 @@ export default function Home() {
           </button>
         </div>
       )}
-
-      {/* ── Mobile: Today strip (replaced by RefinedHome header on mobile) ── */}
-      <div className="hidden px-4 pt-5 pb-2">
-        <div className="flex items-baseline justify-between">
-          <h1 className="font-display text-2xl font-bold text-foreground tracking-tight">
-            {formatTodayDate()}
-          </h1>
-          <span className="text-sm text-muted-foreground">
-            {todayTasks.length > 0
-              ? `${todayTasks.length} today`
-              : "All clear"}
-          </span>
-        </div>
-        <div className="mt-1 h-px bg-border/60" />
-      </div>
-
-      {/* ── Desktop: Greeting bar — hidden; RefinedHome owns the header now ── */}
-      <div className="hidden items-end justify-between px-8 pt-6 pb-2 max-w-5xl mx-auto w-full border-b border-border/50">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
-            {formatTodayDate()}
-          </p>
-          <h1 className="font-display text-[28px] leading-tight text-foreground font-bold">
-            {getGreeting()}
-          </h1>
-        </div>
-        {todayTasks.length > 0 && (
-          <p className="text-sm text-muted-foreground pb-1">
-            {todayTasks.length} task{todayTasks.length === 1 ? "" : "s"} today
-          </p>
-        )}
-      </div>
 
       <div className="px-4 lg:px-8 max-w-5xl mx-auto w-full">
         {/* What's new banner */}
@@ -715,57 +435,6 @@ export default function Home() {
             onComplete={handleMarkComplete}
             onSnooze={handleSnooze}
           />
-        </div>
-
-
-        {/* ── Mobile: Calendar — hidden; RefinedHome owns mobile ── */}
-        <div className="hidden mt-4">
-          <div className="rounded-2xl border border-white/70 bg-white/55 backdrop-blur-sm shadow-sm p-5">
-            <DashboardCalendar
-              tasks={calendarTasks}
-              selectedDay={selectedDay}
-              onSelectDay={setSelectedDay}
-              month={calendarMonth}
-              onPrevMonth={() =>
-                setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
-              }
-              onNextMonth={() =>
-                setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
-              }
-            />
-          </div>
-        </div>
-
-        {/* ── Mobile: Quick Actions — hidden; RefinedHome owns mobile ── */}
-        <div className="hidden mt-4">
-          <div className="grid grid-cols-2 gap-2.5">
-            {[
-              { to: "/inventory/add", label: "Add Item", icon: PlusIcon },
-              { to: "/inventory", label: "Inventory", icon: PackageIcon },
-              { to: "/maintenance", label: "All Tasks", icon: ClipboardListIcon },
-              { to: "/clean", label: "Deep Clean", icon: SparklesIcon },
-            ]
-              .filter((a) => level !== "essentials" || !["/maintenance", "/clean"].includes(a.to))
-              .map(({ to, label, icon: Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                className="flex flex-col items-center gap-1.5 py-3.5 px-2 rounded-xl border border-border bg-card hover:border-foreground/20 hover:bg-accent/50 transition-colors text-center"
-              >
-                <Icon className="size-[18px] text-muted-foreground" />
-                <span className="text-xs font-medium text-foreground">{label}</span>
-              </Link>
-            ))}
-            {level !== "essentials" && (
-            <Link
-              to="/troubleshoot"
-              className="col-span-2 flex items-center justify-center gap-2 py-3 px-2 rounded-xl border border-border bg-card hover:border-foreground/20 hover:bg-accent/50 transition-colors text-center"
-            >
-              <WrenchIcon className="size-[18px] text-primary" />
-              <span className="text-xs font-semibold text-foreground">Fix a problem</span>
-            </Link>
-            )}
-          </div>
         </div>
           </>
         )}

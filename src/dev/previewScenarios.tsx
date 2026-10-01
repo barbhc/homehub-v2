@@ -21,6 +21,7 @@ import type { ReactNode } from "react"
 import { IdentifyStep, type IdentifyData } from "@/components/smart-add/IdentifyStep"
 import { PageContainer } from "@/components/layout"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
+import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 import type { ItemUnit, Room } from "@/integrations/types"
 
 const noop = () => {}
@@ -121,5 +122,15 @@ export const SCENARIOS: { id: string; note: string; render: () => ReactNode }[] 
     id: "item-suggestions-none",
     note: "Lookup missed. Identical to an item that never searched.",
     render: () => itemPage(dishwasher()),
+  },
+  {
+    id: "home-skeleton",
+    note: "Home before its first read lands — shaped like Home, focused: greeting, Ask, one list with the first task open. No stat band.",
+    render: () => <HomeSkeleton />,
+  },
+  {
+    id: "home-skeleton-slow",
+    note: "The same wait past SKELETON_PATIENCE_MS: it says so instead of shimmering silently.",
+    render: () => <HomeSkeleton patienceExpired />,
   },
 ]
