@@ -9,7 +9,6 @@ type ChatThreadProps = {
   onWebSearch?: (messageId: string) => void
   onRetry?: (messageId: string) => void
   activeFilter?: ChatFilter
-  homeId: string
 }
 
 export function ChatThread({
@@ -18,7 +17,6 @@ export function ChatThread({
   onWebSearch,
   onRetry,
   activeFilter,
-  homeId,
 }: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -49,7 +47,6 @@ export function ChatThread({
             onRetry={precedingQuestion !== undefined ? onRetry : undefined}
             activeFilterType={activeFilter?.type}
             activeFilterValue={activeFilter?.value}
-            homeId={homeId}
           />
         )
       })}

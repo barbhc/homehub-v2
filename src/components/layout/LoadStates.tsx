@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { CloudOffIcon, RotateCwIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -23,6 +24,38 @@ export function LoadErrorState({ title, message, onRetry }: { title: string; mes
         <RotateCwIcon className="size-4" strokeWidth={2.4} aria-hidden />
         Try again
       </button>
+    </div>
+  )
+}
+
+/**
+ * A write (or a small read) that failed, said where it happened: one calm line
+ * — what failed and what to do — plus the retry when there is one. Clay, never
+ * alarm red. This is RefinedWeek's `actionError` line, shared, so a failed save
+ * reads the same on every screen and never leaves a success state standing.
+ */
+export function InlineError({
+  children,
+  onRetry,
+  retryLabel = "Try again",
+  className,
+}: {
+  children: ReactNode
+  onRetry?: () => void
+  retryLabel?: string
+  className?: string
+}) {
+  return (
+    <div role="alert" className={cn("text-[13px] font-medium leading-snug", className)} style={{ color: "var(--hh-clay)" }}>
+      {children}
+      {onRetry && (
+        <>
+          {" "}
+          <button type="button" onClick={onRetry} className="font-bold underline underline-offset-2">
+            {retryLabel}
+          </button>
+        </>
+      )}
     </div>
   )
 }
