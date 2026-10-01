@@ -1,10 +1,12 @@
 /**
- * Loads `.env.test` into process.env for LOCAL runs.
+ * Loads `.env.test` into process.env for LOCAL runs, if one exists — optional:
+ * nothing requires it, and CI never has one.
  *
- * The seed script gets it via `tsx --env-file`, but the Playwright runner and
- * the `vite` dev server it spawns do NOT auto-load it — so without this, local
- * runs have no VITE_SUPABASE_* (app can't reach Supabase) and no
- * TEST_USER_PASSWORD (login uses the wrong default) and auth.setup fails.
+ * The Playwright runner and the `vite` dev server it spawns do NOT auto-load
+ * it, and it is where a local run overrides TEST_USER_EMAIL / TEST_USER_PASSWORD
+ * (seed-config falls back to the seeded defaults) or points PLAYWRIGHT_BASE_URL
+ * at a deployed preview. (It once carried the Supabase keys for v1's seed
+ * script; that script and its `.env.test.example` were deleted 2026-09-30.)
  *
  * Imported FIRST in playwright.config.ts so these values exist before
  * seed-config's constants evaluate and before the dev server inherits the env.

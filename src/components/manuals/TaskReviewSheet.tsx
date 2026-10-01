@@ -25,7 +25,7 @@ import { earliestLastDone } from "../../../shared/care/lastDone"
 
 /** HH-35: the three TIER buckets get the app's own tier colour as a rail,
  *  instead of this screen inventing an emoji vocabulary for a system that
- *  already has one (TierBadge, the agenda, item detail all use these).
+ *  already has one (the agenda and item detail both use these).
  *
  *  HH-140: it defined three of the SIX buckets, and that omission is the whole
  *  reason step 1 looked like a different app. Both steps map the same
