@@ -2,9 +2,9 @@
  * useSetupCompletion — shared "done" state for setup-checklist tasks.
  *
  * Setup tasks are checked off by writing a `done` task_instance (and un-checked
- * by soft-deleting it). Both the mobile SetupChecklistSection and the desktop
- * setup block render their own UI but share this completion logic so the DB
- * behavior stays identical.
+ * by soft-deleting it). Its one caller is CareBlock's Setup rows, which both
+ * item-page layouts render; the retired SetupChecklistSection (deleted
+ * 2026-09-30) used to be the second.
  */
 import { useEffect, useState } from "react"
 import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where, Timestamp } from "firebase/firestore"

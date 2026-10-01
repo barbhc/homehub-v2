@@ -21,31 +21,6 @@ export type EditableField =
 
 export const ROOM_NONE = "__none__" as const
 
-export const SCHEDULE_LABELS: Record<string, string> = {
-  after_each_use: "After each use",
-  weekly: "Weekly",
-  monthly: "Monthly",
-  quarterly: "Quarterly",
-  semiannual: "Semiannual",
-  annual: "Annual",
-  seasonal: "Seasonal",
-  every_n_days: "Every N days",
-  as_needed: "As needed",
-  setup: "Setup (one-time)",
-}
-
-export const tierBorderStyles = {
-  essential: "border-l-red-500",
-  recommended: "border-l-amber-500",
-  optional: "border-l-[#2D9B82]",
-}
-
-export const tierChipStyles = {
-  essential: "border-red-500/60 text-red-700 dark:text-red-400",
-  recommended: "border-amber-500/60 text-amber-700 dark:text-amber-400",
-  optional: "border-[#2D9B82]/60 text-[#1B6B5A] dark:text-[#2D9B82]",
-}
-
 export const tierDotStyles = {
   essential: "bg-red-500",
   recommended: "bg-amber-500",
@@ -57,8 +32,6 @@ export const tierTextStyles = {
   recommended: "text-amber-600 dark:text-amber-400",
   optional: "text-[#1B6B5A] dark:text-[#2D9B82]",
 }
-
-export type TierKey = "essential" | "recommended" | "optional"
 
 export function formatDate(iso: string | null): string | null {
   if (!iso) return null
@@ -175,38 +148,4 @@ export function getTaskGuidance(task: TaskTemplateWithSchedule): SplitSteps {
     ? structured.map((c) => String(c).trim()).filter(Boolean)
     : []
   return splitCautions(getTaskInstructions(task) ?? [], structuredCautions)
-}
-
-// Glass card styles
-export const glassCardStyles = {
-  base: "bg-white/55 backdrop-blur-sm border border-white/70 rounded-[14px] transition-all duration-200",
-  hover: "hover:bg-white/75 hover:-translate-y-px hover:shadow-md",
-  expanded: "bg-white/80 shadow-md",
-}
-
-// Gradient accent bar styles (4px left bar)
-export const tierAccentStyles = {
-  essential: "bg-gradient-to-b from-red-500 to-red-600",
-  recommended: "bg-gradient-to-b from-amber-500 to-amber-600",
-  optional: "bg-gradient-to-b from-[#2D9B82] to-[#1f8069]",
-}
-
-// Glass toggle bar styles
-export const glassToggleStyles = {
-  container: "bg-white/40 backdrop-blur-sm border border-white/60 rounded-xl p-1 flex gap-0",
-  item: "flex-1 text-[11px] sm:text-xs font-semibold py-2 text-center rounded-[10px] cursor-pointer transition-all duration-200 text-muted-foreground whitespace-nowrap",
-  active: "bg-white/85 text-foreground shadow-sm",
-}
-
-export function getScheduleLabel(t: TaskTemplateWithSchedule): string | null {
-  const rule = Array.isArray(t.schedule_rule) ? t.schedule_rule[0] : null
-  const st = rule?.schedule_type
-  if (!st) return null
-  let label = SCHEDULE_LABELS[st] ?? st
-  // Show actual interval for "every N days" schedules (e.g. "Every 180 days")
-  if (st === "every_n_days" && rule?.interval_days) {
-    label = `Every ${rule.interval_days} days`
-  }
-  if (t.estimated_minutes) return `${label} · ${t.estimated_minutes} min`
-  return label
 }

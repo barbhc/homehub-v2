@@ -57,6 +57,18 @@ const RETIRED_COMPONENTS = [
   // remaining") was an ESTIMATE beside a read whose position the worker never
   // reports; the read is shown by the pill and the Upkeep card, honestly.
   "ManualParseProgress", // -> ScanningLine in CareBlock + ParseTrayPill
+  // #229's follow-up (2026-09-30): the pre-redesign item page's task area and
+  // sidebar, exported by item-detail/index.ts and rendered by nothing. Their
+  // jobs live in CareBlock (Upkeep), the task page and NotesSection now. The
+  // two popovers had no importer but TaskSection/TierTaskCard.
+  "TaskSection",            // tabs + tier filter + session mode -> CareBlock (Upkeep)
+  "TierTaskCard",           // glass task card with red/amber rails -> CareBlock rows
+  "SetupChecklistSection",  // -> CareBlock's "First-time setup" band (useSetupCompletion)
+  "HabitsSection",          // as-needed / after-each-use -> CareBlock's "When needed" band
+  "NotesCard",              // item notes textarea -> NotesSection
+  "SidebarActions",         // desktop scroll-to sidebar -> DesktopItemDetail's own header
+  "CompleteTaskPopover",    // -> the task page's check-off (RefinedTaskDetail)
+  "TaskEditPopover",        // -> TaskEditSheet
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */
