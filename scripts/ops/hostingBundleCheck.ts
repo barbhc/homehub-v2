@@ -101,12 +101,21 @@ export function checkHostingBundle(files: BuiltFile[], expectedProject: string):
   }
   if (scripts.length === 0) problems.push("dist/assets holds no scripts.")
 
+  // The demo config as a minified build really emits it (2026-10-01, no .env):
+  //   const xu="demo-homehub",Cl={apiKey:"demo-api-key",authDomain:`${xu}.firebaseapp.com`,projectId:xu,…}
+  // — the project id is hoisted into a variable, so match either quoted literal
+  // anywhere. A production build contains neither string (verified: 0 hits).
   for (const s of scripts) {
-    if (s.text.includes(`"${DEMO_API_KEY}"`) || s.text.includes(`projectId:"${DEMO_PROJECT_ID}"`)) {
+    if (s.text.includes(`"${DEMO_API_KEY}"`) || s.text.includes(`"${DEMO_PROJECT_ID}"`)) {
       problems.push(`${s.path} carries the built-in test Firebase settings (${DEMO_API_KEY} / ${DEMO_PROJECT_ID}).`)
     }
   }
 
+  // A production build inlines the VITE_FIREBASE_* values as string literals in
+  // the config object: `apiKey:"AIza…",authDomain:"…",projectId:"homehub-2068d",…`.
+  // This depends on that minified shape; if a refactor or a minifier change
+  // alters it, the check refuses loudly (it never passes silently) — update the
+  // pattern and the fixtures in hostingBundleCheck.test.ts together.
   const configured = scripts.filter((s) => s.text.includes(`projectId:"${expectedProject}"`))
   if (configured.length === 0) {
     problems.push(`No script embeds projectId "${expectedProject}": the build did not pick up the production settings.`)

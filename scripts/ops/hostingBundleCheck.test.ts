@@ -6,8 +6,15 @@ const KEY = "AIza" + "x".repeat(35)
 
 // The config object exactly as a production `vite build` embeds it (minified).
 const prodConfig = `apiKey:"${KEY}",authDomain:"${PROJECT}.firebaseapp.com",projectId:"${PROJECT}",storageBucket:"${PROJECT}.firebasestorage.app"`
-// …and as the app's fallback embeds it when the VITE_FIREBASE_* settings are missing (HH-162).
-const demoConfig = `apiKey:"demo-api-key",authDomain:"demo-homehub.firebaseapp.com",projectId:"demo-homehub",storageBucket:"demo-homehub.appspot.com"`
+// …and the app's fallback exactly as a real no-.env build emits it (HH-162): the
+// project id is hoisted into a variable, so it never appears as projectId:"demo-homehub".
+const demoConfig = 'apiKey:"demo-api-key",authDomain:`${xu}.firebaseapp.com`,projectId:xu,storageBucket:`${xu}.appspot.com`'
+const demoPrelude = 'const xu="demo-homehub";'
+
+const demoBundle = (): BuiltFile[] => [
+  { path: "index.html", text: html() },
+  { path: "assets/index-AbC123.js", text: `${demoPrelude}const c={${demoConfig}};export{c};` },
+]
 
 const html = (entry = "/assets/index-AbC123.js") =>
   `<!doctype html><html><head><script type="module" crossorigin src="${entry}"></script></head><body></body></html>`
@@ -31,16 +38,21 @@ describe("checkHostingBundle — what will actually be uploaded", () => {
   })
 
   it("refuses the build that broke sign-in on 2026-09-30: the built-in test settings", () => {
-    const out = checkHostingBundle(bundle(demoConfig), PROJECT)
+    const out = checkHostingBundle(demoBundle(), PROJECT)
     expect(out.ok).toBe(false)
     expect(out.problems.join("\n")).toMatch(/built-in test Firebase settings/)
     expect(out.problems.join("\n")).toMatch(/did not pick up the production settings/)
   })
 
   it("refuses a bundle that carries the demo config anywhere, even beside the real one", () => {
-    const out = checkHostingBundle(bundle(prodConfig, [{ path: "assets/chunk-1.js", text: `x={${demoConfig}}` }]), PROJECT)
+    const out = checkHostingBundle(bundle(prodConfig, [{ path: "assets/chunk-1.js", text: `${demoPrelude}x={${demoConfig}}` }]), PROJECT)
     expect(out.ok).toBe(false)
     expect(out.problems).toEqual([expect.stringMatching(/^assets\/chunk-1\.js carries the built-in test/)])
+  })
+
+  it("refuses a bundle naming the test project even without the test key", () => {
+    const out = checkHostingBundle(bundle(prodConfig, [{ path: "assets/chunk-2.js", text: 'const p="demo-homehub"' }]), PROJECT)
+    expect(out.problems).toEqual([expect.stringMatching(/^assets\/chunk-2\.js carries the built-in test/)])
   })
 
   it("refuses a build configured for a different project", () => {
