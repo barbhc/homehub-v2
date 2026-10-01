@@ -139,6 +139,14 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   owner QA, 2026-09-06 (care-library branch)
 - Paste a link says it **must end in .pdf**, and offers a pre-filled Google
   search for this exact model. — HH-129
+- **A link can be typed, key by key.** The field gives way to the "Manual link
+  added" card only once the link is finished — a paste, Enter, leaving the
+  field, or a whole link arriving at once (autofill, a search result) — never
+  mid-word, and never when the press that left the field was on another of the
+  step's controls (that control's own action runs). Enter shows the link; Scan
+  stays its own tap. The card used to follow the field's text, so the first
+  typed character replaced the field. Behaviour only: same layout, same copy. —
+  audit 2026-09-30 (Tasks + cleaning leftovers package)
 - "Let us find it" is **last, muted, badged Beta**, and says how it goes
   wrong. — HH-107, HH-115
 - **Zero-byte files are refused** before any upload or AI spend. — HH-128
@@ -443,6 +451,7 @@ and where they differ, the amended line governs:
 | `src/lib/designContracts.test.ts` | This file's rules as behaviour, not names: the item page renders one tree and one add-manual dialog at 390px and desktop, and never starts a scan on arrival; zero-byte refusal and the capacity stand-down; every review door gets the one screen, in order; the two-step review's sentences, absent app-wide; one indeterminate rail, in Upkeep; the pill on the item's own page (HH-161, which turned HH-118's test around); after attaching a manual, never "No upkeep yet" beside "Reading the manual"; round 14's sentence absent app-wide; the Tasks count excluding item cleaning; no bell on a phone that refused. A rule the code does not meet yet is an `it.todo` naming its package | live |
 | `src/components/manuals/TaskReviewSheet.saved.test.tsx` | A screen claiming rows are saved while offering the button that saves them | live |
 | `src/components/smart-add/addFlowCopy.test.ts` | Copy and step-union drift | live |
+| `src/components/smart-add/ManualStep.test.tsx`, "a link can be TYPED" | The link field swapped for the card mid-word (losing focus and the text), a typed link that Enter or leaving the field does not finish, a paste that no longer finishes at once, or a press on another of the step's buttons swallowed by the swap — Safari's no-focus press included (2026-09-30) | live |
 | Journey walks + their `snap()` notes | Visual drift — but ONLY if the note states the requirement rather than describing the screen | live |
 | **This file** | A change quietly undoing an earlier agreement | live |
 | `src/components/manuals/TaskReviewSheet.sections.test.tsx` | A bucket with no rail — the HH-140 mechanism, now impossible because `SECTION_RAIL` is typed `Record<ReviewBucket, string>` | live |

@@ -15,6 +15,7 @@ import { MAX_UPLOAD_BYTES } from "@/modules/inventory/services/storageService"
 import { cn } from "@/lib/utils"
 import type { DocType } from "@/modules/knowledge"
 import { capacityNotice, isCapacityRefusal } from "@/lib/scanCapacity"
+import { isAllowedUrl } from "../../../shared/parse/ssrf"
 
 type OpenPanel = "none" | "url" | "search"
 
@@ -121,6 +122,24 @@ export function ManualStep({
   const [autoFindManuals] = useAutoFindManuals()
   const [open, setOpen] = useState<OpenPanel>(initialPanel ?? "none")
   const [pasteUrl, setPasteUrl] = useState("")
+  /**
+   * The link is CHOSEN — the field gives way to the "Manual link added" card —
+   * only once the person is done with it: a paste, Enter, leaving the field,
+   * or a whole link arriving at once (autofill, a drop, a search result).
+   * Never on a keystroke. The card used to follow the field's text itself, so
+   * the FIRST typed character swapped the field out from under the cursor, and
+   * a link could only ever be pasted. Same card, same copy; only when it
+   * appears changed.
+   */
+  const [linkChosen, setLinkChosen] = useState(false)
+  const chooseLink = (text: string) => {
+    if (text.trim()) setLinkChosen(true)
+  }
+  /** A paste is landing in the field — its change finishes the link. */
+  const pasting = useRef(false)
+  /** A press on one of this step's own buttons or links is under way — see the field's onBlur. */
+  const pressOnControl = useRef(false)
+  const rootRef = useRef<HTMLDivElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -167,6 +186,7 @@ export function ManualStep({
       }
       setFile(f)
       setPasteUrl("")
+      setLinkChosen(false)
       setOpen("none")
     },
     [maxMB]
@@ -187,9 +207,10 @@ export function ManualStep({
     setDragging(true)
   }
 
-  // A source is chosen when there is a file OR a URL. The URL covers both
-  // pasting and picking a search result, which fills the same field.
-  const canContinue = !!file || pasteUrl.trim().length > 0
+  // A source is chosen when there is a file OR a finished link (linkChosen).
+  // The link covers pasting, typing, and picking a search result, which fills
+  // the same field.
+  const canContinue = !!file || (linkChosen && pasteUrl.trim().length > 0)
 
   const handleContinue = () => {
     if (docClassification) return
@@ -200,11 +221,24 @@ export function ManualStep({
   const clearChoice = () => {
     setFile(null)
     setPasteUrl("")
+    setLinkChosen(false)
     setFileError(null)
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div
+      ref={rootRef}
+      className="flex flex-col gap-4"
+      // Which press is under way, for the link field's onBlur: a blur caused by
+      // pressing one of this step's buttons or links must not swap the layout
+      // before that press's click lands. Cleared once the click has.
+      onPointerDownCapture={(e) => {
+        pressOnControl.current = e.target instanceof Element && e.target.closest("button, a") != null
+      }}
+      onClickCapture={() => {
+        pressOnControl.current = false
+      }}
+    >
       {docClassification && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
           <p>
@@ -334,8 +368,37 @@ export function ManualStep({
                   id="manual-url"
                   type="url"
                   value={pasteUrl}
-                  onChange={(e) => setPasteUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && canContinue && handleContinue()}
+                  onPaste={() => {
+                    pasting.current = true
+                  }}
+                  onChange={(e) => {
+                    const next = e.target.value
+                    // A whole link arriving in ONE change into an empty field
+                    // (autofill, a drop, a test's fill) is finished; a key
+                    // press never is — "h" and "https://e" are both mid-word.
+                    const arrivedWhole = pasteUrl.trim() === "" && isAllowedUrl(next.trim())
+                    if (pasting.current || arrivedWhole) chooseLink(next)
+                    pasting.current = false
+                    setPasteUrl(next)
+                  }}
+                  onKeyDown={(e) => {
+                    // A key press after a paste that changed nothing: the paste is over.
+                    pasting.current = false
+                    // Enter finishes the link and shows it; Scan stays a
+                    // separate, deliberate tap.
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing) chooseLink(pasteUrl)
+                  }}
+                  onBlur={(e) => {
+                    // Leaving the field finishes the link (the keyboard's Done,
+                    // a tap on empty space) — unless the press or the focus went
+                    // to another control on this step. That control's own action
+                    // wins, and swapping the layout under the pointer first would
+                    // swallow its tap.
+                    const toControl =
+                      pressOnControl.current ||
+                      (e.relatedTarget instanceof Node && rootRef.current?.contains(e.relatedTarget) === true)
+                    if (!toControl) chooseLink(pasteUrl)
+                  }}
                   placeholder="https://example.com/manual.pdf"
                   maxLength={2048}
                   autoFocus
@@ -415,6 +478,7 @@ export function ManualStep({
                     onPick={(url) => {
                       setFile(null)
                       setPasteUrl(url)
+                      chooseLink(url)
                       setOpen("none")
                     }}
                   />
