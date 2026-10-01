@@ -15,8 +15,11 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
-import { addCadence, seasonalNextDue, type ScheduleType } from "../schedule/cadence.js"
+import { z } from "zod"
+import { addCadence, seasonalNextDue } from "../schedule/cadence.js"
 import { calendarDateIn, checkCompletedOn, homeTimeZone, isCalendarDate } from "./completedOn.js"
+import { DocId, parseCallableInput } from "../lib/validate.js"
+import { readSchedule, storedDocId } from "../lib/storedTask.js"
 
 const REGION = "us-central1"
 const NO_NEXT: ReadonlySet<string> = new Set(["after_each_use", "as_needed", "setup"])
@@ -63,20 +66,23 @@ export async function runCompleteTask(db: Firestore, input: RunCompleteTaskInput
   return db.runTransaction(async (t) => {
     const instSnap = await t.get(instRef)
     if (!instSnap.exists) throw new Error("Task instance not found")
-    const inst = instSnap.data() as Record<string, unknown>
-    const templateId = inst.taskTemplateId as string
+    // Parsed, not cast (H3a §3): these fields are copied into the next
+    // instance, and the template id becomes a document path.
+    const inst = StoredInstance.parse(instSnap.data() ?? {})
+    const templateId = inst.taskTemplateId
 
-    const tplRef = db.doc(`homes/${homeId}/taskTemplates/${templateId}`)
-    const tplSnap = await t.get(tplRef)
-    const tpl = tplSnap.exists ? (tplSnap.data() as Record<string, unknown>) : null
-    const schedule = (tpl?.schedule as Record<string, unknown> | undefined) ?? undefined
-    const scheduleType = schedule?.scheduleType as ScheduleType | undefined
+    // No usable template id reads like a deleted template: the instance is
+    // completed and nothing comes next (an id with a slash used to throw here).
+    const tplSnap = templateId ? await t.get(db.doc(`homes/${homeId}/taskTemplates/${templateId}`)) : null
+    const tpl = tplSnap?.exists ? tplSnap : null
+    const schedule = readSchedule(tpl?.get("schedule"))
+    const scheduleType = schedule.scheduleType
 
     // Decide whether a next instance is warranted, and read what we need BEFORE writes.
     const wantsNext =
       !!tpl &&
-      tpl.isActive !== false &&
-      tpl.deletedAt == null &&
+      tpl.get("isActive") !== false &&
+      tpl.get("deletedAt") == null &&
       !!scheduleType &&
       !NO_NEXT.has(scheduleType)
 
@@ -90,7 +96,8 @@ export async function runCompleteTask(db: Firestore, input: RunCompleteTaskInput
       openExists = openSnap.docs.some((d) => d.id !== taskInstanceId && d.get("deletedAt") == null)
 
       // Assignee inheritance: template default, else the completed instance's, if still a member.
-      const candidate = (tpl?.defaultAssignee as string | null) ?? (inst.assignedTo as string | null) ?? null
+      // Each is a member id read from a doc and put in a path, so it must be one segment.
+      const candidate = storedDocId(tpl?.get("defaultAssignee")) ?? inst.assignedTo
       if (candidate) {
         const memberSnap = await t.get(db.doc(`homes/${homeId}/members/${candidate}`))
         if (memberSnap.exists) inheritedAssignee = candidate
@@ -104,7 +111,7 @@ export async function runCompleteTask(db: Firestore, input: RunCompleteTaskInput
       {
         status: "done",
         completedAt,
-        completionNotes: input.completionNotes ?? inst.completionNotes ?? null,
+        completionNotes: input.completionNotes ?? inst.completionNotes,
         updatedAt: Timestamp.now(),
       },
       { merge: true }
@@ -115,28 +122,28 @@ export async function runCompleteTask(db: Firestore, input: RunCompleteTaskInput
     }
 
     // Next due: override > seasonal anchor > cadence add.
-    const intervalDays = (schedule?.intervalDays as number | null) ?? null
+    const intervalDays = schedule.intervalDays
     let nextDue: string | null = input.nextDueOverride ?? null
     if (!nextDue && scheduleType === "seasonal") {
-      nextDue = seasonalNextDue((schedule?.season as string) ?? "", completedOn)
+      nextDue = seasonalNextDue(schedule.season ?? "", completedOn)
     }
     if (!nextDue) nextDue = addCadence(completedOn, scheduleType!, intervalDays)
     if (!nextDue) return { completedInstanceId: taskInstanceId, nextInstanceId: null }
 
-    const before = (schedule?.windowDaysBefore as number) ?? 7
-    const after = (schedule?.windowDaysAfter as number) ?? 14
+    const before = schedule.windowDaysBefore ?? 7
+    const after = schedule.windowDaysAfter ?? 14
     const nextRef = instancesCol.doc()
     const now = Timestamp.now()
     t.set(nextRef, {
       taskTemplateId: templateId,
-      itemUnitId: inst.itemUnitId ?? null,
+      itemUnitId: inst.itemUnitId,
       status: "scheduled",
       dueDate: nextDue,
       windowStart: addDaysYmd(nextDue, -before),
       windowEnd: addDaysYmd(nextDue, after),
       snoozedUntil: null,
-      priorityScore: priorityScoreForTier((inst.priorityTier as string) ?? "optional"),
-      isSafetyCritical: inst.isSafetyCritical ?? false,
+      priorityScore: priorityScoreForTier(inst.priorityTier ?? "optional"),
+      isSafetyCritical: inst.isSafetyCritical,
       completedAt: null,
       completionNotes: null,
       completionPhotos: [],
@@ -146,10 +153,10 @@ export async function runCompleteTask(db: Firestore, input: RunCompleteTaskInput
       priorityTier: inst.priorityTier ?? "optional",
       careType: inst.careType ?? "maintenance",
       scopeType: inst.scopeType ?? "item_unit",
-      estimatedMinutes: inst.estimatedMinutes ?? null,
+      estimatedMinutes: inst.estimatedMinutes,
       scheduleType,
-      itemName: inst.itemName ?? null,
-      roomName: inst.roomName ?? null,
+      itemName: inst.itemName,
+      roomName: inst.roomName,
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -159,40 +166,50 @@ export async function runCompleteTask(db: Firestore, input: RunCompleteTaskInput
   })
 }
 
-/** A Firestore document id: one path segment, so it can't address another doc. */
-const DOC_ID = /^[^/]+$/
+/**
+ * The stored instance fields completion copies forward. One of the wrong type
+ * reads as absent (null), which is what `?? null` already made a missing one.
+ */
+const StoredInstance = z.object({
+  taskTemplateId: DocId.nullable().catch(null),
+  assignedTo: DocId.nullable().catch(null),
+  itemUnitId: z.string().nullable().catch(null),
+  completionNotes: z.string().nullable().catch(null),
+  priorityTier: z.string().nullable().catch(null),
+  isSafetyCritical: z.boolean().catch(false),
+  title: z.string().nullable().catch(null),
+  careType: z.string().nullable().catch(null),
+  scopeType: z.string().nullable().catch(null),
+  estimatedMinutes: z.number().nullable().catch(null),
+  itemName: z.string().nullable().catch(null),
+  roomName: z.string().nullable().catch(null),
+})
+
+const NEXT_DUE_MESSAGE = "nextDueOverride must be a date (YYYY-MM-DD) or null."
+const NOTES_MESSAGE = "completionNotes must be text or null."
 
 /**
- * The request body, checked field by field rather than cast — the callable's
- * type says nothing about what arrives. `completedOn` and `backdated` are
- * passed on as-is: checkCompletedOn owns their rules. Everything else must
- * already be what the core writes. (Shared schema contracts for every callable
- * are a follow-up: audit 2026-09-29, refactor #8.)
+ * The request body (H3a) — parsed, never cast; the callable's type says
+ * nothing about what arrives. Field order is the order the problems are
+ * reported in. `completedOn` and `backdated` pass through untyped on purpose:
+ * checkCompletedOn owns their rules and their wording, and it needs the
+ * home's calendar, which is only read once the caller is known to be a member.
  */
-function readInput(data: unknown): Omit<CompleteTaskInput, "completedOn" | "backdated"> & {
-  completedOn: unknown
-  backdated: unknown
-} {
-  const d: Record<string, unknown> = data !== null && typeof data === "object" ? { ...data } : {}
-  const { homeId, taskInstanceId, nextDueOverride, completionNotes } = d
-  if (typeof homeId !== "string" || !DOC_ID.test(homeId) || typeof taskInstanceId !== "string" || !DOC_ID.test(taskInstanceId)) {
-    throw new HttpsError("invalid-argument", "homeId and taskInstanceId are required.")
-  }
-  if (nextDueOverride != null && !isCalendarDate(nextDueOverride)) {
-    throw new HttpsError("invalid-argument", "nextDueOverride must be a date (YYYY-MM-DD) or null.")
-  }
-  if (completionNotes != null && typeof completionNotes !== "string") {
-    throw new HttpsError("invalid-argument", "completionNotes must be text or null.")
-  }
-  return {
-    homeId,
-    taskInstanceId,
-    completedOn: d.completedOn,
-    backdated: d.backdated,
-    nextDueOverride: nextDueOverride ?? null,
-    completionNotes: completionNotes ?? null,
-  }
-}
+export const CompleteTaskRequest = z.object({
+  homeId: DocId,
+  taskInstanceId: DocId,
+  nextDueOverride: z
+    .string({ error: NEXT_DUE_MESSAGE })
+    .refine((v) => isCalendarDate(v), { error: NEXT_DUE_MESSAGE })
+    .nullish()
+    .transform((v) => v ?? null),
+  completionNotes: z
+    .string({ error: NOTES_MESSAGE })
+    .nullish()
+    .transform((v) => v ?? null),
+  completedOn: z.unknown(),
+  backdated: z.unknown(),
+})
 
 /**
  * The callable's body without the transport, so tests can drive it on a fixed
@@ -207,7 +224,12 @@ export async function handleCompleteTask(
   now: Date = new Date(),
 ): Promise<CompleteTaskResult> {
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const { homeId, taskInstanceId, completedOn, backdated, nextDueOverride, completionNotes } = readInput(data)
+  const { homeId, taskInstanceId, completedOn, backdated, nextDueOverride, completionNotes } = parseCallableInput(
+    "completeTask",
+    CompleteTaskRequest,
+    data,
+    "homeId and taskInstanceId are required.",
+  )
 
   // One round trip for both; nothing from the home doc is used unless the
   // caller turns out to be a member.

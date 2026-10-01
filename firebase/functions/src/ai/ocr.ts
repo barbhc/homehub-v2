@@ -18,6 +18,8 @@ import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, type CallClaudeText } from "./claude.js"
 import { requireAnyMembership } from "../lib/membership.js"
 import { chargeAiQuota } from "../lib/quota.js"
+import { z } from "zod"
+import { parseCallableInput } from "../lib/validate.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY")
@@ -154,23 +156,32 @@ async function visionText(apiKey: string, base64: string): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ requests: [{ image: { content: base64 }, features: [{ type: "TEXT_DETECTION" }] }] }),
   })
-  if (!res.ok) throw new Error(`Vision API ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`)
+  if (!res.ok) {
+    // The status is the error; the body is only detail for the log line, so a
+    // body that cannot be read is named rather than swallowed.
+    const detail = await res.text().catch((e: unknown) => `(response body unreadable: ${e instanceof Error ? e.message : String(e)})`)
+    throw new Error(`Vision API ${res.status}: ${detail.slice(0, 300)}`)
+  }
   const data = await res.json()
   return data.responses?.[0]?.fullTextAnnotation?.text ?? ""
 }
+
+const MISSING_IMAGE = "Missing image (base64)."
+const OCR_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const
+
+/** The request (H3a). Any other media type — a HEIC photo, none at all — is
+ *  sent as JPEG, exactly as before; only the image itself is required. */
+export const OcrRequest = z.object({
+  image: z.string({ error: MISSING_IMAGE }).min(1, { error: MISSING_IMAGE }),
+  mediaType: z.enum(OCR_MEDIA_TYPES).catch("image/jpeg"),
+})
 
 export const ocr = onCall(
   { region: REGION, secrets: [ANTHROPIC_API_KEY, GOOGLE_VISION_API_KEY], timeoutSeconds: 120, memory: "512MiB" },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
+    const { image, mediaType } = parseCallableInput("ocr", OcrRequest, request.data, MISSING_IMAGE)
     await requireAnyMembership(getFirestore(), request.auth.uid)
-    const image = (request.data ?? {}).image
-    if (!image || typeof image !== "string") throw new HttpsError("invalid-argument", "Missing image (base64).")
-    const rawMediaType = (request.data ?? {}).mediaType
-    const mediaType =
-      typeof rawMediaType === "string" && /^image\/(jpeg|png|webp|gif)$/.test(rawMediaType)
-        ? rawMediaType
-        : "image/jpeg"
     // One charge covers the whole request, image fallback included.
     const hold = await chargeAiQuota(getFirestore(), request.auth.uid, "ocr")
     const base64 = image.replace(/^data:image\/\w+;base64,/, "")

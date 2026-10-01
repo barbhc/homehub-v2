@@ -10,5 +10,5 @@
     "forceConsistentCasingInFileNames": true,
     "sourceMap": true
   },
-  "include": ["src/**/*.ts", "../../shared/parse/*.ts"]
+  "include": ["src/**/*.ts", "../../shared/parse/*.ts", "../../shared/chat/*.ts"]
 }

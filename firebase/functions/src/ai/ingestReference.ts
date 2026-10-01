@@ -14,7 +14,10 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
 import { makeCallClaudeText, type CallClaudeText } from "./claude.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
+import { manualSource, MANUAL_SOURCE_UNAVAILABLE } from "../parse/manualSource.js"
 import { chargeAiQuota } from "../lib/quota.js"
+import { z } from "zod"
+import { DocId, parseCallableInput } from "../lib/validate.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -69,11 +72,12 @@ export async function runIngestReference(callClaude: CallClaudeText, pdfBase64: 
     }))
 }
 
+export const IngestReferenceRequest = z.object({ homeId: DocId, manualId: DocId })
+
 export const ingestReference = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 300, memory: "512MiB" }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const { homeId, manualId } = (request.data ?? {}) as { homeId?: string; manualId?: string }
-  if (!homeId || !manualId) throw new HttpsError("invalid-argument", "homeId and manualId required")
+  const { homeId, manualId } = parseCallableInput("ingestReference", IngestReferenceRequest, request.data, "homeId and manualId required")
 
   const db = getFirestore()
   const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
@@ -82,11 +86,15 @@ export const ingestReference = onCall({ region: REGION, secrets: [ANTHROPIC_API_
   const manualRef = db.doc(`homes/${homeId}/manuals/${manualId}`)
   const manual = await manualRef.get()
   if (!manual.exists) throw new HttpsError("not-found", "Manual not found")
+  // Before the charge: a source that is missing or another home's is never
+  // fetched — its sections would be written into THIS home's chunks.
+  const source = manualSource(homeId, manual.get("sourceType"), manual.get("sourceRef"))
+  if (!source) throw new HttpsError("failed-precondition", MANUAL_SOURCE_UNAVAILABLE)
   const hold = await chargeAiQuota(db, uid, "ingestReference")
 
   let pdfBase64: string
   try {
-    pdfBase64 = await makeFetchPdf()(manual.get("sourceType"), manual.get("sourceRef"))
+    pdfBase64 = await makeFetchPdf()(source.sourceType, source.sourceRef)
   } catch (e) {
     // Never reached Claude.
     await hold.refund()

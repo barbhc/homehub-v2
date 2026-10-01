@@ -20,6 +20,8 @@ import { isAllowedUrl, fetchGuarded } from "../../../../shared/parse/ssrf.js"
 import { hasAnyMembership } from "../lib/membership.js"
 import { enforceCallLimits } from "../lib/quota.js"
 import { isProjectStorageUrl, ownManualUrl, projectBuckets, readPdfResponse } from "./proxyPolicy.js"
+import { z } from "zod"
+import { parseHttpInput } from "../lib/validate.js"
 
 const REGION = "us-central1"
 /** Response cap — matches the client's MAX_UPLOAD_BYTES; stops the proxy being
@@ -32,6 +34,10 @@ const CORS = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, content-type",
 }
+
+/** The query string (H3a): one `url`. Signed Storage URLs run long, so the
+ *  ceiling is generous; isAllowedUrl and the policy below judge the rest. */
+export const ProxyPdfQuery = z.object({ url: z.string().min(1).max(8192) })
 
 export const proxyPdf = onRequest({ region: REGION, timeoutSeconds: 60, memory: "256MiB" }, async (req, res) => {
   if (req.method === "OPTIONS") {
@@ -53,11 +59,12 @@ export const proxyPdf = onRequest({ region: REGION, timeoutSeconds: 60, memory: 
     return
   }
 
-  const url = typeof req.query.url === "string" ? req.query.url : ""
-  if (!url) {
-    res.status(400).json({ error: "url param required" })
+  const query = parseHttpInput("proxyPdf", ProxyPdfQuery, req.query, "url param required")
+  if (!query.ok) {
+    res.status(query.status).json({ error: query.error })
     return
   }
+  const { url } = query.data
   if (!isAllowedUrl(url)) {
     res.status(403).json({ error: "URL not allowed: private or internal addresses are blocked" })
     return

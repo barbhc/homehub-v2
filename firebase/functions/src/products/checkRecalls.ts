@@ -9,6 +9,8 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
+import { z } from "zod"
+import { DocId, parseCallableInput, storedText } from "../lib/validate.js"
 
 const REGION = "us-central1"
 
@@ -35,13 +37,50 @@ export function buildRecallNotes(recall: CpscRecall): string {
 
 type Fetcher = (keywords: string) => Promise<CpscRecall[]>
 
+/** The recall database did not give an answer we can read — which is not "no recalls". */
+export class RecallLookupError extends Error {}
+
+const orNull = <T extends z.ZodType>(schema: T) => schema.nullish().transform((v) => v ?? null)
+const named = z.array(z.object({ Name: z.string().optional().catch(undefined) })).optional().catch(undefined)
+/** One CPSC record, as far as this module reads it. */
+const CpscRecallSchema = z.object({
+  RecallID: z.number(),
+  RecallNumber: orNull(z.string()),
+  RecallDate: orNull(z.string()),
+  Title: orNull(z.string()),
+  URL: orNull(z.string()),
+  Hazards: named,
+  Remedies: named,
+}) satisfies z.ZodType<CpscRecall>
+
+/**
+ * The CPSC response body, parsed rather than cast (H3a: external responses
+ * are validated at the point of entry). The body must be a JSON array, or the
+ * lookup failed; a record without a numeric id is skipped, never guessed at.
+ */
+export function parseCpscResponse(raw: unknown): CpscRecall[] {
+  if (!Array.isArray(raw)) throw new RecallLookupError("CPSC answered with something other than a list")
+  const recalls: CpscRecall[] = []
+  for (const entry of raw) {
+    const r = CpscRecallSchema.safeParse(entry)
+    if (r.success) recalls.push(r.data)
+  }
+  return recalls.filter((r) => r.RecallID > 0 && r.Title && !r.Title.startsWith("Error"))
+}
+
 async function queryCpscLive(keywords: string): Promise<CpscRecall[]> {
   const url = `https://www.saferproducts.gov/RestWebServices/Recall?format=json&Keywords=${encodeURIComponent(keywords)}&RecallDateBegin=2010-01-01`
   const res = await fetch(url, { signal: AbortSignal.timeout(12000) })
-  if (!res.ok) return []
-  const data = await res.json().catch(() => [])
-  if (!Array.isArray(data)) return []
-  return (data as CpscRecall[]).filter((r) => r.RecallID > 0 && r.Title && !r.Title.startsWith("Error"))
+  // A failed lookup used to read as an empty list, and the item was then
+  // stamped "none_found" — a claim nobody had checked. It is a failure now.
+  if (!res.ok) throw new RecallLookupError(`CPSC returned HTTP ${res.status}`)
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch (e) {
+    throw new RecallLookupError(`CPSC returned a body that isn't JSON: ${e instanceof Error ? e.message : String(e)}`)
+  }
+  return parseCpscResponse(body)
 }
 
 /** Pure core: brand/model → recall status + notes, using the injected fetcher.
@@ -64,11 +103,12 @@ export async function runCheckRecalls(
   return { recall_status: "none_found", recall_notes: null }
 }
 
+export const CheckRecallsRequest = z.object({ homeId: DocId, itemUnitId: DocId })
+
 export const checkRecalls = onCall({ region: REGION, timeoutSeconds: 60 }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const { homeId, itemUnitId } = (request.data ?? {}) as { homeId?: string; itemUnitId?: string }
-  if (!homeId || !itemUnitId) throw new HttpsError("invalid-argument", "homeId and itemUnitId required")
+  const { homeId, itemUnitId } = parseCallableInput("checkRecalls", CheckRecallsRequest, request.data, "homeId and itemUnitId required")
 
   const db = getFirestore()
   const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
@@ -78,7 +118,15 @@ export const checkRecalls = onCall({ region: REGION, timeoutSeconds: 60 }, async
   const item = await itemRef.get()
   if (!item.exists || item.get("deletedAt")) throw new HttpsError("not-found", "Item not found")
 
-  const result = await runCheckRecalls(queryCpscLive, (item.get("brand") as string) ?? "", (item.get("model") as string) ?? "")
+  let result: Awaited<ReturnType<typeof runCheckRecalls>>
+  try {
+    // Brand and model are member-written text: anything else reads as blank.
+    result = await runCheckRecalls(queryCpscLive, storedText(item.get("brand")) ?? "", storedText(item.get("model")) ?? "")
+  } catch (e) {
+    // Nothing is written: the item keeps whatever it last knew.
+    console.warn(`[checkRecalls] lookup failed for ${homeId}/${itemUnitId}:`, e instanceof Error ? e.message : e)
+    throw new HttpsError("unavailable", "The recall database didn't answer. Try again in a little while.")
+  }
   await itemRef.set(
     {
       recallStatus: result.recall_status,

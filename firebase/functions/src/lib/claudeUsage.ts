@@ -93,12 +93,20 @@ export function claudeUsageLine(
 }
 
 /** Log it. Call this for every response Claude returned — a refusal or a reply
- *  without the expected tool call was billed too — and before reading it. */
+ *  without the expected tool call was billed too — and before reading it.
+ *
+ *  Never throws. It runs between a paid answer and the code that uses it, so
+ *  a logging failure (an odd response object, a logger fault) must cost the
+ *  person nothing: it is reported as a warning and the request carries on. */
 export function logClaudeUsage(
   callSite: ClaudeCallSite,
   model: string,
   res: ClaudeResponseLike,
   extra?: Record<string, unknown>,
 ): void {
-  logger.info(CLAUDE_USAGE_MESSAGE, claudeUsageLine(callSite, model, res, extra))
+  try {
+    logger.info(CLAUDE_USAGE_MESSAGE, claudeUsageLine(callSite, model, res, extra))
+  } catch (e) {
+    console.warn(`[claudeUsage] could not log usage for ${callSite} (${model}):`, e instanceof Error ? e.message : e)
+  }
 }

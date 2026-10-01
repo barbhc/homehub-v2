@@ -28,6 +28,9 @@ import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
 import { pickNotes, formatNotesBlock, noteSources, type NoteInput } from "./notesContext.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
+import { manualSource } from "../parse/manualSource.js"
+import { z } from "zod"
+import { DocId, parseHttpInput, storedText } from "../lib/validate.js"
 import { queryTerms, rankChunks } from "./chunkRanking.js"
 import {
   ReadTally,
@@ -94,14 +97,30 @@ export async function chargeAndFetchPdfs<T extends { manualId: string }>(
   return attached
 }
 
-type FilterType = "all" | "item" | "room" | "category"
-interface ChatRequestBody {
-  question: string
-  history: Array<{ role: "user" | "assistant"; content: string }>
-  filter: { type: FilterType; value?: string; values?: string[]; label?: string }
-  home_id: string
-  allow_web_search?: boolean
-}
+/**
+ * The request body (H3a) — parsed, never cast. Each history turn must be a
+ * {role, content} pair of strings; which of those reach Claude (user or
+ * assistant, non-blank, the last ten) is still normalizeHistory's call, which
+ * drops and counts the rest (shared/chat/chatMessages.ts). The ceilings sit
+ * far above what the Ask client sends and only refuse what it cannot.
+ */
+export const ChatQueryRequest = z.object({
+  question: z.string().min(1).max(10_000),
+  history: z
+    .array(z.object({ role: z.string(), content: z.string().max(50_000) }))
+    .max(500)
+    .nullish(),
+  filter: z
+    .object({
+      type: z.enum(["all", "item", "room", "category"]),
+      value: z.string().max(500).nullish(),
+      values: z.array(z.string().max(500)).max(500).nullish(),
+      label: z.string().max(500).nullish(),
+    })
+    .nullish(),
+  home_id: DocId,
+  allow_web_search: z.boolean().nullish(),
+})
 type ChatSource = { title: string; item_name: string; source_type: "manual" | "web" | "note"; url?: string }
 type WebResult = { title: string; url: string; snippet: string }
 
@@ -176,12 +195,13 @@ export const chatQuery = onRequest(
       return
     }
 
-    const body = (req.body ?? {}) as ChatRequestBody
-    const { question, history = [], filter, home_id: homeId, allow_web_search: allowWebSearch } = body
-    if (!question || typeof question !== "string" || !homeId || typeof homeId !== "string") {
-      res.status(400).json({ error: "question and home_id are required" })
+    const parsed = parseHttpInput("chatQuery", ChatQueryRequest, req.body, "question and home_id are required")
+    if (!parsed.ok) {
+      res.status(parsed.status).json({ error: parsed.error })
       return
     }
+    const { question, filter, home_id: homeId, allow_web_search: allowWebSearch } = parsed.data
+    const history = parsed.data.history ?? []
 
     const db = getFirestore()
     const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
@@ -243,9 +263,9 @@ export const chatQuery = onRequest(
     tally.query("items", itemsSnap.size)
     const items: ItemRow[] = itemsSnap.docs.map((d) => ({
       id: d.id,
-      roomId: (d.get("roomId") as string | null) ?? null,
-      category: (d.get("category") as string | null) ?? null,
-      displayName: (d.get("displayName") as string | null) ?? "Unknown",
+      roomId: storedText(d.get("roomId")),
+      category: storedText(d.get("category")),
+      displayName: storedText(d.get("displayName")) ?? "Unknown",
     }))
     if (items.length === 0) return nothingToAsk()
 
@@ -293,7 +313,7 @@ export const chatQuery = onRequest(
       try {
         noteInputs.push(...(await readAskNotes(db, { homeId, wholeHome, scopedItems, scopedIds, nameByItem }, tally)))
         for (const d of itemsSnap.docs) {
-          const legacy = (d.get("notes") as string | null)?.trim()
+          const legacy = storedText(d.get("notes"))?.trim()
           if (legacy && scopedIds.has(d.id)) noteInputs.push({ scope: "item_unit", scopeLabel: nameByItem.get(d.id) ?? "Item", title: null, content: legacy })
         }
       } catch (e) {
@@ -308,12 +328,15 @@ export const chatQuery = onRequest(
     // --- Manuals for the in-scope items ---
     const manualDocs = await readScopedManuals(db, homeId, wholeHome, scopedIds, tally)
     const manuals: ManualRow[] = manualDocs
-      .filter((d) => scopedIds.has((d.get("itemUnitId") as string) ?? ""))
+      .filter((d) => scopedIds.has(storedText(d.get("itemUnitId")) ?? ""))
       .map((d) => ({
         manualId: d.id,
-        itemUnitId: (d.get("itemUnitId") as string) ?? "",
-        sourceType: (d.get("sourceType") as string) ?? "url",
-        sourceRef: (d.get("sourceRef") as string) ?? "",
+        itemUnitId: storedText(d.get("itemUnitId")) ?? "",
+        // A source that is missing, or in ANOTHER home's Storage folder, is
+        // never attached: it reads as an empty URL, which planPdfAttachments
+        // refuses — what a manual with no source already read as. Its parsed
+        // chunks (this home's) are still searched.
+        ...(manualSource(homeId, d.get("sourceType"), d.get("sourceRef")) ?? { sourceType: "url", sourceRef: "" }),
       }))
     if (manuals.length === 0 && warrantyBlock.length === 0 && notesBlock.length === 0) return nothingToAsk()
 

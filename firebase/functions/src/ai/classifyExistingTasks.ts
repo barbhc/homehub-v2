@@ -12,10 +12,13 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
-import { getFirestore, FieldValue } from "firebase-admin/firestore"
+import { getFirestore, FieldValue, type CollectionReference, type Firestore } from "firebase-admin/firestore"
 import Anthropic from "@anthropic-ai/sdk"
+import { z } from "zod"
 import { chargeAiQuota } from "../lib/quota.js"
 import { logClaudeUsage } from "../lib/claudeUsage.js"
+import { DocId, isDocIdSegment, parseCallableInput, storedText } from "../lib/validate.js"
+import { ScheduleTypeSchema, storedDocId } from "../lib/storedTask.js"
 import { assertNotRefused, thinkingParamsFor } from "../../../../shared/parse/modelParams.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
@@ -220,8 +223,10 @@ export interface ClassifyResultRow {
   item_name: string | null
   current_schedule_type: string | null
   proposed_schedule_type: string | null
-  current_care_type: CareType
-  proposed_care_type: CareType
+  /** The stored value, as stored — it may predate the taxonomy. */
+  current_care_type: string
+  /** Canonical, except on a reference row, which echoes the current value. */
+  proposed_care_type: string
   current_symptom_tags: string[]
   proposed_symptom_tags: string[]
   justification: string
@@ -299,10 +304,118 @@ type TemplateRow = {
   title: string
   description: string | null
   instructions: string | null
-  careType: CareType
+  careType: string
   symptomTags: string[]
   scheduleType: string | null
   itemUnitId: string | null
+}
+
+// ── The request (H3a) ────────────────────────────────────────────────────────
+//
+// The apply step takes the dry run's rows BACK from the client (Settings →
+// Admin tools sends `report.results`, so the classifier is not paid twice).
+// Server writes bypass security rules, so those rows used to be written with
+// admin rights exactly as sent. Now a row can only make the write the dry run
+// itself could have made: to a template that exists in the caller's home,
+// still a classifier candidate, through the same four fields, with values
+// from the same taxonomies.
+
+/** At most this many rows per apply: one transaction each, inside 540 s. The
+ *  dry run that produces them is itself bounded by the daily AI allowance
+ *  (25 tasks per charged batch), so no real report comes near it. */
+export const MAX_APPLY_ROWS = 1000
+
+const Justification = z.string().trim().min(1).max(500)
+const CARE_TYPES = ["cleaning", "maintenance", "mixed"] as const satisfies readonly CareType[]
+const HOME_ID_REQUIRED = "homeId is required"
+
+/** Display fields: echoed back in the response, never written, so a value of
+ *  the wrong shape is blanked rather than refused. */
+const echoed = {
+  title: z.string().max(1000).catch(""),
+  item_name: z.string().max(1000).nullable().catch(null),
+  current_schedule_type: z.string().max(100).nullable().catch(null),
+  current_care_type: z.string().max(100).catch(""),
+  current_symptom_tags: z.array(z.string().max(100)).max(20).catch([]),
+}
+
+/** A reference row writes isActive=false and its justification — nothing else. */
+const ReferenceRow = z
+  .object({
+    task_template_id: DocId,
+    proposed_is_reference: z.literal(true),
+    justification: Justification,
+    ...echoed,
+    proposed_care_type: z.string().max(100).catch(""),
+    proposed_schedule_type: z.string().max(100).nullable().catch(null),
+    proposed_symptom_tags: z.array(z.string().max(100)).max(20).catch([]),
+  })
+  .transform(
+    (r): ClassifyResultRow => ({ ...r, care_change: false, schedule_change: false, symptom_tags_change: false, change: true }),
+  )
+
+/** A reclassification: each field is written only when its change flag is set,
+ *  and every value is one parseClassifierOutput itself would accept. */
+const ClassificationRow = z
+  .object({
+    task_template_id: DocId,
+    proposed_is_reference: z.literal(false),
+    justification: Justification,
+    ...echoed,
+    proposed_care_type: z.enum(CARE_TYPES),
+    // When the classifier kept the cadence this echoes the CURRENT stored
+    // value, which is never written (schedule_change is false) — checked below.
+    proposed_schedule_type: z.string().max(100).nullable(),
+    proposed_symptom_tags: z
+      .array(z.enum(VALID_SYMPTOM_TAGS))
+      .max(3)
+      .refine((tags) => new Set(tags).size === tags.length),
+    care_change: z.boolean(),
+    schedule_change: z.boolean(),
+    symptom_tags_change: z.boolean(),
+  })
+  .superRefine((r, ctx) => {
+    // The only cadence a row may write is one the computed path can propose: a
+    // known schedule, and never a change INTO every_n_days (no interval).
+    const s = ScheduleTypeSchema.safeParse(r.proposed_schedule_type)
+    if (r.schedule_change && (!s.success || s.data === "every_n_days")) {
+      ctx.addIssue({ code: "custom", path: ["proposed_schedule_type"], message: "not a schedule this row may write" })
+    }
+  })
+  .transform(
+    (r): ClassifyResultRow => ({ ...r, change: r.care_change || r.schedule_change || r.symptom_tags_change }),
+  )
+
+export const ApplyRow = z.union([ReferenceRow, ClassificationRow])
+
+export const ClassifyExistingTasksRequest = z.object({
+  homeId: z.string({ error: HOME_ID_REQUIRED }).refine(isDocIdSegment, { error: HOME_ID_REQUIRED }),
+  dryRun: z.boolean().optional(),
+  results: z
+    .array(ApplyRow)
+    .max(MAX_APPLY_ROWS)
+    .refine((rows) => new Set(rows.map((r) => r.task_template_id)).size === rows.length)
+    .optional(),
+})
+
+const NOT_THIS_HOME = "Some of these tasks aren't in this home any more. Run the preview again."
+
+/**
+ * Every row must name a template that exists in THIS home — the caller is a
+ * member of it (checked before this), and the ids are single path segments
+ * (the schema), so a row for another home's task, or an invented one, finds
+ * nothing here. One such row means the report is not this home's dry run: the
+ * whole apply is refused before anything is written.
+ */
+export async function requireTemplatesInHome(db: Firestore, col: CollectionReference, ids: string[]): Promise<void> {
+  for (let i = 0; i < ids.length; i += 300) {
+    const snaps = await db.getAll(...ids.slice(i, i + 300).map((id) => col.doc(id)))
+    const missing = snaps.filter((s) => !s.exists).length
+    if (missing > 0) {
+      console.warn(`[classifyExistingTasks] apply refused: ${missing} row(s) name no template in ${col.parent?.id ?? "?"}`)
+      throw new HttpsError("invalid-argument", NOT_THIS_HOME)
+    }
+  }
 }
 
 function buildUserPrompt(batch: TemplateRow[], itemMap: Map<string, string>): string {
@@ -331,12 +444,12 @@ export const classifyExistingTasks = onCall(
   async (request) => {
     const uid = request.auth?.uid
     if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-    const { homeId, dryRun: dryRunRaw, results: precomputed } = (request.data ?? {}) as {
-      homeId?: string
-      dryRun?: boolean
-      results?: ClassifyResultRow[]
-    }
-    if (!homeId) throw new HttpsError("invalid-argument", "homeId is required")
+    const { homeId, dryRun: dryRunRaw, results: precomputed } = parseCallableInput(
+      "classifyExistingTasks",
+      ClassifyExistingTasksRequest,
+      request.data,
+      "These changes couldn't be applied as sent. Run the preview again.",
+    )
     const dryRun = dryRunRaw !== false // default true for safety
 
     const db = getFirestore()
@@ -346,10 +459,10 @@ export const classifyExistingTasks = onCall(
     const templatesCol = db.collection(`homes/${homeId}/taskTemplates`)
 
     let results: ClassifyResultRow[]
-    const precomputedResults =
-      !dryRun && Array.isArray(precomputed) && precomputed.length > 0 ? precomputed : null
+    const precomputedResults = !dryRun && precomputed && precomputed.length > 0 ? precomputed : null
 
     if (precomputedResults) {
+      await requireTemplatesInHome(db, templatesCol, precomputedResults.map((r) => r.task_template_id))
       results = precomputedResults
     } else {
       // Candidate rows: justification null + no override + not deleted.
@@ -358,16 +471,21 @@ export const classifyExistingTasks = onCall(
         .where("careTypeOverriddenAt", "==", null)
         .where("deletedAt", "==", null)
         .get()
-      const rows: TemplateRow[] = snap.docs.map((d) => ({
-        id: d.id,
-        title: (d.get("title") as string) ?? "",
-        description: (d.get("description") as string | null) ?? null,
-        instructions: (d.get("instructionsOverride") as string | null) ?? null,
-        careType: ((d.get("careType") as CareType) ?? "maintenance"),
-        symptomTags: Array.isArray(d.get("symptomTags")) ? (d.get("symptomTags") as string[]) : [],
-        scheduleType: (d.get("schedule")?.scheduleType as string | null) ?? null,
-        itemUnitId: (d.get("itemUnitId") as string | null) ?? null,
-      }))
+      // Stored (member-written) fields, read as what they are: text that isn't
+      // text reads as absent; the item id becomes a path, so it must be one segment.
+      const rows: TemplateRow[] = snap.docs.map((d) => {
+        const tags: unknown = d.get("symptomTags")
+        return {
+          id: d.id,
+          title: storedText(d.get("title")) ?? "",
+          description: storedText(d.get("description")),
+          instructions: storedText(d.get("instructionsOverride")),
+          careType: storedText(d.get("careType")) ?? "maintenance",
+          symptomTags: Array.isArray(tags) ? tags.filter((t): t is string => typeof t === "string") : [],
+          scheduleType: storedText(d.get("schedule.scheduleType")),
+          itemUnitId: storedDocId(d.get("itemUnitId")),
+        }
+      })
       if (rows.length === 0) {
         return { ok: true, dry_run: dryRun, total: 0, changes: 0, results: [], writes: 0 }
       }
@@ -378,7 +496,7 @@ export const classifyExistingTasks = onCall(
       await Promise.all(
         itemIds.map(async (id) => {
           const it = await db.doc(`homes/${homeId}/items/${id}`).get()
-          if (it.exists) itemMap.set(id, (it.get("displayName") as string) ?? "")
+          if (it.exists) itemMap.set(id, storedText(it.get("displayName")) ?? "")
         }),
       )
 
@@ -477,7 +595,11 @@ export const classifyExistingTasks = onCall(
       const ok = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref)
         if (!snap.exists) return false
-        if (snap.get("justification") != null || snap.get("careTypeOverriddenAt") != null) return false
+        // Still a candidate: the same three conditions the dry run selected on.
+        // (deletedAt is new here — a template deleted since the preview stays deleted.)
+        if (snap.get("justification") != null || snap.get("careTypeOverriddenAt") != null || snap.get("deletedAt") != null) {
+          return false
+        }
         if (r.proposed_is_reference) {
           tx.set(ref, { isActive: false, justification: r.justification, updatedAt: now }, { merge: true })
           return true

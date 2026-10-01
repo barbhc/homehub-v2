@@ -11,9 +11,12 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
-import { normalizeChunkRow, normalizeTaskRow, type ParsedChunk, type ParsedTask } from "../../../../shared/parse/parseCore.js"
+import { normalizeChunkRow, normalizeTaskRow } from "../../../../shared/parse/parseCore.js"
 import { commitDraft } from "./commitDraft.js"
 import { parseLastDone } from "../../../../shared/care/lastDone.js"
+import { CommitManualDraftRequest } from "./draftSchemas.js"
+import { parseCallableInput, storedText } from "../lib/validate.js"
+import { storedDocId } from "../lib/storedTask.js"
 import type { ParseItemFacts } from "./parseTypes.js"
 
 const REGION = "us-central1"
@@ -21,18 +24,13 @@ const REGION = "us-central1"
 export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const { homeId, manualId, chunks, tasks } = (request.data ?? {}) as {
-    homeId?: string
-    manualId?: string
-    chunks?: ParsedChunk[]
-    // remind_enabled and last_done_on are the reviewer's own answers, not
-    // parser fields — see below.
-    tasks?: (ParsedTask & { remind_enabled?: boolean | null; last_done_on?: unknown })[]
-  }
-  if (!homeId || !manualId) throw new HttpsError("invalid-argument", "homeId and manualId required")
-  if (!Array.isArray(chunks) || !Array.isArray(tasks)) {
-    throw new HttpsError("invalid-argument", "chunks and tasks arrays required")
-  }
+  // Parsed, never cast (H3a): the rows' contract is in draftSchemas.ts.
+  const { homeId, manualId, chunks, tasks } = parseCallableInput(
+    "commitManualDraft",
+    CommitManualDraftRequest,
+    request.data,
+    "This review couldn't be saved as sent. Reopen it and try again.",
+  )
 
   const db = getFirestore()
   const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
@@ -42,15 +40,20 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   const manualSnap = await manualRef.get()
   if (!manualSnap.exists) throw new HttpsError("not-found", "Manual not found")
 
-  const itemUnitId: string = manualSnap.get("itemUnitId")
+  // The manual's item id is stored (member-writable) data that becomes a path
+  // and is written onto every task: one segment, or the save stops here. A
+  // missing one used to reach the commit as `undefined` and fail as "internal".
+  const itemUnitId = storedDocId(manualSnap.get("itemUnitId"))
+  if (!itemUnitId) throw new HttpsError("failed-precondition", "This manual isn't attached to an item.")
   const itemSnap = await db.doc(`homes/${homeId}/items/${itemUnitId}`).get()
+  const accessories: unknown = itemSnap.get("accessories")
   const item: ParseItemFacts = {
     itemUnitId,
-    item_category: itemSnap.get("itemCategory") ?? null,
-    sub_type: itemSnap.get("subType") ?? null,
-    display_name: itemSnap.get("displayName") ?? null,
-    model: itemSnap.get("model") ?? null,
-    accessories: itemSnap.get("accessories") ?? [],
+    item_category: storedText(itemSnap.get("itemCategory")),
+    sub_type: storedText(itemSnap.get("subType")),
+    display_name: storedText(itemSnap.get("displayName")),
+    model: storedText(itemSnap.get("model")),
+    accessories: Array.isArray(accessories) ? accessories.filter((a): a is string => typeof a === "string") : [],
   }
 
   const normChunks = chunks.map((c) => normalizeChunkRow(c, manualId))
@@ -62,7 +65,7 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   const todayStr = new Date().toISOString().slice(0, 10)
   const normTasks = tasks.map((t) => ({
     ...normalizeTaskRow(t),
-    remind_enabled: typeof t.remind_enabled === "boolean" ? t.remind_enabled : null,
+    remind_enabled: t.remind_enabled,
     // Parsed, not cast: this arrives from a form as `unknown`, and a bad anchor
     // would silently mis-schedule the task rather than fail loudly. Anything
     // unusable degrades to null, which is exactly the shipped behaviour
