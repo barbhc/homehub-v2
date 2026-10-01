@@ -53,6 +53,10 @@ const RETIRED_COMPONENTS = [
   "MaintenanceTaskRow",  // the /tasks list's row -> RefinedWeek / DesktopTasks rows
   "HowToAccordion",      // -> the item page's Guides
   "TroubleshootingAccordion", // -> the item page's Fix it, and Ask
+  // HH-161: one reading indicator. The manual row's countdown bar ("~28 sec
+  // remaining") was an ESTIMATE beside a read whose position the worker never
+  // reports; the read is shown by the pill and the Upkeep card, honestly.
+  "ManualParseProgress", // -> ScanningLine in CareBlock + ParseTrayPill
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */

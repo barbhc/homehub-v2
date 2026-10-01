@@ -93,6 +93,13 @@ describe("Read — not saved", () => {
     expect(svc.startParse).not.toHaveBeenCalled()
     expect(svc.parseManualAndWait).not.toHaveBeenCalled()
   })
+
+  it("asks the item page to OPEN that review on arrival — Review is a tap, not a visit (HH-161)", async () => {
+    const { pendingReviewFor, takeReviewRequest } = await import("./reviewRequest")
+    openPendingReview(manual)
+    expect(pendingReviewFor()).toBe("m-1")
+    takeReviewRequest("m-1")
+  })
 })
 
 describe("the Settings page itself", () => {

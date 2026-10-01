@@ -60,6 +60,7 @@ function renderSheet(props: { alreadySaved?: boolean } = {}) {
   render(
     <TaskReviewSheet
       freezeRiskFalse={false}
+      notificationsBlocked={false}
       open
       onOpenChange={vi.fn()}
       itemName="Sharp SMD2470ASY24"

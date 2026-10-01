@@ -113,7 +113,7 @@ function EmptyHomeHero() {
           <div className="flex items-start gap-2.5">
             <FileTextIcon className="size-5 shrink-0 text-primary mt-0.5" />
             <div>
-              {/* The app SCANS a manual — never "parse" (lib/scanCopy.ts). */}
+              {/* Never "parse" (lib/scanCopy.ts). Still "Scan" here — the app READS a manual since HH-161; docs/add-item-flow.md lists the lines left to convert. */}
               <div className="text-sm font-semibold text-foreground">Scan manuals</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 Upload a PDF and we extract the key info.

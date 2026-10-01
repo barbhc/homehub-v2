@@ -17,6 +17,7 @@ import type { ManualDocument } from "@/integrations/types"
 import { parseManualAndWait, startParse } from "@/modules/knowledge/services/parseManualService"
 import type { ParseManualResult } from "@/modules/knowledge/services/parseManualService"
 import { markParsePending } from "@/lib/parsePickup"
+import { requestReview } from "@/lib/reviewRequest"
 import { isCapacityRefusal, queueScan } from "@/lib/scanCapacity"
 import { isParseInFlightMessage } from "../../shared/parse/parseErrors"
 
@@ -72,5 +73,10 @@ export async function rescanForReviewAndWait(homeId: string, m: ManualRef): Prom
  */
 export function openPendingReview(m: ManualRef): string {
   markParsePending(m.manual_id)
+  // HH-161: the item page opens a review by itself only for a read it watched
+  // finish; a read that finished elsewhere waits for a tap. This IS the tap —
+  // Settings' Review — so it asks the page's hand-off to open it on arrival,
+  // the same way the pill's Review does.
+  requestReview(m.manual_id)
   return reviewPathFor(m)
 }

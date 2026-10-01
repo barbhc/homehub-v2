@@ -17,12 +17,37 @@
  * duplicating them is how two code paths drift apart.
  */
 import type { PreviewTask } from "@/modules/knowledge/types/previewTypes"
-import { willNotify } from "../../shared/tasks/reviewBuckets"
+import { notifiesPhone } from "../../shared/tasks/reviewBuckets"
 
-/** Tasks in this save that are set to notify. The ones worth naming in the ask. */
+/**
+ * Where "Turn on in Settings" goes: the app's own Notifications section.
+ * There is no native hook in the app that opens the phone's Settings page for
+ * Homehub, so this is the one door the app has — and that section says where
+ * the switch is (notificationsRefusedHelp).
+ */
+export const NOTIFICATION_SETTINGS_PATH = "/settings#notifications"
+
+/**
+ * What Settings' Notifications section says when this device has refused
+ * notifications (owner, #228 review). The fix is outside the app, so the
+ * sentence names where it is. The native shell is the iPhone app; the web
+ * gets the browser's equivalent rather than a phone's menu it does not have.
+ * A native deep link into the phone's Settings is a separate follow-up.
+ *
+ * `platform` is Capacitor's: "ios" | "android" | "web".
+ */
+export function notificationsRefusedHelp(platform: string): string {
+  return platform === "web"
+    ? "Notifications are off for Homehub in this browser. Turn them on in the browser’s site settings."
+    : "Notifications are off for Homehub on this phone. Open iPhone Settings → Homehub → Notifications."
+}
+
+/** Tasks in this save that are set to notify. The ones worth naming in the ask.
+ *  Everything a manual yields is item-scoped, so its cleaning never notifies
+ *  (the push sweep skips what the agenda skips) — whatever its switch says. */
 export function tasksWantingNotification(tasks: PreviewTask[]): PreviewTask[] {
   return tasks.filter((t) =>
-    willNotify({
+    notifiesPhone({
       care_type: t.care_type,
       priority_tier: t.priority_tier,
       schedule_type: t.schedule_type,
@@ -32,7 +57,7 @@ export function tasksWantingNotification(tasks: PreviewTask[]): PreviewTask[] {
       // default `reviewBucketFor` uses.
       risk_level: t.risk_level,
       remind_enabled: (t as { remind_enabled?: boolean | null }).remind_enabled ?? null,
-    }),
+    }, "item_unit"),
   )
 }
 

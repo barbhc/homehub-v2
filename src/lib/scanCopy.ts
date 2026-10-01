@@ -1,5 +1,5 @@
 /**
- * What we say while a manual is being scanned.
+ * What we say while a manual is being read.
  *
  * HH-116 and HH-117 are the same report a screen apart: "there isn't any exit
  * button that essentially says that the user can leave and this process will
@@ -27,11 +27,24 @@ export const SCAN_KEEPS_GOING_SHORT = "You can close the app — these keep goin
 /**
  * The vocabulary rule, kept next to the copy it governs.
  *
- * The app SCANS a manual. Never "parse" (developer jargon) and never "read"
- * (which suggests we are opening the document for the user to read themselves).
- * Round 11 swept for these and missed `${n} manual${s} parsing` because the
- * sweep matched double-quoted strings and that one is a template literal —
- * which is exactly why the check now lives in a test rather than in a habit.
+ * The app READS a manual — "Reading the manual", "1 reading", "We read the
+ * manual", "Read again". Never "parse" (developer jargon).
+ *
+ * This said the opposite until HH-161: the app "scans", and never "reads"
+ * (which was thought to suggest opening the document for the user to read).
+ * The two words had drifted apart on screen — the pill said "1 scanning" a
+ * card away from "Reading the manual" and "We finished reading" — and the
+ * approved one-indicator mock (2026-09-30) settled on "Reading" for the
+ * surfaces it draws. What a CAMERA does is still a scan ("Scan the label").
+ * Some lines still say "scan" for the read — the add dialog's "Scan the
+ * manual", Settings' manual list, Home's first-run hero and others, listed in
+ * docs/add-item-flow.md — convert them, don't copy them. The constants' SCAN_
+ * names are identifiers, not copy.
+ *
+ * Round 11 swept for the banned words and missed `${n} manual${s} parsing`
+ * because the sweep matched double-quoted strings and that one is a template
+ * literal — which is exactly why the check now lives in a test rather than in
+ * a habit (scanCopy.test.ts, JSX text included).
  */
 export const BANNED_SCAN_WORDS = ["parsing", "parse", "analyz", "analys"] as const
 

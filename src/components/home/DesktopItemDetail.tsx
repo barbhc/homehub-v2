@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react"
 import { NotesSection } from "@/components/notes/NotesSection"
-import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
-import { anyAwaitingReview } from "@/lib/manualReviewState"
+import { askHint, type ItemManualState } from "@/lib/manualReviewState"
 import { itemSubtitle } from "@/lib/itemSubtitle"
 import { useNavigate } from "react-router-dom"
 import {
@@ -12,7 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import type {
-  ItemUnit, Room, KnowledgeChunk, ManualDocument, ChatFaq,
+  ItemUnit, Room, KnowledgeChunk, ChatFaq,
 } from "@/integrations/types"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 import { HistorySection, ManualSection } from "@/pages/item-detail"
@@ -308,7 +307,16 @@ export interface DesktopItemDetailProps {
   onTaskAdded?: () => void
   onEditTask?: () => void
   chunks: KnowledgeChunk[]
-  manuals: ManualDocument[]
+  /** Where the item's manuals stand — the page derives it ONCE from its live
+   *  manuals and hands it to both trees. This tree used to recompute its own
+   *  flags from the page's one-time list, which went stale the moment a read
+   *  started (HH-161). */
+  manualState: ItemManualState
+  /** This device refused notifications: no bell on the page (lib/notifyGate). */
+  notificationsBlocked: boolean
+  /** The hand-off card (ParsePickupCard), above the tabs: under the name, over
+   *  the upkeep it will fill (HH-161). */
+  handoffSlot?: React.ReactNode
   faqs: ChatFaq[]
   historyKey: number
   onBack: () => void
@@ -324,7 +332,7 @@ export interface DesktopItemDetailProps {
 type TabId = "tasks" | "guides" | "fix" | "saved" | "activity"
 
 export function DesktopItemDetail({
-  item, rooms, homeId, tasks, chunks, manuals, faqs, historyKey, onBack, onEdit, onOpenManualPage, onItemUpdate, manualSectionProps, focusTaskId = null, onTaskAdded, onEditTask,
+  item, rooms, homeId, tasks, chunks, manualState, notificationsBlocked, handoffSlot, faqs, historyKey, onBack, onEdit, onOpenManualPage, onItemUpdate, manualSectionProps, focusTaskId = null, onTaskAdded, onEditTask,
 }: DesktopItemDetailProps) {
   const navigate = useNavigate()
   const Glyph = glyphFor(item)
@@ -338,11 +346,7 @@ export function DesktopItemDetail({
   // (those belong in the manual viewer / Guides, and over-render here).
   const specRows = toSpecRows(item.category_fields)
   const guideCount = howToChunks.length + cleaningChunks.length
-  const hasManual = manuals.some((m) => m.parsed_at !== null)
-  // HH-87: mid-parse is neither "has a manual" nor "has none".
-  const parsingManual = manuals.some((m) => ACTIVE_PARSE_STAGES.includes(m.parse_stage as never))
-  // HH-141: read, findings not saved yet — the third state.
-  const manualAwaitingReview = anyAwaitingReview(manuals)
+  const hasManual = manualState.hasManual
 
   const recallFound = item.recall_status === "found"
 
@@ -432,15 +436,16 @@ export function DesktopItemDetail({
                 disabling it would take away a door that does open. */}
             <button
               onClick={goAsk}
-              title={hasManual ? undefined : "Answers come from the manual — add one to get item-specific help"}
               className="inline-flex items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13px] font-bold"
               style={{ borderColor: "var(--hh-line2)", color: hasManual ? INK : SUB }}
             >
               <SparklesIcon className="size-[14px]" /> Ask
             </button>
+            {/* The same sentence the phone's Ask card says, for the same state —
+                including a manual being read (HH-161) or read and waiting. */}
             {!hasManual && (
               <span className="max-w-[150px] text-[11px] leading-snug" style={{ color: SUB }}>
-                Works best once the manual is added.
+                {askHint(manualState)}
               </span>
             )}
           </div>
@@ -466,6 +471,7 @@ export function DesktopItemDetail({
       <div className="grid items-start gap-6" style={{ gridTemplateColumns: "minmax(0,1.7fr) minmax(260px,1fr)" }}>
         {/* MAIN: tabs */}
         <div>
+          {handoffSlot && <div className="mb-4">{handoffSlot}</div>}
           <div className="mb-4 flex gap-1" style={{ borderBottom: `1px solid ${LINE}` }}>
             {visibleTabs.map((tb) => {
               const on = tab === tb.id
@@ -490,8 +496,9 @@ export function DesktopItemDetail({
               tasks={tasks}
               chunks={chunks}
               hasManual={hasManual}
-              parsingManual={parsingManual}
-              manualAwaitingReview={manualAwaitingReview}
+              reading={manualState.reading}
+              manualAwaitingReview={manualState.awaitingReview}
+              notificationsBlocked={notificationsBlocked}
               onOpenManualPage={onOpenManualPage}
               onItemUpdate={onItemUpdate}
               // Every door opens through handleOpenAddManual (HH-159): upload

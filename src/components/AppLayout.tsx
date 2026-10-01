@@ -29,6 +29,11 @@ const DESKTOP_LEVEL_NAV: { to: string; label: string; tourId: string; minLevel: 
 ]
 const LEVEL_RANK: Record<string, number> = { essentials: 0, engaged: 1, power: 2 }
 
+/** The Items tab owns the list, the add flow and an item's own page — the page
+ *  lives at /items/:id, so matching /inventory alone left no tab lit there. */
+const inItems = (pathname: string) =>
+  pathname === "/inventory" || pathname.startsWith("/inventory/") || pathname.startsWith("/items/")
+
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -66,7 +71,7 @@ export function AppLayout() {
             {visibleNav.filter((n) => !("mobileOnly" in n && n.mobileOnly)).map(({ to, label, tourId }) => {
               const isActive =
                 to === "/inventory"
-                  ? location.pathname === "/inventory" || location.pathname.startsWith("/inventory/")
+                  ? inItems(location.pathname)
                   : location.pathname === to || (to === "/maintenance" && location.pathname.startsWith("/tasks"))
               return (
                 <Link
@@ -194,7 +199,7 @@ export function AppLayout() {
           {visibleNav.filter((n) => !("desktopOnly" in n && n.desktopOnly)).map(({ to, label, icon: Icon, tourId }) => {
             const isActive =
               to === "/inventory"
-                ? location.pathname === "/inventory" || location.pathname.startsWith("/inventory/")
+                ? inItems(location.pathname)
                 : to === "/settings"
                   ? location.pathname === "/settings"
                   : location.pathname === to

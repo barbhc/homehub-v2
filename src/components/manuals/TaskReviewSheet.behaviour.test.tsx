@@ -51,6 +51,7 @@ function renderSheet(onSave = vi.fn().mockResolvedValue(null)) {
   render(
     <TaskReviewSheet
       freezeRiskFalse={false}
+      notificationsBlocked={false}
       open
       onOpenChange={vi.fn()}
       itemName="Dryer"
