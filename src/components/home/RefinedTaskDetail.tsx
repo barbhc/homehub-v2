@@ -22,7 +22,7 @@ import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { InlineError, LoadErrorState } from "@/components/layout/LoadStates"
-import { DONE_FAILED } from "./tasks/shared"
+import { doneFailedMessage } from "./tasks/shared"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
 import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
@@ -66,13 +66,6 @@ function recurLabel(t: ScheduleType): string {
 }
 function dueDaysFromDate(dateStr: string): number {
   return Math.round((new Date(dateStr + "T12:00:00").getTime() - new Date(todayStr() + "T12:00:00").getTime()) / 86400000)
-}
-
-/** completeTask's date refusals (firebase/functions/src/tasks/completedOn.ts)
- *  all open this way: sentences written for the person, naming what to check. */
-const DATE_REFUSAL = "Can't record this as done"
-function isDateRefusal(message: string | undefined): message is string {
-  return typeof message === "string" && message.startsWith(DATE_REFUSAL)
 }
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -553,10 +546,9 @@ export function RefinedTaskDetail({
             const res = await markTaskInstanceDone(homeId, detail.taskInstanceId, null, { completedOn, backdated, nextDueOverride: nextDue })
             if (!res.success) {
               console.warn(`[task] could not mark ${detail.taskInstanceId} done (home ${homeId}):`, res.error)
-              // The server's date refusals are written for the person — they
-              // say what to check (firebase/functions/src/tasks/completedOn.ts).
-              // Anything else reads as it does on Home and Tasks: DONE_FAILED.
-              setDoneError(isDateRefusal(res.error) ? res.error : DONE_FAILED)
+              // The server's date refusals say what to check, so they are
+              // shown as sent; anything else reads as it does on Home and Tasks.
+              setDoneError(doneFailedMessage(res.error))
               return
             }
             setDone({ nextDue })

@@ -66,6 +66,21 @@ type RowWrite = { success: boolean; error?: string }
 export const DONE_FAILED = "Couldn't mark this done. Check your connection and try again."
 export const SNOOZE_FAILED = "Couldn't snooze this. Check your connection and try again."
 
+/** completeTask's date refusals (firebase/functions/src/tasks/completedOn.ts)
+ *  all open this way. They are written for the person and say what to check
+ *  (this device's date, or a day too far back), so they are shown as sent. */
+const DATE_REFUSAL = "Can't record this as done"
+
+/**
+ * What a failed check-off says on the task page and the item page: the
+ * server's own date refusal as sent, and DONE_FAILED for anything else. Never
+ * the service's raw error — that is for the log, which the caller writes with
+ * its ids.
+ */
+export function doneFailedMessage(error: string | null | undefined): string {
+  return typeof error === "string" && error.startsWith(DATE_REFUSAL) ? error : DONE_FAILED
+}
+
 /**
  * Done and Snooze for the agenda's rows: ONE implementation, which RefinedWeek
  * and DesktopTasks both call.

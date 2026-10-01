@@ -306,14 +306,26 @@ describe("a failed check-off reads the same on Home and on Tasks", () => {
     }
   })
 
-  it("the task page says it with the same sentence — no third wording", () => {
-    // It had its own: "Couldn't mark this done. Try again." It now takes
-    // DONE_FAILED from the Tasks hook; only the server's own date refusals
-    // ("Can't record this as done on …") are shown in their place.
-    const detail = read("../components/home/RefinedTaskDetail.tsx")
-    expect(detail).toMatch(/import \{[^}]*\bDONE_FAILED\b[^}]*\} from "\.\/tasks\/shared"/)
-    expect(detail).toMatch(/setDoneError\(.*\bDONE_FAILED\b/)
-    expect(detail).not.toMatch(/Couldn['’]t mark this done\. (?!Check your connection and try again\.)/)
-    expect(detail).not.toContain("Try again.\"")
+  it("the task page and the item page say it with the same sentences — no third wording", () => {
+    // The task page had its own ("Couldn't mark this done. Try again."); the
+    // item page showed the service's raw error, else "Couldn't mark it done" /
+    // "Couldn't snooze it". Both now take their words from tasks/shared:
+    // doneFailedMessage, which is DONE_FAILED unless the server refused the
+    // DATE (those sentences say what to check, so they are shown as sent).
+    const shared = read("../components/home/tasks/shared.ts")
+    expect(shared).toMatch(/export function doneFailedMessage\(/)
+    expect(shared).toMatch(/: DONE_FAILED\s*\n\}/) // anything but a date refusal is DONE_FAILED
+    const pages = {
+      "RefinedTaskDetail.tsx": read("../components/home/RefinedTaskDetail.tsx"),
+      "CareBlock.tsx": read("../components/item-care/CareBlock.tsx"),
+    }
+    for (const [file, src] of Object.entries(pages)) {
+      expect(src, file).toMatch(/import \{[^}]*\bdoneFailedMessage\b[^}]*\} from "(\.\/tasks|@\/components\/home\/tasks)\/shared"/)
+      expect(src, file).toMatch(/\bdoneFailedMessage\(\w+\.error\)/)
+      // No wording of its own for a failed check-off or snooze.
+      expect(src, file).not.toMatch(/Couldn['’]t (mark|snooze) (this|it)\b/)
+      expect(src, file).not.toMatch(/\.error \?\? "/)
+    }
+    expect(pages["CareBlock.tsx"]).toMatch(/return \{ error: SNOOZE_FAILED \}/)
   })
 })
