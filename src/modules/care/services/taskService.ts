@@ -985,7 +985,8 @@ export async function assignTaskInstance(
 }
 
 export type MarkDoneResult =
-  | { success: true; data: TaskInstance }
+  /** `data` is null when the completion landed but reading it back did not. */
+  | { success: true; data: TaskInstance | null }
   | { success: false; error: string }
 
 /**
@@ -1030,9 +1031,19 @@ export async function markTaskInstanceDone(
   // Single choke point for every check-off surface (Home, Tasks, Care, bulk…).
   track("task_checked", { home_id: homeId, task_instance_id: taskInstanceId })
 
-  const snap = await getDoc(doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`))
-  if (!snap.exists()) return { success: false, error: "Task instance not found after completion" }
-  return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), nextInstanceId }
+  // The task IS done — the callable said so. Reading it back is a nicety, so a
+  // failed or empty read-back is logged and still a success (callers refetch
+  // anyway). It sat outside the try and REJECTED, which left Home's row dimmed
+  // on "completing" forever with no receipt and no error (audit H6 follow-up);
+  // before that, a missing read-back said "not done" about a done task.
+  try {
+    const snap = await getDoc(doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`))
+    if (snap.exists()) return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), nextInstanceId }
+    console.warn(`[tasks] ${taskInstanceId} is done, but it read back as missing (home ${homeId})`)
+  } catch (e) {
+    console.warn(`[tasks] ${taskInstanceId} is done, but reading it back failed (home ${homeId}):`, e instanceof Error ? e.message : e)
+  }
+  return { success: true, data: null, nextInstanceId }
 }
 
 export type DeleteTaskTemplateResult =
