@@ -137,22 +137,34 @@ export async function isNativePushRegistered(): Promise<boolean> {
   try {
     const perm = await PushNotifications.checkPermissions()
     return perm.receive === "granted"
-  } catch {
+  } catch (err) {
+    // Unreadable permission reads as "not registered": Settings offers Enable.
+    console.warn("[nativePush] could not read notification permission:", err instanceof Error ? err.message : err)
     return false
   }
 }
 
-/** Remove this device's native token(s) from the server (best-effort). */
+/**
+ * Remove this device's native token from the server.
+ *
+ * The server write THROWS on failure — it used to be swallowed ("best-effort"),
+ * so Settings showed notifications off while the server kept the token and
+ * kept sending (audit H6). Removing the local listeners stays best-effort.
+ */
 export async function unregisterNativePush(userId: string): Promise<void> {
   if (!isNativePlatform()) return
   try {
     await PushNotifications.removeAllListeners()
-    listenersReady = false
-    if (lastToken) {
-      await setDoc(tokensDoc(userId), { tokens: arrayRemove(lastToken) }, { merge: true })
-      lastToken = ""
-    }
-  } catch {
-    // best-effort
+  } catch (err) {
+    console.warn("[nativePush] could not remove the push listeners:", err instanceof Error ? err.message : err)
   }
+  listenersReady = false
+  if (!lastToken) {
+    // This session never received the token (registration fired in an earlier
+    // launch), so there is no known token to remove from the server.
+    console.warn("[nativePush] no token from this session to remove; the server copy is unchanged")
+    return
+  }
+  await setDoc(tokensDoc(userId), { tokens: arrayRemove(lastToken) }, { merge: true })
+  lastToken = ""
 }
