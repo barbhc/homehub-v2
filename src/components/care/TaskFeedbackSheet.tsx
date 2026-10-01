@@ -14,7 +14,7 @@ import { cadenceLabelInline } from "../../../shared/tasks/cadenceLabel"
 import { splitInterval, toDays, type IntervalUnit } from "../../../shared/care/interval"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 
-const INK ="var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)", CLAY = "var(--hh-clay)"
+const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)", CLAY = "var(--hh-clay)"
 
 const CHIPS: { key: FeedbackChip; label: string; hint: string }[] = [
   { key: "not_relevant", label: "Not relevant to my home", hint: "Hide it (and similar tasks)" },

@@ -15,7 +15,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
-import { cachedSheetPage, isCachedSheetBlob, renderSheetPage, type SheetPdf } from "./renderSheetPage"
+import { cachedSheetPage, isCachedSheetBlob, renderSheetPage, type LoadedSheetPdf } from "./renderSheetPage"
 
 interface ManualPageSheetProps {
   open: boolean
@@ -48,7 +48,7 @@ export function ManualPageSheet({
   // Track blob URLs created during this mount so we can revoke non-cached ones
   const localBlobsRef = useRef<Set<string>>(new Set())
   // Keep a ref to the loaded PDF document for page navigation
-  const pdfDocRef = useRef<SheetPdf | null>(null)
+  const pdfDocRef = useRef<LoadedSheetPdf | null>(null)
 
   const fullPdfLink = pdfUrl ? `${pdfUrl}#page=${currentPage}` : undefined
 

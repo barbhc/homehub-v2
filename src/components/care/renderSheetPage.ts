@@ -17,6 +17,8 @@ function cacheKey(url: string, page: number): string {
 }
 
 export type SheetPdf = { getPage: (n: number) => Promise<unknown>; numPages: number }
+/** The PDF an open sheet has loaded, and the URL it was loaded from. */
+export type LoadedSheetPdf = { url: string; pdf: SheetPdf }
 
 /** A page already drawn this session — what the sheet can show without drawing. */
 export function cachedSheetPage(pdfUrl: string, page: number): { blobUrl: string; totalPages: number | null } | null {
@@ -36,12 +38,14 @@ export function isCachedSheetBlob(url: string): boolean {
  *
  * `doc` holds the loaded PDF for the open sheet, so turning pages does not
  * reload it; when it has to be loaded, `onPages` hears the page count straight
- * away — before the page itself is drawn.
+ * away — before the page itself is drawn. It is reused only for the URL it was
+ * loaded from: a page of one PDF must never be drawn from another and cached
+ * under the wrong URL.
  */
 export async function renderSheetPage(
   pdfUrl: string,
   page: number,
-  doc: { current: SheetPdf | null },
+  doc: { current: LoadedSheetPdf | null },
   onPages: (totalPages: number) => void,
 ): Promise<{ blobUrl: string; page: number; totalPages: number | null }> {
   const key = cacheKey(pdfUrl, page)
@@ -49,7 +53,7 @@ export async function renderSheetPage(
   if (cached) return { blobUrl: cached, page, totalPages: totalPagesCache.get(pdfUrl) ?? null }
 
   // Reuse already-loaded PDF doc, or load fresh
-  let pdf = doc.current
+  let pdf = doc.current?.url === pdfUrl ? doc.current.pdf : null
   if (!pdf) {
     // Reloads once when the deploy replaced these assets under the tab.
     pdf = await withChunkRetry(async () => {
@@ -61,7 +65,7 @@ export async function renderSheetPage(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise) as any
     }, "manual page sheet")
-    doc.current = pdf
+    doc.current = { url: pdfUrl, pdf: pdf! }
     onPages(pdf!.numPages)
   }
   totalPagesCache.set(pdfUrl, pdf!.numPages)
