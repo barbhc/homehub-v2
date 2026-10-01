@@ -7,7 +7,7 @@ import {
   Trash2Icon,
   WrenchIcon,
 } from "lucide-react"
-import { SectionCard } from "@/components/layout"
+import { InlineError, SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -64,7 +64,7 @@ interface Props {
 }
 
 export function ServiceProvidersSection({ homeId }: Props) {
-  const { providers, loading, deletingId, save, remove } = useServiceProviders(homeId)
+  const { providers, loading, deletingId, save, remove, loadFailed, removeError, reload } = useServiceProviders(homeId)
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -139,7 +139,10 @@ export function ServiceProvidersSection({ homeId }: Props) {
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
             <>
-              {providers.length === 0 ? (
+              {removeError && <InlineError className="mb-3">{removeError}</InlineError>}
+              {loadFailed ? (
+                <InlineError className="mb-4" onRetry={reload}>Couldn&apos;t load your service providers.</InlineError>
+              ) : providers.length === 0 ? (
                 <p className="text-sm text-muted-foreground mb-4">
                   No service providers added yet.
                 </p>
