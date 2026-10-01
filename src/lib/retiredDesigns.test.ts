@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { readFileSync, readdirSync, statSync } from "node:fs"
-import { resolve, join } from "node:path"
+import { basename, resolve, join } from "node:path"
 
 /**
  * Retired designs stay retired.
@@ -112,6 +112,18 @@ const sources = files.map((f) => ({
 }))
 
 describe("retired designs cannot be rendered", () => {
+  it("their files are deleted, not kept as stubs", () => {
+    // ParseProgressStep.tsx outlived its screen by a round as a file holding
+    // one type that another module imported from it — reachable by nothing,
+    // but still a file by a retired design's name, waiting to be edited as if
+    // it were live. "None may exist" now covers the file itself.
+    const all = walk(SRC)
+    const left = [...RETIRED_COMPONENTS, ...RETIRED_PAGES].flatMap((name) =>
+      all.filter((f) => /^[^.]+\.tsx?$/.test(basename(f)) && basename(f).replace(/\.tsx?$/, "") === name),
+    )
+    expect(left.map((f) => f.replace(SRC, "src"))).toEqual([])
+  })
+
   for (const name of [...RETIRED_COMPONENTS, ...RETIRED_PAGES]) {
     it(`nothing imports or renders ${name}`, () => {
       // Matched on an import or a JSX tag rather than the bare word, so a
