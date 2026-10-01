@@ -46,7 +46,7 @@ const DRAFT: PreviewResult = {
 
 function renderSheet() {
   render(
-    <TaskReviewSheet freezeRiskFalse={false} open onOpenChange={vi.fn()} itemName="Furnace"
+    <TaskReviewSheet freezeRiskFalse={false} notificationsBlocked={false} open onOpenChange={vi.fn()} itemName="Furnace"
       previewData={DRAFT} saving={false} onSave={vi.fn().mockResolvedValue(null)} />,
   )
 }

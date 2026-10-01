@@ -25,7 +25,7 @@
  */
 import { createElement as h, type ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { SWRConfig } from "swr"
 import type { ItemUnit, ManualDocument } from "@/integrations/types"
@@ -41,16 +41,20 @@ const fake = vi.hoisted(() => ({
    *  per render would loop. */
   home: { home_id: "home-1", name: "Contract Home" },
   item: null as unknown,
+  /** The item's manual documents as the page's LIVE listener (useItemManuals)
+   *  delivers them. `pushManuals` below is a document write arriving. */
   manuals: [] as unknown[],
+  manualListeners: new Set<() => void>(),
+  watched: new Set<string>() as ReadonlySet<string>,
   tasks: [] as unknown[],
   openInstances: [] as unknown[],
   doneInstances: [] as unknown[],
-  /** What each manual's live parse watch reports, by manual id. */
-  stages: {} as Record<string, { stage: string; pdfPages?: number | null }>,
   tray: { parsing: [] as unknown[], ready: [] as unknown[] },
   startParse: vi.fn(),
   previewManualParse: vi.fn(),
   parseManualAndWait: vi.fn(),
+  createManualDocument: vi.fn(),
+  notificationsBlocked: false,
   /** The add wizard's writes: each becomes the item getItemUnit answers with. */
   createItemUnit: vi.fn(),
   updateItemUnit: vi.fn(),
@@ -106,20 +110,29 @@ vi.mock("@/modules/knowledge", async (orig) => ({
   getChunksByItem: async () => ({ data: [], error: null }),
   getManualsByItem: async () => ({ data: fake.manuals, error: null }),
   getFaqsByItem: async () => ({ data: [], error: null }),
+  createManualDocument: (...a: unknown[]) => fake.createManualDocument(...a),
   previewManualParse: (...a: unknown[]) => fake.previewManualParse(...a),
   parseManualAndWait: (...a: unknown[]) => fake.parseManualAndWait(...a),
 }))
 vi.mock("@/modules/knowledge/services/parseManualService", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  watchParse: (_home: string, manualId: string, cb: (stage: string, parse: unknown) => void) => {
-    const s = fake.stages[manualId]
-    if (s) cb(s.stage, { pdfPages: s.pdfPages ?? null, summary: null })
-    return () => {}
-  },
   readPreviewDraft: async () => null,
   startParse: (...a: unknown[]) => fake.startParse(...a),
 }))
+// HH-161: the page reads its manuals LIVE. The fake listener hands over
+// whatever `fake.manuals` holds, and hears `pushManuals` as a document write.
+vi.mock("@/hooks/useItemManuals", async () => {
+  const { useSyncExternalStore } = await import("react")
+  const subscribe = (l: () => void) => { fake.manualListeners.add(l); return () => { fake.manualListeners.delete(l) } }
+  return {
+    useItemManuals: () => ({
+      manuals: useSyncExternalStore(subscribe, () => fake.manuals),
+      status: "ready", error: null, watched: fake.watched, retry: () => {},
+    }),
+  }
+})
 vi.mock("@/hooks/useParseTray", () => ({ useParseTray: () => fake.tray }))
+vi.mock("@/hooks/useNotificationsBlocked", () => ({ useNotificationsBlocked: () => fake.notificationsBlocked }))
 vi.mock("@/pages/item-detail/useSetupCompletion", () => ({
   useSetupCompletion: () => ({
     isDone: () => false, loadingIds: new Set<string>(), doneCount: 0, toggleDone: () => {}, markAllDone: () => {},
@@ -202,10 +215,17 @@ const ITEM = {
 const manual = (id: string, over: Partial<ManualDocument> = {}): ManualDocument => ({
   manual_id: id, item_unit_id: "item-1", title: "Bosch owner's manual", label: null,
   source_type: "url", source_ref: `https://example.com/${id}.pdf`, role: "primary", version: null,
-  language: "en", parsed_at: null, parse_stage: null, parse_draft: null,
+  language: "en", parsed_at: null, parse_stage: null, parse_mode: null, parse_request_id: null,
+  parse_stage_at: null, parse_pages: null, parse_tasks: null, has_preview_draft: false, parse_draft: null,
   created_at: new Date(Date.now() - 60_000).toISOString(), updated_at: new Date().toISOString(),
   deleted_at: null, ...over,
 })
+
+/** A write to the item's manuals reaching the page's live listener. */
+function pushManuals(next: ManualDocument[]) {
+  fake.manuals = next
+  for (const l of fake.manualListeners) l()
+}
 
 const template = (over: Record<string, unknown> = {}) => ({
   task_template_id: "t-filter", title: "Clean the filter", care_type: "maintenance", scope_type: "item_unit",
@@ -252,7 +272,8 @@ beforeEach(() => {
   fake.tasks = []
   fake.openInstances = []
   fake.doneInstances = []
-  fake.stages = {}
+  fake.watched = new Set()
+  fake.notificationsBlocked = false
   fake.tray = { parsing: [], ready: [] }
   fake.startParse.mockResolvedValue({ ok: true, requestId: "req-contract" })
   // Answered, so a page that DOES start a scan fails on the assertion that it
@@ -343,9 +364,8 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
   })
 
   it("HH-116 / HH-117 · leaving is safe and said out loud on every surface showing a live scan", async () => {
-    // The item page while the scan runs…
-    fake.manuals = [manual("m-live-say", { parse_stage: "claude_call" })]
-    fake.stages = { "m-live-say": { stage: "claude_call", pdfPages: 24 } }
+    // The item page while the manual is read…
+    fake.manuals = [manual("m-live-say", { parse_stage: "claude_call", parse_request_id: "req-1", parse_pages: 24 })]
     await renderItemPage(390)
     expect(document.body.textContent).toContain(SCAN_KEEPS_GOING_SHORT)
   })
@@ -353,42 +373,47 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
   it("HH-116 / HH-117 · …and on the tray, everywhere else", () => {
     fake.tray = { parsing: [{ manualId: "m-elsewhere", itemUnitId: "item-9", title: "Dryer manual", pages: 30, stage: "claude_call" }], ready: [] }
     render(h(MemoryRouter, { initialEntries: ["/home"] }, h(ParseTrayPill)))
-    fireEvent.click(screen.getByRole("button", { name: /1 scanning/ }))
+    fireEvent.click(screen.getByRole("button", { name: /1 reading/ }))
     expect(screen.getByText(SCAN_KEEPS_GOING_SHORT)).toBeInTheDocument()
   })
 
-  it("HH-118 · the tray stands down on the page already showing that scan (the CURRENT rule — E2 supersedes it)", () => {
-    // HH-161 asks for the opposite: ONE indicator, the pill, on every page
-    // including this one. When E2 lands it amends AIF ("The tray stands down")
-    // in the same PR and turns this test around. Until then this is the rule.
+  it("HH-161 (supersedes HH-118) · ONE indicator: the pill shows on the page already showing that read, as everywhere else", () => {
+    // HH-118 had the tray stand down here, because the page carried its own
+    // band above "‹ Items". The owner's agreed design was always one
+    // indicator, at the bottom of every page; the band is gone (the read lives
+    // in the Upkeep card), so the pill no longer defers to anything.
     fake.tray = { parsing: [{ manualId: "m-here", itemUnitId: "item-1", title: "Bosch manual", pages: 24, stage: "claude_call" }], ready: [] }
     const onItem = render(h(MemoryRouter, { initialEntries: ["/items/item-1"] }, h(ParseTrayPill)))
-    expect(screen.queryByRole("button", { name: /scanning/ })).toBeNull()
+    expect(screen.getByRole("button", { name: "1 reading" })).toBeInTheDocument()
     onItem.unmount()
     render(h(MemoryRouter, { initialEntries: ["/home"] }, h(ParseTrayPill)))
-    expect(screen.getByRole("button", { name: /1 scanning/ })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "1 reading" })).toBeInTheDocument()
   })
 
-  it("HH-135 · a live scan is one indeterminate rail — no spinner, no percentage", async () => {
+  it("HH-135 · a live scan is one indeterminate rail — no spinner, no percentage — and it sits in Upkeep, not above the page", async () => {
     // The rail sweeps rather than fills: we know the page count, not how far
-    // through them the model is. Asserted on the PAGE, so moving the band into
-    // Upkeep (E2's mock) keeps this contract as long as it keeps the design.
-    fake.manuals = [manual("m-live-rail", { parse_stage: "claude_call" })]
-    fake.stages = { "m-live-rail": { stage: "claude_call", pdfPages: 24 } }
+    // through them the model is. HH-161 moved it into the Upkeep card, where
+    // design A drew it under the name — the contract followed the design.
+    fake.manuals = [manual("m-live-rail", { parse_stage: "claude_call", parse_request_id: "req-1", parse_pages: 24 })]
     await renderItemPage(390)
     const rails = screen.getAllByRole("progressbar", { hidden: true })
     expect(rails).toHaveLength(1)
     expect(rails[0]).not.toHaveAttribute("aria-valuenow")
     expect(screen.getByText("24 pages")).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/\d+\s*%/)
+    // S1.1: nothing about the read renders above "‹ Items" — the rail comes
+    // AFTER the back link and the Upkeep heading in the document.
+    const back = screen.getByRole("button", { name: /Items/ })
+    const upkeep = screen.getByText("Upkeep")
+    expect(back.compareDocumentPosition(rails[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(upkeep.compareDocumentPosition(rails[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("audit 2026-09-29 (HH-159) · the item page watches a scan and never starts one on arrival", async () => {
     // The page used to re-enqueue any unread manual under ten minutes old — the
     // wizard's own, already enqueued — so every add with a manual was charged
     // twice. This one is a minute old and unread, the exact shape that fired.
-    fake.manuals = [manual("m-arrival", { parse_stage: "queued" })]
-    fake.stages = { "m-arrival": { stage: "queued" } }
+    fake.manuals = [manual("m-arrival", { parse_stage: "queued", parse_request_id: "req-1" })]
     await renderItemPage(390)
     // Loaded to the end: the manual is listed, and its URL (the step the old
     // re-enqueue ran after) has had time to resolve.
@@ -433,12 +458,61 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
     })
   }
 
-  it.todo(
-    "HH-141 / HH-161 · the item page's three manual states never contradict — after attaching a manual, Upkeep " +
+  it("HH-141 / HH-161 · the item page's three manual states never contradict — after attaching a manual, Upkeep " +
       "never says 'No upkeep yet — add the manual' (or offers the button) while the page says 'Reading the manual', " +
-      "and 'Reading the manual' is said once (E2: the page's manual flags come from a one-time read; " +
-      "a manual added in-session keeps parse_stage null)",
-  )
+      "and 'Reading the manual' is said once", async () => {
+    await renderItemPage(390)
+    expect(screen.getByText("No upkeep yet — add the manual")).toBeInTheDocument()
+
+    // The writes arrive the way Firestore delivers them: the new record reaches
+    // the page's listener BEFORE the create call returns (latency
+    // compensation), stage-less; the enqueue then answers BEFORE the listener
+    // hears "queued". Those are the two moments the old page got wrong.
+    fake.createManualDocument.mockImplementation(async () => {
+      pushManuals([manual("m-new")])
+      return { data: manual("m-new"), error: null }
+    })
+    fake.startParse.mockResolvedValue({ ok: true, requestId: "req-new" })
+
+    // "Never", not "not at the end": every DOM change is checked for the
+    // contradiction itself — the empty state beside the reading state.
+    const contradictions: string[] = []
+    const check = () => {
+      const t = document.body.textContent ?? ""
+      if (t.includes("Reading the manual") && (t.includes("No upkeep yet — add the manual"))) contradictions.push("both")
+    }
+    const observer = new MutationObserver(check)
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true })
+
+    // Attach one through the manual section's link lane, as a person would.
+    fireEvent.click(screen.getByRole("button", { name: /Manuals & References\s*\(0\)/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Paste a link instead" }))
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.change(within(dialog).getByPlaceholderText("https://example.com/manual.pdf"), {
+      target: { value: "https://example.com/bosch.pdf" },
+    })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Scan the manual" }))
+    await waitFor(() => expect(allDialogs()).toHaveLength(0))
+    expect(fake.startParse).toHaveBeenCalledTimes(1)
+
+    // The dialog is closed and the listener has not heard "queued" yet.
+    expect(screen.queryByText("No upkeep yet — add the manual")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Add the manual" })).toBeNull()
+    expect(screen.getAllByText("Reading the manual")).toHaveLength(1)
+
+    // Then the worker's writes: queued, then reading with its page count.
+    act(() => pushManuals([manual("m-new", { parse_stage: "queued", parse_request_id: "req-new" })]))
+    act(() => pushManuals([manual("m-new", { parse_stage: "claude_call", parse_request_id: "req-new", parse_pages: 42 })]))
+    expect(screen.getAllByText("Reading the manual")).toHaveLength(1)
+    expect(screen.getByText("42 pages")).toBeInTheDocument()
+    expect(screen.queryByText("No upkeep yet — add the manual")).toBeNull()
+    // The Ask card agrees (S1.4).
+    expect(screen.getByText("Works best once we’ve read the manual.")).toBeInTheDocument()
+
+    observer.disconnect()
+    check()
+    expect(contradictions).toEqual([])
+  })
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -456,14 +530,18 @@ describe("The review — the one decision (AIF, round 18)", () => {
     screen.queryAllByText(/^(Maintenance|Cleaning|Usage|Setup)$/).map((el) =>
       Array.from(el.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join("").trim())
 
-  it("HH-119 · every door opens the approved review: the three known doors, none opting out of the safe default", () => {
+  it("HH-119 · every door opens the approved review: the known doors, none opting out of the safe default", () => {
     // Rule 6 in CLAUDE.md: the SAFE value is the default, and every call site
-    // is known. A fourth door must be looked at, and then listed here.
+    // is known. A third door must be looked at, and then listed here.
+    //
+    // HH-161: two doors, not three. The manual section's own review is gone —
+    // every read on the item page (add, "Read the manual", "Read again") ends
+    // in the hand-off card's review, so the page mounts ONE review for drafts
+    // by construction (HH-120).
     const doors = SOURCES.filter((s) => /<TaskReviewSheet[\s/>]/.test(s.code))
     expect(doors.map((d) => d.path).sort()).toEqual([
       "src/components/manuals/ParsePickupCard.tsx",
       "src/components/manuals/ReviewItemTasksButton.tsx",
-      "src/pages/item-detail/ManualSection.tsx",
     ])
     for (const door of doors) {
       const calls = door.code.match(/<TaskReviewSheet\b[\s\S]*?\n\s*\/>/g) ?? []
@@ -475,9 +553,9 @@ describe("The review — the one decision (AIF, round 18)", () => {
     }
   })
 
-  it("HH-119 / HH-144 · with no focus passed (two of the three doors), it is ONE screen: Maintenance → Cleaning → Usage → Setup", () => {
+  it("HH-119 / HH-144 · with no focus passed, it is ONE screen: Maintenance → Cleaning → Usage → Setup", () => {
     render(h(TaskReviewSheet, {
-      freezeRiskFalse: false, open: true, onOpenChange: () => {}, itemName: "Bosch SHPM65Z55N",
+      freezeRiskFalse: false, notificationsBlocked: false, open: true, onOpenChange: () => {}, itemName: "Bosch SHPM65Z55N",
       previewData: MIXED, onSave: async () => null, saving: false,
     }))
     expect(sectionOrder()).toEqual(REVIEW_BUCKET_ORDER.map((b) => REVIEW_BUCKET_COPY[b].title))
@@ -489,7 +567,7 @@ describe("The review — the one decision (AIF, round 18)", () => {
 
   it("HH-142 · no maintenance simply means no Maintenance section — no card, no sentence explaining the absence", () => {
     render(h(TaskReviewSheet, {
-      freezeRiskFalse: false, open: true, onOpenChange: () => {}, itemName: "Sharp microwave drawer",
+      freezeRiskFalse: false, notificationsBlocked: false, open: true, onOpenChange: () => {}, itemName: "Sharp microwave drawer",
       previewData: preview([
         previewTask("Clean the waveguide cover", "cleaning", "monthly"),
         previewTask("Wipe the interior after each use", "cleaning", "after_each_use", "optional"),
@@ -498,8 +576,9 @@ describe("The review — the one decision (AIF, round 18)", () => {
     }))
     expect(sectionOrder()).toEqual(["Cleaning", "Usage"])
     expect(screen.queryByText(/no maintenance/i)).toBeNull()
-    // The summary still states both channels, apart (HH-144).
-    expect(screen.getByText(/None will notify your phone/)).toBeInTheDocument()
+    // The summary states the Tasks channel in the Tasks page's own words
+    // (HH-144, HH-161 S3b.2): item cleaning never goes there.
+    expect(screen.getByText("Nothing here goes into Tasks.")).toBeInTheDocument()
   })
 
   it("HH-147 / HH-140 · the two-step review is gone — its sentences appear nowhere in the app", () => {
@@ -516,20 +595,68 @@ describe("The review — the one decision (AIF, round 18)", () => {
     expect(offenders).toEqual([])
   })
 
-  it.todo(
-    "HH-137 / HH-142 superseded · 'No maintenance in this manual, so nothing will remind you' is gone app-wide " +
-      "(E2: round 14's card is still ParsePickupCard's no-maintenance branch, pinned by ParsePickupCard.test.tsx)",
-  )
+  it("HH-137 / HH-142 superseded · 'No maintenance in this manual, so nothing will remind you' is gone app-wide", () => {
+    // Round 14's card, kept alive under round 18 as the hand-off's
+    // no-maintenance branch. HH-161 retired it: one hand-off card serves both
+    // cases, and the review says what goes into Tasks.
+    expect(filesSaying(/No maintenance in this manual/i)).toEqual([])
+    expect(filesSaying(/so nothing will remind you/i)).toEqual([])
+    expect(filesSaying(/We finished reading the/)).toEqual([])
+    expect(filesSaying(/^See what we found$/)).toEqual([])
+  })
 
-  it.todo(
-    "HH-144 · 'N will show up in Tasks' counts only what Tasks shows — item-scoped cleaning is excluded from the " +
-      "agenda (isAgendaEligible), so a review of item cleaning alone must not promise it there (E2)",
-  )
+  it("HH-144 · 'N will show up in Tasks' counts only what Tasks shows — item-scoped cleaning is excluded from the " +
+      "agenda (isAgendaEligible), so a review of item cleaning alone does not promise it there", () => {
+    const cleaningOnly = render(h(TaskReviewSheet, {
+      freezeRiskFalse: false, notificationsBlocked: false, open: true, onOpenChange: () => {}, itemName: "Sharp",
+      previewData: preview([
+        previewTask("Clean the waveguide cover", "cleaning", "monthly", "essential"),
+        previewTask("Wipe the drawer interior", "cleaning", "weekly"),
+      ]),
+      onSave: async () => null, saving: false,
+    }))
+    expect(screen.queryByText(/will show up in Tasks/)).toBeNull()
+    expect(screen.getByText("Nothing here goes into Tasks.")).toBeInTheDocument()
+    cleaningOnly.unmount()
 
-  it.todo(
-    "round 18 · a bell is never drawn that cannot be rung — with notification permission refused, the review " +
-      "says so instead of drawing bells (E2: notifyGate.ts has no production caller)",
-  )
+    // Beside maintenance, the count is the maintenance alone.
+    render(h(TaskReviewSheet, {
+      freezeRiskFalse: false, notificationsBlocked: false, open: true, onOpenChange: () => {}, itemName: "Bosch",
+      previewData: preview([
+        previewTask("Replace the water filter", "maintenance", "semiannual", "essential"),
+        previewTask("Clean the filter", "maintenance", "monthly"),
+        previewTask("Clean the tub", "cleaning", "monthly"),
+        previewTask("Clean the basket", "cleaning", "monthly"),
+      ]),
+      onSave: async () => null, saving: false,
+    }))
+    expect(screen.getByText("2 will show up in Tasks")).toBeInTheDocument()
+  })
+
+  it("round 18 · a bell is never drawn that cannot be rung — with notification permission refused, the review " +
+      "says so instead of drawing bells", () => {
+    render(withSwr(h(MemoryRouter, null, h(TaskReviewSheet, {
+      freezeRiskFalse: false, notificationsBlocked: true, open: true, onOpenChange: () => {}, itemName: "Bosch",
+      previewData: preview([
+        previewTask("Check the door seal", "maintenance", "annual", "essential"),
+        previewTask("Clean the tub", "cleaning", "monthly", "essential"),
+      ]),
+      onSave: async () => null, saving: false,
+    }))))
+    expect(document.querySelectorAll("svg.lucide-bell-ring")).toHaveLength(0)
+    expect(screen.getByText("None will notify you. Notifications are off on this phone.")).toBeInTheDocument()
+    // The collapsed row says "Reminders off" as a status; the way to fix it is
+    // in the opened row, never a link inside the row's own button (owner, #228).
+    const doorSeal = screen.getByText("Check the door seal").closest("button")!
+    expect(doorSeal.textContent).toContain("Reminders off")
+    expect(doorSeal.querySelector("a, [role='link']")).toBeNull()
+    // Wired, not just written: the doors read the gate (useNotificationsBlocked
+    // calls notifyGate's notificationsBlocked), so it has production callers.
+    const gateCallers = SOURCES.filter((s) => /\bnotificationsBlocked\(\{/.test(s.code)).map((s) => s.path)
+    expect(gateCallers).toContain("src/hooks/useNotificationsBlocked.ts")
+    const doors = SOURCES.filter((s) => /<TaskReviewSheet[\s/>]/.test(s.code))
+    for (const door of doors) expect(door.code, door.path).toMatch(/useNotificationsBlocked\(\)/)
+  })
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -622,7 +749,7 @@ describe("Home, Tasks and the item page speak one calm language", () => {
     const due = iso(17)
     fake.openInstances = [{ task_instance_id: "inst-1", task_template_id: "t-filter", due_date: due, status: "scheduled" }]
     render(withSwr(h(MemoryRouter, null, h(CareBlock, {
-      item: ITEM, homeId: "home-1", tasks: [template()], chunks: [], hasManual: true, onAddManual: () => {},
+      item: ITEM, homeId: "home-1", tasks: [template()], chunks: [], hasManual: true, notificationsBlocked: false, onAddManual: () => {},
     }))))
     const expected = derivedDue({ title: "Clean the filter", scheduleType: "monthly", careType: "maintenance", dueDate: due }).duePhrase
     await waitFor(() => expect(screen.getByTestId("care-row").textContent).toContain(expected))

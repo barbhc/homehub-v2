@@ -41,6 +41,10 @@ const RETIRED_COMPONENTS = [
   // The item page asked for purchase details twice, in two shapes, and both
   // opened the same sheet. The owner kept the one that matches the page.
   "PurchaseNudge",       // -> WarrantyPanel, retitled "Warranty and purchase information"
+  // HH-161: one reading indicator. The manual row's countdown bar ("~28 sec
+  // remaining") was an ESTIMATE beside a read whose position the worker never
+  // reports; the read is shown by the pill and the Upkeep card, honestly.
+  "ManualParseProgress", // -> ScanningLine in CareBlock + ParseTrayPill
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */

@@ -7,6 +7,7 @@ import { REVIEW_BUCKET_ORDER } from "../../shared/tasks/reviewBuckets"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { isAgendaEligible } from "../../shared/tasks/agendaEligibility"
+import { askHint } from "../lib/manualReviewState"
 
 const read = (p: string) =>
   readFileSync(resolve(__dirname, p), "utf8")
@@ -134,35 +135,45 @@ describe("HH-89 — the manual entry looks like what it does", () => {
 describe("HH-87 — a manual mid-parse is neither 'has one' nor 'has none'", () => {
   it("the empty state waits instead of offering to add what was just added", () => {
     const src = read("../components/item-care/CareBlock.tsx")
-    // Mid-parse now RESERVES the space its tasks will fill (skeleton rows)
-    // instead of a line of copy, so Upkeep never reads as empty while a manual
-    // is being read. The gate this test was written for is unchanged: the
-    // add-the-manual CTA still cannot appear while one is in flight.
-    expect(src).toContain("nothing && !critical && parsingManual")
-    expect(src).toContain("Reading the manual — upkeep lands here.")
-    expect(src).toContain("!hasManual && !parsingManual && onAddManual")
+    // Mid-read RESERVES the space its tasks will fill and carries the read
+    // itself (HH-161), so Upkeep never reads as empty while a manual is being
+    // read. The gate this test was written for is unchanged: the reading and
+    // waiting states return BEFORE the no-manual state and its door can render
+    // (behaviour: CareBlock.reading.test.tsx, CareBlock.awaiting.test.tsx).
+    expect(src).toContain("nothing && !critical && reading")
+    expect(src.indexOf("nothing && !critical && reading")).toBeLessThan(src.indexOf("No upkeep yet — add the manual"))
+    expect(src.indexOf("nothing && !critical && manualAwaitingReview")).toBeLessThan(src.indexOf("No upkeep yet — add the manual"))
   })
 
-  it("the live banner is data-gated, not wizard-flag-gated", () => {
+  it("the reading state is data-gated, not wizard-flag-gated", () => {
     // Closing the add dialog used to orphan the running parse: the flag was
     // never set on the item-page path, so nothing on the page said "working".
-    const src = read("../components/manuals/ParsePickupCard.tsx")
-    expect(src).toContain("ACTIVE_STAGES.includes(s.stage)),")
-    expect(src).not.toContain("ACTIVE_STAGES.includes(s.stage) && isParsePending(id)")
+    // HH-161: the page reads its manuals LIVE and derives the state from the
+    // documents (itemManualState) — no flag and no per-card watch in the way.
+    const page = read("../pages/ItemDetailPage.tsx")
+    expect(page).toContain("useItemManuals(")
+    expect(page).toContain("itemManualState(")
+    expect(read("../components/manuals/ParsePickupCard.tsx")).not.toContain("watchParse")
   })
 
   it("one authoritative list of active stages", () => {
     const svc = read("../modules/knowledge/services/parseManualService.ts")
     expect(svc).toContain("export const ACTIVE_PARSE_STAGES")
-    // The tray and both item-detail variants must consume it, not re-declare it.
-    for (const f of ["../hooks/useParseTray.ts", "../components/home/DesktopItemDetail.tsx", "../pages/ItemDetailPage.tsx"]) {
+    // The one reader of it for "is this manual being read" is manualReviewState;
+    // the tray asks it too. Neither tree re-declares or re-derives it (HH-161:
+    // DesktopItemDetail used to recompute the flags from a stale array).
+    for (const f of ["../lib/manualReviewState.ts", "../hooks/useParseTray.ts"]) {
       expect(read(f), f).toContain("ACTIVE_PARSE_STAGES")
+    }
+    for (const f of ["../components/home/DesktopItemDetail.tsx", "../components/home/RefinedItemDetail.tsx", "../pages/ItemDetailPage.tsx"]) {
+      expect(read(f), f).not.toMatch(/ACTIVE_PARSE_STAGES|"claude_call"|"pdf_fetched"/)
     }
   })
 
   it("the tray drains itself — review, don't dismiss", () => {
     const hook = read("../hooks/useParseTray.ts")
     expect(hook).toContain('previewDraft") != null')
+    expect(hook).toContain("isAwaitingReview(facts)")
     const pill = read("../components/manuals/ParseTrayPill.tsx")
     expect(pill).toContain("if (total === 0) return null")
   })
@@ -194,7 +205,14 @@ describe("round 9 redesign — the picks, pinned", () => {
 
   it("HH-91: Ask sits below Upkeep and states its precondition", () => {
     const src = read("../components/home/RefinedItemDetail.tsx")
-    expect(src).toContain("Works best once the manual is added.")
+    // The precondition's words live in ONE place since HH-161 (askHint), so the
+    // phone and desktop cannot drift; the state it is chosen from is the page's
+    // one account of the manual.
+    expect(src).toContain("askHint(manualState)")
+    expect(askHint({ hasManual: false, reading: null, awaitingReview: false })).toBe("Works best once the manual is added.")
+    // HH-161 S1.4: under a manual being read, it does not ask for the manual.
+    expect(askHint({ hasManual: false, reading: { stage: "claude_call", pages: 42 }, awaitingReview: false }))
+      .toBe("Works best once we’ve read the manual.")
     // Ask renders AFTER CareBlock now.
     expect(src.indexOf("<CareBlock")).toBeLessThan(src.indexOf("Have a question or a problem?"))
   })
@@ -203,9 +221,10 @@ describe("round 9 redesign — the picks, pinned", () => {
     // Desktop's Ask is already secondary (a header button beside Edit), so the
     // mobile fix — demote it below Upkeep — has nothing to move. The half that
     // DOES translate is the honesty: pre-manual it must not look as capable as
-    // it is afterwards. Same sentence as mobile, so the two screens agree.
+    // it is afterwards. Same sentence as mobile (the same function), so the two
+    // screens agree.
     const src = read("../components/home/DesktopItemDetail.tsx")
-    expect(src).toContain("Works best once the manual is added.")
+    expect(src).toContain("askHint(manualState)")
     // Muted, not disabled — general questions are still fair game.
     expect(src).not.toMatch(/onClick=\{goAsk\}[\s\S]{0,200}disabled/)
   })

@@ -13,7 +13,6 @@
  * and ManualStep, with only the network mocked, and wire the doors exactly the
  * way ItemDetailPage does (every one through handleOpenAddManual).
  */
-import { useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -44,17 +43,15 @@ vi.mock("@/modules/knowledge", () => ({
 }))
 vi.mock("@/modules/knowledge/services/parseManualService", () => ({
   startParse: (...a: unknown[]) => startParse(...a),
+  ACTIVE_PARSE_STAGES: ["awaiting_capacity", "queued", "started", "pdf_fetched", "claude_call", "claude_responded", "committing"],
 }))
 vi.mock("@/modules/care", () => ({ getTaskTemplatesWithSchedulesByItem: vi.fn() }))
 vi.mock("@/integrations/firebase", () => ({ resolveStorageUrl: vi.fn(), callable: () => vi.fn() }))
-vi.mock("@/modules/knowledge/services/parseFeedbackService", () => ({ recordParseFeedback: vi.fn() }))
 vi.mock("@/modules/home", () => ({
   useHomeProfile: () => ({ profile: null, isLoading: false, error: undefined, refresh: vi.fn() }),
 }))
 vi.mock("swr", () => ({ default: () => ({ data: undefined, error: undefined, mutate: vi.fn() }) }))
-// Not under test here, and heavy: the review sheet only mounts with a preview,
-// and the search card would call a function.
-vi.mock("@/components/manuals/TaskReviewSheet", () => ({ TaskReviewSheet: () => null }))
+// Not under test here: the search card would call a function.
 vi.mock("@/components/smart-add/FindManualCard", () => ({
   FindManualCard: ({ onPick }: { onPick: (url: string) => void }) => (
     <div data-testid="find-manual-card">
@@ -64,18 +61,19 @@ vi.mock("@/components/smart-add/FindManualCard", () => ({
 }))
 
 import { useManualManagement } from "@/hooks/useManualManagement"
+import { onReviewRequest } from "@/lib/reviewRequest"
 import { ManualSection } from "./ManualSection"
 
 /** The item page's wiring, minus the page: the hook's values straight into
  *  ManualSection, and the Upkeep door exactly as ItemDetailPage hands it to
- *  CareBlock (`onAddManual={() => manualMgmt.handleOpenAddManual("upload")}`). */
-function ItemPageManual() {
-  const [manuals, setManuals] = useState<ManualDocument[]>([])
+ *  CareBlock (`onAddManual={() => manualMgmt.handleOpenAddManual("upload")}`).
+ *  The manuals list is the page's LIVE list (useItemManuals) — nothing the
+ *  hook patches — so here it is simply what the "listener" last delivered. */
+function ItemPageManual({ manuals = [] }: { manuals?: ManualDocument[] }) {
   const mgmt = useManualManagement({
     itemId: "item-1",
     homeId: "home-1",
     userId: "uid-1",
-    setManuals: (fn) => setManuals(fn),
     setChunks: () => {},
     setTasks: () => {},
   })
@@ -87,12 +85,9 @@ function ItemPageManual() {
       <ManualSection
         {...mgmt}
         homeId="home-1"
-        itemName="Bosch SHPM65Z55N"
-        itemUnitId="item-1"
         brand="Bosch"
         model="SHPM65Z55N"
         manuals={manuals}
-        onManualUpdated={() => {}}
       />
     </>
   )
@@ -111,6 +106,8 @@ const manualDoc = (over: Partial<ManualDocument> = {}) =>
     label: null,
     parsed_at: null,
     parse_stage: null,
+    parse_mode: null,
+    has_preview_draft: false,
     created_at: new Date().toISOString(),
     ...over,
   }) as unknown as ManualDocument
@@ -306,5 +303,58 @@ describe("ManualSection + useManualManagement — add the manual works on the fi
     await user.click(screen.getByRole("button", { name: "Upkeep: Add the manual" }))
     dialog = await screen.findByRole("dialog")
     expect(within(dialog).queryByTestId("find-manual-card")).toBeNull()
+  })
+})
+
+/**
+ * HH-161: the manual row speaks the page's one vocabulary and routes every read
+ * to the item's one review. "Parse" was developer jargon in the one menu a
+ * person opens to ask for this; "Rescan" committed in place with no review.
+ */
+describe("the manual row's menu — reading, and the one review (HH-161)", () => {
+  const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+    await openManualsSection(user)
+    await user.click(screen.getByRole("button", { name: "Manual actions" }))
+  }
+
+  it("a manual never read offers 'Read the manual' — never 'Parse' — and it starts a PREVIEW read", async () => {
+    const user = userEvent.setup()
+    render(<ItemPageManual manuals={[manualDoc()]} />)
+    await openMenu(user)
+    expect(screen.queryByRole("menuitem", { name: /Parse/ })).toBeNull()
+    await user.click(screen.getByRole("menuitem", { name: "Read the manual" }))
+    await waitFor(() => expect(startParse).toHaveBeenCalledWith("man-1", { homeId: "home-1", mode: "preview" }))
+  })
+
+  it("a manual already read offers 'Read again' — never 'Rescan' — and it is a preview, not a commit", async () => {
+    const user = userEvent.setup()
+    render(<ItemPageManual manuals={[manualDoc({ parsed_at: "2026-09-01T00:00:00.000Z", parse_stage: "done" })]} />)
+    await openMenu(user)
+    expect(screen.queryByRole("menuitem", { name: /Rescan/ })).toBeNull()
+    await user.click(screen.getByRole("menuitem", { name: "Read again" }))
+    await waitFor(() => expect(startParse).toHaveBeenCalledWith("man-1", { homeId: "home-1", mode: "preview" }))
+  })
+
+  it("a manual read and waiting says so, and offers its review — not another read that would throw it away", async () => {
+    const user = userEvent.setup()
+    const heard: string[] = []
+    const stop = onReviewRequest((id) => heard.push(id))
+    render(<ItemPageManual manuals={[manualDoc({ parse_stage: "done", has_preview_draft: true, parse_mode: "preview" })]} />)
+    await openManualsSection(user)
+    expect(screen.getByText(/Read — not saved/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Manual actions" }))
+    expect(screen.queryByRole("menuitem", { name: /Read the manual|Read again/ })).toBeNull()
+    await user.click(screen.getByRole("menuitem", { name: "Review what we found" }))
+    stop()
+    expect(heard).toEqual(["man-1"])
+    expect(startParse).not.toHaveBeenCalled()
+  })
+
+  it("a manual being read says 'Reading…', with no countdown estimate beside it", async () => {
+    const user = userEvent.setup()
+    render(<ItemPageManual manuals={[manualDoc({ parse_stage: "claude_call" })]} />)
+    await openManualsSection(user)
+    expect(screen.getByText(/Reading…/)).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/sec remaining|Almost done/)
   })
 })

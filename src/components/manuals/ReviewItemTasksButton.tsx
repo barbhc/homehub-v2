@@ -4,6 +4,7 @@ import { TaskReviewSheet } from "./TaskReviewSheet"
 import { loadItemTasksForReview, saveItemTaskReview, type ExistingTaskReview } from "@/modules/care/services/taskReviewService"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useHomeProfile } from "@/modules/home"
+import { useNotificationsBlocked } from "@/hooks/useNotificationsBlocked"
 import type { PreviewChunk, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import type { ReviewEditSummary } from "./TaskReviewFeedback"
 
@@ -36,6 +37,8 @@ export function ReviewItemTasksButton({homeId,
 }) {
   // Freeze-prep is suppressed before the review, not at save (see the prop).
   const { profile } = useHomeProfile(homeId)
+  // No bell is drawn on a phone that refused notifications (HH-161 S5).
+  const notificationsBlocked = useNotificationsBlocked()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [review, setReview] = useState<ExistingTaskReview | null>(null)
@@ -126,6 +129,7 @@ export function ReviewItemTasksButton({homeId,
       {review && (
         <TaskReviewSheet
           freezeRiskFalse={profile?.freeze_risk === false}
+          notificationsBlocked={notificationsBlocked}
           open={open}
           onOpenChange={(o) => {
             setOpen(o)

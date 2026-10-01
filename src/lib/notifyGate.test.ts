@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest"
-import { shouldAskForNotifications, notificationsBlocked, tasksWantingNotification } from "./notifyGate"
+import {
+  NOTIFICATION_SETTINGS_PATH,
+  notificationsBlocked,
+  notificationsRefusedHelp,
+  shouldAskForNotifications,
+  tasksWantingNotification,
+} from "./notifyGate"
 import type { PreviewTask } from "@/modules/knowledge/types/previewTypes"
 
 const t = (o: Partial<PreviewTask>): PreviewTask => ({
@@ -76,5 +82,23 @@ describe("what the screen admits when it cannot ring the bell", () => {
 
   it("is not blocked while the question is still open", () => {
     expect(notificationsBlocked({ permission: "default", alreadySubscribed: false })).toBe(false)
+  })
+})
+
+describe("where the switch is, once a device has refused (owner, #228 review)", () => {
+  it("the iPhone app names the phone's own menu — the approved sentence, word for word", () => {
+    expect(notificationsRefusedHelp("ios")).toBe(
+      "Notifications are off for Homehub on this phone. Open iPhone Settings → Homehub → Notifications.",
+    )
+  })
+
+  it("the web names the browser's settings, never a phone menu it does not have", () => {
+    const web = notificationsRefusedHelp("web")
+    expect(web).toMatch(/in this browser/)
+    expect(web).not.toMatch(/iPhone/)
+  })
+
+  it("the review's 'Turn on in Settings' goes to the section that says it", () => {
+    expect(NOTIFICATION_SETTINGS_PATH).toBe("/settings#notifications")
   })
 })

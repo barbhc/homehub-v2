@@ -72,7 +72,8 @@ const dishwasher = (over: Partial<ItemUnit> = {}): ItemUnit => ({
 const itemPage = (item: ItemUnit) => (
   <RefinedItemDetail
     item={item} rooms={rooms} homeId="h-preview"
-    tasks={[]} chunks={[]} hasManual={false}
+    tasks={[]} chunks={[]}
+    manualState={{ hasManual: false, reading: null, awaitingReview: false }} notificationsBlocked={false}
     onBack={noop} onItemUpdate={noop} onEditDetails={noop}
   />
 )

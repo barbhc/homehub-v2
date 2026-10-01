@@ -7,22 +7,26 @@
  * This is that window's data. A live subscription over the home's manuals,
  * split into the two states someone actually waits on:
  *
- *   parsing — a worker is on it right now
- *   ready   — parse finished, previewDraft still exists, i.e. NOTHING has been
- *             saved and the review is waiting on a human
+ *   parsing — being read right now (or parked for capacity, starting itself)
+ *   ready   — read, and its findings are waiting for the review
  *
- * A committed manual is in neither list (commitManualDraft deletes the draft),
- * so the tray drains itself and the pill disappears — no dismissal state to
- * store, nothing to nag. The whole-collection listener matches how the rest of
- * the app reads this collection; a home has a handful of manuals.
+ * HH-161: both come from lib/manualReviewState — the same functions the item
+ * page reads its live manuals through — so the pill and the page cannot
+ * disagree about a manual they both see. This used to keep its own definition
+ * of "ready" (done + a draft), which parted from the page's on a manual read
+ * again after it was saved.
+ *
+ * A saved manual is in neither list (Save clears the draft), so the tray drains
+ * itself and the pill disappears — no dismissal state to store, nothing to nag.
  */
 import { useEffect, useState } from "react"
-import { collection, onSnapshot, query, where } from "firebase/firestore"
+import { collection, onSnapshot, query, where, type DocumentSnapshot } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { ACTIVE_PARSE_STAGES } from "@/modules/knowledge/services/parseManualService"
+import { isAwaitingReview, isReading, readingPages } from "@/lib/manualReviewState"
 
 export interface TrayEntry {
-  /** Pages the scan has to get through; null until the PDF has been fetched. */
+  /** Pages the read has to get through; null until THIS read has counted them. */
   pages: number | null
   manualId: string
   itemUnitId: string
@@ -37,33 +41,61 @@ export interface ParseTray {
 
 const EMPTY: ParseTray = { parsing: [], ready: [] }
 
+/**
+ * Only the stages the tray can show: a read in progress, or finished. Every
+ * saved manual is "done" too, but a home has a handful of manuals, and the
+ * never-read and errored ones — the rest — are not streamed at all.
+ */
+const TRAY_STAGES = [...ACTIVE_PARSE_STAGES, "done"]
+
+/**
+ * The few fields the tray reads, and nothing else. The web SDK has no field
+ * mask for a listener, so a manual waiting for review still arrives with its
+ * draft attached — the tray asks only WHETHER there is one and never keeps it.
+ */
+export function trayEntryFacts(d: DocumentSnapshot) {
+  const parse = (d.get("parse") ?? null) as { stage?: string; pdfPages?: number; mode?: string } | null
+  const stage = parse?.stage ?? null
+  const facts = {
+    parse_stage: stage,
+    parsed_at: d.get("parsedAt") == null ? null : "saved",
+    has_preview_draft: d.get("previewDraft") != null,
+    parse_mode: parse?.mode ?? null,
+    parse_pages: parse?.pdfPages ?? null,
+  }
+  const entry: TrayEntry = {
+    manualId: d.id,
+    itemUnitId: d.get("itemUnitId") ?? "",
+    title: d.get("title") || "Manual",
+    pages: readingPages(facts),
+    stage: stage ?? "",
+  }
+  return { facts, entry, deleted: d.get("deletedAt") != null }
+}
+
 export function useParseTray(homeId: string | null): ParseTray {
   const [tray, setTray] = useState<ParseTray>(EMPTY)
 
   useEffect(() => {
     if (!homeId) { setTray(EMPTY); return }
-    const q = query(collection(db, `homes/${homeId}/manuals`), where("deletedAt", "==", null))
+    const q = query(collection(db, `homes/${homeId}/manuals`), where("parse.stage", "in", TRAY_STAGES))
     const unsub = onSnapshot(
       q,
       (snap) => {
         const parsing: TrayEntry[] = []
         const ready: TrayEntry[] = []
         for (const d of snap.docs) {
-          const stage: string | null = d.get("parse")?.stage ?? null
-          const entry: TrayEntry = {
-            manualId: d.id,
-            itemUnitId: d.get("itemUnitId") ?? "",
-            title: d.get("title") || "Manual",
-            pages: (d.get("parse")?.pdfPages as number | undefined) ?? null,
-            stage: stage ?? "",
-          }
-          if (stage && (ACTIVE_PARSE_STAGES as string[]).includes(stage)) parsing.push(entry)
-          else if (stage === "done" && d.get("previewDraft") != null) ready.push(entry)
+          const { facts, entry, deleted } = trayEntryFacts(d)
+          if (deleted) continue
+          if (isReading(facts)) parsing.push(entry)
+          else if (isAwaitingReview(facts)) ready.push(entry)
         }
         setTray({ parsing, ready })
       },
-      () => {
+      (e) => {
         // A failed listener must not break the shell; the tray only enriches.
+        // Logged, so a rules or index regression is visible in the console.
+        console.warn("[tray] manuals listener failed:", e.message)
         setTray(EMPTY)
       },
     )

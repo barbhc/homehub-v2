@@ -32,7 +32,7 @@ vi.mock("@/modules/home", () => ({ getRooms: () => list() }))
 vi.mock("@/hooks/useManualManagement", () => ({ resolveManualUrl: () => Promise.resolve(null) }))
 vi.mock("@/lib/analytics", () => ({ track: (...a: unknown[]) => track(...a) }))
 
-import { LOAD_STALL_MS, useItemDetailLoad } from "./useItemDetailLoad"
+import { LOAD_STALL_MS, useItemDetailLoad, type ManualsLoad } from "./useItemDetailLoad"
 
 function deferred<T>() {
   let resolve!: (v: T) => void
@@ -206,6 +206,43 @@ describe("useItemDetailLoad — the item page's own load (HH-160)", () => {
     expect(result.current.loadError).toBeNull()
 
     await act(async () => { second.resolve(found("item-1")) })
+    expect(result.current.status).toBe("ready")
+  })
+
+  // HH-161: the manuals are a live listener now, not one of the reads. The page
+  // is not ready until it has answered — otherwise it would draw "No upkeep
+  // yet — add the manual" for a moment over a manual being read.
+  it("reads back but the live manuals not yet → still loading, skeleton kept; their answer makes it ready", async () => {
+    getItemUnit.mockResolvedValue(found("item-1"))
+    const { result, rerender } = renderHook(
+      ({ manuals }: { manuals: ManualsLoad }) => useItemDetailLoad("home-1", "item-1", manuals),
+      { initialProps: { manuals: { status: "loading", count: 0 } as ManualsLoad } },
+    )
+    await act(async () => {})
+    expect(result.current.status).toBe("loading")
+    expect(result.current.showSkeleton).toBe(true)
+    expect(track).not.toHaveBeenCalled()
+
+    rerender({ manuals: { status: "ready", count: 1 } })
+    await act(async () => {})
+    expect(result.current.status).toBe("ready")
+    expect(result.current.showSkeleton).toBe(false)
+    expect(track).toHaveBeenCalledWith("item_content_viewed", expect.objectContaining({ item_id: "item-1", manual_count: 1 }))
+  })
+
+  it("live manuals still silent after the stall → slow, not failed (HH-160 holds for them too)", async () => {
+    getItemUnit.mockResolvedValue(found("item-1"))
+    const { result } = renderHook(() => useItemDetailLoad("home-1", "item-1", { status: "loading", count: 0 }))
+    await act(async () => {})
+    act(() => { vi.advanceTimersByTime(LOAD_STALL_MS + 1) })
+    expect(result.current.status).toBe("slow")
+    expect(result.current.showDeadEnd).toBe(false)
+  })
+
+  it("a manuals listener that FAILED does not hold the item hostage — the page shows, and says so itself", async () => {
+    getItemUnit.mockResolvedValue(found("item-1"))
+    const { result } = renderHook(() => useItemDetailLoad("home-1", "item-1", { status: "failed", count: 0 }))
+    await act(async () => {})
     expect(result.current.status).toBe("ready")
   })
 
