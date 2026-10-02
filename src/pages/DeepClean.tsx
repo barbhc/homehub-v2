@@ -29,6 +29,7 @@ import { cleanDueLabel as dueLabel, daysUntilDue } from "@/lib/cleanDue"
 import { splitCautions } from "@/lib/cautions"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
 
 type Step = "setup" | "checklist" | "summary"
 type View = "hub" | "session"
@@ -116,10 +117,25 @@ export default function DeepClean() {
   const [summaryMessage, setSummaryMessage] = useState(MOTIVATING_MESSAGES[0])
   const [savedCustomIds, setSavedCustomIds] = useState<Set<string>>(new Set())
 
+  const isCurrentHome = useIsCurrent(homeId)
+
+  // A home switch starts the room picker over for the new home, in the render
+  // that switches (H4): the last home's selection used to stay — its default
+  // room selected under the new home, so a session started from it filtered
+  // the new home's tasks by the old home's room. The new home's default is
+  // picked when its rooms land.
+  if (useDepsChanged([homeId])) {
+    setRooms([])
+    setSelectedRoomIds(new Set())
+  }
   useEffect(() => {
     if (!homeId) return
+    // A read for a home already left lands nowhere: home A's rooms answering
+    // after a switch to B used to fill B's picker.
+    let cancelled = false
     // Default a room selected on entry so the setup CTA is active immediately.
     getRooms(homeId).then((r) => {
+      if (cancelled) return
       // Without rooms the setup still offers "Whole home", so a failure is logged, not blocking.
       if (r.error) console.warn(`[clean] could not load rooms for home ${homeId}:`, r.error.message)
       const list = r.data ?? []
@@ -129,6 +145,7 @@ export default function DeepClean() {
         return new Set([list[0].room_id])
       })
     })
+    return () => { cancelled = true }
   }, [homeId])
 
   // Hub data: curated guides + this-week cleaning tasks (due/overdue, short list).
@@ -231,6 +248,9 @@ export default function DeepClean() {
     setCleanError(null)
     try {
       const all = await getCleaningTasks(homeId, cleanMode)
+      // Read for a home the person has since switched away from: these are the
+      // last home's tasks, and this home's setup stays as it is (H4).
+      if (!isCurrentHome(homeId)) return
       const filtered = wholeHome
         ? all
         : all.filter((t) => t.roomId == null || effectiveRoomIds.has(t.roomId))
@@ -241,12 +261,13 @@ export default function DeepClean() {
       setExpandedItemKeys(new Set())
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load tasks"
-      setCleanError(msg)
+      // A failed read for a home already left is not this home's to say; it is still logged.
+      if (isCurrentHome(homeId)) setCleanError(msg)
       console.error("[DeepClean] getCleaningTasks error:", e)
     } finally {
       setLoading(false)
     }
-  }, [homeId, effectiveRoomIds, wholeHome, selectedTime, cleanMode])
+  }, [homeId, effectiveRoomIds, wholeHome, selectedTime, cleanMode, isCurrentHome])
 
   const timeLimitMin = selectedTime?.minutes ?? Infinity
   const allTasksForBudget = useMemo(() => {

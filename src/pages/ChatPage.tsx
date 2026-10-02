@@ -40,7 +40,21 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
+/**
+ * Ask is one per home: keyed by it, so a switch starts Ask over for the new
+ * home (H4). Three things it reads for a home could answer after a switch, and
+ * each landed on the new home's screen — the Recent list, a past conversation
+ * being opened, and an answer still streaming in (into the old thread, which
+ * stayed up, and whose conversation id the next question would have been
+ * saved under in the new home). An answer that outlives the switch still
+ * finishes saving to its own home's history; it just has nowhere to show.
+ */
 export default function ChatPage() {
+  const { home } = useCurrentHome()
+  return <AskForHome key={home?.home_id ?? ""} />
+}
+
+function AskForHome() {
   const { home } = useCurrentHome()
   const { user } = useAuth()
   const homeId = home?.home_id ?? ""

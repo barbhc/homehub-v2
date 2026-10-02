@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { Check, Copy, Link2, Loader2, Trash2, UserPlus, Users } from "lucide-react"
@@ -123,12 +124,21 @@ export function HomeMembersSection({ homeId }: Props) {
     setLoading(false)
   }, [])
 
-  // Retry, and the re-read after an action.
+  // Every read lands only while its home is still the one on screen (H4): home
+  // A's members answering after a switch to B used to replace B's list — who
+  // can see a home is the last thing to show for the wrong one.
+  const isCurrentHome = useIsCurrent(homeId)
+
+  // Retry, and the re-read after an action. One held from before a switch (the
+  // name save below can outlive one) does not start: it would put a spinner on
+  // the next home's list and then have its answer dropped.
   const load = useCallback(async () => {
+    if (!isCurrentHome(homeId)) return
     setLoading(true)
     setLoadError(null)
-    applyAccess(await readAccess(homeId))
-  }, [homeId, applyAccess])
+    const res = await readAccess(homeId)
+    if (isCurrentHome(homeId)) applyAccess(res)
+  }, [homeId, applyAccess, isCurrentHome])
 
   // The first read and a home switch: the spinner starts in the render that
   // switches (it starts on for the first), and the effect only reads.
@@ -137,8 +147,10 @@ export function HomeMembersSection({ homeId }: Props) {
     setLoadError(null)
   }
   useEffect(() => {
-    void readAccess(homeId).then(applyAccess)
-  }, [homeId, applyAccess])
+    void readAccess(homeId).then((res) => {
+      if (isCurrentHome(homeId)) applyAccess(res)
+    })
+  }, [homeId, applyAccess, isCurrentHome])
 
   const handleCreateInvite = useCallback(async () => {
     if (!userId) return

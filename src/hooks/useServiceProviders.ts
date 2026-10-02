@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, query, serverTimestamp, where, writeB
 import { db } from "@/integrations/firebase"
 import type { ServiceProvider } from "@/integrations/types"
 import { useDepsChanged } from "./useDepsChanged"
+import { useIsCurrent } from "./useIsCurrent"
 
 function providerIso(v: unknown): string {
   if (v instanceof Timestamp) return v.toDate().toISOString()
@@ -197,11 +198,17 @@ export function useServiceProviders(homeId: string) {
     [homeId]
   )
 
-  /** Try again after a failed read. */
+  /** Try again after a failed read. The effect's cleanup cannot reach this
+   *  read, so it checks its home is still the one on screen (H4): one for a
+   *  home already left used to land on the next home's list. */
+  const isCurrentHome = useIsCurrent(homeId)
   const reload = useCallback(() => {
+    if (!isCurrentHome(homeId)) return
     setLoading(true)
-    void readProviders(homeId).then(applyRead)
-  }, [homeId, applyRead])
+    void readProviders(homeId).then((res) => {
+      if (isCurrentHome(homeId)) applyRead(res)
+    })
+  }, [homeId, applyRead, isCurrentHome])
 
   return { providers, loading, deletingId, save, remove, loadFailed, removeError, reload }
 }

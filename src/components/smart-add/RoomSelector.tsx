@@ -51,7 +51,13 @@ export function RoomSelector({
 
   useEffect(() => {
     if (!home?.home_id) return
-    getRooms(home.home_id).then((r) => setRooms(r.data ?? []))
+    // A read for a home already left lands nowhere (H4): it used to offer
+    // the last home's rooms for an item being added to this one.
+    let cancelled = false
+    getRooms(home.home_id).then((r) => {
+      if (!cancelled) setRooms(r.data ?? [])
+    })
+    return () => { cancelled = true }
   }, [home?.home_id])
 
   // Fill the room in from the item type. Deliberately never overrides a value

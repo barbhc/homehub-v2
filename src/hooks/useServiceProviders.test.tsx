@@ -55,4 +55,21 @@ describe("useServiceProviders · switching homes", () => {
     await answer("home-1", [provider("p1", "Ace Plumbing")])
     expect(result.current.providers.map((p) => p.name)).toEqual(["Bay Drains"])
   })
+
+  it("Try again for a home already left does not land either (H4)", async () => {
+    const { result, rerender } = renderHook(({ homeId }: { homeId: string }) => useServiceProviders(homeId), {
+      initialProps: { homeId: "home-1" },
+    })
+    await answer("home-1", [provider("p1", "Ace Plumbing")])
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    // Try again on home-1, still in flight when the person switches.
+    act(() => result.current.reload())
+    rerender({ homeId: "home-2" })
+    await answer("home-2", [provider("p2", "Bay Drains")])
+    await waitFor(() => expect(result.current.providers.map((p) => p.name)).toEqual(["Bay Drains"]))
+
+    await answer("home-1", [provider("p1", "Ace Plumbing")])
+    expect(result.current.providers.map((p) => p.name)).toEqual(["Bay Drains"])
+    expect(result.current.loading).toBe(false)
+  })
 })

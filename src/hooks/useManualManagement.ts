@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useIsCurrent } from "./useIsCurrent"
 import {
   createManualDocument,
   deleteManualDocument,
@@ -90,6 +91,9 @@ interface UseManualManagementParams {
   setTasks: (tasks: TaskTemplateWithSchedule[]) => void
 }
 
+/** Which item a re-read was for: a home and an item in it. */
+const itemKey = (homeId: string, itemId: string) => `${homeId}/${itemId}`
+
 /** Plain-language summary of what a commit-mode run changed. */
 function describeCommit(action: string, r: { inserted?: number; duplicatesSkipped?: number; tasks: number }): string {
   const added = r.inserted ?? 0
@@ -151,6 +155,11 @@ export function useManualManagement({
    *  hear of it a moment AFTER the answer — see `startedReadPending`. */
   const [startedReads, setStartedReads] = useState<ReadonlyMap<string, { requestId: string; at: number }>>(new Map())
   const [deletingManualId, setDeletingManualId] = useState<string | null>(null)
+  /** The item on screen. The page stays mounted when it moves to another item,
+   *  so a re-read of this one that finishes after the move (Fill gaps waits on
+   *  a whole parse first) used to hand this item's tasks and chunks to the
+   *  next item's page (H4). Re-reads land only on the item they were for. */
+  const isCurrentItem = useIsCurrent(itemKey(homeId, itemId))
 
   // --- Handlers ---
 
@@ -291,7 +300,7 @@ export function useManualManagement({
         } else {
           // Refresh chunks (reference chunks now in DB)
           const chunksRes = await getChunksByItem(homeId, itemId)
-          if (chunksRes.data) setChunks(chunksRes.data)
+          if (chunksRes.data && isCurrentItem(itemKey(homeId, itemId))) setChunks(chunksRes.data)
         }
       } else if (isAwaitingReview(manual)) {
         // The same PDF again, already read and waiting to be saved (HH-154
@@ -324,10 +333,12 @@ export function useManualManagement({
   // The worker owns parse state in Firestore; parseManualAndWait resolves only
   // on done/error (watched via onSnapshot).
   const refreshItem = async (opts?: { chunks?: boolean }) => {
+    const key = itemKey(homeId, itemId)
     const [chunkRes, taskRes] = await Promise.all([
       opts?.chunks ? getChunksByItem(homeId, itemId) : Promise.resolve({ data: null }),
       getTaskTemplatesWithSchedulesByItem(homeId, itemId),
     ])
+    if (!isCurrentItem(key)) return
     if (chunkRes.data) setChunks(chunkRes.data)
     if (taskRes.data) setTasks(taskRes.data)
   }

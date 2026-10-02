@@ -9,6 +9,7 @@ import {
   type ProposedReminder,
 } from "@/modules/care"
 import { getItemUnits } from "@/modules/items"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
 import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
 import type { NotificationPrefs } from "@/lib/notificationPreferences"
@@ -189,12 +190,16 @@ export default function YourReminders() {
     })
   }, [uid])
 
+  const isCurrentHome = useIsCurrent(homeId)
   const propose = async () => {
     if (!homeId || !focus.trim()) return
     setProposing(true)
     setProposeError(null)
     try {
       const res = await proposeReminders({ homeId, focusText: focus.trim() })
+      // Asked about a home the person has since switched away from: its tasks
+      // are not this home's to list — or to turn on here (H4).
+      if (!isCurrentHome(homeId)) return
       // The lanes never send item-scoped cleaning (the owner's rule, in
       // isAgendaEligible), and the server no longer proposes it — but a page
       // can outrun the callable behind it, so a proposal the loaded templates
@@ -208,7 +213,8 @@ export default function YourReminders() {
       setRows(res.proposals.filter(wouldNotify).map(fromProposal))
       setStage("proposal")
     } catch (e) {
-      setProposeError(e instanceof Error ? e.message : "Couldn't propose reminders right now")
+      // Likewise a failure for that home: not this one's to say.
+      if (isCurrentHome(homeId)) setProposeError(e instanceof Error ? e.message : "Couldn't propose reminders right now")
     } finally {
       setProposing(false)
     }

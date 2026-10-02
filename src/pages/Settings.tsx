@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
 import { isAwaitingReview } from "@/lib/manualReviewState"
 import { FeedbackButton } from "@/components/FeedbackButton"
 import { SUPPORT_EMAIL } from "@/lib/feedback"
@@ -548,11 +549,19 @@ export default function Settings() {
     setLoading(false)
   }, [homeId])
 
+  // Both lists land only while their home is still the one on screen (H4):
+  // home A's read answering after a switch to B used to replace B's list with
+  // A's. A Try again or post-add re-read held from before the switch does not
+  // start at all — it would put a spinner on B's list, then have its answer
+  // dropped.
+  const isCurrentHome = useIsCurrent(homeId)
+
   const loadRoutines = useCallback(async () => {
-    if (!homeId) return
+    if (!homeId || !isCurrentHome(homeId)) return
     setLoading(true)
-    applyRoutines(await readRoutines(homeId))
-  }, [homeId, applyRoutines])
+    const res = await readRoutines(homeId)
+    if (isCurrentHome(homeId)) applyRoutines(res)
+  }, [homeId, applyRoutines, isCurrentHome])
 
   // Load rooms and item counts
   const applyRooms = useCallback((res: RoomsRead) => {
@@ -568,10 +577,11 @@ export default function Settings() {
   }, [homeId])
 
   const loadRooms = useCallback(async () => {
-    if (!homeId) return
+    if (!homeId || !isCurrentHome(homeId)) return
     setRoomsLoading(true)
-    applyRooms(await readRooms(homeId))
-  }, [homeId, applyRooms])
+    const res = await readRooms(homeId)
+    if (isCurrentHome(homeId)) applyRooms(res)
+  }, [homeId, applyRooms, isCurrentHome])
 
   // The first read and a home switch: both spinners start in the render that
   // switches (they start on for the first), and the effects only read.
@@ -581,12 +591,16 @@ export default function Settings() {
   }
   useEffect(() => {
     if (!homeId) return
-    void readRoutines(homeId).then(applyRoutines)
-  }, [homeId, applyRoutines])
+    void readRoutines(homeId).then((res) => {
+      if (isCurrentHome(homeId)) applyRoutines(res)
+    })
+  }, [homeId, applyRoutines, isCurrentHome])
   useEffect(() => {
     if (!homeId) return
-    void readRooms(homeId).then(applyRooms)
-  }, [homeId, applyRooms])
+    void readRooms(homeId).then((res) => {
+      if (isCurrentHome(homeId)) applyRooms(res)
+    })
+  }, [homeId, applyRooms, isCurrentHome])
 
   const handleStartEditRoom = useCallback((room: Room) => {
     failedRenameRef.current = null
