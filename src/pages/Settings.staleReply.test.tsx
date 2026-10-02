@@ -9,6 +9,10 @@
  * list with A's. And the re-read after an add — held by the render that
  * started the add — could start after the switch, putting B's list behind a
  * spinner and then filling it with A's.
+ *
+ * And a rename's answer closes only its own room's editor: leaving room X's
+ * field for "Rename Y" saves X on the blur, and Y's editor, opened while that
+ * save was in flight, was closed by it landing.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react"
@@ -20,6 +24,7 @@ const m = vi.hoisted(() => ({
   getRooms: vi.fn(),
   getRoutineTemplates: vi.fn(),
   saveRoutineTask: vi.fn(),
+  renameRoom: vi.fn(),
 }))
 
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1", email: "e2e@homehub.test" }, signOut: vi.fn() }) }))
@@ -27,7 +32,7 @@ vi.mock("@/modules/home", () => ({
   useCurrentHome: () => ({ home: { home_id: m.homeId, name: m.homeId } }),
   getRooms: (...a: unknown[]) => m.getRooms(...a),
   createRoom: vi.fn(),
-  renameRoom: vi.fn(),
+  renameRoom: (...a: unknown[]) => m.renameRoom(...a),
   deleteRoom: vi.fn(),
 }))
 vi.mock("@/lib/userPreferences", () => ({
@@ -203,5 +208,62 @@ describe("Settings › Rooms — a late reply for the last home lands nowhere", 
     await act(async () => { retryA.resolve({ data: ROOMS["home-a"], error: null }) })
     expect(roomsCard().getByText("Garage")).toBeInTheDocument()
     expect(roomsCard().queryByText("Kitchen")).toBeNull()
+  })
+})
+
+describe("Settings › Rooms — a rename's answer closes only its own room's editor", () => {
+  type Renamed = { data: { room_id: string; name: string } | null; error: { message: string } | null }
+  beforeEach(() => {
+    m.getRooms.mockImplementation(async () => ({
+      data: [{ room_id: "ka", name: "Kitchen" }, { room_id: "ba", name: "Bath" }], error: null,
+    }))
+  })
+  /** Kitchen's editor, renamed to Pantry, left for Bath's "Rename": the blur saves Kitchen. */
+  async function leaveKitchenForBath() {
+    fireEvent.click(await roomsCard().findByRole("button", { name: "Rename Kitchen" }))
+    const kitchen = roomsCard().getByDisplayValue("Kitchen")
+    fireEvent.change(kitchen, { target: { value: "Pantry" } })
+    fireEvent.blur(kitchen)
+    expect(m.renameRoom).toHaveBeenCalledWith("home-a", "ka", "Pantry")
+    fireEvent.click(roomsCard().getByRole("button", { name: "Rename Bath" }))
+    expect(roomsCard().getByDisplayValue("Bath")).toBeInTheDocument()
+  }
+
+  it("Bath's editor, opened while Kitchen's save is in flight, stays open when Kitchen's save lands", async () => {
+    const save = deferred<Renamed>()
+    m.renameRoom.mockReturnValue(save.promise)
+    render(page())
+    await leaveKitchenForBath()
+
+    await act(async () => { save.resolve({ data: { room_id: "ka", name: "Pantry" }, error: null }) })
+
+    expect(roomsCard().getByRole("button", { name: "Pantry" })).toBeInTheDocument()
+    expect(roomsCard().getByDisplayValue("Bath")).toBeEnabled()
+  })
+
+  it("…and stays open, Kitchen keeping its name, when Kitchen's save fails", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    const save = deferred<Renamed>()
+    m.renameRoom.mockReturnValue(save.promise)
+    render(page())
+    await leaveKitchenForBath()
+
+    await act(async () => { save.resolve({ data: null, error: { message: "unavailable" } }) })
+
+    expect(roomsCard().getByText("Couldn't rename that room. Check your connection and try again.")).toBeInTheDocument()
+    expect(roomsCard().getByRole("button", { name: "Kitchen" })).toBeInTheDocument()
+    expect(roomsCard().getByDisplayValue("Bath")).toBeEnabled()
+  })
+
+  it("a room's own editor still closes when its save lands (control)", async () => {
+    m.renameRoom.mockResolvedValue({ data: { room_id: "ka", name: "Pantry" }, error: null })
+    render(page())
+    fireEvent.click(await roomsCard().findByRole("button", { name: "Rename Kitchen" }))
+    const kitchen = roomsCard().getByDisplayValue("Kitchen")
+    fireEvent.change(kitchen, { target: { value: "Pantry" } })
+    fireEvent.keyDown(kitchen, { key: "Enter" })
+
+    expect(await roomsCard().findByRole("button", { name: "Pantry" })).toBeInTheDocument()
+    expect(roomsCard().queryByDisplayValue("Pantry")).toBeNull()
   })
 })

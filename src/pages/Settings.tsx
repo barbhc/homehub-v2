@@ -615,8 +615,12 @@ export default function Settings() {
       setEditingRoomId(null)
       return
     }
+    // The room this save is for. The editor can move on while the save is in
+    // flight — "Rename" on another room opens that room's editor — so all that
+    // follows the await is about THIS room, not whichever editor is open then.
+    const roomId = editingRoomId
     const name = editingName.trim()
-    const existingRoom = rooms.find((r) => r.room_id === editingRoomId)
+    const existingRoom = rooms.find((r) => r.room_id === roomId)
     if (existingRoom && existingRoom.name === name) {
       setEditingRoomId(null)
       return
@@ -626,21 +630,21 @@ export default function Settings() {
     // stays open after a failure, so every tap elsewhere would write, and fail,
     // again. Enter, or a changed name, tries again.
     const failed = failedRenameRef.current
-    if (via === "blur" && failed?.roomId === editingRoomId && failed.name === name) return
+    if (via === "blur" && failed?.roomId === roomId && failed.name === name) return
     // One rename at a time: the editor disabling itself mid-save can blur it,
     // and blur saves — that must not start a second write.
     renamingRef.current = true
     setSavingRoom(true)
     setRoomsError(null)
-    const res = await renameRoom(homeId, editingRoomId, name)
+    const res = await renameRoom(homeId, roomId, name)
     renamingRef.current = false
     setSavingRoom(false)
     if (res.error || !res.data) {
       // The editor stays open with what was typed (as Add room's form does),
       // and the section says why — Enter tries again, Escape keeps the old name.
-      console.warn(`[settings] could not rename room ${editingRoomId} (home ${homeId}):`, res.error?.message)
+      console.warn(`[settings] could not rename room ${roomId} (home ${homeId}):`, res.error?.message)
       setRoomsError("Couldn't rename that room. Check your connection and try again.")
-      failedRenameRef.current = { roomId: editingRoomId, name }
+      failedRenameRef.current = { roomId, name }
       // Focus goes back only after Enter, when the person was still in the
       // field. A save that ran because they LEFT it must not pull them back:
       // each attempt to leave would save, fail and refocus again, with Escape
@@ -649,8 +653,11 @@ export default function Settings() {
       return
     }
     failedRenameRef.current = null
-    setRooms((prev) => prev.map((r) => (r.room_id === editingRoomId ? res.data! : r)))
-    setEditingRoomId(null)
+    setRooms((prev) => prev.map((r) => (r.room_id === roomId ? res.data! : r)))
+    // Closes THIS room's editor only. Leaving room X's field for "Rename Y"
+    // saves X on the blur, and Y's editor opened while that save was in flight
+    // used to be closed by it landing.
+    setEditingRoomId((open) => (open === roomId ? null : open))
   }, [homeId, editingRoomId, editingName, rooms])
 
   const handleAddRoom = useCallback(async () => {
