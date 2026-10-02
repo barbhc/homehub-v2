@@ -31,12 +31,23 @@ export default function AcceptInvite() {
   if (useDepsChanged([token, user?.id, authLoading], { onMount: true }) && !authLoading) {
     if (!user) setState("auth-required")
     else if (!token) { setState("error"); setError("Invalid invite link.") }
+    else {
+      // A link to read — the read below decides what to say. Another invite
+      // opened in place stops showing the last one while it is read: that
+      // page's Join would have accepted THIS link, into a home it didn't name.
+      setState("loading")
+      setInvite(null)
+      setError(null)
+      setExpired(false)
+    }
   }
 
   useEffect(() => {
     if (authLoading || !user || !token) return
-
+    // A reply for a link no longer open lands nowhere (H4).
+    let cancelled = false
     getInviteByToken(token).then((res) => {
+      if (cancelled) return
       if (res.error) { setState("error"); setError("Invite not found or has been revoked."); return }
       const inv = res.data!
       // Already in this home: say so instead of offering "Join". The server
@@ -47,6 +58,7 @@ export default function AcceptInvite() {
       setInvite(inv)
       setState("ready")
     })
+    return () => { cancelled = true }
   }, [token, user, authLoading])
 
   const handleAccept = useCallback(async () => {

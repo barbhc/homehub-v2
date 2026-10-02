@@ -44,6 +44,10 @@ import {
 } from "./item-detail"
 import { useItemDetailLoad } from "./item-detail/useItemDetailLoad"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
+
+/** Which item a re-read was for: a home and an item in it. */
+const itemKey = (homeId: string, itemId: string) => `${homeId}/${itemId}`
 
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -70,6 +74,11 @@ export default function ItemDetailPage() {
     rooms, setRooms,
     faqs, setFaqs,
   } = load
+  // The page stays mounted when it moves to another item (/items/A → /items/B,
+  // e.g. the parse tray's "review ready" for B), so a re-read of A answering
+  // after the move used to put A's tasks on B's page. Re-reads land only on
+  // the item they were read for (H4); the load itself already does (its key).
+  const isCurrentItem = useIsCurrent(home && id ? itemKey(home.home_id, id) : null)
   // "See page X" links open the newest manual's PDF. Same resolver (and cache
   // entry) the manual section uses for its "Open manual" links.
   const manualUrls = useManualUrls(manuals)
@@ -177,10 +186,12 @@ export default function ItemDetailPage() {
    *  the item now. The manual's own state arrives through the live list. */
   const refreshAfterReview = () => {
     if (!home || !id) return
+    const key = itemKey(home.home_id, id)
     void Promise.all([
       getTaskTemplatesWithSchedulesByItem(home.home_id, id),
       getChunksByItem(home.home_id, id),
     ]).then(([t, c]) => {
+      if (!isCurrentItem(key)) return
       if (t.data) setTasks(t.data)
       if (c.data) setChunks(c.data)
       // Saved either way; a failed refresh shows the page as it was until the
@@ -560,8 +571,9 @@ export default function ItemDetailPage() {
                   taskCount={tasks.length}
                   compact
                   onDone={() => {
+                    const key = itemKey(home.home_id, id)
                     void getTaskTemplatesWithSchedulesByItem(home.home_id, id).then((r) => {
-                      if (r.data) setTasks(r.data)
+                      if (r.data && isCurrentItem(key)) setTasks(r.data)
                     })
                   }}
                 />

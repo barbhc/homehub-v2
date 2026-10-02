@@ -142,7 +142,13 @@ export function IdentifyStep({
   const [quickRooms, setQuickRooms] = useState<Array<{ room_id: string; name: string }>>([])
   useEffect(() => {
     if (!home?.home_id) return
-    getRooms(home.home_id).then((r) => setQuickRooms(r.data ?? []))
+    // A read for a home already left lands nowhere (H4): its room chip used
+    // to offer the last home's room.
+    let cancelled = false
+    getRooms(home.home_id).then((r) => {
+      if (!cancelled) setQuickRooms(r.data ?? [])
+    })
+    return () => { cancelled = true }
   }, [home?.home_id])
   const nameInference = useMemo(
     () => (data.name.trim().length >= 3 ? mapOcrCategoryToTyped(data.name) : { itemCategory: null, subType: null }),
