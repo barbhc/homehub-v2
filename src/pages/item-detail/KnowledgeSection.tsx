@@ -10,7 +10,13 @@ interface KnowledgeSectionProps {
   chunks: KnowledgeChunk[]
   faqs: ChatFaq[]
   hasParsedManual: boolean
-  onFaqsChange: (faqs: ChatFaq[]) => void
+  /**
+   * Takes an UPDATE, not a list. The page stays mounted when it moves to
+   * another item, and a delete answering after that move handed back THIS
+   * item's list — which replaced the next item's saved Q&A with this one's.
+   * Removing by id is a no-op on any other item's list.
+   */
+  onFaqsChange: (update: (faqs: ChatFaq[]) => ChatFaq[]) => void
 }
 
 export function KnowledgeSection({
@@ -51,7 +57,12 @@ export function KnowledgeSection({
                         className="mt-2 min-h-11 min-w-11 text-destructive hover:text-destructive"
                         onClick={async () => {
                           const result = await deleteFaq(faq.home_id, faq.faq_id)
-                          if (!result.error) onFaqsChange(faqs.filter((f) => f.faq_id !== faq.faq_id))
+                          if (result.error) {
+                            // The Q&A stays listed, as it still is; the reason is logged.
+                            console.warn(`[item] could not delete saved Q&A ${faq.faq_id} (home ${faq.home_id}):`, result.error.message)
+                            return
+                          }
+                          onFaqsChange((current) => current.filter((f) => f.faq_id !== faq.faq_id))
                         }}
                         aria-label="Delete saved Q&A"
                       >
