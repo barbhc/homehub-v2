@@ -124,9 +124,31 @@ export default function DeepClean() {
   // room selected under the new home, so a session started from it filtered
   // the new home's tasks by the old home's room. The new home's default is
   // picked when its rooms land.
+  //
+  // The switch also ENDS the last home's session. A checklist under way for
+  // home A used to survive a switch to B — A's tasks still listed, A's ticks
+  // still held — and "Finish" then marked A's task ids done under B's home id.
+  // Nothing of A's session (tasks, ticks, tasks typed in, its summary) outlives
+  // the switch, so every id a Finish can send is the current home's: B opens on
+  // its own setup. A Finish or Save already sent for A still lands on A — it
+  // carries A's id with A's tasks — and puts nothing on B's screen (below).
   if (useDepsChanged([homeId])) {
     setRooms([])
     setSelectedRoomIds(new Set())
+    setStep("setup")
+    setTasks([])
+    setCustomTasks([])
+    setCompletedIds(new Set())
+    setCustomInput("")
+    setSkippedItemKeys(new Set())
+    setExpandedItemKeys(new Set())
+    setExpandedId(null)
+    setBonusOpen(false)
+    setSavedCustomIds(new Set())
+    setCleanError(null)
+    setSaveRoutineError(null)
+    setLoading(false)
+    setFinishing(false)
   }
   useEffect(() => {
     if (!homeId) return
@@ -265,7 +287,9 @@ export default function DeepClean() {
       if (isCurrentHome(homeId)) setCleanError(msg)
       console.error("[DeepClean] getCleaningTasks error:", e)
     } finally {
-      setLoading(false)
+      // The switch already reset the new home's setup; a read for the last home
+      // must not touch it (the new home's own "Let's clean" may be under way).
+      if (isCurrentHome(homeId)) setLoading(false)
     }
   }, [homeId, effectiveRoomIds, wholeHome, selectedTime, cleanMode, isCurrentHome])
 
@@ -356,11 +380,23 @@ export default function DeepClean() {
     if (!homeId) return
     setFinishing(true)
     setCleanError(null)
+    // This render's home and this render's session: a switch ends the session
+    // in the render that switches, so these ids are always this home's own.
     const toMark = [...tasks, ...customTasks].filter(
       (t) => completedIds.has(t.id) && (t.source === "instance" || t.source === "routine")
     )
     const results = await Promise.all(toMark.map((t) => markTaskInstanceDone(homeId, t.id)))
     const failCount = results.filter((r) => !r.success).length
+    // Finished for a home the person has since left: the check-offs went to that
+    // home, and its summary is not this home's to show. Any failure is logged —
+    // on this screen it would read as the new home's.
+    if (!isCurrentHome(homeId)) {
+      if (failCount > 0) {
+        const errors = results.flatMap((r) => (r.success ? [] : [r.error]))
+        console.warn(`[clean] ${failCount} of ${toMark.length} check-offs for home ${homeId} failed after it was left:`, errors)
+      }
+      return
+    }
     if (failCount > 0) {
       setCleanError(
         `${failCount} task${failCount === 1 ? "" : "s"} couldn't be saved. ` +
@@ -385,23 +421,26 @@ export default function DeepClean() {
     setSummaryMessage(MOTIVATING_MESSAGES[Math.floor(Math.random() * MOTIVATING_MESSAGES.length)])
     setFinishing(false)
     setStep("summary")
-  }, [homeId, tasks, customTasks, completedIds])
+  }, [homeId, tasks, customTasks, completedIds, isCurrentHome])
 
   const handleSaveCustomToRoutine = useCallback(
     async (task: CleanTask) => {
       if (!homeId || task.source !== "custom") return
       setSaveRoutineError(null)
       const result = await saveRoutineTask(homeId, task.title, "monthly", null)
+      // Saved (or not) for a home the person has since left: that session and
+      // its summary ended with the switch, and this home's are not its to mark.
+      const stillHere = isCurrentHome(homeId)
       if ("error" in result) {
         // The Save button stays live; the list says this one didn't take.
         // The task's own id, not its typed title — what someone wrote stays out of the logs.
         console.warn(`[clean] could not save custom task ${task.id} to the routine (home ${homeId}):`, result.error)
-        setSaveRoutineError(`Couldn't save “${task.title}”. Check your connection and try again.`)
+        if (stillHere) setSaveRoutineError(`Couldn't save “${task.title}”. Check your connection and try again.`)
         return
       }
-      setSavedCustomIds((prev) => new Set(prev).add(task.id))
+      if (stillHere) setSavedCustomIds((prev) => new Set(prev).add(task.id))
     },
-    [homeId]
+    [homeId, isCurrentHome]
   )
 
   const uncompletedCustom = useMemo(
