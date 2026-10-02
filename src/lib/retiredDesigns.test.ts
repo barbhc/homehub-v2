@@ -233,6 +233,13 @@ describe("the manual step is one component, not two that drift", () => {
     // (ManualStep.test.tsx). Same layout, same copy, same single component —
     // and because both doors render it, the fix reached both, which is what
     // this pin is for.
+    //
+    // 2026-10-01: behaviour again, not design. A press that ended without a
+    // click (let go outside the window, turned into a drag, an app switch)
+    // stayed "under way" until the next press, so the next keyboard blur of a
+    // complete link was skipped or deferred. It now ends when the press does
+    // ("a press that ends WITHOUT a click", ManualStep.test.tsx). Same layout,
+    // same copy, the same one component behind both doors.
     expect(doors).toEqual([
       "src/pages/SmartAddItem.tsx",
       "src/pages/item-detail/ManualSection.tsx",

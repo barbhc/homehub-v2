@@ -3,7 +3,7 @@
  * whole-home care, and every failure is visible where it happened.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 
 const getHomeProfile = vi.fn()
@@ -95,5 +95,60 @@ describe("HomeSetup", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Add$/ }))
     await waitFor(() => expect(addCustomHomeTask).toHaveBeenCalledWith("h1", "Have the chimney swept", "annual", null))
     expect((await screen.findByRole("status")).textContent).toMatch(/Added/)
+  })
+})
+
+/** A whole-home task as getTaskTemplates returns it — enough for the page's filter and matcher. */
+const homeTask = (title: string) => ({
+  task_template_id: `t-${title}`, title, scope_type: "home", is_active: true, deleted_at: null, schedule: null,
+})
+
+describe("HomeSetup — her own task's \"Added\" line stays on screen", () => {
+  // Every Add reloaded the home with the spinner in place of the page, so
+  // CustomTask — and the "Added … to your Tasks." it had just said — was
+  // unmounted a render later and came back blank: the line was drawn for a
+  // single frame. Her own task now refreshes behind the page.
+  it("through the refresh that follows the Add — the page never gives way to the spinner", async () => {
+    addCustomHomeTask.mockResolvedValue({ data: { title: "Have the chimney swept" }, error: null })
+    renderPage()
+    fireEvent.change(await screen.findByLabelText("Task name"), { target: { value: "Have the chimney swept" } })
+    let answerRefresh!: (v: unknown) => void
+    getTaskTemplates.mockReturnValueOnce(new Promise((r) => { answerRefresh = r }))
+    fireEvent.click(screen.getByRole("button", { name: /^Add$/ }))
+
+    // The task is added and the home is being read again — behind the page.
+    await waitFor(() => expect(getTaskTemplates).toHaveBeenCalledTimes(2))
+    expect(screen.getByRole("status")).toHaveTextContent("Added Have the chimney swept to your Tasks.")
+    expect(screen.queryByText(/Loading your answers/)).toBeNull()
+
+    await act(async () => { answerRefresh({ data: [homeTask("Have the chimney swept")], error: null }) })
+    expect(screen.getByRole("status")).toHaveTextContent("Added Have the chimney swept to your Tasks.")
+    expect(screen.getByLabelText("Task name")).toHaveValue("")
+    expect(screen.queryByText(/Loading your answers/)).toBeNull()
+  })
+
+  it("a library Add still reloads the page, and the added suggestion leaves with it (unchanged)", async () => {
+    getHomeProfile.mockResolvedValue({ data: { care_facts: { has_smoke_alarms: true }, dismissed_care: [] }, error: null })
+    addLibraryTask.mockResolvedValue({ data: {}, error: null })
+    renderPage()
+    fireEvent.click(await screen.findByRole("button", { name: "Add Test smoke and CO alarms" }))
+    getTaskTemplates.mockResolvedValue({ data: [homeTask("Test smoke and CO alarms")], error: null })
+
+    // Back from the reload (its spinner hides every row while it runs), without the added one.
+    await waitFor(() => {
+      expect(screen.getByText("Replace alarm batteries")).toBeTruthy()
+      expect(screen.queryByText("Test smoke and CO alarms")).toBeNull()
+    })
+    expect(addLibraryTask).toHaveBeenCalledTimes(1)
+  })
+
+  it("Try again shows the loading line at once, then the page", async () => {
+    getHomeProfile.mockResolvedValueOnce({ data: null, error: { message: "unavailable" } })
+    renderPage()
+    fireEvent.click(await screen.findByRole("button", { name: /Try again/ }))
+
+    expect(screen.getByText(/Loading your answers/)).toBeTruthy()
+    expect(await screen.findByTestId("setup-categories")).toBeTruthy()
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 })

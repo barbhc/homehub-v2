@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { act, render, screen, fireEvent } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { ManualStep } from "./ManualStep"
 
@@ -323,6 +323,94 @@ describe("a link can be TYPED, key by key (2026-09-30)", () => {
     await user.keyboard(URL)
 
     await user.click(screen.getByRole("button", { name: "Reference doc" }))
+
+    expect(onRole).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText("Manual link added")).toBeInTheDocument()
+  })
+})
+
+describe("a press that ends WITHOUT a click is over when it ends (2026-10-01)", () => {
+  // The press tracker waited for a click (or pointercancel). A press that never
+  // got one — let go outside the window, turned into a drag, the window losing
+  // focus — stayed open until the next pointerdown, so the next keyboard blur
+  // of a complete link (Tab, iOS Done) was skipped ("step") or deferred to a
+  // click that never came ("other").
+  const URL = "https://lg.example/DLGX3901B-owners-manual.pdf"
+  const field = () => screen.getByPlaceholderText("https://example.com/manual.pdf")
+  const card = () => screen.queryByText("Manual link added")
+  async function typedLink(ui: React.ReactElement = <ManualStep {...props} />) {
+    const user = userEvent.setup()
+    render(ui)
+    await user.click(screen.getByRole("button", { name: /Paste a link/ }))
+    await user.keyboard(URL)
+  }
+  /** Back into the field with the keyboard, and out again (Tab, iOS Done). */
+  function tabInAndOut() {
+    act(() => field().focus())
+    fireEvent.blur(field())
+  }
+
+  it("a mouse press released outside the window is over at its pointerup", async () => {
+    await typedLink()
+    const skip = screen.getByRole("button", { name: /I'll add it later/ })
+    fireEvent.pointerDown(skip, { pointerType: "mouse" })
+    fireEvent.blur(field()) // the step's own control: the link stays in the field
+    fireEvent.pointerUp(document.documentElement, { pointerType: "mouse" }) // let go elsewhere: no click
+    expect(card()).toBeNull()
+
+    tabInAndOut()
+    expect(card()).toBeInTheDocument()
+  })
+
+  it("a press that turns into a drag is over when the drag starts — the link it held is chosen then", async () => {
+    await typedLink(<div><ManualStep {...props} /><div draggable="true">a photo</div></div>)
+    const photo = screen.getByText("a photo")
+    fireEvent.pointerDown(photo, { pointerType: "mouse" })
+    fireEvent.blur(field())
+    expect(card()).toBeNull() // waiting for that press to end
+    fireEvent.dragStart(photo)
+
+    expect(await screen.findByText("Manual link added")).toBeInTheDocument()
+  })
+
+  it("the window losing focus mid-press (an app switch) ends the press", async () => {
+    await typedLink()
+    const skip = screen.getByRole("button", { name: /I'll add it later/ })
+    fireEvent.pointerDown(skip, { pointerType: "touch" })
+    fireEvent.blur(field())
+    fireEvent.blur(window)
+    expect(card()).toBeNull()
+
+    tabInAndOut()
+    expect(card()).toBeInTheDocument()
+  })
+
+  it("a mouse press that does end in a click: its click still lands before the link is chosen", async () => {
+    const onRole = vi.fn()
+    await typedLink(<div><ManualStep {...props} /><button type="button" onClick={onRole}>Reference doc</button></div>)
+    const outside = screen.getByRole("button", { name: "Reference doc" })
+    fireEvent.pointerDown(outside, { pointerType: "mouse" })
+    fireEvent.blur(field())
+    fireEvent.pointerUp(outside, { pointerType: "mouse" })
+    expect(card()).toBeNull()
+    fireEvent.click(outside)
+
+    expect(onRole).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText("Manual link added")).toBeInTheDocument()
+  })
+
+  it("a TOUCH press is not over at pointerup — the tap's click still lands first", async () => {
+    // A tap's compatibility mousedown (which blurs the field) and its click both
+    // come AFTER pointerup. Ending the press at a touch pointerup would swap the
+    // field for the card before the tap landed — the bug the press exists for.
+    const onRole = vi.fn()
+    await typedLink(<div><ManualStep {...props} /><button type="button" onClick={onRole}>Reference doc</button></div>)
+    const outside = screen.getByRole("button", { name: "Reference doc" })
+    fireEvent.pointerDown(outside, { pointerType: "touch" })
+    fireEvent.pointerUp(outside, { pointerType: "touch" })
+    fireEvent.blur(field())
+    expect(card()).toBeNull() // not before the tap lands
+    fireEvent.click(outside)
 
     expect(onRole).toHaveBeenCalledTimes(1)
     expect(await screen.findByText("Manual link added")).toBeInTheDocument()
