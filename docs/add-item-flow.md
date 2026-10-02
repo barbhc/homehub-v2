@@ -152,6 +152,12 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   the first typed character replaced the field. Behaviour only: same layout,
   same copy. — audit 2026-09-30 (Tasks + cleaning leftovers package; gate
   review of #231)
+
+  A press is over when its click lands — or, without one, when a mouse button
+  lifts, a drag starts or the window loses focus — so it never holds the next
+  keyboard blur (Tab, iOS Done) of a complete link. A touch waits for its
+  click: its focus change and click come after the finger lifts. Behaviour
+  only. — review 2026-10-01 (switch-safety batch)
 - "Let us find it" is **last, muted, badged Beta**, and says how it goes
   wrong. — HH-107, HH-115
 - **Zero-byte files are refused** before any upload or AI spend. — HH-128
@@ -456,7 +462,7 @@ and where they differ, the amended line governs:
 | `src/lib/designContracts.test.ts` | This file's rules as behaviour, not names: the item page renders one tree and one add-manual dialog at 390px and desktop, and never starts a scan on arrival; zero-byte refusal and the capacity stand-down; every review door gets the one screen, in order; the two-step review's sentences, absent app-wide; one indeterminate rail, in Upkeep; the pill on the item's own page (HH-161, which turned HH-118's test around); after attaching a manual, never "No upkeep yet" beside "Reading the manual"; round 14's sentence absent app-wide; the Tasks count excluding item cleaning; no bell on a phone that refused. A rule the code does not meet yet is an `it.todo` naming its package | live |
 | `src/components/manuals/TaskReviewSheet.saved.test.tsx` | A screen claiming rows are saved while offering the button that saves them | live |
 | `src/components/smart-add/addFlowCopy.test.ts` | Copy and step-union drift | live |
-| `src/components/smart-add/ManualStep.test.tsx`, "a link can be TYPED" | The link field swapped for the card mid-word (losing focus and the text), a partial link chosen on leaving the field, a complete one that Enter or leaving does not finish, a paste that no longer finishes at once, an X that throws the link away, or a press swallowed by the swap — the step's own controls, the drop zone, or a button outside the step, Safari's no-focus press included (2026-09-30) | live |
+| `src/components/smart-add/ManualStep.test.tsx`, "a link can be TYPED" | The link field swapped for the card mid-word (losing focus and the text), a partial link chosen on leaving the field, a complete one that Enter or leaving does not finish, a paste that no longer finishes at once, an X that throws the link away, or a press swallowed by the swap — the step's own controls, the drop zone, or a button outside the step, Safari's no-focus press included (2026-09-30). "a press that ends WITHOUT a click": a press let go outside the window, turned into a drag, or cut off by an app switch still holding the next keyboard blur; a touch press ended at pointerup, before its click (2026-10-01) | live |
 | `ManualSection.addManual.test.tsx` + `e2e/emu/manual-link-typing.spec.ts` | On the item page's door: a typed link, then "Reference doc" — the tap lost to the swap, or the link not chosen after it; a partial link chosen on leaving the field (2026-09-30) | live |
 | Journey walks + their `snap()` notes | Visual drift — but ONLY if the note states the requirement rather than describing the screen | live |
 | **This file** | A change quietly undoing an earlier agreement | live |
