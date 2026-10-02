@@ -39,9 +39,18 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
   const [homesReady, setHomesReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // setCurrentHome must not close over a stale `homes` — it can be called from a
-  // sheet rendered before the latest fetch landed.
+  // sheet rendered before the latest fetch landed. So it reads this ref, which
+  // is written TOGETHER with the state (applyHomes), not synced by an effect
+  // here: a child's effects run before the provider's in the same commit, so a
+  // cold-start push tap — parked until the list lands, then switching from the
+  // effect that list lands in — asked for the new home while the ref still held
+  // the list from before the lookup. The switch missed and the task opened
+  // under the old home (H4).
   const homesRef = useRef<Home[]>([])
-  useEffect(() => { homesRef.current = homes }, [homes])
+  const applyHomes = useCallback((list: Home[]) => {
+    homesRef.current = list
+    setHomes(list)
+  }, [])
   // Track which user id we've completed a home fetch for. `loading` is derived
   // from this (below) so it stays true from the moment `user` resolves until
   // that user's home has actually been fetched — closing a deep-link race where
@@ -61,7 +70,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       console.debug("[HomeProvider] No user, clearing home")
       setHome(null)
-      setHomes([])
+      applyHomes([])
       setHomesReady(false)
       setError(null)
       setLoadedFor(null)
@@ -76,7 +85,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
       setHome(cached)
       // Seed the list too: the switcher opening to an empty sheet on a warm boot
       // would read as "you have no homes" during the fetch.
-      setHomes([cached])
+      applyHomes([cached])
       setError(null)
       setLoadedFor(user.id)
       markBoot("home")
@@ -122,7 +131,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
           list.find((h) => h.home_id === result.data?.primaryHomeId) ??
           list[0] ??
           null
-        setHomes(list)
+        applyHomes(list)
         setHome(selected)
         writeCachedHome(user.id, selected)
       } else if (!cached) {
