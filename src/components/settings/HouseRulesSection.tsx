@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Loader2Icon, SlidersHorizontalIcon, Trash2 } from "lucide-react"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,13 +16,24 @@ export function HouseRulesSection({ homeId }: { homeId: string }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // A home switch shows Loading in the render that switches — not the last
+  // home's rules, nor its error — and the effect only reads. A read for a home
+  // already left lands nowhere (H4): home A's answering after a switch to B
+  // used to replace B's rules with A's.
+  if (useDepsChanged([homeId])) {
+    setRules(null)
+    setError(null)
+  }
   // The read lands in its own callback: an effect that calls a component
   // function which sets state reads, to react-hooks, as setting it there.
   useEffect(() => {
+    let cancelled = false
     void listHouseRules(homeId).then((res) => {
+      if (cancelled) return
       if (res.error) { setError(res.error.message); setRules([]); return }
       setRules(res.data)
     })
+    return () => { cancelled = true }
   }, [homeId])
 
   const handleDelete = async (id: string) => {
