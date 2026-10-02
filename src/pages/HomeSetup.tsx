@@ -19,6 +19,7 @@ import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { suggestionsForHome, type CareFacts, type Suggestion } from "../../shared/care/library"
 import type { ScheduleType, TaskTemplate } from "@/integrations/types"
 import { CATEGORIES, categoryStatus, type Category, type FactKey } from "./homeSetupCategories"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const SURFACE = "var(--hh-surface)", LINE = "var(--hh-line)"
@@ -43,22 +44,33 @@ export default function HomeSetup() {
   const [open, setOpen] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
 
+  // Two ways to read the home again. A RELOAD replaces the page with the
+  // spinner: the first read, a home switch, Try again, and a library Add (the
+  // added row leaves with it) — set in the render or handler that asks, so the
+  // effect below only reads. A REFRESH reads behind the page: her own task's
+  // Add. The reload used to be the only way, so the spinner replaced the page
+  // — CustomTask with it — and its "Added … to your Tasks." was drawn for a
+  // single frame.
+  if (useDepsChanged([homeId])) {
+    setLoading(true)
+    setLoadError(null)
+  }
+  const reload = () => {
+    setLoading(true)
+    setLoadError(null)
+    setReloadKey((k) => k + 1)
+  }
+  const refresh = () => setReloadKey((k) => k + 1)
+
   useEffect(() => {
     if (!homeId) return
     let alive = true
-    // Kept in the effect (H5), deliberately one render late: a reload after
-    // "Add" (reloadKey) replaces the page with this spinner, and setting it in
-    // the same render as the add's "Added … to your Tasks." confirmation means
-    // that confirmation is never drawn at all. It barely is now — the reload
-    // unmounts it — and keeping it through the reload is a design call.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- moving the spinner into the render that bumps reloadKey drops CustomTask's "Added" confirmation (HomeSetup.test); keeping it through the reload is a design decision
-    setLoading(true)
-    setLoadError(null)
     Promise.all([getHomeProfile(homeId), getTaskTemplates(homeId)]).then(([profile, templates]) => {
       if (!alive) return
       // A failed read must never look like "nothing set up" — the page says so and offers a retry.
       if (profile.error) { setLoadError(profile.error.message); setLoading(false); return }
       if (templates.error) { setLoadError(templates.error.message); setLoading(false); return }
+      setLoadError(null)
       setFacts(profile.data?.care_facts ?? {})
       setDismissed(profile.data?.dismissed_care ?? [])
       setHomeTasks((templates.data ?? []).filter((t) => t.scope_type === "home" && t.is_active && !t.deleted_at))
@@ -89,7 +101,7 @@ export default function HomeSetup() {
     if (!homeId) return { error: { message: "No home selected" } }
     const res = await addLibraryTask(homeId, null, s.entry)
     if (res.error) return { error: res.error }
-    setReloadKey((k) => k + 1)
+    reload()
     return { error: null }
   }
   const dismiss = async (s: Suggestion) => {
@@ -127,7 +139,7 @@ export default function HomeSetup() {
         ) : loadError ? (
           <div role="alert" className="mt-6 rounded-2xl px-4 py-3 text-[14px]" style={{ background: SURFACE, border: `1px solid ${LINE}`, color: CLAY }}>
             Couldn&apos;t load your home: {loadError}{" "}
-            <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="font-bold" style={{ color: TEAL }}>Try again</button>
+            <button type="button" onClick={reload} className="font-bold" style={{ color: TEAL }}>Try again</button>
           </div>
         ) : category ? (
           <CategoryQuestions category={category} facts={facts} onSave={saveFacts} onDone={() => setOpen(null)} />
@@ -171,7 +183,7 @@ export default function HomeSetup() {
               </div>
             </section>
 
-            <CustomTask homeId={homeId} onAdded={() => setReloadKey((k) => k + 1)} />
+            <CustomTask homeId={homeId} onAdded={refresh} />
           </>
         )}
       </div>
