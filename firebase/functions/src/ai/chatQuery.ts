@@ -23,11 +23,15 @@ import { getAuth } from "firebase-admin/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { assertNotRefused } from "../../../../shared/parse/modelParams.js"
-import { buildChatRequest, type PdfDoc } from "../../../../shared/chat/chatMessages.js"
+import { buildChatRequest, normalizeHistory, type PdfDoc } from "../../../../shared/chat/chatMessages.js"
 import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
 import { pickNotes, formatNotesBlock, noteSources, type NoteInput } from "./notesContext.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
+import { manualSource, type ManualSource } from "../parse/manualSource.js"
+import { z } from "zod"
+import { isDocIdSegment, parseHttpInput, storedText } from "../lib/validate.js"
+import { braveWebResults } from "../lib/externalResponses.js"
 import { queryTerms, rankChunks } from "./chunkRanking.js"
 import {
   ReadTally,
@@ -94,14 +98,65 @@ export async function chargeAndFetchPdfs<T extends { manualId: string }>(
   return attached
 }
 
-type FilterType = "all" | "item" | "room" | "category"
-interface ChatRequestBody {
-  question: string
-  history: Array<{ role: "user" | "assistant"; content: string }>
-  filter: { type: FilterType; value?: string; values?: string[]; label?: string }
-  home_id: string
-  allow_web_search?: boolean
-}
+/**
+ * The request body (H3a) — parsed, never cast. Each history turn must be a
+ * {role, content} pair of strings; which of those reach Claude (user or
+ * assistant, non-blank, the last ten) is still normalizeHistory's call, which
+ * drops and counts the rest (shared/chat/chatMessages.ts). The ceilings sit
+ * far above what the Ask client sends and only refuse what it cannot.
+ */
+const QUESTION_AND_HOME = "question and home_id are required"
+
+/**
+ * How much of the thread is read. The Ask client sends the WHOLE thread every
+ * time (src/pages/ChatPage.tsx), and normalizeHistory keeps only the last
+ * MAX_HISTORY_TURNS (ten) well-formed turns — so a long thread is sliced to
+ * its tail here, never refused, and only that tail is shape-checked. Twenty
+ * times the ten that are used, so blank or odd turns in between cannot push a
+ * real one out; it also bounds the work one request can ask for.
+ */
+export const CHAT_HISTORY_WINDOW = 200
+
+/** One turn: answers are ≤1,024 tokens and questions ≤10k characters, so 50k
+ *  characters is far above any turn the app produces. */
+export const CHAT_TURN_MAX_CHARS = 50_000
+
+/**
+ * The turns actually sent to Claude — normalizeHistory's last ten — together.
+ * The app's own turns top out near 75k characters for ten (five 10k questions,
+ * five ≤1,024-token answers); past this a request would only be refused by
+ * Claude after it was charged.
+ */
+export const CHAT_HISTORY_USED_MAX_CHARS = 150_000
+
+export const ChatQueryRequest = z.object({
+  question: z.string({ error: QUESTION_AND_HOME }).min(1, { error: QUESTION_AND_HOME }).max(10_000, { error: "That question is too long — try a shorter one." }),
+  history: z
+    .preprocess(
+      (h) => (Array.isArray(h) && h.length > CHAT_HISTORY_WINDOW ? h.slice(-CHAT_HISTORY_WINDOW) : h),
+      z
+        .array(z.object({ role: z.string(), content: z.string().max(CHAT_TURN_MAX_CHARS) }))
+        .nullish()
+        .superRefine((h, ctx) => {
+          if (!h) return
+          const used = normalizeHistory(h).turns.reduce((n, t) => n + t.content.length, 0)
+          if (used > CHAT_HISTORY_USED_MAX_CHARS) {
+            ctx.addIssue({ code: "custom", message: "This conversation is too long to continue — start a new one." })
+          }
+        }),
+    )
+    .optional(),
+  filter: z
+    .object({
+      type: z.enum(["all", "item", "room", "category"]),
+      value: z.string().max(500).nullish(),
+      values: z.array(z.string().max(500)).max(500).nullish(),
+      label: z.string().max(500).nullish(),
+    })
+    .nullish(),
+  home_id: z.string({ error: QUESTION_AND_HOME }).refine(isDocIdSegment, { error: QUESTION_AND_HOME }),
+  allow_web_search: z.boolean().nullish(),
+})
 type ChatSource = { title: string; item_name: string; source_type: "manual" | "web" | "note"; url?: string }
 type WebResult = { title: string; url: string; snippet: string }
 
@@ -129,10 +184,7 @@ async function fetchBraveTop(braveKey: string, query: string, topN: number): Pro
   url.searchParams.set("search_lang", "en")
   const res = await fetch(url.toString(), { headers: { "X-Subscription-Token": braveKey } })
   if (!res.ok) return []
-  const json = (await res.json()) as {
-    web?: { results?: Array<{ title?: string; url?: string; description?: string }> }
-  }
-  return (json.web?.results ?? []).slice(0, topN).map((r) => ({
+  return braveWebResults(await res.json()).slice(0, topN).map((r) => ({
     title: String(r.title ?? ""),
     url: String(r.url ?? ""),
     snippet: stripHtml(String(r.description ?? "")),
@@ -143,6 +195,19 @@ function formatWebContextBlock(searchQuery: string, results: WebResult[]): strin
   for (const r of results) parts.push(`### [${r.title}](${r.url})`, r.snippet)
   parts.push("---")
   return parts.join("\n")
+}
+
+/**
+ * A manual's source as Ask plans PDF attachments. A missing `sourceType` reads
+ * as "url" — Ask's long-standing default, so a manual without one is never
+ * attached whole (and never priced); unlike the parse paths, which read it as
+ * a Storage path. A source that is missing, or in ANOTHER home's Storage
+ * folder, reads as an empty URL, which planPdfAttachments refuses — what a
+ * manual with no source already read as. Its parsed chunks (this home's) are
+ * still searched either way.
+ */
+export function askManualSource(homeId: string, sourceType: unknown, sourceRef: unknown): ManualSource {
+  return manualSource(homeId, sourceType ?? "url", sourceRef) ?? { sourceType: "url", sourceRef: "" }
 }
 
 type ItemRow = { id: string; roomId: string | null; category: string | null; displayName: string }
@@ -176,12 +241,13 @@ export const chatQuery = onRequest(
       return
     }
 
-    const body = (req.body ?? {}) as ChatRequestBody
-    const { question, history = [], filter, home_id: homeId, allow_web_search: allowWebSearch } = body
-    if (!question || typeof question !== "string" || !homeId || typeof homeId !== "string") {
-      res.status(400).json({ error: "question and home_id are required" })
+    const parsed = parseHttpInput("chatQuery", ChatQueryRequest, req.body, "That question couldn't be sent as it was. Try asking again.")
+    if (!parsed.ok) {
+      res.status(parsed.status).json({ error: parsed.error })
       return
     }
+    const { question, filter, home_id: homeId, allow_web_search: allowWebSearch } = parsed.data
+    const history = parsed.data.history ?? []
 
     const db = getFirestore()
     const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
@@ -243,9 +309,9 @@ export const chatQuery = onRequest(
     tally.query("items", itemsSnap.size)
     const items: ItemRow[] = itemsSnap.docs.map((d) => ({
       id: d.id,
-      roomId: (d.get("roomId") as string | null) ?? null,
-      category: (d.get("category") as string | null) ?? null,
-      displayName: (d.get("displayName") as string | null) ?? "Unknown",
+      roomId: storedText(d.get("roomId")),
+      category: storedText(d.get("category")),
+      displayName: storedText(d.get("displayName")) ?? "Unknown",
     }))
     if (items.length === 0) return nothingToAsk()
 
@@ -293,7 +359,7 @@ export const chatQuery = onRequest(
       try {
         noteInputs.push(...(await readAskNotes(db, { homeId, wholeHome, scopedItems, scopedIds, nameByItem }, tally)))
         for (const d of itemsSnap.docs) {
-          const legacy = (d.get("notes") as string | null)?.trim()
+          const legacy = storedText(d.get("notes"))?.trim()
           if (legacy && scopedIds.has(d.id)) noteInputs.push({ scope: "item_unit", scopeLabel: nameByItem.get(d.id) ?? "Item", title: null, content: legacy })
         }
       } catch (e) {
@@ -308,12 +374,11 @@ export const chatQuery = onRequest(
     // --- Manuals for the in-scope items ---
     const manualDocs = await readScopedManuals(db, homeId, wholeHome, scopedIds, tally)
     const manuals: ManualRow[] = manualDocs
-      .filter((d) => scopedIds.has((d.get("itemUnitId") as string) ?? ""))
+      .filter((d) => scopedIds.has(storedText(d.get("itemUnitId")) ?? ""))
       .map((d) => ({
         manualId: d.id,
-        itemUnitId: (d.get("itemUnitId") as string) ?? "",
-        sourceType: (d.get("sourceType") as string) ?? "url",
-        sourceRef: (d.get("sourceRef") as string) ?? "",
+        itemUnitId: storedText(d.get("itemUnitId")) ?? "",
+        ...askManualSource(homeId, d.get("sourceType"), d.get("sourceRef")),
       }))
     if (manuals.length === 0 && warrantyBlock.length === 0 && notesBlock.length === 0) return nothingToAsk()
 

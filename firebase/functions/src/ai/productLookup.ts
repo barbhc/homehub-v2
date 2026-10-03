@@ -26,6 +26,8 @@ import { isDistinctiveModel, type DerivedBrand } from "../../../../shared/produc
 import { requireAnyMembership } from "../lib/membership.js"
 import { allSpecKeys, isAllowedSpecKey } from "../../../../shared/products/specKeys.js"
 import { chargeAiQuota } from "../lib/quota.js"
+import { z } from "zod"
+import { parseCallableInput } from "../lib/validate.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 // Brave is a SECRET, matching chatQuery + searchProductImages, which already
@@ -372,15 +374,26 @@ export function haikuIdentity(core: ProductLookupCore, brand: string, model: str
   }
 }
 
+/** The request (H3a). Text or nothing; sanitizeInput then strips control
+ *  characters and trims to each field's length, as before. The 1,000-char
+ *  ceiling only refuses what no form field produces. */
+const lookupText = z.string().max(1000).nullish()
+export const ProductLookupRequest = z.object({
+  brand: lookupText,
+  model: lookupText,
+  category: lookupText,
+  subType: lookupText,
+})
+
 export const productLookup = onCall(
   { region: REGION, secrets: [ANTHROPIC_API_KEY, BRAVE_SEARCH_API_KEY], timeoutSeconds: 60 },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
     const uid = request.auth.uid
+    const b = parseCallableInput("productLookup", ProductLookupRequest, request.data, "brand and model required")
     // Before the quota check — the per-uid quota is meaningless for identities
     // that can be minted freely (anonymous); membership is the real gate.
     await requireAnyMembership(getFirestore(), uid)
-    const b = (request.data ?? {}) as Record<string, unknown>
     const brand = sanitizeInput(b.brand)
     const model = sanitizeInput(b.model)
     const category = sanitizeInput(b.category, 40)

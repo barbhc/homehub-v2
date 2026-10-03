@@ -38,6 +38,7 @@ import { pickParseModel } from "../../../../shared/parse/pickParseModel.js"
 import { applyTaskTaxonomy, usageTipToChunk } from "../../../../shared/tasks/taxonomy.js"
 import { markParseChargeBilled, markParseChargeVendor, refundParseCharge } from "../lib/parseCharges.js"
 import { commitDraft } from "./commitDraft.js"
+import { manualSource, MANUAL_SOURCE_UNAVAILABLE } from "./manualSource.js"
 import { isTransientParseError } from "./errorClass.js"
 import type { CallClaude, FetchPdf, ParseMode, ParseStage, ExtractionResult, ParseItemFacts } from "./parseTypes.js"
 
@@ -126,11 +127,12 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
       const snap = await tx.get(manualRef)
       if (!snap.exists) return { kind: "missing" as const }
       if (snap.get("parse.requestId") !== requestId) return { kind: "stale" as const }
-      const current = snap.get("parse.stage") as ParseStage | undefined
+      const current: unknown = snap.get("parse.stage")
       // Ended already: a duplicate delivery, or the stalled-parse sweep wrote
       // this run off — either way it must not run (and flip a shown error back
       // to "reading").
-      if (current === "done" || current === "error") return { kind: "finished" as const, stage: current }
+      if (current === "done") return { kind: "finished" as const, stage: "done" as const }
+      if (current === "error") return { kind: "finished" as const, stage: "error" as const }
 
       const itemUnitId: string = snap.get("itemUnitId")
       const itemSnap = await tx.get(db.doc(`homes/${homeId}/items/${itemUnitId}`))
@@ -165,8 +167,9 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
         kind: "claimed" as const,
         item,
         model,
-        sourceType: snap.get("sourceType") as string,
-        sourceRef: snap.get("sourceRef") as string,
+        // Checked, not cast (H3a §3): the manual doc is member-written, and a
+        // ref into another home's Storage folder must not be read for this one.
+        source: manualSource(homeId, snap.get("sourceType"), snap.get("sourceRef")),
       }
     })
 
@@ -183,11 +186,14 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
     }
     if (claim.kind === "finished") return { stage: claim.stage, stale: true }
 
-    const { item, model, sourceType, sourceRef } = claim
+    const { item, model, source } = claim
     stage = "started"
 
     // ── Fetch PDF ──
-    const pdfBase64 = await deps.fetchPdf(sourceType, sourceRef)
+    // No usable source: a plain (non-transient) error, unbilled and refunded
+    // like any failure before the Claude call; the sentence is what the person sees.
+    if (!source) throw new Error(MANUAL_SOURCE_UNAVAILABLE)
+    const pdfBase64 = await deps.fetchPdf(source.sourceType, source.sourceRef)
     // How much document we actually got. A cover-page-only upload otherwise
     // produces confident, generic tasks with nothing to distinguish them from
     // manual-derived ones — the review sheet warns off this number. Null when

@@ -8,17 +8,44 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
+import { z } from "zod"
 import { decideRedeem, messageFor, normalizeCode, type InviteCodeDoc } from "../../../../shared/growth/inviteCode.js"
+import { parseCallableInput, readStored } from "../lib/validate.js"
 
 const REGION = "us-central1"
+
+/** What the client sends. Real codes are 8 characters; 100 is room for
+ *  dashes, spaces and a pasted sentence around one. */
+export const RedeemInviteCodeRequest = z.object({
+  code: z.string({ error: "A code is required." }).max(100, { error: "That doesn't look like an invite code." }),
+})
+
+/**
+ * A stored code, as minted by scripts/ops/invite-codes.ts. It decides who is
+ * admitted, so a doc of the wrong shape is refused like an unknown code (and
+ * logged), rather than half-read: an `expiresAt` that isn't a number used to
+ * read as "never expires".
+ */
+const StoredInviteCode = z.object({
+  uses: z.number().optional(),
+  maxUses: z.number().optional(),
+  expiresAt: z.number().nullish(),
+  disabled: z.boolean().optional(),
+}) satisfies z.ZodType<InviteCodeDoc>
 
 export const redeemInviteCode = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in first.")
 
-  const raw = (request.data as { code?: unknown } | null)?.code
-  if (typeof raw !== "string") throw new HttpsError("invalid-argument", "A code is required.")
+  const { code: raw } = parseCallableInput("redeemInviteCode", RedeemInviteCodeRequest, request.data, "A code is required.")
   const code = normalizeCode(raw)
+  // A code that normalises to (almost) nothing is malformed — said here,
+  // before any read, using the same rule the transaction applies. "---" used
+  // to become the path `inviteCodes/` and fail as "internal".
+  const shape = decideRedeem(code, null, Date.now())
+  if (!shape.ok && shape.reason === "malformed") {
+    throw new HttpsError("permission-denied", messageFor("malformed"), { reason: "malformed" })
+  }
 
   const db = getFirestore()
   const admissionRef = db.doc(`admissions/${uid}`)
@@ -33,7 +60,7 @@ export const redeemInviteCode = onCall({ region: REGION }, async (request) => {
 
   const verdict = await db.runTransaction(async (tx) => {
     const snap = await tx.get(codeRef)
-    const doc = snap.exists ? (snap.data() as InviteCodeDoc) : null
+    const doc = snap.exists ? readStored("redeemInviteCode", codeRef.path, StoredInviteCode, snap.data()) : null
     const v = decideRedeem(code, doc, Date.now())
     if (!v.ok) return v
 

@@ -15,6 +15,8 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
 import { rankChunks } from "./chunkRanking.js"
 import { withAiQuota } from "../lib/quota.js"
+import { z } from "zod"
+import { isDocIdSegment, parseCallableInput } from "../lib/validate.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -179,13 +181,37 @@ function parseProposal(p: unknown): DiscussProposal | null {
   return proposal
 }
 
+/**
+ * The request (H3a). The ceilings sit far above anything the Discuss sheet
+ * sends — the prompt uses the last six turns — and exist so one request
+ * cannot carry a novel into a paid call.
+ */
+const REQUIRED = "homeId, taskTemplateId and question are required."
+const requiredId = z.string({ error: REQUIRED }).refine(isDocIdSegment, { error: REQUIRED })
+
+export const DiscussTaskRequest = z.object({
+  homeId: requiredId,
+  taskTemplateId: requiredId,
+  question: z
+    .string({ error: REQUIRED })
+    .refine((q) => q.trim().length > 0, { error: REQUIRED })
+    .refine((q) => q.length <= 10_000, { error: "That message is too long — try a shorter one." }),
+  history: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(20_000) }))
+    .max(200)
+    .nullish()
+    .transform((h) => h ?? []),
+})
+
 export const discussTask = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60 }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const { homeId, taskTemplateId, question, history } = (request.data ?? {}) as Partial<DiscussInput>
-  if (!homeId || !taskTemplateId || !question?.trim()) {
-    throw new HttpsError("invalid-argument", "homeId, taskTemplateId and question are required.")
-  }
+  const { homeId, taskTemplateId, question, history } = parseCallableInput(
+    "discussTask",
+    DiscussTaskRequest,
+    request.data,
+    "That message couldn't be sent as it was. Try again.",
+  )
   const db = getFirestore()
   const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
   if (!member.exists) throw new HttpsError("permission-denied", "Not a member of this home.")
@@ -195,7 +221,7 @@ export const discussTask = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY]
         homeId,
         taskTemplateId,
         question: question.trim(),
-        history: Array.isArray(history) ? history : [],
+        history,
       })
     } catch (e) {
       throw new HttpsError("internal", e instanceof Error ? e.message : "discussTask failed")

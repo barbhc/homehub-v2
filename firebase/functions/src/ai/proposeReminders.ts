@@ -27,6 +27,8 @@ import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { withAiQuota } from "../lib/quota.js"
+import { z } from "zod"
+import { DocId, parseCallableInput } from "../lib/validate.js"
 import { makeCallClaudeTool, type CallClaudeTool } from "./claude.js"
 import { isRecurring, RECURRING_SCHEDULES } from "../../../../shared/tasks/reviewBuckets.js"
 import { isAgendaEligible } from "../../../../shared/tasks/agendaEligibility.js"
@@ -186,15 +188,23 @@ export async function proposeCore(rows: TemplateRow[], focusText: string, callTo
   return out
 }
 
+const FOCUS_REQUIRED = "Tell us what you want to stay on top of."
+
+/** The request (H3a). The focus-text wording is what the sheet shows. */
+export const ProposeRemindersRequest = z.object({
+  homeId: DocId,
+  focusText: z
+    .string({ error: FOCUS_REQUIRED })
+    .refine((t) => t.trim().length > 0, { error: FOCUS_REQUIRED })
+    .refine((t) => t.length <= MAX_FOCUS_CHARS, { error: `Keep it under ${MAX_FOCUS_CHARS} characters.` }),
+})
+
 export const proposeReminders = onCall(
   { region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 120 },
   async (request) => {
     const uid = request.auth?.uid
     if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-    const { homeId, focusText } = (request.data ?? {}) as { homeId?: unknown; focusText?: unknown }
-    if (typeof homeId !== "string" || !homeId) throw new HttpsError("invalid-argument", "homeId is required")
-    if (typeof focusText !== "string" || !focusText.trim()) throw new HttpsError("invalid-argument", "Tell us what you want to stay on top of.")
-    if (focusText.length > MAX_FOCUS_CHARS) throw new HttpsError("invalid-argument", `Keep it under ${MAX_FOCUS_CHARS} characters.`)
+    const { homeId, focusText } = parseCallableInput("proposeReminders", ProposeRemindersRequest, request.data, "homeId is required")
 
     const db = getFirestore()
     const member = await db.doc(`homes/${homeId}/members/${uid}`).get()

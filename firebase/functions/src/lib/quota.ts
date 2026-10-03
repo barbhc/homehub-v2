@@ -44,6 +44,10 @@ import {
   type SpendConfig,
 } from "../../../../shared/quota/policy.js"
 import { isQuotaExhaustedMessage } from "../../../../shared/quota/refusal.js"
+// Counters are read with storedCount, not cast (H3a §3): a field that isn't a
+// finite, non-negative number reads as 0 — which is also what the increment
+// that follows makes of it (FieldValue.increment on a non-number sets it).
+import { storedCount } from "./validate.js"
 
 export {
   AI_RATE_LIMIT,
@@ -367,15 +371,15 @@ export async function chargeAiQuota(
     // count as its unit total so today's existing usage still counts against
     // the cap instead of silently resetting to zero on deploy.
     const dailyUnits =
-      (dailySnap.get("units") as number | undefined) ??
-      (dailySnap.get("count") as number | undefined) ??
+      storedCount(dailySnap.get("units")) ??
+      storedCount(dailySnap.get("count")) ??
       0
-    const monthlyUnits = (monthlySnap.get("units") as number | undefined) ?? 0
+    const monthlyUnits = storedCount(monthlySnap.get("units")) ?? 0
 
     // Per-function CALL count for today. Written below as `fns.{fn}` on the
     // same doc the unit totals live on, so the check and the increment cannot
     // disagree — the same reason decideQuota lives beside the transaction.
-    const fnCallsToday = (dailySnap.get(`fns.${fn}`) as number | undefined) ?? 0
+    const fnCallsToday = storedCount(dailySnap.get(`fns.${fn}`)) ?? 0
 
     const verdict = decideQuota({
       dailyUnits,
@@ -503,9 +507,9 @@ export async function chargeAiQuota(
         })
         if (!burst.allowed) throw errorForRate(burst.reason, burst.retryAfterSeconds)
         const verdict = decideQuota({
-          dailyUnits: (dailySnap.get("units") as number | undefined) ?? 0,
+          dailyUnits: storedCount(dailySnap.get("units")) ?? 0,
           dailyLimit,
-          monthlyUnits: (monthlySnap.get("units") as number | undefined) ?? 0,
+          monthlyUnits: storedCount(monthlySnap.get("units")) ?? 0,
           monthlyCeiling: ceiling,
           units: extra,
         })
@@ -546,10 +550,10 @@ export function writeRefund(
   snaps: { daily: DocumentSnapshot; monthly: DocumentSnapshot },
   opts: { wholeCall: boolean },
 ): void {
-  const dailyUnits = (snaps.daily.get("units") as number | undefined) ?? 0
-  const dailyCount = (snaps.daily.get("count") as number | undefined) ?? 0
-  const monthlyUnits = (snaps.monthly.get("units") as number | undefined) ?? 0
-  const monthlyCalls = (snaps.monthly.get("calls") as number | undefined) ?? 0
+  const dailyUnits = storedCount(snaps.daily.get("units")) ?? 0
+  const dailyCount = storedCount(snaps.daily.get("count")) ?? 0
+  const monthlyUnits = storedCount(snaps.monthly.get("units")) ?? 0
+  const monthlyCalls = storedCount(snaps.monthly.get("calls")) ?? 0
   tx.set(
     db.doc(`usage/${record.uid}/daily/${record.day}`),
     {
@@ -650,7 +654,7 @@ export async function enforceCallLimits(db: Firestore, uid: string, fn: string):
     if (!verdict.allowed) throw errorForRate(verdict.reason, verdict.retryAfterSeconds)
 
     const cap = DAILY_CALL_CAP[fn]
-    const used = (snap.get(`fns.${fn}`) as number | undefined) ?? 0
+    const used = storedCount(snap.get(`fns.${fn}`)) ?? 0
     if (cap !== undefined && used + 1 > cap) {
       throw new HttpsError("resource-exhausted", "That's today's limit for this — it resets within a day.", {
         kind: "call_cap",

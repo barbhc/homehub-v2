@@ -19,9 +19,16 @@ import {
   type DocumentSnapshot,
   type Firestore,
 } from "firebase-admin/firestore"
+import { z } from "zod"
 import { effectiveInviteRole } from "../../../../shared/home/roles.js"
+import { DocId, parseCallableInput, storedText } from "../lib/validate.js"
 
 const REGION = "us-central1"
+
+/** An invite link's token (a dash-less UUID today). Only ever a query value,
+ *  never a path, but bounded all the same. */
+export const InviteTokenRequest = z.object({ token: z.string().min(1).max(200) })
+export const RemoveMemberRequest = z.object({ homeId: DocId, userId: DocId })
 
 export interface AcceptInviteResult {
   success: boolean
@@ -36,6 +43,13 @@ export interface AcceptInviteResult {
  *  with a slash would address a different document. */
 function uidSegment(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 && !value.includes("/") ? value : null
+}
+
+/** An invite's stored expiry: a Timestamp, null when it has none, or
+ *  "malformed" when the field holds anything else. */
+function inviteExpiry(value: unknown): Timestamp | null | "malformed" {
+  if (value === undefined || value === null) return null
+  return value instanceof Timestamp ? value : "malformed"
 }
 
 /** The role an invite confers, judged by its creator's role RIGHT NOW (see
@@ -72,8 +86,12 @@ export async function runAcceptInvite(db: Firestore, uid: string, token: string)
     const inv = invite.data()
     if (!inv) return { success: false, error: "This invite link is invalid or has been revoked." }
     if (inv.acceptedBy) return { success: false, error: "This invite has already been used." }
-    const expiresAt = inv.expiresAt as Timestamp | undefined
-    if (expiresAt && expiresAt.toMillis() < Date.now()) {
+    // Invites are written by members, so the expiry is client data: absent
+    // means none (as before); anything that isn't a Timestamp is refused
+    // outright — it used to reach `.toMillis()` and fail as "internal".
+    const expiry = inviteExpiry(inv.expiresAt)
+    if (expiry === "malformed") return { success: false, error: "This invite link is invalid." }
+    if (expiry && expiry.toMillis() < Date.now()) {
       return { success: false, error: "This invite link has expired." }
     }
 
@@ -94,7 +112,7 @@ export async function runAcceptInvite(db: Firestore, uid: string, token: string)
   if (!outcome.success) return outcome
 
   const home = await db.doc(`homes/${homeId}`).get()
-  return { ...outcome, home_name: (home.get("name") as string) ?? "" }
+  return { ...outcome, home_name: storedText(home.get("name")) ?? "" }
 }
 
 export interface InviteDetailsResult {
@@ -129,15 +147,15 @@ export async function runGetInviteDetails(db: Firestore, token: string, uid?: st
     inviteRoleFor(db, homeId, inv, (ref) => ref.get()),
     uid ? db.doc(`homes/${homeId}/members/${uid}`).get() : Promise.resolve(null),
   ])
-  const expiresAt = inv.expiresAt as Timestamp | undefined
+  const expiry = inviteExpiry(inv.expiresAt)
   return {
     found: true,
     home_id: homeId,
-    home_name: (home.get("name") as string) ?? "",
+    home_name: storedText(home.get("name")) ?? "",
     role,
-    expires_at: expiresAt ? expiresAt.toDate().toISOString() : "",
+    expires_at: expiry && expiry !== "malformed" ? expiry.toDate().toISOString() : "",
     accepted: !!inv.acceptedBy,
-    creator_name: creatorProfile && creatorProfile.exists ? ((creatorProfile.get("fullName") as string) ?? null) : null,
+    creator_name: creatorProfile && creatorProfile.exists ? storedText(creatorProfile.get("fullName")) : null,
     already_member: !!self?.exists,
   }
 }
@@ -185,8 +203,7 @@ export async function runRemoveMember(
 export const acceptInvite = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const { token } = (request.data ?? {}) as { token?: string }
-  if (!token) throw new HttpsError("invalid-argument", "token is required.")
+  const { token } = parseCallableInput("acceptInvite", InviteTokenRequest, request.data, "token is required.")
   try {
     return await runAcceptInvite(getFirestore(), uid, token)
   } catch (e) {
@@ -197,8 +214,7 @@ export const acceptInvite = onCall({ region: REGION }, async (request) => {
 export const getInviteDetails = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const { token } = (request.data ?? {}) as { token?: string }
-  if (!token) throw new HttpsError("invalid-argument", "token is required.")
+  const { token } = parseCallableInput("getInviteDetails", InviteTokenRequest, request.data, "token is required.")
   try {
     return await runGetInviteDetails(getFirestore(), token, uid)
   } catch (e) {
@@ -209,8 +225,7 @@ export const getInviteDetails = onCall({ region: REGION }, async (request) => {
 export const removeMember = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const { homeId, userId } = (request.data ?? {}) as { homeId?: string; userId?: string }
-  if (!homeId || !userId) throw new HttpsError("invalid-argument", "homeId and userId are required.")
+  const { homeId, userId } = parseCallableInput("removeMember", RemoveMemberRequest, request.data, "homeId and userId are required.")
   try {
     return await runRemoveMember(getFirestore(), uid, homeId, userId)
   } catch (e) {

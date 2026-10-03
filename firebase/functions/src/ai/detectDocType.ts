@@ -12,7 +12,10 @@ import { defineSecret } from "firebase-functions/params"
 import { getFirestore } from "firebase-admin/firestore"
 import { makeCallClaudeText, extractJsonObject, type CallClaudeText } from "./claude.js"
 import { makeFetchPdf } from "../parse/storagePdf.js"
+import { manualSource } from "../parse/manualSource.js"
 import { chargeAiQuota } from "../lib/quota.js"
+import { z } from "zod"
+import { DocId, parseCallableInput } from "../lib/validate.js"
 import { MODEL_HAIKU } from "../../../../shared/parse/modelParams.js"
 import { countPdfPages } from "../../../../shared/parse/pdfShape.js"
 
@@ -118,13 +121,18 @@ export async function runDetectDocType(callClaude: CallClaudeText, pdfBase64: st
   return (await classifyDocType(callClaude, pdfBase64)).result
 }
 
+export const DetectDocTypeRequest = z.object({ homeId: DocId, manualId: DocId })
+
 export const detectDocType = onCall({ region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 120 }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
-  const { homeId, manualId } = (request.data ?? {}) as { homeId?: string; manualId?: string }
-  // Degrade gracefully (client contract) rather than throw on bad input.
+  // A malformed request is refused (H3a) — it used to come back as a neutral
+  // "other". The one client (detectDocTypeService) turns ANY error into that
+  // same neutral result, so what a person sees does not change; a broken
+  // caller now shows up in the logs instead of looking like an unreadable PDF.
+  const { homeId, manualId } = parseCallableInput("detectDocType", DetectDocTypeRequest, request.data, "homeId and manualId are required.")
+  // Degrade gracefully (client contract) for everything past the input.
   const fallback: DetectDocTypeResult = { docType: "other", confidence: 0, reason: "Could not classify" }
-  if (!homeId || !manualId) return fallback
 
   const db = getFirestore()
   const member = await db.doc(`homes/${homeId}/members/${uid}`).get()
@@ -132,13 +140,16 @@ export const detectDocType = onCall({ region: REGION, secrets: [ANTHROPIC_API_KE
 
   const manual = await db.doc(`homes/${homeId}/manuals/${manualId}`).get()
   if (!manual.exists) return { ...fallback, reason: "Manual not found" }
+  // Before the charge: a source that is missing or another home's is never fetched.
+  const source = manualSource(homeId, manual.get("sourceType"), manual.get("sourceRef"))
+  if (!source) return { ...fallback, reason: "Manual file not found" }
 
   // Unlike bad input, quota exhaustion THROWS — the caller must see that AI is
   // capped for the day rather than silently misfiling the doc as "other".
   const hold = await chargeAiQuota(db, uid, "detectDocType")
 
   try {
-    const pdfBase64 = await makeFetchPdf()(manual.get("sourceType"), manual.get("sourceRef"))
+    const pdfBase64 = await makeFetchPdf()(source.sourceType, source.sourceRef)
     const { result, claudeAnswered } = await classifyDocType(makeCallClaudeText(ANTHROPIC_API_KEY.value(), "detectDocType"), pdfBase64)
     // No answer from Claude (too long to send, or the call failed) → nothing
     // was bought, so nothing is charged. This used to keep the 2 units when the

@@ -21,32 +21,34 @@ import { CLAUDE_BUDGET_MS, makeCallClaude } from "./anthropic.js"
 import { makeFetchPdf } from "./storagePdf.js"
 import { PARSE_ATTEMPT_DEADLINE_SECONDS, PARSE_MAX_ATTEMPTS } from "./parseState.js"
 import { readSpendConfig, type SpendConfig } from "../lib/quota.js"
-import type { ParseMode } from "./parseTypes.js"
+import { z } from "zod"
+import { checkInput, DocId, logInvalidInput } from "../lib/validate.js"
+import { ParseModeSchema } from "./parseMode.js"
 
 const REGION = "us-central1"
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 
-const MODES: ParseMode[] = ["commit", "preview", "fill_gaps"]
-
-export interface ParseTaskPayload {
-  homeId: string
-  manualId: string
-  requestId: string
-  mode: ParseMode
-}
+/** The task body. Unlike enqueueParse, the mode here is required and exact:
+ *  only our own enqueue writes it, so anything else is not ours to guess at. */
+export const ParseTaskPayloadSchema = z.object({
+  homeId: DocId,
+  manualId: DocId,
+  requestId: DocId,
+  mode: ParseModeSchema,
+})
+export type ParseTaskPayload = z.output<typeof ParseTaskPayloadSchema>
 
 /**
  * The task body, checked at the door. It is written by our own enqueue calls,
  * but it arrives over HTTP as JSON like any other input, and a malformed one
  * must end the task rather than become a Firestore path with "undefined" in it.
+ * Null (logged: the issue paths, not the body) → the handler drops the task.
  */
 export function parseTaskPayload(raw: unknown): ParseTaskPayload | null {
-  if (!raw || typeof raw !== "object") return null
-  const r = raw as Record<string, unknown>
-  const id = (v: unknown) => typeof v === "string" && v.length > 0 && v.length <= 200 && !v.includes("/")
-  if (!id(r.homeId) || !id(r.manualId) || !id(r.requestId)) return null
-  if (!MODES.includes(r.mode as ParseMode)) return null
-  return { homeId: r.homeId as string, manualId: r.manualId as string, requestId: r.requestId as string, mode: r.mode as ParseMode }
+  const checked = checkInput(ParseTaskPayloadSchema, raw)
+  if (checked.ok) return checked.data
+  logInvalidInput("parseWorker", checked.issues)
+  return null
 }
 
 /** Is this the last delivery Cloud Tasks will make? `retryCount` counts every
@@ -91,7 +93,9 @@ export const parseWorker = onTaskDispatched(
     const startedAt = Date.now()
     const payload = parseTaskPayload(req.data)
     if (!payload) {
-      console.error("[parseWorker] malformed task payload; dropping it", { data: req.data, id: req.id })
+      // Returned, not thrown: a retry cannot fix a malformed body, and Cloud
+      // Tasks retries anything that throws. The issue paths are logged above.
+      console.error("[parseWorker] malformed task payload; dropping it", { id: req.id })
       return
     }
     const db = getFirestore()

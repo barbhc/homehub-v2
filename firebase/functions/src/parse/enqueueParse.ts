@@ -29,7 +29,11 @@ import { randomUUID } from "node:crypto"
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
 import { getFunctions } from "firebase-admin/functions"
+import { z } from "zod"
 import type { ParseMode } from "./parseTypes.js"
+import { DocId, parseCallableInput } from "../lib/validate.js"
+import { manualSource, MANUAL_SOURCE_UNAVAILABLE } from "./manualSource.js"
+import { parseModeOrPreview } from "./parseMode.js"
 import { chargeAiQuota, isQuotaExhausted, type QuotaHold } from "../lib/quota.js"
 import { recordParseCharge, refundParseCharge } from "../lib/parseCharges.js"
 import { PARSE_ERR } from "../../../../shared/parse/parseErrors.js"
@@ -76,6 +80,12 @@ export async function runEnqueueParse(db: Firestore, deps: EnqueueDeps, input: E
   const manualRef = db.doc(`homes/${homeId}/manuals/${manualId}`)
   const manual = await manualRef.get()
   if (!manual.exists) throw new HttpsError("not-found", "Manual not found.")
+  // Before anything is charged or queued: a manual whose file is missing, or
+  // sits in another home's Storage folder, would only fail in the worker —
+  // after the charge, then refunded. Said now, and nothing is spent.
+  if (!manualSource(homeId, manual.get("sourceType"), manual.get("sourceRef"))) {
+    throw new HttpsError("failed-precondition", MANUAL_SOURCE_UNAVAILABLE)
+  }
 
   // ── 1. This manual, before any charge ─────────────────────────────────────
   const before = runLiveness(manual.get("parse"), Date.now())
@@ -219,26 +229,22 @@ export async function runEnqueueParse(db: Firestore, deps: EnqueueDeps, input: E
   return { ok: true, requestId }
 }
 
+/**
+ * The request (H3a). `mode` is parsed on its own: a missing or unrecognised
+ * mode is not refused but made "preview" (parseMode.ts says why).
+ */
+export const EnqueueParseRequest = z.object({ homeId: DocId, manualId: DocId, mode: z.unknown().optional() })
+
 export const enqueueParse = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
 
-  const { homeId, manualId, mode: rawMode } = (request.data ?? {}) as {
-    homeId?: unknown
-    manualId?: unknown
-    mode?: unknown
-  }
-  const isId = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 200 && !v.includes("/")
-  if (!isId(homeId) || !isId(manualId)) throw new HttpsError("invalid-argument", "homeId and manualId are required.")
-
-  // FAIL SAFE, not fail destructive. This defaulted to "commit", so a request
-  // that omitted or misspelled the mode wrote tasks straight into someone's
-  // home. "preview" only writes a draft the user must accept, so the worst a
-  // malformed or stale request can now do is prepare something and wait.
-  const VALID: ParseMode[] = ["commit", "preview", "fill_gaps"]
-  const mode: ParseMode = VALID.includes(rawMode as ParseMode) ? (rawMode as ParseMode) : "preview"
-  if (rawMode !== undefined && rawMode !== mode) {
-    console.warn("[enqueueParse] unrecognised mode, defaulting to preview", { rawMode, homeId, manualId })
+  const input = parseCallableInput("enqueueParse", EnqueueParseRequest, request.data, "homeId and manualId are required.")
+  const { homeId, manualId } = input
+  const { mode, recognised } = parseModeOrPreview(input.mode)
+  if (!recognised) {
+    // The ids, never the value the client sent.
+    console.warn("[enqueueParse] unrecognised mode, defaulting to preview", { homeId, manualId })
   }
 
   const db = getFirestore()

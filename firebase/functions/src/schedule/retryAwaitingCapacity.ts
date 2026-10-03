@@ -37,6 +37,8 @@ import { chargeAiQuota, quotaScope, type QuotaHold } from "../lib/quota.js"
 import { recordParseCharge, refundParseCharge } from "../lib/parseCharges.js"
 import { PARSE_ATTEMPT_DEADLINE_SECONDS } from "../parse/parseState.js"
 import { runStalledParseSweep } from "../parse/stalledParseSweep.js"
+import { parseModeOrPreview } from "../parse/parseMode.js"
+import { storedDocId } from "../lib/storedTask.js"
 
 const REGION = "us-central1"
 
@@ -98,27 +100,39 @@ export async function runCapacityRetry(
     const homeRef = doc.ref.parent.parent // homes/{homeId}
     if (!homeRef) continue
 
-    const uid = doc.get("parse.awaiting.uid") as string | undefined
-    const since = doc.get("parse.awaiting.since") as Timestamp | undefined
-    const mode = (doc.get("parse.mode") as string | undefined) ?? "preview"
+    // All three are read from the manual doc, which any member of the home
+    // can write — so they are checked, not cast (H3a §3).
+    const uid = storedDocId(doc.get("parse.awaiting.uid"))
+    const sinceRaw: unknown = doc.get("parse.awaiting.since")
+    const since = sinceRaw instanceof Timestamp ? sinceRaw : undefined
+    // A mode that isn't one of ours parses as a preview (parseMode.ts), not as
+    // a task body the worker would drop.
+    const { mode } = parseModeOrPreview(doc.get("parse.mode"))
 
-    // No uid means nothing can be charged, so it can never start. Expire it
+    // The uid decides whose allowance is spent, so it must be a CURRENT member
+    // of this home: enqueueParse only ever parks a member's own scan. Any other
+    // uid — another home's member, someone who has left, an invented one — is
+    // treated like a missing owner, and nobody is charged. (A co-member's uid
+    // cannot be told apart from the parker's here; see the PR's follow-ups.)
+    const owner = uid && (await db.doc(`${homeRef.path}/members/${uid}`).get()).exists ? uid : null
+
+    // No owner means nothing can be charged, so it can never start. Expire it
     // rather than leaving a doc that this job will scan forever.
     const ageMs = since ? nowMs - since.toMillis() : Number.POSITIVE_INFINITY
-    if (!uid || ageMs > MAX_PARKED_MS) {
-      await expire(doc.ref, uid ? "waited too long" : "missing owner")
+    if (!owner || ageMs > MAX_PARKED_MS) {
+      await expire(doc.ref, owner ? "waited too long" : "missing owner")
       result.expired += 1
       continue
     }
 
-    if (spent.has(uid)) {
+    if (spent.has(owner)) {
       result.stillRefused += 1
       continue
     }
 
     let hold: QuotaHold | void
     try {
-      hold = await effects.charge(uid)
+      hold = await effects.charge(owner)
     } catch (err) {
       const scope = quotaScope(err)
       if (scope === "global") {
@@ -127,7 +141,7 @@ export async function runCapacityRetry(
         break
       }
       if (scope === "daily") {
-        spent.add(uid)
+        spent.add(owner)
         result.stillRefused += 1
         continue
       }
@@ -178,7 +192,7 @@ export async function runCapacityRetry(
       console.error(`retryAwaitingCapacity: enqueue failed for ${homeRef.id}/${doc.id}:`, err)
       await refundParseCharge(db, requestId, { from: ["held"], reason: "enqueue failed" })
       await doc.ref.set(
-        { parse: { stage: "awaiting_capacity", stageAt: Timestamp.now(), awaiting: { uid, since: since ?? Timestamp.now() } } },
+        { parse: { stage: "awaiting_capacity", stageAt: Timestamp.now(), awaiting: { uid: owner, since: since ?? Timestamp.now() } } },
         { merge: true },
       )
       result.stillRefused += 1

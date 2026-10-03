@@ -26,6 +26,8 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { getMessaging } from "firebase-admin/messaging"
 import { isApnsToken, sendApns } from "./apns.js"
 import { runPushSweep } from "./sweep.js"
+import { z } from "zod"
+import { parseCallableInput } from "../lib/validate.js"
 
 const REGION = "us-central1"
 
@@ -99,10 +101,14 @@ export async function sendToUser(
   return { sent, failed }
 }
 
+/** It takes nothing: the client calls it with no argument (sent as null). */
+export const SendTestPushRequest = z.union([z.null(), z.undefined(), z.strictObject({})])
+
 /** Send a test push to the caller — proves token registration + delivery. */
 export const sendTestPush = onCall({ region: REGION, secrets: APNS_SECRETS }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
+  parseCallableInput("sendTestPush", SendTestPushRequest, request.data, "This takes no options.")
   const db = getFirestore()
   const res = await sendToUser(db, uid, {
     title: "Homehub",

@@ -5,6 +5,9 @@ import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { isOfferableManual } from "../../../../shared/products/manualCandidates.js"
 import { chargeAiQuota } from "../lib/quota.js"
 import { requireAnyMembership } from "../lib/membership.js"
+import { z } from "zod"
+import { parseCallableInput } from "../lib/validate.js"
+import { braveWebResults, type BraveWebResult } from "../lib/externalResponses.js"
 
 /**
  * Find the owner's manual PDF from brand + model.
@@ -69,7 +72,7 @@ export function isPdfCandidate(url: string): boolean {
   }
 }
 
-interface BraveResult { title?: string; url?: string; description?: string }
+type BraveResult = Pick<BraveWebResult, "title" | "url" | "description">
 
 export function rankCandidates(results: BraveResult[], brand: string, model: string): ManualCandidate[] {
   const seen = new Set<string>()
@@ -133,22 +136,25 @@ async function braveSearch(key: string, query: string): Promise<BraveResult[]> {
   try {
     const res = await fetch(url.toString(), { headers: { "X-Subscription-Token": key } })
     if (!res.ok) return []
-    const json = (await res.json()) as { web?: { results?: BraveResult[] } }
-    return json.web?.results ?? []
+    return braveWebResults(await res.json())
   } catch {
     return [] // fail-open: no manual found is a fine answer, an error page isn't
   }
 }
+
+/** The request (H3a): two pieces of text. Trimmed to 80 and length-checked
+ *  below, as before; the 1,000-char ceiling only refuses what no form sends. */
+export const FindManualRequest = z.object({ brand: z.string().max(1000), model: z.string().max(1000) })
 
 export const findManual = onCall(
   { region: REGION, secrets: [BRAVE_SEARCH_API_KEY], timeoutSeconds: 30 },
   async (request): Promise<{ candidates: ManualCandidate[]; source: "cache" | "search" | "unavailable" }> => {
     if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.")
     const uid = request.auth.uid
+    const body = parseCallableInput("findManual", FindManualRequest, request.data, "brand and model are required")
     const db: Firestore = getFirestore()
     await requireAnyMembership(db, uid)
 
-    const body = (request.data ?? {}) as Record<string, unknown>
     const brand = sanitize(body.brand)
     const model = sanitize(body.model)
     if (brand.length < 2 || model.length < 2) {

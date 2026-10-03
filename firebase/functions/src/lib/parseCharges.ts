@@ -30,9 +30,28 @@
  * never refund one charge twice.
  */
 import { FieldValue, Timestamp, type Firestore, type Transaction } from "firebase-admin/firestore"
+import { z } from "zod"
 import { counterRefs, writeRefund, type ChargeRecord } from "./quota.js"
+import { DocId, readStored } from "./validate.js"
 
-export type ParseChargeState = "held" | "vendor" | "billed" | "refunded"
+export const PARSE_CHARGE_STATES = ["held", "vendor", "billed", "refunded"] as const
+export type ParseChargeState = (typeof PARSE_CHARGE_STATES)[number]
+const StateSchema = z.enum(PARSE_CHARGE_STATES)
+
+/**
+ * A ledger entry as a refund reads it (H3a §3). Server-written, but a refund
+ * turns these fields into counter writes and paths — `usage/{uid}/daily/{day}`
+ * — so they are parsed, not trusted: an entry of the wrong shape is logged and
+ * refunds nothing, rather than writing a NaN or a stray path.
+ */
+const StoredCharge = z.object({
+  state: StateSchema,
+  uid: DocId,
+  fn: z.string().min(1).max(100),
+  units: z.number().int().positive(),
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+})
 
 export const PARSE_CHARGES = "parseCharges"
 
@@ -75,7 +94,11 @@ async function transition(
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref(db, requestId))
     if (!snap.exists) return null
-    const state = snap.get("state") as ParseChargeState
+    // Not one of the four states reads as "no entry": nothing moves, and the
+    // caller proceeds exactly as it would for a run that predates the ledger.
+    const parsed = StateSchema.safeParse(snap.get("state"))
+    if (!parsed.success) return null
+    const state = parsed.data
     if (from.includes(state)) {
       tx.set(ref(db, requestId), { state: to, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     }
@@ -125,15 +148,9 @@ export async function refundParseCharge(
     return await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref(db, requestId))
       if (!snap.exists) return false
-      const state = snap.get("state") as ParseChargeState
-      if (!opts.from.includes(state)) return false
-      const record: ChargeRecord = {
-        uid: snap.get("uid"),
-        fn: snap.get("fn"),
-        units: snap.get("units"),
-        day: snap.get("day"),
-        month: snap.get("month"),
-      }
+      const entry = readStored("refundParseCharge", snap.ref.path, StoredCharge, snap.data())
+      if (!entry || !opts.from.includes(entry.state)) return false
+      const record: ChargeRecord = { uid: entry.uid, fn: entry.fn, units: entry.units, day: entry.day, month: entry.month }
       const refs = counterRefs(db, record)
       const [daily, monthly] = await Promise.all([tx.get(refs.daily), tx.get(refs.monthly)])
       writeRefund(tx, db, record, record.units, { daily, monthly }, { wholeCall: true })

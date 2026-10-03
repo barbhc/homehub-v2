@@ -11,7 +11,8 @@
  */
 import { onSchedule } from "firebase-functions/v2/scheduler"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
-import { addCadence, type ScheduleType } from "./cadence.js"
+import { addCadence } from "./cadence.js"
+import { readSchedule, storedDocId } from "../lib/storedTask.js"
 
 const REGION = "us-central1"
 
@@ -20,6 +21,8 @@ export interface RollForwardResult {
   rolled: number
   skippedHasDone: number
   skippedNonRecurring: number
+  /** Instances whose stored template id is missing or not one path segment. */
+  skippedMalformed: number
   /** Batched commits it took to write `rolled`. */
   batches: number
 }
@@ -47,7 +50,14 @@ export async function runRollForward(
     .where("dueDate", "<", today)
     .get()
 
-  const result: RollForwardResult = { scanned: candidates.size, rolled: 0, skippedHasDone: 0, skippedNonRecurring: 0, batches: 0 }
+  const result: RollForwardResult = {
+    scanned: candidates.size,
+    rolled: 0,
+    skippedHasDone: 0,
+    skippedNonRecurring: 0,
+    skippedMalformed: 0,
+    batches: 0,
+  }
   const nowTs = Timestamp.now()
   let batch = db.batch()
   let pending = 0
@@ -62,7 +72,14 @@ export async function runRollForward(
   for (const inst of candidates.docs) {
     const homeRef = inst.ref.parent.parent // homes/{homeId}
     if (!homeRef) continue
-    const templateId: string = inst.get("taskTemplateId")
+    // Member-written (H3a §3): it becomes a query value and a document path.
+    // A missing one used to reach `where("taskTemplateId", "==", undefined)`,
+    // which throws — and one bad instance stopped the night's run for every home.
+    const templateId = storedDocId(inst.get("taskTemplateId"))
+    if (!templateId) {
+      result.skippedMalformed++
+      continue
+    }
 
     // Skip if the template has any completed instance (a real lapse stays overdue).
     const done = await db
@@ -77,8 +94,7 @@ export async function runRollForward(
     }
 
     const tpl = await db.doc(`${homeRef.path}/taskTemplates/${templateId}`).get()
-    const scheduleType = tpl.get("schedule.scheduleType") as ScheduleType | undefined
-    const intervalDays = (tpl.get("schedule.intervalDays") as number | null) ?? null
+    const { scheduleType, intervalDays } = readSchedule(tpl.get("schedule"))
     const newDue = scheduleType ? addCadence(today, scheduleType, intervalDays) : null
     if (!newDue) {
       result.skippedNonRecurring++
