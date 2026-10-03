@@ -59,10 +59,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc -b
-      # Full-tree `npm run lint` carries pre-existing v1 app-code debt (newer
-      # react-hooks plugin rules). CI gates NEW v2 code only; each Phase 5
-      # module swap widens the scope until full-tree is green (MIGRATION_STATUS.md).
-      - run: npm run lint:new
+      # The whole app (H5): src, shared, e2e, scripts, evals and
+      # firebase/functions/src — eslint.config.js ignores only generated output.
+      # It used to be `lint:new`, five paths that left almost every screen
+      # outside the check; a new error anywhere now fails here.
+      - run: npm run lint
       - run: npx vitest run
       - run: npx vite build
 

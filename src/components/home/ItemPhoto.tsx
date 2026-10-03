@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from "react"
+import { useState, type ChangeEvent } from "react"
 import { mutate } from "swr"
 import { invalidateCachedStorageUrl } from "@/lib/storageUrlCache"
 import { CameraIcon, Loader2Icon, SearchIcon, type LucideIcon } from "lucide-react"
@@ -53,14 +53,15 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [loaded, setLoaded] = useState(false)
-  const [retried, setRetried] = useState(false)
 
   const photoUrl = useStorageUrl(item.photo_storage_ref)
-  useEffect(() => {
-    setLoaded(false)
-    setRetried(false)
-  }, [photoUrl])
+  // Both are facts about ONE url, so they are kept as the url they hold for:
+  // a new url (a replaced photo, a re-resolved token) starts unloaded and
+  // un-retried in the same render — no effect resetting them a frame late.
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null)
+  const [retriedUrl, setRetriedUrl] = useState<string | null>(null)
+  const loaded = photoUrl !== null && loadedUrl === photoUrl
+  const retried = photoUrl !== null && retriedUrl === photoUrl
 
   const handlePhotoSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -124,11 +125,11 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
             src={photoUrl}
             alt={item.display_name}
             decoding="async"
-            onLoad={() => setLoaded(true)}
+            onLoad={() => setLoadedUrl(photoUrl)}
             onError={() => {
               if (!retried) {
                 invalidateCachedStorageUrl(item.photo_storage_ref)
-                setRetried(true)
+                setRetriedUrl(photoUrl)
                 void mutate(["storage-url", item.photo_storage_ref])
               }
             }}
@@ -216,13 +217,13 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
           // layout. A cached URL usually paints before the transition is
           // visible at all.
           decoding="async"
-          onLoad={() => setLoaded(true)}
+          onLoad={() => setLoadedUrl(photoUrl)}
           onError={() => {
             // A cached token can be revoked or the object moved. Drop the entry
             // and resolve again rather than leaving a broken tile.
             if (!retried) {
               invalidateCachedStorageUrl(item.photo_storage_ref)
-              setRetried(true)
+              setRetriedUrl(photoUrl)
               void mutate(["storage-url", item.photo_storage_ref])
             }
           }}

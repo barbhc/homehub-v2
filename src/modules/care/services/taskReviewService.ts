@@ -5,6 +5,7 @@ import type { ServiceResult } from "./careNoteService"
 import type { PreviewResult, PreviewTask, PreviewChunk, CareType, PriorityTier, RiskLevel, ScheduleType } from "@/modules/knowledge/types/previewTypes"
 import { USAGE_TIP_TAG } from "../../../../shared/tasks/taxonomy"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
+import { localToday } from "../../../../shared/dates/calendar"
 
 /**
  * Re-review an item's EXISTING tasks through the parse-review wizard.
@@ -115,7 +116,7 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
       arr.push({ id: d.id })
       openByTemplate.set(tid, arr)
     }
-    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayStr = localToday()
 
     for (const t of tasks) {
       const id = idByTitle.get(t.title)

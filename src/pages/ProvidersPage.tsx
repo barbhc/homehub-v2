@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   GlobeIcon,
   Loader2Icon,
@@ -212,15 +212,15 @@ export default function ProvidersPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   // Default selection to the first provider; keep it valid as the list changes.
-  useEffect(() => {
-    if (providers.length === 0) {
-      if (selectedId !== null) setSelectedId(null)
-      return
-    }
-    if (!selectedId || !providers.some((p) => p.provider_id === selectedId)) {
-      setSelectedId(providers[0].provider_id)
-    }
-  }, [providers, selectedId])
+  // Corrected in the render that sees the change (it settles in one pass),
+  // rather than by an effect a render later.
+  const validSelectedId =
+    providers.length === 0
+      ? null
+      : selectedId && providers.some((p) => p.provider_id === selectedId)
+        ? selectedId
+        : providers[0].provider_id
+  if (validSelectedId !== selectedId) setSelectedId(validSelectedId)
 
   const selected = useMemo(
     () => providers.find((p) => p.provider_id === selectedId) ?? null,

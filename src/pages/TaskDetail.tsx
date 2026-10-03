@@ -27,9 +27,17 @@ export default function TaskDetail() {
   const navigate = useNavigate()
   const { home } = useCurrentHome()
   const onBack = () => navigate(-1)
+  // One page per task, keyed by it (H4). /tasks/A → /tasks/B — a push tap for
+  // another task, the cross-home one included — kept this page mounted, so a
+  // re-read of A (after an edit) answering after the move showed A under B's
+  // URL, where Mark done acts on B; and until B's read landed the page went on
+  // showing A, with A's done and assign state. A new task now starts fresh,
+  // and nothing still in flight for the last one can land here. The boundary
+  // is keyed too: a crash on one task is not the next task's fallback.
+  const taskKey = `${home?.home_id ?? ""}/${taskInstanceId ?? ""}`
   return (
     <div className="relative mx-auto min-h-[calc(100vh-48px)] w-full max-w-[460px] lg:max-w-[960px]">
-      <ErrorBoundary fallback={<TaskDetailFallback onBack={onBack} />}>
+      <ErrorBoundary key={taskKey} fallback={<TaskDetailFallback onBack={onBack} />}>
         <RefinedTaskDetail
           taskInstanceId={taskInstanceId ?? ""}
           homeId={home?.home_id ?? null}

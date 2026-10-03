@@ -30,12 +30,14 @@ export function parseLastDone(value: unknown, today: string): string | null {
 
   // Round-trip through Date to reject the impossible ones the regex allows —
   // 2026-02-31 parses as 2 March, so a mismatch means it never existed.
+  // (UTC as a calendar calculator, not a clock: no "today" is read here.)
   const d = new Date(`${value}T00:00:00Z`)
   if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) return null
 
   // The future is not a thing you have already done.
   if (value > today) return null
 
+  // Year arithmetic on the caller's `today` string — UTC only as the calculator.
   const floor = new Date(`${today}T00:00:00Z`)
   floor.setUTCFullYear(floor.getUTCFullYear() - MAX_LAST_DONE_YEARS)
   if (value < floor.toISOString().slice(0, 10)) return null
@@ -45,6 +47,7 @@ export function parseLastDone(value: unknown, today: string): string | null {
 
 /** The earliest date a picker should offer, so the UI and the server agree. */
 export function earliestLastDone(today: string): string {
+  // Same arithmetic as parseLastDone's floor; `today` is the caller's day.
   const d = new Date(`${today}T00:00:00Z`)
   d.setUTCFullYear(d.getUTCFullYear() - MAX_LAST_DONE_YEARS)
   return d.toISOString().slice(0, 10)

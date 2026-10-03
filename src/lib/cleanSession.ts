@@ -19,6 +19,7 @@ import { db } from "@/integrations/firebase"
 import type { ScheduleType } from "@/integrations/types"
 import { generateTaskInstances, plannedInstanceDue } from "@/modules/care"
 import { readOpenInstances, readRecentDone, readTaskTemplates, type HomeReads, type ReadDoc } from "@/lib/homeReads"
+import { diffDays, localToday } from "../../shared/dates/calendar"
 
 /** Timestamp | ISO string → ISO string ("" when absent). */
 function clnIso(v: unknown): string {
@@ -61,19 +62,9 @@ const SCHEDULE_URGENCY: Record<string, number> = {
   as_needed: 1,
 }
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function daysBetween(a: string, b: string): number {
-  const dA = new Date(a)
-  const dB = new Date(b)
-  return Math.round((dB.getTime() - dA.getTime()) / (24 * 60 * 60 * 1000))
-}
-
 export function computeCleanScore(task: Omit<CleanTask, "priorityScore">): number {
   const overdueDays =
-    task.dueDate && task.isOverdue ? daysBetween(task.dueDate, todayStr()) : 0
+    task.dueDate && task.isOverdue ? diffDays(task.dueDate, localToday()) : 0
 
   // Cap staleness at 90 days so frequency stays meaningful
   const staleness = Math.min(task.staleDays, 90)
@@ -128,7 +119,7 @@ interface CleaningInputs {
 }
 
 async function composeCleaningTasks(homeId: string, mode: CleanSessionMode, inputs: CleaningInputs): Promise<CleanTask[]> {
-  const today = todayStr()
+  const today = localToday()
   const careTypes = mode === "cleaning" ? ["cleaning", "mixed"] : ["maintenance", "mixed"]
 
   // The instance carries the denormalized display set (title/careType/
@@ -142,6 +133,7 @@ async function composeCleaningTasks(homeId: string, mode: CleanSessionMode, inpu
     .filter((x) => x.completedAt != null)
     .sort((a, b) => clnIso(b.completedAt).localeCompare(clnIso(a.completedAt)))
     .forEach((x) => {
+      // UTC day on purpose: completeTask stamps completedAt at noon UTC OF the completion day.
       if (!lastByTemplate.has(x.taskTemplateId)) lastByTemplate.set(x.taskTemplateId, clnIso(x.completedAt).slice(0, 10))
     })
 
@@ -191,7 +183,7 @@ async function composeCleaningTasks(homeId: string, mode: CleanSessionMode, inpu
       const isRoutine = x.scopeType === "home" && (x.itemUnitId ?? null) == null
       const due: string = x.dueDate ?? ""
       const lastDone = lastByTemplate.get(x.taskTemplateId) ?? null
-      const staleDays = lastDone ? daysBetween(lastDone, today) : 9999
+      const staleDays = lastDone ? diffDays(lastDone, today) : 9999
       const isOverdue = due !== "" && due < today
       const instructions = tpl?.instructionsOverride ?? null
       const t: Omit<CleanTask, "priorityScore"> = {
@@ -491,7 +483,7 @@ function routineTemplateDoc(o: {
     schedule: {
       scheduleType: o.scheduleType,
       intervalDays: null,
-      anchorDate: todayStr(),
+      anchorDate: localToday(),
       season: null,
       windowDaysBefore: 7,
       windowDaysAfter: 14,

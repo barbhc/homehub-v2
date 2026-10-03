@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { claimDeepLink, DEEP_LINK_EVENT } from "@/lib/pushDeepLink"
 import { useCurrentHome } from "@/modules/home"
@@ -30,10 +30,23 @@ function homeParamOf(path: string): string | null {
 export function usePushDeepLink(): void {
   const navigate = useNavigate()
   const { home, homes, homesReady, setCurrentHome } = useCurrentHome()
-  /** A claimed link waiting on the homes list. */
-  const [pendingCrossHome, setPendingCrossHome] = useState<string | null>(null)
+  /** A claimed cross-home link waiting on the homes list. Nothing renders it —
+   *  it only has to last until the list settles — so it is a ref. (It was
+   *  state, set in one effect to make a second effect act on it and clear it:
+   *  react-hooks/set-state-in-effect.) */
+  const parked = useRef<string | null>(null)
 
   useEffect(() => {
+    /** Switch to the push's home (if it is one of yours), then go. */
+    const settle = (path: string) => {
+      const wanted = homeParamOf(path)
+      // Only switch to a home the user actually belongs to. If it isn't in the
+      // list — removed from the home, or the lookup failed — navigate anyway
+      // rather than swallowing the tap: that is exactly today's behaviour, and
+      // never worse than it.
+      if (wanted && homes.some((h) => h.home_id === wanted)) setCurrentHome(wanted)
+      navigate(path)
+    }
     const follow = (path: string) => {
       const wanted = homeParamOf(path)
       // No home named (a legacy push), or it's the home already selected:
@@ -44,7 +57,15 @@ export function usePushDeepLink(): void {
       }
       // Another home. Hold until the memberships have settled — switching
       // against a list we haven't loaded would just miss.
-      setPendingCrossHome(path)
+      if (homesReady) settle(path)
+      else parked.current = path
+    }
+
+    // A link parked while the list was loading: this run is the list settling.
+    if (homesReady && parked.current) {
+      const path = parked.current
+      parked.current = null
+      settle(path)
     }
 
     const pending = claimDeepLink()
@@ -56,17 +77,5 @@ export function usePushDeepLink(): void {
     }
     window.addEventListener(DEEP_LINK_EVENT, onLink)
     return () => window.removeEventListener(DEEP_LINK_EVENT, onLink)
-  }, [navigate, home?.home_id])
-
-  useEffect(() => {
-    if (!pendingCrossHome || !homesReady) return
-    const wanted = homeParamOf(pendingCrossHome)
-    // Only switch to a home the user actually belongs to. If it isn't in the
-    // list — removed from the home, or the lookup failed — navigate anyway
-    // rather than swallowing the tap: that is exactly today's behaviour, and
-    // never worse than it.
-    if (wanted && homes.some((h) => h.home_id === wanted)) setCurrentHome(wanted)
-    navigate(pendingCrossHome)
-    setPendingCrossHome(null)
-  }, [pendingCrossHome, homesReady, homes, setCurrentHome, navigate])
+  }, [navigate, home?.home_id, homes, homesReady, setCurrentHome])
 }

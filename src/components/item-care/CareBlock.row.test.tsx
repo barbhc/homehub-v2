@@ -14,6 +14,7 @@ import { render, screen, waitFor, within, fireEvent } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom"
 import type { ItemUnit } from "@/integrations/types"
 import { CareBlock } from "./CareBlock"
+import { addDays, localToday } from "../../../shared/dates/calendar"
 
 const instances = vi.hoisted(() => ({ open: [] as unknown[], done: [] as unknown[] }))
 const svc = vi.hoisted(() => ({ done: vi.fn(), snooze: vi.fn(), unsnooze: vi.fn() }))
@@ -30,11 +31,7 @@ vi.mock("@/pages/item-detail/useSetupCompletion", () => ({
 }))
 
 const item = { item_unit_id: "i1", display_name: "LG DLGX3901B" } as ItemUnit
-const iso = (days: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
+const iso = (days: number) => addDays(localToday(), days)
 
 /** A maintenance task on a monthly cadence, due far enough out to have shown a date. */
 const task = (over: Record<string, unknown> = {}) => ({
@@ -178,14 +175,48 @@ describe("HH-157 — the row carries the task's verbs", () => {
     expect(screen.queryByRole("button", { name: "Mark done" })).toBeNull()
   })
 
-  it("a failed completion says so on the row and keeps it — never a silent no-op", async () => {
-    svc.done.mockReset().mockResolvedValue({ success: false, error: "You're offline" })
+  // A failure reads as it does on Home, Tasks and the task page. The row used
+  // to show the service's raw error ("internal", a Firestore code), else words
+  // of its own ("Couldn't mark it done"); the raw error is for the log.
+  it("a failed completion says so on the row in Home's words and keeps it — never a silent no-op", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    svc.done.mockReset().mockResolvedValue({ success: false, error: "internal" })
     renderWithEdit([openInstance("t1", iso(17))])
     const acts = await openRow()
     fireEvent.click(within(acts).getByRole("button", { name: "Mark done" }))
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/offline/i))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe("Couldn't mark this done. Check your connection and try again."))
     expect(within(acts).getByRole("button", { name: "Mark done" })).toBeTruthy()
     expect(screen.queryByTestId("row-done")).toBeNull()
+    // The raw error is logged, with the ids that find the task.
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/i-t1.*h1/), "internal")
+    warn.mockRestore()
+  })
+
+  it("a failed snooze says so on the row in Home's words — never the raw error", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    svc.snooze.mockReset().mockResolvedValue({ success: false, error: "Missing or insufficient permissions." })
+    renderWithEdit([openInstance("t1", iso(17))])
+    const acts = await openRow()
+    fireEvent.click(within(acts).getByRole("button", { name: /Snooze/ }))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe("Couldn't snooze this. Check your connection and try again."))
+    expect(screen.queryByText(/Snoozed until/)).toBeNull()
+    expect(within(acts).getByRole("button", { name: /Snooze/ })).toBeTruthy()
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/i-t1.*h1/), "Missing or insufficient permissions.")
+    warn.mockRestore()
+  })
+
+  it("the server's date refusal is shown as sent — it says what to check", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const refusal = "Can't record this as done on 2026-10-02: today at this home is 2026-09-29. Check this device's date and time."
+    svc.done.mockReset().mockResolvedValue({ success: false, error: refusal })
+    renderWithEdit([openInstance("t1", iso(17))])
+    const acts = await openRow()
+    fireEvent.click(within(acts).getByRole("button", { name: "Mark done" }))
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(refusal))
+    expect(screen.queryByTestId("row-done")).toBeNull()
+    warn.mockRestore()
   })
 
   it("Snooze pushes two weeks and offers the way back", async () => {

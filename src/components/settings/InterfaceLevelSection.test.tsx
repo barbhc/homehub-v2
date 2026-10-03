@@ -7,14 +7,14 @@
  * puts the choice back and says so.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 
 const setInterfaceLevelPref = vi.fn()
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1" } }) }))
 vi.mock("@/lib/userPreferences", () => ({ setInterfaceLevelPref: (...a: unknown[]) => setInterfaceLevelPref(...a) }))
 
 const { InterfaceLevelSection } = await import("./InterfaceLevelSection")
-const { getInterfaceOverride } = await import("@/lib/interfaceLevel")
+const { getInterfaceOverride, setInterfaceOverride } = await import("@/lib/interfaceLevel")
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -44,5 +44,23 @@ describe("InterfaceLevelSection", () => {
     await waitFor(() => expect(setInterfaceLevelPref).toHaveBeenCalledWith("uid-1", "advanced"))
     expect(pressed("Advanced")).toBe("true")
     expect(screen.queryByRole("alert")).toBeNull()
+  })
+
+  it("a level the sync applies after mount is what a failed save reverts to — not the mount-time value", async () => {
+    render(<InterfaceLevelSection />)
+    expect(pressed("Standard")).toBe("true")
+    // useInterfaceLevelSync (AppLayout) lands the server's level after this
+    // section has mounted.
+    act(() => setInterfaceOverride("advanced"))
+    expect(pressed("Advanced")).toBe("true")
+
+    setInterfaceLevelPref.mockRejectedValue(new Error("unavailable"))
+    fireEvent.click(screen.getByRole("button", { name: /^Simple/ }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't save your choice.")
+    // Back to what the server holds — the old code went to "standard", which
+    // matched neither the server nor the tap.
+    expect(pressed("Advanced")).toBe("true")
+    expect(getInterfaceOverride()).toBe("advanced")
   })
 })

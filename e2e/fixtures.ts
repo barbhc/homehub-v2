@@ -15,9 +15,15 @@ import { SEED_TODAY } from "./seed-config"
  *
  * Time is fixed AFTER auth (storageState carries a real, fresh token), so
  * freezing the clock never invalidates the session.
+ *
+ * The fixture callback is `provide`, not Playwright's customary `use`:
+ * react-hooks/rules-of-hooks reads any `use(...)` call as React's `use` hook,
+ * and a hook called from a function named `page` is the bug class that rule
+ * exists to catch. Playwright passes the callback positionally, so only the
+ * name changes.
  */
 export const test = base.extend({
-  page: async ({ page }, use) => {
+  page: async ({ page }, provide) => {
     await page.clock.setFixedTime(new Date(`${SEED_TODAY}T10:00:00`))
     await page.addInitScript(() => {
       const css =
@@ -31,7 +37,7 @@ export const test = base.extend({
       if (document.documentElement) apply()
       else document.addEventListener("DOMContentLoaded", apply)
     })
-    await use(page)
+    await provide(page)
   },
 })
 

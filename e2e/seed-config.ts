@@ -27,6 +27,7 @@ export const DESKTOP_VIEWPORT = { width: 1440, height: 900 }
 
 /** Returns a YYYY-MM-DD string offset by `days` from `from` (default SEED_TODAY). */
 export function dayOffset(days: number, from: string = SEED_TODAY): string {
+  // Calendar arithmetic on the frozen SEED_TODAY string; UTC is the calculator, not a clock.
   const d = new Date(`${from}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().slice(0, 10)

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:hosting": "tsx scripts/ops/check-hosting-bundle.ts --env && npm run build && tsx scripts/ops/check-hosting-bundle.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
@@ -23,7 +24,6 @@
     "test:e2e:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.emu.config.ts\"",
     "test:e2e:visual:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.visual.config.ts\"",
     "test:e2e:visual:update": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.visual.config.ts --update-snapshots\"",
-    "lint:new": "eslint src/integrations shared e2e/smoke scripts/seed-emulator.ts firebase/functions/src",
     "smoke:storage": "node scripts/smoke-storage-rules.mjs",
     "eval:parser": "npx vite-node evals/manual-parser/run.ts --",
     "eval:parser:cache": "npx vite-node evals/manual-parser/cache.ts",

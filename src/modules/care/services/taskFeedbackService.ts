@@ -21,6 +21,7 @@ import { updateTaskSchedule } from "./taskScheduleService"
 import type { ServiceResult } from "./careNoteService"
 import { ruleMatchFor, matchLabel, findSimilar, type RuleMatch, type TaskLike } from "@/lib/taskSimilarity"
 import { patternKeyOf, type FeedbackPattern } from "../../../../shared/tasks/graduation"
+import { localToday } from "../../../../shared/dates/calendar"
 
 export type { RuleMatch } from "@/lib/taskSimilarity"
 
@@ -89,9 +90,6 @@ export interface SubmitFeedbackResult {
   affected: number
 }
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 function tiIso(v: unknown): string | null {
   if (v instanceof Timestamp) return v.toDate().toISOString()
   return typeof v === "string" ? v : null
@@ -152,7 +150,7 @@ async function applySeason(homeId: string, taskTemplateId: string, season: Seaso
   const snap = await getDoc(tplRef)
   if (!snap.exists()) throw new Error("Task template not found")
   const existing = (snap.data().schedule ?? {}) as Record<string, unknown>
-  const nextDue = computeNextDueDate("seasonal", todayStr(), { season })
+  const nextDue = computeNextDueDate("seasonal", localToday(), { season })
 
   const batch = writeBatch(db)
   batch.set(

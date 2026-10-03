@@ -7,7 +7,8 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { useState } from "react"
-import { BrandAutocomplete, brandSuggestionsFor } from "./BrandAutocomplete"
+import { BrandAutocomplete } from "./BrandAutocomplete"
+import { brandSuggestionsFor } from "./brandSuggestions"
 
 function Harness({ onChange }: { onChange?: (v: string) => void }) {
   const [value, setValue] = useState("")

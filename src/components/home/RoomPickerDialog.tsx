@@ -61,27 +61,6 @@ export function RoomPickerDialog({
     pick(res.data.room_id)
   }
 
-  const Row = ({ roomId, name }: { roomId: string | null; name: string }) => {
-    const selected = currentRoomId === roomId
-    return (
-      <button
-        type="button"
-        onClick={() => pick(roomId)}
-        className={cn(
-          "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[14px]",
-          selected ? "font-semibold" : "font-medium"
-        )}
-        style={{
-          color: "var(--hh-ink)",
-          background: selected ? "color-mix(in srgb, var(--hh-teal) 10%, transparent)" : "transparent",
-        }}
-      >
-        {name}
-        {selected && <CheckIcon className="size-4" style={{ color: "var(--hh-teal)" }} />}
-      </button>
-    )
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
@@ -89,9 +68,9 @@ export function RoomPickerDialog({
           <DialogTitle>Room</DialogTitle>
         </DialogHeader>
         <div className="max-h-[45vh] space-y-0.5 overflow-y-auto">
-          <Row roomId={null} name="No room" />
+          <RoomRow name="No room" selected={currentRoomId === null} onPick={() => pick(null)} />
           {rooms.map((r) => (
-            <Row key={r.room_id} roomId={r.room_id} name={r.name} />
+            <RoomRow key={r.room_id} name={r.name} selected={currentRoomId === r.room_id} onPick={() => pick(r.room_id)} />
           ))}
         </div>
         <div className="border-t pt-3" style={{ borderColor: "var(--hh-line)" }}>
@@ -124,5 +103,29 @@ export function RoomPickerDialog({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** One choice in the list. Declared at module level: defined inside the
+ *  dialog, it was a new component type on every render, so React unmounted and
+ *  remounted every row each time the dialog re-rendered (typing a new room's
+ *  name did it per keystroke). */
+function RoomRow({ name, selected, onPick }: { name: string; selected: boolean; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className={cn(
+        "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[14px]",
+        selected ? "font-semibold" : "font-medium"
+      )}
+      style={{
+        color: "var(--hh-ink)",
+        background: selected ? "color-mix(in srgb, var(--hh-teal) 10%, transparent)" : "transparent",
+      }}
+    >
+      {name}
+      {selected && <CheckIcon className="size-4" style={{ color: "var(--hh-teal)" }} />}
+    </button>
   )
 }

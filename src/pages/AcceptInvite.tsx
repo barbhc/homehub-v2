@@ -4,6 +4,7 @@ import { HouseIcon, Loader2, CheckIcon, ArrowRightIcon, Link2OffIcon, UserCheckI
 import { useAuth } from "@/modules/auth"
 import { AuthScreen, AuthMark, AuthCTA, AUTH } from "@/modules/auth/components/authUi"
 import { getInviteByToken, acceptInvite, type InviteDetails } from "@/modules/home"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 type PageState = "loading" | "ready" | "accepting" | "success" | "error" | "auth-required"
 
@@ -24,12 +25,29 @@ export default function AcceptInvite() {
   const [expired, setExpired] = useState(false)
   const [acceptedHomeName, setAcceptedHomeName] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (authLoading) return
-    if (!user) { setState("auth-required"); return }
-    if (!token) { setState("error"); setError("Invalid invite link."); return }
+  // What can be said without a read — sign in first, or a link with no token —
+  // is decided in the render that learns it (and on arrival). Keyed on the
+  // user's id: whether there IS one is all this decides.
+  if (useDepsChanged([token, user?.id, authLoading], { onMount: true }) && !authLoading) {
+    if (!user) setState("auth-required")
+    else if (!token) { setState("error"); setError("Invalid invite link.") }
+    else {
+      // A link to read — the read below decides what to say. Another invite
+      // opened in place stops showing the last one while it is read: that
+      // page's Join would have accepted THIS link, into a home it didn't name.
+      setState("loading")
+      setInvite(null)
+      setError(null)
+      setExpired(false)
+    }
+  }
 
+  useEffect(() => {
+    if (authLoading || !user || !token) return
+    // A reply for a link no longer open lands nowhere (H4).
+    let cancelled = false
     getInviteByToken(token).then((res) => {
+      if (cancelled) return
       if (res.error) { setState("error"); setError("Invite not found or has been revoked."); return }
       const inv = res.data!
       // Already in this home: say so instead of offering "Join". The server
@@ -40,6 +58,7 @@ export default function AcceptInvite() {
       setInvite(inv)
       setState("ready")
     })
+    return () => { cancelled = true }
   }, [token, user, authLoading])
 
   const handleAccept = useCallback(async () => {

@@ -1,9 +1,10 @@
 /**
  * Inventory module — add-item flows over the Firebase-native itemService.
- * Public API: useItems, useItem, useCreateItem.
+ * Public API: useCreateItem. (useItems / useItem had no callers and were
+ * removed.)
  */
 
-export { useItems, useItem, useCreateItem } from "./hooks"
+export { useCreateItem } from "./hooks"
 export { APPLIANCE_TYPES } from "./constants/applianceTypes"
 export {
   searchProductImages,

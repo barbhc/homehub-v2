@@ -95,6 +95,26 @@ describe("usePushDeepLink", () => {
     expect(navigate).toHaveBeenCalledWith("/tasks/xyz?home=gone")
   })
 
+  it("a WARM tap for the other home while the list is still loading waits for it, then follows once", () => {
+    homeState = { ...homeState, homesReady: false }
+    const { rerender } = render(<Probe />)
+    claimDeepLink.mockReturnValueOnce("/tasks/warm?home=h2")
+    act(() => {
+      window.dispatchEvent(new Event(DEEP_LINK_EVENT))
+    })
+    expect(navigate).not.toHaveBeenCalled()
+
+    homeState = { ...homeState, homesReady: true }
+    rerender(<Probe />)
+    expect(setCurrentHome).toHaveBeenCalledWith("h2")
+    expect(navigate).toHaveBeenCalledWith("/tasks/warm?home=h2")
+
+    // Followed once: a later render does not replay it.
+    homeState = { ...homeState, homes: [...homeState.homes] }
+    rerender(<Probe />)
+    expect(navigate).toHaveBeenCalledTimes(1)
+  })
+
   it("follows a WARM tap that arrives while the app is already open", () => {
     render(<Probe />)
     expect(navigate).not.toHaveBeenCalled()

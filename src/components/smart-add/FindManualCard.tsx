@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { AlertTriangleIcon, EyeIcon, Loader2Icon, SearchIcon, FileTextIcon, ShieldCheckIcon } from "lucide-react"
 import { callable } from "@/integrations/firebase"
 import { manualSearchUrl } from "@/lib/manualSearch"
@@ -64,21 +64,10 @@ export function FindManualCard({
   const [candidates, setCandidates] = useState<ManualCandidate[]>([])
   const [unavailable, setUnavailable] = useState(false)
   const [preview, setPreview] = useState<ManualCandidate | null>(null)
-  const searchRef = useRef<() => void>(() => {})
   const autoFiredFor = useRef<string | null>(null)
 
   const canSearch = brand.trim().length >= 2 && model.trim().length >= 2
   const autoKey = autoStart && canSearch ? `${brand.trim()}::${model.trim()}` : null
-
-  // Fire once per brand+model. A ref rather than a state flag so StrictMode's
-  // double-invoke doesn't buy the search twice.
-  useEffect(() => {
-    if (!autoKey || autoFiredFor.current === autoKey) return
-    autoFiredFor.current = autoKey
-    searchRef.current()
-  }, [autoKey])
-
-  if (!canSearch) return null
 
   const search = async () => {
     setState("searching")
@@ -93,7 +82,20 @@ export function FindManualCard({
       setState("error")
     }
   }
-  searchRef.current = () => void search()
+  // The auto-start runs the latest render's search without the effect firing
+  // again whenever `search` is recreated — an effect event. It used to be a ref
+  // reassigned on every render, which react-hooks/refs rejects.
+  const autoSearch = useEffectEvent(() => void search())
+
+  // Fire once per brand+model. A ref rather than a state flag so StrictMode's
+  // double-invoke doesn't buy the search twice.
+  useEffect(() => {
+    if (!autoKey || autoFiredFor.current === autoKey) return
+    autoFiredFor.current = autoKey
+    autoSearch()
+  }, [autoKey])
+
+  if (!canSearch) return null
 
   return (
     <>

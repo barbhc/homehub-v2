@@ -23,10 +23,10 @@
  * mocked at the module boundary, so the page (at either width), CareBlock,
  * ManualSection and the review render as they do in the app.
  */
-import { createElement as h, type ReactNode } from "react"
+import { createElement as h, Fragment, type ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { MemoryRouter, Route, Routes } from "react-router-dom"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { SWRConfig } from "swr"
 import type { ItemUnit, ManualDocument } from "@/integrations/types"
 import type { TaskTemplateWithSchedule, WeekAgendaItem } from "@/modules/care"
@@ -135,6 +135,10 @@ vi.mock("@/hooks/useItemManuals", async () => {
   }
 })
 vi.mock("@/hooks/useParseTray", () => ({ useParseTray: () => fake.tray }))
+// The manual dock's renderer (pdf.js can't draw in jsdom): page N is blob:pN.
+vi.mock("@/components/care/renderManualPage", () => ({
+  renderManualPage: async (_url: string, page: number) => ({ blobUrl: `blob:p${page}`, totalPages: 30, page }),
+}))
 vi.mock("@/hooks/useNotificationsBlocked", () => ({ useNotificationsBlocked: () => fake.notificationsBlocked }))
 vi.mock("@/pages/item-detail/useSetupCompletion", () => ({
   useSetupCompletion: () => ({
@@ -144,7 +148,8 @@ vi.mock("@/pages/item-detail/useSetupCompletion", () => ({
 
 import ItemDetailPage from "@/pages/ItemDetailPage"
 import { ManualStep } from "@/components/smart-add/ManualStep"
-import { IdentifyStep, DEFAULT_IDENTIFY_DATA } from "@/components/smart-add/IdentifyStep"
+import { IdentifyStep } from "@/components/smart-add/IdentifyStep"
+import { DEFAULT_IDENTIFY_DATA } from "@/components/smart-add/identifyData"
 import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
 import { ParseTrayPill } from "@/components/manuals/ParseTrayPill"
 import { CareBlock } from "@/components/item-care/CareBlock"
@@ -157,6 +162,7 @@ import { cleanDueLabel } from "@/lib/cleanDue"
 import { derivedDue } from "@/lib/dueWindow"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 import { REVIEW_BUCKET_ORDER, REVIEW_BUCKET_COPY } from "../../shared/tasks/reviewBuckets"
+import { addDays, localToday } from "../../shared/dates/calendar"
 
 // ─── source, for the rules that are an absence across the app ────────────────
 
@@ -197,11 +203,7 @@ function filesSaying(pattern: RegExp): string[] {
 
 // ─── fixtures ────────────────────────────────────────────────────────────────
 
-const iso = (days: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
+const iso = (days: number) => addDays(localToday(), days)
 
 const ITEM = {
   item_unit_id: "item-1", home_id: "home-1", room_id: null, display_name: "Bosch Dishwasher",
@@ -765,5 +767,31 @@ describe("Home, Tasks and the item page speak one calm language", () => {
     // Both trees, the same words — one implementation (nothingDueLine).
     expect(await screen.findAllByText("Nothing on the schedule — 2 cleaning jobs live in your guides.")).toHaveLength(2)
     expect(screen.queryByText(/enjoy the calm/)).toBeNull()
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe("The item page's manual deep link (/items/:id?manualPage=N)", () => {
+  // H5 (the whole-app lint) split the old effect: the viewer now opens in the
+  // render that has both the link and the PDF, and an effect only removes the
+  // param. What a task's "From your manual · p.N" link must still do:
+  it("opens the manual at page N once the PDF is known, then drops the param so it won't reopen", async () => {
+    fake.manuals = [manual("m-deep")]
+    let search = "?unread"
+    function LocationProbe() {
+      search = useLocation().search
+      return null
+    }
+    setTestViewportWidth(1280)
+    render(withSwr(h(MemoryRouter, { initialEntries: ["/items/item-1?manualPage=7"] },
+      h(Routes, null, h(Route, {
+        path: "/items/:id",
+        element: h(Fragment, null, h(ItemDetailPage), h(LocationProbe)),
+      })))))
+    await screen.findAllByRole("heading", { name: "Bosch Dishwasher", hidden: true })
+
+    await waitFor(() => expect(screen.getByText(/Manual · p\.7/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByAltText("Manual page 7")).toHaveAttribute("src", "blob:p7"))
+    await waitFor(() => expect(search).toBe(""))
   })
 })

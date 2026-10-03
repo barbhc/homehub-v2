@@ -26,8 +26,9 @@ vi.mock("@/modules/care", () => ({
   snoozeTaskInstance: (...a: unknown[]) => care.snoozeTaskInstance(...a),
   unsnoozeTaskInstance: (...a: unknown[]) => care.unsnoozeTaskInstance(...a),
 }))
-vi.mock("@/lib/useDashboard", () => {
-  const iso = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10) }
+vi.mock("@/lib/useDashboard", async () => {
+  const { addDays, localToday } = await import("../../shared/dates/calendar")
+  const iso = (days: number) => addDays(localToday(), days)
   const task = {
     id: "ti-1", name: "Replace the furnace filter", dueDate: iso(-6), isOverdue: true, isDueSoon: false,
     itemName: "Furnace", itemId: "i1", priority: "high", effort: null, daysOverdue: 6, daysUntilDue: null,
@@ -114,7 +115,7 @@ describe("Home — a failed check-off or snooze is said on its row", () => {
     expect(await screen.findByText(/Snoozed until/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: "Undo" }))
-    expect(await screen.findByText("Couldn't undo the snooze. Try again.")).toBeInTheDocument()
+    expect(await screen.findByText("Couldn't undo the snooze — tap Undo to try again.")).toBeInTheDocument()
 
     // The retry is the same Undo, and this time it lands.
     fireEvent.click(screen.getByRole("button", { name: "Undo" }))

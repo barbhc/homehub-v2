@@ -119,9 +119,10 @@ export type ParseProgressState =
 /** Map a worker stage to the UI progress state (ScanningLine's line, the onStage callbacks). */
 export function toUiStage(stage: ParseStage): ParseProgressState {
   switch (stage) {
+    // awaiting_capacity reads as "queued" — honest rather than a new UI state:
+    // it IS queued, and "Queued" is exactly what the capacity notice already
+    // told the user it would say.
     case "queued":
-    // Honest rather than a new UI state: it IS queued, and "Queued" is exactly
-    // what the capacity notice already told the user it would say.
     case "awaiting_capacity":
       return "queued"
     case "started":

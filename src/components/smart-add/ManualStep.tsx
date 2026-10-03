@@ -157,7 +157,8 @@ export function ManualStep({
   const pasting = useRef(false)
   /**
    * The press under way, for the field's onBlur — from pointerdown anywhere on
-   * the page until that press's click has been handled:
+   * the page until that press is over (its click handled, or it ended without
+   * one — see below):
    *  · "step"  — one of this step's own controls (its buttons, links, the drop
    *              zone). Its action wins and the link stays in the field: a
    *              person heading for "Let us find it" or "Choose a file" has
@@ -184,13 +185,38 @@ export function ManualStep({
       // A macrotask: after every handler of this click, the pressed control's own included.
       if (run) setTimeout(run, 0)
     }
+    // A press can also end WITHOUT a click: the button released outside the
+    // window, a press that turned into a drag, the window losing focus
+    // mid-press (an app switch). Left open, it outlived itself until the next
+    // pointerdown, and the next keyboard blur (Tab, iOS Done) of a complete
+    // link was deferred to a click that never came ("other") or skipped
+    // ("step"). So a drag and a window blur end it too, and so does a MOUSE
+    // pointerup: the mouse moved focus at mousedown, and its click, if one
+    // follows, comes in this same task — the deferred choice (a macrotask)
+    // still runs after it. A touch's (or pen's) pointerup does NOT end it: the
+    // compatibility mousedown that moves focus off the field, and the click,
+    // both come AFTER pointerup, so ending the press there would choose the
+    // link before the tap lands — the swap this guard exists to prevent.
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerType === "mouse") onSettle()
+    }
+    // The window's own blur only — an element's blur never bubbles up to here.
+    const onWindowBlur = (e: FocusEvent) => {
+      if (e.target === e.currentTarget) onSettle()
+    }
     document.addEventListener("pointerdown", onDown, true)
+    document.addEventListener("pointerup", onUp, true)
     document.addEventListener("click", onSettle, true)
     document.addEventListener("pointercancel", onSettle, true)
+    document.addEventListener("dragstart", onSettle, true)
+    window.addEventListener("blur", onWindowBlur)
     return () => {
       document.removeEventListener("pointerdown", onDown, true)
+      document.removeEventListener("pointerup", onUp, true)
       document.removeEventListener("click", onSettle, true)
       document.removeEventListener("pointercancel", onSettle, true)
+      document.removeEventListener("dragstart", onSettle, true)
+      window.removeEventListener("blur", onWindowBlur)
       afterPress.current = null
     }
   }, [])

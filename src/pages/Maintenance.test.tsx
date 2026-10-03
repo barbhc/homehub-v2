@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { SWRConfig } from "swr"
+import { localToday } from "../../shared/dates/calendar"
 
 const svc = vi.hoisted(() => ({
   getWeekAgenda: vi.fn(),
@@ -43,7 +44,7 @@ const { default: Maintenance } = await import("./Maintenance")
 
 const TASK = {
   taskInstanceId: "ti-1", taskTemplateId: "tt-1", title: "Replace the furnace filter", source: "maintenance",
-  priorityTier: "essential", estimatedMinutes: 10, dueDate: new Date().toISOString().slice(0, 10),
+  priorityTier: "essential", estimatedMinutes: 10, dueDate: localToday(),
   isOverdue: false, pastDue: false, dueKind: "window", windowState: "open", duePhrase: "Good to do now",
   safetyNote: null, trulyOverdue: false, itemUnitId: null, itemName: null, roomName: null,
 }

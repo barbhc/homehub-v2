@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
 import { auth, db } from "@/integrations/firebase"
 import { useAuth } from "@/modules/auth"
+import { useDepsChanged } from "./useDepsChanged"
 
 /**
  * The signed-in person's own name, and the one place that decides how to greet
@@ -24,9 +25,12 @@ export function useDisplayName(): { firstName: string | null; fullName: string |
   const { user } = useAuth()
   const [fullName, setFullName] = useState<string | null>(null)
 
+  // Signed out: no name, from the render that signs out (not one later).
+  if (useDepsChanged([user?.id, user?.user_metadata?.full_name]) && !user?.id) setFullName(null)
+
   useEffect(() => {
     const uid = user?.id
-    if (!uid) { setFullName(null); return }
+    if (!uid) return
     let cancelled = false
 
     void (async () => {

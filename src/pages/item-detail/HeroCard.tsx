@@ -28,6 +28,7 @@ import {
 import { PhotoSearchSheet } from "@/components/inventory/PhotoSearchSheet"
 import { type EditableField, ROOM_NONE, formatDate } from "./utils"
 import { useStorageUrl } from "@/hooks/useStorageUrl"
+import { diffDays, localToday } from "../../../shared/dates/calendar"
 
 /** Select sentinel for the "+ New room…" row (swaps the select for an input). */
 const ROOM_NEW = "__new__"
@@ -171,7 +172,7 @@ export function HeroCard({
     }
     if (field === "manufactured_year") {
       const n = value ? parseInt(value, 10) : NaN
-      const thisYear = new Date().getUTCFullYear()
+      const thisYear = new Date().getFullYear()
       // Reject out-of-range input at the client too; the DB CHECK (1900..2100)
       // will reject it anyway, but surfacing a friendly error is better UX.
       if (!Number.isFinite(n)) {
@@ -287,11 +288,13 @@ export function HeroCard({
     if (res.data) onItemUpdate(res.data)
   }
 
-  /** Helper to create shared EditableRow props */
+  /** Helper to create shared EditableRow props. The input ref is passed to each
+   *  row as its own JSX prop, not through here: this runs during render, and a
+   *  ref handed through a render-time call is a ref read during render as far
+   *  as react-hooks/refs can tell. */
   const editableRowProps = (field: EditableField, rawValue: string | null) => ({
     isEditing: editingField === field,
     editValue,
-    editInputRef,
     onEditValueChange: setEditValue,
     onSave: saveField,
     onKeyDown: handleKeyDown,
@@ -462,13 +465,13 @@ export function HeroCard({
           sidebarMode && !detailsOpen && "hidden lg:block"
         )}>
           {/* Brand */}
-          <EditableRow field="brand" label="Brand" displayValue={item.brand} placeholder="Add brand" {...editableRowProps("brand", item.brand)} />
+          <EditableRow field="brand" label="Brand" displayValue={item.brand} placeholder="Add brand" editInputRef={editInputRef} {...editableRowProps("brand", item.brand)} />
 
           {/* Model */}
-          <EditableRow field="model" label="Model" displayValue={item.model} placeholder="Add model" {...editableRowProps("model", item.model)} />
+          <EditableRow field="model" label="Model" displayValue={item.model} placeholder="Add model" editInputRef={editInputRef} {...editableRowProps("model", item.model)} />
 
           {/* Category */}
-          <EditableRow field="category" label="Category" displayValue={item.category} placeholder="Category" {...editableRowProps("category", item.category)} />
+          <EditableRow field="category" label="Category" displayValue={item.category} placeholder="Category" editInputRef={editInputRef} {...editableRowProps("category", item.category)} />
 
           {/* Room */}
           {editingField === "room_id" ? (
@@ -532,13 +535,13 @@ export function HeroCard({
           )}
 
           {/* Serial */}
-          <EditableRow field="serial_number" label="Serial" displayValue={item.serial_number} placeholder="Add serial number" {...editableRowProps("serial_number", item.serial_number)} />
+          <EditableRow field="serial_number" label="Serial" displayValue={item.serial_number} placeholder="Add serial number" editInputRef={editInputRef} {...editableRowProps("serial_number", item.serial_number)} />
 
           {/* Purchase date */}
-          <EditableRow field="purchase_date" label="Purchase" displayValue={formatDate(item.purchase_date)} placeholder="Add purchase date" inputType="date" {...editableRowProps("purchase_date", item.purchase_date)} />
+          <EditableRow field="purchase_date" label="Purchase" displayValue={formatDate(item.purchase_date)} placeholder="Add purchase date" inputType="date" editInputRef={editInputRef} {...editableRowProps("purchase_date", item.purchase_date)} />
 
           {/* Install date */}
-          <EditableRow field="install_date" label="Install" displayValue={formatDate(item.install_date)} placeholder="Add install date" inputType="date" {...editableRowProps("install_date", item.install_date)} />
+          <EditableRow field="install_date" label="Install" displayValue={formatDate(item.install_date)} placeholder="Add install date" inputType="date" editInputRef={editInputRef} {...editableRowProps("install_date", item.install_date)} />
 
           {/* Manufactured year */}
           <EditableRow
@@ -547,7 +550,7 @@ export function HeroCard({
             displayValue={item.manufactured_year != null ? String(item.manufactured_year) : null}
             placeholder="Add year"
             inputType="number"
-            {...editableRowProps(
+            editInputRef={editInputRef} {...editableRowProps(
               "manufactured_year",
               item.manufactured_year != null ? String(item.manufactured_year) : ""
             )}
@@ -595,7 +598,7 @@ export function HeroCard({
           )}
 
           {/* Store */}
-          <EditableRow field="store_name" label="Store" displayValue={item.store_name} placeholder="Add store" {...editableRowProps("store_name", item.store_name)} />
+          <EditableRow field="store_name" label="Store" displayValue={item.store_name} placeholder="Add store" editInputRef={editInputRef} {...editableRowProps("store_name", item.store_name)} />
 
           {/* Price */}
           <EditableRow
@@ -603,7 +606,7 @@ export function HeroCard({
             label="Price paid"
             displayValue={item.price_paid != null ? `$${item.price_paid.toFixed(2)}` : null}
             placeholder="Add price"
-            {...editableRowProps("price_paid", item.price_paid != null ? String(item.price_paid) : "")}
+            editInputRef={editInputRef} {...editableRowProps("price_paid", item.price_paid != null ? String(item.price_paid) : "")}
           />
 
           {/* Receipt */}
@@ -655,14 +658,14 @@ export function HeroCard({
                 displayValue={(() => {
                   if (!item.warranty_expiry_date) return null
                   const d = formatDate(item.warranty_expiry_date)
-                  const days = Math.ceil((new Date(item.warranty_expiry_date).getTime() - Date.now()) / 86_400_000)
+                  const days = diffDays(localToday(), item.warranty_expiry_date)
                   if (days < 0) return `${d} (expired)`
                   if (days <= 90) return `${d} (${days}d left)`
                   return d
                 })()}
                 placeholder="Add expiry date"
                 inputType="date"
-                {...editableRowProps("warranty_expiry_date", item.warranty_expiry_date)}
+                editInputRef={editInputRef} {...editableRowProps("warranty_expiry_date", item.warranty_expiry_date)}
               />
               <EditableRow
                 field="warranty_duration_months"
@@ -670,14 +673,14 @@ export function HeroCard({
                 displayValue={item.warranty_duration_months != null ? `${item.warranty_duration_months} months` : null}
                 placeholder="Months"
                 inputType="number"
-                {...editableRowProps("warranty_duration_months", item.warranty_duration_months != null ? String(item.warranty_duration_months) : "")}
+                editInputRef={editInputRef} {...editableRowProps("warranty_duration_months", item.warranty_duration_months != null ? String(item.warranty_duration_months) : "")}
               />
               <EditableRow
                 field="warranty_coverage"
                 label="Coverage"
                 displayValue={item.warranty_coverage}
                 placeholder="What's covered"
-                {...editableRowProps("warranty_coverage", item.warranty_coverage)}
+                editInputRef={editInputRef} {...editableRowProps("warranty_coverage", item.warranty_coverage)}
               />
             </div>
           </div>

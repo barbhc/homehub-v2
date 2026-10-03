@@ -9,7 +9,7 @@
  * a time, or all at once. Nothing is created until she says so.
  * Design: design/care-library.md.
  */
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from "lucide-react"
 import { PageContainer } from "@/components/layout"
@@ -18,58 +18,12 @@ import { getTaskTemplates, addLibraryTask, addCustomHomeTask, dismissLibrarySugg
 import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { suggestionsForHome, type CareFacts, type Suggestion } from "../../shared/care/library"
 import type { ScheduleType, TaskTemplate } from "@/integrations/types"
+import { CATEGORIES, categoryStatus, type Category, type FactKey } from "./homeSetupCategories"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const SURFACE = "var(--hh-surface)", LINE = "var(--hh-line)"
-
-type FactKey = keyof CareFacts
-
-/** One category of the questionnaire. `building` is the fact that hands the whole category to the building. */
-type Category = {
-  key: string
-  label: string
-  blurb: string
-  building?: FactKey
-  questions: { fact: FactKey; text: string }[]
-}
-
-export const CATEGORIES: Category[] = [
-  {
-    key: "safety", label: "Safety", blurb: "Alarms and the extinguisher",
-    questions: [
-      { fact: "has_smoke_alarms", text: "Smoke or carbon-monoxide alarms in the home?" },
-      { fact: "has_extinguisher", text: "A fire extinguisher you keep?" },
-    ],
-  },
-  {
-    key: "water", label: "Water heater", blurb: "Tank or tankless",
-    questions: [{ fact: "has_water_heater", text: "A water heater that is yours to look after?" }],
-  },
-  {
-    key: "hvac", label: "Heating & cooling", blurb: "Furnace, boiler, central air",
-    questions: [{ fact: "has_hvac_service", text: "A furnace or central air system you have serviced?" }],
-  },
-  {
-    key: "pests", label: "Pests", blurb: "Termites, birds, rodents", building: "building_handles_pests",
-    questions: [
-      { fact: "termite_risk", text: "Termites a known risk where you live?" },
-      { fact: "birds_roosting", text: "Birds roosting on ledges, balconies or the roof?" },
-      { fact: "rodents", text: "Rodents seen or suspected?" },
-    ],
-  },
-  {
-    key: "exterior", label: "Roof, gutters & exterior", blurb: "What the weather reaches", building: "building_handles_exterior",
-    questions: [{ fact: "has_gutters", text: "Gutters and downspouts on the home?" }],
-  },
-]
-
-/** How a category reads on the list: unanswered, N answered, or handed to the building. */
-export function categoryStatus(c: Category, facts: CareFacts): string {
-  if (c.building && facts[c.building]) return "The building handles it"
-  const answered = c.questions.filter((q) => facts[q.fact] !== undefined).length
-  if (answered === 0) return "Not answered yet"
-  return answered === c.questions.length ? "Answered" : `${answered} of ${c.questions.length} answered`
-}
 
 const CADENCES: { value: ScheduleType; label: string }[] = [
   { value: "monthly", label: "Monthly" },
@@ -91,16 +45,48 @@ export default function HomeSetup() {
   const [open, setOpen] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
 
+  // Two ways to read the home again. A RELOAD replaces the page with the
+  // spinner: the first read, a home switch, Try again, and a library Add (the
+  // added row leaves with it) — set in the render or handler that asks, so the
+  // effect below only reads. A REFRESH reads behind the page: her own task's
+  // Add. The reload used to be the only way, so the spinner replaced the page
+  // — CustomTask with it — and its "Added … to your Tasks." was drawn for a
+  // single frame.
+  if (useDepsChanged([homeId])) {
+    setLoading(true)
+    setLoadError(null)
+    // A switch starts the page over for the new home: nothing of the last
+    // home's is kept, to show or to seed an edit with — and an open category
+    // closes (its answers were the last home's).
+    setFacts({})
+    setDismissed([])
+    setHomeTasks([])
+    setOpen(null)
+  }
+  // Every write here goes to the home it was STARTED for — bound when the edit
+  // began (the open questions, the row tapped, the form), never read from the
+  // home on screen when the write runs — and its answer lands only while that
+  // home is still on screen (switch safety). Home A's answers, saved as the
+  // person switched to home B, used to land in B's state: B showed A's
+  // answers, and B's next Save — its draft seeded from them — wrote A's
+  // answers into B's profile.
+  const isCurrentHome = useIsCurrent(homeId)
+  const reload = () => {
+    setLoading(true)
+    setLoadError(null)
+    setReloadKey((k) => k + 1)
+  }
+  const refresh = () => setReloadKey((k) => k + 1)
+
   useEffect(() => {
     if (!homeId) return
     let alive = true
-    setLoading(true)
-    setLoadError(null)
     Promise.all([getHomeProfile(homeId), getTaskTemplates(homeId)]).then(([profile, templates]) => {
       if (!alive) return
       // A failed read must never look like "nothing set up" — the page says so and offers a retry.
       if (profile.error) { setLoadError(profile.error.message); setLoading(false); return }
       if (templates.error) { setLoadError(templates.error.message); setLoading(false); return }
+      setLoadError(null)
       setFacts(profile.data?.care_facts ?? {})
       setDismissed(profile.data?.dismissed_care ?? [])
       setHomeTasks((templates.data ?? []).filter((t) => t.scope_type === "home" && t.is_active && !t.deleted_at))
@@ -119,24 +105,37 @@ export default function HomeSetup() {
     [facts, homeTasks, dismissed],
   )
 
-  const saveFacts = useCallback(async (next: CareFacts) => {
-    if (!homeId) return { error: { message: "No home selected" } }
-    const res = await upsertHomeProfile(homeId, { care_facts: next })
+  /** A write for `forHome` answered after the person switched away: it
+   *  landed (or not) on that home, and this page says nothing about it — a
+   *  failure is logged, since shown here it would read as this home's. */
+  const leftHome = (forHome: string, what: string, error: { message: string } | null) => {
+    if (isCurrentHome(forHome)) return false
+    if (error) console.warn(`[home-setup] could not ${what} for home ${forHome}, answered after a switch:`, error.message)
+    return true
+  }
+
+  /** `forHome`: the home the questions were opened on (CategoryQuestions'). */
+  const saveFacts = async (forHome: string, next: CareFacts) => {
+    const res = await upsertHomeProfile(forHome, { care_facts: next })
+    if (leftHome(forHome, "save answers", res.error)) return { error: res.error }
     if (res.error) return { error: res.error }
     setFacts(next)
     return { error: null }
-  }, [homeId])
+  }
 
-  const add = async (s: Suggestion) => {
-    if (!homeId) return { error: { message: "No home selected" } }
-    const res = await addLibraryTask(homeId, null, s.entry)
+  /** `forHome`: the home on screen when the row (or Add all) was tapped. */
+  const add = async (forHome: string | null, s: Suggestion) => {
+    if (!forHome) return { error: { message: "No home selected" } }
+    const res = await addLibraryTask(forHome, null, s.entry)
+    if (leftHome(forHome, `add ${s.entry.key}`, res.error)) return { error: res.error }
     if (res.error) return { error: res.error }
-    setReloadKey((k) => k + 1)
+    reload()
     return { error: null }
   }
-  const dismiss = async (s: Suggestion) => {
-    if (!homeId) return { error: { message: "No home selected" } }
-    const res = await dismissLibrarySuggestion(homeId, null, s.entry.key)
+  const dismiss = async (forHome: string | null, s: Suggestion) => {
+    if (!forHome) return { error: { message: "No home selected" } }
+    const res = await dismissLibrarySuggestion(forHome, null, s.entry.key)
+    if (leftHome(forHome, `dismiss ${s.entry.key}`, res.error)) return { error: res.error }
     if (res.error) return { error: res.error }
     setDismissed((d) => [...d, s.entry.key])
     return { error: null }
@@ -169,10 +168,10 @@ export default function HomeSetup() {
         ) : loadError ? (
           <div role="alert" className="mt-6 rounded-2xl px-4 py-3 text-[14px]" style={{ background: SURFACE, border: `1px solid ${LINE}`, color: CLAY }}>
             Couldn&apos;t load your home: {loadError}{" "}
-            <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="font-bold" style={{ color: TEAL }}>Try again</button>
+            <button type="button" onClick={reload} className="font-bold" style={{ color: TEAL }}>Try again</button>
           </div>
-        ) : category ? (
-          <CategoryQuestions category={category} facts={facts} onSave={saveFacts} onDone={() => setOpen(null)} />
+        ) : category && homeId ? (
+          <CategoryQuestions key={homeId} homeId={homeId} category={category} facts={facts} onSave={saveFacts} onDone={() => setOpen(null)} />
         ) : (
           <>
             <div className="mt-5 overflow-hidden rounded-2xl" style={{ background: SURFACE, border: `1px solid ${LINE}` }} data-testid="setup-categories">
@@ -200,7 +199,7 @@ export default function HomeSetup() {
                 <span className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Suggested for your home</span>
                 <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{suggestions.length}</span>
                 <div className="flex-1" />
-                {suggestions.length > 1 && <AddAll suggestions={suggestions} onAdd={add} />}
+                {suggestions.length > 1 && <AddAll suggestions={suggestions} onAdd={(s) => add(homeId, s)} />}
               </div>
               <div className="overflow-hidden rounded-2xl" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
                 {suggestions.length === 0 ? (
@@ -208,12 +207,12 @@ export default function HomeSetup() {
                     {Object.keys(facts).length === 0 ? "Answer a category above and the care it calls for shows up here." : "Nothing left to suggest — everything your answers call for is already on your list."}
                   </p>
                 ) : suggestions.map((s, i) => (
-                  <SuggestedRow key={s.entry.key} suggestion={s} itemName="Whole home" onAdd={() => add(s)} onDismiss={() => dismiss(s)} last={i === suggestions.length - 1} />
+                  <SuggestedRow key={s.entry.key} suggestion={s} itemName="Whole home" onAdd={() => add(homeId, s)} onDismiss={() => dismiss(homeId, s)} last={i === suggestions.length - 1} />
                 ))}
               </div>
             </section>
 
-            <CustomTask homeId={homeId} onAdded={() => setReloadKey((k) => k + 1)} />
+            <CustomTask homeId={homeId} onAdded={refresh} />
           </>
         )}
       </div>
@@ -222,23 +221,30 @@ export default function HomeSetup() {
 }
 
 /** Yes / No / (the building does it) per question; Save writes the facts and surfaces any failure in place. */
-function CategoryQuestions({ category, facts, onSave, onDone }: {
+function CategoryQuestions({ homeId, category, facts, onSave, onDone }: {
+  /** The home these answers are for. The draft starts from ITS facts, so a
+   *  save goes to it — the page keys this by home, so it never changes. */
+  homeId: string
   category: Category
   facts: CareFacts
-  onSave: (next: CareFacts) => Promise<{ error: { message: string } | null }>
+  onSave: (forHome: string, next: CareFacts) => Promise<{ error: { message: string } | null }>
   onDone: () => void
 }) {
   const [draft, setDraft] = useState<CareFacts>(facts)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const building = category.building ? !!draft[category.building] : false
+  const isShown = useIsCurrent(homeId)
 
   const set = (fact: FactKey, value: boolean | undefined) =>
     setDraft((d) => { const n = { ...d }; if (value === undefined) delete n[fact]; else n[fact] = value; return n })
 
   const save = async () => {
     setSaving(true); setError(null)
-    const res = await onSave(draft)
+    const res = await onSave(homeId, draft)
+    // The page switched homes while this saved: these questions are gone, and
+    // nothing of the save — its error, its "done" — is the new home's.
+    if (!isShown(homeId)) return
     setSaving(false)
     if (res.error) { setError(res.error.message); return }
     onDone()
@@ -311,10 +317,18 @@ function CustomTask({ homeId, onAdded }: { homeId: string | null; onAdded: () =>
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [added, setAdded] = useState<string | null>(null)
+  const isShown = useIsCurrent(homeId)
   const submit = async () => {
     if (!homeId) return
+    const forHome = homeId
     setBusy(true); setError(null); setAdded(null)
-    const res = await addCustomHomeTask(homeId, title, cadence, null)
+    const res = await addCustomHomeTask(forHome, title, cadence, null)
+    // Added (or not) for a home the page has since switched away from: it went
+    // to that home, and this form — and the refresh — belong to the new one.
+    if (!isShown(forHome)) {
+      if (res.error) console.warn(`[home-setup] could not add a custom task for home ${forHome}, answered after a switch:`, res.error.message)
+      return
+    }
     setBusy(false)
     if (res.error) { setError(res.error.message); return }
     setAdded(res.data?.title ?? title)

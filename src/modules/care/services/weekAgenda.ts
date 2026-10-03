@@ -8,6 +8,7 @@ import {
 import { indicatorDrivenTitles, usagePhrase } from "../../../../shared/care/usageSignal"
 import { seasonForTitle, seasonalWindow, type Climate } from "../../../../shared/care/seasonalWindow"
 import { seasonalFamily } from "../../../../shared/tasks/houseRules"
+import { addDays, localToday } from "../../../../shared/dates/calendar"
 import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
 import { taskSource, effortToMinutes, frequencyToSchedule, type TaskSource } from "./taskMapping"
@@ -57,16 +58,6 @@ export type WeekAgendaItem = {
   roomName: string | null
 }
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function addDaysStr(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T12:00:00")
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
 /**
  * What one getWeekAgenda call declined to show, and why — counted from the
  * same snapshot as its rows.
@@ -108,8 +99,10 @@ export async function getWeekAgenda(
   homeId: string,
   opts?: { days?: number; refuseOfflineEmpty?: boolean }
 ): Promise<WeekAgendaResult> {
-  const today = todayStr()
-  const horizon = addDaysStr(today, opts?.days ?? 7)
+  // The DEVICE's day — every window, phrase and the horizon below are judged
+  // against it (it was the UTC date: tomorrow, from ~5 pm Pacific).
+  const today = localToday()
+  const horizon = addDays(today, opts?.days ?? 7)
 
   try {
     // Climate for seasonal windows. A single doc read, and a FAILED or absent

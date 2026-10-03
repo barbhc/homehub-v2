@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { dueKindOf, dueWindow, shortDate, windowPhrase } from "@/lib/dueWindow"
 import { Link } from "react-router-dom"
 import {
@@ -7,7 +7,7 @@ import {
   BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon, BellRingIcon,
 } from "lucide-react"
 import {
-  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder, localDateString,
+  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder,
   type TaskDetail,
 } from "@/modules/care"
 import { getHomeMembers, type HomeMember } from "@/modules/home"
@@ -22,31 +22,24 @@ import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { InlineError, LoadErrorState } from "@/components/layout/LoadStates"
+import { doneFailedMessage } from "./tasks/shared"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
 import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
+import { addDays, diffDays, localToday } from "../../../shared/dates/calendar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 
-/** UTC date. Only dueDaysFromDate still reads it — the date-module follow-up
- *  (audit 2026-09-29, refactor #2); the Mark done sheet uses the local day. */
-function todayStr() { return new Date().toISOString().slice(0, 10) }
-/** Calendar arithmetic on the device's calendar. Its only caller is the Mark
- *  done sheet's next window, which it SENDS as nextDueOverride — formatted as
- *  UTC (toISOString) it came back a day early at UTC+13/+14. */
-function addDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr + "T12:00:00"); d.setDate(d.getDate() + n); return localDateString(d)
-}
 function fmt(dateStr: string | null): string {
   if (!dateStr) return "—"
   return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 /** "in N days" for the Mark done sheet's next window. Counts from the DEVICE's
- *  day, like the completedOn the sheet sends; left on the UTC todayStr(), a
- *  weekly task checked off at 7 pm Pacific would read "in 6 days". */
+ *  day, like the completedOn the sheet sends; from the UTC date, a weekly task
+ *  checked off at 7 pm Pacific would read "in 6 days". */
 function rel(dateStr: string | null): string {
   if (!dateStr) return ""
-  const days = Math.round((new Date(dateStr + "T12:00:00").getTime() - new Date(localDateString() + "T12:00:00").getTime()) / 86400000)
+  const days = diffDays(localToday(), dateStr)
   if (days <= 0) return "today"
   if (days < 14) return `in ${days} days`
   if (days < 56) return `in ${Math.round(days / 7)} weeks`
@@ -63,8 +56,11 @@ const NON_RECURRING: ScheduleType[] = ["after_each_use", "as_needed", "setup"]
 function recurLabel(t: ScheduleType): string {
   return RECUR_LABEL[t] ?? "on a schedule"
 }
+/** Signed calendar days from the device's today (negative = past). It counted
+ *  from the UTC date, so after ~5 pm Pacific a deadline due today read
+ *  "1 day overdue". */
 function dueDaysFromDate(dateStr: string): number {
-  return Math.round((new Date(dateStr + "T12:00:00").getTime() - new Date(todayStr() + "T12:00:00").getTime()) / 86400000)
+  return diffDays(localToday(), dateStr)
 }
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -93,6 +89,10 @@ export function RefinedTaskDetail({
   const [reminderError, setReminderError] = useState<string | null>(null)
   /** An assignment the server refused — rolled back and said beside the control. */
   const [assignError, setAssignError] = useState<string | null>(null)
+  /** Who the server last confirmed (load, or a landed assignment). */
+  const confirmedAssignee = useRef<string | null>(null)
+  const assignSeq = useRef(0)
+  const assignConfirmedSeq = useRef(0)
   /** A failed read is NOT "Task not found": that sentence was shown for both. */
   const [loadFailed, setLoadFailed] = useState(false)
   const [loadAttempt, setLoadAttempt] = useState(0)
@@ -107,6 +107,7 @@ export function RefinedTaskDetail({
       if (mRes.error) console.warn(`[task] could not load the members of home ${homeId}:`, mRes.error.message)
       setLoadFailed(!!dRes.error)
       setDetail(dRes.data ?? null)
+      confirmedAssignee.current = dRes.data?.assignedTo ?? null
       setMembers(mRes.data ?? [])
       setLoading(false)
     }).catch((e: unknown) => {
@@ -173,19 +174,28 @@ export function RefinedTaskDetail({
   })()
 
   /** Optimistic, with rollback: the result used to be discarded, so a refused
-   *  assignment kept showing the new name. */
+   *  assignment kept showing the new name. Sequenced, so a LATE failure of an
+   *  older assignment can't roll back a newer one that landed — and a refused
+   *  latest goes back to what the server last confirmed, never to an older
+   *  optimistic name that may itself have failed. */
   const assignTo = useCallback(async (userId: string | null) => {
     if (!homeId || !detail) return
-    const before = detail.assignedTo
+    const seq = ++assignSeq.current
     setAssignOpen(false)
     setAssignError(null)
     setDetail((x) => (x ? { ...x, assignedTo: userId } : x))
     const res = await assignTaskInstance(homeId, detail.taskInstanceId, userId)
-    if (res.error) {
-      console.warn(`[task] could not assign ${detail.taskInstanceId} (home ${homeId}):`, res.error.message)
-      setDetail((x) => (x ? { ...x, assignedTo: before } : x))
-      setAssignError("Couldn't change who this is assigned to. Check your connection and try again.")
+    if (!res.error) {
+      if (seq > assignConfirmedSeq.current) {
+        assignConfirmedSeq.current = seq
+        confirmedAssignee.current = userId
+      }
+      return
     }
+    console.warn(`[task] could not assign ${detail.taskInstanceId} (home ${homeId}):`, res.error.message)
+    if (seq !== assignSeq.current) return // a newer assignment is in flight or landed; it decides
+    setDetail((x) => (x ? { ...x, assignedTo: confirmedAssignee.current } : x))
+    setAssignError("Couldn't change who this is assigned to. Check your connection and try again.")
   }, [homeId, detail])
 
   /** Optimistic, with rollback — a reminder that silently failed to save would
@@ -530,7 +540,10 @@ export function RefinedTaskDetail({
             setDoneError(null)
             const res = await markTaskInstanceDone(homeId, detail.taskInstanceId, null, { completedOn, backdated, nextDueOverride: nextDue })
             if (!res.success) {
-              setDoneError(res.error || "Couldn't mark this done. Try again.")
+              console.warn(`[task] could not mark ${detail.taskInstanceId} done (home ${homeId}):`, res.error)
+              // The server's date refusals say what to check, so they are
+              // shown as sent; anything else reads as it does on Home and Tasks.
+              setDoneError(doneFailedMessage(res.error))
               return
             }
             setDone({ nextDue })
@@ -604,13 +617,11 @@ function ConfirmDoneSheet({
   /** Adjust is the exception path: hidden until asked for. */
   const [adjusting, setAdjusting] = useState(false)
 
-  // The DEVICE's calendar, not todayStr() (UTC): after ~5 pm Pacific the UTC
-  // date is tomorrow. "A few days ago" is five local days back, and says so
+  // The DEVICE's calendar, not the UTC date: after ~5 pm Pacific the UTC date
+  // is tomorrow. "A few days ago" is five local days back, and says so
   // (`backdated`) — the server only accepts a date that old when told.
-  const now = new Date()
-  const completedOn = whenDone === "today"
-    ? localDateString(now)
-    : localDateString(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 5))
+  const today = localToday()
+  const completedOn = whenDone === "today" ? today : addDays(today, -5)
   const nextDue = useMemo(() => {
     if (!recurring || !scheduleType) return null
     const base = computeNextDueDate(scheduleType, completedOn, {

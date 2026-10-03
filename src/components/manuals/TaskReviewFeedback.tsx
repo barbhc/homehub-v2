@@ -97,7 +97,8 @@ export function TaskReviewFeedback({
                 onClick={() =>
                   setPicked((prev) => {
                     const next = new Set(prev)
-                    next.has(r.id) ? next.delete(r.id) : next.add(r.id)
+                    if (next.has(r.id)) next.delete(r.id)
+                    else next.add(r.id)
                     return next
                   })
                 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,8 +14,8 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"
-import { pdfProxySource } from "@/integrations/firebase"
-import { withChunkRetry } from "@/lib/chunkRetry"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { cachedSheetPage, isCachedSheetBlob, renderSheetPage, type LoadedSheetPdf } from "./renderSheetPage"
 
 interface ManualPageSheetProps {
   open: boolean
@@ -26,18 +26,6 @@ interface ManualPageSheetProps {
   /** Called when user corrects the page reference. If absent, "Set as reference" button is hidden. */
   onSetPage?: (newPage: number) => void
 }
-
-// ---------------------------------------------------------------------------
-// Module-level cache: keyed by `${url}::${page}` -> blob URL
-// ---------------------------------------------------------------------------
-const pageBlobCache = new Map<string, string>()
-
-function cacheKey(url: string, page: number): string {
-  return `${url}::${page}`
-}
-
-// Cache for total page counts per PDF URL
-const totalPagesCache = new Map<string, number>()
 
 // ---------------------------------------------------------------------------
 // Component
@@ -60,136 +48,75 @@ export function ManualPageSheet({
   // Track blob URLs created during this mount so we can revoke non-cached ones
   const localBlobsRef = useRef<Set<string>>(new Set())
   // Keep a ref to the loaded PDF document for page navigation
-  const pdfDocRef = useRef<{ getPage: (n: number) => Promise<unknown>; numPages: number } | null>(null)
+  const pdfDocRef = useRef<LoadedSheetPdf | null>(null)
 
   const fullPdfLink = pdfUrl ? `${pdfUrl}#page=${currentPage}` : undefined
 
-  // Track whether the next currentPage change was triggered by the open
-  // effect so we can skip the redundant render in the navigation effect.
-  const skipNextNavRenderRef = useRef(false)
+  // Reset state when sheet opens with a new page — in the render that opens
+  // it, so the stale image never paints first.
+  const opening = useDepsChanged([open, pageNumber]) && open
+  if (opening) {
+    setBlobUrl(null) // Clear stale image immediately
+    setCurrentPage(pageNumber)
+    setSaved(false)
+  }
+  // The page this render is about: the one just opened to, or the one the
+  // controls moved to.
+  const page = opening ? pageNumber : currentPage
 
-  // Reset state when sheet opens with a new page
-  useEffect(() => {
-    if (open) {
-      setBlobUrl(null) // Clear stale image immediately
-      skipNextNavRenderRef.current = true
-      setCurrentPage(pageNumber)
-      setSaved(false)
-    }
-  }, [open, pageNumber])
-
-  // -----------------------------------------------------------------------
-  // Render a single PDF page to a blob URL
-  // -----------------------------------------------------------------------
-  const renderPage = useCallback(
-    async (page: number) => {
-      if (!pdfUrl) {
-        setError("No PDF URL provided")
-        return
-      }
-
-      const key = cacheKey(pdfUrl, page)
-      const cached = pageBlobCache.get(key)
-      if (cached) {
-        setBlobUrl(cached)
-        // Also restore total pages from cache if available
-        const cachedTotal = totalPagesCache.get(pdfUrl)
-        if (cachedTotal) setTotalPages(cachedTotal)
-        return
-      }
-
+  // What can be shown for that page at once is decided here, in the render
+  // that asks for it — and every time the sheet opens, even onto the page it
+  // already holds: a page drawn before shows straight away; anything else
+  // shows the spinner while the effect below draws it.
+  if ((useDepsChanged([open, pdfUrl, page], { onMount: true }) || opening) && open) {
+    const cached = pdfUrl ? cachedSheetPage(pdfUrl, page) : null
+    if (!pdfUrl) {
+      setError("No PDF URL provided")
+    } else if (cached) {
+      setBlobUrl(cached.blobUrl)
+      // Also restore total pages from cache if available
+      if (cached.totalPages) setTotalPages(cached.totalPages)
+    } else {
       setLoading(true)
       setError(null)
       setBlobUrl(null)
+    }
+  }
 
-      try {
-        // Reuse already-loaded PDF doc, or load fresh
-        let pdf = pdfDocRef.current
-        if (!pdf) {
-          // Reloads once when the deploy replaced these assets under the tab.
-          pdf = await withChunkRetry(async () => {
-            const pdfjsLib = await import("pdfjs-dist")
-            const { default: pdfWorkerUrl } = await import(
-              "pdfjs-dist/build/pdf.worker.mjs?url"
-            )
-            pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return (await pdfjsLib.getDocument(await pdfProxySource(pdfUrl)).promise) as any
-          }, "manual page sheet")
-          pdfDocRef.current = pdf
-        }
-
-        if (pdf) {
-          setTotalPages(pdf.numPages)
-          totalPagesCache.set(pdfUrl, pdf.numPages)
-
-          // Clamp page number to valid range
-          const safePage = Math.max(1, Math.min(page, pdf.numPages))
-          if (safePage !== page) {
-            setCurrentPage(safePage)
-          }
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const pdfPage = (await pdf.getPage(safePage)) as any
-          const baseViewport = pdfPage.getViewport({ scale: 1 })
-          const scale =
-            Math.min(1536, window.innerWidth * 2) / baseViewport.width
-          const viewport = pdfPage.getViewport({ scale })
-
-          const canvas = document.createElement("canvas")
-          canvas.width = viewport.width
-          canvas.height = viewport.height
-
-          const ctx = canvas.getContext("2d")
-          if (!ctx) throw new Error("Could not get canvas 2d context")
-
-          await pdfPage.render({ canvasContext: ctx, viewport }).promise
-
-          const blob = await new Promise<Blob>((resolve, reject) => {
-            canvas.toBlob(
-              (b) =>
-                b ? resolve(b) : reject(new Error("Canvas toBlob failed")),
-              "image/png"
-            )
-          })
-
-          const url = URL.createObjectURL(blob)
-          pageBlobCache.set(key, url)
-          localBlobsRef.current.add(url)
-          setBlobUrl(url)
-        }
-      } catch (err) {
+  // Draw the page on screen. One effect for opening and for the controls: the
+  // page it draws is the page state says is showing. `pageNumber` is a
+  // dependency it does not read: a new cited page re-draws even when the
+  // controls were already on that page, as opening always has.
+  useEffect(() => {
+    if (!open || !pdfUrl) return
+    let cancelled = false
+    renderSheetPage(pdfUrl, currentPage, pdfDocRef, (n) => {
+      if (!cancelled) setTotalPages(n)
+    })
+      .then((r) => {
+        if (cancelled) return
+        localBlobsRef.current.add(r.blobUrl)
+        setBlobUrl(r.blobUrl)
+        // Also here, not only when the PDF loads: a load the user navigated
+        // away from never got to say how many pages there are.
+        if (r.totalPages != null) setTotalPages(r.totalPages)
+        // Clamped to the PDF's range: show the page it actually has.
+        if (r.page !== currentPage) setCurrentPage(r.page)
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
         console.error("[ManualPageSheet] render failed:", err)
         setError(
           err instanceof Error ? err.message : "Failed to render PDF page"
         )
-      } finally {
-        setLoading(false)
-      }
-    },
-    [pdfUrl]
-  )
-
-  // Render the correct page when sheet opens (uses prop directly to avoid
-  // stale-state race where currentPage hasn't updated yet).
-  useEffect(() => {
-    if (open) {
-      renderPage(pageNumber)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only on open/pageNumber change
-  }, [open, pageNumber])
-
-  // Re-render when user navigates to a different page via controls
-  useEffect(() => {
-    if (skipNextNavRenderRef.current) {
-      skipNextNavRenderRef.current = false
-      return
-    }
-    if (open) {
-      renderPage(currentPage)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only on user-initiated page change
-  }, [currentPage])
+  }, [open, pdfUrl, currentPage, pageNumber])
 
   // Clear PDF doc ref when sheet closes to free memory
   useEffect(() => {
@@ -203,8 +130,7 @@ export function ManualPageSheet({
     const blobs = localBlobsRef.current
     return () => {
       for (const url of blobs) {
-        const stillCached = Array.from(pageBlobCache.values()).includes(url)
-        if (!stillCached) {
+        if (!isCachedSheetBlob(url)) {
           URL.revokeObjectURL(url)
         }
       }

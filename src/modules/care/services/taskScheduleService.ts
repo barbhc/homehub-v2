@@ -7,38 +7,33 @@ import type {
   ScheduleType,
 } from "@/integrations/types"
 import type { ServiceResult } from "./careNoteService"
+import { addDays, addMonths, localToday } from "../../../../shared/dates/calendar"
 
 export type ScheduleInput = {
   scheduleType: ScheduleType
   intervalDays?: number
 }
 
+/** The first due date for a new cadence, counted from the device's today. It
+ *  was local noon read back as UTC — a day early at UTC+13. */
 function computeDueDate(schedule: ScheduleInput): string {
-  const d = new Date()
-  d.setHours(12, 0, 0, 0)
+  const today = localToday()
   switch (schedule.scheduleType) {
     case "weekly":
-      d.setDate(d.getDate() + 7)
-      break
+      return addDays(today, 7)
     case "monthly":
-      d.setMonth(d.getMonth() + 1)
-      break
+      return addMonths(today, 1)
     case "quarterly":
-      d.setMonth(d.getMonth() + 3)
-      break
+      return addMonths(today, 3)
     case "semiannual":
-      d.setMonth(d.getMonth() + 6)
-      break
+      return addMonths(today, 6)
     case "annual":
-      d.setFullYear(d.getFullYear() + 1)
-      break
+      return addMonths(today, 12)
     case "every_n_days":
-      d.setDate(d.getDate() + (schedule.intervalDays ?? 30))
-      break
+      return addDays(today, schedule.intervalDays ?? 30)
     default:
-      d.setFullYear(d.getFullYear() + 10)
+      return addMonths(today, 120)
   }
-  return d.toISOString().slice(0, 10)
 }
 
 export async function updateTaskSchedule(

@@ -21,7 +21,8 @@
  */
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
-import { TaskReviewSheet, SECTION_RAIL } from "./TaskReviewSheet"
+import { TaskReviewSheet } from "./TaskReviewSheet"
+import { SECTION_RAIL } from "./reviewRows"
 import { REVIEW_BUCKET_ORDER, REVIEW_BUCKET_COPY } from "../../../shared/tasks/reviewBuckets"
 import type { PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 

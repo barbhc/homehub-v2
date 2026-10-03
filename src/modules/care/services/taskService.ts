@@ -2,7 +2,8 @@ import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverT
 import { db, callable } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
 import { syncTemplateDenormToInstances } from "./denormSync"
-import { computeNextDueDate, localDateString } from "./nextDueDate"
+import { computeNextDueDate } from "./nextDueDate"
+import { addDays, localDateString, localToday } from "../../../../shared/dates/calendar"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
 import type {
   TaskTemplate,
@@ -148,13 +149,6 @@ const DUENESS_WITHIN_WINDOW = 30
 const DUENESS_DUE_IN_14 = 15
 const EFFORT_PENALTY = 20
 
-/** UTC date — NOT the user's day after ~5 pm Pacific. Check-offs no longer use
- *  it (markTaskInstanceDone sends `localDateString()`); the remaining uses are
- *  part of the date-module follow-up (audit 2026-09-29, refactor #2). */
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 /**
  * Computes priority_score and is_safety_critical for a task_instance.
  */
@@ -171,15 +165,13 @@ export function computePriorityScore(
   const isSafetyCritical = riskLevel === "safety"
 
   let duenessBonus = 0
-  const today = todayStr()
+  const today = localToday()
   if (dueDate < today) duenessBonus = DUENESS_OVERDUE
   else if (windowStart && windowEnd && today >= windowStart && today <= windowEnd)
     duenessBonus = DUENESS_WITHIN_WINDOW
-  else {
-    const due = new Date(dueDate + "T12:00:00").getTime()
-    const in14 = new Date(today + "T12:00:00").getTime() + 14 * 24 * 60 * 60 * 1000
-    if (due <= in14) duenessBonus = DUENESS_DUE_IN_14
-  }
+  // Calendar days, not 14 x 24 h from noon: across the November change that
+  // reached only 11:00 on day 14 and missed a task due that day.
+  else if (dueDate <= addDays(today, 14)) duenessBonus = DUENESS_DUE_IN_14
 
   let effortPenalty = 0
   const isHighEffort = estimatedMinutes != null && estimatedMinutes > 20
@@ -258,7 +250,7 @@ export async function createTaskTemplate(
         schedule: {
           scheduleType: "as_needed",
           intervalDays: null,
-          anchorDate: todayStr(),
+          anchorDate: localToday(),
           season: null,
           windowDaysBefore: 7,
           windowDaysAfter: 14,
@@ -489,7 +481,7 @@ export async function setTaskCadence(
     const open = await syncTemplateDenormToInstances(batch, homeId, taskTemplateId, { scheduleType })
     if (open === 0 && isRecurring(scheduleType)) {
       const season = ((tpl.schedule as { season?: string | null } | null | undefined)?.season ?? null) as Season | null
-      const dueDate = computeNextDueDate(scheduleType, todayStr(), { intervalDays, season })
+      const dueDate = computeNextDueDate(scheduleType, localToday(), { intervalDays, season })
       if (!dueDate) return { data: null, error: { message: "A seasonal task needs a season before it can be scheduled." } }
       batch.set(doc(collection(db, `homes/${homeId}/taskInstances`)), await firstOccurrence(homeId, taskTemplateId, tpl, scheduleType, dueDate))
     }
@@ -985,7 +977,8 @@ export async function assignTaskInstance(
 }
 
 export type MarkDoneResult =
-  | { success: true; data: TaskInstance }
+  /** `data` is null when the completion landed but reading it back did not. */
+  | { success: true; data: TaskInstance | null }
   | { success: false; error: string }
 
 /**
@@ -1018,7 +1011,7 @@ export async function markTaskInstanceDone(
     const res = await completeTaskCallable({
       homeId,
       taskInstanceId,
-      completedOn: opts?.completedOn ?? localDateString(),
+      completedOn: opts?.completedOn ?? localToday(),
       backdated: opts?.backdated === true,
       nextDueOverride: opts?.nextDueOverride ?? null,
       completionNotes: completionNotes ?? null,
@@ -1030,9 +1023,19 @@ export async function markTaskInstanceDone(
   // Single choke point for every check-off surface (Home, Tasks, Care, bulk…).
   track("task_checked", { home_id: homeId, task_instance_id: taskInstanceId })
 
-  const snap = await getDoc(doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`))
-  if (!snap.exists()) return { success: false, error: "Task instance not found after completion" }
-  return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), nextInstanceId }
+  // The task IS done — the callable said so. Reading it back is a nicety, so a
+  // failed or empty read-back is logged and still a success (callers refetch
+  // anyway). It sat outside the try and REJECTED, which left Home's row dimmed
+  // on "completing" forever with no receipt and no error (audit H6 follow-up);
+  // before that, a missing read-back said "not done" about a done task.
+  try {
+    const snap = await getDoc(doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`))
+    if (snap.exists()) return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), nextInstanceId }
+    console.warn(`[tasks] ${taskInstanceId} is done, but it read back as missing (home ${homeId})`)
+  } catch (e) {
+    console.warn(`[tasks] ${taskInstanceId} is done, but reading it back failed (home ${homeId}):`, e instanceof Error ? e.message : e)
+  }
+  return { success: true, data: null, nextInstanceId }
 }
 
 export type DeleteTaskTemplateResult =
@@ -1242,7 +1245,10 @@ export async function logTaskCompletion(
         taskTemplateId,
         itemUnitId: itemUnitId ?? null,
         status: "done",
-        dueDate: completedAt.slice(0, 10),
+        // The day it was done on THIS device's calendar: `completedAt` is an
+        // instant (the setup checklist sends now), and slicing its ISO string
+        // filed a 7 pm Pacific check under tomorrow.
+        dueDate: localDateString(new Date(completedAt)),
         windowStart: null,
         windowEnd: null,
         snoozedUntil: null,

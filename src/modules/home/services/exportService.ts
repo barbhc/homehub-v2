@@ -20,6 +20,7 @@
  */
 import { collection, getDocs, Timestamp, type DocumentData } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
+import { localDateString } from "../../../../shared/dates/calendar"
 
 /** Every subcollection under homes/{homeId} that holds household data.
  *  `invites` is deliberately excluded: live invite TOKENS are credentials, and
@@ -122,6 +123,8 @@ export function downloadJson(filename: string, payload: unknown): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+/** Named for the day on the person's calendar — the UTC date was tomorrow's
+ *  after ~5 pm Pacific. (`exportedAt` inside stays a UTC instant.) */
 export function exportFilename(homeId: string, now: Date = new Date()): string {
-  return `homehub-export-${homeId}-${now.toISOString().slice(0, 10)}.json`
+  return `homehub-export-${homeId}-${localDateString(now)}.json`
 }

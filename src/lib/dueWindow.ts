@@ -7,7 +7,7 @@
  * schedule type to the client's `ScheduleType` union for call-site safety.
  */
 export {
-  todayStr, toleranceDays, dueWindow, dueKindOf, windowPhrase,
+  toleranceDays, dueWindow, dueKindOf, windowPhrase,
   isTrulyOverdue, safetyPhrase, shortDate, rangeTolerance, derivedDue,
   type DueKind, type WindowState, type DueWindow,
 } from "../../shared/care/dueWindow"

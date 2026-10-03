@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils"
 import { cleanDueLabel as dueLabel, daysUntilDue } from "@/lib/cleanDue"
 import { splitCautions } from "@/lib/cautions"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
 
 type Step = "setup" | "checklist" | "summary"
 type View = "hub" | "session"
@@ -109,12 +111,53 @@ export default function DeepClean() {
   const [summaryTotal, setSummaryTotal] = useState(0)
   const [summaryMinutes, setSummaryMinutes] = useState(0)
   const [summaryRooms, setSummaryRooms] = useState<string[]>([])
+  /** Picked once, when the session finishes. It was drawn with Math.random()
+   *  during render, so any re-render of the summary swapped the message
+   *  (react-hooks/purity). */
+  const [summaryMessage, setSummaryMessage] = useState(MOTIVATING_MESSAGES[0])
   const [savedCustomIds, setSavedCustomIds] = useState<Set<string>>(new Set())
 
+  const isCurrentHome = useIsCurrent(homeId)
+
+  // A home switch starts the room picker over for the new home, in the render
+  // that switches (H4): the last home's selection used to stay — its default
+  // room selected under the new home, so a session started from it filtered
+  // the new home's tasks by the old home's room. The new home's default is
+  // picked when its rooms land.
+  //
+  // The switch also ENDS the last home's session. A checklist under way for
+  // home A used to survive a switch to B — A's tasks still listed, A's ticks
+  // still held — and "Finish" then marked A's task ids done under B's home id.
+  // Nothing of A's session (tasks, ticks, tasks typed in, its summary) outlives
+  // the switch, so every id a Finish can send is the current home's: B opens on
+  // its own setup. A Finish or Save already sent for A still lands on A — it
+  // carries A's id with A's tasks — and puts nothing on B's screen (below).
+  if (useDepsChanged([homeId])) {
+    setRooms([])
+    setSelectedRoomIds(new Set())
+    setStep("setup")
+    setTasks([])
+    setCustomTasks([])
+    setCompletedIds(new Set())
+    setCustomInput("")
+    setSkippedItemKeys(new Set())
+    setExpandedItemKeys(new Set())
+    setExpandedId(null)
+    setBonusOpen(false)
+    setSavedCustomIds(new Set())
+    setCleanError(null)
+    setSaveRoutineError(null)
+    setLoading(false)
+    setFinishing(false)
+  }
   useEffect(() => {
     if (!homeId) return
+    // A read for a home already left lands nowhere: home A's rooms answering
+    // after a switch to B used to fill B's picker.
+    let cancelled = false
     // Default a room selected on entry so the setup CTA is active immediately.
     getRooms(homeId).then((r) => {
+      if (cancelled) return
       // Without rooms the setup still offers "Whole home", so a failure is logged, not blocking.
       if (r.error) console.warn(`[clean] could not load rooms for home ${homeId}:`, r.error.message)
       const list = r.data ?? []
@@ -124,13 +167,16 @@ export default function DeepClean() {
         return new Set([list[0].room_id])
       })
     })
+    return () => { cancelled = true }
   }, [homeId])
 
   // Hub data: curated guides + this-week cleaning tasks (due/overdue, short list).
+  // A home switch (or Try again) shows the loading hub in the render that asks;
+  // the effect only reads.
+  if (useDepsChanged([homeId, hubAttempt]) && homeId) setHubLoading(true)
   useEffect(() => {
     if (!homeId) return
     let cancelled = false
-    setHubLoading(true)
     // Each half fails on its own: logged, and null (not []) so the hub can tell
     // "couldn't read" from "nothing there".
     const failed = (what: string) => (e: unknown) => {
@@ -224,12 +270,12 @@ export default function DeepClean() {
     setCleanError(null)
     try {
       const all = await getCleaningTasks(homeId, cleanMode)
-      console.log("[DeepClean] all tasks:", all.map((t) => ({ id: t.id, roomId: t.roomId, roomName: t.roomName, title: t.title })))
-      console.log("[DeepClean] effectiveRoomIds:", [...effectiveRoomIds])
+      // Read for a home the person has since switched away from: these are the
+      // last home's tasks, and this home's setup stays as it is (H4).
+      if (!isCurrentHome(homeId)) return
       const filtered = wholeHome
         ? all
         : all.filter((t) => t.roomId == null || effectiveRoomIds.has(t.roomId))
-      console.log("[DeepClean] total fetched:", all.length, "after filtering:", filtered.length, "sample:", filtered.slice(0, 3))
       const sorted = [...filtered].sort((a, b) => b.priorityScore - a.priorityScore)
       setTasks(sorted)
       setStep("checklist")
@@ -237,12 +283,15 @@ export default function DeepClean() {
       setExpandedItemKeys(new Set())
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load tasks"
-      setCleanError(msg)
+      // A failed read for a home already left is not this home's to say; it is still logged.
+      if (isCurrentHome(homeId)) setCleanError(msg)
       console.error("[DeepClean] getCleaningTasks error:", e)
     } finally {
-      setLoading(false)
+      // The switch already reset the new home's setup; a read for the last home
+      // must not touch it (the new home's own "Let's clean" may be under way).
+      if (isCurrentHome(homeId)) setLoading(false)
     }
-  }, [homeId, effectiveRoomIds, wholeHome, selectedTime, cleanMode])
+  }, [homeId, effectiveRoomIds, wholeHome, selectedTime, cleanMode, isCurrentHome])
 
   const timeLimitMin = selectedTime?.minutes ?? Infinity
   const allTasksForBudget = useMemo(() => {
@@ -331,11 +380,23 @@ export default function DeepClean() {
     if (!homeId) return
     setFinishing(true)
     setCleanError(null)
+    // This render's home and this render's session: a switch ends the session
+    // in the render that switches, so these ids are always this home's own.
     const toMark = [...tasks, ...customTasks].filter(
       (t) => completedIds.has(t.id) && (t.source === "instance" || t.source === "routine")
     )
     const results = await Promise.all(toMark.map((t) => markTaskInstanceDone(homeId, t.id)))
     const failCount = results.filter((r) => !r.success).length
+    // Finished for a home the person has since left: the check-offs went to that
+    // home, and its summary is not this home's to show. Any failure is logged —
+    // on this screen it would read as the new home's.
+    if (!isCurrentHome(homeId)) {
+      if (failCount > 0) {
+        const errors = results.flatMap((r) => (r.success ? [] : [r.error]))
+        console.warn(`[clean] ${failCount} of ${toMark.length} check-offs for home ${homeId} failed after it was left:`, errors)
+      }
+      return
+    }
     if (failCount > 0) {
       setCleanError(
         `${failCount} task${failCount === 1 ? "" : "s"} couldn't be saved. ` +
@@ -357,24 +418,29 @@ export default function DeepClean() {
     setSummaryTotal(tasks.length + customTasks.length)
     setSummaryMinutes(minutesTotal)
     setSummaryRooms(roomNames)
+    setSummaryMessage(MOTIVATING_MESSAGES[Math.floor(Math.random() * MOTIVATING_MESSAGES.length)])
     setFinishing(false)
     setStep("summary")
-  }, [homeId, tasks, customTasks, completedIds])
+  }, [homeId, tasks, customTasks, completedIds, isCurrentHome])
 
   const handleSaveCustomToRoutine = useCallback(
     async (task: CleanTask) => {
       if (!homeId || task.source !== "custom") return
       setSaveRoutineError(null)
       const result = await saveRoutineTask(homeId, task.title, "monthly", null)
+      // Saved (or not) for a home the person has since left: that session and
+      // its summary ended with the switch, and this home's are not its to mark.
+      const stillHere = isCurrentHome(homeId)
       if ("error" in result) {
         // The Save button stays live; the list says this one didn't take.
-        console.warn(`[clean] could not save "${task.title}" to the routine (home ${homeId}):`, result.error)
-        setSaveRoutineError(`Couldn't save “${task.title}”. Check your connection and try again.`)
+        // The task's own id, not its typed title — what someone wrote stays out of the logs.
+        console.warn(`[clean] could not save custom task ${task.id} to the routine (home ${homeId}):`, result.error)
+        if (stillHere) setSaveRoutineError(`Couldn't save “${task.title}”. Check your connection and try again.`)
         return
       }
-      setSavedCustomIds((prev) => new Set(prev).add(task.id))
+      if (stillHere) setSavedCustomIds((prev) => new Set(prev).add(task.id))
     },
-    [homeId]
+    [homeId, isCurrentHome]
   )
 
   const uncompletedCustom = useMemo(
@@ -731,7 +797,7 @@ export default function DeepClean() {
           <CardContent className="p-6 text-center space-y-4">
             <div className="text-6xl text-green-500">✓</div>
             <p className="text-lg font-medium">
-              {MOTIVATING_MESSAGES[Math.floor(Math.random() * MOTIVATING_MESSAGES.length)]}
+              {summaryMessage}
             </p>
             <p className="text-muted-foreground">
               {summaryCompleted} of {summaryTotal} tasks completed

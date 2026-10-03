@@ -4,13 +4,12 @@
  */
 import type { CleanTask } from "@/lib/cleanSession"
 import { dueKindOf, dueWindow, isTrulyOverdue, windowPhrase } from "@/lib/dueWindow"
+import { diffDays, localToday } from "../../shared/dates/calendar"
 
 /** Signed whole-day delta from today; negative = past due. null dates sort late. */
 export function daysUntilDue(dateStr: string | null): number {
   if (!dateStr) return 9999
-  const a = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00")
-  const b = new Date(dateStr + "T00:00:00")
-  return Math.round((b.getTime() - a.getTime()) / 86400000)
+  return diffDays(localToday(), dateStr)
 }
 
 /**

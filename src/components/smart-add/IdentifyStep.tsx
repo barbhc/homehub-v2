@@ -41,6 +41,7 @@ import {
 } from "@/modules/inventory/constants/itemCategories"
 import { useCurrentHome, getRooms } from "@/modules/home"
 import { cn } from "@/lib/utils"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 export type IdentifyMode = "choice" | "appliance" | "simple"
 
@@ -70,20 +71,6 @@ type IdentifyStepProps = {
   /** Latest snapped label photo (downscaled), or null when cleared — the
    *  parent attaches it to the item after creation. */
   onLabelPhoto?: (file: File | null) => void
-}
-
-export const DEFAULT_IDENTIFY_DATA: IdentifyData = {
-  brand: "",
-  model: "",
-  name: "",
-  serialNumber: "",
-  itemCategory: null,
-  subType: null,
-  categoryFields: {},
-  confidence: 0,
-  locationId: null,
-  purchaseDate: null,
-  purchasePrice: null,
 }
 
 function mergeOcrCategory(raw: string | null | undefined): {
@@ -155,7 +142,13 @@ export function IdentifyStep({
   const [quickRooms, setQuickRooms] = useState<Array<{ room_id: string; name: string }>>([])
   useEffect(() => {
     if (!home?.home_id) return
-    getRooms(home.home_id).then((r) => setQuickRooms(r.data ?? []))
+    // A read for a home already left lands nowhere (H4): its room chip used
+    // to offer the last home's room.
+    let cancelled = false
+    getRooms(home.home_id).then((r) => {
+      if (!cancelled) setQuickRooms(r.data ?? [])
+    })
+    return () => { cancelled = true }
   }, [home?.home_id])
   const nameInference = useMemo(
     () => (data.name.trim().length >= 3 ? mapOcrCategoryToTyped(data.name) : { itemCategory: null, subType: null }),
@@ -265,9 +258,9 @@ export function IdentifyStep({
 
   const wantAutoExpand = useMemo(() => hasHiddenAutofill(data, mode), [data, mode])
 
-  useEffect(() => {
-    if (wantAutoExpand) setMoreDetailsOpen(true)
-  }, [wantAutoExpand])
+  // Autofill landing in a hidden field opens the disclosure, in the render that
+  // brings it. Only on the change: closing it again afterwards is the user's call.
+  if (useDepsChanged([wantAutoExpand], { onMount: true }) && wantAutoExpand) setMoreDetailsOpen(true)
 
   useEffect(() => {
     return () => {
@@ -377,7 +370,8 @@ export function IdentifyStep({
       void lookupBrandForModel(r.model)
         .then((b) => { if (brandLookupRef.current === r.model) setBrandSuggestion(b) })
         .catch((e: unknown) => {
-          console.warn(`[identify] brand lookup for model ${r.model} failed; no suggestion offered:`, e instanceof Error ? e.message : e)
+          // The model's length, not the model — what was read off a label stays out of the logs.
+          console.warn(`[identify] brand lookup (${r.model?.length ?? 0}-char model) failed; no suggestion offered:`, e instanceof Error ? e.message : e)
         })
     }
 

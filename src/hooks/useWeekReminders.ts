@@ -2,6 +2,7 @@ import useSWR from "swr"
 import { getWeekReminders, listShoppingItems, type WeekReminder } from "@/modules/care"
 import { usePushMode } from "@/hooks/usePushMode"
 import type { ShoppingListItem } from "@/integrations/types"
+import { localToday } from "../../shared/dates/calendar"
 
 export type WeekData = { all: WeekReminder[]; hiddenCount: number; shopping: ShoppingListItem[] }
 
@@ -33,12 +34,6 @@ export function useWeekReminders(homeId: string | null, opts?: { days?: number }
   return { ...swr, mode, prefs }
 }
 
-export function isoDaysFromNow(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
 export function dayChip(dueDate: string, withinWeek: boolean): string {
   const d = new Date(`${dueDate}T00:00:00`)
   if (Number.isNaN(d.getTime())) return ""
@@ -53,7 +48,6 @@ export function dayChip(dueDate: string, withinWeek: boolean): string {
  * never a weekday from weeks ago dressed up as this week's.
  */
 export function weekChip(t: { dueDate: string; duePhrase: string }): string {
-  const today = new Date().toISOString().slice(0, 10)
-  if (t.dueDate < today) return t.duePhrase
+  if (t.dueDate < localToday()) return t.duePhrase
   return dayChip(t.dueDate, true) || t.duePhrase
 }

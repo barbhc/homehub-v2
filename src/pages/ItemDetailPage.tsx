@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import { ReviewItemTasksButton, type ReviewItemTasksHandle } from "@/components/manuals/ReviewItemTasksButton"
 import { ParsePickupCard } from "@/components/manuals/ParsePickupCard"
 import { itemManualState } from "@/lib/manualReviewState"
@@ -24,6 +24,7 @@ import { dueScans, unqueueScan } from "@/lib/scanCapacity"
 import { startParse } from "@/modules/knowledge/services/parseManualService"
 import { CategoryPickerDialog } from "@/components/home/CategoryPickerDialog"
 import { getCategoryDefinition, type ItemCategoryId } from "@/modules/inventory/constants/itemCategories"
+import type { ItemUnit } from "@/integrations/types"
 import { DesktopItemDetail } from "@/components/home/DesktopItemDetail"
 import { CloudOffIcon, Trash2, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -43,6 +44,11 @@ import {
   HistorySection,
 } from "./item-detail"
 import { useItemDetailLoad } from "./item-detail/useItemDetailLoad"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
+
+/** Which item a re-read was for: a home and an item in it. */
+const itemKey = (homeId: string, itemId: string) => `${homeId}/${itemId}`
 
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -69,6 +75,27 @@ export default function ItemDetailPage() {
     rooms, setRooms,
     faqs, setFaqs,
   } = load
+  // The page stays mounted when it moves to another item (/items/A → /items/B,
+  // e.g. the parse tray's "review ready" for B), so a re-read of A answering
+  // after the move used to put A's tasks on B's page. Re-reads land only on
+  // the item they were read for (H4); the load itself already does (its key).
+  const isCurrentItem = useIsCurrent(home && id ? itemKey(home.home_id, id) : null)
+  /**
+   * A save's own answer, applied only to the item it was for (switch safety).
+   * Every edit on this page hands its result back through here — the name, the
+   * photo, the warranty, the details sheet, the edit dialog, the room and the
+   * category — so an edit to item A that answered after the move to item B
+   * used to put A's data on B's page, under B's URL. The answer names its own
+   * item, and lands only while that item is the one on screen. Dropping it
+   * loses nothing: the write landed on A, and A is read afresh when it is next
+   * shown.
+   */
+  const applyItemUpdate = useCallback(
+    (updated: ItemUnit) => {
+      if (isCurrentItem(itemKey(updated.home_id, updated.item_unit_id))) setItem(updated)
+    },
+    [isCurrentItem, setItem],
+  )
   // "See page X" links open the newest manual's PDF. Same resolver (and cache
   // entry) the manual section uses for its "Open manual" links.
   const manualUrls = useManualUrls(manuals)
@@ -98,6 +125,15 @@ export default function ItemDetailPage() {
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [storeHistory, setStoreHistory] = useState<(string | null | undefined)[]>([])
+  // A move to another item ends what a write left on screen for the last one,
+  // in the render that moves: its error, and its delete confirmation — which
+  // would otherwise sit on "Deleting…" until A's delete answered, or ask
+  // "Delete B?" and delete B. A's own answer then lands nowhere (below).
+  if (useDepsChanged([home?.home_id, id])) {
+    setActionError(null)
+    setConfirmDeleteOpen(false)
+    setDeleting(false)
+  }
 
   // HH-124, the client half of the queue. A scan the daily ceiling refused is
   // remembered; this starts it again when the item is opened, which is the fast
@@ -176,10 +212,12 @@ export default function ItemDetailPage() {
    *  the item now. The manual's own state arrives through the live list. */
   const refreshAfterReview = () => {
     if (!home || !id) return
+    const key = itemKey(home.home_id, id)
     void Promise.all([
       getTaskTemplatesWithSchedulesByItem(home.home_id, id),
       getChunksByItem(home.home_id, id),
     ]).then(([t, c]) => {
+      if (!isCurrentItem(key)) return
       if (t.data) setTasks(t.data)
       if (c.data) setChunks(c.data)
       // Saved either way; a failed refresh shows the page as it was until the
@@ -189,17 +227,21 @@ export default function ItemDetailPage() {
   }
 
   // Deep-link: arriving via /items/:id?manualPage=N (from a task's "From your
-  // manual · p.N" reference) auto-opens the manual viewer at that page. Consume
-  // the param once the PDF is loaded so it doesn't re-open on back/rerender.
-  useEffect(() => {
-    const raw = searchParams.get("manualPage")
-    if (!raw || !manualPdfUrl) return
-    const page = Number(raw)
+  // manual · p.N" reference) auto-opens the manual viewer at that page — in
+  // the render that has both the link and the PDF.
+  const deepLinkPage = searchParams.get("manualPage")
+  if (useDepsChanged([deepLinkPage, manualPdfUrl], { onMount: true }) && deepLinkPage && manualPdfUrl) {
+    const page = Number(deepLinkPage)
     if (Number.isFinite(page) && page > 0) {
       setKnowledgeManualPage(page)
       setKnowledgeChunkId(null)
       setKnowledgeManualPageOpen(true)
     }
+  }
+  // Consume the param once the PDF is loaded so it doesn't re-open on
+  // back/rerender. Changing the URL is a side effect, so it stays an effect.
+  useEffect(() => {
+    if (!searchParams.get("manualPage") || !manualPdfUrl) return
     const next = new URLSearchParams(searchParams)
     next.delete("manualPage")
     setSearchParams(next, { replace: true })
@@ -209,11 +251,19 @@ export default function ItemDetailPage() {
    *  point opens the confirm sheet first; only the sheet calls the service. */
   const handleConfirmDelete = async () => {
     if (!home || !id) return
+    const key = itemKey(home.home_id, id)
     setDeleting(true)
     const result = await softDeleteItemUnit(home.home_id, id)
+    if (result.success) track("item_deleted", { hasManual: manuals.length > 0, taskCount: tasks.length })
+    // Answered after the page moved to another item: the move closed this
+    // confirmation, and the person stays where they went. A failure is logged —
+    // on this page it would read as the new item's.
+    if (!isCurrentItem(key)) {
+      if (!result.success) console.warn(`[item] could not delete item ${id} (home ${home.home_id}), answered after the page moved on:`, result.error)
+      return
+    }
     setDeleting(false)
     if (result.success) {
-      track("item_deleted", { hasManual: manuals.length > 0, taskCount: tasks.length })
       setConfirmDeleteOpen(false)
       navigate("/inventory")
     } else {
@@ -351,11 +401,17 @@ export default function ItemDetailPage() {
     const prev = item
     setItem({ ...item, room_id: roomId })
     const res = await updateItemUnit(home.home_id, item.item_unit_id, { room_id: roomId })
+    // For an item the page has since moved off: nothing to put back on this
+    // page, and its failure is logged rather than said about the item on screen.
+    if (!isCurrentItem(itemKey(prev.home_id, prev.item_unit_id))) {
+      if (res.error) console.warn(`[item] could not change the room of item ${prev.item_unit_id} (home ${prev.home_id}), answered after the page moved on:`, res.error.message)
+      return
+    }
     if (res.error) {
       setItem(prev)
       setActionError(`Could not change the room: ${res.error.message}`)
     } else if (res.data) {
-      setItem(res.data)
+      applyItemUpdate(res.data)
     }
   }
 
@@ -373,11 +429,16 @@ export default function ItemDetailPage() {
     }
     setItem({ ...item, ...patch })
     const res = await updateItemUnit(home.home_id, item.item_unit_id, patch)
+    // As for the room, above.
+    if (!isCurrentItem(itemKey(prev.home_id, prev.item_unit_id))) {
+      if (res.error) console.warn(`[item] could not change the category of item ${prev.item_unit_id} (home ${prev.home_id}), answered after the page moved on:`, res.error.message)
+      return
+    }
     if (res.error) {
       setItem(prev)
       setActionError(`Could not change the category: ${res.error.message}`)
     } else if (res.data) {
-      setItem(res.data)
+      applyItemUpdate(res.data)
     }
   }
 
@@ -515,7 +576,7 @@ export default function ItemDetailPage() {
           onBack={() => navigate("/inventory")}
           onEdit={() => setEditOpen(true)}
           onOpenManualPage={(page) => openManualPage(page)}
-          onItemUpdate={setItem}
+          onItemUpdate={applyItemUpdate}
           manualSectionProps={manualSectionProps}
           focusTaskId={focusTaskId}
         />
@@ -541,7 +602,7 @@ export default function ItemDetailPage() {
             // door, so it opens on upload with the last error and role reset.
             onAddManual={() => manualMgmt.handleOpenAddManual("upload")}
             onEditCategory={() => setCategoryPickerOpen(true)}
-            onItemUpdate={setItem}
+            onItemUpdate={applyItemUpdate}
             onEditRoom={() => setRoomPickerOpen(true)}
             onEditDetails={() => setDetailsOpen(true)}
             focusTaskId={focusTaskId}
@@ -555,8 +616,9 @@ export default function ItemDetailPage() {
                   taskCount={tasks.length}
                   compact
                   onDone={() => {
+                    const key = itemKey(home.home_id, id)
                     void getTaskTemplatesWithSchedulesByItem(home.home_id, id).then((r) => {
-                      if (r.data) setTasks(r.data)
+                      if (r.data && isCurrentItem(key)) setTasks(r.data)
                     })
                   }}
                 />
@@ -616,7 +678,7 @@ export default function ItemDetailPage() {
           item={item}
           rooms={rooms}
           homeId={home.home_id}
-          onItemUpdate={setItem}
+          onItemUpdate={applyItemUpdate}
           storeHistory={storeHistory}
         />
       )}
@@ -643,7 +705,7 @@ export default function ItemDetailPage() {
             homeId={home!.home_id}
             userId={user?.id}
             allHomeTags={allHomeTags}
-            onItemUpdate={setItem}
+            onItemUpdate={applyItemUpdate}
             onTagsChange={setAllHomeTags}
             onDelete={() => setConfirmDeleteOpen(true)}
             deleting={deleting}

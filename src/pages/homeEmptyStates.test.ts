@@ -83,9 +83,10 @@ describe("HH-92 / HH-95 — the young home's screen stops stacking disappointmen
     expect(dash).toContain("nextUp = { dueDate: d, windowStart: w.start }")
   })
 
-  it("the briefing waits for a month of history or a real completion", () => {
-    expect(home).toContain("ageDays >= 21 || (stats?.completedThisMonth ?? 0) > 0")
-  })
+  // HH-95's other half — "the briefing waits for a month of history or a real
+  // completion" — went with the briefing itself: #202 (Home, focused) removed
+  // it from both layouts, and the gate Home still computed for it was read by
+  // nothing. Removed in H5, which is when the gate's clock read surfaced.
 
   it("the all-quiet card never asserts an empty schedule over a full one", () => {
     // Home, focused: the quiet card renders only when the week's list is

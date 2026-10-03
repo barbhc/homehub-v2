@@ -7,7 +7,7 @@
  *     screen whether or not it saved.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type { ReactNode } from "react"
 
 const getTaskDetail = vi.fn()
@@ -25,7 +25,6 @@ vi.mock("@/modules/care", async () => {
     setTaskReminder: vi.fn(),
     canAssignTasks: (n: number) => n > 1,
     computeNextDueDate: dates.computeNextDueDate,
-    localDateString: dates.localDateString,
   }
 })
 vi.mock("@/modules/home", () => ({ getHomeMembers: (...a: unknown[]) => getHomeMembers(...a) }))
@@ -119,5 +118,26 @@ describe("task page — a refused assignment is rolled back and said", () => {
       expect(b).toHaveTextContent("Anyone")
       expect(b).not.toHaveTextContent("Chris")
     }
+  })
+
+  it("a LATE failure of an older assignment can't roll back a newer one that landed", async () => {
+    let failFirst: (v: unknown) => void = () => {}
+    assignTaskInstance
+      .mockImplementationOnce(() => new Promise((resolve) => { failFirst = resolve })) // Chris: slow, then refused
+      .mockResolvedValueOnce({ data: {}, error: null }) // Barb: lands at once
+    renderPage()
+    await screen.findAllByText("Replace the furnace filter")
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Assigned to/ })[0])
+    fireEvent.click(screen.getAllByRole("button", { name: /Chris/ })[0])
+    fireEvent.click(screen.getAllByRole("button", { name: /Assigned to/ })[0])
+    fireEvent.click(screen.getAllByRole("button", { name: /Barb/ })[0])
+    await waitFor(() => expect(assignTaskInstance).toHaveBeenCalledTimes(2))
+
+    // The older one's refusal arrives last.
+    await act(async () => failFirst({ data: null, error: { message: "permission-denied" } }))
+
+    for (const b of screen.getAllByRole("button", { name: /Assigned to/ })) expect(b).toHaveTextContent("Barb")
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 })

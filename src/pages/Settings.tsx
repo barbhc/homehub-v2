@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
 import { isAwaitingReview } from "@/lib/manualReviewState"
 import { FeedbackButton } from "@/components/FeedbackButton"
 import { SUPPORT_EMAIL } from "@/lib/feedback"
@@ -37,7 +39,7 @@ import { useUserLevel } from "@/hooks/useUserLevel"
 import { useAppearance, type Appearance } from "@/lib/theme"
 import { useAuth } from "@/modules/auth"
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, isSubscribed as checkIsSubscribed } from "@/lib/pushNotifications"
-import { isNativePlatform, isNativePushRegistered, registerNativePush, unregisterNativePush } from "@/lib/nativePush"
+import { isNativePlatform, isNativePushRegistered, PushOffError, registerNativePush, unregisterNativePush } from "@/lib/nativePush"
 import { NotificationsRefusedNote } from "@/components/settings/NotificationsRefusedNote"
 import {
   getRoutineTemplates,
@@ -65,6 +67,7 @@ import { db, callable } from "@/integrations/firebase"
 const sendTestPushCallable = callable<void, { ok: boolean; sent?: number }>("sendTestPush")
 import type { ManualDocument, Room } from "@/integrations/types"
 import { withChunkRetry } from "@/lib/chunkRetry"
+import { localToday } from "../../shared/dates/calendar"
 
 type ManualWithName = ManualDocument & { display_name: string }
 /** `ready`: read, and waiting for its review on the item page — never saved from here.
@@ -153,9 +156,57 @@ const SETTINGS_NAV: [string, string][] = [
   ["privacy", "Data & privacy"],
 ]
 
+type RoutinesRead = { routines: RoutineTemplate[] } | { error: unknown }
+
+/** One read of the home's custom tasks — the list, or the error. */
+async function readRoutines(homeId: string): Promise<RoutinesRead> {
+  try {
+    return { routines: await getRoutineTemplates(homeId) }
+  } catch (error) {
+    // Not swallowed: handed back to be logged and said (applyRoutines).
+    return { error }
+  }
+}
+
+type RoomsRead =
+  | { rooms: Room[]; counts: Record<string, number>; error: null }
+  | { rooms: Room[] | null; counts: null; error: unknown }
+
+/** One read of the home's rooms and how many items each holds. A room list
+ *  that arrived before the counts failed is still handed back. */
+async function readRooms(homeId: string): Promise<RoomsRead> {
+  let rooms: Room[] | null = null
+  try {
+    const res = await getRooms(homeId)
+    if (res.error) throw new Error(res.error.message)
+    rooms = res.data ?? []
+
+    // Fetch item counts per room
+    const countsSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))
+    )
+
+    const countMap: Record<string, number> = {}
+    for (const d of countsSnap.docs) {
+      const roomId = d.data().roomId as string | null | undefined
+      if (roomId) {
+        countMap[roomId] = (countMap[roomId] ?? 0) + 1
+      }
+    }
+    return { rooms, counts: countMap, error: null }
+  } catch (error) {
+    // Not swallowed: handed back to be logged and said (applyRooms).
+    return { rooms, counts: null, error }
+  }
+}
+
 export default function Settings() {
   const [autoFindManuals, setAutoFindManuals] = useAutoFindManuals()
   const { user, signOut } = useAuth()
+  // The callbacks below depend on the id, not the user object; reading
+  // `user.id` inside them made the compiler infer `user` and skip them
+  // (react-hooks/preserve-manual-memoization).
+  const userId = user?.id
   const { home } = useCurrentHome()
   const { level } = useUserLevel()
   const { appearance, setAppearance } = useAppearance()
@@ -194,7 +245,7 @@ export default function Settings() {
   }, [user?.id])
 
   const handleSaveProfile = useCallback(async () => {
-    if (!user?.id) return
+    if (!userId) return
     const trimmed = profileNameDraft.trim()
     if (trimmed === profileName) return
     setProfileSaving(true)
@@ -204,7 +255,7 @@ export default function Settings() {
       // Upsert-style merge on users/{uid} — creates the doc if it's missing
       // (v1's 0-rows RLS failure mode doesn't exist here).
       await setDoc(
-        doc(db, `users/${user.id}`),
+        doc(db, `users/${userId}`),
         { fullName: trimmed || null, updatedAt: serverTimestamp() },
         { merge: true }
       )
@@ -216,7 +267,7 @@ export default function Settings() {
     } finally {
       setProfileSaving(false)
     }
-  }, [user?.id, profileNameDraft, profileName])
+  }, [userId, profileNameDraft, profileName])
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return
@@ -282,9 +333,9 @@ export default function Settings() {
     }
 
     let tokens: { kind: string; len: number }[] = []
-    if (user?.id) {
+    if (userId) {
       try {
-        const snap = await getDoc(doc(db, `users/${user.id}/private/fcmTokens`))
+        const snap = await getDoc(doc(db, `users/${userId}/private/fcmTokens`))
         const raw = (snap.get("tokens") as string[] | undefined) ?? []
         tokens = raw.map((t) => ({
           kind: /^[0-9a-f]{64}$/i.test(t) ? "APNs (iOS)" : "FCM (web)",
@@ -295,7 +346,7 @@ export default function Settings() {
       }
     }
     setPushDiag({ platform: Capacitor.getPlatform(), native, permission, build, tokens })
-  }, [user?.id])
+  }, [userId])
 
   const handleTestPush = async () => {
     setPushTesting(true)
@@ -458,6 +509,9 @@ export default function Settings() {
   const [deletingRoom, setDeletingRoom] = useState(false)
   const editInputRef = useRef<HTMLInputElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
+  const renamingRef = useRef(false)
+  /** The rename that just failed — leaving the field does not send it again. */
+  const failedRenameRef = useRef<{ roomId: string; name: string } | null>(null)
 
   // Export state
   const [exporting, setExporting] = useState(false)
@@ -480,89 +534,130 @@ export default function Settings() {
   const [roomsLoadFailed, setRoomsLoadFailed] = useState(false)
   const [roomsError, setRoomsError] = useState<string | null>(null)
 
-  const loadRoutines = useCallback(async () => {
-    if (!homeId) return
-    setLoading(true)
-    try {
-      const data = await getRoutineTemplates(homeId)
-      setRoutines(data)
+  // Custom tasks and rooms are each read by ONE function (readRoutines /
+  // readRooms) and land through ONE apply, whether the read is the first, a
+  // home switch, Try again, or the re-read after an add. Before H5 each was a
+  // load() that set its spinner synchronously inside the effect calling it.
+  const applyRoutines = useCallback((res: RoutinesRead) => {
+    if ("routines" in res) {
+      setRoutines(res.routines)
       setRoutinesLoadFailed(false)
-    } catch (e) {
-      console.warn(`[settings] could not load custom tasks for home ${homeId}:`, e instanceof Error ? e.message : e)
+    } else {
+      console.warn(`[settings] could not load custom tasks for home ${homeId}:`, res.error instanceof Error ? res.error.message : res.error)
       setRoutinesLoadFailed(true)
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }, [homeId])
 
-  useEffect(() => {
-    loadRoutines()
-  }, [loadRoutines])
+  // Both lists land only while their home is still the one on screen (H4):
+  // home A's read answering after a switch to B used to replace B's list with
+  // A's. A Try again or post-add re-read held from before the switch does not
+  // start at all — it would put a spinner on B's list, then have its answer
+  // dropped.
+  const isCurrentHome = useIsCurrent(homeId)
+
+  const loadRoutines = useCallback(async () => {
+    if (!homeId || !isCurrentHome(homeId)) return
+    setLoading(true)
+    const res = await readRoutines(homeId)
+    if (isCurrentHome(homeId)) applyRoutines(res)
+  }, [homeId, applyRoutines, isCurrentHome])
 
   // Load rooms and item counts
-  const loadRooms = useCallback(async () => {
-    if (!homeId) return
-    setRoomsLoading(true)
-    try {
-      const res = await getRooms(homeId)
-      if (res.error) throw new Error(res.error.message)
-      setRooms(res.data ?? [])
-
-      // Fetch item counts per room
-      const countsSnap = await getDocs(
-        query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))
-      )
-
-      const countMap: Record<string, number> = {}
-      for (const d of countsSnap.docs) {
-        const roomId = d.data().roomId as string | null | undefined
-        if (roomId) {
-          countMap[roomId] = (countMap[roomId] ?? 0) + 1
-        }
-      }
-      setRoomItemCounts(countMap)
+  const applyRooms = useCallback((res: RoomsRead) => {
+    if (res.rooms) setRooms(res.rooms)
+    if (res.counts !== null) {
+      setRoomItemCounts(res.counts)
       setRoomsLoadFailed(false)
-    } catch (e) {
-      console.warn(`[settings] could not load rooms for home ${homeId}:`, e instanceof Error ? e.message : e)
+    } else {
+      console.warn(`[settings] could not load rooms for home ${homeId}:`, res.error instanceof Error ? res.error.message : res.error)
       setRoomsLoadFailed(true)
-    } finally {
-      setRoomsLoading(false)
     }
+    setRoomsLoading(false)
   }, [homeId])
 
+  const loadRooms = useCallback(async () => {
+    if (!homeId || !isCurrentHome(homeId)) return
+    setRoomsLoading(true)
+    const res = await readRooms(homeId)
+    if (isCurrentHome(homeId)) applyRooms(res)
+  }, [homeId, applyRooms, isCurrentHome])
+
+  // The first read and a home switch: both spinners start in the render that
+  // switches (they start on for the first), and the effects only read.
+  if (useDepsChanged([homeId]) && homeId) {
+    setLoading(true)
+    setRoomsLoading(true)
+  }
   useEffect(() => {
-    loadRooms()
-  }, [loadRooms])
+    if (!homeId) return
+    void readRoutines(homeId).then((res) => {
+      if (isCurrentHome(homeId)) applyRoutines(res)
+    })
+  }, [homeId, applyRoutines, isCurrentHome])
+  useEffect(() => {
+    if (!homeId) return
+    void readRooms(homeId).then((res) => {
+      if (isCurrentHome(homeId)) applyRooms(res)
+    })
+  }, [homeId, applyRooms, isCurrentHome])
 
   const handleStartEditRoom = useCallback((room: Room) => {
+    failedRenameRef.current = null
     setEditingRoomId(room.room_id)
     setEditingName(room.name)
     setTimeout(() => editInputRef.current?.focus(), 0)
   }, [])
 
-  const handleSaveRename = useCallback(async () => {
+  /** `via` is how the save was asked for: Enter in the field, or leaving it. */
+  const handleSaveRename = useCallback(async (via: "enter" | "blur") => {
     if (!editingRoomId || !editingName.trim()) {
       setEditingRoomId(null)
       return
     }
-    const existingRoom = rooms.find((r) => r.room_id === editingRoomId)
-    if (existingRoom && existingRoom.name === editingName.trim()) {
+    // The room this save is for. The editor can move on while the save is in
+    // flight — "Rename" on another room opens that room's editor — so all that
+    // follows the await is about THIS room, not whichever editor is open then.
+    const roomId = editingRoomId
+    const name = editingName.trim()
+    const existingRoom = rooms.find((r) => r.room_id === roomId)
+    if (existingRoom && existingRoom.name === name) {
       setEditingRoomId(null)
       return
     }
-    if (!homeId) return
+    if (!homeId || renamingRef.current) return
+    // Leaving the field never re-sends the rename that just failed. The editor
+    // stays open after a failure, so every tap elsewhere would write, and fail,
+    // again. Enter, or a changed name, tries again.
+    const failed = failedRenameRef.current
+    if (via === "blur" && failed?.roomId === roomId && failed.name === name) return
+    // One rename at a time: the editor disabling itself mid-save can blur it,
+    // and blur saves — that must not start a second write.
+    renamingRef.current = true
     setSavingRoom(true)
     setRoomsError(null)
-    const res = await renameRoom(homeId, editingRoomId, editingName.trim())
+    const res = await renameRoom(homeId, roomId, name)
+    renamingRef.current = false
     setSavingRoom(false)
     if (res.error || !res.data) {
-      // The old name stays; the editor closes and the section says why.
-      console.warn(`[settings] could not rename room ${editingRoomId} (home ${homeId}):`, res.error?.message)
+      // The editor stays open with what was typed (as Add room's form does),
+      // and the section says why — Enter tries again, Escape keeps the old name.
+      console.warn(`[settings] could not rename room ${roomId} (home ${homeId}):`, res.error?.message)
       setRoomsError("Couldn't rename that room. Check your connection and try again.")
-    } else {
-      setRooms((prev) => prev.map((r) => (r.room_id === editingRoomId ? res.data! : r)))
+      failedRenameRef.current = { roomId, name }
+      // Focus goes back only after Enter, when the person was still in the
+      // field. A save that ran because they LEFT it must not pull them back:
+      // each attempt to leave would save, fail and refocus again, with Escape
+      // the only way out.
+      if (via === "enter") setTimeout(() => editInputRef.current?.focus(), 0)
+      return
     }
-    setEditingRoomId(null)
+    failedRenameRef.current = null
+    setRooms((prev) => prev.map((r) => (r.room_id === roomId ? res.data! : r)))
+    // Closes THIS room's editor only. Leaving room X's field for "Rename Y"
+    // saves X on the blur, and Y's editor opened while that save was in flight
+    // used to be closed by it landing.
+    setEditingRoomId((open) => (open === roomId ? null : open))
   }, [homeId, editingRoomId, editingName, rooms])
 
   const handleAddRoom = useCallback(async () => {
@@ -573,7 +668,8 @@ export default function Settings() {
     setSavingRoom(false)
     if (res.error || !res.data) {
       // The form stays open with the name typed, ready to try again.
-      console.warn(`[settings] could not add room "${newRoomName.trim()}" (home ${homeId}):`, res.error?.message)
+      // Ids and lengths only — what someone typed stays out of the logs.
+      console.warn(`[settings] could not add a room (${newRoomName.trim().length}-char name, home ${homeId}):`, res.error?.message)
       setRoomsError("Couldn't add that room. Check your connection and try again.")
       return
     }
@@ -772,7 +868,7 @@ export default function Settings() {
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
       const url = URL.createObjectURL(blob)
-      const date = new Date().toISOString().slice(0, 10)
+      const date = localToday()
       const a = document.createElement("a")
       a.href = url
       a.download = `homehub-export-${date}.json`
@@ -1011,9 +1107,9 @@ export default function Settings() {
                           ref={editInputRef}
                           value={editingName}
                           onChange={(e) => setEditingName(e.target.value)}
-                          onBlur={handleSaveRename}
+                          onBlur={() => void handleSaveRename("blur")}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveRename()
+                            if (e.key === "Enter") void handleSaveRename("enter")
                             if (e.key === "Escape") setEditingRoomId(null)
                           }}
                           disabled={savingRoom}
@@ -1478,8 +1574,8 @@ export default function Settings() {
                       setPushSubscribed(false)
                     } else {
                       const result = isNative
-                        ? await registerNativePush(user.id, homeId)
-                        : await subscribeToPush(user.id, homeId)
+                        ? await registerNativePush(user.id)
+                        : await subscribeToPush(user.id)
                       if (result.success) setPushSubscribed(true)
                       else setPushError(result.error ?? "Couldn't enable notifications.")
                     }
@@ -1489,7 +1585,9 @@ export default function Settings() {
                     // while the server kept the token and kept sending.
                     setPushError(
                       pushSubscribed
-                        ? "Couldn't turn off notifications. Check your connection and try again."
+                        ? e instanceof PushOffError
+                          ? e.message
+                          : "Couldn't turn off notifications. Check your connection and try again."
                         : e instanceof Error ? e.message : "Couldn't enable notifications.",
                     )
                   } finally {

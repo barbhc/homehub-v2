@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useIsCurrent } from "@/hooks/useIsCurrent"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { Check, Copy, Link2, Loader2, Trash2, UserPlus, Users } from "lucide-react"
@@ -49,6 +51,24 @@ function roleBadgeClass(role: string): string {
   }
 }
 
+type AccessRead = { members: HomeMember[]; invites: HomeInvite[] } | { error: string }
+
+/** A home's members and active invites — or why they could not be read. */
+async function readAccess(homeId: string): Promise<AccessRead> {
+  try {
+    const [membersRes, invitesRes] = await Promise.all([
+      getHomeMembers(homeId),
+      getActiveInvites(homeId),
+    ])
+    return { members: membersRes.data ?? [], invites: invitesRes.data ?? [] }
+  } catch (e) {
+    // try/finally alone cleared the spinner but left the rejection unhandled
+    // AND rendered an empty list — which reads as "you have no members",
+    // a silent lie about who can see this home.
+    return { error: e instanceof Error ? e.message : "Could not load members." }
+  }
+}
+
 function initials(name: string | null | undefined): string {
   if (!name) return "?"
   return name
@@ -87,32 +107,50 @@ export function HomeMembersSection({ homeId }: Props) {
   // Every one of these used to be swallowed: the handlers keyed off `res.data`
   // and did nothing at all on `res.error`.
   const [actionError, setActionError] = useState<string | null>(null)
+  /** The clock the invites' "expires in Nd" counts from, read when the list
+   *  lands rather than on every render (react-hooks/purity). */
+  const [readAt, setReadAt] = useState(() => Date.now())
 
+  /** Lands a read: the lists, or the error — and the spinner stops either way.
+   *  (A throw used to skip setLoading entirely and leave the members list
+   *  spinning with no way to retry.) */
+  const applyAccess = useCallback((res: AccessRead) => {
+    if ("error" in res) setLoadError(res.error)
+    else {
+      setMembers(res.members)
+      setInvites(res.invites)
+    }
+    setReadAt(Date.now())
+    setLoading(false)
+  }, [])
+
+  // Every read lands only while its home is still the one on screen (H4): home
+  // A's members answering after a switch to B used to replace B's list — who
+  // can see a home is the last thing to show for the wrong one.
+  const isCurrentHome = useIsCurrent(homeId)
+
+  // Retry, and the re-read after an action. One held from before a switch (the
+  // name save below can outlive one) does not start: it would put a spinner on
+  // the next home's list and then have its answer dropped.
   const load = useCallback(async () => {
+    if (!isCurrentHome(homeId)) return
     setLoading(true)
     setLoadError(null)
-    try {
-      const [membersRes, invitesRes] = await Promise.all([
-        getHomeMembers(homeId),
-        getActiveInvites(homeId),
-      ])
-      setMembers(membersRes.data ?? [])
-      setInvites(invitesRes.data ?? [])
-    } catch (e) {
-      // try/finally alone cleared the spinner but left the rejection unhandled
-      // AND rendered an empty list — which reads as "you have no members",
-      // a silent lie about who can see this home.
-      setLoadError(e instanceof Error ? e.message : "Could not load members.")
-    } finally {
-      // In a finally, not after the await: a throw used to skip setLoading
-      // entirely and leave the members list spinning with no way to retry.
-      setLoading(false)
-    }
-  }, [homeId])
+    const res = await readAccess(homeId)
+    if (isCurrentHome(homeId)) applyAccess(res)
+  }, [homeId, applyAccess, isCurrentHome])
 
+  // The first read and a home switch: the spinner starts in the render that
+  // switches (it starts on for the first), and the effect only reads.
+  if (useDepsChanged([homeId])) {
+    setLoading(true)
+    setLoadError(null)
+  }
   useEffect(() => {
-    load()
-  }, [load])
+    void readAccess(homeId).then((res) => {
+      if (isCurrentHome(homeId)) applyAccess(res)
+    })
+  }, [homeId, applyAccess, isCurrentHome])
 
   const handleCreateInvite = useCallback(async () => {
     if (!userId) return
@@ -125,6 +163,8 @@ export function HomeMembersSection({ homeId }: Props) {
       return
     }
     setInvites((prev) => [res.data!, ...prev])
+    // The new invite's countdown starts now, not at the last list read.
+    setReadAt(Date.now())
     // Auto-copy the link. A clipboard refusal (Safari without a user gesture,
     // permissions policy) must not read as a failed invite — the invite exists
     // and its link is on screen either way.
@@ -314,7 +354,7 @@ export function HomeMembersSection({ homeId }: Props) {
                     {invites.map((inv) => {
                       const isCopied = copiedToken === inv.token
                       const expiresIn = Math.ceil(
-                        (new Date(inv.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+                        (new Date(inv.expires_at).getTime() - readAt) / (1000 * 60 * 60 * 24)
                       )
                       return (
                         <div

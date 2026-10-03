@@ -16,6 +16,7 @@ import { useState } from "react"
 import { ShieldCheckIcon, ShieldOffIcon, ChevronDownIcon, ChevronUpIcon, BadgeCheckIcon, PhoneIcon, PlusIcon } from "lucide-react"
 import type { ItemUnit } from "@/integrations/types"
 import { updateItemUnit } from "@/modules/items/services/itemService"
+import { localToday } from "../../../shared/dates/calendar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 const TEAL_WASH = "var(--hh-teal-wash)", SLATE_SOFT = "var(--hh-slate-soft)", LINE = "var(--hh-line)"
@@ -66,7 +67,9 @@ export interface WarrantyPanelProps {
 
 export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = false, m }: WarrantyPanelProps) {
   const [registering, setRegistering] = useState(false)
-  const active = !!item.warranty_expiry_date && new Date(item.warranty_expiry_date) >= new Date()
+  // Covered through its last day. `new Date("YYYY-MM-DD")` is UTC midnight —
+  // ~5 pm the day BEFORE in Pacific — so a warranty read as lapsed a day early.
+  const active = !!item.warranty_expiry_date && item.warranty_expiry_date >= localToday()
 
   const tracked = !!item.warranty_expiry_date || item.warranty_duration_months != null
   if (!tracked) {

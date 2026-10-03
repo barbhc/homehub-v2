@@ -25,8 +25,10 @@ import { addLibraryTask, dismissLibrarySuggestion, applyLibraryBackstop, archive
 import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
 import { UndoBar } from "@/components/ui/UndoBar"
 import { InlineError } from "@/components/layout/LoadStates"
-import { addDays, todayStr } from "@/components/home/tasks/shared"
-import { SuggestedRow, SuggestedSource, KIND_LABELS } from "@/components/care/SuggestedRow"
+import { doneFailedMessage, SNOOZE_FAILED } from "@/components/home/tasks/shared"
+import { addDays, diffDays, localToday } from "../../../shared/dates/calendar"
+import { SuggestedRow, SuggestedSource } from "@/components/care/SuggestedRow"
+import { KIND_LABELS } from "@/components/care/kindLabels"
 import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
 import { dueKindOf, windowPhrase } from "@/lib/dueWindow"
 import { reviewBucketFor, isScheduledTask, notifiesPhone, showsInTasks, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
@@ -113,11 +115,11 @@ function landsPhrase(phrase: string): string {
 function duePhraseOf(t: TaskTemplateWithSchedule, due: string): string {
   const scheduleType = t.schedule_rule?.[0]?.schedule_type ?? null
   const kind = dueKindOf({ title: t.title, scheduleType, careType: t.care_type ?? null })
-  return windowPhrase(due, scheduleType, { today: new Date().toISOString().slice(0, 10), kind })
+  return windowPhrase(due, scheduleType, { today: localToday(), kind })
 }
+/** Signed calendar days from the device's today (it counted from the UTC date). */
 function dueDays(dateStr: string): number {
-  const today = new Date().toISOString().slice(0, 10)
-  return Math.round((new Date(dateStr + "T12:00:00").getTime() - new Date(today + "T12:00:00").getTime()) / 86400000)
+  return diffDays(localToday(), dateStr)
 }
 function dueStatusColor(days: number): string {
   if (days < 0) return CLAY
@@ -779,17 +781,25 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
   // shows when the next one lands.
   const [undo, setUndo] = useState<{ message: string; onUndo?: () => void } | null>(null)
   const refetchInstances = () => setInstanceTick((n) => n + 1)
+  // A failure reads as it does on Home, Tasks and the task page — the
+  // service's raw error goes to the log, never to the row.
   const completeInstance = async (instanceId: string): Promise<{ error: string | null }> => {
     const r = await markTaskInstanceDone(homeId, instanceId)
-    if (!r.success) return { error: r.error ?? "Couldn't mark it done" }
+    if (!r.success) {
+      console.warn(`[item care] could not mark ${instanceId} done (home ${homeId}):`, r.error)
+      return { error: doneFailedMessage(r.error) }
+    }
     refetchInstances()
     setUndo({ message: "Marked done" })
     return { error: null }
   }
   const snoozeInstance = async (instanceId: string): Promise<{ error: string | null }> => {
-    const until = addDays(todayStr(), 14)
+    const until = addDays(localToday(), 14)
     const r = await snoozeTaskInstance(homeId, instanceId, until)
-    if (!r.success) return { error: r.error ?? "Couldn't snooze it" }
+    if (!r.success) {
+      console.warn(`[item care] could not snooze ${instanceId} (home ${homeId}):`, r.error)
+      return { error: SNOOZE_FAILED }
+    }
     refetchInstances()
     const when = new Date(`${until}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     // A failed undo comes back to the bar with the same Undo — it used to
@@ -801,7 +811,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
           return
         }
         console.warn(`[item care] could not undo the snooze of ${instanceId} (home ${homeId}):`, x.error)
-        setUndo({ message: "Couldn't undo the snooze. Try again.", onUndo: undoSnooze })
+        setUndo({ message: "Couldn't undo the snooze — tap Undo to try again.", onUndo: undoSnooze })
       })
     }
     setUndo({ message: `Snoozed until ${when}`, onUndo: undoSnooze })

@@ -12,9 +12,10 @@
  * the task is still listed — a task that did not complete must not disappear.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { render as rtlRender, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render as rtlRender, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { SWRConfig } from "swr"
 import { RefinedWeek } from "./RefinedWeek"
+import { localToday } from "../../../shared/dates/calendar"
 
 // The agenda is SWR-cached (useWeekAgenda), so each test gets a fresh cache —
 // otherwise a later test would read an earlier one's agenda, including the
@@ -49,7 +50,7 @@ const TASK = {
   source: "maintenance",
   priorityTier: "essential",
   estimatedMinutes: 10,
-  dueDate: new Date().toISOString().slice(0, 10),
+  dueDate: localToday(),
   isOverdue: false,
   pastDue: false,
   dueKind: "window",
@@ -82,20 +83,27 @@ const expandRow = async () => {
   await waitFor(() => expect(screen.getByRole("button", { name: /^snooze$/i })).toBeInTheDocument())
 }
 
+/** The phone row a title belongs to. */
+const rowOf = (title: RegExp) =>
+  screen.getAllByTestId("phone-task-row").find((r) => within(r).queryByText(title))!
+
 describe("RefinedWeek — a failed check-off must say so", () => {
-  it("mark done fails → error shown AND the task stays on the list", async () => {
+  it("mark done fails → error shown ON the row AND the task stays on the list", async () => {
     markTaskInstanceDone.mockResolvedValue({ success: false, error: "quota exceeded" })
     await renderAndSettle()
 
     fireEvent.click(screen.getByLabelText(/mark done/i))
 
     // Home's words (#230); the service's raw error goes to the log, not the person.
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Couldn't mark this done. Check your connection and try again."))
-    expect(screen.getByRole("alert")).not.toHaveTextContent(/quota exceeded/i)
+    const row = rowOf(/replace the furnace filter/i)
+    await waitFor(() => expect(within(row).getByRole("alert")).toHaveTextContent("Couldn't mark this done. Check your connection and try again."))
+    expect(within(row).getByRole("alert")).not.toHaveTextContent(/quota exceeded/i)
+    // Said once, on the row — not (also) in the page header.
+    expect(screen.getAllByRole("alert")).toHaveLength(1)
     expect(screen.getByText(/replace the furnace filter/i)).toBeInTheDocument()
   })
 
-  it("snooze fails → error shown AND the task stays on the list", async () => {
+  it("snooze fails → error shown ON the row AND the task stays on the list", async () => {
     snoozeTaskInstance.mockResolvedValue({ success: false, error: "network down" })
     await renderAndSettle()
 
@@ -104,8 +112,23 @@ describe("RefinedWeek — a failed check-off must say so", () => {
     await expandRow()
     fireEvent.click(screen.getByRole("button", { name: /^snooze$/i }))
 
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Couldn't snooze this. Check your connection and try again."))
+    const row = rowOf(/replace the furnace filter/i)
+    await waitFor(() => expect(within(row).getByRole("alert")).toHaveTextContent("Couldn't snooze this. Check your connection and try again."))
+    expect(screen.getAllByRole("alert")).toHaveLength(1)
     expect(screen.getByText(/replace the furnace filter/i)).toBeInTheDocument()
+  })
+
+  it("a failure on a LOWER row is said on that row — where a long list's header would be off screen", async () => {
+    const second = { ...TASK, taskInstanceId: "ti-2", taskTemplateId: "tt-2", title: "Test smoke alarms" }
+    getWeekAgenda.mockResolvedValue({ data: [TASK, second], error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
+    markTaskInstanceDone.mockResolvedValue({ success: false, error: "unavailable" })
+    render(<RefinedWeek homeId="home-1" />)
+    await waitFor(() => expect(screen.getByText(/test smoke alarms/i)).toBeInTheDocument())
+
+    fireEvent.click(within(rowOf(/test smoke alarms/i)).getByLabelText(/mark done/i))
+
+    await waitFor(() => expect(within(rowOf(/test smoke alarms/i)).getByRole("alert")).toHaveTextContent("Couldn't mark this done."))
+    expect(within(rowOf(/replace the furnace filter/i)).queryByRole("alert")).toBeNull()
   })
 
   it("mark done SUCCEEDS → no error, task removed (the control case)", async () => {

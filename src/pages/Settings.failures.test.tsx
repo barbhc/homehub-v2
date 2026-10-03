@@ -13,7 +13,7 @@
  * success state is left standing.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { normalizeNotificationPrefs } from "@/lib/notificationPreferences"
 
@@ -29,6 +29,9 @@ const m = vi.hoisted(() => ({
   saveRoutineTask: vi.fn(),
   deleteRoutineTask: vi.fn(),
   getManualsByHome: vi.fn(),
+  unregisterNativePush: vi.fn(),
+  /** Render as the iOS shell (native push) rather than a browser. */
+  native: false,
 }))
 
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1", email: "e2e@homehub.test" }, signOut: vi.fn() }) }))
@@ -50,10 +53,16 @@ vi.mock("@/lib/pushNotifications", () => ({
   unsubscribeFromPush: (...a: unknown[]) => m.unsubscribeFromPush(...a),
 }))
 vi.mock("@/lib/nativePush", () => ({
-  isNativePlatform: () => false,
-  isNativePushRegistered: async () => false,
+  isNativePlatform: () => m.native,
+  // On the phone, reminders start ON (permission granted, not turned off here).
+  isNativePushRegistered: async () => m.native,
   registerNativePush: vi.fn(),
-  unregisterNativePush: vi.fn(),
+  unregisterNativePush: (...a: unknown[]) => m.unregisterNativePush(...a),
+  PushOffError: class PushOffError extends Error {
+    constructor() {
+      super("Couldn't turn off reminders on this phone. Try again, or turn off notifications for Homehub in iOS Settings.")
+    }
+  },
 }))
 vi.mock("@/lib/cleanSession", () => ({
   getRoutineTemplates: (...a: unknown[]) => m.getRoutineTemplates(...a),
@@ -111,6 +120,8 @@ beforeEach(() => {
   m.deleteRoom.mockResolvedValue({ data: true, error: null })
   m.getRoutineTemplates.mockResolvedValue([])
   m.getManualsByHome.mockResolvedValue({ data: [], error: null })
+  m.unregisterNativePush.mockResolvedValue(undefined)
+  m.native = false
 })
 
 const renderSettings = () => render(<MemoryRouter><Settings /></MemoryRouter>)
@@ -161,6 +172,19 @@ describe("Settings — notification preferences", () => {
     expect(screen.getByRole("button", { name: "Disable" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Enable" })).toBeNull()
   })
+
+  it("on the phone, a Disable that can't reach this phone's token says so and stays on", async () => {
+    m.native = true
+    const { PushOffError } = await import("@/lib/nativePush")
+    m.unregisterNativePush.mockRejectedValue(new PushOffError())
+    renderSettings()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Disable" }))
+
+    expect(await screen.findByText(/Couldn't turn off reminders on this phone/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Disable" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Enable" })).toBeNull()
+  })
 })
 
 describe("Settings — rooms and custom tasks", () => {
@@ -175,6 +199,80 @@ describe("Settings — rooms and custom tasks", () => {
     expect(screen.getByRole("button", { name: "Kitchen" })).toBeInTheDocument()
   })
 
+  it("a rename the server refuses keeps the editor open with what was typed, and says so", async () => {
+    m.renameRoom.mockResolvedValue({ data: null, error: { message: "permission-denied" } })
+    renderSettings()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Rename Kitchen" }))
+    const input = screen.getByDisplayValue("Kitchen")
+    fireEvent.change(input, { target: { value: "Pantry" } })
+    fireEvent.keyDown(input, { key: "Enter" })
+
+    expect(await screen.findByText("Couldn't rename that room. Check your connection and try again.")).toBeInTheDocument()
+    expect(m.renameRoom).toHaveBeenCalledTimes(1)
+    // Still editing, with the typed name — like Add room's form, ready for Enter again.
+    expect(screen.getByDisplayValue("Pantry")).toBeInTheDocument()
+  })
+
+  /** Past the tick a refocus would be scheduled on. */
+  const nextTick = () => act(() => new Promise<void>((r) => setTimeout(r, 20)))
+
+  it("a rename that fails because the person LEFT the field does not pull them back, or re-send it as they leave again", async () => {
+    // The trap: blur saves, the save fails, the field took focus back — so the
+    // next tap elsewhere saved, failed and refocused again, with Escape the
+    // only way out (and nothing saying so).
+    m.renameRoom.mockResolvedValue({ data: null, error: { message: "unavailable" } })
+    renderSettings()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Rename Kitchen" }))
+    const input = screen.getByDisplayValue("Kitchen")
+    await waitFor(() => expect(document.activeElement).toBe(input))
+    fireEvent.change(input, { target: { value: "Pantry" } })
+    // They tap elsewhere: focus moves on, and leaving the field saves.
+    const elsewhere = screen.getByRole("button", { name: "Delete Kitchen" })
+    act(() => elsewhere.focus())
+
+    expect(await screen.findByText("Couldn't rename that room. Check your connection and try again.")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("Pantry")).toBeInTheDocument()
+    await nextTick()
+    expect(document.activeElement).toBe(elsewhere)
+
+    // Back into the field and out again, same name: nothing is re-sent.
+    act(() => screen.getByDisplayValue("Pantry").focus())
+    act(() => elsewhere.focus())
+    await nextTick()
+    expect(m.renameRoom).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(elsewhere)
+
+    // A changed name is a new rename, and leaving the field sends it.
+    act(() => screen.getByDisplayValue("Pantry").focus())
+    fireEvent.change(screen.getByDisplayValue("Pantry"), { target: { value: "Larder" } })
+    act(() => elsewhere.focus())
+    await waitFor(() => expect(m.renameRoom).toHaveBeenCalledTimes(2))
+    expect(m.renameRoom.mock.calls[1]).toEqual(["home-1", "r1", "Larder"])
+  })
+
+  it("a rename that fails on Enter puts the person back in the field, ready to try again", async () => {
+    let answer!: (v: unknown) => void
+    m.renameRoom.mockReturnValueOnce(new Promise((r) => { answer = r }))
+    renderSettings()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Rename Kitchen" }))
+    const input = screen.getByDisplayValue("Kitchen")
+    await waitFor(() => expect(document.activeElement).toBe(input))
+    fireEvent.change(input, { target: { value: "Pantry" } })
+    fireEvent.keyDown(input, { key: "Enter" })
+    // In a browser the field can lose focus as it disables itself mid-save;
+    // here focus is moved off it while the save is in flight.
+    act(() => screen.getByRole("button", { name: "Delete Kitchen" }).focus())
+    await act(async () => answer({ data: null, error: { message: "unavailable" } }))
+
+    expect(await screen.findByText("Couldn't rename that room. Check your connection and try again.")).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByDisplayValue("Pantry")))
+    // The blur mid-save did not start a second write.
+    expect(m.renameRoom).toHaveBeenCalledTimes(1)
+  })
+
   it("rooms that could not be read say so instead of an empty list", async () => {
     m.getRooms.mockResolvedValue({ data: null, error: { message: "unavailable" } })
     renderSettings()
@@ -185,6 +283,31 @@ describe("Settings — rooms and custom tasks", () => {
     m.getRoutineTemplates.mockRejectedValue(new Error("Failed to load routine templates: unavailable"))
     renderSettings()
     expect(await screen.findByText("Couldn't load your custom tasks.")).toBeInTheDocument()
+  })
+
+  // H5 moved both reads into one reader + one apply each (readRooms/applyRooms,
+  // readRoutines/applyRoutines). Try again is the imperative path through them.
+  it("Try again on rooms reads them again and lists them", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    m.getRooms.mockResolvedValueOnce({ data: null, error: { message: "unavailable" } })
+    renderSettings()
+    const failed = (await screen.findByText("Couldn't load your rooms.")).closest("[role=alert]") as HTMLElement
+    fireEvent.click(within(failed).getByRole("button", { name: "Try again" }))
+    expect(await screen.findByText("Kitchen")).toBeInTheDocument()
+    expect(screen.queryByText("Couldn't load your rooms.")).toBeNull()
+    expect(m.getRooms).toHaveBeenCalledTimes(2)
+  })
+
+  it("Try again on custom tasks reads them again and lists them", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    m.getRoutineTemplates
+      .mockRejectedValueOnce(new Error("Failed to load routine templates: unavailable"))
+      .mockResolvedValueOnce([{ task_template_id: "rt1", title: "Water the ferns", schedule_type: "weekly", estimated_minutes: 5 }])
+    renderSettings()
+    const failed = (await screen.findByText("Couldn't load your custom tasks.")).closest("[role=alert]") as HTMLElement
+    fireEvent.click(within(failed).getByRole("button", { name: "Try again" }))
+    expect(await screen.findByText("Water the ferns")).toBeInTheDocument()
+    expect(screen.queryByText("Couldn't load your custom tasks.")).toBeNull()
   })
 
   it("manuals that could not be read say so — not '0 manuals uploaded'", async () => {

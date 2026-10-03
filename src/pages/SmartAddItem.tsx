@@ -4,10 +4,10 @@ import { PageContainer, PageHeader, SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import {
   IdentifyStep,
-  DEFAULT_IDENTIFY_DATA,
   type IdentifyData,
   type IdentifyMode,
 } from "@/components/smart-add/IdentifyStep"
+import { DEFAULT_IDENTIFY_DATA } from "@/components/smart-add/identifyData"
 import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/ManualStep"
 import { identityWrite } from "@/components/smart-add/identifyWrite"
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
@@ -35,6 +35,7 @@ import {
 } from "@/lib/wizardSession"
 import { markParsePending } from "@/lib/parsePickup"
 import { resumeSummary } from "@/lib/resumeSummary"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { isCapacityRefusal, queueScan } from "@/lib/scanCapacity"
 import { getRooms } from "@/modules/home"
 
@@ -62,6 +63,10 @@ export default function SmartAddItem() {
   const navigate = useNavigate()
   const { property } = useCurrentProperty()
   const { user } = useAuth()
+  // The callbacks below depend on the id, not the user object; reading
+  // `user.id` inside them made the compiler infer `user` and skip them
+  // (react-hooks/preserve-manual-memoization).
+  const userId = user?.id
 
   const [step, setStep] = useState<WizardStep>("identify")
   // Flow A: every add starts at the lane chooser ("Appliance or device" vs
@@ -78,11 +83,13 @@ export default function SmartAddItem() {
   const [itemId, setItemId] = useState<string | null>(null)
   const [hasManual, setHasManual] = useState(false)
   const [, setHasTasks] = useState(false)
-  const [, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [savingMessage, setSavingMessage] = useState<string | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   const [resumePrompt, setResumePrompt] = useState<WizardSession | null>(null)
+  /** When the page opened: "You started this {when}" counts to here — a render
+   *  must not read the clock (react-hooks/purity). */
+  const [openedAt] = useState(() => Date.now())
 
   // Kept only for the wizard-session round-trip (checkResume restores it);
   // nothing in the two remaining steps reads it.
@@ -104,10 +111,7 @@ export default function SmartAddItem() {
 
   const checkResume = useCallback(() => {
     const session = getWizardSession()
-    if (!session || !propertyId || session.propertyId !== propertyId) {
-      setLoading(false)
-      return
-    }
+    if (!session || !propertyId || session.propertyId !== propertyId) return
     // A session saved on the retired Purchase step has nothing left to resume
     // INTO — the item exists, its manual is attached, and purchase details are
     // the item page's Details sheet now. Send them to the item rather than to a
@@ -153,16 +157,17 @@ export default function SmartAddItem() {
       setIdentifyMode(session.brand?.trim() || session.model?.trim() ? "appliance" : "simple")
     }
     setResumePrompt(null)
-    setLoading(false)
   }, [propertyId, navigate])
 
-  useEffect(() => {
+  // A saved session for this home offers to pick up where it left off —
+  // decided in the render that learns the home (and on arrival), not by an
+  // effect a render later. (A `loading` flag set here was never read; gone.)
+  if (useDepsChanged([propertyId], { onMount: true })) {
     const session = getWizardSession()
     if (session && propertyId && session.propertyId === propertyId) {
       setResumePrompt(session)
     }
-    setLoading(false)
-  }, [propertyId])
+  }
 
   const handleResume = () => {
     checkResume()
@@ -247,8 +252,8 @@ export default function SmartAddItem() {
     // Attach the snapped nameplate as the item photo. Fire-and-forget: the
     // upload survives the route change below, and a failure only costs the
     // photo — never the item.
-    if (labelPhotoFile && user?.id) {
-      uploadItemPhoto(propertyId, created.item_unit_id, labelPhotoFile, user.id).then((r) => {
+    if (labelPhotoFile && userId) {
+      uploadItemPhoto(propertyId, created.item_unit_id, labelPhotoFile, userId).then((r) => {
         if (r.error) console.warn("[smart-add] label photo attach failed:", r.error.message)
       })
     }
@@ -305,7 +310,7 @@ export default function SmartAddItem() {
 
     clearWizardSession()
     navigate(`/items/${created.item_unit_id}`)
-  }, [propertyId, itemId, hasManual, identifyData, identifyMode, labelPhotoFile, user?.id, navigate])
+  }, [propertyId, itemId, hasManual, identifyData, identifyMode, labelPhotoFile, userId, navigate])
 
   /**
    * Kick the parse off and LEAVE. The wizard's job ends when the manual is
@@ -369,7 +374,7 @@ export default function SmartAddItem() {
 
           if (choice.type === "upload") {
             setSavingMessage("Uploading PDF…")
-            const uploadRes = await uploadManualPdf(propertyId, itemId, choice.file, user?.id)
+            const uploadRes = await uploadManualPdf(propertyId, itemId, choice.file, userId)
             if (!uploadRes.data?.path) throw new Error("Upload failed")
             sourceRef = uploadRes.data.path
             contentHash = uploadRes.data.contentHash
@@ -439,7 +444,7 @@ export default function SmartAddItem() {
         setSavingMessage(undefined)
       }
     },
-    [propertyId, itemId, user?.id, startParseAndLeave]
+    [propertyId, itemId, userId, startParseAndLeave]
   )
 
   const handleDocClassificationUseAnyway = useCallback(async () => {
@@ -527,7 +532,7 @@ export default function SmartAddItem() {
     // "Start fresh", the one irreversible button here, was a guess about what
     // you would be discarding. It also carried the pre-round-11 title, which is
     // why the owner's first screen did not look like the new flow.
-    const summary = resumeSummary(resumePrompt, Date.now())
+    const summary = resumeSummary(resumePrompt, openedAt)
     return (
       <PageContainer>
         <PageHeader title="Pick up where you left off" subtitle={summary.when ? `You started this ${summary.when}.` : undefined} />

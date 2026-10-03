@@ -16,10 +16,12 @@ bottom, one line each, with what verified them.
 
 ## Nothing is blocking
 
-Beta feedback: **161 decided**. Of round 21's four Fix nows, HH-158–160 are
-merged (#221, #223) and HH-161, the one scan indicator, is Package E2 (below);
-**49 await the owner's deletion** in App Store Connect (bookkeeping); one is on
-the roadmap (HH-152's product half, §4a).
+Beta feedback: **162 decided**. Round 21's four Fix nows are all live (HH-158–160
+via #221, #223; HH-161, the one scan indicator, via #228). HH-162 (Sep 30: sign-in
+failed with auth/api-key-not-valid — five hosting deploys shipped the built-in test
+Firebase settings) is fixed by the hosting predeploy guard (`npm run build:hosting`);
+**54 await the owner's deletion** in App Store Connect (bookkeeping); one is on the
+roadmap (HH-152's product half, §4a).
 
 Migration phases 0–5 are complete and the shim is deleted. Read
 `MIGRATION_STATUS.md` for history, **but do not trust its remaining-work notes**.
@@ -33,22 +35,41 @@ feedback ledger, code health) became a plan the owner approved that night,
 split into packages. Merging ships nothing; hosting and functions deploys are
 separate (§8).
 
-**Merged 2026-09-30:**
+**Merged and live (2026-09-30 → 2026-10-02):**
 - #219 — invite role escalation, pinned member uids, storage write membership, fail-closed growth gate
 - #220 — check-offs record the home's calendar day (A5), plus housekeeping (A7)
 - #221 — Items cached like Home; Tasks reads its agenda once (HH-158)
 - #223 — item page: Add the manual works on the first tap, one tree, one scan per add, slow ≠ failed (HH-159, HH-160)
-- #222 — Package C, the server guards: spend caps in `config/spend` with a kill switch, per-PDF Ask pricing, one-run parses, a cheaper push sweep. Its functions deploy is separate and needs approval (§8)
+- #222 — Package C server guards: spend caps in `config/spend` + kill switch, per-PDF Ask pricing, one-run parses, cheaper push sweep (functions released 2026-09-30)
+- #224 contract tests + docs · #225 regressions batch (E3) · #226 fewer reads (G)
+- #227 — prompt caching: Ask caches the manual PDFs in the first turn, the scan cache is OFF behind `config/spend.parseCacheBreakpoint`, `claude usage` telemetry on every call (functions released 2026-10-01, "server release #2"); review cache reads ~2026-10-08 (§3.4)
+- #228 — one scan indicator (E2, HH-161) · #229 — dead-code sweep (H1); `suggestCareNotes`, `importCareUrl`, `generateTasks` deleted from production
+- #230, #233 — no silent failures (H6): failed saves say so and roll back; Ask saves once; one wording for failed check-offs
+- #231 — Tasks + cleaning correctness and dead-code leftovers; a manual link can be typed, not only pasted
+- #234 — the hosting deploy builds and checks itself (HH-162; see CLAUDE.md "The deploy builds and checks itself")
+- #235 — one local-calendar date module (H7a): "today" is the person's day, not UTC
+- #236 — lint covers the whole app in CI (H5)
+- #237 — a late reply never lands on the wrong home (H4); cold-start push taps open the right home
+- #238 — switch safety: no write reaches the wrong home or item (Deep Clean, item page, Your home)
 
-**Still open:**
+**Waiting on the owner:**
+- **#232 — server input validation (H3a)**: every callable validates its input with zod; closes a cross-home file read (a manual pointing at another home's upload) and the retry job charging a manual-named uid; Ask history sliced, not refused. Gated and reviewed; needs approval for a functions release ("server release #3"). It would also carry #235's shared date module (behaviour-identical on the server).
+- **F** — retire the v1 Supabase project (resume CHO → backup → delete) and the Anthropic key rotation (new key, ideally in a `homehub` workspace).
+- **H2 / design cohesion** — one responsive component per doubled screen (Home, Items, Tasks, Your Week) and the cohesion pass from the 2026-09-30 design critique: both change what screens look like, so they need a mock and the owner's eye first.
 
-| Package | What |
-|---|---|
-| E2 | One scan indicator (HH-161, mock approved). The same change retires round 14's no-maintenance card, the review's "N will show up in Tasks" over item cleaning, and bells that cannot ring |
-| E3 | The regressions found alongside: Back → a duplicate item (HH-130), "Brand Model" names (HH-112), re-upload duplicates (HH-154), desktop Tasks' empty state (HH-94), Settings Rescan skipping the review, empty Ask answers, leftover "Overdue" / "Parse manuals", the v1 build-script branch guard (HH-122) |
-| F | Retire the v1 Supabase project: back up, then delete; rotate the keys it shares |
-| G | Fewer reads — the hourly sweep, Home, the item page, Ask — and PDFs by range |
-| H | Structure — dead routes and code, one responsive component per screen, schema validation at every boundary, lint the whole UI |
+**Server release #4 candidates (after #232):**
+- the push sweep should skip one task with an impossible `dueDate` instead of aborting every home's reminders (`push/sweep.ts`; `shared/dates/calendar.ts` now rolls such dates forward instead of throwing)
+- first due dates a day late after ~5 pm PT (`parse/commitDraft.ts:101`), the last-done bound (`parse/commitManualDraft.ts:62`) and Ask's warranty "today" (`ai/chatQuery.ts`) still cut the UTC date
+- move `schedule/cadence.ts`, `push/lanes.ts`, `tasks/completeTask.ts`, `warrantyContext.ts` date arithmetic onto `shared/dates/calendar.ts`
+- a member can name a co-member's uid on a parked manual and spend their allowance (needs a server-only record)
+- H3b — structured output (forced tool) for detectDocType, ingestReference, ocr and classifyExistingTasks, each with a golden eval
+- the seed's frozen date collides with a roll-forward worker test on a seeded emulator
+
+**Small client follow-ups:**
+- Your home: a failed save for home A after A→B→A is silent (CustomTask logs; CategoryQuestions should too)
+- Deep Clean: a Finish for A landing after A→B→A loses the typed custom tasks in the summary (gate on a session counter)
+- Home keeps the previous home's dashboard visible during a switch (deliberate `keepPreviousData` since #9 — revisit with H2)
+- native "Disable notifications": if the OFF mark can't be written after the token was removed, Settings keeps "Disable" until next launch
 
 `src/lib/designContracts.test.ts` holds the plan's rules as tests; its
 `it.todo`s name the package that turns each one on.

@@ -17,6 +17,7 @@ npm run emu          # Firebase Emulator Suite (demo-homehub — no real project
 npm run dev:emu      # vite with VITE_USE_EMULATORS=true (run `npm run emu` first)
 npm run seed:emu     # deterministic emulator seed: the e2e user and its E2E Test Home (items, tasks, manuals)
 npm run build        # tsc -b && vite build  ← the gate; never just tsc --noEmit
+npm run lint         # eslint, the WHOLE app (CI runs this; 0 errors) — eslint.config.js ignores only generated output
 npm test             # vitest — src/, shared/, the eval scorer, scripts' pure halves (vitest.config.ts)
 npx playwright test e2e/smoke/boot.spec.ts --project=smoke   # boot smoke (CI's first browser check)
 npm run test:e2e:journey:emu   # walk the 5 core journeys with step screenshots
@@ -167,11 +168,25 @@ shell loads the live site, so that push is what reaches testers. Always verify
 by fetching the production bundle and grepping it, never by the deploy's exit
 code. The shell's build number never changes, so it is not evidence of anything.
 
+**The deploy builds and checks itself (HH-162).** `firebase.json`'s hosting
+`predeploy` runs `npm run build:hosting`: it refuses to build when the settings
+Vite will inline don't name the target project (no production `.env` in this
+checkout), builds, then refuses to upload a `dist/` that lacks that project's
+config or carries the app's built-in test settings (`demo-api-key`). Without a
+`.env`, `src/integrations/firebase/app.ts` silently falls back to those test
+settings — that is how five deploys on 2026-09-30 broke every sign-in for 14.5
+hours while the served-vs-built byte check stayed green. Never bypass the hook;
+a deploy it stops is a deploy that would have locked testers out.
+
 ## Gotchas
 - Playwright is pinned to v1's version (baseline comparability). Visual baselines are
   CI-runner-baked; re-bake via workflow, never commit local-platform pixels.
 - CI runs the boot smoke, then all four emulator suites — `emu`, `a11y`, `device`, `journey`
   (`npm run test:e2e:all:emu`, reseeding between them) — plus the rules and worker suites.
+- CI lints the whole app (`npm run lint`), so any new error fails the PR. An
+  `// eslint-disable-next-line <rule> -- <reason>` must say why that line is the exception. To
+  reset state when a prop changes, use `useDepsChanged` (`src/hooks/useDepsChanged.ts`) during
+  render rather than `setState` in an effect (react-hooks/set-state-in-effect).
 - Capacitor deps remain temporarily (3 `src/lib/native*` importers) — replaced by FCM in Phase 4.
 - `.firebaserc`'s default is the owner's project, `homehub-2068d` (Blaze). A functions deploy
   still needs her approval every time (above).

@@ -3,7 +3,8 @@
  * two week sections used to do four different ways (design/home-focus.md).
  */
 import { describe, it, expect } from "vitest"
-import { weekRows, nextUpRows, prepLine, prepPlace, timelyWarranty, isoDaysFrom } from "./homeWeek"
+import { weekRows, nextUpRows, prepLine, prepPlace, timelyWarranty } from "./homeWeek"
+import { addDays } from "../../shared/dates/calendar"
 import type { DashboardTask, MaintenanceTaskFull } from "./dashboard"
 
 const TODAY = "2026-09-07"
@@ -22,14 +23,14 @@ describe("weekRows", () => {
   it("leads with the urgent feed, then the next seven days by date, each task once", () => {
     const rows = weekRows(
       [urgent("late"), urgent("today", { isOverdue: false, dueDate: TODAY, daysUntilDue: 0, duePhrase: "Good to do now" })],
-      [ahead("d3", isoDaysFrom(TODAY, 3)), ahead("late", "2026-09-01"), ahead("d1", isoDaysFrom(TODAY, 1)), ahead("far", isoDaysFrom(TODAY, 20))],
+      [ahead("d3", addDays(TODAY, 3)), ahead("late", "2026-09-01"), ahead("d1", addDays(TODAY, 1)), ahead("far", addDays(TODAY, 20))],
       TODAY,
     )
     expect(rows.map((r) => r.id)).toEqual(["late", "today", "d1", "d3"])
   })
 
   it("caps the list — Home stays one screen; the footer is the door to the rest", () => {
-    const many = Array.from({ length: 9 }, (_, i) => ahead(`a${i}`, isoDaysFrom(TODAY, 1 + (i % 6))))
+    const many = Array.from({ length: 9 }, (_, i) => ahead(`a${i}`, addDays(TODAY, 1 + (i % 6))))
     expect(weekRows([], many, TODAY)).toHaveLength(5)
     expect(weekRows([], many, TODAY, 3)).toHaveLength(3)
   })
@@ -42,13 +43,13 @@ describe("weekRows", () => {
   })
 
   it("an empty window is an empty list, never a fabricated row", () => {
-    expect(weekRows([], [ahead("far", isoDaysFrom(TODAY, 30))], TODAY)).toEqual([])
+    expect(weekRows([], [ahead("far", addDays(TODAY, 30))], TODAY)).toEqual([])
   })
 })
 
 describe("nextUpRows — the quiet week still points somewhere", () => {
   it("returns the next two beyond the window, soonest first", () => {
-    const rows = nextUpRows([ahead("c", isoDaysFrom(TODAY, 30)), ahead("a", isoDaysFrom(TODAY, 9)), ahead("b", isoDaysFrom(TODAY, 12)), ahead("in", isoDaysFrom(TODAY, 2))], TODAY)
+    const rows = nextUpRows([ahead("c", addDays(TODAY, 30)), ahead("a", addDays(TODAY, 9)), ahead("b", addDays(TODAY, 12)), ahead("in", addDays(TODAY, 2))], TODAY)
     expect(rows.map((r) => r.id)).toEqual(["a", "b"])
   })
 })
@@ -87,7 +88,7 @@ describe("prepPlace — the pill under the prep line (5b)", () => {
 })
 
 describe("timelyWarranty — one line, only when timely", () => {
-  const w = (name: string, days: number) => ({ item_unit_id: name, display_name: name, warranty_expiry_date: isoDaysFrom(TODAY, days), days_remaining: days })
+  const w = (name: string, days: number) => ({ item_unit_id: name, display_name: name, warranty_expiry_date: addDays(TODAY, days), days_remaining: days })
   it("picks the soonest inside 60 days and ignores the rest", () => {
     expect(timelyWarranty([w("Fridge", 80), w("Coway", 26), w("Washer", 45)])?.display_name).toBe("Coway")
   })

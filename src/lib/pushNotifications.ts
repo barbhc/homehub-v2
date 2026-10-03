@@ -7,8 +7,8 @@ import { getFcmToken, deleteFcmToken, isFcmConfigured } from "@/integrations/fir
  * Web push via FCM. A device token (getFcmToken) is stored in the user's
  * fcmTokens array at users/{uid}/private/fcmTokens; the sendPush / sendPushDaily
  * Cloud Functions deliver to it. Replaces the v1 VAPID + push_subscription
- * (Supabase) path. `homeId` is accepted for call-site compatibility but unused —
- * FCM tokens are per-user in the v2 model.
+ * (Supabase) path. Nothing here takes a home: FCM tokens are per-user in the v2
+ * model.
  */
 const tokensDoc = (uid: string) => doc(db, `users/${uid}/private/fcmTokens`)
 
@@ -23,7 +23,6 @@ export async function getPermissionState(): Promise<NotificationPermission> {
 
 export async function subscribeToPush(
   userId: string,
-  _homeId: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!isPushSupported()) return { success: false, error: "Push notifications not supported" }
   try {
@@ -44,17 +43,24 @@ export async function subscribeToPush(
  * Turns web push off for this browser: removes its token from the server, then
  * deletes it locally.
  *
- * The server write THROWS on failure. It used to be swallowed ("Silent fail on
- * unsubscribe"), so Settings showed notifications off while the server still
- * held the token and kept sending (audit H6).
+ * Both failures that would leave reminders arriving THROW, so Settings says so
+ * instead of showing "off" (audit H6):
+ *  - the server write (it used to be swallowed — "Silent fail on unsubscribe");
+ *  - a token we cannot READ while the browser still has permission (e.g. the
+ *    service worker failed to register offline): the server may well hold it,
+ *    and "nothing to remove" would be a guess. Only without permission is an
+ *    unreadable token genuinely nothing — nothing can be delivered here.
  */
 export async function unsubscribeFromPush(userId: string): Promise<void> {
-  const token = await getFcmToken().catch((e: unknown) => {
-    // No readable token means this browser holds none to remove (unsupported,
-    // or permission already gone) — nothing is being delivered to it.
-    console.warn("[push] could not read this browser's push token; nothing to remove:", e instanceof Error ? e.message : e)
-    return null
-  })
+  let token: string | null
+  try {
+    token = await getFcmToken()
+  } catch (e) {
+    const granted = typeof Notification !== "undefined" && Notification.permission === "granted"
+    if (granted) throw e
+    console.warn("[push] could not read this browser's push token, and it has no notification permission — nothing to remove:", e instanceof Error ? e.message : e)
+    token = null
+  }
   if (token) {
     await setDoc(tokensDoc(userId), { tokens: arrayRemove(token) }, { merge: true })
   }
