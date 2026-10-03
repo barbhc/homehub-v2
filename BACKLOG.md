@@ -51,19 +51,22 @@ separate (§8).
 - #236 — lint covers the whole app in CI (H5)
 - #237 — a late reply never lands on the wrong home (H4); cold-start push taps open the right home
 - #238 — switch safety: no write reaches the wrong home or item (Deep Clean, item page, Your home)
+- #232 — every server entry point validates its input with zod (H3a); closes the cross-home manual file read and the retry job charging a uid named on the manual; Ask history sliced, not refused. Functions released 2026-10-03 05:43Z ("server release #3": all 25 functions, rollback record in the audit facts log); carries #235's shared date module, behaviour-identical on the server
 
 **Waiting on the owner:**
-- **#232 — server input validation (H3a)**: every callable validates its input with zod; closes a cross-home file read (a manual pointing at another home's upload) and the retry job charging a manual-named uid; Ask history sliced, not refused. Gated and reviewed; needs approval for a functions release ("server release #3"). It would also carry #235's shared date module (behaviour-identical on the server).
 - **F** — retire the v1 Supabase project (resume CHO → backup → delete) and the Anthropic key rotation (new key, ideally in a `homehub` workspace).
-- **H2 / design cohesion** — one responsive component per doubled screen (Home, Items, Tasks, Your Week) and the cohesion pass from the 2026-09-30 design critique: both change what screens look like, so they need a mock and the owner's eye first.
+- **H2 — each screen built once** — mock published 2026-10-03 (https://claude.ai/artifact/6GDdu49e9gJQrAPJQQ76Yv): Home, Items, Tasks, Your week, plus the item page (the pair that drifted furthest; desktop can save a blank name, its category edit is a no-op, warranty fields can disagree). Eight calls wait on the owner; the build order is snooze → Your week → Home → Items → Tasks → item page (details sheet replaces HeroCard first)
+- **Design cohesion** — the cohesion pass from the 2026-09-30 design critique; needs its own mock
 
-**Server release #4 candidates (after #232):**
+**Server release #4 candidates:**
 - the push sweep should skip one task with an impossible `dueDate` instead of aborting every home's reminders (`push/sweep.ts`; `shared/dates/calendar.ts` now rolls such dates forward instead of throwing)
 - first due dates a day late after ~5 pm PT (`parse/commitDraft.ts:101`), the last-done bound (`parse/commitManualDraft.ts:62`) and Ask's warranty "today" (`ai/chatQuery.ts`) still cut the UTC date
 - move `schedule/cadence.ts`, `push/lanes.ts`, `tasks/completeTask.ts`, `warrantyContext.ts` date arithmetic onto `shared/dates/calendar.ts`
 - a member can name a co-member's uid on a parked manual and spend their allowance (needs a server-only record)
 - H3b — structured output (forced tool) for detectDocType, ingestReference, ocr and classifyExistingTasks, each with a golden eval
 - the seed's frozen date collides with a roll-forward worker test on a seeded emulator
+
+**Snooze doesn't stick (found 2026-10-03, H2 mock call 7):** `snoozeTaskInstance` writes `status: "snoozed"` + `snoozedUntil` and leaves `dueDate`; nothing ever flips a task back. Home reads only `scheduled` (`dashboard.ts:319`, `:558`), so a task snoozed on Home never returns to Home; the Tasks agenda reads `scheduled` and `snoozed` without checking `snoozedUntil` (`weekAgenda.ts:162`, `:181`), so a task snoozed on Tasks returns on the next refresh. Home snoozes 14 days with Undo, Tasks 7 days without. Check the push sweep and roll-forward for the same gap before fixing.
 
 **Small client follow-ups:**
 - Your home: a failed save for home A after A→B→A is silent (CustomTask logs; CategoryQuestions should too)
