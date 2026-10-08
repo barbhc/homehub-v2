@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 
 const getFeedbackContext = vi.hoisted(() => vi.fn())
@@ -87,5 +88,24 @@ describe("TaskFeedbackSheet · confirm looks for similar tasks", () => {
 
     again.resolve(CONTEXT)
     await waitFor(() => expect(screen.queryByText("Looking for similar tasks…")).toBeNull())
+  })
+})
+
+/**
+ * HH-164: the same snap-back lived here. Clearing "How many" stored 1 and
+ * re-rendered "1" with the cursor after it, so typing 6 gave 16.
+ */
+describe("TaskFeedbackSheet · the custom interval box (HH-164)", () => {
+  it("clear, type 6 → 6", async () => {
+    const user = userEvent.setup()
+    renderSheet()
+    fireEvent.click(screen.getByText("Too often"))
+    fireEvent.click(screen.getByText("Something else…"))
+    const box = screen.getByRole("spinbutton", { name: "How many" }) as HTMLInputElement
+    expect(box.value).toBe("2")
+    await user.clear(box)
+    await user.type(box, "6")
+    expect(box.value).toBe("6")
+    expect((screen.getByRole("combobox", { name: "Unit" }) as HTMLSelectElement).value).toBe("weeks")
   })
 })

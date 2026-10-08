@@ -11,7 +11,8 @@ import { upsertHomeProfile } from "@/modules/home"
 import { ChatInput } from "@/components/chat/ChatInput"
 import type { PriorityTier, ScheduleType, Season } from "@/integrations/types"
 import { cadenceLabelInline } from "../../../shared/tasks/cadenceLabel"
-import { splitInterval, toDays, type IntervalUnit } from "../../../shared/care/interval"
+import { splitInterval, toDays } from "../../../shared/care/interval"
+import { RepeatEveryInput } from "./RepeatEveryInput"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)", CLAY = "var(--hh-clay)"
@@ -92,8 +93,7 @@ export function TaskFeedbackSheet({
   const [cadenceChoice, setCadenceChoice] = useState<ScheduleType | null>(null)
   /** Only meaningful while cadenceChoice is every_n_days. Defaults to a
    *  fortnight — the interval the tester actually asked for. */
-  const [customN, setCustomN] = useState(2)
-  const [customUnit, setCustomUnit] = useState<IntervalUnit>("weeks")
+  const [customDays, setCustomDays] = useState(() => toDays(2, "weeks"))
   const [seasonChoice, setSeasonChoice] = useState<Season | null>(null)
   const [note, setNote] = useState("")
   const [step, setStep] = useState<"choose" | "discuss" | "pushback" | "confirm">("choose")
@@ -124,13 +124,13 @@ export function TaskFeedbackSheet({
             scheduleType: cadenceChoice,
             // Non-custom cadences carry NO interval, so a leftover number can
             // never outlive the cadence that gave it meaning.
-            intervalDays: cadenceChoice === "every_n_days" ? toDays(customN, customUnit) : null,
+            intervalDays: cadenceChoice === "every_n_days" ? customDays : null,
           }
         : null
       case "wrong_season": return seasonChoice ? { action: "reschedule_season", season: seasonChoice } : null
       default: return null
     }
-  }, [chip, tierChoice, cadenceChoice, customN, customUnit, seasonChoice])
+  }, [chip, tierChoice, cadenceChoice, customDays, seasonChoice])
 
   const sweepEligible = chip !== null && chip !== "duplicate"
   const isFreezePrep = ctx?.match.by === "seasonalFamily" && ctx.match.family === "freeze_prep"
@@ -194,7 +194,7 @@ export function TaskFeedbackSheet({
       // to adjust rather than an empty box.
       if (p.scheduleType === "every_n_days") {
         const { n, unit } = splitInterval(null)
-        setCustomN(n); setCustomUnit(unit)
+        setCustomDays(toDays(n, unit))
       }
     }
     else if (p.action === "reschedule_season") { setChip("wrong_season"); setSeasonChoice(p.season ?? null) }
@@ -336,32 +336,21 @@ export function TaskFeedbackSheet({
                 {cadenceChoice === "every_n_days" && (
                   <div className="mt-3 flex items-center gap-2">
                     <span className="text-[13.5px]" style={{ color: SUB }}>Every</span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      max={999}
-                      aria-label="How many"
-                      value={customN}
-                      onChange={(e) => {
-                        const n = Number(e.target.value)
-                        setCustomN(Number.isFinite(n) && n > 0 ? Math.round(n) : 1)
+                    {/* HH-164: shared with the review sheet; keeps its own draft
+                        so clearing the box no longer snaps it to "1". */}
+                    <RepeatEveryInput
+                      days={customDays}
+                      onChange={setCustomDays}
+                      inputProps={{
+                        "aria-label": "How many",
+                        className: "w-16 rounded-[10px] px-2.5 py-2 text-[13.5px] font-semibold",
+                        style: { border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK },
                       }}
-                      className="w-16 rounded-[10px] px-2.5 py-2 text-[13.5px] font-semibold"
-                      style={{ border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
+                      selectProps={{
+                        className: "rounded-[10px] px-2.5 py-2 text-[13.5px] font-semibold",
+                        style: { border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK },
+                      }}
                     />
-                    <select
-                      aria-label="Unit"
-                      value={customUnit}
-                      onChange={(e) => setCustomUnit(e.target.value as IntervalUnit)}
-                      className="rounded-[10px] px-2.5 py-2 text-[13.5px] font-semibold"
-                      style={{ border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
-                    >
-                      <option value="days">days</option>
-                      <option value="weeks">weeks</option>
-                      <option value="months">months</option>
-                      <option value="years">years</option>
-                    </select>
                   </div>
                 )}
               </>

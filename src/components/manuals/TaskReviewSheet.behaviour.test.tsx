@@ -21,6 +21,7 @@
  */
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { TaskReviewSheet } from "./TaskReviewSheet"
 import type { PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 
@@ -129,5 +130,77 @@ describe("the review, on one screen", () => {
       "Inspect vent ductwork", "Clean the moisture sensors",
       "Clean the drum", "Wipe the door gasket", "Remove shipping bolts",
     ]))
+  })
+})
+
+/**
+ * HH-164 (owner, 2026-10-02): "I can't change the cadence of this task to six
+ * weeks because it won't let me override one week." The box had no state of its
+ * own — every keystroke went through days and back, so clearing it snapped to
+ * "1" (cursor after it, so 6 became 16) and the unit re-picked itself as you
+ * typed (30 weeks → 7 months). Typed with userEvent, not fireEvent.change: the
+ * bug only exists one keystroke at a time.
+ */
+describe("HH-164: the repeat-every box takes what you type", () => {
+  const FORTNIGHTLY: PreviewResult = {
+    ok: true,
+    chunks: [],
+    tasks: [{ ...task("Clean the lint screen", "maintenance", "recommended", "every_n_days"), interval_days: 14 }],
+  }
+
+  function renderFortnightly() {
+    const onSave = vi.fn().mockResolvedValue(null)
+    render(
+      <TaskReviewSheet
+        freezeRiskFalse={false} notificationsBlocked={false} open onOpenChange={vi.fn()}
+        itemName="Dryer" previewData={FORTNIGHTLY} saving={false} onSave={onSave} focus="maintenance"
+      />
+    )
+    fireEvent.click(screen.getByText("Clean the lint screen"))
+    return {
+      onSave,
+      box: screen.getByLabelText("Every") as HTMLInputElement,
+      unit: screen.getByRole("combobox", { name: "Unit" }) as HTMLSelectElement,
+    }
+  }
+
+  async function savedIntervalDays(onSave: ReturnType<typeof vi.fn>) {
+    fireEvent.click(screen.getByRole("button", { name: /^Save / }))
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    return (onSave.mock.calls[0][0] as PreviewTask[]).find((t) => t.title === "Clean the lint screen")?.interval_days
+  }
+
+  it("clear, type 6 → 6 weeks, saved as 42 days", async () => {
+    const user = userEvent.setup()
+    const { onSave, box, unit } = renderFortnightly()
+    expect(box.value).toBe("2")
+    expect(unit.value).toBe("weeks")
+    await user.clear(box)
+    await user.type(box, "6")
+    expect(box.value).toBe("6")
+    expect(unit.value).toBe("weeks")
+    expect(await savedIntervalDays(onSave)).toBe(42)
+  })
+
+  it("typing 30 in weeks stays weeks (210 days), not 7 months", async () => {
+    const user = userEvent.setup()
+    const { onSave, box, unit } = renderFortnightly()
+    // Typed OVER the selected "2", so the box is never empty: this is the
+    // unit flip on its own, separate from the clear-to-1 snap above.
+    await user.type(box, "30", { initialSelectionStart: 0, initialSelectionEnd: 1 })
+    expect(box.value).toBe("30")
+    expect(unit.value).toBe("weeks")
+    expect(await savedIntervalDays(onSave)).toBe(210)
+  })
+
+  it("clear then leave the box → the last good value comes back", async () => {
+    const user = userEvent.setup()
+    const { onSave, box, unit } = renderFortnightly()
+    await user.clear(box)
+    expect(box.value).toBe("")
+    await user.tab()
+    expect(box.value).toBe("2")
+    expect(unit.value).toBe("weeks")
+    expect(await savedIntervalDays(onSave)).toBe(14)
   })
 })

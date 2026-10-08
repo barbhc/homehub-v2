@@ -294,6 +294,7 @@ enough to trust a prompt change against.
 |---|---|---|
 | 5.1 | Work the graduated candidates | `npx tsx scripts/parse-eval/graduation.ts` reports them; each becomes a golden or a rejection with a reason |
 | 5.2 | Grow the golden set | The corpus is the gate on every `parsePrompt.ts` change (non-negotiable #5). This is #1 in §1. |
+| 5.3 | HH-167 — steps assume snow ("clear of snow… above snow level") in mild climates | Fix in `parsePrompt.ts` with conditional clauses ("in snowy areas…"), run `scripts/parse-eval` before deploy; owner-approved functions release (round 22, 2026-10-08) |
 
 ---
 

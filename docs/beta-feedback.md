@@ -19,6 +19,23 @@ broken or badly misleading · **S3** confusing but workable · **S4** cosmetic.
 
 ---
 
+## 2026-10-08 — round 22 (owner's run, 4 reports · all decided same day)
+
+Pulled 2026-10-08: 60 reports in Apple's inbox, four new, no crashes. All four
+are from the owner's own pass and were decided the same day: three Fix now, one
+to the roadmap. A fifth record, **HH-163**, is a late-delivered duplicate of
+HH-142 (the no-maintenance review sheet, shipped in #185) — it adds nothing new
+and joins HH-142 on the delete list.
+
+| ID | Report | What was happening | Call |
+|---|---|---|---|
+| HH-164 | "I can't change the cadence of this task to six weeks because it won't let me override one week." | The review sheet's "Every [n] [unit]" box had no state of its own: clearing it stored 1 and re-rendered "1" with the cursor after it, so typing 6 gave 16 (112 days), and the unit re-picked itself mid-word (30 weeks → 7 months). The feedback sheet's "How many" box snapped back the same way. | Fix now — this PR: one shared repeat-every box keeps what you type and the unit you chose; leaving it empty restores the last good number |
+| HH-165 | An Optional task sits near the top of "Good to do now" on Tasks. | Rows inside a group are not ordered by tier, so an Optional task can lead the group; each row also repeats the group's name. | Fix now — Tasks sorts Essentials first inside each group and rows stop repeating the group name; mock first |
+| HH-166 | A "Winterize washer" task shows up although the home is set to a mild climate. | Setting the climate does not revisit winterizing tasks already on the home, and cold-storage winterizing stays on a schedule. | Fix now — offer a confirm-first sweep when climate is set to mild/hot; cold-storage winterizing becomes as-needed; mock first |
+| HH-167 | The vent-termination task's steps talk about clearing snow, which doesn't fit a mild climate. | The parse prompt writes steps that assume snow ("clear of snow… above snow level") regardless of climate. | Roadmap — climate-aware step wording needs a parse-prompt change, evals and a functions release (BACKLOG §5.3) |
+
+---
+
 ## 2026-09-29 — round 21 (owner's run, 4 reports in 6 minutes · all decided same day)
 
 Four screenshots from the owner's own pass on build 202608170005, all on the
