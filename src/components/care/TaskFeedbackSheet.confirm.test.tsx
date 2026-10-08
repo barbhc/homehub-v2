@@ -14,12 +14,13 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 
 const getFeedbackContext = vi.hoisted(() => vi.fn())
+const submitTaskFeedback = vi.hoisted(() => vi.fn())
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }))
 vi.mock("@/modules/home", () => ({ upsertHomeProfile: vi.fn() }))
 vi.mock("@/modules/care", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   getFeedbackContext: (...a: unknown[]) => getFeedbackContext(...a),
-  submitTaskFeedback: vi.fn(),
+  submitTaskFeedback: (...a: unknown[]) => submitTaskFeedback(...a),
   discussTask: vi.fn(),
 }))
 
@@ -96,7 +97,10 @@ describe("TaskFeedbackSheet · confirm looks for similar tasks", () => {
  * re-rendered "1" with the cursor after it, so typing 6 gave 16.
  */
 describe("TaskFeedbackSheet · the custom interval box (HH-164)", () => {
-  it("clear, type 6 → 6", async () => {
+  it("clear, type 6 → 6, and 6 weeks (42 days) is what is confirmed and sent", async () => {
+    getFeedbackContext.mockResolvedValue(CONTEXT)
+    // An error answer keeps the sheet on confirm; the call's arguments are the point.
+    submitTaskFeedback.mockResolvedValue({ data: null, error: { message: "stop here" } })
     const user = userEvent.setup()
     renderSheet()
     fireEvent.click(screen.getByText("Too often"))
@@ -107,5 +111,14 @@ describe("TaskFeedbackSheet · the custom interval box (HH-164)", () => {
     await user.type(box, "6")
     expect(box.value).toBe("6")
     expect((screen.getByRole("combobox", { name: "Unit" }) as HTMLSelectElement).value).toBe("weeks")
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    expect(screen.getByText(/Change to every 6 weeks/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Apply/ })).toBeEnabled())
+    fireEvent.click(screen.getByRole("button", { name: /^Apply/ }))
+    await waitFor(() => expect(submitTaskFeedback).toHaveBeenCalled())
+    expect(submitTaskFeedback.mock.calls[0][0].resolution).toEqual({
+      action: "cadence", scheduleType: "every_n_days", intervalDays: 42,
+    })
   })
 })

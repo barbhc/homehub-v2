@@ -198,9 +198,44 @@ describe("HH-164: the repeat-every box takes what you type", () => {
     const { onSave, box, unit } = renderFortnightly()
     await user.clear(box)
     expect(box.value).toBe("")
+    // Tabbing to the unit picker is still inside the pair — the box stays as typed.
+    await user.tab()
+    expect(unit).toHaveFocus()
+    expect(box.value).toBe("")
+    // Leaving the pair settles it.
     await user.tab()
     expect(box.value).toBe("2")
     expect(unit.value).toBe("weeks")
     expect(await savedIntervalDays(onSave)).toBe(14)
+  })
+
+  it("a whole number too big for the unit is capped on leaving, not thrown away", async () => {
+    const user = userEvent.setup()
+    const { onSave, box, unit } = renderFortnightly()
+    await user.selectOptions(unit, "years")
+    expect(box.value).toBe("2")
+    await user.clear(box)
+    await user.type(box, "11")
+    // 11 years is past the 10-year ceiling: not saved yet, and flagged.
+    expect(box).toHaveAttribute("aria-invalid", "true")
+    await user.tab() // to the unit picker — still inside the pair
+    expect(box.value).toBe("11")
+    await user.tab() // out of the pair
+    expect(box.value).toBe("10")
+    expect(unit.value).toBe("years")
+    expect(box).toHaveAttribute("aria-invalid", "false")
+    expect(await savedIntervalDays(onSave)).toBe(3650)
+  })
+
+  it("switching unit reads the number in the NEW unit first: 600 weeks → 600 days", async () => {
+    const user = userEvent.setup()
+    const { onSave, box, unit } = renderFortnightly()
+    await user.clear(box)
+    await user.type(box, "600")
+    expect(box).toHaveAttribute("aria-invalid", "true")
+    await user.selectOptions(unit, "days")
+    expect(box.value).toBe("600")
+    expect(unit.value).toBe("days")
+    expect(await savedIntervalDays(onSave)).toBe(600)
   })
 })
