@@ -5,7 +5,7 @@
  * so "Couldn't load" must be VISIBLE with a retry, never a calm empty state
  * that reads as "nothing this week" while the fetch actually failed.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { render as rtlRender, screen, fireEvent, waitFor } from "@testing-library/react"
 import { SWRConfig } from "swr"
 import YourWeek from "./YourWeek"
@@ -114,11 +114,25 @@ describe("YourWeek", () => {
  * A window task carries no deadline; its phrase is the only honest chip.
  */
 describe("YourWeek — Coming up speaks in windows", () => {
+  // The rows below carry real October dates so the chips can read "In Oct" and
+  // "By Oct 30". Pinned clock: unpinned, this test expired on 2026-10-05, when
+  // Oct 12 moved into "this week" and "Coming up" vanished. Only Date is faked
+  // so waitFor's timers still run.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-01T09:00:00-07:00"))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it("a window task shows its phrase, never the stored date; a deadline keeps 'By …'", async () => {
     getWeekReminders.mockResolvedValue({
       data: {
         items: [
-          row(),
+          // This week, relative to the pinned clock (the shared row's default
+          // date is computed from the real clock at import).
+          row({ dueDate: "2026-10-02" }),
           row({ taskInstanceId: "i2", title: "Descale the Nespresso", dueDate: "2026-10-12", duePhrase: "In Oct", windowState: "upcoming", supplies: [] }),
           row({ taskInstanceId: "i3", title: "Register the warranty", dueDate: "2026-10-30", dueKind: "deadline", duePhrase: "By Oct 30", supplies: [] }),
         ],

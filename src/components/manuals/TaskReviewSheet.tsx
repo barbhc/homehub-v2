@@ -18,7 +18,7 @@ import {
 import { NotificationSettingsLink } from "./NotificationSettingsLink"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
-import { splitInterval, toDays, type IntervalUnit } from "../../../shared/care/interval"
+import { RepeatEveryInput } from "@/components/care/RepeatEveryInput"
 import { earliestLastDone } from "../../../shared/care/lastDone"
 import { localToday } from "../../../shared/dates/calendar"
 import { isThinManual, thinManualWarning } from "../../../shared/parse/pdfShape"
@@ -568,35 +568,23 @@ export function TaskReviewSheet({
                     popover; moving the picker without it would have left
                     "Something else…" setting a silent 14 days with no way to
                     change the number. */}
-                {r.schedule === "every_n_days" && (() => {
-                  const cur = splitInterval(r.intervalDays ?? DEFAULT_INTERVAL_DAYS)
-                  return (
-                    <div className="mt-2.5 flex items-center gap-2">
-                      <label htmlFor={`interval-${r.id}`} className="text-[11.5px] text-muted-foreground">Every</label>
-                      <input
-                        id={`interval-${r.id}`}
-                        type="number" inputMode="numeric" min={1} max={999}
-                        value={cur.n}
-                        onChange={(e) => {
-                          const n = Number(e.target.value)
-                          patch(r.id, { intervalDays: toDays(Number.isFinite(n) && n > 0 ? n : 1, cur.unit) })
-                        }}
-                        className="w-16 rounded-md border border-border bg-background px-2 py-1 text-[13px]"
-                      />
-                      <select
-                        aria-label="Unit"
-                        value={cur.unit}
-                        onChange={(e) => patch(r.id, { intervalDays: toDays(cur.n, e.target.value as IntervalUnit) })}
-                        className="rounded-md border border-border bg-background px-2 py-1 text-[13px]"
-                      >
-                        <option value="days">days</option>
-                        <option value="weeks">weeks</option>
-                        <option value="months">months</option>
-                        <option value="years">years</option>
-                      </select>
-                    </div>
-                  )
-                })()}
+                {/* HH-164: the box keeps its own draft and unit (RepeatEveryInput)
+                    — deriving them from the days on every keystroke snapped a
+                    cleared box to "1" and re-picked the unit mid-word. */}
+                {r.schedule === "every_n_days" && (
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <label htmlFor={`interval-${r.id}`} className="text-[11.5px] text-muted-foreground">Every</label>
+                    <RepeatEveryInput
+                      days={r.intervalDays ?? DEFAULT_INTERVAL_DAYS}
+                      onChange={(intervalDays) => patch(r.id, { intervalDays })}
+                      inputProps={{
+                        id: `interval-${r.id}`,
+                        className: "w-16 rounded-md border border-border bg-background px-2 py-1 text-[13px]",
+                      }}
+                      selectProps={{ className: "rounded-md border border-border bg-background px-2 py-1 text-[13px]" }}
+                    />
+                  </div>
+                )}
               </>
             )}
 
