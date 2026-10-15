@@ -12,6 +12,8 @@ import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { TIER, type Tier } from "@/lib/redesign/tokens"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
+import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
+import { classifyTaskDetail } from "@/lib/taskActor"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, TIER_FILTERS, tierFilterCounts,
@@ -42,6 +44,7 @@ function ExpandedDetail({
   onOpenGuide: () => void
 }) {
   const { detail, loading } = useTaskDetail(homeId, taskInstanceId, expanded)
+  const actor = detail ? classifyTaskDetail(detail) : "diy"
   return (
     <div className="flex flex-col gap-3" style={{ padding: `0 ${PAD - 3}px ${PAD - 3}px` }}>
       {loading ? (
@@ -49,8 +52,11 @@ function ExpandedDetail({
       ) : (
         <>
           {detail?.justification && <InfoBlurb text={detail.justification} />}
-          {detail?.notes && <StepList steps={parseSteps(detail.notes)} />}
-          {!loading && !detail?.justification && !detail?.notes && (
+          {/* Hazardous work: the pro notice instead of the steps. */}
+          <StepsOrProNotice actor={actor}>
+            {detail?.notes && <StepList steps={parseSteps(detail.notes)} />}
+          </StepsOrProNotice>
+          {!loading && actor === "diy" && !detail?.justification && !detail?.notes && (
             <div className="text-[13px]" style={{ color: FAINT }}>No extra details yet.</div>
           )}
           <button

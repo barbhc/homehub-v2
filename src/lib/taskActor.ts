@@ -91,16 +91,49 @@ function hasProDirective(text: string): boolean {
   return false
 }
 
-function taskText(task: TaskTemplateWithSchedule): string {
-  const t = task as unknown as {
-    title?: string
-    instructions_override?: string | null
-    description?: string | null
-    justification?: string | null
-  }
-  return [t.title, t.instructions_override, t.description, t.justification]
-    .filter(Boolean)
-    .join(" ")
+/**
+ * A task's own words, in whatever shape a surface holds them — the item page's
+ * template row, the task page's and Tasks rows' `TaskDetail` (`notes` is the
+ * template's instructions_override), a clean guide's step. Every surface that
+ * shows a task's steps classifies through `classifyTaskFields`, so one task
+ * gets one answer wherever it is opened. Structured `steps` count: they are
+ * the words the homeowner would read, so a hazard named only in a step still
+ * suppresses the steps.
+ */
+export type TaskActorFields = {
+  title?: string | null
+  /** instructions_override / TaskDetail.notes / a clean task's instructions. */
+  instructions?: string | null
+  description?: string | null
+  justification?: string | null
+  steps?: readonly string[] | null
+}
+
+/** Classify who should do a task from its fields (see TaskActorFields). */
+export function classifyTaskFields(f: TaskActorFields): TaskActor {
+  return classifyActorFromText(
+    [f.title, f.instructions, f.description, f.justification, ...(f.steps ?? [])].filter(Boolean).join(" "),
+  )
+}
+
+/** A `TaskDetail` (task page, Tasks rows): `notes` is the template's instructions_override. */
+export function classifyTaskDetail(d: {
+  title: string
+  notes: string | null
+  justification: string | null
+  steps: readonly string[] | null
+}): TaskActor {
+  return classifyTaskFields({ title: d.title, instructions: d.notes, justification: d.justification, steps: d.steps })
+}
+
+/**
+ * THE rule for every surface that renders a task's how-to steps (owner,
+ * standing): a homeowner is never shown DIY steps for gas, combustion or live
+ * electrical work. Hazardous → no steps; pro → steps, framed as what the tech
+ * checks; DIY → steps. `StepsOrProNotice` is the block that applies it.
+ */
+export function stepsAllowedFor(actor: TaskActor): boolean {
+  return actor !== "hazardous"
 }
 
 /**
@@ -110,7 +143,18 @@ function taskText(task: TaskTemplateWithSchedule): string {
  * authoritatively at the source.
  */
 export function classifyTaskActor(task: TaskTemplateWithSchedule): TaskActor {
-  return classifyActorFromText(taskText(task))
+  const t = task as unknown as {
+    title?: string
+    instructions_override?: string | null
+    description?: string | null
+    justification?: string | null
+  }
+  return classifyTaskFields({
+    title: t.title,
+    instructions: t.instructions_override,
+    description: t.description,
+    justification: t.justification,
+  })
 }
 
 /**

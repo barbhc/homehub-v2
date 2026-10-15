@@ -36,7 +36,7 @@ import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { getTaskGuidance } from "@/pages/item-detail/utils"
 import { classifyTaskActor } from "@/lib/taskActor"
 import { StepList, InfoBlurb, ManualBlurb } from "@/components/tasks/TaskHowTo"
-import { ProTaskNotice } from "@/components/tasks/ProTaskNotice"
+import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
 import { useSetupCompletion } from "@/pages/item-detail/useSetupCompletion"
 import { SYMPTOM_TAGS, type ReCheckTrigger } from "@/lib/symptomTaxonomy"
@@ -313,7 +313,6 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
   const reminds = notifiesPhone(taskLikeOf(t), t.scope_type ?? null) && !notificationsBlocked
   const actor = classifyTaskActor(t)
   const { steps, cautions } = getTaskGuidance(t)
-  const showSteps = actor !== "hazardous" && steps.length > 0
   const page = manualPageOf(t)
   const days = due != null ? dueDays(due) : null
   // Never-started past-due cadence: calm "Start anytime", not "N days overdue".
@@ -423,16 +422,19 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                   </div>
                 </div>
               )}
-              {actor !== "diy" && <ProTaskNotice actor={actor} />}
-              {/* Item Option B: the part lives with the task that uses it. */}
-              <SupplyRows homeId={homeId} taskTemplateId={t.task_template_id} supplies={templateSuppliesOf(t)} nextInstanceId={instanceId} />
-              {showSteps ? (
-                <StepList key={instanceId ?? "none"} steps={steps} />
-              ) : actor === "diy" ? (
-                <div className="text-[13.5px]" style={{ color: SUB }}>
-                  {hasManual ? "Open the manual for step-by-step instructions." : "Add this item's manual to unlock steps."}
-                </div>
-              ) : null}
+              <StepsOrProNotice
+                actor={actor}
+                /* Item Option B: the part lives with the task that uses it. */
+                between={<SupplyRows homeId={homeId} taskTemplateId={t.task_template_id} supplies={templateSuppliesOf(t)} nextInstanceId={instanceId} />}
+              >
+                {steps.length > 0 ? (
+                  <StepList key={instanceId ?? "none"} steps={steps} />
+                ) : actor === "diy" ? (
+                  <div className="text-[13.5px]" style={{ color: SUB }}>
+                    {hasManual ? "Open the manual for step-by-step instructions." : "Add this item's manual to unlock steps."}
+                  </div>
+                ) : null}
+              </StepsOrProNotice>
               <CautionCallout cautions={cautions} />
             </div>
             <div className="flex flex-col gap-3">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { classifyTaskActor } from "./taskActor"
+import { classifyTaskActor, classifyTaskFields, stepsAllowedFor } from "./taskActor"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 
 /**
@@ -132,5 +132,27 @@ describe("classifyTaskActor", () => {
         })
       )
     ).toBe("diy")
+  })
+})
+
+describe("classifyTaskFields — the one input every steps surface uses", () => {
+  it("a hazard named only in a structured step still classifies hazardous", () => {
+    expect(
+      classifyTaskFields({
+        title: "Relight the gas furnace pilot",
+        steps: ["Turn the gas valve to OFF and wait five minutes.", "Hold the pilot knob and press the igniter."],
+      }),
+    ).toBe("hazardous")
+  })
+
+  it("agrees with classifyTaskActor on the same template text", () => {
+    const t = task({ title: "Inspect Limit Switch", instructions_override: "Check the rollout switch." })
+    expect(classifyTaskFields({ title: "Inspect Limit Switch", instructions: "Check the rollout switch." })).toBe(classifyTaskActor(t))
+  })
+
+  it("steps are withheld only for hazardous work", () => {
+    expect(stepsAllowedFor("hazardous")).toBe(false)
+    expect(stepsAllowedFor("pro")).toBe(true)
+    expect(stepsAllowedFor("diy")).toBe(true)
   })
 })
