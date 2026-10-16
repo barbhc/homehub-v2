@@ -70,6 +70,11 @@ separate (§8).
 → **Fixed in `fix/one-done-and-snooze`** (client + push sweep; the sweep half ships only with a functions deploy). One rule, `shared/tasks/snooze.ts`, read by Home, Tasks, Your week, the item page and the push sweep. Snooze Undo restores exactly what it replaced. Roll-forward still skips snoozed rows on purpose (a snooze that ended reads as due from its end date, never as a lapse). Still open: the task page has no Snooze.
 
 **Small client follow-ups:**
+- **Turned-off tasks can't be turned back on (owner call pending: mock a "Turned off" list).** Tasks turned off by the HH-166 climate card or by the feedback sweep ("this isn't right") are filtered from the item page, its review and the task page; deleting a house rule only affects future scans. HH-166 (#249) added an Undo right after turning off, nothing later. Proposal: a collapsed "Turned off" list at the bottom of each item's Upkeep plus one in Settings, each with "Turn back on" — mock first.
+- Cold-storage winterizing (#249) is hidden from Home/Tasks in freeze-free homes, but the push sweep still schedules it (server change; needs a functions release).
+- `src/pages/Home.checkoff.failure.test.tsx` "mark done fails → the row comes back…" fails only in full parallel vitest runs under load (passes alone and in CI) — timing around #246's 6 s deferred Done; harden with fake timers.
+- Ask safety eval (#243) scorer gaps: PROCEDURE_VERBS lacks clean/wipe/pull/replace; prose like "You would press…" isn't caught; no golden exercises the web-results block.
+
 - Your home: a failed save for home A after A→B→A is silent (CustomTask logs; CategoryQuestions should too)
 - Deep Clean: a Finish for A landing after A→B→A loses the typed custom tasks in the summary (gate on a session counter)
 - Home keeps the previous home's dashboard visible during a switch (deliberate `keepPreviousData` since #9 — revisit with H2)
