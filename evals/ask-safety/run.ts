@@ -2,29 +2,39 @@
  * Ask safety eval — does Ask refuse DIY steps for gas, combustion, live
  * electrical and refrigerant work (and still give steps for everyday upkeep)?
  * Owner rule 2026-10-15; the prompt text is SAFETY_RULES in
- * shared/chat/chatMessages.ts. Goldens: goldens.json (7 hazardous, 5 safe).
+ * shared/chat/chatMessages.ts. Goldens: goldens.json (9 hazardous, 9 safe; 4 of
+ * them ask with a corpus manual PDF attached whole — the PDF base of the prompt).
  *
  * OFFLINE (the default — free: no key, no network)
  *
  *   npm run eval:ask-safety
  *
  *   Checks the golden file and that every request chatQuery would send carries
- *   SAFETY_RULES, the question and its excerpts. Exit 1 on any problem.
+ *   SAFETY_RULES, the question and its manual or excerpts (a placeholder PDF
+ *   stands in for the manual). Exit 1 on any problem.
  *   (askSafety.test.ts runs the same checks, and the scorer's own tests.)
  *
- * LIVE (costs money — 12 short Sonnet 5 calls, a few cents)
+ * LIVE (costs money — 18 Sonnet 5 calls; the 4 with a manual PDF attached
+ *   are ~$0.30 each, the rest under a cent: ≈ $1.30)
  *
- *   ANTHROPIC_API_KEY=… npm run eval:ask-safety -- --live [--only=<case id>]
+ *   ANTHROPIC_API_KEY=… npm run eval:ask-safety -- --live [--only=<case id>] [--pdf-cache=<dir>]
  *
- *   Reads the key from the environment only. Sends each case once with the
+ *   Reads the key from the environment only. Reads manual PDFs from the parse
+ *   eval's cache (scripts/parse-eval/.pdf-cache/<manualId>.pdf; from a
+ *   worktree, point --pdf-cache at the main checkout's). Sends each case once with the
  *   request chatQuery builds, scores it (askSafety.ts scoreSafetyAnswer),
  *   prints why each failure failed, and writes the answers to runs/ (committed:
  *   the score is reproducible from them without re-spending). Exit 1 unless
  *   every case passes — on safety a "mostly" is a fail; read the failing
  *   answer before deciding whether the rule or the expectation is wrong.
+ *
+ * RESCORE (free) — after fixing an expectation, re-score a saved run's answers
+ * against the current goldens and scorer, without calling the API:
+ *
+ *   npm run eval:ask-safety -- --rescore=evals/ask-safety/runs/<file>.json
  */
 import Anthropic from "@anthropic-ai/sdk"
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { usageCost, type UsageNumbers } from "../../scripts/chat-eval/chatEval.js"
@@ -33,7 +43,9 @@ import { parseSafetyGoldens, safetyGoldenProblems, safetyRequest, safetyRequestP
 const HERE = dirname(fileURLToPath(import.meta.url))
 const args = process.argv.slice(2)
 const live = args.includes("--live")
+const rescore = args.find((a) => a.startsWith("--rescore="))?.slice("--rescore=".length)
 const only = args.find((a) => a.startsWith("--only="))?.slice("--only=".length)
+const pdfCache = args.find((a) => a.startsWith("--pdf-cache="))?.slice("--pdf-cache=".length) ?? join(HERE, "..", "..", "scripts", "parse-eval", ".pdf-cache")
 
 function fail(message: string): never {
   console.error(`\n✖ ${message}\n`)
@@ -54,7 +66,7 @@ function offline(): void {
     console.log(`  ${found.length === 0 ? "✓" : "✗"} ${c.kind.padEnd(9)} ${c.id.padEnd(24)}${found.length ? ` — ${found.join("; ")}` : ""}`)
   }
   if (problems > 0) fail(`ask-safety (offline): ${problems} problem(s)`)
-  console.log(`\n✓ ask-safety (offline): ${targets.length}/${targets.length} requests carry the safety rules, the question and its excerpts\n`)
+  console.log(`\n✓ ask-safety (offline): ${targets.length}/${targets.length} requests carry the safety rules, the question and its manual or excerpts\n`)
 }
 
 interface CaseResult {
@@ -73,12 +85,18 @@ interface CaseResult {
 async function liveRun(): Promise<void> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) fail("--live needs ANTHROPIC_API_KEY in the environment (it is never read from a file here).")
+  const pdfPath = (manualId: string) => join(pdfCache, `${manualId}.pdf`)
+  for (const c of targets) {
+    if (c.manual && !existsSync(pdfPath(c.manual.manualId))) {
+      fail(`no PDF for ${c.id} at ${pdfPath(c.manual.manualId)} — point --pdf-cache at the checkout whose parse eval has it.`)
+    }
+  }
   const client = new Anthropic({ apiKey })
   const results: CaseResult[] = []
   let model = ""
   console.log(`\n━━ ask-safety, LIVE — ${targets.length} case(s) ━━\n`)
   for (const c of targets) {
-    const { params } = safetyRequest(c)
+    const { params } = c.manual ? safetyRequest(c, readFileSync(pdfPath(c.manual.manualId)).toString("base64")) : safetyRequest(c)
     model = params.model
     const zero: UsageNumbers = { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 0 }
     try {
@@ -95,7 +113,7 @@ async function liveRun(): Promise<void> {
         msg.stop_reason === "refusal" ? { pass: false, failures: ["the model declined (stop_reason refusal)"] } : scoreSafetyAnswer(c, answer, goldens.proGroup)
       const r: CaseResult = { id: c.id, kind: c.kind, question: c.question, ...score, stopReason: msg.stop_reason, usage, cost: usageCost(usage).actual, answer }
       results.push(r)
-      console.log(`  ${r.pass ? "✓" : "✗"} ${c.kind.padEnd(9)} ${c.id.padEnd(24)} out ${usage.output_tokens} · $${r.cost.toFixed(4)}${r.failures.length ? ` — ${r.failures.join("; ")}` : ""}`)
+      console.log(`  ${r.pass ? "✓" : "✗"} ${c.kind.padEnd(9)} ${c.id.padEnd(26)} ${c.manual ? "pdf" : "exc"} out ${usage.output_tokens} · $${r.cost.toFixed(4)}${r.failures.length ? ` — ${r.failures.join("; ")}` : ""}`)
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e)
       results.push({ id: c.id, kind: c.kind, question: c.question, pass: false, failures: ["API error"], stopReason: null, usage: zero, cost: 0, answer: "", error })
@@ -122,7 +140,29 @@ async function liveRun(): Promise<void> {
   if (summary.passed !== summary.total) process.exit(1)
 }
 
-if (live) {
+function rescoreRun(file: string): void {
+  const saved = JSON.parse(readFileSync(file, "utf8")) as { results?: Array<{ id?: unknown; answer?: unknown; stopReason?: unknown }> }
+  const results = Array.isArray(saved.results) ? saved.results : fail(`${file} has no results array`)
+  let passed = 0
+  let total = 0
+  for (const c of targets) {
+    const r = results.find((x) => x.id === c.id)
+    if (!r || typeof r.answer !== "string") {
+      console.log(`  - ${c.kind.padEnd(9)} ${c.id.padEnd(26)} not in this run`)
+      continue
+    }
+    total++
+    const score = r.stopReason === "refusal" ? { pass: false, failures: ["the model declined"] } : scoreSafetyAnswer(c, r.answer, goldens.proGroup)
+    if (score.pass) passed++
+    console.log(`  ${score.pass ? "✓" : "✗"} ${c.kind.padEnd(9)} ${c.id.padEnd(26)}${score.failures.length ? ` — ${score.failures.join("; ")}` : ""}`)
+  }
+  console.log(`\n━━ rescored ${file}: ${passed}/${total} passed against the current goldens (no API calls)\n`)
+  if (passed !== total) process.exit(1)
+}
+
+if (rescore) {
+  rescoreRun(rescore)
+} else if (live) {
   liveRun().catch((e: unknown) => {
     console.error(e)
     process.exit(1)

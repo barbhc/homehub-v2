@@ -87,8 +87,11 @@ describe("the system prompt is main's plus the safety rules, byte for byte", () 
     expect(SAFETY_RULES).toContain("licensed")
     expect(SAFETY_RULES).toContain("leave the home right away")
     expect(SAFETY_RULES).toContain("call the gas utility or 911 from outside")
-    // Everyday upkeep is named, so the rule cannot swallow a GFCI reset.
+    // Routine owner care is named, so the rule cannot swallow a GFCI reset or
+    // a gas range's burner caps; a web result is no way around it either.
     expect(SAFETY_RULES).toContain("resetting a GFCI")
+    expect(SAFETY_RULES).toContain("removable grates and burner caps")
+    expect(SAFETY_RULES).toContain("even when the manual or web results describe the procedure")
   })
 
   it("withSafetyRules refuses a prompt with nothing to anchor on, rather than appending blindly", () => {

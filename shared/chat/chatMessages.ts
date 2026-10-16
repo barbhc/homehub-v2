@@ -85,22 +85,24 @@ export const PDF_ONLY_TURN_TEXT = "Attached: the owner's manual for this convers
  * you smell gas, leave'." The task side already does this
  * (src/lib/taskActor.ts, src/components/tasks/ProTaskNotice.tsx); before this,
  * Ask would answer "how do I relight the pilot?" with numbered steps from
- * general knowledge. It applies even when the manual itself prints the
- * procedure — a water heater's lighting instructions are written for the
- * label, not for a homeowner who has never done it.
+ * general knowledge. It applies even when the manual (or a web result, so the
+ * "Search the web" follow-up is not a way around it) prints the procedure —
+ * a water heater's lighting instructions are written for the label, not for a
+ * homeowner who has never done it.
  *
  * "No numbered list" is on purpose: in Ask a numbered list reads as a
  * procedure to follow, and it is what the safety eval (evals/ask-safety)
- * checks for. Everyday upkeep is named as DIY so the rule does not swallow
- * resetting a GFCI or changing a furnace filter.
+ * checks for. Routine owner care is named as DIY — including on gas
+ * appliances (range grates and burner caps, a water heater flush) — so the
+ * rule does not swallow it; "burners" means the burner assembly, not the caps.
  *
  * Inserted after the "Use markdown" rule and before the conditional rule
  * lines; withSafetyRules (below) is the one place that position is written.
  */
 export const SAFETY_RULES =
-  "\n- Gas, combustion, live electrical and refrigerant work is a licensed professional's job, even when the manual describes the procedure: lighting or relighting a pilot, burners, igniters and flame sensors, gas lines, gas valves and gas controls, flues and combustion venting; breaker panels, replacing breakers, wiring, and installing or replacing outlets, switches or light fixtures; and anything involving refrigerant. For these, give NO do-it-yourself steps and no numbered list. In a few calm, plain sentences (no alarm): say briefly why it needs a pro; say who to call (a licensed plumber, HVAC technician, electrician, or the gas utility) and what they will do; and list, as bullets, the safe things the homeowner can do now — check the thermostat setting and batteries, check that the power switch and breaker are on, reset a tripped breaker or GFCI once (if it trips again, leave it off and call an electrician), and note the symptoms, error codes or blink pattern to tell the technician. Facts from the manual that help them describe the problem (what an error code means, a normal reading) are fine to share; the hands-on fix is not." +
+  "\n- Gas, combustion, live electrical and refrigerant work is a licensed professional's job, even when the manual or web results describe the procedure (manuals often print it for the installer or service technician, and a water heater's label prints lighting instructions): lighting or relighting a pilot; the burner assembly, burner orifices, igniters and flame sensors; gas lines, gas valves, gas controls and gas pressure; flues and combustion venting; breaker panels, replacing breakers, wiring, and installing or replacing outlets, switches or light fixtures; and anything involving refrigerant. For these, give NO do-it-yourself steps and no numbered list. In a few calm, plain sentences (no alarm): say briefly why it needs a pro; say who to call (a licensed plumber, HVAC technician, electrician, or the gas utility) and what they will do; and list, as bullets, the safe things the homeowner can do now — check the thermostat setting and batteries, check that the power switch and breaker are on, reset a tripped breaker or GFCI once (if it trips again, leave it off and call an electrician), and note the symptoms, error codes or blink pattern to tell the technician. Facts from the manual that help them describe the problem (what an error code means, a normal reading) are fine to share; the hands-on fix is not." +
   "\n- In those answers, when the job involves gas or combustion, include one line: if you ever smell gas (a rotten-egg smell), leave the home right away, don't touch light switches or anything that could spark, and call the gas utility or 911 from outside. If the person says they smell gas now, lead with exactly that, before anything else." +
-  "\n- Everyday upkeep stays do-it-yourself with numbered steps as usual: replacing an air filter, resetting a GFCI or a tripped breaker, cleaning filters, descaling, and other care the manual gives the owner."
+  "\n- Routine care that the manual gives the owner stays do-it-yourself with numbered steps as usual, even on a gas appliance: replacing an air filter; cleaning a cooktop's removable grates and burner caps; cleaning a lint filter or checking a dryer vent for lint; flushing a water heater, including setting its control to PILOT or VACATION as the manual says; resetting a GFCI or a tripped breaker; descaling. Only the jobs listed above are a professional's."
 
 /** A v1 system prompt with SAFETY_RULES inserted where chatSystemPrompt puts
  *  it: right after the "Use markdown" rule. The tests and the chat eval hold
