@@ -99,7 +99,7 @@ export function SuggestedRow({ suggestion, itemName, onAdd, onDismiss, last }: S
 /** The band's footnote — the same sentence on every surface, so provenance never varies. */
 export function SuggestedSource({ kindLabel }: { kindLabel: string }) {
   return (
-    <div className="flex items-start gap-2 px-4 py-2.5 text-[11.5px] leading-snug" style={{ borderTop: "1px solid var(--hh-line, rgba(15,23,42,.10))", background: AMBER_SOFT, color: "#6B4A0E" }}>
+    <div className="flex items-start gap-2 px-4 py-2.5 text-[11.5px] leading-snug" style={{ borderTop: "1px solid var(--hh-line, rgba(15,23,42,.10))", background: AMBER_SOFT, color: "var(--hh-gold-ink)" }}>
       Typical for {kindLabel} — not from this unit&apos;s manual. Stays until you add or dismiss it; the manual replaces these with the exact schedule.
     </div>
   )

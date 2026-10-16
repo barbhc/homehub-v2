@@ -276,7 +276,7 @@ export function RefinedTaskDetail({
         )}
       </label>
       {reminderError && (
-        <p className="mt-1.5 px-1 text-[12px] font-semibold" style={{ color: "#C2410C" }}>{reminderError}</p>
+        <p className="mt-1.5 px-1 text-[12px] font-semibold" style={{ color: "var(--hh-clay)" }}>{reminderError}</p>
       )}
     </>
   ) : null
@@ -284,7 +284,7 @@ export function RefinedTaskDetail({
   // Beside Mark done in BOTH lanes (desktop rail, phone bar) — the same
   // reason as the reminder control above: one lane is always invisible.
   const doneErrorNote = doneError ? (
-    <p role="alert" className="px-1 text-[12px] font-semibold" style={{ color: "#C2410C" }}>{doneError}</p>
+    <p role="alert" className="px-1 text-[12px] font-semibold" style={{ color: "var(--hh-clay)" }}>{doneError}</p>
   ) : null
 
   const assignControl = (
@@ -386,7 +386,7 @@ export function RefinedTaskDetail({
           {detail.justification && (
             <div className="flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: "var(--hh-surface2)" }}>
               <InfoIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
-              <span className="text-[13.5px] leading-snug text-pretty" style={{ color: "#3A4A45" }}>{detail.justification}</span>
+              <span className="text-[13.5px] leading-snug text-pretty" style={{ color: "var(--hh-ink-soft)" }}>{detail.justification}</span>
             </div>
           )}
 
@@ -507,7 +507,7 @@ export function RefinedTaskDetail({
 
       {/* Sticky Mark done (mobile only) */}
       {!done && (
-        <div className="absolute inset-x-0 bottom-0 border-t border-[var(--hh-line)] px-5 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden" style={{ paddingInline: d.pad, background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
+        <div className="hh-frost absolute inset-x-0 bottom-0 border-t border-[var(--hh-line)] px-5 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden" style={{ paddingInline: d.pad, background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
           {doneErrorNote && <div className="mb-2">{doneErrorNote}</div>}
           <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>
             <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
@@ -635,7 +635,7 @@ function ConfirmDoneSheet({
     <>
       <div onClick={onClose} className="absolute inset-0 z-40" style={{ background: "rgba(8,12,11,0.4)" }} />
       <div className="absolute inset-x-0 bottom-0 z-41 rounded-t-[20px] px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)]" style={{ paddingInline: d.pad, background: "var(--hh-surface)" }}>
-        <div className="mx-auto mb-4 h-1 w-9 rounded-full" style={{ background: "rgba(15,23,42,0.15)" }} />
+        <div className="mx-auto mb-4 h-1 w-9 rounded-full" style={{ background: "var(--hh-grab)" }} />
         {/* One decision, already made. The sheet used to open with six things
             to press — two when-buttons, two bump-buttons, Confirm, dismiss —
             to answer a question the app can assume: you did it today, and the

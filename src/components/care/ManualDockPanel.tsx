@@ -106,7 +106,7 @@ export function ManualDockPanel({
           ? "absolute inset-y-0 left-0 w-2 -translate-x-1/2 cursor-col-resize flex items-center justify-center"
           : "absolute inset-x-0 top-0 h-2 -translate-y-1/2 cursor-row-resize flex items-center justify-center"}
       >
-        <span className="rounded-full" style={{ background: "var(--hh-line2)", ...(isDesktop ? { width: 3, height: 34 } : { width: 34, height: 3 }) }} />
+        <span className="rounded-full" style={{ background: "var(--hh-grab)", ...(isDesktop ? { width: 3, height: 34 } : { width: 34, height: 3 }) }} />
       </div>
 
       {/* Header + toolbar */}

@@ -17,7 +17,7 @@ export function SpecsSection({ specsChunks, hasBrandOrModel }: SpecsSectionProps
           <AccordionTrigger>From your manual</AccordionTrigger>
           <AccordionContent>
             {!hasBrandOrModel && (
-              <p className="text-sm text-muted-foreground mb-3 bg-white/40 border border-white/50 rounded-xl px-3 py-2">
+              <p className="text-sm text-muted-foreground mb-3 bg-[var(--hh-surface2)] border border-[var(--hh-line)] rounded-xl px-3 py-2">
                 Some item details above may be fillable from your manual specs.
               </p>
             )}

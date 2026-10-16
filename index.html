@@ -52,7 +52,7 @@
     <title>homehub</title>
     <script>
       // Set theme class before paint to avoid a flash of the wrong appearance.
-      (function(){try{var k='hh-appearance';var p=localStorage.getItem(k);if(p!=='light'&&p!=='dark'&&p!=='system')p='light';var d=p==='dark'||(p==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();
+      (function(){try{var k='hh-appearance';var p=localStorage.getItem(k);if(p!=='light'&&p!=='dark'&&p!=='system')p='system';var d=p==='dark'||(p==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();
     </script>
     <style>
       /* Instant boot splash — painted before the JS bundle parses and before

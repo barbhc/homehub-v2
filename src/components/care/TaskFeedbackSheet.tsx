@@ -254,7 +254,7 @@ export function TaskFeedbackSheet({
         aria-label="Tune this task"
       >
         <div className="shrink-0 px-5 pt-4">
-          <div className="mx-auto mb-3 h-1 w-9 rounded-full" style={{ background: "rgba(15,23,42,0.15)" }} />
+          <div className="mx-auto mb-3 h-1 w-9 rounded-full" style={{ background: "var(--hh-grab)" }} />
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-[calc(18px+env(safe-area-inset-bottom))]" style={{ display: step === "discuss" ? "flex" : "block", flexDirection: "column" }}>
@@ -406,7 +406,7 @@ export function TaskFeedbackSheet({
                 <div className="rounded-xl p-3" style={{ border: "1.5px solid var(--hh-teal)", background: "var(--hh-teal-wash)" }}>
                   <div className="flex items-start gap-2">
                     <SparklesIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
-                    <span className="text-[13px] leading-snug" style={{ color: "#3A4A45" }}>{discussProposal.rationale}</span>
+                    <span className="text-[13px] leading-snug" style={{ color: "var(--hh-ink-soft)" }}>{discussProposal.rationale}</span>
                   </div>
                   <button onClick={() => acceptProposal(discussProposal)} className="mt-2.5 w-full rounded-[12px] py-2.5 text-[13.5px] font-bold text-white" style={{ background: TEAL }}>
                     Apply this change
@@ -429,7 +429,7 @@ export function TaskFeedbackSheet({
               </span>
               <div className="text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>A safety check first</div>
             </div>
-            <div className="mt-3 rounded-xl px-3.5 py-3 text-[13.5px] leading-relaxed text-pretty" style={{ background: "var(--hh-surface2)", color: "#3A4A45" }}>
+            <div className="mt-3 rounded-xl px-3.5 py-3 text-[13.5px] leading-relaxed text-pretty" style={{ background: "var(--hh-surface2)", color: "var(--hh-ink-soft)" }}>
               {justification?.trim() || "This task guards against a gas, combustion, or electrical hazard."}
               {manualPage != null && <> The manual covers the full procedure and warnings on p.{manualPage}.</>}
               <div className="mt-2 font-semibold" style={{ color: INK }}>Gas, combustion, and electrical work is best left to a licensed professional.</div>
@@ -452,7 +452,7 @@ export function TaskFeedbackSheet({
             <div className="text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Confirm</div>
             <div className="mt-3 flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: "var(--hh-surface2)" }}>
               <SparklesIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
-              <span className="text-[13.5px] font-semibold leading-snug text-pretty" style={{ color: "#3A4A45" }}>{planSummary}.</span>
+              <span className="text-[13.5px] font-semibold leading-snug text-pretty" style={{ color: "var(--hh-ink-soft)" }}>{planSummary}.</span>
             </div>
 
             {sweepEligible && (

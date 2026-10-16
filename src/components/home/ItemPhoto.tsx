@@ -206,7 +206,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
   return (
     <div
       className={cn("relative flex items-center justify-center overflow-hidden", className)}
-      style={photoUrl ? { background: "#fff" } : { background: "linear-gradient(135deg,var(--hh-teal-wash),#DCE9E4)" }}
+      style={photoUrl ? { background: "#fff" } : { background: "var(--hh-tile)" }}
     >
       {photoUrl ? (
         <img

@@ -45,7 +45,7 @@ export function KnowledgeSection({
                   {faqs.map((faq) => (
                     <li
                       key={faq.faq_id}
-                      className="border border-white/60 bg-white/40 backdrop-blur-sm rounded-[14px] p-3"
+                      className="rounded-[14px] border border-[var(--hh-line2)] bg-[var(--hh-surface)] p-3"
                     >
                       <p className="font-semibold text-sm">{faq.question}</p>
                       <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">

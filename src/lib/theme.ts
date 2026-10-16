@@ -14,12 +14,18 @@ export const APPEARANCE_KEY = "hh-appearance"
 
 const MEDIA = "(prefers-color-scheme: dark)"
 
+/**
+ * What someone who never opened Settings › Appearance gets. Was "light" while
+ * dark mode had known breaks; the 2026-10-15 dark-mode pass fixed those, and an
+ * iOS app that ignores the phone's appearance setting reads as unfinished. An
+ * explicit choice (any stored value) still wins.
+ */
+export const DEFAULT_APPEARANCE: Appearance = "system"
+
 export function getStoredAppearance(): Appearance {
-  // Default to Light: the redesign is light-first ("white surfaces, ink text,
-  // muted #1B6B5A teal"). Dark stays available via Settings and is opt-in.
-  if (typeof localStorage === "undefined") return "light"
+  if (typeof localStorage === "undefined") return DEFAULT_APPEARANCE
   const v = localStorage.getItem(APPEARANCE_KEY)
-  return v === "light" || v === "dark" || v === "system" ? v : "light"
+  return v === "light" || v === "dark" || v === "system" ? v : DEFAULT_APPEARANCE
 }
 
 function systemPrefersDark(): boolean {
@@ -40,8 +46,11 @@ export function applyAppearance(pref: Appearance): void {
 /**
  * Inline snippet to run in <head> before paint. Reads the stored preference and
  * sets the `dark` class immediately so there's no flash of the wrong theme.
+ * index.html carries this exact text (theme.test.ts pins it), and the CSP in
+ * firebase.json pins index.html's inline scripts by hash (csp.test.ts) — change
+ * one and you must change all three.
  */
-export const THEME_INIT_SNIPPET = `(function(){try{var k='${APPEARANCE_KEY}';var p=localStorage.getItem(k);if(p!=='light'&&p!=='dark'&&p!=='system')p='light';var d=p==='dark'||(p==='system'&&window.matchMedia&&window.matchMedia('${MEDIA}').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`
+export const THEME_INIT_SNIPPET = `(function(){try{var k='${APPEARANCE_KEY}';var p=localStorage.getItem(k);if(p!=='light'&&p!=='dark'&&p!=='system')p='${DEFAULT_APPEARANCE}';var d=p==='dark'||(p==='system'&&window.matchMedia&&window.matchMedia('${MEDIA}').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`
 
 /**
  * Hook for reading/setting the appearance preference. Keeps the `dark` class in

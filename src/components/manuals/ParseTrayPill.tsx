@@ -161,10 +161,10 @@ export function ParseTrayPill() {
           {/* Moves only while something is actually being read, and holds still
               under reduced motion (the mock's rule for the rail and the pill). */}
           {running.length > 0
-            ? <Loader2Icon className="size-3.5 motion-safe:animate-spin" style={{ color: "var(--hh-teal)" }} />
+            ? <Loader2Icon className="size-3.5 motion-safe:animate-spin" style={{ color: "var(--hh-accent-on-ink)" }} />
             : ready.length > 0
-              ? <CheckIcon className="size-3.5" style={{ color: "var(--hh-teal)" }} />
-              : <ClockIcon className="size-3.5" style={{ color: "var(--hh-teal)" }} />}
+              ? <CheckIcon className="size-3.5" style={{ color: "var(--hh-accent-on-ink)" }} />
+              : <ClockIcon className="size-3.5" style={{ color: "var(--hh-accent-on-ink)" }} />}
           {line}
         </button>
       </div>
