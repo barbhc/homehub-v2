@@ -254,7 +254,7 @@ export function HomeProfileSection({ homeId }: Props) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                A mild climate skips winterizing tasks when new manuals are scanned.
+                A mild climate skips winterizing tasks in new manuals, and offers to turn off the ones you already have.
               </p>
             </div>
 
