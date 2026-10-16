@@ -668,7 +668,7 @@ function AskForHome() {
       </div>
 
       {/* Save-to-item dialog — available on both mobile and desktop. The ONLY
-          one: every answer's "Save to knowledge base" opens this instance. */}
+          one: every answer's Save opens this instance. */}
       <SaveFaqDialog
         open={saveDialog.open}
         onOpenChange={(open) => setSaveDialog((p) => ({ ...p, open }))}
@@ -683,7 +683,7 @@ function AskForHome() {
       />
       {savedNotice && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg">
-          Saved to knowledge base
+          Answer saved
         </div>
       )}
     </div>

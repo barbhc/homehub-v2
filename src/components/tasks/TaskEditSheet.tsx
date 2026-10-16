@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { createPortal } from "react-dom"
+import { RemoveScroll } from "react-remove-scroll"
 import { GripVerticalIcon, PlusIcon, XIcon } from "lucide-react"
 import { updateTaskContent, rescheduleTaskInstance, type TaskDetail } from "@/modules/care"
 import { classifyTaskDetail, stepsAllowedFor } from "@/lib/taskActor"
@@ -91,8 +92,12 @@ export function TaskEditSheet({
   // transform/filter ancestor, which would otherwise trap `fixed` in a local
   // stacking context. Any future sheet outside the Radix primitives needs both
   // halves of this — the portal AND a z-index above the nav's.
+  //
+  // RemoveScroll is what the Radix sheets use: the page behind is locked while
+  // this is open, and a scroll that reaches the panel's end stops there
+  // (overscroll-contain) instead of moving the page (audit 2026-10-15).
   return createPortal(
-    <>
+    <RemoveScroll allowPinchZoom>
       <button
         type="button"
         aria-label="Cancel editing"
@@ -103,7 +108,7 @@ export function TaskEditSheet({
       <div
         role="dialog"
         aria-label="Edit task"
-        className="fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] overflow-y-auto rounded-t-[20px] px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:inset-x-auto lg:right-6 lg:top-6 lg:bottom-6 lg:w-[440px] lg:rounded-[20px]"
+        className="fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] overflow-y-auto overscroll-contain rounded-t-[20px] px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:inset-x-auto lg:right-6 lg:top-6 lg:bottom-6 lg:w-[440px] lg:rounded-[20px]"
         style={{ background: "var(--hh-surface)" }}
       >
         <div className="mx-auto mb-4 h-1 w-9 rounded-full lg:hidden" style={{ background: "var(--hh-grab)" }} />
@@ -214,7 +219,7 @@ export function TaskEditSheet({
           </div>
         </div>
       </div>
-    </>,
+    </RemoveScroll>,
     document.body
   )
 }

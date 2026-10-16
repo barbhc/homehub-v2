@@ -70,14 +70,19 @@ export function ManualDockPanel({
         onSizeChange(Math.max(30, Math.min(85, pct)))
       }
     }
+    // pointercancel ends the drag too: when the OS takes the touch (a system
+    // gesture, an incoming call) no pointerup ever arrives, and the panel kept
+    // resizing to the next pointer it saw (audit 2026-10-15).
     const up = () => {
       window.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", up)
+      window.removeEventListener("pointercancel", up)
       document.body.style.userSelect = ""
     }
     document.body.style.userSelect = "none"
     window.addEventListener("pointermove", move)
     window.addEventListener("pointerup", up)
+    window.addEventListener("pointercancel", up)
   }, [isDesktop, onSizeChange])
 
   if (!open) return null
@@ -96,15 +101,19 @@ export function ManualDockPanel({
 
   return (
     <div className="z-[60] flex flex-col shadow-[0_-2px_24px_rgba(11,26,22,0.12)]" style={{ ...panelStyle, background: "var(--hh-surface)" }}>
-      {/* Divider handle on the inner edge */}
+      {/* Divider handle on the inner edge. The grab area is 44px, centred on
+          the edge (it was 8px — a finger-sized miss); the bar drawn stays the
+          same thin line. touch-none: a vertical drag here resizes the panel
+          rather than scrolling the page underneath. The toolbar's buttons sit
+          above this area (IconBtn's z-[1]) so it never takes their taps. */}
       <div
         onPointerDown={startResize}
         role="separator"
         aria-orientation={isDesktop ? "vertical" : "horizontal"}
         aria-label="Resize manual panel"
         className={isDesktop
-          ? "absolute inset-y-0 left-0 w-2 -translate-x-1/2 cursor-col-resize flex items-center justify-center"
-          : "absolute inset-x-0 top-0 h-2 -translate-y-1/2 cursor-row-resize flex items-center justify-center"}
+          ? "absolute inset-y-0 left-0 w-11 -translate-x-1/2 cursor-col-resize touch-none flex items-center justify-center"
+          : "absolute inset-x-0 top-0 h-11 -translate-y-1/2 cursor-row-resize touch-none flex items-center justify-center"}
       >
         <span className="rounded-full" style={{ background: "var(--hh-grab)", ...(isDesktop ? { width: 3, height: 34 } : { width: 34, height: 3 }) }} />
       </div>
@@ -171,7 +180,8 @@ function IconBtn({ children, label, onClick, disabled }: { children: ReactNode; 
   return (
     <button
       type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled}
-      className="grid size-8 place-items-center rounded-[8px] disabled:opacity-40"
+      // relative z-[1]: above the resize handle's 44px grab area where the two overlap.
+      className="relative z-[1] grid size-8 place-items-center rounded-[8px] disabled:opacity-40"
       style={{ color: "var(--hh-ink)" }}
     >
       {children}
