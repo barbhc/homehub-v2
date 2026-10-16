@@ -2,6 +2,7 @@ import { useState } from "react"
 import { createPortal } from "react-dom"
 import { GripVerticalIcon, PlusIcon, XIcon } from "lucide-react"
 import { updateTaskContent, rescheduleTaskInstance, type TaskDetail } from "@/modules/care"
+import { classifyTaskDetail, stepsAllowedFor } from "@/lib/taskActor"
 
 /**
  * Edit a task: its name, when it's next due, and its steps.
@@ -33,6 +34,7 @@ export function TaskEditSheet({
   const [title, setTitle] = useState(detail.title)
   const [dueDate, setDueDate] = useState(detail.dueDate)
   const [steps, setSteps] = useState<string[]>(detail.steps ?? [])
+  const stepsEditable = stepsAllowedFor(classifyTaskDetail(detail))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -144,7 +146,9 @@ export function TaskEditSheet({
             </p>
           </div>
 
-          <div>
+          {/* Hazardous work has no DIY steps to show, so none to edit either —
+              the same decision the task page makes (StepsOrProNotice). */}
+          {stepsEditable && <div>
             <span className={label} style={{ color: "var(--hh-sub)" }}>Steps</span>
             <div className="flex flex-col gap-2">
               {steps.map((s, i) => (
@@ -183,7 +187,7 @@ export function TaskEditSheet({
                 No steps yet — add your own, in your words.
               </p>
             )}
-          </div>
+          </div>}
 
           {error && (
             <p className="text-[13px] font-semibold" style={{ color: "var(--hh-clay)" }}>{error}</p>
