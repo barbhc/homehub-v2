@@ -29,6 +29,15 @@ beforeEach(() => {
 })
 
 describe("TaskEditSheet", () => {
+  it("locks the page behind while open, as the Radix sheets do, and lets go on close", async () => {
+    const { unmount } = render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
+    // react-remove-scroll marks <body> once its side effect mounts.
+    await waitFor(() => expect(document.body).toHaveAttribute("data-scroll-locked"))
+    expect(screen.getByRole("dialog", { name: "Edit task" })).toHaveClass("overscroll-contain")
+    unmount()
+    await waitFor(() => expect(document.body).not.toHaveAttribute("data-scroll-locked"))
+  })
+
   it("saves nothing until something actually changed", () => {
     render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
     expect(screen.getByRole("button", { name: /save changes/i })).toBeDisabled()
@@ -70,5 +79,35 @@ describe("TaskEditSheet", () => {
     expect(updateTaskContent).toHaveBeenCalledWith("h1", "tpl1", {
       steps: ["Lift the grate.", "Replace any cracked bumper."],
     })
+  })
+})
+
+describe("TaskEditSheet — hazardous work", () => {
+  // Owner's standing rule: no DIY steps for gas / combustion / live electrical
+  // work. The task page shows the pro notice instead of the steps, so the sheet
+  // must not offer them for editing either — but the name and date still are.
+  const gas = {
+    taskInstanceId: "inst2",
+    taskTemplateId: "tpl2",
+    title: "Relight the gas furnace pilot",
+    dueDate: "2026-08-15",
+    notes: null,
+    description: null,
+    justification: null,
+    steps: ["Turn the gas valve to OFF.", "Hold the pilot knob and press the igniter."],
+  } as never
+
+  it("hides the steps editor and keeps the name and date", () => {
+    render(<TaskEditSheet homeId="h1" detail={gas} onClose={() => {}} onSaved={() => {}} />)
+    expect(screen.queryByDisplayValue("Turn the gas valve to OFF.")).toBeNull()
+    expect(screen.queryByRole("button", { name: /add a step/i })).toBeNull()
+    expect(screen.getByPlaceholderText(/what is this task called/i)).toHaveValue("Relight the gas furnace pilot")
+    expect(screen.getByDisplayValue("2026-08-15")).toBeInTheDocument()
+  })
+
+  it("a DIY task keeps its steps editor", () => {
+    render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
+    expect(screen.getByDisplayValue("Lift the grate.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /add a step/i })).toBeInTheDocument()
   })
 })

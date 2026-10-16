@@ -19,7 +19,9 @@ import { parseSteps } from "@/pages/item-detail/utils"
 import { CareBlock } from "@/components/item-care/CareBlock"
 import { categoryLabel } from "@/lib/categoryLabel"
 import { WarrantyPanel } from "@/components/item-care/WarrantyPanel"
-import { StepList, InfoBlurb, ManualBlurb, ProEscalate } from "@/components/tasks/TaskHowTo"
+import { StepList, InfoBlurb, ManualBlurb } from "@/components/tasks/TaskHowTo"
+import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
+import { classifyTaskFields, stepsAllowedFor } from "@/lib/taskActor"
 import { ItemPhoto } from "./ItemPhoto"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)", FAINT = "var(--hh-faint)"
@@ -94,11 +96,28 @@ function toSpecRows(cf: unknown): { label: string; value: string }[] {
 }
 
 // ── Guides tab (how_to + cleaning_guide chunks) ──────────────────────────────
+/**
+ * Who a manual section's steps are for — the same classifier and the same
+ * rule as a task's (owner, standing: no DIY steps for gas, combustion or live
+ * electrical work), judged on the section's title, prose, conditions/causes
+ * and steps.
+ */
+function chunkActor(chunk: KnowledgeChunk) {
+  const scenarios = chunk.scenarios ?? []
+  return classifyTaskFields({
+    title: chunk.title,
+    instructions: chunk.content,
+    description: scenarios.map((s) => s.condition).filter(Boolean).join(". "),
+    steps: scenarios.flatMap((s) => s.steps ?? []),
+  })
+}
+
 /** Title + "N steps · manual p.X" meta; expands to the shared numbered steps. */
-function GuideCard({ chunk, onOpenManualPage }: { chunk: KnowledgeChunk; onOpenManualPage?: (page: number) => void }) {
+export function GuideCard({ chunk, onOpenManualPage }: { chunk: KnowledgeChunk; onOpenManualPage?: (page: number) => void }) {
   const [open, setOpen] = useState(false)
   const scenarios = chunk.scenarios ?? []
-  const stepCount = scenarios.reduce((n, s) => n + (s.steps?.length ?? 0), 0)
+  const actor = chunkActor(chunk)
+  const stepCount = stepsAllowedFor(actor) ? scenarios.reduce((n, s) => n + (s.steps?.length ?? 0), 0) : 0
   const page = chunk.source_pages?.[0] ?? null
   const meta = [stepCount > 0 ? `${stepCount} step${stepCount === 1 ? "" : "s"}` : null, page != null ? `manual p.${page}` : null].filter(Boolean).join(" · ")
   // No structured scenarios → parse the prose into steps so guides never dump a paragraph.
@@ -117,18 +136,21 @@ function GuideCard({ chunk, onOpenManualPage }: { chunk: KnowledgeChunk; onOpenM
       </div>
       {open && (
         <div className="flex flex-col gap-3.5 px-4 pb-4 pt-3.5" style={{ borderTop: `1px solid ${LINE}`, background: SLATE_SOFT }}>
-          {scenarios.length > 0 ? (
-            scenarios.map((sc, si) => (
-              <div key={si} className="flex flex-col gap-2">
-                {sc.condition && <div className="text-[11px] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>{sc.condition}</div>}
-                <StepList steps={sc.steps ?? []} />
-              </div>
-            ))
-          ) : fallbackSteps.length > 0 ? (
-            <StepList steps={fallbackSteps} />
-          ) : (
-            <div className="text-[13px]" style={{ color: SUB }}>Open this guide for the full steps.</div>
-          )}
+          {/* Hazardous work: the pro notice instead of the steps. */}
+          <StepsOrProNotice actor={actor}>
+            {scenarios.length > 0 ? (
+              scenarios.map((sc, si) => (
+                <div key={si} className="flex flex-col gap-2">
+                  {sc.condition && <div className="text-[11px] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>{sc.condition}</div>}
+                  <StepList steps={sc.steps ?? []} />
+                </div>
+              ))
+            ) : fallbackSteps.length > 0 ? (
+              <StepList steps={fallbackSteps} />
+            ) : (
+              <div className="text-[13px]" style={{ color: SUB }}>Open this guide for the full steps.</div>
+            )}
+          </StepsOrProNotice>
           {page != null && onOpenManualPage && <ManualBlurb page={page} onOpen={() => onOpenManualPage(page)} />}
         </div>
       )}
@@ -199,15 +221,15 @@ function GuidesTab({ howTo, cleaning, onAsk, itemName, onOpenManualPage }: {
 }
 
 // ── Fix-it tab (troubleshooting chunks) ──────────────────────────────────────
-// A fix that mentions a trade pro / live electrical / gas should escalate, not
-// hand the homeowner DIY steps for it.
-const PRO_RE = /electrician|technician|licensed|qualified pro|professional|certified|gas fitter|plumber|service call|service technician/i
+// A fix that is gas / combustion / live-electrical work hands the homeowner the
+// pro notice, not DIY steps; a technician's job gets the notice above the steps.
+// One classifier for this and for tasks (it had its own pro regex, which only
+// added a "Needs a pro?" card BELOW the hazardous steps).
 
-/** Symptom → Likely cause (slate) → The fix (steps) → manual + escalate. */
-function TroubleshootCard({ chunk, onOpenManualPage, onFindPro }: {
+/** Symptom → Likely cause (slate) → The fix (steps) → manual. */
+export function TroubleshootCard({ chunk, onOpenManualPage }: {
   chunk: KnowledgeChunk
   onOpenManualPage?: (page: number) => void
-  onFindPro: () => void
 }) {
   const [open, setOpen] = useState(false)
   const scenarios = (chunk.scenarios?.length
@@ -215,7 +237,7 @@ function TroubleshootCard({ chunk, onOpenManualPage, onFindPro }: {
     : [{ cause: undefined as string | undefined, steps: parseSteps(chunk.content ?? "") }]
   ).filter((s) => s.steps.length > 0 || s.cause)
   const page = chunk.source_pages?.[0] ?? null
-  const needsPro = PRO_RE.test(chunk.content ?? "") || scenarios.some((s) => s.steps.some((st: string) => PRO_RE.test(st)))
+  const actor = chunkActor(chunk)
 
   return (
     <Card pad={0}>
@@ -229,36 +251,36 @@ function TroubleshootCard({ chunk, onOpenManualPage, onFindPro }: {
       </div>
       {open && (
         <div className="flex flex-col gap-3.5 px-4 pb-4 pt-3.5" style={{ borderTop: `1px solid ${LINE}`, background: SLATE_SOFT }}>
-          {scenarios.map((s, i) => (
-            <div key={i} className="flex flex-col gap-3">
-              {s.cause && <InfoBlurb label="Likely cause" icon="search" text={s.cause} />}
-              {s.steps.length > 0 && <StepList steps={s.steps} label="The fix" />}
-            </div>
-          ))}
+          {/* Hazardous: the notice and the likely causes, never "The fix". */}
+          <StepsOrProNotice
+            actor={actor}
+            between={!stepsAllowedFor(actor) && scenarios.map((s, i) => (
+              s.cause ? <InfoBlurb key={i} label="Likely cause" icon="search" text={s.cause} /> : null
+            ))}
+          >
+            {scenarios.map((s, i) => (
+              <div key={i} className="flex flex-col gap-3">
+                {s.cause && <InfoBlurb label="Likely cause" icon="search" text={s.cause} />}
+                {s.steps.length > 0 && <StepList steps={s.steps} label="The fix" />}
+              </div>
+            ))}
+          </StepsOrProNotice>
           {page != null && onOpenManualPage && <ManualBlurb page={page} onOpen={() => onOpenManualPage(page)} />}
-          {needsPro && (
-            <ProEscalate
-              text="If this doesn't resolve it, have it checked by a qualified professional rather than pushing further."
-              cta="Find a pro"
-              onFindPro={onFindPro}
-            />
-          )}
         </div>
       )}
     </Card>
   )
 }
 
-function FixTab({ trouble, onAsk, onOpenManualPage, onFindPro }: {
+function FixTab({ trouble, onAsk, onOpenManualPage }: {
   trouble: KnowledgeChunk[]
   onAsk: () => void
   onOpenManualPage?: (page: number) => void
-  onFindPro: () => void
 }) {
   return (
     <div className="flex flex-col gap-3">
       {trouble.length ? (
-        trouble.map((c) => <TroubleshootCard key={c.chunk_id} chunk={c} onOpenManualPage={onOpenManualPage} onFindPro={onFindPro} />)
+        trouble.map((c) => <TroubleshootCard key={c.chunk_id} chunk={c} onOpenManualPage={onOpenManualPage} />)
       ) : (
         <Card className="text-center" pad={26}>
           <div className="text-[13.5px]" style={{ color: SUB }}>No troubleshooting yet for this item.</div>
@@ -453,15 +475,15 @@ export function DesktopItemDetail({
       </Card>
 
       {recallFound && (
-        <div className="mb-6 rounded-2xl border p-4" style={{ background: "var(--hh-slate-soft)", borderColor: "#DBE6EF" }}>
+        <div className="mb-6 rounded-2xl border p-4" style={{ background: "var(--hh-slate-soft)", borderColor: "var(--hh-slate-line)" }}>
           <div className="flex items-start gap-3">
-            <div className="grid size-9 shrink-0 place-items-center rounded-[10px] border bg-[var(--hh-surface)]" style={{ borderColor: "#DBE6EF" }}>
+            <div className="grid size-9 shrink-0 place-items-center rounded-[10px] border bg-[var(--hh-surface)]" style={{ borderColor: "var(--hh-slate-line)" }}>
               <MegaphoneIcon className="size-[18px]" style={{ color: SLATE }} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: SLATE }}>Safety notice</div>
               <div className="text-[15px] font-bold tracking-[-0.2px]" style={{ color: INK }}>Possible recall</div>
-              {item.recall_notes && <div className="mt-1 text-[13px] leading-snug" style={{ color: "#5A6863" }}>{item.recall_notes}</div>}
+              {item.recall_notes && <div className="mt-1 text-[13px] leading-snug" style={{ color: "var(--hh-sub)" }}>{item.recall_notes}</div>}
             </div>
           </div>
         </div>
@@ -510,7 +532,7 @@ export function DesktopItemDetail({
             />
           )}
           {tab === "guides" && <GuidesTab howTo={howToChunks} cleaning={cleaningChunks} onAsk={goAsk} itemName={item.display_name} onOpenManualPage={onOpenManualPage} />}
-          {tab === "fix" && <FixTab trouble={troubleChunks} onAsk={goAsk} onOpenManualPage={onOpenManualPage} onFindPro={() => navigate("/providers")} />}
+          {tab === "fix" && <FixTab trouble={troubleChunks} onAsk={goAsk} onOpenManualPage={onOpenManualPage} />}
           {tab === "saved" && <SavedTab faqs={faqs} />}
           {tab === "activity" && (
             <div className="[&_section]:bg-[var(--hh-surface)]">

@@ -4,6 +4,7 @@ import { ChevronLeftIcon, ClockIcon, MapPinIcon, SparklesIcon } from "lucide-rea
 import { useCurrentHome } from "@/modules/home"
 import { getItemCleanGuide, type ItemCleanGuide } from "@/lib/cleanSession"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
+import { classifyTaskFields } from "@/lib/taskActor"
 import { LoadErrorState } from "@/components/layout/LoadStates"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 
@@ -102,7 +103,13 @@ export default function CleanGuide() {
                   <h2 className="min-w-0 flex-1 text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{t.title}</h2>
                   {t.estimatedMinutes != null && <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: SUB }}>{t.estimatedMinutes} min</span>}
                 </div>
-                <HowToSteps notes={t.instructions} steps={t.steps} supplies={t.supplies} stepsLabel="" />
+                <HowToSteps
+                  actor={classifyTaskFields({ title: t.title, instructions: t.instructions, steps: t.steps })}
+                  notes={t.instructions}
+                  steps={t.steps}
+                  supplies={t.supplies}
+                  stepsLabel=""
+                />
               </div>
             ))}
           </div>

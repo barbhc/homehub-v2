@@ -320,14 +320,14 @@ export function HeroCard({
                 className="w-full h-full object-contain mix-blend-multiply"
               />
               <div className="absolute inset-0 bg-black/0 group-hover/photo:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover/photo:opacity-100">
-                <label className="cursor-pointer p-2 rounded-full bg-white/85 hover:bg-white transition-colors">
+                <label className="cursor-pointer p-2 rounded-full bg-card/85 hover:bg-card transition-colors">
                   <CameraIcon className="size-4 text-foreground" />
                   <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
                 </label>
                 <button
                   type="button"
                   onClick={() => setPhotoSearchOpen(true)}
-                  className="p-2 rounded-full bg-white/85 hover:bg-white transition-colors"
+                  className="p-2 rounded-full bg-card/85 hover:bg-card transition-colors"
                   aria-label="Search for product photo"
                 >
                   <SearchIcon className="size-4 text-foreground" />
@@ -365,14 +365,14 @@ export function HeroCard({
                 className="w-[72px] h-[72px] sm:w-28 sm:h-28 rounded-xl object-contain mix-blend-multiply bg-white"
               />
               <div className="absolute inset-0 rounded-xl bg-black/0 group-hover/photo:bg-black/30 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover/photo:opacity-100">
-                <label className="cursor-pointer p-2.5 rounded-full bg-white/80 hover:bg-white transition-colors">
+                <label className="cursor-pointer p-2.5 rounded-full bg-card/85 hover:bg-card transition-colors">
                   <CameraIcon className="size-3.5 text-foreground" />
                   <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
                 </label>
                 <button
                   type="button"
                   onClick={() => setPhotoSearchOpen(true)}
-                  className="p-2.5 rounded-full bg-white/80 hover:bg-white transition-colors"
+                  className="p-2.5 rounded-full bg-card/85 hover:bg-card transition-colors"
                   aria-label="Search for product photo"
                 >
                   <SearchIcon className="size-3.5 text-foreground" />
@@ -461,7 +461,7 @@ export function HeroCard({
       {/* Expandable details drawer — always visible on desktop sidebar, toggle on mobile */}
       {(detailsOpen || sidebarMode) && (
         <div className={cn(
-          "border-t border-white/60 mt-3 pt-3 space-y-1.5",
+          "border-t border-[var(--hh-line2)] mt-3 pt-3 space-y-1.5",
           sidebarMode && !detailsOpen && "hidden lg:block"
         )}>
           {/* Brand */}
@@ -649,7 +649,7 @@ export function HeroCard({
           )}
 
           {/* Warranty section */}
-          <div className="border-t border-white/60 pt-2.5 mt-2">
+          <div className="border-t border-[var(--hh-line2)] pt-2.5 mt-2">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Warranty</span>
             <div className="mt-1.5 space-y-1.5">
               <EditableRow
@@ -686,14 +686,14 @@ export function HeroCard({
           </div>
 
           {/* Tags — inside details drawer */}
-          <div className="border-t border-white/60 pt-2.5 mt-2">
+          <div className="border-t border-[var(--hh-line2)] pt-2.5 mt-2">
             <div className="flex items-start gap-1.5 flex-wrap min-h-[28px]">
               <span className="text-xs text-muted-foreground w-16 shrink-0 pt-1">Tags</span>
               <div className="flex items-center gap-1.5 flex-wrap flex-1">
                 {(item.tags ?? []).map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 text-xs rounded-full border border-white/60 bg-white/40 px-2 py-0.5 font-medium text-foreground/80"
+                    className="inline-flex items-center gap-1 text-xs rounded-full border border-[var(--hh-line2)] bg-[var(--hh-surface2)] px-2 py-0.5 font-medium text-foreground/80"
                   >
                     {tag}
                     <button
@@ -745,7 +745,7 @@ export function HeroCard({
                       setEditingTags(true)
                       setTimeout(() => tagInputRef.current?.focus(), 0)
                     }}
-                    className="text-xs text-muted-foreground hover:text-primary border border-dashed border-white/50 hover:border-primary rounded-full px-3 py-1.5 min-h-11 transition-colors"
+                    className="text-xs text-muted-foreground hover:text-primary border border-dashed border-[var(--hh-line2)] hover:border-primary rounded-full px-3 py-1.5 min-h-11 transition-colors"
                   >
                     + tag
                   </button>

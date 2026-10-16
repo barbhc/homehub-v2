@@ -35,7 +35,7 @@ import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { getTaskGuidance } from "@/pages/item-detail/utils"
 import { classifyTaskActor } from "@/lib/taskActor"
 import { StepList, InfoBlurb, ManualBlurb } from "@/components/tasks/TaskHowTo"
-import { ProTaskNotice } from "@/components/tasks/ProTaskNotice"
+import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
 import { useSetupCompletion } from "@/pages/item-detail/useSetupCompletion"
 import { SYMPTOM_TAGS, type ReCheckTrigger } from "@/lib/symptomTaxonomy"
@@ -317,7 +317,6 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
   const reminds = notifiesPhone(taskLikeOf(t), t.scope_type ?? null) && !notificationsBlocked
   const actor = classifyTaskActor(t)
   const { steps, cautions } = getTaskGuidance(t)
-  const showSteps = actor !== "hazardous" && steps.length > 0
   const page = manualPageOf(t)
   const days = due != null ? dueDays(due) : null
   // Never-started past-due cadence: calm "Start anytime", not "N days overdue".
@@ -423,20 +422,23 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                   <AlertTriangle className="mt-px size-4 shrink-0" style={{ color: CLAY }} />
                   <div className="min-w-0">
                     <div className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.5px]" style={{ color: CLAY }}>Safety</div>
-                    <div className="text-[13px] leading-snug" style={{ color: "#6B3A24" }}>{safetyNote}</div>
+                    <div className="text-[13px] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>{safetyNote}</div>
                   </div>
                 </div>
               )}
-              {actor !== "diy" && <ProTaskNotice actor={actor} />}
-              {/* Item Option B: the part lives with the task that uses it. */}
-              <SupplyRows homeId={homeId} taskTemplateId={t.task_template_id} supplies={templateSuppliesOf(t)} nextInstanceId={instanceId} />
-              {showSteps ? (
-                <StepList key={instanceId ?? "none"} steps={steps} />
-              ) : actor === "diy" ? (
-                <div className="text-[13.5px]" style={{ color: SUB }}>
-                  {hasManual ? "Open the manual for step-by-step instructions." : "Add this item's manual to unlock steps."}
-                </div>
-              ) : null}
+              <StepsOrProNotice
+                actor={actor}
+                /* Item Option B: the part lives with the task that uses it. */
+                between={<SupplyRows homeId={homeId} taskTemplateId={t.task_template_id} supplies={templateSuppliesOf(t)} nextInstanceId={instanceId} />}
+              >
+                {steps.length > 0 ? (
+                  <StepList key={instanceId ?? "none"} steps={steps} />
+                ) : actor === "diy" ? (
+                  <div className="text-[13.5px]" style={{ color: SUB }}>
+                    {hasManual ? "Open the manual for step-by-step instructions." : "Add this item's manual to unlock steps."}
+                  </div>
+                ) : null}
+              </StepsOrProNotice>
               <CautionCallout cautions={cautions} />
             </div>
             <div className="flex flex-col gap-3">
@@ -651,7 +653,7 @@ function VariantArea({ options, variant, showAll, inferred, onPick, onToggleShow
     return (
       <div className="flex items-center gap-2.5 rounded-[12px] border px-3.5 py-2.5" style={{ background: TEAL_WASH, borderColor: LINE }}>
         <SlidersHorizontalIcon className="size-[15px] shrink-0" style={{ color: TEALD }} />
-        <span className="flex-1 text-[12.5px] leading-snug" style={{ color: "#2C3B37" }}>
+        <span className="flex-1 text-[12.5px] leading-snug" style={{ color: "var(--hh-ink-soft)" }}>
           {showAll ? "Showing care for all models" : <>Showing care for your <b className="font-bold">{label}</b> model</>}
         </span>
         <button type="button" onClick={onToggleShowAll} className="shrink-0 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEALD }}>
@@ -1178,7 +1180,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.6px]" style={{ color: CLAY }}>Safety note</div>
-            <div className="text-[13px] leading-snug" style={{ color: "#6B3A24" }}>
+            <div className="text-[13px] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>
               {critical.content}
               {critical.source_pages?.[0] != null && <span className="font-semibold" style={{ color: CLAY }}> · manual p.{critical.source_pages[0]}</span>}
             </div>

@@ -194,7 +194,7 @@ export function AppLayout() {
       <ParseTrayPill />
 
       {/* Mobile bottom nav — translucent, iOS-native (redesign shell) */}
-      <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-[var(--hh-line)] backdrop-blur-xl md:hidden pb-[env(safe-area-inset-bottom)]" style={{ background: "color-mix(in srgb, var(--hh-bg) 85%, transparent)" }}>
+      <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-[var(--hh-line)] backdrop-blur-xl md:hidden pb-[env(safe-area-inset-bottom)] hh-frost-bg" style={{ background: "color-mix(in srgb, var(--hh-bg) 85%, transparent)" }}>
         <div className="flex items-start justify-around px-1.5 pt-2.5">
           {visibleNav.filter((n) => !("desktopOnly" in n && n.desktopOnly)).map(({ to, label, icon: Icon, tourId }) => {
             const isActive =

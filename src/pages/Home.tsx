@@ -78,7 +78,7 @@ function EmptyHomeHero() {
   return (
     // data-tour-halt: this screen IS the onboarding — the feature tour defers
     // to it rather than narrating a dashboard the user cannot see yet.
-    <div data-tour-halt="" className="rounded-2xl border border-white/70 bg-white/70 backdrop-blur-sm shadow-sm px-6 py-8 sm:px-10 sm:py-10 text-center">
+    <div data-tour-halt="" className="rounded-2xl border border-[var(--hh-line)] bg-[var(--hh-surface)] shadow-sm px-6 py-8 sm:px-10 sm:py-10 text-center">
       <div className="max-w-md mx-auto">
         <div className="flex justify-center mb-4">
           <span className="inline-flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary">

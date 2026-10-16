@@ -86,13 +86,13 @@ const blocksOf = (m: ChatMessage): ChatContentBlock[] => (typeof m.content === "
 
 /**
  * What the offline eval asserts about one request. Empty = fine.
- *   - the system text is byte-identical to main's (`expectedSystem`, from the fixture);
+ *   - the system text is main's (`expectedSystem`, from the fixture) plus SAFETY_RULES;
  *   - the PDFs lead the FIRST user turn, and the one cache breakpoint is on the last PDF;
  *   - the question is the request's last block, after the breakpoint.
  */
 export function requestShapeProblems(params: ChatRequest["params"], question: string, expectedSystem: string): string[] {
   const problems: string[] = []
-  if (params.system !== expectedSystem) problems.push("system prompt differs from main's")
+  if (params.system !== expectedSystem) problems.push("system prompt differs from main's plus the safety rules")
   const first = params.messages[0]
   const lead = first ? blocksOf(first) : []
   if (!first || first.role !== "user" || lead[0]?.type !== "document") problems.push("the first user turn does not start with the PDF")

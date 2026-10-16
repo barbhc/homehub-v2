@@ -42,6 +42,7 @@ import {
 import { useCurrentHome, getRooms } from "@/modules/home"
 import { cn } from "@/lib/utils"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { missingToAdd } from "./identifyData"
 
 export type IdentifyMode = "choice" | "appliance" | "simple"
 
@@ -537,11 +538,18 @@ export function IdentifyStep({
   // read is the worst version of the name — it produced "Levoit Core Series Air
   // Purifiers" for a Core 300. Blank composes to "Brand Model" on save and the
   // parse improves it. The other lane still needs a name, because there it is
-  // the only thing identifying the item at all.
-  const isValid =
-    mode === "appliance"
-      ? data.brand.trim().length >= 2 && data.model.trim().length >= 1
-      : data.name.trim().length > 0
+  // the only thing identifying the item at all. (The rule: missingToAdd.)
+  const stillNeeded = missingToAdd(mode, data)
+  const isValid = stillNeeded === null
+  // Said under the button once something is typed: a pristine form's empty
+  // fields already say what they want, and a half-filled one is where a
+  // disabled button with no reason stopped people (audit 2026-10-15). Not
+  // while a missed scan is already naming the field (missingRequired) — one
+  // screen says one thing once.
+  const typedSomething =
+    mode === "appliance" ? data.brand.length + data.model.length > 0 : data.name.length > 0
+  const missingHint =
+    stillNeeded && typedSomething && !isCreating && missingRequired.length === 0 ? stillNeeded : null
 
   // ── Lane chooser ──────────────────────────────────────────────────────────
   if (mode === "choice") {
@@ -1203,7 +1211,12 @@ export function IdentifyStep({
             screen drew it that way (ghost Back, solid CTA stretching), and the
             round-18 gallery caught the code hugging content instead, leaving
             dead space to the right of the one button that matters. */}
-        <Button onClick={onConfirm} disabled={!isValid || isCreating} className="flex-1 gap-2">
+        <Button
+          onClick={onConfirm}
+          disabled={!isValid || isCreating}
+          aria-describedby={missingHint ? "identify-missing" : undefined}
+          className="flex-1 gap-2"
+        >
           {isCreating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1219,6 +1232,11 @@ export function IdentifyStep({
           )}
         </Button>
       </div>
+      {missingHint && (
+        <p id="identify-missing" className="-mt-4 text-right text-sm text-muted-foreground">
+          {missingHint}
+        </p>
+      )}
     </div>
   )
 }

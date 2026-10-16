@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { dueKindOf, dueWindow, shortDate, windowPhrase } from "@/lib/dueWindow"
 import { Link } from "react-router-dom"
+import { RemoveScroll } from "react-remove-scroll"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
   RepeatIcon, InfoIcon, ClockIcon, MapPinIcon, CalendarIcon, PackageIcon, MinusIcon, PlusIcon,
@@ -13,7 +14,7 @@ import {
 import { getHomeMembers, type HomeMember } from "@/modules/home"
 import { canAssignTasks } from "@/modules/care"
 import { TaskFeedbackSheet } from "@/components/care/TaskFeedbackSheet"
-import { classifyActorFromText } from "@/lib/taskActor"
+import { classifyTaskDetail } from "@/lib/taskActor"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
 import { SupplyRows } from "@/components/item-care/SupplyRows"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
@@ -238,6 +239,9 @@ export function RefinedTaskDetail({
   const tier = priorityTier(detail.tier === "essential" ? "critical" : detail.tier === "recommended" ? "high" : "medium")
   const assignee = members.find((m) => m.user_id === detail.assignedTo)
   const showAssign = canAssignTasks(members.length)
+  // One decision for this task: it gates the steps below AND the feedback
+  // sheet's safety pushback, so the two can never disagree.
+  const actor = classifyTaskDetail(detail)
 
   // Shared assignment control (button + dropdown). Rendered inline on mobile
   // and inside the sticky rail on desktop — identical markup, no duplication.
@@ -276,7 +280,7 @@ export function RefinedTaskDetail({
         )}
       </label>
       {reminderError && (
-        <p className="mt-1.5 px-1 text-[12px] font-semibold" style={{ color: "#C2410C" }}>{reminderError}</p>
+        <p className="mt-1.5 px-1 text-[12px] font-semibold" style={{ color: "var(--hh-clay)" }}>{reminderError}</p>
       )}
     </>
   ) : null
@@ -284,7 +288,7 @@ export function RefinedTaskDetail({
   // Beside Mark done in BOTH lanes (desktop rail, phone bar) — the same
   // reason as the reminder control above: one lane is always invisible.
   const doneErrorNote = doneError ? (
-    <p role="alert" className="px-1 text-[12px] font-semibold" style={{ color: "#C2410C" }}>{doneError}</p>
+    <p role="alert" className="px-1 text-[12px] font-semibold" style={{ color: "var(--hh-clay)" }}>{doneError}</p>
   ) : null
 
   const assignControl = (
@@ -386,13 +390,14 @@ export function RefinedTaskDetail({
           {detail.justification && (
             <div className="flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: "var(--hh-surface2)" }}>
               <InfoIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
-              <span className="text-[13.5px] leading-snug text-pretty" style={{ color: "#3A4A45" }}>{detail.justification}</span>
+              <span className="text-[13.5px] leading-snug text-pretty" style={{ color: "var(--hh-ink-soft)" }}>{detail.justification}</span>
             </div>
           )}
 
           {/* How to — designed numbered steps (warnings split into a caution
-              callout) + supplies, instead of a raw instructions textarea. */}
-          <HowToSteps notes={detail.notes} steps={detail.steps} />
+              callout) + supplies, instead of a raw instructions textarea.
+              Hazardous work shows the pro notice instead of the steps. */}
+          <HowToSteps actor={actor} notes={detail.notes} steps={detail.steps} />
 
           {/* You'll need — the same part editor the item page's row carries
               (Item Option B), not read-only chips: the parsed name is often the
@@ -507,7 +512,7 @@ export function RefinedTaskDetail({
 
       {/* Sticky Mark done (mobile only) */}
       {!done && (
-        <div className="absolute inset-x-0 bottom-0 border-t border-[var(--hh-line)] px-5 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden" style={{ paddingInline: d.pad, background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
+        <div className="hh-frost absolute inset-x-0 bottom-0 border-t border-[var(--hh-line)] px-5 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden" style={{ paddingInline: d.pad, background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
           {doneErrorNote && <div className="mb-2">{doneErrorNote}</div>}
           <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>
             <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
@@ -560,7 +565,7 @@ export function RefinedTaskDetail({
           tier={detail.tier}
           justification={detail.justification}
           manualPage={detail.manualPage}
-          hazardous={classifyActorFromText([detail.title, detail.notes, detail.justification].filter(Boolean).join(" ")) === "hazardous"}
+          hazardous={actor === "hazardous"}
           onClose={() => setFeedbackOpen(false)}
           onApplied={() => { setFeedbackOpen(false); onBack() }}
         />
@@ -631,11 +636,13 @@ function ConfirmDoneSheet({
     return base ? addDays(base, bump * 7) : null
   }, [recurring, scheduleType, completedOn, intervalDays, season, bump])
 
+  // RemoveScroll, as the Radix sheets do: the page behind stays put while
+  // this is open (audit 2026-10-15).
   return (
-    <>
+    <RemoveScroll allowPinchZoom>
       <div onClick={onClose} className="absolute inset-0 z-40" style={{ background: "rgba(8,12,11,0.4)" }} />
       <div className="absolute inset-x-0 bottom-0 z-41 rounded-t-[20px] px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)]" style={{ paddingInline: d.pad, background: "var(--hh-surface)" }}>
-        <div className="mx-auto mb-4 h-1 w-9 rounded-full" style={{ background: "rgba(15,23,42,0.15)" }} />
+        <div className="mx-auto mb-4 h-1 w-9 rounded-full" style={{ background: "var(--hh-grab)" }} />
         {/* One decision, already made. The sheet used to open with six things
             to press — two when-buttons, two bump-buttons, Confirm, dismiss —
             to answer a question the app can assume: you did it today, and the
@@ -692,6 +699,6 @@ function ConfirmDoneSheet({
         )}
         <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="w-full rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>Confirm</button>
       </div>
-    </>
+    </RemoveScroll>
   )
 }

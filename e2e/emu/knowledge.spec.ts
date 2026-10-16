@@ -6,7 +6,7 @@ import { test, expect } from "@playwright/test"
  * end-to-end. The seed attaches one saved Q&A to the furnace (item id "furnace").
  *
  * The item-detail page's other loaders (chunks/manuals) are still on the inert
- * shim, so they render empty rather than crashing — the Saved Q&A section is the
+ * shim, so they render empty rather than crashing — the Saved answers section is the
  * live-data surface under test.
  */
 const visible = { visible: true } as const

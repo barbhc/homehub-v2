@@ -1,7 +1,9 @@
 import { useState } from "react"
 import { createPortal } from "react-dom"
+import { RemoveScroll } from "react-remove-scroll"
 import { GripVerticalIcon, PlusIcon, XIcon } from "lucide-react"
 import { updateTaskContent, rescheduleTaskInstance, type TaskDetail } from "@/modules/care"
+import { classifyTaskDetail, stepsAllowedFor } from "@/lib/taskActor"
 
 /**
  * Edit a task: its name, when it's next due, and its steps.
@@ -33,6 +35,7 @@ export function TaskEditSheet({
   const [title, setTitle] = useState(detail.title)
   const [dueDate, setDueDate] = useState(detail.dueDate)
   const [steps, setSteps] = useState<string[]>(detail.steps ?? [])
+  const stepsEditable = stepsAllowedFor(classifyTaskDetail(detail))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -89,8 +92,12 @@ export function TaskEditSheet({
   // transform/filter ancestor, which would otherwise trap `fixed` in a local
   // stacking context. Any future sheet outside the Radix primitives needs both
   // halves of this — the portal AND a z-index above the nav's.
+  //
+  // RemoveScroll is what the Radix sheets use: the page behind is locked while
+  // this is open, and a scroll that reaches the panel's end stops there
+  // (overscroll-contain) instead of moving the page (audit 2026-10-15).
   return createPortal(
-    <>
+    <RemoveScroll allowPinchZoom>
       <button
         type="button"
         aria-label="Cancel editing"
@@ -101,10 +108,10 @@ export function TaskEditSheet({
       <div
         role="dialog"
         aria-label="Edit task"
-        className="fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] overflow-y-auto rounded-t-[20px] px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:inset-x-auto lg:right-6 lg:top-6 lg:bottom-6 lg:w-[440px] lg:rounded-[20px]"
+        className="fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] overflow-y-auto overscroll-contain rounded-t-[20px] px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:inset-x-auto lg:right-6 lg:top-6 lg:bottom-6 lg:w-[440px] lg:rounded-[20px]"
         style={{ background: "var(--hh-surface)" }}
       >
-        <div className="mx-auto mb-4 h-1 w-9 rounded-full lg:hidden" style={{ background: "rgba(15,23,42,0.15)" }} />
+        <div className="mx-auto mb-4 h-1 w-9 rounded-full lg:hidden" style={{ background: "var(--hh-grab)" }} />
 
         <div className="mb-4 flex items-center gap-3">
           <h2 className="min-w-0 flex-1 text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: "var(--hh-ink)" }}>
@@ -144,7 +151,9 @@ export function TaskEditSheet({
             </p>
           </div>
 
-          <div>
+          {/* Hazardous work has no DIY steps to show, so none to edit either —
+              the same decision the task page makes (StepsOrProNotice). */}
+          {stepsEditable && <div>
             <span className={label} style={{ color: "var(--hh-sub)" }}>Steps</span>
             <div className="flex flex-col gap-2">
               {steps.map((s, i) => (
@@ -183,7 +192,7 @@ export function TaskEditSheet({
                 No steps yet — add your own, in your words.
               </p>
             )}
-          </div>
+          </div>}
 
           {error && (
             <p className="text-[13px] font-semibold" style={{ color: "var(--hh-clay)" }}>{error}</p>
@@ -210,7 +219,7 @@ export function TaskEditSheet({
           </div>
         </div>
       </div>
-    </>,
+    </RemoveScroll>,
     document.body
   )
 }

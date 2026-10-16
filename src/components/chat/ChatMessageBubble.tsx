@@ -87,6 +87,10 @@ export function ChatMessageBubble({
   const isUser = message.role === "user"
   /** Whitespace is not an answer — a finished bubble of blanks is an empty one. */
   const hasText = !!message.content?.trim()
+  /** The item a save goes to: the one the answer was about, else the scope
+   *  filter's item. The page falls back the same way. */
+  const saveItemId =
+    message.inferredItem?.item_unit_id ?? (activeFilterType === "item" ? activeFilterValue ?? null : null)
 
   return (
     <>
@@ -136,7 +140,7 @@ export function ChatMessageBubble({
         {!isUser && message.inferredItem && !message.isStreaming && (
           <div className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 mt-1">
             <ScanSearchIcon className="size-3 shrink-0" aria-hidden />
-            <span>Scoped to: <span className="font-medium">{message.inferredItem.display_name}</span></span>
+            <span>About: <span className="font-medium">{message.inferredItem.display_name}</span></span>
           </div>
         )}
         {!isUser && message.sources && message.sources.length > 0 && (
@@ -168,20 +172,13 @@ export function ChatMessageBubble({
           precedingQuestion !== undefined && (
             <button
               type="button"
-              onClick={() =>
-                onSaveFaq(
-                  precedingQuestion,
-                  message.content,
-                  // The item the answer was scoped or inferred to, else the
-                  // scope filter's item; the page falls back to its own scope.
-                  message.inferredItem?.item_unit_id ??
-                    (activeFilterType === "item" ? activeFilterValue ?? null : null),
-                )
-              }
+              onClick={() => onSaveFaq(precedingQuestion, message.content, saveItemId)}
               className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border rounded-md px-2.5 py-1 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors mt-1"
             >
               <BookmarkIcon className="size-3" aria-hidden />
-              Save to knowledge base
+              {/* Plain words over our noun (audit 2026-10-15): where it goes
+                  when we know; just "Save" when the dialog will ask. */}
+              {saveItemId ? "Save to this item" : "Save"}
             </button>
           )}
       </div>

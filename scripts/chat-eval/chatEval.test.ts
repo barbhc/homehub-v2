@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { buildChatRequest, cachedPrefix, type ChatChunk, type ChatRequestInput, type PdfDoc } from "../../shared/chat/chatMessages.js"
+import { buildChatRequest, cachedPrefix, withSafetyRules, type ChatChunk, type ChatRequestInput, type PdfDoc } from "../../shared/chat/chatMessages.js"
 import main from "../../shared/chat/__tests__/fixtures/main-chat-requests.json" with { type: "json" }
 import corpusFile from "../parse-eval/corpus.json" with { type: "json" }
 import goldensFile from "./goldens.json" with { type: "json" }
@@ -17,7 +17,7 @@ import {
 const goldens: Goldens = goldensFile
 const corpus: Array<{ name: string; manual_id: string }> = corpusFile.manuals
 const systemPrompts: Record<string, string> = main.systemPrompts
-const PLAIN_PDF_SYSTEM = systemPrompts["pdf|web=0|warranty=0|notes=0"]
+const PLAIN_PDF_SYSTEM = withSafetyRules(systemPrompts["pdf|web=0|warranty=0|notes=0"])
 const PDF = "JVBERi0xLjQK" // a placeholder: the offline eval asserts shape, never content
 
 type FixtureScenario = {
@@ -48,7 +48,7 @@ describe("toLatestTurnLayout reproduces main's pre-caching request", () => {
     const built = buildChatRequest(inputOf(s)).params
     const before = toLatestTurnLayout(built)
     expect(before.messages).toEqual(s.main.messages)
-    expect(before.system).toBe(s.main.system)
+    expect(before.system).toBe(withSafetyRules(s.main.system))
     expect(JSON.stringify(before)).not.toContain("cache_control")
   })
 
@@ -67,7 +67,7 @@ describe("the golden set", () => {
 
   const turns = goldens.conversations.flatMap((c) => c.turns.map((t, i) => ({ c, t, i })))
   it.each(turns.map(({ c, t, i }) => [t.id, c, i] as const))(
-    "%s: PDF first with the breakpoint, question last, system text byte-identical to main",
+    "%s: PDF first with the breakpoint, question last, system text main's plus the safety rules",
     (_id, c, i) => {
       const priorAnswers = c.turns.slice(0, i).map((t) => `(answer to ${t.id})`)
       const { params } = goldenRequest(c, i, priorAnswers, PDF)
@@ -92,7 +92,7 @@ describe("the golden set", () => {
     expect(problems).toContain("the first user turn does not start with the PDF")
     expect(problems).toContain("expected exactly one cache breakpoint, found 0")
     expect(requestShapeProblems(goldenRequest(c, 0, [], PDF).params, c.turns[0].question, "a different system prompt")).toEqual([
-      "system prompt differs from main's",
+      "system prompt differs from main's plus the safety rules",
     ])
   })
 })

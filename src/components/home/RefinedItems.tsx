@@ -44,7 +44,7 @@ function ItemThumb({ item, size }: { item: ItemUnit; size: number }) {
   const Icon = GLYPHS[glyphFor(item)]
   return (
     <div
-      style={{ width: size, height: size, background: "linear-gradient(135deg,#EEF3F1,#E3ECE8)", color: TEAL }}
+      style={{ width: size, height: size, background: "var(--hh-tile)", color: "var(--hh-tile-ink)" }}
       className="flex shrink-0 items-center justify-center rounded-xl"
     >
       <Icon style={{ width: size * 0.5, height: size * 0.5 }} strokeWidth={1.8} />

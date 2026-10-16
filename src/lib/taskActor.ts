@@ -22,13 +22,91 @@ export type TaskActor = "diy" | "pro" | "hazardous"
 // "pressures". A trailing \b would require a boundary mid-word and silently
 // fail to match (e.g. "gas piping" wouldn't classify as hazardous).
 
-/** Acute gas / combustion / CO / explosion contexts — never DIY. */
-const HAZARD_PATTERN =
-  /\b(gas\s*(line|pip|valv|leak|pressur|odor|meter|union)|gas-?fired|carbon monoxide|\bco\b|open flame|explos|propane|natural gas)/i
+/**
+ * Acute gas / combustion / CO / live-electrical / refrigerant work — never DIY.
+ * Written so the TITLE alone catches the common jobs ("Relight the pilot",
+ * "Replace the thermocouple", "Replace a light switch"), because a title is
+ * often all a row has. Each line is pinned by the table in taskActor.test.ts,
+ * which also holds the safe look-alikes it must NOT catch ("Clean the gas range
+ * grates", "Test the CO alarm", "Reset a tripped breaker", "Test GFCI outlets").
+ */
+const HAZARD_PATTERNS: RegExp[] = [
+  // Gas: lines, valves, leaks, the smell of it, supply/shut-off hardware.
+  /\bgas\s*(line|pip|valv|leak|pressur|odor|smell|meter|union|supply|shut|cock|control|connector|hose|fitting)/i,
+  /\bsmell(s|ing)?\s+(of\s+)?gas\b/i,
+  // Connecting a gas appliance ("Hook up the gas dryer") — the appliance itself,
+  // not its drip pans, and not unplugging it from power before cleaning.
+  /\b(hook(ing)?\s*up|connect(ing)?|reconnect(ing)?|disconnect(ing)?|install(ing)?)\s+(?:(?:the|a|an|your|new)\s+)*gas\s+(dryer|range|stove|oven|cooktop|water heater|furnace|boiler|fireplace|grill|appliance|logs?|insert)s?\b(?!\s+(drip|grate|knob|burner cap|rack|light|bulb|filter))(?![^.\n]{0,30}\b(from|to)\s+(the\s+)?(power|electric|outlet|wall))/i,
+  // Servicing a gas-fired appliance ("Service the gas-fired water heater");
+  // cleaning its cabinet stays DIY.
+  /\b(service|servicing|adjust|repair|replace|inspect)\b[^.\n]{0,30}\bgas-?fired\b|\bgas-?fired\b[^.\n]{0,40}\b(service|servicing|adjust|repair|burner)\b/i,
+  // Propane / natural gas only with a hazardous object — "your natural gas
+  // range" and "clean the propane grill grates" are descriptions, not gas work.
+  /\b(propane|natural gas|lp gas|lpg)\b[^.]{0,30}\b(tank|cylinder|regulator|line|valve|connection|leak|orifice|conversion|hook-?up)|\b(tank|cylinder|regulator|valve|connection|leak|orifice)\b[^.]{0,30}\b(propane|natural gas|lp gas|lpg)\b|\bconver(t|sion)\b[^.]{0,20}\b(propane|natural gas|lp)\b/i,
+  // CO itself — but testing the CO alarm is a homeowner's job, and "Co." is a
+  // company. Case-sensitive on purpose: the gas is written "CO".
+  /\bcarbon monoxide(?!\s+(detector|alarm|sensor|monitor))/i,
+  /\bCO\b(?![\s-]*(?:[Dd]etector|[Aa]larm|[Ss]ensor|[Mm]onitor|DETECTOR|ALARM|SENSOR|MONITOR))/,
+  // Ignition and flame proving on gas appliances.
+  /\bpilot\b|\bthermocouple|\bthermopile|\bflame\s*(sensor|rod|probe)|\bignit(er|or)\b|\bhot surface ignit|\bspark ignit/i,
+  // Furnace / boiler / water-heater burners (a range's burner caps are cleaning).
+  /\b(main|furnace|boiler|water heater)\s+burners?\b|\bburners?\b[^.]{0,30}\b(furnace|boiler|water heater)\b|\bburner\s*(assembly|orifice|manifold|adjust)/i,
+  // Combustion, flue and venting work (looking at the vent stays DIY). Spillage
+  // only as combustion spillage — "wipe up spillage" is cleaning.
+  /\bcombustion\s*(chamber|analysis|test|adjust|startup|start-up|air adjust)|\bflue\b|\bdraft\s*(hood|inducer)|\bback-?draft/i,
+  /\bspillage\s*(switch|test|sensor)|\b(flue|draft|combustion|venting|vent|exhaust gas)\b[^.]{0,30}\bspillage\b|\bspillage\b[^.]{0,30}\b(flue|draft|combustion|vent)/i,
+  /\b(repair|replace|reconnect|disconnect|re-?seal|seal|install|remove|adjust)\b[^.]{0,30}\b(vent\s*(pipe|connector)|venting|chimney liner)/i,
+  // Live electrical: wiring, breakers, heating elements, and replacing fixed
+  // devices (testing a GFCI is DIY; so is changing the bulb in a fixture).
+  /\bwiring\b|\brewir|\b(live|exposed|bare|hot)\s+wires?\b|\bwire\s+(nut|connection)s?\b|\bline voltage\b|\bhigh voltage\b/i,
+  // The bulb/blade exclusion is checked on BOTH sides of the device: "the bulb
+  // in the ceiling fan" and "the ceiling fan light bulb" are the same job.
+  /\b(replace|install|wire|swap|change|repair)\b(?:(?!bulb|lamp|blade|globe|shade|filter|batter)[^.]){0,25}\b(outlet|receptacle|light switch|wall switch|dimmer|light fixture|ceiling fan|hardwired)s?\b(?![^.\n]{0,15}\b(bulb|lamp|blade|globe|shade|filter|batter))/i,
+  /\b(replace|install|add|swap|change)\b[^.]{0,20}\b(circuit\s+)?breakers?\b/i,
+  /\b(replace|install|swap|change|remove|test)\b[^.]{0,30}\bheating elements?\b/i,
+  // Refrigerant (an EPA-certified job; "refrigerator" does not match).
+  /\brefrigerant|\bfreon\b|\brecharge\b[^.]{0,20}\b(a\/?c|air conditioner|system|refrigerant)/i,
+]
+
+/**
+ * Words that are almost always a manual's boilerplate caution, not the work
+ * itself ("Risk of fire or explosion", "Do not use near an open flame"). They
+ * count only in a sentence that is not a caution.
+ */
+const CAUTION_ONLY = /\bexplos|\bopen flames?\b/i
+const CAUTION_SENTENCE = /\b(warning|caution|danger|hazard|risk|avoid|never|do not|don't|keep|away from|could|can|may|result|prevent)\b/i
+
+/** An electrical panel, as a place someone WORKS in (see hasPanelWork). */
+const PANEL = /\b(electrical|breaker|service|main|fuse|circuit)\s+(panel|box)|\bload center\b|\bpanel\s*board\b/i
+/** A sentence that only uses the panel to cut power or reset — homeowner-safe. */
+const PANEL_SAFE_USE = /\b(reset|tripp?ed|flip|turn(ing)?\s+off|switch(ing)?\s+off|shut(ting)?\s+off|power\s+off|disconnect power|locate|label)\b/i
+
+/**
+ * Work inside an electrical panel is hazardous; "turn off power at the breaker
+ * panel before cleaning the disposal" is the safety pre-step of a DIY task, and
+ * "Reset a tripped breaker" is the homeowner's own job. Judged per sentence.
+ */
+function sentencesOf(text: string): string[] {
+  // A bare newline ends a sentence too: fields are joined by "\n", and a title
+  // rarely ends in punctuation.
+  return text.split(/(?<=[.!?;:])\s+|\n+/)
+}
+
+function hasPanelWork(text: string): boolean {
+  return sentencesOf(text).some((s) => PANEL.test(s) && !PANEL_SAFE_USE.test(s))
+}
+
+function isHazardText(text: string): boolean {
+  return (
+    HAZARD_PATTERNS.some((p) => p.test(text)) ||
+    hasPanelWork(text) ||
+    sentencesOf(text).some((s) => CAUTION_ONLY.test(s) && !CAUTION_SENTENCE.test(s))
+  )
+}
 
 /** Needs pro tools/expertise but not acutely hazardous. */
 const PRO_PATTERN =
-  /\b(manometer|static pressure|temperature rise|\bbtu\b|line voltage|\bvac\b|24\s*v\b|control board|blower speed|capacitor|amperage|rollout|limit switch|heat exchanger|refrigerant|combustion analysis|flue gas)/i
+  /\b(manometer|static pressure|temperature rise|\bbtu\b|\bvac\b|24\s*v\b|control board|blower speed|capacitor|amperage|rollout|limit switch|heat exchanger)/i
 
 /**
  * The manual's own words for "this is a technician's job".
@@ -91,16 +169,52 @@ function hasProDirective(text: string): boolean {
   return false
 }
 
-function taskText(task: TaskTemplateWithSchedule): string {
-  const t = task as unknown as {
-    title?: string
-    instructions_override?: string | null
-    description?: string | null
-    justification?: string | null
-  }
-  return [t.title, t.instructions_override, t.description, t.justification]
-    .filter(Boolean)
-    .join(" ")
+/**
+ * A task's own words, in whatever shape a surface holds them — the item page's
+ * template row, the task page's and Tasks rows' `TaskDetail` (`notes` is the
+ * template's instructions_override), a clean guide's step. Every surface that
+ * shows a task's steps classifies through `classifyTaskFields`, so one task
+ * gets one answer wherever it is opened. Structured `steps` count: they are
+ * the words the homeowner would read, so a hazard named only in a step still
+ * suppresses the steps.
+ */
+export type TaskActorFields = {
+  title?: string | null
+  /** instructions_override / TaskDetail.notes / a clean task's instructions. */
+  instructions?: string | null
+  description?: string | null
+  justification?: string | null
+  steps?: readonly string[] | null
+}
+
+/** Classify who should do a task from its fields (see TaskActorFields). */
+export function classifyTaskFields(f: TaskActorFields): TaskActor {
+  return classifyActorFromText(
+    [f.title, f.instructions, f.description, f.justification, ...(f.steps ?? [])].filter(Boolean).join("\n"),
+  )
+}
+
+/** A `TaskDetail` (task page, Tasks rows): `notes` is the template's instructions_override. */
+export function classifyTaskDetail(d: {
+  title: string
+  notes: string | null
+  description: string | null
+  justification: string | null
+  steps: readonly string[] | null
+}): TaskActor {
+  return classifyTaskFields({
+    title: d.title, instructions: d.notes, description: d.description, justification: d.justification, steps: d.steps,
+  })
+}
+
+/**
+ * THE rule for every surface that renders a task's how-to steps (owner,
+ * standing): a homeowner is never shown DIY steps for gas, combustion or live
+ * electrical work. Hazardous → no steps; pro → steps, framed as what the tech
+ * checks; DIY → steps. `StepsOrProNotice` is the block that applies it.
+ */
+export function stepsAllowedFor(actor: TaskActor): boolean {
+  return actor !== "hazardous"
 }
 
 /**
@@ -110,7 +224,18 @@ function taskText(task: TaskTemplateWithSchedule): string {
  * authoritatively at the source.
  */
 export function classifyTaskActor(task: TaskTemplateWithSchedule): TaskActor {
-  return classifyActorFromText(taskText(task))
+  const t = task as unknown as {
+    title?: string
+    instructions_override?: string | null
+    description?: string | null
+    justification?: string | null
+  }
+  return classifyTaskFields({
+    title: t.title,
+    instructions: t.instructions_override,
+    description: t.description,
+    justification: t.justification,
+  })
 }
 
 /**
@@ -118,7 +243,7 @@ export function classifyTaskActor(task: TaskTemplateWithSchedule): TaskActor {
  * safety pushback) that hold loose fields rather than a full task row.
  */
 export function classifyActorFromText(text: string): TaskActor {
-  if (HAZARD_PATTERN.test(text)) return "hazardous"
+  if (isHazardText(text)) return "hazardous"
   if (PRO_PATTERN.test(text)) return "pro"
   if (hasProDirective(text)) return "pro"
   return "diy"

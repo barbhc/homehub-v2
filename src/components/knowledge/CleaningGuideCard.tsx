@@ -2,6 +2,8 @@ import { SectionCard } from "@/components/layout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { KnowledgeChunk } from "@/integrations/types"
 import { StepCard } from "./StepCard"
+import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
+import { classifyTaskFields } from "@/lib/taskActor"
 
 interface CleaningGuideCardProps {
   chunks: KnowledgeChunk[]
@@ -51,12 +53,14 @@ export function CleaningGuideCard({ chunks }: CleaningGuideCardProps) {
         {weekly && (
           <TabsContent value="weekly" className="mt-3">
             <div className="space-y-3">
-              {weekly.steps.map((step, i) => (
-                <StepCard key={i} index={i} text={step} />
-              ))}
+              <StepsOrProNotice actor={classifyTaskFields({ title: weeklyChunk?.title, steps: weekly.steps })}>
+                {weekly.steps.map((step, i) => (
+                  <StepCard key={i} index={i} text={step} />
+                ))}
+              </StepsOrProNotice>
             </div>
             {weekly.supplies.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-white/50">
+              <div className="mt-4 pt-3 border-t border-[var(--hh-line)]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
                   Supplies needed
                 </p>
@@ -68,12 +72,14 @@ export function CleaningGuideCard({ chunks }: CleaningGuideCardProps) {
         {deepClean && (
           <TabsContent value="deep_clean" className="mt-3">
             <div className="space-y-3">
-              {deepClean.steps.map((step, i) => (
-                <StepCard key={i} index={i} text={step} />
-              ))}
+              <StepsOrProNotice actor={classifyTaskFields({ title: deepCleanChunk?.title, steps: deepClean.steps })}>
+                {deepClean.steps.map((step, i) => (
+                  <StepCard key={i} index={i} text={step} />
+                ))}
+              </StepsOrProNotice>
             </div>
             {deepClean.supplies.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-white/50">
+              <div className="mt-4 pt-3 border-t border-[var(--hh-line)]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
                   Supplies needed
                 </p>

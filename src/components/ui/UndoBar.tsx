@@ -55,7 +55,9 @@ export function UndoBar({
               if (!actionLabel) onDismiss()
             }}
             className="shrink-0 text-[13.5px] font-bold underline underline-offset-2"
-            style={{ color: "var(--hh-teal-deep)" }}
+            // Not --hh-teal-deep: that is a colour for light SURFACES, and on
+            // the ink bar it was 2.19:1. --hh-accent-on-ink flips with the bar.
+            style={{ color: "var(--hh-accent-on-ink)" }}
           >
             {actionLabel ?? "Undo"}
           </button>

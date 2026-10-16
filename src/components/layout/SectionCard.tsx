@@ -17,7 +17,7 @@ type SectionCardProps = React.ComponentProps<typeof Card>
 export function SectionCard({ className, style, ...props }: SectionCardProps) {
   return (
     <Card
-      className={cn("rounded-2xl border backdrop-blur-sm shadow-sm", className)}
+      className={cn("hh-frost rounded-2xl border backdrop-blur-sm shadow-sm", className)}
       style={{
         background: "color-mix(in srgb, var(--hh-surface) 55%, transparent)",
         borderColor: "color-mix(in srgb, var(--hh-surface) 70%, transparent)",

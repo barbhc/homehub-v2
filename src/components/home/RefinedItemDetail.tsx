@@ -1,4 +1,5 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { InlineError } from "@/components/layout/LoadStates"
 import { NotesSection } from "@/components/notes/NotesSection"
 import { itemSubtitle } from "@/lib/itemSubtitle"
 import { Link } from "react-router-dom"
@@ -160,15 +161,32 @@ export function RefinedItemDetail({
    */
   const roomSuggestion = useMemo(() => lateRoomSuggestion(item, rooms), [item, rooms])
   const nameSuggestion = useMemo(() => lateNameSuggestion(item), [item])
+  // These one-tap writes used to drop a failure on the floor: the chip stayed,
+  // nothing changed, nothing said why (audit 2026-10-15). Each now says so on
+  // the line it belongs to, and a later success clears it.
+  const [identityError, setIdentityError] = useState<string | null>(null)
+  const [lookupError, setLookupError] = useState<string | null>(null)
   const applyRoomSuggestion = async (room: Room) => {
+    setIdentityError(null)
     const r = await updateItemUnit(homeId, item.item_unit_id, { room_id: room.room_id })
     if (r.data) onItemUpdate?.(r.data)
+    else {
+      console.warn(`[item] could not set room on ${item.item_unit_id} (home ${homeId}):`, r.error?.message)
+      setIdentityError("Couldn't set the room. Try again.")
+    }
   }
   const applyNameSuggestion = async (label: string) => {
     // Dedupe at APPLY time rather than on every render: composeItemName appends
     // the room when the plain type is taken ("Dishwasher — Kitchen"), and that
     // needs every other item's name, which is a read worth doing once, here.
+    setIdentityError(null)
     const existing = await getItemUnits(homeId)
+    if (existing.error) {
+      // Without the other names the dedupe cannot run; never guess.
+      console.warn(`[item] could not read items to name ${item.item_unit_id} (home ${homeId}):`, existing.error.message)
+      setIdentityError("Couldn't rename it. Try again.")
+      return
+    }
     const name = composeItemName({
       typeLabel: label,
       brand: item.brand,
@@ -180,6 +198,10 @@ export function RefinedItemDetail({
     })
     const r = await updateItemUnit(homeId, item.item_unit_id, { display_name: name })
     if (r.data) onItemUpdate?.(r.data)
+    else {
+      console.warn(`[item] could not rename ${item.item_unit_id} (home ${homeId}):`, r.error?.message)
+      setIdentityError("Couldn't rename it. Try again.")
+    }
   }
 
   // Lookup suggestions (round 18): applied is DERIVED — a suggestion whose key
@@ -190,14 +212,24 @@ export function RefinedItemDetail({
     (sug) => catFields[sug.key] == null || catFields[sug.key] === "",
   )
   const acceptSuggestion = async (sug: { key: string; value: string | number | boolean }) => {
+    setLookupError(null)
     const r = await updateItemUnit(homeId, item.item_unit_id, {
       category_fields: { ...catFields, [sug.key]: sug.value },
     })
     if (r.data) onItemUpdate?.(r.data)
+    else {
+      console.warn(`[item] could not add ${sug.key} to ${item.item_unit_id} (home ${homeId}):`, r.error?.message)
+      setLookupError("Couldn't add that. Try again.")
+    }
   }
   const hideSuggestions = async () => {
+    setLookupError(null)
     const r = await updateItemUnit(homeId, item.item_unit_id, { lookup_dismissed_at: new Date().toISOString() })
     if (r.data) onItemUpdate?.(r.data)
+    else {
+      console.warn(`[item] could not hide suggestions on ${item.item_unit_id} (home ${homeId}):`, r.error?.message)
+      setLookupError("Couldn't hide them. Try again.")
+    }
   }
 
   return (
@@ -278,6 +310,7 @@ export function RefinedItemDetail({
               )}
             </div>
           )}
+          {identityError && <InlineError className="mt-1.5">{identityError}</InlineError>}
           <div className="mt-3 flex flex-wrap gap-2">
             {onEditRoom ? (
               // Tappable: the room is the one basic fact people want to fix on
@@ -334,15 +367,15 @@ export function RefinedItemDetail({
 
         {/* Recall — calm safety notice */}
         {item.recall_status === "found" && (
-          <div className="rounded-2xl border p-4" style={{ background: "var(--hh-slate-soft)", borderColor: "#DBE6EF" }}>
+          <div className="rounded-2xl border p-4" style={{ background: "var(--hh-slate-soft)", borderColor: "var(--hh-slate-line)" }}>
             <div className="flex items-start gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border" style={{ borderColor: "#DBE6EF", background: "var(--hh-surface)" }}>
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border" style={{ borderColor: "var(--hh-slate-line)", background: "var(--hh-surface)" }}>
                 <MegaphoneIcon className="size-[18px]" style={{ color: "var(--hh-slate)" }} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
                 <div className="text-[15px] font-bold tracking-[-0.2px]" style={{ color: INK }}>Possible recall</div>
-                {item.recall_notes && <div className="mt-1 text-[13px] leading-snug" style={{ color: "#5A6863" }}>{item.recall_notes}</div>}
+                {item.recall_notes && <div className="mt-1 text-[13px] leading-snug" style={{ color: "var(--hh-sub)" }}>{item.recall_notes}</div>}
               </div>
             </div>
           </div>
@@ -452,6 +485,7 @@ export function RefinedItemDetail({
             </button>
           </p>
         )}
+        {lookupError && <InlineError className="px-1">{lookupError}</InlineError>}
 
         {/* Warranty — status-first; self-hides when nothing is tracked */}
         <WarrantyPanel item={item} homeId={homeId} onEdit={onEditDetails} onItemUpdate={onItemUpdate} m />

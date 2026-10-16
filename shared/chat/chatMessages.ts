@@ -30,9 +30,13 @@
  * moving those lines after the breakpoint would change what the model reads,
  * which is a prompt change and goes through the chat eval first.
  *
- * The wording is v1's, byte for byte (answer quality depends on it):
- * __tests__/chatMessages.test.ts holds all sixteen system-prompt variants to
- * main's own output (fixtures/main-chat-requests.json).
+ * The wording is v1's, byte for byte (answer quality depends on it), with ONE
+ * deliberate departure: SAFETY_RULES (owner-approved 2026-10-15), which v1
+ * never had. __tests__/chatMessages.test.ts holds all sixteen system-prompt
+ * variants to main's own output (fixtures/main-chat-requests.json) with exactly
+ * that block inserted (withSafetyRules), so nothing else can drift with it.
+ * SAFETY_RULES is unconditional, so it sits inside the cached prefix without
+ * changing it from turn to turn.
  */
 import { MODEL_SONNET, thinkingParamsFor } from "../parse/modelParams.js"
 
@@ -75,6 +79,43 @@ export interface ChatRules {
  *  roles must start with the user, and the PDFs need a first user turn to lead. */
 export const PDF_ONLY_TURN_TEXT = "Attached: the owner's manual for this conversation."
 
+/**
+ * Hazardous work (owner, 2026-10-15): "Ask should refuse DIY steps for gas,
+ * combustion and live electrical work, point to a licensed pro, and say 'if
+ * you smell gas, leave'." The task side already does this
+ * (src/lib/taskActor.ts, src/components/tasks/ProTaskNotice.tsx); before this,
+ * Ask would answer "how do I relight the pilot?" with numbered steps from
+ * general knowledge. It applies even when the manual (or a web result, so the
+ * "Search the web" follow-up is not a way around it) prints the procedure —
+ * a water heater's lighting instructions are written for the label, not for a
+ * homeowner who has never done it.
+ *
+ * "No numbered list" is on purpose: in Ask a numbered list reads as a
+ * procedure to follow, and it is what the safety eval (evals/ask-safety)
+ * checks for. Routine owner care is named as DIY — including on gas
+ * appliances (range grates and burner caps, a water heater flush) — so the
+ * rule does not swallow it; "burners" means the burner assembly, not the caps.
+ *
+ * Inserted after the "Use markdown" rule and before the conditional rule
+ * lines; withSafetyRules (below) is the one place that position is written.
+ */
+export const SAFETY_RULES =
+  "\n- Gas, combustion, live electrical and refrigerant work is a licensed professional's job, even when the manual or web results describe the procedure (manuals often print it for the installer or service technician, and a water heater's label prints lighting instructions): lighting or relighting a pilot; the burner assembly, burner orifices, igniters and flame sensors; gas lines, gas valves, gas controls and gas pressure; flues and combustion venting; breaker panels, replacing breakers, wiring, and installing or replacing outlets, switches or light fixtures; and anything involving refrigerant. For these, give NO do-it-yourself steps and no numbered list. In a few calm, plain sentences (no alarm): say briefly why it needs a pro; say who to call (a licensed plumber, HVAC technician, electrician, or the gas utility) and what they will do; and list, as bullets, the safe things the homeowner can do now — check the thermostat setting and batteries, check that the power switch and breaker are on, reset a tripped breaker or GFCI once (if it trips again, leave it off and call an electrician), and note the symptoms, error codes or blink pattern to tell the technician. Facts from the manual that help them describe the problem (what an error code means, a normal reading) are fine to share; the hands-on fix is not." +
+  "\n- In those answers, when the job involves gas or combustion, include one line: if you ever smell gas (a rotten-egg smell), leave the home right away, don't touch light switches or anything that could spark, and call the gas utility or 911 from outside. If the person says they smell gas now, lead with exactly that, before anything else." +
+  "\n- Routine care that the manual gives the owner stays do-it-yourself with numbered steps as usual, even on a gas appliance: replacing an air filter; cleaning a cooktop's removable grates and burner caps; cleaning a lint filter or checking a dryer vent for lint; flushing a water heater, including setting its control to PILOT or VACATION as the manual says; resetting a GFCI or a tripped breaker; descaling. Only the jobs listed above are a professional's."
+
+/** A v1 system prompt with SAFETY_RULES inserted where chatSystemPrompt puts
+ *  it: right after the "Use markdown" rule. The tests and the chat eval hold
+ *  the builder to main's text through this, so the safety block is the only
+ *  thing allowed to differ. */
+export function withSafetyRules(v1System: string): string {
+  const anchor = "- Use markdown: bold for key terms, numbered lists for steps."
+  const at = v1System.indexOf(anchor)
+  if (at < 0) throw new Error("withSafetyRules: the system prompt has no markdown rule to anchor on")
+  const end = at + anchor.length
+  return v1System.slice(0, end) + SAFETY_RULES + v1System.slice(end)
+}
+
 const WEB_SEARCH_RULES =
   "\n- Web search results are appended below the manual content when available. You may reference them to supplement the manual, but always prefer manual information when both cover the same topic. Cite web sources by their title when you use them."
 
@@ -84,8 +125,9 @@ const WARRANTY_RULES =
 const NOTES_RULES =
   '\n- A "Your notes" block, when present, is what this household wrote down about their own home — where things are, what they chose, what they noticed. For those facts it is the authority: say it comes from their notes, quote it, and never contradict it from general knowledge.'
 
-/** The system prompt: one of two bases (manual PDF attached, or excerpts), plus
- *  the rule line for each block the question carries. Byte-identical to main. */
+/** The system prompt: one of two bases (manual PDF attached, or excerpts), the
+ *  safety rules, then the rule line for each block the question carries.
+ *  Main's text plus SAFETY_RULES, byte for byte. */
 export function chatSystemPrompt(opts: ChatRules & { hasPdfs: boolean }): string {
   const webSearchRules = opts.webSearch ? WEB_SEARCH_RULES : ""
   const warrantyRules = opts.warranty ? WARRANTY_RULES : ""
@@ -98,14 +140,14 @@ Rules:
 - Use numbered steps for procedures.
 - Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
 - If the manual doesn't cover the specific question, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
-- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}${notesRules}`
+- Use markdown: bold for key terms, numbered lists for steps.${SAFETY_RULES}${webSearchRules}${warrantyRules}${notesRules}`
     : `You are a helpful home assistant. Answer questions about the user's home appliances using the provided manual excerpts.
 
 Rules:
 - Only state specific details (button names, sequences, settings) if they appear explicitly in the excerpts. Never use vague placeholders like "the relevant buttons" — if the exact detail isn't in the excerpts, say so directly.
 - Keep every answer self-contained: never refer the reader to steps, a list, or a section "below", "above", or "later" unless those exact steps actually appear in THIS answer. If a step relies on a sub-procedure (e.g. "filter the results" or "run the cleaning cycle"), write that sub-procedure's steps out inline right where you mention it — don't promise them elsewhere.
 - If the answer isn't in the excerpts, say so briefly — then answer from your general expertise about this type of appliance. When you do, introduce that section with a blockquote on its own line: "> 🤖 **General knowledge** — the following is not from your specific manual."
-- Use markdown: bold for key terms, numbered lists for steps.${webSearchRules}${warrantyRules}${notesRules}`
+- Use markdown: bold for key terms, numbered lists for steps.${SAFETY_RULES}${webSearchRules}${warrantyRules}${notesRules}`
 }
 
 /** The excerpts block, when the answer comes from parsed chunks. */
