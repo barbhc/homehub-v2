@@ -1,4 +1,4 @@
-import { doc, getDoc, runTransaction, serverTimestamp, Timestamp, type DocumentData } from "firebase/firestore"
+import { doc, getDoc, runTransaction, serverTimestamp, setDoc, Timestamp, type DocumentData } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { CareFacts } from "../../../../shared/care/library"
 import type { ServiceResult } from "./homeService"
@@ -52,6 +52,9 @@ export type HomeProfile = {
   care_facts: CareFacts
   /** Home-level suggestion keys the owner dismissed. */
   dismissed_care: string[]
+  /** HH-166: when someone answered the Settings winterizing offer ("Keep
+   *  them" or a turn-off) for this home; null = never asked or never answered. */
+  winterizing_offer_answered_at: string | null
   completed_at: string | null
   created_at: string
   updated_at: string
@@ -88,6 +91,7 @@ function toHomeProfile(homeId: string, d: DocumentData): HomeProfile {
     freeze_risk: typeof d.freezeRisk === "boolean" ? d.freezeRisk : null,
     care_facts: (d.careFacts && typeof d.careFacts === "object") ? (d.careFacts as CareFacts) : {},
     dismissed_care: Array.isArray(d.dismissedCare) ? d.dismissedCare.filter((k: unknown) => typeof k === "string") : [],
+    winterizing_offer_answered_at: hpIso(d.winterizingOfferAnsweredAt),
     completed_at: hpIso(d.profileCompletedAt),
     created_at: hpIso(d.createdAt) ?? "",
     updated_at: hpIso(d.updatedAt) ?? "",
@@ -118,6 +122,23 @@ export async function getHomeProfile(homeId: string): Promise<ServiceResult<Home
     return { data: toHomeProfile(homeId, snap.data()), error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to load home profile" } }
+  }
+}
+
+/**
+ * Record that the Settings winterizing offer was answered for this home (HH-166),
+ * so a home already set to Mild/Hot is asked once, not on every visit.
+ *
+ * Writes ONLY this field — deliberately not `updatedAt`, which the profile
+ * form uses as its compare-and-set guard: answering the offer must not make
+ * the next Save fail as "updated by another session".
+ */
+export async function markWinterizingOfferAnswered(homeId: string): Promise<ServiceResult<true>> {
+  try {
+    await setDoc(doc(db, `homes/${homeId}`), { winterizingOfferAnsweredAt: serverTimestamp() }, { merge: true })
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Couldn't save your answer" } }
   }
 }
 

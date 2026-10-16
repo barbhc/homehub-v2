@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Loader2Icon, HomeIcon, CheckCircle2Icon } from "lucide-react"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { SectionCard } from "@/components/layout"
@@ -22,7 +22,17 @@ import {
   type PreferredMode,
   type Climate,
   type TopConcernKey,
+  markWinterizingOfferAnswered,
 } from "@/modules/home"
+import { useAuth } from "@/modules/auth"
+import {
+  getWinterizingTasks,
+  turnOffWinterizingTasks,
+  undoTurnOffWinterizing,
+  type TurnOffResult,
+  type WinterizingTask,
+} from "@/modules/care"
+import { UndoBar } from "@/components/ui/UndoBar"
 
 type Props = {
   homeId: string
@@ -74,7 +84,16 @@ const MODES: { value: PreferredMode; label: string; hint: string }[] = [
   { value: "unset", label: "Balanced (default)", hint: "Show everything" },
 ]
 
+/**
+ * HH-166: the offer that follows a Mild/Hot save. The climate answer only ever
+ * filtered manuals scanned AFTER it, so the owner — set to mild — still had a
+ * "Winterize the washer" task. Now the save lists the winterizing tasks the
+ * home already has, all ticked, and turns off only what she confirms.
+ */
+type WinterizingOffer = { tasks: WinterizingTask[]; checked: Set<string> }
+
 export function HomeProfileSection({ homeId }: Props) {
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -90,7 +109,18 @@ export function HomeProfileSection({ homeId }: Props) {
   // Tracks the last known updated_at so saves use a CAS guard.
   const [knownUpdatedAt, setKnownUpdatedAt] = useState<string | undefined>(undefined)
 
+  const [offer, setOffer] = useState<WinterizingOffer | null>(null)
+  const [offerBusy, setOfferBusy] = useState(false)
+  const [offerError, setOfferError] = useState<string | null>(null)
+  /** The receipt after a turn-off, with its Undo (the app's UndoBar). */
+  const [bar, setBar] = useState<{ message: string; onUndo?: () => void; ms: number } | null>(null)
+  const dismissBar = useCallback(() => setBar(null), [])
+  /** The climate as last read or saved — the offer follows only a CHANGE to
+   *  Mild/Hot, never a re-save of the profile (gate-1 review). */
+  const [savedClimate, setSavedClimate] = useState<Climate | null>(null)
+
   const applyProfile = (p: HomeProfile | null) => {
+    setSavedClimate(p?.climate ?? null)
     setHomeType(p?.home_type ?? "")
     setOwnership(p?.ownership ?? "")
     setDuration(p?.ownership_duration ?? "")
@@ -106,6 +136,9 @@ export function HomeProfileSection({ homeId }: Props) {
   if (useDepsChanged([homeId])) {
     setLoading(true)
     setError(null)
+    setOffer(null)
+    setOfferError(null)
+    setBar(null)
   }
   useEffect(() => {
     let cancelled = false
@@ -114,6 +147,19 @@ export function HomeProfileSection({ homeId }: Props) {
       if (result.error) setError(result.error.message)
       else applyProfile(result.data)
       setLoading(false)
+      // HH-166: the owner was ALREADY Mild, so an offer that only follows a
+      // change would never reach her. A freeze-free home that has never
+      // answered the offer is asked once, here.
+      const p = result.data
+      if (!p || p.freeze_risk !== false || p.winterizing_offer_answered_at) return
+      return getWinterizingTasks(homeId).then((res) => {
+        if (cancelled) return
+        if (res.error) {
+          setOfferError(`Couldn't check for winterizing tasks: ${res.error.message}`)
+          return
+        }
+        if (res.data.length > 0) setOffer({ tasks: res.data, checked: new Set(res.data.map((t) => t.taskTemplateId)) })
+      })
     })
     return () => {
       cancelled = true
@@ -130,17 +176,31 @@ export function HomeProfileSection({ homeId }: Props) {
     })
   }
 
+  const offerWinterizingSweep = async () => {
+    const res = await getWinterizingTasks(homeId)
+    if (res.error) {
+      setOfferError(`Couldn't check for winterizing tasks: ${res.error.message}`)
+      return
+    }
+    if (res.data.length === 0) return
+    setOffer({ tasks: res.data, checked: new Set(res.data.map((t) => t.taskTemplateId)) })
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setError(null)
+    setOffer(null)
+    setOfferError(null)
+    const wantClimate = climate || null
+    const wantFreezeRisk = freezeRiskFor(climate)
     const result = await upsertHomeProfile(
       homeId,
       {
         home_type: homeType || null,
         ownership: ownership || null,
         ownership_duration: duration || null,
-        climate: climate || null,
-        freeze_risk: freezeRiskFor(climate),
+        climate: wantClimate,
+        freeze_risk: wantFreezeRisk,
         top_concerns: concerns,
         preferred_mode: mode,
         // Promote to "completed" once user fills in the basics from Settings.
@@ -154,9 +214,82 @@ export function HomeProfileSection({ homeId }: Props) {
       setError(result.error.message)
       return
     }
+    // HH-166: the owner's home showed "Usually autumn" — the phrase for a home
+    // with NO climate — after she had answered mild. Whatever lost it, a save
+    // is only "Saved" if the home doc we read back carries what we wrote.
+    if (result.data.climate !== wantClimate || result.data.freeze_risk !== wantFreezeRisk) {
+      setError("Your climate didn't save. Try again.")
+      return
+    }
+    const climateChanged = savedClimate !== wantClimate
     applyProfile(result.data)
     setSavedAt(Date.now())
     setTimeout(() => setSavedAt((ts) => (ts && Date.now() - ts >= 2400 ? null : ts)), 2500)
+    if (climateChanged && wantFreezeRisk === false) await offerWinterizingSweep()
+  }
+
+
+  const toggleOffered = (id: string) =>
+    setOffer((o) => {
+      if (!o) return o
+      const checked = new Set(o.checked)
+      if (checked.has(id)) checked.delete(id)
+      else checked.add(id)
+      return { ...o, checked }
+    })
+
+  /** Undo puts back exactly what the turn-off changed. A failed Undo comes back
+   *  to the bar with the same Undo and stays until acted on — the snooze
+   *  bar's rule (home/tasks/shared.ts): a failure is not furniture to time out. */
+  const undoTurnOff = async (turnedOff: TurnOffResult) => {
+    const res = await undoTurnOffWinterizing(homeId, turnedOff)
+    const n = turnedOff.templateIds.length
+    if (res.error) {
+      setBar({
+        message: `Couldn't turn them back on: ${res.error.message} Tap Undo to try again.`,
+        onUndo: () => void undoTurnOff(turnedOff),
+        ms: 0,
+      })
+      return
+    }
+    setBar({ message: `Turned ${n} winterizing task${n === 1 ? "" : "s"} back on`, ms: 4000 })
+  }
+
+  const handleTurnOff = async () => {
+    if (!offer || !user) return
+    const picked = offer.tasks.filter((t) => offer.checked.has(t.taskTemplateId))
+    setOfferBusy(true)
+    setOfferError(null)
+    const res = await turnOffWinterizingTasks(homeId, user.id, picked)
+    setOfferBusy(false)
+    if (res.error) {
+      // The card stays, with the owner's ticks, so a retry is one tap.
+      setOfferError(`Couldn't turn them off: ${res.error.message}`)
+      return
+    }
+    setOffer(null)
+    const turnedOff = res.data
+    const n = turnedOff.templateIds.length
+    setBar({
+      message: `Turned off ${n} winterizing task${n === 1 ? "" : "s"}`,
+      onUndo: () => void undoTurnOff(turnedOff),
+      ms: 7000,
+    })
+  }
+
+  /** "Keep them" is an answer too: recorded on the home so the offer doesn't
+   *  come back on the next visit. If that write fails the card stays and says
+   *  so — closing it would promise a silence we couldn't save. */
+  const handleKeep = async () => {
+    setOfferBusy(true)
+    setOfferError(null)
+    const res = await markWinterizingOfferAnswered(homeId)
+    setOfferBusy(false)
+    if (res.error) {
+      setOfferError(`Couldn't save your answer: ${res.error.message}`)
+      return
+    }
+    setOffer(null)
   }
 
   return (
@@ -254,7 +387,7 @@ export function HomeProfileSection({ homeId }: Props) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                A mild climate skips winterizing tasks when new manuals are scanned.
+                A mild or hot climate skips winterizing tasks in new manuals, and offers to turn off the ones you already have.
               </p>
             </div>
 
@@ -336,6 +469,62 @@ export function HomeProfileSection({ homeId }: Props) {
                 </span>
               )}
             </div>
+
+            {/* HH-166: offered after a Mild/Hot save; nothing changes until she confirms. */}
+            {offer && (
+              <div
+                data-testid="winterizing-offer"
+                className="space-y-3 rounded-lg border border-border bg-muted/40 p-3.5"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    You have {offer.tasks.length} winterizing task{offer.tasks.length === 1 ? "" : "s"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Homes that rarely freeze don't need them. Turn off the ones you don't want; nothing is deleted.
+                  </p>
+                </div>
+                <ul className="space-y-1">
+                  {offer.tasks.map((t) => (
+                    <li key={t.taskTemplateId}>
+                      <label className="flex min-h-11 cursor-pointer items-start gap-2.5 py-1 md:min-h-8">
+                        <input
+                          type="checkbox"
+                          checked={offer.checked.has(t.taskTemplateId)}
+                          onChange={() => toggleOffered(t.taskTemplateId)}
+                          disabled={offerBusy}
+                          className="mt-0.5 size-4 shrink-0 accent-[var(--hh-teal-fill)]"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-foreground">{t.title}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {[t.where, t.cadence].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                {offerError && <p className="text-sm text-destructive">{offerError}</p>}
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={handleTurnOff} disabled={offerBusy || offer.checked.size === 0}>
+                    {offerBusy ? (
+                      <>
+                        <Loader2Icon className="size-4 animate-spin mr-2" />
+                        Turning off…
+                      </>
+                    ) : (
+                      `Turn off ${offer.checked.size}`
+                    )}
+                  </Button>
+                  <Button variant="outline" onClick={handleKeep} disabled={offerBusy}>
+                    Keep them
+                  </Button>
+                </div>
+              </div>
+            )}
+            {!offer && offerError && <p className="text-sm text-destructive">{offerError}</p>}
+            {bar && <UndoBar message={bar.message} onUndo={bar.onUndo} ms={bar.ms} onDismiss={dismissBar} />}
           </>
         )}
       </CardContent>

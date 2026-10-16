@@ -7,7 +7,7 @@ import {
 } from "@/lib/dueWindow"
 import { indicatorDrivenTitles, usagePhrase } from "../../../../shared/care/usageSignal"
 import { seasonForTitle, seasonalWindow, type Climate } from "../../../../shared/care/seasonalWindow"
-import { seasonalFamily } from "../../../../shared/tasks/houseRules"
+import { isAsNeededColdStorageRow, isFreezeFree, seasonalFamily } from "../../../../shared/tasks/houseRules"
 import { addDays, localToday } from "../../../../shared/dates/calendar"
 import { asListedToday } from "../../../../shared/tasks/snooze"
 import { createTaskTemplate } from "./taskService"
@@ -112,13 +112,21 @@ export async function getWeekAgenda(
     // because the owner hasn't answered a profile question (the owner's own
     // home has no climate field today, so this is the common path).
     let climate: Climate | null = null
+    // HH-166: only a home that SAID it doesn't freeze treats cold-storage
+    // winterizing as as-needed; a failed read keeps it (never hide on a guess).
+    let freezeFree = false
     try {
       const homeSnap = await getDoc(doc(db, `homes/${homeId}`))
       const c = homeSnap.get("climate")
       if (c === "mild" || c === "moderate" || c === "cold" || c === "hot") climate = c
+      freezeFree = isFreezeFree(homeSnap.get("freezeRisk"))
     } catch {
       climate = null
     }
+    /** On the dated agenda: the shared eligibility rule, minus as-needed cold storage. */
+    const onAgenda = (r: Record<string, unknown>) =>
+      isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }) &&
+      !isAsNeededColdStorageRow(r, freezeFree)
 
     // Single-collection read — the joins are gone: taskInstances carry the
     // denormalized display fields (firestore-model.md §5). One equality filter
@@ -171,7 +179,7 @@ export async function getWeekAgenda(
     })
     const beyondHorizon = pending.filter(
       (r) => (r.dueDate as string) > horizon &&
-        isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }),
+        onAgenda(r),
     )
     const itemCleaning = pending.filter(
       (r) => !isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }),
@@ -191,7 +199,8 @@ export async function getWeekAgenda(
       .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
       // Curated feed, not a flatten of per-item cleaning steps: drop item-scoped
       // cleaning (lives in the Deep-Clean guide); keep maintenance + HOME cleaning.
-      .filter((r) => isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }))
+      // HH-166: and as-needed cold-storage winterizing in a freeze-free home.
+      .filter(onAgenda)
       .map((r) => {
         const tier = (r.priorityTier as PriorityTier) ?? "optional"
         const dueDate = (r.dueDate as string) ?? today

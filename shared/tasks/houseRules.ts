@@ -42,6 +42,61 @@ export function seasonalFamily(title: string): string | null {
 }
 
 /**
+ * Is this winterizing for when the appliance is put into COLD STORAGE, rather
+ * than the home's yearly freeze prep?
+ *
+ * HH-166 (owner, 2026-10-16): "Winterize the washer for cold storage" sat on
+ * her agenda as "Usually autumn" in a mild-climate home. It is a one-off — you
+ * do it when a washer is put away somewhere unheated. It STAYS in the
+ * freeze_prep family, so the climate sweep still offers it.
+ *
+ * Literal on purpose (gate-1 review): only the phrase "cold storage". A
+ * Minnesota owner's "Winterize the pressure washer before storing it" is real
+ * autumn work and must not be caught by a looser "store/moving" pattern.
+ */
+export function isColdStorageWinterizing(title: string): boolean {
+  return /cold[- ]?storage/.test(title.toLowerCase())
+}
+
+/**
+ * Should this task be treated as AS-NEEDED rather than a yearly autumn job?
+ *
+ * Only when all three hold:
+ *   · the title is literally cold-storage winterizing;
+ *   · the home is freeze-free (`freezeRisk === false`) — a home that freezes,
+ *     or hasn't said, keeps it on its season, so nothing is hidden there;
+ *   · it still carries the parser's `seasonal` cadence — a task the owner put
+ *     on another cadence keeps it.
+ * (An owner-chosen SEASON can't be told apart from the parser's on an
+ * instance, which carries only the cadence; that case is treated as seasonal.)
+ */
+export function isAsNeededColdStorage(t: {
+  title: string | null | undefined
+  scheduleType: string | null | undefined
+  freezeFree: boolean
+}): boolean {
+  return t.freezeFree && t.scheduleType === "seasonal" && isColdStorageWinterizing(t.title ?? "")
+}
+
+/**
+ * The same test on a task-instance row as Firestore returns it (denormalized
+ * `title` / `scheduleType`, §5) — the ONE filter every dated list applies:
+ * the week agenda (Tasks) and Home's this-week + Coming-up lists.
+ */
+export function isAsNeededColdStorageRow(row: Record<string, unknown>, freezeFree: boolean): boolean {
+  return isAsNeededColdStorage({
+    title: typeof row.title === "string" ? row.title : null,
+    scheduleType: typeof row.scheduleType === "string" ? row.scheduleType : null,
+    freezeFree,
+  })
+}
+
+/** A home is freeze-free only when it SAID so (`freezeRisk === false`); unknown is not. */
+export function isFreezeFree(freezeRisk: unknown): boolean {
+  return freezeRisk === false
+}
+
+/**
  * The best available match predicate for a task, most-specific first:
  *   seasonalFamily (winterize kin) › season › the single template (nothing
  *   groupable — feedback still applies to it alone).
