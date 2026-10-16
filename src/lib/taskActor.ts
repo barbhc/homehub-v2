@@ -34,8 +34,12 @@ const HAZARD_PATTERNS: RegExp[] = [
   // Gas: lines, valves, leaks, the smell of it, supply/shut-off hardware.
   /\bgas\s*(line|pip|valv|leak|pressur|odor|smell|meter|union|supply|shut|cock|control|connector|hose|fitting)/i,
   /\bsmell(s|ing)?\s+(of\s+)?gas\b/i,
-  // Connecting a gas appliance ("Hook up the gas dryer").
-  /\b(hook(ing)?\s*up|connect(ing)?|disconnect(ing)?|install(ing)?)\b[^.]{0,25}\bgas\b/i,
+  // Connecting a gas appliance ("Hook up the gas dryer") — the appliance itself,
+  // not its drip pans, and not unplugging it from power before cleaning.
+  /\b(hook(ing)?\s*up|connect(ing)?|reconnect(ing)?|disconnect(ing)?|install(ing)?)\s+(?:(?:the|a|an|your|new)\s+)*gas\s+(dryer|range|stove|oven|cooktop|water heater|furnace|boiler|fireplace|grill|appliance|logs?|insert)s?\b(?!\s+(drip|grate|knob|burner cap|rack|light|bulb|filter))(?![^.\n]{0,30}\b(from|to)\s+(the\s+)?(power|electric|outlet|wall))/i,
+  // Servicing a gas-fired appliance ("Service the gas-fired water heater");
+  // cleaning its cabinet stays DIY.
+  /\b(service|servicing|adjust|repair|replace|inspect)\b[^.\n]{0,30}\bgas-?fired\b|\bgas-?fired\b[^.\n]{0,40}\b(service|servicing|adjust|repair|burner)\b/i,
   // Propane / natural gas only with a hazardous object — "your natural gas
   // range" and "clean the propane grill grates" are descriptions, not gas work.
   /\b(propane|natural gas|lp gas|lpg)\b[^.]{0,30}\b(tank|cylinder|regulator|line|valve|connection|leak|orifice|conversion|hook-?up)|\b(tank|cylinder|regulator|valve|connection|leak|orifice)\b[^.]{0,30}\b(propane|natural gas|lp gas|lpg)\b|\bconver(t|sion)\b[^.]{0,20}\b(propane|natural gas|lp)\b/i,
@@ -55,7 +59,9 @@ const HAZARD_PATTERNS: RegExp[] = [
   // Live electrical: wiring, breakers, heating elements, and replacing fixed
   // devices (testing a GFCI is DIY; so is changing the bulb in a fixture).
   /\bwiring\b|\brewir|\b(live|exposed|bare|hot)\s+wires?\b|\bwire\s+(nut|connection)s?\b|\bline voltage\b|\bhigh voltage\b/i,
-  /\b(replace|install|wire|swap|change|repair)\b(?:(?!bulb|lamp|blade|globe|shade|filter|battery|batteries)[^.]){0,25}\b(outlet|receptacle|light switch|wall switch|dimmer|light fixture|ceiling fan|hardwired)/i,
+  // The bulb/blade exclusion is checked on BOTH sides of the device: "the bulb
+  // in the ceiling fan" and "the ceiling fan light bulb" are the same job.
+  /\b(replace|install|wire|swap|change|repair)\b(?:(?!bulb|lamp|blade|globe|shade|filter|batter)[^.]){0,25}\b(outlet|receptacle|light switch|wall switch|dimmer|light fixture|ceiling fan|hardwired)s?\b(?![^.\n]{0,15}\b(bulb|lamp|blade|globe|shade|filter|batter))/i,
   /\b(replace|install|add|swap|change)\b[^.]{0,20}\b(circuit\s+)?breakers?\b/i,
   /\b(replace|install|swap|change|remove|test)\b[^.]{0,30}\bheating elements?\b/i,
   // Refrigerant (an EPA-certified job; "refrigerator" does not match).
@@ -81,7 +87,9 @@ const PANEL_SAFE_USE = /\b(reset|tripp?ed|flip|turn(ing)?\s+off|switch(ing)?\s+o
  * "Reset a tripped breaker" is the homeowner's own job. Judged per sentence.
  */
 function sentencesOf(text: string): string[] {
-  return text.split(/(?<=[.!?;:\n])\s+/)
+  // A bare newline ends a sentence too: fields are joined by "\n", and a title
+  // rarely ends in punctuation.
+  return text.split(/(?<=[.!?;:])\s+|\n+/)
 }
 
 function hasPanelWork(text: string): boolean {

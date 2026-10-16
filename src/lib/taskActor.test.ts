@@ -194,6 +194,11 @@ const HAZARDOUS_TITLES = [
   "Replace the propane tank regulator",
   "Check the spillage switch on the draft diverter",
   "Vent the CO outdoors before re-entering",
+  // Re-review of #242 (regressions at dff6486).
+  "Service the gas-fired water heater",
+  "Inspect the gas-fired boiler",
+  "Light the burner with an open flame\nWarning: keep hands clear.",
+  "Replace the ceiling fan",
 ]
 const SAFE_TITLES = [
   "Clean the gas range grates",
@@ -228,6 +233,11 @@ const SAFE_TITLES = [
   "Clean the grease filter. Warning: risk of fire or explosion if grease builds up.",
   "Dry the lint screen. Do not use near an open flame.",
   "Clean the oven heating element",
+  // Re-review of #242.
+  "Install the gas range drip pans",
+  "Disconnect the gas range from power before cleaning",
+  "Replace the ceiling fan light bulb",
+  "Clean the gas-fired water heater's cabinet",
 ]
 
 describe("classifyTaskFields — hazardous jobs by title alone", () => {

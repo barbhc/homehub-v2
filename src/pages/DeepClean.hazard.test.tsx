@@ -34,7 +34,8 @@ const renderRow = (t: CleanTask) =>
 
 describe("Deep Clean row — hazardous work never shows DIY steps", () => {
   it("a hazardous task shows the pro notice and NOT its steps", () => {
-    renderRow(clean("Clean the gas oven burner", GAS_STEPS))
+    // Hazardous by its title alone (burner assembly), and its steps work the gas valve.
+    renderRow(clean("Remove and clean the oven burner assembly", GAS_STEPS))
     expect(screen.getByText("Leave this to a licensed professional")).toBeInTheDocument()
     for (const s of GAS_STEPS) expect(screen.queryByText(s)).toBeNull()
   })
