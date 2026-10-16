@@ -22,7 +22,7 @@ export function ProTaskNotice({ actor }: { actor: Exclude<TaskActor, "diy"> }) {
               yourself. If you ever smell gas, leave and call your gas company.
             </p>
             <Link
-              to="/settings"
+              to="/providers"
               className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 dark:text-red-300 mt-1.5 hover:underline"
             >
               Find a pro <ChevronRightIcon className="size-3" />
@@ -44,7 +44,7 @@ export function ProTaskNotice({ actor }: { actor: Exclude<TaskActor, "diy"> }) {
             they&apos;ll check.
           </p>
           <Link
-            to="/settings"
+            to="/providers"
             className="inline-flex items-center gap-1 text-xs font-semibold text-primary mt-1.5 hover:underline"
           >
             Schedule a pro <ChevronRightIcon className="size-3" />

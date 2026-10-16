@@ -2,6 +2,8 @@ import { StepList } from "@/components/tasks/TaskHowTo"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
 import { parseSteps } from "@/pages/item-detail/utils"
 import { splitCautions } from "@/lib/cautions"
+import type { TaskActor } from "@/lib/taskActor"
+import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
 
 /**
  * The shared "how-to" block. Numbered, checkable steps with baked-in warnings
@@ -14,11 +16,16 @@ import { splitCautions } from "@/lib/cautions"
  * render an identical, designed how-to — never a raw instruction paragraph.
  */
 export function HowToSteps({
+  actor,
   notes,
   steps: structuredSteps,
   supplies,
   stepsLabel = "Steps",
 }: {
+  /** Who does this task (`classifyTaskFields`). Required, so no caller can
+   *  render steps without the hazardous/pro decision: hazardous shows the pro
+   *  notice INSTEAD of the steps (the manual's cautions still show). */
+  actor: TaskActor
   notes: string | null
   steps: string[] | null
   supplies?: string[]
@@ -29,10 +36,12 @@ export function HowToSteps({
   const raw = structuredSteps?.length ? structuredSteps : notes ? parseSteps(notes) : []
   const { steps, cautions } = splitCautions(raw)
   const hasSupplies = !!supplies && supplies.length > 0
-  if (steps.length === 0 && cautions.length === 0 && !hasSupplies) return null
+  if (actor === "diy" && steps.length === 0 && cautions.length === 0 && !hasSupplies) return null
   return (
     <div className="flex flex-col gap-3.5">
-      {steps.length > 0 && <StepList steps={steps} label={stepsLabel} />}
+      <StepsOrProNotice actor={actor}>
+        {steps.length > 0 && <StepList steps={steps} label={stepsLabel} />}
+      </StepsOrProNotice>
       {cautions.length > 0 && <CautionCallout cautions={cautions} />}
       {hasSupplies && (
         <div>

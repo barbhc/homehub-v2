@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ArrowUpRightIcon, BookOpenIcon, CheckIcon, InfoIcon, SearchIcon, BadgeAlertIcon, UserRoundCheckIcon } from "lucide-react"
+import { ArrowUpRightIcon, BookOpenIcon, CheckIcon, InfoIcon, SearchIcon } from "lucide-react"
 
 /**
  * Shared task how-to atoms — the version-C "reference split" treatment from the
@@ -87,32 +87,8 @@ export function InfoBlurb({ text, label, icon = "info" }: { text: string; label?
   )
 }
 
-/**
- * "Needs a pro?" escalation card → routes to the service-provider handoff.
- * Shown when a fix needs a qualified professional.
- */
-export function ProEscalate({ text, cta, onFindPro }: { text: string; cta: string; onFindPro: () => void }) {
-  return (
-    // A self-contained inverse card: white on a FIXED deep teal in both themes.
-    // var(--hh-teal-deep) lightens to #2A8C76 in dark, where this body text
-    // was 2.91:1; on #15564A it is 5.30:1.
-    <div className="rounded-xl p-3.5" style={{ background: "#15564A" }}>
-      <div className="mb-1 flex items-center gap-2">
-        <BadgeAlertIcon className="size-4" style={{ color: "#9FE7D2" }} />
-        <span className="text-[13.5px] font-extrabold text-white">Needs a pro?</span>
-      </div>
-      <div className="mb-2.5 text-[12.5px] leading-snug" style={{ color: "rgba(255,255,255,0.72)" }}>{text}</div>
-      <button
-        type="button"
-        onClick={onFindPro}
-        className="inline-flex items-center gap-1.5 rounded-[9px] bg-white px-3 py-2 text-[12.5px] font-bold"
-        style={{ color: "#15564A" }}
-      >
-        <UserRoundCheckIcon className="size-[14px]" /> {cta}
-      </button>
-    </div>
-  )
-}
+// The Fix-it tab's "Needs a pro?" card (ProEscalate) was retired for
+// ProTaskNotice via StepsOrProNotice: one pro handoff, one classifier.
 
 /**
  * Teal manual blurb: an optional italic excerpt + an explicit

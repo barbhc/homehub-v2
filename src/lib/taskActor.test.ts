@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { classifyTaskActor } from "./taskActor"
+import { classifyTaskActor, classifyTaskFields, stepsAllowedFor } from "./taskActor"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 
 /**
@@ -132,5 +132,119 @@ describe("classifyTaskActor", () => {
         })
       )
     ).toBe("diy")
+  })
+})
+
+describe("classifyTaskFields — the one input every steps surface uses", () => {
+  it("a hazard named only in a structured step still classifies hazardous", () => {
+    expect(
+      classifyTaskFields({
+        title: "Restart the furnace after an outage",
+        steps: ["Turn the gas valve to OFF and wait five minutes.", "Turn it back to ON."],
+      }),
+    ).toBe("hazardous")
+    expect(classifyTaskFields({ title: "Restart the furnace after an outage" })).toBe("diy")
+  })
+
+  it("agrees with classifyTaskActor on the same template text", () => {
+    const t = task({ title: "Inspect Limit Switch", instructions_override: "Check the rollout switch." })
+    expect(classifyTaskFields({ title: "Inspect Limit Switch", instructions: "Check the rollout switch." })).toBe(classifyTaskActor(t))
+  })
+
+  it("steps are withheld only for hazardous work", () => {
+    expect(stepsAllowedFor("hazardous")).toBe(false)
+    expect(stepsAllowedFor("pro")).toBe(true)
+    expect(stepsAllowedFor("diy")).toBe(true)
+  })
+})
+
+// ── The title alone ─────────────────────────────────────────────────────────
+// A row often carries nothing but its title. These are the common hazardous
+// jobs a homeowner must never get DIY steps for, and the safe look-alikes the
+// patterns must leave alone.
+const HAZARDOUS_TITLES = [
+  "Relight the gas furnace pilot",
+  "Light the water heater pilot light",
+  "Replace the thermocouple",
+  "Clean the flame sensor",
+  "Replace the hot surface igniter",
+  "Inspect the furnace burners",
+  "Adjust the boiler burner",
+  "Clean the main burner",
+  "Replace the gas valve",
+  "Check the gas line for leaks",
+  "What to do if you smell gas",
+  "Inspect the gas supply connector",
+  "Inspect the flue pipe for corrosion",
+  "Reconnect the vent connector",
+  "Combustion analysis and adjustment",
+  "Check for spillage at the draft hood",
+  "Replace the breaker panel",
+  "Inspect the electrical panel for scorch marks",
+  "Repair damaged wiring",
+  "Replace a light switch",
+  "Install a new outlet",
+  "Recharge the A/C refrigerant",
+  "Check refrigerant charge",
+  "Test for carbon monoxide leaks",
+  "Replace a circuit breaker",
+  "Install a new breaker",
+  "Replace the water heater heating element",
+  "Hook up the gas dryer",
+  "Replace the propane tank regulator",
+  "Check the spillage switch on the draft diverter",
+  "Vent the CO outdoors before re-entering",
+  // Re-review of #242 (regressions at dff6486).
+  "Service the gas-fired water heater",
+  "Inspect the gas-fired boiler",
+  "Light the burner with an open flame\nWarning: keep hands clear.",
+  "Replace the ceiling fan",
+]
+const SAFE_TITLES = [
+  "Clean the gas range grates",
+  "Wipe the furnace cabinet",
+  "Replace HVAC filter",
+  "Test smoke detector",
+  "Test the CO alarm",
+  "Test carbon monoxide detector",
+  "Reset a tripped breaker",
+  "Test GFCI outlets",
+  "Clean the refrigerator coils",
+  "Clean the dryer lint trap",
+  "Descale the coffee maker",
+  "Check Vent System for Blockage",
+  "Clean the range hood filter",
+  "Flush the water heater tank",
+  "Clean the dishwasher filter",
+  "Clean the fireplace glass",
+  "Replace the thermostat batteries",
+  "Clean the gas grill grates",
+  "Turn off power at the breaker panel, then clean the disposal",
+  "Clean the range burner caps",
+  // Review of #242: each of these painted the pro notice on a cleaning task.
+  "Wipe up spillage under the dishwasher",
+  "Clean up spillage in the oven cavity",
+  "Replace the light bulb in the ceiling fan",
+  "Replace the bulb in the light fixture",
+  "Clean the propane grill grates",
+  "Wipe down your natural gas range",
+  "Descale the Breville Co. espresso machine",
+  "Clean the gas burners on the cooktop",
+  "Clean the grease filter. Warning: risk of fire or explosion if grease builds up.",
+  "Dry the lint screen. Do not use near an open flame.",
+  "Clean the oven heating element",
+  // Re-review of #242.
+  "Install the gas range drip pans",
+  "Disconnect the gas range from power before cleaning",
+  "Replace the ceiling fan light bulb",
+  "Clean the gas-fired water heater's cabinet",
+]
+
+describe("classifyTaskFields — hazardous jobs by title alone", () => {
+  it.each(HAZARDOUS_TITLES)("%s → hazardous", (title) => {
+    expect(classifyTaskFields({ title })).toBe("hazardous")
+  })
+  it.each(SAFE_TITLES)("%s → not hazardous", (title) => {
+    expect(classifyTaskFields({ title })).not.toBe("hazardous")
   })
 })
