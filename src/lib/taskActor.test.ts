@@ -187,6 +187,13 @@ const HAZARDOUS_TITLES = [
   "Recharge the A/C refrigerant",
   "Check refrigerant charge",
   "Test for carbon monoxide leaks",
+  "Replace a circuit breaker",
+  "Install a new breaker",
+  "Replace the water heater heating element",
+  "Hook up the gas dryer",
+  "Replace the propane tank regulator",
+  "Check the spillage switch on the draft diverter",
+  "Vent the CO outdoors before re-entering",
 ]
 const SAFE_TITLES = [
   "Clean the gas range grates",
@@ -209,6 +216,18 @@ const SAFE_TITLES = [
   "Clean the gas grill grates",
   "Turn off power at the breaker panel, then clean the disposal",
   "Clean the range burner caps",
+  // Review of #242: each of these painted the pro notice on a cleaning task.
+  "Wipe up spillage under the dishwasher",
+  "Clean up spillage in the oven cavity",
+  "Replace the light bulb in the ceiling fan",
+  "Replace the bulb in the light fixture",
+  "Clean the propane grill grates",
+  "Wipe down your natural gas range",
+  "Descale the Breville Co. espresso machine",
+  "Clean the gas burners on the cooktop",
+  "Clean the grease filter. Warning: risk of fire or explosion if grease builds up.",
+  "Dry the lint screen. Do not use near an open flame.",
+  "Clean the oven heating element",
 ]
 
 describe("classifyTaskFields — hazardous jobs by title alone", () => {

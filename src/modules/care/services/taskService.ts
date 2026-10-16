@@ -795,6 +795,9 @@ export type TaskDetail = {
   tier: PriorityTier
   careType: string | null
   justification: string | null
+  /** The template's description — read so the task page classifies who does
+   *  the task (classifyTaskDetail) from the same text the item page does. */
+  description: string | null
   estimatedMinutes: number | null
   dueDate: string
   assignedTo: string | null
@@ -910,6 +913,7 @@ export async function getTaskDetail(
         tier: (tmpl?.priorityTier ?? inst.priorityTier ?? "optional") as PriorityTier,
         careType: tmpl?.careType ?? inst.careType ?? null,
         justification: tmpl?.justification ?? null,
+        description: typeof tmpl?.description === "string" ? tmpl.description : null,
         estimatedMinutes: tmpl?.estimatedMinutes ?? inst.estimatedMinutes ?? null,
         dueDate: inst.dueDate ?? "",
         assignedTo: inst.assignedTo ?? null,

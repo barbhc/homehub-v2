@@ -77,16 +77,20 @@ const DIY_STEPS = [
 ]
 const numbered = (steps: string[]) => steps.map((s, i) => `${i + 1}. ${s}`).join("\n")
 
-const detailOf = (id: string, title: string, steps: string[]) => ({
+const detailOf = (id: string, title: string, steps: string[], description: string | null = null) => ({
   taskInstanceId: id, taskTemplateId: `tt-${id}`, title, tier: "essential", careType: "maintenance",
-  justification: null, estimatedMinutes: 15, dueDate: localToday(), assignedTo: null,
+  justification: null, description, estimatedMinutes: 15, dueDate: localToday(), assignedTo: null,
   notes: numbered(steps), steps, supplies: [], scheduleType: "annual", intervalDays: null,
   neverCompleted: false, manualPage: null, itemUnitId: null, itemName: null, roomName: null,
   schedule: { scheduleType: "annual", intervalDays: null, season: null }, remindEnabled: null,
 })
+// Hazard named ONLY in the template's description — the item page classifies
+// from it, so the task page must too (one task, one answer).
+const DESC_STEPS = ["Press and hold the reset button for three seconds.", "Wait for the unit to restart."]
 const DETAILS: Record<string, ReturnType<typeof detailOf>> = {
   "ti-gas": detailOf("ti-gas", GAS_TITLE, GAS_STEPS),
   "ti-diy": detailOf("ti-diy", DIY_TITLE, DIY_STEPS),
+  "ti-desc": detailOf("ti-desc", "Restart the boiler", DESC_STEPS, "Works on the gas supply valve to the boiler."),
 }
 const agendaRow = (id: string, title: string) => ({
   taskInstanceId: id, taskTemplateId: `tt-${id}`, title, source: "maintenance", priorityTier: "essential",
@@ -130,6 +134,12 @@ describe("task page (Home → See details)", () => {
     expectNoGasSteps()
     // "Find a pro" goes to the providers list, not Settings.
     expect(screen.getByRole("link", { name: /Find a pro/ })).toHaveAttribute("href", "/providers")
+  })
+
+  it("a hazard named only in the description still hides the steps", async () => {
+    renderApp(<RefinedTaskDetail taskInstanceId="ti-desc" homeId="home-1" onBack={vi.fn()} />)
+    await screen.findByText(PRO_NOTICE)
+    for (const s of DESC_STEPS) expect(screen.queryByText(s)).toBeNull()
   })
 
   it("a DIY task still shows its steps, with no pro notice", async () => {

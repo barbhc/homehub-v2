@@ -32,24 +32,43 @@ export type TaskActor = "diy" | "pro" | "hazardous"
  */
 const HAZARD_PATTERNS: RegExp[] = [
   // Gas: lines, valves, leaks, the smell of it, supply/shut-off hardware.
-  /\bgas\s*(line|pip|valv|leak|pressur|odor|smell|meter|union|supply|shut|cock|control|connector|hose|fitting|burner)/i,
+  /\bgas\s*(line|pip|valv|leak|pressur|odor|smell|meter|union|supply|shut|cock|control|connector|hose|fitting)/i,
   /\bsmell(s|ing)?\s+(of\s+)?gas\b/i,
-  /\bgas-?fired|\bopen flame|\bexplos|\bpropane|\bnatural gas/i,
-  // CO itself — but testing the CO alarm is a homeowner's job.
-  /\bcarbon monoxide(?!\s+(detector|alarm|sensor|monitor))|\bco\b(?!\s*(detector|alarm|sensor|monitor))/i,
+  // Connecting a gas appliance ("Hook up the gas dryer").
+  /\b(hook(ing)?\s*up|connect(ing)?|disconnect(ing)?|install(ing)?)\b[^.]{0,25}\bgas\b/i,
+  // Propane / natural gas only with a hazardous object — "your natural gas
+  // range" and "clean the propane grill grates" are descriptions, not gas work.
+  /\b(propane|natural gas|lp gas|lpg)\b[^.]{0,30}\b(tank|cylinder|regulator|line|valve|connection|leak|orifice|conversion|hook-?up)|\b(tank|cylinder|regulator|valve|connection|leak|orifice)\b[^.]{0,30}\b(propane|natural gas|lp gas|lpg)\b|\bconver(t|sion)\b[^.]{0,20}\b(propane|natural gas|lp)\b/i,
+  // CO itself — but testing the CO alarm is a homeowner's job, and "Co." is a
+  // company. Case-sensitive on purpose: the gas is written "CO".
+  /\bcarbon monoxide(?!\s+(detector|alarm|sensor|monitor))/i,
+  /\bCO\b(?![\s-]*(?:[Dd]etector|[Aa]larm|[Ss]ensor|[Mm]onitor|DETECTOR|ALARM|SENSOR|MONITOR))/,
   // Ignition and flame proving on gas appliances.
   /\bpilot\b|\bthermocouple|\bthermopile|\bflame\s*(sensor|rod|probe)|\bignit(er|or)\b|\bhot surface ignit|\bspark ignit/i,
   // Furnace / boiler / water-heater burners (a range's burner caps are cleaning).
   /\b(main|furnace|boiler|water heater)\s+burners?\b|\bburners?\b[^.]{0,30}\b(furnace|boiler|water heater)\b|\bburner\s*(assembly|orifice|manifold|adjust)/i,
-  // Combustion, flue and venting work (looking at the vent stays DIY).
-  /\bcombustion\s*(chamber|analysis|test|adjust|startup|start-up|air adjust)|\bflue\b|\bdraft\s*(hood|inducer)|\bback-?draft|\bspillage\b/i,
+  // Combustion, flue and venting work (looking at the vent stays DIY). Spillage
+  // only as combustion spillage — "wipe up spillage" is cleaning.
+  /\bcombustion\s*(chamber|analysis|test|adjust|startup|start-up|air adjust)|\bflue\b|\bdraft\s*(hood|inducer)|\bback-?draft/i,
+  /\bspillage\s*(switch|test|sensor)|\b(flue|draft|combustion|venting|vent|exhaust gas)\b[^.]{0,30}\bspillage\b|\bspillage\b[^.]{0,30}\b(flue|draft|combustion|vent)/i,
   /\b(repair|replace|reconnect|disconnect|re-?seal|seal|install|remove|adjust)\b[^.]{0,30}\b(vent\s*(pipe|connector)|venting|chimney liner)/i,
-  // Live electrical: wiring and replacing fixed devices (testing a GFCI is DIY).
+  // Live electrical: wiring, breakers, heating elements, and replacing fixed
+  // devices (testing a GFCI is DIY; so is changing the bulb in a fixture).
   /\bwiring\b|\brewir|\b(live|exposed|bare|hot)\s+wires?\b|\bwire\s+(nut|connection)s?\b|\bline voltage\b|\bhigh voltage\b/i,
-  /\b(replace|install|wire|swap|change|repair)\b[^.]{0,25}\b(outlet|receptacle|light switch|wall switch|dimmer|light fixture|ceiling fan|hardwired)/i,
+  /\b(replace|install|wire|swap|change|repair)\b(?:(?!bulb|lamp|blade|globe|shade|filter|battery|batteries)[^.]){0,25}\b(outlet|receptacle|light switch|wall switch|dimmer|light fixture|ceiling fan|hardwired)/i,
+  /\b(replace|install|add|swap|change)\b[^.]{0,20}\b(circuit\s+)?breakers?\b/i,
+  /\b(replace|install|swap|change|remove|test)\b[^.]{0,30}\bheating elements?\b/i,
   // Refrigerant (an EPA-certified job; "refrigerator" does not match).
   /\brefrigerant|\bfreon\b|\brecharge\b[^.]{0,20}\b(a\/?c|air conditioner|system|refrigerant)/i,
 ]
+
+/**
+ * Words that are almost always a manual's boilerplate caution, not the work
+ * itself ("Risk of fire or explosion", "Do not use near an open flame"). They
+ * count only in a sentence that is not a caution.
+ */
+const CAUTION_ONLY = /\bexplos|\bopen flames?\b/i
+const CAUTION_SENTENCE = /\b(warning|caution|danger|hazard|risk|avoid|never|do not|don't|keep|away from|could|can|may|result|prevent)\b/i
 
 /** An electrical panel, as a place someone WORKS in (see hasPanelWork). */
 const PANEL = /\b(electrical|breaker|service|main|fuse|circuit)\s+(panel|box)|\bload center\b|\bpanel\s*board\b/i
@@ -61,14 +80,20 @@ const PANEL_SAFE_USE = /\b(reset|tripp?ed|flip|turn(ing)?\s+off|switch(ing)?\s+o
  * panel before cleaning the disposal" is the safety pre-step of a DIY task, and
  * "Reset a tripped breaker" is the homeowner's own job. Judged per sentence.
  */
+function sentencesOf(text: string): string[] {
+  return text.split(/(?<=[.!?;:\n])\s+/)
+}
+
 function hasPanelWork(text: string): boolean {
-  return text
-    .split(/(?<=[.!?;\n])\s+/)
-    .some((s) => PANEL.test(s) && !PANEL_SAFE_USE.test(s))
+  return sentencesOf(text).some((s) => PANEL.test(s) && !PANEL_SAFE_USE.test(s))
 }
 
 function isHazardText(text: string): boolean {
-  return HAZARD_PATTERNS.some((p) => p.test(text)) || hasPanelWork(text)
+  return (
+    HAZARD_PATTERNS.some((p) => p.test(text)) ||
+    hasPanelWork(text) ||
+    sentencesOf(text).some((s) => CAUTION_ONLY.test(s) && !CAUTION_SENTENCE.test(s))
+  )
 }
 
 /** Needs pro tools/expertise but not acutely hazardous. */
@@ -157,7 +182,7 @@ export type TaskActorFields = {
 /** Classify who should do a task from its fields (see TaskActorFields). */
 export function classifyTaskFields(f: TaskActorFields): TaskActor {
   return classifyActorFromText(
-    [f.title, f.instructions, f.description, f.justification, ...(f.steps ?? [])].filter(Boolean).join(" "),
+    [f.title, f.instructions, f.description, f.justification, ...(f.steps ?? [])].filter(Boolean).join("\n"),
   )
 }
 
@@ -165,10 +190,13 @@ export function classifyTaskFields(f: TaskActorFields): TaskActor {
 export function classifyTaskDetail(d: {
   title: string
   notes: string | null
+  description: string | null
   justification: string | null
   steps: readonly string[] | null
 }): TaskActor {
-  return classifyTaskFields({ title: d.title, instructions: d.notes, justification: d.justification, steps: d.steps })
+  return classifyTaskFields({
+    title: d.title, instructions: d.notes, description: d.description, justification: d.justification, steps: d.steps,
+  })
 }
 
 /**

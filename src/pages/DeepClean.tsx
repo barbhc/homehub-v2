@@ -1090,7 +1090,8 @@ function parseSteps(instructions: string): string[] {
   return [instructions.trim()]
 }
 
-function CleanTaskRow({
+/** Exported for its hazard-gate test (DeepClean.hazard.test.tsx). */
+export function CleanTaskRow({
   task,
   checked,
   onToggle,
