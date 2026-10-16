@@ -432,10 +432,27 @@ export async function turnOffWinterizingTasks(
   homeId: string,
   uid: string,
   tasks: { taskTemplateId: string; title: string }[],
-): Promise<ServiceResult<SubmitFeedbackResult>> {
+): Promise<ServiceResult<TurnOffResult>> {
   const [primary, ...rest] = tasks
   if (!primary) return { data: null, error: { message: "Pick at least one task to turn off." } }
-  return submitTaskFeedback({
+  // What the archive is about to soft-delete — the same open-instance filter
+  // archiveTaskTemplate applies — so Undo puts back exactly these, and never an
+  // instance that was already gone.
+  let instanceIds: string[]
+  try {
+    const snaps = await Promise.all(tasks.map((t) =>
+      getDocs(query(collection(db, `homes/${homeId}/taskInstances`), where("taskTemplateId", "==", t.taskTemplateId))),
+    ))
+    instanceIds = snaps.flatMap((s) => s.docs
+      .filter((d) => {
+        const x = d.data()
+        return (x.status === "scheduled" || x.status === "snoozed") && x.deletedAt == null
+      })
+      .map((d) => d.id))
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Couldn't read the tasks to turn off" } }
+  }
+  const res = await submitTaskFeedback({
     homeId,
     uid,
     primary: { taskTemplateId: primary.taskTemplateId, taskInstanceId: null, title: primary.title },
@@ -446,6 +463,45 @@ export async function turnOffWinterizingTasks(
     match: { by: "seasonalFamily", family: "freeze_prep" },
     via: "climate",
   })
+  if (res.error) return res
+  return { data: { ...res.data, templateIds: tasks.map((t) => t.taskTemplateId), instanceIds }, error: null }
+}
+
+/** A turn-off, with what Undo needs to put it back exactly. */
+export interface TurnOffResult extends SubmitFeedbackResult {
+  templateIds: string[]
+  /** The open instances the archive soft-deleted. */
+  instanceIds: string[]
+}
+
+/**
+ * Undo a climate turn-off: reactivate exactly those templates, restore the
+ * open instances the archive soft-deleted, and retire the house rule it added
+ * (the same soft delete as deleteHouseRule). One batch, so it is all or none.
+ *
+ * The `taskFeedback` ledger entry stays: firestore.rules make that collection
+ * append-only (an audit trail — "a correction is a new entry"), and nothing in
+ * the app has ever reversed a feedback sweep, so there is no reversal entry to
+ * follow. It records what she did; Undo is recorded by the rule going inactive.
+ */
+export async function undoTurnOffWinterizing(homeId: string, r: TurnOffResult): Promise<ServiceResult<true>> {
+  try {
+    const now = serverTimestamp()
+    const batch = writeBatch(db)
+    for (const id of r.templateIds) {
+      batch.set(doc(db, `homes/${homeId}/taskTemplates/${id}`), { isActive: true, updatedAt: now }, { merge: true })
+    }
+    for (const id of r.instanceIds) {
+      batch.set(doc(db, `homes/${homeId}/taskInstances/${id}`), { deletedAt: null, updatedAt: now }, { merge: true })
+    }
+    if (r.ruleId) {
+      batch.set(doc(db, `homes/${homeId}/houseRules/${r.ruleId}`), { isActive: false, deletedAt: now, updatedAt: now }, { merge: true })
+    }
+    await batch.commit()
+    return { data: true, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Couldn't undo" } }
+  }
 }
 
 // ── Discuss (Phase C — AI) ───────────────────────────────────────────────────

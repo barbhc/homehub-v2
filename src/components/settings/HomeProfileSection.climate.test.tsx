@@ -20,6 +20,7 @@ const getHomeProfile = vi.hoisted(() => vi.fn())
 const upsertHomeProfile = vi.hoisted(() => vi.fn())
 const getWinterizingTasks = vi.hoisted(() => vi.fn())
 const turnOffWinterizingTasks = vi.hoisted(() => vi.fn())
+const undoTurnOffWinterizing = vi.hoisted(() => vi.fn())
 vi.mock("@/modules/home", () => ({
   getHomeProfile: (...a: unknown[]) => getHomeProfile(...a),
   upsertHomeProfile: (...a: unknown[]) => upsertHomeProfile(...a),
@@ -28,6 +29,7 @@ vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }))
 vi.mock("@/modules/care", () => ({
   getWinterizingTasks: (...a: unknown[]) => getWinterizingTasks(...a),
   turnOffWinterizingTasks: (...a: unknown[]) => turnOffWinterizingTasks(...a),
+  undoTurnOffWinterizing: (...a: unknown[]) => undoTurnOffWinterizing(...a),
 }))
 
 const { HomeProfileSection } = await import("./HomeProfileSection")
@@ -43,6 +45,10 @@ const TASKS = [
   { taskTemplateId: "t-dish", title: "Winterize the Dishwasher", where: "Bosch dishwasher", cadence: "Seasonal" },
 ]
 
+const TURNED_OFF_ONE = {
+  feedbackId: "f1", ruleId: "r1", affected: 1, templateIds: ["t-washer"], instanceIds: ["i-washer"],
+}
+
 async function renderAndSave(climate: string, freeze_risk: boolean) {
   getHomeProfile.mockResolvedValue({ data: profile(climate, freeze_risk), error: null })
   render(<HomeProfileSection homeId="home-1" />)
@@ -55,6 +61,7 @@ beforeEach(() => {
   upsertHomeProfile.mockReset()
   getWinterizingTasks.mockReset()
   turnOffWinterizingTasks.mockReset()
+  undoTurnOffWinterizing.mockReset()
   upsertHomeProfile.mockImplementation(async (_h: string, patch: { climate: string; freeze_risk: boolean }) => ({
     data: profile(patch.climate, patch.freeze_risk), error: null,
   }))
@@ -89,15 +96,47 @@ describe("Settings › Home profile · the winterizing offer after a Mild/Hot sa
     expect(turnOffWinterizingTasks).not.toHaveBeenCalled()
   })
 
-  it("turns off only the ticked ones, then confirms in one line", async () => {
-    turnOffWinterizingTasks.mockResolvedValue({ data: { feedbackId: "f1", ruleId: "r1", affected: 1 }, error: null })
+  it("turns off only the ticked ones, then says so in the UndoBar", async () => {
+    turnOffWinterizingTasks.mockResolvedValue({ data: TURNED_OFF_ONE, error: null })
     await renderAndSave("hot", false)
     const card = await screen.findByTestId("winterizing-offer")
     fireEvent.click(within(card).getByRole("checkbox", { name: /Winterize the Dishwasher/ }))
     fireEvent.click(within(card).getByRole("button", { name: "Turn off 1" }))
-    await screen.findByText("Turned off 1 winterizing task.")
+    const bar = await screen.findByRole("status")
+    expect(bar).toHaveTextContent("Turned off 1 winterizing task")
+    expect(within(bar).getByRole("button", { name: "Undo" })).toBeInTheDocument()
     expect(turnOffWinterizingTasks).toHaveBeenCalledWith("home-1", "u1", [TASKS[0]])
     expect(screen.queryByTestId("winterizing-offer")).toBeNull()
+  })
+
+  it("Undo puts back exactly what was turned off", async () => {
+    turnOffWinterizingTasks.mockResolvedValue({ data: TURNED_OFF_ONE, error: null })
+    undoTurnOffWinterizing.mockResolvedValue({ data: true, error: null })
+    await renderAndSave("mild", false)
+    const card = await screen.findByTestId("winterizing-offer")
+    fireEvent.click(within(card).getByRole("checkbox", { name: /Winterize the Dishwasher/ }))
+    fireEvent.click(within(card).getByRole("button", { name: "Turn off 1" }))
+    fireEvent.click(within(await screen.findByRole("status")).getByRole("button", { name: "Undo" }))
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Turned 1 winterizing task back on"))
+    expect(undoTurnOffWinterizing).toHaveBeenCalledWith("home-1", TURNED_OFF_ONE)
+  })
+
+  it("a failed Undo says so, stays up, and Undo tries again", async () => {
+    turnOffWinterizingTasks.mockResolvedValue({ data: TURNED_OFF_ONE, error: null })
+    undoTurnOffWinterizing
+      .mockResolvedValueOnce({ data: null, error: { message: "Missing or insufficient permissions." } })
+      .mockResolvedValueOnce({ data: true, error: null })
+    await renderAndSave("mild", false)
+    const card = await screen.findByTestId("winterizing-offer")
+    fireEvent.click(within(card).getByRole("checkbox", { name: /Winterize the Dishwasher/ }))
+    fireEvent.click(within(card).getByRole("button", { name: "Turn off 1" }))
+    fireEvent.click(within(await screen.findByRole("status")).getByRole("button", { name: "Undo" }))
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Couldn't turn them back on: Missing or insufficient permissions. Tap Undo to try again."),
+    )
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Undo" }))
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Turned 1 winterizing task back on"))
+    expect(undoTurnOffWinterizing).toHaveBeenCalledTimes(2)
   })
 
   it("a failed turn-off says so and keeps the card, ticks intact", async () => {

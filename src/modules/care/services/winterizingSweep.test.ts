@@ -35,7 +35,7 @@ vi.mock("firebase/firestore", async (importOriginal) => ({
       return { docs: fs.templates.map((t) => ({ id: t.id, data: () => t.data, get: (k: string) => t.data[k] })) }
     }
     // Open instances of the archived template.
-    return { docs: [{ ref: { path: `${q.path}/inst-1` }, data: () => ({ status: "scheduled", deletedAt: null }) }] }
+    return { docs: [{ id: "inst-1", ref: { path: `${q.path}/inst-1` }, data: () => ({ status: "scheduled", deletedAt: null }) }] }
   },
   getDoc: async (r: Ref) => {
     const item = fs.items[r.id]
@@ -48,7 +48,7 @@ vi.mock("firebase/firestore", async (importOriginal) => ({
   setDoc: async (r: Ref, data: Record<string, unknown>) => { fs.setDocs.push({ path: r.path, data }) },
 }))
 
-const { getWinterizingTasks, turnOffWinterizingTasks } = await import("./taskFeedbackService")
+const { getWinterizingTasks, turnOffWinterizingTasks, undoTurnOffWinterizing } = await import("./taskFeedbackService")
 
 const tpl = (id: string, title: string, over: Record<string, unknown> = {}) => ({
   id,
@@ -109,10 +109,41 @@ describe("turnOffWinterizingTasks — the feedback sweep's own mechanism", () =>
     })
   })
 
+  it("returns what Undo needs: the templates, and the open instances the archive soft-deleted", async () => {
+    const res = await turnOffWinterizingTasks("h1", "u1", [{ taskTemplateId: "t-washer", title: "Winterize the washer for cold storage" }])
+    expect(res.data).toMatchObject({ templateIds: ["t-washer"], instanceIds: ["inst-1"], ruleId: expect.any(String) })
+  })
+
   it("a failed write is an error, and no ledger or rule claims it happened", async () => {
     fs.commitError = new Error("Missing or insufficient permissions.")
     const res = await turnOffWinterizingTasks("h1", "u1", [{ taskTemplateId: "t-washer", title: "Winterize the washer for cold storage" }])
     expect(res.error?.message).toBe("Missing or insufficient permissions.")
     expect(fs.setDocs).toHaveLength(0)
+  })
+})
+
+describe("undoTurnOffWinterizing", () => {
+  const turnedOff = {
+    feedbackId: "f1", ruleId: "r1", affected: 2,
+    templateIds: ["t-washer", "t-faucet"], instanceIds: ["inst-9"],
+  }
+
+  it("reactivates exactly those templates, restores their instances, and retires the rule — in one batch", async () => {
+    const res = await undoTurnOffWinterizing("h1", turnedOff)
+    expect(res).toEqual({ data: true, error: null })
+    expect(fs.batchSets).toEqual([
+      { path: "homes/h1/taskTemplates/t-washer", data: { isActive: true, updatedAt: "TS" } },
+      { path: "homes/h1/taskTemplates/t-faucet", data: { isActive: true, updatedAt: "TS" } },
+      { path: "homes/h1/taskInstances/inst-9", data: { deletedAt: null, updatedAt: "TS" } },
+      { path: "homes/h1/houseRules/r1", data: { isActive: false, deletedAt: "TS", updatedAt: "TS" } },
+    ])
+    // The ledger is append-only (firestore.rules) and is not touched.
+    expect(fs.setDocs).toHaveLength(0)
+  })
+
+  it("a failed undo is an error the caller can show", async () => {
+    fs.commitError = new Error("Missing or insufficient permissions.")
+    const res = await undoTurnOffWinterizing("h1", turnedOff)
+    expect(res.error?.message).toBe("Missing or insufficient permissions.")
   })
 })

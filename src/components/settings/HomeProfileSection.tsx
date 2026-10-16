@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Loader2Icon, HomeIcon, CheckCircle2Icon } from "lucide-react"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { SectionCard } from "@/components/layout"
@@ -24,7 +24,14 @@ import {
   type TopConcernKey,
 } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
-import { getWinterizingTasks, turnOffWinterizingTasks, type WinterizingTask } from "@/modules/care"
+import {
+  getWinterizingTasks,
+  turnOffWinterizingTasks,
+  undoTurnOffWinterizing,
+  type TurnOffResult,
+  type WinterizingTask,
+} from "@/modules/care"
+import { UndoBar } from "@/components/ui/UndoBar"
 
 type Props = {
   homeId: string
@@ -104,7 +111,9 @@ export function HomeProfileSection({ homeId }: Props) {
   const [offer, setOffer] = useState<WinterizingOffer | null>(null)
   const [offerBusy, setOfferBusy] = useState(false)
   const [offerError, setOfferError] = useState<string | null>(null)
-  const [offerDone, setOfferDone] = useState<string | null>(null)
+  /** The receipt after a turn-off, with its Undo (the app's UndoBar). */
+  const [bar, setBar] = useState<{ message: string; onUndo?: () => void; ms: number } | null>(null)
+  const dismissBar = useCallback(() => setBar(null), [])
   /** "Keep them" holds for the rest of the visit — a later Save doesn't re-ask. */
   const [offerDeclined, setOfferDeclined] = useState(false)
 
@@ -126,7 +135,7 @@ export function HomeProfileSection({ homeId }: Props) {
     setError(null)
     setOffer(null)
     setOfferError(null)
-    setOfferDone(null)
+    setBar(null)
     setOfferDeclined(false)
   }
   useEffect(() => {
@@ -167,7 +176,6 @@ export function HomeProfileSection({ homeId }: Props) {
     setError(null)
     setOffer(null)
     setOfferError(null)
-    setOfferDone(null)
     const wantClimate = climate || null
     const wantFreezeRisk = freezeRiskFor(climate)
     const result = await upsertHomeProfile(
@@ -214,6 +222,23 @@ export function HomeProfileSection({ homeId }: Props) {
       return { ...o, checked }
     })
 
+  /** Undo puts back exactly what the turn-off changed. A failed Undo comes back
+   *  to the bar with the same Undo and stays until acted on — the snooze
+   *  bar's rule (home/tasks/shared.ts): a failure is not furniture to time out. */
+  const undoTurnOff = async (turnedOff: TurnOffResult) => {
+    const res = await undoTurnOffWinterizing(homeId, turnedOff)
+    const n = turnedOff.templateIds.length
+    if (res.error) {
+      setBar({
+        message: `Couldn't turn them back on: ${res.error.message} Tap Undo to try again.`,
+        onUndo: () => void undoTurnOff(turnedOff),
+        ms: 0,
+      })
+      return
+    }
+    setBar({ message: `Turned ${n} winterizing task${n === 1 ? "" : "s"} back on`, ms: 4000 })
+  }
+
   const handleTurnOff = async () => {
     if (!offer || !user) return
     const picked = offer.tasks.filter((t) => offer.checked.has(t.taskTemplateId))
@@ -227,7 +252,13 @@ export function HomeProfileSection({ homeId }: Props) {
       return
     }
     setOffer(null)
-    setOfferDone(`Turned off ${res.data.affected} winterizing task${res.data.affected === 1 ? "" : "s"}.`)
+    const turnedOff = res.data
+    const n = turnedOff.templateIds.length
+    setBar({
+      message: `Turned off ${n} winterizing task${n === 1 ? "" : "s"}`,
+      onUndo: () => void undoTurnOff(turnedOff),
+      ms: 7000,
+    })
   }
 
   const handleKeep = () => {
@@ -468,12 +499,7 @@ export function HomeProfileSection({ homeId }: Props) {
               </div>
             )}
             {!offer && offerError && <p className="text-sm text-destructive">{offerError}</p>}
-            {offerDone && (
-              <p className="flex items-center gap-1.5 text-sm text-emerald-700">
-                <CheckCircle2Icon className="size-4 shrink-0" />
-                {offerDone}
-              </p>
-            )}
+            {bar && <UndoBar message={bar.message} onUndo={bar.onUndo} ms={bar.ms} onDismiss={dismissBar} />}
           </>
         )}
       </CardContent>

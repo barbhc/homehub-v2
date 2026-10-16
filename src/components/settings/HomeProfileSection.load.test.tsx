@@ -16,7 +16,7 @@ vi.mock("@/modules/home", () => ({
   upsertHomeProfile: vi.fn(),
 }))
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }))
-vi.mock("@/modules/care", () => ({ getWinterizingTasks: vi.fn(), turnOffWinterizingTasks: vi.fn() }))
+vi.mock("@/modules/care", () => ({ getWinterizingTasks: vi.fn(), turnOffWinterizingTasks: vi.fn(), undoTurnOffWinterizing: vi.fn() }))
 
 const { HomeProfileSection } = await import("./HomeProfileSection")
 
