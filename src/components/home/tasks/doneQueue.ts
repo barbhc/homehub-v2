@@ -60,6 +60,8 @@ const inFlight = new Map<string, Promise<DoneWrite>>()
 const listeners = new Set<() => void>()
 let loaded = false
 let failedSnapshot: QueuedDone[] = []
+/** Whose snapshot that is: one taken for another account is never handed out. */
+let snapshotUid = ""
 
 const keyOf = (homeId: string, id: string) => `${homeId}/${id}`
 /** The signed-in user; "" when nobody is (nothing is shown or written for them then). */
@@ -153,6 +155,7 @@ function dropOtherUsers(): boolean {
 
 function refreshSnapshot() {
   const uid = currentUid()
+  snapshotUid = uid
   failedSnapshot = [...entries.values()].filter((e) => e.state === "failed" && e.uid === uid)
 }
 
@@ -171,6 +174,9 @@ export function subscribeDoneQueue(fn: () => void): () => void {
 /** Dones refused with no row to show it on. A stable array between changes (useSyncExternalStore). */
 export function failedDones(): QueuedDone[] {
   load()
+  // Taken under another sign-in (or none): rebuilt NOW, before anything
+  // renders it — never one paint of the last account's task.
+  if (snapshotUid !== currentUid()) refreshSnapshot()
   return failedSnapshot
 }
 
@@ -265,6 +271,33 @@ export function writeUnheldDones() {
 }
 
 /**
+ * Sign-out, first half: write every Done the leaving user has not yet written
+ * — those in an Undo window included (they said "Done") — before the queue is
+ * cleared. Bounded by `timeoutMs` so sign-out never hangs; a write that fails
+ * or runs out of time is logged, since the person is leaving.
+ */
+export async function writeAllDonesNow(timeoutMs = 3000): Promise<void> {
+  load()
+  const uid = currentUid()
+  const mine = [...entries.values()].filter((e) => e.uid === uid && e.state === "pending")
+  if (mine.length === 0) return
+  const writes = Promise.all(
+    mine.map((e) =>
+      writeDone(e.homeId, e.id).then((r) => {
+        if (!r.success) console.warn(`[done queue] signing out: could not mark task done ${e.id} (home ${e.homeId}):`, r.error)
+      }),
+    ),
+  )
+  let timer: number | undefined
+  const timedOut = new Promise<"timeout">((r) => {
+    timer = window.setTimeout(() => r("timeout"), timeoutMs)
+  })
+  const outcome = await Promise.race([writes.then(() => "done" as const), timedOut])
+  window.clearTimeout(timer)
+  if (outcome === "timeout") console.warn(`[done queue] signing out: ${mine.length} Done(s) still being written after ${timeoutMs}ms`)
+}
+
+/**
  * Sign-out: forget every Done on this device, in memory and on disk, so the
  * next account never sees — or writes — the last one's.
  */
@@ -291,4 +324,5 @@ export function resetDoneQueueForTests() {
   listeners.clear()
   loaded = false
   failedSnapshot = []
+  snapshotUid = ""
 }

@@ -131,6 +131,13 @@ function follow(where: string, id: string, fn: () => unknown) {
     })
 }
 
+/** Why a Done can never be written, in one line — for the Try again that found out. */
+function terminalDoneMessage(error: string | null | undefined): string {
+  if (typeof error === "string" && /not found/i.test(error)) return "That task no longer exists."
+  if (typeof error === "string" && /not a member|permission/i.test(error)) return "You're no longer in that home."
+  return "That task can't be marked done any more."
+}
+
 /** What a Done refused after its screen had gone says, on whatever screen is up now. */
 function lostDoneMessage(d: QueuedDone): string {
   if (typeof d.error === "string" && d.error.startsWith(DATE_REFUSAL)) return d.error
@@ -373,6 +380,9 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
       setRetrying(null)
       if (r.success) return
       console.warn(`[${opts.current.where}] could not mark task done ${firstLost.id} (home ${firstLost.homeId}) on retry:`, r.error)
+      // Refused for good, so the queue dropped it: say why rather than let
+      // the line just vanish under the person's thumb.
+      if (r.terminal) setBar({ message: terminalDoneMessage(r.error), ms: 7000 })
     })
   }, [firstLost])
   const dismissLost = useCallback(() => {

@@ -16,7 +16,7 @@ import { act, fireEvent, render as rtlRender, screen, waitFor, within } from "@t
 import { SWRConfig } from "swr"
 import { RefinedWeek } from "./RefinedWeek"
 import { DONE_UNDO_MS } from "./tasks/shared"
-import { clearDoneQueue, resetDoneQueueForTests } from "./tasks/doneQueue"
+import { clearDoneQueue, failedDones, resetDoneQueueForTests, writeAllDonesNow } from "./tasks/doneQueue"
 import { addDays, localToday } from "../../../shared/dates/calendar"
 
 const render = (ui: React.ReactElement) =>
@@ -195,6 +195,44 @@ describe("Tasks — a Done never crosses accounts, and a hopeless one is not ret
     expect(screen.queryByText(/Couldn't mark/)).toBeNull()
     expect(svc.markTaskInstanceDone).not.toHaveBeenCalled()
     expect(localStorage.getItem(QUEUE_KEY)).toBeNull()
+  })
+
+  it("the failure snapshot is never handed to another account — not even for one paint", () => {
+    localStorage.setItem(QUEUE_KEY, failedFor("user-a"))
+    resetDoneQueueForTests()
+    expect(failedDones()).toHaveLength(1)
+    // Switch accounts with no queue event in between: the very next read is B's.
+    session.auth.currentUser = { uid: "user-b" }
+    expect(failedDones()).toEqual([])
+  })
+
+  it("signing out inside the Undo window writes the Done first (it said 'Done'), then clears", async () => {
+    const view = await settle()
+    fireEvent.click(within(rowEl()).getByLabelText(/mark done/i))
+    await bar()
+    expect(svc.markTaskInstanceDone).not.toHaveBeenCalled()
+
+    // What AuthProvider.signOut does, in order.
+    await writeAllDonesNow()
+    expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1)
+    expect(svc.markTaskInstanceDone).toHaveBeenCalledWith("home-1", "ti-1", null, expect.objectContaining({ completedOn: localToday() }))
+    clearDoneQueue()
+    view.unmount()
+    expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(QUEUE_KEY)).toBeNull()
+  })
+
+  it("Try again on a task that no longer exists says so, instead of the line just vanishing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    localStorage.setItem(QUEUE_KEY, failedFor("user-a"))
+    resetDoneQueueForTests()
+    await settle()
+    const line = await screen.findByRole("status")
+    svc.markTaskInstanceDone.mockResolvedValue({ success: false, error: "Task instance not found" })
+    fireEvent.click(within(line).getByRole("button", { name: "Try again" }))
+    expect(await screen.findByText("That task no longer exists.")).toBeInTheDocument()
+    expect(screen.queryByText(/Couldn't mark/)).toBeNull()
+    warn.mockRestore()
   })
 
   it("a Done the server can never take (task gone) is dropped, not offered as Try again", async () => {
