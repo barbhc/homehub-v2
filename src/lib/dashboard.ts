@@ -17,10 +17,23 @@ import {
 import { isAgendaEligible } from "@/lib/agendaEligibility"
 import type { HomeReads, ReadDoc } from "@/lib/homeReads"
 import { addDays, diffDays, localToday } from "../../shared/dates/calendar"
+import { asListedToday, effectiveDueDate } from "../../shared/tasks/snooze"
 
 type Row = { id: string } & Record<string, unknown>
 /** `{ id, ...data }` — the row shape these derivations were written against. */
 const asRows = (docs: ReadDoc[]): Row[] => docs.map((d) => ({ id: d.id, ...d.data }) as Row)
+
+/**
+ * The open instances that are on the list TODAY, each carrying its effective
+ * due date in `dueDate` (shared/tasks/snooze): scheduled ones as stored, a
+ * snoozed one only once its snooze has ended, due from that day. Home used to
+ * read `status === "scheduled"` alone, so a task snoozed on Home never came back.
+ */
+const onListToday = (docs: ReadDoc[], today: string): Row[] =>
+  asRows(docs).flatMap((r) => {
+    const listed = asListedToday(r, today)
+    return listed ? [listed] : []
+  })
 
 /** Due-soon window: tasks due within this many days count as "urgent". */
 export const DUE_SOON_DAYS = 7
@@ -315,8 +328,7 @@ export function deriveDashboardTasks(
   // The open instances the Home load read; scheduled rows derived client-side
   // from the denormalized fields (§5). risk_level isn't denormed (only used
   // for a suggested-ordering boost) → null is a safe degrade.
-  const rows: TaskInstanceRow[] = asRows(reads.live)
-    .filter((r) => r.status === "scheduled")
+  const rows: TaskInstanceRow[] = onListToday(reads.live, todayStr)
     .sort(
       (a, b) =>
         ((b.priorityScore as number) ?? 0) - ((a.priorityScore as number) ?? 0) ||
@@ -439,13 +451,15 @@ export function deriveDashboardStats(reads: HomeReads): DashboardStats {
     if (c && c >= monthStart) completedThisMonth++
   }
   for (const { data: r } of reads.live) {
-    if (r.status !== "scheduled") continue
+    if (r.status !== "scheduled" && r.status !== "snoozed") continue
     // Counted BEFORE the cleaning filter and before any date test: an item
     // whose only upkeep is cleaning still has upkeep, and telling that user
-    // "nothing is scheduled yet" would be the same lie HH-82 was about.
+    // "nothing is scheduled yet" would be the same lie HH-82 was about. A
+    // snoozed task is upkeep too — only its date is put off.
     scheduledTaskCount++
     if (r.careType === "cleaning") continue // route to Deep Clean, not the feed
-    const d = r.dueDate as string | undefined
+    // Its effective date; null while a snooze holds it off the list.
+    const d = r.dueDate ? effectiveDueDate(r, todayStr) : null
     if (!d) continue
     // Only Essential tasks carry a hard overdue deadline; Recommended/Optional
     // past-due are cadence suggestions, not deadlines.
@@ -554,8 +568,8 @@ export function deriveUpcomingTasks(reads: Pick<HomeReads, "live">): Maintenance
   // rows regardless, so the widening costs nothing visually.
   const in30Days = addDays(todayStr, 45)
 
-  return asRows(reads.live)
-    .filter((r) => r.status === "scheduled" && (r.dueDate as string) >= todayStr && (r.dueDate as string) <= in30Days)
+  return onListToday(reads.live, todayStr)
+    .filter((r) => (r.dueDate as string) >= todayStr && (r.dueDate as string) <= in30Days)
     // Home is a MAINTENANCE agenda — item-scoped cleaning lives on the Cleaning
     // page + the item's own Cleaning group. weekAgenda already did this; this
     // path didn't, which is how "Clean Interior Surfaces" reached Due Today.

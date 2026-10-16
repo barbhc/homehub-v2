@@ -10,7 +10,7 @@
  *   · a failed read is a visible failure in both — never "Nothing due".
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { SWRConfig } from "swr"
 import { localToday } from "../../shared/dates/calendar"
@@ -29,6 +29,8 @@ vi.mock("@/modules/care", () => ({
   markTaskInstanceDone: (...a: unknown[]) => svc.markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => svc.snoozeTaskInstance(...a),
   getTaskDetail: (...a: unknown[]) => svc.getTaskDetail(...a),
+  previewNextDue: vi.fn(async () => null),
+  unsnoozeTaskInstance: vi.fn(),
   getTaskTemplates: (...a: unknown[]) => svc.getTaskTemplates(...a),
   addLibraryTask: vi.fn(),
   dismissLibrarySuggestion: vi.fn(),
@@ -41,6 +43,7 @@ vi.mock("@/modules/home", () => ({
 }))
 
 const { default: Maintenance } = await import("./Maintenance")
+const { resetDoneQueueForTests } = await import("@/components/home/tasks/doneQueue")
 
 const TASK = {
   taskInstanceId: "ti-1", taskTemplateId: "tt-1", title: "Replace the furnace filter", source: "maintenance",
@@ -93,10 +96,28 @@ describe("Tasks page — both trees, one fetch", () => {
     expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
 
     fireEvent.click(screen.getAllByLabelText("Mark done")[0])
+    // A Done from a list is written when its Undo bar goes; closing the bar writes it now.
+    const close = within(await screen.findByRole("status")).getByRole("button", { name: "Dismiss" })
+    await act(async () => {
+      fireEvent.click(close)
+    })
 
     await waitFor(() => expect(screen.queryByText("Replace the furnace filter")).toBeNull())
     expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1)
     expect(svc.getWeekAgenda).toHaveBeenCalledTimes(1) // no refetch for a local removal
+  })
+
+  it("a Done refused after its screen had gone is said ONCE — not by both trees", async () => {
+    localStorage.setItem("hh:pending-dones:v1", JSON.stringify([
+      { uid: "", homeId: "h1", id: "ti-9", label: "Flush the water heater", completedOn: localToday(), nextDue: null, state: "failed", error: "You're offline" },
+    ]))
+    resetDoneQueueForTests()
+    renderPage()
+    expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
+    expect(await screen.findAllByText("Couldn't mark “Flush the water heater” done.")).toHaveLength(1)
+    expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(1)
+    localStorage.clear()
+    resetDoneQueueForTests()
   })
 
   it("a failed read says so in both trees — never 'Nothing due — enjoy the calm.'", async () => {

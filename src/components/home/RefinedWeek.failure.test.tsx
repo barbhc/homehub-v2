@@ -12,7 +12,7 @@
  * the task is still listed — a task that did not complete must not disappear.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { render as rtlRender, screen, fireEvent, waitFor, within } from "@testing-library/react"
+import { act, render as rtlRender, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { SWRConfig } from "swr"
 import { RefinedWeek } from "./RefinedWeek"
 import { localToday } from "../../../shared/dates/calendar"
@@ -27,8 +27,12 @@ const getWeekAgenda = vi.fn()
 const markTaskInstanceDone = vi.fn()
 const snoozeTaskInstance = vi.fn()
 const getTaskDetail = vi.fn()
+const previewNextDue = vi.fn()
+const unsnoozeTaskInstance = vi.fn()
 
 vi.mock("@/modules/care", () => ({
+  previewNextDue: (...a: unknown[]) => previewNextDue(...a),
+  unsnoozeTaskInstance: (...a: unknown[]) => unsnoozeTaskInstance(...a),
   getWeekAgenda: (...a: unknown[]) => getWeekAgenda(...a),
   markTaskInstanceDone: (...a: unknown[]) => markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => snoozeTaskInstance(...a),
@@ -68,7 +72,17 @@ beforeEach(() => {
   // With the agenda's own tally of the cleaning it withheld (HH-94) — none here.
   getWeekAgenda.mockResolvedValue({ data: [TASK], error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
   getTaskDetail.mockResolvedValue({ data: { steps: [], infoBlurb: null }, error: null })
+  previewNextDue.mockResolvedValue("2026-11-15")
+  unsnoozeTaskInstance.mockResolvedValue({ success: true })
 })
+
+/** A Done from a list is written when its Undo bar goes; closing the bar writes it now. */
+const acceptDone = async () => {
+  const close = within(await screen.findByRole("status")).getByRole("button", { name: "Dismiss" })
+  await act(async () => {
+    fireEvent.click(close)
+  })
+}
 
 const renderAndSettle = async () => {
   render(<RefinedWeek homeId="home-1" />)
@@ -93,6 +107,7 @@ describe("RefinedWeek — a failed check-off must say so", () => {
     await renderAndSettle()
 
     fireEvent.click(screen.getByLabelText(/mark done/i))
+    await acceptDone()
 
     // Home's words (#230); the service's raw error goes to the log, not the person.
     const row = rowOf(/replace the furnace filter/i)
@@ -126,6 +141,7 @@ describe("RefinedWeek — a failed check-off must say so", () => {
     await waitFor(() => expect(screen.getByText(/test smoke alarms/i)).toBeInTheDocument())
 
     fireEvent.click(within(rowOf(/test smoke alarms/i)).getByLabelText(/mark done/i))
+    await acceptDone()
 
     await waitFor(() => expect(within(rowOf(/test smoke alarms/i)).getByRole("alert")).toHaveTextContent("Couldn't mark this done."))
     expect(within(rowOf(/replace the furnace filter/i)).queryByRole("alert")).toBeNull()

@@ -14,16 +14,22 @@ import { useEffect } from "react"
 export function UndoBar({
   message,
   onUndo,
+  actionLabel,
   onDismiss,
   ms = 7000,
 }: {
   message: string
   /** Omit when the action genuinely cannot be reversed — then this is just a receipt. */
   onUndo?: () => void
+  /** The button's word when it is not Undo ("Try again"). Such an action does
+   *  not close the bar itself — the caller decides what the bar says next. */
+  actionLabel?: string
   onDismiss: () => void
+  /** 0: the bar stays until it is acted on or dismissed (a failure is not furniture to time out). */
   ms?: number
 }) {
   useEffect(() => {
+    if (ms <= 0) return
     const t = window.setTimeout(onDismiss, ms)
     return () => window.clearTimeout(t)
   }, [onDismiss, ms, message])
@@ -44,13 +50,16 @@ export function UndoBar({
         {onUndo && (
           <button
             type="button"
-            onClick={() => { onUndo(); onDismiss() }}
+            onClick={() => {
+              onUndo()
+              if (!actionLabel) onDismiss()
+            }}
             className="shrink-0 text-[13.5px] font-bold underline underline-offset-2"
             // Not --hh-teal-deep: that is a colour for light SURFACES, and on
             // the ink bar it was 2.19:1. --hh-accent-on-ink flips with the bar.
             style={{ color: "var(--hh-accent-on-ink)" }}
           >
-            Undo
+            {actionLabel ?? "Undo"}
           </button>
         )}
         <button

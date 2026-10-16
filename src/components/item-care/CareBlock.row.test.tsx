@@ -10,14 +10,14 @@
  * These are BEHAVIOURAL: render the rows and read what they actually say.
  */
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, waitFor, within, fireEvent } from "@testing-library/react"
+import { act, render, screen, waitFor, within, fireEvent } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import type { ItemUnit } from "@/integrations/types"
 import { CareBlock } from "./CareBlock"
 import { addDays, localToday } from "../../../shared/dates/calendar"
 
 const instances = vi.hoisted(() => ({ open: [] as unknown[], done: [] as unknown[] }))
-const svc = vi.hoisted(() => ({ done: vi.fn(), snooze: vi.fn(), unsnooze: vi.fn() }))
+const svc = vi.hoisted(() => ({ done: vi.fn(), snooze: vi.fn(), unsnooze: vi.fn(), preview: vi.fn() }))
 vi.mock("@/modules/care", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   getTaskInstances: vi.fn((_h: string, opts: { status?: string[] }) =>
@@ -25,12 +25,21 @@ vi.mock("@/modules/care", async (orig) => ({
   markTaskInstanceDone: (...a: unknown[]) => svc.done(...a),
   snoozeTaskInstance: (...a: unknown[]) => svc.snooze(...a),
   unsnoozeTaskInstance: (...a: unknown[]) => svc.unsnooze(...a),
+  previewNextDue: (...a: unknown[]) => svc.preview(...a),
 }))
 vi.mock("@/pages/item-detail/useSetupCompletion", () => ({
   useSetupCompletion: () => ({ done: new Set<string>(), toggle: vi.fn(), allDone: false }),
 }))
 
 const item = { item_unit_id: "i1", display_name: "LG DLGX3901B" } as ItemUnit
+
+/** A Done is written when its Undo bar goes; closing the bar writes it now. */
+const acceptDone = async () => {
+  const close = within(await screen.findByRole("status")).getByRole("button", { name: "Dismiss" })
+  await act(async () => {
+    fireEvent.click(close)
+  })
+}
 const iso = (days: number) => addDays(localToday(), days)
 
 /** A maintenance task on a monthly cadence, due far enough out to have shown a date. */
@@ -167,11 +176,17 @@ describe("HH-157 — the row carries the task's verbs", () => {
 
   it("Mark done completes the instance Home would, and the row says what happened", async () => {
     svc.done.mockReset().mockResolvedValue({ success: true, data: {}, nextInstanceId: "i-next" })
+    svc.preview.mockReset().mockResolvedValue(iso(30))
     renderWithEdit([openInstance("t1", iso(17))])
     const acts = await openRow()
     fireEvent.click(within(acts).getByRole("button", { name: "Mark done" }))
-    await waitFor(() => expect(svc.done).toHaveBeenCalledWith("h1", "i-t1"))
+    // Said at once, with the way back; written when the bar goes.
     expect((await screen.findByTestId("row-done")).textContent).toMatch(/Done today/)
+    expect((await screen.findByRole("status")).textContent).toMatch(/Done · next due/)
+    expect(svc.done).not.toHaveBeenCalled()
+    await acceptDone()
+    await waitFor(() =>
+      expect(svc.done).toHaveBeenCalledWith("h1", "i-t1", null, { completedOn: localToday(), backdated: false, nextDueOverride: iso(30) }))
     expect(screen.queryByRole("button", { name: "Mark done" })).toBeNull()
   })
 
@@ -184,6 +199,7 @@ describe("HH-157 — the row carries the task's verbs", () => {
     renderWithEdit([openInstance("t1", iso(17))])
     const acts = await openRow()
     fireEvent.click(within(acts).getByRole("button", { name: "Mark done" }))
+    await acceptDone()
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toBe("Couldn't mark this done. Check your connection and try again."))
     expect(within(acts).getByRole("button", { name: "Mark done" })).toBeTruthy()
@@ -214,6 +230,7 @@ describe("HH-157 — the row carries the task's verbs", () => {
     renderWithEdit([openInstance("t1", iso(17))])
     const acts = await openRow()
     fireEvent.click(within(acts).getByRole("button", { name: "Mark done" }))
+    await acceptDone()
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(refusal))
     expect(screen.queryByTestId("row-done")).toBeNull()
     warn.mockRestore()

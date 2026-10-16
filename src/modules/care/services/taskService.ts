@@ -980,6 +980,43 @@ export async function assignTaskInstance(
   return updateTaskInstance(homeId, taskInstanceId, { assigned_to: assigneeUserId })
 }
 
+/**
+ * The date a Done made on `completedOn` would schedule next, from the task's
+ * template cadence — what a list's "Done · next due {date}" receipt says before
+ * the completion is written (useTaskActions). Null when nothing comes next: a
+ * one-off or as-needed task, a seasonal one with no season, or a template that
+ * is gone or switched off (completeTask mints no next instance for those).
+ *
+ * The caller passes the answer back as markTaskInstanceDone's
+ * `nextDueOverride`, the way the task page's confirm sheet does, so the date
+ * the receipt names is the date that gets written. Rejects when a read fails.
+ */
+export async function previewNextDue(homeId: string, taskInstanceId: string, completedOn: string): Promise<string | null> {
+  const inst = await getDoc(doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`))
+  const templateId = inst.get("taskTemplateId")
+  if (typeof templateId !== "string" || !templateId || templateId.includes("/")) return null
+  const tpl = await getDoc(doc(db, `homes/${homeId}/taskTemplates/${templateId}`))
+  if (!tpl.exists() || tpl.get("isActive") === false || tpl.get("deletedAt") != null) return null
+  const sched = tpl.get("schedule") as { scheduleType?: unknown; intervalDays?: unknown; season?: unknown } | null | undefined
+  const scheduleType = typeof sched?.scheduleType === "string" ? (sched.scheduleType as ScheduleType) : null
+  if (!scheduleType || !isRecurring(scheduleType)) return null
+  // completeTask's dup-suppression: when ANOTHER open instance of this task
+  // already exists it mints no next one, so there is no new date to name — the
+  // receipt says plain "Done" rather than a date that will never be written.
+  const open = await getDocs(
+    query(
+      collection(db, `homes/${homeId}/taskInstances`),
+      where("taskTemplateId", "==", templateId),
+      where("status", "in", ["scheduled", "snoozed"]),
+    ),
+  )
+  if (open.docs.some((d) => d.id !== taskInstanceId && d.get("deletedAt") == null)) return null
+  return computeNextDueDate(scheduleType, completedOn, {
+    intervalDays: typeof sched?.intervalDays === "number" ? sched.intervalDays : null,
+    season: typeof sched?.season === "string" ? (sched.season as Season) : null,
+  })
+}
+
 export type MarkDoneResult =
   /** `data` is null when the completion landed but reading it back did not. */
   | { success: true; data: TaskInstance | null }
@@ -1282,12 +1319,17 @@ export async function logTaskCompletion(
   }
 }
 
+/** What a snooze replaced — handed back to unsnoozeTaskInstance so Undo is exact. */
+export type SnoozePrior = { status: "scheduled" | "snoozed"; snoozedUntil: string | null }
+
 export type SnoozeResult =
-  | { success: true; data: TaskInstance }
+  | { success: true; data: TaskInstance; prior?: SnoozePrior }
   | { success: false; error: string }
 
 /**
- * Snoozes a task_instance until a date.
+ * Snoozes a task_instance until a date. Answers with what it replaced
+ * (`prior`): re-snoozing an already-snoozed task and then pressing Undo must
+ * put the EARLIER snooze back, not drop it.
  */
 export async function snoozeTaskInstance(
   homeId: string,
@@ -1297,12 +1339,19 @@ export async function snoozeTaskInstance(
   // Direct Firestore field update (matches v1: status snoozed + snoozed_until).
   try {
     const ref = doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`)
+    const before = await getDoc(ref)
+    if (!before.exists()) return { success: false, error: "Task instance not found" }
+    const wasUntil = before.get("snoozedUntil")
+    const prior: SnoozePrior =
+      before.get("status") === "snoozed" && typeof wasUntil === "string" && wasUntil
+        ? { status: "snoozed", snoozedUntil: wasUntil }
+        : { status: "scheduled", snoozedUntil: null }
     await writeBatch(db)
       .set(ref, { status: "snoozed", snoozedUntil, updatedAt: serverTimestamp() }, { merge: true })
       .commit()
     const snap = await getDoc(ref)
     if (!snap.exists()) return { success: false, error: "Task instance not found" }
-    return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()) }
+    return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), prior }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Failed to snooze task" }
   }
@@ -1317,15 +1366,23 @@ export async function snoozeTaskInstance(
  * "accidentally deleted a task" and needed it recovered — nothing had been
  * deleted, but a reversible action with no confirmation and no way back is
  * indistinguishable from a destructive one.
+ *
+ * `prior` is what the snooze replaced (snoozeTaskInstance answers with it):
+ * undoing a RE-snooze restores the earlier snooze, not "scheduled". Without
+ * it, the task goes back to scheduled, as before.
  */
 export async function unsnoozeTaskInstance(
   homeId: string,
-  taskInstanceId: string
+  taskInstanceId: string,
+  prior?: SnoozePrior | null
 ): Promise<SnoozeResult> {
   try {
     const ref = doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`)
+    const restore = prior?.status === "snoozed" && prior.snoozedUntil
+      ? { status: "snoozed", snoozedUntil: prior.snoozedUntil }
+      : { status: "scheduled", snoozedUntil: null }
     await writeBatch(db)
-      .set(ref, { status: "scheduled", snoozedUntil: null, updatedAt: serverTimestamp() }, { merge: true })
+      .set(ref, { ...restore, updatedAt: serverTimestamp() }, { merge: true })
       .commit()
     const snap = await getDoc(ref)
     if (!snap.exists()) return { success: false, error: "Task instance not found" }

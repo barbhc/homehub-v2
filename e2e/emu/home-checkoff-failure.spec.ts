@@ -33,6 +33,9 @@ test.describe("emulator e2e — Home: a refused check-off is said", () => {
     await expect(lead).toContainText("Replace HVAC furnace filter")
 
     await lead.getByRole("button", { name: "Mark done" }).click()
+    // A Done from a list is written when its Undo bar goes (useTaskActions);
+    // closing the bar writes it now.
+    await page.getByRole("status").filter({ hasText: /^Done/ }).filter(visible).getByRole("button", { name: "Dismiss" }).click()
 
     const alert = lead.getByRole("alert")
     await expect(alert).toHaveText("Couldn't mark this done. Check your connection and try again.", { timeout: 15_000 })

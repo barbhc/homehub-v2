@@ -22,11 +22,10 @@ import { AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronUpIc
 import type { ItemUnit, KnowledgeChunk, Json } from "@/integrations/types"
 import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, type TaskTemplateWithSchedule } from "@/modules/care"
 import { addLibraryTask, dismissLibrarySuggestion, applyLibraryBackstop, archiveTaskTemplate, libraryKeyOf } from "@/modules/care"
-import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
 import { UndoBar } from "@/components/ui/UndoBar"
 import { InlineError } from "@/components/layout/LoadStates"
-import { doneFailedMessage, SNOOZE_FAILED } from "@/components/home/tasks/shared"
-import { addDays, diffDays, localToday } from "../../../shared/dates/calendar"
+import { useTaskActions } from "@/components/home/tasks/shared"
+import { diffDays, localToday } from "../../../shared/dates/calendar"
 import { SuggestedRow, SuggestedSource } from "@/components/care/SuggestedRow"
 import { KIND_LABELS } from "@/components/care/kindLabels"
 import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
@@ -42,6 +41,7 @@ import { useSetupCompletion } from "@/pages/item-detail/useSetupCompletion"
 import { SYMPTOM_TAGS, type ReCheckTrigger } from "@/lib/symptomTaxonomy"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { isAgendaEligible } from "../../../shared/tasks/agendaEligibility"
+import { comesDueOn } from "../../../shared/tasks/snooze"
 import { updateItemUnit } from "@/modules/items/services/itemService"
 import { ScanningLine } from "@/components/manuals/ScanningLine"
 import type { ManualReading } from "@/lib/manualReviewState"
@@ -276,22 +276,26 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
   /** A library-added task was archived from its own row: the page refetches. */
   onLibraryTaskRemoved?: () => void
   /** HH-157 — the row's verbs. Each resolves with an error to show in place, or null. */
-  onMarkDone?: (instanceId: string) => Promise<{ error: string | null }>
+  onMarkDone?: (instanceId: string) => Promise<{ error: string | null; undone?: boolean }>
   onSnooze?: (instanceId: string) => Promise<{ error: string | null }>
   onEditTask?: () => void
 }) {
   const [actBusy, setActBusy] = useState<"done" | "snooze" | null>(null)
   const [actError, setActError] = useState<string | null>(null)
-  const [justDone, setJustDone] = useState(false)
+  // A Done shows at once; it is only WRITTEN when its Undo bar runs out
+  // (useTaskActions), so "saved" — and the next date — comes after that.
+  const [justDone, setJustDone] = useState<"pending" | "saved" | null>(null)
   const runAction = async (kind: "done" | "snooze") => {
     if (!instanceId) return
     const fn = kind === "done" ? onMarkDone : onSnooze
     if (!fn) return
-    setActBusy(kind); setActError(null)
-    const res = await fn(instanceId)
+    setActError(null)
+    if (kind === "done") setJustDone("pending")
+    else setActBusy(kind)
+    const res: { error: string | null; undone?: boolean } = await fn(instanceId)
     setActBusy(null)
-    if (res.error) { setActError(res.error); return }
-    if (kind === "done") setJustDone(true)
+    if (res.error) { setJustDone(null); setActError(res.error); return }
+    if (kind === "done") setJustDone(res.undone ? null : "saved")
   }
   const [open, setOpen] = useState(!!focused)
   const rowRef = useRef<HTMLDivElement>(null)
@@ -451,7 +455,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                 justDone ? (
                   <div className="flex items-center gap-2 rounded-[12px] border px-3 py-2.5 text-[13px]" style={{ background: TEAL_WASH, borderColor: "color-mix(in srgb, var(--hh-teal) 25%, transparent)", color: "var(--hh-teal-deep)" }} data-testid="row-done">
                     <CheckCircle2 className="size-4 shrink-0" style={{ color: TEAL }} />
-                    <span><b>Done today.</b>{due ? ` Next one lands ${landsPhrase(duePhraseOf(t, due))}.` : ""}</span>
+                    <span><b>Done today.</b>{justDone === "saved" && due ? ` Next one lands ${landsPhrase(duePhraseOf(t, due))}.` : ""}</span>
                   </div>
                 ) : (
                   <button
@@ -757,9 +761,12 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
       const map = new Map<string, { due: string; instanceId: string }>()
       for (const inst of (openRes.data ?? []) as TaskInstanceWithDetails[]) {
         const tid = inst.task_template_id
-        if (!tid || !inst.due_date) continue
+        // A snoozed instance is due the day its snooze ends (shared/tasks/snooze),
+        // so the row says when it comes back, not the date it was put off from.
+        const due = comesDueOn({ status: inst.status, dueDate: inst.due_date, snoozedUntil: inst.snoozed_until })
+        if (!tid || !due) continue
         const prev = map.get(tid)
-        if (!prev || inst.due_date < prev.due) map.set(tid, { due: inst.due_date, instanceId: inst.task_instance_id })
+        if (!prev || due < prev.due) map.set(tid, { due, instanceId: inst.task_instance_id })
       }
       setDueByTemplate(map)
       const done = new Set<string>()
@@ -781,44 +788,24 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
   // and the six-month reminder never came. Mark done and Snooze below are the
   // same completion and snooze Home uses; the instances refetch so the row
   // shows when the next one lands.
-  const [undo, setUndo] = useState<{ message: string; onUndo?: () => void } | null>(null)
   const refetchInstances = () => setInstanceTick((n) => n + 1)
-  // A failure reads as it does on Home, Tasks and the task page — the
-  // service's raw error goes to the log, never to the row.
-  const completeInstance = async (instanceId: string): Promise<{ error: string | null }> => {
-    const r = await markTaskInstanceDone(homeId, instanceId)
-    if (!r.success) {
-      console.warn(`[item care] could not mark ${instanceId} done (home ${homeId}):`, r.error)
-      return { error: doneFailedMessage(r.error) }
-    }
-    refetchInstances()
-    setUndo({ message: "Marked done" })
-    return { error: null }
+  // The SAME Done and Snooze as Home and Tasks (useTaskActions): Snooze is 14
+  // days with "Snoozed until … · Undo"; Done says "Done · next due … · Undo"
+  // and is written when that bar runs out. A failure reads as it does
+  // everywhere else — the service's raw error goes to the log, never the row.
+  const actions = useTaskActions(homeId, {
+    where: "item care",
+    onDoneSaved: refetchInstances,
+    onSnoozed: refetchInstances,
+    onUnsnoozed: refetchInstances,
+  })
+  const completeInstance = async (instanceId: string): Promise<{ error: string | null; undone?: boolean }> => {
+    const label = tasks.find((t) => dueByTemplate.get(t.task_template_id)?.instanceId === instanceId)?.title ?? null
+    const out = await actions.done(instanceId, label)
+    if (out.status === "failed") return { error: out.message }
+    return { error: null, undone: out.status === "undone" }
   }
-  const snoozeInstance = async (instanceId: string): Promise<{ error: string | null }> => {
-    const until = addDays(localToday(), 14)
-    const r = await snoozeTaskInstance(homeId, instanceId, until)
-    if (!r.success) {
-      console.warn(`[item care] could not snooze ${instanceId} (home ${homeId}):`, r.error)
-      return { error: SNOOZE_FAILED }
-    }
-    refetchInstances()
-    const when = new Date(`${until}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    // A failed undo comes back to the bar with the same Undo — it used to
-    // vanish and leave the task snoozed with nothing said.
-    function undoSnooze() {
-      void unsnoozeTaskInstance(homeId, instanceId).then((x) => {
-        if (x.success) {
-          refetchInstances()
-          return
-        }
-        console.warn(`[item care] could not undo the snooze of ${instanceId} (home ${homeId}):`, x.error)
-        setUndo({ message: "Couldn't undo the snooze — tap Undo to try again.", onUndo: undoSnooze })
-      })
-    }
-    setUndo({ message: `Snoozed until ${when}`, onUndo: undoSnooze })
-    return { error: null }
-  }
+  const snoozeInstance = (instanceId: string): Promise<{ error: string | null }> => actions.snooze(instanceId)
 
   const critical = useMemo(
     () => chunks.find((c) => c.chunk_type === "safety" && c.content_level === "critical"),
@@ -1141,7 +1128,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
         </Band>
       )}
 
-      {undo &&<UndoBar message={undo.message} onUndo={undo.onUndo} onDismiss={() => setUndo(null)} />}
+      {actions.bar && <UndoBar {...actions.bar} />}
       {suggestions.length > 0 && (
         <Band tone="gold" title="Suggested" count={suggestions.length} note={`typical for ${kindLabel}`}>
           {suggestions.map((sug, i) => (

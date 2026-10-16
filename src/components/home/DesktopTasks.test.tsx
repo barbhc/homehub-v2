@@ -19,7 +19,7 @@
  *   · "Nothing matches these filters" only when a filter is on (both trees).
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { SWRConfig } from "swr"
 import { entryByKey } from "../../../shared/care/library"
@@ -29,8 +29,12 @@ const svc = vi.hoisted(() => ({
   getWeekAgenda: vi.fn(),
   markTaskInstanceDone: vi.fn(),
   snoozeTaskInstance: vi.fn(),
+  unsnoozeTaskInstance: vi.fn(),
+  previewNextDue: vi.fn(),
 }))
 vi.mock("@/modules/care", () => ({
+  unsnoozeTaskInstance: (...a: unknown[]) => svc.unsnoozeTaskInstance(...a),
+  previewNextDue: (...a: unknown[]) => svc.previewNextDue(...a),
   getWeekAgenda: (...a: unknown[]) => svc.getWeekAgenda(...a),
   markTaskInstanceDone: (...a: unknown[]) => svc.markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => svc.snoozeTaskInstance(...a),
@@ -46,6 +50,14 @@ const { DesktopTasks } = await import("./DesktopTasks")
 const { RefinedWeek } = await import("./RefinedWeek")
 // Home's words for a failed check-off/snooze (#230) — the hook says them on Tasks too.
 const { DONE_FAILED, SNOOZE_FAILED } = await import("./tasks/shared")
+
+/** A Done from a list is written when its Undo bar goes; closing the bar writes it now. */
+const acceptDone = async () => {
+  const close = within(await screen.findByRole("status")).getByRole("button", { name: "Dismiss" })
+  await act(async () => {
+    fireEvent.click(close)
+  })
+}
 
 const renderWith = (ui: React.ReactElement) =>
   render(
@@ -194,6 +206,7 @@ describe("DesktopTasks — a failed check-off or snooze is said on the row that 
     await settle()
 
     fireEvent.click(within(rowOf(LOWER)).getByLabelText("Mark done"))
+    await acceptDone()
 
     await waitFor(() => expect(within(rowOf(LOWER)).getByRole("alert")).toHaveTextContent(DONE_FAILED))
     // Said once, beside the task — the page header carries no copy of it.
@@ -221,6 +234,7 @@ describe("DesktopTasks — a failed check-off or snooze is said on the row that 
     await settle()
 
     fireEvent.click(within(rowOf(FILTER.title)).getByLabelText("Mark done"))
+    await acceptDone()
 
     await waitFor(() => expect(within(rowOf(FILTER.title)).getByRole("alert")).toHaveTextContent(DONE_FAILED))
     expect(screen.getByText(FILTER.title)).toBeInTheDocument()
@@ -244,6 +258,7 @@ describe("DesktopTasks — a failed check-off or snooze is said on the row that 
     svc.markTaskInstanceDone.mockResolvedValueOnce({ success: false, error: "quota exceeded" })
     await settle()
     fireEvent.click(within(rowOf(LOWER)).getByLabelText("Mark done"))
+    await acceptDone()
     await waitFor(() => expect(within(rowOf(LOWER)).getByRole("alert")).toBeInTheDocument())
 
     svc.markTaskInstanceDone.mockResolvedValueOnce({ success: true, data: {}, nextInstanceId: null })

@@ -9,7 +9,7 @@
  * done: the receipt shows and the row leaves.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 
 const fb = vi.hoisted(() => ({ complete: vi.fn(), getDoc: vi.fn() }))
@@ -29,7 +29,12 @@ vi.mock("@/lib/analytics", () => ({ track: vi.fn() }))
 // The real check-off service; the rest of the module is not on this path.
 vi.mock("@/modules/care", async () => {
   const ts = await vi.importActual<typeof import("@/modules/care/services/taskService")>("@/modules/care/services/taskService")
-  return { markTaskInstanceDone: ts.markTaskInstanceDone, snoozeTaskInstance: vi.fn(), unsnoozeTaskInstance: vi.fn() }
+  return {
+    markTaskInstanceDone: ts.markTaskInstanceDone,
+    previewNextDue: vi.fn(async () => null),
+    snoozeTaskInstance: vi.fn(),
+    unsnoozeTaskInstance: vi.fn(),
+  }
 })
 vi.mock("@/lib/useDashboard", async () => {
   const { addDays, localToday } = await import("../../shared/dates/calendar")
@@ -68,6 +73,14 @@ const { default: Home } = await import("./Home")
 
 const TITLE = "Replace the furnace filter"
 
+/** A Done from a list is written when its Undo bar goes; closing the bar writes it now. */
+const acceptDone = async () => {
+  const close = within(await screen.findByRole("status")).getByRole("button", { name: "Dismiss" })
+  await act(async () => {
+    fireEvent.click(close)
+  })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   fb.complete.mockResolvedValue({ completedInstanceId: "ti-1", nextInstanceId: "ti-2" })
@@ -81,7 +94,9 @@ describe("Home — a completion that landed reads as done, even if its read-back
     const row = screen.getAllByTestId("week-row")[0]
     fireEvent.click(within(row).getByRole("button", { name: `Mark ${TITLE} done` }))
 
-    expect(await screen.findByText("Marked done")).toBeInTheDocument()
+    // The receipt, with the way back; the completion is written when the bar goes.
+    expect((await screen.findByRole("status")).textContent).toMatch(/^Done/)
+    await acceptDone()
     expect(screen.queryByRole("alert")).toBeNull()
     expect(fb.complete).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(refresh).toHaveBeenCalled())

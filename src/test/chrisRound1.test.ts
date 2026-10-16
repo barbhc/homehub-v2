@@ -294,38 +294,52 @@ describe("a failed check-off reads the same on Home and on Tasks", () => {
   // #230 gave Home's rows these words; the Tasks pages showed the service's raw
   // error instead (or "Could not complete that task."). One sentence per
   // failure, wherever the task is — so the two copies must not drift.
-  it("Home and the Tasks hook carry the same two sentences", () => {
-    const home = read("../pages/Home.tsx")
+  it("the two sentences live in ONE place, and Home, Tasks and the item page all say them through it", () => {
+    // 2026-10-15 ("one Done and Snooze everywhere"): Home and the item page no
+    // longer carry their own handlers — they call the same useTaskActions as
+    // the Tasks rows, so there is no second copy of the words to drift.
     const tasks = read("../components/home/tasks/shared.ts")
     for (const words of [
       "Couldn't mark this done. Check your connection and try again.",
       "Couldn't snooze this. Check your connection and try again.",
     ]) {
-      expect(home, "Home.tsx").toContain(words)
       expect(tasks, "tasks/shared.ts").toContain(words)
+    }
+    expect(tasks).toMatch(/export function useTaskActions\(/)
+    expect(tasks).toMatch(/doneFailedMessage\(res\.error\)/)
+    expect(tasks).toMatch(/message: SNOOZE_FAILED/)
+    for (const [file, src] of Object.entries({
+      "Home.tsx": read("../pages/Home.tsx"),
+      "CareBlock.tsx": read("../components/item-care/CareBlock.tsx"),
+    })) {
+      expect(src, file).toMatch(/import \{[^}]*\buseTaskActions\b[^}]*\} from "@\/components\/home\/tasks\/shared"/)
+      expect(src, file).toMatch(/\buseTaskActions\(/)
+      // No wording of its own for a failed check-off or snooze.
+      expect(src, file).not.toMatch(/Couldn['’]t (mark|snooze) (this|it)\b/)
+      expect(src, file).not.toMatch(/markTaskInstanceDone|snoozeTaskInstance/)
     }
   })
 
-  it("the task page and the item page say it with the same sentences — no third wording", () => {
-    // The task page had its own ("Couldn't mark this done. Try again."); the
-    // item page showed the service's raw error, else "Couldn't mark it done" /
-    // "Couldn't snooze it". Both now take their words from tasks/shared:
-    // doneFailedMessage, which is DONE_FAILED unless the server refused the
-    // DATE (those sentences say what to check, so they are shown as sent).
+  it("the task page says it with the same sentences — no third wording", () => {
+    // The task page had its own ("Couldn't mark this done. Try again."). It
+    // takes its words from tasks/shared: doneFailedMessage, which is
+    // DONE_FAILED unless the server refused the DATE (those sentences say what
+    // to check, so they are shown as sent).
     const shared = read("../components/home/tasks/shared.ts")
     expect(shared).toMatch(/export function doneFailedMessage\(/)
     expect(shared).toMatch(/: DONE_FAILED\s*\n\}/) // anything but a date refusal is DONE_FAILED
-    const pages = {
-      "RefinedTaskDetail.tsx": read("../components/home/RefinedTaskDetail.tsx"),
-      "CareBlock.tsx": read("../components/item-care/CareBlock.tsx"),
-    }
-    for (const [file, src] of Object.entries(pages)) {
-      expect(src, file).toMatch(/import \{[^}]*\bdoneFailedMessage\b[^}]*\} from "(\.\/tasks|@\/components\/home\/tasks)\/shared"/)
-      expect(src, file).toMatch(/\bdoneFailedMessage\(\w+\.error\)/)
-      // No wording of its own for a failed check-off or snooze.
-      expect(src, file).not.toMatch(/Couldn['’]t (mark|snooze) (this|it)\b/)
-      expect(src, file).not.toMatch(/\.error \?\? "/)
-    }
-    expect(pages["CareBlock.tsx"]).toMatch(/return \{ error: SNOOZE_FAILED \}/)
+    const src = read("../components/home/RefinedTaskDetail.tsx")
+    expect(src).toMatch(/import \{[^}]*\bdoneFailedMessage\b[^}]*\} from "(\.\/tasks|@\/components\/home\/tasks)\/shared"/)
+    expect(src).toMatch(/\bdoneFailedMessage\(\w+\.error\)/)
+    expect(src).not.toMatch(/Couldn['’]t (mark|snooze) (this|it)\b/)
+    expect(src).not.toMatch(/\.error \?\? "/)
+  })
+})
+
+describe("sign-out leaves no Done behind for the next account (#246 re-review)", () => {
+  it("AuthProvider.signOut writes the leaving user's Dones, THEN clears the queue, before the session ends", () => {
+    const src = read("../modules/auth/components/AuthProvider.tsx")
+    const body = src.slice(src.indexOf("const signOut = useCallback"), src.indexOf("await fbSignOut(auth)"))
+    expect(body).toMatch(/await writeAllDonesNow\(\)\s*\n\s*clearDoneQueue\(\)/)
   })
 })

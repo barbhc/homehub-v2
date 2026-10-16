@@ -17,9 +17,10 @@ import { classifyTaskDetail } from "@/lib/taskActor"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, TIER_FILTERS, tierFilterCounts,
-  tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL,
+  tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL, withoutHidden,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
+import { UndoBar } from "@/components/ui/UndoBar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
@@ -311,17 +312,19 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   // The agenda is shared with DesktopTasks (one fetch per home, persisted for a
   // warm start). What to show is decided by what we HOLD — see pageLoadState.
   const agenda = useWeekAgenda(homeId)
-  const items = agenda.data?.items ?? NO_TASKS
+  // Done/Snooze both used to discard their result: the row closed either way and
+  // a failed check-off left the task in place with nothing said. The task then
+  // reappears on the next load looking like the tap never registered. One
+  // implementation with DesktopTasks, Home and the item page now — buttons and
+  // swipe alike, with the same Undo bar — see useAgendaRowActions.
+  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze, hidden, bar } = useAgendaRowActions(homeId, agenda, "phone")
+  const allItems = agenda.data?.items ?? NO_TASKS
+  const items = useMemo(() => withoutHidden(allItems, hidden), [allItems, hidden])
   /** Scheduled work the agenda hides by design (item-scoped cleaning). */
   const hiddenCleaning = agenda.data?.hiddenCleaning ?? 0
   const loadState = pageLoadState(agenda.data !== undefined, agenda.error !== undefined)
   const loading = loadState === "loading"
   const loadFailed = loadState === "error"
-  // Done/Snooze both used to discard their result: the row closed either way and
-  // a failed check-off left the task in place with nothing said. The task then
-  // reappears on the next load looking like the tap never registered. One
-  // implementation with DesktopTasks now — see useAgendaRowActions.
-  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze } = useAgendaRowActions(homeId, agenda.removeTask)
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
@@ -366,6 +369,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
+      {bar && <UndoBar {...bar} />}
       {/* A refresh failed behind an agenda we still hold: keep it, and say so
           quietly at the top of the screen — where Home and Items say it. */}
       {agenda.error && agenda.data && (

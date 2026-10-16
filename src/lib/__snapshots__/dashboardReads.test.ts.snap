@@ -29,7 +29,7 @@ exports[`one Home load — a home with history, no user routines (the usual case
       "windowStart": "2026-05-24",
     },
     "overdueTaskCount": 2,
-    "scheduledTaskCount": 15,
+    "scheduledTaskCount": 17,
     "totalItems": 6,
   },
   "tasks": {
@@ -667,7 +667,7 @@ exports[`one Home load — with user routines (guides come from the routines) > 
       "windowStart": "2026-05-24",
     },
     "overdueTaskCount": 2,
-    "scheduledTaskCount": 15,
+    "scheduledTaskCount": 17,
     "totalItems": 6,
   },
   "tasks": {
