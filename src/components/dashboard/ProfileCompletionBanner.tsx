@@ -90,7 +90,7 @@ export function ProfileCompletionBanner({ homeId }: { homeId: string }) {
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
               to="/onboarding/profile"
-              className="inline-flex items-center rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground min-h-11"
+              className="inline-flex items-center rounded-lg bg-[var(--hh-teal-fill)] px-3 py-2.5 text-sm font-medium text-primary-foreground min-h-11"
             >
               Finish profile
             </Link>

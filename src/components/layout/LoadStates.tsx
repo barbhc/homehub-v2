@@ -19,7 +19,7 @@ export function LoadErrorState({ title, message, onRetry }: { title: string; mes
         type="button"
         onClick={onRetry}
         className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-[14.5px] font-bold text-white"
-        style={{ background: "var(--hh-teal)" }}
+        style={{ background: "var(--hh-teal-fill)" }}
       >
         <RotateCwIcon className="size-4" strokeWidth={2.4} aria-hidden />
         Try again

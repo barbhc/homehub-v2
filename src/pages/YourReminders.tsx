@@ -353,7 +353,7 @@ export default function YourReminders() {
               onClick={() => void propose()}
               disabled={!focus.trim() || proposing}
               className="flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white disabled:opacity-50"
-              style={{ background: TEAL }}
+              style={{ background: "var(--hh-teal-fill)" }}
             >
               {proposing && <Loader2Icon className="size-4 animate-spin" />}
               {proposing ? "Proposing…" : "Propose my reminders"}
@@ -485,7 +485,7 @@ export default function YourReminders() {
               onClick={() => void turnOn()}
               disabled={chosen.length === 0 || blocked.length > 0 || applying}
               className="flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white disabled:opacity-50"
-              style={{ background: TEAL }}
+              style={{ background: "var(--hh-teal-fill)" }}
             >
               {applying && <Loader2Icon className="size-4 animate-spin" />}
               Turn these on · {chosen.length}
@@ -519,7 +519,7 @@ export default function YourReminders() {
                 </div>
                 {modeError && <div role="alert" className="mt-2 text-[12.5px]" style={{ color: CLAY }}>{modeError}</div>}
                 <div className="mt-3 flex items-center gap-3">
-                  <button type="button" onClick={() => void chooseMode("curated")} className="rounded-full px-4 py-2 text-[13px] font-bold text-white" style={{ background: TEAL }}>Just my list</button>
+                  <button type="button" onClick={() => void chooseMode("curated")} className="rounded-full px-4 py-2 text-[13px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Just my list</button>
                   <button type="button" onClick={() => void chooseMode("kept")} className="text-[13px] font-semibold" style={{ color: SUB }}>Keep my current style</button>
                 </div>
               </div>

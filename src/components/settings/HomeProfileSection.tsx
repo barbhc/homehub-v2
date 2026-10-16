@@ -493,7 +493,7 @@ export function HomeProfileSection({ homeId }: Props) {
                           checked={offer.checked.has(t.taskTemplateId)}
                           onChange={() => toggleOffered(t.taskTemplateId)}
                           disabled={offerBusy}
-                          className="mt-0.5 size-4 shrink-0 accent-primary"
+                          className="mt-0.5 size-4 shrink-0 accent-[var(--hh-teal-fill)]"
                         />
                         <span className="min-w-0">
                           <span className="block text-sm font-medium text-foreground">{t.title}</span>

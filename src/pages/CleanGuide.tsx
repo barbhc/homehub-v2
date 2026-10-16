@@ -99,7 +99,7 @@ export default function CleanGuide() {
                   {/* The ONLY number on this screen: which section of the guide
                       you're in. Solid, so it reads as a marker rather than a
                       sibling of the step circles below it. */}
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold text-white" style={{ background: TEAL }}>{i + 1}</span>
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold text-white" style={{ background: "var(--hh-teal-fill)" }}>{i + 1}</span>
                   <h2 className="min-w-0 flex-1 text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{t.title}</h2>
                   {t.estimatedMinutes != null && <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: SUB }}>{t.estimatedMinutes} min</span>}
                 </div>

@@ -920,7 +920,7 @@ function CleanHub({
             type="button"
             onClick={onStart}
             className="w-full rounded-2xl p-6 text-left text-white shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
-            style={{ background: "linear-gradient(150deg,var(--hh-teal),var(--hh-teal-deep))" }}
+            style={{ background: "linear-gradient(150deg,var(--hh-teal-fill),#15564A)" }}
           >
             <div className="flex items-center gap-4">
               <div className="flex size-[54px] shrink-0 items-center justify-center rounded-[15px]" style={{ background: "rgba(255,255,255,0.16)" }}>
@@ -1028,7 +1028,7 @@ function CleanHub({
                       onClick={() => onToggleWeekTask(t.id)}
                       aria-label={done ? "Mark not done" : "Mark done"}
                       className="flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
-                      style={{ borderColor: TEAL, background: done ? TEAL : "transparent" }}
+                      style={{ borderColor: done ? "var(--hh-teal-fill)" : TEAL, background: done ? "var(--hh-teal-fill)" : "transparent" }}
                     >
                       {done && <CheckIcon className="size-3 text-white" strokeWidth={3} />}
                     </button>

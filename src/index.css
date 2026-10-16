@@ -111,6 +111,14 @@
   --hh-ink-soft:   #3A4A45;   /* on --hh-teal-wash / surfaces */
   --hh-clay-ink:   #6B3A24;   /* on --hh-clay-soft (safety notes) */
   --hh-gold-ink:   #6B4A0E;   /* on --hh-gold-soft */
+  /* FILLED teal with white on it — Mark done, Save, primary buttons, selected
+     pills and calendar days, toggles, checked boxes, the Ask button. In dark,
+     --hh-teal brightens to #34B093 (white on it = 2.70:1) and --t-primary to
+     #2D9B82 (3.43:1), which is right for teal TEXT, icons and outlines on a
+     dark surface and wrong under white text. Light: the light teal, white
+     6.37:1. Dark: a mid teal (see .dark). Teal text/outlines keep using
+     --hh-teal; only fills carrying white use this. */
+  --hh-teal-fill:  #1B6B5A;
 }
 
 /* Dark mode token overrides — triggered by .dark class on <html> */
@@ -207,6 +215,13 @@
   --hh-ink-soft:   #D3DDD9;
   --hh-clay-ink:   #F2C3A8;
   --hh-gold-ink:   #EAD3A2;
+  /* Between the light teal and --hh-teal, on purpose — see :root. White on it
+     4.51:1 (AA). As a fill-only state marker (selected day, active pill) it
+     clears WCAG 1.4.11's 3:1 against the dark surface (3.77), page (4.14) and
+     card (3.59); #1B6B5A here was 2.67 / 2.93. Against --hh-teal-wash it is
+     2.91, so the selected calendar day also carries a bright ring
+     (SELECTED_DAY_RING). Do not brighten it to --hh-teal (white 2.70). */
+  --hh-teal-fill:  #23856F;
 }
 
 /* Base styles */

@@ -43,7 +43,7 @@ function AskModule({ d }: { d: ReturnType<typeof dens> }) {
           to="/chat"
           aria-label="Ask"
           className="flex size-9 shrink-0 items-center justify-center rounded-full"
-          style={{ background: TEAL }}
+          style={{ background: "var(--hh-teal-fill)" }}
         >
           <ArrowUpIcon className="size-[18px] text-white" strokeWidth={2.6} />
         </Link>

@@ -248,7 +248,7 @@ export default function WarrantiesPage() {
             <Link
               to="/inventory"
               className="mt-4 inline-flex rounded-xl px-4 py-2.5 text-[14px] font-bold text-white"
-              style={{ background: TEAL }}
+              style={{ background: "var(--hh-teal-fill)" }}
             >
               Go to items
             </Link>

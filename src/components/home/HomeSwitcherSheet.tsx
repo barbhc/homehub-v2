@@ -193,7 +193,7 @@ export function HomeSwitcherSheet({
               onClick={() => void submit()}
               disabled={saving || !name.trim()}
               className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13.5px] font-bold text-white disabled:opacity-60"
-              style={{ background: "var(--hh-teal)" }}
+              style={{ background: "var(--hh-teal-fill)" }}
             >
               {saving && <Loader2Icon className="size-4 animate-spin" />}
               {saving ? "Adding…" : "Add home"}

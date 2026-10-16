@@ -909,7 +909,7 @@ export default function Settings() {
       <div className="mt-3 flex items-center gap-3.5 rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
         <div
           className="flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white"
-          style={{ background: "linear-gradient(135deg,var(--hh-teal),#2D9B82)" }}
+          style={{ background: "linear-gradient(135deg,var(--hh-teal-fill),#2D9B82)" }}
         >
           {(user?.email ?? "?").slice(0, 1).toUpperCase()}
         </div>
@@ -1268,7 +1268,7 @@ export default function Settings() {
                 aria-label="Find manuals automatically"
                 onClick={() => setAutoFindManuals(!autoFindManuals)}
                 className="relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors"
-                style={{ background: autoFindManuals ? "var(--hh-teal)" : "var(--hh-line2)" }}
+                style={{ background: autoFindManuals ? "var(--hh-teal-fill)" : "var(--hh-line2)" }}
               >
                 <span
                   className="absolute top-0.5 size-5 rounded-full bg-white transition-all"
@@ -1728,8 +1728,8 @@ export default function Settings() {
                           }
                           className="flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
                           style={{
-                            border: `1.5px solid ${on ? "var(--hh-teal)" : "var(--hh-line2)"}`,
-                            background: on ? "var(--hh-teal)" : "var(--hh-surface)",
+                            border: `1.5px solid ${on ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`,
+                            background: on ? "var(--hh-teal-fill)" : "var(--hh-surface)",
                             cursor: locked ? "default" : "pointer",
                             opacity: locked ? 0.75 : 1,
                           }}
@@ -1775,7 +1775,7 @@ export default function Settings() {
                       >
                         <span
                           className="flex size-5 shrink-0 items-center justify-center rounded-full"
-                          style={{ border: `1.5px solid ${on ? "var(--hh-teal)" : "var(--hh-line2)"}`, background: on ? "var(--hh-teal)" : "var(--hh-surface)" }}
+                          style={{ border: `1.5px solid ${on ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`, background: on ? "var(--hh-teal-fill)" : "var(--hh-surface)" }}
                         >
                           {on && <span className="size-2 rounded-full bg-white" />}
                         </span>
@@ -1819,8 +1819,8 @@ export default function Settings() {
                       aria-label={`Weekly summary push ${notifPrefs.weekly_digest.enabled ? "on" : "off"}`}
                       className="flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
                       style={{
-                        border: `1.5px solid ${notifPrefs.weekly_digest.enabled ? "var(--hh-teal)" : "var(--hh-line2)"}`,
-                        background: notifPrefs.weekly_digest.enabled ? "var(--hh-teal)" : "var(--hh-surface)",
+                        border: `1.5px solid ${notifPrefs.weekly_digest.enabled ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`,
+                        background: notifPrefs.weekly_digest.enabled ? "var(--hh-teal-fill)" : "var(--hh-surface)",
                       }}
                     >
                       {notifPrefs.weekly_digest.enabled && <CheckIcon className="size-[17px] text-white" strokeWidth={3} />}

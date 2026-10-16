@@ -61,7 +61,7 @@ export default function Index() {
           <button
             type="button"
             onClick={() => void refresh()}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-md bg-[var(--hh-teal-fill)] px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-[var(--hh-teal-fill)]/90"
           >
             Try again
           </button>

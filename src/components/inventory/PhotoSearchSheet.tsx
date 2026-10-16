@@ -160,7 +160,7 @@ export function PhotoSearchSheet({
                     }}
                   />
                   {selectedIdx === i && (
-                    <div className="absolute top-1.5 right-1.5 bg-primary text-primary-foreground rounded-full p-0.5">
+                    <div className="absolute top-1.5 right-1.5 bg-[var(--hh-teal-fill)] text-primary-foreground rounded-full p-0.5">
                       <CheckIcon className="size-3.5" />
                     </div>
                   )}
