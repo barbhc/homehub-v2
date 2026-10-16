@@ -269,17 +269,20 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
   }, [homeId, flush, hide, unhide, commit])
 
   const undoSnooze = useCallback((home: string, id: string) => {
-    void unsnoozeTaskInstance(home, id).then((r) => {
-      if (r.success) {
-        unhide(id)
-        follow(opts.current.where, id, () => opts.current.onUnsnoozed?.(id))
-        return
-      }
-      // A failed undo comes back to the bar with the same Undo — it used to
-      // vanish and leave the task snoozed with nothing said.
-      console.warn(`[${opts.current.where}] could not undo the snooze of task ${id} (home ${home}):`, r.error)
-      setBar({ message: "Couldn't undo the snooze — tap Undo to try again.", onUndo: () => undoSnooze(home, id), ms: 7000 })
-    })
+    function attempt() {
+      void unsnoozeTaskInstance(home, id).then((r) => {
+        if (r.success) {
+          unhide(id)
+          follow(opts.current.where, id, () => opts.current.onUnsnoozed?.(id))
+          return
+        }
+        // A failed undo comes back to the bar with the same Undo — it used to
+        // vanish and leave the task snoozed with nothing said.
+        console.warn(`[${opts.current.where}] could not undo the snooze of task ${id} (home ${home}):`, r.error)
+        setBar({ message: "Couldn't undo the snooze — tap Undo to try again.", onUndo: attempt, ms: 7000 })
+      })
+    }
+    attempt()
   }, [unhide])
 
   const snooze = useCallback(async (id: string): Promise<{ error: string | null }> => {

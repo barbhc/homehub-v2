@@ -67,6 +67,7 @@ separate (§8).
 - the seed's frozen date collides with a roll-forward worker test on a seeded emulator
 
 **Snooze doesn't stick (found 2026-10-03, H2 mock call 7):** `snoozeTaskInstance` writes `status: "snoozed"` + `snoozedUntil` and leaves `dueDate`; nothing ever flips a task back. Home reads only `scheduled` (`dashboard.ts:319`, `:558`), so a task snoozed on Home never returns to Home; the Tasks agenda reads `scheduled` and `snoozed` without checking `snoozedUntil` (`weekAgenda.ts:162`, `:181`), so a task snoozed on Tasks returns on the next refresh. Home snoozes 14 days with Undo, Tasks 7 days without. Check the push sweep and roll-forward for the same gap before fixing.
+→ **Fixed in `fix/one-done-and-snooze`** (client + push sweep; the sweep half ships only with a functions deploy). One rule, `shared/tasks/snooze.ts`, read by Home, Tasks, Your week, the item page and the push sweep. Roll-forward still skips snoozed rows on purpose (a snooze that ended reads as due from its end date, never as a lapse). Still open: the task page has no Snooze.
 
 **Small client follow-ups:**
 - Your home: a failed save for home A after A→B→A is silent (CustomTask logs; CategoryQuestions should too)

@@ -10,7 +10,7 @@
  *   · a failed read is a visible failure in both — never "Nothing due".
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { SWRConfig } from "swr"
 import { localToday } from "../../shared/dates/calendar"
@@ -29,6 +29,8 @@ vi.mock("@/modules/care", () => ({
   markTaskInstanceDone: (...a: unknown[]) => svc.markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => svc.snoozeTaskInstance(...a),
   getTaskDetail: (...a: unknown[]) => svc.getTaskDetail(...a),
+  previewNextDue: vi.fn(async () => null),
+  unsnoozeTaskInstance: vi.fn(),
   getTaskTemplates: (...a: unknown[]) => svc.getTaskTemplates(...a),
   addLibraryTask: vi.fn(),
   dismissLibrarySuggestion: vi.fn(),
@@ -93,6 +95,11 @@ describe("Tasks page — both trees, one fetch", () => {
     expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
 
     fireEvent.click(screen.getAllByLabelText("Mark done")[0])
+    // A Done from a list is written when its Undo bar goes; closing the bar writes it now.
+    const close = within(await screen.findByRole("status")).getByRole("button", { name: "Dismiss" })
+    await act(async () => {
+      fireEvent.click(close)
+    })
 
     await waitFor(() => expect(screen.queryByText("Replace the furnace filter")).toBeNull())
     expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1)
