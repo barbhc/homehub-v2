@@ -37,12 +37,12 @@ export function KnowledgeSection({
         <CleaningGuideCard chunks={cleaningChunks} />
       )}
 
-      {/* Saved Q&A */}
+      {/* Saved answers */}
       {faqs.length > 0 && (
         <SectionCard className="px-4 sm:px-6 py-0">
           <Accordion type="single" collapsible>
             <AccordionItem value="faqs" className="border-b-0">
-              <AccordionTrigger>Saved Q&A ({faqs.length})</AccordionTrigger>
+              <AccordionTrigger>Saved answers ({faqs.length})</AccordionTrigger>
               <AccordionContent>
                 <ul className="space-y-3 list-none p-0 m-0">
                   {faqs.map((faq) => (
@@ -71,7 +71,7 @@ export function KnowledgeSection({
                           }
                           onFaqsChange((current) => current.filter((f) => f.faq_id !== faq.faq_id))
                         }}
-                        aria-label="Delete saved Q&A"
+                        aria-label="Delete saved answer"
                       >
                         <Trash2Icon className="size-3" aria-hidden />
                         Delete

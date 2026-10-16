@@ -25,9 +25,11 @@ export function ChatThread({
   // streamed chunk — so anyone who scrolled up to reread an answer was yanked
   // back down while the next one arrived (audit 2026-10-15). Now it follows
   // only while the reader is at the bottom, and always when a new message is
-  // added (they sent one, asked for a web search, or opened a conversation).
+  // added (they sent one, asked for a web search) or another conversation is
+  // opened.
   const followingRef = useRef(true)
   const prevCountRef = useRef(0)
+  const prevFirstIdRef = useRef<string | null>(null)
   const hasMessages = messages.length > 0
 
   useEffect(() => {
@@ -71,7 +73,12 @@ export function ChatThread({
   useEffect(() => {
     const added = messages.length > prevCountRef.current
     prevCountRef.current = messages.length
-    if (added) followingRef.current = true
+    // A different conversation (Recent replaces the messages in place, so the
+    // count can stay the same or shrink): start it at its latest message.
+    const firstId = messages[0]?.id ?? null
+    const switched = firstId !== prevFirstIdRef.current
+    prevFirstIdRef.current = firstId
+    if (added || switched) followingRef.current = true
     if (followingRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 

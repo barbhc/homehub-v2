@@ -38,7 +38,7 @@ export const SAVE_FAQ_ITEMS_ERROR = "Couldn't load your items."
 
 /**
  * Saves an Ask answer onto an ITEM — its page is where saved answers are shown
- * (the "Saved answers" tab on desktop, "Saved Q&A" on the phone).
+ * (the "Saved answers" tab on desktop and section on the phone).
  *
  * There is no whole-home choice any more. "Home (not item-specific)" saved
  * answers that only the Care Guide page (/faq) listed, and that page is gone

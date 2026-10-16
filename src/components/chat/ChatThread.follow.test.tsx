@@ -62,6 +62,21 @@ describe("ChatThread — following the latest", () => {
     rerender(view([q1, a1("Unplug it"), q2, { id: "a2", role: "assistant", content: "", isStreaming: true }]))
     expect(scrollIntoView).toHaveBeenCalledTimes(1)
   })
+
+  it("opening another conversation from Recent starts it at the bottom, even with fewer messages", () => {
+    const { container, rerender } = render(view([q1, a1("Unplug it"), { id: "u2", role: "user", content: "And?" }]))
+    const thread = container.firstElementChild as HTMLElement
+    scrollThreadTo(thread, 600)
+    scrollThreadTo(thread, 100) // reading the old conversation, scrolled up
+    scrollIntoView.mockClear()
+
+    // Recent replaces the messages in place: a different, shorter conversation.
+    rerender(view([
+      { id: "other-u1", role: "user", content: "Why is it loud?" },
+      { id: "other-a1", role: "assistant", content: "Check the drum." },
+    ]))
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe("stillFollowing", () => {

@@ -106,11 +106,18 @@ export function notificationsBlocked(args: {
  * asks for permission names all three, from here.
  */
 export const WHAT_NOTIFICATIONS_SEND = [
-  "Essential task reminders",
+  // The morning lane sends deadlines of any tier and every task whose bell is
+  // on, not only Essentials (composeMorning in push/lanes.ts).
+  "Reminders for Essential tasks, deadlines and any task you turn on",
   "A Sunday summary of your week",
   "A heads-up when a part should be bought ahead",
 ] as const
 
 /** The same three as one sentence, for Settings' Enable line. */
 export const WHAT_NOTIFICATIONS_SEND_SENTENCE =
-  "Get Essential task reminders, a Sunday summary of your week, and a heads-up when a part should be bought ahead."
+  "Get reminders for Essential tasks, deadlines and any task you turn on, a Sunday summary of your week, and a heads-up when a part should be bought ahead."
+
+/** Settings' line once notifications are on. The switches below can turn
+ *  each kind off, so it says what is on by default. */
+export const WHAT_NOTIFICATIONS_SEND_ON =
+  "On by default: reminders for Essential tasks, deadlines and any task you turn on, a Sunday summary, and buy-ahead heads-ups."

@@ -30,7 +30,9 @@ describe("PushOptInNudge copy", () => {
   it("names the reminders, the Sunday summary, and the buy-ahead heads-up", async () => {
     render(<MemoryRouter><PushOptInNudge userId="u1" homeId="h1" /></MemoryRouter>)
 
-    expect(await screen.findByText("Essential task reminders")).toBeInTheDocument()
+    // The morning push also carries deadlines of any tier and any task whose
+    // bell is on (composeMorning) — "Essential" alone would under-name it.
+    expect(await screen.findByText("Reminders for Essential tasks, deadlines and any task you turn on")).toBeInTheDocument()
     expect(screen.getByText("A Sunday summary of your week")).toBeInTheDocument()
     expect(screen.getByText("A heads-up when a part should be bought ahead")).toBeInTheDocument()
     // The old promise that nothing else would ping is gone.

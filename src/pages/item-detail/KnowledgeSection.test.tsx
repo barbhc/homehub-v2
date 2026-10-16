@@ -21,7 +21,7 @@ beforeEach(() => {
 
 const open = (onFaqsChange = vi.fn()) => {
   render(<KnowledgeSection chunks={[]} faqs={[faq]} hasParsedManual={false} onFaqsChange={onFaqsChange} />)
-  fireEvent.click(screen.getByRole("button", { name: /Saved Q&A/ }))
+  fireEvent.click(screen.getByRole("button", { name: /Saved answers/ }))
   return onFaqsChange
 }
 
@@ -29,7 +29,7 @@ describe("KnowledgeSection — deleting a saved Q&A", () => {
   it("a refused delete keeps the answer and says so", async () => {
     deleteFaq.mockResolvedValue({ data: null, error: { message: "permission-denied" } })
     const onFaqsChange = open()
-    fireEvent.click(screen.getByRole("button", { name: "Delete saved Q&A" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete saved answer" }))
     expect(await screen.findByText("Couldn't delete it. Try again.")).toBeInTheDocument()
     expect(onFaqsChange).not.toHaveBeenCalled()
   })
@@ -37,7 +37,7 @@ describe("KnowledgeSection — deleting a saved Q&A", () => {
   it("a delete that lands removes it, with no error (the control case)", async () => {
     deleteFaq.mockResolvedValue({ data: true, error: null })
     const onFaqsChange = open()
-    fireEvent.click(screen.getByRole("button", { name: "Delete saved Q&A" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete saved answer" }))
     await waitFor(() => expect(onFaqsChange).toHaveBeenCalled())
     expect(screen.queryByText("Couldn't delete it. Try again.")).toBeNull()
   })

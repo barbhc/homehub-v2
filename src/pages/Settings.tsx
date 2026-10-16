@@ -41,7 +41,7 @@ import { useAuth } from "@/modules/auth"
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, isSubscribed as checkIsSubscribed } from "@/lib/pushNotifications"
 import { isNativePlatform, isNativePushRegistered, PushOffError, registerNativePush, unregisterNativePush } from "@/lib/nativePush"
 import { NotificationsRefusedNote } from "@/components/settings/NotificationsRefusedNote"
-import { WHAT_NOTIFICATIONS_SEND_SENTENCE } from "@/lib/notifyGate"
+import { WHAT_NOTIFICATIONS_SEND_ON, WHAT_NOTIFICATIONS_SEND_SENTENCE } from "@/lib/notifyGate"
 import {
   getRoutineTemplates,
   saveRoutineTask,
@@ -1601,7 +1601,7 @@ export default function Settings() {
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               {pushSubscribed
-                ? "You'll receive reminders for due and overdue tasks."
+                ? WHAT_NOTIFICATIONS_SEND_ON
                 : WHAT_NOTIFICATIONS_SEND_SENTENCE}
             </p>
             {/* The review's "Turn on in Settings" lands here: on a device
