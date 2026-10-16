@@ -152,6 +152,16 @@ export function HomeProfileSection({ homeId }: Props) {
     })
   }
 
+  const offerWinterizingSweep = async () => {
+    const res = await getWinterizingTasks(homeId)
+    if (res.error) {
+      setOfferError(`Couldn't check for winterizing tasks: ${res.error.message}`)
+      return
+    }
+    if (res.data.length === 0) return
+    setOffer({ tasks: res.data, checked: new Set(res.data.map((t) => t.taskTemplateId)) })
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setError(null)
@@ -194,15 +204,6 @@ export function HomeProfileSection({ homeId }: Props) {
     if (wantFreezeRisk === false && !offerDeclined) await offerWinterizingSweep()
   }
 
-  const offerWinterizingSweep = async () => {
-    const res = await getWinterizingTasks(homeId)
-    if (res.error) {
-      setOfferError(`Couldn't check for winterizing tasks: ${res.error.message}`)
-      return
-    }
-    if (res.data.length === 0) return
-    setOffer({ tasks: res.data, checked: new Set(res.data.map((t) => t.taskTemplateId)) })
-  }
 
   const toggleOffered = (id: string) =>
     setOffer((o) => {

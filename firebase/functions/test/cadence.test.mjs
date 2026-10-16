@@ -53,11 +53,15 @@ test("seasonalNextDue: unknown/empty season → null (so caller doesn't schedule
 
 test("the exact prod bug: winterize parsed in July → next fall, never today", () => {
   const parsedOn = "2026-07-14"
-  const season = seasonForTask({ title: "Winterize Washer for Cold Storage", tags: [] })
+  const season = seasonForTask({ title: "Winterize the outdoor faucets", tags: [] })
   const due = seasonalNextDue(season ?? "", parsedOn)
   assert.equal(season, "fall")
   assert.equal(due, "2026-10-15")
   assert.notEqual(due, parsedOn) // the whole point
+  // The washer task this test was first written for is as-needed since HH-166:
+  // no season → no date at all, which is still never today.
+  const washer = seasonForTask({ title: "Winterize Washer for Cold Storage", tags: [] })
+  assert.equal(seasonalNextDue(washer ?? "", parsedOn), null)
 })
 
 test("addCadence unchanged for seasonal (still null — anchoring is separate)", () => {

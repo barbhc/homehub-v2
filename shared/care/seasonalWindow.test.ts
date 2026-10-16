@@ -72,8 +72,14 @@ describe("seasonalWindow with NO climate answer", () => {
 
 describe("seasonForTitle", () => {
   it("routes the winterize family to autumn and de-winterize to spring", () => {
-    expect(seasonForTitle("Winterize the washer for cold storage", "freeze_prep")).toBe("fall")
+    expect(seasonForTitle("Winterize the outdoor faucets", "freeze_prep")).toBe("fall")
     expect(seasonForTitle("De-winterize the outdoor spigot", "warm_startup")).toBe("spring")
+  })
+
+  it("gives cold-storage winterizing no season — it is as-needed (HH-166)", () => {
+    // This line used to read "fall": the owner's report was this exact task
+    // showing "Usually autumn" on Home.
+    expect(seasonForTitle("Winterize the washer for cold storage", "freeze_prep")).toBeNull()
   })
 
   it("catches gutter work without a family — the design doc's example", () => {
