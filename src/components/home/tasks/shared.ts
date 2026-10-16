@@ -15,6 +15,7 @@ import {
   type QueuedDone,
 } from "./doneQueue"
 import type { Tier } from "@/lib/redesign/tokens"
+import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { addDays, diffDays, localToday } from "../../../../shared/dates/calendar"
 import { SNOOZE_DAYS } from "../../../../shared/tasks/snooze"
 
@@ -93,6 +94,12 @@ export interface TaskActionsOptions {
   onSnoozed?: (id: string) => unknown
   /** A snooze was undone: the task is back, so the surface should refetch to show it. */
   onUnsnoozed?: (id: string) => unknown
+  /**
+   * Say Dones refused after their screen had gone (default true). False for a
+   * tree the page mounts but CSS hides (Tasks mounts both its trees), so the
+   * line is said once.
+   */
+  showLostDones?: boolean
 }
 
 /** What the surface renders as its UndoBar: spread it in. Null when there is nothing to say. */
@@ -358,7 +365,7 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
 
   // A Done refused after its screen had gone. Shown when this screen has
   // nothing of its own to say, and it stays until it lands or is dismissed.
-  const firstLost = lost[0] ?? null
+  const firstLost = options.showLostDones === false ? null : (lost[0] ?? null)
   const retryLost = useCallback(() => {
     if (!firstLost) return
     setRetrying(firstLost.id)
@@ -412,11 +419,15 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
 export function useAgendaRowActions(
   homeId: string | null,
   agenda: { removeTask: (taskInstanceId: string) => void; refresh: () => unknown; data?: { items: WeekAgendaItem[] } },
+  /** Which tree is calling: the Tasks page mounts both, and only the one on screen speaks for lost Dones. */
+  tree: "phone" | "desktop",
 ) {
   const [openId, setOpenId] = useState<string | null>(null)
   const { removeTask, refresh, data } = agenda
+  const isDesktop = useIsDesktop()
   const actions = useTaskActions(homeId, {
     where: "tasks",
+    showLostDones: tree === (isDesktop ? "desktop" : "phone"),
     onDoneSaved: removeTask,
     onSnoozed: removeTask,
     onUnsnoozed: () => refresh(),

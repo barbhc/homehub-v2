@@ -311,7 +311,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   // reappears on the next load looking like the tap never registered. One
   // implementation with DesktopTasks, Home and the item page now — buttons and
   // swipe alike, with the same Undo bar — see useAgendaRowActions.
-  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze, hidden, bar } = useAgendaRowActions(homeId, agenda)
+  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze, hidden, bar } = useAgendaRowActions(homeId, agenda, "phone")
   const allItems = agenda.data?.items ?? NO_TASKS
   const items = useMemo(() => withoutHidden(allItems, hidden), [allItems, hidden])
   /** Scheduled work the agenda hides by design (item-scoped cleaning). */

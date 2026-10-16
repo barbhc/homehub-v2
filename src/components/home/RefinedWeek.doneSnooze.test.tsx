@@ -15,9 +15,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react"
 import { SWRConfig } from "swr"
 import { RefinedWeek } from "./RefinedWeek"
-import { DesktopTasks } from "./DesktopTasks"
 import { DONE_UNDO_MS } from "./tasks/shared"
-import { resetDoneQueueForTests } from "./tasks/doneQueue"
+import { clearDoneQueue, resetDoneQueueForTests } from "./tasks/doneQueue"
 import { addDays, localToday } from "../../../shared/dates/calendar"
 
 const render = (ui: React.ReactElement) =>
@@ -40,6 +39,9 @@ vi.mock("@/modules/care", () => ({
   getTaskDetail: (...a: unknown[]) => svc.getTaskDetail(...a),
 }))
 vi.mock("react-router-dom", () => ({ useNavigate: () => vi.fn() }))
+// Who is signed in — the queue stamps every Done with it.
+const session = vi.hoisted(() => ({ auth: { currentUser: { uid: "user-a" } as { uid: string } | null } }))
+vi.mock("@/integrations/firebase", () => ({ auth: session.auth, db: {}, callable: vi.fn(() => vi.fn()) }))
 vi.mock("@/hooks/useCareSuggestions", () => ({
   useCareSuggestions: () => ({ rows: [], loading: false, error: null, add: vi.fn(), dismiss: vi.fn(), reload: vi.fn() }),
 }))
@@ -60,6 +62,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   resetDoneQueueForTests()
+  session.auth.currentUser = { uid: "user-a" }
   svc.getWeekAgenda.mockResolvedValue({ data: [TASK], error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
   svc.getTaskDetail.mockResolvedValue({ data: { steps: [], infoBlurb: null }, error: null })
   svc.markTaskInstanceDone.mockResolvedValue({ success: true, data: {}, nextInstanceId: "ti-2" })
@@ -124,7 +127,7 @@ describe("Tasks — a Done is never lost after its receipt said Done", () => {
     fireEvent.click(within(rowEl()).getByLabelText(/mark done/i))
     await bar()
     const saved = JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]")
-    expect(saved).toEqual([expect.objectContaining({ homeId: "home-1", id: "ti-1", label: TITLE, completedOn: localToday(), state: "pending" })])
+    expect(saved).toEqual([expect.objectContaining({ uid: "user-a", homeId: "home-1", id: "ti-1", label: TITLE, completedOn: localToday(), state: "pending" })])
     expect(svc.markTaskInstanceDone).not.toHaveBeenCalled()
   })
 
@@ -137,8 +140,8 @@ describe("Tasks — a Done is never lost after its receipt said Done", () => {
     tasks.unmount()
     await waitFor(() => expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1))
 
-    // The next screen (here, the desktop list) says so — never a silent drop.
-    render(<DesktopTasks homeId="home-1" />)
+    // The next screen says so — never a silent drop.
+    render(<RefinedWeek homeId="home-1" />)
     const line = await screen.findByRole("status")
     expect(line).toHaveTextContent(`Couldn't mark “${TITLE}” done.`)
     svc.markTaskInstanceDone.mockResolvedValue({ success: true, data: {}, nextInstanceId: "ti-2" })
@@ -150,13 +153,61 @@ describe("Tasks — a Done is never lost after its receipt said Done", () => {
 
   it("a Done left unwritten by the last run (app swiped away) is written by the next screen that mounts", async () => {
     localStorage.setItem(QUEUE_KEY, JSON.stringify([
-      { homeId: "home-1", id: "ti-9", label: "Flush the water heater", completedOn: localToday(), nextDue: NEXT_DUE, state: "pending", error: null },
+      { uid: "user-a", homeId: "home-1", id: "ti-9", label: "Flush the water heater", completedOn: localToday(), nextDue: NEXT_DUE, state: "pending", error: null },
     ]))
     resetDoneQueueForTests()
     await settle()
     await waitFor(() =>
       expect(svc.markTaskInstanceDone).toHaveBeenCalledWith("home-1", "ti-9", null, { completedOn: localToday(), backdated: false, nextDueOverride: NEXT_DUE }))
     await waitFor(() => expect(localStorage.getItem(QUEUE_KEY)).toBeNull())
+  })
+})
+
+describe("Tasks — a Done never crosses accounts, and a hopeless one is not retried forever", () => {
+  const failedFor = (uid: string) =>
+    JSON.stringify([{ uid, homeId: "home-1", id: "ti-9", label: "Flush the water heater", completedOn: localToday(), nextDue: null, state: "failed", error: "You're offline" }])
+  const pendingFor = (uid: string) =>
+    JSON.stringify([{ uid, homeId: "home-1", id: "ti-8", label: "Test smoke alarms", completedOn: localToday(), nextDue: null, state: "pending", error: null }])
+
+  it("sign out, sign in as someone else → no 'Couldn't mark' line and no write of the last account's Done", async () => {
+    svc.markTaskInstanceDone.mockResolvedValue({ success: false, error: "You're offline" })
+    const tasks = await settle()
+    fireEvent.click(within(rowEl()).getByLabelText(/mark done/i))
+    await bar()
+    tasks.unmount() // written, refused: now a failed Done waiting to be said
+    await waitFor(() => expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1))
+
+    clearDoneQueue() // what AuthProvider.signOut does
+    session.auth.currentUser = { uid: "user-b" }
+    await settle()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByText(/Couldn't mark/)).toBeNull()
+    expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(QUEUE_KEY)).toBeNull()
+  })
+
+  it("even if another account's entries survive on disk, they are dropped — never shown, never written", async () => {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify([...JSON.parse(failedFor("user-a")), ...JSON.parse(pendingFor("user-a"))]))
+    resetDoneQueueForTests()
+    session.auth.currentUser = { uid: "user-b" }
+    await settle()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByText(/Couldn't mark/)).toBeNull()
+    expect(svc.markTaskInstanceDone).not.toHaveBeenCalled()
+    expect(localStorage.getItem(QUEUE_KEY)).toBeNull()
+  })
+
+  it("a Done the server can never take (task gone) is dropped, not offered as Try again", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    svc.markTaskInstanceDone.mockResolvedValue({ success: false, error: "Task instance not found" })
+    localStorage.setItem(QUEUE_KEY, pendingFor("user-a"))
+    resetDoneQueueForTests()
+    await settle()
+    await waitFor(() => expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(localStorage.getItem(QUEUE_KEY)).toBeNull())
+    expect(screen.queryByText(/Couldn't mark/)).toBeNull()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("ti-8 (home home-1)"), "Task instance not found")
+    warn.mockRestore()
   })
 })
 

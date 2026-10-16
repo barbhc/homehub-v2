@@ -240,7 +240,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   // This tree's own copy of Done/Snooze read only `res.success`: a failed write
   // closed the row and said nothing. It shares the phone's now, error, Undo bar
   // and all — said on the row that failed (DkRow), in the phone's words.
-  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze, hidden, bar } = useAgendaRowActions(homeId, agenda)
+  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze, hidden, bar } = useAgendaRowActions(homeId, agenda, "desktop")
   const allItems = agenda.data?.items ?? NO_TASKS
   const items = useMemo(() => withoutHidden(allItems, hidden), [allItems, hidden])
   /** Scheduled work the agenda hides by design (item-scoped cleaning) — HH-94. */

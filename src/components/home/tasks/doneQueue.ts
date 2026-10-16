@@ -16,11 +16,23 @@
  *  · a write refused with no row to say it on stays as `failed`, and every
  *    mounted useTaskActions shows it — "Couldn't mark X done" with Try again —
  *    until it lands or the person dismisses it.
+ *
+ * Every entry is stamped with the signed-in user (and its home). Sign-out
+ * clears the queue (clearDoneQueue, from AuthProvider); and, in case a key
+ * survives anyway, an entry that is not the signed-in user's is dropped, never
+ * shown or written under someone else's sign-in.
+ *
+ * A refusal that will never succeed — the task is gone, the person is no
+ * longer in the home — is terminal: logged with its ids and dropped, not
+ * offered as Try again forever.
  */
+import { auth } from "@/integrations/firebase"
 import { markTaskInstanceDone } from "@/modules/care"
 import { localToday } from "../../../../shared/dates/calendar"
 
 export interface QueuedDone {
+  /** Who tapped it. Only that user's session ever shows or writes it. */
+  uid: string
   homeId: string
   /** The task instance. */
   id: string
@@ -36,7 +48,7 @@ export interface QueuedDone {
   error: string | null
 }
 
-export type DoneWrite = { success: boolean; error?: string }
+export type DoneWrite = { success: boolean; error?: string; /** Refused for good — dropped, not retried. */ terminal?: boolean }
 
 const STORAGE_KEY = "hh:pending-dones:v1"
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -50,6 +62,19 @@ let loaded = false
 let failedSnapshot: QueuedDone[] = []
 
 const keyOf = (homeId: string, id: string) => `${homeId}/${id}`
+/** The signed-in user; "" when nobody is (nothing is shown or written for them then). */
+const currentUid = (): string => auth.currentUser?.uid ?? ""
+/** Bumped by sign-out: a write still in flight from before it must not put its entry back. */
+let generation = 0
+
+/**
+ * Refusals that no retry can fix: the instance is gone, or the caller is not a
+ * member of the home (any more). completeTask says these in these words
+ * (completeTask.ts: "Task instance not found", "Not a member of this home.").
+ */
+export function isTerminalDoneError(error: string | null | undefined): boolean {
+  return typeof error === "string" && /not found|not a member|permission[- ]denied|missing or insufficient permissions/i.test(error)
+}
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 /** One stored entry, checked field by field — what comes off disk is never trusted as typed. */
@@ -57,11 +82,12 @@ function parseEntry(v: unknown): QueuedDone | null {
   if (!v || typeof v !== "object") return null
   const r = v as Record<string, unknown>
   const text = (x: unknown) => (typeof x === "string" && x ? x : null)
+  const uid = typeof r.uid === "string" ? r.uid : null
   const homeId = text(r.homeId), id = text(r.id), completedOn = text(r.completedOn)
-  if (!homeId || !id || !completedOn || !YMD.test(completedOn)) return null
+  if (uid === null || !homeId || !id || !completedOn || !YMD.test(completedOn)) return null
   const nextDue = text(r.nextDue)
   return {
-    homeId, id, completedOn,
+    uid, homeId, id, completedOn,
     label: text(r.label),
     nextDue: nextDue && YMD.test(nextDue) ? nextDue : null,
     state: r.state === "failed" ? "failed" : "pending",
@@ -92,6 +118,7 @@ function load() {
     const entry = parseEntry(v)
     if (entry) entries.set(keyOf(entry.homeId, entry.id), entry)
   }
+  if (dropOtherUsers()) persist()
   refreshSnapshot()
 }
 
@@ -106,8 +133,27 @@ function persist() {
   }
 }
 
+/**
+ * Drop every entry that is not the signed-in user's. With nobody signed in
+ * (auth not resolved yet) nothing is dropped — and nothing is shown or written.
+ */
+function dropOtherUsers(): boolean {
+  const uid = currentUid()
+  if (!uid) return false
+  let dropped = false
+  for (const [key, e] of entries) {
+    if (e.uid === uid) continue
+    entries.delete(key)
+    owned.delete(key)
+    dropped = true
+  }
+  if (dropped) console.warn("[done queue] dropped Dones saved by another account on this device")
+  return dropped
+}
+
 function refreshSnapshot() {
-  failedSnapshot = [...entries.values()].filter((e) => e.state === "failed")
+  const uid = currentUid()
+  failedSnapshot = [...entries.values()].filter((e) => e.state === "failed" && e.uid === uid)
 }
 
 function changed() {
@@ -132,7 +178,7 @@ export function failedDones(): QueuedDone[] {
 export function queueDone(d: { homeId: string; id: string; label: string | null; completedOn: string }) {
   load()
   const key = keyOf(d.homeId, d.id)
-  entries.set(key, { ...d, nextDue: null, state: "pending", error: null })
+  entries.set(key, { ...d, uid: currentUid(), nextDue: null, state: "pending", error: null })
   owned.add(key)
   changed()
 }
@@ -163,6 +209,13 @@ export function writeDone(homeId: string, id: string): Promise<DoneWrite> {
   if (running) return running
   const e = entries.get(key)
   if (!e) return Promise.resolve({ success: true })
+  if (e.uid !== currentUid()) {
+    // Never written under another account's sign-in.
+    entries.delete(key)
+    changed()
+    return Promise.resolve({ success: false, error: "Saved by another account", terminal: true })
+  }
+  const gen = generation
   const p = (async (): Promise<DoneWrite> => {
     let res: DoneWrite
     try {
@@ -176,8 +229,16 @@ export function writeDone(homeId: string, id: string): Promise<DoneWrite> {
     } catch (err) {
       res = { success: false, error: message(err) }
     }
-    if (res.success) entries.delete(key)
-    else entries.set(key, { ...e, state: "failed", error: res.error ?? null })
+    if (gen !== generation) return res // signed out meanwhile: the queue is someone else's now
+    if (res.success) {
+      entries.delete(key)
+    } else if (isTerminalDoneError(res.error)) {
+      console.warn(`[done queue] dropping a Done that can never be written — task ${e.id} (home ${e.homeId}):`, res.error)
+      entries.delete(key)
+      res = { ...res, terminal: true }
+    } else {
+      entries.set(key, { ...e, state: "failed", error: res.error ?? null })
+    }
     changed()
     return res
   })()
@@ -189,8 +250,13 @@ export function writeDone(homeId: string, id: string): Promise<DoneWrite> {
 /** Write every Done no screen is holding: left over from a screen that is gone, or from the last app run. */
 export function writeUnheldDones() {
   load()
+  const uid = currentUid()
+  dropOtherUsers()
+  // Also re-reads the snapshot for THIS user: it may have been taken before
+  // sign-in resolved, when no entry was anyone's.
+  changed()
   for (const [key, e] of entries) {
-    if (e.state === "pending" && !owned.has(key) && !inFlight.has(key)) {
+    if (e.uid === uid && e.state === "pending" && !owned.has(key) && !inFlight.has(key)) {
       void writeDone(e.homeId, e.id).then((r) => {
         if (!r.success) console.warn(`[done queue] could not mark task done ${e.id} (home ${e.homeId}):`, r.error)
       })
@@ -198,8 +264,27 @@ export function writeUnheldDones() {
   }
 }
 
+/**
+ * Sign-out: forget every Done on this device, in memory and on disk, so the
+ * next account never sees — or writes — the last one's.
+ */
+export function clearDoneQueue() {
+  generation++
+  entries.clear()
+  owned.clear()
+  loaded = true
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch (e) {
+    console.warn("[done queue] could not clear pending Dones on sign-out:", message(e))
+  }
+  refreshSnapshot()
+  for (const fn of listeners) fn()
+}
+
 /** Tests only: forget everything in memory (disk is the test's to set). */
 export function resetDoneQueueForTests() {
+  generation++
   entries.clear()
   owned.clear()
   inFlight.clear()

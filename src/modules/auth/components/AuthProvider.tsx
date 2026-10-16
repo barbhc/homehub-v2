@@ -21,6 +21,7 @@ import {
 import { auth } from "@/integrations/firebase"
 import { isNativePlatform } from "@/lib/native"
 import { clearPersistedSwrCache } from "@/lib/swrPersist"
+import { clearDoneQueue } from "@/components/home/tasks/doneQueue"
 import { track, identifyUser, resetAnalyticsIdentity } from "@/lib/analytics"
 import type { AuthUser } from "@/modules/auth/types/auth"
 import { withChunkRetry } from "@/lib/chunkRetry"
@@ -135,6 +136,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // this device never briefly sees the previous user's home.
     clearPersistedSwrCache()
     clearCachedHome()
+    // And any Done still waiting to be written: the next account must never
+    // see "Couldn't mark X done" for this one's task, or write it as itself.
+    clearDoneQueue()
     await fbSignOut(auth)
   }, [])
 

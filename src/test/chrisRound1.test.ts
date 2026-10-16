@@ -335,3 +335,11 @@ describe("a failed check-off reads the same on Home and on Tasks", () => {
     expect(src).not.toMatch(/\.error \?\? "/)
   })
 })
+
+describe("sign-out leaves no Done behind for the next account (#246 re-review)", () => {
+  it("AuthProvider.signOut clears the pending-Done queue before the session ends", () => {
+    const src = read("../modules/auth/components/AuthProvider.tsx")
+    const body = src.slice(src.indexOf("const signOut = useCallback"), src.indexOf("await fbSignOut(auth)"))
+    expect(body).toMatch(/clearDoneQueue\(\)/)
+  })
+})
