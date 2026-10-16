@@ -37,6 +37,7 @@ export { HomeProfileOnboarding } from "./components/HomeProfileOnboarding"
 export {
   getHomeProfile,
   upsertHomeProfile,
+  markWinterizingOfferAnswered,
   TOP_CONCERN_KEYS,
   type HomeProfile,
   type HomeProfileUpsert,

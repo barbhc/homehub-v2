@@ -489,7 +489,8 @@ export async function turnOffWinterizingTasks(
       via: "climate",
     })
 
-    const writes = tasks.length + instanceIds.length + (rec.rule ? 1 : 0) + 1
+    // + the rule, the ledger, and the home's "offer answered" marker.
+    const writes = tasks.length + instanceIds.length + (rec.rule ? 1 : 0) + 2
     if (writes > MAX_BATCH_WRITES) {
       return { data: null, error: { message: "That's too many tasks to turn off at once. Untick some and try again." } }
     }
@@ -503,6 +504,9 @@ export async function turnOffWinterizingTasks(
     }
     if (rec.rule) batch.set(rec.rule.ref, rec.rule.data)
     batch.set(rec.ledger.ref, rec.ledger.data)
+    // The offer is answered (homeProfileService.markWinterizingOfferAnswered's
+    // field — and, like it, never `updatedAt`, the profile form's CAS guard).
+    batch.set(doc(db, `homes/${homeId}`), { winterizingOfferAnsweredAt: now }, { merge: true })
     await batch.commit()
 
     return {

@@ -22,9 +22,11 @@ const upsertHomeProfile = vi.hoisted(() => vi.fn())
 const getWinterizingTasks = vi.hoisted(() => vi.fn())
 const turnOffWinterizingTasks = vi.hoisted(() => vi.fn())
 const undoTurnOffWinterizing = vi.hoisted(() => vi.fn())
+const markWinterizingOfferAnswered = vi.hoisted(() => vi.fn())
 vi.mock("@/modules/home", () => ({
   getHomeProfile: (...a: unknown[]) => getHomeProfile(...a),
   upsertHomeProfile: (...a: unknown[]) => upsertHomeProfile(...a),
+  markWinterizingOfferAnswered: (...a: unknown[]) => markWinterizingOfferAnswered(...a),
 }))
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }))
 vi.mock("@/modules/care", () => ({
@@ -35,10 +37,10 @@ vi.mock("@/modules/care", () => ({
 
 const { HomeProfileSection } = await import("./HomeProfileSection")
 
-const profile = (climate: string | null, freeze_risk: boolean | null) => ({
+const profile = (climate: string | null, freeze_risk: boolean | null, answeredAt: string | null = null) => ({
   home_type: "condo", ownership: "own", ownership_duration: "5_plus", climate, freeze_risk,
   top_concerns: [], preferred_mode: "unset", completed_at: "2026-09-01T00:00:00Z",
-  updated_at: "2026-09-01T00:00:00Z",
+  updated_at: "2026-09-01T00:00:00Z", winterizing_offer_answered_at: answeredAt,
 })
 
 const TASKS = [
@@ -56,8 +58,8 @@ const OPTION: Record<string, string> = {
 const FREEZE_RISK: Record<string, boolean> = { mild: false, hot: false, moderate: true, cold: true }
 
 /** Load a profile whose climate is `from`, pick `to` in the select (unless it's the same), and Save. */
-async function renderAndSave(to: string, from: string | null = null) {
-  getHomeProfile.mockResolvedValue({ data: profile(from, from ? FREEZE_RISK[from] : null), error: null })
+async function renderAndSave(to: string, from: string | null = null, answeredAt: string | null = null) {
+  getHomeProfile.mockResolvedValue({ data: profile(from, from ? FREEZE_RISK[from] : null, answeredAt), error: null })
   render(<HomeProfileSection homeId="home-1" />)
   await screen.findByRole("button", { name: "Save" })
   if (to !== from) {
@@ -82,6 +84,8 @@ beforeEach(() => {
   getWinterizingTasks.mockReset()
   turnOffWinterizingTasks.mockReset()
   undoTurnOffWinterizing.mockReset()
+  markWinterizingOfferAnswered.mockReset()
+  markWinterizingOfferAnswered.mockResolvedValue({ data: true, error: null })
   upsertHomeProfile.mockImplementation(async (_h: string, patch: { climate: string; freeze_risk: boolean }) => ({
     data: profile(patch.climate, patch.freeze_risk), error: null,
   }))
@@ -174,7 +178,8 @@ describe("Settings › Home profile · the winterizing offer after a Mild/Hot sa
     await renderAndSave("mild")
     const card = await screen.findByTestId("winterizing-offer")
     fireEvent.click(within(card).getByRole("button", { name: "Keep them" }))
-    expect(screen.queryByTestId("winterizing-offer")).toBeNull()
+    await waitFor(() => expect(screen.queryByTestId("winterizing-offer")).toBeNull())
+    expect(markWinterizingOfferAnswered).toHaveBeenCalledWith("home-1")
     expect(turnOffWinterizingTasks).not.toHaveBeenCalled()
   })
 
@@ -186,7 +191,7 @@ describe("Settings › Home profile · the winterizing offer after a Mild/Hot sa
   })
 
   it("re-saving the profile without changing the climate offers nothing", async () => {
-    await renderAndSave("mild", "mild")
+    await renderAndSave("mild", "mild", "2026-10-01T00:00:00Z")
     await screen.findByText("Saved")
     expect(getWinterizingTasks).not.toHaveBeenCalled()
     expect(screen.queryByTestId("winterizing-offer")).toBeNull()
@@ -220,6 +225,53 @@ describe("Settings › Home profile · a climate save that never landed", () => 
     await renderAndSave("mild")
     expect(await screen.findByText("Your climate didn't save. Try again.")).toBeInTheDocument()
     expect(screen.queryByText("Saved")).toBeNull()
+    expect(getWinterizingTasks).not.toHaveBeenCalled()
+  })
+})
+
+describe("Settings › Home profile · a home that is ALREADY Mild (the reporter's case)", () => {
+  async function open(answeredAt: string | null) {
+    getHomeProfile.mockResolvedValue({ data: profile("mild", false, answeredAt), error: null })
+    const view = render(<HomeProfileSection homeId="home-1" />)
+    await screen.findByRole("button", { name: "Save" })
+    return view
+  }
+
+  it("sees the offer on opening, without saving anything", async () => {
+    await open(null)
+    const card = await screen.findByTestId("winterizing-offer")
+    expect(within(card).getByText("You have 2 winterizing tasks")).toBeInTheDocument()
+    expect(upsertHomeProfile).not.toHaveBeenCalled()
+  })
+
+  it("after Keep them the answer is saved on the home, and the offer doesn't return", async () => {
+    const view = await open(null)
+    fireEvent.click(within(await screen.findByTestId("winterizing-offer")).getByRole("button", { name: "Keep them" }))
+    await waitFor(() => expect(screen.queryByTestId("winterizing-offer")).toBeNull())
+    expect(markWinterizingOfferAnswered).toHaveBeenCalledWith("home-1")
+    view.unmount()
+
+    // Next visit: the profile now carries the answer.
+    getWinterizingTasks.mockClear()
+    await open("2026-10-16T00:00:00Z")
+    await screen.findByText("Local climate")
+    expect(getWinterizingTasks).not.toHaveBeenCalled()
+    expect(screen.queryByTestId("winterizing-offer")).toBeNull()
+  })
+
+  it("a Keep them that couldn't be saved says so and keeps the card", async () => {
+    markWinterizingOfferAnswered.mockResolvedValue({ data: null, error: { message: "Missing or insufficient permissions." } })
+    await open(null)
+    const card = await screen.findByTestId("winterizing-offer")
+    fireEvent.click(within(card).getByRole("button", { name: "Keep them" }))
+    expect(await within(card).findByText("Couldn't save your answer: Missing or insufficient permissions.")).toBeInTheDocument()
+    expect(screen.getByTestId("winterizing-offer")).toBeInTheDocument()
+  })
+
+  it("a home that freezes is not asked on opening", async () => {
+    getHomeProfile.mockResolvedValue({ data: profile("cold", true), error: null })
+    render(<HomeProfileSection homeId="home-1" />)
+    await screen.findByRole("button", { name: "Save" })
     expect(getWinterizingTasks).not.toHaveBeenCalled()
   })
 })

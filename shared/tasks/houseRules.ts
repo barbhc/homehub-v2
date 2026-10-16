@@ -79,6 +79,24 @@ export function isAsNeededColdStorage(t: {
 }
 
 /**
+ * The same test on a task-instance row as Firestore returns it (denormalized
+ * `title` / `scheduleType`, §5) — the ONE filter every dated list applies:
+ * the week agenda (Tasks) and Home's this-week + Coming-up lists.
+ */
+export function isAsNeededColdStorageRow(row: Record<string, unknown>, freezeFree: boolean): boolean {
+  return isAsNeededColdStorage({
+    title: typeof row.title === "string" ? row.title : null,
+    scheduleType: typeof row.scheduleType === "string" ? row.scheduleType : null,
+    freezeFree,
+  })
+}
+
+/** A home is freeze-free only when it SAID so (`freezeRisk === false`); unknown is not. */
+export function isFreezeFree(freezeRisk: unknown): boolean {
+  return freezeRisk === false
+}
+
+/**
  * The best available match predicate for a task, most-specific first:
  *   seasonalFamily (winterize kin) › season › the single template (nothing
  *   groupable — feedback still applies to it alone).

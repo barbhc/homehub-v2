@@ -126,6 +126,9 @@ describe("turnOffWinterizingTasks — the sweep's writes, in one batch", () => {
 
     const rule = fs.committed.find((w) => w.path.startsWith("homes/h1/houseRules/"))
     expect(rule?.data).toMatchObject({ kind: "suppress", match: { by: "seasonalFamily", family: "freeze_prep" }, isActive: true })
+    // The offer is answered in the same commit — and the profile's CAS guard
+    // (`updatedAt`) is left alone.
+    expect(fs.committed).toContainEqual({ path: "homes/h1", data: { winterizingOfferAnsweredAt: "TS" } })
     const ledger = fs.committed.find((w) => w.path.startsWith("homes/h1/taskFeedback/"))
     expect(ledger?.data).toMatchObject({
       chip: "not_relevant", taskTemplateId: "t-washer", via: "climate",

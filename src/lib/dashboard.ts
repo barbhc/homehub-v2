@@ -15,7 +15,8 @@ import {
   type DueKind, type WindowState,
 } from "@/lib/dueWindow"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
-import type { HomeReads, ReadDoc } from "@/lib/homeReads"
+import { freezeFreeFrom, type HomeReads, type ReadDoc } from "@/lib/homeReads"
+import { isAsNeededColdStorageRow } from "../../shared/tasks/houseRules"
 import { addDays, diffDays, localToday } from "../../shared/dates/calendar"
 import { asListedToday, effectiveDueDate } from "../../shared/tasks/snooze"
 
@@ -34,6 +35,17 @@ const onListToday = (docs: ReadDoc[], today: string): Row[] =>
     const listed = asListedToday(r, today)
     return listed ? [listed] : []
   })
+
+/**
+ * Home's dated lists (this week and Coming up): the open rows on the list
+ * today, minus as-needed cold-storage winterizing in a home that said it
+ * doesn't freeze (HH-166) — the same shared filter Tasks' week agenda applies,
+ * so the washer can't be gone from Tasks and still on Home.
+ */
+const onDatedListToday = (reads: Pick<HomeReads, "live" | "profile">, today: string): Row[] => {
+  const freezeFree = freezeFreeFrom(reads)
+  return onListToday(reads.live, today).filter((r) => !isAsNeededColdStorageRow(r, freezeFree))
+}
 
 /** Due-soon window: tasks due within this many days count as "urgent". */
 export const DUE_SOON_DAYS = 7
@@ -315,7 +327,7 @@ function computeConcernBoost(
 }
 
 export function deriveDashboardTasks(
-  reads: Pick<HomeReads, "live" | "recentDone">,
+  reads: Pick<HomeReads, "live" | "recentDone" | "profile">,
   /**
    * User's top_concerns from home_profile.  When provided, the "suggested"
    * list is reordered so concern-matched tasks (e.g. safety tasks for a
@@ -328,7 +340,7 @@ export function deriveDashboardTasks(
   // The open instances the Home load read; scheduled rows derived client-side
   // from the denormalized fields (§5). risk_level isn't denormed (only used
   // for a suggested-ordering boost) → null is a safe degrade.
-  const rows: TaskInstanceRow[] = onListToday(reads.live, todayStr)
+  const rows: TaskInstanceRow[] = onDatedListToday(reads, todayStr)
     .sort(
       (a, b) =>
         ((b.priorityScore as number) ?? 0) - ((a.priorityScore as number) ?? 0) ||
@@ -557,7 +569,7 @@ function toMaintenanceTaskFull(
   }
 }
 
-export function deriveUpcomingTasks(reads: Pick<HomeReads, "live">): MaintenanceTaskFull[] {
+export function deriveUpcomingTasks(reads: Pick<HomeReads, "live" | "profile">): MaintenanceTaskFull[] {
   const todayStr = localToday()
   // 45, not 30 — a fencepost that hid every fresh monthly task. commitDraft
   // seeds first-due ONE CALENDAR MONTH out (#58), which is 31 days in seven
@@ -568,7 +580,7 @@ export function deriveUpcomingTasks(reads: Pick<HomeReads, "live">): Maintenance
   // rows regardless, so the widening costs nothing visually.
   const in30Days = addDays(todayStr, 45)
 
-  return onListToday(reads.live, todayStr)
+  return onDatedListToday(reads, todayStr)
     .filter((r) => (r.dueDate as string) >= todayStr && (r.dueDate as string) <= in30Days)
     // Home is a MAINTENANCE agenda — item-scoped cleaning lives on the Cleaning
     // page + the item's own Cleaning group. weekAgenda already did this; this

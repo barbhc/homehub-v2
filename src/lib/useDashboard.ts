@@ -22,7 +22,6 @@ import {
 } from "./dashboard"
 import { deepCleanGuidesFrom, type DeepCleanGuide } from "./cleanSession"
 import { homeReadsForThisRound, readTaskTemplates } from "./homeReads"
-import { getHomeProfile } from "@/modules/home/services/homeProfileService"
 import { persistSwrSnapshot } from "./swrPersist"
 import { markBoot } from "./bootTiming"
 import { LOAD_TIMEOUT_MS, withTimeout } from "./withTimeout"
@@ -72,12 +71,11 @@ const EMPTY_NOTICES: HomeNotices = { recalls: [], missingDetails: [] }
  * both against an in-memory Firestore and pins what one Home load reads.
  */
 export async function fetchCore(homeId: string): Promise<DashboardCore> {
-  const [profileRes, reads] = await Promise.all([
-    soft(getHomeProfile(homeId), { data: null, error: null } as Awaited<ReturnType<typeof getHomeProfile>>, "profile"),
-    homeReadsForThisRound(homeId), // core — a real failure here surfaces the retry card
-  ])
+  // core — a real failure here surfaces the retry card. The profile rides
+  // along in the same round (homeReads.ts), shared with extras.
+  const reads = await homeReadsForThisRound(homeId)
   const stats = deriveDashboardStats(reads)
-  const tasks = deriveDashboardTasks(reads, profileRes.data?.top_concerns ?? [])
+  const tasks = deriveDashboardTasks(reads, reads.profile?.top_concerns ?? [])
   markBoot("dash:core")
   return { stats, tasks }
 }

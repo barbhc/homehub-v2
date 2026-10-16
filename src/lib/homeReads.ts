@@ -16,6 +16,8 @@ import { db } from "@/integrations/firebase"
 // An offline cache-miss is a failure, never an empty home — see the helper.
 import { assertServed } from "@/lib/assertServed"
 import { addDays, localDateString } from "../../shared/dates/calendar"
+import { isFreezeFree } from "../../shared/tasks/houseRules"
+import { getHomeProfile, type HomeProfile } from "@/modules/home/services/homeProfileService"
 
 /** A document as the derivations see it: its id and its data, nothing else. */
 export type ReadDoc = { id: string; data: DocumentData }
@@ -31,6 +33,18 @@ export interface HomeReads {
    * cleaning ranking always did, so each consumer keeps applying its own rule.
    */
   recentDone: ReadDoc[]
+  /**
+   * The home profile (one home-doc read — the one fetchCore used to make on
+   * its own, now shared with extras). Null when it couldn't be read: it only
+   * tunes ordering (top concerns) and the HH-166 cold-storage gate, so a failed
+   * read never fails Home — and a null profile never hides a task.
+   */
+  profile?: HomeProfile | null
+}
+
+/** Freeze-free only when the profile SAYS so; an unread or unanswered profile is not. */
+export function freezeFreeFrom(reads: Pick<HomeReads, "profile">): boolean {
+  return isFreezeFree(reads.profile?.freeze_risk)
 }
 
 /**
@@ -59,13 +73,19 @@ const toReadDocs = (snap: { docs: Array<{ id: string; data(): DocumentData }> })
 
 /** The three reads every Home load makes. Rejects when any one fails. */
 export async function readHomeCollections(homeId: string): Promise<HomeReads> {
-  const [itemsSnap, live, recentDone] = await Promise.all([
+  const [itemsSnap, live, recentDone, profileRes] = await Promise.all([
     getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))),
     readOpenInstances(homeId),
     readRecentDone(homeId),
+    getHomeProfile(homeId),
   ])
   assertServed(itemsSnap, "home")
-  return { items: toReadDocs(itemsSnap), live, recentDone }
+  if (profileRes.error) {
+    // Logged, not surfaced: see HomeReads.profile — a null profile degrades
+    // ordering and never hides a task.
+    console.warn(`[homeReads] profile for home ${homeId} could not be read:`, profileRes.error.message)
+  }
+  return { items: toReadDocs(itemsSnap), live, recentDone, profile: profileRes.data }
 }
 
 /** Open instances — see HomeReads.live. */

@@ -22,6 +22,7 @@ import {
   type PreferredMode,
   type Climate,
   type TopConcernKey,
+  markWinterizingOfferAnswered,
 } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import {
@@ -146,6 +147,19 @@ export function HomeProfileSection({ homeId }: Props) {
       if (result.error) setError(result.error.message)
       else applyProfile(result.data)
       setLoading(false)
+      // HH-166: the owner was ALREADY Mild, so an offer that only follows a
+      // change would never reach her. A freeze-free home that has never
+      // answered the offer is asked once, here.
+      const p = result.data
+      if (!p || p.freeze_risk !== false || p.winterizing_offer_answered_at) return
+      return getWinterizingTasks(homeId).then((res) => {
+        if (cancelled) return
+        if (res.error) {
+          setOfferError(`Couldn't check for winterizing tasks: ${res.error.message}`)
+          return
+        }
+        if (res.data.length > 0) setOffer({ tasks: res.data, checked: new Set(res.data.map((t) => t.taskTemplateId)) })
+      })
     })
     return () => {
       cancelled = true
@@ -263,9 +277,19 @@ export function HomeProfileSection({ homeId }: Props) {
     })
   }
 
-  const handleKeep = () => {
-    setOffer(null)
+  /** "Keep them" is an answer too: recorded on the home so the offer doesn't
+   *  come back on the next visit. If that write fails the card stays and says
+   *  so — closing it would promise a silence we couldn't save. */
+  const handleKeep = async () => {
+    setOfferBusy(true)
     setOfferError(null)
+    const res = await markWinterizingOfferAnswered(homeId)
+    setOfferBusy(false)
+    if (res.error) {
+      setOfferError(`Couldn't save your answer: ${res.error.message}`)
+      return
+    }
+    setOffer(null)
   }
 
   return (
