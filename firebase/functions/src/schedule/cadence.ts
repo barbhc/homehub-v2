@@ -7,6 +7,8 @@
  * → the caller leaves the instance where it is (a genuinely lapsed one-off keeps
  * its real overdue date; seasonal re-anchoring is handled elsewhere).
  */
+import { isColdStorageWinterizing } from "../../../../shared/tasks/houseRules.js"
+
 export type ScheduleType =
   | "after_each_use"
   | "weekly"
@@ -98,6 +100,9 @@ export function seasonForTask(t: {
 }): Season | null {
   const explicit = (t.season ?? "").toLowerCase()
   if ((SEASONS as readonly string[]).includes(explicit)) return explicit as Season
+  // HH-166: winterizing for storage or a move is as-needed — no season, so a
+  // row still marked seasonal gets no autumn instance rather than a yearly one.
+  if (isColdStorageWinterizing(t.title ?? "")) return null
   const hay = `${t.title ?? ""} ${(t.tags ?? []).join(" ")} ${t.description ?? ""}`.toLowerCase()
   if (/winteri[sz]|cold[- ]?storage|freeze[- ]?protect|frost[- ]?protect|heating season|before winter|pre[- ]?winter/.test(hay)) return "fall"
   if (/summeri[sz]|de[- ]?winteri[sz]|cooling season|spring (?:prep|start|open|startup)/.test(hay)) return "spring"

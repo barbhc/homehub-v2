@@ -36,6 +36,7 @@ import { countPdfPages } from "../../../../shared/parse/pdfShape.js"
 import { normalizeChunkRow, normalizeTaskRow, type ParsedChunk, type ParsedTask } from "../../../../shared/parse/parseCore.js"
 import { pickParseModel } from "../../../../shared/parse/pickParseModel.js"
 import { applyTaskTaxonomy, usageTipToChunk } from "../../../../shared/tasks/taxonomy.js"
+import { asNeededIfColdStorage } from "../../../../shared/tasks/houseRules.js"
 import { markParseChargeBilled, markParseChargeVendor, refundParseCharge } from "../lib/parseCharges.js"
 import { commitDraft } from "./commitDraft.js"
 import { manualSource, MANUAL_SOURCE_UNAVAILABLE } from "./manualSource.js"
@@ -235,7 +236,9 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
     // House rules still apply after this, inside commitDraft — a user's learned
     // rule outranks the taxonomy's default.
     const taxonomy = applyTaskTaxonomy(rawTasks)
-    const normTasks = taxonomy.tasks
+    // HH-166: winterizing for storage or a move is as-needed, not a yearly
+    // autumn job. Same correction the client's review draft makes (reviewRows).
+    const normTasks = taxonomy.tasks.map(asNeededIfColdStorage)
     const normChunks = [
       ...rawChunks,
       ...taxonomy.tips.map((tip) => normalizeChunkRow(usageTipToChunk(tip) as ParsedChunk, manualId)),

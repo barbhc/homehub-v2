@@ -42,6 +42,48 @@ export function seasonalFamily(title: string): string | null {
 }
 
 /**
+ * Is this winterizing for when the appliance is STORED or MOVED somewhere
+ * unheated, rather than the home's yearly freeze prep?
+ *
+ * HH-166 (owner, 2026-10-16): "Winterize the washer for cold storage" sat on
+ * her agenda as "Usually autumn". It is a one-off — you do it when a washer is
+ * moved, or put away in an unheated garage — not a job every autumn brings, so
+ * it is as-needed. It STAYS in the freeze_prep family: a freeze-free home has
+ * even less use for it, and the climate sweep should still offer it.
+ *
+ * Title-only and conservative: "cold storage" anywhere, or a freeze_prep title
+ * that names storing or moving. A plain "Winterize the outdoor faucets" stays a
+ * seasonal job.
+ */
+export function isColdStorageWinterizing(title: string): boolean {
+  const t = title.toLowerCase()
+  if (/cold[- ]?storage/.test(t)) return true
+  if (seasonalFamily(t) !== "freeze_prep") return false
+  return /\bstor(e|ed|ing|age)\b|\bunheated\b|\bmov(e|ed|ing)\b|\btransport/.test(t)
+}
+
+/** The schedule fields `asNeededIfColdStorage` rewrites. */
+export interface ScheduleRowFields {
+  title: string
+  schedule_type: string
+  interval_days?: number | null
+}
+
+/**
+ * Re-file a cold-storage winterizing row as as-needed (HH-166). Applied where a
+ * parse is normalized (server) and where the review draft is corrected
+ * (client), so both produce the same row. Returns the row unchanged otherwise;
+ * a row already on `as_needed`/`setup` is left alone.
+ */
+export function asNeededIfColdStorage<T extends ScheduleRowFields>(row: T): T {
+  if (row.schedule_type === "as_needed" || row.schedule_type === "setup") return row
+  if (!isColdStorageWinterizing(row.title)) return row
+  // `as_needed` is a member of every schedule enum T can carry; TS cannot see
+  // that through the generic, hence the widening.
+  return { ...row, schedule_type: "as_needed", interval_days: null } as T
+}
+
+/**
  * The best available match predicate for a task, most-specific first:
  *   seasonalFamily (winterize kin) › season › the single template (nothing
  *   groupable — feedback still applies to it alone).

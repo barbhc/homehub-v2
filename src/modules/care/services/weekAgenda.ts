@@ -171,7 +171,7 @@ export async function getWeekAgenda(
     })
     const beyondHorizon = pending.filter(
       (r) => (r.dueDate as string) > horizon &&
-        isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }),
+        isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null, title: r.title as string | null }),
     )
     const itemCleaning = pending.filter(
       (r) => !isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }),
@@ -191,7 +191,8 @@ export async function getWeekAgenda(
       .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
       // Curated feed, not a flatten of per-item cleaning steps: drop item-scoped
       // cleaning (lives in the Deep-Clean guide); keep maintenance + HOME cleaning.
-      .filter((r) => isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }))
+      // The title drops as-needed cold-storage winterizing (HH-166).
+      .filter((r) => isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null, title: r.title as string | null }))
       .map((r) => {
         const tier = (r.priorityTier as PriorityTier) ?? "optional"
         const dueDate = (r.dueDate as string) ?? today

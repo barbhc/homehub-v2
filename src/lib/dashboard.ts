@@ -573,7 +573,7 @@ export function deriveUpcomingTasks(reads: Pick<HomeReads, "live">): Maintenance
     // Home is a MAINTENANCE agenda — item-scoped cleaning lives on the Cleaning
     // page + the item's own Cleaning group. weekAgenda already did this; this
     // path didn't, which is how "Clean Interior Surfaces" reached Due Today.
-    .filter((r) => isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }))
+    .filter((r) => isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null, title: r.title as string | null }))
     .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
     .map((r) => {
       const row: TaskInstanceFull = {

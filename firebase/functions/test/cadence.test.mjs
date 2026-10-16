@@ -7,10 +7,19 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { seasonForTask, seasonalNextDue, addCadence } from "../lib/firebase/functions/src/schedule/cadence.js"
 
-test("seasonForTask: winterize / cold storage → fall (prep before winter)", () => {
-  assert.equal(seasonForTask({ title: "Winterize Washer for Cold Storage" }), "fall")
+test("seasonForTask: winterize / freeze protection → fall (prep before winter)", () => {
+  assert.equal(seasonForTask({ title: "Winterize the outdoor faucets" }), "fall")
   assert.equal(seasonForTask({ title: "Freeze protection for outdoor faucet" }), "fall")
   assert.equal(seasonForTask({ title: "Clean gutters", tags: ["seasonal"] }), "fall")
+})
+
+test("seasonForTask: winterizing for storage or a move has NO season (HH-166 — as-needed)", () => {
+  // The owner's report: this sat on her agenda as "Usually autumn". It is done
+  // when the washer is moved or stored unheated, not every autumn.
+  assert.equal(seasonForTask({ title: "Winterize Washer for Cold Storage" }), null)
+  assert.equal(seasonForTask({ title: "Winterize the washer before moving or storing" }), null)
+  // An explicit season the user chose still wins.
+  assert.equal(seasonForTask({ title: "Winterize Washer for Cold Storage", season: "fall" }), "fall")
 })
 
 test("seasonForTask: reads description too — 'each heating season' → fall (furnace vent)", () => {
