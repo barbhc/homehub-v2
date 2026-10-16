@@ -5,12 +5,14 @@
 // real dates and the real room join. Calm tiers only (never red); overdue is a
 // clay dot + the word "Overdue", never a full-orange line or "50d overdue".
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  getTaskDetail, markTaskInstanceDone, snoozeTaskInstance, type TaskDetail, type WeekAgendaItem,
+  getTaskDetail, markTaskInstanceDone, previewNextDue, snoozeTaskInstance, unsnoozeTaskInstance,
+  type TaskDetail, type WeekAgendaItem,
 } from "@/modules/care"
 import type { Tier } from "@/lib/redesign/tokens"
 import { addDays, diffDays, localToday } from "../../../../shared/dates/calendar"
+import { SNOOZE_DAYS } from "../../../../shared/tasks/snooze"
 
 // Group accent tones (calm tier palette — clay for overdue, never pure red).
 export const CLAY = "var(--hh-clay)"
@@ -40,9 +42,6 @@ export function nothingDueLine(hiddenCleaning: number): string {
 
 // ── Check-off and snooze, for both trees ─────────────────────────────────────
 
-/** What a row write answers — markTaskInstanceDone and snoozeTaskInstance both fit. */
-type RowWrite = { success: boolean; error?: string }
-
 /**
  * What a failed check-off or snooze says — Home's words (Home.tsx, #230), so a
  * task that won't complete reads the same on Home and on Tasks. The service's
@@ -66,64 +65,324 @@ export function doneFailedMessage(error: string | null | undefined): string {
   return typeof error === "string" && error.startsWith(DATE_REFUSAL) ? error : DONE_FAILED
 }
 
+/** "Oct 29" — the date style every task receipt uses (Snoozed until …, next due …). */
+export function receiptDate(ymd: string): string {
+  return new Date(`${ymd}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+/** How long a Done can be undone before it is written. */
+export const DONE_UNDO_MS = 6000
+/** How long the bar waits for the next-due date before showing plain "Done". */
+const PREVIEW_WAIT_MS = 700
+
+export type DoneOutcome =
+  | { status: "saved" }
+  | { status: "undone" }
+  | { status: "failed"; message: string }
+
+export interface TaskActionsOptions {
+  /** Log prefix — which surface this is ("home", "tasks", "item care"). */
+  where: string
+  /** A Done was WRITTEN: bring the surface up to date (refetch, or drop the row). The row stays hidden until this settles. */
+  onDoneSaved?: (id: string) => unknown
+  /** A snooze was written. The row stays hidden; the surface may refetch. */
+  onSnoozed?: (id: string) => unknown
+  /** A snooze was undone: the task is back, so the surface should refetch to show it. */
+  onUnsnoozed?: (id: string) => unknown
+}
+
+/** What the surface renders as its UndoBar: spread it in. Null when there is nothing to say. */
+export interface TaskActionBar {
+  message: string
+  onUndo?: () => void
+  onDismiss: () => void
+  ms: number
+}
+
+type PendingDone = {
+  homeId: string
+  completedOn: string
+  /** The previewed next due, written as the override so the receipt is what lands. */
+  nextDue: string | null
+  timer: number | null
+  settle: (o: DoneOutcome) => void
+}
+
+type BarState = { message: string; onUndo?: () => void; doneId?: string; ms: number }
+
+/** Run a surface's catch-up after a write that already landed: a failure only
+ *  means the list is stale until its next read, so it is logged, not surfaced. */
+function follow(where: string, id: string, fn: () => unknown) {
+  Promise.resolve()
+    .then(fn)
+    .catch((e: unknown) => {
+      console.warn(`[${where}] task ${id} was saved, but the list did not refresh:`, e instanceof Error ? e.message : e)
+    })
+}
+
+/**
+ * Done and Snooze — ONE implementation for every list that offers them: Home's
+ * week list, the Tasks rows (buttons and swipe, phone and desktop), and the
+ * item page's schedule. Owner, 2026-10-15: "One Done and Snooze everywhere."
+ *
+ * Snooze: puts the task away for SNOOZE_DAYS (14), writes at once, and says
+ * "Snoozed until {date}" with Undo, which un-snoozes. While snoozed the task is
+ * off every list and every push until that date (shared/tasks/snooze).
+ *
+ * Done: the row goes at once and the bar says "Done · next due {date}" with
+ * Undo for DONE_UNDO_MS — and NOTHING is written until that runs out. Undo is
+ * therefore free: there is no completion to unpick (completeTask mints the next
+ * instance, and completion history is never deleted — non-negotiable #3). The
+ * write is never lost: it goes when the window runs out, when the bar is
+ * dismissed, when another Done or Snooze starts, when the surface unmounts
+ * (navigation), and when the page is hidden (the app backgrounded). A write
+ * that fails brings the row back with the reason on it, as before.
+ *
+ * The task page keeps its own confirm sheet: it is a deliberate full-page
+ * action with a date to adjust, not a tap in a list.
+ */
+export function useTaskActions(homeId: string | null, options: TaskActionsOptions) {
+  const opts = useRef(options)
+  useEffect(() => {
+    opts.current = options
+  })
+
+  /** Rows taken off the list: a Done waiting to be written (or catching up), or a snooze. */
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set())
+  /** The row whose snooze write is in flight. */
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [failure, setFailure] = useState<{ id: string; message: string } | null>(null)
+  const [bar, setBar] = useState<BarState | null>(null)
+  const pending = useRef(new Map<string, PendingDone>())
+
+  const hide = useCallback((id: string) => setHidden((s) => (s.has(id) ? s : new Set(s).add(id))), [])
+  const unhide = useCallback((id: string) => setHidden((s) => {
+    if (!s.has(id)) return s
+    const next = new Set(s)
+    next.delete(id)
+    return next
+  }), [])
+
+  /** Write one waiting Done now. Idempotent: a second call for the same id does nothing. */
+  const commit = useCallback(async (id: string) => {
+    const p = pending.current.get(id)
+    if (!p) return
+    pending.current.delete(id)
+    if (p.timer !== null) window.clearTimeout(p.timer)
+    // Its Undo is gone with it — a bar still offering Undo would offer nothing.
+    setBar((b) => (b?.doneId === id ? null : b))
+    let res: { success: boolean; error?: string }
+    try {
+      res = await markTaskInstanceDone(p.homeId, id, null, { completedOn: p.completedOn, nextDueOverride: p.nextDue })
+    } catch (e) {
+      // A write that throws failed like one that answered "no" — said below, never swallowed.
+      res = { success: false, error: e instanceof Error ? e.message : String(e) }
+    }
+    if (!res.success) {
+      console.warn(`[${opts.current.where}] could not mark task ${id} done (home ${p.homeId}):`, res.error)
+      const message = doneFailedMessage(res.error)
+      unhide(id)
+      setFailure({ id, message })
+      p.settle({ status: "failed", message })
+      return
+    }
+    try {
+      await opts.current.onDoneSaved?.(id)
+    } catch (e) {
+      // The Done is written; only the list's catch-up failed. The next read shows it.
+      console.warn(`[${opts.current.where}] task ${id} is done, but the list did not refresh (home ${p.homeId}):`, e instanceof Error ? e.message : e)
+    }
+    unhide(id)
+    p.settle({ status: "saved" })
+  }, [unhide])
+
+  /** Write every waiting Done now. */
+  const flush = useCallback(() => {
+    for (const id of [...pending.current.keys()]) void commit(id)
+  }, [commit])
+
+  // Never lose a Done: leaving the surface writes it, and so does the app
+  // going to the background (iOS may never bring the page back to run a timer).
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush()
+    }
+    document.addEventListener("visibilitychange", onHide)
+    window.addEventListener("pagehide", flush)
+    return () => {
+      document.removeEventListener("visibilitychange", onHide)
+      window.removeEventListener("pagehide", flush)
+      flush()
+    }
+  }, [flush])
+
+  const done = useCallback((id: string): Promise<DoneOutcome> => {
+    if (!homeId || pending.current.has(id)) return Promise.resolve({ status: "undone" })
+    // One bar at a time: an earlier Done the new bar replaces is written now.
+    flush()
+    setFailure(null)
+    hide(id)
+    const completedOn = localToday()
+    return new Promise<DoneOutcome>((settle) => {
+      const entry: PendingDone = { homeId, completedOn, nextDue: null, timer: null, settle }
+      pending.current.set(id, entry)
+      const undo = () => {
+        const p = pending.current.get(id)
+        if (!p) return
+        pending.current.delete(id)
+        if (p.timer !== null) window.clearTimeout(p.timer)
+        unhide(id)
+        p.settle({ status: "undone" })
+      }
+      const show = (nextDue: string | null) => {
+        if (pending.current.get(id) !== entry) return
+        if (entry.timer === null) {
+          entry.timer = window.setTimeout(() => void commit(id), DONE_UNDO_MS)
+        }
+        if (nextDue) entry.nextDue = nextDue
+        setBar({
+          message: entry.nextDue ? `Done · next due ${receiptDate(entry.nextDue)}` : "Done",
+          onUndo: undo,
+          doneId: id,
+          ms: DONE_UNDO_MS,
+        })
+      }
+      // The receipt names the next date, so it is read first — but the bar
+      // never waits long for it: past PREVIEW_WAIT_MS it says "Done" and adds
+      // the date if it arrives while the bar is still up.
+      const wait = window.setTimeout(() => show(null), PREVIEW_WAIT_MS)
+      Promise.resolve()
+        .then(() => previewNextDue(homeId, id, completedOn))
+        .then(
+          (next) => {
+            window.clearTimeout(wait)
+            show(next)
+          },
+          (e: unknown) => {
+            window.clearTimeout(wait)
+            // Only the date is missing from the receipt; the Done itself is unaffected.
+            console.warn(`[${opts.current.where}] could not preview the next due date of ${id} (home ${homeId}):`, e instanceof Error ? e.message : e)
+            show(null)
+          },
+        )
+    })
+  }, [homeId, flush, hide, unhide, commit])
+
+  const undoSnooze = useCallback((home: string, id: string) => {
+    void unsnoozeTaskInstance(home, id).then((r) => {
+      if (r.success) {
+        unhide(id)
+        follow(opts.current.where, id, () => opts.current.onUnsnoozed?.(id))
+        return
+      }
+      // A failed undo comes back to the bar with the same Undo — it used to
+      // vanish and leave the task snoozed with nothing said.
+      console.warn(`[${opts.current.where}] could not undo the snooze of task ${id} (home ${home}):`, r.error)
+      setBar({ message: "Couldn't undo the snooze — tap Undo to try again.", onUndo: () => undoSnooze(home, id), ms: 7000 })
+    })
+  }, [unhide])
+
+  const snooze = useCallback(async (id: string): Promise<{ error: string | null }> => {
+    if (!homeId) return { error: SNOOZE_FAILED }
+    flush()
+    setFailure(null)
+    setBusyId(id)
+    const until = addDays(localToday(), SNOOZE_DAYS)
+    let res: { success: boolean; error?: string }
+    try {
+      res = await snoozeTaskInstance(homeId, id, until)
+    } catch (e) {
+      res = { success: false, error: e instanceof Error ? e.message : String(e) }
+    }
+    setBusyId(null)
+    if (!res.success) {
+      // The task stays where it was; its row says the snooze didn't take.
+      console.warn(`[${opts.current.where}] could not snooze task ${id} (home ${homeId}):`, res.error)
+      setFailure({ id, message: SNOOZE_FAILED })
+      return { error: SNOOZE_FAILED }
+    }
+    hide(id)
+    follow(opts.current.where, id, () => opts.current.onSnoozed?.(id))
+    // Say what happened and offer the way back. Without this the row simply
+    // disappeared, which a tester read as having deleted the task.
+    const home = homeId
+    setBar({ message: `Snoozed until ${receiptDate(until)}`, onUndo: () => undoSnooze(home, id), ms: 7000 })
+    return { error: null }
+  }, [homeId, flush, hide, undoSnooze])
+
+  const barNow = useRef<BarState | null>(null)
+  useEffect(() => {
+    barNow.current = bar
+  })
+  const dismiss = useCallback(() => {
+    // Closing a Done's bar accepts it: write it now rather than at the timer.
+    const doneId = barNow.current?.doneId
+    setBar(null)
+    if (doneId) void commit(doneId)
+  }, [commit])
+
+  const barProps: TaskActionBar | null = useMemo(
+    () => (bar ? { message: bar.message, onUndo: bar.onUndo, onDismiss: dismiss, ms: bar.ms } : null),
+    [bar, dismiss],
+  )
+
+  return {
+    /** Rows to leave off the list right now. */
+    hidden,
+    /** The row whose snooze write is in flight. */
+    busyId,
+    /** Why the last Done/Snooze failed, and on which row; cleared when the next one starts. */
+    failure,
+    done,
+    snooze,
+    /** Props for the surface's <UndoBar>, or null. */
+    bar: barProps,
+  }
+}
+
 /**
  * Done and Snooze for the agenda's rows: ONE implementation, which RefinedWeek
- * and DesktopTasks both call.
+ * and DesktopTasks both call — rows, buttons and the phone's swipe alike — on
+ * top of useTaskActions, the one Home and the item page use too.
  *
  * Each tree used to carry its own copy. The phone's learned to report a failed
  * write; the desktop's kept reading only `res.success`, so a failed check-off
- * or snooze closed the row and said nothing. The task then sat there looking
- * untouched, which reads as "my tap didn't register" — and gets tapped again.
+ * or snooze closed the row and said nothing. Then Tasks' snooze was 7 days and
+ * silent while Home's was 14 with Undo, and Tasks' Done had no Undo at all.
  *
- * A failure moves nothing: the task stays listed, and stays open if it was
- * open (it is genuinely not done), and `actionError` says why — `failedId`
- * says WHICH row, so a tree can put the words beside it (desktop does: its
- * header scrolls away above a long list). Only a write that SUCCEEDED closes
- * the row and takes the task off the shared agenda.
+ * A failure moves nothing: the task stays listed (it comes back, for a Done
+ * whose deferred write failed), and `actionError` says why — `failedId` says
+ * WHICH row, so a tree can put the words beside it. A write that SUCCEEDED
+ * takes the task off the shared agenda; an undone snooze refetches it.
  */
-export function useAgendaRowActions(homeId: string | null, removeTask: (taskInstanceId: string) => void) {
+export function useAgendaRowActions(
+  homeId: string | null,
+  agenda: { removeTask: (taskInstanceId: string) => void; refresh: () => unknown },
+) {
   const [openId, setOpenId] = useState<string | null>(null)
-  const [pendingId, setPendingId] = useState<string | null>(null)
-  const [failure, setFailure] = useState<{ id: string; message: string } | null>(null)
-
-  const run = useCallback(
-    async (id: string, what: "done" | "snooze", write: () => Promise<RowWrite>) => {
-      setPendingId(id)
-      setFailure(null)
-      let res: RowWrite
-      try {
-        res = await write()
-      } catch (e) {
-        // A write that throws failed like one that answered "no" — and is
-        // logged and said the same way below, never swallowed.
-        res = { success: false, error: e instanceof Error ? e.message : String(e) }
-      }
-      setPendingId(null)
-      if (!res.success) {
-        console.warn(`[tasks] could not ${what === "done" ? "mark task done" : "snooze task"} ${id} (home ${homeId}):`, res.error)
-        setFailure({ id, message: what === "done" ? DONE_FAILED : SNOOZE_FAILED })
-        return
-      }
-      setOpenId(null)
-      removeTask(id)
-    },
-    [homeId, removeTask],
-  )
+  const { removeTask, refresh } = agenda
+  const actions = useTaskActions(homeId, {
+    where: "tasks",
+    onDoneSaved: removeTask,
+    onSnoozed: removeTask,
+    onUnsnoozed: () => refresh(),
+  })
+  const { done, snooze } = actions
 
   const onDone = useCallback(
     async (id: string) => {
-      if (!homeId) return
-      await run(id, "done", () => markTaskInstanceDone(homeId, id))
+      setOpenId(null)
+      await done(id)
     },
-    [homeId, run],
+    [done],
   )
 
   const onSnooze = useCallback(
     async (id: string) => {
-      if (!homeId) return
-      await run(id, "snooze", () => snoozeTaskInstance(homeId, id, addDays(localToday(), 7)))
+      const res = await snooze(id)
+      if (!res.error) setOpenId(null)
     },
-    [homeId, run],
+    [snooze],
   )
 
   const toggle = useCallback((id: string) => setOpenId((cur) => (cur === id ? null : id)), [])
@@ -133,14 +392,23 @@ export function useAgendaRowActions(homeId: string | null, removeTask: (taskInst
     openId,
     toggle,
     /** The row whose write is in flight — collapsed until it answers. */
-    pendingId,
+    pendingId: actions.busyId,
     /** Why the last Done/Snooze failed; cleared when the next one starts. */
-    actionError: failure?.message ?? null,
+    actionError: actions.failure?.message ?? null,
     /** The row that last Done/Snooze failed on. */
-    failedId: failure?.id ?? null,
+    failedId: actions.failure?.id ?? null,
     onDone,
     onSnooze,
+    /** Rows to leave off the list right now (a Done in its Undo window, a fresh snooze). */
+    hidden: actions.hidden,
+    /** Props for the page's <UndoBar>, or null. */
+    bar: actions.bar,
   }
+}
+
+/** The agenda without the rows useAgendaRowActions is holding off it. */
+export function withoutHidden(items: WeekAgendaItem[], hidden: ReadonlySet<string>): WeekAgendaItem[] {
+  return hidden.size === 0 ? items : items.filter((t) => !hidden.has(t.taskInstanceId))
 }
 
 /**

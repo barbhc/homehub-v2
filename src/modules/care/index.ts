@@ -27,6 +27,7 @@ export {
   type TaskDetail,
   updateTaskInstance,
   markTaskInstanceDone,
+  previewNextDue,
   snoozeTaskInstance,
   deleteTaskTemplate,
   archiveTaskTemplate,

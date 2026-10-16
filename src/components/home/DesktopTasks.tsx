@@ -15,9 +15,10 @@ import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, TIER_FILTERS, tierFilterCounts,
-  tasksDueOnDay, useAgendaRowActions, useTaskDetail, whenLabel, type Lens, CLAY, TEAL,
+  tasksDueOnDay, useAgendaRowActions, useTaskDetail, whenLabel, type Lens, CLAY, TEAL, withoutHidden,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
+import { UndoBar } from "@/components/ui/UndoBar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)"
 const LINE = "var(--hh-line2)", SURFACE = "var(--hh-surface)"
@@ -236,16 +237,17 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   // Shared with RefinedWeek: one fetch per home, persisted for a warm start.
   // What to show is decided by what we HOLD — see pageLoadState.
   const agenda = useWeekAgenda(homeId)
-  const items = agenda.data?.items ?? NO_TASKS
+  // This tree's own copy of Done/Snooze read only `res.success`: a failed write
+  // closed the row and said nothing. It shares the phone's now, error, Undo bar
+  // and all — said on the row that failed (DkRow), in the phone's words.
+  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze, hidden, bar } = useAgendaRowActions(homeId, agenda)
+  const allItems = agenda.data?.items ?? NO_TASKS
+  const items = useMemo(() => withoutHidden(allItems, hidden), [allItems, hidden])
   /** Scheduled work the agenda hides by design (item-scoped cleaning) — HH-94. */
   const hiddenCleaning = agenda.data?.hiddenCleaning ?? 0
   const loadState = pageLoadState(agenda.data !== undefined, agenda.error !== undefined)
   const loading = loadState === "loading"
   const loadFailed = loadState === "error"
-  // This tree's own copy of Done/Snooze read only `res.success`: a failed write
-  // closed the row and said nothing. It shares the phone's now, error and all —
-  // said on the row that failed (DkRow), in the phone's words.
-  const { openId, toggle, pendingId, actionError, failedId, onDone, onSnooze } = useAgendaRowActions(homeId, agenda.removeTask)
 
   const all = useMemo(() => applyTierFilter(items, tier, item), [items, tier, item])
   const groups = useMemo(() => groupTasks(all, lens), [all, lens])
@@ -262,6 +264,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
 
   return (
     <div style={{ maxWidth: 1140, margin: "0 auto", padding: "30px 0 48px" }}>
+      {bar && <UndoBar {...bar} />}
       {/* A refresh failed behind an agenda we still hold: keep it, and say so
           quietly at the top of the screen — where Home and Items say it. */}
       {agenda.error && agenda.data && <StaleDataNote className="mb-5" onRetry={() => void agenda.refresh()} />}

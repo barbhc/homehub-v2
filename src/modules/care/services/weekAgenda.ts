@@ -9,6 +9,7 @@ import { indicatorDrivenTitles, usagePhrase } from "../../../../shared/care/usag
 import { seasonForTitle, seasonalWindow, type Climate } from "../../../../shared/care/seasonalWindow"
 import { seasonalFamily } from "../../../../shared/tasks/houseRules"
 import { addDays, localToday } from "../../../../shared/dates/calendar"
+import { effectiveDueDate } from "../../../../shared/tasks/snooze"
 import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
 import { taskSource, effortToMinutes, frequencyToSchedule, type TaskSource } from "./taskMapping"
@@ -86,8 +87,9 @@ export type WeekAgendaResult =
   | { data: null; error: { message: string }; withheld?: undefined }
 
 /**
- * Returns scheduled/snoozed task instances due on or before `today + days`
- * (default 7), newest-due last, each tagged with its agenda source. Overdue
+ * Returns open task instances due on or before `today + days` (default 7) —
+ * snoozed ones only once their snooze has ended (shared/tasks/snooze) —
+ * newest-due last, each tagged with its agenda source. Overdue
  * items are included (they still need doing this week).
  *
  * `refuseOfflineEmpty`: an EMPTY instances read served from the local cache
@@ -159,7 +161,14 @@ export async function getWeekAgenda(
     // empty list reads as "you have nothing" when the truth is "you have three
     // things, and both of our rules happen to hide them". Counted here, where
     // the reasons are, and returned with the rows (WeekAgendaResult).
-    const pending = all.filter((r) => r.status === "scheduled" || r.status === "snoozed")
+    // Open AND on the list today: a snoozed task stays off every surface until
+    // its snoozedUntil, then counts as due from that day (shared/tasks/snooze).
+    // `dueDate` below is that EFFECTIVE date, so windows, phrases, the horizon
+    // and the calendar all read the date the task actually comes back.
+    const pending: typeof all = all.flatMap((r) => {
+      const due = effectiveDueDate(r, today)
+      return due === null ? [] : [{ ...r, dueDate: due }]
+    })
     const beyondHorizon = pending.filter(
       (r) => (r.dueDate as string) > horizon &&
         isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }),
@@ -177,8 +186,7 @@ export async function getWeekAgenda(
       itemCleaning: itemCleaning.length,
     }
 
-    const items: WeekAgendaItem[] = all
-      .filter((r) => r.status === "scheduled" || r.status === "snoozed")
+    const items: WeekAgendaItem[] = pending
       .filter((r) => (r.dueDate as string) <= horizon)
       .sort((a, b) => ((a.dueDate as string) ?? "").localeCompare((b.dueDate as string) ?? ""))
       // Curated feed, not a flatten of per-item cleaning steps: drop item-scoped

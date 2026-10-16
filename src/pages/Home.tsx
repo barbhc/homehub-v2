@@ -11,11 +11,11 @@ import {
   HomeIcon,
   ChevronDownIcon,
 } from "lucide-react"
-import { markTaskInstanceDone, snoozeTaskInstance, unsnoozeTaskInstance } from "@/modules/care"
 import type { DashboardTask } from "@/lib/dashboard"
 import { useDashboard } from "@/lib/useDashboard"
 import { shouldShowHomeSkeleton, SKELETON_PATIENCE_MS } from "@/lib/homeLoadingGate"
 import { UndoBar } from "@/components/ui/UndoBar"
+import { useTaskActions } from "@/components/home/tasks/shared"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useAuth } from "@/modules/auth"
 import { useCurrentHome, useHomeProfile } from "@/modules/home"
@@ -30,7 +30,6 @@ import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 
 import { WhatsNewBanner } from "@/components/dashboard/WhatsNewBanner"
 import { LevelUnlockBanner } from "@/components/dashboard/LevelUnlockBanner"
-import { addDays, localToday } from "../../shared/dates/calendar"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 // ── Agenda ──────────────────────────────────────────────────────────────────
@@ -164,19 +163,21 @@ export default function Home() {
   const profileIncomplete =
     !profileError && (homeProfile === null || homeProfile?.completed_at === null)
   useFeatureTour()
-  const [completingId, setCompletingId] = useState<string | null>(null)
   // Flips true if the first paint is still a skeleton after SKELETON_PATIENCE_MS.
   const [skeletonSlow, setSkeletonSlow] = useState(false)
-  // A receipt for the last action, so a row that vanishes is explained.
-  const [undo, setUndo] = useState<{ message: string; onUndo?: () => void } | null>(null)
-  /** A check-off or snooze the server refused, said on the row it belongs to.
-   *  Both used to fail in silence: the row stayed (correctly — the task is not
-   *  done) with nothing to say why, which reads as "my tap didn't register". */
-  const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null)
-  /** Instances the user has just completed, hidden until the refetch catches up.
-   *  Without this the card stayed on screen after a successful write, looking
-   *  untouched, and people tapped Mark done a second time. */
-  const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set())
+  // Done and Snooze: the ONE implementation Tasks and the item page use too.
+  // Snooze is 14 days with "Snoozed until … · Undo"; Done takes the row off at
+  // once, says "Done · next due … · Undo", and is written only when that bar
+  // runs out — so Undo never has a completion to unpick. A failed write says
+  // so on the row it belongs to (it used to fail in silence, which reads as
+  // "my tap didn't register"), and a done row stays hidden until the refetch
+  // has caught up, so nobody taps Mark done twice.
+  const actions = useTaskActions(homeId || null, {
+    where: "home",
+    onDoneSaved: () => refresh(),
+    onSnoozed: () => refresh(),
+    onUnsnoozed: () => refresh(),
+  })
 
   // The boot is "done" when Home shows real content rather than a skeleton —
   // that is the moment the user stops waiting, which is what we are measuring.
@@ -202,86 +203,15 @@ export default function Home() {
     return () => window.clearTimeout(t)
   }, [isLoading, stats])
 
-  const handleMarkComplete = useCallback(
-    async (taskId: string) => {
-      if (!homeId) return
-      setCompletingId(taskId)
-      setActionError(null)
-      const result = await markTaskInstanceDone(homeId, taskId)
-      if (!result.success) {
-        // Leave it on screen — a task that failed to complete must not vanish —
-        // and say so on its row.
-        console.warn(`[home] could not mark task ${taskId} done (home ${homeId}):`, result.error)
-        setCompletingId(null)
-        setActionError({ id: taskId, message: "Couldn't mark this done. Check your connection and try again." })
-        return
-      }
-      // Hide it immediately, then wait for the refetch before releasing the
-      // optimistic hide. Clearing `completingId` before `refresh()` resolved was
-      // the bug: the row un-dimmed while still listed, so it read as "nothing
-      // happened, tap again".
-      setJustCompleted((s) => new Set(s).add(taskId))
-      setUndo({ message: "Marked done" })
-      setCompletingId(null)
-      await refresh()
-      setJustCompleted((s) => {
-        const next = new Set(s)
-        next.delete(taskId)
-        return next
-      })
-    },
-    [homeId, refresh]
-  )
-
-  // Undo a snooze. A failed undo comes back to the same bar with the same Undo
-  // — it used to vanish, leaving the task snoozed with nothing said.
-  const undoSnooze = useCallback(
-    (taskId: string) => {
-      if (!homeId) return
-      function attempt() {
-        void unsnoozeTaskInstance(homeId, taskId).then((r) => {
-          if (r.success) {
-            void refresh()
-            return
-          }
-          console.warn(`[home] could not undo the snooze of task ${taskId} (home ${homeId}):`, r.error)
-          setUndo({ message: "Couldn't undo the snooze — tap Undo to try again.", onUndo: attempt })
-        })
-      }
-      attempt()
-    },
-    [homeId, refresh]
-  )
-
-  // Snooze pushes a recurring upkeep task's due date out 2 weeks (spec #7).
-  const handleSnooze = useCallback(
-    async (taskId: string) => {
-      if (!homeId) return
-      setActionError(null)
-      const snoozedUntil = addDays(localToday(), 14)
-      const result = await snoozeTaskInstance(homeId, taskId, snoozedUntil)
-      if (!result.success) {
-        // The task stays where it was; its row says the snooze didn't take.
-        console.warn(`[home] could not snooze task ${taskId} (home ${homeId}):`, result.error)
-        setActionError({ id: taskId, message: "Couldn't snooze this. Check your connection and try again." })
-        return
-      }
-      refresh()
-      // Say what happened and offer the way back. Without this the row simply
-      // disappeared, which a tester read as having deleted the task.
-      const when = new Date(snoozedUntil + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      setUndo({
-        message: `Snoozed until ${when}`,
-        onUndo: () => undoSnooze(taskId),
-      })
-    },
-    [homeId, refresh, undoSnooze]
-  )
+  const { done: markDone, snooze } = actions
+  const handleMarkComplete = useCallback((taskId: string) => void markDone(taskId), [markDone])
+  const handleSnooze = useCallback((taskId: string) => void snooze(taskId), [snooze])
 
   // Derived data — must be computed before any early returns to keep hooks stable
+  const hidden = actions.hidden
   const notJustDone = useCallback(
-    (t: { id: string }) => !justCompleted.has(t.id),
-    [justCompleted],
+    (t: { id: string }) => !hidden.has(t.id),
+    [hidden],
   )
 
   // Redesigned mobile Home (RefinedHome) feed: overdue + due-soon, deduped.
@@ -293,6 +223,9 @@ export default function Home() {
     }
     return out
   }, [dashTasks, notJustDone])
+  // The forward schedule feeds the same week list, so a row taken off it must
+  // leave this feed too — or a Done task in its Undo window would still show.
+  const visibleUpcoming = useMemo(() => upcoming?.filter(notJustDone) ?? upcoming, [upcoming, notJustDone])
 
   // Skeleton ONLY when there is genuinely nothing to paint — see
   // shouldShowHomeSkeleton for why `isLoading` alone was the wrong gate.
@@ -344,9 +277,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col pb-8">
-      {undo && (
-        <UndoBar message={undo.message} onUndo={undo.onUndo} onDismiss={() => setUndo(null)} />
-      )}
+      {actions.bar && <UndoBar {...actions.bar} />}
       {/* Cached view + a failed refresh: say so quietly and stay usable. The
           user can still read everything and complete work; only freshness is
           in question, so this is a note, not an error state. */}
@@ -429,14 +360,14 @@ export default function Home() {
               homeName={home?.name ?? null}
               onSelectHome={() => setSwitcherOpen(true)}
               tasks={homeTasks}
-              upcoming={upcoming}
+              upcoming={visibleUpcoming}
             nextUp={stats?.nextUp ?? null}
               warranties={expiringWarranties}
               cleaningGuides={cleaningGuides}
               level={level}
               homeId={homeId || null}
-              completingId={completingId}
-              actionError={actionError}
+              completingId={actions.busyId}
+              actionError={actions.failure}
               onComplete={handleMarkComplete}
               onSnooze={handleSnooze}
             />
@@ -449,13 +380,13 @@ export default function Home() {
             tasks={homeTasks}
             warranties={expiringWarranties}
             notices={notices}
-            upcoming={upcoming}
+            upcoming={visibleUpcoming}
             nextUp={stats?.nextUp ?? null}
             cleaningGuides={cleaningGuides}
             level={level}
             homeId={homeId || null}
-            completingId={completingId}
-            actionError={actionError}
+            completingId={actions.busyId}
+            actionError={actions.failure}
             onComplete={handleMarkComplete}
             onSnooze={handleSnooze}
           />

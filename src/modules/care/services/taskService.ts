@@ -976,6 +976,32 @@ export async function assignTaskInstance(
   return updateTaskInstance(homeId, taskInstanceId, { assigned_to: assigneeUserId })
 }
 
+/**
+ * The date a Done made on `completedOn` would schedule next, from the task's
+ * template cadence — what a list's "Done · next due {date}" receipt says before
+ * the completion is written (useTaskActions). Null when nothing comes next: a
+ * one-off or as-needed task, a seasonal one with no season, or a template that
+ * is gone or switched off (completeTask mints no next instance for those).
+ *
+ * The caller passes the answer back as markTaskInstanceDone's
+ * `nextDueOverride`, the way the task page's confirm sheet does, so the date
+ * the receipt names is the date that gets written. Rejects when a read fails.
+ */
+export async function previewNextDue(homeId: string, taskInstanceId: string, completedOn: string): Promise<string | null> {
+  const inst = await getDoc(doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`))
+  const templateId = inst.get("taskTemplateId")
+  if (typeof templateId !== "string" || !templateId || templateId.includes("/")) return null
+  const tpl = await getDoc(doc(db, `homes/${homeId}/taskTemplates/${templateId}`))
+  if (!tpl.exists() || tpl.get("isActive") === false || tpl.get("deletedAt") != null) return null
+  const sched = tpl.get("schedule") as { scheduleType?: unknown; intervalDays?: unknown; season?: unknown } | null | undefined
+  const scheduleType = typeof sched?.scheduleType === "string" ? (sched.scheduleType as ScheduleType) : null
+  if (!scheduleType || !isRecurring(scheduleType)) return null
+  return computeNextDueDate(scheduleType, completedOn, {
+    intervalDays: typeof sched?.intervalDays === "number" ? sched.intervalDays : null,
+    season: typeof sched?.season === "string" ? (sched.season as Season) : null,
+  })
+}
+
 export type MarkDoneResult =
   /** `data` is null when the completion landed but reading it back did not. */
   | { success: true; data: TaskInstance | null }

@@ -39,6 +39,7 @@ import { storedText } from "../lib/validate.js"
 import { storedDocId } from "../lib/storedTask.js"
 import { dueKindOf, safetyPhrase } from "../../../../shared/care/dueWindow.js"
 import { isAgendaEligible } from "../../../../shared/tasks/agendaEligibility.js"
+import { effectiveDueDate, type SnoozeAware } from "../../../../shared/tasks/snooze.js"
 import { normalizeNotificationPrefs, type NotificationPrefs } from "../../../../shared/notifications/preferences.js"
 import {
   addDays, agreed, buyAheadRows, composeBuyAhead, composeDigest, composeMorning, decideLanes, laParts,
@@ -88,6 +89,30 @@ export function compareDocPaths(a: string, b: string): number {
   return as.length - bs.length
 }
 
+/**
+ * The instances that are on the list on `today` with an effective due date in
+ * [lower, horizon], ordered as the old single query returned them: by that
+ * date, then by document path. The date is shared/tasks/snooze's — a scheduled
+ * row's dueDate, a snoozed row's only once its snooze has ended — so a push
+ * never names a task the app is holding back, and names it again the day the
+ * app brings it back.
+ */
+export function onListInWindow<D extends { data(): unknown; ref: { path: string } }>(
+  docs: D[],
+  today: string,
+  lower: string,
+  horizon: string,
+): Array<{ doc: D; dueDate: string }> {
+  const out: Array<{ doc: D; dueDate: string }> = []
+  for (const doc of docs) {
+    const dueDate = effectiveDueDate((doc.data() ?? {}) as SnoozeAware, today)
+    if (dueDate !== null && dueDate >= lower && dueDate <= horizon) out.push({ doc, dueDate })
+  }
+  return out.sort(
+    (a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0) || compareDocPaths(a.doc.ref.path, b.doc.ref.path),
+  )
+}
+
 /** Documents read, by what they were read for. Firestore bills an empty query
  *  as one read, so each query counts at least 1. */
 export type SweepReads = { members: number; userDocs: number; instances: number; templates: number; shopping: number }
@@ -129,7 +154,8 @@ async function readTemplates(
 }
 
 /**
- * Every scheduled, agenda-eligible instance due in
+ * Every open (scheduled, or snoozed with its snooze over — shared/tasks/snooze),
+ * agenda-eligible instance whose effective due date is in
  * [today − CANDIDATE_LOOKBACK_DAYS, today + CANDIDATE_HORIZON_DAYS] in the
  * given homes, joined to its template (reminder flag, tier, supplies) and to
  * the home's have/bought shopping rows. Filtering by lane happens later, per
@@ -152,24 +178,32 @@ export async function collectCandidates(
 
   const perHome = await Promise.all(
     homePaths.map(async (homePath) => {
-      const snap = await db
-        .collection(`${homePath}/taskInstances`)
-        .where("status", "==", "scheduled")
-        .where("deletedAt", "==", null)
-        .where("dueDate", ">=", lower)
-        .where("dueDate", "<=", horizon)
-        .get()
-      return { homePath, docs: snap.docs }
+      const [scheduled, snoozed] = await Promise.all([
+        db
+          .collection(`${homePath}/taskInstances`)
+          .where("status", "==", "scheduled")
+          .where("deletedAt", "==", null)
+          .where("dueDate", ">=", lower)
+          .where("dueDate", "<=", horizon)
+          .get(),
+        // Snoozed rows are few, and their stored dueDate says nothing about
+        // when they come back, so they are read whole and placed by the SAME
+        // rule the app uses (shared/tasks/snooze): silent until snoozedUntil,
+        // then due from that day. This query used to read `scheduled` only, so
+        // a snoozed task never reminded anyone again.
+        db.collection(`${homePath}/taskInstances`).where("status", "==", "snoozed").where("deletedAt", "==", null).get(),
+      ])
+      reads.instances += Math.max(scheduled.size, 1) + Math.max(snoozed.size, 1)
+      return { homePath, docs: onListInWindow([...scheduled.docs, ...snoozed.docs], today, lower, horizon) }
     }),
   )
 
   const found: Array<{ home: HomeCandidates; first: { dueDate: string; path: string } }> = []
   const templatePaths = new Set<string>()
-  for (const { homePath, docs } of perHome) {
-    reads.instances += Math.max(docs.length, 1)
+  for (const { homePath, docs: placed } of perHome) {
     const entry: HomeCandidates = { homeId: homePath.split("/")[1], homePath, pending: [], coveredParts: new Set<string>() }
     let first: { dueDate: string; path: string } | null = null
-    for (const d of docs) {
+    for (const { doc: d, dueDate } of placed) {
       // Same eligibility as the Home agenda — a push must never count tasks the
       // app deliberately hides (item-scoped cleaning).
       if (!isAgendaEligible({ careType: storedText(d.get("careType")), scopeType: storedText(d.get("scopeType")) })) continue
@@ -179,7 +213,6 @@ export async function collectCandidates(
       // slash in one used to throw inside getAll and end the sweep for everyone.
       const title = storedText(d.get("title")) ?? "A task"
       const scheduleType = storedText(d.get("scheduleType"))
-      const dueDate = storedText(d.get("dueDate")) ?? today
       const taskTemplateId = storedDocId(d.get("taskTemplateId"))
       if (taskTemplateId) templatePaths.add(`${homePath}/taskTemplates/${taskTemplateId}`)
       // Query order is (dueDate, document path) — the key the old query sorted by.

@@ -165,6 +165,28 @@ test("the lower bound: a deadline overdue by more than 60 days no longer rides t
   assert.match(morning.body, /59 days ago/)
 })
 
+test("snooze: a deadline snoozed past today stays silent; one whose snooze ended today pushes as due today", async () => {
+  // Backlog "Snooze doesn't stick": the sweep read `scheduled` only, so a
+  // snoozed task never reminded anyone again. shared/tasks/snooze decides now.
+  const homeId = fresh(), uid = fresh()
+  const home = `homes/${homeId}`
+  await db.doc(home).set({ name: "Snoozed deadlines" })
+  await db.doc(`${home}/members/${uid}`).set({ role: "owner", uid })
+  await deadline(home, "away", "Snoozed until next week", "2026-09-07")
+  await db.doc(`${home}/taskInstances/away`).set({ status: "snoozed", snoozedUntil: "2026-09-14" }, { merge: true })
+  // Overdue by ten days and snoozed until today: back, and due TODAY.
+  await deadline(home, "back", "Snooze ended today", daysBefore("2026-09-07", 10))
+  await db.doc(`${home}/taskInstances/back`).set({ status: "snoozed", snoozedUntil: "2026-09-07" }, { merge: true })
+
+  const { sent, send } = fakeSender()
+  await runPushSweep(db, MONDAY_9AM, send)
+  const morning = sent.find((s) => s.uid === uid && /deadline/i.test(s.title))
+  assert.ok(morning, `expected a deadline push, got ${JSON.stringify(sent.filter((s) => s.uid === uid))}`)
+  assert.equal(morning.title, "Deadline today")
+  assert.equal(morning.body, "Snooze ended today")
+  assert.doesNotMatch(JSON.stringify(sent.filter((s) => s.uid === uid)), /Snoozed until next week/)
+})
+
 test("a tick where nobody is due reads memberships and user docs — and not one task, template or shopping row", async () => {
   // 03:00 PDT on a Monday: before every morning lane, and nobody's digest hour.
   const homeId = fresh(), uid = fresh()
