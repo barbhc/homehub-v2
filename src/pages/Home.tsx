@@ -204,7 +204,18 @@ export default function Home() {
   }, [isLoading, stats])
 
   const { done: markDone, snooze } = actions
-  const handleMarkComplete = useCallback((taskId: string) => void markDone(taskId), [markDone])
+  // The title rides with the Done, so a write refused after leaving Home can
+  // still say WHICH task on the next screen.
+  const handleMarkComplete = useCallback(
+    (taskId: string) => {
+      const label =
+        [...(dashTasks?.overdue ?? []), ...(dashTasks?.dueSoon ?? [])].find((t) => t.id === taskId)?.name ??
+        upcoming?.find((t) => t.id === taskId)?.title ??
+        null
+      void markDone(taskId, label)
+    },
+    [markDone, dashTasks, upcoming],
+  )
   const handleSnooze = useCallback((taskId: string) => void snooze(taskId), [snooze])
 
   // Derived data — must be computed before any early returns to keep hooks stable

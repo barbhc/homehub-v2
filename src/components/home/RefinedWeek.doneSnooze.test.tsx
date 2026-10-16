@@ -15,7 +15,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react"
 import { SWRConfig } from "swr"
 import { RefinedWeek } from "./RefinedWeek"
+import { DesktopTasks } from "./DesktopTasks"
 import { DONE_UNDO_MS } from "./tasks/shared"
+import { resetDoneQueueForTests } from "./tasks/doneQueue"
 import { addDays, localToday } from "../../../shared/dates/calendar"
 
 const render = (ui: React.ReactElement) =>
@@ -52,8 +54,12 @@ const TASK = {
 const NEXT_DUE = addDays(localToday(), 30)
 const short = (ymd: string) => new Date(`${ymd}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 
+const QUEUE_KEY = "hh:pending-dones:v1"
+
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.clear()
+  resetDoneQueueForTests()
   svc.getWeekAgenda.mockResolvedValue({ data: [TASK], error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
   svc.getTaskDetail.mockResolvedValue({ data: { steps: [], infoBlurb: null }, error: null })
   svc.markTaskInstanceDone.mockResolvedValue({ success: true, data: {}, nextInstanceId: "ti-2" })
@@ -94,10 +100,63 @@ describe("Tasks — Snooze is the 14-day snooze with a receipt and Undo", () => 
 
     const reads = svc.getWeekAgenda.mock.calls.length
     fireEvent.click(within(receipt).getByRole("button", { name: "Undo" }))
-    await waitFor(() => expect(svc.unsnoozeTaskInstance).toHaveBeenCalledWith("home-1", "ti-1"))
+    await waitFor(() => expect(svc.unsnoozeTaskInstance).toHaveBeenCalledWith("home-1", "ti-1", null))
     // The agenda is read again, so the task is back where it was.
     await waitFor(() => expect(svc.getWeekAgenda.mock.calls.length).toBeGreaterThan(reads))
     expect(await screen.findByText(TITLE)).toBeInTheDocument()
+  })
+})
+
+describe("Tasks — Undo of a RE-snooze puts the earlier snooze back", () => {
+  it("hands the snooze's prior state to un-snooze", async () => {
+    const prior = { status: "snoozed", snoozedUntil: addDays(localToday(), 3) }
+    svc.snoozeTaskInstance.mockResolvedValue({ success: true, prior })
+    await settle()
+    drag(-110)
+    fireEvent.click(within(await bar()).getByRole("button", { name: "Undo" }))
+    await waitFor(() => expect(svc.unsnoozeTaskInstance).toHaveBeenCalledWith("home-1", "ti-1", prior))
+  })
+})
+
+describe("Tasks — a Done is never lost after its receipt said Done", () => {
+  it("is on this device from the tap, before any write", async () => {
+    await settle()
+    fireEvent.click(within(rowEl()).getByLabelText(/mark done/i))
+    await bar()
+    const saved = JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]")
+    expect(saved).toEqual([expect.objectContaining({ homeId: "home-1", id: "ti-1", label: TITLE, completedOn: localToday(), state: "pending" })])
+    expect(svc.markTaskInstanceDone).not.toHaveBeenCalled()
+  })
+
+  it("offline Done, then leave the screen → the NEXT screen says it failed, and Try again writes it", async () => {
+    svc.markTaskInstanceDone.mockResolvedValue({ success: false, error: "You're offline" })
+    const tasks = await settle()
+    fireEvent.click(within(rowEl()).getByLabelText(/mark done/i))
+    await bar()
+    // Leave inside the Undo window: the write goes, and is refused, with no row left to say it on.
+    tasks.unmount()
+    await waitFor(() => expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1))
+
+    // The next screen (here, the desktop list) says so — never a silent drop.
+    render(<DesktopTasks homeId="home-1" />)
+    const line = await screen.findByRole("status")
+    expect(line).toHaveTextContent(`Couldn't mark “${TITLE}” done.`)
+    svc.markTaskInstanceDone.mockResolvedValue({ success: true, data: {}, nextInstanceId: "ti-2" })
+    fireEvent.click(within(line).getByRole("button", { name: "Try again" }))
+    await waitFor(() => expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByText(/Couldn't mark/)).toBeNull())
+    expect(localStorage.getItem(QUEUE_KEY)).toBeNull()
+  })
+
+  it("a Done left unwritten by the last run (app swiped away) is written by the next screen that mounts", async () => {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify([
+      { homeId: "home-1", id: "ti-9", label: "Flush the water heater", completedOn: localToday(), nextDue: NEXT_DUE, state: "pending", error: null },
+    ]))
+    resetDoneQueueForTests()
+    await settle()
+    await waitFor(() =>
+      expect(svc.markTaskInstanceDone).toHaveBeenCalledWith("home-1", "ti-9", null, { completedOn: localToday(), backdated: false, nextDueOverride: NEXT_DUE }))
+    await waitFor(() => expect(localStorage.getItem(QUEUE_KEY)).toBeNull())
   })
 })
 
@@ -130,7 +189,7 @@ describe("Tasks — Done from the list: receipt and Undo first, the write after"
       vi.advanceTimersByTime(DONE_UNDO_MS + 50)
     })
     await waitFor(() =>
-      expect(svc.markTaskInstanceDone).toHaveBeenCalledWith("home-1", "ti-1", null, { completedOn: localToday(), nextDueOverride: NEXT_DUE }))
+      expect(svc.markTaskInstanceDone).toHaveBeenCalledWith("home-1", "ti-1", null, { completedOn: localToday(), backdated: false, nextDueOverride: NEXT_DUE }))
     expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1)
   })
 

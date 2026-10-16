@@ -132,7 +132,7 @@ describe("Home — a failed check-off or snooze is said on its row", () => {
     // The retry is the same Undo, and this time it lands.
     fireEvent.click(screen.getByRole("button", { name: "Undo" }))
     await waitFor(() => expect(care.unsnoozeTaskInstance).toHaveBeenCalledTimes(2))
-    expect(care.unsnoozeTaskInstance).toHaveBeenLastCalledWith("home-1", "ti-1")
+    expect(care.unsnoozeTaskInstance).toHaveBeenLastCalledWith("home-1", "ti-1", null)
   })
 
   it("mark done SUCCEEDS → no alert, and the receipt says so (the control case)", async () => {

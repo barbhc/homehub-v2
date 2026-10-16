@@ -798,7 +798,8 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
     onUnsnoozed: refetchInstances,
   })
   const completeInstance = async (instanceId: string): Promise<{ error: string | null; undone?: boolean }> => {
-    const out = await actions.done(instanceId)
+    const label = tasks.find((t) => dueByTemplate.get(t.task_template_id)?.instanceId === instanceId)?.title ?? null
+    const out = await actions.done(instanceId, label)
     if (out.status === "failed") return { error: out.message }
     return { error: null, undone: out.status === "undone" }
   }

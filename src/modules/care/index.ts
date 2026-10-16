@@ -43,6 +43,7 @@ export {
   type UpdateTaskInstanceInput,
   type MarkDoneResult,
   type SnoozeResult,
+  type SnoozePrior,
   type DeleteTaskTemplateResult,
   type ArchiveTaskTemplateResult,
   type ServiceResult,

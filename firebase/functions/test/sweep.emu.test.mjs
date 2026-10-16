@@ -180,11 +180,13 @@ test("snooze: a deadline snoozed past today stays silent; one whose snooze ended
 
   const { sent, send } = fakeSender()
   await runPushSweep(db, MONDAY_9AM, send)
-  const morning = sent.find((s) => s.uid === uid && /deadline/i.test(s.title))
-  assert.ok(morning, `expected a deadline push, got ${JSON.stringify(sent.filter((s) => s.uid === uid))}`)
-  assert.equal(morning.title, "Deadline today")
-  assert.equal(morning.body, "Snooze ended today")
-  assert.doesNotMatch(JSON.stringify(sent.filter((s) => s.uid === uid)), /Snoozed until next week/)
+  const mine = sent.filter((s) => s.uid === uid)
+  // Back today, due today: the morning push names it, linked to the task.
+  const morning = mine.find((s) => /Snooze ended today/.test(`${s.title} ${s.body}`))
+  assert.ok(morning, `expected a morning push for the task whose snooze ended, got ${JSON.stringify(mine)}`)
+  assert.equal(morning.url, `/tasks/back?home=${homeId}`)
+  // Still snoozed: not named anywhere.
+  assert.doesNotMatch(JSON.stringify(mine), /Snoozed until next week/)
 })
 
 test("a tick where nobody is due reads memberships and user docs — and not one task, template or shopping row", async () => {

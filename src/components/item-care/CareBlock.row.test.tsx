@@ -186,7 +186,7 @@ describe("HH-157 — the row carries the task's verbs", () => {
     expect(svc.done).not.toHaveBeenCalled()
     await acceptDone()
     await waitFor(() =>
-      expect(svc.done).toHaveBeenCalledWith("h1", "i-t1", null, { completedOn: localToday(), nextDueOverride: iso(30) }))
+      expect(svc.done).toHaveBeenCalledWith("h1", "i-t1", null, { completedOn: localToday(), backdated: false, nextDueOverride: iso(30) }))
     expect(screen.queryByRole("button", { name: "Mark done" })).toBeNull()
   })
 
