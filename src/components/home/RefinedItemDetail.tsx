@@ -367,15 +367,15 @@ export function RefinedItemDetail({
 
         {/* Recall — calm safety notice */}
         {item.recall_status === "found" && (
-          <div className="rounded-2xl border p-4" style={{ background: "var(--hh-slate-soft)", borderColor: "#DBE6EF" }}>
+          <div className="rounded-2xl border p-4" style={{ background: "var(--hh-slate-soft)", borderColor: "var(--hh-slate-line)" }}>
             <div className="flex items-start gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border" style={{ borderColor: "#DBE6EF", background: "var(--hh-surface)" }}>
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border" style={{ borderColor: "var(--hh-slate-line)", background: "var(--hh-surface)" }}>
                 <MegaphoneIcon className="size-[18px]" style={{ color: "var(--hh-slate)" }} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
                 <div className="text-[15px] font-bold tracking-[-0.2px]" style={{ color: INK }}>Possible recall</div>
-                {item.recall_notes && <div className="mt-1 text-[13px] leading-snug" style={{ color: "#5A6863" }}>{item.recall_notes}</div>}
+                {item.recall_notes && <div className="mt-1 text-[13px] leading-snug" style={{ color: "var(--hh-sub)" }}>{item.recall_notes}</div>}
               </div>
             </div>
           </div>

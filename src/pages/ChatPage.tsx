@@ -642,7 +642,7 @@ function AskForHome() {
                       style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none" }}
                     >
                       <ClockIcon className="size-[15px] shrink-0" style={{ color: "var(--hh-faint)" }} />
-                      <span className="min-w-0 flex-1 truncate text-[13.5px]" style={{ color: "#374151" }}>{c.title}</span>
+                      <span className="min-w-0 flex-1 truncate text-[13.5px]" style={{ color: "var(--hh-ink-soft)" }}>{c.title}</span>
                     </button>
                   ))}
                 </div>

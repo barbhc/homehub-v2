@@ -3,7 +3,9 @@ import { useCurrentHome } from "@/modules/home"
 import { ErrorBoundary } from "@/components/layout"
 import { RefinedTaskDetail } from "@/components/home/RefinedTaskDetail"
 
-const BG = "#F3F5F4", SUB = "#6B7280", TEAL = "#1B6B5A"
+// Tokens, not literals: this fallback used to paint the light palette over a
+// dark page (and #6B7280 was 3.86:1 there).
+const BG = "var(--hh-bg)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)"
 
 /**
  * Graceful fallback for the full task view. The detail screen reads live data

@@ -87,6 +87,30 @@
   --hh-violet-soft: #EFEAF8;
   --hh-line:       rgba(15,23,42,0.07);
   --hh-line2:      rgba(15,23,42,0.12);
+
+  /* ── Theme-aware literals (2026-10-15 dark-mode pass) ──────────────────────
+     Each of these replaced a hex/white literal in a component that looked
+     right in light mode and broke in dark. Every value has a .dark twin below;
+     src/test/themeContrast.test.ts pins the text pairs at WCAG AA. */
+  /* A link/action drawn ON the --hh-ink toast (UndoBar). --hh-ink flips to a
+     near-white in dark, so the accent has to flip the other way: bright teal on
+     the near-black bar, deep teal on the near-white one. --hh-teal-deep here
+     was 2.19:1 (light) / 3.74:1 (dark). Now 6.93:1 / 7.76:1. */
+  --hh-accent-on-ink: #34B093;
+  /* Item icon tiles (Items list, desktop grid, empty photo). Was a literal
+     light-mint gradient that sat as a glaring pale square on the dark page. */
+  --hh-tile:       linear-gradient(135deg,#EEF3F1,#E3ECE8);
+  --hh-tile-ink:   #1B6B5A;
+  /* Border on the slate (recall) notice — was literal #DBE6EF in both themes. */
+  --hh-slate-line: #DBE6EF;
+  /* Bottom-sheet grab handle. rgba(15,23,42,.15) was 1.37:1 on white and
+     1.01:1 (invisible) on the dark sheet. */
+  --hh-grab:       rgba(15,23,42,0.28);
+  /* Body text on a tinted wash — readable-but-softer than --hh-ink. The literals
+     these replace (#3A4A45, #2C3B37, #6B3A24, #6B4A0E) were 1.1–1.5:1 in dark. */
+  --hh-ink-soft:   #3A4A45;   /* on --hh-teal-wash / surfaces */
+  --hh-clay-ink:   #6B3A24;   /* on --hh-clay-soft (safety notes) */
+  --hh-gold-ink:   #6B4A0E;   /* on --hh-gold-soft */
 }
 
 /* Dark mode token overrides — triggered by .dark class on <html> */
@@ -173,6 +197,16 @@
   --hh-violet-soft: rgba(168,139,224,0.16);
   --hh-line:       rgba(255,255,255,0.09);
   --hh-line2:      rgba(255,255,255,0.14);
+
+  --hh-accent-on-ink: #15564A;
+  /* dt-kit.jsx's dark tile: the raised surface with a pale-mint glyph. */
+  --hh-tile:       #1E2A24;
+  --hh-tile-ink:   #A7ECD7;
+  --hh-slate-line: rgba(143,176,204,0.28);
+  --hh-grab:       rgba(255,255,255,0.28);
+  --hh-ink-soft:   #D3DDD9;
+  --hh-clay-ink:   #F2C3A8;
+  --hh-gold-ink:   #EAD3A2;
 }
 
 /* Base styles */
@@ -279,4 +313,49 @@ code {
 }
 @media (prefers-reduced-motion: reduce) {
   .hh-scanrail { animation: none; width: 100%; opacity: 0.45; }
+}
+
+/* ── Reduced transparency / increased contrast (iOS Accessibility › Display) ──
+   Frosted surfaces opt in with a class: `hh-frost` paints solid --hh-surface,
+   `hh-frost-bg` solid --hh-bg (the tab bar, which is page-coloured). The
+   !important is deliberate: these surfaces set their translucent background
+   inline, and a user's accessibility setting has to win over the component. */
+@media (prefers-reduced-transparency: reduce) {
+  .hh-frost {
+    background: var(--hh-surface) !important;
+    border-color: var(--hh-line2) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .hh-frost-bg {
+    background: var(--hh-bg) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* Increase Contrast: hairlines become visible rules, "faint" text steps up to
+   the --hh-sub rank, and the sheet grab handle darkens. `:root:not(.dark)`
+   (not bare :root) so the light values never override the .dark block, which
+   has the same specificity and comes earlier in the file. */
+@media (prefers-contrast: more) {
+  :root:not(.dark) {
+    --hh-line:  rgba(15,23,42,0.22);
+    --hh-line2: rgba(15,23,42,0.34);
+    --hh-grab:  rgba(15,23,42,0.5);
+    --t-border: #9CA3AF;
+    --t-input:  #9CA3AF;
+  }
+  .dark {
+    --hh-line:  rgba(255,255,255,0.24);
+    --hh-line2: rgba(255,255,255,0.36);
+    --hh-grab:  rgba(255,255,255,0.5);
+    --t-border: #4A6E68;
+    --t-input:  #4A6E68;
+  }
+  /* Both themes: var() resolves on <html>, where .dark lives, so this picks
+     up whichever --hh-sub the current theme defines. */
+  :root {
+    --hh-faint: var(--hh-sub);
+  }
 }

@@ -89,8 +89,11 @@ export function InterfaceLevelSection() {
               onClick={() => choose(opt.value)}
               className={cn(
                 "flex-1 min-w-[8rem] rounded-lg border px-3 py-2.5 text-left transition-colors",
+                // Selected was bg-foreground: an ink block in light mode and,
+                // because foreground flips to near-white, a WHITE block in dark.
+                // Teal ring + wash is the app's selected state everywhere else.
                 active
-                  ? "border-foreground bg-foreground text-background"
+                  ? "border-[var(--hh-teal)] bg-[var(--hh-teal-wash)] text-[var(--hh-ink)] ring-1 ring-[var(--hh-teal)]"
                   : "border-border bg-background text-foreground hover:border-foreground/40"
               )}
             >
@@ -98,7 +101,7 @@ export function InterfaceLevelSection() {
               <span
                 className={cn(
                   "block text-xs mt-0.5",
-                  active ? "text-background/80" : "text-muted-foreground"
+                  active ? "text-[var(--hh-sub)]" : "text-muted-foreground"
                 )}
               >
                 {opt.hint}

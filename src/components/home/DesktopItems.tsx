@@ -102,7 +102,7 @@ export function DesktopItems({
                 const Glyph = glyphFor(it)
                 return (
                   <Link key={it.item_unit_id} to={`/items/${it.item_unit_id}`} className="relative flex min-h-[168px] flex-col gap-3 rounded-[18px] bg-[var(--hh-surface)] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-                    <div className="flex size-12 items-center justify-center rounded-xl" style={{ background: "linear-gradient(135deg,#EEF3F1,#E3ECE8)", color: TEAL }}>
+                    <div className="flex size-12 items-center justify-center rounded-xl" style={{ background: "var(--hh-tile)", color: "var(--hh-tile-ink)" }}>
                       <Glyph className="size-6" strokeWidth={1.8} />
                     </div>
                     <div>

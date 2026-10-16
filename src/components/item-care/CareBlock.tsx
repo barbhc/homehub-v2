@@ -418,7 +418,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                   <AlertTriangle className="mt-px size-4 shrink-0" style={{ color: CLAY }} />
                   <div className="min-w-0">
                     <div className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.5px]" style={{ color: CLAY }}>Safety</div>
-                    <div className="text-[13px] leading-snug" style={{ color: "#6B3A24" }}>{safetyNote}</div>
+                    <div className="text-[13px] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>{safetyNote}</div>
                   </div>
                 </div>
               )}
@@ -649,7 +649,7 @@ function VariantArea({ options, variant, showAll, inferred, onPick, onToggleShow
     return (
       <div className="flex items-center gap-2.5 rounded-[12px] border px-3.5 py-2.5" style={{ background: TEAL_WASH, borderColor: LINE }}>
         <SlidersHorizontalIcon className="size-[15px] shrink-0" style={{ color: TEALD }} />
-        <span className="flex-1 text-[12.5px] leading-snug" style={{ color: "#2C3B37" }}>
+        <span className="flex-1 text-[12.5px] leading-snug" style={{ color: "var(--hh-ink-soft)" }}>
           {showAll ? "Showing care for all models" : <>Showing care for your <b className="font-bold">{label}</b> model</>}
         </span>
         <button type="button" onClick={onToggleShowAll} className="shrink-0 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEALD }}>
@@ -1193,7 +1193,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.6px]" style={{ color: CLAY }}>Safety note</div>
-            <div className="text-[13px] leading-snug" style={{ color: "#6B3A24" }}>
+            <div className="text-[13px] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>
               {critical.content}
               {critical.source_pages?.[0] != null && <span className="font-semibold" style={{ color: CLAY }}> · manual p.{critical.source_pages[0]}</span>}
             </div>

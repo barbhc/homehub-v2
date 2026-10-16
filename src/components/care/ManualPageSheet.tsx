@@ -283,7 +283,7 @@ export function ManualPageSheet({
               )}
             </Button>
           ) : saved ? (
-            <span className="flex items-center gap-1.5 text-sm text-[#2D9B82] font-medium">
+            <span className="flex items-center gap-1.5 text-sm text-[var(--hh-teal)] font-medium">
               <Check className="size-3.5" />
               Reference updated to page {currentPage}
             </span>

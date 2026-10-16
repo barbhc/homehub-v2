@@ -198,7 +198,7 @@ export function HistorySection({ homeId, itemId, refreshKey = 0 }: HistorySectio
                   </p>
                   <div className="relative ml-2.5">
                     {group.events.length > 1 && (
-                      <div className="absolute left-[3px] top-2 bottom-2 w-px bg-white/50" />
+                      <div className="absolute left-[3px] top-2 bottom-2 w-px bg-[var(--hh-line2)]" />
                     )}
                     <ul className="space-y-3 list-none p-0 m-0">
                       {group.events.map((evt) => {

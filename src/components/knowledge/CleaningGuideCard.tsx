@@ -60,7 +60,7 @@ export function CleaningGuideCard({ chunks }: CleaningGuideCardProps) {
               </StepsOrProNotice>
             </div>
             {weekly.supplies.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-white/50">
+              <div className="mt-4 pt-3 border-t border-[var(--hh-line)]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
                   Supplies needed
                 </p>
@@ -79,7 +79,7 @@ export function CleaningGuideCard({ chunks }: CleaningGuideCardProps) {
               </StepsOrProNotice>
             </div>
             {deepClean.supplies.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-white/50">
+              <div className="mt-4 pt-3 border-t border-[var(--hh-line)]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
                   Supplies needed
                 </p>

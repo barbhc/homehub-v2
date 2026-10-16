@@ -111,7 +111,7 @@ export function TaskEditSheet({
         className="fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] overflow-y-auto overscroll-contain rounded-t-[20px] px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:inset-x-auto lg:right-6 lg:top-6 lg:bottom-6 lg:w-[440px] lg:rounded-[20px]"
         style={{ background: "var(--hh-surface)" }}
       >
-        <div className="mx-auto mb-4 h-1 w-9 rounded-full lg:hidden" style={{ background: "rgba(15,23,42,0.15)" }} />
+        <div className="mx-auto mb-4 h-1 w-9 rounded-full lg:hidden" style={{ background: "var(--hh-grab)" }} />
 
         <div className="mb-4 flex items-center gap-3">
           <h2 className="min-w-0 flex-1 text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: "var(--hh-ink)" }}>
