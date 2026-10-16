@@ -139,10 +139,11 @@ describe("classifyTaskFields — the one input every steps surface uses", () => 
   it("a hazard named only in a structured step still classifies hazardous", () => {
     expect(
       classifyTaskFields({
-        title: "Relight the gas furnace pilot",
-        steps: ["Turn the gas valve to OFF and wait five minutes.", "Hold the pilot knob and press the igniter."],
+        title: "Restart the furnace after an outage",
+        steps: ["Turn the gas valve to OFF and wait five minutes.", "Turn it back to ON."],
       }),
     ).toBe("hazardous")
+    expect(classifyTaskFields({ title: "Restart the furnace after an outage" })).toBe("diy")
   })
 
   it("agrees with classifyTaskActor on the same template text", () => {
@@ -154,5 +155,67 @@ describe("classifyTaskFields — the one input every steps surface uses", () => 
     expect(stepsAllowedFor("hazardous")).toBe(false)
     expect(stepsAllowedFor("pro")).toBe(true)
     expect(stepsAllowedFor("diy")).toBe(true)
+  })
+})
+
+// ── The title alone ─────────────────────────────────────────────────────────
+// A row often carries nothing but its title. These are the common hazardous
+// jobs a homeowner must never get DIY steps for, and the safe look-alikes the
+// patterns must leave alone.
+const HAZARDOUS_TITLES = [
+  "Relight the gas furnace pilot",
+  "Light the water heater pilot light",
+  "Replace the thermocouple",
+  "Clean the flame sensor",
+  "Replace the hot surface igniter",
+  "Inspect the furnace burners",
+  "Adjust the boiler burner",
+  "Clean the main burner",
+  "Replace the gas valve",
+  "Check the gas line for leaks",
+  "What to do if you smell gas",
+  "Inspect the gas supply connector",
+  "Inspect the flue pipe for corrosion",
+  "Reconnect the vent connector",
+  "Combustion analysis and adjustment",
+  "Check for spillage at the draft hood",
+  "Replace the breaker panel",
+  "Inspect the electrical panel for scorch marks",
+  "Repair damaged wiring",
+  "Replace a light switch",
+  "Install a new outlet",
+  "Recharge the A/C refrigerant",
+  "Check refrigerant charge",
+  "Test for carbon monoxide leaks",
+]
+const SAFE_TITLES = [
+  "Clean the gas range grates",
+  "Wipe the furnace cabinet",
+  "Replace HVAC filter",
+  "Test smoke detector",
+  "Test the CO alarm",
+  "Test carbon monoxide detector",
+  "Reset a tripped breaker",
+  "Test GFCI outlets",
+  "Clean the refrigerator coils",
+  "Clean the dryer lint trap",
+  "Descale the coffee maker",
+  "Check Vent System for Blockage",
+  "Clean the range hood filter",
+  "Flush the water heater tank",
+  "Clean the dishwasher filter",
+  "Clean the fireplace glass",
+  "Replace the thermostat batteries",
+  "Clean the gas grill grates",
+  "Turn off power at the breaker panel, then clean the disposal",
+  "Clean the range burner caps",
+]
+
+describe("classifyTaskFields — hazardous jobs by title alone", () => {
+  it.each(HAZARDOUS_TITLES)("%s → hazardous", (title) => {
+    expect(classifyTaskFields({ title })).toBe("hazardous")
+  })
+  it.each(SAFE_TITLES)("%s → not hazardous", (title) => {
+    expect(classifyTaskFields({ title })).not.toBe("hazardous")
   })
 })

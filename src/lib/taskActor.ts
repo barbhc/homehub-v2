@@ -22,13 +22,58 @@ export type TaskActor = "diy" | "pro" | "hazardous"
 // "pressures". A trailing \b would require a boundary mid-word and silently
 // fail to match (e.g. "gas piping" wouldn't classify as hazardous).
 
-/** Acute gas / combustion / CO / explosion contexts — never DIY. */
-const HAZARD_PATTERN =
-  /\b(gas\s*(line|pip|valv|leak|pressur|odor|meter|union)|gas-?fired|carbon monoxide|\bco\b|open flame|explos|propane|natural gas)/i
+/**
+ * Acute gas / combustion / CO / live-electrical / refrigerant work — never DIY.
+ * Written so the TITLE alone catches the common jobs ("Relight the pilot",
+ * "Replace the thermocouple", "Replace a light switch"), because a title is
+ * often all a row has. Each line is pinned by the table in taskActor.test.ts,
+ * which also holds the safe look-alikes it must NOT catch ("Clean the gas range
+ * grates", "Test the CO alarm", "Reset a tripped breaker", "Test GFCI outlets").
+ */
+const HAZARD_PATTERNS: RegExp[] = [
+  // Gas: lines, valves, leaks, the smell of it, supply/shut-off hardware.
+  /\bgas\s*(line|pip|valv|leak|pressur|odor|smell|meter|union|supply|shut|cock|control|connector|hose|fitting|burner)/i,
+  /\bsmell(s|ing)?\s+(of\s+)?gas\b/i,
+  /\bgas-?fired|\bopen flame|\bexplos|\bpropane|\bnatural gas/i,
+  // CO itself — but testing the CO alarm is a homeowner's job.
+  /\bcarbon monoxide(?!\s+(detector|alarm|sensor|monitor))|\bco\b(?!\s*(detector|alarm|sensor|monitor))/i,
+  // Ignition and flame proving on gas appliances.
+  /\bpilot\b|\bthermocouple|\bthermopile|\bflame\s*(sensor|rod|probe)|\bignit(er|or)\b|\bhot surface ignit|\bspark ignit/i,
+  // Furnace / boiler / water-heater burners (a range's burner caps are cleaning).
+  /\b(main|furnace|boiler|water heater)\s+burners?\b|\bburners?\b[^.]{0,30}\b(furnace|boiler|water heater)\b|\bburner\s*(assembly|orifice|manifold|adjust)/i,
+  // Combustion, flue and venting work (looking at the vent stays DIY).
+  /\bcombustion\s*(chamber|analysis|test|adjust|startup|start-up|air adjust)|\bflue\b|\bdraft\s*(hood|inducer)|\bback-?draft|\bspillage\b/i,
+  /\b(repair|replace|reconnect|disconnect|re-?seal|seal|install|remove|adjust)\b[^.]{0,30}\b(vent\s*(pipe|connector)|venting|chimney liner)/i,
+  // Live electrical: wiring and replacing fixed devices (testing a GFCI is DIY).
+  /\bwiring\b|\brewir|\b(live|exposed|bare|hot)\s+wires?\b|\bwire\s+(nut|connection)s?\b|\bline voltage\b|\bhigh voltage\b/i,
+  /\b(replace|install|wire|swap|change|repair)\b[^.]{0,25}\b(outlet|receptacle|light switch|wall switch|dimmer|light fixture|ceiling fan|hardwired)/i,
+  // Refrigerant (an EPA-certified job; "refrigerator" does not match).
+  /\brefrigerant|\bfreon\b|\brecharge\b[^.]{0,20}\b(a\/?c|air conditioner|system|refrigerant)/i,
+]
+
+/** An electrical panel, as a place someone WORKS in (see hasPanelWork). */
+const PANEL = /\b(electrical|breaker|service|main|fuse|circuit)\s+(panel|box)|\bload center\b|\bpanel\s*board\b/i
+/** A sentence that only uses the panel to cut power or reset — homeowner-safe. */
+const PANEL_SAFE_USE = /\b(reset|tripp?ed|flip|turn(ing)?\s+off|switch(ing)?\s+off|shut(ting)?\s+off|power\s+off|disconnect power|locate|label)\b/i
+
+/**
+ * Work inside an electrical panel is hazardous; "turn off power at the breaker
+ * panel before cleaning the disposal" is the safety pre-step of a DIY task, and
+ * "Reset a tripped breaker" is the homeowner's own job. Judged per sentence.
+ */
+function hasPanelWork(text: string): boolean {
+  return text
+    .split(/(?<=[.!?;\n])\s+/)
+    .some((s) => PANEL.test(s) && !PANEL_SAFE_USE.test(s))
+}
+
+function isHazardText(text: string): boolean {
+  return HAZARD_PATTERNS.some((p) => p.test(text)) || hasPanelWork(text)
+}
 
 /** Needs pro tools/expertise but not acutely hazardous. */
 const PRO_PATTERN =
-  /\b(manometer|static pressure|temperature rise|\bbtu\b|line voltage|\bvac\b|24\s*v\b|control board|blower speed|capacitor|amperage|rollout|limit switch|heat exchanger|refrigerant|combustion analysis|flue gas)/i
+  /\b(manometer|static pressure|temperature rise|\bbtu\b|\bvac\b|24\s*v\b|control board|blower speed|capacitor|amperage|rollout|limit switch|heat exchanger)/i
 
 /**
  * The manual's own words for "this is a technician's job".
@@ -162,7 +207,7 @@ export function classifyTaskActor(task: TaskTemplateWithSchedule): TaskActor {
  * safety pushback) that hold loose fields rather than a full task row.
  */
 export function classifyActorFromText(text: string): TaskActor {
-  if (HAZARD_PATTERN.test(text)) return "hazardous"
+  if (isHazardText(text)) return "hazardous"
   if (PRO_PATTERN.test(text)) return "pro"
   if (hasProDirective(text)) return "pro"
   return "diy"

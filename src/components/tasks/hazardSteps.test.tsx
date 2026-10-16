@@ -15,6 +15,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { SWRConfig } from "swr"
 import type { ReactElement } from "react"
+import type { KnowledgeChunk } from "@/integrations/types"
 import { localToday } from "../../../shared/dates/calendar"
 
 const svc = vi.hoisted(() => ({
@@ -56,6 +57,8 @@ const { RefinedTaskDetail } = await import("@/components/home/RefinedTaskDetail"
 const { RefinedWeek } = await import("@/components/home/RefinedWeek")
 const { DesktopTasks } = await import("@/components/home/DesktopTasks")
 const { default: CleanGuide } = await import("@/pages/CleanGuide")
+const { GuideCard, TroubleshootCard } = await import("@/components/home/DesktopItemDetail")
+const { CleaningGuideCard } = await import("@/components/knowledge/CleaningGuideCard")
 
 // ── The two tasks ────────────────────────────────────────────────────────────
 // A pilot relight whose steps work the gas valve — what a furnace or water
@@ -208,5 +211,68 @@ describe("deep-clean guide (CleanGuide)", () => {
     await screen.findByText(PRO_NOTICE)
     expectNoGasSteps()
     expectDiySteps()
+  })
+})
+
+// ── Manual sections on the item page (Guides / Fix-it tabs, cleaning guide) ──
+// Same rule, same classifier: a section about hazardous work hands over the pro
+// notice, not its steps. Fix-it used to carry its own pro regex that only
+// added a "Needs a pro?" card BELOW the steps.
+const chunk = (id: string, title: string, scenarios: { condition: string; steps: string[] }[], over: Record<string, unknown> = {}) => ({
+  chunk_id: id, manual_id: "m1", chunk_type: "how_to", content_level: null, title, content: "", tags: [],
+  scenarios, source_pages: null, metadata: {}, embedding_ref: null,
+  created_at: "", updated_at: "", deleted_at: null, ...over,
+}) as unknown as KnowledgeChunk
+
+describe("item page — Guides tab (GuideCard)", () => {
+  it("a hazardous guide shows the pro notice and NOT its steps", () => {
+    renderApp(<GuideCard chunk={chunk("c-gas", "Lighting instructions", [{ condition: "", steps: GAS_STEPS }])} />)
+    // The collapsed meta doesn't advertise steps it won't show.
+    expect(screen.queryByText(/3 steps/)).toBeNull()
+    fireEvent.click(screen.getByText("Lighting instructions"))
+    expect(screen.getByText(PRO_NOTICE)).toBeInTheDocument()
+    expectNoGasSteps()
+  })
+
+  it("a DIY guide still shows its steps", () => {
+    renderApp(<GuideCard chunk={chunk("c-diy", "Changing the filter", [{ condition: "", steps: DIY_STEPS }])} />)
+    fireEvent.click(screen.getByText("Changing the filter"))
+    expectDiySteps()
+    expect(screen.queryByText(PRO_NOTICE)).toBeNull()
+  })
+})
+
+describe("item page — Fix-it tab (TroubleshootCard)", () => {
+  it("a hazardous fix shows the pro notice and the likely cause, NOT the fix steps", () => {
+    renderApp(<TroubleshootCard chunk={chunk("t-gas", "Furnace won't heat", [{ condition: "The pilot has gone out", steps: GAS_STEPS }])} />)
+    fireEvent.click(screen.getByText("Furnace won't heat"))
+    expect(screen.getByText(PRO_NOTICE)).toBeInTheDocument()
+    expect(screen.getByText("The pilot has gone out")).toBeInTheDocument()
+    expect(screen.queryByText("The fix")).toBeNull()
+    expectNoGasSteps()
+  })
+
+  it("a DIY fix still shows its steps", () => {
+    renderApp(<TroubleshootCard chunk={chunk("t-diy", "Weak airflow", [{ condition: "A clogged filter", steps: DIY_STEPS }])} />)
+    fireEvent.click(screen.getByText("Weak airflow"))
+    expectDiySteps()
+    expect(screen.queryByText(PRO_NOTICE)).toBeNull()
+  })
+})
+
+describe("item page — cleaning guide card (phone)", () => {
+  const cleaning = (title: string, steps: string[]) =>
+    chunk("cg", title, [], { chunk_type: "cleaning_guide", tags: ["weekly"], content: JSON.stringify({ steps }) })
+
+  it("a hazardous cleaning section shows the pro notice and NOT its steps", () => {
+    renderApp(<CleaningGuideCard chunks={[cleaning("Burner care", GAS_STEPS)]} />)
+    expect(screen.getByText(PRO_NOTICE)).toBeInTheDocument()
+    expectNoGasSteps()
+  })
+
+  it("a DIY cleaning section still shows its steps", () => {
+    renderApp(<CleaningGuideCard chunks={[cleaning("Weekly wipe-down", DIY_STEPS)]} />)
+    expectDiySteps()
+    expect(screen.queryByText(PRO_NOTICE)).toBeNull()
   })
 })
