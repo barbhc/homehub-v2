@@ -10,7 +10,8 @@
  * caller opts in and BRAVE_SEARCH_API_KEY is set. Claude (Sonnet) streamed.
  *
  * Retrieval + prompt wording are ported verbatim from v1 (answer quality depends
- * on the exact system prompts). The request itself — system prompt, messages,
+ * on the exact system prompts), except SAFETY_RULES (2026-10-15): no DIY steps
+ * for gas, combustion, live electrical or refrigerant work. The request itself — system prompt, messages,
  * and where the manual PDFs sit for prompt caching — is built by
  * buildChatRequest (shared/chat/chatMessages.ts), which the offline chat eval
  * (scripts/chat-eval) asserts too.

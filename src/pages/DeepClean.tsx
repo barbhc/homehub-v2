@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils"
 import { cleanDueLabel as dueLabel, daysUntilDue } from "@/lib/cleanDue"
 import { splitCautions } from "@/lib/cautions"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
+import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
+import { classifyTaskFields } from "@/lib/taskActor"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { useIsCurrent } from "@/hooks/useIsCurrent"
 
@@ -1088,7 +1090,8 @@ function parseSteps(instructions: string): string[] {
   return [instructions.trim()]
 }
 
-function CleanTaskRow({
+/** Exported for its hazard-gate test (DeepClean.hazard.test.tsx). */
+export function CleanTaskRow({
   task,
   checked,
   onToggle,
@@ -1172,11 +1175,13 @@ function CleanTaskRow({
           {task.description && (
             <p className="text-xs text-muted-foreground italic leading-relaxed">{task.description}</p>
           )}
-          {task.instructions &&
-            (() => {
-              const { steps, cautions } = splitCautions(parseSteps(task.instructions))
-              return (
-                <>
+          {(() => {
+            const { steps, cautions } = splitCautions(task.instructions ? parseSteps(task.instructions) : [])
+            // Hazardous work: the pro notice instead of the steps.
+            const actor = classifyTaskFields({ title: task.title, instructions: task.instructions, description: task.description })
+            return (
+              <>
+                <StepsOrProNotice actor={actor}>
                   {steps.length === 1 ? (
                     <p className="text-sm text-foreground leading-relaxed">{steps[0]}</p>
                   ) : steps.length > 1 ? (
@@ -1191,10 +1196,11 @@ function CleanTaskRow({
                       ))}
                     </div>
                   ) : null}
-                  <CautionCallout cautions={cautions} />
-                </>
-              )
-            })()}
+                </StepsOrProNotice>
+                <CautionCallout cautions={cautions} />
+              </>
+            )
+          })()}
         </div>
       )}
     </div>

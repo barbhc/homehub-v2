@@ -14,7 +14,7 @@ import {
 import { getHomeMembers, type HomeMember } from "@/modules/home"
 import { canAssignTasks } from "@/modules/care"
 import { TaskFeedbackSheet } from "@/components/care/TaskFeedbackSheet"
-import { classifyActorFromText } from "@/lib/taskActor"
+import { classifyTaskDetail } from "@/lib/taskActor"
 import { HowToSteps } from "@/components/tasks/HowToSteps"
 import { SupplyRows } from "@/components/item-care/SupplyRows"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
@@ -239,6 +239,9 @@ export function RefinedTaskDetail({
   const tier = priorityTier(detail.tier === "essential" ? "critical" : detail.tier === "recommended" ? "high" : "medium")
   const assignee = members.find((m) => m.user_id === detail.assignedTo)
   const showAssign = canAssignTasks(members.length)
+  // One decision for this task: it gates the steps below AND the feedback
+  // sheet's safety pushback, so the two can never disagree.
+  const actor = classifyTaskDetail(detail)
 
   // Shared assignment control (button + dropdown). Rendered inline on mobile
   // and inside the sticky rail on desktop — identical markup, no duplication.
@@ -392,8 +395,9 @@ export function RefinedTaskDetail({
           )}
 
           {/* How to — designed numbered steps (warnings split into a caution
-              callout) + supplies, instead of a raw instructions textarea. */}
-          <HowToSteps notes={detail.notes} steps={detail.steps} />
+              callout) + supplies, instead of a raw instructions textarea.
+              Hazardous work shows the pro notice instead of the steps. */}
+          <HowToSteps actor={actor} notes={detail.notes} steps={detail.steps} />
 
           {/* You'll need — the same part editor the item page's row carries
               (Item Option B), not read-only chips: the parsed name is often the
@@ -561,7 +565,7 @@ export function RefinedTaskDetail({
           tier={detail.tier}
           justification={detail.justification}
           manualPage={detail.manualPage}
-          hazardous={classifyActorFromText([detail.title, detail.notes, detail.justification].filter(Boolean).join(" ")) === "hazardous"}
+          hazardous={actor === "hazardous"}
           onClose={() => setFeedbackOpen(false)}
           onApplied={() => { setFeedbackOpen(false); onBack() }}
         />

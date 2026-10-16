@@ -5,7 +5,9 @@ import {
   cachedPrefix,
   chatSystemPrompt,
   normalizeHistory,
+  withSafetyRules,
   CHAT_MAX_TOKENS,
+  SAFETY_RULES,
   CHAT_MODEL,
   MAX_HISTORY_TURNS,
   PDF_ONLY_TURN_TEXT,
@@ -19,8 +21,9 @@ import main from "./fixtures/main-chat-requests.json"
 // fixtures/main-chat-requests.json is what origin/main's chatQuery built for
 // these inputs, produced by running main's own assembly code
 // (scripts/chat-eval/capture-main-fixture.ts). The builder must reproduce its
-// system text byte for byte; its messages differ only in where the PDFs sit
-// (scripts/chat-eval/layout.test.ts proves that half).
+// system text byte for byte once SAFETY_RULES (2026-10-15, the one deliberate
+// departure from v1's wording) is inserted; its messages differ only in where
+// the PDFs sit (scripts/chat-eval/layout.test.ts proves that half).
 
 type FixtureScenario = {
   input: {
@@ -51,7 +54,7 @@ const blocksOf = (m: ChatMessage) => (typeof m.content === "string" ? [] : m.con
 const breakpoints = (messages: ChatMessage[]) =>
   messages.flatMap(blocksOf).filter((b) => b.type === "document" && b.cache_control !== undefined)
 
-describe("the system prompt is main's, byte for byte", () => {
+describe("the system prompt is main's plus the safety rules, byte for byte", () => {
   it("all sixteen variants: manual PDF or excerpts × web search, warranty and notes rules", () => {
     expect(Object.keys(systemPrompts)).toHaveLength(16)
     for (const hasPdfs of [true, false]) {
@@ -59,15 +62,40 @@ describe("the system prompt is main's, byte for byte", () => {
         for (const warranty of [false, true]) {
           for (const notes of [false, true]) {
             const key = `${hasPdfs ? "pdf" : "excerpts"}|web=${+webSearch}|warranty=${+warranty}|notes=${+notes}`
-            expect(chatSystemPrompt({ hasPdfs, webSearch, warranty, notes }), key).toBe(systemPrompts[key])
+            expect(chatSystemPrompt({ hasPdfs, webSearch, warranty, notes }), key).toBe(withSafetyRules(systemPrompts[key]))
           }
         }
       }
     }
   })
 
-  it.each(Object.keys(scenarios))("%s: the built request carries main's system text", (name) => {
-    expect(buildChatRequest(inputOf(name)).params.system).toBe(scenarios[name].main.system)
+  it.each(Object.keys(scenarios))("%s: the built request carries main's system text plus the safety rules", (name) => {
+    expect(buildChatRequest(inputOf(name)).params.system).toBe(withSafetyRules(scenarios[name].main.system))
+  })
+
+  it("every variant carries the safety rules exactly once, before the conditional rule lines", () => {
+    for (const hasPdfs of [true, false]) {
+      const all = chatSystemPrompt({ hasPdfs, webSearch: true, warranty: true, notes: true })
+      expect(all.split(SAFETY_RULES)).toHaveLength(2)
+      expect(all.indexOf(SAFETY_RULES)).toBeLessThan(all.indexOf("Web search results are appended"))
+      expect(all).not.toBe(systemPrompts[`${hasPdfs ? "pdf" : "excerpts"}|web=1|warranty=1|notes=1`])
+    }
+  })
+
+  it("the safety rules say what the owner approved: no DIY steps, a licensed pro, leave if you smell gas", () => {
+    expect(SAFETY_RULES).toContain("give NO do-it-yourself steps and no numbered list")
+    expect(SAFETY_RULES).toContain("licensed")
+    expect(SAFETY_RULES).toContain("leave the home right away")
+    expect(SAFETY_RULES).toContain("call the gas utility or 911 from outside")
+    // Routine owner care is named, so the rule cannot swallow a GFCI reset or
+    // a gas range's burner caps; a web result is no way around it either.
+    expect(SAFETY_RULES).toContain("resetting a GFCI")
+    expect(SAFETY_RULES).toContain("removable grates and burner caps")
+    expect(SAFETY_RULES).toContain("even when the manual or web results describe the procedure")
+  })
+
+  it("withSafetyRules refuses a prompt with nothing to anchor on, rather than appending blindly", () => {
+    expect(() => withSafetyRules("You are a helpful home assistant.")).toThrow(/anchor/)
   })
 
   it("the model, answer budget and thinking setting are main's", () => {
