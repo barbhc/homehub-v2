@@ -16,7 +16,7 @@ import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
 import { classifyTaskDetail } from "@/lib/taskActor"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
-  nothingDueLine, TIER_FILTERS, tierFilterCounts,
+  nothingDueLine, phraseUnderGroup, TIER_FILTERS, tierFilterCounts,
   tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL, withoutHidden,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
@@ -94,10 +94,12 @@ function ExpandedDetail({
 
 // ── Swipeable + expandable row ────────────────────────────────────────────────
 function TaskRow({
-  homeId, t, expanded, error, onToggle, onDone, onSnooze, onOpenGuide,
+  homeId, t, groupLabel, expanded, error, onToggle, onDone, onSnooze, onOpenGuide,
 }: {
   homeId: string | null
   t: WeekAgendaItem
+  /** The header this row sits under, so the row never repeats it (HH-165). */
+  groupLabel?: string
   expanded: boolean
   /** Why this row's Done/Snooze just failed, if it did. */
   error: string | null
@@ -191,7 +193,7 @@ function TaskRow({
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
             {t.trulyOverdue && <span className="size-[5px] shrink-0 rounded-full" style={{ background: CLAY }} />}
-            <span className="text-[12.5px]" style={{ color: SUB }}>{itemMeta(t)}</span>
+            <span className="text-[12.5px]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</span>
           </div>
         </div>
 
@@ -231,11 +233,14 @@ function TaskRow({
   )
 }
 
-function itemMeta(t: WeekAgendaItem): string {
-  const where = t.itemName ?? t.roomName ?? "Home"
+function itemMeta(t: WeekAgendaItem, groupLabel?: string): string {
+  // Neither half repeats the group's header (HH-165): no "Furnace" under the
+  // Furnace group, no "Good to do now" under Good to do now.
+  const where = phraseUnderGroup(t.itemName ?? t.roomName ?? "Home", groupLabel)
   // Safety work states the skipped cycle instead of a window phrase — firm
   // without a date, and without red (owner-approved, design/due-windows.md).
-  return `${where} · ${t.safetyNote ?? t.duePhrase}`
+  const when = phraseUnderGroup(t.safetyNote ?? t.duePhrase, groupLabel)
+  return [where, when].filter(Boolean).join(" · ")
 }
 
 // ── Segmented controls ────────────────────────────────────────────────────────
@@ -353,11 +358,12 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
 
   const openGuide = (t: WeekAgendaItem) => navigate(`/tasks/${t.taskInstanceId}`)
 
-  const renderRow = (t: WeekAgendaItem) => (
+  const renderRow = (t: WeekAgendaItem, groupLabel?: string) => (
     <TaskRow
       key={t.taskInstanceId}
       homeId={homeId}
       t={t}
+      groupLabel={groupLabel}
       expanded={openId === t.taskInstanceId && pendingId !== t.taskInstanceId}
       error={failedId === t.taskInstanceId ? actionError : null}
       onToggle={() => toggle(t.taskInstanceId)}
@@ -559,7 +565,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               <div key={g.key} className="mb-4">
                 <GroupHeader label={g.label} tone={g.tone} count={g.items.length} mins={g.mins} />
                 <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
-                  {g.items.map(renderRow)}
+                  {g.items.map((t) => renderRow(t, g.label))}
                 </div>
               </div>
             ))}
@@ -603,7 +609,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               {selDay != null && dayTasks.length === 0 && <div className="px-0.5 py-1.5 text-[13.5px]" style={{ color: FAINT }}>Nothing due {dayLabel(selDay)} — enjoy the calm.</div>}
               {dayTasks.length > 0 && (
                 <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
-                  {dayTasks.map(renderRow)}
+                  {dayTasks.map((t) => renderRow(t))}
                 </div>
               )}
             </div>

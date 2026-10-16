@@ -506,6 +506,18 @@ export function whenLabel(t: WeekAgendaItem): string {
   return new Date(t.dueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
+/**
+ * A row never repeats its group's name (HH-165): "Good to do now" under the
+ * "Good to do now" header says nothing the header didn't. Returns the phrase,
+ * or null when it only echoes the group. Rows shown outside a group (the
+ * calendar's day list) pass no label and keep their phrase.
+ */
+export function phraseUnderGroup(phrase: string | null | undefined, groupLabel?: string | null): string | null {
+  if (!phrase) return null
+  if (groupLabel && phrase.trim().toLowerCase() === groupLabel.trim().toLowerCase()) return null
+  return phrase
+}
+
 // ── Grouping ──────────────────────────────────────────────────────────────────
 
 export type Lens = "urgency" | "room" | "item"
@@ -523,12 +535,24 @@ export function itemOf(t: WeekAgendaItem): string {
   return t.itemName ?? t.roomName ?? "Whole home"
 }
 
+/**
+ * Order inside a group: Essential, then Recommended, then Optional — the date
+ * only breaks ties within a tier. HH-165 (owner, 2026-10-16): an Optional task
+ * sat near the top of "Good to do now" because it was older, which read as
+ * "this matters most". The group already says WHEN; the order says WHAT
+ * MATTERS. Every lens (urgency, room, item) and both trees use this one sort.
+ *
+ * One thing outranks tier: a deadline that has PASSED (`trulyOverdue`) leads,
+ * whatever its tier — the "Start here — a deadline has passed" banner points
+ * at it, so it cannot sit under a future Essential.
+ */
 function sortRows(rows: WeekAgendaItem[]): WeekAgendaItem[] {
   const today = localToday()
   return [...rows].sort(
     (a, b) =>
-      diffDays(today, a.dueDate) - diffDays(today, b.dueDate) ||
-      (TIER_RANK[a.priorityTier] ?? 2) - (TIER_RANK[b.priorityTier] ?? 2)
+      Number(Boolean(b.trulyOverdue)) - Number(Boolean(a.trulyOverdue)) ||
+      (TIER_RANK[a.priorityTier] ?? 2) - (TIER_RANK[b.priorityTier] ?? 2) ||
+      diffDays(today, a.dueDate) - diffDays(today, b.dueDate)
   )
 }
 function sumMins(rows: WeekAgendaItem[]): number {

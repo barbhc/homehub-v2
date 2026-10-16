@@ -254,7 +254,11 @@ Key mechanics:
   → `/tasks/:id`. "All tasks" is the only door out. The stat band, the swipe
   face, the Coming-up drawer and the 7-day strip are gone.
 - Tasks: desktop rows expand in place (Mark done / Snooze / **View full
-  guide** → `/tasks/:id`); mobile rows navigate directly.
+  guide** → `/tasks/:id`); mobile rows navigate directly. Inside every group
+  (any lens, both widths) a passed deadline leads, then rows run Essential →
+  Recommended → Optional, the date breaking ties; no row repeats its group's
+  name — neither the when-phrase ("Good to do now") nor the item/room
+  ("Furnace" under the Furnace group) (HH-165).
 - **Complete** → `completeTask` callable: one transaction marks done, computes
   the next due, suppresses duplicates, mints the next instance. (Browser-level
   Mark done needs the functions emulator — covered server-side by
