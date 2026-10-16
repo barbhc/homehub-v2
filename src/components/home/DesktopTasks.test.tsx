@@ -311,3 +311,44 @@ describe("DesktopTasks — the Suggested group renders once, after the groups (w
     expect(screen.getAllByTestId("suggested-group")).toHaveLength(1)
   })
 })
+
+// HH-165, rendered — both trees, since each draws its own row. "Why is there an
+// optional task listed under Good to Do now on the Tasks tab?"
+describe("Tasks groups: Essentials first, and no row repeats its group's name (HH-165)", () => {
+  const rowsIn = (testId: string) => screen.getAllByTestId(testId)
+
+  it("an Optional task older than an Essential one in 'Good to do now' sorts below it (phone and desktop)", async () => {
+    sessionStorage.setItem("homehub:tasks-tier", "all")
+    const TITLES = ["Test the smoke alarms", "Descale the kettle", "Wipe the range hood"]
+    agenda([
+      task("ti-opt", "Wipe the range hood", { priorityTier: "optional", dueDate: "2026-01-05" }),
+      task("ti-ess", "Test the smoke alarms", { priorityTier: "essential", dueDate: "2026-03-05" }),
+      task("ti-rec", "Descale the kettle", { priorityTier: "recommended", dueDate: "2026-02-05" }),
+    ])
+    renderWith(<><RefinedWeek homeId="h1" /><DesktopTasks homeId="h1" /></>)
+    await screen.findAllByText("Wipe the range hood")
+    for (const tree of ["phone-task-row", "desktop-task-row"]) {
+      const order = rowsIn(tree).map((r) => TITLES.find((t) => r.textContent?.includes(t)))
+      expect(order, tree).toEqual(TITLES)
+    }
+  })
+
+  it("a row in 'Good to do now' whose phrase is 'Good to do now' shows no phrase; a 'Coming up' row keeps its phrase", async () => {
+    agenda([
+      task("ti-now", "Replace the furnace filter", { itemName: "Furnace" }),
+      task("ti-later", "Clean the gutters", { windowState: "upcoming", duePhrase: "In Nov", itemName: "Gutters" }),
+    ])
+    renderWith(<><RefinedWeek homeId="h1" /><DesktopTasks homeId="h1" /></>)
+    await screen.findAllByText("Clean the gutters")
+    for (const tree of ["phone-task-row", "desktop-task-row"]) {
+      const [now, later] = ["Replace the furnace filter", "Clean the gutters"].map(
+        (title) => rowsIn(tree).find((r) => r.textContent?.includes(title))!,
+      )
+      // The header still says it; the row no longer repeats it (not rendered in the row).
+      expect(now.textContent, tree).not.toMatch(/Good to do now/)
+      expect(now.textContent, tree).toMatch(/Furnace/)
+      expect(later.textContent, tree).toMatch(/In Nov/)
+    }
+    expect(screen.getAllByText("Good to do now").length).toBeGreaterThanOrEqual(2)
+  })
+})

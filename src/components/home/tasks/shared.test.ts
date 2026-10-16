@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { applyTierFilter, isFocusTask, computeInsight } from "./shared"
+import { applyTierFilter, isFocusTask, computeInsight, groupTasks, phraseUnderGroup } from "./shared"
 import type { WeekAgendaItem } from "@/modules/care"
 
 /** Minimal WeekAgendaItem factory — only the fields the tier filter reads. */
@@ -149,5 +149,51 @@ describe("computeInsight — Start here, or nothing", () => {
 
   it("an empty list says nothing", () => {
     expect(computeInsight([])).toBe(null)
+  })
+})
+
+// HH-165 (owner, TestFlight round 22): "Why is there an optional task listed
+// under Good to Do now on the Tasks tab?" The group says WHEN; inside it the
+// order says WHAT MATTERS — Essential, then Recommended, then Optional, with
+// the date only breaking ties. Every lens shares the one sort.
+describe("groupTasks — Essentials first inside every group (HH-165)", () => {
+  const now = (id: string, tier: string, dueDate: string) =>
+    task({ taskInstanceId: id, priorityTier: tier, dueDate, dueKind: "window", windowState: "open", roomName: "Kitchen", itemName: "Range" } as Partial<WeekAgendaItem>)
+  // The reported case: the Optional task is the OLDEST, so date-first put it on top.
+  const rows = [
+    now("ess-new", "essential", "2026-06-20"),
+    now("opt-old", "optional", "2026-05-01"),
+    now("rec-mid", "recommended", "2026-06-01"),
+    now("ess-old", "essential", "2026-06-10"),
+  ]
+  const ORDER = ["ess-old", "ess-new", "rec-mid", "opt-old"]
+
+  it("an Optional task older than an Essential one in 'Good to do now' sorts below it", () => {
+    const group = groupTasks(rows, "urgency").find((g) => g.label === "Good to do now")!
+    expect(group.items.map((t) => t.taskInstanceId)).toEqual(ORDER)
+  })
+
+  it("the date breaks ties within a tier (older first)", () => {
+    const group = groupTasks(rows, "urgency")[0]
+    const essentials = group.items.filter((t) => t.priorityTier === "essential").map((t) => t.taskInstanceId)
+    expect(essentials).toEqual(["ess-old", "ess-new"])
+  })
+
+  it("the Room and Item lenses use the same order inside each group", () => {
+    expect(groupTasks(rows, "room")[0].items.map((t) => t.taskInstanceId)).toEqual(ORDER)
+    expect(groupTasks(rows, "item")[0].items.map((t) => t.taskInstanceId)).toEqual(ORDER)
+  })
+})
+
+describe("phraseUnderGroup — a row never repeats its group's name (HH-165)", () => {
+  it("drops 'Good to do now' under the 'Good to do now' header", () => {
+    expect(phraseUnderGroup("Good to do now", "Good to do now")).toBeNull()
+  })
+  it("keeps a phrase that says something the header doesn't", () => {
+    expect(phraseUnderGroup("In Nov", "Coming up")).toBe("In Nov")
+    expect(phraseUnderGroup("Been a while", "Good to do now")).toBe("Been a while")
+  })
+  it("outside a group (the calendar's day list) the phrase stays", () => {
+    expect(phraseUnderGroup("Good to do now")).toBe("Good to do now")
   })
 })
