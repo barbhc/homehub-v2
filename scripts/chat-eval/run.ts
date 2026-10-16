@@ -38,7 +38,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { cachedPrefix } from "../../shared/chat/chatMessages.js"
+import { cachedPrefix, withSafetyRules } from "../../shared/chat/chatMessages.js"
 import {
   GENERAL_KNOWLEDGE_MARKER,
   goldenProblems,
@@ -70,7 +70,8 @@ const corpus = (JSON.parse(readFileSync(join(ROOT, "scripts", "parse-eval", "cor
 const mainFixture = JSON.parse(readFileSync(join(ROOT, "shared", "chat", "__tests__", "fixtures", "main-chat-requests.json"), "utf8")) as {
   systemPrompts: Record<string, string>
 }
-const MAIN_SYSTEM = mainFixture.systemPrompts["pdf|web=0|warranty=0|notes=0"]
+// Main's text plus the safety rules (2026-10-15) — the one deliberate change to v1's wording.
+const MAIN_SYSTEM = withSafetyRules(mainFixture.systemPrompts["pdf|web=0|warranty=0|notes=0"])
 
 function fail(message: string): never {
   console.error(`\n✖ ${message}\n`)
@@ -101,7 +102,7 @@ function offline(): void {
   }
   const total = targets.reduce((n, c) => n + c.turns.length, 0)
   if (problems > 0) fail(`chat eval (offline): ${problems} problem(s) across ${total} request(s)`)
-  console.log(`\n✓ chat eval (offline): ${total}/${total} requests — PDF first with the cache breakpoint, question last, system text byte-identical to main, follow-ups repeat the cached prefix\n`)
+  console.log(`\n✓ chat eval (offline): ${total}/${total} requests — PDF first with the cache breakpoint, question last, system text main's plus the safety rules, follow-ups repeat the cached prefix\n`)
 }
 
 // ── Live ──────────────────────────────────────────────────────────────────────

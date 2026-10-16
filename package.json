@@ -27,6 +27,7 @@
     "smoke:storage": "node scripts/smoke-storage-rules.mjs",
     "eval:parser": "npx vite-node evals/manual-parser/run.ts --",
     "eval:parser:cache": "npx vite-node evals/manual-parser/cache.ts",
+    "eval:ask-safety": "npx vite-node evals/ask-safety/run.ts --",
     "test:e2e:a11y:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.a11y.config.ts\"",
     "test:e2e:devices:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.device.config.ts\"",
     "test:e2e:journey:emu": "firebase emulators:exec --only auth,firestore,storage --project demo-homehub \"npm run seed:emu && playwright test --config playwright.journey.config.ts\"",
