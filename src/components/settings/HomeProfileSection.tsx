@@ -114,10 +114,12 @@ export function HomeProfileSection({ homeId }: Props) {
   /** The receipt after a turn-off, with its Undo (the app's UndoBar). */
   const [bar, setBar] = useState<{ message: string; onUndo?: () => void; ms: number } | null>(null)
   const dismissBar = useCallback(() => setBar(null), [])
-  /** "Keep them" holds for the rest of the visit — a later Save doesn't re-ask. */
-  const [offerDeclined, setOfferDeclined] = useState(false)
+  /** The climate as last read or saved — the offer follows only a CHANGE to
+   *  Mild/Hot, never a re-save of the profile (gate-1 review). */
+  const [savedClimate, setSavedClimate] = useState<Climate | null>(null)
 
   const applyProfile = (p: HomeProfile | null) => {
+    setSavedClimate(p?.climate ?? null)
     setHomeType(p?.home_type ?? "")
     setOwnership(p?.ownership ?? "")
     setDuration(p?.ownership_duration ?? "")
@@ -136,7 +138,6 @@ export function HomeProfileSection({ homeId }: Props) {
     setOffer(null)
     setOfferError(null)
     setBar(null)
-    setOfferDeclined(false)
   }
   useEffect(() => {
     let cancelled = false
@@ -206,10 +207,11 @@ export function HomeProfileSection({ homeId }: Props) {
       setError("Your climate didn't save. Try again.")
       return
     }
+    const climateChanged = savedClimate !== wantClimate
     applyProfile(result.data)
     setSavedAt(Date.now())
     setTimeout(() => setSavedAt((ts) => (ts && Date.now() - ts >= 2400 ? null : ts)), 2500)
-    if (wantFreezeRisk === false && !offerDeclined) await offerWinterizingSweep()
+    if (climateChanged && wantFreezeRisk === false) await offerWinterizingSweep()
   }
 
 
@@ -264,7 +266,6 @@ export function HomeProfileSection({ homeId }: Props) {
   const handleKeep = () => {
     setOffer(null)
     setOfferError(null)
-    setOfferDeclined(true)
   }
 
   return (
@@ -362,7 +363,7 @@ export function HomeProfileSection({ homeId }: Props) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                A mild climate skips winterizing tasks in new manuals, and offers to turn off the ones you already have.
+                A mild or hot climate skips winterizing tasks in new manuals, and offers to turn off the ones you already have.
               </p>
             </div>
 

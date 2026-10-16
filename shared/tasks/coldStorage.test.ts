@@ -1,88 +1,54 @@
 /**
  * HH-166 (owner, 2026-10-16): "Winterize the washer for cold storage" sat on
- * her agenda as "Usually autumn". It is a one-off — done when a washer is moved
- * or stored somewhere unheated — so it is as-needed, not a yearly autumn job.
+ * her agenda as "Usually autumn" in a mild-climate home. In a home that does
+ * not freeze it is an as-needed job (when the washer goes into unheated
+ * storage), not a yearly autumn one.
  *
- * Pinned at every layer that decides it: the predicate, the row correction the
- * parse worker and the review draft both apply, the seasonal phrase, and the
- * agenda's one eligibility rule (Home, Coming up and the push sweep).
+ * Gate-1 review narrowed it: only the literal phrase "cold storage", only in a
+ * home that said it doesn't freeze, and only while it still carries the
+ * parser's seasonal cadence. A cold-climate home's "Winterize … before storing
+ * it" is real autumn work and stays put.
  */
 import { describe, it, expect } from "vitest"
-import { asNeededIfColdStorage, isColdStorageWinterizing, seasonalFamily } from "./houseRules"
-import { isAgendaEligible } from "./agendaEligibility"
-import { seasonForTitle } from "../care/seasonalWindow"
-import { rowsFrom } from "../../src/components/manuals/reviewRows"
-import type { PreviewResult } from "../../src/modules/knowledge/types/previewTypes"
+import { isAsNeededColdStorage, isColdStorageWinterizing, seasonalFamily } from "./houseRules"
 
-const OWNERS = "Winterize the washer for cold storage"
+const OWNERS = "Winterize Washer for Cold Storage"
 
-describe("isColdStorageWinterizing", () => {
-  it("catches the owner's task and the other ways a manual says it", () => {
-    for (const t of [
-      OWNERS,
-      "Winterize Washer for Cold Storage",
-      "Winterize the washer before moving or storing",
-      "Winterizing the washer if stored in an unheated area",
-      "Prepare for cold storage",
-    ]) expect(isColdStorageWinterizing(t), t).toBe(true)
+describe("isColdStorageWinterizing — the literal phrase only", () => {
+  it("catches the owner's task", () => {
+    for (const t of [OWNERS, "Winterize the washer for cold storage", "Prepare for cold-storage"]) {
+      expect(isColdStorageWinterizing(t), t).toBe(true)
+    }
   })
 
-  it("leaves the home's yearly freeze prep seasonal", () => {
+  it("does not catch storing/moving wording — that can be real autumn work", () => {
     for (const t of [
+      "Winterize the pressure washer before storing it",
+      "Winterize the washer before moving",
       "Winterize the outdoor faucets",
-      "Winterize the Dishwasher",
-      "Freeze protection for outdoor faucet",
-      "Store the hose reel",         // storage, but not winterizing
-      "Clean the Filter System",
+      "Store the hose reel",
     ]) expect(isColdStorageWinterizing(t), t).toBe(false)
   })
 
-  it("stays in the freeze_prep family, so the climate sweep still offers it", () => {
+  it("stays in the freeze_prep family, so the climate offer still lists it", () => {
     expect(seasonalFamily(OWNERS)).toBe("freeze_prep")
   })
 })
 
-describe("asNeededIfColdStorage", () => {
-  it("re-files a seasonal or yearly cold-storage row as as-needed", () => {
-    expect(asNeededIfColdStorage({ title: OWNERS, schedule_type: "seasonal", interval_days: null }))
-      .toEqual({ title: OWNERS, schedule_type: "as_needed", interval_days: null })
-    expect(asNeededIfColdStorage({ title: OWNERS, schedule_type: "annual", interval_days: null }).schedule_type)
-      .toBe("as_needed")
+describe("isAsNeededColdStorage — the climate gate", () => {
+  it("a mild (freeze-free) home: 'Winterize Washer for Cold Storage' on its parsed seasonal cadence is as-needed", () => {
+    expect(isAsNeededColdStorage({ title: OWNERS, scheduleType: "seasonal", freezeFree: true })).toBe(true)
   })
 
-  it("leaves other rows, and rows already off the schedule, exactly as they were", () => {
-    const faucets = { title: "Winterize the outdoor faucets", schedule_type: "seasonal", interval_days: null }
-    expect(asNeededIfColdStorage(faucets)).toBe(faucets)
-    const setup = { title: OWNERS, schedule_type: "setup", interval_days: null }
-    expect(asNeededIfColdStorage(setup)).toBe(setup)
+  it("a cold-climate home keeps it — and its seasonal 'winterize … before storing' — on the agenda", () => {
+    expect(isAsNeededColdStorage({ title: OWNERS, scheduleType: "seasonal", freezeFree: false })).toBe(false)
+    expect(isAsNeededColdStorage({ title: "Winterize the pressure washer before storing it", scheduleType: "seasonal", freezeFree: false })).toBe(false)
+    // …and that one is not cold-storage wording even in a mild home.
+    expect(isAsNeededColdStorage({ title: "Winterize the pressure washer before storing it", scheduleType: "seasonal", freezeFree: true })).toBe(false)
   })
 
-  it("the review draft saves the corrected cadence (rowsFrom → what onSave hands back)", () => {
-    const draft = {
-      ok: true,
-      chunks: [],
-      tasks: [{
-        title: OWNERS, description: "", justification: null, care_type: "maintenance",
-        priority_tier: "recommended", risk_level: "prevent_damage", estimated_minutes: 20,
-        schedule_type: "seasonal", interval_days: null, instructions_text: "", source_page: 30, tags: [],
-      }],
-    } as unknown as PreviewResult
-    const [row] = rowsFrom(draft)
-    expect(row.schedule).toBe("as_needed")
-    expect(row.task?.schedule_type).toBe("as_needed")
-  })
-})
-
-describe("on Home", () => {
-  it("has no season, so it never reads 'Usually autumn'", () => {
-    expect(seasonForTitle(OWNERS, seasonalFamily(OWNERS))).toBeNull()
-    expect(seasonForTitle("Winterize the outdoor faucets", "freeze_prep")).toBe("fall")
-  })
-
-  it("is not on the dated agenda when the caller passes the title — an as-needed task never is", () => {
-    expect(isAgendaEligible({ careType: "maintenance", scopeType: "item_unit", title: OWNERS })).toBe(false)
-    expect(isAgendaEligible({ careType: "maintenance", scopeType: "item_unit", title: "Winterize the outdoor faucets" })).toBe(true)
-    // Callers counting by reason (item cleaning) leave the title out and are unchanged.
-    expect(isAgendaEligible({ careType: "maintenance", scopeType: "item_unit" })).toBe(true)
+  it("a cadence the owner chose is kept", () => {
+    expect(isAsNeededColdStorage({ title: OWNERS, scheduleType: "annual", freezeFree: true })).toBe(false)
+    expect(isAsNeededColdStorage({ title: OWNERS, scheduleType: "every_n_days", freezeFree: true })).toBe(false)
   })
 })

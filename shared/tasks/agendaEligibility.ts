@@ -14,26 +14,15 @@
  * Note this is a DISPLAY filter keyed on careType, so it only works when tasks
  * are labeled correctly — shared/tasks/taxonomy.ts is what guarantees that at
  * parse time, and the backfill sweep fixes already-committed mislabels.
- *
- * HH-166: winterizing for storage or a move ("Winterize the washer for cold
- * storage") is as-needed, and an as-needed task never has a dated instance on
- * the agenda. Tasks parsed before that was decided still carry an autumn
- * instance, so a caller that passes the `title` drops them here — the same
- * answer a fresh parse now gives. Callers that count what the agenda withholds
- * by REASON (weekAgenda's item-cleaning count) leave `title` out.
  */
-import { isColdStorageWinterizing } from "./houseRules.js"
 
 /** The denormalized fields an eligibility decision needs (task_instance §5). */
 export interface AgendaEligible {
   careType?: string | null
   scopeType?: string | null
-  /** Pass it to drop as-needed cold-storage winterizing (HH-166). */
-  title?: string | null
 }
 
 /** True when a task should appear on the Home agenda and in proactive alerts. */
 export function isAgendaEligible(t: AgendaEligible): boolean {
-  if (t.title && isColdStorageWinterizing(t.title)) return false
   return !(t.careType === "cleaning" && t.scopeType === "item_unit")
 }

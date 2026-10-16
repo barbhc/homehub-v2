@@ -7,7 +7,7 @@
  */
 import { reviewBucketFor, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
-import { applyHouseRules, asNeededIfColdStorage, looksLikeSetupStep } from "../../../shared/tasks/houseRules"
+import { applyHouseRules, looksLikeSetupStep } from "../../../shared/tasks/houseRules"
 import { classifyActorFromText } from "@/lib/taskActor"
 import type {
   PreviewChunk, PreviewResult, PreviewTask, PriorityTier, ScheduleType,
@@ -127,10 +127,7 @@ function correctDraft(tasks: PreviewResult["tasks"], freezeRiskFalse: boolean): 
     t.schedule_type !== "setup" &&
     looksLikeSetupStep([t.title, t.description ?? "", t.instructions_text ?? ""].join(" "))
       ? { ...t, schedule_type: "setup" as const }
-      // HH-166: winterizing for storage or a move is as-needed, not a yearly
-      // autumn job — the same correction the parse worker now makes, applied
-      // here so a draft parsed before it still saves the right cadence.
-      : asNeededIfColdStorage(t),
+      : t,
   )
 }
 

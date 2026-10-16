@@ -20,7 +20,7 @@ import { archiveTaskTemplate } from "./taskService"
 import { updateTaskSchedule } from "./taskScheduleService"
 import type { ServiceResult } from "./careNoteService"
 import { ruleMatchFor, matchLabel, findSimilar, seasonalFamily, type RuleMatch, type TaskLike } from "@/lib/taskSimilarity"
-import { asNeededIfColdStorage } from "../../../../shared/tasks/houseRules"
+import { isAsNeededColdStorage } from "../../../../shared/tasks/houseRules"
 import { cadenceLabel } from "../../../../shared/tasks/cadenceLabel"
 import { patternKeyOf, type FeedbackPattern } from "../../../../shared/tasks/graduation"
 import { localToday } from "../../../../shared/dates/calendar"
@@ -243,52 +243,74 @@ function buildReason(title: string, match: RuleMatch, r: Resolution): string {
  * change that didn't land.
  */
 export async function submitTaskFeedback(input: SubmitFeedbackInput): Promise<ServiceResult<SubmitFeedbackResult>> {
-  const { homeId, uid, primary, chip, resolution, note, sweepTemplateIds, match } = input
+  const { homeId, primary, resolution, sweepTemplateIds } = input
   try {
     const targets = [primary.taskTemplateId, ...sweepTemplateIds]
     for (const tplId of targets) {
       await applyResolution(homeId, tplId, resolution)
     }
 
-    // Pre-generate ids so the ledger and rule can cross-reference without a
-    // follow-up write (the ledger is append-only — rules forbid updates).
-    const fbRef = doc(collection(db, `homes/${homeId}/taskFeedback`))
-    const kind = RULE_KIND[resolution.action]
-    // A `template`-scoped match can't generalize (it names one now-changed task),
-    // so it earns a ledger entry but not a visible, reusable house rule.
-    const rulable = !!match && match.by !== "template"
-    const ruleRef = kind && rulable ? doc(collection(db, `homes/${homeId}/houseRules`)) : null
+    const rec = feedbackRecords(input)
+    if (rec.rule) await setDoc(rec.rule.ref, rec.rule.data)
+    await setDoc(rec.ledger.ref, rec.ledger.data)
 
-    if (ruleRef && kind && match) {
-      await setDoc(ruleRef, {
-        kind,
-        match,
-        toTier: resolution.action === "tier_remap" ? resolution.toTier : null,
-        scheduleType: resolution.action === "cadence" ? resolution.scheduleType : null,
-        intervalDays: resolution.action === "cadence" ? (resolution.intervalDays ?? null) : null,
-        season: resolution.action === "reschedule_season" ? resolution.season : null,
-        reason: buildReason(primary.title, match, resolution),
-        sourceFeedbackId: fbRef.id,
-        createdBy: uid,
-        createdAt: serverTimestamp(),
-        isActive: true,
-        deletedAt: null,
-      })
-    }
+    return { data: { feedbackId: rec.ledger.ref.id, ruleId: rec.rule?.ref.id ?? null, affected: targets.length }, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to submit feedback" } }
+  }
+}
 
-    // Cross-home graduation signature (Phase D): the home-independent pattern of
-    // this feedback, so a scheduled job can spot the same correction recurring
-    // across many homes. patternKey is null for home-specific/one-off feedback.
-    const pattern: FeedbackPattern = {
-      chip,
-      action: resolution.action,
-      match,
-      toTier: resolution.action === "tier_remap" ? resolution.toTier : null,
-      scheduleType: resolution.action === "cadence" ? resolution.scheduleType : null,
-      season: resolution.action === "reschedule_season" ? resolution.season : null,
-    }
+/**
+ * The house rule (when the feedback generalizes) and the ledger entry a
+ * feedback decision records — built once, so submitTaskFeedback and the
+ * climate turn-off (which writes them in its own single batch) cannot drift.
+ */
+function feedbackRecords(input: SubmitFeedbackInput) {
+  const { homeId, uid, primary, chip, resolution, note, sweepTemplateIds, match } = input
+  // Pre-generate ids so the ledger and rule can cross-reference without a
+  // follow-up write (the ledger is append-only — rules forbid updates).
+  const fbRef = doc(collection(db, `homes/${homeId}/taskFeedback`))
+  const kind = RULE_KIND[resolution.action]
+  // A `template`-scoped match can't generalize (it names one now-changed task),
+  // so it earns a ledger entry but not a visible, reusable house rule.
+  const rulable = !!match && match.by !== "template"
+  const ruleRef = kind && rulable ? doc(collection(db, `homes/${homeId}/houseRules`)) : null
 
-    await setDoc(fbRef, {
+  const rule = ruleRef && kind && match
+    ? {
+        ref: ruleRef,
+        data: {
+          kind,
+          match,
+          toTier: resolution.action === "tier_remap" ? resolution.toTier : null,
+          scheduleType: resolution.action === "cadence" ? resolution.scheduleType : null,
+          intervalDays: resolution.action === "cadence" ? (resolution.intervalDays ?? null) : null,
+          season: resolution.action === "reschedule_season" ? resolution.season : null,
+          reason: buildReason(primary.title, match, resolution),
+          sourceFeedbackId: fbRef.id,
+          createdBy: uid,
+          createdAt: serverTimestamp(),
+          isActive: true,
+          deletedAt: null,
+        },
+      }
+    : null
+
+  // Cross-home graduation signature (Phase D): the home-independent pattern of
+  // this feedback, so a scheduled job can spot the same correction recurring
+  // across many homes. patternKey is null for home-specific/one-off feedback.
+  const pattern: FeedbackPattern = {
+    chip,
+    action: resolution.action,
+    match,
+    toTier: resolution.action === "tier_remap" ? resolution.toTier : null,
+    scheduleType: resolution.action === "cadence" ? resolution.scheduleType : null,
+    season: resolution.action === "reschedule_season" ? resolution.season : null,
+  }
+
+  const ledger = {
+    ref: fbRef,
+    data: {
       taskTemplateId: primary.taskTemplateId,
       taskInstanceId: primary.taskInstanceId ?? null,
       chip,
@@ -306,12 +328,9 @@ export async function submitTaskFeedback(input: SubmitFeedbackInput): Promise<Se
       createdBy: uid,
       createdAt: serverTimestamp(),
       deletedAt: null,
-    })
-
-    return { data: { feedbackId: fbRef.id, ruleId: ruleRef?.id ?? null, affected: targets.length }, error: null }
-  } catch (e) {
-    return { data: null, error: { message: e instanceof Error ? e.message : "Failed to submit feedback" } }
+    },
   }
+  return { rule, ledger }
 }
 
 function toHouseRule(id: string, d: DocumentData): HouseRule {
@@ -403,14 +422,16 @@ export async function getWinterizingTasks(homeId: string): Promise<ServiceResult
       const sched = (x.schedule ?? {}) as { scheduleType?: unknown; intervalDays?: unknown }
       const scheduleType = typeof sched.scheduleType === "string" ? sched.scheduleType : "as_needed"
       const intervalDays = typeof sched.intervalDays === "number" ? sched.intervalDays : null
-      // Cold-storage winterizing reads as the as-needed job it is, not "Seasonal".
-      const effective = asNeededIfColdStorage({ title, schedule_type: scheduleType, interval_days: intervalDays })
       const itemUnitId = typeof x.itemUnitId === "string" ? x.itemUnitId : null
       return {
         taskTemplateId: d.id,
         title,
         where: itemUnitId ? (names.get(itemUnitId) ?? null) : x.scopeType === "home" ? "Home" : null,
-        cadence: cadenceLabel(effective.schedule_type, effective.interval_days),
+        // The offer only follows a freeze-free save, so cold-storage
+        // winterizing reads as the as-needed job it is there, not "Seasonal".
+        cadence: isAsNeededColdStorage({ title, scheduleType, freezeFree: true })
+          ? cadenceLabel("as_needed")
+          : cadenceLabel(scheduleType, intervalDays),
       }
     })
     tasks.sort((a, b) => (a.where ?? "").localeCompare(b.where ?? "") || a.title.localeCompare(b.title))
@@ -420,13 +441,22 @@ export async function getWinterizingTasks(homeId: string): Promise<ServiceResult
   }
 }
 
+/** Firestore's per-batch write limit. */
+const MAX_BATCH_WRITES = 500
+
 /**
- * Turns off the winterizing tasks the owner ticked — through submitTaskFeedback,
- * exactly as the feedback sheet's "Not relevant" sweep on a winterizing task
- * does: each template is archived (deactivated; open instances soft-deleted;
- * nothing hard-deleted, completion history kept), a ledger entry is written,
- * and the visible "Hide winterizing / freeze-protection tasks" house rule is
- * recorded. One mechanism, so both doors reach the same result.
+ * Turns off the winterizing tasks the owner ticked, with the same writes the
+ * feedback sheet's "Not relevant" sweep makes on a winterizing task: each
+ * template archived exactly as archiveTaskTemplate does (isActive:false, kept;
+ * its open instances soft-deleted; completion history untouched), the visible
+ * "Hide winterizing / freeze-protection tasks" house rule, and the ledger
+ * entry — built by the same feedbackRecords, so both doors reach one result.
+ *
+ * Unlike submitTaskFeedback (one batch per task, then the rule, then the
+ * ledger), it is ONE writeBatch (gate-1 review): a failure part-way can no
+ * longer leave some tasks off with no rule, or instances soft-deleted that the
+ * Undo never learned about. All or nothing; the ids Undo needs are the ids
+ * this batch wrote.
  */
 export async function turnOffWinterizingTasks(
   homeId: string,
@@ -435,36 +465,59 @@ export async function turnOffWinterizingTasks(
 ): Promise<ServiceResult<TurnOffResult>> {
   const [primary, ...rest] = tasks
   if (!primary) return { data: null, error: { message: "Pick at least one task to turn off." } }
-  // What the archive is about to soft-delete — the same open-instance filter
-  // archiveTaskTemplate applies — so Undo puts back exactly these, and never an
-  // instance that was already gone.
-  let instanceIds: string[]
   try {
+    // The open instances to soft-delete — archiveTaskTemplate's own filter.
     const snaps = await Promise.all(tasks.map((t) =>
       getDocs(query(collection(db, `homes/${homeId}/taskInstances`), where("taskTemplateId", "==", t.taskTemplateId))),
     ))
-    instanceIds = snaps.flatMap((s) => s.docs
+    const instanceIds = snaps.flatMap((s) => s.docs
       .filter((d) => {
         const x = d.data()
         return (x.status === "scheduled" || x.status === "snoozed") && x.deletedAt == null
       })
       .map((d) => d.id))
+
+    const rec = feedbackRecords({
+      homeId,
+      uid,
+      primary: { taskTemplateId: primary.taskTemplateId, taskInstanceId: null, title: primary.title },
+      chip: "not_relevant",
+      resolution: { action: "suppress" },
+      note: null,
+      sweepTemplateIds: rest.map((t) => t.taskTemplateId),
+      match: { by: "seasonalFamily", family: "freeze_prep" },
+      via: "climate",
+    })
+
+    const writes = tasks.length + instanceIds.length + (rec.rule ? 1 : 0) + 1
+    if (writes > MAX_BATCH_WRITES) {
+      return { data: null, error: { message: "That's too many tasks to turn off at once. Untick some and try again." } }
+    }
+    const now = serverTimestamp()
+    const batch = writeBatch(db)
+    for (const id of instanceIds) {
+      batch.set(doc(db, `homes/${homeId}/taskInstances/${id}`), { deletedAt: now, updatedAt: now }, { merge: true })
+    }
+    for (const t of tasks) {
+      batch.set(doc(db, `homes/${homeId}/taskTemplates/${t.taskTemplateId}`), { isActive: false, updatedAt: now }, { merge: true })
+    }
+    if (rec.rule) batch.set(rec.rule.ref, rec.rule.data)
+    batch.set(rec.ledger.ref, rec.ledger.data)
+    await batch.commit()
+
+    return {
+      data: {
+        feedbackId: rec.ledger.ref.id,
+        ruleId: rec.rule?.ref.id ?? null,
+        affected: tasks.length,
+        templateIds: tasks.map((t) => t.taskTemplateId),
+        instanceIds,
+      },
+      error: null,
+    }
   } catch (e) {
-    return { data: null, error: { message: e instanceof Error ? e.message : "Couldn't read the tasks to turn off" } }
+    return { data: null, error: { message: e instanceof Error ? e.message : "Couldn't turn them off" } }
   }
-  const res = await submitTaskFeedback({
-    homeId,
-    uid,
-    primary: { taskTemplateId: primary.taskTemplateId, taskInstanceId: null, title: primary.title },
-    chip: "not_relevant",
-    resolution: { action: "suppress" },
-    note: null,
-    sweepTemplateIds: rest.map((t) => t.taskTemplateId),
-    match: { by: "seasonalFamily", family: "freeze_prep" },
-    via: "climate",
-  })
-  if (res.error) return res
-  return { data: { ...res.data, templateIds: tasks.map((t) => t.taskTemplateId), instanceIds }, error: null }
 }
 
 /** A turn-off, with what Undo needs to put it back exactly. */

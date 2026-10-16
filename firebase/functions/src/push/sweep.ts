@@ -206,8 +206,7 @@ export async function collectCandidates(
     for (const { doc: d, dueDate } of placed) {
       // Same eligibility as the Home agenda — a push must never count tasks the
       // app deliberately hides (item-scoped cleaning).
-      // The title drops as-needed cold-storage winterizing (HH-166), as Home does.
-      if (!isAgendaEligible({ careType: storedText(d.get("careType")), scopeType: storedText(d.get("scopeType")), title: storedText(d.get("title")) })) continue
+      if (!isAgendaEligible({ careType: storedText(d.get("careType")), scopeType: storedText(d.get("scopeType")) })) continue
 
       // Member-written fields (H3a §3): text that isn't text reads as absent,
       // and the template id becomes a path, so it must be one segment — a

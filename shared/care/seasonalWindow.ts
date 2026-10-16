@@ -17,7 +17,6 @@
  */
 
 import { localToday } from "../dates/calendar.js"
-import { isColdStorageWinterizing } from "../tasks/houseRules.js"
 
 export type Season = "spring" | "summer" | "fall" | "winter"
 export type Climate = "mild" | "moderate" | "cold" | "hot"
@@ -98,9 +97,6 @@ export function seasonalWindow(
  * standing admission that duplication is a liability here.
  */
 export function seasonForTitle(title: string, family: string | null): Season | null {
-  // HH-166: winterizing for storage or a move is as-needed — it has no season,
-  // and "Usually autumn" on it is a claim about a job autumn does not bring.
-  if (isColdStorageWinterizing(title)) return null
   if (family === "freeze_prep") return "fall"
   if (family === "warm_startup") return "spring"
   const t = title.toLowerCase()
