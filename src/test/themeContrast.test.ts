@@ -143,7 +143,32 @@ describe("theme token contrast (WCAG AA, 4.5:1)", () => {
   it("the teal fill is the light-mode teal, so light mode does not move", () => {
     expect(light["--hh-teal-fill"]).toBe(light["--hh-teal"])
     expect(light["--hh-teal-fill"]).toBe(light["--t-primary"])
-    expect(dark["--hh-teal-fill"]).toBe(light["--hh-teal-fill"])
+  })
+
+  // WCAG 1.4.11 (non-text, 3:1): a selected calendar day or active filter pill
+  // is marked by the fill alone, so the fill must stand off what surrounds it.
+  for (const [what, a, ...bgs] of [
+    ["fill vs the surface", "--hh-teal-fill", "--hh-surface"],
+    ["fill vs the page", "--hh-teal-fill", "--hh-bg"],
+    ["fill vs a card (FilterBar)", "--hh-teal-fill", "--t-card"],
+    ["fill vs the sheet/page background", "--hh-teal-fill", "--t-background"],
+    ["selected-day ring vs today's wash", "--hh-teal", "--hh-teal-wash", "--hh-surface"],
+  ] as [string, string, ...string[]][]) {
+    it(`dark: ${what} ≥ 3:1`, () => {
+      expect(contrast(dark, a, ...bgs), `${a} on ${bgs.join(" over ")}`).toBeGreaterThanOrEqual(3)
+    })
+  }
+
+  it("dark: the fill alone is under 3:1 against today's wash, so the ring is needed", () => {
+    expect(contrast(dark, "--hh-teal-fill", "--hh-teal-wash", "--hh-surface")).toBeLessThan(3)
+  })
+
+  it("both calendars draw the selected day with the dark ring", () => {
+    expect(readFileSync("src/components/home/tasks/shared.ts", "utf8"))
+      .toMatch(/SELECTED_DAY_RING =\s*"[^"]*dark:outline-\[color:var\(--hh-teal\)\]/)
+    for (const f of ["src/components/home/RefinedWeek.tsx", "src/components/home/DesktopTasks.tsx"]) {
+      expect(readFileSync(f, "utf8"), f).toContain("${on ? SELECTED_DAY_RING : \"\"}")
+    }
   })
 
   it("the dark bright teals fail under white, so this test can tell the difference", () => {

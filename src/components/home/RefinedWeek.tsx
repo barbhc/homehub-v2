@@ -17,7 +17,7 @@ import { classifyTaskDetail } from "@/lib/taskActor"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, TIER_FILTERS, tierFilterCounts,
-  tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL, withoutHidden,
+  tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL, SELECTED_DAY_RING, withoutHidden,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 import { UndoBar } from "@/components/ui/UndoBar"
@@ -265,7 +265,9 @@ function Calendar({
                 key={i}
                 type="button"
                 onClick={() => setSel(on ? null : c.day)}
-                className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[13.5px]"
+                // Dark: the fill is 2.91:1 against today's wash next to it, so
+                // the selected day also gets a bright ring (4.86:1, WCAG 1.4.11).
+                className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[13.5px] ${on ? SELECTED_DAY_RING : ""}`}
                 style={{
                   background: on ? "var(--hh-teal-fill)" : isToday ? "var(--hh-teal-wash)" : "transparent",
                   color: on ? "#fff" : INK,

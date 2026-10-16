@@ -17,7 +17,7 @@ import { classifyTaskDetail } from "@/lib/taskActor"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, TIER_FILTERS, tierFilterCounts,
-  tasksDueOnDay, useAgendaRowActions, useTaskDetail, whenLabel, type Lens, CLAY, TEAL, withoutHidden,
+  tasksDueOnDay, useAgendaRowActions, useTaskDetail, whenLabel, type Lens, CLAY, TEAL, SELECTED_DAY_RING, withoutHidden,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 import { UndoBar } from "@/components/ui/UndoBar"
@@ -183,7 +183,7 @@ function DkCalendar({
               key={i}
               type="button"
               onClick={() => setSel(on ? null : c.day)}
-              className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[12.5px]"
+              className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[12.5px] ${on ? SELECTED_DAY_RING : ""}`}
               style={{
                 background: on ? "var(--hh-teal-fill)" : isToday ? "var(--hh-teal-wash)" : "transparent",
                 color: on ? "#fff" : INK,
