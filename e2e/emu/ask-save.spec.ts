@@ -3,7 +3,7 @@ import { getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore } from "firebase-admin/firestore"
 
 /**
- * Ask → Save to knowledge base, against the seeded emulator (audit H6).
+ * Ask → Save an answer, against the seeded emulator (audit H6).
  *
  * Each answer bubble carried its own save dialog and handed its `onSaved` to
  * the page, which then opened the PAGE's dialog with the same answer and a live
@@ -57,7 +57,7 @@ for (const vp of [
   { name: "phone", width: 390, height: 844 },
   { name: "desktop", width: 1440, height: 900 },
 ]) {
-  test.describe(`emulator e2e — Ask, Save to knowledge base (${vp.name}, ${vp.width}px)`, () => {
+  test.describe(`emulator e2e — Ask, Save an answer (${vp.name}, ${vp.width}px)`, () => {
     // Unique per run and per width.
     const question = `How often does the washer filter need cleaning? (${vp.name} ${Date.now()})`
 
@@ -72,7 +72,8 @@ for (const vp of [
       await askAndAnswer(page, question)
       expect((await answersFor(question)).size).toBe(0)
 
-      await page.getByRole("button", { name: "Save to knowledge base" }).filter(visible).first().click()
+      // An unscoped answer: the button is plain "Save" (no item to name yet).
+      await page.getByRole("button", { name: "Save", exact: true }).filter(visible).first().click()
       const dialog = page.getByRole("dialog")
       await expect(dialog).toHaveCount(1)
       await expect(dialog).toBeVisible()
@@ -85,7 +86,7 @@ for (const vp of [
       await expect(save).toBeEnabled()
       await save.click()
 
-      await expect(page.getByText("Saved to knowledge base").filter(visible).first()).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByText("Answer saved").filter(visible).first()).toBeVisible({ timeout: 10_000 })
       // The dialog closes — and NO second one opens with the same answer and a
       // live Save (the bug arrived after the first dialog's close delay, so
       // look again after it).

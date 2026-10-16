@@ -1,5 +1,6 @@
+import { useState } from "react"
 import { Trash2Icon } from "lucide-react"
-import { SectionCard } from "@/components/layout"
+import { InlineError, SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 import { CleaningGuideCard } from "@/components/knowledge"
@@ -26,6 +27,8 @@ export function KnowledgeSection({
   onFaqsChange,
 }: KnowledgeSectionProps) {
   const cleaningChunks = chunks.filter((c) => c.chunk_type === "cleaning_guide")
+  /** The saved Q&A whose delete just failed — said under that one answer. */
+  const [deleteFailedId, setDeleteFailedId] = useState<string | null>(null)
 
   return (
     <>
@@ -56,10 +59,14 @@ export function KnowledgeSection({
                         size="sm"
                         className="mt-2 min-h-11 min-w-11 text-destructive hover:text-destructive"
                         onClick={async () => {
+                          setDeleteFailedId(null)
                           const result = await deleteFaq(faq.home_id, faq.faq_id)
                           if (result.error) {
-                            // The Q&A stays listed, as it still is; the reason is logged.
+                            // The Q&A stays listed, as it still is — and now
+                            // says so, instead of a Delete that did nothing
+                            // (audit 2026-10-15).
                             console.warn(`[item] could not delete saved Q&A ${faq.faq_id} (home ${faq.home_id}):`, result.error.message)
+                            setDeleteFailedId(faq.faq_id)
                             return
                           }
                           onFaqsChange((current) => current.filter((f) => f.faq_id !== faq.faq_id))
@@ -69,6 +76,9 @@ export function KnowledgeSection({
                         <Trash2Icon className="size-3" aria-hidden />
                         Delete
                       </Button>
+                      {deleteFailedId === faq.faq_id && (
+                        <InlineError>Couldn't delete it. Try again.</InlineError>
+                      )}
                     </li>
                   ))}
                 </ul>

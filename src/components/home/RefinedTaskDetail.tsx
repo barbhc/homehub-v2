@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { dueKindOf, dueWindow, shortDate, windowPhrase } from "@/lib/dueWindow"
 import { Link } from "react-router-dom"
+import { RemoveScroll } from "react-remove-scroll"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
   RepeatIcon, InfoIcon, ClockIcon, MapPinIcon, CalendarIcon, PackageIcon, MinusIcon, PlusIcon,
@@ -631,8 +632,10 @@ function ConfirmDoneSheet({
     return base ? addDays(base, bump * 7) : null
   }, [recurring, scheduleType, completedOn, intervalDays, season, bump])
 
+  // RemoveScroll, as the Radix sheets do: the page behind stays put while
+  // this is open (audit 2026-10-15).
   return (
-    <>
+    <RemoveScroll allowPinchZoom>
       <div onClick={onClose} className="absolute inset-0 z-40" style={{ background: "rgba(8,12,11,0.4)" }} />
       <div className="absolute inset-x-0 bottom-0 z-41 rounded-t-[20px] px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)]" style={{ paddingInline: d.pad, background: "var(--hh-surface)" }}>
         <div className="mx-auto mb-4 h-1 w-9 rounded-full" style={{ background: "rgba(15,23,42,0.15)" }} />
@@ -692,6 +695,6 @@ function ConfirmDoneSheet({
         )}
         <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="w-full rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>Confirm</button>
       </div>
-    </>
+    </RemoveScroll>
   )
 }

@@ -1,5 +1,5 @@
 /**
- * Ask → Save to knowledge base, through the real page (audit H6).
+ * Ask → Save an answer, through the real page (audit H6).
  *
  * Each answer bubble carried its OWN save dialog and handed its `onSaved` to
  * the page — which opened the page's dialog with the same answer and a live
@@ -81,12 +81,12 @@ async function ask(question: string) {
   await screen.findByText("A 20x25x5 media filter.")
 }
 
-describe("Ask — Save to knowledge base is one dialog and one write", () => {
+describe("Ask — Save is one dialog and one write", () => {
   it("one save opens ONE dialog, writes ONE answer, and leaves no dialog behind", async () => {
     renderPage()
     await ask("What filter size do I need?")
 
-    fireEvent.click(screen.getByRole("button", { name: /Save to knowledge base/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Save to this item" }))
     const dialogs = await screen.findAllByRole("dialog")
     expect(dialogs).toHaveLength(1)
     // Scoped to the item the answer was about.
@@ -103,7 +103,7 @@ describe("Ask — Save to knowledge base is one dialog and one write", () => {
     })
     // The page's notice, then the dialog closes — and no second dialog opens
     // with the same answer and a live Save.
-    expect(await screen.findByText("Saved to knowledge base")).toBeInTheDocument()
+    expect(await screen.findByText("Answer saved")).toBeInTheDocument()
     await waitFor(() => expect(screen.queryAllByRole("dialog")).toHaveLength(0), { timeout: 2000 })
     expect(svc.saveFaq).toHaveBeenCalledTimes(1)
   })
@@ -113,14 +113,14 @@ describe("Ask — Save to knowledge base is one dialog and one write", () => {
     renderPage()
     await ask("What filter size do I need?")
 
-    fireEvent.click(screen.getByRole("button", { name: /Save to knowledge base/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Save to this item" }))
     const dialog = await screen.findByRole("dialog")
     const save = within(dialog).getByRole("button", { name: "Save" })
     await waitFor(() => expect(save).toBeEnabled())
     fireEvent.click(save)
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Couldn't save your answer.")
-    expect(screen.queryByText("Saved to knowledge base")).toBeNull()
+    expect(screen.queryByText("Answer saved")).toBeNull()
     expect(screen.getAllByRole("dialog")).toHaveLength(1)
     expect(within(dialog).getByRole("button", { name: "Save" })).toBeEnabled()
   })

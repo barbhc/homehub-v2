@@ -96,3 +96,21 @@ export function notificationsBlocked(args: {
 }): boolean {
   return !args.alreadySubscribed && (args.permission === "denied" || args.permission === "unsupported")
 }
+
+/**
+ * Everything turning notifications on sends, by default (audit 2026-10-15).
+ * The Home nudge once promised pings "only when an Essential task is due"
+ * while the same switch also turned on the Sunday digest and the buy-ahead
+ * pushes (DEFAULT_NOTIFICATION_PREFS in shared/notifications/preferences.ts;
+ * the three lanes in firebase/functions/src/push/lanes.ts). Every place that
+ * asks for permission names all three, from here.
+ */
+export const WHAT_NOTIFICATIONS_SEND = [
+  "Essential task reminders",
+  "A Sunday summary of your week",
+  "A heads-up when a part should be bought ahead",
+] as const
+
+/** The same three as one sentence, for Settings' Enable line. */
+export const WHAT_NOTIFICATIONS_SEND_SENTENCE =
+  "Get Essential task reminders, a Sunday summary of your week, and a heads-up when a part should be bought ahead."

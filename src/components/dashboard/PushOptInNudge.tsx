@@ -12,6 +12,7 @@ import {
   isNativePushTurnedOff,
   registerNativePush,
 } from "@/lib/nativePush"
+import { WHAT_NOTIFICATIONS_SEND } from "@/lib/notifyGate"
 
 /**
  * Home-page opt-in nudge for push notifications.
@@ -124,13 +125,16 @@ export function PushOptInNudge({ userId, homeId }: { userId: string; homeId: str
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-display font-semibold leading-tight">
-            Reminders for essential tasks
+            Turn on notifications
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Get a morning push notification only when an Essential maintenance task is due —
-            things like smoke-detector batteries, HVAC service, or warranty windows. Recommended
-            and Optional tasks won't ping you.
-          </p>
+          {/* Name everything the switch turns on, not just the reminders
+              (lib/notifyGate WHAT_NOTIFICATIONS_SEND). */}
+          <p className="text-sm text-muted-foreground mt-1">You'll get:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-muted-foreground">
+            {WHAT_NOTIFICATIONS_SEND.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
           {errorMsg ? (
             <p className="text-sm text-destructive mt-2">{errorMsg}</p>
           ) : null}

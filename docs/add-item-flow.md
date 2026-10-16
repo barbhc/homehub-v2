@@ -57,6 +57,11 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 ## Screen 2 — Identify it (appliance lane)
 
 - **Two fields and nothing else.** No stepper anywhere in the flow. — HH-110
+- A disabled button **says why**: once something is typed and the button still
+  cannot go, one line under it names what is missing ("Add the model to
+  continue."). The untouched screen shows no such line — its empty fields
+  already say what they want. Same rule in the simple lane
+  (`missingToAdd` in `identifyData.ts`). — audit 2026-10-15
 - The subtitle names **both routes** before either is used: type the brand and
   model, or scan the label. — HH-123
 - Scanning is a **first-class choice** under an "or" rule — never buried under

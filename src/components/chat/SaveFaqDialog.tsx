@@ -130,7 +130,7 @@ export function SaveFaqDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" showCloseButton aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>Save to knowledge base</DialogTitle>
+          <DialogTitle>Save this answer</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div>
