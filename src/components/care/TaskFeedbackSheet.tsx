@@ -105,6 +105,7 @@ export function TaskFeedbackSheet({
   const [loadingCtx, setLoadingCtx] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [climateError, setClimateError] = useState<string | null>(null)
   const [result, setResult] = useState<SubmitFeedbackResult | null>(null)
 
   // Discuss (Phase C) state
@@ -231,7 +232,12 @@ export function TaskFeedbackSheet({
     })
     if (!res.error && freezeFree && isFreezePrep) {
       // Backfill the home profile so future parses skip winterizing too (the loop).
-      await upsertHomeProfile(homeId, { climate: "mild", freeze_risk: false })
+      // HH-166: this result used to be dropped, so a climate that never landed
+      // read as done. The tasks above did change; say plainly that this didn't.
+      const prof = await upsertHomeProfile(homeId, { climate: "mild", freeze_risk: false })
+      if (prof.error || prof.data.freeze_risk !== false) {
+        setClimateError("Your climate didn't save, so new manuals may still add winterizing. Set it in Settings › Home profile.")
+      }
     }
     setSubmitting(false)
     if (res.error) { setError(res.error.message); return }
@@ -274,6 +280,9 @@ export function TaskFeedbackSheet({
               Updated {result.affected} task{result.affected === 1 ? "" : "s"}.
               {result.ruleId ? " Saved as a house rule you can review in Settings." : ""}
             </p>
+            {climateError && (
+              <p className="-mt-2 mb-4 text-[13px] font-semibold" style={{ color: CLAY }}>{climateError}</p>
+            )}
             <button onClick={() => onApplied(result)} className="w-full rounded-[14px] py-3.5 text-[15px] font-bold text-white" style={{ background: TEAL }}>Done</button>
           </div>
         ) : step === "choose" ? (

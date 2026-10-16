@@ -19,7 +19,9 @@ import { computeNextDueDate } from "./nextDueDate"
 import { archiveTaskTemplate } from "./taskService"
 import { updateTaskSchedule } from "./taskScheduleService"
 import type { ServiceResult } from "./careNoteService"
-import { ruleMatchFor, matchLabel, findSimilar, type RuleMatch, type TaskLike } from "@/lib/taskSimilarity"
+import { ruleMatchFor, matchLabel, findSimilar, seasonalFamily, type RuleMatch, type TaskLike } from "@/lib/taskSimilarity"
+import { asNeededIfColdStorage } from "../../../../shared/tasks/houseRules"
+import { cadenceLabel } from "../../../../shared/tasks/cadenceLabel"
 import { patternKeyOf, type FeedbackPattern } from "../../../../shared/tasks/graduation"
 import { localToday } from "../../../../shared/dates/calendar"
 
@@ -78,8 +80,9 @@ export interface SubmitFeedbackInput {
   sweepTemplateIds: string[]
   /** The rule predicate computed from the primary (null → no rule; e.g. duplicate). */
   match: RuleMatch | null
-  /** How the decision was reached — a chip, or the AI "Discuss" conversation. */
-  via?: "chip" | "discuss"
+  /** How the decision was reached — a chip, the AI "Discuss" conversation, or
+   *  the Settings climate answer's winterizing offer (HH-166). */
+  via?: "chip" | "discuss" | "climate"
   /** True when the user overrode a hazard-task safety warning; logged, never silent. */
   hazardOverride?: boolean
 }
@@ -357,6 +360,92 @@ export async function deleteHouseRule(homeId: string, ruleId: string): Promise<S
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to delete rule" } }
   }
+}
+
+// ── Climate sweep (HH-166) ───────────────────────────────────────────────────
+
+/** A live winterizing task, as the Settings climate offer lists it. */
+export interface WinterizingTask {
+  taskTemplateId: string
+  title: string
+  /** The item's name, "Home" for a home-wide task, null when the item is gone. */
+  where: string | null
+  /** Human cadence ("Seasonal", "When needed" for cold-storage winterizing). */
+  cadence: string
+}
+
+/**
+ * The home's live winterizing tasks — the freeze_prep family, by the SAME
+ * matcher the feedback sweep and the parse-time climate suppression use.
+ *
+ * HH-166: the climate answer only ever filtered manuals scanned after it, so a
+ * home set to mild kept every winterizing task it already had. Settings lists
+ * these after a Mild/Hot save and offers to turn them off; nothing is turned
+ * off without the owner ticking it.
+ */
+export async function getWinterizingTasks(homeId: string): Promise<ServiceResult<WinterizingTask[]>> {
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/taskTemplates`))
+    const found = snap.docs.filter((d) => {
+      const x = d.data()
+      return x.isActive !== false && x.deletedAt == null && seasonalFamily(String(x.title ?? "")) === "freeze_prep"
+    })
+    const itemIds = [...new Set(found.map((d) => d.get("itemUnitId")).filter((v): v is string => typeof v === "string" && v !== ""))]
+    const names = new Map<string, string | null>()
+    await Promise.all(itemIds.map(async (id) => {
+      const item = await getDoc(doc(db, `homes/${homeId}/items/${id}`))
+      const name = item.exists() ? item.get("displayName") : null
+      names.set(id, typeof name === "string" && name ? name : null)
+    }))
+    const tasks = found.map((d) => {
+      const x = d.data()
+      const title = String(x.title ?? "")
+      const sched = (x.schedule ?? {}) as { scheduleType?: unknown; intervalDays?: unknown }
+      const scheduleType = typeof sched.scheduleType === "string" ? sched.scheduleType : "as_needed"
+      const intervalDays = typeof sched.intervalDays === "number" ? sched.intervalDays : null
+      // Cold-storage winterizing reads as the as-needed job it is, not "Seasonal".
+      const effective = asNeededIfColdStorage({ title, schedule_type: scheduleType, interval_days: intervalDays })
+      const itemUnitId = typeof x.itemUnitId === "string" ? x.itemUnitId : null
+      return {
+        taskTemplateId: d.id,
+        title,
+        where: itemUnitId ? (names.get(itemUnitId) ?? null) : x.scopeType === "home" ? "Home" : null,
+        cadence: cadenceLabel(effective.schedule_type, effective.interval_days),
+      }
+    })
+    tasks.sort((a, b) => (a.where ?? "").localeCompare(b.where ?? "") || a.title.localeCompare(b.title))
+    return { data: tasks, error: null }
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Couldn't look for winterizing tasks" } }
+  }
+}
+
+/**
+ * Turns off the winterizing tasks the owner ticked — through submitTaskFeedback,
+ * exactly as the feedback sheet's "Not relevant" sweep on a winterizing task
+ * does: each template is archived (deactivated; open instances soft-deleted;
+ * nothing hard-deleted, completion history kept), a ledger entry is written,
+ * and the visible "Hide winterizing / freeze-protection tasks" house rule is
+ * recorded. One mechanism, so both doors reach the same result.
+ */
+export async function turnOffWinterizingTasks(
+  homeId: string,
+  uid: string,
+  tasks: { taskTemplateId: string; title: string }[],
+): Promise<ServiceResult<SubmitFeedbackResult>> {
+  const [primary, ...rest] = tasks
+  if (!primary) return { data: null, error: { message: "Pick at least one task to turn off." } }
+  return submitTaskFeedback({
+    homeId,
+    uid,
+    primary: { taskTemplateId: primary.taskTemplateId, taskInstanceId: null, title: primary.title },
+    chip: "not_relevant",
+    resolution: { action: "suppress" },
+    note: null,
+    sweepTemplateIds: rest.map((t) => t.taskTemplateId),
+    match: { by: "seasonalFamily", family: "freeze_prep" },
+    via: "climate",
+  })
 }
 
 // ── Discuss (Phase C — AI) ───────────────────────────────────────────────────

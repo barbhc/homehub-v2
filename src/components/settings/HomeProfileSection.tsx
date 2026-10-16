@@ -23,6 +23,8 @@ import {
   type Climate,
   type TopConcernKey,
 } from "@/modules/home"
+import { useAuth } from "@/modules/auth"
+import { getWinterizingTasks, turnOffWinterizingTasks, type WinterizingTask } from "@/modules/care"
 
 type Props = {
   homeId: string
@@ -74,7 +76,16 @@ const MODES: { value: PreferredMode; label: string; hint: string }[] = [
   { value: "unset", label: "Balanced (default)", hint: "Show everything" },
 ]
 
+/**
+ * HH-166: the offer that follows a Mild/Hot save. The climate answer only ever
+ * filtered manuals scanned AFTER it, so the owner — set to mild — still had a
+ * "Winterize the washer" task. Now the save lists the winterizing tasks the
+ * home already has, all ticked, and turns off only what she confirms.
+ */
+type WinterizingOffer = { tasks: WinterizingTask[]; checked: Set<string> }
+
 export function HomeProfileSection({ homeId }: Props) {
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -89,6 +100,13 @@ export function HomeProfileSection({ homeId }: Props) {
   const [completedAt, setCompletedAt] = useState<string | null>(null)
   // Tracks the last known updated_at so saves use a CAS guard.
   const [knownUpdatedAt, setKnownUpdatedAt] = useState<string | undefined>(undefined)
+
+  const [offer, setOffer] = useState<WinterizingOffer | null>(null)
+  const [offerBusy, setOfferBusy] = useState(false)
+  const [offerError, setOfferError] = useState<string | null>(null)
+  const [offerDone, setOfferDone] = useState<string | null>(null)
+  /** "Keep them" holds for the rest of the visit — a later Save doesn't re-ask. */
+  const [offerDeclined, setOfferDeclined] = useState(false)
 
   const applyProfile = (p: HomeProfile | null) => {
     setHomeType(p?.home_type ?? "")
@@ -106,6 +124,10 @@ export function HomeProfileSection({ homeId }: Props) {
   if (useDepsChanged([homeId])) {
     setLoading(true)
     setError(null)
+    setOffer(null)
+    setOfferError(null)
+    setOfferDone(null)
+    setOfferDeclined(false)
   }
   useEffect(() => {
     let cancelled = false
@@ -133,14 +155,19 @@ export function HomeProfileSection({ homeId }: Props) {
   const handleSave = async () => {
     setSaving(true)
     setError(null)
+    setOffer(null)
+    setOfferError(null)
+    setOfferDone(null)
+    const wantClimate = climate || null
+    const wantFreezeRisk = freezeRiskFor(climate)
     const result = await upsertHomeProfile(
       homeId,
       {
         home_type: homeType || null,
         ownership: ownership || null,
         ownership_duration: duration || null,
-        climate: climate || null,
-        freeze_risk: freezeRiskFor(climate),
+        climate: wantClimate,
+        freeze_risk: wantFreezeRisk,
         top_concerns: concerns,
         preferred_mode: mode,
         // Promote to "completed" once user fills in the basics from Settings.
@@ -154,9 +181,58 @@ export function HomeProfileSection({ homeId }: Props) {
       setError(result.error.message)
       return
     }
+    // HH-166: the owner's home showed "Usually autumn" — the phrase for a home
+    // with NO climate — after she had answered mild. Whatever lost it, a save
+    // is only "Saved" if the home doc we read back carries what we wrote.
+    if (result.data.climate !== wantClimate || result.data.freeze_risk !== wantFreezeRisk) {
+      setError("Your climate didn't save. Try again.")
+      return
+    }
     applyProfile(result.data)
     setSavedAt(Date.now())
     setTimeout(() => setSavedAt((ts) => (ts && Date.now() - ts >= 2400 ? null : ts)), 2500)
+    if (wantFreezeRisk === false && !offerDeclined) await offerWinterizingSweep()
+  }
+
+  const offerWinterizingSweep = async () => {
+    const res = await getWinterizingTasks(homeId)
+    if (res.error) {
+      setOfferError(`Couldn't check for winterizing tasks: ${res.error.message}`)
+      return
+    }
+    if (res.data.length === 0) return
+    setOffer({ tasks: res.data, checked: new Set(res.data.map((t) => t.taskTemplateId)) })
+  }
+
+  const toggleOffered = (id: string) =>
+    setOffer((o) => {
+      if (!o) return o
+      const checked = new Set(o.checked)
+      if (checked.has(id)) checked.delete(id)
+      else checked.add(id)
+      return { ...o, checked }
+    })
+
+  const handleTurnOff = async () => {
+    if (!offer || !user) return
+    const picked = offer.tasks.filter((t) => offer.checked.has(t.taskTemplateId))
+    setOfferBusy(true)
+    setOfferError(null)
+    const res = await turnOffWinterizingTasks(homeId, user.id, picked)
+    setOfferBusy(false)
+    if (res.error) {
+      // The card stays, with the owner's ticks, so a retry is one tap.
+      setOfferError(`Couldn't turn them off: ${res.error.message}`)
+      return
+    }
+    setOffer(null)
+    setOfferDone(`Turned off ${res.data.affected} winterizing task${res.data.affected === 1 ? "" : "s"}.`)
+  }
+
+  const handleKeep = () => {
+    setOffer(null)
+    setOfferError(null)
+    setOfferDeclined(true)
   }
 
   return (
@@ -336,6 +412,67 @@ export function HomeProfileSection({ homeId }: Props) {
                 </span>
               )}
             </div>
+
+            {/* HH-166: offered after a Mild/Hot save; nothing changes until she confirms. */}
+            {offer && (
+              <div
+                data-testid="winterizing-offer"
+                className="space-y-3 rounded-lg border border-border bg-muted/40 p-3.5"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    You have {offer.tasks.length} winterizing task{offer.tasks.length === 1 ? "" : "s"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Homes that rarely freeze don't need them. Turn off the ones you don't want; nothing is deleted.
+                  </p>
+                </div>
+                <ul className="space-y-1">
+                  {offer.tasks.map((t) => (
+                    <li key={t.taskTemplateId}>
+                      <label className="flex min-h-11 cursor-pointer items-start gap-2.5 py-1 md:min-h-8">
+                        <input
+                          type="checkbox"
+                          checked={offer.checked.has(t.taskTemplateId)}
+                          onChange={() => toggleOffered(t.taskTemplateId)}
+                          disabled={offerBusy}
+                          className="mt-0.5 size-4 shrink-0 accent-primary"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-foreground">{t.title}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {[t.where, t.cadence].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                {offerError && <p className="text-sm text-destructive">{offerError}</p>}
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={handleTurnOff} disabled={offerBusy || offer.checked.size === 0}>
+                    {offerBusy ? (
+                      <>
+                        <Loader2Icon className="size-4 animate-spin mr-2" />
+                        Turning off…
+                      </>
+                    ) : (
+                      `Turn off ${offer.checked.size}`
+                    )}
+                  </Button>
+                  <Button variant="outline" onClick={handleKeep} disabled={offerBusy}>
+                    Keep them
+                  </Button>
+                </div>
+              </div>
+            )}
+            {!offer && offerError && <p className="text-sm text-destructive">{offerError}</p>}
+            {offerDone && (
+              <p className="flex items-center gap-1.5 text-sm text-emerald-700">
+                <CheckCircle2Icon className="size-4 shrink-0" />
+                {offerDone}
+              </p>
+            )}
           </>
         )}
       </CardContent>
