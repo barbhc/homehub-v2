@@ -168,7 +168,7 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
 
       {/* registration_required → Register CTA */}
       {showRegister && (
-        <button onClick={handleRegister} disabled={registering} className="mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60" style={{ background: TEAL }}>
+        <button onClick={handleRegister} disabled={registering} className="mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60" style={{ background: "var(--hh-teal-fill)" }}>
           <BadgeCheckIcon className="size-[15px]" /> Register to activate coverage
         </button>
       )}

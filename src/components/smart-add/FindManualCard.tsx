@@ -279,7 +279,7 @@ export function FindManualCard({
                           disabled={disabled}
                           onClick={() => onPick(c.url, c.title)}
                           className="rounded-md px-2.5 py-1 text-[11.5px] font-bold text-white"
-                          style={{ background: "var(--hh-teal)" }}
+                          style={{ background: "var(--hh-teal-fill)" }}
                         >
                           Use this
                         </button>

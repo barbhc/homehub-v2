@@ -204,7 +204,7 @@ export function TaskEditSheet({
               onClick={() => void save()}
               disabled={!dirty || saving}
               className="flex-1 rounded-xl py-3 text-[15px] font-bold text-white disabled:opacity-40"
-              style={{ background: "var(--hh-teal)" }}
+              style={{ background: "var(--hh-teal-fill)" }}
             >
               {saving ? "Saving…" : "Save changes"}
             </button>

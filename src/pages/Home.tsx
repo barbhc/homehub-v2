@@ -58,7 +58,7 @@ function NoUpkeepYetHero() {
         <Link
           to="/inventory"
           className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold text-white"
-          style={{ background: "var(--hh-teal)" }}
+          style={{ background: "var(--hh-teal-fill)" }}
         >
           Pick an item &rarr;
         </Link>
@@ -97,7 +97,7 @@ function EmptyHomeHero() {
         </p>
         <Link
           to="/inventory/add"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold text-base hover:bg-primary/90 transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[var(--hh-teal-fill)] text-primary-foreground font-semibold text-base hover:bg-[var(--hh-teal-fill)]/90 transition-colors shadow-sm"
         >
           <PlusIcon className="size-5" />
           Add your first item

@@ -23,6 +23,10 @@ import { SNOOZE_DAYS } from "../../../../shared/tasks/snooze"
 export const CLAY = "var(--hh-clay)"
 export const TEAL = "var(--hh-teal)"
 export const SLATE = "var(--hh-slate)"
+/** Selected calendar day, dark only: an inset bright-teal ring, because the
+ *  --hh-teal-fill day is under 3:1 against today's --hh-teal-wash beside it. */
+export const SELECTED_DAY_RING =
+  "dark:outline-solid dark:outline-[1.5px] dark:outline-[color:var(--hh-teal)] dark:-outline-offset-[1.5px]"
 
 const TIER_RANK: Record<string, number> = { essential: 0, recommended: 1, optional: 2 }
 

@@ -150,7 +150,7 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
           </span>
           <span
             className="flex size-[22px] shrink-0 items-center justify-center rounded-full"
-            style={open ? { background: TEAL, color: "#fff" } : { background: "var(--hh-surface2)", color: SUB }}
+            style={open ? { background: "var(--hh-teal-fill)", color: "#fff" } : { background: "var(--hh-surface2)", color: SUB }}
             aria-hidden
           >
             {open ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}
@@ -222,7 +222,7 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
           onClick={onComplete}
           disabled={completing}
           className="shrink-0 whitespace-nowrap rounded-[11px] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
-          style={{ background: TEAL }}
+          style={{ background: "var(--hh-teal-fill)" }}
         >
           Mark done
         </button>

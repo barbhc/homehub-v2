@@ -143,7 +143,7 @@ export function PushOptInNudge({ userId, homeId }: { userId: string; homeId: str
               type="button"
               onClick={handleEnable}
               disabled={state === "subscribing"}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors min-h-11 disabled:opacity-70"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--hh-teal-fill)] px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-[var(--hh-teal-fill)]/90 transition-colors min-h-11 disabled:opacity-70"
             >
               {state === "subscribing" ? (
                 <>

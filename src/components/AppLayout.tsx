@@ -61,7 +61,7 @@ export function AppLayout() {
         <nav className="mx-auto flex h-[60px] max-w-6xl items-center gap-6 px-6">
           {/* Brand mark */}
           <Link to="/home" className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-[10px]" style={{ background: "var(--hh-teal)" }}>
+            <span className="flex size-8 items-center justify-center rounded-[10px]" style={{ background: "var(--hh-teal-fill)" }}>
               <HomeIcon className="size-[18px] text-white" strokeWidth={2.4} />
             </span>
             <span className="text-[18px] font-extrabold tracking-[-0.5px]" style={{ color: "var(--hh-ink)" }}>Homehub</span>
@@ -119,7 +119,7 @@ export function AppLayout() {
             >
               <SearchIcon className="size-[18px]" />
             </Link>
-            <Button asChild size="sm" className="gap-1.5 rounded-full" style={{ background: "var(--hh-teal)" }}>
+            <Button asChild size="sm" className="gap-1.5 rounded-full" style={{ background: "var(--hh-teal-fill)" }}>
               <Link to="/inventory/add"><PlusIcon className="size-4" /> Add item</Link>
             </Button>
             {/* Feedback — one tap from any screen, not buried in Settings.
@@ -161,7 +161,7 @@ export function AppLayout() {
             <Link
               to="/settings"
               className="flex size-8 items-center justify-center rounded-full text-[13px] font-bold text-white transition-opacity hover:opacity-90"
-              style={{ background: "var(--hh-teal)" }}
+              style={{ background: "var(--hh-teal-fill)" }}
               aria-label="Account"
               title="Account"
             >

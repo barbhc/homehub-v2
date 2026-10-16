@@ -101,11 +101,13 @@ describe("one screen, four sections", () => {
 
   it("keeps exactly one filled primary — the footer's", () => {
     renderStepOne()
+    // Filled teal is --hh-teal-fill (dark-mode contrast); bg-primary is kept in
+    // the pattern so a regression to the old fill still counts as filled.
     const filled = Array.from(document.querySelectorAll("button")).filter((b) =>
-      /(^|\s)bg-primary(\s|$)/.test(b.className))
+      /(^|\s)bg-(primary|\[var\(--hh-teal-fill\)\])(\s|$)/.test(b.className))
     expect(filled.length, filled.map((b) => b.textContent).join(" | ")).toBe(1)
     expect(screen.getByRole("button", { name: /Go through them one by one/ }).className)
-      .not.toMatch(/bg-primary/)
+      .not.toMatch(/bg-primary|hh-teal-fill/)
   })
 })
 

@@ -139,7 +139,7 @@ export function TaskReviewFeedback({
             <button
               type="button"
               onClick={() => send(false)}
-              className="flex-[2] rounded-xl bg-primary py-2.5 text-[12.5px] font-bold text-primary-foreground"
+              className="flex-[2] rounded-xl bg-[var(--hh-teal-fill)] py-2.5 text-[12.5px] font-bold text-primary-foreground"
             >
               Send feedback
             </button>

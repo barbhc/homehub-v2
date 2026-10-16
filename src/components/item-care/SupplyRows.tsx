@@ -331,7 +331,7 @@ function Switch({ checked, label, onChange }: { checked: boolean; label: string;
       className="relative h-6 w-10 shrink-0 rounded-full transition-colors"
       // Off track dark enough to see: 3.4:1 on the footer (WCAG 1.4.11 wants 3:1);
       // the pale #C9D3CF it replaced was 1.4:1, and the white knob vanished on it.
-      style={{ background: checked ? TEAL : "#7D8984" }}
+      style={{ background: checked ? "var(--hh-teal-fill)" : "#7D8984" }}
     >
       {/* The knob slides by transform, not `left` — same 3px → 19px travel,
           composited instead of re-laid-out every frame (audit 2026-10-15). */}
@@ -378,7 +378,7 @@ function PlaceEditor({ partName, initial, places, onCancel, onSave }: {
           className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none placeholder:text-[var(--hh-faint)]"
           style={{ color: INK }}
         />
-        <button type="button" onClick={() => void save()} disabled={saving} className="shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-60" style={{ background: TEAL }}>
+        <button type="button" onClick={() => void save()} disabled={saving} className="shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-60" style={{ background: "var(--hh-teal-fill)" }}>
           {saving ? <Loader2Icon className="size-3.5 animate-spin" aria-label="Saving" /> : "Save"}
         </button>
       </div>
@@ -446,7 +446,7 @@ function PartForm({ mode, partName, initial, onCancel, onSubmit }: {
           onClick={() => void submit()}
           disabled={saving || (mode === "add" && !v.name.trim())}
           className="rounded-full px-4 py-[7px] text-[13px] font-bold text-white disabled:opacity-50"
-          style={{ background: TEAL }}
+          style={{ background: "var(--hh-teal-fill)" }}
         >
           {saving ? <Loader2Icon className="size-3.5 animate-spin" aria-label="Saving" /> : mode === "add" ? "Save part" : "Save"}
         </button>

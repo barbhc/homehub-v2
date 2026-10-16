@@ -478,7 +478,7 @@ export function RefinedTaskDetail({
             </div>
           ) : (
             <div className="rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
-              <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-bold text-white" style={{ background: TEAL }}>
+              <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
                 <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
               </button>
               {doneErrorNote && <div className="mt-2">{doneErrorNote}</div>}
@@ -514,7 +514,7 @@ export function RefinedTaskDetail({
       {!done && (
         <div className="hh-frost absolute inset-x-0 bottom-0 border-t border-[var(--hh-line)] px-5 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden" style={{ paddingInline: d.pad, background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
           {doneErrorNote && <div className="mb-2">{doneErrorNote}</div>}
-          <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>
+          <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
             <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
           </button>
         </div>
@@ -657,7 +657,7 @@ function ConfirmDoneSheet({
             (non-negotiable #3). Reversible-by-not-yet-written beats
             undo-by-deletion. */}
         <div className="mb-1 flex items-center gap-2.5">
-          <span className="flex size-[30px] items-center justify-center rounded-full" style={{ background: TEAL }}><CheckIcon className="size-[17px] text-white" strokeWidth={3} /></span>
+          <span className="flex size-[30px] items-center justify-center rounded-full" style={{ background: "var(--hh-teal-fill)" }}><CheckIcon className="size-[17px] text-white" strokeWidth={3} /></span>
           <div className="text-[22px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Nice work</div>
         </div>
         <div className="mb-4 text-[13.5px]" style={{ color: SUB }}>
@@ -697,7 +697,7 @@ function ConfirmDoneSheet({
             )}
           </>
         )}
-        <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="w-full rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: TEAL }}>Confirm</button>
+        <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="w-full rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Confirm</button>
       </div>
     </RemoveScroll>
   )

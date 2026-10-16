@@ -69,7 +69,7 @@ export function ItemsPhoneHeader({ density = "cozy" }: { density?: "spacious" | 
         to="/inventory/add"
         aria-label="Add item"
         className="flex items-center justify-center rounded-full"
-        style={{ width: d.tap + 6, height: d.tap + 6, background: TEAL }}
+        style={{ width: d.tap + 6, height: d.tap + 6, background: "var(--hh-teal-fill)" }}
       >
         <PlusIcon className="size-5 text-white" strokeWidth={2.6} />
       </Link>

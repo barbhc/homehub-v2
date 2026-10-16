@@ -419,7 +419,7 @@ function AskForHome() {
           type="button"
           onClick={startNewQuestion}
           disabled={isStreaming}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-[14px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-[var(--hh-teal-fill)] px-4 py-2.5 text-[14px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           <PlusIcon className="size-[18px]" />
           New question
@@ -682,7 +682,7 @@ function AskForHome() {
         }}
       />
       {savedNotice && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-[var(--hh-teal-fill)] px-4 py-2 text-sm font-semibold text-white shadow-lg">
           Answer saved
         </div>
       )}
