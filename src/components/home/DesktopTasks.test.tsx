@@ -351,4 +351,18 @@ describe("Tasks groups: Essentials first, and no row repeats its group's name (H
     }
     expect(screen.getAllByText("Good to do now").length).toBeGreaterThanOrEqual(2)
   })
+
+  it("under the Item lens a row does not repeat its item's name (phone and desktop)", async () => {
+    agenda([task("ti-now", "Replace the furnace filter", { itemName: "Furnace", duePhrase: "Been a while", windowState: "lapsed" })])
+    renderWith(<><RefinedWeek homeId="h1" /><DesktopTasks homeId="h1" /></>)
+    await screen.findAllByText("Replace the furnace filter")
+    for (const b of screen.getAllByRole("button", { name: /^item$/i })) fireEvent.click(b)
+    for (const tree of ["phone-task-row", "desktop-task-row"]) {
+      const row = rowsIn(tree).find((r) => r.textContent?.includes("Replace the furnace filter"))!
+      // The group header says "Furnace"; the row no longer does (not rendered in the row).
+      expect(row.textContent, tree).not.toMatch(/Furnace/)
+      expect(row.textContent, tree).toMatch(/Been a while/)
+    }
+    expect(screen.getAllByText("Furnace").length).toBeGreaterThanOrEqual(2)
+  })
 })

@@ -183,6 +183,28 @@ describe("groupTasks — Essentials first inside every group (HH-165)", () => {
     expect(groupTasks(rows, "room")[0].items.map((t) => t.taskInstanceId)).toEqual(ORDER)
     expect(groupTasks(rows, "item")[0].items.map((t) => t.taskInstanceId)).toEqual(ORDER)
   })
+
+  // A PASSED deadline outranks tier: "Start here — 1 deadline has passed"
+  // points at it, so a future Essential deadline cannot bury it.
+  const deadline = (id: string, tier: string, dueDate: string, trulyOverdue: boolean) =>
+    task({ taskInstanceId: id, priorityTier: tier, dueDate, dueKind: "deadline", trulyOverdue, isOverdue: trulyOverdue, roomName: "Kitchen", itemName: "Range" } as Partial<WeekAgendaItem>)
+  const deadlines = [
+    deadline("ess-future", "essential", "2026-12-01", false),
+    deadline("opt-passed", "optional", "2026-06-01", true),
+    deadline("ess-passed", "essential", "2026-06-05", true),
+    deadline("rec-future", "recommended", "2026-11-01", false),
+  ]
+  const DEADLINE_ORDER = ["ess-passed", "opt-passed", "ess-future", "rec-future"]
+
+  it("in Deadlines, a passed deadline (any tier) leads a future Essential one; then tier, then date", () => {
+    const group = groupTasks(deadlines, "urgency").find((g) => g.label === "Deadlines")!
+    expect(group.items.map((t) => t.taskInstanceId)).toEqual(DEADLINE_ORDER)
+  })
+
+  it("passed deadlines lead in the Room and Item lenses too", () => {
+    expect(groupTasks(deadlines, "room")[0].items.map((t) => t.taskInstanceId)).toEqual(DEADLINE_ORDER)
+    expect(groupTasks(deadlines, "item")[0].items.map((t) => t.taskInstanceId)).toEqual(DEADLINE_ORDER)
+  })
 })
 
 describe("phraseUnderGroup — a row never repeats its group's name (HH-165)", () => {
@@ -192,6 +214,9 @@ describe("phraseUnderGroup — a row never repeats its group's name (HH-165)", (
   it("keeps a phrase that says something the header doesn't", () => {
     expect(phraseUnderGroup("In Nov", "Coming up")).toBe("In Nov")
     expect(phraseUnderGroup("Been a while", "Good to do now")).toBe("Been a while")
+  })
+  it("a safety note is never dropped — it is not the group's name", () => {
+    expect(phraseUnderGroup("Check · skipped July", "Good to do now")).toBe("Check · skipped July")
   })
   it("outside a group (the calendar's day list) the phrase stays", () => {
     expect(phraseUnderGroup("Good to do now")).toBe("Good to do now")

@@ -541,11 +541,16 @@ export function itemOf(t: WeekAgendaItem): string {
  * sat near the top of "Good to do now" because it was older, which read as
  * "this matters most". The group already says WHEN; the order says WHAT
  * MATTERS. Every lens (urgency, room, item) and both trees use this one sort.
+ *
+ * One thing outranks tier: a deadline that has PASSED (`trulyOverdue`) leads,
+ * whatever its tier — the "Start here — a deadline has passed" banner points
+ * at it, so it cannot sit under a future Essential.
  */
 function sortRows(rows: WeekAgendaItem[]): WeekAgendaItem[] {
   const today = localToday()
   return [...rows].sort(
     (a, b) =>
+      Number(Boolean(b.trulyOverdue)) - Number(Boolean(a.trulyOverdue)) ||
       (TIER_RANK[a.priorityTier] ?? 2) - (TIER_RANK[b.priorityTier] ?? 2) ||
       diffDays(today, a.dueDate) - diffDays(today, b.dueDate)
   )

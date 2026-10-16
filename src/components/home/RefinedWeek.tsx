@@ -234,12 +234,13 @@ function TaskRow({
 }
 
 function itemMeta(t: WeekAgendaItem, groupLabel?: string): string {
-  const where = t.itemName ?? t.roomName ?? "Home"
+  // Neither half repeats the group's header (HH-165): no "Furnace" under the
+  // Furnace group, no "Good to do now" under Good to do now.
+  const where = phraseUnderGroup(t.itemName ?? t.roomName ?? "Home", groupLabel)
   // Safety work states the skipped cycle instead of a window phrase — firm
   // without a date, and without red (owner-approved, design/due-windows.md).
-  // A phrase that only repeats the group's header is dropped (HH-165).
   const when = phraseUnderGroup(t.safetyNote ?? t.duePhrase, groupLabel)
-  return when ? `${where} · ${when}` : where
+  return [where, when].filter(Boolean).join(" · ")
 }
 
 // ── Segmented controls ────────────────────────────────────────────────────────

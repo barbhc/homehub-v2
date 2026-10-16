@@ -109,7 +109,8 @@ function DkRow({
   onOpenGuide: () => void
 }) {
   const tier = (t.priorityTier as Tier) ?? "optional"
-  const where = t.itemName ?? t.roomName ?? "Home"
+  // Not repeated under its own header — the Item and Room lenses group by it (HH-165).
+  const where = phraseUnderGroup(t.itemName ?? t.roomName ?? "Home", groupLabel) ?? ""
   return (
     <div data-testid="desktop-task-row" style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}>
       <div onClick={onToggle} className="flex cursor-pointer items-center gap-4 px-5 py-[15px]">
