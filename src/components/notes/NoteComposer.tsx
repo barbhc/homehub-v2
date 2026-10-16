@@ -121,7 +121,7 @@ export function NoteComposer({
               onClick={() => void run("save", () => onSave(text.trim()))}
               disabled={blank || busy !== null}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3.5 text-[16px] font-bold text-white disabled:opacity-50"
-              style={{ background: TEAL }}
+              style={{ background: "var(--hh-teal-fill)" }}
             >
               {busy === "save" && <Loader2Icon className="size-4 animate-spin" aria-hidden />}
               {note ? "Save" : "Save note"}

@@ -44,8 +44,8 @@ export function StepList({ steps, label = "Steps" }: { steps: string[]; label?: 
                 <span
                   className="mt-px flex size-[22px] shrink-0 items-center justify-center rounded-full transition-colors"
                   style={{
-                    border: `2px solid ${on ? TEAL : "var(--hh-line2)"}`,
-                    background: on ? TEAL : "transparent",
+                    border: `2px solid ${on ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`,
+                    background: on ? "var(--hh-teal-fill)" : "transparent",
                   }}
                 >
                   <CheckIcon

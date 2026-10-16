@@ -257,7 +257,7 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
         <button
           type="submit" disabled={loading}
           className="w-full rounded-[14px] py-[15px] text-[15px] font-bold text-white transition-opacity disabled:opacity-70"
-          style={{ background: TEAL }}
+          style={{ background: "var(--hh-teal-fill)" }}
         >
           {ctaLabel}
         </button>

@@ -283,7 +283,7 @@ function CategoryQuestions({ homeId, category, facts, onSave, onDone }: {
         ))}
       </div>
       {error && <div role="alert" className="mt-3 text-[13px] font-medium" style={{ color: CLAY }}>Couldn&apos;t save: {error}</div>}
-      <button type="button" onClick={() => void save()} disabled={saving} className="mt-4 min-h-11 w-full rounded-2xl text-[15px] font-bold text-white" style={{ background: TEAL, opacity: saving ? 0.7 : 1 }}>
+      <button type="button" onClick={() => void save()} disabled={saving} className="mt-4 min-h-11 w-full rounded-2xl text-[15px] font-bold text-white" style={{ background: "var(--hh-teal-fill)", opacity: saving ? 0.7 : 1 }}>
         {saving ? "Saving…" : "Save answers"}
       </button>
     </div>
@@ -351,7 +351,7 @@ function CustomTask({ homeId, onAdded }: { homeId: string | null; onAdded: () =>
         <select value={cadence} onChange={(e) => setCadence(e.target.value as ScheduleType)} aria-label="How often" className="min-h-11 rounded-2xl px-3 text-[14px]" style={{ background: SURFACE, border: `1px solid ${LINE}`, color: INK }}>
           {CADENCES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
-        <button type="submit" disabled={busy || !title.trim()} className="min-h-11 rounded-2xl px-5 text-[14px] font-bold text-white" style={{ background: TEAL, opacity: busy || !title.trim() ? 0.6 : 1 }}>{busy ? "Adding…" : "Add"}</button>
+        <button type="submit" disabled={busy || !title.trim()} className="min-h-11 rounded-2xl px-5 text-[14px] font-bold text-white" style={{ background: "var(--hh-teal-fill)", opacity: busy || !title.trim() ? 0.6 : 1 }}>{busy ? "Adding…" : "Add"}</button>
       </form>
       {error && <div role="alert" className="mt-2 text-[13px] font-medium" style={{ color: CLAY }}>Couldn&apos;t add: {error}</div>}
       {added && <div role="status" className="mt-2 text-[13px]" style={{ color: SUB }}>Added <b style={{ color: INK }}>{added}</b> to your Tasks.</div>}

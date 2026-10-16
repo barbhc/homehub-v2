@@ -664,7 +664,7 @@ export function TaskReviewSheet({
           <button type="button" onClick={() => { patch(r.id, { included: false }); if (opts?.guided) guideNext(); else setExpandedId(null) }}
             className="flex-1 rounded-xl border border-border py-2.5 text-[12.5px] font-bold text-muted-foreground">Skip ✕</button>
           <button type="button" onClick={() => { patch(r.id, { included: true }); if (opts?.guided) guideNext(); else setExpandedId(null) }}
-            className="flex-[2] rounded-xl bg-primary py-2.5 text-[12.5px] font-bold text-primary-foreground">
+            className="flex-[2] rounded-xl bg-[var(--hh-teal-fill)] py-2.5 text-[12.5px] font-bold text-primary-foreground">
             {opts?.guided ? "Keep →" : "Done"}
           </button>
         </div>
@@ -1122,7 +1122,7 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
         aria-pressed={open}
         onClick={() => patch(row.id, { lastDoneOn: open ? null : today })}
         className={`rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${
-          open ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}
+          open ? "border-[var(--hh-teal-fill)] bg-[var(--hh-teal-fill)] text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}
       >
         {open ? "✓ " : ""}I&rsquo;ve been doing this already
       </button>

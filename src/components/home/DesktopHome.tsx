@@ -88,7 +88,7 @@ export function DesktopHome({
             <div className="text-[12.5px] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>{fullToday()}</div>
             <h1 className="mt-1 whitespace-nowrap text-[28px] font-extrabold leading-[1.15] tracking-[-0.7px]" style={{ color: INK }}>{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
           </div>
-          <Link to="/chat" className="inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-bold text-white" style={{ background: TEAL }}>
+          <Link to="/chat" className="inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
             <SparklesIcon className="size-[17px]" /> Ask Homehub
           </Link>
         </div>

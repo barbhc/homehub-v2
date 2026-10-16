@@ -265,7 +265,7 @@ export function TaskFeedbackSheet({
         {result ? (
           <div className="pb-2">
             <div className="mb-1 flex items-center gap-2.5">
-              <span className="flex size-[30px] items-center justify-center rounded-full" style={{ background: TEAL }}>
+              <span className="flex size-[30px] items-center justify-center rounded-full" style={{ background: "var(--hh-teal-fill)" }}>
                 <CheckIcon className="size-[17px] text-white" strokeWidth={3} />
               </span>
               <div className="text-[22px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Thanks — done</div>
@@ -274,7 +274,7 @@ export function TaskFeedbackSheet({
               Updated {result.affected} task{result.affected === 1 ? "" : "s"}.
               {result.ruleId ? " Saved as a house rule you can review in Settings." : ""}
             </p>
-            <button onClick={() => onApplied(result)} className="w-full rounded-[14px] py-3.5 text-[15px] font-bold text-white" style={{ background: TEAL }}>Done</button>
+            <button onClick={() => onApplied(result)} className="w-full rounded-[14px] py-3.5 text-[15px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Done</button>
           </div>
         ) : step === "choose" ? (
           /* ── STEP 1: pick a reason ── */
@@ -370,7 +370,7 @@ export function TaskFeedbackSheet({
               disabled={!resolution}
               onClick={proceed}
               className="mt-5 w-full rounded-[14px] py-3.5 text-[15px] font-bold text-white disabled:opacity-40"
-              style={{ background: TEAL }}
+              style={{ background: "var(--hh-teal-fill)" }}
             >
               Continue
             </button>
@@ -393,7 +393,7 @@ export function TaskFeedbackSheet({
                   <div
                     className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-snug"
                     style={m.role === "user"
-                      ? { background: TEAL, color: "white" }
+                      ? { background: "var(--hh-teal-fill)", color: "white" }
                       : { background: "var(--hh-surface2)", color: INK }}
                   >
                     {m.content}
@@ -411,7 +411,7 @@ export function TaskFeedbackSheet({
                     <SparklesIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
                     <span className="text-[13px] leading-snug" style={{ color: "var(--hh-ink-soft)" }}>{discussProposal.rationale}</span>
                   </div>
-                  <button onClick={() => acceptProposal(discussProposal)} className="mt-2.5 w-full rounded-[12px] py-2.5 text-[13.5px] font-bold text-white" style={{ background: TEAL }}>
+                  <button onClick={() => acceptProposal(discussProposal)} className="mt-2.5 w-full rounded-[12px] py-2.5 text-[13.5px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
                     Apply this change
                   </button>
                 </div>
@@ -440,7 +440,7 @@ export function TaskFeedbackSheet({
             <button
               onClick={() => { onClose(); navigate("/providers") }}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-bold text-white"
-              style={{ background: TEAL }}
+              style={{ background: "var(--hh-teal-fill)" }}
             >
               <PhoneIcon className="size-[16px]" /> Talk to a pro
             </button>
@@ -478,7 +478,7 @@ export function TaskFeedbackSheet({
                             className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left"
                             style={{ border: on ? "1.5px solid var(--hh-teal)" : "1px solid var(--hh-line2)", background: on ? "var(--hh-teal-wash)" : "var(--hh-surface)" }}
                           >
-                            <span className="flex size-[20px] shrink-0 items-center justify-center rounded-[6px]" style={{ border: on ? "none" : "1.5px solid var(--hh-line2)", background: on ? TEAL : "transparent" }}>
+                            <span className="flex size-[20px] shrink-0 items-center justify-center rounded-[6px]" style={{ border: on ? "none" : "1.5px solid var(--hh-line2)", background: on ? "var(--hh-teal-fill)" : "transparent" }}>
                               {on && <CheckIcon className="size-[13px] text-white" strokeWidth={3} />}
                             </span>
                             <span className="text-[13.5px] font-semibold" style={{ color: INK }}>{s.title}</span>
@@ -500,7 +500,7 @@ export function TaskFeedbackSheet({
                 className="mt-4 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left"
                 style={{ border: freezeFree ? "1.5px solid var(--hh-teal)" : "1px solid var(--hh-line2)", background: freezeFree ? "var(--hh-teal-wash)" : "var(--hh-surface)" }}
               >
-                <span className="flex size-[20px] shrink-0 items-center justify-center rounded-[6px]" style={{ border: freezeFree ? "none" : "1.5px solid var(--hh-line2)", background: freezeFree ? TEAL : "transparent" }}>
+                <span className="flex size-[20px] shrink-0 items-center justify-center rounded-[6px]" style={{ border: freezeFree ? "none" : "1.5px solid var(--hh-line2)", background: freezeFree ? "var(--hh-teal-fill)" : "transparent" }}>
                   {freezeFree && <CheckIcon className="size-[13px] text-white" strokeWidth={3} />}
                 </span>
                 <span className="text-[13px] font-semibold leading-snug" style={{ color: INK }}>My home doesn't freeze — skip winterizing on future scans too</span>
@@ -527,7 +527,7 @@ export function TaskFeedbackSheet({
                 disabled={submitting || loadingCtx}
                 onClick={apply}
                 className="flex-1 rounded-[14px] py-3.5 text-[15px] font-bold text-white disabled:opacity-50"
-                style={{ background: TEAL }}
+                style={{ background: "var(--hh-teal-fill)" }}
               >
                 {submitting ? "Applying…" : `Apply${affectedCount > 1 ? ` to ${affectedCount} tasks` : ""}`}
               </button>

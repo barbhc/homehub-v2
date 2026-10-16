@@ -8,8 +8,13 @@
  * text pairing the 2026-10-15 pass introduced at WCAG AA (4.5:1) in BOTH
  * themes. Translucent tokens are composited onto the surface they sit on, the
  * way the browser paints them.
+ *
+ * Filled teal controls with white on them use --hh-teal-fill (the light-mode
+ * teal, in both themes). The source scan below fails if a new one reaches for
+ * the bright --hh-teal / bg-primary instead — 2.70 / 3.43:1 under white in dark.
  */
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
 const css = readFileSync("src/index.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
@@ -79,7 +84,43 @@ const PAIRS: [string, string, ...string[]][] = [
   ["Settings › Interface selected hint", "--hh-sub", "--hh-teal-wash", "--hh-surface"],
   ["task-detail error text", "--hh-clay", "--hh-surface"],
   ["faint text on surface", "--hh-faint", "--hh-surface"],
+  // Every filled teal control carrying white text or a white glyph (Mark done,
+  // Save, primary buttons, selected pills/days, toggles, checked boxes, Ask).
+  ["white on a filled teal control", "#FFFFFF", "--hh-teal-fill"],
+  ["primary-foreground on a filled teal control", "--t-primary-foreground", "--hh-teal-fill"],
 ]
+
+/** Every .tsx under src/, tests excluded, as [path, lines]. */
+function sources(): [string, string[]][] {
+  return (readdirSync("src", { recursive: true }) as string[])
+    .filter((f) => f.endsWith(".tsx") && !/\.test\.tsx$/.test(f))
+    .map((f) => [join("src", f), readFileSync(join("src", f), "utf8").split("\n")])
+}
+
+const WHITE = /text-white|text-primary-foreground|bg-white|(?:color:\s*|\?\s*)"(?:#fff|#ffffff|white)"/i
+/** A FILL in one of the theme's bright teals (--hh-teal / --t-primary). */
+const BRIGHT_FILL = [
+  /background:\s*[^,}\n]*"var\(--hh-teal\)"/,
+  /linear-gradient\([^)]*var\(--hh-teal\)/,
+  /(?:^|[\s"'`])bg-primary(?=[\s"'`])/,
+  /bg-\[var\(--hh-teal\)\]/,
+]
+/** `background: TEAL` counts only where the file's TEAL is the bright token. */
+const TEAL_FILL = /background:\s*[^,}\n]*\bTEAL\b/
+
+/** file:line of every bright-teal fill with white within its element (±a few lines). */
+function whiteOnBrightTeal(): string[] {
+  const hits: string[] = []
+  for (const [file, lines] of sources()) {
+    const def = lines.join("\n").match(/\bTEAL\s*=\s*"([^"]+)"/)
+    const tealIsBright = !def || def[1].includes("--hh-teal")
+    lines.forEach((line, i) => {
+      const fill = BRIGHT_FILL.some((re) => re.test(line)) || (tealIsBright && TEAL_FILL.test(line))
+      if (fill && lines.slice(Math.max(0, i - 4), i + 10).some((l) => WHITE.test(l))) hits.push(`${file}:${i + 1}`)
+    })
+  }
+  return hits
+}
 
 describe("theme token contrast (WCAG AA, 4.5:1)", () => {
   for (const [name, theme] of [["light", light], ["dark", dark]] as const) {
@@ -97,6 +138,21 @@ describe("theme token contrast (WCAG AA, 4.5:1)", () => {
   it("the old UndoBar colour fails, so this test can tell the difference", () => {
     expect(contrast(light, "--hh-teal-deep", "--hh-ink")).toBeLessThan(4.5)
     expect(contrast(dark, "--hh-teal-deep", "--hh-ink")).toBeLessThan(4.5)
+  })
+
+  it("the teal fill is the light-mode teal, so light mode does not move", () => {
+    expect(light["--hh-teal-fill"]).toBe(light["--hh-teal"])
+    expect(light["--hh-teal-fill"]).toBe(light["--t-primary"])
+    expect(dark["--hh-teal-fill"]).toBe(light["--hh-teal-fill"])
+  })
+
+  it("the dark bright teals fail under white, so this test can tell the difference", () => {
+    expect(contrast(dark, "#FFFFFF", "--hh-teal")).toBeLessThan(4.5)
+    expect(contrast(dark, "#FFFFFF", "--t-primary")).toBeLessThan(4.5)
+  })
+
+  it("no filled control puts white on a bright teal — they use --hh-teal-fill", () => {
+    expect(whiteOnBrightTeal()).toEqual([])
   })
 
   it("the UndoBar draws Undo with the token this file checks", () => {

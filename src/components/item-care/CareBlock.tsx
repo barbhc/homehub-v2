@@ -463,7 +463,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                     onClick={() => void runAction("done")}
                     disabled={actBusy !== null}
                     className="flex w-full items-center justify-center gap-2 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60"
-                    style={{ background: TEAL }}
+                    style={{ background: "var(--hh-teal-fill)" }}
                   >
                     <Check className="size-4" strokeWidth={2.6} />{actBusy === "done" ? "Marking done…" : "Mark done"}
                   </button>
@@ -986,7 +986,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
               type="button"
               onClick={onAddManual}
               className="rounded-xl px-4 py-2.5 text-[13.5px] font-bold text-white"
-              style={{ background: "var(--hh-teal)" }}
+              style={{ background: "var(--hh-teal-fill)" }}
             >
               {/* Says what the button DOES. It opens the add-manual flow —
                   upload or paste a link — and the automatic search is a

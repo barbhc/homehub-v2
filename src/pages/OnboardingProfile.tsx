@@ -84,7 +84,7 @@ function ProfileDone() {
       <div className="flex flex-col items-center gap-3">
         <Link
           to="/inventory/add"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold text-base hover:bg-primary/90 transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[var(--hh-teal-fill)] text-primary-foreground font-semibold text-base hover:bg-[var(--hh-teal-fill)]/90 transition-colors shadow-sm"
         >
           <PlusIcon className="size-5" />
           Add your first item

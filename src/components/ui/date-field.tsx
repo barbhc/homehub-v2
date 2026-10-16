@@ -124,7 +124,7 @@ export function DateField({
                   aria-current={isSelected ? "date" : undefined}
                   className={cn(
                     "rounded-md py-2 text-sm transition-colors",
-                    isSelected && "bg-primary font-semibold text-primary-foreground",
+                    isSelected && "bg-[var(--hh-teal-fill)] font-semibold text-primary-foreground",
                     !isSelected && cell.inMonth && "hover:bg-muted",
                     !isSelected && !cell.inMonth && "text-muted-foreground/45 hover:bg-muted",
                     isFuture && "cursor-not-allowed opacity-35 hover:bg-transparent"

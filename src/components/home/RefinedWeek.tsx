@@ -75,7 +75,7 @@ function ExpandedDetail({
           type="button"
           onClick={onDone}
           className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white"
-          style={{ background: TEAL }}
+          style={{ background: "var(--hh-teal-fill)" }}
         >
           <CheckIcon className="size-4" strokeWidth={2.6} /> Mark done
         </button>
@@ -151,7 +151,7 @@ function TaskRow({
           the expanded card ("View full guide", "Mark done", "Snooze") silently
           did nothing. */}
       <div className="pointer-events-none absolute inset-0 flex">
-        <div className="flex flex-1 items-center pl-5" style={{ background: TEAL, opacity: dx > 4 ? 1 : 0 }}>
+        <div className="flex flex-1 items-center pl-5" style={{ background: "var(--hh-teal-fill)", opacity: dx > 4 ? 1 : 0 }}>
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-white"><CheckIcon className="size-[18px]" strokeWidth={2.6} /> Done</span>
         </div>
         <div className="flex flex-1 items-center justify-end pr-5" style={{ background: "#8A6D1E", opacity: dx < -4 ? 1 : 0 }}>
@@ -267,7 +267,7 @@ function Calendar({
                 onClick={() => setSel(on ? null : c.day)}
                 className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[13.5px]"
                 style={{
-                  background: on ? TEAL : isToday ? "var(--hh-teal-wash)" : "transparent",
+                  background: on ? "var(--hh-teal-fill)" : isToday ? "var(--hh-teal-wash)" : "transparent",
                   color: on ? "#fff" : INK,
                   fontWeight: isToday || on ? 800 : 500,
                 }}

@@ -137,7 +137,7 @@ export function FilterBar({
                   className={cn(
                     "rounded-full text-xs px-3 py-1 border transition-colors whitespace-nowrap",
                     active
-                      ? "bg-primary text-primary-foreground border-primary"
+                      ? "bg-[var(--hh-teal-fill)] text-primary-foreground border-[var(--hh-teal-fill)]"
                       : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary"
                   )}
                 >
@@ -234,7 +234,7 @@ export function FilterBar({
               className={cn(
                 "rounded-full text-xs px-3 py-1 border transition-colors whitespace-nowrap shrink-0",
                 active
-                  ? "bg-primary text-primary-foreground border-primary"
+                  ? "bg-[var(--hh-teal-fill)] text-primary-foreground border-[var(--hh-teal-fill)]"
                   : "bg-background text-muted-foreground border-border hover:border-primary"
               )}
             >
@@ -326,7 +326,7 @@ export function FilterBar({
                   className={cn(
                     "rounded-full text-xs px-3 py-1 border whitespace-nowrap transition-colors",
                     active
-                      ? "bg-primary text-primary-foreground border-primary"
+                      ? "bg-[var(--hh-teal-fill)] text-primary-foreground border-[var(--hh-teal-fill)]"
                       : "bg-background text-muted-foreground border-border hover:border-foreground"
                   )}
                 >

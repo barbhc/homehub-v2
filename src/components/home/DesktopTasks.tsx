@@ -65,7 +65,7 @@ function DkDetail({
             type="button"
             onClick={onDone}
             className="flex flex-1 items-center justify-center gap-2 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white"
-            style={{ background: TEAL }}
+            style={{ background: "var(--hh-teal-fill)" }}
           >
             <CheckIcon className="size-4" strokeWidth={2.6} /> Mark done
           </button>
@@ -185,7 +185,7 @@ function DkCalendar({
               onClick={() => setSel(on ? null : c.day)}
               className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[12.5px]"
               style={{
-                background: on ? TEAL : isToday ? "var(--hh-teal-wash)" : "transparent",
+                background: on ? "var(--hh-teal-fill)" : isToday ? "var(--hh-teal-wash)" : "transparent",
                 color: on ? "#fff" : INK,
                 fontWeight: isToday || on ? 800 : 500,
               }}
