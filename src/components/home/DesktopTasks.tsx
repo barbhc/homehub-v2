@@ -17,7 +17,7 @@ import { classifyTaskDetail } from "@/lib/taskActor"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, TIER_FILTERS, tierFilterCounts,
-  tasksDueOnDay, useAgendaRowActions, useTaskDetail, whenLabel, type Lens, CLAY, TEAL, withoutHidden,
+  tasksDueOnDay, useAgendaRowActions, useTaskDetail, whenLabel, phraseUnderGroup, type Lens, CLAY, TEAL, withoutHidden,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 import { UndoBar } from "@/components/ui/UndoBar"
@@ -93,10 +93,12 @@ function DkDetail({
 
 // ── Expandable desktop row ────────────────────────────────────────────────────
 function DkRow({
-  homeId, t, expanded, last, error, onToggle, onDone, onSnooze, onOpenGuide,
+  homeId, t, groupLabel, expanded, last, error, onToggle, onDone, onSnooze, onOpenGuide,
 }: {
   homeId: string | null
   t: WeekAgendaItem
+  /** The header this row sits under, so the when column never repeats it (HH-165). */
+  groupLabel: string
   expanded: boolean
   last: boolean
   /** Why this row's Done/Snooze just failed, if it did. */
@@ -129,7 +131,11 @@ function DkRow({
             <span className="text-[13px]" style={{ color: SUB }}>{where}</span>
           </div>
         </div>
-        <span className="w-[88px] text-right text-[13px] font-semibold" style={{ color: t.isOverdue ? CLAY : SUB }}>{whenLabel(t)}</span>
+        {/* Blank, not removed, when it would only repeat the group's header
+            (HH-165) — the minutes column stays aligned down the card. */}
+        <span className="w-[88px] text-right text-[13px] font-semibold" style={{ color: t.isOverdue ? CLAY : SUB }}>
+          {phraseUnderGroup(whenLabel(t), groupLabel) ?? ""}
+        </span>
         <span className="w-12 text-right text-[13px] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes != null ? `${t.estimatedMinutes} min` : ""}</span>
         {expanded
           ? <ChevronUpIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />
@@ -410,6 +416,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                         key={t.taskInstanceId}
                         homeId={homeId}
                         t={t}
+                        groupLabel={g.label}
                         expanded={openId === t.taskInstanceId && pendingId !== t.taskInstanceId}
                         last={i === g.items.length - 1}
                         error={failedId === t.taskInstanceId ? actionError : null}
