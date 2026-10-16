@@ -4,8 +4,8 @@
  * The dialog used to default to "Home (not item-specific)". Those answers were
  * listed only by the Care Guide page (/faq), which the dead-code sweep deleted
  * (audit 2026-09-29, D5) — so a whole-home save would now be written and never
- * shown anywhere. Item saves are what the item page shows (Saved answers /
- * Saved Q&A), and they must keep working exactly as before.
+ * shown anywhere. Item saves are what the item page shows (Saved answers),
+ * and they must keep working exactly as before.
  *
  * And a save that FAILS says so (audit H6): the dialog used to return silently
  * — Save came back, nothing explained why the dialog had not closed, and the

@@ -848,7 +848,12 @@ export function TaskReviewSheet({
                 {guideIndex! + 1} of {rows.length}
               </div>
               <div className="h-1 bg-muted rounded mb-3 overflow-hidden">
-                <div className="h-full bg-primary transition-[width]" style={{ width: `${(guideIndex! / rows.length) * 100}%` }} />
+                {/* scaleX from the left edge, not width: the same fill without
+                    a layout pass every frame (audit 2026-10-15). */}
+                <div
+                  className="h-full w-full origin-left bg-primary transition-transform"
+                  style={{ transform: `scaleX(${guideIndex! / rows.length})` }}
+                />
               </div>
               {expandedCard(guideRow, { guided: true })}
             </>

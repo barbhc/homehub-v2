@@ -29,6 +29,15 @@ beforeEach(() => {
 })
 
 describe("TaskEditSheet", () => {
+  it("locks the page behind while open, as the Radix sheets do, and lets go on close", async () => {
+    const { unmount } = render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
+    // react-remove-scroll marks <body> once its side effect mounts.
+    await waitFor(() => expect(document.body).toHaveAttribute("data-scroll-locked"))
+    expect(screen.getByRole("dialog", { name: "Edit task" })).toHaveClass("overscroll-contain")
+    unmount()
+    await waitFor(() => expect(document.body).not.toHaveAttribute("data-scroll-locked"))
+  })
+
   it("saves nothing until something actually changed", () => {
     render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
     expect(screen.getByRole("button", { name: /save changes/i })).toBeDisabled()

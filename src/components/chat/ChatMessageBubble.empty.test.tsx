@@ -29,7 +29,7 @@ describe("an empty answer", () => {
     render(
       <ChatMessageBubble message={assistant()} precedingQuestion="How do I descale it?" onSaveFaq={vi.fn()} onWebSearch={vi.fn()} />,
     )
-    expect(screen.queryByRole("button", { name: /Save to knowledge base/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: /^Save/ })).toBeNull()
     expect(screen.queryByRole("button", { name: /Search the web/ })).toBeNull()
   })
 

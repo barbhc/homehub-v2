@@ -162,6 +162,21 @@ describe("Settings — notification preferences", () => {
     expect(await screen.findByRole("button", { name: "Task reminders push off" })).toBeInTheDocument()
   })
 
+  it("with notifications off, the Enable line names everything the switch turns on", async () => {
+    renderSettings()
+    // On: says what is on by default — not just "due and overdue tasks".
+    expect(
+      await screen.findByText("On by default: reminders for Essential tasks, deadlines and any task you turn on, a Sunday summary, and buy-ahead heads-ups."),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/due and overdue tasks/)).toBeNull()
+    fireEvent.click(await screen.findByRole("button", { name: "Disable" }))
+
+    expect(await screen.findByRole("button", { name: "Enable" })).toBeInTheDocument()
+    expect(
+      screen.getByText("Get reminders for Essential tasks, deadlines and any task you turn on, a Sunday summary of your week, and a heads-up when a part should be bought ahead."),
+    ).toBeInTheDocument()
+  })
+
   it("turning notifications OFF that fails says so and stays on", async () => {
     m.unsubscribeFromPush.mockRejectedValue(new Error("permission-denied"))
     renderSettings()

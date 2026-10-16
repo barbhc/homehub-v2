@@ -8,6 +8,7 @@
 import { describe, it, expect } from "vitest"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
+import { DEFAULT_IDENTIFY_DATA, missingToAdd } from "./identifyData"
 
 /** Source with comments stripped. These assert what a screen SAYS, and a
  *  comment explaining why old copy was removed would otherwise read as the
@@ -28,6 +29,16 @@ const read = (p: string) =>
     .replace(/(^|[\s{])\/\*[\s\S]*?\*\//g, "$1")
     .replace(/^\s*\/\/.*$/gm, "")
 const identify = read("./IdentifyStep.tsx")
+
+/** The button's rule lives in identifyData.missingToAdd since the audit of
+ *  2026-10-15 (one rule for "enabled" and for the line saying what's missing);
+ *  these pin that IdentifyStep gates on it and that it still says what the
+ *  owner decided. */
+const gatesOnTheRule = () => {
+  expect(identify).toContain("const isValid = stillNeeded === null")
+  expect(identify).toContain("disabled={!isValid || isCreating}")
+}
+const appliance = (p: Partial<typeof DEFAULT_IDENTIFY_DATA>) => missingToAdd("appliance", { ...DEFAULT_IDENTIFY_DATA, ...p })
 const page = read("../../pages/SmartAddItem.tsx")
 /** What the confirm writes — shared by the create and the HH-130 re-identify. */
 const write = read("./identifyWrite.ts")
@@ -112,7 +123,10 @@ describe("when the scan misses a required field", () => {
   it("keeps the CTA gated on both fields — the owner's call", () => {
     // She chose to leave the button disabled rather than let it be pressed and
     // explain itself. The messaging above is what makes that acceptable.
-    expect(identify).toContain("data.brand.trim().length >= 2 && data.model.trim().length >= 1")
+    gatesOnTheRule()
+    expect(appliance({ model: "DLE3400W" })).not.toBeNull()
+    expect(appliance({ brand: "LG" })).not.toBeNull()
+    expect(appliance({ brand: "LG", model: "DLE3400W" })).toBeNull()
   })
 })
 
@@ -241,8 +255,9 @@ describe("the shortest path to a parsed manual", () => {
   it("does not wait for a NAME before the manual", () => {
     // A name typed before the manual is read is the worst version of the name —
     // this flow produced "Levoit Core Series Air Purifiers" for a Core 300.
-    expect(identify).toContain("data.brand.trim().length >= 2 && data.model.trim().length >= 1\n")
-    expect(identify).not.toContain("data.model.trim().length >= 1 && data.name.trim().length > 0")
+    gatesOnTheRule()
+    // Brand + model is enough; no name is asked for in this lane.
+    expect(appliance({ brand: "Levoit", model: "Core 300", name: "" })).toBeNull()
   })
 
   it("composes a name rather than leaving the item unnamed", () => {
@@ -251,8 +266,9 @@ describe("the shortest path to a parsed manual", () => {
   })
 
   it("still requires a name in the lane where nothing else identifies the item", () => {
-    expect(identify).toContain('mode === "appliance"')
-    expect(identify).toContain("data.name.trim().length > 0")
+    gatesOnTheRule()
+    expect(missingToAdd("simple", { ...DEFAULT_IDENTIFY_DATA, brand: "Ryobi", model: "P3240" })).not.toBeNull()
+    expect(missingToAdd("simple", { ...DEFAULT_IDENTIFY_DATA, name: "Shop vac" })).toBeNull()
   })
 
   it("names the destination on the button, and it is not an automatic search", () => {
@@ -399,7 +415,8 @@ describe("two ways to give us the brand and model", () => {
   })
 
   it("still gates the button on the fields, not on having taken a photo", () => {
-    expect(identify).toContain("data.brand.trim().length >= 2 && data.model.trim().length >= 1")
+    gatesOnTheRule()
+    expect(appliance({ brand: "LG", model: "DLE3400W" })).toBeNull()
   })
 })
 
