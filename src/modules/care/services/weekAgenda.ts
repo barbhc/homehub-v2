@@ -9,7 +9,7 @@ import { indicatorDrivenTitles, usagePhrase } from "../../../../shared/care/usag
 import { seasonForTitle, seasonalWindow, type Climate } from "../../../../shared/care/seasonalWindow"
 import { seasonalFamily } from "../../../../shared/tasks/houseRules"
 import { addDays, localToday } from "../../../../shared/dates/calendar"
-import { effectiveDueDate } from "../../../../shared/tasks/snooze"
+import { asListedToday } from "../../../../shared/tasks/snooze"
 import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
 import { taskSource, effortToMinutes, frequencyToSchedule, type TaskSource } from "./taskMapping"
@@ -166,8 +166,8 @@ export async function getWeekAgenda(
     // `dueDate` below is that EFFECTIVE date, so windows, phrases, the horizon
     // and the calendar all read the date the task actually comes back.
     const pending: typeof all = all.flatMap((r) => {
-      const due = effectiveDueDate(r, today)
-      return due === null ? [] : [{ ...r, dueDate: due }]
+      const listed = asListedToday(r, today)
+      return listed ? [listed] : []
     })
     const beyondHorizon = pending.filter(
       (r) => (r.dueDate as string) > horizon &&

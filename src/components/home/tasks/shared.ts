@@ -179,7 +179,7 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
       res = { success: false, error: e instanceof Error ? e.message : String(e) }
     }
     if (!res.success) {
-      console.warn(`[${opts.current.where}] could not mark task ${id} done (home ${p.homeId}):`, res.error)
+      console.warn(`[${opts.current.where}] could not mark task done ${id} (home ${p.homeId}):`, res.error)
       const message = doneFailedMessage(res.error)
       unhide(id)
       setFailure({ id, message })

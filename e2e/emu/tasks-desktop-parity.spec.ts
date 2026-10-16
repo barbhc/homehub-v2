@@ -75,6 +75,9 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
     await expect(row).toBeVisible({ timeout: 20_000 })
 
     await row.getByRole("button", { name: "Mark done" }).click()
+    // A Done from a list is written when its Undo bar goes (useTaskActions);
+    // closing the bar writes it now.
+    await page.getByRole("status").filter({ hasText: /^Done/ }).filter(visible).getByRole("button", { name: "Dismiss" }).click()
 
     const alert = row.getByRole("alert")
     await expect(alert).toBeVisible({ timeout: 10_000 })
@@ -98,6 +101,9 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
     await expect(rows.first()).not.toContainText(LOWER_TASK)
 
     await row.getByRole("button", { name: "Mark done" }).click()
+    // A Done from a list is written when its Undo bar goes (useTaskActions);
+    // closing the bar writes it now.
+    await page.getByRole("status").filter({ hasText: /^Done/ }).filter(visible).getByRole("button", { name: "Dismiss" }).click()
 
     const alert = row.getByRole("alert")
     await expect(alert).toBeVisible({ timeout: 10_000 })

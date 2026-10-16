@@ -11,13 +11,14 @@
  * that nothing claims success.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 
 const care = vi.hoisted(() => ({
   markTaskInstanceDone: vi.fn(),
   snoozeTaskInstance: vi.fn(),
   unsnoozeTaskInstance: vi.fn(),
+  previewNextDue: vi.fn(),
 }))
 const refresh = vi.hoisted(() => vi.fn(async () => {}))
 
@@ -25,6 +26,7 @@ vi.mock("@/modules/care", () => ({
   markTaskInstanceDone: (...a: unknown[]) => care.markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => care.snoozeTaskInstance(...a),
   unsnoozeTaskInstance: (...a: unknown[]) => care.unsnoozeTaskInstance(...a),
+  previewNextDue: (...a: unknown[]) => care.previewNextDue(...a),
 }))
 vi.mock("@/lib/useDashboard", async () => {
   const { addDays, localToday } = await import("../../shared/dates/calendar")
@@ -68,11 +70,20 @@ const { default: Home } = await import("./Home")
 
 const TITLE = "Replace the furnace filter"
 
+/** A Done from a list is written when its Undo bar goes; closing the bar writes it now. */
+const acceptDone = async () => {
+  const close = within(await screen.findByRole("status")).getByRole("button", { name: "Dismiss" })
+  await act(async () => {
+    fireEvent.click(close)
+  })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   care.markTaskInstanceDone.mockResolvedValue({ success: true, data: {} })
   care.snoozeTaskInstance.mockResolvedValue({ success: true, data: {} })
   care.unsnoozeTaskInstance.mockResolvedValue({ success: true, data: {} })
+  care.previewNextDue.mockResolvedValue(null)
 })
 
 function renderHome() {
@@ -83,15 +94,16 @@ function renderHome() {
 const firstRow = () => screen.getAllByTestId("week-row")[0]
 
 describe("Home — a failed check-off or snooze is said on its row", () => {
-  it("mark done fails → the row says so, the task stays, and nothing says 'Marked done'", async () => {
+  it("mark done fails → the row comes back and says so, and no receipt is left claiming it is done", async () => {
     care.markTaskInstanceDone.mockResolvedValue({ success: false, error: "INTERNAL" })
     renderHome()
 
     fireEvent.click(within(firstRow()).getByRole("button", { name: `Mark ${TITLE} done` }))
+    await acceptDone()
 
     expect(await within(firstRow()).findByRole("alert")).toHaveTextContent("Couldn't mark this done.")
     expect(within(firstRow()).getByText(TITLE)).toBeInTheDocument()
-    expect(screen.queryByText("Marked done")).toBeNull()
+    expect(screen.queryByRole("status")).toBeNull()
     expect(refresh).not.toHaveBeenCalled()
   })
 
@@ -126,7 +138,9 @@ describe("Home — a failed check-off or snooze is said on its row", () => {
   it("mark done SUCCEEDS → no alert, and the receipt says so (the control case)", async () => {
     renderHome()
     fireEvent.click(within(firstRow()).getByRole("button", { name: `Mark ${TITLE} done` }))
-    expect(await screen.findByText("Marked done")).toBeInTheDocument()
+    expect((await screen.findByRole("status")).textContent).toMatch(/^Done/)
+    await acceptDone()
+    await waitFor(() => expect(care.markTaskInstanceDone).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole("alert")).toBeNull()
   })
 })

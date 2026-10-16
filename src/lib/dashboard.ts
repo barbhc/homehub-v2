@@ -17,7 +17,7 @@ import {
 import { isAgendaEligible } from "@/lib/agendaEligibility"
 import type { HomeReads, ReadDoc } from "@/lib/homeReads"
 import { addDays, diffDays, localToday } from "../../shared/dates/calendar"
-import { effectiveDueDate } from "../../shared/tasks/snooze"
+import { asListedToday, effectiveDueDate } from "../../shared/tasks/snooze"
 
 type Row = { id: string } & Record<string, unknown>
 /** `{ id, ...data }` — the row shape these derivations were written against. */
@@ -31,8 +31,8 @@ const asRows = (docs: ReadDoc[]): Row[] => docs.map((d) => ({ id: d.id, ...d.dat
  */
 const onListToday = (docs: ReadDoc[], today: string): Row[] =>
   asRows(docs).flatMap((r) => {
-    const due = effectiveDueDate(r, today)
-    return due === null ? [] : [{ ...r, dueDate: due }]
+    const listed = asListedToday(r, today)
+    return listed ? [listed] : []
   })
 
 /** Due-soon window: tasks due within this many days count as "urgent". */

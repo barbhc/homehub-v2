@@ -64,6 +64,18 @@ export function comesDueOn(t: SnoozeAware): string | null {
   return until && until > t.dueDate ? until : t.dueDate
 }
 
+/**
+ * The row as a list should read it today: null when it is not on the list,
+ * else the row itself — with `dueDate` replaced by the effective date for a
+ * snoozed one whose snooze has ended. A scheduled row comes back untouched
+ * (a missing dueDate stays missing, so each list keeps its own rule for that).
+ */
+export function asListedToday<T extends SnoozeAware>(t: T, today: string): T | null {
+  const due = effectiveDueDate(t, today)
+  if (due === null) return null
+  return t.status === "snoozed" ? { ...t, dueDate: due } : t
+}
+
 /** True when the task is open and not snoozed past today. */
 export function isOnListToday(t: SnoozeAware, today: string): boolean {
   return effectiveDueDate(t, today) !== null
