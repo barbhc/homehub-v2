@@ -38,7 +38,7 @@ Verified-in-code facts driving the redesign fixes:
 6. **Calm reconciliation**: `planTaskReconciliation` stays pure/unchanged; flag-don't-delete; `MISS_THRESHOLD=2`; never delete completion-bearing tasks; matches re-stamp `external_key`.
 7. **Eval harness gate**: prompt change → `scripts/parse-eval/run.ts` (run **unpiped**) → review diff vs goldens → then deploy. Thresholds in its README. Costs real API money.
 8. `isAllowedUrl` SSRF guard on any server-side fetch of user URLs (proxy-pdf, URL manuals, import-care-url).
-9. **Calm tiers** (never alarmist red): Essential clay `#C2410C` / Recommended teal `#1B6B5A` / Optional slate `#5B748F`; overdue = clay.
+9. **Calm tiers** (never alarmist red): Essential clay `#C2410C` / Recommended teal `#1B6B5A` / Optional slate `#455C72`; overdue = clay.
 10. **UI reuse**: v2 recreates zero screens. `src/components/**`, `src/pages/**`, `src/hooks/**` port as-is; only the integration/service layer changes plus the surgical fixes A–C.
 
 ---

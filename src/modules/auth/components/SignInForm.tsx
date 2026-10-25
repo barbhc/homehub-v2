@@ -36,7 +36,7 @@ type SignInFormProps = {
 const INK = "var(--hh-ink)"
 const SUB = "var(--hh-sub)"
 const TEAL = "var(--hh-teal)"
-const FAINT = "#9AA6A2"
+const FAINT = "var(--hh-faint)"
 const LINE = "rgba(15,23,42,0.14)"
 
 /** Teal-gradient house mark from the auth mockup (hh-auth.jsx · AuthMark). */
@@ -103,7 +103,7 @@ function AuthInput({
         {right}
       </div>
       <div
-        className="flex items-center gap-2.5 rounded-xl px-3 bg-white"
+        className="flex items-center gap-2.5 rounded-xl px-3 bg-[var(--hh-surface)]"
         style={{ border: `1px solid ${LINE}` }}
       >
         <LeadIcon size={16} className="shrink-0" style={{ color: FAINT }} />

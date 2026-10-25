@@ -100,7 +100,7 @@ function PhoneMock() {
                 <Icon size={14} style={{ color: TEAL }} />
               </div>
               <div className="flex-1 text-[12.5px] font-semibold" style={{ color: INK }}>{t}</div>
-              <div className="text-[10px] font-semibold" style={{ color: "#9AA6A2" }}>{w}</div>
+              <div className="text-[10px] font-semibold" style={{ color: "#5F6A75" }}>{w}</div>
             </div>
           ))}
         </div>

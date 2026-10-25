@@ -12,7 +12,7 @@ function PwField({ label, value, onChange }: { label: string; value: string; onC
   return (
     <div>
       <div className="mb-[7px] px-0.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: AUTH.sub }}>{label}</div>
-      <div className="flex items-center gap-2.5 rounded-xl px-3 bg-white" style={{ border: `1px solid ${AUTH.line}` }}>
+      <div className="flex items-center gap-2.5 rounded-xl px-3 bg-[var(--hh-surface)]" style={{ border: `1px solid ${AUTH.line}` }}>
         <LockIcon size={16} className="shrink-0" style={{ color: AUTH.faint }} />
         <input
           type={show ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)}
