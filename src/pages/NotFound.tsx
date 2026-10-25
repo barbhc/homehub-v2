@@ -9,9 +9,9 @@ export default function NotFound() {
       <div className="flex flex-col items-center text-center">
         <div
           className="flex items-center justify-center mb-[18px]"
-          style={{ width: 78, height: 78, borderRadius: "50%", background: "#EEF1F5" }}
+          style={{ width: 78, height: 78, borderRadius: "50%", background: "var(--hh-slate-soft)" }}
         >
-          <CompassIcon size={36} style={{ color: "#5B748F" }} />
+          <CompassIcon size={36} style={{ color: "var(--hh-slate)" }} />
         </div>
         <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>
           Page not found

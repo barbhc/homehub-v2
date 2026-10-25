@@ -9,11 +9,11 @@ export const AUTH = {
   ink: "var(--hh-ink)",
   sub: "var(--hh-sub)",
   teal: "var(--hh-teal)",
-  faint: "#9AA6A2",
+  faint: "var(--hh-faint)",
   line: "rgba(15,23,42,0.14)",
   bg: "var(--hh-bg)",
   /** Validation/mismatch tone — gold, never red (redesign non-negotiable). */
-  gold: "#B4791F",
+  gold: "var(--hh-gold)",
 } as const
 
 /** Teal-gradient house brand mark (hh-auth.jsx · AuthMark). */
@@ -63,7 +63,7 @@ export function AuthCTA({
         "w-full inline-flex items-center justify-center gap-2 rounded-[14px] py-[15px] text-[15px] font-bold text-white transition-opacity",
         className,
       )}
-      style={{ background: disabled ? "#C9D4D0" : AUTH.teal }}
+      style={{ background: disabled ? "#C9D4D0" : "var(--hh-teal-fill)" }}
     >
       {children}
     </button>

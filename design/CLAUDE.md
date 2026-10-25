@@ -21,7 +21,7 @@ You are implementing the **Homehub** redesign (mobile + desktop) in a real front
 These are prototyping affordances. In production, the "tweaks" map to **real app state/settings** (theme, level, etc.), not a floating panel. Build the **screen components inside the artboards**, not the harness around them.
 
 ## Two non-negotiable product principles
-1. **Calm tier system — never alarmist red.** Task priority is Essential (clay `#C2410C`) / Recommended (teal `#1B6B5A`) / Optional (slate `#5B748F`). Overdue is clay, never pure red. Do not reintroduce the old red/amber/blue tiers.
+1. **Calm tier system — never alarmist red.** Task priority is Essential (clay `#C2410C`) / Recommended (teal `#1B6B5A`) / Optional (slate `#455C72`). Overdue is clay, never pure red. Do not reintroduce the old red/amber/blue tiers.
 2. **Level-based progressive disclosure.** One piece of app state — `level: simple | standard | advanced` — gates surfaces. Mobile changes in-screen content (bottom tabs stay fixed at 5); desktop grows the nav destinations. Keep this central.
 
 ## File map

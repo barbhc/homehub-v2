@@ -32,14 +32,19 @@ On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed
 ## Design Tokens
 
 ### Color — Light theme
+> **`src/index.css` (`--hh-*`) is authoritative for color.** The values below were
+> raised to WCAG AA after this handoff (sub, faint, slate, and dark sub/faint);
+> the `.jsx` prototypes still carry the originals, so take colors from this table
+> or the CSS, never from the prototypes.
+
 | Token | Hex | Use |
 |---|---|---|
 | Brand / primary (teal) | `#1B6B5A` | Primary actions, active nav, accents |
 | Teal deep | `#15564A` | Pressed/ink-on-wash teal |
 | Teal wash | `#EAF3EF` / `#E8F2EF` | Soft teal backgrounds, glyph tiles |
 | Ink (text primary) | `#0B1220` | Headings, body |
-| Sub (text secondary) | `#6B7280` | Subtitles, meta |
-| Faint (text tertiary) | `#9AA6A2` | Timestamps, hints |
+| Sub (text secondary) | `#4B5563` | Subtitles, meta (was `#6B7280`: failed AA on tinted surfaces) |
+| Faint (text tertiary) | `#5F6A75` | Timestamps, hints (was `#9AA6A2`: 2.5:1) |
 | App background | `#F3F5F4` | Screen background |
 | Surface | `#FFFFFF` | Cards, sheets |
 | Hairline | `rgba(15,23,42,0.07–0.10)` | Dividers, card borders |
@@ -50,7 +55,7 @@ On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed
 |---|---|---|---|
 | Essential | `#C2410C` (clay) | `#FBF1EC` | ESSENTIAL |
 | Recommended | `#1B6B5A` (teal) | `#E8F2EF` | RECOMMENDED |
-| Optional | `#5B748F` (slate) | `#F1F5F8` | OPTIONAL |
+| Optional | `#455C72` (slate) | `#F1F5F8` | OPTIONAL |
 
 > Note: the old design used alarmist red/amber/blue tiers — **do not reintroduce red.** Overdue is shown in clay `#C2410C`, never pure red.
 
@@ -59,7 +64,7 @@ On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed
 |---|---|---|
 | Gold (warranty/seasonal text) | `#8A5A12` (mobile), `#7A5A18` (desktop) | Seasonal tag, warranty, due-soon — darkened for AA contrast |
 | Gold soft | `#FBF3E2` | Seasonal/warranty chip bg |
-| Slate (safety notice) | `#5B748F` | Recall/safety notices |
+| Slate (safety notice) | `#455C72` | Recall/safety notices (was `#5B748F`: 4.41:1 on slate soft) |
 
 ### Color — Dark theme (mobile `hh-dark.jsx`, desktop `dtTheme(true)`)
 | Token | Hex |
@@ -68,7 +73,8 @@ On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed
 | surface | `#161E1A` |
 | raise | `#1E2A24` |
 | ink | `#F1F5F3` |
-| sub | `#8B9A93` |
+| sub | `#A2AEA9` |
+| faint | `#93A09B` |
 | teal (brightened) | `#34B093` |
 | teal wash | `rgba(52,176,147,0.16)` |
 | clay | `#E8956A` · gold `#D9B978` · slate `#8FB0CC` |

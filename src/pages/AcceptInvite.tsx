@@ -126,8 +126,8 @@ export default function AcceptInvite() {
     return (
       <AuthScreen>
         <div className="flex flex-col items-center text-center">
-          <div className="flex items-center justify-center mb-[18px]" style={{ width: 74, height: 74, borderRadius: "50%", background: "#F1F5F8" }}>
-            <Link2OffIcon size={32} style={{ color: "#5B748F" }} />
+          <div className="flex items-center justify-center mb-[18px]" style={{ width: 74, height: 74, borderRadius: "50%", background: "var(--hh-slate-soft)" }}>
+            <Link2OffIcon size={32} style={{ color: "var(--hh-slate)" }} />
           </div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>
             {expired ? "This invite has expired" : "Can't join"}
@@ -154,8 +154,8 @@ export default function AcceptInvite() {
         </p>
       </div>
 
-      <div className="mt-6 bg-white flex items-center gap-3.5" style={{ borderRadius: 20, boxShadow: "0 2px 14px rgba(11,26,22,0.07)", padding: 18 }}>
-        <div className="flex items-center justify-center shrink-0" style={{ width: 48, height: 48, borderRadius: 16, background: "linear-gradient(135deg,#EAF3EF,#DCE9E4)" }}>
+      <div className="mt-6 bg-[var(--hh-surface)] flex items-center gap-3.5" style={{ borderRadius: 20, boxShadow: "0 2px 14px rgba(11,26,22,0.07)", padding: 18 }}>
+        <div className="flex items-center justify-center shrink-0" style={{ width: 48, height: 48, borderRadius: 16, background: "var(--hh-tile)" }}>
           <HouseIcon size={26} strokeWidth={1.6} style={{ color: AUTH.teal }} />
         </div>
         <div className="flex-1 min-w-0">
@@ -170,7 +170,7 @@ export default function AcceptInvite() {
         {PERMISSIONS.map((p) => (
           <div key={p} className="flex items-center gap-2.5">
             <CheckIcon size={16} strokeWidth={2.6} className="shrink-0" style={{ color: AUTH.teal }} />
-            <span className="text-[13.5px]" style={{ color: "#3A4A45" }}>{p}</span>
+            <span className="text-[13.5px]" style={{ color: "var(--hh-ink-soft)" }}>{p}</span>
           </div>
         ))}
       </div>
