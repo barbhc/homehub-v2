@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react"
+import { useCallback, useSyncExternalStore, type RefObject } from "react"
 
 /** The parts of `window.visualViewport` the overlap is computed from. */
 export type ViewportLike = { height: number; offsetTop: number; scale?: number }
@@ -22,6 +22,23 @@ export function keyboardOverlap(innerHeight: number, vv: ViewportLike | null | u
   return Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop))
 }
 
+/**
+ * How much bottom padding a bottom-anchored container needs so its last child
+ * ends at the keyboard's top edge: the keyboard's overlap, minus the part of it
+ * that already lies BELOW the container (innerHeight − container bottom).
+ *
+ * Measured from the container's real position, not assumed flush with the
+ * viewport bottom, because it isn't: Ask's container is 48px short of the
+ * screen below md (its height allows for a header only md+ has), and WebKit
+ * scrolls the WINDOW to reveal a focused field (window.scrollY, which
+ * visualViewport.offsetTop does not include), moving the container up. Both
+ * are absorbed here; padding by the raw overlap left the composer ~73px above
+ * the keyboard.
+ */
+export function keyboardPadding(overlap: number, innerHeight: number, containerBottom: number): number {
+  return Math.max(0, Math.round(overlap - (innerHeight - containerBottom)))
+}
+
 function viewport(): VisualViewport | null {
   return typeof window === "undefined" ? null : (window.visualViewport ?? null)
 }
@@ -32,10 +49,13 @@ function subscribe(onChange: () => void): () => void {
   vv.addEventListener("resize", onChange)
   vv.addEventListener("scroll", onChange)
   window.addEventListener("resize", onChange)
+  // The window scrolling moves a container without changing the overlap.
+  window.addEventListener("scroll", onChange, { passive: true })
   return () => {
     vv.removeEventListener("resize", onChange)
     vv.removeEventListener("scroll", onChange)
     window.removeEventListener("resize", onChange)
+    window.removeEventListener("scroll", onChange)
   }
 }
 
@@ -57,4 +77,21 @@ function getServerSnapshot(): number {
  */
 export function useKeyboardInset(): number {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+}
+
+/**
+ * {@link keyboardPadding} for the element in `ref`, live: the bottom padding
+ * that puts the element's last child at the keyboard's top edge. 0 while the
+ * keyboard is closed (and wherever `visualViewport` does not exist), so the
+ * caller's own padding applies untouched.
+ */
+export function useKeyboardPadding(ref: RefObject<HTMLElement | null>): number {
+  const getPadding = useCallback(() => {
+    const overlap = keyboardOverlap(window.innerHeight, viewport())
+    if (overlap === 0) return 0
+    const el = ref.current
+    if (!el) return overlap
+    return keyboardPadding(overlap, window.innerHeight, el.getBoundingClientRect().bottom)
+  }, [ref])
+  return useSyncExternalStore(subscribe, getPadding, getServerSnapshot)
 }

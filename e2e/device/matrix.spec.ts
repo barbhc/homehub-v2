@@ -217,7 +217,17 @@ for (const vp of VIEWPORTS) {
  * names were "right" both times the bars were wrong.
  */
 const PHONES = VIEWPORTS.filter((v) => v.width < 768)
-const TASK_PATH = "/tasks/inst-00-replace-hvac-furnace-filter"
+const TASK_TITLE = "Replace HVAC furnace filter"
+
+/** Open the seeded task's page the way a person does — from Tasks, by title —
+ *  rather than by a seed-array-derived document id. */
+async function openTaskPage(page: Page) {
+  await gotoStable(page, "/maintenance")
+  await page.getByText(TASK_TITLE).filter({ visible: true }).first().click()
+  await page.getByRole("button", { name: /View full guide/ }).filter({ visible: true }).first().click()
+  await page.waitForURL(/\/tasks\//, { timeout: 15_000 })
+  await page.getByRole("button", { name: /Tune this task/ }).waitFor({ state: "visible", timeout: 20_000 })
+}
 
 type Box = { x: number; y: number; width: number; height: number }
 const bottomOf = (b: Box) => b.y + b.height
@@ -240,8 +250,7 @@ for (const vp of PHONES) {
     test.use({ viewport: { width: vp.width, height: vp.height }, hasTouch: true, isMobile: true })
 
     test("task page: Mark done stays on screen above the tab bar, top and bottom", async ({ page }) => {
-      await gotoStable(page, TASK_PATH)
-      await page.getByText("Replace HVAC furnace filter").filter({ visible: true }).first().waitFor({ state: "visible", timeout: 20_000 })
+      await openTaskPage(page)
       const bar = page.getByTestId("task-action-bar")
       const markDone = bar.getByRole("button", { name: "Mark done" })
       await expect(markDone).toBeVisible()
@@ -279,8 +288,7 @@ test.describe("bottom bars @ iPad (820×1180) — no tab bar, so they sit at the
   test.use({ viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true })
 
   test("task page Mark done and the Deep Clean footer meet the viewport's bottom edge", async ({ page }) => {
-    await gotoStable(page, TASK_PATH)
-    await page.getByText("Replace HVAC furnace filter").filter({ visible: true }).first().waitFor({ state: "visible", timeout: 20_000 })
+    await openTaskPage(page)
     await expect(page.locator("nav.fixed.bottom-0"), "the tab bar should be hidden at md+").toBeHidden()
     const bar = (await page.getByTestId("task-action-bar").boundingBox())!
     expect(Math.round(bottomOf(bar)), "Mark done bar should end at the viewport bottom").toBe(1180)
@@ -291,6 +299,11 @@ test.describe("bottom bars @ iPad (820×1180) — no tab bar, so they sit at the
     await page.getByRole("button", { name: /Let's clean/ }).filter({ visible: true }).first().click()
     const footer = page.getByTestId("clean-session-footer")
     await expect(footer.getByRole("button", { name: /Finish session/ })).toBeVisible({ timeout: 20_000 })
+    // NOT a regression guard: the footer was already `fixed bottom-0`, so this
+    // also passes on the pre-fix code (and so may the Mark done check above,
+    // when the seeded task fits on an iPad screen). This test pins only that
+    // standing on the tab bar below md did not lift either bar off the bottom
+    // edge where there is no tab bar. The phone tests above are the guards.
     expect(Math.round(bottomOf((await footer.boundingBox())!)), "the footer should end at the viewport bottom").toBe(1180)
   })
 })

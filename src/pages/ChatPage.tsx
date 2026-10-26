@@ -7,7 +7,7 @@ import { ChatInput } from "@/components/chat/ChatInput"
 import { SaveFaqDialog } from "@/components/chat/SaveFaqDialog"
 import { getSuggestions } from "@/components/chat/chatSuggestions"
 import { InlineError } from "@/components/layout/LoadStates"
-import { useKeyboardInset } from "@/hooks/useKeyboardInset"
+import { useKeyboardInset, useKeyboardPadding } from "@/hooks/useKeyboardInset"
 import { useCurrentHome } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import { useChatFilters } from "@/modules/knowledge/hooks/useChatFilters"
@@ -64,6 +64,8 @@ function AskForHome() {
   // the iOS shell the keyboard does not shrink the page, so the composer sat
   // under it; the page's bottom padding grows to at least this much instead.
   const keyboardInset = useKeyboardInset()
+  const pageRef = useRef<HTMLDivElement>(null)
+  const keyboardPad = useKeyboardPadding(pageRef)
 
   // Pre-scope to an item when arriving from "Fix a problem" (/chat?item=ID).
   // This is how troubleshooting now enters Ask — scoped to the appliance, with
@@ -417,13 +419,15 @@ function AskForHome() {
 
   return (
     <div
+      ref={pageRef}
       className="flex flex-col h-[calc(100dvh-48px)] overflow-hidden pb-[calc(70px+env(safe-area-inset-bottom))] md:pb-0 bg-[var(--hh-bg)] lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-5"
-      // With the keyboard up, the bottom padding is at least the keyboard, so
-      // the composer and the thread's end sit above it. Below md the floor is
-      // the same 70px + inset as the class above (the tab bar's
-      // --hh-tabbar-clear is 60px + inset there); at md+, with no tab bar, the
-      // floor is 10px, so an iPad gets the keyboard's height.
-      style={keyboardInset > 0 ? { paddingBottom: `max(${keyboardInset}px, calc(var(--hh-tabbar-clear) + 10px))` } : undefined}
+      // With the keyboard up, the bottom padding puts the composer's bottom at
+      // the keyboard's top edge (useKeyboardPadding measures where this box
+      // really ends — 48px short of the screen below md, and higher still when
+      // WebKit scrolls the window to the field). Below md the floor is the
+      // same 70px + inset as the class above (the tab bar's
+      // --hh-tabbar-clear is 60px + inset there); at md+ it is 10px.
+      style={keyboardInset > 0 ? { paddingBottom: `max(${keyboardPad}px, calc(var(--hh-tabbar-clear) + 10px))` } : undefined}
     >
       {/* ── Desktop conversation rail (lg+): New question + Recent only ── */}
       <aside className="hidden border-r border-[var(--hh-line)] bg-[var(--hh-surface)] p-6 lg:flex lg:h-[calc(100vh-48px)] lg:min-h-0 lg:flex-col lg:gap-4 lg:overflow-y-auto">

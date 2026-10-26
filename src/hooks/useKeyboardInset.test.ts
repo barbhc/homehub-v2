@@ -6,7 +6,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest"
 import { act, renderHook } from "@testing-library/react"
-import { keyboardOverlap, useKeyboardInset } from "./useKeyboardInset"
+import { keyboardOverlap, keyboardPadding, useKeyboardInset, useKeyboardPadding } from "./useKeyboardInset"
 
 class FakeViewport extends EventTarget {
   height: number
@@ -112,5 +112,65 @@ describe("useKeyboardInset", () => {
     expect(vv.listeners).toBeGreaterThan(0)
     unmount()
     expect(vv.listeners).toBe(0)
+  })
+})
+
+describe("keyboardPadding", () => {
+  // 390×844 phone, 336px keyboard: its top edge is at 508.
+  it("is the overlap when the container ends at the viewport's bottom", () => {
+    expect(keyboardPadding(336, 844, 844)).toBe(336)
+  })
+
+  it("absorbs a container that ends short of the screen (Ask's 48px below md)", () => {
+    // Container bottom 796: padding 288 puts its content's end at 508.
+    expect(keyboardPadding(336, 844, 796)).toBe(288)
+    expect(796 - keyboardPadding(336, 844, 796)).toBe(844 - 336)
+  })
+
+  it("absorbs the window scrolling the container up to reveal the field", () => {
+    // WebKit scrolled the window 25px: the container now ends at 771.
+    expect(keyboardPadding(336, 844, 771)).toBe(263)
+    expect(771 - keyboardPadding(336, 844, 771)).toBe(844 - 336)
+  })
+
+  it("is 0 when the container already ends above the keyboard, and rounds", () => {
+    expect(keyboardPadding(336, 844, 400)).toBe(0)
+    expect(keyboardPadding(336, 844, 795.6)).toBe(288)
+  })
+})
+
+describe("useKeyboardPadding", () => {
+  function containerEndingAt(bottom: () => number) {
+    const el = document.createElement("div")
+    el.getBoundingClientRect = () => ({ bottom: bottom() } as DOMRect)
+    return { current: el }
+  }
+
+  it("follows the keyboard and the window scroll; 0 while the keyboard is closed", () => {
+    const vv = new FakeViewport(window.innerHeight)
+    install(vv)
+    let bottom = window.innerHeight - 48
+    const ref = containerEndingAt(() => bottom)
+    const { result } = renderHook(() => useKeyboardPadding(ref))
+    expect(result.current).toBe(0)
+
+    act(() => vv.set(window.innerHeight - 336))
+    expect(result.current).toBe(336 - 48)
+
+    act(() => {
+      bottom -= 25
+      window.dispatchEvent(new Event("scroll"))
+    })
+    expect(result.current).toBe(336 - 48 - 25)
+
+    act(() => vv.set(window.innerHeight))
+    expect(result.current).toBe(0)
+  })
+
+  it("is 0 where visualViewport does not exist", () => {
+    install(null)
+    const ref = containerEndingAt(() => 0)
+    const { result } = renderHook(() => useKeyboardPadding(ref))
+    expect(result.current).toBe(0)
   })
 })
