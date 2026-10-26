@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { dueKindOf, dueWindow, shortDate, windowPhrase } from "@/lib/dueWindow"
 import { Link } from "react-router-dom"
+import { createPortal } from "react-dom"
 import { RemoveScroll } from "react-remove-scroll"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
@@ -22,6 +23,7 @@ import { TaskEditSheet } from "@/components/tasks/TaskEditSheet"
 import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
+import { usePageBar } from "@/hooks/usePageBar"
 import { InlineError, LoadErrorState } from "@/components/layout/LoadStates"
 import { doneFailedMessage } from "./tasks/shared"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
@@ -133,6 +135,7 @@ export function RefinedTaskDetail({
   const [dockSize, setDockSize] = useState(52)
   // Only positions the dock (right panel vs bottom sheet); this page is one tree.
   const isDesktop = useIsDesktop()
+  const pageBarRef = usePageBar()
   useEffect(() => {
     const itemId = detail?.itemUnitId
     if (!homeId || !itemId || detail?.manualPage == null) return
@@ -510,24 +513,35 @@ export function RefinedTaskDetail({
         </div>
       </div>
 
-      {/* Sticky Mark done (mobile only) */}
+      {/* Sticky Mark done (below lg). FIXED to the viewport, standing on the
+          tab bar (--hh-tabbar-clear; 0 at md+ where there is no tab bar, so
+          the bar pads for the home indicator itself there). It used to be
+          `absolute bottom-0` inside the page wrapper, i.e. at the END of the
+          document: on any task taller than the screen the one primary action
+          was below the fold (Apple HIG review, 2026-10). The content's pb-40
+          is what keeps the last row clear of it. Its height is published
+          (usePageBar) so the tray pill stands above it, not on it. */}
       {!done && (
-        <div className="hh-frost absolute inset-x-0 bottom-0 border-t border-[var(--hh-line)] px-5 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden" style={{ paddingInline: d.pad, background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
-          {doneErrorNote && <div className="mb-2">{doneErrorNote}</div>}
-          <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
-            <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
-          </button>
+        <div ref={pageBarRef} data-testid="task-action-bar" className="hh-frost fixed inset-x-0 bottom-[var(--hh-tabbar-clear)] z-40 border-t border-[var(--hh-line)] pb-3 pt-3 backdrop-blur-xl md:pb-[calc(12px+env(safe-area-inset-bottom))] lg:hidden" style={{ background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
+          <div className="mx-auto w-full max-w-[460px]" style={{ paddingInline: d.pad }}>
+            {doneErrorNote && <div className="mb-2">{doneErrorNote}</div>}
+            <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
+              <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Done bar (mobile only) */}
+      {/* Done bar (below lg) — same footing as Mark done, which it replaces. */}
       {done && (
-        <div className="absolute inset-x-0 bottom-0 z-[45] flex items-center gap-2.5 border-t px-5 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 lg:hidden" style={{ background: "var(--hh-teal-wash)", borderColor: "rgba(27,107,90,0.2)", paddingInline: d.pad }}>
-          <CheckCircle2Icon className="size-5 shrink-0" style={{ color: TEAL }} />
-          <span className="flex-1 text-[13.5px] font-bold" style={{ color: TEALD }}>
-            {done.nextDue ? `Done · next due ${fmt(done.nextDue)}` : "Done"}
-          </span>
-          <button onClick={onBack} className="text-[14px] font-bold" style={{ color: TEAL }}>Back</button>
+        <div ref={pageBarRef} data-testid="task-action-bar" className="fixed inset-x-0 bottom-[var(--hh-tabbar-clear)] z-40 border-t pb-3 pt-3 md:pb-[calc(12px+env(safe-area-inset-bottom))] lg:hidden" style={{ background: "var(--hh-teal-wash)", borderColor: "rgba(27,107,90,0.2)" }}>
+          <div className="mx-auto flex w-full max-w-[460px] items-center gap-2.5" style={{ paddingInline: d.pad }}>
+            <CheckCircle2Icon className="size-5 shrink-0" style={{ color: TEAL }} />
+            <span className="flex-1 text-[13.5px] font-bold" style={{ color: TEALD }}>
+              {done.nextDue ? `Done · next due ${fmt(done.nextDue)}` : "Done"}
+            </span>
+            <button onClick={onBack} className="text-[14px] font-bold" style={{ color: TEAL }}>Back</button>
+          </div>
         </div>
       )}
 
@@ -638,10 +652,15 @@ function ConfirmDoneSheet({
 
   // RemoveScroll, as the Radix sheets do: the page behind stays put while
   // this is open (audit 2026-10-15).
-  return (
+  //
+  // Portalled and FIXED, as TaskEditSheet is. It was `absolute` to the page
+  // wrapper, so on a long task scrolled down the sheet sat at the wrapper's
+  // bottom (off-screen) and its scrim covered the wrapper, not the screen, and
+  // the tab bar (z-50) painted over it. The panel keeps the page column's width.
+  return createPortal(
     <RemoveScroll allowPinchZoom>
-      <div onClick={onClose} className="absolute inset-0 z-40" style={{ background: "rgba(8,12,11,0.4)" }} />
-      <div className="absolute inset-x-0 bottom-0 z-41 rounded-t-[20px] px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)]" style={{ paddingInline: d.pad, background: "var(--hh-surface)" }}>
+      <div onClick={onClose} className="fixed inset-0 z-[60]" style={{ background: "rgba(8,12,11,0.4)" }} />
+      <div className="fixed inset-x-0 bottom-0 z-[70] mx-auto w-full max-w-[460px] rounded-t-[20px] px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:max-w-[960px]" style={{ paddingInline: d.pad, background: "var(--hh-surface)" }}>
         <div className="mx-auto mb-4 h-1 w-9 rounded-full" style={{ background: "var(--hh-grab)" }} />
         {/* One decision, already made. The sheet used to open with six things
             to press — two when-buttons, two bump-buttons, Confirm, dismiss —
@@ -699,6 +718,7 @@ function ConfirmDoneSheet({
         )}
         <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="w-full rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Confirm</button>
       </div>
-    </RemoveScroll>
+    </RemoveScroll>,
+    document.body,
   )
 }

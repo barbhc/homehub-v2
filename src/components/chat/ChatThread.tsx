@@ -10,6 +10,10 @@ type ChatThreadProps = {
   onWebSearch?: (messageId: string) => void
   onRetry?: (messageId: string) => void
   activeFilter?: ChatFilter
+  /** The on-screen keyboard's overlap (useKeyboardInset). When it changes the
+   *  thread gets shorter or taller, and a reader at the latest message stays
+   *  there rather than finding it behind the keyboard. */
+  keyboardInset?: number
 }
 
 export function ChatThread({
@@ -18,6 +22,7 @@ export function ChatThread({
   onWebSearch,
   onRetry,
   activeFilter,
+  keyboardInset = 0,
 }: ChatThreadProps) {
   const threadRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -81,6 +86,15 @@ export function ChatThread({
     if (added || switched) followingRef.current = true
     if (followingRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  // The keyboard opened or closed: the thread just changed height under the
+  // reader. Only someone already following the latest message is moved.
+  const prevInsetRef = useRef(keyboardInset)
+  useEffect(() => {
+    if (keyboardInset === prevInsetRef.current) return
+    prevInsetRef.current = keyboardInset
+    if (followingRef.current) bottomRef.current?.scrollIntoView({ block: "end" })
+  }, [keyboardInset])
 
   if (messages.length === 0) {
     return null

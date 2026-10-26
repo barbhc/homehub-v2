@@ -46,6 +46,28 @@ describe("modal surfaces sit above the tab bar", () => {
     for (const z of zIndexes) expect(z).toBeGreaterThan(NAV_Z)
   })
 
+  // The task page's Mark done sheet and Tune sheet were `absolute` to the page
+  // wrapper: opened from the bottom of a long task, the sheet sat off-screen
+  // and its scrim covered the wrapper, not the screen (Apple HIG review,
+  // 2026-10). They now portal and sit above the nav, as the edit sheet does.
+  for (const [name, file, marker] of [
+    ["the Mark done confirm sheet", "../components/home/RefinedTaskDetail.tsx", "function ConfirmDoneSheet"],
+    ["the Tune sheet", "../components/care/TaskFeedbackSheet.tsx", "export function TaskFeedbackSheet"],
+  ] as const) {
+    it(`${name} portals to <body>, fixed, above the nav`, () => {
+      const src = read(file)
+      const body = src.slice(src.indexOf(marker))
+      const end = body.indexOf("\n}\n")
+      const fn = body.slice(0, end)
+      expect(fn).toContain("createPortal(")
+      expect(fn).toContain("document.body")
+      expect(fn, "an absolute sheet is positioned against the page, not the screen").not.toMatch(/className="absolute inset/)
+      const zIndexes = [...fn.matchAll(/\bfixed [^"]*\bz-\[(\d+)\]/g)].map((m) => Number(m[1]))
+      expect(zIndexes.length, "expected a fixed scrim and a fixed panel with explicit z-[n]").toBe(2)
+      for (const z of zIndexes) expect(z).toBeGreaterThan(NAV_Z)
+    })
+  }
+
   it("the nav is still the z-50 this test is calibrated against", () => {
     // If the nav's own z-index moves, the two assertions above stop meaning
     // what they claim. Fail loudly here rather than passing vacuously.

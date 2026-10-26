@@ -205,3 +205,92 @@ for (const vp of VIEWPORTS) {
     })
   })
 }
+
+/**
+ * Bottom bars stand ON the tab bar, never under it or below the fold.
+ *
+ * Apple HIG review (2026-10): the task page's Mark done bar was `absolute
+ * bottom-0` in the page wrapper, so on any task taller than the screen the
+ * primary action sat at the end of the document; the Deep Clean session footer
+ * was `fixed bottom-0` under the z-50 tab bar, Finish session half-covered.
+ * Both now sit at --hh-tabbar-clear. These are geometric on purpose: the class
+ * names were "right" both times the bars were wrong.
+ */
+const PHONES = VIEWPORTS.filter((v) => v.width < 768)
+const TASK_PATH = "/tasks/inst-00-replace-hvac-furnace-filter"
+
+type Box = { x: number; y: number; width: number; height: number }
+const bottomOf = (b: Box) => b.y + b.height
+
+async function tabBarTop(page: Page): Promise<number> {
+  const nav = page.locator("nav.fixed.bottom-0")
+  await expect(nav, "the mobile tab bar is not showing").toBeVisible()
+  return (await nav.boundingBox())!.y
+}
+
+async function expectOnTabBar(page: Page, bar: Box, what: string, vp: { name: string; height: number }) {
+  const navTop = await tabBarTop(page)
+  expect(bottomOf(bar), `${what} @ ${vp.name}: its bottom (${bottomOf(bar)}) is under the tab bar (top ${navTop})`).toBeLessThanOrEqual(navTop + 1)
+  expect(bar.y, `${what} @ ${vp.name}: it starts above the viewport`).toBeGreaterThanOrEqual(0)
+  expect(bottomOf(bar), `${what} @ ${vp.name}: it runs past the viewport`).toBeLessThanOrEqual(vp.height)
+}
+
+for (const vp of PHONES) {
+  test.describe(`bottom bars @ ${vp.name} (${vp.width}×${vp.height})`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height }, hasTouch: true, isMobile: true })
+
+    test("task page: Mark done stays on screen above the tab bar, top and bottom", async ({ page }) => {
+      await gotoStable(page, TASK_PATH)
+      await page.getByText("Replace HVAC furnace filter").filter({ visible: true }).first().waitFor({ state: "visible", timeout: 20_000 })
+      const bar = page.getByTestId("task-action-bar")
+      const markDone = bar.getByRole("button", { name: "Mark done" })
+      await expect(markDone).toBeVisible()
+
+      // Scrolled to the top: the primary action is reachable without scrolling.
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await expectOnTabBar(page, (await bar.boundingBox())!, "Mark done bar (top)", vp)
+      await expectOnTabBar(page, (await markDone.boundingBox())!, "Mark done button (top)", vp)
+
+      // Scrolled to the end: still there, and the page's last control is not
+      // hidden behind it.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+      const barBox = (await bar.boundingBox())!
+      await expectOnTabBar(page, barBox, "Mark done bar (bottom)", vp)
+      const last = (await page.getByRole("button", { name: /Tune this task/ }).boundingBox())!
+      expect(bottomOf(last), `the task page's last control ends under the Mark done bar @ ${vp.name}`).toBeLessThanOrEqual(barBox.y + 1)
+    })
+
+    test("deep clean: the session footer sits above the tab bar", async ({ page }) => {
+      await gotoStable(page, "/clean")
+      await page.getByRole("button", { name: /Start cleaning/ }).filter({ visible: true }).first().click()
+      await page.getByRole("button", { name: "Whole Home" }).filter({ visible: true }).first().click()
+      await page.getByRole("button", { name: /Let's clean/ }).filter({ visible: true }).first().click()
+      const footer = page.getByTestId("clean-session-footer")
+      const finish = footer.getByRole("button", { name: /Finish session/ })
+      await expect(finish).toBeVisible({ timeout: 20_000 })
+
+      await expectOnTabBar(page, (await footer.boundingBox())!, "Deep Clean footer", vp)
+      await expectOnTabBar(page, (await finish.boundingBox())!, "Finish session", vp)
+    })
+  })
+}
+
+test.describe("bottom bars @ iPad (820×1180) — no tab bar, so they sit at the bottom", () => {
+  test.use({ viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true })
+
+  test("task page Mark done and the Deep Clean footer meet the viewport's bottom edge", async ({ page }) => {
+    await gotoStable(page, TASK_PATH)
+    await page.getByText("Replace HVAC furnace filter").filter({ visible: true }).first().waitFor({ state: "visible", timeout: 20_000 })
+    await expect(page.locator("nav.fixed.bottom-0"), "the tab bar should be hidden at md+").toBeHidden()
+    const bar = (await page.getByTestId("task-action-bar").boundingBox())!
+    expect(Math.round(bottomOf(bar)), "Mark done bar should end at the viewport bottom").toBe(1180)
+
+    await gotoStable(page, "/clean")
+    await page.getByRole("button", { name: /Start cleaning/ }).filter({ visible: true }).first().click()
+    await page.getByRole("button", { name: "Whole Home" }).filter({ visible: true }).first().click()
+    await page.getByRole("button", { name: /Let's clean/ }).filter({ visible: true }).first().click()
+    const footer = page.getByTestId("clean-session-footer")
+    await expect(footer.getByRole("button", { name: /Finish session/ })).toBeVisible({ timeout: 20_000 })
+    expect(Math.round(bottomOf((await footer.boundingBox())!)), "the footer should end at the viewport bottom").toBe(1180)
+  })
+})

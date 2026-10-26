@@ -272,16 +272,41 @@ body {
    clock (reported 2026-07-29). Mobile Safari deliberately gets neither branch —
    the browser insets content itself, and a fixed inset would add a phantom gap.
    Reset to 0 at md+ (desktop has its own top header). */
-.pt-safe-top { padding-top: env(safe-area-inset-top); }
+.pt-safe-top, .pt-safe-screen { padding-top: env(safe-area-inset-top); }
 @media (display-mode: standalone) {
-  .pt-safe-top { padding-top: max(env(safe-area-inset-top), 44px); }
+  .pt-safe-top, .pt-safe-screen { padding-top: max(env(safe-area-inset-top), 44px); }
 }
-:root[data-native="true"] .pt-safe-top {
+:root[data-native="true"] .pt-safe-top,
+:root[data-native="true"] .pt-safe-screen {
   padding-top: max(env(safe-area-inset-top), 44px);
 }
+/* Only the in-app shell resets at md+, where its desktop header takes the top.
+   `.pt-safe-screen` is for full screens with no chrome above them (AuthScreen:
+   reset password, invite, 404) — nothing else clears the status bar there, so
+   it keeps the inset at every width. */
 @media (min-width: 768px) {
   .pt-safe-top { padding-top: 0; }
   :root[data-native="true"] .pt-safe-top { padding-top: 0; }
+}
+
+/* ── Mobile tab bar height (AppLayout's bottom <nav>) ─────────────────────────
+   ONE measure for "how much of the bottom of the screen the tab bar takes",
+   so bars that must sit on top of it (the task page's Mark done, the Deep Clean
+   session footer) do not each guess a number. The nav sets its own min-height
+   from --hh-tabbar-h, so the two cannot drift apart.
+
+   --hh-tabbar-h      the bar's own row (border + icons + labels), 60px — what it
+                      measured before this variable existed (59.5px).
+   --hh-tabbar-clear  distance from the viewport bottom to the bar's TOP edge:
+                      its row plus the home-indicator inset it pads itself with.
+                      0 at md+, where the tab bar is hidden; a bar sitting on it
+                      then pads for the inset itself. */
+:root {
+  --hh-tabbar-h: 60px;
+  --hh-tabbar-clear: calc(var(--hh-tabbar-h) + env(safe-area-inset-bottom));
+}
+@media (min-width: 48rem) {
+  :root { --hh-tabbar-clear: 0px; }
 }
 
 /* ── iOS input zoom ──────────────────────────────────────────────────────────

@@ -32,6 +32,7 @@ import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
 import { classifyTaskFields } from "@/lib/taskActor"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { useIsCurrent } from "@/hooks/useIsCurrent"
+import { usePageBar } from "@/hooks/usePageBar"
 
 type Step = "setup" | "checklist" | "summary"
 type View = "hub" | "session"
@@ -80,6 +81,7 @@ export default function DeepClean() {
 
   const [view, setView] = useState<View>("hub")
   const [step, setStep] = useState<Step>("setup")
+  const footerRef = usePageBar()
   // Maintenance was an invented session-type toggle — clean sessions are always
   // "cleaning". Kept as a constant where getCleaningTasks needs the mode.
   const cleanMode: CleanSessionMode = "cleaning"
@@ -783,7 +785,12 @@ export default function DeepClean() {
             )}
           </div>
 
-          <div className="fixed bottom-0 inset-x-0 z-40 flex items-center justify-between px-4 py-3 bg-background border-t border-border">
+          {/* Stands ON the tab bar (--hh-tabbar-clear): at `bottom-0` it sat
+              under the z-50 nav on phones, Finish session half-covered, and
+              never cleared the home indicator. At md+ there is no tab bar, so
+              it returns to the bottom and pads for the inset itself. The
+              page's pb-24 keeps the last row clear of it. */}
+          <div ref={footerRef} data-testid="clean-session-footer" className="fixed bottom-[var(--hh-tabbar-clear)] inset-x-0 z-40 flex items-center justify-between px-4 py-3 md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-background border-t border-border">
             <span className="text-sm text-muted-foreground">
               {completedCount} tasks selected
             </span>
