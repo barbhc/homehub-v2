@@ -28,26 +28,26 @@ test.describe("self-hosted fonts", () => {
 
     await openHome(page)
 
-    // document.fonts.check() alone is not proof: it returns true when NO face
-    // matches the family at all. load() returns the faces it actually loaded,
-    // so an empty array means the weight is missing.
-    const loaded = await page.evaluate(
+    // Neither document.fonts.check() nor load() proves a weight exists: both
+    // fall back to the NEAREST weight (load('300 16px "Inter"') returns the 400
+    // face and check() is true, with no 300 face registered). So trigger the
+    // loads, then require a REGISTERED face of exactly that family, weight and
+    // style that finished loading.
+    const loadedFaces = await page.evaluate(
       async ({ inter, display }) => {
-        const out: Record<string, { faces: number; check: boolean }> = {}
         for (const [family, weights] of [["Inter", inter], ["Plus Jakarta Sans", display]] as const) {
-          for (const w of weights) {
-            const spec = `${w} 16px "${family}"`
-            const faces = await document.fonts.load(spec)
-            out[`${family} ${w}`] = { faces: faces.filter((f) => f.status === "loaded").length, check: document.fonts.check(spec) }
-          }
+          for (const w of weights) await document.fonts.load(`${w} 16px "${family}"`)
         }
-        return out
+        await document.fonts.ready
+        return [...document.fonts]
+          .filter((f) => f.status === "loaded" && f.style === "normal")
+          .map((f) => `${f.family.replace(/["']/g, "")} ${f.weight}`)
       },
       { inter: INTER_WEIGHTS, display: DISPLAY_WEIGHTS },
     )
-    for (const [face, r] of Object.entries(loaded)) {
-      expect(r.faces, `${face} has a loaded face`).toBeGreaterThan(0)
-      expect(r.check, `${face} passes document.fonts.check`).toBe(true)
+    for (const w of INTER_WEIGHTS) expect(loadedFaces, `Inter ${w} face loaded`).toContain(`Inter ${w}`)
+    for (const w of DISPLAY_WEIGHTS) {
+      expect(loadedFaces, `Plus Jakarta Sans ${w} face loaded`).toContain(`Plus Jakarta Sans ${w}`)
     }
 
     expect(google, "requests to Google Fonts").toEqual([])

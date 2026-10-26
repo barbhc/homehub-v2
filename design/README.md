@@ -80,7 +80,7 @@ On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed
 | clay | `#E8956A` · gold `#D9B978` · slate `#8FB0CC` |
 
 ### Typography
-- **Font family**: system stack — `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif`. Use the platform's native font (SF on iOS, Roboto on Android) or Inter on web.
+- **Font family** (prototype only — the shipped app uses Inter + Plus Jakarta Sans, see "In the shipped app" below): system stack — `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif`. Use the platform's native font (SF on iOS, Roboto on Android) or Inter on web.
 - **Scale (cozy density, mobile)**: big/H1 ≈ 26–30px / 800; section title ≈ 17–22px / 800; body ≈ 15–16px / 600; small ≈ 13–13.5px; micro/labels ≈ 10.5–12px / 700 uppercase, letter-spacing 0.4–0.6.
 - **Headings**: weight 800, letter-spacing −0.4 to −0.8, line-height ~1.1–1.25, `text-wrap: balance`.
 - **Body**: weight 500–600, line-height 1.4–1.55, `text-wrap: pretty`.

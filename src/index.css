@@ -349,9 +349,6 @@ code {
    The scan rail's own rule above still applies (it is a keyframe animation on
    its own class, untouched here). */
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto !important;
-  }
   .animate-pulse,
   .animate-bounce,
   .animate-ping {
