@@ -85,6 +85,14 @@ On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed
 - **Headings**: weight 800, letter-spacing −0.4 to −0.8, line-height ~1.1–1.25, `text-wrap: balance`.
 - **Body**: weight 500–600, line-height 1.4–1.55, `text-wrap: pretty`.
 - **Mono** (serials, counts, dates): `"SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace`.
+- **In the shipped app** (owner, 2026-10-26 — Apple polish review, `BACKLOG.md`): the family is
+  **Inter** (`--font-sans`) with **Plus Jakarta Sans** for display titles (`--font-display`), both
+  self-hosted (`src/main.tsx`) with only the weights in use — not SF. `src/index.css` is
+  authoritative, as for colour.
+- **Larger Text** (owner, 2026-10-26): at the iPhone's **normal** text size every screen keeps
+  exactly the sizes above — the default never changes. Text grows only when someone raises the
+  iOS text-size setting; dense rows (tab labels, the calendar) cap at ~1.5×. *"I prefer the
+  original text size."*
 
 ### Density scale (`dens()` in `hh-data.jsx` — mobile)
 Three densities (spacious/cozy/compact) drive `pad`, `cardPad`, `gap`, `stack`, `radius`, `tap`, `rowPy`, `body`, `small`, `big`. Cozy is the default. Key cozy values: card radius ~18, card padding ~16, screen padding ~16–20, row vertical padding ~13, tap target base ~36–44. **Minimum tap target 40–44px.**
@@ -197,7 +205,11 @@ A rounded-square teal tile (radius ≈ 30% of size) containing a white `house` g
 - **Manual search** (add item): ~1.8s simulated async → found/not-found branch.
 - **Level up**: raising the level shows a calm sheet/toast naming exactly what appeared, with a way back down.
 - **Tweaks panel** (prototype-only): both apps expose a Tweaks panel (density, level, appearance, connection/offline, nav paradigm, data state). This is a prototyping affordance — in production these map to real settings/state, not a floating panel.
-- **Transitions**: gentle; respect `prefers-reduced-motion`. No infinite decorative loops.
+- **Transitions**: gentle; respect `prefers-reduced-motion`. No infinite decorative loops. Under
+  Reduce Motion (`src/index.css`): skeletons stop pulsing, slides/scales land at once, fades stay,
+  spinners keep spinning (a progress indicator, as on iOS).
+- **Haptics — minimal** (owner, 2026-10-26): a success tap when a task is marked done or
+  snoozed, and an error buzz when a save fails. Nothing else buzzes.
 
 ## State Management
 Key state to model in the target app:
@@ -213,7 +225,8 @@ Key state to model in the target app:
 
 ## Assets
 - **Icons**: Lucide (open-source). No custom illustration assets — item/category imagery uses Lucide glyphs on tinted tiles. Replace placeholders with real product imagery where available in production.
-- **Fonts**: system fonts / Inter. No licensed fonts bundled.
+- **Fonts**: Inter and Plus Jakarta Sans (both OFL), self-hosted from `@fontsource`, latin subset
+  only. No licensed fonts bundled.
 - **Logo**: the house-tile + wordmark is drawn in code (see Brand mark) — recreate or supply a real SVG.
 
 ## Files

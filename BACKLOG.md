@@ -85,6 +85,50 @@ separate (§8).
 
 ---
 
+## Apple polish — HIG review (2026-10-26)
+
+An Apple HIG + design-rules review of every screen, with screenshots and the
+full plan: https://claude.ai/artifact/1DwQLYdx2ewMk3RoYrxp8t. The owner
+approved it the same day ("go with the recommendations"), plus the explicit
+calls below. Four phases, in order:
+
+1. **Foundation** (engineering only) — Larger Text with today's default size;
+   44pt targets; finish dark mode; Reduce Motion; four bugs (task-page Mark done
+   off-screen on small phones; Deep Clean session footer under the tab bar;
+   reset/invite/404 ignore the notch; Ask composer under the keyboard); fonts;
+   the design-rules checker as a CI ratchet.
+2. **Motion** — one bottom sheet; rows that move; press feedback; a physical
+   swipe; the small ones.
+3. **Native** — minimal haptics; edge-swipe back; launch screen = first screen;
+   status bar follows the theme.
+4. **Apple chrome** — large titles; chevron Back; Settings groups; forms as
+   sheets; Sign in with Apple by the book; filled tab symbols.
+
+**Owner decisions:**
+- **Fonts:** keep Inter (no switch to SF), self-hosted, only the weights in use.
+- **Larger Text:** at the iPhone's NORMAL text size every screen keeps exactly
+  today's sizes; text grows only when someone raises the iOS text-size setting.
+  Dense rows (tab labels, the calendar) cap at ~1.5×. *"I prefer the original
+  text size."*
+- **Haptics, minimal:** a success tap when a task is marked done or snoozed, an
+  error buzz when a save fails. Nothing else (Phase 3).
+- **Titles and Back:** large titles on Tasks, Items and Settings; Home keeps its
+  compact greeting; chevron-only Back everywhere (Phase 4).
+- **Settings:** drill-in groups, developer sections behind Advanced (Phase 4).
+- **Dialogs:** bottom sheets with Cancel / Done (Phases 2 and 4).
+- **Tasks swipe:** stays swipe-to-commit, with flick velocity and the leaving
+  row (Phase 2).
+- **Calm errors:** add-wizard errors move from red to calm clay now; the
+  pro-task hazard notice gets its own calm token after a mock (later).
+- **The Ask bubble** stays ink-coloured.
+
+**Phase 1 slices:** `chore/apple-polish-foundation` — the checker ratchet
+(`npm run check:design`, baseline in `.design-rules-baseline.json`), Reduce
+Motion app-wide, self-hosted fonts, and these decisions. Larger Text, 44pt
+targets, dark mode and the four bugs are separate PRs.
+
+---
+
 ## 1. Ranked — what to do next
 
 Priority = (Risk + Impact) / Scope. Risk: what happens if we don't (5 = data

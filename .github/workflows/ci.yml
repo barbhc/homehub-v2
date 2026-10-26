@@ -64,6 +64,12 @@ jobs:
       # It used to be `lint:new`, five paths that left almost every screen
       # outside the check; a new error anywhere now fails here.
       - run: npm run lint
+      # Design-rules ratchet (python3 ships on ubuntu-latest; the checker is
+      # standard-library only). Fails only when a rule's count RISES above
+      # .design-rules-baseline.json — tiny text, raw colours, palette classes,
+      # white surfaces in a dark-mode app, hand-drawn SVGs. When a PR pays debt
+      # down, lower the baseline in that PR (`--write-baseline`) so it stays down.
+      - run: npm run check:design
       - run: npx vitest run
       - run: npx vite build
 
