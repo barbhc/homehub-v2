@@ -170,6 +170,13 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   start itself. — HH-124, HH-131
 - "I'll add it later" ends the wizard **at the item page**, never at a retired
   step. — round 14 audit
+- **Wizard errors are calm clay, never alarm red** — on both screens: a failed
+  label read, a refused file, a failed scan, the required-field marks and
+  "Not found in your photo". The banners are the shared `InlineError` line
+  every redesigned screen uses — its underlined Try again runs the same
+  action the old ghost button did; the capacity notice keeps its gold card. No
+  wording or step changes. SUPERSEDES the `destructive` red boxes.
+  — owner, 2026-10-26 ("wizard errors to clay now", Apple-polish phase 1)
 
 ## The wizard ends here
 

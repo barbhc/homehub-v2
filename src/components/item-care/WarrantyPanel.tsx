@@ -147,7 +147,7 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
         )}
       </div>
       <div className="mb-4 h-1.5 overflow-hidden rounded-full" style={{ background: SLATE_SOFT }}>
-        <div className="h-full" style={{ width: `${fillPct}%`, background: active ? TEAL : "#C2CBD4" }} />
+        <div className="h-full" style={{ width: `${fillPct}%`, background: active ? TEAL : "var(--hh-icon-faint)" }} />
       </div>
 
       {facts.length > 0 && (

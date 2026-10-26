@@ -37,7 +37,7 @@ const INK = "var(--hh-ink)"
 const SUB = "var(--hh-sub)"
 const TEAL = "var(--hh-teal)"
 const FAINT = "var(--hh-faint)"
-const LINE = "rgba(15,23,42,0.14)"
+const LINE = "var(--hh-line-input)"
 
 /** Teal-gradient house mark from the auth mockup (hh-auth.jsx · AuthMark). */
 function AuthMark({ className }: { className?: string }) {
@@ -48,11 +48,11 @@ function AuthMark({ className }: { className?: string }) {
         width: 60,
         height: 60,
         borderRadius: 17,
-        background: "linear-gradient(150deg,#1B6B5A,#2D9B82)",
+        background: "var(--hh-mark)",
         boxShadow: "0 8px 22px rgba(27,107,90,0.22)",
       }}
     >
-      <HouseIcon size={28} strokeWidth={1.8} className="text-white" />
+      <HouseIcon size={28} strokeWidth={1.8} style={{ color: "var(--hh-on-fill)" }} />
     </div>
   )
 }
@@ -267,9 +267,9 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
       {mode !== "reset" && (
         <>
           <div className="flex items-center gap-2.5 my-4">
-            <div className="flex-1 h-px" style={{ background: "rgba(15,23,42,0.10)" }} />
+            <div className="flex-1 h-px" style={{ background: LINE }} />
             <span className="text-xs font-semibold" style={{ color: SUB }}>or</span>
-            <div className="flex-1 h-px" style={{ background: "rgba(15,23,42,0.10)" }} />
+            <div className="flex-1 h-px" style={{ background: LINE }} />
           </div>
 
           {/* Sign in with Apple — Firebase's apple.com provider (design/apple-signin-scope.md). */}

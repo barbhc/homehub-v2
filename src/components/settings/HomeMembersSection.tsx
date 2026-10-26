@@ -44,9 +44,9 @@ function roleLabel(role: string): string {
 function roleBadgeClass(role: string): string {
   switch (role) {
     case "owner": return "bg-primary/10 text-primary"
-    case "admin": return "bg-blue-50 text-blue-700"
+    case "admin": return "bg-[var(--hh-info-soft)] text-[var(--hh-info)]"
     case "member": return "bg-muted text-muted-foreground"
-    case "guest": return "bg-amber-50 text-amber-700"
+    case "guest": return "bg-[var(--hh-warn-soft)] text-[var(--hh-warn)]"
     default: return "bg-muted text-muted-foreground"
   }
 }

@@ -313,6 +313,7 @@ export function HeroCard({
       {sidebarMode && (
         <div className="hidden lg:block mb-3">
           {photoUrl ? (
+            // design-rules: allow white-surface — product-photo matte. The img below is mix-blend-multiply, so on a dark matte every photo goes near-black; white is what makes a shot-on-white product read as the tile itself. Same in both themes on purpose.
             <div className="relative group/photo rounded-xl overflow-hidden bg-white aspect-square">
               <img
                 src={photoUrl}
@@ -362,6 +363,7 @@ export function HeroCard({
               <img
                 src={photoUrl}
                 alt={item.display_name}
+                // design-rules: allow white-surface — product-photo matte. The img below is mix-blend-multiply, so on a dark matte every photo goes near-black; white is what makes a shot-on-white product read as the tile itself. Same in both themes on purpose.
                 className="w-[72px] h-[72px] sm:w-28 sm:h-28 rounded-xl object-contain mix-blend-multiply bg-white"
               />
               <div className="absolute inset-0 rounded-xl bg-black/0 group-hover/photo:bg-black/30 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover/photo:opacity-100">

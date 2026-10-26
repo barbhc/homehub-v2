@@ -10,17 +10,20 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[var(--hh-teal-fill)] text-primary-foreground shadow-sm hover:bg-[#155549] active:bg-[#0F3D37]",
+          "bg-[var(--hh-teal-fill)] text-primary-foreground shadow-sm hover:bg-[var(--hh-teal-fill-hover)] active:bg-[var(--hh-teal-fill-active)]",
         destructive:
-          "bg-destructive text-white shadow-sm hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/70",
+          // The FILL token, not --t-destructive: in dark that is a bright text red
+          // (white on it 3.76:1), and the old /70 alpha passed only by letting the
+          // dark dialog show through. Opaque fill: white 4.83 / 6.47:1.
+          "bg-destructive-fill text-white shadow-sm hover:bg-destructive-fill/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
         outline:
-          "border border-primary bg-transparent text-primary hover:bg-secondary hover:text-primary dark:border-[#2D9B82] dark:text-[#2D9B82] dark:hover:bg-[#1a3530]",
+          "border border-primary bg-transparent text-primary hover:bg-secondary hover:text-primary",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[#D4EDE9] active:bg-[#C0E4DF] dark:hover:bg-[#1E3D38]",
+          "bg-secondary text-secondary-foreground hover:bg-secondary-hover active:bg-secondary-active",
         ghost:
-          "hover:bg-secondary hover:text-secondary-foreground dark:hover:bg-[#1a3530] dark:hover:text-[#9FD4C8]",
+          "hover:bg-secondary hover:text-secondary-foreground",
         link:
-          "text-primary underline-offset-4 hover:underline dark:text-[#2D9B82]",
+          "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-11 md:h-9 px-4 py-2 has-[>svg]:px-3",

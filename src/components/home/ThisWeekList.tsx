@@ -150,7 +150,7 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
           </span>
           <span
             className="flex size-[22px] shrink-0 items-center justify-center rounded-full"
-            style={open ? { background: "var(--hh-teal-fill)", color: "#fff" } : { background: "var(--hh-surface2)", color: SUB }}
+            style={open ? { background: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" } : { background: "var(--hh-surface2)", color: SUB }}
             aria-hidden
           >
             {open ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}

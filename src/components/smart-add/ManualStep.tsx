@@ -3,13 +3,13 @@ import {
   FileTextIcon,
   UploadIcon,
   XIcon,
-  AlertCircleIcon,
   ClockIcon,
   ChevronRightIcon,
   ChevronDownIcon,
   SearchIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { InlineError } from "@/components/layout"
 import { Input } from "@/components/ui/input"
 import { MAX_UPLOAD_BYTES } from "@/modules/inventory/services/storageService"
 import { cn } from "@/lib/utils"
@@ -577,10 +577,8 @@ export function ManualStep({
       )}
 
       {fileError && (
-        <div className="flex items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          <AlertCircleIcon className="size-4 shrink-0" />
-          {fileError}
-        </div>
+        // Calm clay, never alarm red — the line every redesigned screen uses.
+        <InlineError>{fileError}</InlineError>
       )}
 
       {/* HH-124. Hitting the daily ceiling is not an error the user caused, so
@@ -610,21 +608,7 @@ export function ManualStep({
       })()}
 
       {error && !isCapacityRefusal(error) && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p>{error}</p>
-            {onRetry && (
-              <button
-                type="button"
-                onClick={onRetry}
-                className="mt-1.5 font-medium underline underline-offset-2 hover:opacity-80"
-              >
-                Try again
-              </button>
-            )}
-          </div>
-        </div>
+        <InlineError onRetry={onRetry}>{error}</InlineError>
       )}
 
       {/* Scan, not parse — and never "read", which would suggest the app is

@@ -14,15 +14,15 @@ import { useState } from "react"
 import { CheckIcon } from "lucide-react"
 import type { Suggestion } from "../../../shared/care/library"
 
-const INK = "var(--hh-ink, #0B1220)"
-const SUB = "var(--hh-sub, #4B5563)"
-const FAINT = "var(--hh-faint, #8A9089)"
-const TEAL = "var(--hh-teal, #1B6B5A)"
-const CLAY = "var(--hh-clay, #C2410C)"
-const AMBER = "var(--hh-gold, #8A5A12)"
-const AMBER_SOFT = "var(--hh-gold-soft, #FBF3E2)"
-const SLATE = "var(--hh-slate, #455C72)"
-const SLATE_SOFT = "var(--hh-slate-soft, #F1F5F8)"
+const INK = "var(--hh-ink)"
+const SUB = "var(--hh-sub)"
+const FAINT = "var(--hh-faint)"
+const TEAL = "var(--hh-teal)"
+const CLAY = "var(--hh-clay)"
+const AMBER = "var(--hh-gold)"
+const AMBER_SOFT = "var(--hh-gold-soft)"
+const SLATE = "var(--hh-slate)"
+const SLATE_SOFT = "var(--hh-slate-soft)"
 
 export type SuggestedRowProps = {
   suggestion: Suggestion
@@ -51,7 +51,7 @@ export function SuggestedRow({ suggestion, itemName, onAdd, onDismiss, last }: S
     <div
       data-testid="suggested-row"
       className="flex flex-col gap-1.5 px-4 pb-2.5 pt-3.5"
-      style={{ borderTop: last ? "none" : "1px solid var(--hh-line, rgba(15,23,42,.10))", background: "var(--hh-surface2, #FBFCFB)" }}
+      style={{ borderTop: last ? "none" : "1px solid var(--hh-line)", background: "var(--hh-surface2)" }}
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>

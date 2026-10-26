@@ -24,6 +24,8 @@
   /* Secondary = action-pale fill (teal ghost) */
   --color-secondary: var(--t-secondary);
   --color-secondary-foreground: var(--t-secondary-foreground);
+  --color-secondary-hover: var(--t-secondary-hover);
+  --color-secondary-active: var(--t-secondary-active);
 
   /* Muted */
   --color-muted: var(--t-muted);
@@ -36,6 +38,9 @@
   /* Destructive — unchanged */
   --color-destructive: var(--t-destructive);
   --color-destructive-foreground: var(--t-destructive-foreground);
+  /* A destructive FILL with white on it (Delete buttons). --t-destructive is
+     also a text colour, and its dark value (#ef4444) is too bright under white. */
+  --color-destructive-fill: var(--t-destructive-fill);
 
   /* Borders + inputs */
   --color-border: var(--t-border);
@@ -83,7 +88,9 @@
   --hh-slate-soft: #F1F5F8;
   /* Reference/advice accent — the item page's Tips band. Distinct from slate so
      Tips and First-time setup don't read as the same kind of thing. */
-  --hh-violet:      #7C5CBF;
+  /* Was #7C5CBF: 4.30:1 on --hh-violet-soft for the 12.5px Usage band header.
+     Same hue (259°) and saturation, lightness 55% → 52%: 5.02:1. */
+  --hh-violet:      #724FBA;
   --hh-violet-soft: #EFEAF8;
   --hh-line:       rgba(15,23,42,0.07);
   --hh-line2:      rgba(15,23,42,0.12);
@@ -119,6 +126,69 @@
      6.37:1. Dark: a mid teal (see .dark). Teal text/outlines keep using
      --hh-teal; only fills carrying white use this. */
   --hh-teal-fill:  #1B6B5A;
+
+  /* ── 2026-10-26 dark-mode finish (Apple-polish phase 1) ─────────────────────
+     Light values are today's literals, so light mode does not move; the .dark
+     block below holds the twins. themeContrast.test.ts pins every text pair. */
+  /* Text, glyphs and knobs drawn ON a filled control. White in both themes —
+     the fills below are what change, so white keeps AA on each of them. */
+  --hh-on-fill:    #FFFFFF;
+  /* Tier fills that carry white (TierPill, the "Start here" flag chip, the
+     snooze swipe). --hh-clay/--hh-slate/--hh-gold brighten in dark for TEXT, and
+     white on them fell to 2.3–2.7:1 there. Same rule as --hh-teal-fill. */
+  --hh-clay-fill:  #C2410C;
+  --hh-slate-fill: #455C72;
+  --hh-gold-fill:  #8A6D1E;
+  --hh-teal-fill-hover:  #155549;
+  --hh-teal-fill-active: #0F3D37;
+  /* A disabled primary CTA (authUi). Was literal #C9D4D0 — a pale slab on the
+     dark page. Disabled controls are exempt from contrast; it must still read
+     as "not yet" rather than glow. */
+  --hh-fill-disabled: #C9D4D0;
+  /* Off track of a switch: 3:1 against the card (WCAG 1.4.11) in both themes. */
+  --hh-toggle-off: #7D8984;
+  /* Disclosure chevrons, the lapsed warranty bar, the muted bell. Icons that
+     carry meaning need 3:1; #C2CBD4 / #9AA29C were 1.6 / 2.6:1. Lighter than
+     --hh-faint (a TEXT token) so a chevron still recedes behind its row. */
+  --hh-icon-faint: #858F98;
+  /* Input and divider hairlines on the signed-out screens. rgba(15,23,42,.14)
+     was 1.01:1 on the dark surface — fields with no edge at all. */
+  --hh-line-input: rgba(15,23,42,0.14);
+  /* The brand mark (house tile, avatar). White glyph ≥3:1 on both stops. */
+  --hh-mark:       linear-gradient(150deg,#1B6B5A,#2D9B82);
+  /* Landing hero/CTA: a dark brand band in BOTH themes, by design. */
+  --hh-hero:       radial-gradient(120% 80% at 50% 0%, #1B6B5A 0%, #0E1B17 60%);
+  --hh-hero-card:  linear-gradient(150deg,#1B6B5A,#0E1B17);
+  /* Borders and secondary text on the tinted status cards (Warranties). */
+  --hh-teal-line:  #D4E7E0;
+  --hh-gold-line:  #EFE0C2;
+  --hh-gold-sub:   #6B5E3E;   /* on --hh-gold-soft */
+  /* Neutral "lapsed / inactive" tone — muted, never red. */
+  --hh-neutral:      #5B666F;
+  --hh-neutral-soft: #F1F4F6;
+  --hh-neutral-line: #E4E9ED;
+  /* FindManualCard already asked for these names; they were never defined, so
+     its fallbacks (light literals) rendered in dark too. --hh-amber was the
+     fallback #8A6D1E, 4.27:1 on the wash for the 9.5px "Beta" tag: now 5.26. */
+  --hh-amber:      #7A5F17;
+  --hh-amber-wash: #F6EFDC;
+  --hh-clay-wash:  #F7E7DE;
+  /* Palette-class retirements. Light = the exact Tailwind step each replaced
+     (oklch copied from tailwindcss/theme.css), so nothing moves in light. */
+  --hh-info:       oklch(48.8% 0.243 264.376);           /* blue-700 — admin role badge */
+  --hh-info-soft:  oklch(97% 0.014 254.604);             /* blue-50 */
+  --hh-warn:       oklch(55.5% 0.163 48.998);            /* amber-700 — guest badge, chat note */
+  --hh-warn-soft:  oklch(98.7% 0.022 95.277);            /* amber-50 */
+  --hh-success:    oklch(50.8% 0.118 165.612);           /* emerald-700 — "Saved" */
+  --hh-caution-ink:  oklch(47.3% 0.137 46.201);          /* amber-800 — CautionCallout */
+  --hh-caution-icon: oklch(66.6% 0.179 58.318);          /* amber-600 */
+  --hh-caution-soft: oklch(98.7% 0.022 95.277 / 0.6);    /* amber-50/60 */
+  --hh-caution-line: oklch(82.8% 0.189 84.429 / 0.4);    /* amber-400/40 */
+  --hh-ai-ink:     oklch(49.1% 0.27 292.581);            /* violet-700 — AI source chip */
+  --hh-ai-soft:    oklch(96.9% 0.016 293.756);           /* violet-50 */
+  --hh-web-ink:    oklch(50% 0.134 242.749);             /* sky-700 — web source chip */
+  --hh-web-soft:   oklch(97.7% 0.013 236.62);            /* sky-50 */
+  --hh-web-line:   oklch(90.1% 0.058 230.902);           /* sky-200 */
 }
 
 /* Dark mode token overrides — triggered by .dark class on <html> */
@@ -157,6 +227,10 @@
   --t-accent-foreground: #1B6B5A;
   --t-destructive: #DC2626;
   --t-destructive-foreground: #FFFFFF;
+  --t-destructive-fill: #DC2626;  /* white 4.83:1 */
+  /* Secondary (teal ghost) button hover/press. Light = the old literals. */
+  --t-secondary-hover:  #D4EDE9;
+  --t-secondary-active: #C0E4DF;
   --t-border: #E5E7EB;
   --t-input: #E5E7EB;
   --t-ring: rgba(27, 107, 90, 0.28);
@@ -180,6 +254,13 @@
   --t-accent-foreground: #9FD4C8;
   --t-destructive: #ef4444;
   --t-destructive-foreground: #FFFFFF;
+  /* Was bg-destructive/70: white on #ef4444 is 3.76:1, and it only reached
+     6.1 because the alpha let the dark dialog through. An opaque fill holds
+     white at 6.47:1 whatever it sits on. */
+  --t-destructive-fill: #B91C1C;
+  --t-secondary-hover:  #1E3D38;
+  /* Was the light #C0E4DF in dark too — a pale flash on press. */
+  --t-secondary-active: #24463F;
   --t-border: #1E4040;
   --t-input: #1E4040;
   --t-ring: rgba(45, 155, 130, 0.4);
@@ -191,9 +272,15 @@
   --hh-surface2:   #1E2A24;
   --hh-ink:        #F1F5F3;
   --hh-sub:        #A2AEA9;  /* was #8B9A93 = 4.47:1, just under AA. Now 5.74:1 */
-  --hh-faint:      #93A09B;  /* was 3.02:1 on the darkest surface. Now 4.85:1 */
+  /* was 3.02:1 on the darkest surface, then #93A09B = 4.48:1 on the gold band
+     (item page Band counts). Now ≥4.47:1 on every wash, 4.76 on the gold one. */
+  --hh-faint:      #98A5A0;
   --hh-teal:       #34B093;
-  --hh-teal-deep:  #2A8C76;
+  /* Was #2A8C76: as TEXT it was 4.14:1 on the surface and 3.19 on the teal
+     wash (the "when" pill, Done receipts, reminder notes, manual links).
+     Brighter, not darker, is "deeper" on a dark page: ≥5.30:1 on every
+     surface and wash it is used on. */
+  --hh-teal-deep:  #4CC4A6;
   --hh-teal-wash:  rgba(52,176,147,0.16);
   --hh-clay:       #E8956A;
   --hh-clay-soft:  rgba(232,149,106,0.16);
@@ -222,6 +309,44 @@
      2.91, so the selected calendar day also carries a bright ring
      (SELECTED_DAY_RING). Do not brighten it to --hh-teal (white 2.70). */
   --hh-teal-fill:  #23856F;
+
+  /* 2026-10-26 twins — see :root for what each is for. */
+  --hh-on-fill:    #FFFFFF;
+  /* #C2410C under white is 5.18:1 and stands 3.28:1 off the dark surface, so
+     the clay fill keeps its light value. */
+  --hh-clay-fill:  #C2410C;
+  --hh-slate-fill: #56718C;   /* white 5.08:1, 3.35:1 vs the surface */
+  --hh-gold-fill:  #8A6D1E;   /* white 4.90:1, 3.47:1 vs the surface */
+  --hh-teal-fill-hover:  #155549;
+  --hh-teal-fill-active: #0F3D37;
+  --hh-fill-disabled: #2E3B35;
+  --hh-toggle-off: #7D8984;   /* 4.68:1 on the dark surface */
+  --hh-icon-faint: #6A7772;   /* ≥3.18:1 on every dark surface */
+  --hh-line-input: rgba(255,255,255,0.22);
+  --hh-mark:       linear-gradient(150deg,#1B6B5A,#23856F);
+  --hh-teal-line:  rgba(52,176,147,0.28);
+  --hh-gold-line:  rgba(217,185,120,0.30);
+  --hh-gold-sub:   #CDBF9F;
+  --hh-neutral:      #A2AEA9;
+  --hh-neutral-soft: rgba(255,255,255,0.06);
+  --hh-neutral-line: rgba(255,255,255,0.12);
+  --hh-amber:      #D9B978;
+  --hh-amber-wash: rgba(217,185,120,0.16);
+  --hh-clay-wash:  rgba(232,149,106,0.16);
+  --hh-info:       oklch(80.9% 0.105 251.813);           /* blue-300 */
+  --hh-info-soft:  oklch(70.7% 0.165 254.624 / 0.16);    /* blue-400/16 */
+  --hh-warn:       oklch(82.8% 0.189 84.429);            /* amber-400 */
+  --hh-warn-soft:  oklch(82.8% 0.189 84.429 / 0.14);     /* amber-400/14 */
+  --hh-success:    oklch(76.5% 0.177 163.223);           /* emerald-400 */
+  --hh-caution-ink:  oklch(87.9% 0.169 91.605);          /* amber-300 (was dark:) */
+  --hh-caution-icon: oklch(82.8% 0.189 84.429);          /* amber-400 (was dark:) */
+  --hh-caution-soft: oklch(27.9% 0.077 45.635 / 0.15);   /* amber-950/15 (was dark:) */
+  --hh-caution-line: oklch(55.5% 0.163 48.998 / 0.4);    /* amber-700/40 (was dark:) */
+  --hh-ai-ink:     oklch(81.1% 0.111 293.571);           /* violet-300 (was dark:) */
+  --hh-ai-soft:    oklch(28.3% 0.141 291.089);           /* violet-950 (was dark:) */
+  --hh-web-ink:    oklch(82.8% 0.111 230.318);           /* sky-300 (was dark:) */
+  --hh-web-soft:   oklch(29.3% 0.066 243.157);           /* sky-950 (was dark:) */
+  --hh-web-line:   oklch(44.3% 0.11 240.79);             /* sky-800 (was dark:) */
 }
 
 /* Base styles */
