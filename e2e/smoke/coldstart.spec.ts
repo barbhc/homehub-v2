@@ -35,7 +35,9 @@ test("cold start of a deployed site", async ({ page, context }) => {
   const m = await page.evaluate(() => {
     const n = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming
     const res = performance.getEntriesByType("resource") as PerformanceResourceTiming[]
-    const fonts = res.filter((r) => /fonts\.(googleapis|gstatic)/.test(r.name))
+    // Google Fonts until 2026-10-26; since then the fonts are self-hosted, so
+    // count both — the metric is font cost, wherever the files come from.
+    const fonts = res.filter((r) => /fonts\.(googleapis|gstatic)/.test(r.name) || /\.woff2?(\?|$)/.test(r.name))
     return {
       ttfb: Math.round(n.responseStart),
       fcp: Math.round(performance.getEntriesByType("paint").find((p) => p.name === "first-contentful-paint")?.startTime ?? -1),

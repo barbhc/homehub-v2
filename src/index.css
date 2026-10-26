@@ -330,6 +330,41 @@ code {
   .hh-scanrail { animation: none; width: 100%; opacity: 0.45; }
 }
 
+/* ── Reduce Motion (iOS Accessibility › Motion), app-wide ─────────────────────
+   Until now only the scan rail above and the boot splash honoured it; the
+   skeletons pulsed and every slide/scale transition still moved. One block, so
+   a new component is covered without remembering to opt in:
+   - Skeletons stop pulsing and sit still (the shape alone says "loading").
+     bounce/ping are listed too so a future use can't slip past.
+   - Transitions keep only what doesn't MOVE: colour, opacity (fades stay —
+     Apple's own Reduce Motion swaps slides for cross-fades), shadow, filter.
+     transform / translate / scale / rotate, and layout properties such as
+     width, height and grid rows, are dropped, so those changes land at once.
+     !important because components also set transitions inline; nothing in the
+     app waits on transitionend, so dropping one can't strand a state.
+   - Smooth scrolling becomes a jump.
+   `animate-spin` is deliberately NOT stopped: a spinner is a progress
+   indicator, not decoration, and iOS keeps its own activity indicator
+   spinning under Reduce Motion — a frozen one reads as a hang.
+   The scan rail's own rule above still applies (it is a keyframe animation on
+   its own class, untouched here). */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse,
+  .animate-bounce,
+  .animate-ping {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill,
+      stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, filter,
+      backdrop-filter, -webkit-backdrop-filter, display, visibility, content-visibility, overlay,
+      pointer-events !important;
+  }
+}
+
 /* ── Reduced transparency / increased contrast (iOS Accessibility › Display) ──
    Frosted surfaces opt in with a class: `hh-frost` paints solid --hh-surface,
    `hh-frost-bg` solid --hh-bg (the tab bar, which is page-coloured). The

@@ -1,5 +1,28 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
+// Fonts are self-hosted and bundled (latin subset, woff2, font-display: swap)
+// rather than fetched from Google Fonts: no third-party request on launch, and
+// the iOS shell renders the same glyphs offline. ONLY the weights the app
+// uses — `font-synthesis: none` (index.css) means a missing weight is never
+// faked, it silently renders the nearest one, so add the file here before
+// using a new weight.
+//   Inter (--font-sans, everything): 400 normal · 500 medium · 600 semibold ·
+//     700 bold · 800 extrabold. 800 also serves `<strong>` inside bold text
+//     (`bolder` → 900, nearest loaded is 800 — the same as before).
+//   Plus Jakarta Sans (--font-display, page titles + the tour title):
+//     400 normal · 600 semibold · 700 bold · 800 extrabold.
+// Dropped: 300 (no font-light anywhere), Jakarta 500, and Jakarta 400 italic
+// (no italic display text). Inter italic was never loaded from Google either,
+// so `italic` text is unchanged.
+import "@fontsource/inter/latin-400.css"
+import "@fontsource/inter/latin-500.css"
+import "@fontsource/inter/latin-600.css"
+import "@fontsource/inter/latin-700.css"
+import "@fontsource/inter/latin-800.css"
+import "@fontsource/plus-jakarta-sans/latin-400.css"
+import "@fontsource/plus-jakarta-sans/latin-600.css"
+import "@fontsource/plus-jakarta-sans/latin-700.css"
+import "@fontsource/plus-jakarta-sans/latin-800.css"
 import "./index.css"
 import App from "./App.tsx"
 import { markNativePlatform } from "@/lib/native"
