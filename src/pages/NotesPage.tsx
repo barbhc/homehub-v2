@@ -92,7 +92,7 @@ export default function NotesPage() {
               {error ? (
                 <div role="alert" className={`flex items-center gap-2 text-[13px] ${CARD}`} style={{ background: SURFACE, color: CLAY }}>
                   <span className="min-w-0 flex-1">Couldn&apos;t load notes: {error}</span>
-                  <button type="button" onClick={reload} className="shrink-0 font-bold underline underline-offset-2">Try again</button>
+                  <button type="button" onClick={reload} className="hit-44 shrink-0 font-bold underline underline-offset-2">Try again</button>
                 </div>
               ) : loading ? (
                 <div className={`text-[13px] ${CARD}`} style={{ background: SURFACE, color: FAINT }}>Loading notes…</div>

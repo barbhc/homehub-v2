@@ -39,7 +39,7 @@ function ItemsEmptyNote({ loading, error, onRetry, query, className }: {
       <div className={className} role="alert">
         <span>Couldn&apos;t load your items.</span>{" "}
         {onRetry && (
-          <button type="button" onClick={onRetry} className="font-bold underline underline-offset-2">
+          <button type="button" onClick={onRetry} className="hit-44 font-bold underline underline-offset-2">
             Try again
           </button>
         )}

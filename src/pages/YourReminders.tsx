@@ -429,7 +429,7 @@ export default function YourReminders() {
                     {r.error && (
                       <div role="alert" className="mt-2 flex items-center gap-2 pl-[30px] text-[12.5px]" style={{ color: CLAY }}>
                         <span>{r.error}</span>
-                        <button type="button" onClick={() => void retryRow(r)} className="font-bold underline underline-offset-2">Retry</button>
+                        <button type="button" onClick={() => void retryRow(r)} className="hit-44 font-bold underline underline-offset-2">Retry</button>
                       </div>
                     )}
                   </div>

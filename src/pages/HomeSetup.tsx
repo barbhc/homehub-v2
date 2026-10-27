@@ -168,7 +168,7 @@ export default function HomeSetup() {
         ) : loadError ? (
           <div role="alert" className="mt-6 rounded-2xl px-4 py-3 text-[14px]" style={{ background: SURFACE, border: `1px solid ${LINE}`, color: CLAY }}>
             Couldn&apos;t load your home: {loadError}{" "}
-            <button type="button" onClick={reload} className="font-bold" style={{ color: TEAL }}>Try again</button>
+            <button type="button" onClick={reload} className="hit-44 font-bold" style={{ color: TEAL }}>Try again</button>
           </div>
         ) : category && homeId ? (
           <CategoryQuestions key={homeId} homeId={homeId} category={category} facts={facts} onSave={saveFacts} onDone={() => setOpen(null)} />

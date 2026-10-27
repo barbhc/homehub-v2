@@ -618,7 +618,7 @@ export function ManualStep({
               <button
                 type="button"
                 onClick={onRetry}
-                className="mt-1.5 font-medium underline underline-offset-2 hover:opacity-80"
+                className="hit-44 mt-1.5 font-medium underline underline-offset-2 hover:opacity-80"
               >
                 Try again
               </button>

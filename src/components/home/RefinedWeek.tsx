@@ -598,7 +598,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                   {care.error ? (
                     <div role="alert" className="flex items-center gap-3 px-4 py-3 text-[13px]" style={{ color: CLAY }}>
                       <span className="flex-1">Couldn&apos;t load suggestions: {care.error}</span>
-                      <button type="button" onClick={care.reload} className="font-bold" style={{ color: TEAL }}>Try again</button>
+                      <button type="button" onClick={care.reload} className="hit-44 font-bold" style={{ color: TEAL }}>Try again</button>
                     </div>
                   ) : care.rows.map((s, i) => (
                     <SuggestedRow key={`${s.itemUnitId ?? "home"}:${s.entry.key}`} suggestion={s} itemName={s.itemName ?? "Whole home"} onAdd={() => care.add(s)} onDismiss={() => care.dismiss(s)} last={i === care.rows.length - 1} />
