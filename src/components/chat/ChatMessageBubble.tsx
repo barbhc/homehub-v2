@@ -27,7 +27,7 @@ function SourceChip({ source: s }: { source: ChatSource }) {
   const chip = (
     <span
       className={cn(
-        "inline-flex items-center gap-1 text-[0.6875rem] rounded px-1.5 py-0.5 font-medium",
+        "inline-flex items-center gap-1 text-[0.75rem] rounded px-1.5 py-0.5 font-medium",
         isAi && "bg-[var(--hh-ai-soft)] text-[var(--hh-ai-ink)]",
         isWeb && "bg-[var(--hh-web-soft)] text-[var(--hh-web-ink)]",
         !isAi && !isWeb && "bg-primary/8 text-primary"
@@ -139,7 +139,7 @@ export function ChatMessageBubble({
           </button>
         )}
         {!isUser && message.inferredItem && !message.isStreaming && (
-          <div className="flex items-center gap-1 text-[0.6875rem] text-[var(--hh-warn)] mt-1">
+          <div className="flex items-center gap-1 text-[0.75rem] text-[var(--hh-warn)] mt-1">
             <ScanSearchIcon className="size-3 shrink-0" aria-hidden />
             <span>About: <span className="font-medium">{message.inferredItem.display_name}</span></span>
           </div>

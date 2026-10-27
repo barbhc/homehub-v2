@@ -110,7 +110,7 @@ export function DesktopItems({
                       {it.brand && <div className="mt-0.5 text-[0.78125rem]" style={{ color: SUB }}>{it.brand}</div>}
                     </div>
                     <div className="mt-auto flex items-center justify-between">
-                      <span className="text-[0.65625rem] font-bold uppercase tracking-[0.3px]" style={{ color: FAINT }}>{sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : "")}</span>
+                      <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ color: FAINT }}>{sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : "")}</span>
                     </div>
                   </Link>
                 )

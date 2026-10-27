@@ -85,7 +85,7 @@ function SuggestionKV({ k, v, onAdd, last }: { k: string; v: string; onAdd?: () 
         <span className="text-[0.84375rem] italic" style={{ color: SUB }}>{v}</span>
         {onAdd && (
           <button type="button" onClick={onAdd}
-            className="hit-44 rounded-full border px-2.5 py-0.5 text-[0.71875rem] font-bold"
+            className="hit-44 rounded-full border px-2.5 py-0.5 text-[0.75rem] font-bold"
             style={{ borderColor: TEAL, color: TEAL }}>
             Add
           </button>
@@ -373,7 +373,7 @@ export function RefinedItemDetail({
                 <MegaphoneIcon className="size-[18px]" style={{ color: "var(--hh-slate)" }} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="mb-0.5 text-[0.65625rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
+                <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
                 <div className="text-[0.9375rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>Possible recall</div>
                 {item.recall_notes && <div className="mt-1 text-[0.8125rem] leading-snug" style={{ color: "var(--hh-sub)" }}>{item.recall_notes}</div>}
               </div>
@@ -425,7 +425,7 @@ export function RefinedItemDetail({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[0.875rem] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>Have a question or a problem?</span>
-            <span className="block text-[0.71875rem]" style={{ color: SUB }}>
+            <span className="block text-[0.75rem]" style={{ color: SUB }}>
               {/* HH-141: the third state reaches here too. "Works best once the
                 manual is added" sat two cards under one saying we had finished
                 reading it — and, until HH-161, under a manual being read. Answers

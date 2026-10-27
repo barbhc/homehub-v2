@@ -142,7 +142,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
             </span>
           )}
         </label>
-        {error && <p role="alert" className="text-[0.71875rem] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
+        {error && <p role="alert" className="text-[0.75rem] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
       </>
     )
   }
@@ -161,7 +161,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
           ? <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
           : <CameraIcon className="size-[18px]" aria-hidden="true" />}
       </label>
-      {error && <p role="alert" className="text-[0.71875rem] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
+      {error && <p role="alert" className="text-[0.75rem] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
       </>
     )
   }
@@ -186,19 +186,19 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
               <span className="block text-[0.875rem] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>
                 {uploading ? "Uploading…" : "Add a photo"}
               </span>
-              <span className="block text-[0.71875rem]" style={{ color: "var(--hh-sub)" }}>Makes this easier to spot in your item list</span>
+              <span className="block text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>Makes this easier to spot in your item list</span>
             </span>
           </label>
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="shrink-0 rounded-full border px-2.5 py-1 text-[0.71875rem] font-bold"
+            className="shrink-0 rounded-full border px-2.5 py-1 text-[0.75rem] font-bold"
             style={{ borderColor: TEAL, color: TEAL }}
           >
             Find one
           </button>
         </div>
-        {error && <p className="mt-1.5 text-[0.71875rem] font-medium" style={{ color: "var(--hh-clay)" }} role="alert">{error}</p>}
+        {error && <p className="mt-1.5 text-[0.75rem] font-medium" style={{ color: "var(--hh-clay)" }} role="alert">{error}</p>}
         {photoSearch}
       </>
     )
@@ -273,7 +273,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
 
       {error && (
         <div
-          className="absolute inset-x-2.5 top-2.5 z-10 rounded-lg px-2.5 py-1.5 text-[0.71875rem] font-medium"
+          className="absolute inset-x-2.5 top-2.5 z-10 rounded-lg px-2.5 py-1.5 text-[0.75rem] font-medium"
           style={{ background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}
           role="alert"
         >

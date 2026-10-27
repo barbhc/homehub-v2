@@ -420,13 +420,14 @@ function AskForHome() {
   return (
     <div
       ref={pageRef}
-      className="flex flex-col h-[calc(100dvh-48px)] overflow-hidden pb-[calc(70px+env(safe-area-inset-bottom))] md:pb-0 bg-[var(--hh-bg)] lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-5"
+      className="flex flex-col h-[calc(100dvh-48px)] overflow-hidden pb-[calc(max(70px,var(--hh-tabbar-h)+7.5px)+env(safe-area-inset-bottom))] md:pb-0 bg-[var(--hh-bg)] lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-5"
       // With the keyboard up, the bottom padding puts the composer's bottom at
       // the keyboard's top edge (useKeyboardPadding measures where this box
       // really ends — 48px short of the screen below md, and higher still when
       // WebKit scrolls the window to the field). Below md the floor is the
-      // same 70px + inset as the class above (the tab bar's
-      // --hh-tabbar-clear is 60px + inset there); at md+ it is 10px.
+      // same 70px + inset as the class above (more under Larger Text, where the
+      // tab bar grows; --hh-tabbar-clear is the tab bar's row + inset there); at
+      // md+ it is 10px.
       style={keyboardInset > 0 ? { paddingBottom: `max(${keyboardPad}px, calc(var(--hh-tabbar-clear) + 10px))` } : undefined}
     >
       {/* ── Desktop conversation rail (lg+): New question + Recent only ── */}
@@ -479,7 +480,7 @@ function AskForHome() {
                   <ClockIcon className="size-[15px] shrink-0" style={{ color: "var(--hh-faint)" }} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.8125rem] font-semibold" style={{ color: "var(--hh-ink)" }}>{c.title}</span>
-                    <span className="block text-[0.71875rem]" style={{ color: "var(--hh-faint)" }}>{relativeTime(c.updated_at)}</span>
+                    <span className="block text-[0.75rem]" style={{ color: "var(--hh-faint)" }}>{relativeTime(c.updated_at)}</span>
                   </span>
                 </button>
               ))}

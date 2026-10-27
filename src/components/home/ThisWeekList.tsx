@@ -29,7 +29,7 @@ const EDGE = "color-mix(in srgb, var(--hh-teal) 45%, transparent)"
 
 export type ThisWeekVariant = "mobile" | "desktop"
 const SCALE = {
-  mobile: { rowPad: "px-3.5 py-3", title: "text-[0.875rem]", openTitle: "text-[1rem]", meta: "text-[0.71875rem]", bodyPad: "pl-[46px] pr-3.5 pb-3.5", notePad: "pl-[46px] pr-3.5 pb-2.5" },
+  mobile: { rowPad: "px-3.5 py-3", title: "text-[0.875rem]", openTitle: "text-[1rem]", meta: "text-[0.75rem]", bodyPad: "pl-[46px] pr-3.5 pb-3.5", notePad: "pl-[46px] pr-3.5 pb-2.5" },
   desktop: { rowPad: "px-5 py-3.5", title: "text-[0.9375rem]", openTitle: "text-[1.0625rem]", meta: "text-[0.78125rem]", bodyPad: "pl-[58px] pr-5 pb-4", notePad: "pl-[58px] pr-5 pb-3" },
 } as const
 
@@ -142,7 +142,7 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
             <span className={`block truncate larger-text:whitespace-normal ${open ? sc.openTitle : sc.title} font-semibold leading-snug tracking-[-0.2px]`} style={{ color: INK }}>{row.title}</span>
             <span className={`mt-0.5 flex items-center gap-1.5 larger-text:flex-wrap ${sc.meta}`} style={{ color: SUB }}>
               {row.essential && (
-                <span className="rounded-full px-2 py-px text-[0.65625rem] font-bold" style={{ background: "var(--hh-clay-soft)", color: CLAY }}>Essential</span>
+                <span className="rounded-full px-2 py-px text-[0.75rem] font-bold" style={{ background: "var(--hh-clay-soft)", color: CLAY }}>Essential</span>
               )}
               <span className="truncate larger-text:whitespace-normal">
                 {row.itemName ?? "Home"}
@@ -275,7 +275,7 @@ function QuietWeek({ nextUp, ahead, sc }: { nextUp: { dueDate: string; windowSta
       </div>
       {ahead.length > 0 && (
         <>
-          <div className="px-3.5 pb-1 pt-2 text-[0.65625rem] font-bold uppercase tracking-[0.6px]" style={{ color: SUB, borderTop: `1px solid ${LINE}` }}>Next up</div>
+          <div className="px-3.5 pb-1 pt-2 text-[0.6875rem] font-bold uppercase tracking-[0.6px]" style={{ color: SUB, borderTop: `1px solid ${LINE}` }}>Next up</div>
           {ahead.map((r) => (
             <Link key={r.id} to={`/tasks/${r.id}`} className={`flex items-center gap-2.5 ${sc.rowPad}`} data-testid="next-up-row">
               <span className="min-w-0 flex-1">

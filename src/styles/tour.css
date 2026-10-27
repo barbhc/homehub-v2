@@ -35,7 +35,7 @@
 
 /* Progress text (1 of 5) */
 .driver-popover.homehub-tour-popover .driver-popover-progress-text {
-  font-size: 0.7rem;
+  font-size: 0.75rem; /* 12px floor (was 0.7rem = 11.2px) */
   font-weight: 600;
   color: var(--hh-faint);
   letter-spacing: 0.02em;

@@ -39,7 +39,7 @@ export function NoteRows({ notes, onEdit }: { notes: CareNote[]; onEdit: (note: 
                   {displayBody(body, !!heading)}
                 </span>
               )}
-              {date && <span className="mt-1 text-[0.71875rem]" style={{ color: FAINT }}>{date}</span>}
+              {date && <span className="mt-1 text-[0.75rem]" style={{ color: FAINT }}>{date}</span>}
             </div>
             <button
               type="button"

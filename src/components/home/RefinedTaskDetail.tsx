@@ -270,7 +270,7 @@ export function RefinedTaskDetail({
         />
         <span className="min-w-0 flex-1">
           <span className="block text-[0.84375rem] font-semibold" style={{ color: INK }}>Remind me when it&apos;s due</span>
-          <span className="block text-[0.71875rem]" style={{ color: SUB }}>
+          <span className="block text-[0.75rem]" style={{ color: SUB }}>
             {detail.remindEnabled == null
               ? remindsByDefault(asTier(detail.tier))
                 ? "On by default for Essential — you can turn it off"
@@ -301,7 +301,7 @@ export function RefinedTaskDetail({
           {(assignee?.profile?.full_name ?? "?").slice(0, 1).toUpperCase()}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[0.65625rem] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>Assigned to</span>
+          <span className="block text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>Assigned to</span>
           <span className="block text-[0.9375rem] font-bold" style={{ color: INK }}>{assignee?.profile?.full_name ?? "Anyone"}</span>
         </span>
         {assignOpen ? <ChevronUpIcon className="size-[18px]" style={{ color: FAINT }} /> : <ChevronDownIcon className="size-[18px]" style={{ color: FAINT }} />}
@@ -310,7 +310,7 @@ export function RefinedTaskDetail({
         <div className="mt-1.5 overflow-hidden rounded-xl border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}>
           {[{ user_id: null as string | null, name: "Anyone" }, ...members.map((m) => ({ user_id: m.user_id, name: m.profile?.full_name ?? "Member" }))].map((m, i) => (
             <button key={m.user_id ?? "none"} onClick={() => assignTo(m.user_id)} className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left" style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none", background: m.user_id === detail.assignedTo ? "var(--hh-surface2)" : "var(--hh-surface)" }}>
-              <span className="flex size-[26px] items-center justify-center rounded-full text-[0.6875rem] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>{m.name.slice(0, 1).toUpperCase()}</span>
+              <span className="flex size-[26px] items-center justify-center rounded-full text-[0.75rem] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>{m.name.slice(0, 1).toUpperCase()}</span>
               <span className="flex-1 text-[0.9375rem] font-semibold" style={{ color: INK }}>{m.name}</span>
               {m.user_id === detail.assignedTo && <CheckIcon className="size-4" strokeWidth={2.6} style={{ color: TEAL }} />}
             </button>
@@ -351,7 +351,7 @@ export function RefinedTaskDetail({
                 <PackageIcon className="size-6 lg:size-7" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
-                <span style={{ background: TIER[tier].soft, color: TIER[tier].dot }} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.65625rem] font-bold uppercase tracking-[0.5px]">
+                <span style={{ background: TIER[tier].soft, color: TIER[tier].dot }} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-[0.5px]">
                   <span className="size-1.5 rounded-full" style={{ background: TIER[tier].dot }} />{TIER[tier].label}
                 </span>
                 <h1 className="mt-2 text-[1.5rem] font-extrabold leading-tight tracking-[-0.5px] text-balance lg:text-[1.75rem] lg:tracking-[-0.7px]" style={{ color: INK }}>{detail.title}</h1>

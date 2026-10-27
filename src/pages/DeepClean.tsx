@@ -617,7 +617,7 @@ export default function DeepClean() {
                       {roomGroups.map(({ roomKey, roomName, items }) => (
                         <div key={roomKey} className="mb-6">
                           {showRoomHeader && (
-                            <p className="text-[0.625rem] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-3 px-1">
+                            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-3 px-1">
                               {roomName}
                             </p>
                           )}
@@ -699,7 +699,7 @@ export default function DeepClean() {
 
                       {skippedItemKeys.size > 0 && (
                         <div className="mt-2 rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
-                          <p className="text-[0.625rem] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2">
+                          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2">
                             Skipped today
                           </p>
                           <div className="flex flex-wrap gap-2">
@@ -937,7 +937,7 @@ function CleanHub({
               </div>
               <div className="min-w-0 flex-1">
                 {resuming && (
-                  <div className="mb-0.5 text-[0.65625rem] font-bold uppercase tracking-[0.5px]" style={{ color: "rgba(255,255,255,0.75)" }}>
+                  <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "rgba(255,255,255,0.75)" }}>
                     In progress
                   </div>
                 )}
@@ -1199,7 +1199,7 @@ export function CleanTaskRow({
                     <div className="space-y-2.5">
                       {steps.map((step, i) => (
                         <div key={i} className="flex gap-3 items-start">
-                          <span className="shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-[0.625rem] font-bold flex items-center justify-center mt-0.5">
+                          <span className="shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-[0.75rem] font-bold flex items-center justify-center mt-0.5">
                             {i + 1}
                           </span>
                           <p className="text-sm text-foreground leading-relaxed">{step}</p>

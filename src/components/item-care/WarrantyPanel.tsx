@@ -132,7 +132,7 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
         {/* Same name in both states. A section that renames itself depending on
             whether it has data is two sections wearing one box. */}
         <span className="text-[0.84375rem] font-bold" style={{ color: INK }}>Warranty and purchase information</span>
-        <span className="rounded-md px-2 py-0.5 text-[0.71875rem] font-bold" style={{ color: active ? TEAL : FAINT, background: active ? TEAL_WASH : SLATE_SOFT }}>
+        <span className="rounded-md px-2 py-0.5 text-[0.75rem] font-bold" style={{ color: active ? TEAL : FAINT, background: active ? TEAL_WASH : SLATE_SOFT }}>
           {active ? "Active" : "Lapsed"}
         </span>
       </div>
@@ -141,7 +141,7 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
         {active ? <ShieldCheckIcon className="size-[15px]" style={{ color: TEAL }} /> : <ShieldOffIcon className="size-[15px]" style={{ color: FAINT }} />}
         <span className="text-[0.8125rem]" style={{ color: SUB }}>{statusText}</span>
         {registered && (
-          <span className="ml-auto inline-flex items-center gap-1 text-[0.71875rem] font-bold" style={{ color: TEAL }}>
+          <span className="ml-auto inline-flex items-center gap-1 text-[0.75rem] font-bold" style={{ color: TEAL }}>
             <BadgeCheckIcon className="size-[13px]" /> Registered
           </span>
         )}
@@ -154,7 +154,7 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
         <div className="mb-1 grid grid-cols-2 gap-x-3.5 gap-y-3">
           {facts.map(([k, v]) => (
             <div key={k}>
-              <div className="text-[0.625rem] font-bold uppercase tracking-[0.4px]" style={{ color: FAINT }}>{k}</div>
+              <div className="text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: FAINT }}>{k}</div>
               <div className="mt-0.5 text-[0.84375rem] font-semibold" style={{ color: INK }}>{v}</div>
             </div>
           ))}

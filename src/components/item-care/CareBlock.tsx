@@ -211,8 +211,8 @@ function Band({ tone, title, count, children, onFirstOpen, defaultOpen = true, n
         style={{ background: t.bg }}
       >
         <span className="text-[0.78125rem] font-extrabold tracking-[-0.01em]" style={{ color: t.fg }}>{title}</span>
-        {note && !open && <span className="truncate text-[0.6875rem]" style={{ color: FAINT }}>{note}</span>}
-        <span className="ml-auto font-mono text-[0.65625rem] font-bold" style={{ color: FAINT }}>{count}</span>
+        {note && !open && <span className="truncate text-[0.75rem]" style={{ color: FAINT }}>{note}</span>}
+        <span className="ml-auto font-mono text-[0.75rem] font-bold" style={{ color: FAINT }}>{count}</span>
         {open
           ? <ChevronUpIcon className="size-[15px] shrink-0" style={{ color: FAINT }} />
           : <ChevronDownIcon className="size-[15px] shrink-0" style={{ color: FAINT }} />}
@@ -364,9 +364,9 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
             <div className="flex items-start gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-[0.875rem] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
-                {safety && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: CLAY_SOFT, color: CLAY }}>Safety</span>}
-                {(actor === "pro" || actor === "hazardous") && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>Pro</span>}
-                {variantTag && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}><GitBranchIcon className="size-2.5" />{variantTag}</span>}
+                {safety && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ background: CLAY_SOFT, color: CLAY }}>Safety</span>}
+                {(actor === "pro" || actor === "hazardous") && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>Pro</span>}
+                {variantTag && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}><GitBranchIcon className="size-2.5" />{variantTag}</span>}
               </div>
             </div>
             <div className="mt-1 text-[0.75rem]" style={{ color: SUB }}>
@@ -388,12 +388,12 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                 </span>
               )}
             </div>
-            {rowError && <div role="alert" className="mt-1 text-[0.71875rem] font-medium" style={{ color: CLAY }}>{rowError}</div>}
+            {rowError && <div role="alert" className="mt-1 text-[0.75rem] font-medium" style={{ color: CLAY }}>{rowError}</div>}
             {libraryKeyOf(t) && (
               /* Provenance stays visible on a task that came from the library,
                  with the one-tap way back — nothing should ever read as if it
                  came from the manual when it didn't. */
-              <div className="mt-1 flex items-center gap-2 text-[0.71875rem]" style={{ color: FAINT }}>
+              <div className="mt-1 flex items-center gap-2 text-[0.75rem]" style={{ color: FAINT }}>
                 <span>Added from typical care{entryByKey(libraryKeyOf(t)!)?.source ? ` · ${entryByKey(libraryKeyOf(t)!)!.source}` : ""}</span>
                 <button type="button" onClick={(e) => { e.stopPropagation(); void archiveLibraryTask() }} className="hit-44 font-semibold" style={{ color: TEAL }}>Not this one</button>
               </div>
@@ -424,7 +424,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                 <div className="flex items-start gap-2.5 rounded-[12px] border p-3" style={{ background: CLAY_SOFT, borderColor: "color-mix(in srgb, var(--hh-clay) 25%, transparent)" }}>
                   <AlertTriangle className="mt-px size-4 shrink-0" style={{ color: CLAY }} />
                   <div className="min-w-0">
-                    <div className="mb-0.5 text-[0.625rem] font-extrabold uppercase tracking-[0.5px]" style={{ color: CLAY }}>Safety</div>
+                    <div className="mb-0.5 text-[0.6875rem] font-extrabold uppercase tracking-[0.5px]" style={{ color: CLAY }}>Safety</div>
                     <div className="text-[0.8125rem] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>{safetyNote}</div>
                   </div>
                 </div>
@@ -526,14 +526,14 @@ function UsageTipRows({ tips, taskTips, onOpenManualPage, canOpenManual }: {
           {r.body && <p className="mt-0.5 text-[0.78125rem] leading-snug" style={{ color: SUB }}>{r.body}</p>}
           {r.page != null && (
             canOpenManual && onOpenManualPage ? (
-              <button type="button" onClick={() => onOpenManualPage(r.page!)} className="hit-44 mt-1 text-[0.71875rem] font-bold" style={{ color: TEAL }}>
+              <button type="button" onClick={() => onOpenManualPage(r.page!)} className="hit-44 mt-1 text-[0.75rem] font-bold" style={{ color: TEAL }}>
                 Manual p.{r.page}
               </button>
             ) : (
               // Tapping this used to set state that `dockOpen` then discarded
               // because the PDF URL was null — a button that silently did
               // nothing. Say where it is instead of pretending to go there.
-              <span className="mt-1 block text-[0.71875rem] font-semibold" style={{ color: FAINT }}>Manual p.{r.page}</span>
+              <span className="mt-1 block text-[0.75rem] font-semibold" style={{ color: FAINT }}>Manual p.{r.page}</span>
             )
           )}
         </li>
@@ -557,7 +557,7 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
       <div className="mb-2.5 flex items-center gap-2">
         <p className="flex-1 text-[0.75rem]" style={{ color: SUB }}>Everything here is required at install unless marked optional.</p>
         {doneCount > 0 && (
-          <span className="shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.4px]" style={{ background: allDone ? TEAL_WASH : SLATE_SOFT, color: allDone ? TEAL : SLATE }}>{doneCount}/{tasks.length}</span>
+          <span className="shrink-0 rounded-full px-2 py-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ background: allDone ? TEAL_WASH : SLATE_SOFT, color: allDone ? TEAL : SLATE }}>{doneCount}/{tasks.length}</span>
         )}
       </div>
       {error && (
@@ -614,7 +614,7 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                 <span className="flex-1 text-[0.8125rem] leading-snug" style={{ color: done ? FAINT : "var(--hh-ink-soft)", textDecoration: done ? "line-through" : undefined }}>
                   {t.title}
                   {optional && (
-                    <span className="ml-1.5 inline-block rounded px-1.5 py-px align-[1px] text-[0.59375rem] font-bold uppercase tracking-[0.4px]" style={{ background: SLATE_SOFT, color: SLATE }}>
+                    <span className="ml-1.5 inline-block rounded px-1.5 py-px align-[1px] text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ background: SLATE_SOFT, color: SLATE }}>
                       Optional
                     </span>
                   )}
@@ -630,7 +630,7 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                   {triggers.map((tr) => {
                     const sev = tr.severity === "safety"
                     return (
-                      <span key={tr.trigger} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold" style={{ background: sev ? CLAY_SOFT : SLATE_SOFT, color: sev ? CLAY : SLATE }}>
+                      <span key={tr.trigger} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold" style={{ background: sev ? CLAY_SOFT : SLATE_SOFT, color: sev ? CLAY : SLATE }}>
                         {sev && <AlertTriangle className="size-3" />}
                         Re-do if {SYMPTOM_TAGS[tr.trigger as keyof typeof SYMPTOM_TAGS]?.label ?? tr.trigger}
                       </span>
@@ -677,7 +677,7 @@ function VariantArea({ options, variant, showAll, inferred, onPick, onToggleShow
         <button type="button" onClick={onToggleShowAll} className="hit-44 shrink-0 whitespace-nowrap text-[0.78125rem] font-bold" style={{ color: TEALD }}>
           {showAll ? `${label} only` : "Show all"}
         </button>
-        <button type="button" onClick={onChange} className="hit-44 shrink-0 whitespace-nowrap text-[0.71875rem] font-semibold" style={{ color: SUB }}>Change</button>
+        <button type="button" onClick={onChange} className="hit-44 shrink-0 whitespace-nowrap text-[0.75rem] font-semibold" style={{ color: SUB }}>Change</button>
       </div>
     )
   }
@@ -696,7 +696,7 @@ function VariantArea({ options, variant, showAll, inferred, onPick, onToggleShow
           return (
             <button key={o} type="button" onClick={() => onPick(o)} className="flex-1 rounded-[11px] border py-2.5 text-[0.8125rem] font-bold" style={{ borderColor: likely ? TEAL : "var(--hh-line2)", background: likely ? TEAL_WASH : "var(--hh-surface)", color: INK }}>
               {cap(o)}
-              {likely && <span className="block text-[0.625rem] font-semibold" style={{ color: TEALD }}>Likely yours</span>}
+              {likely && <span className="block text-[0.75rem] font-semibold" style={{ color: TEALD }}>Likely yours</span>}
             </button>
           )
         })}
@@ -1197,7 +1197,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
             <AlertTriangle className="size-[17px]" style={{ color: CLAY }} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="mb-0.5 text-[0.625rem] font-extrabold uppercase tracking-[0.6px]" style={{ color: CLAY }}>Safety note</div>
+            <div className="mb-0.5 text-[0.6875rem] font-extrabold uppercase tracking-[0.6px]" style={{ color: CLAY }}>Safety note</div>
             <div className="text-[0.8125rem] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>
               {critical.content}
               {critical.source_pages?.[0] != null && <span className="font-semibold" style={{ color: CLAY }}> · manual p.{critical.source_pages[0]}</span>}

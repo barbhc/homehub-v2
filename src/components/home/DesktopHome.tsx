@@ -42,7 +42,7 @@ function RecallCard({ recall }: { recall: HomeNotices["recalls"][number] }) {
         <MegaphoneIcon className="size-[18px]" style={{ color: "var(--hh-slate)" }} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-[0.65625rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
+        <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
         <div className="text-[0.875rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>Safety update for {recall.display_name}</div>
         {recall.recall_notes && <div className="mt-0.5 text-[0.78125rem] leading-snug text-pretty" style={{ color: SUB }}>{recall.recall_notes}</div>}
         <span className="mt-2 inline-flex items-center gap-1 text-[0.78125rem] font-bold" style={{ color: "var(--hh-slate)" }}>Check my model <ArrowRightIcon className="size-[13px]" /></span>

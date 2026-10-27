@@ -128,7 +128,7 @@ function DkRow({
         <div className="min-w-0 flex-1">
           <div className="text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px]" style={{ color: INK }}>{t.title}</div>
           <div className="mt-1 flex items-center gap-2">
-            <span className="rounded-full px-2.5 py-0.5 text-[0.6875rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
+            <span className="rounded-full px-2.5 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
             {t.isOverdue && <span className="size-[5px] rounded-full" style={{ background: CLAY }} />}
             <span className="text-[0.8125rem]" style={{ color: SUB }}>{where}</span>
           </div>
@@ -179,7 +179,7 @@ function DkCalendar({
       <div className="mb-3 text-[0.9375rem] font-extrabold" style={{ color: INK }}>{cal.monthLabel}</div>
       <div className="grid grid-cols-7 gap-1">
         {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
-          <div key={i} className="py-0.5 text-center text-[0.65625rem] font-bold" style={{ color: FAINT }}>{w}</div>
+          <div key={i} className="py-0.5 text-center text-[0.75rem] font-bold" style={{ color: FAINT }}>{w}</div>
         ))}
         {cal.cells.map((c, i) => {
           if (!c) return <div key={i} />
@@ -235,7 +235,7 @@ function TierPill({ active, color, onClick, children, dot, count }: {
           white on the dark teal fill is itself only 4.51 — no softer colour
           fits, so the count is white like its label. */}
       {count != null && (
-        <span className="font-mono text-[0.6875rem]" style={{ color: active ? "var(--hh-on-fill)" : "var(--hh-sub)" }}>{count}</span>
+        <span className="font-mono text-[0.75rem]" style={{ color: active ? "var(--hh-on-fill)" : "var(--hh-sub)" }}>{count}</span>
       )}
     </button>
   )
@@ -323,7 +323,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
             <FlagIcon className="size-5" style={{ color: "var(--hh-on-fill)" }} strokeWidth={2.4} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="mb-0.5 text-[0.65625rem] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</div>
+            <div className="mb-0.5 text-[0.6875rem] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</div>
             <div className="text-[0.90625rem] font-semibold" style={{ color: INK }}>{insight.text}</div>
           </div>
           <button type="button" onClick={() => setDismissed(true)} aria-label="Dismiss" className="flex shrink-0 p-2">

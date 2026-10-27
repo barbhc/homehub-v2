@@ -395,7 +395,7 @@ export function HeroCard({
               <button
                 type="button"
                 onClick={() => setPhotoSearchOpen(true)}
-                className="text-[0.6875rem] text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors min-h-11 px-3"
+                className="text-[0.75rem] text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors min-h-11 px-3"
               >
                 <SearchIcon className="size-3" />
                 Find photo
@@ -450,7 +450,7 @@ export function HeroCard({
           <button
             type="button"
             className={cn(
-              "text-[0.6875rem] text-muted-foreground hover:text-foreground mt-1.5 flex items-center gap-1 min-h-11 -ml-1 px-1",
+              "text-[0.75rem] text-muted-foreground hover:text-foreground mt-1.5 flex items-center gap-1 min-h-11 -ml-1 px-1",
               sidebarMode && "lg:hidden"
             )}
             onClick={() => setDetailsOpen((o) => !o)}

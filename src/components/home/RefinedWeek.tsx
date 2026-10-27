@@ -191,7 +191,7 @@ function TaskRow({
         <div className="min-w-0 flex-1">
           <div className="text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full px-2 py-0.5 text-[0.65625rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
+            <span className="rounded-full px-2 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
             {t.trulyOverdue && <span className="size-[5px] shrink-0 rounded-full" style={{ background: CLAY }} />}
             <span className="text-[0.78125rem]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</span>
           </div>
@@ -260,7 +260,7 @@ function Calendar({
           {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
             // Larger Text: a 7-column grid on a phone cannot reflow, so the calendar
             // grows with the text-size setting only up to 1.5x (index.css).
-            <div key={i} className="py-0.5 text-center text-[length:min(0.625rem,15px)] font-bold" style={{ color: FAINT }}>{w}</div>
+            <div key={i} className="py-0.5 text-center text-[length:min(0.75rem,18px)] font-bold" style={{ color: FAINT }}>{w}</div>
           ))}
           {cal.cells.map((c, i) => {
             if (!c) return <div key={i} />
@@ -421,7 +421,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               <FlagIcon className="size-[19px]" style={{ color: "var(--hh-on-fill)" }} strokeWidth={2.4} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="mb-0.5 block text-[0.65625rem] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</span>
+              <span className="mb-0.5 block text-[0.6875rem] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</span>
               <span className="block text-[0.90625rem] font-semibold leading-snug" style={{ color: INK }}>{insight.text}</span>
             </span>
             <button type="button" onClick={() => setDismissed(true)} aria-label="Dismiss" className="hit-44 -m-1 flex shrink-0 rounded-lg p-2">
@@ -529,7 +529,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                     <span className="flex-1 text-[0.84375rem] font-bold" style={{ color: INK }}>{o.label}</span>
                     {/* The count is the point: it says what you'd get, before you pick. */}
                     {/* Only once the agenda is read: "0" about tasks we couldn't load is a claim. */}
-                    {loadState === "content" && <span className="font-mono text-[0.6875rem]" style={{ color: SUB }}>{tierCounts[o.value]}</span>}
+                    {loadState === "content" && <span className="font-mono text-[0.75rem]" style={{ color: SUB }}>{tierCounts[o.value]}</span>}
                     {tier === o.value && <CheckIcon className="size-4" style={{ color: TEAL }} />}
                   </button>
                 ))}

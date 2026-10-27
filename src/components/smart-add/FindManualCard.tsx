@@ -121,7 +121,7 @@ export function FindManualCard({
               Find it for me
             </span>
             <span
-              className="rounded px-1.5 py-0.5 text-[0.59375rem] font-extrabold uppercase tracking-[0.09em]"
+              className="rounded px-1.5 py-0.5 text-[0.6875rem] font-extrabold uppercase tracking-[0.09em]"
               style={{ background: "var(--hh-amber-wash)", color: "var(--hh-amber)" }}
             >
               Beta
@@ -130,7 +130,7 @@ export function FindManualCard({
           {/* Said plainly. During the beta this is not the default path —
               uploading the manual yourself is — and a tester deserves to know
               which parts of the product are still finding their feet. */}
-          <p className="text-[0.71875rem] leading-snug" style={{ color: "var(--hh-sub)" }}>
+          <p className="text-[0.75rem] leading-snug" style={{ color: "var(--hh-sub)" }}>
             We&apos;ll search the web for the {brand} {model} manual and show what we find.
             Still rough — check the model before you attach anything.
           </p>
@@ -216,7 +216,7 @@ export function FindManualCard({
                           <span className="block truncate text-[0.78125rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
                             {shown}
                           </span>
-                          <span className="mt-0.5 flex items-center gap-1.5 text-[0.6875rem]" style={{ color: "var(--hh-sub)" }}>
+                          <span className="mt-0.5 flex items-center gap-1.5 text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
                             {/* The badge vouches for the HOST, so it must not
                                 appear to vouch for the document. A spec sheet
                                 on lg.com is genuinely from LG and genuinely not
@@ -227,7 +227,7 @@ export function FindManualCard({
                             {c.official && !doc.thinOnUpkeep && <span style={{ color: "var(--hh-teal)" }}>· manufacturer&apos;s own site</span>}
                             {doc.label && (
                               <span
-                                className="shrink-0 rounded-full px-1.5 py-0.5 text-[0.625rem] font-bold"
+                                className="shrink-0 rounded-full px-1.5 py-0.5 text-[0.75rem] font-bold"
                                 style={doc.thinOnUpkeep
                                   ? { background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }
                                   : { background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}
@@ -247,13 +247,13 @@ export function FindManualCard({
                           document with no upkeep in it does not fail loudly —
                           it produces confident tasks from nothing. */}
                       {doc.thinOnUpkeep && (
-                        <p className="mt-1.5 text-[0.6875rem] leading-snug" style={{ color: "var(--hh-clay)" }}>
+                        <p className="mt-1.5 text-[0.75rem] leading-snug" style={{ color: "var(--hh-clay)" }}>
                           This looks like a {doc.label!.toLowerCase()}, not the owner&apos;s manual — it probably has no upkeep in it. You can still use it.
                         </p>
                       )}
                       {otherModel && (
                         <div
-                          className="mt-1.5 flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[0.6875rem] leading-snug"
+                          className="mt-1.5 flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[0.75rem] leading-snug"
                           style={{ background: "var(--hh-clay-wash)", color: "var(--hh-ink)" }}
                         >
                           <AlertTriangleIcon className="mt-px size-3 shrink-0" style={{ color: "var(--hh-clay)" }} />
@@ -269,7 +269,7 @@ export function FindManualCard({
                           type="button"
                           disabled={disabled}
                           onClick={() => setPreview(c)}
-                          className="hit-44 inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[0.71875rem] font-semibold"
+                          className="hit-44 inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[0.75rem] font-semibold"
                           style={{ borderColor: "var(--hh-line2)", color: "var(--hh-ink)" }}
                         >
                           <EyeIcon className="size-3" /> Preview
@@ -278,7 +278,7 @@ export function FindManualCard({
                           type="button"
                           disabled={disabled}
                           onClick={() => onPick(c.url, c.title)}
-                          className="hit-44 rounded-md px-2.5 py-1 text-[0.71875rem] font-bold text-white"
+                          className="hit-44 rounded-md px-2.5 py-1 text-[0.75rem] font-bold text-white"
                           style={{ background: "var(--hh-teal-fill)" }}
                         >
                           Use this
@@ -292,7 +292,7 @@ export function FindManualCard({
                 <button
                   type="button"
                   onClick={() => void search()}
-                  className="hit-44 text-[0.71875rem] font-semibold underline"
+                  className="hit-44 text-[0.75rem] font-semibold underline"
                   style={{ color: "var(--hh-sub)" }}
                 >
                   None of these match
@@ -301,7 +301,7 @@ export function FindManualCard({
                   href={manualSearchUrl(brand, model)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hit-44 text-[0.71875rem] font-semibold underline"
+                  className="hit-44 text-[0.75rem] font-semibold underline"
                   style={{ color: "var(--hh-sub)" }}
                 >
                   Search Google for this manual →

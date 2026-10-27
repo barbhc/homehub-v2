@@ -160,7 +160,7 @@ export default function AcceptInvite() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[1.1875rem] font-extrabold tracking-[-0.3px] truncate" style={{ color: AUTH.ink }}>{homeName}</div>
-          <div className="inline-flex items-center gap-1.5 mt-1.5 rounded-full px-2.5 py-1 text-[0.65625rem] font-bold uppercase tracking-[0.3px]" style={{ background: "var(--hh-teal-wash)", color: AUTH.teal }}>
+          <div className="inline-flex items-center gap-1.5 mt-1.5 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ background: "var(--hh-teal-wash)", color: AUTH.teal }}>
             <UserCheckIcon size={11} /> Joining as {invite?.role ?? "member"}
           </div>
         </div>

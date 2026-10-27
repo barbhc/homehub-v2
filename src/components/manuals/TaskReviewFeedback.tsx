@@ -76,7 +76,7 @@ export function TaskReviewFeedback({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="hit-44 rounded-full border border-border bg-card px-3 py-2 text-[0.71875rem] font-semibold whitespace-nowrap"
+          className="hit-44 rounded-full border border-border bg-card px-3 py-2 text-[0.75rem] font-semibold whitespace-nowrap"
         >
           {sent ? "Add more" : "Tell us what's off"}
         </button>
@@ -102,7 +102,7 @@ export function TaskReviewFeedback({
                     return next
                   })
                 }
-                className={`rounded-full border px-2.5 py-2 text-[0.71875rem] font-semibold ${
+                className={`rounded-full border px-2.5 py-2 text-[0.75rem] font-semibold ${
                   picked.has(r.id)
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-background text-muted-foreground"
@@ -122,7 +122,7 @@ export function TaskReviewFeedback({
           />
 
           {edits.total > 0 && (
-            <div className="mt-2.5 rounded-xl bg-primary/10 px-3 py-2.5 text-[0.6875rem] text-muted-foreground">
+            <div className="mt-2.5 rounded-xl bg-primary/10 px-3 py-2.5 text-[0.75rem] text-muted-foreground">
               We'll include <b className="text-primary">the {edits.total} correction{edits.total === 1 ? "" : "s"} you already made</b>
               {editBits.length > 0 && <> ({editBits.join(" · ")})</>} — that's the most useful part.
             </div>

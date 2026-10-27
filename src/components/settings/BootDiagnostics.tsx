@@ -57,7 +57,7 @@ export function BootDiagnostics() {
             </p>
           ) : (
             <>
-              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[0.6875rem] text-muted-foreground">
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[0.75rem] text-muted-foreground">
                 <span>ttfb {t.ttfb ?? "?"}ms</span>
                 <span>dom {t.domInteractive ?? "?"}ms</span>
                 <span>net {t.conn}</span>
@@ -79,7 +79,7 @@ export function BootDiagnostics() {
                         background: nativeMs > webTotal ? "var(--hh-clay)" : "var(--hh-teal)",
                       }}
                     />
-                    <span className="ml-auto shrink-0 font-mono text-[0.6875rem] text-muted-foreground">
+                    <span className="ml-auto shrink-0 font-mono text-[0.75rem] text-muted-foreground">
                       +{nativeMs}ms
                     </span>
                   </div>
@@ -99,7 +99,7 @@ export function BootDiagnostics() {
                           background: isWorst ? "var(--hh-clay)" : "var(--hh-teal)",
                         }}
                       />
-                      <span className="ml-auto shrink-0 font-mono text-[0.6875rem] text-muted-foreground">
+                      <span className="ml-auto shrink-0 font-mono text-[0.75rem] text-muted-foreground">
                         +{p.delta}ms
                       </span>
                     </div>
@@ -144,7 +144,7 @@ export function BootDiagnostics() {
                   Supplementary data landed at {t.extrasAt}ms — in parallel, after Home was already usable.
                 </p>
               )}
-              <p className="mt-2 text-[0.6875rem] text-muted-foreground">
+              <p className="mt-2 text-[0.75rem] text-muted-foreground">
                 Recorded {new Date(t.at).toLocaleString()}. Screenshot this.
               </p>
             </>

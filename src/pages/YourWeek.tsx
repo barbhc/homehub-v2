@@ -168,7 +168,8 @@ export default function YourWeek() {
                 ) : (
                   <span>The weekly summary is off ·</span>
                 )}
-                <Link to="/settings#notifications" className="font-semibold" style={{ color: TEAL }}>{digest.enabled ? "Change" : "Turn on"}</Link>
+                {/* hit-44-down: the free space is below; above is the "more tasks" link. */}
+                <Link to="/settings#notifications" className="hit-44-down font-semibold" style={{ color: TEAL }}>{digest.enabled ? "Change" : "Turn on"}</Link>
               </div>
             </div>
           )}
@@ -217,7 +218,7 @@ function ReminderRow({ t, chip }: { t: WeekReminder; chip: string }) {
       <span className="min-w-0 flex-1">
         <span className="block text-[0.90625rem] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</span>
         <span className="mt-1 flex flex-wrap items-center gap-1.5">
-          <span className="rounded-full px-2 py-0.5 text-[0.65625rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
+          <span className="rounded-full px-2 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
           {meta && <span className="text-[0.78125rem]" style={{ color: SUB }}>{meta}</span>}
         </span>
       </span>

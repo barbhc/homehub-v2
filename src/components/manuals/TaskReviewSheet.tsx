@@ -415,10 +415,10 @@ export function TaskReviewSheet({
         {(r.riskLevel === "safety" || r.actor !== "diy") && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {r.riskLevel === "safety" && (
-              <span className="rounded-full px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide" style={{ background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}>Safety</span>
+              <span className="rounded-full px-2 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wide" style={{ background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}>Safety</span>
             )}
             {(r.actor === "pro" || r.actor === "hazardous") && (
-              <span className="rounded-full px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide" style={{ background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}>Pro</span>
+              <span className="rounded-full px-2 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wide" style={{ background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}>Pro</span>
             )}
           </div>
         )}
@@ -428,7 +428,7 @@ export function TaskReviewSheet({
         {(r.justification || r.description) && (
           <div className="text-[0.8125rem] text-muted-foreground mt-2 leading-snug">{r.justification || r.description}</div>
         )}
-        <div className="text-[0.71875rem] text-muted-foreground mt-2">
+        <div className="text-[0.75rem] text-muted-foreground mt-2">
           From the manual · {originOf(r)}{r.minutes ? ` · about ${r.minutes} min` : ""}
         </div>
 
@@ -438,7 +438,7 @@ export function TaskReviewSheet({
             deletes the task and rewrites it as a manual note) with nothing on
             screen saying so. "Every default visible and reversible." */}
         <div
-          className="mt-3 flex items-center gap-2 rounded-xl px-2.5 py-2 text-[0.71875rem]"
+          className="mt-3 flex items-center gap-2 rounded-xl px-2.5 py-2 text-[0.75rem]"
           style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}
         >
           <span className="font-semibold">Goes to</span>
@@ -448,7 +448,7 @@ export function TaskReviewSheet({
 
         {/* The one destructive choice on this screen, stated only when it applies. */}
         {r.kind === "usage" && r.origin === "task" && r.origSchedule === "setup" && (
-          <div className="mt-2 rounded-xl px-2.5 py-2 text-[0.71875rem]" style={{ background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}>
+          <div className="mt-2 rounded-xl px-2.5 py-2 text-[0.75rem]" style={{ background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}>
             The manual lists this as a <b>one-time setup step</b>. Saving it as a tip removes it from
             your setup checklist and keeps it as a note instead.
           </div>
@@ -464,14 +464,14 @@ export function TaskReviewSheet({
               <span className="text-[1.0625rem] leading-none shrink-0">{k.icon}</span>
               <span className="min-w-0 leading-tight">
                 <span className="block text-[0.78125rem] font-bold">{k.label}</span>
-                <span className="block text-[0.65625rem] font-semibold text-muted-foreground">{k.hint}</span>
+                <span className="block text-[0.75rem] font-semibold text-muted-foreground">{k.hint}</span>
               </span>
             </button>
           ))}
         </div>
 
         {r.kind === "usage" ? (
-          <div className="mt-3 rounded-xl bg-violet-50 dark:bg-violet-950/40 px-2.5 py-2 text-[0.71875rem] text-violet-700 dark:text-violet-300">
+          <div className="mt-3 rounded-xl bg-violet-50 dark:bg-violet-950/40 px-2.5 py-2 text-[0.75rem] text-violet-700 dark:text-violet-300">
             <b>Saved as a tip</b> — on the item page, never scheduled.
           </div>
         ) : (
@@ -494,7 +494,7 @@ export function TaskReviewSheet({
                   : <><b className="font-bold">Not scheduled</b> — {r.schedule === "setup" ? "a one-time step" : "you'll do it when needed"}</>}
               </span>
               <button type="button" onClick={() => toggleSchedule(r)}
-                className="hit-44 ml-auto rounded-full border border-primary px-2.5 py-1.5 text-[0.71875rem] font-semibold text-primary whitespace-nowrap">
+                className="hit-44 ml-auto rounded-full border border-primary px-2.5 py-1.5 text-[0.75rem] font-semibold text-primary whitespace-nowrap">
                 {onSched ? "Take off schedule" : "Put on a schedule"}
               </button>
             </div>
@@ -512,7 +512,7 @@ export function TaskReviewSheet({
                             ? lv.id === "essential" ? "border-[var(--hh-clay)] bg-[var(--hh-clay)]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
                             : "border-border bg-background text-muted-foreground"}`}>
                         <span className="text-[0.75rem] font-bold">{lv.label}</span>
-                        <span className="text-[0.65625rem] font-semibold text-muted-foreground">{lv.hint}</span>
+                        <span className="text-[0.75rem] font-semibold text-muted-foreground">{lv.hint}</span>
                       </button>
                     )
                   })}
@@ -531,7 +531,7 @@ export function TaskReviewSheet({
                           : "border-border bg-background text-muted-foreground"}`}>
                       <PriorityDot tier={tier.id} />
                       <span className="text-[0.75rem] font-bold">{tier.label}</span>
-                      <span className="text-[0.65625rem] font-semibold text-muted-foreground">{onSched ? tier.onSched : tier.offSched}</span>
+                      <span className="text-[0.75rem] font-semibold text-muted-foreground">{onSched ? tier.onSched : tier.offSched}</span>
                     </button>
                   ))}
                 </div>
@@ -557,7 +557,7 @@ export function TaskReviewSheet({
                         scheduleSuggested: false,
                         intervalDays: c.id === "every_n_days" ? r.intervalDays ?? DEFAULT_INTERVAL_DAYS : null,
                       })}
-                      className={`hit-44 rounded-full border px-3 py-1.5 text-[0.71875rem] font-bold transition-colors ${
+                      className={`hit-44 rounded-full border px-3 py-1.5 text-[0.75rem] font-bold transition-colors ${
                         r.schedule === c.id
                           ? "border-primary bg-primary/10 text-foreground"
                           : "border-border bg-background text-muted-foreground"}`}>
@@ -576,7 +576,7 @@ export function TaskReviewSheet({
                     cleared box to "1" and re-picked the unit mid-word. */}
                 {r.schedule === "every_n_days" && (
                   <div className="mt-2.5 flex items-center gap-2">
-                    <label htmlFor={`interval-${r.id}`} className="text-[0.71875rem] text-muted-foreground">Every</label>
+                    <label htmlFor={`interval-${r.id}`} className="text-[0.75rem] text-muted-foreground">Every</label>
                     <RepeatEveryInput
                       days={r.intervalDays ?? DEFAULT_INTERVAL_DAYS}
                       onChange={(intervalDays) => patch(r.id, { intervalDays })}
@@ -607,7 +607,7 @@ export function TaskReviewSheet({
                 <BellOffIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[0.78125rem] font-semibold">No notification</span>
-                  <span className="block text-[0.6875rem] text-muted-foreground">
+                  <span className="block text-[0.75rem] text-muted-foreground">
                     Nothing to notify about until it has a date. Give it a cadence above and the switch appears.
                   </span>
                 </span>
@@ -621,7 +621,7 @@ export function TaskReviewSheet({
                 <BellOffIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[0.78125rem] font-semibold">No notification</span>
-                  <span className="block text-[0.6875rem] text-muted-foreground">
+                  <span className="block text-[0.75rem] text-muted-foreground">
                     Cleaning lives on the item page — it never notifies you.
                   </span>
                 </span>
@@ -638,7 +638,7 @@ export function TaskReviewSheet({
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[0.78125rem] font-semibold">Remind me when it&apos;s due</span>
-                    <span className="block text-[0.6875rem] text-muted-foreground">
+                    <span className="block text-[0.75rem] text-muted-foreground">
                       {r.remindEnabled == null
                         // The TIER, not the bucket — see remindsByDefault. Passing
                         // a bucket here is what would have silently switched every
@@ -738,7 +738,7 @@ export function TaskReviewSheet({
         </span>
 
         {r.included && kindSaysSomething && (
-          <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[0.6875rem] font-semibold text-muted-foreground whitespace-nowrap">
+          <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[0.75rem] font-semibold text-muted-foreground whitespace-nowrap">
             {kind.label}
           </span>
         )}
@@ -756,11 +756,11 @@ export function TaskReviewSheet({
             value. Usage and Setup rows get nothing at all — no timing to
             state. */}
         {r.included && (scheduled ? (
-          <span className="shrink-0 rounded-lg border border-border bg-background px-1.5 py-0.5 text-[0.6875rem] font-mono text-muted-foreground whitespace-nowrap tabular-nums">
+          <span className="shrink-0 rounded-lg border border-border bg-background px-1.5 py-0.5 text-[0.75rem] font-mono text-muted-foreground whitespace-nowrap tabular-nums">
             {cadOf(r)}
           </span>
         ) : b === "maintenance" || b === "cleaning" ? (
-          <span className="shrink-0 text-[0.6875rem] font-mono italic text-muted-foreground/75 whitespace-nowrap">
+          <span className="shrink-0 text-[0.75rem] font-mono italic text-muted-foreground/75 whitespace-nowrap">
             when needed
           </span>
         ) : null)}
@@ -849,7 +849,7 @@ export function TaskReviewSheet({
                 <button type="button" onClick={() => { setGuideIndex(null); setWalked(true) }}
                   className="hit-44 inline-flex items-center gap-1 text-[0.78125rem] font-semibold text-muted-foreground px-1.5 py-1"><XIcon className="size-3.5" aria-hidden /> Exit</button>
               </div>
-              <div className="text-center text-[0.65625rem] font-mono font-bold text-muted-foreground tracking-wider mb-1.5">
+              <div className="text-center text-[0.75rem] font-mono font-bold text-muted-foreground tracking-wider mb-1.5">
                 {guideIndex! + 1} of {rows.length}
               </div>
               <div className="h-1 bg-muted rounded mb-3 overflow-hidden">
@@ -993,7 +993,7 @@ export function TaskReviewSheet({
                           // offer SHOW; "Already set up? Hide them" only makes
                           // sense on the open state it describes.
                           <button type="button" onClick={() => setSetupOpen((v) => !v)} aria-expanded={setupOpen}
-                            className="hit-44 rounded-full border border-border px-2 py-0.5 text-[0.65625rem] font-semibold text-muted-foreground">
+                            className="hit-44 rounded-full border border-border px-2 py-0.5 text-[0.75rem] font-semibold text-muted-foreground">
                             {setupOpen ? "Already set up? Hide them" : `Show ${items.length} setup step${items.length === 1 ? "" : "s"}`}
                           </button>
                         )}
@@ -1002,11 +1002,11 @@ export function TaskReviewSheet({
                       <div className="text-[0.75rem] text-muted-foreground mt-0.5 pl-[13px]">{copy.sub}</div>
                     </div>
                     {bucket === "setup" && !setupOpen && items.length > 0 ? (
-                      <div className="text-[0.71875rem] text-muted-foreground pl-6 pb-1">
+                      <div className="text-[0.75rem] text-muted-foreground pl-6 pb-1">
                         Tucked away — they&rsquo;ll be on the item page if you ever need them.
                       </div>
                     ) : items.length === 0
-                      ? <div className="text-[0.71875rem] text-muted-foreground pl-6 pb-1">{copy.empty}</div>
+                      ? <div className="text-[0.75rem] text-muted-foreground pl-6 pb-1">{copy.empty}</div>
                       : items.map((r) => (expandedId === r.id ? <div key={r.id}>{expandedCard(r)}</div> : collapsedRow(r)))}
                   </div>
                 )
@@ -1094,7 +1094,7 @@ function InlineTitle({ className, children }: { className?: string; children: Re
  */
 function RemindersOff({ className, withSettingsLink = false }: { className?: string; withSettingsLink?: boolean }) {
   return (
-    <span className={cn("flex items-center gap-1 text-[0.71875rem] font-medium text-muted-foreground", className)}>
+    <span className={cn("flex items-center gap-1 text-[0.75rem] font-medium text-muted-foreground", className)}>
       <BellOffIcon className="size-3 shrink-0" aria-hidden />
       <span>
         Reminders off
@@ -1129,14 +1129,14 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
         type="button"
         aria-pressed={open}
         onClick={() => patch(row.id, { lastDoneOn: open ? null : today })}
-        className={`hit-44 rounded-full border px-2.5 py-1.5 text-[0.6875rem] font-semibold ${
+        className={`hit-44 rounded-full border px-2.5 py-1.5 text-[0.75rem] font-semibold ${
           open ? "border-[var(--hh-teal-fill)] bg-[var(--hh-teal-fill)] text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}
       >
         {open ? "✓ " : ""}I&rsquo;ve been doing this already
       </button>
       {open && (
         <div className="mt-2 flex items-center gap-2">
-          <label htmlFor={`lastdone-${row.id}`} className="text-[0.71875rem] text-muted-foreground">Last done</label>
+          <label htmlFor={`lastdone-${row.id}`} className="text-[0.75rem] text-muted-foreground">Last done</label>
           <input
             id={`lastdone-${row.id}`}
             type="date"

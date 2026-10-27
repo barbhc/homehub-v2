@@ -76,13 +76,13 @@ function PhoneMock() {
             <div style={{ width: 62, height: 9, borderRadius: 4, background: INK }} />
             <div className="flex gap-[3px]">{[0, 1, 2].map((i) => <div key={i} style={{ width: 5, height: 9, borderRadius: 1, background: "var(--hh-icon-faint)" }} />)}</div>
           </div>
-          <div className="text-[0.625rem] font-bold tracking-[0.4px]" style={{ color: TEAL }}>TUESDAY</div>
+          <div className="text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: TEAL }}>TUESDAY</div>
           <div className="text-[1.25rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>Good morning, Barb</div>
         </div>
         <div className="mx-[17px] my-3.5 p-3.5" style={{ background: "var(--hh-surface)", borderRadius: 18, boxShadow: "0 6px 18px rgba(11,26,22,0.08)" }}>
           <div className="flex justify-between mb-2.5">
-            <span className="text-[0.5625rem] font-bold tracking-[0.3px] px-2 py-1 rounded-full" style={{ color: "var(--hh-clay)", background: "var(--hh-clay-soft)" }}>ESSENTIAL</span>
-            <span className="text-[0.59375rem] font-bold" style={{ color: TEAL }}>Today · 2 min</span>
+            <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px] px-2 py-1 rounded-full" style={{ color: "var(--hh-clay)", background: "var(--hh-clay-soft)" }}>ESSENTIAL</span>
+            <span className="text-[0.75rem] font-bold" style={{ color: TEAL }}>Today · 2 min</span>
           </div>
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center shrink-0" style={{ width: 38, height: 38, borderRadius: 12, background: "var(--hh-teal-wash)" }}>
@@ -90,7 +90,7 @@ function PhoneMock() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[0.875rem] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Replace the HVAC filter</div>
-              <div className="text-[0.65625rem] mt-0.5" style={{ color: SUB }}>Furnace &amp; A/C · Utility</div>
+              <div className="text-[0.75rem] mt-0.5" style={{ color: SUB }}>Furnace &amp; A/C · Utility</div>
             </div>
             <div className="shrink-0" style={{ width: 24, height: 24, borderRadius: 12, border: `2px solid ${TEAL}` }} />
           </div>
@@ -105,7 +105,7 @@ function PhoneMock() {
                 <Icon size={14} style={{ color: TEAL }} />
               </div>
               <div className="flex-1 text-[0.78125rem] font-semibold" style={{ color: INK }}>{t}</div>
-              <div className="text-[0.625rem] font-semibold" style={{ color: "var(--hh-faint)" }}>{w}</div>
+              <div className="text-[0.75rem] font-semibold" style={{ color: "var(--hh-faint)" }}>{w}</div>
             </div>
           ))}
         </div>

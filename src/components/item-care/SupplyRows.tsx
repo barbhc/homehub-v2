@@ -269,7 +269,7 @@ function PartCard({
             <BellRingIcon className="size-[15px] shrink-0" style={{ color: TEAL }} aria-hidden />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-[0.8125rem] font-semibold" style={{ color: INK }}>Remind me to buy the next one</span>
-              <span className="text-[0.71875rem]" style={{ color: FAINT }}>A week before it&apos;s due</span>
+              <span className="text-[0.75rem]" style={{ color: FAINT }}>A week before it&apos;s due</span>
             </span>
             <Switch
               checked={supply.buy_ahead}
@@ -384,7 +384,7 @@ function PlaceEditor({ partName, initial, places, onCancel, onSave }: {
       </div>
       {chips.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-[0.6875rem] font-semibold" style={{ color: FAINT }}>Places you&apos;ve used</span>
+          <span className="text-[0.75rem] font-semibold" style={{ color: FAINT }}>Places you&apos;ve used</span>
           <div className="flex flex-wrap gap-1.5">
             {chips.map((p) => (
               <button

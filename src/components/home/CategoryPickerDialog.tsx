@@ -153,7 +153,7 @@ export function CategoryPickerDialog({
           )}
         </div>
 
-        <p className="px-1 text-[0.71875rem]" style={{ color: "var(--hh-sub)" }}>
+        <p className="px-1 text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
           Category shapes which upkeep we suggest for this item.
         </p>
       </DialogContent>

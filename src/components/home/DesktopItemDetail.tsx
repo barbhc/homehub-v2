@@ -308,7 +308,7 @@ function SavedTab({ faqs }: { faqs: ChatFaq[] }) {
         <Card key={f.faq_id}>
           <div className="mb-1.5 text-[0.90625rem] font-bold" style={{ color: INK }}>{f.question}</div>
           <div className="whitespace-pre-wrap text-[0.84375rem] leading-relaxed" style={{ color: SUB }}>{f.answer}</div>
-          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[0.71875rem] font-semibold" style={{ background: TEAL_WASH, color: TEAL }}>
+          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[0.75rem] font-semibold" style={{ background: TEAL_WASH, color: TEAL }}>
             <SparklesIcon className="size-3" /> Saved from Ask
           </div>
         </Card>
@@ -424,13 +424,13 @@ export function DesktopItemDetail({
             <div className="flex items-center gap-2.5">
               <h1 className="m-0 text-[1.5625rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
               {recallFound ? (
-                <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[0.6875rem] font-bold" style={{ background: SLATE_SOFT, color: SLATE }}>
+                <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[0.75rem] font-bold" style={{ background: SLATE_SOFT, color: SLATE }}>
                   <MegaphoneIcon className="size-3" /> Safety notice
                 </span>
               ) : item.recall_status === "none_found" ? (
                 // Only after a check actually ran — a null status means we never
                 // looked, and claiming otherwise asserts an unverified safety fact.
-                <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[0.6875rem] font-bold" style={{ background: TEAL_WASH, color: TEAL }}>
+                <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[0.75rem] font-bold" style={{ background: TEAL_WASH, color: TEAL }}>
                   <ShieldCheckIcon className="size-3" /> No recalls
                 </span>
               ) : null}
@@ -466,7 +466,7 @@ export function DesktopItemDetail({
             {/* The same sentence the phone's Ask card says, for the same state —
                 including a manual being read (HH-161) or read and waiting. */}
             {!hasManual && (
-              <span className="max-w-[150px] text-[0.6875rem] leading-snug" style={{ color: SUB }}>
+              <span className="max-w-[150px] text-[0.75rem] leading-snug" style={{ color: SUB }}>
                 {askHint(manualState)}
               </span>
             )}
@@ -481,7 +481,7 @@ export function DesktopItemDetail({
               <MegaphoneIcon className="size-[18px]" style={{ color: SLATE }} />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="mb-0.5 text-[0.65625rem] font-bold uppercase tracking-[0.5px]" style={{ color: SLATE }}>Safety notice</div>
+              <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SLATE }}>Safety notice</div>
               <div className="text-[0.9375rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>Possible recall</div>
               {item.recall_notes && <div className="mt-1 text-[0.8125rem] leading-snug" style={{ color: "var(--hh-sub)" }}>{item.recall_notes}</div>}
             </div>
@@ -505,7 +505,7 @@ export function DesktopItemDetail({
                   style={{ borderBottom: `2px solid ${on ? TEAL : "transparent"}`, color: on ? INK : SUB, fontWeight: on ? 700 : 500, marginBottom: -1 }}
                 >
                   {tb.label}
-                  {tb.n > 0 && <span className="text-[0.6875rem]" style={{ color: FAINT, fontFamily: "ui-monospace, monospace" }}>{tb.n}</span>}
+                  {tb.n > 0 && <span className="text-[0.75rem]" style={{ color: FAINT, fontFamily: "ui-monospace, monospace" }}>{tb.n}</span>}
                 </button>
               )
             })}

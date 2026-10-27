@@ -34,7 +34,7 @@ export function StepList({ steps, label = "Steps" }: { steps: string[]; label?: 
   const flip = (i: number) => setDone((x) => (x.includes(i) ? x.filter((n) => n !== i) : [...x, i]))
   return (
     <div>
-      {label && <div className="mb-2.5 text-[0.65625rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</div>}
+      {label && <div className="mb-2.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</div>}
       <ol className="flex flex-col gap-2.5">
         {steps.map((s, i) => {
           const on = done.includes(i)
@@ -80,7 +80,7 @@ export function InfoBlurb({ text, label, icon = "info" }: { text: string; label?
     <div className="flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: "var(--hh-slate-soft)" }}>
       <Glyph className="mt-px size-[15px] shrink-0" style={{ color: "var(--hh-slate)" }} />
       <div className="min-w-0">
-        {label && <div className="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>{label}</div>}
+        {label && <div className="mb-1 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>{label}</div>}
         <span className="text-[0.84375rem] leading-relaxed text-pretty" style={{ color: INK }}>{text}</span>
       </div>
     </div>
@@ -97,7 +97,7 @@ export function InfoBlurb({ text, label, icon = "info" }: { text: string; label?
 export function ManualBlurb({ page, quote, onOpen }: { page: number; quote?: string | null; onOpen: () => void }) {
   return (
     <div className="px-3.5 py-3" style={{ borderLeft: `3px solid ${TEAL}`, background: "var(--hh-teal-wash)", borderRadius: "0 12px 12px 0" }}>
-      <div className="mb-1.5 text-[0.625rem] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>From your manual</div>
+      <div className="mb-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>From your manual</div>
       {quote && <div className="text-[0.8125rem] italic leading-relaxed" style={{ color: INK }}>“{quote}”</div>}
       <button
         type="button"

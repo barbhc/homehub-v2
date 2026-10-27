@@ -178,7 +178,7 @@ function TaskRow({ task }: { task: SampleTask }) {
             {task.when} · {task.minutes} min · {task.item}
           </span>
         </span>
-        <span className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold"
+        <span className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold"
           style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>
           {task.cadence}
         </span>

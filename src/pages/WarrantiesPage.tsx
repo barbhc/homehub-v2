@@ -283,7 +283,7 @@ export default function WarrantiesPage() {
                         <ShieldAlertIcon className="size-[22px]" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="inline-flex items-center gap-1.5 text-[0.65625rem] font-bold uppercase tracking-[0.4px]" style={{ color: GOLD }}>
+                        <div className="inline-flex items-center gap-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: GOLD }}>
                           Expires in {row.daysRemaining} day{row.daysRemaining === 1 ? "" : "s"}
                         </div>
                         <div className="my-0.5 truncate text-[1.1875rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{row.name}</div>

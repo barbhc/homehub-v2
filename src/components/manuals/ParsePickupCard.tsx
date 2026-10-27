@@ -288,7 +288,7 @@ export function ParsePickupCard({
           <button
             type="button"
             onClick={() => setOpen("sheet")}
-            className="hit-44 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[0.71875rem] font-bold"
+            className="hit-44 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[0.75rem] font-bold"
             style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
           >
             {reviewLabel(counts)}

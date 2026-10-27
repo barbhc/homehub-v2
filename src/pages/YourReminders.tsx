@@ -465,7 +465,7 @@ export default function YourReminders() {
                 <div className="flex flex-col gap-3" data-testid="pick-list">
                   {pickGroups.map(([name, list]) => (
                     <section key={name} aria-label={name}>
-                      <h3 className="mb-1.5 px-1 font-mono text-[0.65625rem] font-extrabold uppercase tracking-[0.12em]" style={{ color: FAINT }}>{name}</h3>
+                      <h3 className="mb-1.5 px-1 font-mono text-[0.6875rem] font-extrabold uppercase tracking-[0.12em]" style={{ color: FAINT }}>{name}</h3>
                       <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] divide-y divide-[var(--hh-line)]" style={{ background: "var(--hh-surface)" }}>
                         {list.map((t) => (
                           <PickRow key={t.task_template_id} title={t.title} itemName={null} onAdd={() => addTemplate(t)} />

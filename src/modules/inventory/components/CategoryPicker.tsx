@@ -49,7 +49,7 @@ export function CategoryPicker({
                 )}
               >
                 <Icon className="h-6 w-6 shrink-0" aria-hidden />
-                <span className="text-[0.6875rem] sm:text-xs font-medium text-center leading-tight">{cat.label}</span>
+                <span className="text-[0.75rem] sm:text-xs font-medium text-center leading-tight">{cat.label}</span>
               </button>
             )
           })}

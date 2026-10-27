@@ -113,7 +113,7 @@ export function HomeSwitcherSheet({
                         {h.name}
                       </span>
                       {selected && (
-                        <span className="block text-[0.6875rem]" style={{ color: "var(--hh-sub)" }}>
+                        <span className="block text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
                           You're here
                         </span>
                       )}
@@ -136,7 +136,7 @@ export function HomeSwitcherSheet({
               </button>
             </div>
 
-            <p className="mt-3 px-1 text-[0.6875rem]" style={{ color: "var(--hh-sub)" }}>
+            <p className="mt-3 px-1 text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
               Each home keeps its own items, tasks, and rooms.
             </p>
           </>
@@ -175,7 +175,7 @@ export function HomeSwitcherSheet({
             {/* Said up front because it already happens — createHome seeds nine
                 rooms. Finding them unexplained reads as data you didn't add. */}
             <p
-              className="mt-3 rounded-xl px-3 py-2.5 text-[0.71875rem] leading-relaxed"
+              className="mt-3 rounded-xl px-3 py-2.5 text-[0.75rem] leading-relaxed"
               style={{ background: "var(--hh-surface2)", color: "var(--hh-sub)" }}
             >
               We'll start it with the usual rooms — kitchen, bathroom, garage, and more. You can
@@ -198,7 +198,7 @@ export function HomeSwitcherSheet({
               {saving && <Loader2Icon className="size-4 animate-spin" />}
               {saving ? "Adding…" : "Add home"}
             </button>
-            <p className="mt-2 text-center text-[0.6875rem]" style={{ color: "var(--hh-sub)" }}>
+            <p className="mt-2 text-center text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
               You'll switch to it right away
             </p>
           </>

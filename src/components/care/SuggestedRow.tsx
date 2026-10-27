@@ -57,13 +57,13 @@ export function SuggestedRow({ suggestion, itemName, onAdd, onDismiss, last }: S
         <span className="text-[0.875rem] font-semibold tracking-[-0.2px]" style={{ color: INK }}>
           {backstopFor ? `Backstop for “${backstopFor.title}”` : entry.title}
         </span>
-        <span className="rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: AMBER_SOFT, color: AMBER }}>Suggested</span>
-        {entry.pro && <span className="rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>A pro</span>}
+        <span className="rounded-full px-1.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ background: AMBER_SOFT, color: AMBER }}>Suggested</span>
+        {entry.pro && <span className="rounded-full px-1.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>A pro</span>}
       </div>
       <span className="text-[0.75rem] leading-snug" style={{ color: SUB }}>
         {backstopFor ? `The machine tells you when. Add a reminder ${entry.cadenceLabel.toLowerCase()} as a backstop?` : meta}
       </span>
-      <span className="text-[0.71875rem] leading-snug" style={{ color: FAINT }}>
+      <span className="text-[0.75rem] leading-snug" style={{ color: FAINT }}>
         {backstopFor ? `${entry.source}.` : `Why: ${entry.why}`}
       </span>
       {error && (
@@ -99,7 +99,7 @@ export function SuggestedRow({ suggestion, itemName, onAdd, onDismiss, last }: S
 /** The band's footnote — the same sentence on every surface, so provenance never varies. */
 export function SuggestedSource({ kindLabel }: { kindLabel: string }) {
   return (
-    <div className="flex items-start gap-2 px-4 py-2.5 text-[0.71875rem] leading-snug" style={{ borderTop: "1px solid var(--hh-line, rgba(15,23,42,.10))", background: AMBER_SOFT, color: "var(--hh-gold-ink)" }}>
+    <div className="flex items-start gap-2 px-4 py-2.5 text-[0.75rem] leading-snug" style={{ borderTop: "1px solid var(--hh-line, rgba(15,23,42,.10))", background: AMBER_SOFT, color: "var(--hh-gold-ink)" }}>
       Typical for {kindLabel} — not from this unit&apos;s manual. Stays until you add or dismiss it; the manual replaces these with the exact schedule.
     </div>
   )
