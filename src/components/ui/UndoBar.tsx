@@ -39,8 +39,9 @@ export function UndoBar({
       role="status"
       aria-live="polite"
       className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
-      // Clears the tab bar, and the home indicator under it.
-      style={{ bottom: "calc(74px + env(safe-area-inset-bottom))" }}
+      // Clears the tab bar, and the home indicator under it — and a page's own
+      // bottom bar when it has one (--hh-page-bar-h, published by usePageBar).
+      style={{ bottom: "calc(74px + env(safe-area-inset-bottom) + var(--hh-page-bar-h, 0px))" }}
     >
       <div
         className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-xl px-4 py-3 shadow-[0_8px_28px_rgba(8,12,11,0.28)]"

@@ -101,9 +101,11 @@ export function ParseTrayPill() {
           last card. It floats above the tab bar, so while it shows, the page
           gets this much more room to scroll — nothing ends underneath it. */}
       <div aria-hidden="true" data-testid="tray-clearance" className="h-16 shrink-0 md:h-28" />
-      {/* Above the mobile tab bar (z-50); below dialogs. Desktop gets it bottom-right. */}
+      {/* Above the mobile tab bar (z-50); below dialogs. Desktop gets it bottom-right.
+          A page's own bottom bar (Mark done, the Deep Clean footer) publishes
+          its height as --hh-page-bar-h (usePageBar), and the pill stands on it. */}
       <div className="fixed inset-x-0 z-40 flex flex-col items-center gap-2 px-4 md:inset-x-auto md:right-6"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 68px)" }}>
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 68px + var(--hh-page-bar-h, 0px))" }}>
         {open && (
           <div className="w-full max-w-[380px] rounded-2xl border p-3 shadow-lg"
             style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)" }}>

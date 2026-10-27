@@ -34,14 +34,24 @@ export function AuthMark({ size = 60, className }: { size?: number; className?: 
   )
 }
 
-/** Full-screen centered shell on the page background, no nav chrome. */
+/**
+ * Full-screen centered shell on the page background, no nav chrome.
+ *
+ * Nothing above it clears the status bar, so it does: `pt-safe-screen` is the
+ * same safe-area rule the app shell uses (index.css — the inset, or the 44px
+ * native/standalone fallback when WebKit reports 0), kept at every width, and
+ * the bottom clears the home indicator. The py-12 breathing room sits INSIDE
+ * that, so in a browser (inset 0) the screen is exactly as it was.
+ */
 export function AuthScreen({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div
-      className={cn("min-h-[100dvh] flex flex-col items-center justify-center px-6 py-12", className)}
+      className={cn("min-h-[100dvh] flex flex-col pt-safe-screen pb-[env(safe-area-inset-bottom)]", className)}
       style={{ background: AUTH.bg }}
     >
-      <div className="w-full max-w-sm">{children}</div>
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-sm">{children}</div>
+      </div>
     </div>
   )
 }

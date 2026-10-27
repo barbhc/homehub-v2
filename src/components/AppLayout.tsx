@@ -193,8 +193,11 @@ export function AppLayout() {
           nothing is happening, which is almost always. */}
       <ParseTrayPill />
 
-      {/* Mobile bottom nav — translucent, iOS-native (redesign shell) */}
-      <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-[var(--hh-line)] backdrop-blur-xl md:hidden pb-[env(safe-area-inset-bottom)] hh-frost-bg" style={{ background: "color-mix(in srgb, var(--hh-bg) 85%, transparent)" }}>
+      {/* Mobile bottom nav — translucent, iOS-native (redesign shell).
+          Its height is --hh-tabbar-h (index.css) plus the home-indicator inset;
+          bars that sit ON it (Mark done, the Deep Clean footer) read the same
+          variable, so the min-height here is what keeps them honest. */}
+      <nav className="fixed bottom-0 inset-x-0 z-50 min-h-[var(--hh-tabbar-clear)] border-t border-[var(--hh-line)] backdrop-blur-xl md:hidden pb-[env(safe-area-inset-bottom)] hh-frost-bg" style={{ background: "color-mix(in srgb, var(--hh-bg) 85%, transparent)" }}>
         <div className="flex items-start justify-around px-1.5 pt-2.5">
           {visibleNav.filter((n) => !("desktopOnly" in n && n.desktopOnly)).map(({ to, label, icon: Icon, tourId }) => {
             const isActive =

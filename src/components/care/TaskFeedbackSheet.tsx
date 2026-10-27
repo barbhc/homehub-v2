@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { createPortal } from "react-dom"
 import { RemoveScroll } from "react-remove-scroll"
 import { CheckIcon, SparklesIcon, MessageCircleIcon, ShieldAlertIcon, PhoneIcon } from "lucide-react"
 import { useAuth } from "@/modules/auth"
@@ -253,11 +254,16 @@ export function TaskFeedbackSheet({
 
   // RemoveScroll, as the Radix sheets do: the page behind stays put while this
   // is open (audit 2026-10-15).
-  return (
+  //
+  // Portalled and FIXED, as TaskEditSheet is. It was `absolute` to the task
+  // page's wrapper, so opened from the bottom of a long task its top ran off
+  // the screen and its scrim covered the wrapper, not the screen; the tab bar
+  // (z-50) painted over it. The panel keeps the task page column's width.
+  return createPortal(
     <RemoveScroll allowPinchZoom>
-      <div onClick={onClose} className="absolute inset-0 z-40" style={{ background: "rgba(8,12,11,0.4)" }} />
+      <div onClick={onClose} className="fixed inset-0 z-[60]" style={{ background: "rgba(8,12,11,0.4)" }} />
       <div
-        className="absolute inset-x-0 bottom-0 z-[41] flex max-h-[88%] flex-col overflow-hidden rounded-t-[20px] shadow-[0_-8px_30px_rgba(0,0,0,0.18)]"
+        className="fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[88%] w-full max-w-[460px] flex-col overflow-hidden rounded-t-[20px] shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:max-w-[960px]"
         style={{ background: "var(--hh-surface)" }}
         role="dialog"
         aria-label="Tune this task"
@@ -545,7 +551,8 @@ export function TaskFeedbackSheet({
         )}
         </div>
       </div>
-    </RemoveScroll>
+    </RemoveScroll>,
+    document.body,
   )
 }
 
