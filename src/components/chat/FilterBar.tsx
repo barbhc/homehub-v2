@@ -179,11 +179,11 @@ export function FilterBar({
                 <button
                   type="button"
                   onClick={handleClearItem}
-                  className="hit-44-left [--hit-out:26px] text-muted-foreground hover:text-foreground shrink-0"
+                  className="hit-44-right text-muted-foreground hover:text-foreground shrink-0"
                   aria-label="Clear item filter"
                 >
-                  {/* Grows OUTWARD (right, past the box): taps in the field
-                      itself still place the caret. */}
+                  {/* Grows right, out of the field: taps in the field itself
+                      still place the caret. */}
                   <XIcon className="size-3.5" />
                 </button>
               )}
@@ -276,6 +276,11 @@ export function FilterBar({
               <button
                 type="button"
                 onClick={handleClearItem}
+                // Not hit-44-right as in the other two variants: this strip
+                // scrolls sideways, and a slop reaching 32px past this 12px ✕
+                // would stick 4px out of its padding and make it scroll. This
+                // one ends 26px out (inside the strip's padding) and starts
+                // 6px left of the ✕ — the gap before the field, none of it.
                 className="hit-44-left [--hit-out:26px] text-muted-foreground hover:text-foreground"
                 aria-label="Clear item filter"
               >
@@ -373,7 +378,7 @@ export function FilterBar({
               <button
                 type="button"
                 onClick={handleClearItem}
-                className="hit-44-left [--hit-out:26px] text-muted-foreground hover:text-foreground shrink-0"
+                className="hit-44-right text-muted-foreground hover:text-foreground shrink-0"
                 aria-label="Clear item filter"
               >
                 <XIcon className="size-3.5" />

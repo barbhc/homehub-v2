@@ -604,7 +604,6 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                 type="button"
                 onClick={() => toggleDone(t)}
                 disabled={loading}
-                aria-pressed={done}
                 aria-label={`${done ? "Mark not done" : "Mark done"}: ${t.title}`}
                 data-hit-dense="install steps sit on a 33px pitch; each row takes its own band"
                 className="hit-44 flex w-full items-start gap-2.5 text-left [--hit-h:calc(100%_+_12px)] disabled:opacity-50"

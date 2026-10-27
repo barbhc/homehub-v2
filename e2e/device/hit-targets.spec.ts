@@ -269,7 +269,7 @@ const visible = { visible: true } as const
 const TASK_TITLE = "Replace HVAC furnace filter"
 const ANSWER = "Swap the furnace filter every three months, or monthly in a dusty house."
 
-type Setup = { name: string; signedOut?: boolean; open: (page: Page) => Promise<void> }
+type Setup = { name: string; signedOut?: boolean; open: (page: Page) => Promise<void>; cleanup?: () => Promise<void> }
 
 const PAGES: Setup[] = [
   {
@@ -361,6 +361,20 @@ const PAGES: Setup[] = [
       await page.getByText(ready).filter(visible).first().waitFor({ timeout: 20_000 })
     },
   })),
+  ...([false, true] as const).map((session): Setup => ({
+    // Deep Clean's setup (rooms, time budget), then the session checklist.
+    name: session ? "deep clean session" : "deep clean setup",
+    open: async (page) => {
+      await gotoStable(page, "/clean")
+      await page.getByRole("button", { name: /Start cleaning/ }).filter(visible).first().click()
+      await page.getByRole("button", { name: "Whole Home" }).filter(visible).first().waitFor({ timeout: 20_000 })
+      if (session) {
+        await page.getByRole("button", { name: "Whole Home" }).filter(visible).first().click()
+        await page.getByRole("button", { name: /Let's clean/ }).filter(visible).first().click()
+        await page.getByRole("button", { name: /Finish session/ }).filter(visible).first().waitFor({ timeout: 20_000 })
+      }
+    },
+  })),
   {
     name: "setup band",
     open: async (page) => {
@@ -370,6 +384,9 @@ const PAGES: Setup[] = [
       // The done state loads after the steps: audit once step 1 reads as done.
       await page.getByRole("button", { name: /Mark not done/ }).filter(visible).first().waitFor({ timeout: 20_000 })
     },
+    // Removed as soon as this page is judged, so every other page sees the
+    // seed exactly as it was, at both sizes.
+    cleanup: removeSetupItem,
   },
   ...([false, true] as const).map((walk): Setup => ({
     // The seeded microwave's unsaved read: the review sheet, then its
@@ -421,6 +438,8 @@ const PAGES: Setup[] = [
   },
 ]
 
+// Belt and braces: the setup-band page removes its sentinel itself; this
+// catches a run that stopped between the seed and that cleanup.
 test.afterAll(async () => {
   if (process.env.FIRESTORE_EMULATOR_HOST) await removeSetupItem()
 })
@@ -434,8 +453,13 @@ for (const vp of VIEWPORTS) {
         if (p.signedOut) test.use({ storageState: { cookies: [], origins: [] } })
 
         test(`${p.name}: every control takes a 44pt tap`, async ({ page }) => {
-          await p.open(page)
-          const audit = await hitAudit(page)
+          let audit: Audit
+          try {
+            await p.open(page)
+            audit = await hitAudit(page)
+          } finally {
+            await p.cleanup?.()
+          }
           const offenders = audit.offenders.filter(
             (o) => !ALLOWLIST.some((a) => a.page.test(p.name) && a.label.test(o.label)),
           )

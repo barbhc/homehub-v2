@@ -513,7 +513,7 @@ export default function DeepClean() {
                 type="button"
                 onClick={handleWholeHome}
                 className={cn(
-                  "rounded-full px-4 py-2 text-sm font-medium border transition-colors",
+                  "hit-44 rounded-full px-4 py-2 text-sm font-medium border transition-colors",
                   wholeHome
                     ? "border-primary bg-primary/10 text-foreground"
                     : "border-border bg-muted/30 hover:border-foreground/30"
@@ -533,7 +533,7 @@ export default function DeepClean() {
                     type="button"
                     onClick={() => handleRoomToggle(r.room_id)}
                     className={cn(
-                      "rounded-full px-4 py-2 text-sm font-medium border transition-colors",
+                      "hit-44 rounded-full px-4 py-2 text-sm font-medium border transition-colors",
                       selectedRoomIds.has(r.room_id) && !wholeHome
                         ? "border-primary bg-primary/10 text-foreground"
                         : "border-border bg-muted/30 hover:border-foreground/30"
@@ -654,7 +654,7 @@ export default function DeepClean() {
                                           return next
                                         })
                                       }
-                                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive px-2 py-1 rounded hover:bg-destructive/5 transition-colors"
+                                      className="hit-44 flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive px-2 py-1 rounded hover:bg-destructive/5 transition-colors"
                                       aria-label={`Skip ${itemName ?? "these tasks"} today`}
                                     >
                                       <X className="size-3" />
@@ -683,7 +683,9 @@ export default function DeepClean() {
                                       onClick={() =>
                                         setExpandedItemKeys((prev) => new Set(prev).add(itemKey))
                                       }
-                                      className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground border-t border-border/40 bg-muted/10 hover:bg-muted/20 transition-colors"
+                                      // py-3.5, not py-2.5: the card clips, so
+                                      // the button itself has to be 44 tall.
+                                      className="w-full py-3.5 text-xs text-muted-foreground hover:text-foreground border-t border-border/40 bg-muted/10 hover:bg-muted/20 transition-colors"
                                     >
                                       + {hiddenCount} more task{hiddenCount === 1 ? "" : "s"}
                                     </button>
@@ -716,7 +718,7 @@ export default function DeepClean() {
                                       return next
                                     })
                                   }
-                                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border/60 bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                                  className="hit-44 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border/60 bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
                                 >
                                   <RotateCcw className="size-3" />
                                   {label}
@@ -751,7 +753,7 @@ export default function DeepClean() {
                     <button
                       type="button"
                       onClick={() => setBonusOpen(!bonusOpen)}
-                      className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                      className="hit-44 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                     >
                       {bonusOpen ? (
                         <ChevronDown className="size-4" />
@@ -1025,35 +1027,37 @@ function CleanHub({
                 const due = dueLabel(t)
                 const done = completedIds.has(t.id)
                 return (
-                  <div
+                  // The whole row is the control — the 20px circle alone was a
+                  // 20pt target. Same layout; a tap anywhere on the row toggles.
+                  <button
                     key={t.id}
-                    className="flex items-center gap-3 px-4 py-3"
+                    type="button"
+                    onClick={() => onToggleWeekTask(t.id)}
+                    aria-label={`${done ? "Mark not done" : "Mark done"}: ${t.title}`}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left"
                     style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none" }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => onToggleWeekTask(t.id)}
-                      aria-label={done ? "Mark not done" : "Mark done"}
+                    <span
                       className="flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
                       style={{ borderColor: done ? "var(--hh-teal-fill)" : TEAL, background: done ? "var(--hh-teal-fill)" : "transparent" }}
                     >
                       {done && <CheckIcon className="size-3 text-white" strokeWidth={3} />}
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <div className={cn("truncate text-[13.5px] font-semibold", done && "line-through opacity-60")} style={{ color: INK }}>
+                    </span>
+                    <span className="block min-w-0 flex-1">
+                      <span className={cn("block truncate text-[13.5px] font-semibold", done && "line-through opacity-60")} style={{ color: INK }}>
                         {t.title}
-                      </div>
-                      <div className="mt-px text-[12px]" style={{ color: SUB }}>
+                      </span>
+                      <span className="mt-px block text-[12px]" style={{ color: SUB }}>
                         {(t.itemName ?? t.roomName ?? "Home")} · {t.estimatedMinutes ?? 15} min
-                      </div>
-                    </div>
+                      </span>
+                    </span>
                     <span
                       className="shrink-0 whitespace-nowrap text-[12px] font-bold"
                       style={{ color: due.overdue ? CLAY : due.text === "Today" ? TEAL : SUB }}
                     >
                       {due.text}
                     </span>
-                  </div>
+                  </button>
                 )
               })}
             </div>
@@ -1161,7 +1165,7 @@ export function CleanTaskRow({
                 e.preventDefault()
                 onExpand?.()
               }}
-              className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+              className="hit-44 p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
               aria-expanded={expanded}
               aria-label={expanded ? "Collapse instructions" : "Expand instructions"}
             >
