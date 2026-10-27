@@ -1136,7 +1136,7 @@ export default function Settings() {
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="text-muted-foreground sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 focus-visible:opacity-100 hover:text-primary transition-opacity"
+                          className="text-muted-foreground sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 sm:pointer-fine:focus-visible:opacity-100 hover:text-primary transition-opacity"
                           onClick={() => handleStartEditRoom(room)}
                           aria-label={`Rename ${room.name}`}
                         >
@@ -1145,7 +1145,7 @@ export default function Settings() {
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="text-muted-foreground sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 focus-visible:opacity-100 hover:text-destructive transition-opacity"
+                          className="text-muted-foreground sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 sm:pointer-fine:focus-visible:opacity-100 hover:text-destructive transition-opacity"
                           onClick={() => setDeleteConfirmRoom(room)}
                           aria-label={`Delete ${room.name}`}
                         >
@@ -1316,7 +1316,7 @@ export default function Settings() {
                   return (
                     <div
                       key={m.manual_id}
-                      className="flex items-center gap-2 py-[9px] border-b border-border/50 last:border-0 text-sm"
+                      className="flex items-center gap-2 py-1.5 border-b border-border/50 last:border-0 text-sm"
                     >
                       {/* Status icon */}
                       {state?.status === "scanning" ? (
@@ -1369,13 +1369,16 @@ export default function Settings() {
                       {/* HH-154: per-row actions. Without these a stuck manual
                           was permanent — "Rescan All" was the only lever and it
                           re-ran every manual to fix one. */}
+                      {/* Rows sit on a 39px pitch: each action takes 44px across
+                          but only its own row's band (38px) down, so a tap is
+                          never shared with the row above or below. */}
                       <span className="flex shrink-0 items-center gap-2.5 text-xs font-bold" style={{ color: "var(--hh-teal)" }}>
                         {/* A read waiting to be saved offers its review, not
                             another read; everything else can be read again —
                             and either way it ends in the item page's review,
                             never in a save from here. */}
                         {state?.status === "ready" || (!state && awaitingReview) ? (
-                          <button type="button" onClick={() => handleOpenReview(m)} className="hit-44">
+                          <button type="button" onClick={() => handleOpenReview(m)} className="hit-44 [--hit-h:38px]" data-hit-dense="manual rows sit on a 39px pitch; each action takes its row's band">
                             Review
                           </button>
                         ) : (
@@ -1383,7 +1386,8 @@ export default function Settings() {
                             type="button"
                             onClick={() => void handleRescanOne(m)}
                             disabled={rescanRunning || state?.status === "scanning"}
-                            className="hit-44 disabled:opacity-40"
+                            className="hit-44 [--hit-h:38px] disabled:opacity-40"
+                            data-hit-dense="manual rows sit on a 39px pitch; each action takes its row's band"
                           >
                             Rescan
                           </button>
@@ -1392,7 +1396,8 @@ export default function Settings() {
                           type="button"
                           onClick={() => void handleRemoveManual(m)}
                           disabled={removingManual === m.manual_id}
-                          className="hit-44 disabled:opacity-40"
+                          className="hit-44 [--hit-h:38px] disabled:opacity-40"
+                          data-hit-dense="manual rows sit on a 39px pitch; each action takes its row's band"
                           style={{ color: "var(--hh-clay)" }}
                         >
                           {removingManual === m.manual_id ? "Removing…" : "Remove"}

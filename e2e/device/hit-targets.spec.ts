@@ -1,5 +1,7 @@
 import { test, expect, gotoStable } from "../fixtures"
 import type { Page } from "@playwright/test"
+import { getApps, initializeApp } from "firebase-admin/app"
+import { getFirestore, Timestamp } from "firebase-admin/firestore"
 
 /**
  * Every tap is at least 44 pt — measured by where a finger lands, not by box size.
@@ -9,21 +11,38 @@ import type { Page } from "@playwright/test"
  * not the glyph, so nothing looks bigger at the normal text size. That is why
  * this audit cannot read `getBoundingClientRect()` the way the matrix suite's
  * report does: a 36px circle with an invisible 44px `::after` slop (the
- * `hit-44` utility in src/index.css) is a correct 44pt target whose box still
+ * `hit-44` utilities in src/index.css) is a correct 44pt target whose box still
  * says 36.
  *
  * So it asks the browser the question a finger asks. For every visible
  * interactive element it scrolls the control to the middle of the screen and
- * calls `document.elementFromPoint` at the centre and at ±21px horizontally
- * and vertically (a 42px cross — inside the 44px square with a pixel of
- * rounding to spare), clamped to the viewport. Each probe must land on the
- * control, a descendant of it, or its <label>. A probe that lands on empty
- * page means the target is too small; a probe that lands on a NEIGHBOURING
- * control means two hit areas overlap and the tap is ambiguous — both fail.
+ * walks `document.elementFromPoint` out from the centre, 1px at a time, up,
+ * down, left and right, until a probe stops landing on the control (or a
+ * descendant, or its <label>). A walk that runs off the screen counts as
+ * reaching the edge. Then:
  *
- * A control whose centre is not itself (it sits under a sheet, a sticky bar,
- * or an overlay) is not judged here — that is occlusion, not size — and is
- * listed in the test's annotations so it cannot vanish silently.
+ *   1. SIZE — the region must span at least 43px (44 less a pixel of
+ *      rounding) on each axis. Walking rather than probing a fixed ±21 cross
+ *      is what lets a region grow toward free space (`hit-44-up` and friends)
+ *      instead of only around its centre.
+ *   2. OVERLAP — where a walk stops on a NEIGHBOURING control, the control
+ *      must have reached the midline between the two boxes (to within
+ *      MIDLINE_SLACK). Short of it, the neighbour's hit area has taken taps that land nearer this
+ *      control: an ambiguous tap. (This is the install-step bug: a tap 2px
+ *      under step 1's circle toggled step 2.)
+ *   3. A centre that lands on a neighbouring control fails outright — that is
+ *      overlap at its worst. A centre under something that is NOT a control (a
+ *      sheet, a sticky bar) is occlusion, not size: listed, not judged.
+ *   4. Nothing reachable only on hover.
+ *
+ * Dense rows are the one declared exception: a control carrying
+ * `data-hit-dense="<reason>"` sits in a list whose pitch is under 44 (install
+ * steps, manual rows) and takes the whole row band instead. Its HEIGHT is
+ * exempt from rule 1; rule 2 still holds it to its half of every gap, so the
+ * rows tile with no tap belonging to two of them. Each one is printed.
+ *
+ * Controls skipped because their centre sits off-screen inside a clipped
+ * scroller are printed too, so a skip cannot hide a control.
  *
  * Phone (390×844) and iPad portrait (820×1180): iPads run the md+ layouts with
  * a finger, which is why the desktop-width exemption is `pointer: coarse`, not
@@ -35,7 +54,16 @@ const VIEWPORTS = [
   { name: "iPad portrait", width: 820, height: 1180 },
 ] as const
 
-const PROBE = 21
+/** 44pt less a pixel of sub-pixel rounding. */
+const MIN_SPAN = 43
+const MAX_WALK = 44
+/**
+ * How far short of the midline a control may stop before it counts as
+ * overlapped: sub-pixel rounding, plus the unequal halves two different-sized
+ * 44pt slops make (a 32px avatar's slop reaches 6px out, a 36px icon's 4px).
+ * The install-step bug this rule was written for was 7px.
+ */
+const MIDLINE_SLACK = 2
 
 /**
  * Genuine exceptions, each with its reason. Match is by page + accessible label.
@@ -66,12 +94,12 @@ const SELECTOR = [
   "summary",
 ].join(", ")
 
-type Miss = { label: string; w: number; h: number; misses: string[]; hitBy: string[] }
-type Audit = { offenders: Miss[]; obscured: string[]; hoverOnly: string[]; checked: number }
+type Miss = { label: string; w: number; h: number; why: string[] }
+type Audit = { offenders: Miss[]; obscured: string[]; skipped: string[]; dense: string[]; hoverOnly: string[]; checked: number }
 
 async function hitAudit(page: Page): Promise<Audit> {
   return page.evaluate(
-    async ({ selector, ignored, probe }) => {
+    async ({ selector, ignored, minSpan, maxWalk, slack }) => {
       const describe = (el: Element | null): string => {
         if (!el) return "(nothing)"
         const h = el as HTMLElement
@@ -90,6 +118,12 @@ async function hitAudit(page: Page): Promise<Audit> {
         if (labels) for (const l of Array.from(labels)) if (l === hit || l.contains(hit)) return true
         return false
       }
+      /** The control a probe landed on, if it is a different, unrelated one. */
+      const neighbour = (el: HTMLElement, hit: Element | null): HTMLElement | null => {
+        const ctl = hit?.closest<HTMLElement>(selector) ?? null
+        if (!ctl || ctl === el || el.contains(ctl) || ctl.contains(el)) return null
+        return ctl
+      }
       const hiddenByOpacity = (el: HTMLElement) => {
         for (let a: HTMLElement | null = el; a; a = a.parentElement) if (getComputedStyle(a).opacity === "0") return true
         return false
@@ -98,13 +132,13 @@ async function hitAudit(page: Page): Promise<Audit> {
       const vh = window.innerHeight
       const offenders: Miss[] = []
       const obscured: string[] = []
+      const skipped: string[] = []
+      const dense: string[] = []
       const hoverOnly: string[] = []
       let checked = 0
       const els = Array.from(document.body.querySelectorAll<HTMLElement>(selector))
       for (const el of els) {
         if (ignored.some((sel) => el.closest(sel))) continue
-        // An input drawn by its <label> (a visually hidden checkbox) is judged
-        // through the label: the probe accepts a hit on it.
         const s = getComputedStyle(el)
         if (s.display === "none" || s.visibility === "hidden") continue
         let r = el.getBoundingClientRect()
@@ -120,37 +154,115 @@ async function hitAudit(page: Page): Promise<Audit> {
         r = el.getBoundingClientRect()
         const cx = r.left + r.width / 2
         const cy = r.top + r.height / 2
-        if (cx < 0 || cy < 0 || cx > vw || cy > vh) continue // off-screen in a clipped scroller
+        if (cx < 0 || cy < 0 || cx >= vw || cy >= vh) {
+          skipped.push(`${labelOf(el)} (centre off-screen in a clipped scroller)`)
+          continue
+        }
         const centre = document.elementFromPoint(cx, cy)
         if (!owns(el, centre)) {
-          obscured.push(`${labelOf(el)} (under ${describe(centre)})`)
+          const n = neighbour(el, centre)
+          if (n) offenders.push({ label: labelOf(el), w: Math.round(r.width), h: Math.round(r.height), why: [`centre taken by ${describe(n)}`] })
+          else obscured.push(`${labelOf(el)} (under ${describe(centre)})`)
           continue
         }
         checked++
-        const clampX = (x: number) => Math.min(Math.max(x, 0), vw - 1)
-        const clampY = (y: number) => Math.min(Math.max(y, 0), vh - 1)
-        const probes: [string, number, number][] = [
-          ["left", clampX(cx - probe), cy],
-          ["right", clampX(cx + probe), cy],
-          ["up", cx, clampY(cy - probe)],
-          ["down", cx, clampY(cy + probe)],
-        ]
-        const misses: string[] = []
-        const hitBy: string[] = []
-        for (const [dir, x, y] of probes) {
-          const hit = document.elementFromPoint(x, y)
-          if (!owns(el, hit)) {
-            misses.push(dir)
-            hitBy.push(describe(hit))
+        const why: string[] = []
+        const reach: Record<string, number> = {}
+        const dirs = [["up", 0, -1], ["down", 0, 1], ["left", -1, 0], ["right", 1, 0]] as const
+        for (const [dir, dx, dy] of dirs) {
+          let d = 1
+          let stop: HTMLElement | null = null
+          for (; d <= maxWalk; d++) {
+            const x = cx + dx * d
+            const y = cy + dy * d
+            if (x < 0 || y < 0 || x >= vw || y >= vh) { d = maxWalk + 1; break } // the screen edge
+            const hit = document.elementFromPoint(x, y)
+            if (!owns(el, hit)) { stop = neighbour(el, hit); break }
+          }
+          reach[dir] = d - 1
+          if (stop) {
+            // Rule 2: the control must own its half of the gap to a neighbour.
+            const n = stop.getBoundingClientRect()
+            const ownEdge = dir === "up" ? r.top : dir === "down" ? r.bottom : dir === "left" ? r.left : r.right
+            const theirEdge = dir === "up" ? n.bottom : dir === "down" ? n.top : dir === "left" ? n.right : n.left
+            const sign = dir === "up" || dir === "left" ? -1 : 1
+            const gap = (theirEdge - ownEdge) * sign
+            const midline = ownEdge + sign * Math.max(gap, 0) / 2
+            const reached = (dir === "up" || dir === "down" ? cy : cx) + sign * (d - 1)
+            if ((midline - reached) * sign > slack) {
+              why.push(`${dir}: ${describe(stop)} takes taps ${Math.round((midline - reached) * sign)}px short of the midline`)
+            }
           }
         }
-        if (misses.length) offenders.push({ label: labelOf(el), w: Math.round(r.width), h: Math.round(r.height), misses, hitBy })
+        const spanH = reach.left + reach.right + 1
+        const spanV = reach.up + reach.down + 1
+        const denseReason = el.getAttribute("data-hit-dense")
+        if (spanH < minSpan) why.push(`width ${spanH}px`)
+        if (spanV < minSpan) {
+          if (denseReason) dense.push(`${labelOf(el)} — ${Math.round(spanV)}px tall: ${denseReason}`)
+          else why.push(`height ${spanV}px`)
+        }
+        if (why.length) offenders.push({ label: labelOf(el), w: Math.round(r.width), h: Math.round(r.height), why })
       }
       window.scrollTo(0, 0)
-      return { offenders, obscured, hoverOnly, checked }
+      return { offenders, obscured, skipped, dense, hoverOnly, checked }
     },
-    { selector: SELECTOR, ignored: IGNORED, probe: PROBE },
+    { selector: SELECTOR, ignored: IGNORED, minSpan: MIN_SPAN, maxWalk: MAX_WALK, slack: MIDLINE_SLACK },
   )
+}
+
+/**
+ * A sentinel item with an open Setup band — install steps on their 33px pitch,
+ * one of them already done (so its row carries the redo mark). The seed has no
+ * saved setup steps (the microwave's are still in an unsaved review), so this
+ * spec writes its own, to the EMULATOR only, and removes them afterwards.
+ */
+const HOME = "e2e-home"
+const SETUP_ITEM = "hit-audit-softener"
+const SETUP_STEPS = ["Connect the brine line to the drain", "Set the water hardness to your area", "Run the first regeneration cycle"]
+function emulatorDb() {
+  if (!process.env.FIRESTORE_EMULATOR_HOST) {
+    throw new Error("FIRESTORE_EMULATOR_HOST is not set — this spec writes to the EMULATOR only")
+  }
+  return getFirestore(getApps()[0] ?? initializeApp({ projectId: "demo-homehub" }))
+}
+async function seedSetupItem() {
+  const db = emulatorDb()
+  const now = Timestamp.now()
+  await db.doc(`homes/${HOME}/items/${SETUP_ITEM}`).set({
+    roomId: "garage", displayName: "Hit Audit Water Softener", category: "water_softener", itemCategory: "system",
+    brand: "Audit", model: "WS-1", status: "active", purchaseDate: null, warrantyDurationMonths: null, categoryFields: {},
+    tags: [], recallStatus: "none_found", recallCheckedAt: now, photoPath: null,
+    setupRevealedAt: now, createdAt: now, updatedAt: now, deletedAt: null,
+  })
+  for (const [i, title] of SETUP_STEPS.entries()) {
+    const tpl = `${SETUP_ITEM}-step-${i}`
+    await db.doc(`homes/${HOME}/taskTemplates/${tpl}`).set({
+      scopeType: "item_unit", itemUnitId: SETUP_ITEM, roomId: null, title, description: null,
+      careType: "maintenance", careTypeOverriddenAt: null, justification: null, symptomTags: [], reCheckTriggers: [],
+      priorityTier: "essential", remindEnabled: null, riskLevel: "performance", estimatedMinutes: 10, defaultAssignee: null,
+      instructionsChunkId: null, instructionsOverride: null, steps: null, sourcePage: null, suppliesMode: "none", supplies: [],
+      source: "cho_generated", isUserEditable: true, userModifiedAt: null, isActive: true, metadata: {}, manualId: null,
+      externalKey: null,
+      schedule: { scheduleType: "setup", intervalDays: null, anchorDate: null, season: null, windowDaysBefore: 7, windowDaysAfter: 14 },
+      createdAt: now, updatedAt: now, deletedAt: null,
+    })
+  }
+  // Step 1 done, so its row carries the redo mark.
+  await db.doc(`homes/${HOME}/taskInstances/${SETUP_ITEM}-done-0`).set({
+    taskTemplateId: `${SETUP_ITEM}-step-0`, itemUnitId: SETUP_ITEM, status: "done", dueDate: null,
+    completedAt: now, createdAt: now, updatedAt: now, deletedAt: null,
+  })
+}
+async function removeSetupItem() {
+  const db = emulatorDb()
+  for (const i of SETUP_STEPS.keys()) {
+    const tpl = `${SETUP_ITEM}-step-${i}`
+    const insts = await db.collection(`homes/${HOME}/taskInstances`).where("taskTemplateId", "==", tpl).get()
+    for (const d of insts.docs) await d.ref.delete()
+    await db.doc(`homes/${HOME}/taskTemplates/${tpl}`).delete()
+  }
+  await db.doc(`homes/${HOME}/items/${SETUP_ITEM}`).delete()
 }
 
 const visible = { visible: true } as const
@@ -249,6 +361,16 @@ const PAGES: Setup[] = [
       await page.getByText(ready).filter(visible).first().waitFor({ timeout: 20_000 })
     },
   })),
+  {
+    name: "setup band",
+    open: async (page) => {
+      await seedSetupItem()
+      await gotoStable(page, `/items/${SETUP_ITEM}`)
+      await page.getByText(SETUP_STEPS[2]).filter(visible).first().waitFor({ timeout: 20_000 })
+      // The done state loads after the steps: audit once step 1 reads as done.
+      await page.getByRole("button", { name: /Mark not done/ }).filter(visible).first().waitFor({ timeout: 20_000 })
+    },
+  },
   ...([false, true] as const).map((walk): Setup => ({
     // The seeded microwave's unsaved read: the review sheet, then its
     // one-by-one walk (Previous / Exit / Skip / Keep).
@@ -299,6 +421,10 @@ const PAGES: Setup[] = [
   },
 ]
 
+test.afterAll(async () => {
+  if (process.env.FIRESTORE_EMULATOR_HOST) await removeSetupItem()
+})
+
 for (const vp of VIEWPORTS) {
   test.describe(`hit targets ≥44pt @ ${vp.name} (${vp.width}×${vp.height})`, () => {
     test.use({ viewport: { width: vp.width, height: vp.height }, hasTouch: true, isMobile: true })
@@ -313,22 +439,20 @@ for (const vp of VIEWPORTS) {
           const offenders = audit.offenders.filter(
             (o) => !ALLOWLIST.some((a) => a.page.test(p.name) && a.label.test(o.label)),
           )
-          if (audit.obscured.length) {
-            test.info().annotations.push({ type: "obscured (not judged)", description: audit.obscured.join(" · ") })
+          const line = (o: Miss) => `${o.label} (${o.w}×${o.h}): ${o.why.join("; ")}`
+          for (const [type, list] of [["obscured (not judged)", audit.obscured], ["skipped", audit.skipped], ["dense rows", audit.dense]] as const) {
+            if (list.length) test.info().annotations.push({ type, description: list.join(" · ") })
           }
           console.log(
-            `[hit-targets:${vp.name}:${p.name}] checked ${audit.checked}, offenders ${offenders.length}, hover-only ${audit.hoverOnly.length}, obscured ${audit.obscured.length}` +
-              (offenders.length
-                ? "\n  " + offenders.map((o) => `${o.label} (${o.w}×${o.h}) misses ${o.misses.join("/")} → ${o.hitBy.join(", ")}`).join("\n  ")
-                : "") +
-              (audit.obscured.length ? `\n  obscured (not judged): ${audit.obscured.join(" · ")}` : ""),
+            `[hit-targets:${vp.name}:${p.name}] checked ${audit.checked}, offenders ${offenders.length}, hover-only ${audit.hoverOnly.length}, obscured ${audit.obscured.length}, skipped ${audit.skipped.length}, dense ${audit.dense.length}` +
+              (offenders.length ? "\n  " + offenders.map(line).join("\n  ") : "") +
+              (audit.obscured.length ? `\n  obscured (not judged): ${audit.obscured.join(" · ")}` : "") +
+              (audit.skipped.length ? `\n  skipped: ${audit.skipped.join(" · ")}` : "") +
+              (audit.dense.length ? `\n  dense rows: ${audit.dense.join(" · ")}` : ""),
           )
           expect(audit.checked, `${p.name}: the audit found no controls — the page did not render`).toBeGreaterThan(0)
           expect(audit.hoverOnly, `${p.name} @ ${vp.name}: controls only visible on hover (no hover on touch)`).toEqual([])
-          expect(
-            offenders.map((o) => `${o.label} (${o.w}×${o.h}) misses ${o.misses.join("/")} → ${o.hitBy.join(", ")}`),
-            `${p.name} @ ${vp.name}: taps 21px from these controls' centres miss them`,
-          ).toEqual([])
+          expect(offenders.map(line), `${p.name} @ ${vp.name}: these controls do not take a clean 44pt tap`).toEqual([])
         })
       })
     }

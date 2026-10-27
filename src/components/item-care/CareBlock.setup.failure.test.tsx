@@ -63,11 +63,11 @@ describe("setup checklist — failures are said", () => {
     care.logTaskCompletion.mockResolvedValue({ data: null, error: { message: "permission-denied" } })
     renderBlock()
 
-    fireEvent.click(await screen.findByRole("button", { name: "Mark done" }))
+    fireEvent.click(await screen.findByRole("button", { name: /^Mark done: / }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't update that step.")
-    expect(screen.getByRole("button", { name: "Mark done" })).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Mark not done" })).toBeNull()
+    expect(screen.getByRole("button", { name: /^Mark done: / })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /^Mark not done: / })).toBeNull()
   })
 
   it("steps that could not be read say so, and 'It's already installed' is not offered over a guess", async () => {

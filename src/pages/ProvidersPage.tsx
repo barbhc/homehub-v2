@@ -150,7 +150,9 @@ function ProviderDetail({
             onClick={onDelete}
             disabled={deleting}
             aria-label={`Delete ${p.name}`}
-            className="text-muted-foreground hover:text-foreground"
+            // Grows RIGHT, into the card's padding: on an iPad this icon is
+            // 32px and sits 4px from Edit, too close for two centred 44pt taps.
+            className="hit-44-right text-muted-foreground hover:text-foreground"
           >
             {deleting ? <Loader2Icon className="size-3.5 animate-spin" /> : <Trash2Icon className="size-3.5" />}
           </Button>

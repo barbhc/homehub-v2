@@ -179,9 +179,11 @@ export function FilterBar({
                 <button
                   type="button"
                   onClick={handleClearItem}
-                  className="hit-44 text-muted-foreground hover:text-foreground shrink-0"
+                  className="hit-44-left [--hit-out:26px] text-muted-foreground hover:text-foreground shrink-0"
                   aria-label="Clear item filter"
                 >
+                  {/* Grows OUTWARD (right, past the box): taps in the field
+                      itself still place the caret. */}
                   <XIcon className="size-3.5" />
                 </button>
               )}
@@ -274,7 +276,7 @@ export function FilterBar({
               <button
                 type="button"
                 onClick={handleClearItem}
-                className="hit-44 text-muted-foreground hover:text-foreground"
+                className="hit-44-left [--hit-out:26px] text-muted-foreground hover:text-foreground"
                 aria-label="Clear item filter"
               >
                 <XIcon className="size-3" />
@@ -371,7 +373,7 @@ export function FilterBar({
               <button
                 type="button"
                 onClick={handleClearItem}
-                className="hit-44 text-muted-foreground hover:text-foreground shrink-0"
+                className="hit-44-left [--hit-out:26px] text-muted-foreground hover:text-foreground shrink-0"
                 aria-label="Clear item filter"
               >
                 <XIcon className="size-3.5" />

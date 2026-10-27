@@ -154,7 +154,9 @@ export function ChatMessageBubble({
             <button
               type="button"
               onClick={() => onWebSearch(message.id)}
-              className="hit-44 flex items-center gap-1.5 text-xs font-medium text-[var(--hh-web-ink)] border border-[var(--hh-web-line)] rounded-md px-2.5 py-1 hover:bg-[var(--hh-web-soft)] transition-colors mt-1"
+              // Grows UP (into the answer above) and down only to the middle
+              // of the 8px gap: "Save" sits right under it.
+              className="hit-44-up [--hit-out:4px] flex items-center gap-1.5 text-xs font-medium text-[var(--hh-web-ink)] border border-[var(--hh-web-line)] rounded-md px-2.5 py-1 hover:bg-[var(--hh-web-soft)] transition-colors mt-1"
             >
               <GlobeIcon className="size-3" aria-hidden />
               Search the web for more
@@ -169,9 +171,9 @@ export function ChatMessageBubble({
             <button
               type="button"
               onClick={() => onSaveFaq(precedingQuestion, message.content, saveItemId)}
-              // Under "Search the web" the two 26px buttons sat 4px apart, a
-              // 30px pitch: their 44pt taps (hit-44) overlapped. 18px makes it 44.
-              className={`hit-44 flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border rounded-md px-2.5 py-1 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors ${offerWeb ? "mt-[18px]" : "mt-1"}`}
+              // Grows DOWN into the 16px before the next message, and up only to
+              // the middle of the gap to "Search the web" when that shows.
+              className="hit-44-down [--hit-out:4px] flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border rounded-md px-2.5 py-1 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors mt-1"
             >
               <BookmarkIcon className="size-3" aria-hidden />
               {/* Plain words over our noun (audit 2026-10-15): where it goes

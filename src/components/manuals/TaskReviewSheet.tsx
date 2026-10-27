@@ -546,9 +546,10 @@ export function TaskReviewSheet({
             {r.schedule !== "setup" && (
               <>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">How often?</div>
-                {/* gap-y 13px, not 6: wrapped chip rows on a 37px pitch could not
-                    both take a 44pt tap without the taps overlapping. */}
-                <div className="flex flex-wrap gap-x-1.5 gap-y-[13px]">
+                {/* gap-y 14px, not 6: wrapped 31px chips need a 44px pitch for two
+                    44pt taps not to overlap. 13 is the arithmetic minimum;
+                    14 leaves the pixel sub-pixel rounding takes. */}
+                <div className="flex flex-wrap gap-x-1.5 gap-y-3.5">
                   {CADENCES.map((c) => (
                     <button key={c.id} type="button" aria-pressed={r.schedule === c.id}
                       onClick={() => patch(r.id, {
@@ -771,10 +772,12 @@ export function TaskReviewSheet({
           <BellRingIcon className="size-[14px] shrink-0" style={{ color: "var(--hh-teal)" }} aria-label="Notifies you" />
         )}
 
+        {/* Grows LEFT from the row's right padding: the 44pt tap takes the
+            12px padding and 6px of the 8px gap, not a slice of the row. */}
         <span role="button" tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); patch(r.id, { included: !r.included }) }}
           aria-label={r.included ? `Skip ${r.title}` : `Bring back ${r.title}`}
-          className="hit-44 shrink-0 grid place-items-center size-[26px] rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          className="hit-44-left [--hit-out:12px] shrink-0 grid place-items-center size-[26px] rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
           {r.included ? <XIcon className="size-[13px]" aria-hidden /> : <Undo2Icon className="size-[13px]" aria-hidden />}
         </span>
       </button>

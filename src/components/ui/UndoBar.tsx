@@ -68,10 +68,9 @@ export function UndoBar({
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss"
-          // ml-2 on top of the bar's gap-3: Undo and ✕ each take a 44pt tap
-          // (hit-44), and at 12px apart their centres were ~37px — the two
-          // taps overlapped. 20px puts the centres 44px apart.
-          className="hit-44 ml-2 flex shrink-0 opacity-60"
+          // Grows RIGHT, into the bar's padding and the margin past it: Undo
+          // sits 12px to its left, too close for two centred 44pt taps.
+          className="hit-44-right flex shrink-0 opacity-60"
         >
           <XIcon className="size-3.5" aria-hidden />
         </button>

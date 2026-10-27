@@ -97,10 +97,7 @@ function AuthInput({
   const isPw = type === "password"
   return (
     <div>
-      {/* mb-[11px], not 7: "Forgot?" sits in this row directly above the
-          password field's Show password, and at 7px their two 44pt taps
-          (hit-44) overlapped by ~4px. Every field gets the same rhythm. */}
-      <div className="flex items-baseline justify-between mb-[11px] px-0.5">
+      <div className="flex items-baseline justify-between mb-[7px] px-0.5">
         <span className="text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>
           {label}
         </span>
@@ -244,10 +241,13 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
             placeholder={mode === "signup" ? "At least 8 characters" : "Your password"}
             autoComplete={mode === "signin" ? "current-password" : "new-password"}
             required minLength={mode === "signup" ? 8 : 6}
+            // "Forgot?" grows UP into the 16px between the fields, and down
+            // only to the password box: Show password sits right under it,
+            // too close for two centred 44pt taps.
             right={mode === "signin" ? (
               <button
                 type="button" onClick={() => go("reset")}
-                className="hit-44 font-bold text-[12.5px]" style={{ color: TEAL }}
+                className="hit-44-up font-bold text-[12.5px] [--hit-out:7px]" style={{ color: TEAL }}
               >
                 Forgot?
               </button>

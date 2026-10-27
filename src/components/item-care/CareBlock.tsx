@@ -592,10 +592,26 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
           const triggers = parseTriggers(t.re_check_triggers ?? [])
           return (
             <div key={t.task_template_id}>
-              <div className="flex items-start gap-2.5">
-                <button type="button" onClick={() => toggleDone(t)} disabled={loading} aria-label={done ? "Mark not done" : "Mark done"} className="hit-44 mt-px shrink-0 disabled:opacity-50" style={{ color: done ? TEAL : FAINT }}>
+              {/* The whole step is the control: circle, title and, once done,
+                  the redo mark. Steps sit on a 33px pitch, so a 44pt square per
+                  circle overlapped the next step's (a tap just under step 1
+                  toggled step 2). Instead each row takes the full width and
+                  exactly its own band: its height plus half the 12px gap above
+                  and below. The redo mark used to be a separate 14px button
+                  doing the same toggle; it is now part of the row, so "redo" is
+                  a tap anywhere on a done step. */}
+              <button
+                type="button"
+                onClick={() => toggleDone(t)}
+                disabled={loading}
+                aria-pressed={done}
+                aria-label={`${done ? "Mark not done" : "Mark done"}: ${t.title}`}
+                data-hit-dense="install steps sit on a 33px pitch; each row takes its own band"
+                className="hit-44 flex w-full items-start gap-2.5 text-left [--hit-h:calc(100%_+_12px)] disabled:opacity-50"
+              >
+                <span className="mt-px shrink-0" style={{ color: done ? TEAL : FAINT }}>
                   {done ? <CheckCircle2 className="size-5" /> : <Circle className="size-5" />}
-                </button>
+                </span>
                 <span className="flex-1 text-[13px] leading-snug" style={{ color: done ? FAINT : "var(--hh-ink-soft)", textDecoration: done ? "line-through" : undefined }}>
                   {t.title}
                   {optional && (
@@ -605,11 +621,11 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                   )}
                 </span>
                 {done && (
-                  <button type="button" onClick={() => toggleDone(t)} disabled={loading} aria-label="Mark as needing redo" className="hit-44 mt-px shrink-0 disabled:opacity-50" style={{ color: FAINT }}>
+                  <span className="mt-px shrink-0" style={{ color: FAINT }} aria-hidden="true">
                     <RotateCcw className="size-3.5" />
-                  </button>
+                  </span>
                 )}
-              </div>
+              </button>
               {triggers.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[30px]">
                   {triggers.map((tr) => {

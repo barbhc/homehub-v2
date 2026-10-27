@@ -209,7 +209,7 @@ export function ServiceProvidersSection({ homeId }: Props) {
                           has no hover, so there they always show; and there,
                           32px icons 4px apart get gap-3 so their 44pt taps
                           (hit-44) do not overlap. */}
-                      <div className="flex items-center gap-1 md:pointer-coarse:gap-3 shrink-0 sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 md:pointer-coarse:gap-3 shrink-0 sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 sm:pointer-fine:focus-within:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"
                           size="icon-sm"

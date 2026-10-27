@@ -460,37 +460,83 @@ body {
 /* ── hit-44: a 44pt tap on a control that LOOKS smaller ─────────────────────
    Apple HIG and design rule 4: every control takes a 44×44pt hit, and the way
    to get there is to grow the hit area, not the glyph — the owner's constraint
-   is no visual change at the normal text size. So `hit-44` adds an invisible
-   `::after` centred on the control, at least 44×44 (never smaller than the
-   control itself). A pseudo-element hit-tests as its element, so a tap on the
-   slop IS a tap on the control — click, focus and :active all behave.
+   is no visual change at the normal text size. So these utilities add an
+   invisible `::after`, at least 44×44 (never smaller than the control). A
+   pseudo-element hit-tests as its element, so a tap on the slop IS a tap on
+   the control — click, focus and :active all behave.
 
-   Rules for using it (e2e/device/hit-targets.spec.ts is the proof):
+   - `hit-44`        centred on the control.
+   - `hit-44-up` / `-down` / `-left` / `-right`
+                     grows TOWARD that side only: the region starts at the
+                     control's opposite edge, so all the extra lands in the free
+                     space on one side. `--hit-out` (default 0) lets it also
+                     reach that far past the opposite edge — "Save" under
+                     "Search the web" grows down and takes 2px of the 4px gap
+                     above it.
+   - `--hit-w` / `--hit-h` override 44px on one axis, for DENSE rows: a list
+     whose pitch is under 44 (install steps, manual rows) gives each row the
+     full width and exactly its own band — `[--hit-h:calc(100%_+_12px)]` takes
+     half the 12px gap above and below. Such controls also carry
+     `data-hit-dense="<why>"`, which the audit prints instead of failing.
+
+   Choosing, in this order — growing spacing is the LAST resort:
+     1. `hit-44` where the centred square is free.
+     2. A directional variant where one side is free and the other is not.
+     3. A dense row band where a list's pitch is simply under 44.
+     4. Only then grow spacing or padding, and list it in the PR.
+
+   Rules (e2e/device/hit-targets.spec.ts is the proof):
    - Leaf controls only. The slop sits ABOVE the control's own content, so on
      a big container with nested buttons it would swallow their taps.
    - Not on an element that clips (`overflow-hidden`, `truncate`): it clips its
      own slop. Put it on a wrapper, or grow padding with a matching negative
      margin instead.
    - A clipping ANCESTOR (a horizontal scroller) clips it too — give that
-     scroller vertical padding with a matching negative margin.
-   - Two controls closer than 44pt centre-to-centre cannot both have a 44pt
-     target without overlapping; there the spacing grows, deliberately.
+     scroller padding with a matching negative margin.
+   - Never with a Tailwind `after:*` utility on the same element: both write
+     the one `::after`, and whichever wins breaks the other. ui/tabs.tsx's
+     TabsTrigger draws its indicator with `after:`, so it cannot take hit-44.
+     src/test/hitSlop.test.ts (vitest, CI) fails on the combination.
    `position: relative` is wrapped in :where() (zero specificity, components
-   layer) so an `absolute`/`fixed`/`sticky` utility on the same element wins. */
+   layer) so an `absolute`/`fixed`/`sticky` utility on the same element wins.
+   The directional rules come after `.hit-44` and set every edge, so the
+   shared Button's built-in `hit-44` can be redirected by adding one. */
 @layer components {
-  :where(.hit-44) {
+  :where(.hit-44, .hit-44-up, .hit-44-down, .hit-44-left, .hit-44-right) {
     position: relative;
   }
-  .hit-44::after {
+  .hit-44::after,
+  .hit-44-up::after,
+  .hit-44-down::after,
+  .hit-44-left::after,
+  .hit-44-right::after {
     content: "";
     position: absolute;
-    left: 50%;
-    top: 50%;
-    width: max(100%, 44px);
-    height: max(100%, 44px);
+    width: max(100%, var(--hit-w, 44px));
+    height: max(100%, var(--hit-h, 44px));
+  }
+  .hit-44::after {
+    inset: 50% auto auto 50%;
     transform: translate(-50%, -50%);
   }
+  .hit-44-up::after {
+    inset: auto auto calc(-1 * var(--hit-out, 0px)) 50%;
+    transform: translateX(-50%);
+  }
+  .hit-44-down::after {
+    inset: calc(-1 * var(--hit-out, 0px)) auto auto 50%;
+    transform: translateX(-50%);
+  }
+  .hit-44-left::after {
+    inset: 50% calc(-1 * var(--hit-out, 0px)) auto auto;
+    transform: translateY(-50%);
+  }
+  .hit-44-right::after {
+    inset: 50% auto auto calc(-1 * var(--hit-out, 0px));
+    transform: translateY(-50%);
+  }
 }
+
 
 /* Inline code tokens must be allowed to break.
    `your_correct_schedule_type` is 26 unbroken characters; at 375px it does not
