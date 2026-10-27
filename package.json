@@ -54,6 +54,7 @@
     "driver.js": "^1.4.0",
     "firebase": "^12.9.0",
     "lucide-react": "^0.563.0",
+    "motion": "14.2.0",
     "pdfjs-dist": "^4.10.38",
     "posthog-js": "^1.406.2",
     "radix-ui": "^1.4.3",

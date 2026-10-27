@@ -617,6 +617,25 @@ code {
   width: 25%;
   animation: hh-scan-sweep 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
+/* ── Motion tokens (Apple polish phase 2) ─────────────────────────────────────
+   One short set, used everywhere; src/lib/motion.ts mirrors them for Motion
+   (springs and JS-driven transitions). Apple gives no durations — these follow
+   its guidance that motion be brief, precise and cancellable, and match the
+   approved demo (https://claude.ai/artifact/1DwQLYdx2ewMk3RoYrxp8t):
+   - press: the instant a finger lands (tint, button shrink, chevron turn)
+   - fade:  menus, toasts, tab content, skeleton → content
+   - move:  row expand/collapse, a row leaving, the list closing up
+   Things ENTER on ease-out and LEAVE on ease-in. Under Reduce Motion the app-wide
+   Reduce Motion block below drops every moving transition and Motion's MotionConfig
+   (reducedMotion="user", main.tsx) turns slides into fades. */
+:root {
+  --dur-press: 120ms;
+  --dur-fade: 200ms;
+  --dur-move: 280ms;
+  --ease-enter: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hh-scanrail { animation: none; width: 100%; opacity: 0.45; }
 }
