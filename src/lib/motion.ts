@@ -31,6 +31,10 @@ export const SPRING_SHEET = { type: "spring", stiffness: 420, damping: 38, mass:
 /** Swipe release and snap-back on list rows. */
 export const SPRING_ROW = { type: "spring", stiffness: 520, damping: 42, mass: 1 } as const
 
-/** A flick faster than this (px/s) commits a swipe or dismisses a sheet even
- *  short of the distance threshold. */
+/** A flick faster than this (px/s), in the direction of travel and past
+ *  FLICK_MIN_DISTANCE, commits a swipe even short of the commit distance. */
 export const FLICK_VELOCITY = 500
+
+/** Minimum travel (px) before a flick can commit, so a fast jitter can't
+ *  mark a task done. */
+export const FLICK_MIN_DISTANCE = 16

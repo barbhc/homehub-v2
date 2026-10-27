@@ -625,8 +625,8 @@ code {
    - press: the instant a finger lands (tint, button shrink, chevron turn)
    - fade:  menus, toasts, tab content, skeleton → content
    - move:  row expand/collapse, a row leaving, the list closing up
-   Things ENTER on ease-out and LEAVE on ease-in. Under Reduce Motion the block
-   below drops every moving transition and Motion's MotionConfig
+   Things ENTER on ease-out and LEAVE on ease-in. Under Reduce Motion the app-wide
+   Reduce Motion block below drops every moving transition and Motion's MotionConfig
    (reducedMotion="user", main.tsx) turns slides into fades. */
 :root {
   --dur-press: 120ms;
