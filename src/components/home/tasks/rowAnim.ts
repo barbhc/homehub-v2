@@ -9,10 +9,10 @@ import { EASE } from "@/lib/motion"
 export const SLIDE_PX = 36
 /** The slide-and-fade (s) — 220ms, ease-in. */
 export const SLIDE_S = 0.22
-/** A tick fills its circle first; the slide starts as the fill lands (s). */
-export const TICK_LEAD_S = 0.1
-/** The close-up starts this long before the slide ends, so the list never waits on a ghost (s). */
-export const CLOSE_OVERLAP_S = 0.04
+/** A tick fills its circle first (--dur-press); the slide starts as the fill lands (s). */
+export const TICK_LEAD_S = 0.08
+/** The close-up starts this long before the slide ends, so the list never waits on a ghost — and a ticked row is gone inside 600ms (s). */
+export const CLOSE_OVERLAP_S = 0.1
 /** Past the edge, so the spring has somewhere to settle that is off the row (px). */
 export const OFFSCREEN_PAD = 60
 /** A Done that should have left the list but didn't (no home yet) springs back after this (ms). */

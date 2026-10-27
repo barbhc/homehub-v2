@@ -58,9 +58,6 @@ async function undo(page: Page, title: string) {
   await expect.poll(() => row.evaluate((r) => r.getAttribute("style")), { timeout: 3000 }).toBe("border-top: 0.5px solid var(--hh-line);")
 }
 
-/** The rows' slide layer: what moves sideways. */
-const SLIDE = (r: Element) => (r.querySelector("[data-testid=phone-task-row-surface]")!.parentElement as HTMLElement)
-
 test.describe("Task rows in motion — Tasks, phone", () => {
   test("expand: the row's height grows over several frames, then settles open", async ({ page }) => {
     await openTasks(page)
@@ -79,7 +76,7 @@ test.describe("Task rows in motion — Tasks, phone", () => {
     const opener = page.locator("[data-testid=phone-task-row]").filter({ visible: true }).first().locator("button[aria-expanded]")
     await expect(opener).toHaveAttribute("aria-expanded", "true")
     // At rest nothing is left inline on the expanded part.
-    await expect.poll(() => opener.evaluate((b) => b.closest("[data-testid=phone-task-row]")!.querySelector("[data-testid=phone-task-row-surface]")!.nextElementSibling?.getAttribute("style") ?? null)).toBeNull()
+    await expect.poll(() => opener.evaluate((b) => b.closest("[data-testid=phone-task-row]")!.querySelector("[data-testid=phone-task-row-surface]")!.nextElementSibling?.getAttribute("style") ?? "")).toBe("")
   })
 
   test("tap again mid-expand reverses it", async ({ page }) => {
@@ -165,7 +162,28 @@ test.describe("Task rows in motion — Tasks, phone", () => {
 
   test("swipe: a fast 60px flick commits", async ({ page }) => {
     await openTasks(page)
-    const { title } = await swipe(page, { dx: 60, steps: 3, stepMs: 0, pauseMs: 0 })
+    // Dispatched in the page on its own clock: 60px in ~32ms (~1900 px/s), up
+    // 8ms after the last move. Driven through CDP, a loaded runner can put
+    // 100ms between the last move and the release — which reads, correctly,
+    // as a finger that stopped before lifting, and snaps back.
+    const title = (await page.evaluate(async () => {
+      const surface = [...document.querySelectorAll<HTMLElement>("[data-testid=phone-task-row-surface]")].find((s) => s.offsetHeight > 0)!
+      const title = surface.querySelector("button[aria-expanded] span span")!.textContent
+      const r = surface.getBoundingClientRect()
+      const x0 = r.x + 80
+      const y = r.y + r.height / 2
+      const fire = (type: string, x: number) =>
+        surface.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", isPrimary: true, clientX: x, clientY: y, button: 0 }))
+      const tick = () => new Promise((res) => setTimeout(res, 8))
+      fire("pointerdown", x0)
+      for (let i = 1; i <= 4; i++) {
+        await tick()
+        fire("pointermove", x0 + 15 * i)
+      }
+      await tick()
+      fire("pointerup", x0 + 60)
+      return title
+    }))!
     await expect(page.getByTestId("undo-bar").filter({ visible: true })).toContainText(/^Done/)
     await expect(rowNamed(page, title)).toHaveCount(0)
     await undo(page, title)
@@ -194,9 +212,11 @@ test.describe("Task rows in motion — Tasks, phone", () => {
     const surface = page.getByTestId("phone-task-row-surface").filter({ visible: true }).first()
     const box = (await surface.boundingBox())!
     const y = box.y + box.height / 2
-    await page.mouse.move(box.x + 20, y)
+    // From the title (the check circle is not a swipe handle), 80% of the row's width.
+    const x0 = box.x + 70
+    await page.mouse.move(x0, y)
     await page.mouse.down()
-    for (let i = 1; i <= 20; i++) await page.mouse.move(box.x + 20 + (box.width * 0.8 * i) / 20, y)
+    for (let i = 1; i <= 20; i++) await page.mouse.move(x0 + (box.width * 0.8 * i) / 20, y)
     const row = page.locator("[data-testid=phone-task-row]").filter({ visible: true }).first()
     const s = await row.evaluate((r) => ({
       reveal: r.getAttribute("data-reveal"),
@@ -210,7 +230,7 @@ test.describe("Task rows in motion — Tasks, phone", () => {
     expect(s.tx / s.w).toBeGreaterThan(0.64)
     expect(s.tx / s.w).toBeLessThan(0.7)
     // Back off below the threshold and let go slowly: home again.
-    for (let i = 1; i <= 20; i++) await page.mouse.move(box.x + 20 + box.width * 0.8 - (box.width * 0.75 * i) / 20, y)
+    for (let i = 1; i <= 20; i++) await page.mouse.move(x0 + box.width * 0.8 - (box.width * 0.75 * i) / 20, y)
     await page.waitForTimeout(200)
     await page.mouse.up()
     await expect.poll(() => row.evaluate((r) => r.hasAttribute("data-reveal")), { timeout: 2000 }).toBe(false)

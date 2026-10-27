@@ -43,16 +43,18 @@ export function Collapse({ open, children }: { open: boolean; children: ReactNod
   const reduce = !!useReducedMotion()
   const anims = useRef<AnimationPlaybackControls[]>([])
   const gen = useRef(0)
-  const first = useRef(true)
+  /** The `open` the last run animated to. Not a first-run flag: StrictMode runs
+   *  effects twice on mount, and the second run must not count as a change. */
+  const was = useRef(open)
   /** The element the last run saw: a new one is a fresh mount, which grows from 0. */
   const seen = useRef<HTMLDivElement | null>(null)
 
   useLayoutEffect(() => {
-    if (first.current) {
-      first.current = false
+    if (was.current === open) {
       seen.current = ref.current
       return
     }
+    was.current = open
     const g = ++gen.current
     for (const a of anims.current) a.stop()
     anims.current = []

@@ -211,21 +211,35 @@ export function useTaskRowMotion({
   }, [isPresent, id, x, stopAll, slideEl, clearRow])
 
   // ── Coming back: a fresh mount after Undo, or after a write that failed ──
+  // The claim on the return is held in a ref so a re-run of this effect (React
+  // StrictMode mounts effects twice) replays the entrance instead of losing it
+  // half-started — which left a dev row stuck at height 0.
+  const returning = useRef<boolean | null>(null)
   useLayoutEffect(() => {
     const row = rowRef.current
     // Only the tree on screen takes the return (the other has no layout).
-    if (!laidOut(row) || !takeReturning(id)) return
+    if (!laidOut(row)) return
+    if (returning.current === null) returning.current = takeReturning(id)
+    if (!returning.current) return
     cancelLeaving(id)
     const slide = slideEl() ?? row
-    const settle = () => clearRow()
-    if (live.current.reduce) {
-      anims.current.push(tween(row, "opacity", 0, 1, { duration: DURATION.fade, ease: "linear" }, settle))
-      return
+    const own: AnimationPlaybackControls[] = []
+    const settle = () => {
+      returning.current = false
+      clearRow()
     }
-    const h = row.offsetHeight
-    row.style.overflow = "hidden"
-    anims.current.push(tween(row, "height", 0, h, { duration: DURATION.move, ease: enterEase }, settle))
-    anims.current.push(tween(slide, "opacity", 0, 1, { duration: DURATION.fade, ease: "linear", delay: 0.08 }))
+    if (live.current.reduce) {
+      own.push(tween(row, "opacity", 0, 1, { duration: DURATION.fade, ease: "linear" }, settle))
+    } else {
+      const h = row.offsetHeight
+      row.style.overflow = "hidden"
+      own.push(tween(row, "height", 0, h, { duration: DURATION.move, ease: enterEase }, settle))
+      own.push(tween(slide, "opacity", 0, 1, { duration: DURATION.fade, ease: "linear", delay: 0.08 }))
+    }
+    return () => {
+      for (const a of own) a.stop()
+      clearRow()
+    }
   }, [id, slideEl, clearRow])
 
   // A failed write: the row stays (useTaskActions put it back, with the
