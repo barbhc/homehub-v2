@@ -140,7 +140,7 @@ function Banner({ bottom = false }: { bottom?: boolean }) {
   // warning about it. Bottom: the exit, styled as the app's primary action.
   if (!bottom) {
     return (
-      <div className="rounded-xl px-3.5 py-2.5 text-[12.5px] font-bold"
+      <div className="rounded-xl px-3.5 py-2.5 text-[0.78125rem] font-bold"
         style={{ background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}>
         Sample home — look around, then start your own. Nothing you tap here is saved.
       </div>
@@ -148,8 +148,8 @@ function Banner({ bottom = false }: { bottom?: boolean }) {
   }
   return (
     <div className="rounded-2xl border px-4 py-4 text-center" style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
-      <p className="text-[14px] font-bold" style={{ color: "var(--hh-ink)" }}>Everything above came from four appliance manuals.</p>
-      <p className="mt-1 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>Your own home starts empty and fills as you add things.</p>
+      <p className="text-[0.875rem] font-bold" style={{ color: "var(--hh-ink)" }}>Everything above came from four appliance manuals.</p>
+      <p className="mt-1 text-[0.78125rem]" style={{ color: "var(--hh-sub)" }}>Your own home starts empty and fills as you add things.</p>
       <Button asChild size="sm" className="mt-3 rounded-full font-bold">
         <Link to="/">Set up your own home →</Link>
       </Button>
@@ -173,12 +173,12 @@ function TaskRow({ task }: { task: SampleTask }) {
           aria-hidden="true"
         />
         <span className="min-w-0 flex-1">
-          <span className="block text-[14px] font-semibold tracking-[-0.2px]" style={{ color: "var(--hh-ink)" }}>{task.title}</span>
-          <span className="mt-0.5 block text-[12px]" style={{ color: "var(--hh-sub)" }}>
+          <span className="block text-[0.875rem] font-semibold tracking-[-0.2px]" style={{ color: "var(--hh-ink)" }}>{task.title}</span>
+          <span className="mt-0.5 block text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
             {task.when} · {task.minutes} min · {task.item}
           </span>
         </span>
-        <span className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+        <span className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold"
           style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>
           {task.cadence}
         </span>
@@ -282,7 +282,7 @@ export default function SampleHome() {
             if (window.history.length > 1) navigate(-1)
             else navigate("/")
           }}
-          className="-ml-1.5 mb-1 inline-flex items-center gap-0.5 rounded-lg py-1 pl-1 pr-2.5 text-[15px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          className="-ml-1.5 mb-1 inline-flex items-center gap-0.5 rounded-lg py-1 pl-1 pr-2.5 text-[0.9375rem] font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeftIcon className="size-[20px]" strokeWidth={2.4} aria-hidden />
           Back

@@ -43,7 +43,7 @@ function Pill({ children, active }: { children: React.ReactNode; active?: boolea
   return (
     // Token, not a literal: #EEF2F1 stayed light in dark mode, so the ink-coloured
     // label sat on a near-white pill and vanished.
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={{ background: active ? "var(--hh-teal-wash)" : "var(--hh-surface2)", color: active ? TEAL : INK }}>
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.78125rem] font-semibold" style={{ background: active ? "var(--hh-teal-wash)" : "var(--hh-surface2)", color: active ? TEAL : INK }}>
       {children}
     </span>
   )
@@ -57,7 +57,7 @@ function Pill({ children, active }: { children: React.ReactNode; active?: boolea
 function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="text-[17px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{children}</span>
+      <span className="text-[1.0625rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{children}</span>
       <span className="h-px flex-1" style={{ background: "var(--hh-line)" }} />
       {action}
     </div>
@@ -67,8 +67,8 @@ function SectionLabel({ children, action }: { children: React.ReactNode; action?
 function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?: boolean }) {
   return (
     <div className="flex items-baseline justify-between py-2.5" style={{ borderBottom: last ? "none" : "0.5px solid var(--hh-line)" }}>
-      <span className="text-[13.5px]" style={{ color: SUB }}>{k}</span>
-      <span className="text-[13.5px] font-semibold" style={{ color: INK, fontFamily: mono ? "ui-monospace, monospace" : undefined }}>{v}</span>
+      <span className="text-[0.84375rem]" style={{ color: SUB }}>{k}</span>
+      <span className="text-[0.84375rem] font-semibold" style={{ color: INK, fontFamily: mono ? "ui-monospace, monospace" : undefined }}>{v}</span>
     </div>
   )
 }
@@ -80,12 +80,12 @@ function KV({ k, v, mono, last }: { k: string; v: string; mono?: boolean; last?:
 function SuggestionKV({ k, v, onAdd, last }: { k: string; v: string; onAdd?: () => void; last?: boolean }) {
   return (
     <div className="flex items-center justify-between py-2.5" style={{ borderBottom: last ? "none" : "0.5px solid var(--hh-line)" }}>
-      <span className="text-[13.5px]" style={{ color: SUB }}>{k}</span>
+      <span className="text-[0.84375rem]" style={{ color: SUB }}>{k}</span>
       <span className="flex items-center gap-2">
-        <span className="text-[13.5px] italic" style={{ color: SUB }}>{v}</span>
+        <span className="text-[0.84375rem] italic" style={{ color: SUB }}>{v}</span>
         {onAdd && (
           <button type="button" onClick={onAdd}
-            className="hit-44 rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold"
+            className="hit-44 rounded-full border px-2.5 py-0.5 text-[0.75rem] font-bold"
             style={{ borderColor: TEAL, color: TEAL }}>
             Add
           </button>
@@ -236,7 +236,7 @@ export function RefinedItemDetail({
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
       {/* Nav */}
       <div className="flex items-center px-3 pt-1 pb-1.5">
-        <button onClick={onBack} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+        <button onClick={onBack} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[1rem] font-semibold" style={{ color: TEAL }}>
           <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} /> Items
         </button>
       </div>
@@ -262,11 +262,11 @@ export function RefinedItemDetail({
                   className="hit-44 flex items-center gap-2 text-left"
                   aria-label={`Rename ${item.display_name}`}
                 >
-                  <h1 className="text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
+                  <h1 className="text-[1.625rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
                   <PencilIcon className="size-[15px] shrink-0" style={{ color: TEAL }} aria-hidden="true" />
                 </button>
               ) : (
-                <h1 className="text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
+                <h1 className="text-[1.625rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
               )}
             </div>
             <ItemPhoto
@@ -283,16 +283,16 @@ export function RefinedItemDetail({
               names as "Brand Model", the old unconditional line was the same
               words twice for every newly added item. */}
           {itemSubtitle(item.display_name, item.brand, item.model) && (
-            <div className="mt-1 text-[15px]" style={{ color: SUB }}>{itemSubtitle(item.display_name, item.brand, item.model)}</div>
+            <div className="mt-1 text-[0.9375rem]" style={{ color: SUB }}>{itemSubtitle(item.display_name, item.brand, item.model)}</div>
           )}
           {(roomSuggestion || nameSuggestion) && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-[12px]" style={{ color: SUB }}>Suggested</span>
+              <span className="text-[0.75rem]" style={{ color: SUB }}>Suggested</span>
               {roomSuggestion && (
                 <button
                   type="button"
                   onClick={() => void applyRoomSuggestion(roomSuggestion)}
-                  className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
+                  className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[0.78125rem] font-semibold"
                   style={{ borderColor: TEAL, color: TEAL }}
                 >
                   <MapPinIcon className="size-[13px]" /> {roomSuggestion.name}
@@ -302,7 +302,7 @@ export function RefinedItemDetail({
                 <button
                   type="button"
                   onClick={() => void applyNameSuggestion(nameSuggestion)}
-                  className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
+                  className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[0.78125rem] font-semibold"
                   style={{ borderColor: TEAL, color: TEAL }}
                 >
                   <PencilIcon className="size-[13px]" /> Name it &ldquo;{nameSuggestion}&rdquo;
@@ -342,14 +342,14 @@ export function RefinedItemDetail({
                 anything useful — and it's the state of most items most of the time.
                 It lives in Details & records, where you go to look it up. */}
             {item.recall_status === "found" ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={{ background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}>
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.78125rem] font-semibold" style={{ background: "var(--hh-slate-soft)", color: "var(--hh-slate)" }}>
                 <MegaphoneIcon className="size-[13px]" /> Safety notice
               </span>
             ) : item.recall_status === "none_found" ? (
               // Only claim "no recalls" when a check ACTUALLY ran. A null status
               // means we never looked, and saying otherwise is asserting a safety
               // fact we haven't verified.
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.78125rem] font-semibold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>
                 <ShieldCheckIcon className="size-[13px]" /> No recalls
               </span>
             ) : null}
@@ -357,7 +357,7 @@ export function RefinedItemDetail({
           {item.tags?.length > 0 && (
             <div className="mt-2.5 flex flex-wrap gap-2">
               {item.tags.map((t) => (
-                <span key={t} className="inline-flex items-center gap-1 rounded-full border border-[var(--hh-line2)] px-2.5 py-1 text-[12.5px] font-semibold" style={{ color: SUB }}>
+                <span key={t} className="inline-flex items-center gap-1 rounded-full border border-[var(--hh-line2)] px-2.5 py-1 text-[0.78125rem] font-semibold" style={{ color: SUB }}>
                   <TagIcon className="size-[11px]" /> {t}
                 </span>
               ))}
@@ -373,9 +373,9 @@ export function RefinedItemDetail({
                 <MegaphoneIcon className="size-[18px]" style={{ color: "var(--hh-slate)" }} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
-                <div className="text-[15px] font-bold tracking-[-0.2px]" style={{ color: INK }}>Possible recall</div>
-                {item.recall_notes && <div className="mt-1 text-[13px] leading-snug" style={{ color: "var(--hh-sub)" }}>{item.recall_notes}</div>}
+                <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
+                <div className="text-[0.9375rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>Possible recall</div>
+                {item.recall_notes && <div className="mt-1 text-[0.8125rem] leading-snug" style={{ color: "var(--hh-sub)" }}>{item.recall_notes}</div>}
               </div>
             </div>
           </div>
@@ -424,8 +424,8 @@ export function RefinedItemDetail({
             <MessageCircleQuestionIcon className="size-[18px]" style={{ color: TEAL }} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>Have a question or a problem?</span>
-            <span className="block text-[11.5px]" style={{ color: SUB }}>
+            <span className="block text-[0.875rem] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>Have a question or a problem?</span>
+            <span className="block text-[0.75rem]" style={{ color: SUB }}>
               {/* HH-141: the third state reaches here too. "Works best once the
                 manual is added" sat two cards under one saying we had finished
                 reading it — and, until HH-161, under a manual being read. Answers
@@ -448,7 +448,7 @@ export function RefinedItemDetail({
 
         <SectionLabel action={onEditDetails ? (
           <button type="button" onClick={onEditDetails}
-            className="hit-44 shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"
+            className="hit-44 shrink-0 rounded-full border px-3 py-1 text-[0.78125rem] font-bold"
             style={{ borderColor: "var(--hh-line2)", color: TEAL }}>
             {shownFields.length > 0 ? "Edit" : "Add"}
           </button>
@@ -469,15 +469,15 @@ export function RefinedItemDetail({
           <button type="button" onClick={onEditDetails}
             className="rounded-2xl px-4 py-3.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
             style={{ background: "var(--hh-surface)" }}>
-            <span className="block text-[13.5px] font-semibold" style={{ color: INK }}>Nothing recorded yet</span>
-            <span className="block text-[12px]" style={{ color: SUB }}>
+            <span className="block text-[0.84375rem] font-semibold" style={{ color: INK }}>Nothing recorded yet</span>
+            <span className="block text-[0.75rem]" style={{ color: SUB }}>
               Serial, purchase date, price, warranty — add what you have.
             </span>
           </button>
         )}
 
         {suggestions.length > 0 && (
-          <p className="px-1 text-[12px] leading-relaxed" style={{ color: SUB }}>
+          <p className="px-1 text-[0.75rem] leading-relaxed" style={{ color: SUB }}>
             <SparklesIcon className="mr-1 inline size-3.5 align-[-2px]" style={{ color: TEAL }} aria-hidden />
             We found these on a product page, not in your manual.{" "}
             <button type="button" onClick={() => void hideSuggestions()} className="hit-44 underline underline-offset-2">

@@ -42,13 +42,14 @@ export function UndoBar({
       className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
       // Clears the tab bar, and the home indicator under it — and a page's own
       // bottom bar when it has one (--hh-page-bar-h, published by usePageBar).
-      style={{ bottom: "calc(74px + env(safe-area-inset-bottom) + var(--hh-page-bar-h, 0px))" }}
+      // 74px at the normal text size; rises with the tab bar under Larger Text.
+      style={{ bottom: "calc(max(74px, var(--hh-tabbar-h) + 11.5px) + env(safe-area-inset-bottom) + var(--hh-page-bar-h, 0px))" }}
     >
       <div
         className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-xl px-4 py-3 shadow-[0_8px_28px_rgba(8,12,11,0.28)]"
         style={{ background: "var(--hh-ink)", color: "var(--hh-bg)" }}
       >
-        <span className="min-w-0 flex-1 text-[13.5px] font-medium">{message}</span>
+        <span className="min-w-0 flex-1 text-[0.84375rem] font-medium">{message}</span>
         {onUndo && (
           <button
             type="button"
@@ -56,7 +57,7 @@ export function UndoBar({
               onUndo()
               if (!actionLabel) onDismiss()
             }}
-            className="hit-44 shrink-0 text-[13.5px] font-bold underline underline-offset-2"
+            className="hit-44 shrink-0 text-[0.84375rem] font-bold underline underline-offset-2"
             // Not --hh-teal-deep: that is a colour for light SURFACES, and on
             // the ink bar it was 2.19:1. --hh-accent-on-ink flips with the bar.
             style={{ color: "var(--hh-accent-on-ink)" }}

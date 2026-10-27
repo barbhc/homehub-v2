@@ -617,7 +617,7 @@ export default function DeepClean() {
                       {roomGroups.map(({ roomKey, roomName, items }) => (
                         <div key={roomKey} className="mb-6">
                           {showRoomHeader && (
-                            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-3 px-1">
+                            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-3 px-1">
                               {roomName}
                             </p>
                           )}
@@ -699,7 +699,7 @@ export default function DeepClean() {
 
                       {skippedItemKeys.size > 0 && (
                         <div className="mt-2 rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2">
+                          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2">
                             Skipped today
                           </p>
                           <div className="flex flex-wrap gap-2">
@@ -792,7 +792,7 @@ export default function DeepClean() {
               never cleared the home indicator. At md+ there is no tab bar, so
               it returns to the bottom and pads for the inset itself. The
               page's pb-24 keeps the last row clear of it. */}
-          <div ref={footerRef} data-testid="clean-session-footer" className="fixed bottom-[var(--hh-tabbar-clear)] inset-x-0 z-40 flex items-center justify-between px-4 py-3 md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-background border-t border-border">
+          <div ref={footerRef} data-testid="clean-session-footer" className="fixed bottom-[var(--hh-tabbar-clear)] inset-x-0 z-40 flex items-center justify-between px-4 py-3 md:pb-[calc(12px+env(safe-area-inset-bottom))] bg-background border-t border-border">
             <span className="text-sm text-muted-foreground">
               {completedCount} tasks selected
             </span>
@@ -865,7 +865,7 @@ function HubSectionLabel({
 }) {
   return (
     <div className="mb-2.5 flex items-baseline justify-between">
-      <span className="text-[11px] font-bold uppercase tracking-[0.3px]" style={{ color: SUB }}>
+      <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ color: SUB }}>
         {children}
       </span>
       {right}
@@ -913,10 +913,10 @@ function CleanHub({
     <div>
       <div className="mb-5 flex items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>
+          <h1 className="text-[1.75rem] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>
             Clean
           </h1>
-          <div className="mt-1.5 text-[13.5px]" style={{ color: SUB }}>
+          <div className="mt-1.5 text-[0.84375rem]" style={{ color: SUB }}>
             A calm way to keep things fresh — guided sessions and step-by-step guides.
           </div>
         </div>
@@ -937,14 +937,14 @@ function CleanHub({
               </div>
               <div className="min-w-0 flex-1">
                 {resuming && (
-                  <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: "rgba(255,255,255,0.75)" }}>
+                  <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "rgba(255,255,255,0.75)" }}>
                     In progress
                   </div>
                 )}
-                <div className="text-[19px] font-extrabold tracking-[-0.3px]">
+                <div className="text-[1.1875rem] font-extrabold tracking-[-0.3px]">
                   {resuming ? "Resume session" : "Start cleaning"}
                 </div>
-                <div className="mt-0.5 text-[13.5px]" style={{ color: "rgba(255,255,255,0.82)" }}>
+                <div className="mt-0.5 text-[0.84375rem]" style={{ color: "rgba(255,255,255,0.82)" }}>
                   {resuming
                     ? "Pick up where you left off."
                     : "Pick rooms and a time budget — we'll size a checklist to fit."}
@@ -956,11 +956,11 @@ function CleanHub({
 
           {/* Cleaning guides grid — curated guide-level list, not per-step. */}
           <div>
-            <HubSectionLabel right={guidesFailed ? undefined : <span className="text-[12.5px] font-semibold" style={{ color: SUB }}>{guides.length} guide{guides.length === 1 ? "" : "s"}</span>}>
+            <HubSectionLabel right={guidesFailed ? undefined : <span className="text-[0.78125rem] font-semibold" style={{ color: SUB }}>{guides.length} guide{guides.length === 1 ? "" : "s"}</span>}>
               Cleaning guides
             </HubSectionLabel>
             {loading ? (
-              <div className="rounded-2xl bg-[var(--hh-surface)] py-12 text-center text-[14px] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
+              <div className="rounded-2xl bg-[var(--hh-surface)] py-12 text-center text-[0.875rem] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
                 Loading…
               </div>
             ) : guidesFailed ? (
@@ -972,7 +972,7 @@ function CleanHub({
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={{ background: "var(--hh-teal-wash)" }}>
                   <SparklesIcon className="size-[18px]" style={{ color: TEAL }} />
                 </div>
-                <div className="text-[13.5px]" style={{ color: SUB }}>
+                <div className="text-[0.84375rem]" style={{ color: SUB }}>
                   No cleaning guides yet — start a session to build a checklist.
                 </div>
               </div>
@@ -982,11 +982,11 @@ function CleanHub({
                   const card = (
                     <>
                       <HubGlyph />
-                      <div className="text-[14.5px] font-bold leading-tight tracking-[-0.2px]" style={{ color: INK }}>
+                      <div className="text-[0.90625rem] font-bold leading-tight tracking-[-0.2px]" style={{ color: INK }}>
                         {g.title}
                       </div>
                       {g.estimatedMinutes != null && (
-                        <div className="mt-auto text-[12.5px]" style={{ color: SUB }}>
+                        <div className="mt-auto text-[0.78125rem]" style={{ color: SUB }}>
                           {g.estimatedMinutes} min guide
                         </div>
                       )}
@@ -1010,7 +1010,7 @@ function CleanHub({
         <div>
           <HubSectionLabel>This week</HubSectionLabel>
           {loading ? (
-            <div className="rounded-2xl bg-[var(--hh-surface)] py-12 text-center text-[14px] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
+            <div className="rounded-2xl bg-[var(--hh-surface)] py-12 text-center text-[0.875rem] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
               Loading…
             </div>
           ) : weekFailed ? (
@@ -1018,7 +1018,7 @@ function CleanHub({
               <InlineError onRetry={onRetry}>Couldn&apos;t load this week&apos;s cleaning.</InlineError>
             </div>
           ) : weekTasks.length === 0 ? (
-            <div className="rounded-2xl bg-[var(--hh-surface)] px-4 py-6 text-center text-[13.5px] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
+            <div className="rounded-2xl bg-[var(--hh-surface)] px-4 py-6 text-center text-[0.84375rem] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
               Nothing due this week — enjoy the calm.
             </div>
           ) : (
@@ -1044,15 +1044,15 @@ function CleanHub({
                       {done && <CheckIcon className="size-3 text-white" strokeWidth={3} />}
                     </span>
                     <span className="block min-w-0 flex-1">
-                      <span className={cn("block truncate text-[13.5px] font-semibold", done && "line-through opacity-60")} style={{ color: INK }}>
+                      <span className={cn("block truncate text-[0.84375rem] font-semibold", done && "line-through opacity-60")} style={{ color: INK }}>
                         {t.title}
                       </span>
-                      <span className="mt-px block text-[12px]" style={{ color: SUB }}>
+                      <span className="mt-px block text-[0.75rem]" style={{ color: SUB }}>
                         {(t.itemName ?? t.roomName ?? "Home")} · {t.estimatedMinutes ?? 15} min
                       </span>
                     </span>
                     <span
-                      className="shrink-0 whitespace-nowrap text-[12px] font-bold"
+                      className="shrink-0 whitespace-nowrap text-[0.75rem] font-bold"
                       style={{ color: due.overdue ? CLAY : due.text === "Today" ? TEAL : SUB }}
                     >
                       {due.text}
@@ -1199,7 +1199,7 @@ export function CleanTaskRow({
                     <div className="space-y-2.5">
                       {steps.map((step, i) => (
                         <div key={i} className="flex gap-3 items-start">
-                          <span className="shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
+                          <span className="shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-[0.75rem] font-bold flex items-center justify-center mt-0.5">
                             {i + 1}
                           </span>
                           <p className="text-sm text-foreground leading-relaxed">{step}</p>

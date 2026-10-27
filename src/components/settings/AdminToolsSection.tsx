@@ -293,10 +293,10 @@ export function AdminToolsSection({ homeId }: Props) {
             <p className="text-sm font-medium text-foreground">Export tasks for review</p>
             <p className="text-xs text-muted-foreground mt-0.5 mb-2">
               Download every task in your home as CSV — including the current classification
-              and four blank columns for your audit notes (<code className="text-[11px]">your_notes</code>,
-              <code className="text-[11px] mx-0.5">your_correct_care_type</code>,
-              <code className="text-[11px]">your_correct_schedule_type</code>,
-              <code className="text-[11px] ml-0.5">your_correct_is_active</code>).
+              and four blank columns for your audit notes (<code className="text-[0.75rem]">your_notes</code>,
+              <code className="text-[0.75rem] mx-0.5">your_correct_care_type</code>,
+              <code className="text-[0.75rem]">your_correct_schedule_type</code>,
+              <code className="text-[0.75rem] ml-0.5">your_correct_is_active</code>).
               Audit at your pace; we can build a re-import tool later if you mark up many corrections.
             </p>
             <Button
@@ -357,9 +357,9 @@ export function AdminToolsSection({ homeId }: Props) {
           <div>
             <p className="text-sm font-medium text-foreground">Classify pending tasks</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Backfills <code className="text-[11px]">justification</code> on every task that doesn't yet have one,
-              and re-classifies <code className="text-[11px]">care_type</code> + <code className="text-[11px]">schedule_type</code> using
-              the consequence-based rubric. Also flags operational how-tos as <code className="text-[11px]">is_reference</code>{" "}
+              Backfills <code className="text-[0.75rem]">justification</code> on every task that doesn't yet have one,
+              and re-classifies <code className="text-[0.75rem]">care_type</code> + <code className="text-[0.75rem]">schedule_type</code> using
+              the consequence-based rubric. Also flags operational how-tos as <code className="text-[0.75rem]">is_reference</code>{" "}
               (deactivated, not deleted). Skips tasks the user has manually overridden.
             </p>
           </div>
@@ -458,7 +458,7 @@ export function AdminToolsSection({ homeId }: Props) {
                                     <span
                                       key={tag}
                                       className={cn(
-                                        "inline-flex items-center px-1 py-px rounded text-[9px] font-medium border",
+                                        "inline-flex items-center px-1 py-px rounded text-[0.75rem] font-medium border",
                                         r.symptom_tags_change
                                           ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800"
                                           : "bg-muted text-muted-foreground border-border"
@@ -468,7 +468,7 @@ export function AdminToolsSection({ homeId }: Props) {
                                     </span>
                                   ))}
                                   {r.symptom_tags_change && r.proposed_symptom_tags.length === 0 && (
-                                    <span className="text-[9px] text-muted-foreground italic">tags cleared</span>
+                                    <span className="text-[0.75rem] text-muted-foreground italic">tags cleared</span>
                                   )}
                                 </div>
                               )}
@@ -477,12 +477,12 @@ export function AdminToolsSection({ homeId }: Props) {
                             <td className="p-2 align-top whitespace-nowrap">
                               {r.schedule_change ? (
                                 <span className="flex items-center gap-1">
-                                  <span className="text-muted-foreground line-through text-[10px]">
+                                  <span className="text-muted-foreground line-through text-[0.75rem]">
                                     {r.current_schedule_type ?? "—"}
                                   </span>
                                   <span className="text-muted-foreground">→</span>
                                   <span className={cn(
-                                    "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border",
+                                    "inline-flex items-center px-1.5 py-0.5 rounded text-[0.75rem] font-semibold border",
                                     proposedIsHabit
                                       ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800"
                                       : "bg-muted text-foreground border-border"
@@ -493,7 +493,7 @@ export function AdminToolsSection({ homeId }: Props) {
                                 </span>
                               ) : (
                                 <span className={cn(
-                                  "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                                  "inline-flex items-center px-1.5 py-0.5 rounded text-[0.75rem] font-medium border",
                                   currentIsHabit
                                     ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800"
                                     : "bg-muted text-muted-foreground border-border"
@@ -505,7 +505,7 @@ export function AdminToolsSection({ homeId }: Props) {
                             </td>
                             <td className="p-2 align-top whitespace-nowrap">
                               {r.proposed_is_reference ? (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border bg-red-100 text-red-800 border-red-300 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[0.6875rem] font-bold uppercase tracking-wider border bg-red-100 text-red-800 border-red-300 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800">
                                   Deactivate
                                 </span>
                               ) : r.care_change ? (

@@ -82,7 +82,7 @@ export default function AcceptInvite() {
       <AuthScreen>
         <div className="flex flex-col items-center text-center">
           <Loader2 className="size-9 animate-spin" style={{ color: AUTH.teal }} />
-          <p className="mt-4 text-[15px]" style={{ color: AUTH.sub }}>
+          <p className="mt-4 text-[0.9375rem]" style={{ color: AUTH.sub }}>
             {state === "accepting" ? "Joining home…" : "Loading invite…"}
           </p>
         </div>
@@ -96,7 +96,7 @@ export default function AcceptInvite() {
         <div className="flex flex-col items-center text-center">
           <AuthMark />
           <h1 className="font-display text-2xl font-extrabold tracking-tight mt-5" style={{ color: AUTH.ink }}>Sign in to join</h1>
-          <p className="text-[15px] leading-relaxed mt-2 max-w-[290px]" style={{ color: AUTH.sub }}>
+          <p className="text-[0.9375rem] leading-relaxed mt-2 max-w-[290px]" style={{ color: AUTH.sub }}>
             Sign in or create an account, then we'll bring you right back to this invite.
           </p>
           <div className="mt-6 w-full"><AuthCTA onClick={handleGoSignIn}>Sign in</AuthCTA></div>
@@ -113,7 +113,7 @@ export default function AcceptInvite() {
             <CheckIcon size={34} style={{ color: AUTH.teal }} />
           </div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>You're in!</h1>
-          <p className="text-[15px] mt-2" style={{ color: AUTH.sub }}>
+          <p className="text-[0.9375rem] mt-2" style={{ color: AUTH.sub }}>
             You've joined <span className="font-semibold" style={{ color: AUTH.ink }}>{acceptedHomeName}</span>.
           </p>
           <div className="mt-6 w-full"><AuthCTA onClick={handleGoHome}>Go to your home <ArrowRightIcon size={18} /></AuthCTA></div>
@@ -132,7 +132,7 @@ export default function AcceptInvite() {
           <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>
             {expired ? "This invite has expired" : "Can't join"}
           </h1>
-          <p className="text-[15px] leading-relaxed mt-2 max-w-[290px]" style={{ color: AUTH.sub }}>
+          <p className="text-[0.9375rem] leading-relaxed mt-2 max-w-[290px]" style={{ color: AUTH.sub }}>
             {expired ? "Ask the owner to send a fresh link, then open it again." : error}
           </p>
           <div className="mt-6 w-full">
@@ -149,7 +149,7 @@ export default function AcceptInvite() {
       <div className="flex flex-col items-center text-center">
         <AuthMark />
         <h1 className="font-display text-2xl font-extrabold tracking-tight mt-5" style={{ color: AUTH.ink }}>You're invited</h1>
-        <p className="text-[15px] leading-relaxed mt-2 max-w-[290px]" style={{ color: AUTH.sub }}>
+        <p className="text-[0.9375rem] leading-relaxed mt-2 max-w-[290px]" style={{ color: AUTH.sub }}>
           {invite?.creator?.full_name ? <><span className="font-semibold" style={{ color: AUTH.ink }}>{invite.creator.full_name}</span> invited you</> : "You've been invited"} to help look after their home.
         </p>
       </div>
@@ -159,8 +159,8 @@ export default function AcceptInvite() {
           <HouseIcon size={26} strokeWidth={1.6} style={{ color: AUTH.teal }} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[19px] font-extrabold tracking-[-0.3px] truncate" style={{ color: AUTH.ink }}>{homeName}</div>
-          <div className="inline-flex items-center gap-1.5 mt-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.3px]" style={{ background: "var(--hh-teal-wash)", color: AUTH.teal }}>
+          <div className="text-[1.1875rem] font-extrabold tracking-[-0.3px] truncate" style={{ color: AUTH.ink }}>{homeName}</div>
+          <div className="inline-flex items-center gap-1.5 mt-1.5 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ background: "var(--hh-teal-wash)", color: AUTH.teal }}>
             <UserCheckIcon size={11} /> Joining as {invite?.role ?? "member"}
           </div>
         </div>
@@ -170,14 +170,14 @@ export default function AcceptInvite() {
         {PERMISSIONS.map((p) => (
           <div key={p} className="flex items-center gap-2.5">
             <CheckIcon size={16} strokeWidth={2.6} className="shrink-0" style={{ color: AUTH.teal }} />
-            <span className="text-[13.5px]" style={{ color: "var(--hh-ink-soft)" }}>{p}</span>
+            <span className="text-[0.84375rem]" style={{ color: "var(--hh-ink-soft)" }}>{p}</span>
           </div>
         ))}
       </div>
 
       <div className="mt-6 flex flex-col gap-2">
         <AuthCTA onClick={handleAccept}>Join {homeName} <ArrowRightIcon size={18} /></AuthCTA>
-        <button onClick={() => navigate(user ? "/home" : "/")} className="hit-44 w-full py-2 text-[15px] font-semibold" style={{ color: AUTH.sub }}>Not now</button>
+        <button onClick={() => navigate(user ? "/home" : "/")} className="hit-44 w-full py-2 text-[0.9375rem] font-semibold" style={{ color: AUTH.sub }}>Not now</button>
       </div>
     </AuthScreen>
   )

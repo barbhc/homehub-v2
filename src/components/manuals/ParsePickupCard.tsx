@@ -175,7 +175,7 @@ export function ParsePickupCard({
         className="flex items-center gap-3 rounded-xl border px-4 py-3"
         style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}
       >
-        <p className="min-w-0 flex-1 text-[13px]" style={{ color: "var(--hh-clay)" }}>
+        <p className="min-w-0 flex-1 text-[0.8125rem]" style={{ color: "var(--hh-clay)" }}>
           We couldn&apos;t finish reading the manual. You can try again from Manuals &amp; References.
         </p>
         <button
@@ -278,7 +278,7 @@ export function ParsePickupCard({
               read the Bosch dishwasher manual" beneath "Bosch dishwasher" said
               it twice (owner, #228 review). The pill's tray, which has no
               heading, is where rows name their item. */}
-          <p className="min-w-0 flex-1 text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+          <p className="min-w-0 flex-1 text-[0.84375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
             We read the manual
           </p>
         </div>
@@ -288,7 +288,7 @@ export function ParsePickupCard({
           <button
             type="button"
             onClick={() => setOpen("sheet")}
-            className="hit-44 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold"
+            className="hit-44 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[0.75rem] font-bold"
             style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
           >
             {reviewLabel(counts)}

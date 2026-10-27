@@ -22,7 +22,7 @@ function fullToday(): string {
 function SectionLabel({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="mb-3 flex items-baseline justify-between">
-      <span className="text-[12px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{children}</span>
+      <span className="text-[0.75rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{children}</span>
       {right}
     </div>
   )
@@ -42,10 +42,10 @@ function RecallCard({ recall }: { recall: HomeNotices["recalls"][number] }) {
         <MegaphoneIcon className="size-[18px]" style={{ color: "var(--hh-slate)" }} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
-        <div className="text-[14px] font-bold tracking-[-0.2px]" style={{ color: INK }}>Safety update for {recall.display_name}</div>
-        {recall.recall_notes && <div className="mt-0.5 text-[12.5px] leading-snug text-pretty" style={{ color: SUB }}>{recall.recall_notes}</div>}
-        <span className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-bold" style={{ color: "var(--hh-slate)" }}>Check my model <ArrowRightIcon className="size-[13px]" /></span>
+        <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
+        <div className="text-[0.875rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>Safety update for {recall.display_name}</div>
+        {recall.recall_notes && <div className="mt-0.5 text-[0.78125rem] leading-snug text-pretty" style={{ color: SUB }}>{recall.recall_notes}</div>}
+        <span className="mt-2 inline-flex items-center gap-1 text-[0.78125rem] font-bold" style={{ color: "var(--hh-slate)" }}>Check my model <ArrowRightIcon className="size-[13px]" /></span>
       </div>
     </Link>
   )
@@ -85,10 +85,10 @@ export function DesktopHome({
         {/* Header */}
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[12.5px] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>{fullToday()}</div>
-            <h1 className="mt-1 whitespace-nowrap text-[28px] font-extrabold leading-[1.15] tracking-[-0.7px]" style={{ color: INK }}>{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
+            <div className="text-[0.78125rem] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>{fullToday()}</div>
+            <h1 className="mt-1 whitespace-nowrap text-[1.75rem] font-extrabold leading-[1.15] tracking-[-0.7px]" style={{ color: INK }}>{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
           </div>
-          <Link to="/chat" className="inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
+          <Link to="/chat" className="inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-[0.875rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
             <SparklesIcon className="size-[17px]" /> Ask Homehub
           </Link>
         </div>

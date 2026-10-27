@@ -507,7 +507,7 @@ export function ManualStep({
                     href={`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-3 flex h-10 w-full items-center justify-center rounded-md border border-primary px-3 text-[13px] font-semibold text-primary"
+                    className="mt-3 flex h-10 w-full items-center justify-center rounded-md border border-primary px-3 text-[0.8125rem] font-semibold text-primary"
                   >
                     Search Google for this manual
                   </a>
@@ -535,7 +535,7 @@ export function ManualStep({
                 <div className="min-w-0">
                   <span className="flex items-center gap-2">
                     <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="text-[15px] font-semibold text-muted-foreground">Let us find it</span>
+                    <span className="text-[0.9375rem] font-semibold text-muted-foreground">Let us find it</span>
                     <span className="rounded-full bg-[var(--hh-gold-soft)] px-2 py-0.5 text-xs font-medium text-[var(--hh-gold)]">
                       Beta
                     </span>

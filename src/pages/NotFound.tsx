@@ -16,7 +16,7 @@ export default function NotFound() {
         <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>
           Page not found
         </h1>
-        <p className="text-[15px] leading-relaxed mt-2 max-w-[280px]" style={{ color: AUTH.sub }}>
+        <p className="text-[0.9375rem] leading-relaxed mt-2 max-w-[280px]" style={{ color: AUTH.sub }}>
           That link led somewhere that doesn't exist. Let's get you back home.
         </p>
         <div className="mt-6 w-full">

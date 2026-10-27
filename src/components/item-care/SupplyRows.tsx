@@ -134,12 +134,12 @@ export function SupplyRows({
           <PartForm mode="add" initial={EMPTY_PART} onCancel={() => setAdding(false)} onSubmit={add} />
         </div>
       ) : (
-        <button type="button" onClick={() => setAdding(true)} className="hit-44 inline-flex items-center gap-1 self-start text-[12.5px] font-bold" style={{ color: TEAL }}>
+        <button type="button" onClick={() => setAdding(true)} className="hit-44 inline-flex items-center gap-1 self-start text-[0.78125rem] font-bold" style={{ color: TEAL }}>
           <PlusIcon className="size-3.5" strokeWidth={2.4} aria-hidden />
           {rows.length ? "Add another part" : "Add a part"}
         </button>
       )}
-      {error && <div role="alert" className="text-[12.5px]" style={{ color: CLAY }}>{error}</div>}
+      {error && <div role="alert" className="text-[0.78125rem]" style={{ color: CLAY }}>{error}</div>}
     </div>
   )
 }
@@ -194,7 +194,7 @@ function PartCard({
               {/* The pencil sits in the name's row, not beside the whole card, so the
                   pills below get the full width and stay on one line. */}
               <div className="flex items-start gap-2">
-                <span className="min-w-0 flex-1 text-[15px] font-semibold leading-snug tracking-[-0.2px]" style={{ color: INK }}>{supply.name}</span>
+                <span className="min-w-0 flex-1 text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px]" style={{ color: INK }}>{supply.name}</span>
                 {mode === "view" && (
                   <button
                     type="button"
@@ -225,7 +225,7 @@ function PartCard({
                       type="button"
                       onClick={openPlace}
                       aria-label={`Kept in ${supply.location} — change where you keep ${supply.name}`}
-                      className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-[5px] text-[12.5px] font-semibold"
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-[5px] text-[0.78125rem] font-semibold"
                       style={{ borderColor: TEAL_EDGE, background: TEAL_WASH, color: TEAL_DEEP }}
                     >
                       <MapPinIcon className="size-3.5 shrink-0" style={{ color: TEAL }} aria-hidden />
@@ -235,7 +235,7 @@ function PartCard({
                     <button
                       type="button"
                       onClick={openPlace}
-                      className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-dashed px-2.5 py-[5px] text-[12.5px] font-semibold"
+                      className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-dashed px-2.5 py-[5px] text-[0.78125rem] font-semibold"
                       style={{ borderColor: "color-mix(in srgb, var(--hh-teal) 45%, transparent)", color: TEAL }}
                     >
                       <PlusIcon className="size-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
@@ -251,7 +251,7 @@ function PartCard({
                   href={supply.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 self-start rounded-full border-[1.5px] px-3 py-1.5 text-[13px] font-bold"
+                  className="inline-flex items-center gap-1.5 self-start rounded-full border-[1.5px] px-3 py-1.5 text-[0.8125rem] font-bold"
                   style={{ borderColor: "color-mix(in srgb, var(--hh-teal) 35%, transparent)", background: SURFACE, color: TEAL }}
                 >
                   <ExternalLinkIcon className="size-3.5" aria-hidden />
@@ -268,8 +268,8 @@ function PartCard({
           <div className="flex items-center gap-2.5">
             <BellRingIcon className="size-[15px] shrink-0" style={{ color: TEAL }} aria-hidden />
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-[13px] font-semibold" style={{ color: INK }}>Remind me to buy the next one</span>
-              <span className="text-[11.5px]" style={{ color: FAINT }}>A week before it&apos;s due</span>
+              <span className="text-[0.8125rem] font-semibold" style={{ color: INK }}>Remind me to buy the next one</span>
+              <span className="text-[0.75rem]" style={{ color: FAINT }}>A week before it&apos;s due</span>
             </span>
             <Switch
               checked={supply.buy_ahead}
@@ -278,7 +278,7 @@ function PartCard({
             />
           </div>
           {supply.buy_ahead && canHave && (
-            <div className="pl-[25px] text-[12px]" style={{ color: SUB }}>
+            <div className="pl-[25px] text-[0.75rem]" style={{ color: SUB }}>
               {have === "saving" ? (
                 <span>Saving…</span>
               ) : have ? (
@@ -290,7 +290,7 @@ function PartCard({
                     type="button"
                     onClick={onHave}
                     aria-label={`I have one — ${supply.name}`}
-                    className="rounded-full border px-2.5 py-0.5 text-[12px] font-bold"
+                    className="rounded-full border px-2.5 py-0.5 text-[0.75rem] font-bold"
                     style={{ borderColor: LINE2, background: SURFACE, color: TEAL }}
                   >
                     I have one
@@ -311,7 +311,7 @@ function FactPill({ text, label, onClick }: { text: string; label: string; onCli
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="inline-flex max-w-full items-center rounded-full border px-2.5 py-[5px] text-[12.5px] font-semibold"
+      className="inline-flex max-w-full items-center rounded-full border px-2.5 py-[5px] text-[0.78125rem] font-semibold"
       style={{ borderColor: LINE, background: SURFACE, color: SUB }}
     >
       <span className="truncate">{text}</span>
@@ -375,23 +375,23 @@ function PlaceEditor({ partName, initial, places, onCancel, onSave }: {
           }}
           placeholder="Where do you keep it?"
           aria-label={`Where you keep ${partName}`}
-          className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none placeholder:text-[var(--hh-faint)]"
+          className="min-w-0 flex-1 bg-transparent text-[0.84375rem] outline-none placeholder:text-[var(--hh-faint)]"
           style={{ color: INK }}
         />
-        <button type="button" onClick={() => void save()} disabled={saving} className="shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-60" style={{ background: "var(--hh-teal-fill)" }}>
+        <button type="button" onClick={() => void save()} disabled={saving} className="shrink-0 rounded-full px-3 py-1.5 text-[0.78125rem] font-bold text-white disabled:opacity-60" style={{ background: "var(--hh-teal-fill)" }}>
           {saving ? <Loader2Icon className="size-3.5 animate-spin" aria-label="Saving" /> : "Save"}
         </button>
       </div>
       {chips.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold" style={{ color: FAINT }}>Places you&apos;ve used</span>
+          <span className="text-[0.75rem] font-semibold" style={{ color: FAINT }}>Places you&apos;ve used</span>
           <div className="flex flex-wrap gap-1.5">
             {chips.map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => setValue(p)}
-                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-semibold"
+                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[0.75rem] font-semibold"
                 style={{ borderColor: LINE2, background: SURFACE, color: SUB }}
               >
                 <MapPinIcon className="size-3 shrink-0" style={{ color: FAINT }} aria-hidden />
@@ -401,7 +401,7 @@ function PlaceEditor({ partName, initial, places, onCancel, onSave }: {
           </div>
         </div>
       )}
-      <button type="button" onClick={onCancel} className="self-start text-[12.5px] font-semibold" style={{ color: SUB }}>Cancel</button>
+      <button type="button" onClick={onCancel} className="self-start text-[0.78125rem] font-semibold" style={{ color: SUB }}>Cancel</button>
     </div>
   )
 }
@@ -440,12 +440,12 @@ function PartForm({ mode, partName, initial, onCancel, onSubmit }: {
       </div>
       <Field label="Store link" ariaLabel={named("Store link")} value={v.url} onChange={set("url")} placeholder="Any store" type="url" />
       <div className="flex items-center justify-end gap-3.5 pt-0.5">
-        <button type="button" onClick={onCancel} className="text-[13px] font-semibold" style={{ color: SUB }}>Cancel</button>
+        <button type="button" onClick={onCancel} className="text-[0.8125rem] font-semibold" style={{ color: SUB }}>Cancel</button>
         <button
           type="button"
           onClick={() => void submit()}
           disabled={saving || (mode === "add" && !v.name.trim())}
-          className="rounded-full px-4 py-[7px] text-[13px] font-bold text-white disabled:opacity-50"
+          className="rounded-full px-4 py-[7px] text-[0.8125rem] font-bold text-white disabled:opacity-50"
           style={{ background: "var(--hh-teal-fill)" }}
         >
           {saving ? <Loader2Icon className="size-3.5 animate-spin" aria-label="Saving" /> : mode === "add" ? "Save part" : "Save"}
@@ -465,7 +465,7 @@ function Field({ label, ariaLabel, value, onChange, placeholder, type = "text" }
 }) {
   return (
     <label className="flex min-w-0 flex-1 flex-col gap-1">
-      <span className="text-[11px] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>{label}</span>
+      <span className="text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>{label}</span>
       <input
         type={type}
         inputMode={type === "url" ? "url" : undefined}
@@ -473,7 +473,7 @@ function Field({ label, ariaLabel, value, onChange, placeholder, type = "text" }
         onChange={onChange}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className="w-full rounded-[10px] border px-[11px] py-2 text-[13.5px] outline-none placeholder:text-[var(--hh-faint)]"
+        className="w-full rounded-[10px] border px-[11px] py-2 text-[0.84375rem] outline-none placeholder:text-[var(--hh-faint)]"
         style={{ borderColor: LINE2, background: SURFACE, color: INK }}
       />
     </label>

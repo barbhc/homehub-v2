@@ -72,7 +72,7 @@ function ActionLink({
       href={href}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
-      className="hit-44 inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[13.5px] font-semibold transition-colors"
+      className="hit-44 inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[0.84375rem] font-semibold transition-colors"
       style={
         soft
           ? { background: "var(--hh-teal-wash)", color: TEAL }
@@ -89,20 +89,20 @@ function ActionLink({
 function Field({ label, value, mono, link }: { label: string; value: string; mono?: boolean; link?: string }) {
   return (
     <div>
-      <div className="text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</div>
+      <div className="text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</div>
       {link ? (
         <a
           href={link}
           target={link.startsWith("http") ? "_blank" : undefined}
           rel={link.startsWith("http") ? "noopener noreferrer" : undefined}
-          className="hit-44 mt-1 block break-words text-[14px] font-medium hover:underline"
+          className="hit-44 mt-1 block break-words text-[0.875rem] font-medium hover:underline"
           style={{ color: TEAL }}
         >
           {value}
         </a>
       ) : (
         <div
-          className={`mt-1 break-words text-[14px] ${mono ? "font-mono tabular-nums" : "font-medium"}`}
+          className={`mt-1 break-words text-[0.875rem] ${mono ? "font-mono tabular-nums" : "font-medium"}`}
           style={{ color: INK }}
         >
           {value}
@@ -127,17 +127,19 @@ function ProviderDetail({
   const p = provider
   return (
     <div className="rounded-2xl bg-[var(--hh-surface)] p-6 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
+      {/* Larger Text: Edit / Delete drop below the name rather than push the
+          card past the screen edge. */}
+      <div className="flex items-start justify-between gap-4 larger-text:flex-wrap">
+        <div className="flex min-w-0 items-center gap-4">
           <div
-            className="flex size-14 shrink-0 items-center justify-center rounded-2xl text-[20px] font-extrabold"
+            className="flex size-14 shrink-0 items-center justify-center rounded-2xl text-[1.25rem] font-extrabold"
             style={{ background: "var(--hh-teal-wash)", color: TEAL }}
           >
             {providerInitials(p.name)}
           </div>
           <div className="min-w-0">
-            <h2 className="text-[21px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>{p.name}</h2>
-            <div className="mt-0.5 text-[13px]" style={{ color: SUB }}>{categoryLabel(p.category)}</div>
+            <h2 className="text-[1.3125rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>{p.name}</h2>
+            <div className="mt-0.5 text-[0.8125rem]" style={{ color: SUB }}>{categoryLabel(p.category)}</div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -185,9 +187,9 @@ function ProviderDetail({
 
       {p.notes && (
         <div className="mt-6">
-          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>Notes</div>
+          <div className="mb-2 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>Notes</div>
           <div
-            className="rounded-xl px-3.5 py-3 text-[13.5px] leading-relaxed"
+            className="rounded-xl px-3.5 py-3 text-[0.84375rem] leading-relaxed"
             style={{ background: "var(--hh-surface2)", color: INK }}
           >
             {p.notes}
@@ -297,10 +299,10 @@ export default function ProvidersPage() {
       <div className="mx-auto max-w-5xl px-5 pb-12 pt-6 md:px-6 md:pt-10">
         <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[27px] font-extrabold tracking-[-0.6px] md:text-[33px] md:tracking-[-0.7px]" style={{ color: INK }}>
+            <h1 className="text-[1.6875rem] font-extrabold tracking-[-0.6px] md:text-[2.0625rem] md:tracking-[-0.7px]" style={{ color: INK }}>
               Providers
             </h1>
-            <p className="mt-1.5 text-[13.5px]" style={{ color: SUB }}>Your trusted pros, grouped by trade.</p>
+            <p className="mt-1.5 text-[0.84375rem]" style={{ color: SUB }}>Your trusted pros, grouped by trade.</p>
           </div>
           {providers.length > 0 && (
             <Button onClick={openAdd} className="gap-1.5">
@@ -311,7 +313,7 @@ export default function ProvidersPage() {
 
         {removeError && <InlineError className="mb-4">{removeError}</InlineError>}
         {loading ? (
-          <p className="text-[13.5px]" style={{ color: SUB }}>Loading…</p>
+          <p className="text-[0.84375rem]" style={{ color: SUB }}>Loading…</p>
         ) : loadFailed ? (
           // A list never read is not "No service providers yet".
           <LoadErrorState title="Couldn't load your providers" message="Check your connection and try again." onRetry={reload} />
@@ -324,8 +326,8 @@ export default function ProvidersPage() {
             >
               <WrenchIcon className="size-6" />
             </div>
-            <h2 className="text-[17px] font-bold" style={{ color: INK }}>No service providers yet</h2>
-            <p className="mt-1.5 max-w-xs text-[13.5px]" style={{ color: SUB }}>
+            <h2 className="text-[1.0625rem] font-bold" style={{ color: INK }}>No service providers yet</h2>
+            <p className="mt-1.5 max-w-xs text-[0.84375rem]" style={{ color: SUB }}>
               Keep your contractors and service pros in one place — one tap to call or email.
             </p>
             <Button onClick={openAdd} className="mt-5 gap-1.5">
@@ -339,7 +341,7 @@ export default function ProvidersPage() {
             <div className="flex flex-col gap-[18px]">
               {groups.map(([cat, list]) => (
                 <div key={cat}>
-                  <div className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>
+                  <div className="mb-2 px-1 text-[0.6875rem] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>
                     {categoryLabel(cat)}
                   </div>
                   <div className="overflow-hidden rounded-2xl bg-[var(--hh-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
@@ -357,14 +359,14 @@ export default function ProvidersPage() {
                           aria-current={active}
                         >
                           <span
-                            className="flex size-9 shrink-0 items-center justify-center rounded-[10px] text-[13px] font-bold"
+                            className="flex size-9 shrink-0 items-center justify-center rounded-[10px] text-[0.8125rem] font-bold"
                             style={{ background: "var(--hh-teal-wash)", color: TEAL }}
                           >
                             {providerInitials(p.name)}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[13.5px] font-semibold" style={{ color: INK }}>{p.name}</span>
-                            <span className="block truncate text-[12px]" style={{ color: FAINT }}>
+                            <span className="block truncate text-[0.84375rem] font-semibold" style={{ color: INK }}>{p.name}</span>
+                            <span className="block truncate text-[0.75rem]" style={{ color: FAINT }}>
                               {p.phone || categoryLabel(p.category)}
                             </span>
                           </span>

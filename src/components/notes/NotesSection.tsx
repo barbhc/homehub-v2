@@ -86,7 +86,7 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
             type="button"
             onClick={() => openNew(null)}
             aria-label="Add a note"
-            className="hit-44 shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"
+            className="hit-44 shrink-0 rounded-full border px-3 py-1 text-[0.78125rem] font-bold"
             style={{ borderColor: "var(--hh-line2)", color: TEAL }}
           >
             Add
@@ -97,17 +97,17 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
       </NotesHeading>
 
       {error ? (
-        <div role="alert" className={`flex items-center gap-2 text-[13px] ${CARD}`} style={{ background: SURFACE, color: CLAY }}>
+        <div role="alert" className={`flex items-center gap-2 text-[0.8125rem] ${CARD}`} style={{ background: SURFACE, color: CLAY }}>
           <span className="min-w-0 flex-1">Couldn&apos;t load notes: {error}</span>
           <button type="button" onClick={reload} className="hit-44 shrink-0 font-bold underline underline-offset-2">Try again</button>
         </div>
       ) : loading ? (
-        <div className={`text-[13px] ${CARD}`} style={{ background: SURFACE, color: FAINT }}>Loading notes…</div>
+        <div className={`text-[0.8125rem] ${CARD}`} style={{ background: SURFACE, color: FAINT }}>Loading notes…</div>
       ) : all.length === 0 ? (
         <div className={`flex flex-col gap-3 ${CARD}`} style={{ background: SURFACE }}>
           <div className="flex flex-col gap-0.5">
-            <span className="text-[13.5px] font-semibold" style={{ color: INK }}>Nothing noted yet</span>
-            <span className="text-[12px]" style={{ color: SUB }}>Things you&apos;d otherwise have to remember.</span>
+            <span className="text-[0.84375rem] font-semibold" style={{ color: INK }}>Nothing noted yet</span>
+            <span className="text-[0.75rem]" style={{ color: SUB }}>Things you&apos;d otherwise have to remember.</span>
           </div>
           <IdeaChips ideas={ideas} onPick={openNew} label={null} />
         </div>

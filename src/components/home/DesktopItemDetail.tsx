@@ -55,7 +55,7 @@ function Card({ children, pad = 18, className = "" }: { children: React.ReactNod
 function SectionLabel({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="mb-2.5 flex items-baseline justify-between">
-      <span className="text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{children}</span>
+      <span className="text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{children}</span>
       {right}
     </div>
   )
@@ -63,8 +63,8 @@ function SectionLabel({ children, right }: { children: React.ReactNode; right?: 
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.4px]" style={{ color: FAINT }}>{label}</div>
-      <div className="mt-1 text-[14px] font-semibold" style={{ color: INK, fontFamily: mono ? "ui-monospace, monospace" : undefined }}>{value}</div>
+      <div className="text-[0.6875rem] font-semibold uppercase tracking-[0.4px]" style={{ color: FAINT }}>{label}</div>
+      <div className="mt-1 text-[0.875rem] font-semibold" style={{ color: INK, fontFamily: mono ? "ui-monospace, monospace" : undefined }}>{value}</div>
     </div>
   )
 }
@@ -129,8 +129,8 @@ export function GuideCard({ chunk, onOpenManualPage }: { chunk: KnowledgeChunk; 
           <BookOpenIcon className="size-[18px]" style={{ color: TEAL }} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[14.5px] font-bold tracking-[-0.2px]" style={{ color: INK }}>{chunk.title || "Guide"}</div>
-          {meta && <div className="mt-0.5 text-[12.5px]" style={{ color: SUB }}>{meta}</div>}
+          <div className="text-[0.90625rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>{chunk.title || "Guide"}</div>
+          {meta && <div className="mt-0.5 text-[0.78125rem]" style={{ color: SUB }}>{meta}</div>}
         </div>
         {open ? <ChevronUpIcon className="size-[18px]" style={{ color: FAINT }} /> : <ChevronDownIcon className="size-[18px]" style={{ color: FAINT }} />}
       </div>
@@ -141,14 +141,14 @@ export function GuideCard({ chunk, onOpenManualPage }: { chunk: KnowledgeChunk; 
             {scenarios.length > 0 ? (
               scenarios.map((sc, si) => (
                 <div key={si} className="flex flex-col gap-2">
-                  {sc.condition && <div className="text-[11px] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>{sc.condition}</div>}
+                  {sc.condition && <div className="text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>{sc.condition}</div>}
                   <StepList steps={sc.steps ?? []} />
                 </div>
               ))
             ) : fallbackSteps.length > 0 ? (
               <StepList steps={fallbackSteps} />
             ) : (
-              <div className="text-[13px]" style={{ color: SUB }}>Open this guide for the full steps.</div>
+              <div className="text-[0.8125rem]" style={{ color: SUB }}>Open this guide for the full steps.</div>
             )}
           </StepsOrProNotice>
           {page != null && onOpenManualPage && <ManualBlurb page={page} onOpen={() => onOpenManualPage(page)} />}
@@ -182,7 +182,7 @@ function GuidesTab({ howTo, cleaning, onAsk, itemName, onOpenManualPage }: {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={`Search ${total} guides…`}
-            className="w-full bg-transparent text-[13.5px] outline-none placeholder:text-[var(--hh-faint)]"
+            className="w-full bg-transparent text-[0.84375rem] outline-none placeholder:text-[var(--hh-faint)]"
             style={{ color: INK }}
           />
         </div>
@@ -205,15 +205,15 @@ function GuidesTab({ howTo, cleaning, onAsk, itemName, onOpenManualPage }: {
       )}
       {!hasAny && (
         <Card className="text-center" pad={26}>
-          <div className="text-[13.5px]" style={{ color: SUB }}>Add the manual to unlock step-by-step how-to guides.</div>
+          <div className="text-[0.84375rem]" style={{ color: SUB }}>Add the manual to unlock step-by-step how-to guides.</div>
         </Card>
       )}
       {hasAny && !hasResults && (
         <Card className="text-center" pad={26}>
-          <div className="text-[13.5px]" style={{ color: SUB }}>No guides match “{q}”.</div>
+          <div className="text-[0.84375rem]" style={{ color: SUB }}>No guides match “{q}”.</div>
         </Card>
       )}
-      <button onClick={onAsk} className="inline-flex items-center gap-1.5 self-start text-[13px] font-bold" style={{ color: TEAL }}>
+      <button onClick={onAsk} className="inline-flex items-center gap-1.5 self-start text-[0.8125rem] font-bold" style={{ color: TEAL }}>
         <SparklesIcon className="size-[15px]" /> Ask Homehub about {itemName}
       </button>
     </div>
@@ -246,7 +246,7 @@ export function TroubleshootCard({ chunk, onOpenManualPage }: {
           <WrenchIcon className="size-4" style={{ color: CLAY }} />
         </div>
         {/* Symptom is the row title — not repeated inside. */}
-        <div className="flex-1 text-[14.5px] font-semibold" style={{ color: INK }}>{chunk.title || "Troubleshooting"}</div>
+        <div className="flex-1 text-[0.90625rem] font-semibold" style={{ color: INK }}>{chunk.title || "Troubleshooting"}</div>
         {open ? <ChevronUpIcon className="size-[18px]" style={{ color: FAINT }} /> : <ChevronDownIcon className="size-[18px]" style={{ color: FAINT }} />}
       </div>
       {open && (
@@ -283,10 +283,10 @@ function FixTab({ trouble, onAsk, onOpenManualPage }: {
         trouble.map((c) => <TroubleshootCard key={c.chunk_id} chunk={c} onOpenManualPage={onOpenManualPage} />)
       ) : (
         <Card className="text-center" pad={26}>
-          <div className="text-[13.5px]" style={{ color: SUB }}>No troubleshooting yet for this item.</div>
+          <div className="text-[0.84375rem]" style={{ color: SUB }}>No troubleshooting yet for this item.</div>
         </Card>
       )}
-      <button onClick={onAsk} className="inline-flex items-center gap-1.5 self-start text-[13px] font-bold" style={{ color: TEAL }}>
+      <button onClick={onAsk} className="inline-flex items-center gap-1.5 self-start text-[0.8125rem] font-bold" style={{ color: TEAL }}>
         <SparklesIcon className="size-[15px]" /> Still stuck? Ask Homehub
       </button>
     </div>
@@ -298,7 +298,7 @@ function SavedTab({ faqs }: { faqs: ChatFaq[] }) {
   if (faqs.length === 0) {
     return (
       <Card className="text-center" pad={26}>
-        <div className="text-[13.5px]" style={{ color: SUB }}>Answers you save from Ask will collect here.</div>
+        <div className="text-[0.84375rem]" style={{ color: SUB }}>Answers you save from Ask will collect here.</div>
       </Card>
     )
   }
@@ -306,9 +306,9 @@ function SavedTab({ faqs }: { faqs: ChatFaq[] }) {
     <div className="flex flex-col gap-3">
       {faqs.map((f) => (
         <Card key={f.faq_id}>
-          <div className="mb-1.5 text-[14.5px] font-bold" style={{ color: INK }}>{f.question}</div>
-          <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed" style={{ color: SUB }}>{f.answer}</div>
-          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-semibold" style={{ background: TEAL_WASH, color: TEAL }}>
+          <div className="mb-1.5 text-[0.90625rem] font-bold" style={{ color: INK }}>{f.question}</div>
+          <div className="whitespace-pre-wrap text-[0.84375rem] leading-relaxed" style={{ color: SUB }}>{f.answer}</div>
+          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[0.75rem] font-semibold" style={{ background: TEAL_WASH, color: TEAL }}>
             <SparklesIcon className="size-3" /> Saved from Ask
           </div>
         </Card>
@@ -405,7 +405,7 @@ export function DesktopItemDetail({
 
   return (
     <div>
-      <button onClick={onBack} className="hit-44 mb-3.5 inline-flex items-center gap-1 text-[13.5px] font-semibold" style={{ color: SUB }}>
+      <button onClick={onBack} className="hit-44 mb-3.5 inline-flex items-center gap-1 text-[0.84375rem] font-semibold" style={{ color: SUB }}>
         <ChevronLeftIcon className="size-[17px]" /> Items
       </button>
 
@@ -422,22 +422,22 @@ export function DesktopItemDetail({
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2.5">
-              <h1 className="m-0 text-[25px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
+              <h1 className="m-0 text-[1.5625rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
               {recallFound ? (
-                <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-bold" style={{ background: SLATE_SOFT, color: SLATE }}>
+                <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[0.75rem] font-bold" style={{ background: SLATE_SOFT, color: SLATE }}>
                   <MegaphoneIcon className="size-3" /> Safety notice
                 </span>
               ) : item.recall_status === "none_found" ? (
                 // Only after a check actually ran — a null status means we never
                 // looked, and claiming otherwise asserts an unverified safety fact.
-                <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-bold" style={{ background: TEAL_WASH, color: TEAL }}>
+                <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[0.75rem] font-bold" style={{ background: TEAL_WASH, color: TEAL }}>
                   <ShieldCheckIcon className="size-3" /> No recalls
                 </span>
               ) : null}
             </div>
             {/* HH-86: same suppression as mobile — see itemSubtitle. */}
             {itemSubtitle(item.display_name, item.brand, item.model) && (
-              <div className="mb-4 mt-1 text-[13.5px]" style={{ color: SUB }}>{itemSubtitle(item.display_name, item.brand, item.model)}</div>
+              <div className="mb-4 mt-1 text-[0.84375rem]" style={{ color: SUB }}>{itemSubtitle(item.display_name, item.brand, item.model)}</div>
             )}
             {shownHeaderFields.length > 0 && (
               <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
@@ -446,7 +446,7 @@ export function DesktopItemDetail({
             )}
           </div>
           <div className="flex shrink-0 flex-col gap-2">
-            <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13px] font-bold" style={{ borderColor: "var(--hh-line2)", color: INK }}>
+            <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[0.8125rem] font-bold" style={{ borderColor: "var(--hh-line2)", color: INK }}>
               <PencilIcon className="size-[14px]" /> Edit
             </button>
             {/* HH-91 on desktop. Ask needs no DEMOTING here — unlike mobile it
@@ -458,7 +458,7 @@ export function DesktopItemDetail({
                 disabling it would take away a door that does open. */}
             <button
               onClick={goAsk}
-              className="inline-flex items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13px] font-bold"
+              className="inline-flex items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[0.8125rem] font-bold"
               style={{ borderColor: "var(--hh-line2)", color: hasManual ? INK : SUB }}
             >
               <SparklesIcon className="size-[14px]" /> Ask
@@ -466,7 +466,7 @@ export function DesktopItemDetail({
             {/* The same sentence the phone's Ask card says, for the same state —
                 including a manual being read (HH-161) or read and waiting. */}
             {!hasManual && (
-              <span className="max-w-[150px] text-[11px] leading-snug" style={{ color: SUB }}>
+              <span className="max-w-[150px] text-[0.75rem] leading-snug" style={{ color: SUB }}>
                 {askHint(manualState)}
               </span>
             )}
@@ -481,9 +481,9 @@ export function DesktopItemDetail({
               <MegaphoneIcon className="size-[18px]" style={{ color: SLATE }} />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: SLATE }}>Safety notice</div>
-              <div className="text-[15px] font-bold tracking-[-0.2px]" style={{ color: INK }}>Possible recall</div>
-              {item.recall_notes && <div className="mt-1 text-[13px] leading-snug" style={{ color: "var(--hh-sub)" }}>{item.recall_notes}</div>}
+              <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SLATE }}>Safety notice</div>
+              <div className="text-[0.9375rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>Possible recall</div>
+              {item.recall_notes && <div className="mt-1 text-[0.8125rem] leading-snug" style={{ color: "var(--hh-sub)" }}>{item.recall_notes}</div>}
             </div>
           </div>
         </div>
@@ -501,11 +501,11 @@ export function DesktopItemDetail({
                 <button
                   key={tb.id}
                   onClick={() => setTab(tb.id)}
-                  className="flex items-center gap-1.5 px-3.5 py-2.5 text-[14px]"
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 text-[0.875rem]"
                   style={{ borderBottom: `2px solid ${on ? TEAL : "transparent"}`, color: on ? INK : SUB, fontWeight: on ? 700 : 500, marginBottom: -1 }}
                 >
                   {tb.label}
-                  {tb.n > 0 && <span className="text-[11px]" style={{ color: FAINT, fontFamily: "ui-monospace, monospace" }}>{tb.n}</span>}
+                  {tb.n > 0 && <span className="text-[0.75rem]" style={{ color: FAINT, fontFamily: "ui-monospace, monospace" }}>{tb.n}</span>}
                 </button>
               )
             })}
@@ -559,7 +559,7 @@ export function DesktopItemDetail({
               <SectionLabel>Specs</SectionLabel>
               <div className="flex flex-col">
                 {specRows.map((s, i) => (
-                  <div key={s.label} className="flex justify-between gap-4 py-2 text-[13px]" style={{ borderTop: i ? `1px solid ${LINE}` : "none" }}>
+                  <div key={s.label} className="flex justify-between gap-4 py-2 text-[0.8125rem]" style={{ borderTop: i ? `1px solid ${LINE}` : "none" }}>
                     <span style={{ color: SUB }}>{s.label}</span>
                     <span className="text-right font-semibold tabular-nums" style={{ color: INK, fontFamily: "ui-monospace, monospace" }}>{s.value}</span>
                   </div>
@@ -574,7 +574,7 @@ export function DesktopItemDetail({
               <SectionLabel>Tags</SectionLabel>
               <div className="flex flex-wrap gap-2">
                 {item.tags.map((tg) => (
-                  <span key={tg} className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12.5px] font-semibold" style={{ borderColor: "var(--hh-line2)", color: SUB }}>
+                  <span key={tg} className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.78125rem] font-semibold" style={{ borderColor: "var(--hh-line2)", color: SUB }}>
                     <TagIcon className="size-[11px]" style={{ color: TEAL }} /> {tg}
                   </span>
                 ))}

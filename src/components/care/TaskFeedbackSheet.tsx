@@ -63,7 +63,7 @@ function Choice({ label, selected, onClick }: { label: string; selected: boolean
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[11px] px-3.5 py-2.5 text-left text-[13.5px] font-semibold"
+      className="rounded-[11px] px-3.5 py-2.5 text-left text-[0.84375rem] font-semibold"
       style={selected
         ? { border: "1.5px solid var(--hh-teal)", background: "var(--hh-teal-wash)", color: TEAL }
         : { border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
@@ -280,22 +280,22 @@ export function TaskFeedbackSheet({
               <span className="flex size-[30px] items-center justify-center rounded-full" style={{ background: "var(--hh-teal-fill)" }}>
                 <CheckIcon className="size-[17px] text-white" strokeWidth={3} />
               </span>
-              <div className="text-[22px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Thanks — done</div>
+              <div className="text-[1.375rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Thanks — done</div>
             </div>
-            <p className="mb-4 text-[13.5px]" style={{ color: SUB }}>
+            <p className="mb-4 text-[0.84375rem]" style={{ color: SUB }}>
               Updated {result.affected} task{result.affected === 1 ? "" : "s"}.
               {result.ruleId ? " Saved as a house rule you can review in Settings." : ""}
             </p>
             {climateError && (
-              <p className="-mt-2 mb-4 text-[13px] font-semibold" style={{ color: CLAY }}>{climateError}</p>
+              <p className="-mt-2 mb-4 text-[0.8125rem] font-semibold" style={{ color: CLAY }}>{climateError}</p>
             )}
-            <button onClick={() => onApplied(result)} className="w-full rounded-[14px] py-3.5 text-[15px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Done</button>
+            <button onClick={() => onApplied(result)} className="w-full rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Done</button>
           </div>
         ) : step === "choose" ? (
           /* ── STEP 1: pick a reason ── */
           <>
-            <div className="text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Tune this task</div>
-            <p className="mb-4 mt-0.5 text-[13.5px] leading-snug" style={{ color: SUB }}>
+            <div className="text-[1.25rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Tune this task</div>
+            <p className="mb-4 mt-0.5 text-[0.84375rem] leading-snug" style={{ color: SUB }}>
               What's off about <span className="font-semibold" style={{ color: INK }}>{title}</span>?
             </p>
 
@@ -311,8 +311,8 @@ export function TaskFeedbackSheet({
                     : { border: "1px solid var(--hh-line2)", background: "var(--hh-surface)" }}
                 >
                   <span>
-                    <span className="block text-[14.5px] font-bold" style={{ color: chip === c.key ? TEAL : INK }}>{c.label}</span>
-                    <span className="block text-[12px]" style={{ color: SUB }}>{c.hint}</span>
+                    <span className="block text-[0.90625rem] font-bold" style={{ color: chip === c.key ? TEAL : INK }}>{c.label}</span>
+                    <span className="block text-[0.75rem]" style={{ color: SUB }}>{c.hint}</span>
                   </span>
                   {chip === c.key && <CheckIcon className="size-[18px]" strokeWidth={2.6} style={{ color: TEAL }} />}
                 </button>
@@ -326,8 +326,8 @@ export function TaskFeedbackSheet({
               >
                 <MessageCircleIcon className="size-[16px]" style={{ color: TEAL }} />
                 <span className="flex-1">
-                  <span className="block text-[14.5px] font-bold" style={{ color: INK }}>Discuss with the assistant</span>
-                  <span className="block text-[12px]" style={{ color: SUB }}>Ask why it's here, or talk it through</span>
+                  <span className="block text-[0.90625rem] font-bold" style={{ color: INK }}>Discuss with the assistant</span>
+                  <span className="block text-[0.75rem]" style={{ color: SUB }}>Ask why it's here, or talk it through</span>
                 </span>
               </button>
             </div>
@@ -353,7 +353,7 @@ export function TaskFeedbackSheet({
                 </SubPicker>
                 {cadenceChoice === "every_n_days" && (
                   <div className="mt-3 flex items-center gap-2">
-                    <span className="text-[13.5px]" style={{ color: SUB }}>Every</span>
+                    <span className="text-[0.84375rem]" style={{ color: SUB }}>Every</span>
                     {/* HH-164: shared with the review sheet; keeps its own draft
                         so clearing the box no longer snaps it to "1". */}
                     <RepeatEveryInput
@@ -361,11 +361,11 @@ export function TaskFeedbackSheet({
                       onChange={setCustomDays}
                       inputProps={{
                         "aria-label": "How many",
-                        className: "w-16 rounded-[10px] px-2.5 py-2 text-[13.5px] font-semibold",
+                        className: "w-16 rounded-[10px] px-2.5 py-2 text-[0.84375rem] font-semibold",
                         style: { border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK },
                       }}
                       selectProps={{
-                        className: "rounded-[10px] px-2.5 py-2 text-[13.5px] font-semibold",
+                        className: "rounded-[10px] px-2.5 py-2 text-[0.84375rem] font-semibold",
                         style: { border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK },
                       }}
                     />
@@ -384,7 +384,7 @@ export function TaskFeedbackSheet({
             <button
               disabled={!resolution}
               onClick={proceed}
-              className="mt-5 w-full rounded-[14px] py-3.5 text-[15px] font-bold text-white disabled:opacity-40"
+              className="mt-5 w-full rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white disabled:opacity-40"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               Continue
@@ -393,20 +393,20 @@ export function TaskFeedbackSheet({
         ) : step === "discuss" ? (
           /* ── DISCUSS: AI conversation ── */
           <>
-            <div className="shrink-0 text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Discuss</div>
-            <p className="shrink-0 mb-3 mt-0.5 text-[13px] leading-snug" style={{ color: SUB }}>
+            <div className="shrink-0 text-[1.25rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Discuss</div>
+            <p className="shrink-0 mb-3 mt-0.5 text-[0.8125rem] leading-snug" style={{ color: SUB }}>
               About <span className="font-semibold" style={{ color: INK }}>{title}</span>. Grounded in your manual and home profile.
             </p>
             <div ref={threadRef} className="min-h-[120px] flex-1 space-y-2.5 overflow-y-auto">
               {messages.length === 0 && !discussLoading && (
-                <div className="rounded-xl px-3.5 py-3 text-[13.5px] leading-snug" style={{ background: "var(--hh-surface2)", color: SUB }}>
+                <div className="rounded-xl px-3.5 py-3 text-[0.84375rem] leading-snug" style={{ background: "var(--hh-surface2)", color: SUB }}>
                   Try: "Why is this Essential?" · "We're in a mild climate — does this apply?" · "Can I do this less often?"
                 </div>
               )}
               {messages.map((m, i) => (
                 <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
                   <div
-                    className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-snug"
+                    className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-[0.84375rem] leading-snug"
                     style={m.role === "user"
                       ? { background: "var(--hh-teal-fill)", color: "white" }
                       : { background: "var(--hh-surface2)", color: INK }}
@@ -417,25 +417,25 @@ export function TaskFeedbackSheet({
               ))}
               {discussLoading && (
                 <div className="flex justify-start">
-                  <div className="rounded-2xl px-3.5 py-2.5 text-[13.5px]" style={{ background: "var(--hh-surface2)", color: FAINT }}>Thinking…</div>
+                  <div className="rounded-2xl px-3.5 py-2.5 text-[0.84375rem]" style={{ background: "var(--hh-surface2)", color: FAINT }}>Thinking…</div>
                 </div>
               )}
               {discussProposal && !discussLoading && (
                 <div className="rounded-xl p-3" style={{ border: "1.5px solid var(--hh-teal)", background: "var(--hh-teal-wash)" }}>
                   <div className="flex items-start gap-2">
                     <SparklesIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
-                    <span className="text-[13px] leading-snug" style={{ color: "var(--hh-ink-soft)" }}>{discussProposal.rationale}</span>
+                    <span className="text-[0.8125rem] leading-snug" style={{ color: "var(--hh-ink-soft)" }}>{discussProposal.rationale}</span>
                   </div>
-                  <button onClick={() => acceptProposal(discussProposal)} className="mt-2.5 w-full rounded-[12px] py-2.5 text-[13.5px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
+                  <button onClick={() => acceptProposal(discussProposal)} className="mt-2.5 w-full rounded-[12px] py-2.5 text-[0.84375rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
                     Apply this change
                   </button>
                 </div>
               )}
-              {discussError && <p className="text-[13px] font-semibold" style={{ color: CLAY }}>{discussError}</p>}
+              {discussError && <p className="text-[0.8125rem] font-semibold" style={{ color: CLAY }}>{discussError}</p>}
             </div>
             <div className="shrink-0 pt-2">
               <ChatInput onSend={sendDiscuss} disabled={discussLoading} />
-              <button onClick={() => setStep("choose")} className="mt-2 text-[13px] font-semibold" style={{ color: SUB }}>← Back to options</button>
+              <button onClick={() => setStep("choose")} className="mt-2 text-[0.8125rem] font-semibold" style={{ color: SUB }}>← Back to options</button>
             </div>
           </>
         ) : step === "pushback" ? (
@@ -445,41 +445,41 @@ export function TaskFeedbackSheet({
               <span className="flex size-[30px] items-center justify-center rounded-full" style={{ background: "var(--hh-clay-soft)" }}>
                 <ShieldAlertIcon className="size-[18px]" style={{ color: CLAY }} />
               </span>
-              <div className="text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>A safety check first</div>
+              <div className="text-[1.25rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>A safety check first</div>
             </div>
-            <div className="mt-3 rounded-xl px-3.5 py-3 text-[13.5px] leading-relaxed text-pretty" style={{ background: "var(--hh-surface2)", color: "var(--hh-ink-soft)" }}>
+            <div className="mt-3 rounded-xl px-3.5 py-3 text-[0.84375rem] leading-relaxed text-pretty" style={{ background: "var(--hh-surface2)", color: "var(--hh-ink-soft)" }}>
               {justification?.trim() || "This task guards against a gas, combustion, or electrical hazard."}
               {manualPage != null && <> The manual covers the full procedure and warnings on p.{manualPage}.</>}
               <div className="mt-2 font-semibold" style={{ color: INK }}>Gas, combustion, and electrical work is best left to a licensed professional.</div>
             </div>
             <button
               onClick={() => { onClose(); navigate("/providers") }}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-bold text-white"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               <PhoneIcon className="size-[16px]" /> Talk to a pro
             </button>
             <div className="mt-2.5 flex gap-2.5">
-              <button onClick={onClose} className="flex-1 rounded-[14px] py-3 text-[14px] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>Keep the task</button>
-              <button onClick={() => setStep("confirm")} className="flex-1 rounded-[14px] py-3 text-[14px] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}>Continue anyway</button>
+              <button onClick={onClose} className="flex-1 rounded-[14px] py-3 text-[0.875rem] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>Keep the task</button>
+              <button onClick={() => setStep("confirm")} className="flex-1 rounded-[14px] py-3 text-[0.875rem] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}>Continue anyway</button>
             </div>
           </>
         ) : (
           /* ── CONFIRM + sweep ── */
           <>
-            <div className="text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Confirm</div>
+            <div className="text-[1.25rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Confirm</div>
             <div className="mt-3 flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: "var(--hh-surface2)" }}>
               <SparklesIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
-              <span className="text-[13.5px] font-semibold leading-snug text-pretty" style={{ color: "var(--hh-ink-soft)" }}>{planSummary}.</span>
+              <span className="text-[0.84375rem] font-semibold leading-snug text-pretty" style={{ color: "var(--hh-ink-soft)" }}>{planSummary}.</span>
             </div>
 
             {sweepEligible && (
               <div className="mt-4">
                 {loadingCtx ? (
-                  <div className="text-[13px]" style={{ color: FAINT }}>Looking for similar tasks…</div>
+                  <div className="text-[0.8125rem]" style={{ color: FAINT }}>Looking for similar tasks…</div>
                 ) : (ctx?.similar.length ?? 0) > 0 ? (
                   <>
-                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>
+                    <div className="mb-2 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>
                       Also apply to similar tasks
                     </div>
                     <div className="flex flex-col gap-1.5">
@@ -496,14 +496,14 @@ export function TaskFeedbackSheet({
                             <span className="flex size-[20px] shrink-0 items-center justify-center rounded-[6px]" style={{ border: on ? "none" : "1.5px solid var(--hh-line2)", background: on ? "var(--hh-teal-fill)" : "transparent" }}>
                               {on && <CheckIcon className="size-[13px] text-white" strokeWidth={3} />}
                             </span>
-                            <span className="text-[13.5px] font-semibold" style={{ color: INK }}>{s.title}</span>
+                            <span className="text-[0.84375rem] font-semibold" style={{ color: INK }}>{s.title}</span>
                           </button>
                         )
                       })}
                     </div>
                   </>
                 ) : (
-                  <div className="text-[13px]" style={{ color: FAINT }}>No similar tasks — this applies to just this one.</div>
+                  <div className="text-[0.8125rem]" style={{ color: FAINT }}>No similar tasks — this applies to just this one.</div>
                 )}
               </div>
             )}
@@ -518,30 +518,30 @@ export function TaskFeedbackSheet({
                 <span className="flex size-[20px] shrink-0 items-center justify-center rounded-[6px]" style={{ border: freezeFree ? "none" : "1.5px solid var(--hh-line2)", background: freezeFree ? "var(--hh-teal-fill)" : "transparent" }}>
                   {freezeFree && <CheckIcon className="size-[13px] text-white" strokeWidth={3} />}
                 </span>
-                <span className="text-[13px] font-semibold leading-snug" style={{ color: INK }}>My home doesn't freeze — skip winterizing on future scans too</span>
+                <span className="text-[0.8125rem] font-semibold leading-snug" style={{ color: INK }}>My home doesn't freeze — skip winterizing on future scans too</span>
               </button>
             )}
 
             <div className="mt-4">
-              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>Add a note (optional)</div>
+              <div className="mb-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>Add a note (optional)</div>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
                 placeholder="e.g. we're in a mild climate"
-                className="w-full resize-none rounded-xl px-3 py-2.5 text-[14px]"
+                className="w-full resize-none rounded-xl px-3 py-2.5 text-[0.875rem]"
                 style={{ border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
               />
             </div>
 
-            {error && <p className="mt-3 text-[13px] font-semibold" style={{ color: CLAY }}>{error}</p>}
+            {error && <p className="mt-3 text-[0.8125rem] font-semibold" style={{ color: CLAY }}>{error}</p>}
 
             <div className="mt-5 flex gap-2.5">
-              <button onClick={() => { setStep("choose"); setError(null) }} className="rounded-[14px] px-4 py-3.5 text-[14px] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>Back</button>
+              <button onClick={() => { setStep("choose"); setError(null) }} className="rounded-[14px] px-4 py-3.5 text-[0.875rem] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>Back</button>
               <button
                 disabled={submitting || loadingCtx}
                 onClick={apply}
-                className="flex-1 rounded-[14px] py-3.5 text-[15px] font-bold text-white disabled:opacity-50"
+                className="flex-1 rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white disabled:opacity-50"
                 style={{ background: "var(--hh-teal-fill)" }}
               >
                 {submitting ? "Applying…" : `Apply${affectedCount > 1 ? ` to ${affectedCount} tasks` : ""}`}
@@ -559,7 +559,7 @@ export function TaskFeedbackSheet({
 function SubPicker({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mt-4">
-      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</div>
+      <div className="mb-2 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</div>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   )

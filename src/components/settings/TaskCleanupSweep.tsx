@@ -145,7 +145,7 @@ export function TaskCleanupSweep({ homeId }: { homeId: string }) {
                     <p className="text-xs font-semibold text-foreground">
                       {group.label} <span className="font-normal text-muted-foreground">({rows.length})</span>
                     </p>
-                    <p className="mb-1.5 text-[11px] leading-snug text-muted-foreground">{group.hint}</p>
+                    <p className="mb-1.5 text-[0.75rem] leading-snug text-muted-foreground">{group.hint}</p>
                     <ul className="space-y-1.5">
                       {rows.map((p) => {
                         const key = proposalKey(p)
@@ -164,7 +164,7 @@ export function TaskCleanupSweep({ homeId }: { homeId: string }) {
                                 <>
                                   <span className="font-medium text-foreground">Keep “{p.keepTitle}”</span>
                                   <span className="text-muted-foreground">, remove “{p.dropTitle}”</span>
-                                  <span className="ml-1 text-[10px] text-muted-foreground">
+                                  <span className="ml-1 text-[0.75rem] text-muted-foreground">
                                     ({Math.round(p.similarity * 100)}% similar)
                                   </span>
                                 </>
@@ -172,23 +172,23 @@ export function TaskCleanupSweep({ homeId }: { homeId: string }) {
                                 <>
                                   <span className="font-medium text-foreground">{p.title}</span>
                                   {p.kind === "reclassify" && (
-                                    <span className="ml-1 text-[10px] text-muted-foreground">
+                                    <span className="ml-1 text-[0.75rem] text-muted-foreground">
                                       {p.from} → {p.to}
                                     </span>
                                   )}
                                 </>
                               )}
                               {p.itemName && (
-                                <span className="ml-1 text-[10px] text-muted-foreground">· {p.itemName}</span>
+                                <span className="ml-1 text-[0.75rem] text-muted-foreground">· {p.itemName}</span>
                               )}
                               {p.kind === "to_tip" && (
-                                <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                                <span className="mt-0.5 block text-[0.75rem] leading-snug text-muted-foreground">
                                   {p.tipContent}
                                 </span>
                               )}
                             </label>
                             {p.kind === "retier" && on && (
-                              <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-muted-foreground">
+                              <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[0.75rem] text-muted-foreground">
                                 <input
                                   type="checkbox"
                                   checked={promote.has(p.taskTemplateId)}
@@ -207,7 +207,7 @@ export function TaskCleanupSweep({ homeId }: { homeId: string }) {
               })}
 
               {plan.skippedUserOverridden.length > 0 && (
-                <p className="mb-2 text-[11px] text-muted-foreground">
+                <p className="mb-2 text-[0.75rem] text-muted-foreground">
                   {plan.skippedUserOverridden.length} task
                   {plan.skippedUserOverridden.length === 1 ? "" : "s"} left untouched — you either edited them
                   by hand or have completed them before.

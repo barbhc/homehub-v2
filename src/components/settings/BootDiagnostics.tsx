@@ -52,12 +52,12 @@ export function BootDiagnostics() {
       {open && (
         <div className="border-t border-border px-4 py-3.5">
           {!t ? (
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[0.8125rem] text-muted-foreground">
               No cold start recorded yet. Fully quit the app and reopen it, then come back here.
             </p>
           ) : (
             <>
-              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-muted-foreground">
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[0.75rem] text-muted-foreground">
                 <span>ttfb {t.ttfb ?? "?"}ms</span>
                 <span>dom {t.domInteractive ?? "?"}ms</span>
                 <span>net {t.conn}</span>
@@ -69,7 +69,7 @@ export function BootDiagnostics() {
                     biggest single number on this screen. */}
                 {nativeMs != null && (
                   <div className="flex items-center gap-2">
-                    <span className="w-[168px] shrink-0 text-[12px] text-foreground">
+                    <span className="w-[168px] shrink-0 text-[0.75rem] text-foreground">
                       App launch (before web)
                     </span>
                     <span
@@ -79,7 +79,7 @@ export function BootDiagnostics() {
                         background: nativeMs > webTotal ? "var(--hh-clay)" : "var(--hh-teal)",
                       }}
                     />
-                    <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground">
+                    <span className="ml-auto shrink-0 font-mono text-[0.75rem] text-muted-foreground">
                       +{nativeMs}ms
                     </span>
                   </div>
@@ -89,7 +89,7 @@ export function BootDiagnostics() {
                   const isWorst = worst && p.phase === worst.phase && p.delta > 0
                   return (
                     <div key={p.phase} className="flex items-center gap-2">
-                      <span className="w-[168px] shrink-0 text-[12px] text-foreground">
+                      <span className="w-[168px] shrink-0 text-[0.75rem] text-foreground">
                         {LABEL[p.phase] ?? p.phase}
                       </span>
                       <span
@@ -99,7 +99,7 @@ export function BootDiagnostics() {
                           background: isWorst ? "var(--hh-clay)" : "var(--hh-teal)",
                         }}
                       />
-                      <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground">
+                      <span className="ml-auto shrink-0 font-mono text-[0.75rem] text-muted-foreground">
                         +{p.delta}ms
                       </span>
                     </div>
@@ -108,7 +108,7 @@ export function BootDiagnostics() {
               </div>
 
               {worst && (
-                <p className="mt-3 text-[12px] text-muted-foreground">
+                <p className="mt-3 text-[0.75rem] text-muted-foreground">
                   Slowest step:{" "}
                   <b className="text-foreground">
                     {nativeMs != null && nativeMs > worst.delta
@@ -119,13 +119,13 @@ export function BootDiagnostics() {
                 </p>
               )}
               {nativeMs == null && t.native !== "web" && (
-                <p className="mt-2 text-[12px] text-muted-foreground">
+                <p className="mt-2 text-[0.75rem] text-muted-foreground">
                   Only the web half is measured here. The app-launch segment needs a newer
                   TestFlight build to report itself.
                 </p>
               )}
               {!t.complete && (
-                <p className="mt-2 text-[12px] font-semibold" style={{ color: "var(--hh-clay)" }}>
+                <p className="mt-2 text-[0.75rem] font-semibold" style={{ color: "var(--hh-clay)" }}>
                   This boot never finished loading — it stopped after “{LABEL[t.phases.at(-1)?.phase ?? ""] ?? "start"}”.
                 </p>
               )}
@@ -134,17 +134,17 @@ export function BootDiagnostics() {
                   is already usable. Saying so beats leaving a silent gap in the
                   list that reads like a failure. */}
               {t.complete && !t.phases.some((p) => p.phase === "dash:core") && (
-                <p className="mt-2 text-[12px] text-muted-foreground">
+                <p className="mt-2 text-[0.75rem] text-muted-foreground">
                   Home painted from the saved snapshot; the refresh from the server was still
                   in flight when this was recorded.
                 </p>
               )}
               {t.extrasAt != null && (
-                <p className="mt-2 text-[12px] text-muted-foreground">
+                <p className="mt-2 text-[0.75rem] text-muted-foreground">
                   Supplementary data landed at {t.extrasAt}ms — in parallel, after Home was already usable.
                 </p>
               )}
-              <p className="mt-2 text-[11px] text-muted-foreground">
+              <p className="mt-2 text-[0.75rem] text-muted-foreground">
                 Recorded {new Date(t.at).toLocaleString()}. Screenshot this.
               </p>
             </>

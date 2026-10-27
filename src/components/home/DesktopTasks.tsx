@@ -46,7 +46,7 @@ function DkDetail({
     <div className="grid items-start gap-7" style={{ gridTemplateColumns: "1.5fr 1fr", padding: "4px 20px 20px 56px" }}>
       <div className="flex flex-col gap-3.5">
         {loading ? (
-          <div className="text-[13.5px]" style={{ color: FAINT }}>Loading…</div>
+          <div className="text-[0.84375rem]" style={{ color: FAINT }}>Loading…</div>
         ) : (
           <>
             {detail?.justification && <InfoBlurb text={detail.justification} />}
@@ -55,7 +55,7 @@ function DkDetail({
               {detail?.notes && <StepList steps={parseSteps(detail.notes)} />}
             </StepsOrProNotice>
             {actor === "diy" && !detail?.justification && !detail?.notes && (
-              <div className="text-[13.5px]" style={{ color: FAINT }}>No extra details yet.</div>
+              <div className="text-[0.84375rem]" style={{ color: FAINT }}>No extra details yet.</div>
             )}
           </>
         )}
@@ -65,7 +65,7 @@ function DkDetail({
           <button
             type="button"
             onClick={onDone}
-            className="flex flex-1 items-center justify-center gap-2 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white"
+            className="flex flex-1 items-center justify-center gap-2 rounded-[11px] py-2.5 text-[0.84375rem] font-bold text-white"
             style={{ background: "var(--hh-teal-fill)" }}
           >
             <CheckIcon className="size-4" strokeWidth={2.6} /> Mark done
@@ -73,7 +73,7 @@ function DkDetail({
           <button
             type="button"
             onClick={onSnooze}
-            className="rounded-[11px] px-4 py-2.5 text-[13.5px] font-bold"
+            className="rounded-[11px] px-4 py-2.5 text-[0.84375rem] font-bold"
             style={{ border: `1.5px solid ${LINE}`, background: SURFACE, color: INK }}
           >
             Snooze
@@ -82,7 +82,7 @@ function DkDetail({
         <button
           type="button"
           onClick={onOpenGuide}
-          className="self-start text-[13px] font-semibold underline-offset-2 hover:underline"
+          className="self-start text-[0.8125rem] font-semibold underline-offset-2 hover:underline"
           style={{ color: TEAL }}
         >
           View full guide
@@ -126,19 +126,19 @@ function DkRow({
           </span>
         </button>
         <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-semibold leading-snug tracking-[-0.2px]" style={{ color: INK }}>{t.title}</div>
+          <div className="text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px]" style={{ color: INK }}>{t.title}</div>
           <div className="mt-1 flex items-center gap-2">
-            <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
+            <span className="rounded-full px-2.5 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
             {t.isOverdue && <span className="size-[5px] rounded-full" style={{ background: CLAY }} />}
-            <span className="text-[13px]" style={{ color: SUB }}>{where}</span>
+            <span className="text-[0.8125rem]" style={{ color: SUB }}>{where}</span>
           </div>
         </div>
         {/* Blank, not removed, when it would only repeat the group's header
             (HH-165) — the minutes column stays aligned down the card. */}
-        <span className="w-[88px] text-right text-[13px] font-semibold" style={{ color: t.isOverdue ? CLAY : SUB }}>
+        <span className="w-[88px] text-right text-[0.8125rem] font-semibold" style={{ color: t.isOverdue ? CLAY : SUB }}>
           {phraseUnderGroup(whenLabel(t), groupLabel) ?? ""}
         </span>
-        <span className="w-12 text-right text-[13px] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes != null ? `${t.estimatedMinutes} min` : ""}</span>
+        <span className="w-12 text-right text-[0.8125rem] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes != null ? `${t.estimatedMinutes} min` : ""}</span>
         {expanded
           ? <ChevronUpIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />
           : <ChevronDownIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />}
@@ -147,7 +147,7 @@ function DkRow({
           the page header it scrolled away above a long list: a failure on a
           lower row put nothing readable in the viewport. */}
       {error && (
-        <div role="alert" className="-mt-1.5 pb-3 pl-[56px] pr-5 text-[13.5px] font-medium" style={{ color: CLAY }}>
+        <div role="alert" className="-mt-1.5 pb-3 pl-[56px] pr-5 text-[0.84375rem] font-medium" style={{ color: CLAY }}>
           {error}
         </div>
       )}
@@ -176,10 +176,10 @@ function DkCalendar({
   const cal = useMemo(() => monthCalendar(tasks), [tasks])
   return (
     <div>
-      <div className="mb-3 text-[15px] font-extrabold" style={{ color: INK }}>{cal.monthLabel}</div>
+      <div className="mb-3 text-[0.9375rem] font-extrabold" style={{ color: INK }}>{cal.monthLabel}</div>
       <div className="grid grid-cols-7 gap-1">
         {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
-          <div key={i} className="py-0.5 text-center text-[10.5px] font-bold" style={{ color: FAINT }}>{w}</div>
+          <div key={i} className="py-0.5 text-center text-[0.75rem] font-bold" style={{ color: FAINT }}>{w}</div>
         ))}
         {cal.cells.map((c, i) => {
           if (!c) return <div key={i} />
@@ -191,7 +191,7 @@ function DkCalendar({
               key={i}
               type="button"
               onClick={() => setSel(on ? null : c.day)}
-              className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[12.5px] ${on ? SELECTED_DAY_RING : ""}`}
+              className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[0.78125rem] ${on ? SELECTED_DAY_RING : ""}`}
               style={{
                 background: on ? "var(--hh-teal-fill)" : isToday ? "var(--hh-teal-wash)" : "transparent",
                 color: on ? "var(--hh-on-fill)" : INK,
@@ -222,7 +222,7 @@ function TierPill({ active, color, onClick, children, dot, count }: {
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-bold"
+      className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[0.8125rem] font-bold"
       // Active = the tone's FILL, not the tone: the text tones brighten in dark
       // and white on them fell to 2.27–2.70:1. Every fill holds white at AA.
       style={{ border: `1.5px solid ${active ? "transparent" : LINE}`, background: active ? fillFor(color) : SURFACE, color: active ? "var(--hh-on-fill)" : INK }}
@@ -235,7 +235,7 @@ function TierPill({ active, color, onClick, children, dot, count }: {
           white on the dark teal fill is itself only 4.51 — no softer colour
           fits, so the count is white like its label. */}
       {count != null && (
-        <span className="font-mono text-[11px]" style={{ color: active ? "var(--hh-on-fill)" : "var(--hh-sub)" }}>{count}</span>
+        <span className="font-mono text-[0.75rem]" style={{ color: active ? "var(--hh-on-fill)" : "var(--hh-sub)" }}>{count}</span>
       )}
     </button>
   )
@@ -288,8 +288,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
       {/* Header */}
       <div className="mb-[22px] flex items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>This week</h1>
-          <div className="mt-1.5 text-[14px]" style={{ color: SUB }}>
+          <h1 className="text-[1.875rem] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>This week</h1>
+          <div className="mt-1.5 text-[0.875rem]" style={{ color: SUB }}>
             {/* A failed first read says nothing here — "Nothing due" about tasks
                 we never read would be a confident wrong answer. An empty list
                 with cleaning scheduled says where it went (HH-94), in the same
@@ -305,7 +305,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
         <button
           type="button"
           onClick={() => navigate("/chat")}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-bold"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-[0.875rem] font-bold"
           style={{ border: `1.5px solid ${LINE}`, background: SURFACE, color: INK }}
         >
           <SparklesIcon className="size-[17px]" style={{ color: TEAL }} /> Ask Homehub
@@ -323,8 +323,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
             <FlagIcon className="size-5" style={{ color: "var(--hh-on-fill)" }} strokeWidth={2.4} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="mb-0.5 text-[10.5px] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</div>
-            <div className="text-[14.5px] font-semibold" style={{ color: INK }}>{insight.text}</div>
+            <div className="mb-0.5 text-[0.6875rem] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</div>
+            <div className="text-[0.90625rem] font-semibold" style={{ color: INK }}>{insight.text}</div>
           </div>
           <button type="button" onClick={() => setDismissed(true)} aria-label="Dismiss" className="flex shrink-0 p-2">
             <XIcon className="size-[18px]" style={{ color: FAINT }} />
@@ -347,7 +347,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                 type="button"
                 aria-pressed={on}
                 onClick={() => setLens(k)}
-                className="relative rounded-t-lg px-3 pb-2.5 pt-1 text-[14px] font-bold capitalize"
+                className="relative rounded-t-lg px-3 pb-2.5 pt-1 text-[0.875rem] font-bold capitalize"
                 style={{ color: on ? INK : SUB }}
               >
                 {k}
@@ -377,7 +377,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
       <div className="grid items-start gap-7" style={{ gridTemplateColumns: "minmax(0,1fr) 340px" }}>
         <div className="flex flex-col gap-[26px]">
           {loading ? (
-            <div className="py-16 text-center text-[15px]" style={{ color: SUB }}>Loading…</div>
+            <div className="py-16 text-center text-[0.9375rem]" style={{ color: SUB }}>Loading…</div>
           ) : loadFailed ? (
             <LoadErrorState
               title="Couldn't load your tasks"
@@ -392,28 +392,28 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
               {groups.length === 0 && tier !== "all" && (
                 tier === "focus" && totalAll > 0 ? (
                   <div className="py-16 text-center">
-                    <div className="text-[15px] font-semibold" style={{ color: INK }}>You're all caught up on the essentials.</div>
+                    <div className="text-[0.9375rem] font-semibold" style={{ color: INK }}>You're all caught up on the essentials.</div>
                     <button
                       type="button"
                       onClick={() => setTier("all")}
-                      className="mt-2 text-[13.5px] font-bold"
+                      className="mt-2 text-[0.84375rem] font-bold"
                       style={{ color: TEAL }}
                     >
                       Show {totalAll} {totalAll === 1 ? "other task" : "other tasks"} →
                     </button>
                   </div>
                 ) : (
-                  <div className="py-16 text-center text-[15px]" style={{ color: SUB }}>Nothing matches these filters.</div>
+                  <div className="py-16 text-center text-[0.9375rem]" style={{ color: SUB }}>Nothing matches these filters.</div>
                 )
               )}
               {groups.map((g) => (
                 <div key={g.key}>
                   <div className="mb-3 flex items-center gap-2.5 pl-0.5">
                     <span className="size-[9px] rounded-full" style={{ background: g.tone }} />
-                    <span className="text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{g.label}</span>
-                    <span className="text-[13.5px] font-bold" style={{ color: g.tone === CLAY ? CLAY : FAINT }}>{g.items.length}</span>
+                    <span className="text-[1rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{g.label}</span>
+                    <span className="text-[0.84375rem] font-bold" style={{ color: g.tone === CLAY ? CLAY : FAINT }}>{g.items.length}</span>
                     <div className="flex-1" />
-                    {g.mins > 0 && <span className="text-[13px] font-semibold" style={{ color: FAINT }}>{g.mins} min</span>}
+                    {g.mins > 0 && <span className="text-[0.8125rem] font-semibold" style={{ color: FAINT }}>{g.mins} min</span>}
                   </div>
                   <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
                     {g.items.map((t, i) => (
@@ -436,7 +436,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
               ))}
               {/* HH-94 — the phone's footer, in the phone's words: a list with
                   tasks on it still says where the withheld cleaning lives. */}
-              {totalAll > 0 && <HiddenCleaningLink count={hiddenCleaning} className="block pl-0.5 text-[13px]" />}
+              {totalAll > 0 && <HiddenCleaningLink count={hiddenCleaning} className="block pl-0.5 text-[0.8125rem]" />}
               {/* The care library's standing group: ONCE, after every group —
                   where the phone puts it. It was nested inside the groups.map,
                   so it rendered inside every group's card. */}
@@ -444,14 +444,14 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                 <div data-testid="suggested-group">
                   <div className="mb-3 flex items-center gap-2.5 pl-0.5">
                     <span className="size-[9px] rounded-full" style={{ background: "var(--hh-gold)" }} />
-                    <span className="text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: "var(--hh-gold)" }}>Suggested</span>
-                    <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
+                    <span className="text-[1rem] font-extrabold tracking-[-0.3px]" style={{ color: "var(--hh-gold)" }}>Suggested</span>
+                    <span className="text-[0.84375rem] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
                     <div className="flex-1" />
-                    <span className="text-[12.5px]" style={{ color: FAINT }}>typical for your home</span>
+                    <span className="text-[0.78125rem]" style={{ color: FAINT }}>typical for your home</span>
                   </div>
                   <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
                     {care.error ? (
-                      <div role="alert" className="flex items-center gap-3 px-4 py-3 text-[13px]" style={{ color: CLAY }}>
+                      <div role="alert" className="flex items-center gap-3 px-4 py-3 text-[0.8125rem]" style={{ color: CLAY }}>
                         <span className="flex-1">Couldn&apos;t load suggestions: {care.error}</span>
                         <button type="button" onClick={care.reload} className="hit-44 font-bold" style={{ color: TEAL }}>Try again</button>
                       </div>
@@ -471,11 +471,11 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
             <DkCalendar tasks={all} sel={selDay} setSel={setSelDay} />
           </div>
           <div className="rounded-2xl p-[18px] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
-            <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>
+            <div className="mb-3 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>
               {selDay ? `Due ${dayLabel(selDay)}` : "Pick a date"}
             </div>
-            {selDay == null && <div className="text-[13px] leading-relaxed" style={{ color: FAINT }}>Tap a date on the calendar to see exactly what's due — dots show task priority.</div>}
-            {dayTasks && dayTasks.length === 0 && <div className="text-[13px]" style={{ color: FAINT }}>Nothing due {dayLabel(selDay!)}.</div>}
+            {selDay == null && <div className="text-[0.8125rem] leading-relaxed" style={{ color: FAINT }}>Tap a date on the calendar to see exactly what's due — dots show task priority.</div>}
+            {dayTasks && dayTasks.length === 0 && <div className="text-[0.8125rem]" style={{ color: FAINT }}>Nothing due {dayLabel(selDay!)}.</div>}
             {dayTasks?.map((t, i) => {
               const tr = (t.priorityTier as Tier) ?? "optional"
               return (
@@ -487,8 +487,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                   style={{ borderTop: i ? `1px solid ${LINE}` : "none" }}
                 >
                   <span className="size-[7px] shrink-0 rounded-full" style={{ background: TIER[tr].dot }} />
-                  <span className="flex-1 truncate text-[13px] font-semibold" style={{ color: INK }}>{t.title}</span>
-                  {t.estimatedMinutes != null && <span className="text-[12px]" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>}
+                  <span className="flex-1 truncate text-[0.8125rem] font-semibold" style={{ color: INK }}>{t.title}</span>
+                  {t.estimatedMinutes != null && <span className="text-[0.75rem]" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>}
                 </button>
               )
             })}

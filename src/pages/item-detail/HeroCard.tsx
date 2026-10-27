@@ -395,7 +395,7 @@ export function HeroCard({
               <button
                 type="button"
                 onClick={() => setPhotoSearchOpen(true)}
-                className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors min-h-11 px-3"
+                className="text-[0.75rem] text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors min-h-11 px-3"
               >
                 <SearchIcon className="size-3" />
                 Find photo
@@ -440,7 +440,7 @@ export function HeroCard({
           )}
 
           {/* Brand · Model inline */}
-          <div className="flex items-center gap-1 text-[12px] text-muted-foreground mt-1 truncate">
+          <div className="flex items-center gap-1 text-[0.75rem] text-muted-foreground mt-1 truncate">
             {item.brand && <span>{item.brand}</span>}
             {item.brand && item.model && <span className="text-muted-foreground">·</span>}
             {item.model && <span>{item.model}</span>}
@@ -450,7 +450,7 @@ export function HeroCard({
           <button
             type="button"
             className={cn(
-              "text-[11px] text-muted-foreground hover:text-foreground mt-1.5 flex items-center gap-1 min-h-11 -ml-1 px-1",
+              "text-[0.75rem] text-muted-foreground hover:text-foreground mt-1.5 flex items-center gap-1 min-h-11 -ml-1 px-1",
               sidebarMode && "lg:hidden"
             )}
             onClick={() => setDetailsOpen((o) => !o)}
@@ -652,7 +652,7 @@ export function HeroCard({
 
           {/* Warranty section */}
           <div className="border-t border-[var(--hh-line2)] pt-2.5 mt-2">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Warranty</span>
+            <span className="text-[0.6875rem] font-semibold text-muted-foreground uppercase tracking-wider">Warranty</span>
             <div className="mt-1.5 space-y-1.5">
               <EditableRow
                 field="warranty_expiry_date"

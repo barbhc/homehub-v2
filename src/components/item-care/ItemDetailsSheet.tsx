@@ -150,7 +150,7 @@ export function ItemDetailsSheet({
             <Label htmlFor="details-name">Name</Label>
             <Input id="details-name" value={name} onChange={(e) => setName(e.target.value)}
               placeholder="What you call it" maxLength={255} className="mt-1" />
-            <p className="mt-1 text-[11.5px] text-muted-foreground">
+            <p className="mt-1 text-[0.75rem] text-muted-foreground">
               Call it whatever you recognise. You can change this any time.
             </p>
           </div>
@@ -192,7 +192,7 @@ export function ItemDetailsSheet({
             </Select>
             {/* Say what the two fields buy them, at the moment they'd decide to
                 skip both. */}
-            <p className="mt-1 text-[11.5px] text-muted-foreground">
+            <p className="mt-1 text-[0.75rem] text-muted-foreground">
               With the purchase date, you&apos;ll see when coverage ends.
             </p>
           </div>
@@ -223,8 +223,8 @@ export function ItemDetailsSheet({
           )}
         </div>
 
-        <SheetFooter className="pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          {error && <p className="text-[13px] font-semibold text-destructive">{error}</p>}
+        <SheetFooter className="pb-[calc(16px+env(safe-area-inset-bottom))]">
+          {error && <p className="text-[0.8125rem] font-semibold text-destructive">{error}</p>}
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancel

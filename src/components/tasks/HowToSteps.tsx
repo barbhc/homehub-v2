@@ -45,10 +45,10 @@ export function HowToSteps({
       {cautions.length > 0 && <CautionCallout cautions={cautions} />}
       {hasSupplies && (
         <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>You&apos;ll need</div>
+          <div className="mb-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>You&apos;ll need</div>
           <div className="flex flex-wrap gap-1.5">
             {supplies!.map((s, i) => (
-              <span key={i} className="rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>{s}</span>
+              <span key={i} className="rounded-full px-2.5 py-1 text-[0.78125rem] font-semibold" style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>{s}</span>
             ))}
           </div>
         </div>

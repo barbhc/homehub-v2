@@ -44,7 +44,7 @@ function LoadingStatus({ patienceExpired }: { patienceExpired: boolean }) {
       <span className="sr-only">Loading your home…</span>
       {patienceExpired && (
         <div
-          className="rounded-xl border px-3.5 py-3 text-[13px]"
+          className="rounded-xl border px-3.5 py-3 text-[0.8125rem]"
           style={{ borderColor: LINE, background: SURFACE, color: SUB }}
         >
           Still setting up your home — this can take a moment on a first sign-in

@@ -88,7 +88,7 @@ export function InterfaceLevelSection() {
               aria-pressed={active}
               onClick={() => choose(opt.value)}
               className={cn(
-                "flex-1 min-w-[8rem] rounded-lg border px-3 py-2.5 text-left transition-colors",
+                "flex-1 min-w-[128px] rounded-lg border px-3 py-2.5 text-left transition-colors",
                 // Selected was bg-foreground: an ink block in light mode and,
                 // because foreground flips to near-white, a WHITE block in dark.
                 // Teal ring + wash is the app's selected state everywhere else.

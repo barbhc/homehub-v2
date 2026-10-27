@@ -79,9 +79,9 @@ export function TaskEditSheet({
     onSaved()
   }
 
-  const field = "w-full rounded-xl border px-3 py-2.5 text-[15px] outline-none focus:border-[var(--hh-teal)]"
+  const field = "w-full rounded-xl border px-3 py-2.5 text-[0.9375rem] outline-none focus:border-[var(--hh-teal)]"
   const fieldStyle = { borderColor: "var(--hh-line2)", background: "var(--hh-bg)", color: "var(--hh-ink)" }
-  const label = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.5px]"
+  const label = "mb-1.5 block text-[0.6875rem] font-bold uppercase tracking-[0.5px]"
 
   // Portalled to <body>, and explicitly ABOVE the tab bar.
   //
@@ -114,7 +114,7 @@ export function TaskEditSheet({
         <div className="mx-auto mb-4 h-1 w-9 rounded-full lg:hidden" style={{ background: "var(--hh-grab)" }} />
 
         <div className="mb-4 flex items-center gap-3">
-          <h2 className="min-w-0 flex-1 text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: "var(--hh-ink)" }}>
+          <h2 className="min-w-0 flex-1 text-[1.25rem] font-extrabold tracking-[-0.4px]" style={{ color: "var(--hh-ink)" }}>
             Edit task
           </h2>
           <button type="button" onClick={onClose} aria-label="Close" className="hit-44 rounded-full p-1.5" style={{ background: "var(--hh-bg)" }}>
@@ -132,7 +132,7 @@ export function TaskEditSheet({
               style={fieldStyle}
               placeholder="What is this task called?"
             />
-            <p className="mt-1.5 text-[12px]" style={{ color: "var(--hh-faint)" }}>
+            <p className="mt-1.5 text-[0.75rem]" style={{ color: "var(--hh-faint)" }}>
               Applies to this task everywhere, now and in future.
             </p>
           </div>
@@ -146,7 +146,7 @@ export function TaskEditSheet({
               className={field}
               style={fieldStyle}
             />
-            <p className="mt-1.5 text-[12px]" style={{ color: "var(--hh-faint)" }}>
+            <p className="mt-1.5 text-[0.75rem]" style={{ color: "var(--hh-faint)" }}>
               Moves this one occurrence — the repeat schedule stays as it is.
             </p>
           </div>
@@ -181,21 +181,21 @@ export function TaskEditSheet({
               <button
                 type="button"
                 onClick={addStep}
-                className="inline-flex items-center gap-1.5 self-start rounded-xl border border-dashed px-3 py-2 text-[13px] font-bold"
+                className="inline-flex items-center gap-1.5 self-start rounded-xl border border-dashed px-3 py-2 text-[0.8125rem] font-bold"
                 style={{ borderColor: "var(--hh-line2)", color: "var(--hh-teal)" }}
               >
                 <PlusIcon className="size-4" /> Add a step
               </button>
             </div>
             {steps.length === 0 && (
-              <p className="mt-1.5 text-[12px]" style={{ color: "var(--hh-faint)" }}>
+              <p className="mt-1.5 text-[0.75rem]" style={{ color: "var(--hh-faint)" }}>
                 No steps yet — add your own, in your words.
               </p>
             )}
           </div>}
 
           {error && (
-            <p className="text-[13px] font-semibold" style={{ color: "var(--hh-clay)" }}>{error}</p>
+            <p className="text-[0.8125rem] font-semibold" style={{ color: "var(--hh-clay)" }}>{error}</p>
           )}
 
           <div className="flex gap-2.5 pt-1">
@@ -203,7 +203,7 @@ export function TaskEditSheet({
               type="button"
               onClick={() => void save()}
               disabled={!dirty || saving}
-              className="flex-1 rounded-xl py-3 text-[15px] font-bold text-white disabled:opacity-40"
+              className="flex-1 rounded-xl py-3 text-[0.9375rem] font-bold text-white disabled:opacity-40"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {saving ? "Saving…" : "Save changes"}
@@ -211,7 +211,7 @@ export function TaskEditSheet({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border px-4 py-3 text-[15px] font-semibold"
+              className="rounded-xl border px-4 py-3 text-[0.9375rem] font-semibold"
               style={{ borderColor: "var(--hh-line2)", color: "var(--hh-sub)" }}
             >
               Cancel

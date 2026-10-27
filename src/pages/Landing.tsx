@@ -34,7 +34,7 @@ function TopBar({ onSignIn }: { onSignIn: () => void }) {
         <div className="flex items-center justify-center" style={{ width: 30, height: 30, borderRadius: 9, background: "var(--hh-mark)" }}>
           <HouseIcon size={17} strokeWidth={2} className="text-white" />
         </div>
-        <span className="text-[17px] font-extrabold tracking-[-0.3px] text-white">Homehub</span>
+        <span className="text-[1.0625rem] font-extrabold tracking-[-0.3px] text-white">Homehub</span>
       </div>
       <button onClick={onSignIn} className="hit-44 text-sm font-bold text-white/85">Sign in</button>
     </div>
@@ -55,10 +55,10 @@ function SignupRow({ cta = "Get started", onGo, alignLeftLg }: { cta?: string; o
         <input
           type="email" value={email} onChange={(e) => setEmail(e.target.value)}
           placeholder="you@email.com" autoComplete="email"
-          className="flex-1 min-w-0 border-none outline-none bg-transparent py-[14px] text-[15px] text-white placeholder:text-white/45"
+          className="flex-1 min-w-0 border-none outline-none bg-transparent py-[14px] text-[0.9375rem] text-white placeholder:text-white/45"
         />
       </div>
-      <button type="submit" className="shrink-0 rounded-[13px] px-5 h-[50px] text-[15px] font-bold text-white" style={{ background: TEAL_FILL }}>
+      <button type="submit" className="shrink-0 rounded-[13px] px-5 h-[50px] text-[0.9375rem] font-bold text-white" style={{ background: TEAL_FILL }}>
         {cta}
       </button>
     </form>
@@ -76,21 +76,21 @@ function PhoneMock() {
             <div style={{ width: 62, height: 9, borderRadius: 4, background: INK }} />
             <div className="flex gap-[3px]">{[0, 1, 2].map((i) => <div key={i} style={{ width: 5, height: 9, borderRadius: 1, background: "var(--hh-icon-faint)" }} />)}</div>
           </div>
-          <div className="text-[10px] font-bold tracking-[0.4px]" style={{ color: TEAL }}>TUESDAY</div>
-          <div className="text-[20px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>Good morning, Barb</div>
+          <div className="text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: TEAL }}>TUESDAY</div>
+          <div className="text-[1.25rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>Good morning, Barb</div>
         </div>
         <div className="mx-[17px] my-3.5 p-3.5" style={{ background: "var(--hh-surface)", borderRadius: 18, boxShadow: "0 6px 18px rgba(11,26,22,0.08)" }}>
           <div className="flex justify-between mb-2.5">
-            <span className="text-[9px] font-bold tracking-[0.3px] px-2 py-1 rounded-full" style={{ color: "var(--hh-clay)", background: "var(--hh-clay-soft)" }}>ESSENTIAL</span>
-            <span className="text-[9.5px] font-bold" style={{ color: TEAL }}>Today · 2 min</span>
+            <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px] px-2 py-1 rounded-full" style={{ color: "var(--hh-clay)", background: "var(--hh-clay-soft)" }}>ESSENTIAL</span>
+            <span className="text-[0.75rem] font-bold" style={{ color: TEAL }}>Today · 2 min</span>
           </div>
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center shrink-0" style={{ width: 38, height: 38, borderRadius: 12, background: "var(--hh-teal-wash)" }}>
               <WindIcon size={19} style={{ color: TEAL }} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Replace the HVAC filter</div>
-              <div className="text-[10.5px] mt-0.5" style={{ color: SUB }}>Furnace &amp; A/C · Utility</div>
+              <div className="text-[0.875rem] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Replace the HVAC filter</div>
+              <div className="text-[0.75rem] mt-0.5" style={{ color: SUB }}>Furnace &amp; A/C · Utility</div>
             </div>
             <div className="shrink-0" style={{ width: 24, height: 24, borderRadius: 12, border: `2px solid ${TEAL}` }} />
           </div>
@@ -104,8 +104,8 @@ function PhoneMock() {
               <div className="flex items-center justify-center shrink-0" style={{ width: 29, height: 29, borderRadius: 9, background: "var(--hh-surface2)" }}>
                 <Icon size={14} style={{ color: TEAL }} />
               </div>
-              <div className="flex-1 text-[12.5px] font-semibold" style={{ color: INK }}>{t}</div>
-              <div className="text-[10px] font-semibold" style={{ color: "var(--hh-faint)" }}>{w}</div>
+              <div className="flex-1 text-[0.78125rem] font-semibold" style={{ color: INK }}>{t}</div>
+              <div className="text-[0.75rem] font-semibold" style={{ color: "var(--hh-faint)" }}>{w}</div>
             </div>
           ))}
         </div>
@@ -139,10 +139,12 @@ export default function Landing() {
           <TopBar onSignIn={() => navigate("/signin")} />
           <div className="px-6 pt-[34px] pb-10 lg:px-0 lg:pt-14 lg:pb-20 lg:flex lg:items-center lg:gap-12">
             <div className="text-center lg:text-left lg:flex-1">
-              <h1 className="text-[38px] lg:text-[52px] font-extrabold leading-[1.1] tracking-[-1px] text-balance">
+              {/* Larger Text: the headline grows at most 1.5x — titles grow less
+                  than body text on iOS, and "Everything" must still fit a phone. */}
+              <h1 className="text-[length:min(2.375rem,57px)] lg:text-[length:min(3.25rem,78px)] font-extrabold leading-[1.1] tracking-[-1px] text-balance">
                 Everything your home needs, in one place.
               </h1>
-              <p className="text-[16.5px] lg:text-[18px] leading-[1.5] mt-4 mb-6 max-w-[340px] lg:max-w-[420px] mx-auto lg:mx-0" style={{ color: "rgba(255,255,255,0.78)" }}>
+              <p className="text-[1.03125rem] lg:text-[1.125rem] leading-[1.5] mt-4 mb-6 max-w-[340px] lg:max-w-[420px] mx-auto lg:mx-0" style={{ color: "rgba(255,255,255,0.78)" }}>
                 Items, manuals, warranties, maintenance and a built-in assistant — organized to effortlessly care for your home.
               </p>
               <SignupRow onGo={goSignup} alignLeftLg />
@@ -158,7 +160,7 @@ export default function Landing() {
       <section style={{ background: "var(--hh-surface2)" }}>
         <div className="mx-auto max-w-[480px] lg:max-w-[1000px] px-6 lg:px-8">
           <div className="pt-7 lg:pt-16 pb-1.5 lg:pb-6 text-center">
-            <h2 className="text-[26px] lg:text-[32px] font-extrabold tracking-[-0.6px]">Built around your home</h2>
+            <h2 className="text-[1.625rem] lg:text-[2rem] font-extrabold tracking-[-0.6px]">Built around your home</h2>
           </div>
           <div className="lg:grid lg:grid-cols-2 lg:gap-x-14 lg:gap-y-2">
             {FEATURES.map((f, i) => (
@@ -169,9 +171,9 @@ export default function Landing() {
                     <f.Icon size={34} strokeWidth={1.6} style={{ color: TEAL }} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-[11px] font-bold uppercase tracking-[0.5px] mb-1" style={{ color: TEAL }}>{f.kicker}</div>
-                    <div className="text-[18px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{f.t}</div>
-                    <div className="text-[14px] leading-[1.5] mt-1" style={{ color: SUB }}>{f.s}</div>
+                    <div className="text-[0.6875rem] font-bold uppercase tracking-[0.5px] mb-1" style={{ color: TEAL }}>{f.kicker}</div>
+                    <div className="text-[1.125rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{f.t}</div>
+                    <div className="text-[0.875rem] leading-[1.5] mt-1" style={{ color: SUB }}>{f.s}</div>
                   </div>
                 </div>
               </div>
@@ -184,17 +186,17 @@ export default function Landing() {
       {/* ── How it works ── */}
       <section>
         <div className="mx-auto max-w-[480px] lg:max-w-[1000px] px-6 lg:px-8 pt-[34px] lg:pt-16 pb-1.5">
-          <h2 className="text-[26px] lg:text-[32px] font-extrabold tracking-[-0.6px] text-center mb-5 lg:mb-10">Up and running in minutes</h2>
+          <h2 className="text-[1.625rem] lg:text-[2rem] font-extrabold tracking-[-0.6px] text-center mb-5 lg:mb-10">Up and running in minutes</h2>
           <div className="lg:grid lg:grid-cols-3 lg:gap-10">
             {STEPS.map(([n, t, s], i) => (
               <div key={n} className={cn("flex gap-[15px] lg:flex-col lg:items-center lg:gap-3", i === STEPS.length - 1 ? "" : "pb-[18px] lg:pb-0")}>
                 <div className="flex flex-col items-center">
-                  <div className="flex items-center justify-center shrink-0 text-white text-[15px] font-extrabold" style={{ width: 34, height: 34, borderRadius: "50%", background: TEAL_FILL }}>{n}</div>
+                  <div className="flex items-center justify-center shrink-0 text-white text-[0.9375rem] font-extrabold" style={{ width: 34, height: 34, borderRadius: "50%", background: TEAL_FILL }}>{n}</div>
                   {i < STEPS.length - 1 && <div className="flex-1 w-0.5 mt-1 lg:hidden" style={{ background: "var(--hh-line2)" }} />}
                 </div>
                 <div className="pt-1 lg:pt-1 lg:text-center">
-                  <div className="text-[17px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{t}</div>
-                  <div className="text-[14px] leading-[1.5] mt-0.5 lg:max-w-[240px]" style={{ color: SUB }}>{s}</div>
+                  <div className="text-[1.0625rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{t}</div>
+                  <div className="text-[0.875rem] leading-[1.5] mt-0.5 lg:max-w-[240px]" style={{ color: SUB }}>{s}</div>
                 </div>
               </div>
             ))}
@@ -206,13 +208,13 @@ export default function Landing() {
       <section>
         <div className="mx-auto max-w-[480px] lg:max-w-[760px] px-6 lg:px-8 pt-[30px] lg:pt-16 pb-11 lg:pb-20">
           <div className="text-center text-white" style={{ background: "var(--hh-hero-card)", borderRadius: 24, padding: 28 }}>
-            <h2 className="text-[25px] lg:text-[30px] font-extrabold tracking-[-0.5px] mb-2">Create your free account</h2>
-            <p className="text-[14.5px] lg:text-[16px] leading-[1.5] mb-5 lg:max-w-[440px] lg:mx-auto" style={{ color: "rgba(255,255,255,0.74)" }}>
+            <h2 className="text-[1.5625rem] lg:text-[1.875rem] font-extrabold tracking-[-0.5px] mb-2">Create your free account</h2>
+            <p className="text-[0.90625rem] lg:text-[1rem] leading-[1.5] mb-5 lg:max-w-[440px] lg:mx-auto" style={{ color: "rgba(255,255,255,0.74)" }}>
               Start keeping your home in order — add your first item in minutes.
             </p>
             <SignupRow cta="Sign up" onGo={goSignup} />
           </div>
-          <div className="mt-[26px] text-center text-[12.5px]" style={{ color: SUB }}>
+          <div className="mt-[26px] text-center text-[0.78125rem]" style={{ color: SUB }}>
             © Homehub ·{" "}
             <Link to="/privacy" className="underline underline-offset-2">Privacy</Link> ·{" "}
             <Link to="/terms" className="underline underline-offset-2">Terms</Link>

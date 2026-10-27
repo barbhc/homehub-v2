@@ -100,7 +100,7 @@ export function ReviewItemTasksButton({homeId,
           type="button"
           onClick={() => void start()}
           disabled={loading}
-          className="hit-44 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold disabled:opacity-60"
+          className="hit-44 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[0.75rem] font-bold disabled:opacity-60"
           style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
         >
           {loading && <Loader2Icon className="size-3 animate-spin" />}
@@ -116,12 +116,12 @@ export function ReviewItemTasksButton({homeId,
       >
         {loading ? <Loader2Icon className="size-4 animate-spin shrink-0" /> : <SlidersHorizontalIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal)" }} />}
         <span className="min-w-0 flex-1">
-          <span className="block text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>Review these tasks</span>
-          <span className="block text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
+          <span className="block text-[0.84375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>Review these tasks</span>
+          <span className="block text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
             Decide what's scheduled, what reminds you, and what's just a tip.
           </span>
         </span>
-        <span className="text-[11px] font-mono shrink-0" style={{ color: "var(--hh-faint)" }}>{taskCount}</span>
+        <span className="text-[0.75rem] font-mono shrink-0" style={{ color: "var(--hh-faint)" }}>{taskCount}</span>
       </button>
       )}
       {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}

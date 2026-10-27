@@ -207,7 +207,8 @@ describe("round 9 redesign — the picks, pinned", () => {
     const src = read("../components/manuals/TaskReviewSheet.tsx")
     expect(src).toContain("On a schedule?</div>")
     // The old buried strip: 11.5px muted text with the toggle inside it.
-    expect(src).not.toContain('text-[11.5px] text-muted-foreground">\n              <span>\n                {onSched')
+    // (Any size: the strip was 11.5px, now written in rem and floored to 12px.)
+    expect(src).not.toMatch(/text-\[[\d.]+(px|rem)\] text-muted-foreground">\n\s*<span>\n\s*\{onSched/)
   })
 
   it("HH-91: Ask sits below Upkeep and states its precondition", () => {

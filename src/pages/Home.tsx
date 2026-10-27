@@ -47,24 +47,24 @@ function NoUpkeepYetHero() {
   return (
     <div className="rounded-2xl border px-5 py-5 sm:px-6"
       style={{ borderColor: "var(--hh-teal)", background: "var(--hh-teal-wash)" }}>
-      <h2 className="text-[17px] font-extrabold tracking-[-0.015em]" style={{ color: "var(--hh-ink)" }}>
+      <h2 className="text-[1.0625rem] font-extrabold tracking-[-0.015em]" style={{ color: "var(--hh-ink)" }}>
         No upkeep yet — add a manual
       </h2>
-      <p className="mt-1.5 text-[13.5px] leading-snug" style={{ color: "var(--hh-sub)" }}>
+      <p className="mt-1.5 text-[0.84375rem] leading-snug" style={{ color: "var(--hh-sub)" }}>
         Homehub builds a maintenance schedule by reading an item&rsquo;s manual. Your items don&rsquo;t have one
         we could read yet, so there&rsquo;s nothing to show here.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
           to="/inventory"
-          className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold text-white"
+          className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[0.84375rem] font-bold text-white"
           style={{ background: "var(--hh-teal-fill)" }}
         >
           Pick an item &rarr;
         </Link>
         <Link
           to="/inventory/add"
-          className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[13.5px] font-semibold"
+          className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[0.84375rem] font-semibold"
           style={{ borderColor: "var(--hh-line2)", color: "var(--hh-sub)" }}
         >
           Add another item
@@ -88,7 +88,7 @@ function EmptyHomeHero() {
         <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2 leading-tight">
           Let&apos;s set up your home
         </h2>
-        <p className="text-[15px] sm:text-base text-muted-foreground mb-6 leading-relaxed">
+        <p className="text-[0.9375rem] sm:text-base text-muted-foreground mb-6 leading-relaxed">
           {/* HH-77: "fixture" was the least motivating thing we could name to
               someone who has added nothing, and the old line described what we
               PARSE rather than what they get back. Owner picked this wording. */}
@@ -296,10 +296,10 @@ export default function Home() {
         <div className="mx-4 mt-3 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 lg:mx-8"
              style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
           <CloudOffIcon className="size-4 shrink-0" style={{ color: "var(--hh-sub)" }} />
-          <span className="min-w-0 flex-1 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
+          <span className="min-w-0 flex-1 text-[0.78125rem]" style={{ color: "var(--hh-sub)" }}>
             Showing your last saved view — couldn&apos;t reach the server.
           </span>
-          <button type="button" onClick={() => refresh()} className="shrink-0 text-[12.5px] font-bold" style={{ color: "var(--hh-teal)" }}>
+          <button type="button" onClick={() => refresh()} className="shrink-0 text-[0.78125rem] font-bold" style={{ color: "var(--hh-teal)" }}>
             Retry
           </button>
         </div>
@@ -326,7 +326,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setSwitcherOpen(true)}
-                className="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px]"
+                className="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.78125rem]"
                 style={{
                   borderColor: "var(--hh-line)",
                   background: "var(--hh-surface)",

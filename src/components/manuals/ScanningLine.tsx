@@ -36,16 +36,16 @@ export function ScanningLine({ reading }: { reading: ManualReading }) {
   return (
     <div data-testid="reading-line">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[14.5px] font-bold" style={{ color: "var(--hh-ink)" }}>
+        <p className="text-[0.90625rem] font-bold" style={{ color: "var(--hh-ink)" }}>
           Reading the manual
         </p>
         {reading.pages ? (
-          <span className="shrink-0 text-[12px] tabular-nums" style={{ color: "var(--hh-sub)" }}>
+          <span className="shrink-0 text-[0.75rem] tabular-nums" style={{ color: "var(--hh-sub)" }}>
             {reading.pages} pages
           </span>
         ) : null}
       </div>
-      <p className="mt-0.5 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
+      <p className="mt-0.5 text-[0.78125rem]" style={{ color: "var(--hh-sub)" }}>
         {line} {SCAN_KEEPS_GOING_SHORT}
       </p>
       <div

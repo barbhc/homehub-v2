@@ -6,8 +6,12 @@ import { cn } from "@/lib/utils"
 
 // hit-44 (src/index.css): every Button takes a 44pt tap, including the compact
 // md+ sizes an iPad shows to a finger — the hit area grows, the button doesn't.
+// Larger Text (`larger-text:`, only when the iPhone's text size is raised): a
+// text button's fixed height becomes a 44pt floor and its label may wrap, so a
+// grown label stays inside its button instead of spilling out of it or off the
+// screen. Icon-only sizes keep their box.
 const buttonVariants = cva(
-  "hit-44 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "hit-44 larger-text:whitespace-normal inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
@@ -28,10 +32,10 @@ const buttonVariants = cva(
           "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-11 md:h-9 px-4 py-2 has-[>svg]:px-3",
-        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-11 md:h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-11 md:h-10 rounded-md px-6 has-[>svg]:px-4",
+        default: "h-11 md:h-9 larger-text:h-auto larger-text:min-h-11 px-4 py-2 has-[>svg]:px-3",
+        xs: "h-6 larger-text:h-auto larger-text:min-h-6 larger-text:py-0.5 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-11 md:h-8 larger-text:h-auto larger-text:min-h-11 larger-text:py-1.5 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+        lg: "h-11 md:h-10 larger-text:h-auto larger-text:min-h-11 larger-text:py-2 rounded-md px-6 has-[>svg]:px-4",
         icon: "size-11 md:size-9",
         "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-11 md:size-8",

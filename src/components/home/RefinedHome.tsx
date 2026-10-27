@@ -26,7 +26,7 @@ function AskModule({ d }: { d: ReturnType<typeof dens> }) {
     <div className="overflow-hidden rounded-[18px] border border-[var(--hh-line2)] shadow-[0_1px_2px_rgba(15,23,42,0.04)]" style={{ background: "var(--hh-surface)" }}>
       <div className="flex items-center gap-2.5 py-2 pl-4 pr-2">
         <SparklesIcon className="size-[17px] shrink-0" style={{ color: TEAL }} />
-        <Link to="/chat" className="hit-44 flex-1 text-[15px]" style={{ color: "var(--hh-sub)" }}>
+        <Link to="/chat" className="hit-44 flex-1 text-[0.9375rem]" style={{ color: "var(--hh-sub)" }}>
           Ask about your home…
         </Link>
         <button
@@ -60,7 +60,7 @@ function AskModule({ d }: { d: ReturnType<typeof dens> }) {
               className="flex flex-1 flex-col items-center gap-1.5 rounded-xl border-0 bg-[var(--hh-surface2)] py-3 text-center"
             >
               <b.icon className="size-[19px]" style={{ color: TEAL }} />
-              <span className="text-[12.5px] font-semibold" style={{ color: INK }}>{b.label}</span>
+              <span className="text-[0.78125rem] font-semibold" style={{ color: INK }}>{b.label}</span>
             </Link>
           ))}
         </div>
@@ -115,7 +115,7 @@ export function RefinedHome({
       {/* Compact header */}
       <div className="flex items-baseline justify-between px-5 pt-3" style={{ paddingInline: d.pad }}>
         <span className="min-w-0">
-          <span className="block text-[19px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>
+          <span className="block text-[1.1875rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>
             {firstName ? `${greeting()}, ${firstName}` : greeting()}
           </span>
           {/* A tester signed in and found tasks and items he had never added,
@@ -130,7 +130,7 @@ export function RefinedHome({
               <button
                 type="button"
                 onClick={onSelectHome}
-                className="hit-44 mt-0.5 flex max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[12px]"
+                className="hit-44 mt-0.5 flex max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[0.75rem]"
                 style={{ borderColor: LINE, background: "var(--hh-surface)", color: SUB }}
               >
                 <HomeIcon className="size-3 shrink-0" style={{ color: TEAL }} aria-hidden />
@@ -138,10 +138,10 @@ export function RefinedHome({
                 <ChevronDownIcon className="size-3 shrink-0" aria-hidden />
               </button>
             ) : (
-              <span className="block truncate text-[12.5px]" style={{ color: SUB }}>{homeName}</span>
+              <span className="block truncate text-[0.78125rem]" style={{ color: SUB }}>{homeName}</span>
             ))}
         </span>
-        <span className="text-[12.5px] font-semibold" style={{ color: SUB }}>{shortDate(0)}</span>
+        <span className="text-[0.78125rem] font-semibold" style={{ color: SUB }}>{shortDate(0)}</span>
       </div>
 
       <div className="flex flex-1 flex-col px-5 pt-4" style={{ paddingInline: d.pad, gap: d.stack }}>

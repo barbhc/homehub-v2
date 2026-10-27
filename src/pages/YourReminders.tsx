@@ -108,10 +108,10 @@ function PickRow({ title, itemName, onAdd }: { title: string; itemName: string |
   return (
     <div className="flex items-center gap-3 px-3.5 py-2.5">
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[14px] font-medium" style={{ color: INK }}>{title}</span>
-        {itemName && <span className="block truncate text-[12px]" style={{ color: SUB }}>{itemName}</span>}
+        <span className="block truncate text-[0.875rem] font-medium" style={{ color: INK }}>{title}</span>
+        {itemName && <span className="block truncate text-[0.75rem]" style={{ color: SUB }}>{itemName}</span>}
       </span>
-      <button type="button" onClick={onAdd} aria-label={`Add ${title}`} className="hit-44 shrink-0 text-[12.5px] font-bold" style={{ color: TEAL }}>Add</button>
+      <button type="button" onClick={onAdd} aria-label={`Add ${title}`} className="hit-44 shrink-0 text-[0.78125rem] font-bold" style={{ color: TEAL }}>Add</button>
     </div>
   )
 }
@@ -318,11 +318,11 @@ export default function YourReminders() {
     <PageContainer className="pb-28">
       <div className="mx-auto w-full max-w-[460px] lg:max-w-[560px]">
         <header className="flex flex-col gap-0.5 pt-2 pb-3">
-          <Link to="/settings#reminders" className="hit-44 inline-flex items-center gap-0.5 text-[13px] font-semibold" style={{ color: SUB }}>
+          <Link to="/settings#reminders" className="hit-44 inline-flex items-center gap-0.5 text-[0.8125rem] font-semibold" style={{ color: SUB }}>
             <ChevronLeftIcon className="size-[15px]" /> Settings
           </Link>
-          <h1 className="mt-1.5 text-[19px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your reminders</h1>
-          <p className="text-[12.5px]" style={{ color: SUB }}>
+          <h1 className="mt-1.5 text-[1.1875rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your reminders</h1>
+          <p className="text-[0.78125rem]" style={{ color: SUB }}>
             {stage === "describe" && "Tell us what you want to stay on top of."}
             {stage === "proposal" && (rows.length ? `${rows.length} proposed · from what you told us` : "Pick from your tasks")}
             {stage === "done" && `${turnedOn} reminder${turnedOn === 1 ? "" : "s"} on`}
@@ -331,7 +331,7 @@ export default function YourReminders() {
 
         {stage === "describe" && (
           <div className="flex flex-col gap-4">
-            <div className="rounded-[14px] px-3.5 py-2.5 text-[13px] leading-snug" style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal-deep)" }}>
+            <div className="rounded-[14px] px-3.5 py-2.5 text-[0.8125rem] leading-snug" style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal-deep)" }}>
               We&apos;ll propose a shortlist from your items&apos; tasks. Nothing turns on until you approve it.
             </div>
             <textarea
@@ -339,11 +339,11 @@ export default function YourReminders() {
               value={focus}
               onChange={(e) => setFocus(e.target.value)}
               placeholder="The filters everywhere — furnace, purifiers, dishwasher. Smoke alarms and the dryer duct. Descaling the coffee machine…"
-              className="min-h-[200px] w-full resize-y rounded-2xl border px-3.5 py-3 text-[15px] leading-relaxed outline-none focus:ring-2"
+              className="min-h-[200px] w-full resize-y rounded-2xl border px-3.5 py-3 text-[0.9375rem] leading-relaxed outline-none focus:ring-2"
               style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
             />
             {proposeError && (
-              <div role="alert" className="rounded-2xl border px-4 py-3 text-[13px]" style={{ borderColor: CLAY, background: "var(--hh-clay-soft)", color: CLAY }}>
+              <div role="alert" className="rounded-2xl border px-4 py-3 text-[0.8125rem]" style={{ borderColor: CLAY, background: "var(--hh-clay-soft)", color: CLAY }}>
                 <div className="font-semibold">Couldn&apos;t propose reminders</div>
                 <div className="mt-0.5">{proposeError}</div>
               </div>
@@ -352,13 +352,13 @@ export default function YourReminders() {
               type="button"
               onClick={() => void propose()}
               disabled={!focus.trim() || proposing}
-              className="flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-xl py-3 text-[0.875rem] font-bold text-white disabled:opacity-50"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {proposing && <Loader2Icon className="size-4 animate-spin" />}
               {proposing ? "Proposing…" : "Propose my reminders"}
             </button>
-            <div className="text-center text-[12px]" style={{ color: FAINT }}>
+            <div className="text-center text-[0.75rem]" style={{ color: FAINT }}>
               Takes a few seconds. You&apos;ll edit the list next. ·{" "}
               <button type="button" onClick={skipToPick} className="hit-44 font-semibold" style={{ color: TEAL }}>Skip — pick from your tasks</button>
             </div>
@@ -368,7 +368,7 @@ export default function YourReminders() {
         {stage === "proposal" && (
           <div className="flex flex-col gap-4">
             {rows.length > 0 && (
-              <div className="rounded-[14px] px-3.5 py-2.5 text-[13px] leading-snug" style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal-deep)" }}>
+              <div className="rounded-[14px] px-3.5 py-2.5 text-[0.8125rem] leading-snug" style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal-deep)" }}>
                 Each of these will remind you — the weekly summary, plus a ping when it&apos;s due. Untick any, or change how often.
               </div>
             )}
@@ -386,8 +386,8 @@ export default function YourReminders() {
                         className="mt-0.5 size-[18px] shrink-0 accent-[var(--hh-teal)]"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[14.5px] font-semibold tracking-[-0.2px]" style={{ color: r.checked ? INK : SUB }}>{r.title}</span>
-                        <span className="mt-0.5 block text-[12.5px]" style={{ color: SUB }}>
+                        <span className="block text-[0.90625rem] font-semibold tracking-[-0.2px]" style={{ color: r.checked ? INK : SUB }}>{r.title}</span>
+                        <span className="mt-0.5 block text-[0.78125rem]" style={{ color: SUB }}>
                           {[r.itemName, r.scheduleType ? cadenceLabelInline(r.scheduleType, r.intervalDays) : "schedule not set"].filter(Boolean).join(" · ")}
                           {" · "}
                           <button type="button" onClick={(e) => { e.preventDefault(); patch(r.id, { editing: !r.editing }) }} className="font-semibold" style={{ color: TEAL }}>
@@ -395,11 +395,11 @@ export default function YourReminders() {
                           </button>
                         </span>
                         {!hasCadence(r) && (
-                          <span className="mt-0.5 block text-[12px] font-semibold" style={{ color: CLAY }}>
+                          <span className="mt-0.5 block text-[0.75rem] font-semibold" style={{ color: CLAY }}>
                             Needs a schedule to remind you — pick how often.
                           </span>
                         )}
-                        {r.reason && <span className="mt-0.5 block text-[12px]" style={{ color: FAINT }}>{r.reason}</span>}
+                        {r.reason && <span className="mt-0.5 block text-[0.75rem]" style={{ color: FAINT }}>{r.reason}</span>}
                       </span>
                       <span className="mt-0.5 shrink-0" style={{ color: r.checked ? TEAL : "var(--hh-icon-faint)" }}>
                         {r.checked ? <BellIcon className="size-4" /> : <BellOffIcon className="size-4" />}
@@ -407,7 +407,7 @@ export default function YourReminders() {
                     </label>
                     {r.editing && (
                       <div className="mt-2 flex items-center gap-2 pl-[30px]">
-                        <label className="text-[12.5px] font-semibold" style={{ color: SUB }}>How often?</label>
+                        <label className="text-[0.78125rem] font-semibold" style={{ color: SUB }}>How often?</label>
                         <select
                           aria-label={`How often for ${r.title}`}
                           value={hasCadence(r) ? (r.scheduleType as ScheduleType) : ""}
@@ -416,7 +416,7 @@ export default function YourReminders() {
                             // Back to the original keeps its interval; anything else has none.
                             patch(r.id, { scheduleType: v, intervalDays: v === r.originalSchedule ? r.originalInterval : null })
                           }}
-                          className="rounded-lg border px-2 py-1 text-[13px]"
+                          className="rounded-lg border px-2 py-1 text-[0.8125rem]"
                           style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
                         >
                           {!hasCadence(r) && <option value="" disabled>Choose…</option>}
@@ -427,7 +427,7 @@ export default function YourReminders() {
                       </div>
                     )}
                     {r.error && (
-                      <div role="alert" className="mt-2 flex items-center gap-2 pl-[30px] text-[12.5px]" style={{ color: CLAY }}>
+                      <div role="alert" className="mt-2 flex items-center gap-2 pl-[30px] text-[0.78125rem]" style={{ color: CLAY }}>
                         <span>{r.error}</span>
                         <button type="button" onClick={() => void retryRow(r)} className="hit-44 font-bold underline underline-offset-2">Retry</button>
                       </div>
@@ -446,11 +446,11 @@ export default function YourReminders() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={rows.length ? "Missed something? Search your tasks" : "Search your tasks"}
-                  className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-[0.84375rem] outline-none"
                   style={{ color: INK }}
                 />
               </div>
-              {templatesError && <div role="alert" className="text-[12.5px]" style={{ color: CLAY }}>{templatesError}</div>}
+              {templatesError && <div role="alert" className="text-[0.78125rem]" style={{ color: CLAY }}>{templatesError}</div>}
               {searchHits.length > 0 && (
                 <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] divide-y divide-[var(--hh-line)]" style={{ background: "var(--hh-surface)" }}>
                   {searchHits.map((t) => (
@@ -459,13 +459,13 @@ export default function YourReminders() {
                 </div>
               )}
               {search.trim() && searchHits.length === 0 && !templatesError && (
-                <div className="text-[12.5px]" style={{ color: FAINT }}>No tasks match &ldquo;{search.trim()}&rdquo;.</div>
+                <div className="text-[0.78125rem]" style={{ color: FAINT }}>No tasks match &ldquo;{search.trim()}&rdquo;.</div>
               )}
               {!search.trim() && pickGroups.length > 0 && (
                 <div className="flex flex-col gap-3" data-testid="pick-list">
                   {pickGroups.map(([name, list]) => (
                     <section key={name} aria-label={name}>
-                      <h3 className="mb-1.5 px-1 font-mono text-[10.5px] font-extrabold uppercase tracking-[0.12em]" style={{ color: FAINT }}>{name}</h3>
+                      <h3 className="mb-1.5 px-1 font-mono text-[0.6875rem] font-extrabold uppercase tracking-[0.12em]" style={{ color: FAINT }}>{name}</h3>
                       <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] divide-y divide-[var(--hh-line)]" style={{ background: "var(--hh-surface)" }}>
                         {list.map((t) => (
                           <PickRow key={t.task_template_id} title={t.title} itemName={null} onAdd={() => addTemplate(t)} />
@@ -476,7 +476,7 @@ export default function YourReminders() {
                 </div>
               )}
               {!search.trim() && pickGroups.length === 0 && templates.some(offerable) && rows.length > 0 && (
-                <div className="text-[12.5px]" style={{ color: FAINT }}>Every task is on your list.</div>
+                <div className="text-[0.78125rem]" style={{ color: FAINT }}>Every task is on your list.</div>
               )}
             </div>
 
@@ -484,48 +484,48 @@ export default function YourReminders() {
               type="button"
               onClick={() => void turnOn()}
               disabled={chosen.length === 0 || blocked.length > 0 || applying}
-              className="flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-xl py-3 text-[0.875rem] font-bold text-white disabled:opacity-50"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {applying && <Loader2Icon className="size-4 animate-spin" />}
               Turn these on · {chosen.length}
             </button>
             {blocked.length > 0 && (
-              <div role="status" className="text-center text-[12.5px] font-semibold" style={{ color: CLAY }}>
+              <div role="status" className="text-center text-[0.78125rem] font-semibold" style={{ color: CLAY }}>
                 {blocked.length === 1
                   ? `“${blocked[0].title}” needs a schedule first — pick how often, or untick it.`
                   : `${blocked.length} tasks need a schedule first — pick how often, or untick them.`}
               </div>
             )}
-            <div className="text-center text-[12px]" style={{ color: FAINT }}>Nothing else will notify you. Every task stays where it is.</div>
+            <div className="text-center text-[0.75rem]" style={{ color: FAINT }}>Nothing else will notify you. Every task stays where it is.</div>
           </div>
         )}
 
         {stage === "done" && (
           <div className="flex flex-col gap-4">
             <div className="rounded-2xl border border-[var(--hh-line)] px-4 py-4" style={{ background: "var(--hh-surface)" }}>
-              <div className="text-[15px] font-semibold" style={{ color: INK }}>{turnedOn} reminder{turnedOn === 1 ? "" : "s"} on.</div>
-              <div className="mt-1 text-[12.5px]" style={{ color: SUB }}>
+              <div className="text-[0.9375rem] font-semibold" style={{ color: INK }}>{turnedOn} reminder{turnedOn === 1 ? "" : "s"} on.</div>
+              <div className="mt-1 text-[0.78125rem]" style={{ color: SUB }}>
                 They&apos;ll show in your weekly summary and ping you when due. Change any of them on its task — the bell.
               </div>
-              <Link to="/week" className="mt-3 inline-block text-[13px] font-semibold" style={{ color: TEAL }}>See your week</Link>
+              <Link to="/week" className="mt-3 inline-block text-[0.8125rem] font-semibold" style={{ color: TEAL }}>See your week</Link>
             </div>
 
             {prefs && prefs.push_mode !== "curated" && modeSaved == null && (
               <div className="rounded-2xl border border-[var(--hh-line)] px-4 py-4" style={{ background: "var(--hh-surface)" }}>
-                <div className="text-[15px] font-semibold" style={{ color: INK }}>From now on, notify only this list?</div>
-                <div className="mt-1 text-[12.5px]" style={{ color: SUB }}>
+                <div className="text-[0.9375rem] font-semibold" style={{ color: INK }}>From now on, notify only this list?</div>
+                <div className="mt-1 text-[0.78125rem]" style={{ color: SUB }}>
                   Right now Homehub also reminds you about anything Essential by default. &ldquo;Just my list&rdquo; turns that off — lapsed safety checks still get a mention in the weekly summary.
                 </div>
-                {modeError && <div role="alert" className="mt-2 text-[12.5px]" style={{ color: CLAY }}>{modeError}</div>}
+                {modeError && <div role="alert" className="mt-2 text-[0.78125rem]" style={{ color: CLAY }}>{modeError}</div>}
                 <div className="mt-3 flex items-center gap-3">
-                  <button type="button" onClick={() => void chooseMode("curated")} className="rounded-full px-4 py-2 text-[13px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Just my list</button>
-                  <button type="button" onClick={() => void chooseMode("kept")} className="text-[13px] font-semibold" style={{ color: SUB }}>Keep my current style</button>
+                  <button type="button" onClick={() => void chooseMode("curated")} className="rounded-full px-4 py-2 text-[0.8125rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Just my list</button>
+                  <button type="button" onClick={() => void chooseMode("kept")} className="text-[0.8125rem] font-semibold" style={{ color: SUB }}>Keep my current style</button>
                 </div>
               </div>
             )}
             {modeSaved === "curated" && (
-              <div className="text-[12.5px]" style={{ color: SUB }}>Done — only your list notifies. Change it any time in Settings → Notifications.</div>
+              <div className="text-[0.78125rem]" style={{ color: SUB }}>Done — only your list notifies. Change it any time in Settings → Notifications.</div>
             )}
           </div>
         )}

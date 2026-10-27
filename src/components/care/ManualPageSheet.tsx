@@ -232,8 +232,8 @@ export function ManualPageSheet({
             // fine; it is the in-page renderer that cannot cope, and it can
             // still be opened and attached.
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-              <p className="text-[15px] font-bold text-foreground">This PDF won&apos;t preview here</p>
-              <p className="max-w-[34ch] text-[13px] text-muted-foreground">
+              <p className="text-[0.9375rem] font-bold text-foreground">This PDF won&apos;t preview here</p>
+              <p className="max-w-[34ch] text-[0.8125rem] text-muted-foreground">
                 It still opens fine in a browser, and you can attach it either way.
               </p>
               {fullPdfLink && (
@@ -264,7 +264,7 @@ export function ManualPageSheet({
             pb clears the home indicator — a tester reported the bottom row
             "too close to the bottom of the screen", which on a modern iPhone
             means it was sitting under the gesture bar. */}
-        <div className="border-t px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-3">
+        <div className="border-t px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] flex items-center justify-between gap-3">
           {onSetPage && currentPage !== pageNumber ? (
             <Button
               size="sm"
@@ -293,7 +293,7 @@ export function ManualPageSheet({
             // search result, so the sentence was about a task's manual
             // reference the user does not have. Say nothing rather than
             // something untrue.
-            <span className="text-[13px] text-muted-foreground">
+            <span className="text-[0.8125rem] text-muted-foreground">
               {onSetPage && currentPage === pageNumber
                 ? "This is the current reference page"
                 : ""}

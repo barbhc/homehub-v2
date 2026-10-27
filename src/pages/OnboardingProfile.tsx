@@ -78,7 +78,7 @@ function ProfileDone() {
       <h1 className="font-display text-2xl font-bold text-foreground mb-2 leading-tight">
         Your home profile is set
       </h1>
-      <p className="text-[15px] text-muted-foreground mb-8 leading-relaxed">
+      <p className="text-[0.9375rem] text-muted-foreground mb-8 leading-relaxed">
         Your answers shape which tasks show up, and when. Where to next?
       </p>
       <div className="flex flex-col items-center gap-3">
@@ -89,7 +89,7 @@ function ProfileDone() {
           <PlusIcon className="size-5" />
           Add your first item
         </Link>
-        <Link to="/home" className="px-4 py-2 text-[14.5px] font-semibold text-primary">
+        <Link to="/home" className="px-4 py-2 text-[0.90625rem] font-semibold text-primary">
           Take me to my home page
         </Link>
       </div>

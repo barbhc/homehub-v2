@@ -18,8 +18,8 @@ const BG = "var(--hh-bg)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)"
 function TaskDetailFallback({ onBack }: { onBack: () => void }) {
   return (
     <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center gap-3" style={{ background: BG }}>
-      <p className="text-[15px]" style={{ color: SUB }}>We couldn&apos;t open this task.</p>
-      <button onClick={onBack} className="text-[14px] font-bold" style={{ color: TEAL }}>Go back</button>
+      <p className="text-[0.9375rem]" style={{ color: SUB }}>We couldn&apos;t open this task.</p>
+      <button onClick={onBack} className="text-[0.875rem] font-bold" style={{ color: TEAL }}>Go back</button>
     </div>
   )
 }

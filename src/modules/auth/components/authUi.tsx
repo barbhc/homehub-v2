@@ -70,7 +70,7 @@ export function AuthCTA({
     <button
       type={type} onClick={onClick} disabled={disabled}
       className={cn(
-        "w-full inline-flex items-center justify-center gap-2 rounded-[14px] py-[15px] text-[15px] font-bold text-white transition-opacity",
+        "w-full inline-flex items-center justify-center gap-2 rounded-[14px] py-[15px] text-[0.9375rem] font-bold text-white transition-opacity",
         className,
       )}
       style={{ background: disabled ? "var(--hh-fill-disabled)" : "var(--hh-teal-fill)" }}

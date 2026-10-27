@@ -420,13 +420,14 @@ function AskForHome() {
   return (
     <div
       ref={pageRef}
-      className="flex flex-col h-[calc(100dvh-48px)] overflow-hidden pb-[calc(70px+env(safe-area-inset-bottom))] md:pb-0 bg-[var(--hh-bg)] lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-5"
+      className="flex flex-col h-[calc(100dvh-48px)] overflow-hidden pb-[calc(max(70px,var(--hh-tabbar-h)+7.5px)+env(safe-area-inset-bottom))] md:pb-0 bg-[var(--hh-bg)] lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-5"
       // With the keyboard up, the bottom padding puts the composer's bottom at
       // the keyboard's top edge (useKeyboardPadding measures where this box
       // really ends — 48px short of the screen below md, and higher still when
       // WebKit scrolls the window to the field). Below md the floor is the
-      // same 70px + inset as the class above (the tab bar's
-      // --hh-tabbar-clear is 60px + inset there); at md+ it is 10px.
+      // same 70px + inset as the class above (more under Larger Text, where the
+      // tab bar grows; --hh-tabbar-clear is the tab bar's row + inset there); at
+      // md+ it is 10px.
       style={keyboardInset > 0 ? { paddingBottom: `max(${keyboardPad}px, calc(var(--hh-tabbar-clear) + 10px))` } : undefined}
     >
       {/* ── Desktop conversation rail (lg+): New question + Recent only ── */}
@@ -436,7 +437,7 @@ function AskForHome() {
           type="button"
           onClick={startNewQuestion}
           disabled={isStreaming}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-[var(--hh-teal-fill)] px-4 py-2.5 text-[14px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-[var(--hh-teal-fill)] px-4 py-2.5 text-[0.875rem] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           <PlusIcon className="size-[18px]" />
           New question
@@ -447,11 +448,11 @@ function AskForHome() {
             calm hint instead of a tall blank panel. */}
         {!hasHistory && (
           <div>
-            <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>Recent</div>
+            <div className="mb-2.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>Recent</div>
             {/* A failed read is not "nothing saved yet". */}
             {recentError ?? (
               <p
-                className="rounded-2xl border border-dashed border-[var(--hh-line)] px-3.5 py-3 text-[12.5px] leading-relaxed"
+                className="rounded-2xl border border-dashed border-[var(--hh-line)] px-3.5 py-3 text-[0.78125rem] leading-relaxed"
                 style={{ color: "var(--hh-faint)" }}
               >
                 Your past questions will appear here once saved.
@@ -461,7 +462,7 @@ function AskForHome() {
         )}
         {hasHistory && (
           <div>
-            <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>Recent</div>
+            <div className="mb-2.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>Recent</div>
             {recentError && <div className="mb-2.5">{recentError}</div>}
             <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] bg-[var(--hh-surface)]">
               {conversations!.map((c, i) => (
@@ -478,8 +479,8 @@ function AskForHome() {
                 >
                   <ClockIcon className="size-[15px] shrink-0" style={{ color: "var(--hh-faint)" }} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold" style={{ color: "var(--hh-ink)" }}>{c.title}</span>
-                    <span className="block text-[11.5px]" style={{ color: "var(--hh-faint)" }}>{relativeTime(c.updated_at)}</span>
+                    <span className="block truncate text-[0.8125rem] font-semibold" style={{ color: "var(--hh-ink)" }}>{c.title}</span>
+                    <span className="block text-[0.75rem]" style={{ color: "var(--hh-faint)" }}>{relativeTime(c.updated_at)}</span>
                   </span>
                 </button>
               ))}
@@ -503,7 +504,7 @@ function AskForHome() {
             <button
               type="button"
               onClick={handleExitThread}
-              className="inline-flex min-h-11 items-center gap-0.5 px-2 text-[15px] font-semibold"
+              className="inline-flex min-h-11 items-center gap-0.5 px-2 text-[0.9375rem] font-semibold"
               style={{ color: "var(--hh-teal)" }}
             >
               <ChevronLeftIcon className="size-5" strokeWidth={2.4} /> Ask
@@ -527,9 +528,9 @@ function AskForHome() {
           )}
           {/* Desktop topic/scope header (per spec: "Topic · {item/room}") */}
           <div className="hidden shrink-0 items-center gap-2.5 border-b border-[var(--hh-line)] bg-[var(--hh-surface)] px-[18px] py-3.5 lg:flex">
-            <span className="text-[12.5px] font-semibold" style={{ color: "var(--hh-sub)" }}>Topic</span>
+            <span className="text-[0.78125rem] font-semibold" style={{ color: "var(--hh-sub)" }}>Topic</span>
             <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-[5px] text-[12.5px] font-bold"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-[5px] text-[0.78125rem] font-bold"
               style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}
             >
               {scopeLabel}
@@ -539,7 +540,7 @@ function AskForHome() {
                 type="button"
                 onClick={() => handleItemSelect(null)}
                 disabled={isStreaming}
-                className="hit-44 text-[12.5px] font-semibold transition-colors hover:opacity-80 disabled:opacity-50"
+                className="hit-44 text-[0.78125rem] font-semibold transition-colors hover:opacity-80 disabled:opacity-50"
                 style={{ color: "var(--hh-faint)" }}
               >
                 Clear
@@ -591,14 +592,14 @@ function AskForHome() {
             <span className="mb-3 flex size-12 items-center justify-center rounded-2xl" style={{ background: "var(--hh-teal-wash)" }}>
               <SparklesIcon className="size-6" style={{ color: "var(--hh-teal)" }} />
             </span>
-            <h1 className="text-[30px] font-extrabold tracking-[-0.6px]" style={{ color: "var(--hh-ink)" }}>Ask</h1>
-            <p className="mt-1.5 text-[15px]" style={{ color: "var(--hh-sub)" }}>
+            <h1 className="text-[1.875rem] font-extrabold tracking-[-0.6px]" style={{ color: "var(--hh-ink)" }}>Ask</h1>
+            <p className="mt-1.5 text-[0.9375rem]" style={{ color: "var(--hh-sub)" }}>
               Your home assistant — grounded in your manuals.
             </p>
           </div>
 
           {/* Desktop welcome (concise — rail carries history) */}
-          <h2 className="hidden text-center text-[24px] font-extrabold tracking-[-0.5px] lg:block" style={{ color: "var(--hh-ink)" }}>
+          <h2 className="hidden text-center text-[1.5rem] font-extrabold tracking-[-0.5px] lg:block" style={{ color: "var(--hh-ink)" }}>
             What can I help with?
           </h2>
 
@@ -625,8 +626,8 @@ function AskForHome() {
             </div>
           )}
 
-          {/* Launcher cards (both mobile and desktop) */}
-          <div className="grid w-full max-w-[560px] grid-cols-2 gap-3">
+          {/* Launcher cards (both mobile and desktop); one column under Larger Text. */}
+          <div className="grid w-full max-w-[560px] grid-cols-2 gap-3 larger-text:grid-cols-1">
             {LAUNCHERS.map((c) => (
               <button
                 key={c.label}
@@ -639,8 +640,8 @@ function AskForHome() {
                   <c.icon className="size-[18px]" style={{ color: "var(--hh-teal)" }} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[14px] font-bold tracking-[-0.2px]" style={{ color: "var(--hh-ink)" }}>{c.label}</span>
-                  <span className="block text-[12px]" style={{ color: "var(--hh-sub)" }}>{c.sub}</span>
+                  <span className="block text-[0.875rem] font-bold tracking-[-0.2px]" style={{ color: "var(--hh-ink)" }}>{c.label}</span>
+                  <span className="block text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>{c.sub}</span>
                 </span>
               </button>
             ))}
@@ -649,7 +650,7 @@ function AskForHome() {
           {/* Recent questions (mobile — compact list above suggestion chips) */}
           {(hasHistory || recentError) && (
             <div className="w-full max-w-[560px] lg:hidden">
-              <div className="mb-2 pl-0.5 text-[12px] font-bold uppercase tracking-[0.6px]" style={{ color: "var(--hh-sub)" }}>Recent</div>
+              <div className="mb-2 pl-0.5 text-[0.75rem] font-bold uppercase tracking-[0.6px]" style={{ color: "var(--hh-sub)" }}>Recent</div>
               {recentError && <div className="mb-2 pl-0.5">{recentError}</div>}
               {hasHistory && (
                 <div className="overflow-hidden rounded-2xl bg-[var(--hh-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
@@ -663,7 +664,7 @@ function AskForHome() {
                       style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none" }}
                     >
                       <ClockIcon className="size-[15px] shrink-0" style={{ color: "var(--hh-faint)" }} />
-                      <span className="min-w-0 flex-1 truncate text-[13.5px]" style={{ color: "var(--hh-ink-soft)" }}>{c.title}</span>
+                      <span className="min-w-0 flex-1 truncate text-[0.84375rem]" style={{ color: "var(--hh-ink-soft)" }}>{c.title}</span>
                     </button>
                   ))}
                 </div>

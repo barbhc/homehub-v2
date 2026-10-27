@@ -104,10 +104,10 @@ describe("HH-90 — a dialog taller than the screen must scroll", () => {
   // and no way to reach either. Every dialog in the app shares this container.
   it("caps the shared DialogContent at the viewport and scrolls inside", () => {
     const src = read("../components/ui/dialog.tsx")
-    expect(src).toContain("max-h-[calc(100dvh-2rem)]")
+    expect(src).toContain("max-h-[calc(100dvh-32px)]")
     expect(src).toContain("overflow-y-auto")
     // dvh, not vh — iOS Safari's collapsing chrome makes vh taller than the
     // visible viewport, which would leave the bottom edge cut off again.
-    expect(src).not.toContain("max-h-[calc(100vh-2rem)]")
+    expect(src).not.toContain("max-h-[calc(100vh-32px)]")
   })
 })

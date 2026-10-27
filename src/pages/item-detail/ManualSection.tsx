@@ -172,11 +172,11 @@ export function ManualSection({
               was an icon tile that said nothing. A labelled tag says what the
               row IS: the file kind for manuals, an open book for references. */}
           <div
-            className="flex h-9 min-w-9 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1"
+            className="flex h-9 min-w-9 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 larger-text:h-auto larger-text:min-h-9 larger-text:py-1"
             style={{ background: "var(--hh-clay-soft)" }}
           >
             <Icon className="size-3.5" style={{ color: "var(--hh-clay)" }} />
-            <span className="text-[8px] font-bold leading-none tracking-wide" style={{ color: "var(--hh-clay)" }}>
+            <span className="text-[0.6875rem] font-bold uppercase leading-none tracking-wide" style={{ color: "var(--hh-clay)" }}>
               {isRef ? "REF" : m.source_type === "upload" ? "PDF" : "LINK"}
             </span>
           </div>
@@ -322,7 +322,7 @@ export function ManualSection({
                     setLabelDraft(preset)
                     setCustomLabelMode(false)
                   }}
-                  className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
+                  className={`text-[0.75rem] px-2 py-0.5 rounded border transition-colors ${
                     labelDraft === preset && !customLabelMode
                       ? "border-primary bg-primary/10 text-primary font-medium"
                       : "border-border text-muted-foreground hover:border-foreground/40"
@@ -334,7 +334,7 @@ export function ManualSection({
               <button
                 type="button"
                 onClick={() => setCustomLabelMode(true)}
-                className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
+                className={`text-[0.75rem] px-2 py-0.5 rounded border transition-colors ${
                   customLabelMode
                     ? "border-primary bg-primary/10 text-primary font-medium"
                     : "border-border text-muted-foreground hover:border-foreground/40"
@@ -445,15 +445,15 @@ export function ManualSection({
                     style={{ borderColor: "var(--hh-teal)", background: "var(--hh-teal-wash)" }}
                   >
                     <span
-                      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-bold"
+                      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[0.75rem] font-bold"
                       style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: "var(--hh-clay)" }}
                     >
                       PDF
                     </span>
-                    <span className="mt-2 block text-[14px] font-bold" style={{ color: "var(--hh-teal)" }}>
+                    <span className="mt-2 block text-[0.875rem] font-bold" style={{ color: "var(--hh-teal)" }}>
                       Upload the manual
                     </span>
-                    <span className="mt-0.5 block text-[12px]" style={{ color: "var(--hh-sub)" }}>
+                    <span className="mt-0.5 block text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
                       Tap to choose the PDF from your phone
                     </span>
                   </button>
@@ -472,7 +472,7 @@ export function ManualSection({
                       onClick={() => handleOpenAddManual("search")}
                     >
                       Find it for me ·&nbsp;
-                      <span className="rounded-full border px-1.5 text-[10px] font-bold" style={{ borderColor: "var(--hh-line2)" }}>Beta</span>
+                      <span className="rounded-full border px-1.5 text-[0.75rem] font-bold" style={{ borderColor: "var(--hh-line2)" }}>Beta</span>
                     </Button>
                   )}
                 </div>

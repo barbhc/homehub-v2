@@ -49,7 +49,7 @@ function ExpandedDetail({
   return (
     <div className="flex flex-col gap-3" style={{ padding: `0 ${PAD - 3}px ${PAD - 3}px` }}>
       {loading ? (
-        <div className="text-[13px]" style={{ color: FAINT }}>Loading…</div>
+        <div className="text-[0.8125rem]" style={{ color: FAINT }}>Loading…</div>
       ) : (
         <>
           {detail?.justification && <InfoBlurb text={detail.justification} />}
@@ -58,12 +58,12 @@ function ExpandedDetail({
             {detail?.notes && <StepList steps={parseSteps(detail.notes)} />}
           </StepsOrProNotice>
           {!loading && actor === "diy" && !detail?.justification && !detail?.notes && (
-            <div className="text-[13px]" style={{ color: FAINT }}>No extra details yet.</div>
+            <div className="text-[0.8125rem]" style={{ color: FAINT }}>No extra details yet.</div>
           )}
           <button
             type="button"
             onClick={onOpenGuide}
-            className="self-start text-[13px] font-semibold underline-offset-2 hover:underline"
+            className="self-start text-[0.8125rem] font-semibold underline-offset-2 hover:underline"
             style={{ color: TEAL }}
           >
             View full guide
@@ -74,7 +74,7 @@ function ExpandedDetail({
         <button
           type="button"
           onClick={onDone}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-[0.875rem] font-bold text-white"
           style={{ background: "var(--hh-teal-fill)" }}
         >
           <CheckIcon className="size-4" strokeWidth={2.6} /> Mark done
@@ -82,7 +82,7 @@ function ExpandedDetail({
         <button
           type="button"
           onClick={onSnooze}
-          className="rounded-xl px-4 py-3 text-[14px] font-bold"
+          className="rounded-xl px-4 py-3 text-[0.875rem] font-bold"
           style={{ border: "1.5px solid var(--hh-line2)", background: SURFACE, color: INK }}
         >
           Snooze
@@ -154,10 +154,10 @@ function TaskRow({
           did nothing. */}
       <div className="pointer-events-none absolute inset-0 flex">
         <div className="flex flex-1 items-center pl-5" style={{ background: "var(--hh-teal-fill)", opacity: dx > 4 ? 1 : 0 }}>
-          <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-white"><CheckIcon className="size-[18px]" strokeWidth={2.6} /> Done</span>
+          <span className="inline-flex items-center gap-1.5 text-[0.84375rem] font-bold text-white"><CheckIcon className="size-[18px]" strokeWidth={2.6} /> Done</span>
         </div>
         <div className="flex flex-1 items-center justify-end pr-5" style={{ background: "var(--hh-gold-fill)", opacity: dx < -4 ? 1 : 0 }}>
-          <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-white">Snooze <AlarmClockIcon className="size-[17px]" strokeWidth={2.4} /></span>
+          <span className="inline-flex items-center gap-1.5 text-[0.84375rem] font-bold text-white">Snooze <AlarmClockIcon className="size-[17px]" strokeWidth={2.4} /></span>
         </div>
       </div>
 
@@ -189,16 +189,16 @@ function TaskRow({
         </button>
 
         <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</div>
+          <div className="text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
+            <span className="rounded-full px-2 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
             {t.trulyOverdue && <span className="size-[5px] shrink-0 rounded-full" style={{ background: CLAY }} />}
-            <span className="text-[12.5px]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</span>
+            <span className="text-[0.78125rem]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</span>
           </div>
         </div>
 
         {t.estimatedMinutes != null && (
-          <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>
+          <span className="shrink-0 text-[0.78125rem] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>
         )}
         {expanded
           ? <ChevronUpIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />
@@ -212,7 +212,7 @@ function TaskRow({
       {error && (
         <div
           role="alert"
-          className="relative -mt-1.5 pb-3 text-[13.5px] font-medium"
+          className="relative -mt-1.5 pb-3 text-[0.84375rem] font-medium"
           style={{ paddingLeft: 63, paddingRight: PAD - 3, color: CLAY, background: SURFACE }}
         >
           {error}
@@ -255,10 +255,12 @@ function Calendar({
   return (
     <div style={{ padding: `14px ${PAD}px 0` }}>
       <div className="rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
-        <div className="mb-2.5 text-[15px] font-extrabold" style={{ color: INK }}>{cal.monthLabel}</div>
+        <div className="mb-2.5 text-[0.9375rem] font-extrabold" style={{ color: INK }}>{cal.monthLabel}</div>
         <div className="grid grid-cols-7 gap-[3px]">
           {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
-            <div key={i} className="py-0.5 text-center text-[10px] font-bold" style={{ color: FAINT }}>{w}</div>
+            // Larger Text: a 7-column grid on a phone cannot reflow, so the calendar
+            // grows with the text-size setting only up to 1.5x (index.css).
+            <div key={i} className="py-0.5 text-center text-[length:min(0.75rem,18px)] font-bold" style={{ color: FAINT }}>{w}</div>
           ))}
           {cal.cells.map((c, i) => {
             if (!c) return <div key={i} />
@@ -272,7 +274,7 @@ function Calendar({
                 onClick={() => setSel(on ? null : c.day)}
                 // Dark: the fill is 2.91:1 against today's wash next to it, so
                 // the selected day also gets a bright ring (4.86:1, WCAG 1.4.11).
-                className={`hit-44 flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[13.5px] ${on ? SELECTED_DAY_RING : ""}`}
+                className={`hit-44 flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[length:min(0.84375rem,20.25px)] ${on ? SELECTED_DAY_RING : ""}`}
                 style={{
                   background: on ? "var(--hh-teal-fill)" : isToday ? "var(--hh-teal-wash)" : "transparent",
                   color: on ? "var(--hh-on-fill)" : INK,
@@ -297,10 +299,10 @@ function GroupHeader({ label, tone, count, mins }: { label: string; tone: string
   return (
     <div className="mb-2 flex items-center gap-1.5 pl-0.5">
       <span className="size-2 rounded-full" style={{ background: tone }} />
-      <span className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>{label}</span>
-      <span className="text-[13.5px] font-bold" style={{ color: tone === CLAY ? CLAY : FAINT }}>{count}</span>
+      <span className="text-[0.9375rem] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>{label}</span>
+      <span className="text-[0.84375rem] font-bold" style={{ color: tone === CLAY ? CLAY : FAINT }}>{count}</span>
       <div className="flex-1" />
-      {mins > 0 && <span className="text-[12.5px] font-semibold" style={{ color: FAINT }}>{mins} min</span>}
+      {mins > 0 && <span className="text-[0.78125rem] font-semibold" style={{ color: FAINT }}>{mins} min</span>}
     </div>
   )
 }
@@ -387,8 +389,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
       )}
       {/* Header */}
       <div className="pt-2" style={{ paddingInline: PAD }}>
-        <h1 className="text-[28px] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Tasks</h1>
-        <div className="mt-1.5 text-[13.5px]" style={{ color: SUB }}>
+        <h1 className="text-[1.75rem] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Tasks</h1>
+        <div className="mt-1.5 text-[0.84375rem]" style={{ color: SUB }}>
           {/* When a filter is on, the headline must say so — "2 to do" while
               hiding nine more read as the whole truth and wasn't. A failed
               first read says nothing here: "Nothing due" about tasks we never
@@ -419,8 +421,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               <FlagIcon className="size-[19px]" style={{ color: "var(--hh-on-fill)" }} strokeWidth={2.4} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="mb-0.5 block text-[10.5px] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</span>
-              <span className="block text-[14.5px] font-semibold leading-snug" style={{ color: INK }}>{insight.text}</span>
+              <span className="mb-0.5 block text-[0.6875rem] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</span>
+              <span className="block text-[0.90625rem] font-semibold leading-snug" style={{ color: INK }}>{insight.text}</span>
             </span>
             <button type="button" onClick={() => setDismissed(true)} aria-label="Dismiss" className="hit-44 -m-1 flex shrink-0 rounded-lg p-2">
               <XIcon className="size-[17px]" style={{ color: FAINT }} />
@@ -472,7 +474,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                     if (k === "calendar") { setView("calendar"); return }
                     setView("list"); setLens(k as Lens)
                   }}
-                  className="hit-44 relative shrink-0 rounded-t-lg px-2.5 pb-2 pt-1 text-[13.5px] font-bold"
+                  className="hit-44 relative shrink-0 rounded-t-lg px-2.5 pb-2 pt-1 text-[0.84375rem] font-bold"
                   style={{ color: on ? INK : SUB }}
                 >
                   {label}
@@ -497,7 +499,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               aria-haspopup="listbox"
               aria-expanded={tierOpen}
               onClick={() => setTierOpen((v) => !v)}
-              className="hit-44 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-bold"
+              className="hit-44 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[0.78125rem] font-bold"
               style={{ border: "1.5px solid var(--hh-line2)", background: SURFACE, color: INK }}
             >
               {activeTier.dot && <span className="size-[7px] shrink-0 rounded-full" style={{ background: activeTier.dot }} />}
@@ -524,10 +526,10 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                     {o.dot
                       ? <span className="size-[7px] shrink-0 rounded-full" style={{ background: o.dot }} />
                       : <span className="size-[7px] shrink-0" />}
-                    <span className="flex-1 text-[13.5px] font-bold" style={{ color: INK }}>{o.label}</span>
+                    <span className="flex-1 text-[0.84375rem] font-bold" style={{ color: INK }}>{o.label}</span>
                     {/* The count is the point: it says what you'd get, before you pick. */}
                     {/* Only once the agenda is read: "0" about tasks we couldn't load is a claim. */}
-                    {loadState === "content" && <span className="font-mono text-[11px]" style={{ color: SUB }}>{tierCounts[o.value]}</span>}
+                    {loadState === "content" && <span className="font-mono text-[0.75rem]" style={{ color: SUB }}>{tierCounts[o.value]}</span>}
                     {tier === o.value && <CheckIcon className="size-4" style={{ color: TEAL }} />}
                   </button>
                 ))}
@@ -540,7 +542,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
       {/* Body */}
       <div className="flex-1 pb-4">
         {loading ? (
-          <div className="py-10 text-center text-[14px]" style={{ color: SUB }}>Loading…</div>
+          <div className="py-10 text-center text-[0.875rem]" style={{ color: SUB }}>Loading…</div>
         ) : loadFailed ? (
           <LoadErrorState
             title="Couldn't load your tasks"
@@ -556,18 +558,18 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               tier === "focus" && totalAll > 0 ? (
                 // Calm empty-focus state — never a blank page; one tap reveals the rest.
                 <div className="py-10 text-center">
-                  <div className="text-[15px] font-semibold" style={{ color: INK }}>You're all caught up on the essentials.</div>
+                  <div className="text-[0.9375rem] font-semibold" style={{ color: INK }}>You're all caught up on the essentials.</div>
                   <button
                     type="button"
                     onClick={() => setTier("all")}
-                    className="mt-2 text-[13.5px] font-bold"
+                    className="mt-2 text-[0.84375rem] font-bold"
                     style={{ color: TEAL }}
                   >
                     Show {totalAll} {totalAll === 1 ? "other task" : "other tasks"} →
                   </button>
                 </div>
               ) : (
-                <div className="py-10 text-center text-[15px]" style={{ color: SUB }}>Nothing matches these filters.</div>
+                <div className="py-10 text-center text-[0.9375rem]" style={{ color: SUB }}>Nothing matches these filters.</div>
               )
             )}
             {groups.map((g) => (
@@ -584,19 +586,19 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                 withheld count now closes every list, linking to where the work
                 actually lives. (An empty agenda says it in the headline, so
                 this waits for one with tasks.) */}
-            {totalAll > 0 && <HiddenCleaningLink count={hiddenCleaning} className="block px-0.5 pb-2 text-[12.5px]" />}
+            {totalAll > 0 && <HiddenCleaningLink count={hiddenCleaning} className="block px-0.5 pb-2 text-[0.78125rem]" />}
             {(care.rows.length > 0 || care.error) && (
               <div className="mb-4" data-testid="suggested-group">
                 <div className="mb-2 flex items-center gap-1.5 pl-0.5">
                   <span className="size-2 rounded-full" style={{ background: "var(--hh-gold)" }} />
-                  <span className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: "var(--hh-gold)" }}>Suggested</span>
-                  <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
+                  <span className="text-[0.9375rem] font-extrabold tracking-[-0.2px]" style={{ color: "var(--hh-gold)" }}>Suggested</span>
+                  <span className="text-[0.84375rem] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
                   <div className="flex-1" />
-                  <span className="text-[12px]" style={{ color: FAINT }}>typical for your home</span>
+                  <span className="text-[0.75rem]" style={{ color: FAINT }}>typical for your home</span>
                 </div>
                 <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
                   {care.error ? (
-                    <div role="alert" className="flex items-center gap-3 px-4 py-3 text-[13px]" style={{ color: CLAY }}>
+                    <div role="alert" className="flex items-center gap-3 px-4 py-3 text-[0.8125rem]" style={{ color: CLAY }}>
                       <span className="flex-1">Couldn&apos;t load suggestions: {care.error}</span>
                       <button type="button" onClick={care.reload} className="hit-44 font-bold" style={{ color: TEAL }}>Try again</button>
                     </div>
@@ -611,11 +613,11 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
           <>
             <Calendar tasks={all} sel={selDay} setSel={setSelDay} />
             <div style={{ padding: `17px ${PAD}px 0` }}>
-              <div className="mb-2 pl-0.5 text-[12px] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>
+              <div className="mb-2 pl-0.5 text-[0.75rem] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>
                 {selDay ? dayLabel(selDay) : "Pick a day"}
               </div>
-              {selDay == null && <div className="px-0.5 py-1.5 text-[13.5px]" style={{ color: FAINT }}>Tap a date to see what's due — dots show priority.</div>}
-              {selDay != null && dayTasks.length === 0 && <div className="px-0.5 py-1.5 text-[13.5px]" style={{ color: FAINT }}>Nothing due {dayLabel(selDay)} — enjoy the calm.</div>}
+              {selDay == null && <div className="px-0.5 py-1.5 text-[0.84375rem]" style={{ color: FAINT }}>Tap a date to see what's due — dots show priority.</div>}
+              {selDay != null && dayTasks.length === 0 && <div className="px-0.5 py-1.5 text-[0.84375rem]" style={{ color: FAINT }}>Nothing due {dayLabel(selDay)} — enjoy the calm.</div>}
               {dayTasks.length > 0 && (
                 <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
                   {dayTasks.map((t) => renderRow(t))}

@@ -10,7 +10,7 @@ const SURFACE = "var(--hh-surface)", LINE = "var(--hh-line)"
 export function NotesHeading({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex items-center gap-2.5">
-      <h2 className="text-[17px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{children}</h2>
+      <h2 className="text-[1.0625rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{children}</h2>
       <span className="h-px flex-1" style={{ background: LINE }} aria-hidden />
       {action}
     </div>
@@ -33,13 +33,13 @@ export function NoteRows({ notes, onEdit }: { notes: CareNote[]; onEdit: (note: 
             style={{ borderBottom: i === notes.length - 1 ? "none" : `0.5px solid ${LINE}` }}
           >
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              {heading && <span className="text-[14.5px] font-bold tracking-[-0.2px]" style={{ color: INK }}>{heading}</span>}
+              {heading && <span className="text-[0.90625rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>{heading}</span>}
               {body && (
-                <span className="whitespace-pre-wrap break-words text-[13.5px] leading-[1.45]" style={{ color: heading ? SUB : INK }}>
+                <span className="whitespace-pre-wrap break-words text-[0.84375rem] leading-[1.45]" style={{ color: heading ? SUB : INK }}>
                   {displayBody(body, !!heading)}
                 </span>
               )}
-              {date && <span className="mt-1 text-[11.5px]" style={{ color: FAINT }}>{date}</span>}
+              {date && <span className="mt-1 text-[0.75rem]" style={{ color: FAINT }}>{date}</span>}
             </div>
             <button
               type="button"
@@ -66,7 +66,7 @@ export function IdeaChips({ ideas, selected, onPick, label = "Ideas" }: {
   if (ideas.length === 0) return null
   return (
     <div className="flex flex-col gap-2">
-      {label && <span className="text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</span>}
+      {label && <span className="text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</span>}
       {/* gap-y 12px, not 8: wrapped 32px chips on a 40px pitch could not both
           take a 44pt tap (hit-44) without the taps overlapping. */}
       <div className="flex flex-wrap gap-x-2 gap-y-3">
@@ -78,7 +78,7 @@ export function IdeaChips({ ideas, selected, onPick, label = "Ideas" }: {
               type="button"
               aria-pressed={on}
               onClick={() => onPick(idea)}
-              className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold"
+              className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.78125rem] font-semibold"
               style={{
                 borderColor: on ? TEAL : "color-mix(in srgb, var(--hh-teal) 40%, transparent)",
                 background: on ? "var(--hh-teal-wash)" : SURFACE,
@@ -98,7 +98,7 @@ export function IdeaChips({ ideas, selected, onPick, label = "Ideas" }: {
 /** Notes are shared with everyone in the home — said where it matters. */
 export function SharedLine({ homeName, compact = false }: { homeName: string | null; compact?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 ${compact ? "text-[12px]" : "text-[13px]"}`} style={{ color: SUB }}>
+    <span className={`inline-flex items-center gap-1.5 ${compact ? "text-[0.75rem]" : "text-[0.8125rem]"}`} style={{ color: SUB }}>
       <UsersIcon className="size-3.5 shrink-0" aria-hidden />
       {homeName ? `Shared with everyone in ${homeName}` : "Shared with everyone in this home"}
     </span>

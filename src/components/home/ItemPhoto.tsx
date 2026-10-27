@@ -142,7 +142,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
             </span>
           )}
         </label>
-        {error && <p role="alert" className="text-[11.5px] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
+        {error && <p role="alert" className="text-[0.75rem] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
       </>
     )
   }
@@ -161,7 +161,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
           ? <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
           : <CameraIcon className="size-[18px]" aria-hidden="true" />}
       </label>
-      {error && <p role="alert" className="text-[11.5px] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
+      {error && <p role="alert" className="text-[0.75rem] font-medium" style={{ color: "var(--hh-clay)" }}>{error}</p>}
       </>
     )
   }
@@ -183,22 +183,22 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
                 : <CameraIcon className="size-[17px]" style={{ color: TEAL }} />}
             </span>
             <span className="min-w-0">
-              <span className="block text-[14px] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>
+              <span className="block text-[0.875rem] font-bold tracking-[-0.2px]" style={{ color: TEAL }}>
                 {uploading ? "Uploading…" : "Add a photo"}
               </span>
-              <span className="block text-[11.5px]" style={{ color: "var(--hh-sub)" }}>Makes this easier to spot in your item list</span>
+              <span className="block text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>Makes this easier to spot in your item list</span>
             </span>
           </label>
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="shrink-0 rounded-full border px-2.5 py-1 text-[11.5px] font-bold"
+            className="shrink-0 rounded-full border px-2.5 py-1 text-[0.75rem] font-bold"
             style={{ borderColor: TEAL, color: TEAL }}
           >
             Find one
           </button>
         </div>
-        {error && <p className="mt-1.5 text-[11.5px] font-medium" style={{ color: "var(--hh-clay)" }} role="alert">{error}</p>}
+        {error && <p className="mt-1.5 text-[0.75rem] font-medium" style={{ color: "var(--hh-clay)" }} role="alert">{error}</p>}
         {photoSearch}
       </>
     )
@@ -241,7 +241,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
         <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-1.5 pb-8">
           <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} disabled={uploading} />
           <Glyph className={cn("opacity-85", glyphClassName)} strokeWidth={1.3} style={{ color: TEAL }} />
-          <span className="inline-flex items-center gap-1 text-[12px] font-semibold" style={{ color: INK }}>
+          <span className="inline-flex items-center gap-1 text-[0.75rem] font-semibold" style={{ color: INK }}>
             {uploading && <Loader2Icon className="size-3 animate-spin" />}
             {uploading ? "Uploading…" : "Add photo"}
           </span>
@@ -273,7 +273,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
 
       {error && (
         <div
-          className="absolute inset-x-2.5 top-2.5 z-10 rounded-lg px-2.5 py-1.5 text-[11.5px] font-medium"
+          className="absolute inset-x-2.5 top-2.5 z-10 rounded-lg px-2.5 py-1.5 text-[0.75rem] font-medium"
           style={{ background: "var(--hh-clay-soft)", color: "var(--hh-clay)" }}
           role="alert"
         >

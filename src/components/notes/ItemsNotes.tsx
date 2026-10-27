@@ -27,10 +27,10 @@ export function HouseNotesCard({ notes, error }: { notes: CareNote[] | null; err
         <HomeIcon className="size-[18px]" style={{ color: TEAL }} aria-hidden />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-[14.5px] font-bold tracking-[-0.2px]" style={{ color: INK }}>
+        <span className="text-[0.90625rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>
           House notes{house.length > 0 && <span className="font-semibold" style={{ color: FAINT }}> · {house.length}</span>}
         </span>
-        <span className="truncate text-[12.5px]" style={{ color: error ? CLAY : SUB }}>{line}</span>
+        <span className="truncate text-[0.78125rem]" style={{ color: error ? CLAY : SUB }}>{line}</span>
       </span>
       <ChevronRightIcon className="size-[18px] shrink-0 text-[var(--hh-icon-faint)]" aria-hidden />
     </Link>
@@ -41,13 +41,13 @@ export function HouseNotesCard({ notes, error }: { notes: CareNote[] | null; err
 export function RoomNotesLink({ roomId, roomName, count }: { roomId: string; roomName: string; count: number }) {
   const to = `/inventory/rooms/${roomId}/notes`
   return count > 0 ? (
-    <Link to={to} aria-label={`${count} ${count === 1 ? "note" : "notes"} for ${roomName}`} className="hit-44 inline-flex shrink-0 items-center gap-1 text-[12.5px] font-semibold normal-case tracking-normal" style={{ color: TEAL }}>
+    <Link to={to} aria-label={`${count} ${count === 1 ? "note" : "notes"} for ${roomName}`} className="hit-44 inline-flex shrink-0 items-center gap-1 text-[0.78125rem] font-semibold normal-case tracking-normal" style={{ color: TEAL }}>
       <StickyNoteIcon className="size-[13px]" aria-hidden />
       {count} {count === 1 ? "note" : "notes"}
       <ChevronRightIcon className="size-3" aria-hidden />
     </Link>
   ) : (
-    <Link to={to} aria-label={`Add a note for ${roomName}`} className="hit-44 inline-flex shrink-0 items-center gap-1 text-[12.5px] font-semibold normal-case tracking-normal" style={{ color: FAINT }}>
+    <Link to={to} aria-label={`Add a note for ${roomName}`} className="hit-44 inline-flex shrink-0 items-center gap-1 text-[0.78125rem] font-semibold normal-case tracking-normal" style={{ color: FAINT }}>
       <PlusIcon className="size-[13px]" strokeWidth={2.2} aria-hidden />
       Add a note
     </Link>
