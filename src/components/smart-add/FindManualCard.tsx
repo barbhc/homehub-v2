@@ -122,7 +122,7 @@ export function FindManualCard({
             </span>
             <span
               className="rounded px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase tracking-[0.09em]"
-              style={{ background: "var(--hh-amber-wash, #F6EFDC)", color: "var(--hh-amber, #8A6D1E)" }}
+              style={{ background: "var(--hh-amber-wash)", color: "var(--hh-amber)" }}
             >
               Beta
             </span>
@@ -254,7 +254,7 @@ export function FindManualCard({
                       {otherModel && (
                         <div
                           className="mt-1.5 flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] leading-snug"
-                          style={{ background: "var(--hh-clay-wash, #F7E7DE)", color: "var(--hh-ink)" }}
+                          style={{ background: "var(--hh-clay-wash)", color: "var(--hh-ink)" }}
                         >
                           <AlertTriangleIcon className="mt-px size-3 shrink-0" style={{ color: "var(--hh-clay)" }} />
                           <span>

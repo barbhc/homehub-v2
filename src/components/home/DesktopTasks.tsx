@@ -18,6 +18,7 @@ import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, TIER_FILTERS, tierFilterCounts,
   tasksDueOnDay, useAgendaRowActions, useTaskDetail, whenLabel, phraseUnderGroup, type Lens, CLAY, TEAL, SELECTED_DAY_RING, withoutHidden,
+  fillFor,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 import { UndoBar } from "@/components/ui/UndoBar"
@@ -193,13 +194,13 @@ function DkCalendar({
               className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[12.5px] ${on ? SELECTED_DAY_RING : ""}`}
               style={{
                 background: on ? "var(--hh-teal-fill)" : isToday ? "var(--hh-teal-wash)" : "transparent",
-                color: on ? "#fff" : INK,
+                color: on ? "var(--hh-on-fill)" : INK,
                 fontWeight: isToday || on ? 800 : 500,
               }}
             >
               {c.day}
               <div className="flex h-1 gap-0.5">
-                {dots.map((tr, k) => <span key={k} className="size-1 rounded-full" style={{ background: on ? "#fff" : TIER[tr].dot }} />)}
+                {dots.map((tr, k) => <span key={k} className="size-1 rounded-full" style={{ background: on ? "var(--hh-on-fill)" : TIER[tr].dot }} />)}
               </div>
             </button>
           )
@@ -222,16 +223,19 @@ function TierPill({ active, color, onClick, children, dot, count }: {
       aria-pressed={active}
       onClick={onClick}
       className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-bold"
-      style={{ border: `1.5px solid ${active ? "transparent" : LINE}`, background: active ? color : SURFACE, color: active ? "#fff" : INK }}
+      // Active = the tone's FILL, not the tone: the text tones brighten in dark
+      // and white on them fell to 2.27–2.70:1. Every fill holds white at AA.
+      style={{ border: `1.5px solid ${active ? "transparent" : LINE}`, background: active ? fillFor(color) : SURFACE, color: active ? "var(--hh-on-fill)" : INK }}
     >
-      {dot && <span className="size-1.5 rounded-full" style={{ background: active ? "#fff" : color }} />}
+      {dot && <span className="size-1.5 rounded-full" style={{ background: active ? "var(--hh-on-fill)" : color }} />}
       {children}
       {/* Explicit colours, not opacity. Opacity on text lands on whatever ratio
-          the blend happens to produce — this one computed to #C6DAD6 over teal,
-          4.36:1, just under AA. Both values below are chosen against their own
-          background and still read softer than the label beside them. */}
+          the blend happens to produce. The softer pale-mint count it used to
+          have was 4.44:1 on the clay fill and 3.86 on the dark teal fill, and
+          white on the dark teal fill is itself only 4.51 — no softer colour
+          fits, so the count is white like its label. */}
       {count != null && (
-        <span className="font-mono text-[11px]" style={{ color: active ? "#E4F0ED" : "var(--hh-sub)" }}>{count}</span>
+        <span className="font-mono text-[11px]" style={{ color: active ? "var(--hh-on-fill)" : "var(--hh-sub)" }}>{count}</span>
       )}
     </button>
   )
@@ -315,8 +319,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
           style={{ background: SURFACE, border: `1.5px solid ${insight.tone}33`, boxShadow: `0 2px 16px ${insight.tone}1f` }}
         >
           <span className="absolute inset-y-0 left-0 w-1" style={{ background: insight.tone }} />
-          <span className="ml-1 flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ background: insight.tone }}>
-            <FlagIcon className="size-5 text-white" strokeWidth={2.4} />
+          <span className="ml-1 flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ background: fillFor(insight.tone) }}>
+            <FlagIcon className="size-5" style={{ color: "var(--hh-on-fill)" }} strokeWidth={2.4} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[10.5px] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</div>
@@ -439,8 +443,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
               {(care.rows.length > 0 || care.error) && (
                 <div data-testid="suggested-group">
                   <div className="mb-3 flex items-center gap-2.5 pl-0.5">
-                    <span className="size-[9px] rounded-full" style={{ background: "var(--hh-gold, #8A5A12)" }} />
-                    <span className="text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: "var(--hh-gold, #8A5A12)" }}>Suggested</span>
+                    <span className="size-[9px] rounded-full" style={{ background: "var(--hh-gold)" }} />
+                    <span className="text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: "var(--hh-gold)" }}>Suggested</span>
                     <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
                     <div className="flex-1" />
                     <span className="text-[12.5px]" style={{ color: FAINT }}>typical for your home</span>

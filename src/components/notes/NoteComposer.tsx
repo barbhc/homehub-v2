@@ -66,7 +66,7 @@ export function NoteComposer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="mx-auto w-full max-w-lg gap-0 rounded-t-3xl border-0 p-0">
         <div className="flex flex-col gap-3.5 px-5 pb-7 pt-2.5">
-          <span className="h-[5px] w-9 self-center rounded-full" style={{ background: "var(--hh-line2)" }} aria-hidden />
+          <span className="h-[5px] w-9 self-center rounded-full" style={{ background: "var(--hh-grab)" }} aria-hidden />
           <div className="flex flex-wrap items-center gap-2 pr-10">
             <SheetTitle className="text-[18px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>
               {note ? "Edit note" : "New note"}

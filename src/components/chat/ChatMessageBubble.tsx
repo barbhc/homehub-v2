@@ -28,8 +28,8 @@ function SourceChip({ source: s }: { source: ChatSource }) {
     <span
       className={cn(
         "inline-flex items-center gap-1 text-[11px] rounded px-1.5 py-0.5 font-medium",
-        isAi && "bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
-        isWeb && "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+        isAi && "bg-[var(--hh-ai-soft)] text-[var(--hh-ai-ink)]",
+        isWeb && "bg-[var(--hh-web-soft)] text-[var(--hh-web-ink)]",
         !isAi && !isWeb && "bg-primary/8 text-primary"
       )}
     >
@@ -139,7 +139,7 @@ export function ChatMessageBubble({
           </button>
         )}
         {!isUser && message.inferredItem && !message.isStreaming && (
-          <div className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+          <div className="flex items-center gap-1 text-[11px] text-[var(--hh-warn)] mt-1">
             <ScanSearchIcon className="size-3 shrink-0" aria-hidden />
             <span>About: <span className="font-medium">{message.inferredItem.display_name}</span></span>
           </div>
@@ -154,7 +154,7 @@ export function ChatMessageBubble({
             <button
               type="button"
               onClick={() => onWebSearch(message.id)}
-              className="hit-44 flex items-center gap-1.5 text-xs font-medium text-sky-700 border border-sky-200 rounded-md px-2.5 py-1 hover:bg-sky-50 dark:text-sky-300 dark:border-sky-800 dark:hover:bg-sky-950/40 transition-colors mt-1"
+              className="hit-44 flex items-center gap-1.5 text-xs font-medium text-[var(--hh-web-ink)] border border-[var(--hh-web-line)] rounded-md px-2.5 py-1 hover:bg-[var(--hh-web-soft)] transition-colors mt-1"
             >
               <GlobeIcon className="size-3" aria-hidden />
               Search the web for more

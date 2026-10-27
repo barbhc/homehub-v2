@@ -123,7 +123,7 @@ function dueDays(dateStr: string): number {
 }
 function dueStatusColor(days: number): string {
   if (days < 0) return CLAY
-  if (days <= 7) return "var(--hh-gold, #8A6D1E)"
+  if (days <= 7) return "var(--hh-gold)"
   return FAINT
 }
 function parseTriggers(raw: Json): ReCheckTrigger[] {
@@ -596,7 +596,7 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                 <button type="button" onClick={() => toggleDone(t)} disabled={loading} aria-label={done ? "Mark not done" : "Mark done"} className="hit-44 mt-px shrink-0 disabled:opacity-50" style={{ color: done ? TEAL : FAINT }}>
                   {done ? <CheckCircle2 className="size-5" /> : <Circle className="size-5" />}
                 </button>
-                <span className="flex-1 text-[13px] leading-snug" style={{ color: done ? FAINT : "#3C4A47", textDecoration: done ? "line-through" : undefined }}>
+                <span className="flex-1 text-[13px] leading-snug" style={{ color: done ? FAINT : "var(--hh-ink-soft)", textDecoration: done ? "line-through" : undefined }}>
                   {t.title}
                   {optional && (
                     <span className="ml-1.5 inline-block rounded px-1.5 py-px align-[1px] text-[9.5px] font-bold uppercase tracking-[0.4px]" style={{ background: SLATE_SOFT, color: SLATE }}>

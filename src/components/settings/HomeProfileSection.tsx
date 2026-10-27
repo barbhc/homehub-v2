@@ -458,7 +458,7 @@ export function HomeProfileSection({ homeId }: Props) {
                 )}
               </Button>
               {savedAt && (
-                <span className="flex items-center gap-1.5 text-sm text-emerald-700">
+                <span className="flex items-center gap-1.5 text-sm text-[var(--hh-success)]">
                   <CheckCircle2Icon className="size-4" />
                   Saved
                 </span>

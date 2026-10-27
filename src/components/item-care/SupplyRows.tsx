@@ -331,12 +331,12 @@ function Switch({ checked, label, onChange }: { checked: boolean; label: string;
       className="relative h-6 w-10 shrink-0 rounded-full transition-colors"
       // Off track dark enough to see: 3.4:1 on the footer (WCAG 1.4.11 wants 3:1);
       // the pale #C9D3CF it replaced was 1.4:1, and the white knob vanished on it.
-      style={{ background: checked ? "var(--hh-teal-fill)" : "#7D8984" }}
+      style={{ background: checked ? "var(--hh-teal-fill)" : "var(--hh-toggle-off)" }}
     >
       {/* The knob slides by transform, not `left` — same 3px → 19px travel,
           composited instead of re-laid-out every frame (audit 2026-10-15). */}
       <span
-        className="absolute top-[3px] left-[3px] size-[18px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-transform"
+        className="absolute top-[3px] left-[3px] size-[18px] rounded-full bg-[var(--hh-on-fill)] shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-transform"
         style={{ transform: checked ? "translateX(16px)" : "translateX(0)" }}
         aria-hidden
       />

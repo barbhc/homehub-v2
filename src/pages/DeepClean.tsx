@@ -804,7 +804,7 @@ export default function DeepClean() {
       {step === "summary" && (
         <SectionCard>
           <CardContent className="p-6 text-center space-y-4">
-            <div className="text-6xl text-green-500">✓</div>
+            <div className="text-6xl text-[var(--hh-teal)]">✓</div>
             <p className="text-lg font-medium">
               {summaryMessage}
             </p>
@@ -927,7 +927,7 @@ function CleanHub({
             type="button"
             onClick={onStart}
             className="w-full rounded-2xl p-6 text-left text-white shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
-            style={{ background: "linear-gradient(150deg,var(--hh-teal-fill),#15564A)" }}
+            style={{ background: "linear-gradient(150deg,var(--hh-teal-fill),var(--hh-teal-fill-hover))" }}
           >
             <div className="flex items-center gap-4">
               <div className="flex size-[54px] shrink-0 items-center justify-center rounded-[15px]" style={{ background: "rgba(255,255,255,0.16)" }}>

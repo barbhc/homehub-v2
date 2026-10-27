@@ -31,7 +31,8 @@ const SUB = "var(--hh-sub)"
 const TEAL = "var(--hh-teal)"
 const GOLD = "var(--hh-gold)"
 const GOLD_SOFT = "var(--hh-gold-soft)"
-const GOLD_BORDER = "#EFE0C2"
+const GOLD_BORDER = "var(--hh-gold-line)"
+const NEUTRAL = "var(--hh-neutral)"
 
 // Calm status tones — amber/gold for "worth a look", never alarmist red.
 // Lapsed uses muted slate, never red.
@@ -39,8 +40,8 @@ type WStatus = "soon" | "active" | "expired"
 
 const TONE: Record<WStatus, { fg: string; soft: string; border: string; label: string }> = {
   soon: { fg: GOLD, soft: GOLD_SOFT, border: GOLD_BORDER, label: "Expiring soon" },
-  active: { fg: TEAL, soft: "var(--hh-teal-wash)", border: "#D4E7E0", label: "Active" },
-  expired: { fg: "#5B666F", soft: "#F1F4F6", border: "#E4E9ED", label: "Lapsed" },
+  active: { fg: TEAL, soft: "var(--hh-teal-wash)", border: "var(--hh-teal-line)", label: "Active" },
+  expired: { fg: NEUTRAL, soft: "var(--hh-neutral-soft)", border: "var(--hh-neutral-line)", label: "Lapsed" },
 }
 
 // Anything expiring within this window is surfaced as "worth a look".
@@ -150,7 +151,7 @@ function WarrantyListRow({ row, last }: { row: WarrantyRow; last: boolean }) {
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <span className="whitespace-nowrap text-[13px] font-bold" style={{ color: tone.fg }}>{right}</span>
-        <ChevronRightIcon className="size-4" style={{ color: "#C2CBD4" }} />
+        <ChevronRightIcon className="size-4" style={{ color: "var(--hh-icon-faint)" }} />
       </div>
     </Link>
   )
@@ -261,7 +262,7 @@ export default function WarrantiesPage() {
             <div className="flex gap-3">
               <StatCard n={active.length} label="active" color={TEAL} />
               <StatCard n={soon.length} label="expiring" color={GOLD} />
-              <StatCard n={lapsed.length} label="lapsed" color="#5B666F" />
+              <StatCard n={lapsed.length} label="lapsed" color={NEUTRAL} />
             </div>
 
             {/* Expiring soon — gentle gold highlight */}
@@ -286,7 +287,7 @@ export default function WarrantiesPage() {
                           Expires in {row.daysRemaining} day{row.daysRemaining === 1 ? "" : "s"}
                         </div>
                         <div className="my-0.5 truncate text-[19px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{row.name}</div>
-                        <div className="truncate text-[13px]" style={{ color: "#6B5E3E" }}>
+                        <div className="truncate text-[13px]" style={{ color: "var(--hh-gold-sub)" }}>
                           Coverage ends {formatDate(row.expiry)}{[row.brand, row.room].filter(Boolean).length ? ` · ${[row.brand, row.room].filter(Boolean).join(" · ")}` : ""}
                         </div>
                       </div>

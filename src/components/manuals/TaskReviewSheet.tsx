@@ -406,7 +406,7 @@ export function TaskReviewSheet({
   const expandedCard = (r: ReviewRow, opts?: { guided?: boolean }) => {
     const onSched = isScheduledTask(taskLikeOf(r))
     return (
-      <div data-expanded="true" className="rounded-2xl border-[1.5px] p-4 mb-2 bg-card" style={{ borderColor: "var(--hh-teal, #1B6B5A)" }}>
+      <div data-expanded="true" className="rounded-2xl border-[1.5px] p-4 mb-2 bg-card" style={{ borderColor: "var(--hh-teal)" }}>
         <div className="flex items-start gap-2">
           <div className="flex-1 text-[17px] font-extrabold tracking-[-0.02em] leading-tight text-balance">{r.title}</div>
         </div>
@@ -509,7 +509,7 @@ export function TaskReviewSheet({
                         onClick={() => patch(r.id, { tier: lv.id })}
                         className={`flex flex-1 flex-col items-center justify-start gap-1 rounded-xl border px-1.5 py-2.5 text-center leading-tight transition-colors ${
                           on
-                            ? lv.id === "essential" ? "border-[#C2410C] bg-[#C2410C]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
+                            ? lv.id === "essential" ? "border-[var(--hh-clay)] bg-[var(--hh-clay)]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
                             : "border-border bg-background text-muted-foreground"}`}>
                         <span className="text-[12px] font-bold">{lv.label}</span>
                         <span className="text-[10.5px] font-semibold text-muted-foreground">{lv.hint}</span>
@@ -527,7 +527,7 @@ export function TaskReviewSheet({
                       onClick={() => patch(r.id, { tier: tier.id })}
                       className={`flex flex-1 flex-col items-center justify-start gap-1 rounded-xl border px-1.5 py-2.5 text-center leading-tight transition-colors ${
                         r.tier === tier.id
-                          ? tier.id === "essential" ? "border-[#C2410C] bg-[#C2410C]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
+                          ? tier.id === "essential" ? "border-[var(--hh-clay)] bg-[var(--hh-clay)]/10 text-foreground" : "border-primary bg-primary/10 text-foreground"
                           : "border-border bg-background text-muted-foreground"}`}>
                       <PriorityDot tier={tier.id} />
                       <span className="text-[12px] font-bold">{tier.label}</span>
@@ -633,7 +633,7 @@ export function TaskReviewSheet({
                     type="checkbox"
                     checked={remindsOfRow(r)}
                     onChange={(e) => patch(r.id, { remindEnabled: e.target.checked })}
-                    className="size-[18px] shrink-0 accent-[var(--hh-teal,#1B6B5A)]"
+                    className="size-[18px] shrink-0 accent-[var(--hh-teal)]"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[12.5px] font-semibold">Remind me when it&apos;s due</span>
@@ -648,7 +648,7 @@ export function TaskReviewSheet({
                         : remindsOfRow(r) ? "You turned this on" : "You turned this off"}
                     </span>
                   </span>
-                  {bellOn(r) && <BellRingIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} />}
+                  {bellOn(r) && <BellRingIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal)" }} />}
                 </label>
                 {/* S5: the switch still records the choice — it is what brings
                     the bell back — but this phone will not ring it. The way to
@@ -768,7 +768,7 @@ export function TaskReviewSheet({
             absence is as meaningful as its presence, so this column is the
             answer to "which of these will buzz me" in one glance. */}
         {reminds && (
-          <BellRingIcon className="size-[14px] shrink-0" style={{ color: "var(--hh-teal, #1B6B5A)" }} aria-label="Notifies you" />
+          <BellRingIcon className="size-[14px] shrink-0" style={{ color: "var(--hh-teal)" }} aria-label="Notifies you" />
         )}
 
         <span role="button" tabIndex={-1}
@@ -1102,9 +1102,12 @@ function RemindersOff({ className, withSettingsLink = false }: { className?: str
 }
 
 function PriorityDot({ tier }: { tier: PriorityTier }) {
-  const cls = tier === "essential" ? "size-[11px] bg-[#C2410C]"
+  // Calm tier tokens. The Optional ring was slate-400, 2.6:1 on the sheet —
+  // under the 3:1 a meaningful glyph needs; --hh-slate is the Optional colour
+  // everywhere else.
+  const cls = tier === "essential" ? "size-[11px] bg-[var(--hh-clay)]"
     : tier === "recommended" ? "size-[10px] bg-primary"
-    : "size-[10px] border-2 border-slate-400"
+    : "size-[10px] border-2 border-[var(--hh-slate)]"
   return <span className={`inline-block rounded-full shrink-0 ${cls}`} aria-label={tier} />
 }
 

@@ -201,7 +201,7 @@ export function RefinedItems({
                         reserves for genuine urgency. Fourteen warnings that
                         warn about nothing. Real urgency belongs to Home and
                         Tasks, which actually know what is due. */}
-                    <ChevronRightIcon className="size-[18px] text-[#C2CBD4]" />
+                    <ChevronRightIcon className="size-[18px] text-[var(--hh-icon-faint)]" />
                   </Link>
                 ))}
               </div>

@@ -383,7 +383,7 @@ export default function YourReminders() {
                         aria-label={r.title}
                         checked={r.checked}
                         onChange={(e) => patch(r.id, { checked: e.target.checked })}
-                        className="mt-0.5 size-[18px] shrink-0 accent-[var(--hh-teal,#1B6B5A)]"
+                        className="mt-0.5 size-[18px] shrink-0 accent-[var(--hh-teal)]"
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block text-[14.5px] font-semibold tracking-[-0.2px]" style={{ color: r.checked ? INK : SUB }}>{r.title}</span>
@@ -401,7 +401,7 @@ export default function YourReminders() {
                         )}
                         {r.reason && <span className="mt-0.5 block text-[12px]" style={{ color: FAINT }}>{r.reason}</span>}
                       </span>
-                      <span className="mt-0.5 shrink-0" style={{ color: r.checked ? TEAL : "#9AA29C" }}>
+                      <span className="mt-0.5 shrink-0" style={{ color: r.checked ? TEAL : "var(--hh-icon-faint)" }}>
                         {r.checked ? <BellIcon className="size-4" /> : <BellOffIcon className="size-4" />}
                       </span>
                     </label>

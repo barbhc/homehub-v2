@@ -909,7 +909,7 @@ export default function Settings() {
       <div className="mt-3 flex items-center gap-3.5 rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
         <div
           className="flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white"
-          style={{ background: "linear-gradient(135deg,var(--hh-teal-fill),#2D9B82)" }}
+          style={{ background: "var(--hh-mark)" }}
         >
           {(user?.email ?? "?").slice(0, 1).toUpperCase()}
         </div>
@@ -1270,10 +1270,13 @@ export default function Settings() {
                 aria-label="Find manuals automatically"
                 onClick={() => setAutoFindManuals(!autoFindManuals)}
                 className="hit-44 relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors"
-                style={{ background: autoFindManuals ? "var(--hh-teal-fill)" : "var(--hh-line2)" }}
+                // Off track: --hh-line2 was 1.3:1 against the card, so the switch's
+                // off state was nearly invisible (WCAG 1.4.11 wants 3:1). Same
+                // token as the supply switch.
+                style={{ background: autoFindManuals ? "var(--hh-teal-fill)" : "var(--hh-toggle-off)" }}
               >
                 <span
-                  className="absolute top-0.5 size-5 rounded-full bg-white transition-all"
+                  className="absolute top-0.5 size-5 rounded-full bg-[var(--hh-on-fill)] transition-all"
                   style={{ left: autoFindManuals ? "calc(100% - 22px)" : "2px" }}
                 />
               </button>
@@ -1779,7 +1782,7 @@ export default function Settings() {
                           className="flex size-5 shrink-0 items-center justify-center rounded-full"
                           style={{ border: `1.5px solid ${on ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`, background: on ? "var(--hh-teal-fill)" : "var(--hh-surface)" }}
                         >
-                          {on && <span className="size-2 rounded-full bg-white" />}
+                          {on && <span className="size-2 rounded-full bg-[var(--hh-on-fill)]" />}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>{opt.label}</span>

@@ -18,7 +18,7 @@
 import { useState, useRef, useEffect, useMemo } from "react"
 import { applyScannedIdentity, scannedFieldsChanged } from "@/lib/scanPrecedence"
 import { Camera, ChevronDown, ChevronRight, Loader2, BookOpenCheck, BellRingIcon, Sparkles, MapPin, Refrigerator, Armchair, ImageIcon } from "lucide-react"
-import { SectionCard } from "@/components/layout"
+import { InlineError, SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RoomSelector } from "@/components/smart-add/RoomSelector"
@@ -712,22 +712,13 @@ export function IdentifyStep({
               </details>
             )}
             {!ocrLoading && ocrError && (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {ocrError}
-                <Button variant="ghost" size="sm" className="mt-2" onClick={handleSnapLabel}>
-                  Try again
-                </Button>
-              </div>
+              // Calm clay, never alarm red — the line every redesigned screen uses.
+              <InlineError onRetry={handleSnapLabel}>{ocrError}</InlineError>
             )}
           </div>
         )}
         {mode === "appliance" && !labelPreviewUrl && ocrError && (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {ocrError}
-            <Button variant="ghost" size="sm" className="mt-2" onClick={handleSnapLabel}>
-              Try again
-            </Button>
-          </div>
+          <InlineError onRetry={handleSnapLabel}>{ocrError}</InlineError>
         )}
         {mode === "appliance" && (
           <>
@@ -755,7 +746,7 @@ export function IdentifyStep({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="identify-brand" className="text-sm font-medium text-foreground block mb-1.5">
-                  Brand <span className="text-destructive">*</span>
+                  Brand <span className="text-[var(--hh-clay)]">*</span>
                 </label>
                 {/* Placeholder is a QUESTION, not an example. It used to read
                     "e.g., LG" — and the owner scanned an LG, so the one empty
@@ -772,12 +763,12 @@ export function IdentifyStep({
                   invalid={missingRequired.includes("brand")}
                 />
                 {missingRequired.includes("brand") && (
-                  <p className="mt-1 text-xs text-destructive">Not found in your photo</p>
+                  <p className="mt-1 text-xs text-[var(--hh-clay)]">Not found in your photo</p>
                 )}
               </div>
               <div>
                 <label htmlFor="identify-model" className="text-sm font-medium text-foreground block mb-1.5">
-                  Model <span className="text-destructive">*</span>
+                  Model <span className="text-[var(--hh-clay)]">*</span>
                 </label>
                 <Input
                   id="identify-model"
@@ -787,7 +778,7 @@ export function IdentifyStep({
                   maxLength={100}
                   required
                   aria-invalid={missingRequired.includes("model")}
-                  className={cn(missingRequired.includes("model") && "border-destructive")}
+                  className={cn(missingRequired.includes("model") && "aria-invalid:border-[var(--hh-clay)] aria-invalid:ring-[var(--hh-clay)]/20 dark:aria-invalid:ring-[var(--hh-clay)]/40")}
                   // Model numbers are uppercase alphanumerics — stop the iOS
                   // keyboard fighting the user (lowercase default, autocorrect
                   // "SMD2470" → words, spellcheck red squiggles).
@@ -797,7 +788,7 @@ export function IdentifyStep({
                   spellCheck={false}
                 />
                 {missingRequired.includes("model") ? (
-                  <p className="mt-1 text-xs text-destructive">Not found in your photo</p>
+                  <p className="mt-1 text-xs text-[var(--hh-clay)]">Not found in your photo</p>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1">
                     Usually on a label inside the door or around the back
@@ -1186,14 +1177,7 @@ export function IdentifyStep({
       </SectionCard>
 
       {error && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-          {onRetry && (
-            <Button variant="ghost" size="sm" className="mt-2" onClick={onRetry}>
-              Try again
-            </Button>
-          )}
-        </div>
+        <InlineError onRetry={onRetry}>{error}</InlineError>
       )}
 
       <div className="flex gap-3">

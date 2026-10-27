@@ -17,7 +17,7 @@ import { classifyTaskDetail } from "@/lib/taskActor"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, phraseUnderGroup, TIER_FILTERS, tierFilterCounts,
-  tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL, SELECTED_DAY_RING, withoutHidden,
+  tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL, SELECTED_DAY_RING, withoutHidden, fillFor,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 import { UndoBar } from "@/components/ui/UndoBar"
@@ -156,7 +156,7 @@ function TaskRow({
         <div className="flex flex-1 items-center pl-5" style={{ background: "var(--hh-teal-fill)", opacity: dx > 4 ? 1 : 0 }}>
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-white"><CheckIcon className="size-[18px]" strokeWidth={2.6} /> Done</span>
         </div>
-        <div className="flex flex-1 items-center justify-end pr-5" style={{ background: "#8A6D1E", opacity: dx < -4 ? 1 : 0 }}>
+        <div className="flex flex-1 items-center justify-end pr-5" style={{ background: "var(--hh-gold-fill)", opacity: dx < -4 ? 1 : 0 }}>
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-white">Snooze <AlarmClockIcon className="size-[17px]" strokeWidth={2.4} /></span>
         </div>
       </div>
@@ -275,13 +275,13 @@ function Calendar({
                 className={`hit-44 flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[13.5px] ${on ? SELECTED_DAY_RING : ""}`}
                 style={{
                   background: on ? "var(--hh-teal-fill)" : isToday ? "var(--hh-teal-wash)" : "transparent",
-                  color: on ? "#fff" : INK,
+                  color: on ? "var(--hh-on-fill)" : INK,
                   fontWeight: isToday || on ? 800 : 500,
                 }}
               >
                 {c.day}
                 <div className="flex h-1 gap-0.5">
-                  {dots.map((tr, k) => <span key={k} className="size-1 rounded-full" style={{ background: on ? "#fff" : TIER[tr].dot }} />)}
+                  {dots.map((tr, k) => <span key={k} className="size-1 rounded-full" style={{ background: on ? "var(--hh-on-fill)" : TIER[tr].dot }} />)}
                 </div>
               </button>
             )
@@ -415,8 +415,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
             style={{ background: SURFACE, border: `1.5px solid ${insight.tone}33`, boxShadow: `0 2px 14px ${insight.tone}1f` }}
           >
             <span className="absolute inset-y-0 left-0 w-1" style={{ background: insight.tone }} />
-            <span className="ml-1 flex size-[38px] shrink-0 items-center justify-center rounded-[11px]" style={{ background: insight.tone }}>
-              <FlagIcon className="size-[19px] text-white" strokeWidth={2.4} />
+            <span className="ml-1 flex size-[38px] shrink-0 items-center justify-center rounded-[11px]" style={{ background: fillFor(insight.tone) }}>
+              <FlagIcon className="size-[19px]" style={{ color: "var(--hh-on-fill)" }} strokeWidth={2.4} />
             </span>
             <span className="min-w-0 flex-1">
               <span className="mb-0.5 block text-[10.5px] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</span>
@@ -588,8 +588,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
             {(care.rows.length > 0 || care.error) && (
               <div className="mb-4" data-testid="suggested-group">
                 <div className="mb-2 flex items-center gap-1.5 pl-0.5">
-                  <span className="size-2 rounded-full" style={{ background: "var(--hh-gold, #8A5A12)" }} />
-                  <span className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: "var(--hh-gold, #8A5A12)" }}>Suggested</span>
+                  <span className="size-2 rounded-full" style={{ background: "var(--hh-gold)" }} />
+                  <span className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: "var(--hh-gold)" }}>Suggested</span>
                   <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{care.rows.length}</span>
                   <div className="flex-1" />
                   <span className="text-[12px]" style={{ color: FAINT }}>typical for your home</span>

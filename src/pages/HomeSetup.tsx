@@ -195,7 +195,7 @@ export default function HomeSetup() {
 
             <section className="mt-8" data-testid="home-suggestions">
               <div className="mb-2 flex items-center gap-1.5 pl-0.5">
-                <span className="size-2 rounded-full" style={{ background: "var(--hh-gold, #8A5A12)" }} />
+                <span className="size-2 rounded-full" style={{ background: "var(--hh-gold)" }} />
                 <span className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Suggested for your home</span>
                 <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{suggestions.length}</span>
                 <div className="flex-1" />
