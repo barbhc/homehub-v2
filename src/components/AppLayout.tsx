@@ -1,4 +1,5 @@
-import { Outlet, Link, useLocation, useNavigate } from "react-router-dom"
+import { useLayoutEffect, useRef } from "react"
+import { Outlet, Link, useLocation, useNavigate, useNavigationType } from "react-router-dom"
 import { ParseTrayPill } from "@/components/manuals/ParseTrayPill"
 import { openFeedback } from "@/lib/feedback"
 import { HomeIcon, ListChecksIcon, PackageIcon, SparklesIcon, Settings2Icon, PlusIcon, SearchIcon, BellIcon, MessageSquareWarningIcon } from "lucide-react"
@@ -7,6 +8,8 @@ import { useAuth } from "@/modules/auth"
 import { useUserLevel } from "@/hooks/useUserLevel"
 import { useInterfaceLevelSync } from "@/hooks/useInterfaceLevelSync"
 import { Button } from "@/components/ui/button"
+import { DURATION, EASE } from "@/lib/motion"
+import { shouldFadeTab, tabOf } from "@/lib/tabFade"
 
 // Mobile bottom tabs are FIXED at five (Home · Tasks · Items · Ask · Settings)
 // at every level — per the redesign spec, the level changes in-screen content,
@@ -34,9 +37,47 @@ const LEVEL_RANK: Record<string, number> = { essentials: 0, engaged: 1, power: 2
 const inItems = (pathname: string) =>
   pathname === "/inventory" || pathname.startsWith("/inventory/") || pathname.startsWith("/items/")
 
+/**
+ * Switching tabs fades the new tab's content in over --dur-fade (no slide —
+ * iOS tabs don't slide). The old content leaves at once and the new one rises
+ * from the page background, which reads as a crossfade on one colour; a true
+ * two-layer crossfade would keep the old page mounted beside the new one and
+ * double its rendering and reads for the length of the fade.
+ *
+ * Web Animations on <main>, started in a layout effect on the commit that
+ * shows the new tab, so its first frame is already at opacity 0: nothing is
+ * remounted or refetched, scroll is untouched (opacity only), and the fade
+ * leaves nothing behind when it ends (no lingering stacking context). Never on
+ * first render, so a deep link or the cold start paints at once.
+ *
+ * Reduce Motion keeps the fade: it moves nothing, and a cross-dissolve is what
+ * iOS itself substitutes for motion under that setting (the approved demo:
+ * "everything becomes a 200 ms fade").
+ */
+function useTabSwitchFade(pathname: string) {
+  const mainRef = useRef<HTMLElement>(null)
+  const navigationType = useNavigationType()
+  const tab = tabOf(pathname)
+  const prevTab = useRef(tab)
+  const running = useRef<Animation | null>(null)
+  useLayoutEffect(() => {
+    const prev = prevTab.current
+    prevTab.current = tab
+    const el = mainRef.current
+    if (!el || typeof el.animate !== "function" || !shouldFadeTab(prev, tab, navigationType)) return
+    running.current?.cancel()
+    running.current = el.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: DURATION.fade * 1000,
+      easing: `cubic-bezier(${EASE.enter.join(", ")})`,
+    })
+  }, [tab, navigationType])
+  return mainRef
+}
+
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
+  const mainRef = useTabSwitchFade(location.pathname)
   const { signOut, user } = useAuth()
   const { level } = useUserLevel()
 
@@ -191,7 +232,7 @@ export function AppLayout() {
           indicator, so on every notched iPhone the last element of every page sat
           under it — reported as "Back and Add item are still partially cut off".
           It never reproduced in a browser, where env() resolves to 0. */}
-      <main className="flex-1 pb-[calc(var(--hh-tabbar-h)+4px+env(safe-area-inset-bottom))] md:pb-0 pt-safe-top">
+      <main ref={mainRef} className="flex-1 pb-[calc(var(--hh-tabbar-h)+4px+env(safe-area-inset-bottom))] md:pb-0 pt-safe-top">
         <Outlet />
       </main>
 
@@ -218,8 +259,10 @@ export function AppLayout() {
                 key={to}
                 to={to}
                 data-tour={tourId}
+                // Press feedback: the item dims the instant a finger lands
+                // (:active, --dur-press) and comes back on release. No haptic.
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-1 min-w-[58px] min-h-11 transition-colors",
+                  "flex flex-col items-center justify-center gap-1 px-3 py-1 min-w-[58px] min-h-11 transition-[color,opacity] duration-[var(--dur-press)] ease-linear active:opacity-60",
                   isActive ? "text-[var(--hh-teal)]" : "text-[var(--hh-sub)]"
                 )}
               >

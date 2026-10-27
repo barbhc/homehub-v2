@@ -22,6 +22,7 @@ import { IdentifyStep, type IdentifyData } from "@/components/smart-add/Identify
 import { PageContainer, InlineError, StaleDataNote, LoadErrorState } from "@/components/layout"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { HomeSkeleton } from "@/components/home/HomeSkeleton"
+import { StickyHeader } from "@/components/layout/StickyHeader"
 import type { ItemUnit, Room } from "@/integrations/types"
 
 const noop = () => {}
@@ -148,5 +149,24 @@ export const SCENARIOS: { id: string; note: string; render: () => ReactNode }[] 
     id: "home-skeleton-slow",
     note: "The same wait past SKELETON_PATIENCE_MS: it says so instead of shimmering silently.",
     render: () => <HomeSkeleton patienceExpired />,
+  },
+  {
+    id: "sticky-header-scroll-edge",
+    note: "StickyHeader: no hairline at the top of the page; it fades in once rows scroll beneath the header (the scroll-edge rule Tasks' lens header adopts).",
+    render: () => (
+      <div className="min-h-dvh" style={{ background: "var(--hh-bg)" }}>
+        <h1 className="px-5 pt-4 pb-2 text-[1.75rem] font-extrabold" style={{ color: "var(--hh-ink)" }}>Tasks</h1>
+        <StickyHeader data-testid="scroll-edge-header" className="z-20 px-5 py-3 text-[0.84375rem] font-bold" style={{ background: "var(--hh-bg)", color: "var(--hh-ink)" }}>
+          Urgency · Room · Item · Calendar
+        </StickyHeader>
+        <ul className="mx-4 mt-4 overflow-hidden rounded-2xl" style={{ background: "var(--hh-surface)" }}>
+          {Array.from({ length: 30 }, (_, i) => (
+            <li key={i} className="border-b px-4 py-3 text-[0.9375rem]" style={{ borderColor: "var(--hh-line)", color: "var(--hh-ink)" }}>
+              Row {i + 1}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ),
   },
 ]
