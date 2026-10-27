@@ -172,7 +172,7 @@ export function ManualSection({
               was an icon tile that said nothing. A labelled tag says what the
               row IS: the file kind for manuals, an open book for references. */}
           <div
-            className="flex h-9 min-w-9 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1"
+            className="flex h-9 min-w-9 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 larger-text:h-auto larger-text:min-h-9 larger-text:py-1"
             style={{ background: "var(--hh-clay-soft)" }}
           >
             <Icon className="size-3.5" style={{ color: "var(--hh-clay)" }} />

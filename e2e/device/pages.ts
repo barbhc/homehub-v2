@@ -120,8 +120,13 @@ export const PAGES: Setup[] = [
       await composer.fill("How often should I change the furnace filter?")
       await composer.press("Enter")
       await page.getByText(ANSWER).filter(visible).first().waitFor({ timeout: 15_000 })
-      // The room filter loads on its own; judge the page with it in.
-      await page.getByRole("button", { name: "Kitchen" }).filter(visible).first().waitFor({ timeout: 20_000 })
+      // The room filter loads on its own; judge the page with it in. (From lg:
+      // the answered page shows a "Topic" chip instead of the room filter.)
+      if ((page.viewportSize()?.width ?? 0) < 1024) {
+        await page.getByRole("button", { name: "Kitchen" }).filter(visible).first().waitFor({ timeout: 20_000 })
+      } else {
+        await page.getByText("Topic", { exact: true }).filter(visible).first().waitFor({ timeout: 20_000 })
+      }
     },
   },
   {

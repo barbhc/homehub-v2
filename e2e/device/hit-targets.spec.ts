@@ -45,7 +45,7 @@ import { emulateIosBodySize } from "./typeScale"
  * scroller are printed too, so a skip cannot hide a control.
  *
  * Phone (390×844), iPad portrait (820×1180), and the phone at a raised iOS text
- * size (Larger Text, 1.35x). iPads run the md+ layouts with
+ * size (Larger Text, 1.35x) and the iPad at 200% text. iPads run the md+ layouts with
  * a finger, which is why the desktop-width exemption is `pointer: coarse`, not
  * a breakpoint.
  */
@@ -57,6 +57,8 @@ const VIEWPORTS: { name: string; width: number; height: number; bodyPx?: number 
   // 23pt, 1.35x). Text grows there, and controls that hug it must not start
   // sharing taps with their neighbours. See typeScale.ts.
   { name: "phone, xxxLarge text", width: 390, height: 844, bodyPx: 23 },
+  // And the iPad's md/lg layouts at 200% text (Body 34pt).
+  { name: "iPad portrait, 200% text", width: 820, height: 1180, bodyPx: 34 },
 ]
 
 /** 44pt less a pixel of sub-pixel rounding. */

@@ -53,12 +53,15 @@
   --color-ring: var(--t-ring);
 
   /* Border radius — 5-step scale. In px, not rem: see "Larger Text" below. */
+  --radius:     4px;       /* bare `rounded` (Tailwind's default 0.25rem), pinned */
+  --radius-xs:  2px;
   --radius-sm:  4px;
   --radius-md:  8px;
   --radius-lg:  12px;
   --radius-xl:  16px;
   --radius-2xl: 24px;
   --radius-3xl: 24px;      /* Tailwind's default 1.5rem, pinned */
+  --radius-4xl: 32px;
 
   /* ── Larger Text: only TEXT follows the iPhone's text-size setting ──────────
      Text sizes are rem, and the root grows with the system setting (the
@@ -69,6 +72,8 @@
      here to the px they always rendered at (identical at the normal size):
      margins and icons stay put, text and the boxes that hug it grow. */
   --spacing: 4px;
+  --container-3xs: 256px;
+  --container-2xs: 288px;
   --container-xs:  320px;
   --container-sm:  384px;
   --container-md:  448px;
@@ -76,8 +81,10 @@
   --container-xl:  576px;
   --container-2xl: 672px;
   --container-3xl: 768px;
+  --container-4xl: 896px;
   --container-5xl: 1024px;
   --container-6xl: 1152px;
+  --container-7xl: 1280px;
 }
 
 /* ── Redesign palette (--hh-*) ──────────────────────────────────────────────

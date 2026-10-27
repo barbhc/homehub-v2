@@ -19,7 +19,15 @@ const script = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/scrip
   .map((m) => m[1])
   .find((s) => s.includes("-apple-system-body"))
 
-type Env = { ios: boolean; bodyPx: number }
+type Env = { ios: boolean; bodyPx: number; throws?: boolean }
+
+/** Frames requested by the script; `flush()` runs them, like the next paint. */
+let frames: FrameRequestCallback[] = []
+const flush = () => {
+  const run = frames
+  frames = []
+  run.forEach((f) => f(0))
+}
 
 function boot(env: Env) {
   const root = document.documentElement
@@ -29,9 +37,11 @@ function boot(env: Env) {
     supports: (a: string, b?: string) =>
       env.ios && (a === "-webkit-touch-callout" || (a === "font" && b === "-apple-system-body")),
   })
+  vi.stubGlobal("requestAnimationFrame", (f: FrameRequestCallback) => frames.push(f))
   const real = window.getComputedStyle.bind(window)
   vi.spyOn(window, "getComputedStyle").mockImplementation((el: Element, p?: string | null) => {
     if (el instanceof HTMLSpanElement && el.parentNode === root) {
+      if (env.throws) throw new Error("probe failed")
       return { fontSize: `${env.bodyPx}px` } as CSSStyleDeclaration
     }
     return real(el, p)
@@ -45,6 +55,7 @@ function boot(env: Env) {
 }
 
 afterEach(() => {
+  frames = []
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -92,8 +103,32 @@ describe("Larger Text pre-paint script", () => {
     expect(page.scale()).toBe("2")
     expect(page.larger()).toBe(true)
     env.bodyPx = 17
-    window.dispatchEvent(new Event("resize"))
+    window.dispatchEvent(new Event("pageshow"))
     expect(page.scale()).toBe("1")
     expect(page.larger()).toBe(false)
+  })
+
+  it("measures a burst of resizes once, on the next frame", () => {
+    const env = { ios: true, bodyPx: 17 }
+    const page = boot(env)
+    // (Scripts booted by earlier tests in this file still listen on the same
+    // window, so compare one event against a burst rather than count to 1.)
+    window.dispatchEvent(new Event("resize"))
+    const perEvent = frames.length
+    flush()
+    env.bodyPx = 23
+    for (let i = 0; i < 5; i++) window.dispatchEvent(new Event("resize"))
+    window.dispatchEvent(new Event("orientationchange"))
+    expect(frames.length).toBe(perEvent) // six events, one frame per script
+    expect(page.scale()).toBe("1") // nothing measured during the burst
+    flush()
+    expect(page.scale()).toBe(String(Math.round((23 / 17) * 1000) / 1000))
+  })
+
+  it("stays at 1x, with no probe left behind, if measuring throws", () => {
+    const page = boot({ ios: true, bodyPx: 40, throws: true })
+    expect(page.scale()).toBe("1")
+    expect(page.larger()).toBe(false)
+    expect(document.documentElement.querySelector(":scope > span")).toBeNull()
   })
 })

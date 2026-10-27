@@ -124,7 +124,7 @@ export function FilterBar({
       <div className="w-full max-w-[560px] flex flex-col gap-2">
         {rooms.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0">
+            <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0 larger-text:w-auto">
               Room
             </span>
             {rooms.map((room) => {

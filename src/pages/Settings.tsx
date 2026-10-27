@@ -1696,7 +1696,9 @@ export default function Settings() {
                     <span className="flex-1" />
                     <div className="flex w-10 flex-col items-center gap-0.5">
                       <BellIcon className="size-4" style={{ color: "var(--hh-sub)" }} />
-                      <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ color: "var(--hh-sub)" }}>
+                      {/* A 40px column header over the toggles: grows with Larger Text only
+                          as far as the column fits (~1.27x). */}
+                      <span className="text-[length:min(0.6875rem,14px)] font-bold uppercase tracking-[0.3px]" style={{ color: "var(--hh-sub)" }}>
                         PUSH
                       </span>
                     </div>

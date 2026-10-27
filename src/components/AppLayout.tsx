@@ -58,16 +58,19 @@ export function AppLayout() {
     <div className="min-h-screen flex flex-col" style={{ background: "var(--hh-bg)" }}>
       {/* Desktop top nav (redesign shell) */}
       <header className="hidden border-b border-[var(--hh-line)] md:block" style={{ background: "var(--hh-surface)" }}>
-        <nav className="mx-auto flex min-h-[60px] max-w-6xl items-center gap-6 px-6">
+        {/* Larger Text: like the phone's tab bar, the header's own labels stop at
+            1.5x, and the bar wraps onto a second row rather than run off an
+            iPad's edge. */}
+        <nav className="mx-auto flex min-h-[60px] max-w-6xl items-center gap-6 px-6 larger-text:flex-wrap larger-text:gap-y-2 larger-text:py-2">
           {/* Brand mark */}
           <Link to="/home" className="hit-44 flex items-center gap-2.5">
             <span className="flex size-8 items-center justify-center rounded-[10px]" style={{ background: "var(--hh-teal-fill)" }}>
               <HomeIcon className="size-[18px] text-white" strokeWidth={2.4} />
             </span>
-            <span className="text-[1.125rem] font-extrabold tracking-[-0.5px]" style={{ color: "var(--hh-ink)" }}>Homehub</span>
+            <span className="text-[length:min(1.125rem,27px)] font-extrabold tracking-[-0.5px]" style={{ color: "var(--hh-ink)" }}>Homehub</span>
           </Link>
           {/* Nav */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 larger-text:flex-wrap">
             {visibleNav.filter((n) => !("mobileOnly" in n && n.mobileOnly)).map(({ to, label, tourId }) => {
               const isActive =
                 to === "/inventory"
@@ -79,7 +82,7 @@ export function AppLayout() {
                   to={to}
                   data-tour={tourId}
                   className={cn(
-                    "hit-44 rounded-lg px-3 py-1.5 text-[0.875rem] font-semibold transition-colors",
+                    "hit-44 rounded-lg px-3 py-1.5 text-[length:min(0.875rem,21px)] font-semibold transition-colors",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
                   )}
                 >
@@ -100,7 +103,7 @@ export function AppLayout() {
                   to={to}
                   data-tour={tourId}
                   className={cn(
-                    "hit-44 hidden rounded-lg px-3 py-1.5 text-[0.875rem] font-semibold transition-colors lg:block",
+                    "hit-44 hidden rounded-lg px-3 py-1.5 text-[length:min(0.875rem,21px)] font-semibold transition-colors lg:block",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
                   )}
                 >
@@ -113,7 +116,7 @@ export function AppLayout() {
               2px more): 36px icons 6px apart are on a 42px pitch, too tight for
               each to take a 44pt tap (hit-44) without the taps overlapping.
               A mouse keeps the compact spacing. */}
-          <div className="ml-auto flex items-center gap-1.5 pointer-coarse:gap-2">
+          <div className="ml-auto flex items-center gap-1.5 pointer-coarse:gap-2 larger-text:flex-wrap">
             {/* Search — items list carries the search UI */}
             <Link
               to="/inventory"
@@ -164,7 +167,7 @@ export function AppLayout() {
             {/* Account avatar — signed-in user's initial */}
             <Link
               to="/settings"
-              className="hit-44 flex size-8 items-center justify-center rounded-full text-[0.8125rem] font-bold text-white transition-opacity hover:opacity-90 pointer-coarse:ml-0.5"
+              className="hit-44 flex size-8 items-center justify-center rounded-full text-[length:min(0.8125rem,19.5px)] font-bold text-white transition-opacity hover:opacity-90 pointer-coarse:ml-0.5"
               style={{ background: "var(--hh-teal-fill)" }}
               aria-label="Account"
               title="Account"

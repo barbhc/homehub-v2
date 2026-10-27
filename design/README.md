@@ -95,13 +95,17 @@ On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed
   exactly the sizes above — the default never changes. Text grows only when someone raises the
   iOS text-size setting; dense rows (tab labels, the calendar) cap at ~1.5×. *"I prefer the
   original text size."*
-  How it is built (`src/index.css`, "Larger Text"): every font size is **rem** at its old px value,
-  so sizes are written `text-[0.8125rem]` (= 13px; the table is `scripts/design/px-to-rem.mjs`) —
+  How it is built (`src/index.css`, "Larger Text"): every font size is **rem** at its old px value
+  — identical at a 16px browser default, the iPhone's and every mainstream browser's — so sizes are
+  written `text-[0.8125rem]` (= 13px; the table is `scripts/design/px-to-rem.mjs`) —
   never `text-[13px]`, which would ignore the setting. A pre-paint script in `index.html` sets
   `--type-scale` from the iOS Body size; spacing, max-widths and radii are px so only text (and the
   boxes that hug it) grows. Layout that should change only at a raised size uses the
   `larger-text:` variant (wrap a button row, let a title wrap instead of truncate). A dense row caps
-  with `text-[length:min(<rem>,<px × 1.5>)]`. `e2e/device/larger-text.spec.ts` gates it.
+  with `text-[length:min(<rem>,<px × 1.5>)]`. Container queries written in rem (`@min-[26rem]:…`)
+  scale with the text **by design**: a container that fits less grown text switches to its narrow
+  layout sooner. (Media-query breakpoints do not — rem there is always the browser's 16px.)
+  `e2e/device/larger-text.spec.ts` gates it.
 
 ### Density scale (`dens()` in `hh-data.jsx` — mobile)
 Three densities (spacious/cozy/compact) drive `pad`, `cardPad`, `gap`, `stack`, `radius`, `tap`, `rowPy`, `body`, `small`, `big`. Cozy is the default. Key cozy values: card radius ~18, card padding ~16, screen padding ~16–20, row vertical padding ~13, tap target base ~36–44. **Minimum tap target 44pt — the hit area, not the drawing:** a control may look smaller and take a 44pt tap through the `hit-44` utility (`src/index.css`); `e2e/device/hit-targets.spec.ts` gates it.

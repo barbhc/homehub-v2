@@ -29,8 +29,11 @@ import { readFileSync, writeFileSync } from "node:fs"
  */
 
 const SCALES = [
-  { name: "xxxLarge", scale: 1.35 },
-  { name: "AX (200%)", scale: 2 },
+  { name: "xxxLarge", scale: 1.35, vp: { name: "phone", width: 390, height: 844 } },
+  { name: "AX (200%)", scale: 2, vp: { name: "phone", width: 390, height: 844 } },
+  // iPads run the md/lg layouts (fixed sidebars and rails) with the same setting.
+  { name: "AX (200%)", scale: 2, vp: { name: "iPad portrait", width: 820, height: 1180 } },
+  { name: "AX (200%)", scale: 2, vp: { name: "iPad landscape", width: 1180, height: 820 } },
 ] as const
 
 const JUDGED = ["home", "tasks", "task page", "your week", "items", "item page", "ask", "settings", "sign-in"]
@@ -141,8 +144,8 @@ test.afterAll(async () => {
 })
 
 for (const s of SCALES) {
-  test.describe(`Larger Text @ ${s.name} (${s.scale}x), phone 390x844`, () => {
-    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+  test.describe(`Larger Text @ ${s.name} (${s.scale}x), ${s.vp.name} ${s.vp.width}x${s.vp.height}`, () => {
+    test.use({ viewport: { width: s.vp.width, height: s.vp.height }, hasTouch: true, isMobile: true })
     test.beforeEach(async ({ page }) => {
       await emulateIosBodySize(page, 17 * s.scale)
     })
@@ -164,16 +167,17 @@ for (const s of SCALES) {
           const fail = findings.filter((f) => f.kind !== "truncated")
           const trunc = findings.filter((f) => f.kind === "truncated")
           console.log(
-            `[larger-text:${s.scale}:${p.name}] failures ${fail.length}, truncated-by-design ${trunc.length}` +
+            `[larger-text:${s.vp.name}:${s.scale}:${p.name}] failures ${fail.length}, truncated-by-design ${trunc.length}` +
               (fail.length ? "\n  " + fail.map((f) => `${f.kind}: "${f.text}" — ${f.detail}`).join("\n  ") : "") +
               (trunc.length ? "\n  truncated: " + trunc.map((f) => `"${f.text}"`).join(" · ") : ""),
           )
-          expect(fail.map((f) => `${f.kind}: "${f.text}" — ${f.detail}`), `${p.name} @ ${s.scale}x`).toEqual([])
+          expect(fail.map((f) => `${f.kind}: "${f.text}" — ${f.detail}`), `${p.name} @ ${s.scale}x, ${s.vp.name}`).toEqual([])
         })
       })
     }
 
     test("tab-bar labels stop at 1.5x", async ({ page }) => {
+      test.skip(s.vp.width >= 768, "no tab bar at md+")
       await PAGES.find((x) => x.name === "home")!.open(page)
       const sizes = await page
         .locator("nav.fixed a span")
@@ -225,10 +229,12 @@ test.describe("Larger Text @ normal size", () => {
  * image is attached for a person to look at.
  */
 const BASE_URL = process.env.LT_BASE_URL
+/** LT_VIEWPORT=820x1180 (or 1440x900) compares the md/lg layouts instead. */
+const [PIXEL_W, PIXEL_H] = (process.env.LT_VIEWPORT ?? "390x844").split("x").map(Number)
 
 test.describe("Larger Text @ normal size: pixel-identical to main", () => {
   test.skip(!BASE_URL, "set LT_BASE_URL to main's dev server on the same emulator")
-  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+  test.use({ viewport: { width: PIXEL_W, height: PIXEL_H }, hasTouch: true, isMobile: true })
 
   for (const p of PAGES.filter((x) => JUDGED.includes(x.name))) {
     test.describe(p.name, () => {
@@ -252,7 +258,7 @@ test.describe("Larger Text @ normal size: pixel-identical to main", () => {
           // main, signed in as the same user: the same auth snapshot, moved to its origin.
           const state = typeof storageState === "string" ? JSON.parse(readFileSync(storageState, "utf8")) : storageState
           const moved = state ? JSON.parse(JSON.stringify(state).replaceAll(new URL(info.project.use.baseURL!).origin, BASE_URL!)) : undefined
-          const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, baseURL: BASE_URL, storageState: moved })
+          const ctx = await browser.newContext({ viewport: { width: PIXEL_W, height: PIXEL_H }, hasTouch: true, isMobile: true, baseURL: BASE_URL, storageState: moved })
           const base = await ctx.newPage()
           await base.clock.setFixedTime(new Date(`${SEED_TODAY}T10:00:00`))
           await base.addInitScript(() => {
@@ -305,7 +311,7 @@ test.describe("Larger Text @ normal size: pixel-identical to main", () => {
           writeFileSync(info.outputPath("branch.png"), ours!)
           writeFileSync(info.outputPath("main.png"), theirs!)
         }
-        console.log(`[larger-text:pixel:${p.name}] branch ${diff.sizeA.join("x")} main ${diff.sizeB.join("x")}: ${diff.n} px differ${diff.n ? ` (rows ${diff.top}–${diff.bottom})` : ""}`)
+        console.log(`[larger-text:pixel:${PIXEL_W}x${PIXEL_H}:${p.name}] branch ${diff.sizeA.join("x")} main ${diff.sizeB.join("x")}: ${diff.n} px differ${diff.n ? ` (rows ${diff.top}–${diff.bottom})` : ""}`)
         if (!process.env.LT_ALLOW_DIFF) expect(diff.n, `${p.name}: pixels that differ from main at the normal size`).toBe(0)
       })
     })
