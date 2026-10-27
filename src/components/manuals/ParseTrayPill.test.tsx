@@ -126,7 +126,7 @@ describe("S6.2 — the tray names the ITEM first (owner, #228 review: people thi
     const name = await within(row).findByText("Dishwasher")
     before(name, within(row).getByText("· 42 pages"))
     before(name, within(row).getByText("Bosch dishwasher manual"))
-    expect(within(row).getByText("Bosch dishwasher manual").className).toContain("text-[11px]")
+    expect(within(row).getByText("Bosch dishwasher manual").className).toContain("text-[0.6875rem]")
     expect(screen.getByText(SCAN_KEEPS_GOING_SHORT)).toBeInTheDocument()
   })
 

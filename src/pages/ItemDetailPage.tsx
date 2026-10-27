@@ -289,11 +289,11 @@ export default function ItemDetailPage() {
             wins if it lands; this only offers a fresh start meanwhile. */}
         {load.status === "slow" && (
           <div className="mt-6 flex flex-col items-center gap-3 text-center" role="status">
-            <p className="text-[13px]" style={{ color: "var(--hh-sub)" }}>Still loading…</p>
+            <p className="text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>Still loading…</p>
             <button
               type="button"
               onClick={load.reload}
-              className="rounded-xl border px-4 py-2 text-[13.5px] font-bold"
+              className="rounded-xl border px-4 py-2 text-[0.84375rem] font-bold"
               style={{ borderColor: "var(--hh-line2)", color: "var(--hh-teal)" }}
             >
               Try again
@@ -310,12 +310,12 @@ export default function ItemDetailPage() {
     return (
       <PageContainer>
         <div className="py-16 text-center">
-          <p className="text-[15px] font-semibold text-foreground">Could not load this item.</p>
-          <p className="mt-1 text-[13px] text-muted-foreground">{load.loadError}</p>
+          <p className="text-[0.9375rem] font-semibold text-foreground">Could not load this item.</p>
+          <p className="mt-1 text-[0.8125rem] text-muted-foreground">{load.loadError}</p>
           <button
             type="button"
             onClick={load.reload}
-            className="hit-44 mt-4 rounded-xl bg-[var(--hh-teal-fill)] px-4 py-2.5 text-[13.5px] font-bold text-primary-foreground"
+            className="hit-44 mt-4 rounded-xl bg-[var(--hh-teal-fill)] px-4 py-2.5 text-[0.84375rem] font-bold text-primary-foreground"
           >
             Try again
           </button>
@@ -488,10 +488,10 @@ export default function ItemDetailPage() {
         <div className="mb-4 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5"
           style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
           <CloudOffIcon className="size-4 shrink-0" style={{ color: "var(--hh-sub)" }} aria-hidden />
-          <span className="min-w-0 flex-1 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
+          <span className="min-w-0 flex-1 text-[0.78125rem]" style={{ color: "var(--hh-sub)" }}>
             Couldn&apos;t refresh this item — showing what we had.
           </span>
-          <button type="button" onClick={load.reload} className="shrink-0 text-[12.5px] font-bold" style={{ color: "var(--hh-teal)" }}>
+          <button type="button" onClick={load.reload} className="shrink-0 text-[0.78125rem] font-bold" style={{ color: "var(--hh-teal)" }}>
             Try again
           </button>
         </div>
@@ -545,10 +545,10 @@ export default function ItemDetailPage() {
         <div className="mb-4 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5"
           style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
           <CloudOffIcon className="size-4 shrink-0" style={{ color: "var(--hh-sub)" }} aria-hidden />
-          <span className="min-w-0 flex-1 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
+          <span className="min-w-0 flex-1 text-[0.78125rem]" style={{ color: "var(--hh-sub)" }}>
             Couldn&apos;t load this item&apos;s manuals.
           </span>
-          <button type="button" onClick={live.retry} className="hit-44 shrink-0 text-[12.5px] font-bold" style={{ color: "var(--hh-teal)" }}>
+          <button type="button" onClick={live.retry} className="hit-44 shrink-0 text-[0.78125rem] font-bold" style={{ color: "var(--hh-teal)" }}>
             Try again
           </button>
         </div>

@@ -48,7 +48,7 @@ export function UndoBar({
         className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-xl px-4 py-3 shadow-[0_8px_28px_rgba(8,12,11,0.28)]"
         style={{ background: "var(--hh-ink)", color: "var(--hh-bg)" }}
       >
-        <span className="min-w-0 flex-1 text-[13.5px] font-medium">{message}</span>
+        <span className="min-w-0 flex-1 text-[0.84375rem] font-medium">{message}</span>
         {onUndo && (
           <button
             type="button"
@@ -56,7 +56,7 @@ export function UndoBar({
               onUndo()
               if (!actionLabel) onDismiss()
             }}
-            className="hit-44 shrink-0 text-[13.5px] font-bold underline underline-offset-2"
+            className="hit-44 shrink-0 text-[0.84375rem] font-bold underline underline-offset-2"
             // Not --hh-teal-deep: that is a colour for light SURFACES, and on
             // the ink bar it was 2.19:1. --hh-accent-on-ink flips with the bar.
             style={{ color: "var(--hh-accent-on-ink)" }}

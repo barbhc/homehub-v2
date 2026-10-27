@@ -19,7 +19,10 @@ export function ChatInput({ onSend, disabled, variant = "default" }: ChatInputPr
     const el = textareaRef.current
     if (!el) return
     el.style.height = "auto"
-    const lineHeight = variant === "centered" ? 24 : 20
+    // Line heights are 24/20px at the normal text size; with Larger Text the
+    // root (and the textarea's rem font) grows, so the rows grow with it.
+    const rootScale = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1
+    const lineHeight = (variant === "centered" ? 24 : 20) * rootScale
     const maxRows = variant === "centered" ? 5 : MAX_ROWS
     const rows = Math.min(Math.max(1, Math.ceil(el.scrollHeight / lineHeight)), maxRows)
     el.style.height = `${rows * lineHeight}px`
@@ -64,7 +67,7 @@ export function ChatInput({ onSend, disabled, variant = "default" }: ChatInputPr
             placeholder="Ask about your home…"
             disabled={disabled}
             rows={1}
-            className="flex-1 bg-transparent outline-none resize-none text-base placeholder:text-muted-foreground/40 py-1 min-h-[28px] max-h-[120px] overflow-y-auto leading-relaxed"
+            className="flex-1 bg-transparent outline-none resize-none text-base placeholder:text-muted-foreground/40 py-1 min-h-[1.75rem] max-h-[7.5rem] overflow-y-auto leading-relaxed"
             aria-label="Message"
           />
           <Button
@@ -102,7 +105,7 @@ export function ChatInput({ onSend, disabled, variant = "default" }: ChatInputPr
           placeholder="Ask a follow-up…"
           disabled={disabled}
           rows={1}
-          className="flex-1 bg-transparent outline-none resize-none text-base md:text-sm placeholder:text-muted-foreground/50 py-1 min-h-[24px] max-h-[96px] overflow-y-auto leading-relaxed"
+          className="flex-1 bg-transparent outline-none resize-none text-base md:text-sm placeholder:text-muted-foreground/50 py-1 min-h-[1.5rem] max-h-[6rem] overflow-y-auto leading-relaxed"
           aria-label="Message"
         />
         <Button

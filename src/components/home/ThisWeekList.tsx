@@ -29,8 +29,8 @@ const EDGE = "color-mix(in srgb, var(--hh-teal) 45%, transparent)"
 
 export type ThisWeekVariant = "mobile" | "desktop"
 const SCALE = {
-  mobile: { rowPad: "px-3.5 py-3", title: "text-[14px]", openTitle: "text-[16px]", meta: "text-[11.5px]", bodyPad: "pl-[46px] pr-3.5 pb-3.5", notePad: "pl-[46px] pr-3.5 pb-2.5" },
-  desktop: { rowPad: "px-5 py-3.5", title: "text-[15px]", openTitle: "text-[17px]", meta: "text-[12.5px]", bodyPad: "pl-[58px] pr-5 pb-4", notePad: "pl-[58px] pr-5 pb-3" },
+  mobile: { rowPad: "px-3.5 py-3", title: "text-[0.875rem]", openTitle: "text-[1rem]", meta: "text-[0.71875rem]", bodyPad: "pl-[46px] pr-3.5 pb-3.5", notePad: "pl-[46px] pr-3.5 pb-2.5" },
+  desktop: { rowPad: "px-5 py-3.5", title: "text-[0.9375rem]", openTitle: "text-[1.0625rem]", meta: "text-[0.78125rem]", bodyPad: "pl-[58px] pr-5 pb-4", notePad: "pl-[58px] pr-5 pb-3" },
 } as const
 
 export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completingId, actionError = null, onComplete, onSnooze, variant = "mobile" }: {
@@ -139,12 +139,12 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
         </button>
         <button type="button" onClick={onToggle} aria-expanded={open} className="hit-44 flex min-w-0 flex-1 items-center gap-2.5 text-left">
           <span className="min-w-0 flex-1">
-            <span className={`block truncate ${open ? sc.openTitle : sc.title} font-semibold leading-snug tracking-[-0.2px]`} style={{ color: INK }}>{row.title}</span>
-            <span className={`mt-0.5 flex items-center gap-1.5 ${sc.meta}`} style={{ color: SUB }}>
+            <span className={`block truncate larger-text:whitespace-normal ${open ? sc.openTitle : sc.title} font-semibold leading-snug tracking-[-0.2px]`} style={{ color: INK }}>{row.title}</span>
+            <span className={`mt-0.5 flex items-center gap-1.5 larger-text:flex-wrap ${sc.meta}`} style={{ color: SUB }}>
               {row.essential && (
-                <span className="rounded-full px-2 py-px text-[10.5px] font-bold" style={{ background: "var(--hh-clay-soft)", color: CLAY }}>Essential</span>
+                <span className="rounded-full px-2 py-px text-[0.65625rem] font-bold" style={{ background: "var(--hh-clay-soft)", color: CLAY }}>Essential</span>
               )}
-              <span className="truncate">
+              <span className="truncate larger-text:whitespace-normal">
                 {row.itemName ?? "Home"}
                 {!open && when && <> · <span style={clay ? { color: CLAY, fontWeight: 700 } : undefined}>{when}</span></>}
               </span>
@@ -198,7 +198,7 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
         </div>
       )}
       {prep && (
-        <div className="flex items-start gap-2 text-[13px] leading-[1.4]" style={{ color: INK }} data-testid="prep-line">
+        <div className="flex items-start gap-2 text-[0.8125rem] leading-[1.4]" style={{ color: INK }} data-testid="prep-line">
           <span className="flex size-[22px] shrink-0 items-center justify-center rounded-[7px] border" style={{ background: SURFACE, borderColor: LINE, color: TEAL }}>
             {/technician/i.test(prep) ? <PhoneIcon className="size-3" /> : <PackageIcon className="size-3" />}
           </span>
@@ -207,7 +207,7 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
             {place && (
               <span
                 data-testid="prep-place"
-                className="inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-semibold"
+                className="inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-[0.75rem] font-semibold"
                 style={{ borderColor: "color-mix(in srgb, var(--hh-teal) 25%, transparent)", background: "var(--hh-teal-wash)", color: "var(--hh-teal-deep)" }}
               >
                 <MapPinIcon className="size-3 shrink-0" style={{ color: TEAL }} aria-hidden />
@@ -218,12 +218,13 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
           </span>
         </div>
       )}
-      <div className="flex items-center gap-2 pt-0.5">
+      {/* Larger Text: the three actions wrap rather than run off the edge. */}
+      <div className="flex items-center gap-2 pt-0.5 larger-text:flex-wrap">
         <button
           type="button"
           onClick={onComplete}
           disabled={completing}
-          className="hit-44 shrink-0 whitespace-nowrap rounded-[11px] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
+          className="hit-44 shrink-0 whitespace-nowrap rounded-[11px] px-4 py-2 text-[0.8125rem] font-bold text-white disabled:opacity-60"
           style={{ background: "var(--hh-teal-fill)" }}
         >
           Mark done
@@ -231,12 +232,12 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
         <button
           type="button"
           onClick={onSnooze}
-          className="hit-44 shrink-0 whitespace-nowrap rounded-[11px] border px-3.5 py-2 text-[12.5px] font-semibold"
+          className="hit-44 shrink-0 whitespace-nowrap rounded-[11px] border px-3.5 py-2 text-[0.78125rem] font-semibold"
           style={{ borderColor: LINE, background: SURFACE, color: SUB }}
         >
           <BellOffIcon className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />Snooze
         </button>
-        <Link to={`/tasks/${row.id}`} className="hit-44 ml-auto inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
+        <Link to={`/tasks/${row.id}`} className="hit-44 ml-auto inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap larger-text:min-h-11 text-[0.78125rem] font-bold" style={{ color: TEAL }}>
           See details <ChevronRightIcon className="size-3" aria-hidden />
         </Link>
       </div>
@@ -251,7 +252,7 @@ function Pill({ text, tone = "plain" }: { text: string; tone?: "plain" | "when" 
       : tone === "when"
         ? { background: SURFACE, color: "var(--hh-teal-deep)", border: `1px solid color-mix(in srgb, var(--hh-teal) 25%, transparent)` }
         : { background: SURFACE, color: SUB, border: `1px solid ${LINE}` }
-  return <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold" style={style}>{text}</span>
+  return <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[0.75rem] font-semibold" style={style}>{text}</span>
 }
 
 /** Nothing in the window: one sentence, the next few ahead, and stop. */
@@ -264,7 +265,7 @@ function QuietWeek({ nextUp, ahead, sc }: { nextUp: { dueDate: string; windowSta
           <CheckIcon className="size-5" strokeWidth={3} />
         </span>
         <span className="min-w-0">
-          <span className="block text-[17px] font-extrabold leading-tight tracking-[-0.02em]" style={{ color: INK }}>
+          <span className="block text-[1.0625rem] font-extrabold leading-tight tracking-[-0.02em]" style={{ color: INK }}>
             {until ? `All quiet until ${fmtShortDate(until)}` : "All quiet"}
           </span>
           <span className={`mt-0.5 block ${sc.meta}`} style={{ color: SUB }}>
@@ -274,7 +275,7 @@ function QuietWeek({ nextUp, ahead, sc }: { nextUp: { dueDate: string; windowSta
       </div>
       {ahead.length > 0 && (
         <>
-          <div className="px-3.5 pb-1 pt-2 text-[10.5px] font-bold uppercase tracking-[0.6px]" style={{ color: SUB, borderTop: `1px solid ${LINE}` }}>Next up</div>
+          <div className="px-3.5 pb-1 pt-2 text-[0.65625rem] font-bold uppercase tracking-[0.6px]" style={{ color: SUB, borderTop: `1px solid ${LINE}` }}>Next up</div>
           {ahead.map((r) => (
             <Link key={r.id} to={`/tasks/${r.id}`} className={`flex items-center gap-2.5 ${sc.rowPad}`} data-testid="next-up-row">
               <span className="min-w-0 flex-1">
@@ -297,7 +298,7 @@ export function TimelyWarrantyLine({ warranties }: { warranties: ExpiringWarrant
   return (
     <Link
       to="/warranties"
-      className="flex items-center gap-2.5 rounded-2xl border px-3.5 py-2.5 text-[13px]"
+      className="flex items-center gap-2.5 rounded-2xl border px-3.5 py-2.5 text-[0.8125rem]"
       style={{ background: SURFACE, borderColor: LINE, color: SUB }}
       data-testid="timely-warranty"
     >

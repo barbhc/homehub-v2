@@ -127,6 +127,14 @@ calls below. Four phases, in order:
 Motion app-wide, self-hosted fonts, and these decisions. Larger Text, 44pt
 targets, dark mode and the four bugs are separate PRs.
 
+**Follow-up from Larger Text** (`feat/apple-polish-larger-text`): the app
+still uses ~30 distinct font sizes (now rem, same values). **Consolidate to ≤6
+named steps** (tokens in `src/index.css`) — this changes sizes at the normal
+setting, so it **needs a mock and the owner's sign-off first**; the Larger Text
+PR deliberately kept every size as it was. Also still truncated rather than
+wrapped at raised sizes: provider rows in Settings, secondary meta lines — fine
+by design today, worth a look in the same pass.
+
 ---
 
 ## 1. Ranked — what to do next

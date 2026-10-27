@@ -84,7 +84,7 @@ export function CategoryPickerDialog({
                   type="button"
                   onClick={() => (c.subTypes.length > 0 ? setDrilledInto(c.id) : choose(c.id, null))}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[14px]",
+                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[0.875rem]",
                     selected ? "font-semibold" : "font-medium"
                   )}
                   style={{
@@ -103,7 +103,7 @@ export function CategoryPickerDialog({
               <button
                 type="button"
                 onClick={() => choose(def.id, null)}
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[14px] font-medium"
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[0.875rem] font-medium"
                 style={{
                   color: "var(--hh-ink)",
                   background:
@@ -121,7 +121,7 @@ export function CategoryPickerDialog({
               {def.subTypes.map((group) => (
                 <div key={group.group}>
                   <p
-                    className="px-3 pt-2.5 pb-1 text-[11px] font-bold uppercase tracking-[0.08em]"
+                    className="px-3 pt-2.5 pb-1 text-[0.6875rem] font-bold uppercase tracking-[0.08em]"
                     style={{ color: "var(--hh-faint)" }}
                   >
                     {group.group}
@@ -134,7 +134,7 @@ export function CategoryPickerDialog({
                         type="button"
                         onClick={() => choose(def.id, o.id)}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[14px]",
+                          "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[0.875rem]",
                           selected ? "font-semibold" : "font-medium"
                         )}
                         style={{
@@ -153,7 +153,7 @@ export function CategoryPickerDialog({
           )}
         </div>
 
-        <p className="px-1 text-[11.5px]" style={{ color: "var(--hh-sub)" }}>
+        <p className="px-1 text-[0.71875rem]" style={{ color: "var(--hh-sub)" }}>
           Category shapes which upkeep we suggest for this item.
         </p>
       </DialogContent>

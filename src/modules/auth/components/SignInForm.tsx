@@ -98,7 +98,7 @@ function AuthInput({
   return (
     <div>
       <div className="flex items-baseline justify-between mb-[7px] px-0.5">
-        <span className="text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>
+        <span className="text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>
           {label}
         </span>
         {right}
@@ -117,7 +117,7 @@ function AuthInput({
           required={required}
           minLength={minLength}
           maxLength={maxLength}
-          className="flex-1 min-w-0 border-none outline-none bg-transparent py-[13px] text-[15px]"
+          className="flex-1 min-w-0 border-none outline-none bg-transparent py-[13px] text-[0.9375rem]"
           style={{ color: INK }}
         />
         {isPw && (
@@ -206,7 +206,7 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
         <button
           type="button"
           onClick={() => go("signin")}
-          className="hit-44 inline-flex items-center gap-1 mb-3 -ml-1 font-semibold text-[15px]"
+          className="hit-44 inline-flex items-center gap-1 mb-3 -ml-1 font-semibold text-[0.9375rem]"
           style={{ color: TEAL }}
         >
           <ChevronLeftIcon size={20} strokeWidth={2.4} /> Sign in
@@ -247,7 +247,7 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
             right={mode === "signin" ? (
               <button
                 type="button" onClick={() => go("reset")}
-                className="hit-44-up font-bold text-[12.5px] [--hit-out:7px]" style={{ color: TEAL }}
+                className="hit-44-up font-bold text-[0.78125rem] [--hit-out:7px]" style={{ color: TEAL }}
               >
                 Forgot?
               </button>
@@ -260,7 +260,7 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
 
         <button
           type="submit" disabled={loading}
-          className="w-full rounded-[14px] py-[15px] text-[15px] font-bold text-white transition-opacity disabled:opacity-70"
+          className="w-full rounded-[14px] py-[15px] text-[0.9375rem] font-bold text-white transition-opacity disabled:opacity-70"
           style={{ background: "var(--hh-teal-fill)" }}
         >
           {ctaLabel}
@@ -278,13 +278,13 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
           {/* Sign in with Apple — Firebase's apple.com provider (design/apple-signin-scope.md). */}
           <button
             type="button" onClick={handleApple} disabled={loading}
-            className="w-full inline-flex items-center justify-center gap-2.5 rounded-[14px] py-[14px] text-[15px] font-bold text-white bg-black disabled:opacity-70"
+            className="w-full inline-flex items-center justify-center gap-2.5 rounded-[14px] py-[14px] text-[0.9375rem] font-bold text-white bg-black disabled:opacity-70"
           >
             <AppleLogo size={18} /> {mode === "signup" ? "Sign up with Apple" : "Continue with Apple"}
           </button>
 
           {mode === "signup" && (
-            <p className="text-center text-[12.5px] leading-relaxed mt-2.5 px-2" style={{ color: SUB }}>
+            <p className="text-center text-[0.78125rem] leading-relaxed mt-2.5 px-2" style={{ color: SUB }}>
               By continuing you agree to our{" "}
               <Link to="/terms" className="underline underline-offset-2">Terms</Link> and{" "}
               <Link to="/privacy" className="underline underline-offset-2">Privacy Policy</Link>.

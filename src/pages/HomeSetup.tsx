@@ -148,25 +148,25 @@ export default function HomeSetup() {
       <div className="mx-auto w-full max-w-[640px] pb-10">
         <div className="mb-4 flex items-center gap-2">
           {category ? (
-            <button type="button" onClick={() => setOpen(null)} className="flex min-h-11 items-center gap-1 text-[14px] font-semibold" style={{ color: TEAL }}>
+            <button type="button" onClick={() => setOpen(null)} className="flex min-h-11 items-center gap-1 text-[0.875rem] font-semibold" style={{ color: TEAL }}>
               <ChevronLeftIcon className="size-4" /> All categories
             </button>
           ) : (
-            <Link to="/settings" className="flex min-h-11 items-center gap-1 text-[14px] font-semibold" style={{ color: TEAL }}>
+            <Link to="/settings" className="flex min-h-11 items-center gap-1 text-[0.875rem] font-semibold" style={{ color: TEAL }}>
               <ChevronLeftIcon className="size-4" /> Settings
             </Link>
           )}
         </div>
 
-        <h1 className="text-[24px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>{category ? category.label : "Your home"}</h1>
-        <p className="mt-1 text-[14px]" style={{ color: SUB }}>
+        <h1 className="text-[1.5rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>{category ? category.label : "Your home"}</h1>
+        <p className="mt-1 text-[0.875rem]" style={{ color: SUB }}>
           {category ? "Answer what you know. Skip what you don't." : "A few questions about the house unlock the care no manual covers. Nothing is added until you say so."}
         </p>
 
         {loading ? (
-          <div className="mt-8 flex items-center gap-2 text-[14px]" style={{ color: SUB }}><Loader2Icon className="size-4 animate-spin" /> Loading your answers…</div>
+          <div className="mt-8 flex items-center gap-2 text-[0.875rem]" style={{ color: SUB }}><Loader2Icon className="size-4 animate-spin" /> Loading your answers…</div>
         ) : loadError ? (
-          <div role="alert" className="mt-6 rounded-2xl px-4 py-3 text-[14px]" style={{ background: SURFACE, border: `1px solid ${LINE}`, color: CLAY }}>
+          <div role="alert" className="mt-6 rounded-2xl px-4 py-3 text-[0.875rem]" style={{ background: SURFACE, border: `1px solid ${LINE}`, color: CLAY }}>
             Couldn&apos;t load your home: {loadError}{" "}
             <button type="button" onClick={reload} className="hit-44 font-bold" style={{ color: TEAL }}>Try again</button>
           </div>
@@ -184,10 +184,10 @@ export default function HomeSetup() {
                   style={{ borderTop: i === 0 ? "none" : `1px solid ${LINE}` }}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold" style={{ color: INK }}>{c.label}</span>
-                    <span className="block text-[12.5px]" style={{ color: SUB }}>{c.blurb}</span>
+                    <span className="block text-[0.9375rem] font-semibold" style={{ color: INK }}>{c.label}</span>
+                    <span className="block text-[0.78125rem]" style={{ color: SUB }}>{c.blurb}</span>
                   </span>
-                  <span className="shrink-0 text-[12.5px] font-medium" style={{ color: categoryStatus(c, facts) === "Not answered yet" ? FAINT : TEAL }}>{categoryStatus(c, facts)}</span>
+                  <span className="shrink-0 text-[0.78125rem] font-medium" style={{ color: categoryStatus(c, facts) === "Not answered yet" ? FAINT : TEAL }}>{categoryStatus(c, facts)}</span>
                   <ChevronRightIcon className="size-4 shrink-0" style={{ color: FAINT }} />
                 </button>
               ))}
@@ -196,14 +196,14 @@ export default function HomeSetup() {
             <section className="mt-8" data-testid="home-suggestions">
               <div className="mb-2 flex items-center gap-1.5 pl-0.5">
                 <span className="size-2 rounded-full" style={{ background: "var(--hh-gold)" }} />
-                <span className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Suggested for your home</span>
-                <span className="text-[13.5px] font-bold" style={{ color: FAINT }}>{suggestions.length}</span>
+                <span className="text-[0.9375rem] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Suggested for your home</span>
+                <span className="text-[0.84375rem] font-bold" style={{ color: FAINT }}>{suggestions.length}</span>
                 <div className="flex-1" />
                 {suggestions.length > 1 && <AddAll suggestions={suggestions} onAdd={(s) => add(homeId, s)} />}
               </div>
               <div className="overflow-hidden rounded-2xl" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
                 {suggestions.length === 0 ? (
-                  <p className="px-4 py-4 text-[13.5px]" style={{ color: SUB }}>
+                  <p className="px-4 py-4 text-[0.84375rem]" style={{ color: SUB }}>
                     {Object.keys(facts).length === 0 ? "Answer a category above and the care it calls for shows up here." : "Nothing left to suggest — everything your answers call for is already on your list."}
                   </p>
                 ) : suggestions.map((s, i) => (
@@ -255,13 +255,13 @@ function CategoryQuestions({ homeId, category, facts, onSave, onDone }: {
       {category.building && (
         <label className="mb-4 flex items-center gap-3 rounded-2xl px-4 py-3" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
           <input type="checkbox" checked={building} onChange={(e) => set(category.building!, e.target.checked || undefined)} className="size-4" />
-          <span className="text-[14px]" style={{ color: INK }}>The building or an HOA handles this for me</span>
+          <span className="text-[0.875rem]" style={{ color: INK }}>The building or an HOA handles this for me</span>
         </label>
       )}
       <div className="overflow-hidden rounded-2xl" style={{ background: SURFACE, border: `1px solid ${LINE}`, opacity: building ? 0.55 : 1 }} data-testid="setup-questions">
         {category.questions.map((q, i) => (
           <div key={q.fact} className="px-4 py-3" style={{ borderTop: i === 0 ? "none" : `1px solid ${LINE}` }}>
-            <p className="text-[14.5px] font-medium" style={{ color: INK }}>{q.text}</p>
+            <p className="text-[0.90625rem] font-medium" style={{ color: INK }}>{q.text}</p>
             <div className="mt-2 flex gap-2" role="radiogroup" aria-label={q.text}>
               {([["Yes", true], ["No", false], ["Not sure", undefined]] as const).map(([label, value]) => {
                 const on = draft[q.fact] === value
@@ -273,7 +273,7 @@ function CategoryQuestions({ homeId, category, facts, onSave, onDone }: {
                     aria-checked={on}
                     disabled={building}
                     onClick={() => set(q.fact, value)}
-                    className="hit-44 min-h-9 rounded-full px-3.5 text-[13px] font-semibold"
+                    className="hit-44 min-h-9 rounded-full px-3.5 text-[0.8125rem] font-semibold"
                     style={{ background: on ? "var(--hh-teal-wash)" : "transparent", color: on ? TEAL : SUB, border: `1px solid ${on ? TEAL : LINE}` }}
                   >{label}</button>
                 )
@@ -282,8 +282,8 @@ function CategoryQuestions({ homeId, category, facts, onSave, onDone }: {
           </div>
         ))}
       </div>
-      {error && <div role="alert" className="mt-3 text-[13px] font-medium" style={{ color: CLAY }}>Couldn&apos;t save: {error}</div>}
-      <button type="button" onClick={() => void save()} disabled={saving} className="mt-4 min-h-11 w-full rounded-2xl text-[15px] font-bold text-white" style={{ background: "var(--hh-teal-fill)", opacity: saving ? 0.7 : 1 }}>
+      {error && <div role="alert" className="mt-3 text-[0.8125rem] font-medium" style={{ color: CLAY }}>Couldn&apos;t save: {error}</div>}
+      <button type="button" onClick={() => void save()} disabled={saving} className="mt-4 min-h-11 w-full rounded-2xl text-[0.9375rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)", opacity: saving ? 0.7 : 1 }}>
         {saving ? "Saving…" : "Save answers"}
       </button>
     </div>
@@ -304,8 +304,8 @@ function AddAll({ suggestions, onAdd }: { suggestions: Suggestion[]; onAdd: (s: 
   }
   return (
     <span className="flex items-center gap-2">
-      {error && <span role="alert" className="text-[12px]" style={{ color: CLAY }}>{error}</span>}
-      <button type="button" onClick={() => void run()} disabled={busy} className="hit-44 min-h-9 text-[13px] font-bold" style={{ color: TEAL }}>{busy ? "Adding…" : "Add all"}</button>
+      {error && <span role="alert" className="text-[0.75rem]" style={{ color: CLAY }}>{error}</span>}
+      <button type="button" onClick={() => void run()} disabled={busy} className="hit-44 min-h-9 text-[0.8125rem] font-bold" style={{ color: TEAL }}>{busy ? "Adding…" : "Add all"}</button>
     </span>
   )
 }
@@ -337,24 +337,24 @@ function CustomTask({ homeId, onAdded }: { homeId: string | null; onAdded: () =>
   }
   return (
     <section className="mt-8" data-testid="custom-task">
-      <h2 className="text-[15px] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Add something the library missed</h2>
-      <p className="mt-1 text-[13px]" style={{ color: SUB }}>Anything else the house needs, in your own words.</p>
+      <h2 className="text-[0.9375rem] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Add something the library missed</h2>
+      <p className="mt-1 text-[0.8125rem]" style={{ color: SUB }}>Anything else the house needs, in your own words.</p>
       <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={(e) => { e.preventDefault(); void submit() }}>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Have the chimney swept"
           aria-label="Task name"
-          className="min-h-11 flex-1 rounded-2xl px-4 text-[14px]"
+          className="min-h-11 flex-1 rounded-2xl px-4 text-[0.875rem]"
           style={{ background: SURFACE, border: `1px solid ${LINE}`, color: INK }}
         />
-        <select value={cadence} onChange={(e) => setCadence(e.target.value as ScheduleType)} aria-label="How often" className="min-h-11 rounded-2xl px-3 text-[14px]" style={{ background: SURFACE, border: `1px solid ${LINE}`, color: INK }}>
+        <select value={cadence} onChange={(e) => setCadence(e.target.value as ScheduleType)} aria-label="How often" className="min-h-11 rounded-2xl px-3 text-[0.875rem]" style={{ background: SURFACE, border: `1px solid ${LINE}`, color: INK }}>
           {CADENCES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
-        <button type="submit" disabled={busy || !title.trim()} className="min-h-11 rounded-2xl px-5 text-[14px] font-bold text-white" style={{ background: "var(--hh-teal-fill)", opacity: busy || !title.trim() ? 0.6 : 1 }}>{busy ? "Adding…" : "Add"}</button>
+        <button type="submit" disabled={busy || !title.trim()} className="min-h-11 rounded-2xl px-5 text-[0.875rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)", opacity: busy || !title.trim() ? 0.6 : 1 }}>{busy ? "Adding…" : "Add"}</button>
       </form>
-      {error && <div role="alert" className="mt-2 text-[13px] font-medium" style={{ color: CLAY }}>Couldn&apos;t add: {error}</div>}
-      {added && <div role="status" className="mt-2 text-[13px]" style={{ color: SUB }}>Added <b style={{ color: INK }}>{added}</b> to your Tasks.</div>}
+      {error && <div role="alert" className="mt-2 text-[0.8125rem] font-medium" style={{ color: CLAY }}>Couldn&apos;t add: {error}</div>}
+      {added && <div role="status" className="mt-2 text-[0.8125rem]" style={{ color: SUB }}>Added <b style={{ color: INK }}>{added}</b> to your Tasks.</div>}
     </section>
   )
 }

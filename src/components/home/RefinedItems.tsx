@@ -64,7 +64,7 @@ export function ItemsPhoneHeader({ density = "cozy" }: { density?: "spacious" | 
   const d = dens(density)
   return (
     <div className="flex items-center justify-between px-5 pt-2.5" style={{ paddingInline: d.pad }}>
-      <h1 className="text-[28px] font-extrabold tracking-[-0.7px]" style={{ color: INK }}>Items</h1>
+      <h1 className="text-[1.75rem] font-extrabold tracking-[-0.7px]" style={{ color: INK }}>Items</h1>
       <Link
         to="/inventory/add"
         aria-label="Add item"
@@ -141,14 +141,14 @@ export function RefinedItems({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search ${items.length} items…`}
-            className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-[var(--hh-faint)]"
+            className="min-w-0 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-[var(--hh-faint)]"
             style={{ color: INK }}
           />
         </div>
 
         {/* Sort */}
-        <div className="mb-4 flex items-center gap-2">
-          <span className="shrink-0 text-[13px] font-semibold" style={{ color: SUB }}>Sort</span>
+        <div className="mb-4 flex items-center gap-2 larger-text:flex-wrap">
+          <span className="shrink-0 text-[0.8125rem] font-semibold" style={{ color: SUB }}>Sort</span>
           {([["room", "Room"], ["category", "Type"], ["recent", "Recent"]] as [SortMode, string][]).map(([k, label]) => {
             const on = sort === k
             return (
@@ -156,7 +156,7 @@ export function RefinedItems({
                 key={k}
                 type="button"
                 onClick={() => setSort(k)}
-                className="hit-44 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold"
+                className="hit-44 rounded-full border px-3.5 py-1.5 text-[0.8125rem] font-semibold"
                 style={on ? { borderColor: TEAL, background: "var(--hh-teal-wash)", color: TEAL } : { borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}
               >
                 {label}
@@ -166,7 +166,7 @@ export function RefinedItems({
         </div>
 
         {filtered.length === 0 ? (
-          <div className="rounded-2xl p-6 text-center text-[14px] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB, background: "var(--hh-surface)" }}>
+          <div className="rounded-2xl p-6 text-center text-[0.875rem] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB, background: "var(--hh-surface)" }}>
             No items match “{query}”.
           </div>
         ) : (
@@ -190,8 +190,8 @@ export function RefinedItems({
                   >
                     <ItemThumb item={it} size={d.tap + 20} />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[15px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{it.display_name}</div>
-                      <div className="mt-0.5 text-[12.5px]" style={{ color: SUB }}>
+                      <div className="truncate larger-text:whitespace-normal text-[0.9375rem] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{it.display_name}</div>
+                      <div className="mt-0.5 text-[0.78125rem]" style={{ color: SUB }}>
                         {[it.brand, sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : null)].filter(Boolean).join(" · ")}
                       </div>
                     </div>

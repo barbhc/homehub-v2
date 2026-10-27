@@ -50,7 +50,7 @@ function RowText({ name, title, status }: { name: string | undefined; title: str
         <span className="min-w-0 truncate font-semibold" style={{ color: "var(--hh-ink)" }}>{name ?? title}</span>
         <span className="shrink-0 whitespace-pre tabular-nums" style={{ color: "var(--hh-sub)" }}>{status}</span>
       </span>
-      {name && <span className="truncate text-[11px]" style={{ color: "var(--hh-sub)" }}>{title}</span>}
+      {name && <span className="truncate text-[0.6875rem]" style={{ color: "var(--hh-sub)" }}>{title}</span>}
     </span>
   )
 }
@@ -110,7 +110,7 @@ export function ParseTrayPill() {
           <div className="w-full max-w-[380px] rounded-2xl border p-3 shadow-lg"
             style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)" }}>
             <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[13px] font-bold" style={{ color: "var(--hh-ink)" }}>
+              <span className="text-[0.8125rem] font-bold" style={{ color: "var(--hh-ink)" }}>
                 {running.length ? `${running.length} reading` : queued.length ? `${queued.length} queued` : "Ready to review"}
               </span>
               <button type="button" aria-label="Collapse" onClick={() => setOpen(false)} className="hit-44 rounded p-0.5" style={{ color: "var(--hh-sub)" }}>
@@ -119,7 +119,7 @@ export function ParseTrayPill() {
             </div>
             <ul className="flex flex-col gap-1.5">
               {parsing.map((e) => (
-                <li key={e.manualId} className="flex items-center gap-2 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
+                <li key={e.manualId} className="flex items-center gap-2 text-[0.78125rem]" style={{ color: "var(--hh-sub)" }}>
                   {isQueued(e.stage)
                     ? <ClockIcon className="size-3.5 shrink-0" style={{ color: "var(--hh-teal)" }} />
                     : <Loader2Icon className="size-3.5 shrink-0 motion-safe:animate-spin" style={{ color: "var(--hh-teal)" }} />}
@@ -134,13 +134,13 @@ export function ParseTrayPill() {
                 </li>
               ))}
               {ready.map((e) => (
-                <li key={e.manualId} className="flex items-center gap-2 text-[12.5px]">
+                <li key={e.manualId} className="flex items-center gap-2 text-[0.78125rem]">
                   <CheckIcon className="size-3.5 shrink-0" style={{ color: "var(--hh-teal)" }} />
                   <RowText name={names.get(e.itemUnitId)} title={e.title} status=" — ready to review" />
                   <button
                     type="button"
                     onClick={() => review(e)}
-                    className="hit-44 shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold"
+                    className="hit-44 shrink-0 rounded-full px-2.5 py-1 text-[0.71875rem] font-bold"
                     style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}
                   >
                     Review
@@ -149,7 +149,7 @@ export function ParseTrayPill() {
               ))}
             </ul>
             {parsing.length > 0 && (
-              <p className="mt-2 text-[11.5px]" style={{ color: "var(--hh-sub)" }}>{SCAN_KEEPS_GOING_SHORT}</p>
+              <p className="mt-2 text-[0.71875rem]" style={{ color: "var(--hh-sub)" }}>{SCAN_KEEPS_GOING_SHORT}</p>
             )}
           </div>
         )}
@@ -157,7 +157,7 @@ export function ParseTrayPill() {
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="hit-44 flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-semibold shadow-lg"
+          className="hit-44 flex items-center gap-2 rounded-full px-4 py-2 text-[0.78125rem] font-semibold shadow-lg"
           style={{ background: "var(--hh-ink)", color: "var(--hh-bg)" }}
         >
           {/* Moves only while something is actually being read, and holds still

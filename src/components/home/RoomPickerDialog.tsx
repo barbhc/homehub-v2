@@ -88,7 +88,7 @@ export function RoomPickerDialog({
               type="button"
               onClick={() => void handleCreate()}
               disabled={creating || !newName.trim()}
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-2 text-[12.5px] font-bold disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-2 text-[0.78125rem] font-bold disabled:opacity-50"
               style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
             >
               {creating ? <Loader2Icon className="size-3.5 animate-spin" /> : <PlusIcon className="size-3.5" />}
@@ -96,7 +96,7 @@ export function RoomPickerDialog({
             </button>
           </div>
           {error && (
-            <p className="mt-2 text-[12px]" style={{ color: "var(--hh-clay)" }}>
+            <p className="mt-2 text-[0.75rem]" style={{ color: "var(--hh-clay)" }}>
               {error}
             </p>
           )}
@@ -116,7 +116,7 @@ function RoomRow({ name, selected, onPick }: { name: string; selected: boolean; 
       type="button"
       onClick={onPick}
       className={cn(
-        "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[14px]",
+        "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[0.875rem]",
         selected ? "font-semibold" : "font-medium"
       )}
       style={{

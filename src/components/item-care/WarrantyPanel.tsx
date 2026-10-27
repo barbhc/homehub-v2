@@ -44,7 +44,7 @@ function Disclosure({ label, children }: { label: string; children: React.ReactN
   return (
     <>
       <button onClick={() => setOpen((v) => !v)} className="hit-44 mt-3 flex w-full items-center justify-between pt-3" style={{ borderTop: `1px solid ${LINE}` }}>
-        <span className="text-[12.5px] font-bold" style={{ color: TEAL }}>{label}</span>
+        <span className="text-[0.78125rem] font-bold" style={{ color: TEAL }}>{label}</span>
         {open ? <ChevronUpIcon className="size-4" style={{ color: TEAL }} /> : <ChevronDownIcon className="size-4" style={{ color: TEAL }} />}
       </button>
       {open && <div className="mt-2.5">{children}</div>}
@@ -81,11 +81,11 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
             sheet, so the page asked the same question twice in two different
             shapes — and the owner's call was to keep the one that matches the
             rest of the page. */}
-        <span className="text-[13.5px] font-bold" style={{ color: INK }}>Warranty and purchase information</span>
-        <div className="mt-1.5 text-[12.5px]" style={{ color: SUB }}>
+        <span className="text-[0.84375rem] font-bold" style={{ color: INK }}>Warranty and purchase information</span>
+        <div className="mt-1.5 text-[0.78125rem]" style={{ color: SUB }}>
           Nothing tracked yet — worth having for warranty and insurance claims.
         </div>
-        <button onClick={onEdit} className="hit-44 mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: TEAL }}>
+        <button onClick={onEdit} className="hit-44 mt-2 inline-flex items-center gap-1.5 text-[0.78125rem] font-bold" style={{ color: TEAL }}>
           <PlusIcon className="size-[14px]" /> Add details
         </button>
       </div>
@@ -131,17 +131,17 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
       <div className="mb-2.5 flex items-center justify-between">
         {/* Same name in both states. A section that renames itself depending on
             whether it has data is two sections wearing one box. */}
-        <span className="text-[13.5px] font-bold" style={{ color: INK }}>Warranty and purchase information</span>
-        <span className="rounded-md px-2 py-0.5 text-[11.5px] font-bold" style={{ color: active ? TEAL : FAINT, background: active ? TEAL_WASH : SLATE_SOFT }}>
+        <span className="text-[0.84375rem] font-bold" style={{ color: INK }}>Warranty and purchase information</span>
+        <span className="rounded-md px-2 py-0.5 text-[0.71875rem] font-bold" style={{ color: active ? TEAL : FAINT, background: active ? TEAL_WASH : SLATE_SOFT }}>
           {active ? "Active" : "Lapsed"}
         </span>
       </div>
 
       <div className="mb-2 flex items-center gap-2">
         {active ? <ShieldCheckIcon className="size-[15px]" style={{ color: TEAL }} /> : <ShieldOffIcon className="size-[15px]" style={{ color: FAINT }} />}
-        <span className="text-[13px]" style={{ color: SUB }}>{statusText}</span>
+        <span className="text-[0.8125rem]" style={{ color: SUB }}>{statusText}</span>
         {registered && (
-          <span className="ml-auto inline-flex items-center gap-1 text-[11.5px] font-bold" style={{ color: TEAL }}>
+          <span className="ml-auto inline-flex items-center gap-1 text-[0.71875rem] font-bold" style={{ color: TEAL }}>
             <BadgeCheckIcon className="size-[13px]" /> Registered
           </span>
         )}
@@ -154,8 +154,8 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
         <div className="mb-1 grid grid-cols-2 gap-x-3.5 gap-y-3">
           {facts.map(([k, v]) => (
             <div key={k}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.4px]" style={{ color: FAINT }}>{k}</div>
-              <div className="mt-0.5 text-[13.5px] font-semibold" style={{ color: INK }}>{v}</div>
+              <div className="text-[0.625rem] font-bold uppercase tracking-[0.4px]" style={{ color: FAINT }}>{k}</div>
+              <div className="mt-0.5 text-[0.84375rem] font-semibold" style={{ color: INK }}>{v}</div>
             </div>
           ))}
         </div>
@@ -163,12 +163,12 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
 
       {/* Coverage — prose, because parts/labor specifics aren't structured. */}
       {item.warranty_coverage && (
-        <p className="mt-3 text-[12.5px] leading-relaxed" style={{ color: SUB }}>{item.warranty_coverage}</p>
+        <p className="mt-3 text-[0.78125rem] leading-relaxed" style={{ color: SUB }}>{item.warranty_coverage}</p>
       )}
 
       {/* registration_required → Register CTA */}
       {showRegister && (
-        <button onClick={handleRegister} disabled={registering} className="hit-44 mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60" style={{ background: "var(--hh-teal-fill)" }}>
+        <button onClick={handleRegister} disabled={registering} className="hit-44 mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] py-2.5 text-[0.84375rem] font-bold text-white disabled:opacity-60" style={{ background: "var(--hh-teal-fill)" }}>
           <BadgeCheckIcon className="size-[15px]" /> Register to activate coverage
         </button>
       )}
@@ -178,7 +178,7 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
         <Disclosure label="What's not covered">
           <ul className="flex flex-col gap-1.5 pl-0.5">
             {exclusions.map((ex, i) => (
-              <li key={i} className="flex items-start gap-2 text-[12px] leading-snug" style={{ color: SUB }}>
+              <li key={i} className="flex items-start gap-2 text-[0.75rem] leading-snug" style={{ color: SUB }}>
                 <span className="mt-[6px] size-1 shrink-0 rounded-full" style={{ background: FAINT }} />
                 <span>{ex}</span>
               </li>
@@ -191,12 +191,12 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
       {item.warranty_contact && (
         <div className="mt-3 flex items-center gap-2 pt-3" style={{ borderTop: `1px solid ${LINE}` }}>
           <PhoneIcon className="size-[13px] shrink-0" style={{ color: FAINT }} />
-          <span className="text-[12px]" style={{ color: SUB }}>Questions? <ContactLink contact={item.warranty_contact} /></span>
+          <span className="text-[0.75rem]" style={{ color: SUB }}>Questions? <ContactLink contact={item.warranty_contact} /></span>
         </div>
       )}
 
       {!active && renewable && onEdit && (
-        <button onClick={onEdit} className="hit-44 mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] border py-2.5 text-[13.5px] font-bold" style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>
+        <button onClick={onEdit} className="hit-44 mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] border py-2.5 text-[0.84375rem] font-bold" style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>
           <PlusIcon className="size-[15px]" style={{ color: TEAL }} /> Add extended coverage
         </button>
       )}

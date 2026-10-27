@@ -78,12 +78,12 @@ export function HomeSwitcherSheet({
           under the home indicator, unreadable. */}
       <SheetContent
         side="bottom"
-        className="max-h-[85vh] overflow-y-auto px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md"
+        className="max-h-[85vh] overflow-y-auto px-5 pt-5 pb-[calc(20px+env(safe-area-inset-bottom))] sm:max-w-md"
       >
         {view === "list" ? (
           <>
             <SheetHeader className="px-0 pt-0">
-              <SheetTitle className="text-[15px]">Your homes</SheetTitle>
+              <SheetTitle className="text-[0.9375rem]">Your homes</SheetTitle>
             </SheetHeader>
 
             <div className="mt-1 flex flex-col gap-2">
@@ -109,11 +109,11 @@ export function HomeSwitcherSheet({
                       aria-hidden
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+                      <span className="block truncate text-[0.84375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
                         {h.name}
                       </span>
                       {selected && (
-                        <span className="block text-[11px]" style={{ color: "var(--hh-sub)" }}>
+                        <span className="block text-[0.6875rem]" style={{ color: "var(--hh-sub)" }}>
                           You're here
                         </span>
                       )}
@@ -130,20 +130,20 @@ export function HomeSwitcherSheet({
                 style={{ borderColor: "var(--hh-line)" }}
               >
                 <PlusIcon className="size-4 shrink-0" style={{ color: "var(--hh-teal)" }} aria-hidden />
-                <span className="text-[13.5px] font-semibold" style={{ color: "var(--hh-teal)" }}>
+                <span className="text-[0.84375rem] font-semibold" style={{ color: "var(--hh-teal)" }}>
                   Add a home
                 </span>
               </button>
             </div>
 
-            <p className="mt-3 px-1 text-[11px]" style={{ color: "var(--hh-sub)" }}>
+            <p className="mt-3 px-1 text-[0.6875rem]" style={{ color: "var(--hh-sub)" }}>
               Each home keeps its own items, tasks, and rooms.
             </p>
           </>
         ) : (
           <>
             <SheetHeader className="px-0 pt-0">
-              <SheetTitle className="flex items-center gap-1.5 text-[15px]">
+              <SheetTitle className="flex items-center gap-1.5 text-[0.9375rem]">
                 <button
                   type="button"
                   onClick={() => setView("list")}
@@ -157,7 +157,7 @@ export function HomeSwitcherSheet({
               </SheetTitle>
             </SheetHeader>
 
-            <label htmlFor="new-home-name" className="mt-2 block text-[12px]" style={{ color: "var(--hh-sub)" }}>
+            <label htmlFor="new-home-name" className="mt-2 block text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
               Home name
             </label>
             <Input
@@ -175,7 +175,7 @@ export function HomeSwitcherSheet({
             {/* Said up front because it already happens — createHome seeds nine
                 rooms. Finding them unexplained reads as data you didn't add. */}
             <p
-              className="mt-3 rounded-xl px-3 py-2.5 text-[11.5px] leading-relaxed"
+              className="mt-3 rounded-xl px-3 py-2.5 text-[0.71875rem] leading-relaxed"
               style={{ background: "var(--hh-surface2)", color: "var(--hh-sub)" }}
             >
               We'll start it with the usual rooms — kitchen, bathroom, garage, and more. You can
@@ -183,7 +183,7 @@ export function HomeSwitcherSheet({
             </p>
 
             {error && (
-              <p className="mt-2 text-[12px]" style={{ color: "var(--hh-clay)" }}>
+              <p className="mt-2 text-[0.75rem]" style={{ color: "var(--hh-clay)" }}>
                 {error}
               </p>
             )}
@@ -192,13 +192,13 @@ export function HomeSwitcherSheet({
               type="button"
               onClick={() => void submit()}
               disabled={saving || !name.trim()}
-              className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13.5px] font-bold text-white disabled:opacity-60"
+              className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[0.84375rem] font-bold text-white disabled:opacity-60"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {saving && <Loader2Icon className="size-4 animate-spin" />}
               {saving ? "Adding…" : "Add home"}
             </button>
-            <p className="mt-2 text-center text-[11px]" style={{ color: "var(--hh-sub)" }}>
+            <p className="mt-2 text-center text-[0.6875rem]" style={{ color: "var(--hh-sub)" }}>
               You'll switch to it right away
             </p>
           </>

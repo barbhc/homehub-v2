@@ -210,9 +210,9 @@ function Band({ tone, title, count, children, onFirstOpen, defaultOpen = true, n
         className="flex w-full items-center gap-2 px-3.5 py-[13px] text-left"
         style={{ background: t.bg }}
       >
-        <span className="text-[12.5px] font-extrabold tracking-[-0.01em]" style={{ color: t.fg }}>{title}</span>
-        {note && !open && <span className="truncate text-[11px]" style={{ color: FAINT }}>{note}</span>}
-        <span className="ml-auto font-mono text-[10.5px] font-bold" style={{ color: FAINT }}>{count}</span>
+        <span className="text-[0.78125rem] font-extrabold tracking-[-0.01em]" style={{ color: t.fg }}>{title}</span>
+        {note && !open && <span className="truncate text-[0.6875rem]" style={{ color: FAINT }}>{note}</span>}
+        <span className="ml-auto font-mono text-[0.65625rem] font-bold" style={{ color: FAINT }}>{count}</span>
         {open
           ? <ChevronUpIcon className="size-[15px] shrink-0" style={{ color: FAINT }} />
           : <ChevronDownIcon className="size-[15px] shrink-0" style={{ color: FAINT }} />}
@@ -363,13 +363,13 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                 stale. */}
             <div className="flex items-start gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
-                {safety && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: CLAY_SOFT, color: CLAY }}>Safety</span>}
-                {(actor === "pro" || actor === "hazardous") && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>Pro</span>}
-                {variantTag && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}><GitBranchIcon className="size-2.5" />{variantTag}</span>}
+                <span className="text-[0.875rem] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
+                {safety && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: CLAY_SOFT, color: CLAY }}>Safety</span>}
+                {(actor === "pro" || actor === "hazardous") && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>Pro</span>}
+                {variantTag && <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}><GitBranchIcon className="size-2.5" />{variantTag}</span>}
               </div>
             </div>
-            <div className="mt-1 text-[12px]" style={{ color: SUB }}>
+            <div className="mt-1 text-[0.75rem]" style={{ color: SUB }}>
               {/* Join non-empty parts: an unscheduled row has no cadence label,
                   and blindly prefixing the separator rendered a stray "· 15 min". */}
               {/* HH-97 (was HH-82's leading chip): the off-agenda marker lives
@@ -388,12 +388,12 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                 </span>
               )}
             </div>
-            {rowError && <div role="alert" className="mt-1 text-[11.5px] font-medium" style={{ color: CLAY }}>{rowError}</div>}
+            {rowError && <div role="alert" className="mt-1 text-[0.71875rem] font-medium" style={{ color: CLAY }}>{rowError}</div>}
             {libraryKeyOf(t) && (
               /* Provenance stays visible on a task that came from the library,
                  with the one-tap way back — nothing should ever read as if it
                  came from the manual when it didn't. */
-              <div className="mt-1 flex items-center gap-2 text-[11.5px]" style={{ color: FAINT }}>
+              <div className="mt-1 flex items-center gap-2 text-[0.71875rem]" style={{ color: FAINT }}>
                 <span>Added from typical care{entryByKey(libraryKeyOf(t)!)?.source ? ` · ${entryByKey(libraryKeyOf(t)!)!.source}` : ""}</span>
                 <button type="button" onClick={(e) => { e.stopPropagation(); void archiveLibraryTask() }} className="hit-44 font-semibold" style={{ color: TEAL }}>Not this one</button>
               </div>
@@ -412,7 +412,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
         <span className="flex w-[14px] shrink-0 justify-center">
           {reminds && <BellRingIcon className="size-[14px]" style={{ color: TEAL }} aria-label="Notifies you" />}
         </span>
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="hit-44 inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="hit-44 inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[0.78125rem] font-bold" style={{ color: TEAL }}>
           {open ? "Hide" : "See how"}{open ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
         </button>
       </div>
@@ -424,8 +424,8 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                 <div className="flex items-start gap-2.5 rounded-[12px] border p-3" style={{ background: CLAY_SOFT, borderColor: "color-mix(in srgb, var(--hh-clay) 25%, transparent)" }}>
                   <AlertTriangle className="mt-px size-4 shrink-0" style={{ color: CLAY }} />
                   <div className="min-w-0">
-                    <div className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.5px]" style={{ color: CLAY }}>Safety</div>
-                    <div className="text-[13px] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>{safetyNote}</div>
+                    <div className="mb-0.5 text-[0.625rem] font-extrabold uppercase tracking-[0.5px]" style={{ color: CLAY }}>Safety</div>
+                    <div className="text-[0.8125rem] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>{safetyNote}</div>
                   </div>
                 </div>
               )}
@@ -437,7 +437,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                 {steps.length > 0 ? (
                   <StepList key={instanceId ?? "none"} steps={steps} />
                 ) : actor === "diy" ? (
-                  <div className="text-[13.5px]" style={{ color: SUB }}>
+                  <div className="text-[0.84375rem]" style={{ color: SUB }}>
                     {hasManual ? "Open the manual for step-by-step instructions." : "Add this item's manual to unlock steps."}
                   </div>
                 ) : null}
@@ -456,7 +456,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
             <div className="mt-3 flex flex-col gap-2" data-testid="row-actions">
               {instanceId && onMarkDone && (
                 justDone ? (
-                  <div className="flex items-center gap-2 rounded-[12px] border px-3 py-2.5 text-[13px]" style={{ background: TEAL_WASH, borderColor: "color-mix(in srgb, var(--hh-teal) 25%, transparent)", color: "var(--hh-teal-deep)" }} data-testid="row-done">
+                  <div className="flex items-center gap-2 rounded-[12px] border px-3 py-2.5 text-[0.8125rem]" style={{ background: TEAL_WASH, borderColor: "color-mix(in srgb, var(--hh-teal) 25%, transparent)", color: "var(--hh-teal-deep)" }} data-testid="row-done">
                     <CheckCircle2 className="size-4 shrink-0" style={{ color: TEAL }} />
                     <span><b>Done today.</b>{justDone === "saved" && due ? ` Next one lands ${landsPhrase(duePhraseOf(t, due))}.` : ""}</span>
                   </div>
@@ -465,7 +465,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                     type="button"
                     onClick={() => void runAction("done")}
                     disabled={actBusy !== null}
-                    className="flex w-full items-center justify-center gap-2 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60"
+                    className="flex w-full items-center justify-center gap-2 rounded-[11px] py-2.5 text-[0.84375rem] font-bold text-white disabled:opacity-60"
                     style={{ background: "var(--hh-teal-fill)" }}
                   >
                     <Check className="size-4" strokeWidth={2.6} />{actBusy === "done" ? "Marking done…" : "Mark done"}
@@ -474,22 +474,22 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
               )}
               <div className="flex gap-1.5">
                 {instanceId && onSnooze && (
-                  <button type="button" onClick={() => void runAction("snooze")} disabled={actBusy !== null} className="flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border px-2 py-2.5 text-[12.5px] font-bold disabled:opacity-60" style={{ borderColor: LINE, background: "var(--hh-surface)", color: INK }}>
+                  <button type="button" onClick={() => void runAction("snooze")} disabled={actBusy !== null} className="flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border px-2 py-2.5 text-[0.78125rem] font-bold disabled:opacity-60" style={{ borderColor: LINE, background: "var(--hh-surface)", color: INK }}>
                     <BellOff className="size-3.5" />{actBusy === "snooze" ? "Snoozing…" : "Snooze"}
                   </button>
                 )}
                 {onEditTask && (
-                  <button type="button" onClick={onEditTask} className="flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border px-2 py-2.5 text-[12.5px] font-bold" style={{ borderColor: LINE, background: "var(--hh-surface)", color: INK }}>
+                  <button type="button" onClick={onEditTask} className="flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border px-2 py-2.5 text-[0.78125rem] font-bold" style={{ borderColor: LINE, background: "var(--hh-surface)", color: INK }}>
                     <Pencil className="size-3.5" />Edit
                   </button>
                 )}
                 {instanceId && onOpenTask && (
-                  <button type="button" onClick={() => onOpenTask(instanceId)} className="flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border px-2 py-2.5 text-[12.5px] font-bold" style={{ borderColor: LINE, background: "var(--hh-surface)", color: INK }}>
+                  <button type="button" onClick={() => onOpenTask(instanceId)} className="flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border px-2 py-2.5 text-[0.78125rem] font-bold" style={{ borderColor: LINE, background: "var(--hh-surface)", color: INK }}>
                     <ArrowUpRight className="size-3.5" />Open task
                   </button>
                 )}
               </div>
-              {actError && <div role="alert" className="text-[12.5px] font-medium" style={{ color: CLAY }}>{actError}</div>}
+              {actError && <div role="alert" className="text-[0.78125rem] font-medium" style={{ color: CLAY }}>{actError}</div>}
             </div>
           )}
         </div>
@@ -522,18 +522,18 @@ function UsageTipRows({ tips, taskTips, onOpenManualPage, canOpenManual }: {
     <ul>
       {rows.map((r) => (
         <li key={r.key} className="border-t px-4 py-3" style={{ borderColor: LINE }}>
-          <p className="text-[13.5px] font-semibold" style={{ color: INK }}>{r.title}</p>
-          {r.body && <p className="mt-0.5 text-[12.5px] leading-snug" style={{ color: SUB }}>{r.body}</p>}
+          <p className="text-[0.84375rem] font-semibold" style={{ color: INK }}>{r.title}</p>
+          {r.body && <p className="mt-0.5 text-[0.78125rem] leading-snug" style={{ color: SUB }}>{r.body}</p>}
           {r.page != null && (
             canOpenManual && onOpenManualPage ? (
-              <button type="button" onClick={() => onOpenManualPage(r.page!)} className="hit-44 mt-1 text-[11.5px] font-bold" style={{ color: TEAL }}>
+              <button type="button" onClick={() => onOpenManualPage(r.page!)} className="hit-44 mt-1 text-[0.71875rem] font-bold" style={{ color: TEAL }}>
                 Manual p.{r.page}
               </button>
             ) : (
               // Tapping this used to set state that `dockOpen` then discarded
               // because the PDF URL was null — a button that silently did
               // nothing. Say where it is instead of pretending to go there.
-              <span className="mt-1 block text-[11.5px] font-semibold" style={{ color: FAINT }}>Manual p.{r.page}</span>
+              <span className="mt-1 block text-[0.71875rem] font-semibold" style={{ color: FAINT }}>Manual p.{r.page}</span>
             )
           )}
         </li>
@@ -555,9 +555,9 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
   return (
     <div className="border-t px-4 py-3.5" style={{ borderColor: LINE }}>
       <div className="mb-2.5 flex items-center gap-2">
-        <p className="flex-1 text-[12px]" style={{ color: SUB }}>Everything here is required at install unless marked optional.</p>
+        <p className="flex-1 text-[0.75rem]" style={{ color: SUB }}>Everything here is required at install unless marked optional.</p>
         {doneCount > 0 && (
-          <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.4px]" style={{ background: allDone ? TEAL_WASH : SLATE_SOFT, color: allDone ? TEAL : SLATE }}>{doneCount}/{tasks.length}</span>
+          <span className="shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.4px]" style={{ background: allDone ? TEAL_WASH : SLATE_SOFT, color: allDone ? TEAL : SLATE }}>{doneCount}/{tasks.length}</span>
         )}
       </div>
       {error && (
@@ -573,7 +573,7 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
           type="button"
           disabled={clearing}
           onClick={async () => { setClearing(true); await markAllDone(); setClearing(false) }}
-          className="mb-3 w-full rounded-xl border px-3 py-2.5 text-left text-[12.5px] font-bold disabled:opacity-60"
+          className="mb-3 w-full rounded-xl border px-3 py-2.5 text-left text-[0.78125rem] font-bold disabled:opacity-60"
           style={{ borderColor: TEAL, color: TEAL, background: "var(--hh-surface)" }}
         >
           {clearing ? "Marking done…" : "It's already installed"}
@@ -611,10 +611,10 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                 <span className="mt-px shrink-0" style={{ color: done ? TEAL : FAINT }}>
                   {done ? <CheckCircle2 className="size-5" /> : <Circle className="size-5" />}
                 </span>
-                <span className="flex-1 text-[13px] leading-snug" style={{ color: done ? FAINT : "var(--hh-ink-soft)", textDecoration: done ? "line-through" : undefined }}>
+                <span className="flex-1 text-[0.8125rem] leading-snug" style={{ color: done ? FAINT : "var(--hh-ink-soft)", textDecoration: done ? "line-through" : undefined }}>
                   {t.title}
                   {optional && (
-                    <span className="ml-1.5 inline-block rounded px-1.5 py-px align-[1px] text-[9.5px] font-bold uppercase tracking-[0.4px]" style={{ background: SLATE_SOFT, color: SLATE }}>
+                    <span className="ml-1.5 inline-block rounded px-1.5 py-px align-[1px] text-[0.59375rem] font-bold uppercase tracking-[0.4px]" style={{ background: SLATE_SOFT, color: SLATE }}>
                       Optional
                     </span>
                   )}
@@ -630,7 +630,7 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                   {triggers.map((tr) => {
                     const sev = tr.severity === "safety"
                     return (
-                      <span key={tr.trigger} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: sev ? CLAY_SOFT : SLATE_SOFT, color: sev ? CLAY : SLATE }}>
+                      <span key={tr.trigger} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold" style={{ background: sev ? CLAY_SOFT : SLATE_SOFT, color: sev ? CLAY : SLATE }}>
                         {sev && <AlertTriangle className="size-3" />}
                         Re-do if {SYMPTOM_TAGS[tr.trigger as keyof typeof SYMPTOM_TAGS]?.label ?? tr.trigger}
                       </span>
@@ -671,13 +671,13 @@ function VariantArea({ options, variant, showAll, inferred, onPick, onToggleShow
     return (
       <div className="flex items-center gap-2.5 rounded-[12px] border px-3.5 py-2.5" style={{ background: TEAL_WASH, borderColor: LINE }}>
         <SlidersHorizontalIcon className="size-[15px] shrink-0" style={{ color: TEALD }} />
-        <span className="flex-1 text-[12.5px] leading-snug" style={{ color: "var(--hh-ink-soft)" }}>
+        <span className="flex-1 text-[0.78125rem] leading-snug" style={{ color: "var(--hh-ink-soft)" }}>
           {showAll ? "Showing care for all models" : <>Showing care for your <b className="font-bold">{label}</b> model</>}
         </span>
-        <button type="button" onClick={onToggleShowAll} className="hit-44 shrink-0 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEALD }}>
+        <button type="button" onClick={onToggleShowAll} className="hit-44 shrink-0 whitespace-nowrap text-[0.78125rem] font-bold" style={{ color: TEALD }}>
           {showAll ? `${label} only` : "Show all"}
         </button>
-        <button type="button" onClick={onChange} className="hit-44 shrink-0 whitespace-nowrap text-[11.5px] font-semibold" style={{ color: SUB }}>Change</button>
+        <button type="button" onClick={onChange} className="hit-44 shrink-0 whitespace-nowrap text-[0.71875rem] font-semibold" style={{ color: SUB }}>Change</button>
       </div>
     )
   }
@@ -685,18 +685,18 @@ function VariantArea({ options, variant, showAll, inferred, onPick, onToggleShow
     <div className="rounded-[14px] border p-4" style={{ borderColor: LINE, background: "var(--hh-surface)" }}>
       <div className="mb-1 flex items-center gap-2">
         <GitBranchIcon className="size-[15px]" style={{ color: TEALD }} />
-        <span className="text-[13.5px] font-bold" style={{ color: INK }}>Which model do you have?</span>
+        <span className="text-[0.84375rem] font-bold" style={{ color: INK }}>Which model do you have?</span>
       </div>
-      <div className="mb-3 text-[12.5px] leading-snug" style={{ color: SUB }}>
+      <div className="mb-3 text-[0.78125rem] leading-snug" style={{ color: SUB }}>
         Some steps below are tagged <b style={{ color: SLATE }}>{options.map(cap).join(" only / ")} only</b> — pick your model to hide the ones that don&apos;t apply.
       </div>
       <div className="flex gap-2">
         {options.map((o) => {
           const likely = o === inferred
           return (
-            <button key={o} type="button" onClick={() => onPick(o)} className="flex-1 rounded-[11px] border py-2.5 text-[13px] font-bold" style={{ borderColor: likely ? TEAL : "var(--hh-line2)", background: likely ? TEAL_WASH : "var(--hh-surface)", color: INK }}>
+            <button key={o} type="button" onClick={() => onPick(o)} className="flex-1 rounded-[11px] border py-2.5 text-[0.8125rem] font-bold" style={{ borderColor: likely ? TEAL : "var(--hh-line2)", background: likely ? TEAL_WASH : "var(--hh-surface)", color: INK }}>
               {cap(o)}
-              {likely && <span className="block text-[10px] font-semibold" style={{ color: TEALD }}>Likely yours</span>}
+              {likely && <span className="block text-[0.625rem] font-semibold" style={{ color: TEALD }}>Likely yours</span>}
             </button>
           )
         })}
@@ -969,7 +969,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
     return (
       <Card>
         <div className="p-4" aria-live="polite">
-          <p className="text-[13.5px]" style={{ color: SUB }}>
+          <p className="text-[0.84375rem]" style={{ color: SUB }}>
             Upkeep lands here once you save the review.
           </p>
           <Placeholders />
@@ -990,11 +990,11 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
               one lesson. The upload/link lanes themselves live in the manual
               section below; this is the headline, not a second set of doors. */}
           {!hasManual && (
-            <p className="text-[15px] font-extrabold tracking-[-0.01em]" style={{ color: "var(--hh-ink)" }}>
+            <p className="text-[0.9375rem] font-extrabold tracking-[-0.01em]" style={{ color: "var(--hh-ink)" }}>
               No upkeep yet — add the manual
             </p>
           )}
-          <p className="text-[13.5px]" style={{ color: SUB }}>
+          <p className="text-[0.84375rem]" style={{ color: SUB }}>
             {hasManual
               ? "No upkeep found in this manual yet."
               : "The manual is where this item's schedule, warranty window and answers come from."}
@@ -1003,7 +1003,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
             <button
               type="button"
               onClick={onAddManual}
-              className="rounded-xl px-4 py-2.5 text-[13.5px] font-bold text-white"
+              className="rounded-xl px-4 py-2.5 text-[0.84375rem] font-bold text-white"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {/* Says what the button DOES. It opens the add-manual flow —
@@ -1049,10 +1049,10 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
       {livesHere.length > 0 && (
         <Card>
           <div className="px-4 py-3.5" data-testid="upkeep-lives-here">
-            <p className="text-[15px] font-extrabold tracking-[-0.01em]" style={{ color: INK }}>
+            <p className="text-[0.9375rem] font-extrabold tracking-[-0.01em]" style={{ color: INK }}>
               Nothing here goes into Tasks
             </p>
-            <p className="mt-0.5 text-[13.5px]" style={{ color: SUB }}>
+            <p className="mt-0.5 text-[0.84375rem]" style={{ color: SUB }}>
               {joinList(livesHere)} live below.
             </p>
           </div>
@@ -1114,7 +1114,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
                stylistically different". It was an 11.5px one-off with almost no
                padding, jammed under the gold band. It now sits INSIDE the band
                on the rows' own inset and type, and the link says where it goes. */
-            <div className="border-t px-4 py-2.5 text-[12px] leading-snug" style={{ borderColor: LINE, color: SUB }}>
+            <div className="border-t px-4 py-2.5 text-[0.75rem] leading-snug" style={{ borderColor: LINE, color: SUB }}>
               These live in your cleaning guides — nothing here reminds you.{" "}
               <Link to="/clean" className="hit-44 font-bold" style={{ color: TEAL }}>
                 Open guides ›
@@ -1197,8 +1197,8 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
             <AlertTriangle className="size-[17px]" style={{ color: CLAY }} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.6px]" style={{ color: CLAY }}>Safety note</div>
-            <div className="text-[13px] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>
+            <div className="mb-0.5 text-[0.625rem] font-extrabold uppercase tracking-[0.6px]" style={{ color: CLAY }}>Safety note</div>
+            <div className="text-[0.8125rem] leading-snug" style={{ color: "var(--hh-clay-ink)" }}>
               {critical.content}
               {critical.source_pages?.[0] != null && <span className="font-semibold" style={{ color: CLAY }}> · manual p.{critical.source_pages[0]}</span>}
             </div>

@@ -34,7 +34,7 @@ export function StepList({ steps, label = "Steps" }: { steps: string[]; label?: 
   const flip = (i: number) => setDone((x) => (x.includes(i) ? x.filter((n) => n !== i) : [...x, i]))
   return (
     <div>
-      {label && <div className="mb-2.5 text-[10.5px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</div>}
+      {label && <div className="mb-2.5 text-[0.65625rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</div>}
       <ol className="flex flex-col gap-2.5">
         {steps.map((s, i) => {
           const on = done.includes(i)
@@ -55,7 +55,7 @@ export function StepList({ steps, label = "Steps" }: { steps: string[]; label?: 
                   />
                 </span>
                 <span
-                  className="flex-1 pt-0.5 text-[14px] leading-relaxed text-pretty"
+                  className="flex-1 pt-0.5 text-[0.875rem] leading-relaxed text-pretty"
                   style={{ color: on ? FAINT : INK, textDecoration: on ? "line-through" : "none" }}
                 >
                   {s}
@@ -80,8 +80,8 @@ export function InfoBlurb({ text, label, icon = "info" }: { text: string; label?
     <div className="flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: "var(--hh-slate-soft)" }}>
       <Glyph className="mt-px size-[15px] shrink-0" style={{ color: "var(--hh-slate)" }} />
       <div className="min-w-0">
-        {label && <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>{label}</div>}
-        <span className="text-[13.5px] leading-relaxed text-pretty" style={{ color: INK }}>{text}</span>
+        {label && <div className="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>{label}</div>}
+        <span className="text-[0.84375rem] leading-relaxed text-pretty" style={{ color: INK }}>{text}</span>
       </div>
     </div>
   )
@@ -97,12 +97,12 @@ export function InfoBlurb({ text, label, icon = "info" }: { text: string; label?
 export function ManualBlurb({ page, quote, onOpen }: { page: number; quote?: string | null; onOpen: () => void }) {
   return (
     <div className="px-3.5 py-3" style={{ borderLeft: `3px solid ${TEAL}`, background: "var(--hh-teal-wash)", borderRadius: "0 12px 12px 0" }}>
-      <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>From your manual</div>
-      {quote && <div className="text-[13px] italic leading-relaxed" style={{ color: INK }}>“{quote}”</div>}
+      <div className="mb-1.5 text-[0.625rem] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>From your manual</div>
+      {quote && <div className="text-[0.8125rem] italic leading-relaxed" style={{ color: INK }}>“{quote}”</div>}
       <button
         type="button"
         onClick={onOpen}
-        className="mt-2.5 inline-flex items-center gap-1.5 rounded-[9px] px-3 py-2 text-[12.5px] font-bold"
+        className="mt-2.5 inline-flex items-center gap-1.5 rounded-[9px] px-3 py-2 text-[0.78125rem] font-bold"
         style={{ background: "var(--hh-surface)", color: TEALD }}
       >
         <BookOpenIcon className="size-[14px]" /> Open manual · p.{page} <ArrowUpRightIcon className="size-[13px]" />

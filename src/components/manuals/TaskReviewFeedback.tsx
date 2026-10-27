@@ -70,13 +70,13 @@ export function TaskReviewFeedback({
   return (
     <>
       <div className="mt-6 pt-3.5 border-t border-border flex items-center gap-2">
-        <div className="flex-1 text-[12px] text-muted-foreground">
+        <div className="flex-1 text-[0.75rem] text-muted-foreground">
           {sent ? "Thanks — that helps us fix it for everyone." : "These tasks don't look right?"}
         </div>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="hit-44 rounded-full border border-border bg-card px-3 py-2 text-[11.5px] font-semibold whitespace-nowrap"
+          className="hit-44 rounded-full border border-border bg-card px-3 py-2 text-[0.71875rem] font-semibold whitespace-nowrap"
         >
           {sent ? "Add more" : "Tell us what's off"}
         </button>
@@ -85,7 +85,7 @@ export function TaskReviewFeedback({
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="p-4 pb-6">
           <SheetHeader className="p-0 mb-2.5">
-            <SheetTitle className="text-[13px]">What doesn't look right?</SheetTitle>
+            <SheetTitle className="text-[0.8125rem]">What doesn't look right?</SheetTitle>
           </SheetHeader>
 
           <div className="flex flex-wrap gap-1.5 mb-3">
@@ -102,7 +102,7 @@ export function TaskReviewFeedback({
                     return next
                   })
                 }
-                className={`rounded-full border px-2.5 py-2 text-[11.5px] font-semibold ${
+                className={`rounded-full border px-2.5 py-2 text-[0.71875rem] font-semibold ${
                   picked.has(r.id)
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-background text-muted-foreground"
@@ -118,11 +118,11 @@ export function TaskReviewFeedback({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Anything specific? (optional)"
-            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-[12.5px] resize-none"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-[0.78125rem] resize-none"
           />
 
           {edits.total > 0 && (
-            <div className="mt-2.5 rounded-xl bg-primary/10 px-3 py-2.5 text-[11px] text-muted-foreground">
+            <div className="mt-2.5 rounded-xl bg-primary/10 px-3 py-2.5 text-[0.6875rem] text-muted-foreground">
               We'll include <b className="text-primary">the {edits.total} correction{edits.total === 1 ? "" : "s"} you already made</b>
               {editBits.length > 0 && <> ({editBits.join(" · ")})</>} — that's the most useful part.
             </div>
@@ -132,14 +132,14 @@ export function TaskReviewFeedback({
             <button
               type="button"
               onClick={() => send(true)}
-              className="flex-1 rounded-xl border border-border py-2.5 text-[12.5px] font-bold text-muted-foreground"
+              className="flex-1 rounded-xl border border-border py-2.5 text-[0.78125rem] font-bold text-muted-foreground"
             >
               Re-scan
             </button>
             <button
               type="button"
               onClick={() => send(false)}
-              className="flex-[2] rounded-xl bg-[var(--hh-teal-fill)] py-2.5 text-[12.5px] font-bold text-primary-foreground"
+              className="flex-[2] rounded-xl bg-[var(--hh-teal-fill)] py-2.5 text-[0.78125rem] font-bold text-primary-foreground"
             >
               Send feedback
             </button>

@@ -53,13 +53,13 @@ export default function CleanGuide() {
   return (
     <div className="mx-auto min-h-[calc(100vh-48px)] w-full max-w-[820px] px-5 pb-16" style={{ background: BG }}>
       <div className="flex items-center pt-1 pb-2">
-        <button onClick={() => navigate(-1)} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+        <button onClick={() => navigate(-1)} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[1rem] font-semibold" style={{ color: TEAL }}>
           <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} /> Back
         </button>
       </div>
 
       {loading ? (
-        <div className="py-16 text-center text-[14px]" style={{ color: SUB }}>Loading guide…</div>
+        <div className="py-16 text-center text-[0.875rem]" style={{ color: SUB }}>Loading guide…</div>
       ) : loadFailed ? (
         <LoadErrorState
           title="Couldn't load this guide"
@@ -68,8 +68,8 @@ export default function CleanGuide() {
         />
       ) : !guide ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
-          <p className="text-[15px]" style={{ color: SUB }}>No cleaning guide for this item yet.</p>
-          <Link to="/clean" className="text-[14px] font-bold" style={{ color: TEAL }}>Back to Deep Clean</Link>
+          <p className="text-[0.9375rem]" style={{ color: SUB }}>No cleaning guide for this item yet.</p>
+          <Link to="/clean" className="text-[0.875rem] font-bold" style={{ color: TEAL }}>Back to Deep Clean</Link>
         </div>
       ) : (
         <>
@@ -80,11 +80,11 @@ export default function CleanGuide() {
                 <SparklesIcon className="size-6" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>Deep-clean guide</div>
-                <h1 className="mt-0.5 text-[26px] font-extrabold leading-tight tracking-[-0.6px]" style={{ color: INK }}>Clean the {guide.itemName}</h1>
+                <div className="text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>Deep-clean guide</div>
+                <h1 className="mt-0.5 text-[1.625rem] font-extrabold leading-tight tracking-[-0.6px]" style={{ color: INK }}>Clean the {guide.itemName}</h1>
               </div>
             </div>
-            <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-2 text-[13.5px]" style={{ color: SUB }}>
+            <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-2 text-[0.84375rem]" style={{ color: SUB }}>
               {guide.roomName && <span className="inline-flex items-center gap-1.5"><MapPinIcon className="size-[15px]" /> {guide.roomName}</span>}
               <span className="inline-flex items-center gap-1.5"><SparklesIcon className="size-[15px]" /> {guide.tasks.length} step{guide.tasks.length === 1 ? "" : "s"}</span>
               {guide.totalMinutes > 0 && <span className="inline-flex items-center gap-1.5"><ClockIcon className="size-[15px]" /> about {guide.totalMinutes} min</span>}
@@ -99,9 +99,9 @@ export default function CleanGuide() {
                   {/* The ONLY number on this screen: which section of the guide
                       you're in. Solid, so it reads as a marker rather than a
                       sibling of the step circles below it. */}
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold text-white" style={{ background: "var(--hh-teal-fill)" }}>{i + 1}</span>
-                  <h2 className="min-w-0 flex-1 text-[16px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{t.title}</h2>
-                  {t.estimatedMinutes != null && <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: SUB }}>{t.estimatedMinutes} min</span>}
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-extrabold text-white" style={{ background: "var(--hh-teal-fill)" }}>{i + 1}</span>
+                  <h2 className="min-w-0 flex-1 text-[1rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{t.title}</h2>
+                  {t.estimatedMinutes != null && <span className="shrink-0 text-[0.78125rem] font-semibold" style={{ color: SUB }}>{t.estimatedMinutes} min</span>}
                 </div>
                 <HowToSteps
                   actor={classifyTaskFields({ title: t.title, instructions: t.instructions, steps: t.steps })}

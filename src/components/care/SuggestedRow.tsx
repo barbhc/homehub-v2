@@ -54,20 +54,20 @@ export function SuggestedRow({ suggestion, itemName, onAdd, onDismiss, last }: S
       style={{ borderTop: last ? "none" : "1px solid var(--hh-line)", background: "var(--hh-surface2)" }}
     >
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>
+        <span className="text-[0.875rem] font-semibold tracking-[-0.2px]" style={{ color: INK }}>
           {backstopFor ? `Backstop for “${backstopFor.title}”` : entry.title}
         </span>
-        <span className="rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: AMBER_SOFT, color: AMBER }}>Suggested</span>
-        {entry.pro && <span className="rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>A pro</span>}
+        <span className="rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: AMBER_SOFT, color: AMBER }}>Suggested</span>
+        {entry.pro && <span className="rounded-full px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-[0.3px]" style={{ background: SLATE_SOFT, color: SLATE }}>A pro</span>}
       </div>
-      <span className="text-[12px] leading-snug" style={{ color: SUB }}>
+      <span className="text-[0.75rem] leading-snug" style={{ color: SUB }}>
         {backstopFor ? `The machine tells you when. Add a reminder ${entry.cadenceLabel.toLowerCase()} as a backstop?` : meta}
       </span>
-      <span className="text-[11.5px] leading-snug" style={{ color: FAINT }}>
+      <span className="text-[0.71875rem] leading-snug" style={{ color: FAINT }}>
         {backstopFor ? `${entry.source}.` : `Why: ${entry.why}`}
       </span>
       {error && (
-        <span role="alert" className="text-[12px] font-medium" style={{ color: CLAY }}>{error}</span>
+        <span role="alert" className="text-[0.75rem] font-medium" style={{ color: CLAY }}>{error}</span>
       )}
       <div className="mt-0.5 flex items-center gap-[18px]">
         <button
@@ -75,7 +75,7 @@ export function SuggestedRow({ suggestion, itemName, onAdd, onDismiss, last }: S
           onClick={() => void run("add")}
           disabled={busy !== null}
           aria-label={`${backstopFor ? "Add backstop" : "Add"} ${entry.title}`}
-          className="inline-flex min-h-11 items-center gap-1 text-[13px] font-bold disabled:opacity-50"
+          className="inline-flex min-h-11 items-center gap-1 text-[0.8125rem] font-bold disabled:opacity-50"
           style={{ color: TEAL }}
         >
           <CheckIcon className="size-[13px]" strokeWidth={3} />
@@ -86,7 +86,7 @@ export function SuggestedRow({ suggestion, itemName, onAdd, onDismiss, last }: S
           onClick={() => void run("dismiss")}
           disabled={busy !== null}
           aria-label={`Not this one — ${entry.title}`}
-          className="inline-flex min-h-11 items-center text-[13px] font-semibold disabled:opacity-50"
+          className="inline-flex min-h-11 items-center text-[0.8125rem] font-semibold disabled:opacity-50"
           style={{ color: FAINT }}
         >
           {busy === "dismiss" ? "Removing…" : "Not this one"}
@@ -99,7 +99,7 @@ export function SuggestedRow({ suggestion, itemName, onAdd, onDismiss, last }: S
 /** The band's footnote — the same sentence on every surface, so provenance never varies. */
 export function SuggestedSource({ kindLabel }: { kindLabel: string }) {
   return (
-    <div className="flex items-start gap-2 px-4 py-2.5 text-[11.5px] leading-snug" style={{ borderTop: "1px solid var(--hh-line, rgba(15,23,42,.10))", background: AMBER_SOFT, color: "var(--hh-gold-ink)" }}>
+    <div className="flex items-start gap-2 px-4 py-2.5 text-[0.71875rem] leading-snug" style={{ borderTop: "1px solid var(--hh-line, rgba(15,23,42,.10))", background: AMBER_SOFT, color: "var(--hh-gold-ink)" }}>
       Typical for {kindLabel} — not from this unit&apos;s manual. Stays until you add or dismiss it; the manual replaces these with the exact schedule.
     </div>
   )

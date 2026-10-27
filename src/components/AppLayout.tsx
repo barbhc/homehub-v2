@@ -58,13 +58,13 @@ export function AppLayout() {
     <div className="min-h-screen flex flex-col" style={{ background: "var(--hh-bg)" }}>
       {/* Desktop top nav (redesign shell) */}
       <header className="hidden border-b border-[var(--hh-line)] md:block" style={{ background: "var(--hh-surface)" }}>
-        <nav className="mx-auto flex h-[60px] max-w-6xl items-center gap-6 px-6">
+        <nav className="mx-auto flex min-h-[60px] max-w-6xl items-center gap-6 px-6">
           {/* Brand mark */}
           <Link to="/home" className="hit-44 flex items-center gap-2.5">
             <span className="flex size-8 items-center justify-center rounded-[10px]" style={{ background: "var(--hh-teal-fill)" }}>
               <HomeIcon className="size-[18px] text-white" strokeWidth={2.4} />
             </span>
-            <span className="text-[18px] font-extrabold tracking-[-0.5px]" style={{ color: "var(--hh-ink)" }}>Homehub</span>
+            <span className="text-[1.125rem] font-extrabold tracking-[-0.5px]" style={{ color: "var(--hh-ink)" }}>Homehub</span>
           </Link>
           {/* Nav */}
           <div className="flex items-center gap-1">
@@ -79,7 +79,7 @@ export function AppLayout() {
                   to={to}
                   data-tour={tourId}
                   className={cn(
-                    "hit-44 rounded-lg px-3 py-1.5 text-[14px] font-semibold transition-colors",
+                    "hit-44 rounded-lg px-3 py-1.5 text-[0.875rem] font-semibold transition-colors",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
                   )}
                 >
@@ -100,7 +100,7 @@ export function AppLayout() {
                   to={to}
                   data-tour={tourId}
                   className={cn(
-                    "hit-44 hidden rounded-lg px-3 py-1.5 text-[14px] font-semibold transition-colors lg:block",
+                    "hit-44 hidden rounded-lg px-3 py-1.5 text-[0.875rem] font-semibold transition-colors lg:block",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
                   )}
                 >
@@ -164,7 +164,7 @@ export function AppLayout() {
             {/* Account avatar — signed-in user's initial */}
             <Link
               to="/settings"
-              className="hit-44 flex size-8 items-center justify-center rounded-full text-[13px] font-bold text-white transition-opacity hover:opacity-90 pointer-coarse:ml-0.5"
+              className="hit-44 flex size-8 items-center justify-center rounded-full text-[0.8125rem] font-bold text-white transition-opacity hover:opacity-90 pointer-coarse:ml-0.5"
               style={{ background: "var(--hh-teal-fill)" }}
               aria-label="Account"
               title="Account"
@@ -188,7 +188,7 @@ export function AppLayout() {
           indicator, so on every notched iPhone the last element of every page sat
           under it — reported as "Back and Add item are still partially cut off".
           It never reproduced in a browser, where env() resolves to 0. */}
-      <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 pt-safe-top">
+      <main className="flex-1 pb-[calc(var(--hh-tabbar-h)+4px+env(safe-area-inset-bottom))] md:pb-0 pt-safe-top">
         <Outlet />
       </main>
 
@@ -221,7 +221,7 @@ export function AppLayout() {
                 )}
               >
                 <Icon className="size-6" strokeWidth={isActive ? 2.4 : 2} />
-                <span className={cn("text-[10px] leading-tight", isActive ? "font-semibold" : "font-medium")}>{label}</span>
+                <span className={cn("text-[length:var(--hh-tabbar-label)] leading-tight", isActive ? "font-semibold" : "font-medium")}>{label}</span>
               </Link>
             )
           })}

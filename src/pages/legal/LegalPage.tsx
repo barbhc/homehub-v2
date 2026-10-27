@@ -23,24 +23,24 @@ export function LegalPage({
       <div className="mx-auto w-full max-w-[720px] px-5 py-6 pb-20">
         <Link
           to="/"
-          className="inline-flex items-center gap-0.5 py-1.5 text-[15px] font-semibold"
+          className="inline-flex items-center gap-0.5 py-1.5 text-[0.9375rem] font-semibold"
           style={{ color: "var(--hh-teal)" }}
         >
           <ChevronLeftIcon className="size-[20px]" strokeWidth={2.4} /> Homehub
         </Link>
 
         <h1
-          className="mt-4 text-[30px] font-extrabold tracking-[-0.6px]"
+          className="mt-4 text-[1.875rem] font-extrabold tracking-[-0.6px]"
           style={{ color: "var(--hh-ink)" }}
         >
           {title}
         </h1>
-        <p className="mt-1.5 text-[13.5px]" style={{ color: "var(--hh-sub)" }}>
+        <p className="mt-1.5 text-[0.84375rem]" style={{ color: "var(--hh-sub)" }}>
           Effective {effective}
         </p>
 
         <div
-          className="mt-7 flex flex-col gap-6 text-[15px] leading-relaxed"
+          className="mt-7 flex flex-col gap-6 text-[0.9375rem] leading-relaxed"
           style={{ color: "var(--hh-ink)" }}
         >
           {children}
@@ -53,7 +53,7 @@ export function LegalPage({
 export function Section({ heading, children }: { heading: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-2.5">
-      <h2 className="text-[18px] font-extrabold tracking-[-0.3px]" style={{ color: "var(--hh-ink)" }}>
+      <h2 className="text-[1.125rem] font-extrabold tracking-[-0.3px]" style={{ color: "var(--hh-ink)" }}>
         {heading}
       </h2>
       {children}
@@ -88,11 +88,11 @@ export function Processors({ rows }: { rows: { name: string; data: string; why: 
           className="px-4 py-3"
           style={{ borderTop: i === 0 ? "none" : "1px solid var(--hh-line)" }}
         >
-          <div className="text-[14.5px] font-bold" style={{ color: "var(--hh-ink)" }}>{r.name}</div>
-          <div className="mt-0.5 text-[13.5px]" style={{ color: "var(--hh-sub)" }}>
+          <div className="text-[0.90625rem] font-bold" style={{ color: "var(--hh-ink)" }}>{r.name}</div>
+          <div className="mt-0.5 text-[0.84375rem]" style={{ color: "var(--hh-sub)" }}>
             <span className="font-semibold">What they receive:</span> {r.data}
           </div>
-          <div className="text-[13.5px]" style={{ color: "var(--hh-sub)" }}>
+          <div className="text-[0.84375rem]" style={{ color: "var(--hh-sub)" }}>
             <span className="font-semibold">Why:</span> {r.why}
           </div>
         </div>

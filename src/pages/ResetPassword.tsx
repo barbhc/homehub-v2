@@ -11,13 +11,13 @@ function PwField({ label, value, onChange }: { label: string; value: string; onC
   const [show, setShow] = useState(false)
   return (
     <div>
-      <div className="mb-[7px] px-0.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: AUTH.sub }}>{label}</div>
+      <div className="mb-[7px] px-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: AUTH.sub }}>{label}</div>
       <div className="flex items-center gap-2.5 rounded-xl px-3 bg-[var(--hh-surface)]" style={{ border: `1px solid ${AUTH.line}` }}>
         <LockIcon size={16} className="shrink-0" style={{ color: AUTH.faint }} />
         <input
           type={show ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)}
           placeholder={label} autoComplete="new-password" minLength={8}
-          className="flex-1 min-w-0 border-none outline-none bg-transparent py-[13px] text-[15px]" style={{ color: AUTH.ink }}
+          className="flex-1 min-w-0 border-none outline-none bg-transparent py-[13px] text-[0.9375rem]" style={{ color: AUTH.ink }}
         />
         <button type="button" onClick={() => setShow((v) => !v)} className="shrink-0 p-1" style={{ color: AUTH.faint }} aria-label={show ? "Hide password" : "Show password"}>
           {show ? <EyeOffIcon size={17} /> : <EyeIcon size={17} />}
@@ -133,7 +133,7 @@ export default function ResetPassword() {
             <CheckIcon size={32} style={{ color: AUTH.teal }} />
           </div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>Password updated</h1>
-          <p className="text-[15px] mt-2" style={{ color: AUTH.sub }}>Taking you home…</p>
+          <p className="text-[0.9375rem] mt-2" style={{ color: AUTH.sub }}>Taking you home…</p>
         </div>
       </AuthScreen>
     )
@@ -147,7 +147,7 @@ export default function ResetPassword() {
             <AlertCircleIcon size={32} style={{ color: AUTH.gold }} />
           </div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>That link didn't work</h1>
-          <p className="text-[15px] mt-2 max-w-[300px]" style={{ color: AUTH.sub }}>{linkError}</p>
+          <p className="text-[0.9375rem] mt-2 max-w-[300px]" style={{ color: AUTH.sub }}>{linkError}</p>
           <div className="mt-6 flex flex-col items-center gap-3 w-full max-w-[280px]">
             <AuthCTA type="button" onClick={() => navigate("/reset")}>Request a new link</AuthCTA>
             <button type="button" onClick={() => navigate("/signin")} className="text-sm underline underline-offset-2" style={{ color: AUTH.sub }}>
@@ -167,7 +167,7 @@ export default function ResetPassword() {
             <MailCheckIcon size={32} style={{ color: AUTH.teal }} />
           </div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>Finishing sign-in…</h1>
-          <p className="text-[15px] mt-2 max-w-[280px]" style={{ color: AUTH.sub }}>One moment while we confirm your link.</p>
+          <p className="text-[0.9375rem] mt-2 max-w-[280px]" style={{ color: AUTH.sub }}>One moment while we confirm your link.</p>
         </div>
       </AuthScreen>
     )
@@ -181,7 +181,7 @@ export default function ResetPassword() {
             <MailCheckIcon size={32} style={{ color: AUTH.teal }} />
           </div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: AUTH.ink }}>Verifying your link…</h1>
-          <p className="text-[15px] mt-2 max-w-[280px]" style={{ color: AUTH.sub }}>
+          <p className="text-[0.9375rem] mt-2 max-w-[280px]" style={{ color: AUTH.sub }}>
             Open this page from the reset email so we can confirm it's you.
           </p>
         </div>
@@ -199,7 +199,7 @@ export default function ResetPassword() {
         <PwField label="New password" value={password} onChange={setPassword} />
         <PwField label="Confirm password" value={confirm} onChange={setConfirm} />
         {confirm.length > 0 && !match && (
-          <p className="text-[12.5px] -mt-1 pl-0.5" style={{ color: AUTH.gold }}>Passwords don't match yet.</p>
+          <p className="text-[0.78125rem] -mt-1 pl-0.5" style={{ color: AUTH.gold }}>Passwords don't match yet.</p>
         )}
         {error && <p className="text-sm" style={{ color: AUTH.gold }}>{error}</p>}
         <AuthCTA type="submit" disabled={!match || loading}>

@@ -120,7 +120,7 @@ export function ManualDockPanel({
 
       {/* Header + toolbar */}
       <div className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: "var(--hh-line)" }}>
-        <span className="text-[13px] font-bold" style={{ color: "var(--hh-ink)" }}>
+        <span className="text-[0.8125rem] font-bold" style={{ color: "var(--hh-ink)" }}>
           Manual · p.{currentPage}{totalPages ? <span className="font-normal" style={{ color: "var(--hh-sub)" }}> of {totalPages}</span> : null}
         </span>
         <div className="flex items-center gap-0.5">
@@ -130,7 +130,7 @@ export function ManualDockPanel({
         <div className="flex-1" />
         <div className="flex items-center gap-0.5">
           <IconBtn label="Zoom out" disabled={zoom <= 1} onClick={() => setZoom((z) => Math.max(1, +(z - 0.25).toFixed(2)))}><ZoomOut className="size-4" /></IconBtn>
-          <span className="w-10 text-center text-[12px] tabular-nums" style={{ color: "var(--hh-sub)" }}>{Math.round(zoom * 100)}%</span>
+          <span className="w-10 text-center text-[0.75rem] tabular-nums" style={{ color: "var(--hh-sub)" }}>{Math.round(zoom * 100)}%</span>
           <IconBtn label="Zoom in" disabled={zoom >= 3} onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))}><ZoomIn className="size-4" /></IconBtn>
         </div>
         <IconBtn label="Close manual" onClick={() => onOpenChange(false)}><X className="size-4" /></IconBtn>
@@ -140,11 +140,11 @@ export function ManualDockPanel({
       <div className="flex-1 min-h-0 overflow-auto bg-[var(--hh-bg)] px-3 py-3">
         {loading && (
           <div className="flex flex-col items-center justify-center gap-2 py-16" style={{ color: "var(--hh-sub)" }}>
-            <Loader2 className="size-7 animate-spin" /><span className="text-[13px]">Rendering page {currentPage}…</span>
+            <Loader2 className="size-7 animate-spin" /><span className="text-[0.8125rem]">Rendering page {currentPage}…</span>
           </div>
         )}
         {error && !loading && (
-          <div className="flex flex-col items-center gap-3 py-16 text-center text-[13px]" style={{ color: "var(--hh-sub)" }}>
+          <div className="flex flex-col items-center gap-3 py-16 text-center text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
             Couldn&apos;t render this page.
             {fullPdfLink && <a href={fullPdfLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold" style={{ color: "var(--hh-teal)" }}>Open full PDF <ExternalLink className="size-3.5" /></a>}
           </div>
@@ -162,12 +162,12 @@ export function ManualDockPanel({
       {/* Footer */}
       <div className="flex items-center justify-between gap-3 border-t px-3 py-2" style={{ borderColor: "var(--hh-line)" }}>
         {onSetPage ? (
-          <button type="button" onClick={setPage} className="inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--hh-teal)" }}>
+          <button type="button" onClick={setPage} className="inline-flex items-center gap-1.5 text-[0.78125rem] font-bold" style={{ color: "var(--hh-teal)" }}>
             {saved ? <><Check className="size-3.5" /> Saved</> : <>Set p.{currentPage} as reference</>}
           </button>
         ) : <span />}
         {fullPdfLink && (
-          <a href={fullPdfLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: "var(--hh-sub)" }}>
+          <a href={fullPdfLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[0.78125rem] font-semibold" style={{ color: "var(--hh-sub)" }}>
             Open PDF <ExternalLink className="size-3.5" />
           </a>
         )}

@@ -74,32 +74,32 @@ export default function NotesPage() {
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
       <div className="mx-auto w-full max-w-2xl">
         <div className="flex items-center px-3 pb-1.5 pt-1">
-          <button type="button" onClick={() => navigate("/inventory")} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+          <button type="button" onClick={() => navigate("/inventory")} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[1rem] font-semibold" style={{ color: TEAL }}>
             <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} aria-hidden /> Items
           </button>
         </div>
 
         <div className="flex flex-col gap-3.5 px-5 pb-10">
           <div>
-            <h1 className="min-h-[34px] text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{title}</h1>
+            <h1 className="min-h-[34px] text-[1.625rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{title}</h1>
             <div className="mt-1"><SharedLine homeName={home?.name ?? null} /></div>
           </div>
 
           {roomGone ? (
-            <div className={`text-[13.5px] ${CARD}`} style={{ background: SURFACE, color: SUB }}>This room isn&apos;t in your home anymore.</div>
+            <div className={`text-[0.84375rem] ${CARD}`} style={{ background: SURFACE, color: SUB }}>This room isn&apos;t in your home anymore.</div>
           ) : (
             <>
               {error ? (
-                <div role="alert" className={`flex items-center gap-2 text-[13px] ${CARD}`} style={{ background: SURFACE, color: CLAY }}>
+                <div role="alert" className={`flex items-center gap-2 text-[0.8125rem] ${CARD}`} style={{ background: SURFACE, color: CLAY }}>
                   <span className="min-w-0 flex-1">Couldn&apos;t load notes: {error}</span>
                   <button type="button" onClick={reload} className="hit-44 shrink-0 font-bold underline underline-offset-2">Try again</button>
                 </div>
               ) : loading ? (
-                <div className={`text-[13px] ${CARD}`} style={{ background: SURFACE, color: FAINT }}>Loading notes…</div>
+                <div className={`text-[0.8125rem] ${CARD}`} style={{ background: SURFACE, color: FAINT }}>Loading notes…</div>
               ) : mine.length === 0 ? (
                 <div className={`flex flex-col gap-0.5 ${CARD}`} style={{ background: SURFACE }}>
-                  <span className="text-[13.5px] font-semibold" style={{ color: INK }}>Nothing noted yet</span>
-                  <span className="text-[12px]" style={{ color: SUB }}>Things you&apos;d otherwise have to remember — start with an idea below.</span>
+                  <span className="text-[0.84375rem] font-semibold" style={{ color: INK }}>Nothing noted yet</span>
+                  <span className="text-[0.75rem]" style={{ color: SUB }}>Things you&apos;d otherwise have to remember — start with an idea below.</span>
                 </div>
               ) : (
                 <NoteRows notes={mine} onEdit={(note) => setComposer({ key: note.note_id, note, idea: null })} />
@@ -109,7 +109,7 @@ export default function NotesPage() {
                 type="button"
                 onClick={() => openNew(null)}
                 disabled={!!error}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border-[1.5px] px-4 py-3 text-[14px] font-bold disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border-[1.5px] px-4 py-3 text-[0.875rem] font-bold disabled:opacity-50"
                 style={{ borderColor: "color-mix(in srgb, var(--hh-teal) 35%, transparent)", background: SURFACE, color: TEAL }}
               >
                 <PlusIcon className="size-4" strokeWidth={2.4} aria-hidden />

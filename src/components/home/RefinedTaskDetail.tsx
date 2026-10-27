@@ -67,7 +67,7 @@ function dueDaysFromDate(dateStr: string): number {
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{children}</div>
+  return <div className="mb-2 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{children}</div>
 }
 
 export function RefinedTaskDetail({
@@ -217,11 +217,11 @@ export function RefinedTaskDetail({
     }
   }, [homeId, detail])
 
-  if (loading) return <div className="flex min-h-full items-center justify-center text-[14px]" style={{ background: BG, color: SUB }}>Loading…</div>
+  if (loading) return <div className="flex min-h-full items-center justify-center text-[0.875rem]" style={{ background: BG, color: SUB }}>Loading…</div>
   if (!detail && loadFailed) return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
       <div className="flex items-center px-3 pt-1 pb-2">
-        <button onClick={onBack} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+        <button onClick={onBack} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[1rem] font-semibold" style={{ color: TEAL }}>
           <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} /> Back
         </button>
       </div>
@@ -234,8 +234,8 @@ export function RefinedTaskDetail({
   )
   if (!detail) return (
     <div className="flex min-h-full flex-col items-center justify-center gap-3" style={{ background: BG }}>
-      <p className="text-[15px]" style={{ color: SUB }}>Task not found.</p>
-      <button onClick={onBack} className="hit-44 text-[14px] font-bold" style={{ color: TEAL }}>Go back</button>
+      <p className="text-[0.9375rem]" style={{ color: SUB }}>Task not found.</p>
+      <button onClick={onBack} className="hit-44 text-[0.875rem] font-bold" style={{ color: TEAL }}>Go back</button>
     </div>
   )
 
@@ -269,8 +269,8 @@ export function RefinedTaskDetail({
           className="size-[18px] shrink-0 accent-[var(--hh-teal)]"
         />
         <span className="min-w-0 flex-1">
-          <span className="block text-[13.5px] font-semibold" style={{ color: INK }}>Remind me when it&apos;s due</span>
-          <span className="block text-[11.5px]" style={{ color: SUB }}>
+          <span className="block text-[0.84375rem] font-semibold" style={{ color: INK }}>Remind me when it&apos;s due</span>
+          <span className="block text-[0.71875rem]" style={{ color: SUB }}>
             {detail.remindEnabled == null
               ? remindsByDefault(asTier(detail.tier))
                 ? "On by default for Essential — you can turn it off"
@@ -283,7 +283,7 @@ export function RefinedTaskDetail({
         )}
       </label>
       {reminderError && (
-        <p className="mt-1.5 px-1 text-[12px] font-semibold" style={{ color: "var(--hh-clay)" }}>{reminderError}</p>
+        <p className="mt-1.5 px-1 text-[0.75rem] font-semibold" style={{ color: "var(--hh-clay)" }}>{reminderError}</p>
       )}
     </>
   ) : null
@@ -291,18 +291,18 @@ export function RefinedTaskDetail({
   // Beside Mark done in BOTH lanes (desktop rail, phone bar) — the same
   // reason as the reminder control above: one lane is always invisible.
   const doneErrorNote = doneError ? (
-    <p role="alert" className="px-1 text-[12px] font-semibold" style={{ color: "var(--hh-clay)" }}>{doneError}</p>
+    <p role="alert" className="px-1 text-[0.75rem] font-semibold" style={{ color: "var(--hh-clay)" }}>{doneError}</p>
   ) : null
 
   const assignControl = (
     <>
       <button onClick={() => setAssignOpen((v) => !v)} className="flex w-full items-center gap-3 rounded-[13px] border border-[var(--hh-line2)] px-3.5 py-3 text-left" style={{ background: "var(--hh-surface)" }}>
-        <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full text-[12px] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>
+        <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full text-[0.75rem] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>
           {(assignee?.profile?.full_name ?? "?").slice(0, 1).toUpperCase()}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[10.5px] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>Assigned to</span>
-          <span className="block text-[15px] font-bold" style={{ color: INK }}>{assignee?.profile?.full_name ?? "Anyone"}</span>
+          <span className="block text-[0.65625rem] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>Assigned to</span>
+          <span className="block text-[0.9375rem] font-bold" style={{ color: INK }}>{assignee?.profile?.full_name ?? "Anyone"}</span>
         </span>
         {assignOpen ? <ChevronUpIcon className="size-[18px]" style={{ color: FAINT }} /> : <ChevronDownIcon className="size-[18px]" style={{ color: FAINT }} />}
       </button>
@@ -310,8 +310,8 @@ export function RefinedTaskDetail({
         <div className="mt-1.5 overflow-hidden rounded-xl border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}>
           {[{ user_id: null as string | null, name: "Anyone" }, ...members.map((m) => ({ user_id: m.user_id, name: m.profile?.full_name ?? "Member" }))].map((m, i) => (
             <button key={m.user_id ?? "none"} onClick={() => assignTo(m.user_id)} className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left" style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none", background: m.user_id === detail.assignedTo ? "var(--hh-surface2)" : "var(--hh-surface)" }}>
-              <span className="flex size-[26px] items-center justify-center rounded-full text-[11px] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>{m.name.slice(0, 1).toUpperCase()}</span>
-              <span className="flex-1 text-[15px] font-semibold" style={{ color: INK }}>{m.name}</span>
+              <span className="flex size-[26px] items-center justify-center rounded-full text-[0.6875rem] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>{m.name.slice(0, 1).toUpperCase()}</span>
+              <span className="flex-1 text-[0.9375rem] font-semibold" style={{ color: INK }}>{m.name}</span>
               {m.user_id === detail.assignedTo && <CheckIcon className="size-4" strokeWidth={2.6} style={{ color: TEAL }} />}
             </button>
           ))}
@@ -333,7 +333,7 @@ export function RefinedTaskDetail({
     >
       {/* Nav */}
       <div className="flex items-center px-3 pt-1 pb-2">
-        <button onClick={onBack} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+        <button onClick={onBack} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[1rem] font-semibold" style={{ color: TEAL }}>
           <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} /> Back
         </button>
       </div>
@@ -351,10 +351,10 @@ export function RefinedTaskDetail({
                 <PackageIcon className="size-6 lg:size-7" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
-                <span style={{ background: TIER[tier].soft, color: TIER[tier].dot }} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.5px]">
+                <span style={{ background: TIER[tier].soft, color: TIER[tier].dot }} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.65625rem] font-bold uppercase tracking-[0.5px]">
                   <span className="size-1.5 rounded-full" style={{ background: TIER[tier].dot }} />{TIER[tier].label}
                 </span>
-                <h1 className="mt-2 text-[24px] font-extrabold leading-tight tracking-[-0.5px] text-balance lg:text-[28px] lg:tracking-[-0.7px]" style={{ color: INK }}>{detail.title}</h1>
+                <h1 className="mt-2 text-[1.5rem] font-extrabold leading-tight tracking-[-0.5px] text-balance lg:text-[1.75rem] lg:tracking-[-0.7px]" style={{ color: INK }}>{detail.title}</h1>
               </div>
               {/* The parser wrote this task; the owner gets to correct it. */}
               <button
@@ -367,7 +367,7 @@ export function RefinedTaskDetail({
                 <PencilIcon className="size-[16px]" style={{ color: TEAL }} />
               </button>
             </div>
-            <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-2 text-[13px] lg:text-[13.5px]" style={{ color: SUB }}>
+            <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-2 text-[0.8125rem] lg:text-[0.84375rem]" style={{ color: SUB }}>
               {detail.estimatedMinutes != null && <span className="inline-flex items-center gap-1.5"><ClockIcon className="size-[15px]" /> {detail.estimatedMinutes} min</span>}
               {(detail.itemName || detail.roomName) && <span className="inline-flex items-center gap-1.5"><MapPinIcon className="size-[15px]" /> {[detail.itemName, detail.roomName].filter(Boolean).join(" · ")}</span>}
               {/* "63 days overdue" for a filter change was the loudest false
@@ -381,10 +381,10 @@ export function RefinedTaskDetail({
           {detail.schedule && (
             <div className="flex items-center gap-2.5 rounded-xl border border-[var(--hh-line)] px-3.5 py-3 lg:hidden" style={{ background: "var(--hh-surface)" }}>
               <RepeatIcon className="size-4 shrink-0" style={{ color: TEAL }} />
-              <span className="flex-1 text-[13.5px] font-semibold" style={{ color: INK }}>
+              <span className="flex-1 text-[0.84375rem] font-semibold" style={{ color: INK }}>
                 {recurring ? `Repeats ${recurLabel(detail.schedule.scheduleType)}` : recurLabel(detail.schedule.scheduleType)}
               </span>
-              <span className="text-[13px]" style={{ color: SUB }}>{nextLabel}</span>
+              <span className="text-[0.8125rem]" style={{ color: SUB }}>{nextLabel}</span>
             </div>
           )}
           <div className="lg:hidden">{reminderControl}</div>
@@ -393,7 +393,7 @@ export function RefinedTaskDetail({
           {detail.justification && (
             <div className="flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: "var(--hh-surface2)" }}>
               <InfoIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
-              <span className="text-[13.5px] leading-snug text-pretty" style={{ color: "var(--hh-ink-soft)" }}>{detail.justification}</span>
+              <span className="text-[0.84375rem] leading-snug text-pretty" style={{ color: "var(--hh-ink-soft)" }}>{detail.justification}</span>
             </div>
           )}
 
@@ -408,7 +408,7 @@ export function RefinedTaskDetail({
               the exact part, size and link (owner, 2026-09-08). */}
           {homeId && (
             <div data-testid="task-supplies">
-              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>You&apos;ll need</div>
+              <div className="mb-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>You&apos;ll need</div>
               <SupplyRows
                 homeId={homeId}
                 taskTemplateId={detail.taskTemplateId}
@@ -426,7 +426,7 @@ export function RefinedTaskDetail({
               <button
                 type="button"
                 onClick={() => setManualOpen((v) => !v)}
-                className="hit-44 inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
+                className="hit-44 inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[0.8125rem] font-bold"
                 style={{
                   borderColor: dockOpen ? TEAL : "var(--hh-line2)",
                   background: dockOpen ? "var(--hh-teal-wash)" : "var(--hh-surface)",
@@ -441,7 +441,7 @@ export function RefinedTaskDetail({
               // back to the item page rather than offering a dead button.
               <Link
                 to={`/items/${detail.itemUnitId}?manualPage=${detail.manualPage}`}
-                className="hit-44 inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
+                className="hit-44 inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[0.8125rem] font-bold"
                 style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: TEAL }}
               >
                 <BookOpenIcon className="size-[15px]" /> Open manual · p.{detail.manualPage}
@@ -461,7 +461,7 @@ export function RefinedTaskDetail({
               (archive / re-tier / re-cadence / re-season + confirm-first sweep). */}
           <button
             onClick={() => setFeedbackOpen(true)}
-            className="hit-44 inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
+            className="hit-44 inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[0.8125rem] font-bold"
             style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}
           >
             <SlidersHorizontalIcon className="size-[15px]" /> Not quite right? Tune this task
@@ -474,14 +474,14 @@ export function RefinedTaskDetail({
           {done ? (
             <div className="flex items-center gap-2.5 rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ borderColor: "rgba(27,107,90,0.2)", background: "var(--hh-teal-wash)" }}>
               <CheckCircle2Icon className="size-5 shrink-0" style={{ color: TEAL }} />
-              <span className="flex-1 text-[13.5px] font-bold" style={{ color: TEALD }}>
+              <span className="flex-1 text-[0.84375rem] font-bold" style={{ color: TEALD }}>
                 {done.nextDue ? `Done · next due ${fmt(done.nextDue)}` : "Done"}
               </span>
-              <button onClick={onBack} className="hit-44 text-[14px] font-bold" style={{ color: TEAL }}>Back</button>
+              <button onClick={onBack} className="hit-44 text-[0.875rem] font-bold" style={{ color: TEAL }}>Back</button>
             </div>
           ) : (
             <div className="rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
-              <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
+              <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
                 <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
               </button>
               {doneErrorNote && <div className="mt-2">{doneErrorNote}</div>}
@@ -494,10 +494,10 @@ export function RefinedTaskDetail({
               <Label>Schedule</Label>
               <div className="flex items-center gap-2.5 rounded-xl border border-[var(--hh-line)] px-3.5 py-3" style={{ background: "var(--hh-surface)" }}>
                 <RepeatIcon className="size-4 shrink-0" style={{ color: TEAL }} />
-                <span className="flex-1 text-[13.5px] font-semibold" style={{ color: INK }}>
+                <span className="flex-1 text-[0.84375rem] font-semibold" style={{ color: INK }}>
                   {recurring ? `Repeats ${recurLabel(detail.schedule.scheduleType)}` : recurLabel(detail.schedule.scheduleType)}
                 </span>
-                <span className="text-[13px]" style={{ color: SUB }}>{nextLabel}</span>
+                <span className="text-[0.8125rem]" style={{ color: SUB }}>{nextLabel}</span>
               </div>
               <div className="mt-1.5">{reminderControl}</div>
             </div>
@@ -525,7 +525,7 @@ export function RefinedTaskDetail({
         <div ref={pageBarRef} data-testid="task-action-bar" className="hh-frost fixed inset-x-0 bottom-[var(--hh-tabbar-clear)] z-40 border-t border-[var(--hh-line)] pb-3 pt-3 backdrop-blur-xl md:pb-[calc(12px+env(safe-area-inset-bottom))] lg:hidden" style={{ background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
           <div className="mx-auto w-full max-w-[460px]" style={{ paddingInline: d.pad }}>
             {doneErrorNote && <div className="mb-2">{doneErrorNote}</div>}
-            <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
+            <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[1rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
               <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
             </button>
           </div>
@@ -537,10 +537,10 @@ export function RefinedTaskDetail({
         <div ref={pageBarRef} data-testid="task-action-bar" className="fixed inset-x-0 bottom-[var(--hh-tabbar-clear)] z-40 border-t pb-3 pt-3 md:pb-[calc(12px+env(safe-area-inset-bottom))] lg:hidden" style={{ background: "var(--hh-teal-wash)", borderColor: "rgba(27,107,90,0.2)" }}>
           <div className="mx-auto flex w-full max-w-[460px] items-center gap-2.5" style={{ paddingInline: d.pad }}>
             <CheckCircle2Icon className="size-5 shrink-0" style={{ color: TEAL }} />
-            <span className="flex-1 text-[13.5px] font-bold" style={{ color: TEALD }}>
+            <span className="flex-1 text-[0.84375rem] font-bold" style={{ color: TEALD }}>
               {done.nextDue ? `Done · next due ${fmt(done.nextDue)}` : "Done"}
             </span>
-            <button onClick={onBack} className="hit-44 text-[14px] font-bold" style={{ color: TEAL }}>Back</button>
+            <button onClick={onBack} className="hit-44 text-[0.875rem] font-bold" style={{ color: TEAL }}>Back</button>
           </div>
         </div>
       )}
@@ -677,9 +677,9 @@ function ConfirmDoneSheet({
             undo-by-deletion. */}
         <div className="mb-1 flex items-center gap-2.5">
           <span className="flex size-[30px] items-center justify-center rounded-full" style={{ background: "var(--hh-teal-fill)" }}><CheckIcon className="size-[17px] text-white" strokeWidth={3} /></span>
-          <div className="text-[22px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Nice work</div>
+          <div className="text-[1.375rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Nice work</div>
         </div>
-        <div className="mb-4 text-[13.5px]" style={{ color: SUB }}>
+        <div className="mb-4 text-[0.84375rem]" style={{ color: SUB }}>
           {recurring && nextDue
             ? <>Next window <span className="font-bold" style={{ color: INK }}>around {fmt(nextDue)}</span> · {rel(nextDue)}</>
             : "Marked done today."}
@@ -688,25 +688,25 @@ function ConfirmDoneSheet({
         {!adjusting ? (
           <button
             onClick={() => setAdjusting(true)}
-            className="hit-44 mb-4 text-[13.5px] font-bold"
+            className="hit-44 mb-4 text-[0.84375rem] font-bold"
             style={{ color: TEAL }}
           >
             Adjust
           </button>
         ) : (
           <>
-            <div className="mb-2 text-[13.5px]" style={{ color: SUB }}>When did you do it?</div>
+            <div className="mb-2 text-[0.84375rem]" style={{ color: SUB }}>When did you do it?</div>
             <div className="mb-4 flex gap-2.5">
               {([["today", "Today"], ["earlier", "A few days ago"]] as ["today" | "earlier", string][]).map(([k, l]) => (
-                <button key={k} onClick={() => setWhenDone(k)} className="flex-1 rounded-xl border-[1.5px] py-3 text-[13.5px] font-bold"
+                <button key={k} onClick={() => setWhenDone(k)} className="flex-1 rounded-xl border-[1.5px] py-3 text-[0.84375rem] font-bold"
                   style={whenDone === k ? { borderColor: TEAL, background: "var(--hh-teal-wash)", color: TEAL } : { borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>{l}</button>
               ))}
             </div>
             {recurring && nextDue && (
               <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3.5" style={{ background: "var(--hh-surface2)" }}>
                 <div className="min-w-0">
-                  <div className="text-[11px] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>Next window</div>
-                  <div className="mt-0.5 text-[18px] font-extrabold tracking-[-0.4px]" style={{ color: TEAL }}>around {fmt(nextDue)} · {rel(nextDue)}</div>
+                  <div className="text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>Next window</div>
+                  <div className="mt-0.5 text-[1.125rem] font-extrabold tracking-[-0.4px]" style={{ color: TEAL }}>around {fmt(nextDue)} · {rel(nextDue)}</div>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setBump((b) => b - 1)} aria-label="Earlier" className="hit-44 flex size-10 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}><MinusIcon className="size-4" /></button>
@@ -716,7 +716,7 @@ function ConfirmDoneSheet({
             )}
           </>
         )}
-        <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="w-full rounded-[14px] py-4 text-[16px] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Confirm</button>
+        <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="w-full rounded-[14px] py-4 text-[1rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Confirm</button>
       </div>
     </RemoveScroll>,
     document.body,

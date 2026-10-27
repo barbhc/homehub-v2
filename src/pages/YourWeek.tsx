@@ -63,24 +63,24 @@ export default function YourWeek() {
       <div className="lg:hidden -mx-6">
         <div className="mx-auto w-full max-w-[460px] px-4">
           <header className="flex flex-col gap-0.5 pt-2 pb-3">
-            <Link to="/home" className="hit-44 inline-flex items-center gap-0.5 text-[13px] font-semibold" style={{ color: SUB }}>
+            <Link to="/home" className="hit-44 inline-flex items-center gap-0.5 text-[0.8125rem] font-semibold" style={{ color: SUB }}>
               <ChevronLeftIcon className="size-[15px]" /> Home
             </Link>
-            <h1 className="mt-1.5 text-[19px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your week</h1>
-            <p className="text-[12.5px]" style={{ color: SUB }}>
+            <h1 className="mt-1.5 text-[1.1875rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your week</h1>
+            <p className="text-[0.78125rem]" style={{ color: SUB }}>
               {shortDate(0)} – {shortDate(7)} · from your reminders
             </p>
           </header>
 
           {isLoading && !data && (
-            <div className="py-6 text-[13px]" style={{ color: FAINT }}>Loading…</div>
+            <div className="py-6 text-[0.8125rem]" style={{ color: FAINT }}>Loading…</div>
           )}
 
           {error && !data && (
             <div role="alert" className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--hh-clay)", background: "var(--hh-clay-soft)" }}>
-              <div className="text-[13.5px] font-semibold" style={{ color: "var(--hh-clay)" }}>Couldn&apos;t load your week</div>
-              <div className="mt-0.5 text-[12.5px]" style={{ color: "var(--hh-clay)" }}>{error.message}</div>
-              <button type="button" onClick={() => void mutate()} className="mt-2 text-[12.5px] font-bold underline underline-offset-2" style={{ color: "var(--hh-clay)" }}>
+              <div className="text-[0.84375rem] font-semibold" style={{ color: "var(--hh-clay)" }}>Couldn&apos;t load your week</div>
+              <div className="mt-0.5 text-[0.78125rem]" style={{ color: "var(--hh-clay)" }}>{error.message}</div>
+              <button type="button" onClick={() => void mutate()} className="mt-2 text-[0.78125rem] font-bold underline underline-offset-2" style={{ color: "var(--hh-clay)" }}>
                 Try again
               </button>
             </div>
@@ -98,19 +98,19 @@ export default function YourWeek() {
                           <ShoppingBagIcon className="size-[18px]" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[14.5px] font-semibold tracking-[-0.2px]" style={{ color: INK }}>
+                          <div className="text-[0.90625rem] font-semibold tracking-[-0.2px]" style={{ color: INK }}>
                             {row.supply.name}{row.supply.size ? ` · ${row.supply.size}` : ""}
                           </div>
-                          <div className="text-[12.5px]" style={{ color: SUB }}>
+                          <div className="text-[0.78125rem]" style={{ color: SUB }}>
                             {row.taskTitle} · {row.duePhrase}
                           </div>
                           <div className="mt-2 flex items-center gap-3">
                             {row.supply.url && (
-                              <a href={row.supply.url} target="_blank" rel="noopener noreferrer" className="hit-44 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: TEAL }}>
+                              <a href={row.supply.url} target="_blank" rel="noopener noreferrer" className="hit-44 inline-flex items-center gap-1 text-[0.8125rem] font-semibold" style={{ color: TEAL }}>
                                 Buy <ExternalLinkIcon className="size-3" />
                               </a>
                             )}
-                            <button type="button" onClick={() => void markHave(row)} className="hit-44 text-[12.5px] font-semibold" style={{ color: SUB }}>
+                            <button type="button" onClick={() => void markHave(row)} className="hit-44 text-[0.78125rem] font-semibold" style={{ color: SUB }}>
                               I have one
                             </button>
                           </div>
@@ -118,7 +118,7 @@ export default function YourWeek() {
                       </div>
                     ))}
                   </div>
-                  {haveError && <div role="alert" className="text-[12.5px]" style={{ color: "var(--hh-clay)" }}>{haveError}</div>}
+                  {haveError && <div role="alert" className="text-[0.78125rem]" style={{ color: "var(--hh-clay)" }}>{haveError}</div>}
                 </section>
               )}
 
@@ -126,8 +126,8 @@ export default function YourWeek() {
                 <SectionLabel>This week</SectionLabel>
                 {thisWeek.length === 0 ? (
                   <div className="rounded-2xl border border-[var(--hh-line)] px-4 py-5 text-center" style={{ background: "var(--hh-surface)" }}>
-                    <div className="text-[14.5px] font-semibold" style={{ color: INK }}>Nothing needs you this week.</div>
-                    <div className="mt-1 text-[12.5px]" style={{ color: SUB }}>
+                    <div className="text-[0.90625rem] font-semibold" style={{ color: INK }}>Nothing needs you this week.</div>
+                    <div className="mt-1 text-[0.78125rem]" style={{ color: SUB }}>
                       Reminders you turn on show up here.{" "}
                       <Link to="/settings#reminders" className="font-semibold" style={{ color: TEAL }}>Your reminders</Link>
                     </div>
@@ -147,8 +147,8 @@ export default function YourWeek() {
                   <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] divide-y divide-[var(--hh-line)]" style={{ background: "var(--hh-surface)" }}>
                     {later.map((t) => (
                       <Link key={t.taskInstanceId} to={`/tasks/${t.taskInstanceId}`} className="flex items-center gap-3 px-3.5 py-2.5">
-                        <span className="min-w-0 flex-1 truncate text-[14.5px] font-medium" style={{ color: SUB }}>{t.title}</span>
-                        <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: FAINT }}>{t.duePhrase}</span>
+                        <span className="min-w-0 flex-1 truncate text-[0.90625rem] font-medium" style={{ color: SUB }}>{t.title}</span>
+                        <span className="shrink-0 text-[0.78125rem] font-semibold" style={{ color: FAINT }}>{t.duePhrase}</span>
                       </Link>
                     ))}
                   </div>
@@ -156,12 +156,12 @@ export default function YourWeek() {
               )}
 
               {data.hiddenCount > 0 && (
-                <Link to="/maintenance" className="text-center text-[12.5px] font-semibold" style={{ color: TEAL }}>
+                <Link to="/maintenance" className="text-center text-[0.78125rem] font-semibold" style={{ color: TEAL }}>
                   {data.hiddenCount} more {data.hiddenCount === 1 ? "task" : "tasks"} in Tasks — not on your reminders
                 </Link>
               )}
 
-              <div className="flex items-center justify-center gap-1.5 text-[12px]" style={{ color: FAINT }}>
+              <div className="flex items-center justify-center gap-1.5 text-[0.75rem]" style={{ color: FAINT }}>
                 <BellIcon className="size-3.5" />
                 {digest.enabled ? (
                   <span>This summary arrives {DAY_NAMES[digest.day]}s at {hourLabel(digest.hour)} ·</span>
@@ -178,16 +178,16 @@ export default function YourWeek() {
       {/* Desktop: the same column, centered — the redesign has no wide layout for this page yet. */}
       <div className="hidden lg:block">
         <div className="mx-auto w-full max-w-[560px]">
-          <Link to="/home" className="hit-44 inline-flex items-center gap-0.5 text-[13px] font-semibold" style={{ color: SUB }}><ChevronLeftIcon className="size-[15px]" /> Home</Link>
-          <h1 className="mt-2 text-[24px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your week</h1>
-          <p className="mb-4 text-[13px]" style={{ color: SUB }}>{shortDate(0)} – {shortDate(7)} · from your reminders</p>
+          <Link to="/home" className="hit-44 inline-flex items-center gap-0.5 text-[0.8125rem] font-semibold" style={{ color: SUB }}><ChevronLeftIcon className="size-[15px]" /> Home</Link>
+          <h1 className="mt-2 text-[1.5rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your week</h1>
+          <p className="mb-4 text-[0.8125rem]" style={{ color: SUB }}>{shortDate(0)} – {shortDate(7)} · from your reminders</p>
           {data && thisWeek.length > 0 && (
             <div className="overflow-hidden rounded-2xl border border-[var(--hh-line)] divide-y divide-[var(--hh-line)]" style={{ background: "var(--hh-surface)" }}>
               {thisWeek.map((t) => <ReminderRow key={t.taskInstanceId} t={t} chip={weekChip(t)} />)}
             </div>
           )}
-          {data && thisWeek.length === 0 && <div className="text-[14px]" style={{ color: SUB }}>Nothing needs you this week.</div>}
-          {error && !data && <div role="alert" className="text-[14px]" style={{ color: "var(--hh-clay)" }}>Couldn&apos;t load your week — {error.message}</div>}
+          {data && thisWeek.length === 0 && <div className="text-[0.875rem]" style={{ color: SUB }}>Nothing needs you this week.</div>}
+          {error && !data && <div role="alert" className="text-[0.875rem]" style={{ color: "var(--hh-clay)" }}>Couldn&apos;t load your week — {error.message}</div>}
         </div>
       </div>
     </PageContainer>
@@ -215,14 +215,14 @@ function ReminderRow({ t, chip }: { t: WeekReminder; chip: string }) {
         <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14.5px] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</span>
+        <span className="block text-[0.90625rem] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</span>
         <span className="mt-1 flex flex-wrap items-center gap-1.5">
-          <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
-          {meta && <span className="text-[12.5px]" style={{ color: SUB }}>{meta}</span>}
+          <span className="rounded-full px-2 py-0.5 text-[0.65625rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
+          {meta && <span className="text-[0.78125rem]" style={{ color: SUB }}>{meta}</span>}
         </span>
       </span>
       {t.estimatedMinutes != null && (
-        <span className="shrink-0 text-[12.5px] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>
+        <span className="shrink-0 text-[0.78125rem] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>
       )}
     </Link>
   )

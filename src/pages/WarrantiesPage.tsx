@@ -116,8 +116,8 @@ function toWarrantyRows(items: ItemUnit[], roomMap: Map<string, string>): Warran
 function StatCard({ n, label, color }: { n: number; label: string; color: string }) {
   return (
     <div className="flex-1 rounded-2xl bg-[var(--hh-surface)] p-4 text-center shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-      <div className="text-[26px] font-extrabold tracking-[-0.5px]" style={{ color }}>{n}</div>
-      <div className="mt-0.5 text-[13px]" style={{ color: SUB }}>{label}</div>
+      <div className="text-[1.625rem] font-extrabold tracking-[-0.5px]" style={{ color }}>{n}</div>
+      <div className="mt-0.5 text-[0.8125rem]" style={{ color: SUB }}>{label}</div>
     </div>
   )
 }
@@ -146,11 +146,11 @@ function WarrantyListRow({ row, last }: { row: WarrantyRow; last: boolean }) {
         <Icon className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[15px] font-bold tracking-[-0.2px]" style={{ color: INK }}>{row.name}</div>
-        <div className="mt-px truncate text-[12.5px]" style={{ color: SUB }}>{subtitle}</div>
+        <div className="truncate text-[0.9375rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>{row.name}</div>
+        <div className="mt-px truncate text-[0.78125rem]" style={{ color: SUB }}>{subtitle}</div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        <span className="whitespace-nowrap text-[13px] font-bold" style={{ color: tone.fg }}>{right}</span>
+        <span className="whitespace-nowrap text-[0.8125rem] font-bold" style={{ color: tone.fg }}>{right}</span>
         <ChevronRightIcon className="size-4" style={{ color: "var(--hh-icon-faint)" }} />
       </div>
     </Link>
@@ -215,8 +215,8 @@ export default function WarrantiesPage() {
       <div className="mx-auto max-w-3xl px-5 pb-12 pt-6 md:px-6 md:pt-10">
         {/* Header */}
         <header>
-          <h1 className="text-[33px] font-extrabold tracking-[-0.7px]" style={{ color: INK }}>Warranties</h1>
-          <p className="mt-1 text-[14px]" style={{ color: SUB }}>Coverage across your home, at a glance.</p>
+          <h1 className="text-[2.0625rem] font-extrabold tracking-[-0.7px]" style={{ color: INK }}>Warranties</h1>
+          <p className="mt-1 text-[0.875rem]" style={{ color: SUB }}>Coverage across your home, at a glance.</p>
         </header>
 
         {loading && (
@@ -232,8 +232,8 @@ export default function WarrantiesPage() {
 
         {error && (
           <div className="mt-6 rounded-2xl border p-5" style={{ background: "var(--hh-surface)", borderColor: GOLD_BORDER }}>
-            <p className="text-[14px]" style={{ color: INK }}>We couldn't load your warranties just now.</p>
-            <p className="mt-1 text-[13px]" style={{ color: SUB }}>{error}</p>
+            <p className="text-[0.875rem]" style={{ color: INK }}>We couldn't load your warranties just now.</p>
+            <p className="mt-1 text-[0.8125rem]" style={{ color: SUB }}>{error}</p>
           </div>
         )}
 
@@ -242,13 +242,13 @@ export default function WarrantiesPage() {
             <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-[15px]" style={{ background: GOLD_SOFT }}>
               <ShieldCheckIcon className="size-7" style={{ color: GOLD }} />
             </div>
-            <div className="text-[15px] font-bold" style={{ color: INK }}>No warranties on file yet</div>
-            <p className="mx-auto mt-1.5 max-w-[280px] text-[14px] leading-snug" style={{ color: SUB }}>
+            <div className="text-[0.9375rem] font-bold" style={{ color: INK }}>No warranties on file yet</div>
+            <p className="mx-auto mt-1.5 max-w-[280px] text-[0.875rem] leading-snug" style={{ color: SUB }}>
               Add a warranty date or coverage note to an item and it'll show up here so you know what's still protected.
             </p>
             <Link
               to="/inventory"
-              className="mt-4 inline-flex rounded-xl px-4 py-2.5 text-[14px] font-bold text-white"
+              className="mt-4 inline-flex rounded-xl px-4 py-2.5 text-[0.875rem] font-bold text-white"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               Go to items
@@ -283,11 +283,11 @@ export default function WarrantiesPage() {
                         <ShieldAlertIcon className="size-[22px]" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.4px]" style={{ color: GOLD }}>
+                        <div className="inline-flex items-center gap-1.5 text-[0.65625rem] font-bold uppercase tracking-[0.4px]" style={{ color: GOLD }}>
                           Expires in {row.daysRemaining} day{row.daysRemaining === 1 ? "" : "s"}
                         </div>
-                        <div className="my-0.5 truncate text-[19px] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{row.name}</div>
-                        <div className="truncate text-[13px]" style={{ color: "var(--hh-gold-sub)" }}>
+                        <div className="my-0.5 truncate text-[1.1875rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{row.name}</div>
+                        <div className="truncate text-[0.8125rem]" style={{ color: "var(--hh-gold-sub)" }}>
                           Coverage ends {formatDate(row.expiry)}{[row.brand, row.room].filter(Boolean).length ? ` · ${[row.brand, row.room].filter(Boolean).join(" · ")}` : ""}
                         </div>
                       </div>
@@ -302,7 +302,7 @@ export default function WarrantiesPage() {
             <Group title="Lapsed" rows={lapsed} />
 
             {lapsed.length > 0 && (
-              <p className="mx-2 text-center text-[13px] leading-relaxed" style={{ color: SUB }}>
+              <p className="mx-2 text-center text-[0.8125rem] leading-relaxed" style={{ color: SUB }}>
                 Renewed or bought a protection plan? Open the item to update its coverage.
               </p>
             )}

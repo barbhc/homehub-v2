@@ -124,7 +124,7 @@ export function FilterBar({
       <div className="w-full max-w-[560px] flex flex-col gap-2">
         {rooms.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0">
+            <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0">
               Room
             </span>
             {rooms.map((room) => {
@@ -148,7 +148,7 @@ export function FilterBar({
           </div>
         )}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0">
+          <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0">
             Item
           </span>
           <div ref={containerRef} className="relative flex-1">
@@ -226,7 +226,7 @@ export function FilterBar({
       // scrolls) anything outside its padding box — and at 42px tall it could
       // not hold the chips' 44pt taps (hit-44). Two pixels taller.
       <div className="flex items-center gap-2 px-4 py-[9px] border-b border-border bg-card shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden scrollbar-none">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+        <span className="text-[0.625rem] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
           Room
         </span>
         {rooms.map((room) => {

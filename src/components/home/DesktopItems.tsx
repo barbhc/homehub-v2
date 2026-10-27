@@ -27,7 +27,7 @@ type SortMode = "room" | "category" | "recent"
 
 function Pill({ active, count, children, onClick }: { active: boolean; count?: number; children: React.ReactNode; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="rounded-full border px-3.5 py-1.5 text-[13px] font-semibold" style={active ? { borderColor: TEAL, background: "var(--hh-teal-wash)", color: TEAL } : { borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}>
+    <button onClick={onClick} className="rounded-full border px-3.5 py-1.5 text-[0.8125rem] font-semibold" style={active ? { borderColor: TEAL, background: "var(--hh-teal-wash)", color: TEAL } : { borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}>
       {children}{count != null ? <span className="ml-1.5 opacity-70">{count}</span> : null}
     </button>
   )
@@ -35,7 +35,7 @@ function Pill({ active, count, children, onClick }: { active: boolean; count?: n
 
 /** The desktop Items title — shared with the loading and error states (ItemsSkeleton), like the phone header. */
 export function ItemsDesktopTitle() {
-  return <h1 className="text-[27px] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Items</h1>
+  return <h1 className="text-[1.6875rem] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Items</h1>
 }
 
 export function DesktopItems({
@@ -71,7 +71,7 @@ export function DesktopItems({
     <div>
       <div className="mb-4">
         <ItemsDesktopTitle />
-        <div className="mt-1.5 text-[13px]" style={{ color: SUB }}>{items.length} items across {roomsWithItems.length} rooms</div>
+        <div className="mt-1.5 text-[0.8125rem]" style={{ color: SUB }}>{items.length} items across {roomsWithItems.length} rooms</div>
       </div>
 
       <div className="mb-4 max-w-md"><HouseNotesCard notes={notes} error={notesError} /></div>
@@ -80,7 +80,7 @@ export function DesktopItems({
         <Pill active={roomFilter === "all"} count={items.length} onClick={() => setRoomFilter("all")}>All</Pill>
         {roomsWithItems.map((r) => <Pill key={r.id} active={roomFilter === r.id} count={r.count} onClick={() => setRoomFilter(r.id)}>{r.name}</Pill>)}
         <span className="mx-1.5 h-5 w-px self-center" style={{ background: "var(--hh-line2)" }} />
-        <span className="text-[13px] font-semibold" style={{ color: SUB }}>Sort</span>
+        <span className="text-[0.8125rem] font-semibold" style={{ color: SUB }}>Sort</span>
         {([["room", "Room"], ["category", "Type"], ["recent", "Recent"]] as [SortMode, string][]).map(([k, l]) => (
           <Pill key={k} active={sort === k} onClick={() => setSort(k)}>{l}</Pill>
         ))}
@@ -91,7 +91,7 @@ export function DesktopItems({
           <div key={g.key ?? "all"}>
             {g.key && (
               <div className="mb-3 flex items-center gap-4">
-                <div className="text-[11px] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>
+                <div className="text-[0.6875rem] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>
                 {sort === "room" && !notesError && notes !== null && roomIdByName.has(g.key) && (
                   <RoomNotesLink roomId={roomIdByName.get(g.key)!} roomName={g.key} count={noteCounts.get(roomIdByName.get(g.key)!) ?? 0} />
                 )}
@@ -106,11 +106,11 @@ export function DesktopItems({
                       <Glyph className="size-6" strokeWidth={1.8} />
                     </div>
                     <div>
-                      <div className="text-[14.5px] font-bold leading-tight tracking-[-0.2px]" style={{ color: INK }}>{it.display_name}</div>
-                      {it.brand && <div className="mt-0.5 text-[12.5px]" style={{ color: SUB }}>{it.brand}</div>}
+                      <div className="text-[0.90625rem] font-bold leading-tight tracking-[-0.2px]" style={{ color: INK }}>{it.display_name}</div>
+                      {it.brand && <div className="mt-0.5 text-[0.78125rem]" style={{ color: SUB }}>{it.brand}</div>}
                     </div>
                     <div className="mt-auto flex items-center justify-between">
-                      <span className="text-[10.5px] font-bold uppercase tracking-[0.3px]" style={{ color: FAINT }}>{sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : "")}</span>
+                      <span className="text-[0.65625rem] font-bold uppercase tracking-[0.3px]" style={{ color: FAINT }}>{sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : "")}</span>
                     </div>
                   </Link>
                 )

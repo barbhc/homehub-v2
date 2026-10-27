@@ -78,7 +78,7 @@ function LoadingStatus({ slow, onRetry }: { slow: boolean; onRetry: () => void }
       <span className="sr-only">Loading items…</span>
       {slow && (
         <div
-          className="mb-3 flex items-center gap-3 rounded-xl border px-3.5 py-1 text-[13px]"
+          className="mb-3 flex items-center gap-3 rounded-xl border px-3.5 py-1 text-[0.8125rem]"
           style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)", color: SUB }}
         >
           <span className="min-w-0 flex-1 py-2">Still loading…</span>

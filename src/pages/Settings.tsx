@@ -886,13 +886,13 @@ export default function Settings() {
     <div className="mx-auto max-w-5xl p-6 lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8">
       {/* Desktop section-index rail */}
       <nav className="hidden lg:sticky lg:top-6 lg:block">
-        <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>On this page</div>
+        <div className="mb-3 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>On this page</div>
         <ul className="space-y-0.5">
           {SETTINGS_NAV.map(([id, label]) => (
             <li key={id}>
               <a
                 href={`#${id}`}
-                className="block rounded-lg px-3 py-2 text-[13.5px] font-medium transition-colors"
+                className="block rounded-lg px-3 py-2 text-[0.84375rem] font-medium transition-colors"
                 style={{ color: "var(--hh-ink)" }}
               >
                 {label}
@@ -905,7 +905,7 @@ export default function Settings() {
       {/* Main settings column */}
       <div className="min-w-0 space-y-6 lg:max-w-3xl">
       {/* Redesigned header + profile card (calm tier language) */}
-      <h1 id="account" className="scroll-mt-6 text-[28px] font-extrabold tracking-[-0.7px]" style={{ color: "var(--hh-ink)" }}>Settings</h1>
+      <h1 id="account" className="scroll-mt-6 text-[1.75rem] font-extrabold tracking-[-0.7px]" style={{ color: "var(--hh-ink)" }}>Settings</h1>
       <div className="mt-3 flex items-center gap-3.5 rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
         <div
           className="flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white"
@@ -914,10 +914,10 @@ export default function Settings() {
           {(user?.email ?? "?").slice(0, 1).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[17px] font-bold tracking-[-0.3px]" style={{ color: "var(--hh-ink)" }}>
+          <div className="truncate text-[1.0625rem] font-bold tracking-[-0.3px]" style={{ color: "var(--hh-ink)" }}>
             {(user?.user_metadata?.full_name as string | undefined) ?? "Your account"}
           </div>
-          <div className="truncate text-[13px]" style={{ color: "var(--hh-sub)" }}>{user?.email ?? ""}</div>
+          <div className="truncate text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>{user?.email ?? ""}</div>
         </div>
       </div>
 
@@ -932,10 +932,10 @@ export default function Settings() {
         className="scroll-mt-6 rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
         style={{ background: "var(--hh-surface)" }}
       >
-        <h2 className="text-[17px] font-bold tracking-[-0.3px]" style={{ color: "var(--hh-ink)" }}>
+        <h2 className="text-[1.0625rem] font-bold tracking-[-0.3px]" style={{ color: "var(--hh-ink)" }}>
           Appearance
         </h2>
-        <p className="mt-1 text-[13px]" style={{ color: "var(--hh-sub)" }}>
+        <p className="mt-1 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
           Choose a light or dark theme, or follow your device setting.
         </p>
         <div
@@ -957,7 +957,7 @@ export default function Settings() {
                 role="radio"
                 aria-checked={active}
                 onClick={() => setAppearance(value)}
-                className="hit-44 rounded-lg px-4 py-1.5 text-[13px] font-semibold transition-colors"
+                className="hit-44 rounded-lg px-4 py-1.5 text-[0.8125rem] font-semibold transition-colors"
                 style={
                   active
                     ? { background: "var(--hh-surface)", color: "var(--hh-teal)", boxShadow: "0 1px 2px rgba(15,23,42,0.08)" }
@@ -1255,10 +1255,10 @@ export default function Settings() {
               style={{ borderColor: "var(--hh-line)" }}
             >
               <div className="min-w-0">
-                <p className="text-[13.5px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+                <p className="text-[0.84375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
                   Find manuals automatically
                 </p>
-                <p className="mt-0.5 text-[12px]" style={{ color: "var(--hh-sub)" }}>
+                <p className="mt-0.5 text-[0.75rem]" style={{ color: "var(--hh-sub)" }}>
                   Search as soon as the brand and model are known, instead of waiting to be asked.
                   Results always need your confirmation before anything is attached.
                 </p>
@@ -1316,7 +1316,7 @@ export default function Settings() {
                   return (
                     <div
                       key={m.manual_id}
-                      className="flex items-center gap-2 py-1.5 border-b border-border/50 last:border-0 text-sm"
+                      className="flex items-center gap-2 py-1.5 border-b border-border/50 last:border-0 text-sm larger-text:flex-wrap"
                     >
                       {/* Status icon */}
                       {state?.status === "scanning" ? (
@@ -1336,7 +1336,7 @@ export default function Settings() {
                       )}
 
                       {/* Name */}
-                      <span className="font-medium flex-1 min-w-0 truncate">{m.display_name}</span>
+                      <span className="font-medium flex-1 min-w-0 truncate larger-text:min-w-[60%] larger-text:whitespace-normal">{m.display_name}</span>
 
                       {/* Status text */}
                       {state?.status === "scanning" ? (
@@ -1508,7 +1508,7 @@ export default function Settings() {
           <p className="text-sm text-muted-foreground mt-1">
             Something broken or confusing? This opens an email with your app version filled in.
             You can also write to{" "}
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="hit-44 underline underline-offset-2">
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="hit-44 underline underline-offset-2 larger-text:[overflow-wrap:anywhere]">
               {SUPPORT_EMAIL}
             </a>{" "}
             directly.
@@ -1531,8 +1531,8 @@ export default function Settings() {
               <BellIcon className="size-[18px]" style={{ color: "var(--hh-teal)" }} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>Set up your reminders</span>
-              <span className="mt-0.5 block text-[13px]" style={{ color: "var(--hh-sub)" }}>Describe it in your own words · edit any time</span>
+              <span className="block text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>Set up your reminders</span>
+              <span className="mt-0.5 block text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>Describe it in your own words · edit any time</span>
             </span>
             <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: "var(--hh-faint)" }} />
           </Link>
@@ -1633,7 +1633,7 @@ export default function Settings() {
                 )}
                 <div className="mt-3 w-full rounded-xl border border-border bg-muted/30 p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-muted-foreground">
+                    <span className="text-[0.6875rem] font-bold uppercase tracking-[0.5px] text-muted-foreground">
                       Delivery diagnostics
                     </span>
                     <Button variant="ghost" size="sm" onClick={() => void loadPushDiag()}>
@@ -1641,7 +1641,7 @@ export default function Settings() {
                     </Button>
                   </div>
                   {pushDiag && (
-                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-[12px]">
+                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-[0.75rem]">
                       <dt className="text-muted-foreground">app</dt>
                       <dd>{pushDiag.native ? `native shell (${pushDiag.platform})` : `web browser (${pushDiag.platform})`}</dd>
                       <dt className="text-muted-foreground">permission</dt>
@@ -1670,7 +1670,7 @@ export default function Settings() {
                     Couldn&apos;t load your notification settings.
                   </InlineError>
                 ) : (
-                  <p className="text-[13px]" style={{ color: "var(--hh-sub)" }}>Loading your notification settings…</p>
+                  <p className="text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>Loading your notification settings…</p>
                 )}
               </div>
             )}
@@ -1680,7 +1680,7 @@ export default function Settings() {
                 this device can receive push at all. */}
             {user?.id && notifLoad === "ready" && (
               <div className="mt-4">
-                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>
+                <div className="mb-2 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>
                   What to notify me about
                 </div>
 
@@ -1696,7 +1696,7 @@ export default function Settings() {
                     <span className="flex-1" />
                     <div className="flex w-10 flex-col items-center gap-0.5">
                       <BellIcon className="size-4" style={{ color: "var(--hh-sub)" }} />
-                      <span className="text-[9.5px] font-bold tracking-[0.3px]" style={{ color: "var(--hh-sub)" }}>
+                      <span className="text-[0.59375rem] font-bold tracking-[0.3px]" style={{ color: "var(--hh-sub)" }}>
                         PUSH
                       </span>
                     </div>
@@ -1719,10 +1719,10 @@ export default function Settings() {
                           <RowIcon className="size-[18px]" style={{ color: "var(--hh-teal)" }} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+                          <div className="text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
                             {row.label}
                           </div>
-                          <div className="mt-0.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
+                          <div className="mt-0.5 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
                             {row.sub}
                           </div>
                         </div>
@@ -1757,12 +1757,12 @@ export default function Settings() {
                 </div>
                 {notifSaveErrorFor("events")}
 
-                <p className="mx-1 mt-2.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
+                <p className="mx-1 mt-2.5 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
                   Safety &amp; recall notices are always delivered.
                 </p>
 
                 {/* Notification style — the breadth dial. */}
-                <div className="mb-2 mt-5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>
+                <div className="mb-2 mt-5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>
                   What reminds me
                 </div>
                 <div
@@ -1790,20 +1790,20 @@ export default function Settings() {
                           {on && <span className="size-2 rounded-full bg-[var(--hh-on-fill)]" />}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>{opt.label}</span>
-                          <span className="mt-0.5 block text-[13px]" style={{ color: "var(--hh-sub)" }}>{opt.sub}</span>
+                          <span className="block text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>{opt.label}</span>
+                          <span className="mt-0.5 block text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>{opt.sub}</span>
                         </span>
                       </button>
                     )
                   })}
                 </div>
                 {notifSaveErrorFor("mode")}
-                <p className="mx-1 mt-2.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
+                <p className="mx-1 mt-2.5 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
                   Any single reminder can be turned off on its task — the bell. Lapsed safety checks are mentioned in every style.
                 </p>
 
                 {/* Weekly summary — the Sunday digest, at the user's hour. */}
-                <div className="mb-2 mt-5 text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>
+                <div className="mb-2 mt-5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>
                   Weekly summary
                 </div>
                 <div
@@ -1815,8 +1815,8 @@ export default function Settings() {
                       <BellIcon className="size-[18px]" style={{ color: "var(--hh-teal)" }} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>Your week at home</div>
-                      <div className="mt-0.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
+                      <div className="text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>Your week at home</div>
+                      <div className="mt-0.5 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
                         {notifPrefs.weekly_digest.enabled
                           ? `${DIGEST_DAYS[notifPrefs.weekly_digest.day]}s at ${hourLabel(notifPrefs.weekly_digest.hour)} · what's coming, and what to buy first`
                           : "Off — no weekly summary"}
@@ -1838,7 +1838,7 @@ export default function Settings() {
                   </div>
                   {notifPrefs.weekly_digest.enabled && (
                     <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: "1px solid var(--hh-line)" }}>
-                      <div className="min-w-0 flex-1 text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>When</div>
+                      <div className="min-w-0 flex-1 text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>When</div>
                       <Select value={String(notifPrefs.weekly_digest.day)} onValueChange={(v) => setWeeklyDigest({ day: Number(v) })}>
                         <SelectTrigger className="w-[130px] shrink-0" aria-label="Weekly summary day"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -1863,10 +1863,10 @@ export default function Settings() {
                 >
                   <div className="flex items-center gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <div className="text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+                      <div className="text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
                         Reminder lead time
                       </div>
-                      <div className="mt-0.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
+                      <div className="mt-0.5 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
                         How early to notify you before something is due
                       </div>
                     </div>
@@ -1892,10 +1892,10 @@ export default function Settings() {
                     style={{ borderTop: "1px solid var(--hh-line)" }}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-[15px] font-semibold" style={{ color: "var(--hh-ink)" }}>
+                      <div className="text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
                         Quiet hours
                       </div>
-                      <div className="mt-0.5 text-[13px]" style={{ color: "var(--hh-sub)" }}>
+                      <div className="mt-0.5 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
                         {notifPrefs.quiet_hours
                           ? "Push is held during this window"
                           : "Set a window to mute non-urgent push"}
@@ -1911,7 +1911,7 @@ export default function Settings() {
                         }
                         className="w-[110px]"
                       />
-                      <span className="text-[13px]" style={{ color: "var(--hh-sub)" }}>
+                      <span className="text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
                         –
                       </span>
                       <Input

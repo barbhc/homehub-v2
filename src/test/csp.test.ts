@@ -1,12 +1,13 @@
 /**
- * The CSP in firebase.json pins the two inline <script> blocks in index.html by
- * SHA-256 hash. Both are load-bearing and deliberately inline — the theme class
- * has to be set before first paint, and the boot-splash safety timeout has to
- * arm before the bundle parses — so neither can move to a file without putting
+ * The CSP in firebase.json pins the three inline <script> blocks in index.html by
+ * SHA-256 hash. All are load-bearing and deliberately inline — the theme class
+ * and the Larger Text scale have to be set before first paint, and the
+ * boot-splash safety timeout has to arm before the bundle parses — so none can
+ * move to a file without putting
  * a network request back on the cold-start path this file has been tuned to
  * keep clear.
  *
- * Hashes are exact. Edit either script by one character and the browser silently
+ * Hashes are exact. Edit any of them by one character and the browser silently
  * refuses to run it: the app boots in the wrong theme, or the splash never
  * clears on a hang. Nothing in a build or a type-check notices, and it only
  * shows up in production.
