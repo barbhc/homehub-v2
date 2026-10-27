@@ -152,7 +152,10 @@
      --hh-faint (a TEXT token) so a chevron still recedes behind its row. */
   --hh-icon-faint: #858F98;
   /* Input and divider hairlines on the signed-out screens. rgba(15,23,42,.14)
-     was 1.01:1 on the dark surface — fields with no edge at all. */
+     was 1.01:1 on the dark surface — fields with no edge at all. Dark is now
+     3.32:1 (WCAG 1.4.11). Light stays 1.34:1 by the owner's no-light-change
+     rule; there the field is still identified by its label above, its leading
+     icon and its placeholder, so the edge is not its only cue. */
   --hh-line-input: rgba(15,23,42,0.14);
   /* The brand mark (house tile, avatar). White glyph ≥3:1 on both stops. */
   --hh-mark:       linear-gradient(150deg,#1B6B5A,#2D9B82);
@@ -317,12 +320,15 @@
   --hh-clay-fill:  #C2410C;
   --hh-slate-fill: #56718C;   /* white 5.08:1, 3.35:1 vs the surface */
   --hh-gold-fill:  #8A6D1E;   /* white 4.90:1, 3.47:1 vs the surface */
-  --hh-teal-fill-hover:  #155549;
-  --hh-teal-fill-active: #0F3D37;
+  /* Hover/press step DARKER in dark too: the fill is already as bright as
+     white allows (4.51:1), so a lighter hover would drop the label under AA.
+     One notch each — white 5.56 / 6.37:1 — rather than the light-mode jump. */
+  --hh-teal-fill-hover:  #1E7562;
+  --hh-teal-fill-active: #1B6B5A;
   --hh-fill-disabled: #2E3B35;
   --hh-toggle-off: #7D8984;   /* 4.68:1 on the dark surface */
   --hh-icon-faint: #6A7772;   /* ≥3.18:1 on every dark surface */
-  --hh-line-input: rgba(255,255,255,0.22);
+  --hh-line-input: rgba(255,255,255,0.36);
   --hh-mark:       linear-gradient(150deg,#1B6B5A,#23856F);
   --hh-teal-line:  rgba(52,176,147,0.28);
   --hh-gold-line:  rgba(217,185,120,0.30);

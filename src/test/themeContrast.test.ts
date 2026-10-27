@@ -309,10 +309,18 @@ describe("theme token contrast (WCAG AA, 4.5:1)", () => {
     expect(contrast(light, "#7C5CBF", "--hh-violet-soft")).toBeLessThan(4.5)
   })
 
-  it("the sign-in hairline is no fainter in dark than in light (it was 1.01:1 there)", () => {
-    const l = contrast(light, "--hh-line-input", "--hh-surface")
-    const d = contrast(dark, "--hh-line-input", "--hh-surface")
-    expect(d).toBeGreaterThanOrEqual(l)
+  it("dark: the sign-in field edge stands 3:1 off the surface and card (it was 1.01:1)", () => {
+    // Light stays at today's 1.34:1 by the no-light-change rule; label, icon
+    // and placeholder identify the field there (see the token's comment).
+    expect(contrast(dark, "--hh-line-input", "--hh-surface")).toBeGreaterThanOrEqual(3)
+    expect(contrast(dark, "--hh-line-input", "--t-card")).toBeGreaterThanOrEqual(3)
+  })
+
+  it("dark: primary hover/press keep white at AA", () => {
+    for (const t of ["--hh-teal-fill-hover", "--hh-teal-fill-active"]) {
+      expect(contrast(dark, "#FFFFFF", t), t).toBeGreaterThanOrEqual(4.5)
+      expect(dark[t], t).not.toBe(light[t])
+    }
   })
 
   it("the tier pills and Start-here flags fill with the fill tokens", () => {
