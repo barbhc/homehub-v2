@@ -21,16 +21,19 @@ export type EditableField =
 
 export const ROOM_NONE = "__none__" as const
 
+// The calm tier tokens (CLAUDE.md non-negotiable 6): Essential clay,
+// Recommended teal, Optional slate — never red. These were red/amber/teal,
+// which put alarm red on the history timeline and swapped two tiers' colours.
 export const tierDotStyles = {
-  essential: "bg-red-500",
-  recommended: "bg-amber-500",
-  optional: "bg-[#2D9B82]",
+  essential: "bg-[var(--hh-clay)]",
+  recommended: "bg-[var(--hh-teal)]",
+  optional: "bg-[var(--hh-slate)]",
 }
 
 export const tierTextStyles = {
-  essential: "text-red-600 dark:text-red-400",
-  recommended: "text-amber-600 dark:text-amber-400",
-  optional: "text-[#1B6B5A] dark:text-[#2D9B82]",
+  essential: "text-[var(--hh-clay)]",
+  recommended: "text-[var(--hh-teal)]",
+  optional: "text-[var(--hh-slate)]",
 }
 
 export function formatDate(iso: string | null): string | null {

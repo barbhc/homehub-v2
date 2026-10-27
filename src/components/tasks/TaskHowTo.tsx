@@ -51,7 +51,7 @@ export function StepList({ steps, label = "Steps" }: { steps: string[]; label?: 
                   <CheckIcon
                     className="size-[13px]"
                     strokeWidth={3}
-                    style={{ color: "#fff", opacity: on ? 1 : 0 }}
+                    style={{ color: "var(--hh-on-fill)", opacity: on ? 1 : 0 }}
                   />
                 </span>
                 <span

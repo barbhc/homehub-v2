@@ -74,10 +74,12 @@ On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed
 | raise | `#1E2A24` |
 | ink | `#F1F5F3` |
 | sub | `#A2AEA9` |
-| faint | `#93A09B` |
+| faint | `#98A5A0` (was `#93A09B`: 4.48:1 on the gold band) |
 | teal (brightened) | `#34B093` |
+| teal deep (text on washes) | `#4CC4A6` (was `#2A8C76`: 3.19:1 on the teal wash) |
 | teal wash | `rgba(52,176,147,0.16)` |
 | clay | `#E8956A` · gold `#D9B978` · slate `#8FB0CC` |
+| fills that carry white | `--hh-teal-fill` / `--hh-clay-fill` / `--hh-slate-fill` / `--hh-gold-fill` — see `src/index.css`; the text tones above fail under white in dark |
 
 ### Typography
 - **Font family** (prototype only — the shipped app uses Inter + Plus Jakarta Sans, see "In the shipped app" below): system stack — `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif`. Use the platform's native font (SF on iOS, Roboto on Android) or Inter on web.

@@ -32,7 +32,7 @@ export function HouseNotesCard({ notes, error }: { notes: CareNote[] | null; err
         </span>
         <span className="truncate text-[12.5px]" style={{ color: error ? CLAY : SUB }}>{line}</span>
       </span>
-      <ChevronRightIcon className="size-[18px] shrink-0 text-[#C2CBD4]" aria-hidden />
+      <ChevronRightIcon className="size-[18px] shrink-0 text-[var(--hh-icon-faint)]" aria-hidden />
     </Link>
   )
 }

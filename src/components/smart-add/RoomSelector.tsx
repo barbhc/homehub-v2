@@ -190,7 +190,7 @@ export function RoomSelector({
           Filled in from the item type &mdash; change it if that&rsquo;s not where it lives.
         </p>
       )}
-      {createError && <p className="text-xs text-destructive">{createError}</p>}
+      {createError && <p className="text-xs text-[var(--hh-clay)]">{createError}</p>}
     </div>
   )
 }

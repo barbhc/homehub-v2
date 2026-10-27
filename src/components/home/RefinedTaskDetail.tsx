@@ -266,7 +266,7 @@ export function RefinedTaskDetail({
           type="checkbox"
           checked={detail.remindEnabled ?? remindsByDefault(asTier(detail.tier))}
           onChange={(e) => void toggleReminder(e.target.checked)}
-          className="size-[18px] shrink-0 accent-[var(--hh-teal,#1B6B5A)]"
+          className="size-[18px] shrink-0 accent-[var(--hh-teal)]"
         />
         <span className="min-w-0 flex-1">
           <span className="block text-[13.5px] font-semibold" style={{ color: INK }}>Remind me when it&apos;s due</span>

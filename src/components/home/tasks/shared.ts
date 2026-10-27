@@ -23,6 +23,15 @@ import { SNOOZE_DAYS } from "../../../../shared/tasks/snooze"
 export const CLAY = "var(--hh-clay)"
 export const TEAL = "var(--hh-teal)"
 export const SLATE = "var(--hh-slate)"
+/** The FILL twin of a tone, for anything that puts white on it. The text
+ *  tones brighten in dark (white on --hh-clay there is 2.35:1); the fills keep
+ *  white at AA in both themes. */
+const FILL_OF: Record<string, string> = {
+  [CLAY]: "var(--hh-clay-fill)",
+  [TEAL]: "var(--hh-teal-fill)",
+  [SLATE]: "var(--hh-slate-fill)",
+}
+export const fillFor = (tone: string): string => FILL_OF[tone] ?? "var(--hh-teal-fill)"
 /** Selected calendar day, dark only: an inset bright-teal ring, because the
  *  --hh-teal-fill day is under 3:1 against today's --hh-teal-wash beside it. */
 export const SELECTED_DAY_RING =

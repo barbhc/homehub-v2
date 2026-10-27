@@ -143,6 +143,7 @@ export function PhotoSearchSheet({
                   key={i}
                   type="button"
                   onClick={() => setSelectedIdx(i === selectedIdx ? null : i)}
+                  // design-rules: allow white-surface — product-photo matte: web product shots are on white, and the pick is saved onto the white-matted item tile, so this previews what will be saved. Same in both themes on purpose.
                   className={`relative rounded-xl overflow-hidden border-2 transition-all aspect-square bg-white ${
                     selectedIdx === i
                       ? "border-primary ring-2 ring-primary/20 scale-[1.02]"

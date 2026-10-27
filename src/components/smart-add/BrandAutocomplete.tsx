@@ -73,7 +73,7 @@ export function BrandAutocomplete({ id, value, onChange, placeholder, required, 
       <Input
         id={id}
         aria-invalid={invalid}
-        className={cn(invalid && "border-destructive")}
+        className={cn(invalid && "aria-invalid:border-[var(--hh-clay)] aria-invalid:ring-[var(--hh-clay)]/20 dark:aria-invalid:ring-[var(--hh-clay)]/40")}
         role="combobox"
         aria-expanded={show}
         aria-controls={listboxId}

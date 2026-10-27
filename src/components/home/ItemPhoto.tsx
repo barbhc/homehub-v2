@@ -115,6 +115,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
       <>
         <label
           className={cn("relative block size-11 shrink-0 cursor-pointer overflow-hidden rounded-xl", className)}
+          // design-rules: allow white-surface, raw-color — product-photo matte. The img below is mix-blend-multiply, so on a dark matte every photo goes near-black; white is what makes a shot-on-white product read as the tile itself. Same in both themes on purpose.
           style={{ background: "#fff", border: "1px solid var(--hh-line)" }}
           aria-label={uploading ? "Uploading photo" : "Replace photo"}
           title="Replace photo"
@@ -206,6 +207,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
   return (
     <div
       className={cn("relative flex items-center justify-center overflow-hidden", className)}
+      // design-rules: allow white-surface, raw-color — product-photo matte. The img below is mix-blend-multiply, so on a dark matte every photo goes near-black; white is what makes a shot-on-white product read as the tile itself. Same in both themes on purpose.
       style={photoUrl ? { background: "#fff" } : { background: "var(--hh-tile)" }}
     >
       {photoUrl ? (
