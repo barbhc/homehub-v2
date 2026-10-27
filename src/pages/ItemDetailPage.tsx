@@ -315,7 +315,7 @@ export default function ItemDetailPage() {
           <button
             type="button"
             onClick={load.reload}
-            className="mt-4 rounded-xl bg-[var(--hh-teal-fill)] px-4 py-2.5 text-[13.5px] font-bold text-primary-foreground"
+            className="hit-44 mt-4 rounded-xl bg-[var(--hh-teal-fill)] px-4 py-2.5 text-[13.5px] font-bold text-primary-foreground"
           >
             Try again
           </button>

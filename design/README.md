@@ -95,7 +95,7 @@ On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed
   original text size."*
 
 ### Density scale (`dens()` in `hh-data.jsx` — mobile)
-Three densities (spacious/cozy/compact) drive `pad`, `cardPad`, `gap`, `stack`, `radius`, `tap`, `rowPy`, `body`, `small`, `big`. Cozy is the default. Key cozy values: card radius ~18, card padding ~16, screen padding ~16–20, row vertical padding ~13, tap target base ~36–44. **Minimum tap target 40–44px.**
+Three densities (spacious/cozy/compact) drive `pad`, `cardPad`, `gap`, `stack`, `radius`, `tap`, `rowPy`, `body`, `small`, `big`. Cozy is the default. Key cozy values: card radius ~18, card padding ~16, screen padding ~16–20, row vertical padding ~13, tap target base ~36–44. **Minimum tap target 44pt — the hit area, not the drawing:** a control may look smaller and take a 44pt tap through the `hit-44` utility (`src/index.css`); `e2e/device/hit-targets.spec.ts` gates it.
 
 ### Radius / shadow
 - Card radius: ~14–18px; pills/chips: 99px (full); glyph tiles: 9–16px.

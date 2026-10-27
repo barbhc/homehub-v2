@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { XIcon } from "lucide-react"
 
 /**
  * A brief confirmation of something that just happened, with a way back.
@@ -55,7 +56,7 @@ export function UndoBar({
               onUndo()
               if (!actionLabel) onDismiss()
             }}
-            className="shrink-0 text-[13.5px] font-bold underline underline-offset-2"
+            className="hit-44 shrink-0 text-[13.5px] font-bold underline underline-offset-2"
             // Not --hh-teal-deep: that is a colour for light SURFACES, and on
             // the ink bar it was 2.19:1. --hh-accent-on-ink flips with the bar.
             style={{ color: "var(--hh-accent-on-ink)" }}
@@ -67,9 +68,12 @@ export function UndoBar({
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss"
-          className="shrink-0 text-[13.5px] opacity-60"
+          // ml-2 on top of the bar's gap-3: Undo and ✕ each take a 44pt tap
+          // (hit-44), and at 12px apart their centres were ~37px — the two
+          // taps overlapped. 20px puts the centres 44px apart.
+          className="hit-44 ml-2 flex shrink-0 opacity-60"
         >
-          ✕
+          <XIcon className="size-3.5" aria-hidden />
         </button>
       </div>
     </div>

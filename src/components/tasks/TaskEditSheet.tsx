@@ -117,7 +117,7 @@ export function TaskEditSheet({
           <h2 className="min-w-0 flex-1 text-[20px] font-extrabold tracking-[-0.4px]" style={{ color: "var(--hh-ink)" }}>
             Edit task
           </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5" style={{ background: "var(--hh-bg)" }}>
+          <button type="button" onClick={onClose} aria-label="Close" className="hit-44 rounded-full p-1.5" style={{ background: "var(--hh-bg)" }}>
             <XIcon className="size-[18px]" style={{ color: "var(--hh-sub)" }} />
           </button>
         </div>

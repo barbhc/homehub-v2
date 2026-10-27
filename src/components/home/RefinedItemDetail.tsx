@@ -85,7 +85,7 @@ function SuggestionKV({ k, v, onAdd, last }: { k: string; v: string; onAdd?: () 
         <span className="text-[13.5px] italic" style={{ color: SUB }}>{v}</span>
         {onAdd && (
           <button type="button" onClick={onAdd}
-            className="rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold"
+            className="hit-44 rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold"
             style={{ borderColor: TEAL, color: TEAL }}>
             Add
           </button>
@@ -236,7 +236,7 @@ export function RefinedItemDetail({
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
       {/* Nav */}
       <div className="flex items-center px-3 pt-1 pb-1.5">
-        <button onClick={onBack} className="inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+        <button onClick={onBack} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
           <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} /> Items
         </button>
       </div>
@@ -259,7 +259,7 @@ export function RefinedItemDetail({
                 <button
                   type="button"
                   onClick={onEditDetails}
-                  className="flex items-center gap-2 text-left"
+                  className="hit-44 flex items-center gap-2 text-left"
                   aria-label={`Rename ${item.display_name}`}
                 >
                   <h1 className="text-[26px] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>{item.display_name}</h1>
@@ -292,7 +292,7 @@ export function RefinedItemDetail({
                 <button
                   type="button"
                   onClick={() => void applyRoomSuggestion(roomSuggestion)}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
+                  className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
                   style={{ borderColor: TEAL, color: TEAL }}
                 >
                   <MapPinIcon className="size-[13px]" /> {roomSuggestion.name}
@@ -302,7 +302,7 @@ export function RefinedItemDetail({
                 <button
                   type="button"
                   onClick={() => void applyNameSuggestion(nameSuggestion)}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
+                  className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold"
                   style={{ borderColor: TEAL, color: TEAL }}
                 >
                   <PencilIcon className="size-[13px]" /> Name it &ldquo;{nameSuggestion}&rdquo;
@@ -315,7 +315,7 @@ export function RefinedItemDetail({
             {onEditRoom ? (
               // Tappable: the room is the one basic fact people want to fix on
               // the spot ("that's in the garage, not the kitchen").
-              <button type="button" onClick={onEditRoom} className="inline-flex">
+              <button type="button" onClick={onEditRoom} className="hit-44 inline-flex">
                 <Pill active={!roomName}>
                   <MapPinIcon className="size-[13px]" style={{ color: TEAL }} />
                   {roomName ?? "Add room"}
@@ -330,7 +330,7 @@ export function RefinedItemDetail({
               // Same affordance as room: the two facts sitting side by side
               // behaving differently is what made this read as broken.
               return onEditCategory ? (
-                <button type="button" onClick={onEditCategory} className="inline-flex">
+                <button type="button" onClick={onEditCategory} className="hit-44 inline-flex">
                   <Pill active={!label}>{label ?? "Add category"}</Pill>
                 </button>
               ) : (
@@ -448,7 +448,7 @@ export function RefinedItemDetail({
 
         <SectionLabel action={onEditDetails ? (
           <button type="button" onClick={onEditDetails}
-            className="shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"
+            className="hit-44 shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"
             style={{ borderColor: "var(--hh-line2)", color: TEAL }}>
             {shownFields.length > 0 ? "Edit" : "Add"}
           </button>
@@ -480,7 +480,7 @@ export function RefinedItemDetail({
           <p className="px-1 text-[12px] leading-relaxed" style={{ color: SUB }}>
             <SparklesIcon className="mr-1 inline size-3.5 align-[-2px]" style={{ color: TEAL }} aria-hidden />
             We found these on a product page, not in your manual.{" "}
-            <button type="button" onClick={() => void hideSuggestions()} className="underline underline-offset-2">
+            <button type="button" onClick={() => void hideSuggestions()} className="hit-44 underline underline-offset-2">
               Hide them
             </button>
           </p>

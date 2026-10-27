@@ -166,11 +166,14 @@ export function ServiceProvidersSection({ homeId }: Props) {
                       {/* Name + contact details */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{p.name}</p>
-                        <div className="-my-1 mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
+                        {/* gap-y-5, not gap-y-1: on a phone these wrap, and 24px
+                            links on a 28px pitch could not each take a 44pt tap
+                            (hit-44) without the taps overlapping. */}
+                        <div className="-my-1 mt-0.5 flex flex-wrap gap-x-3 gap-y-5">
                           {p.phone && (
                             <a
                               href={`tel:${p.phone.replace(/\s/g, "")}`}
-                              className="flex min-h-6 items-center gap-1 py-1 text-xs text-primary hover:underline"
+                              className="hit-44 flex min-h-6 items-center gap-1 py-1 text-xs text-primary hover:underline"
                             >
                               <PhoneIcon className="size-3 shrink-0" />
                               {p.phone}
@@ -179,9 +182,11 @@ export function ServiceProvidersSection({ homeId }: Props) {
                           {p.email && (
                             <a
                               href={`mailto:${p.email}`}
-                              className="inline-flex min-h-6 max-w-[200px] items-center truncate py-1 text-xs text-primary hover:underline"
+                              className="hit-44 inline-flex min-h-6 max-w-[200px] items-center py-1 text-xs text-primary hover:underline"
                             >
-                              {p.email}
+                              {/* truncate on the text, not the link: a clipping
+                                  link would clip its own hit area. */}
+                              <span className="truncate">{p.email}</span>
                             </a>
                           )}
                           {p.website && (
@@ -189,9 +194,9 @@ export function ServiceProvidersSection({ homeId }: Props) {
                               href={p.website.startsWith("http") ? p.website : `https://${p.website}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex min-h-6 max-w-[200px] items-center truncate py-1 text-xs text-primary hover:underline"
+                              className="hit-44 inline-flex min-h-6 max-w-[200px] items-center py-1 text-xs text-primary hover:underline"
                             >
-                              {p.website.replace(/^https?:\/\//, "")}
+                              <span className="truncate">{p.website.replace(/^https?:\/\//, "")}</span>
                             </a>
                           )}
                         </div>
@@ -200,8 +205,11 @@ export function ServiceProvidersSection({ homeId }: Props) {
                         )}
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      {/* Actions. Hover-revealed only for a mouse — a touch iPad
+                          has no hover, so there they always show; and there,
+                          32px icons 4px apart get gap-3 so their 44pt taps
+                          (hit-44) do not overlap. */}
+                      <div className="flex items-center gap-1 md:pointer-coarse:gap-3 shrink-0 sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"
                           size="icon-sm"

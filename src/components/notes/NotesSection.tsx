@@ -86,7 +86,7 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
             type="button"
             onClick={() => openNew(null)}
             aria-label="Add a note"
-            className="shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"
+            className="hit-44 shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"
             style={{ borderColor: "var(--hh-line2)", color: TEAL }}
           >
             Add

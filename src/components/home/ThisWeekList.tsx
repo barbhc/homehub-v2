@@ -89,8 +89,10 @@ export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completin
             />
           ))
         )}
-        <div className="flex items-center justify-end px-3.5 py-2.5" style={{ borderTop: `1px solid ${LINE}`, background: "color-mix(in srgb, var(--hh-surface2) 60%, var(--hh-surface))" }}>
-          <Link to="/maintenance" className={`inline-flex items-center gap-0.5 ${sc.meta} font-bold`} style={{ color: TEAL }}>
+        {/* py-[13px], not py-2.5: the card clips (overflow-hidden), so the
+            footer itself has to be tall enough to hold All tasks' 44pt tap. */}
+        <div className="flex items-center justify-end px-3.5 py-[13px]" style={{ borderTop: `1px solid ${LINE}`, background: "color-mix(in srgb, var(--hh-surface2) 60%, var(--hh-surface))" }}>
+          <Link to="/maintenance" className={`hit-44 inline-flex items-center gap-0.5 ${sc.meta} font-bold`} style={{ color: TEAL }}>
             All tasks <ChevronRightIcon className="size-3" aria-hidden />
           </Link>
         </div>
@@ -129,13 +131,13 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
           onClick={onComplete}
           disabled={completing}
           aria-label={`Mark ${row.title} done`}
-          className="-m-1.5 flex shrink-0 p-1.5 disabled:opacity-60"
+          className="hit-44 -m-1.5 flex shrink-0 p-1.5 disabled:opacity-60"
         >
           <span className="flex size-6 items-center justify-center rounded-full border-2" style={{ borderColor: TEAL, background: SURFACE }}>
             <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
           </span>
         </button>
-        <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+        <button type="button" onClick={onToggle} aria-expanded={open} className="hit-44 flex min-w-0 flex-1 items-center gap-2.5 text-left">
           <span className="min-w-0 flex-1">
             <span className={`block truncate ${open ? sc.openTitle : sc.title} font-semibold leading-snug tracking-[-0.2px]`} style={{ color: INK }}>{row.title}</span>
             <span className={`mt-0.5 flex items-center gap-1.5 ${sc.meta}`} style={{ color: SUB }}>
@@ -192,7 +194,7 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
       {error && (
         <div role="alert" className={`flex items-center gap-2 ${sc.meta}`} style={{ color: CLAY }}>
           <span>Couldn&apos;t load the details: {error}</span>
-          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="font-bold underline underline-offset-2">Try again</button>
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="hit-44 font-bold underline underline-offset-2">Try again</button>
         </div>
       )}
       {prep && (
@@ -221,7 +223,7 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
           type="button"
           onClick={onComplete}
           disabled={completing}
-          className="shrink-0 whitespace-nowrap rounded-[11px] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
+          className="hit-44 shrink-0 whitespace-nowrap rounded-[11px] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
           style={{ background: "var(--hh-teal-fill)" }}
         >
           Mark done
@@ -229,12 +231,12 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
         <button
           type="button"
           onClick={onSnooze}
-          className="shrink-0 whitespace-nowrap rounded-[11px] border px-3.5 py-2 text-[12.5px] font-semibold"
+          className="hit-44 shrink-0 whitespace-nowrap rounded-[11px] border px-3.5 py-2 text-[12.5px] font-semibold"
           style={{ borderColor: LINE, background: SURFACE, color: SUB }}
         >
           <BellOffIcon className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />Snooze
         </button>
-        <Link to={`/tasks/${row.id}`} className="ml-auto inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
+        <Link to={`/tasks/${row.id}`} className="hit-44 ml-auto inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
           See details <ChevronRightIcon className="size-3" aria-hidden />
         </Link>
       </div>

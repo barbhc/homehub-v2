@@ -135,7 +135,7 @@ export function FilterBar({
                   type="button"
                   onClick={() => onRoomToggle(room.room_id)}
                   className={cn(
-                    "rounded-full text-xs px-3 py-1 border transition-colors whitespace-nowrap",
+                    "hit-44 rounded-full text-xs px-3 py-1 border transition-colors whitespace-nowrap",
                     active
                       ? "bg-[var(--hh-teal-fill)] text-primary-foreground border-[var(--hh-teal-fill)]"
                       : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary"
@@ -179,7 +179,7 @@ export function FilterBar({
                 <button
                   type="button"
                   onClick={handleClearItem}
-                  className="text-muted-foreground hover:text-foreground shrink-0"
+                  className="hit-44 text-muted-foreground hover:text-foreground shrink-0"
                   aria-label="Clear item filter"
                 >
                   <XIcon className="size-3.5" />
@@ -220,7 +220,10 @@ export function FilterBar({
 
   if (variant === "compact") {
     return (
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden scrollbar-none">
+      // py-[9px], not py-2: the strip scrolls sideways, so it clips (and
+      // scrolls) anything outside its padding box — and at 42px tall it could
+      // not hold the chips' 44pt taps (hit-44). Two pixels taller.
+      <div className="flex items-center gap-2 px-4 py-[9px] border-b border-border bg-card shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden scrollbar-none">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
           Room
         </span>
@@ -232,7 +235,7 @@ export function FilterBar({
               type="button"
               onClick={() => onRoomToggle(room.room_id)}
               className={cn(
-                "rounded-full text-xs px-3 py-1 border transition-colors whitespace-nowrap shrink-0",
+                "hit-44 rounded-full text-xs px-3 py-1 border transition-colors whitespace-nowrap shrink-0",
                 active
                   ? "bg-[var(--hh-teal-fill)] text-primary-foreground border-[var(--hh-teal-fill)]"
                   : "bg-background text-muted-foreground border-border hover:border-primary"
@@ -271,7 +274,7 @@ export function FilterBar({
               <button
                 type="button"
                 onClick={handleClearItem}
-                className="text-muted-foreground hover:text-foreground"
+                className="hit-44 text-muted-foreground hover:text-foreground"
                 aria-label="Clear item filter"
               >
                 <XIcon className="size-3" />
@@ -324,7 +327,7 @@ export function FilterBar({
                   type="button"
                   onClick={() => onRoomToggle(room.room_id)}
                   className={cn(
-                    "rounded-full text-xs px-3 py-1 border whitespace-nowrap transition-colors",
+                    "hit-44 rounded-full text-xs px-3 py-1 border whitespace-nowrap transition-colors",
                     active
                       ? "bg-[var(--hh-teal-fill)] text-primary-foreground border-[var(--hh-teal-fill)]"
                       : "bg-background text-muted-foreground border-border hover:border-foreground"
@@ -368,7 +371,7 @@ export function FilterBar({
               <button
                 type="button"
                 onClick={handleClearItem}
-                className="text-muted-foreground hover:text-foreground shrink-0"
+                className="hit-44 text-muted-foreground hover:text-foreground shrink-0"
                 aria-label="Clear item filter"
               >
                 <XIcon className="size-3.5" />

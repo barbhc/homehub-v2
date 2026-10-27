@@ -26,7 +26,7 @@ function AskModule({ d }: { d: ReturnType<typeof dens> }) {
     <div className="overflow-hidden rounded-[18px] border border-[var(--hh-line2)] shadow-[0_1px_2px_rgba(15,23,42,0.04)]" style={{ background: "var(--hh-surface)" }}>
       <div className="flex items-center gap-2.5 py-2 pl-4 pr-2">
         <SparklesIcon className="size-[17px] shrink-0" style={{ color: TEAL }} />
-        <Link to="/chat" className="flex-1 text-[15px]" style={{ color: "var(--hh-sub)" }}>
+        <Link to="/chat" className="hit-44 flex-1 text-[15px]" style={{ color: "var(--hh-sub)" }}>
           Ask about your home…
         </Link>
         <button
@@ -34,7 +34,7 @@ function AskModule({ d }: { d: ReturnType<typeof dens> }) {
           onClick={() => setOpen((v) => !v)}
           aria-label="Quick actions"
           aria-expanded={open}
-          className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]"
+          className="hit-44 flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]"
           style={{ background: open ? "var(--hh-teal-wash)" : "var(--hh-surface)" }}
         >
           {open ? <ChevronUpIcon className="size-4" style={{ color: TEAL }} /> : <WrenchIcon className="size-4" style={{ color: TEAL }} />}
@@ -42,7 +42,7 @@ function AskModule({ d }: { d: ReturnType<typeof dens> }) {
         <Link
           to="/chat"
           aria-label="Ask"
-          className="flex size-9 shrink-0 items-center justify-center rounded-full"
+          className="hit-44 flex size-9 shrink-0 items-center justify-center rounded-full"
           style={{ background: "var(--hh-teal-fill)" }}
         >
           <ArrowUpIcon className="size-[18px] text-white" strokeWidth={2.6} />
@@ -130,7 +130,7 @@ export function RefinedHome({
               <button
                 type="button"
                 onClick={onSelectHome}
-                className="mt-0.5 flex max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[12px]"
+                className="hit-44 mt-0.5 flex max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[12px]"
                 style={{ borderColor: LINE, background: "var(--hh-surface)", color: SUB }}
               >
                 <HomeIcon className="size-3 shrink-0" style={{ color: TEAL }} aria-hidden />

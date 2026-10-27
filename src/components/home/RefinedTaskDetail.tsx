@@ -221,7 +221,7 @@ export function RefinedTaskDetail({
   if (!detail && loadFailed) return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
       <div className="flex items-center px-3 pt-1 pb-2">
-        <button onClick={onBack} className="inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+        <button onClick={onBack} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
           <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} /> Back
         </button>
       </div>
@@ -235,7 +235,7 @@ export function RefinedTaskDetail({
   if (!detail) return (
     <div className="flex min-h-full flex-col items-center justify-center gap-3" style={{ background: BG }}>
       <p className="text-[15px]" style={{ color: SUB }}>Task not found.</p>
-      <button onClick={onBack} className="text-[14px] font-bold" style={{ color: TEAL }}>Go back</button>
+      <button onClick={onBack} className="hit-44 text-[14px] font-bold" style={{ color: TEAL }}>Go back</button>
     </div>
   )
 
@@ -333,7 +333,7 @@ export function RefinedTaskDetail({
     >
       {/* Nav */}
       <div className="flex items-center px-3 pt-1 pb-2">
-        <button onClick={onBack} className="inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+        <button onClick={onBack} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
           <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} /> Back
         </button>
       </div>
@@ -361,7 +361,7 @@ export function RefinedTaskDetail({
                 type="button"
                 onClick={() => setEditOpen(true)}
                 aria-label="Edit task"
-                className="shrink-0 self-start rounded-full border p-2"
+                className="hit-44 shrink-0 self-start rounded-full border p-2"
                 style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)" }}
               >
                 <PencilIcon className="size-[16px]" style={{ color: TEAL }} />
@@ -426,7 +426,7 @@ export function RefinedTaskDetail({
               <button
                 type="button"
                 onClick={() => setManualOpen((v) => !v)}
-                className="inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
+                className="hit-44 inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
                 style={{
                   borderColor: dockOpen ? TEAL : "var(--hh-line2)",
                   background: dockOpen ? "var(--hh-teal-wash)" : "var(--hh-surface)",
@@ -441,7 +441,7 @@ export function RefinedTaskDetail({
               // back to the item page rather than offering a dead button.
               <Link
                 to={`/items/${detail.itemUnitId}?manualPage=${detail.manualPage}`}
-                className="inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
+                className="hit-44 inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
                 style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: TEAL }}
               >
                 <BookOpenIcon className="size-[15px]" /> Open manual · p.{detail.manualPage}
@@ -461,7 +461,7 @@ export function RefinedTaskDetail({
               (archive / re-tier / re-cadence / re-season + confirm-first sweep). */}
           <button
             onClick={() => setFeedbackOpen(true)}
-            className="inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
+            className="hit-44 inline-flex items-center gap-2 self-start rounded-xl border px-3.5 py-2.5 text-[13px] font-bold"
             style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}
           >
             <SlidersHorizontalIcon className="size-[15px]" /> Not quite right? Tune this task
@@ -477,7 +477,7 @@ export function RefinedTaskDetail({
               <span className="flex-1 text-[13.5px] font-bold" style={{ color: TEALD }}>
                 {done.nextDue ? `Done · next due ${fmt(done.nextDue)}` : "Done"}
               </span>
-              <button onClick={onBack} className="text-[14px] font-bold" style={{ color: TEAL }}>Back</button>
+              <button onClick={onBack} className="hit-44 text-[14px] font-bold" style={{ color: TEAL }}>Back</button>
             </div>
           ) : (
             <div className="rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
@@ -540,7 +540,7 @@ export function RefinedTaskDetail({
             <span className="flex-1 text-[13.5px] font-bold" style={{ color: TEALD }}>
               {done.nextDue ? `Done · next due ${fmt(done.nextDue)}` : "Done"}
             </span>
-            <button onClick={onBack} className="text-[14px] font-bold" style={{ color: TEAL }}>Back</button>
+            <button onClick={onBack} className="hit-44 text-[14px] font-bold" style={{ color: TEAL }}>Back</button>
           </div>
         </div>
       )}
@@ -688,7 +688,7 @@ function ConfirmDoneSheet({
         {!adjusting ? (
           <button
             onClick={() => setAdjusting(true)}
-            className="mb-4 text-[13.5px] font-bold"
+            className="hit-44 mb-4 text-[13.5px] font-bold"
             style={{ color: TEAL }}
           >
             Adjust
@@ -709,8 +709,8 @@ function ConfirmDoneSheet({
                   <div className="mt-0.5 text-[18px] font-extrabold tracking-[-0.4px]" style={{ color: TEAL }}>around {fmt(nextDue)} · {rel(nextDue)}</div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setBump((b) => b - 1)} aria-label="Earlier" className="flex size-10 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}><MinusIcon className="size-4" /></button>
-                  <button onClick={() => setBump((b) => b + 1)} aria-label="Later" className="flex size-10 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}><PlusIcon className="size-4" /></button>
+                  <button onClick={() => setBump((b) => b - 1)} aria-label="Earlier" className="hit-44 flex size-10 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}><MinusIcon className="size-4" /></button>
+                  <button onClick={() => setBump((b) => b + 1)} aria-label="Later" className="hit-44 flex size-10 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}><PlusIcon className="size-4" /></button>
                 </div>
               </div>
             )}

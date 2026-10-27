@@ -113,7 +113,7 @@ export function ParseTrayPill() {
               <span className="text-[13px] font-bold" style={{ color: "var(--hh-ink)" }}>
                 {running.length ? `${running.length} reading` : queued.length ? `${queued.length} queued` : "Ready to review"}
               </span>
-              <button type="button" aria-label="Collapse" onClick={() => setOpen(false)} className="rounded p-0.5" style={{ color: "var(--hh-sub)" }}>
+              <button type="button" aria-label="Collapse" onClick={() => setOpen(false)} className="hit-44 rounded p-0.5" style={{ color: "var(--hh-sub)" }}>
                 <XIcon className="size-3.5" />
               </button>
             </div>
@@ -140,7 +140,7 @@ export function ParseTrayPill() {
                   <button
                     type="button"
                     onClick={() => review(e)}
-                    className="shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold"
+                    className="hit-44 shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-bold"
                     style={{ background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}
                   >
                     Review
@@ -157,7 +157,7 @@ export function ParseTrayPill() {
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-semibold shadow-lg"
+          className="hit-44 flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-semibold shadow-lg"
           style={{ background: "var(--hh-ink)", color: "var(--hh-bg)" }}
         >
           {/* Moves only while something is actually being read, and holds still

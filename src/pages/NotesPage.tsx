@@ -74,7 +74,7 @@ export default function NotesPage() {
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
       <div className="mx-auto w-full max-w-2xl">
         <div className="flex items-center px-3 pb-1.5 pt-1">
-          <button type="button" onClick={() => navigate("/inventory")} className="inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+          <button type="button" onClick={() => navigate("/inventory")} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
             <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} aria-hidden /> Items
           </button>
         </div>

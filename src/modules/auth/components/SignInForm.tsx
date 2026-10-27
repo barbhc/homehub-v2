@@ -97,7 +97,10 @@ function AuthInput({
   const isPw = type === "password"
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-[7px] px-0.5">
+      {/* mb-[11px], not 7: "Forgot?" sits in this row directly above the
+          password field's Show password, and at 7px their two 44pt taps
+          (hit-44) overlapped by ~4px. Every field gets the same rhythm. */}
+      <div className="flex items-baseline justify-between mb-[11px] px-0.5">
         <span className="text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>
           {label}
         </span>
@@ -124,7 +127,7 @@ function AuthInput({
           <button
             type="button"
             onClick={() => setShow((v) => !v)}
-            className="shrink-0 p-1"
+            className="hit-44 shrink-0 p-1"
             style={{ color: FAINT }}
             aria-label={show ? "Hide password" : "Show password"}
           >
@@ -206,7 +209,7 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
         <button
           type="button"
           onClick={() => go("signin")}
-          className="inline-flex items-center gap-1 mb-3 -ml-1 font-semibold text-[15px]"
+          className="hit-44 inline-flex items-center gap-1 mb-3 -ml-1 font-semibold text-[15px]"
           style={{ color: TEAL }}
         >
           <ChevronLeftIcon size={20} strokeWidth={2.4} /> Sign in
@@ -244,7 +247,7 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
             right={mode === "signin" ? (
               <button
                 type="button" onClick={() => go("reset")}
-                className="font-bold text-[12.5px]" style={{ color: TEAL }}
+                className="hit-44 font-bold text-[12.5px]" style={{ color: TEAL }}
               >
                 Forgot?
               </button>
@@ -293,11 +296,11 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
       <div className="text-center text-sm mt-6" style={{ color: SUB }}>
         {mode === "signup" ? (
           <>Already have an account?{" "}
-            <button type="button" onClick={() => go("signin")} className="font-bold" style={{ color: TEAL }}>Sign in</button>
+            <button type="button" onClick={() => go("signin")} className="hit-44 font-bold" style={{ color: TEAL }}>Sign in</button>
           </>
         ) : mode === "signin" ? (
           <>New to Homehub?{" "}
-            <button type="button" onClick={() => go("signup")} className="font-bold" style={{ color: TEAL }}>Create an account</button>
+            <button type="button" onClick={() => go("signup")} className="hit-44 font-bold" style={{ color: TEAL }}>Create an account</button>
           </>
         ) : null}
       </div>

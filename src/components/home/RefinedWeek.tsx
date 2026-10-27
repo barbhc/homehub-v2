@@ -181,7 +181,7 @@ function TaskRow({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onDone() }}
           aria-label="Mark done"
-          className="-mx-0.5 flex shrink-0 p-2"
+          className="hit-44 -mx-0.5 flex shrink-0 p-2"
         >
           <span className="flex size-6 items-center justify-center rounded-full border-2" style={{ borderColor: TEAL }}>
             <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
@@ -272,7 +272,7 @@ function Calendar({
                 onClick={() => setSel(on ? null : c.day)}
                 // Dark: the fill is 2.91:1 against today's wash next to it, so
                 // the selected day also gets a bright ring (4.86:1, WCAG 1.4.11).
-                className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[13.5px] ${on ? SELECTED_DAY_RING : ""}`}
+                className={`hit-44 flex aspect-square flex-col items-center justify-center gap-0.5 rounded-[9px] font-mono text-[13.5px] ${on ? SELECTED_DAY_RING : ""}`}
                 style={{
                   background: on ? "var(--hh-teal-fill)" : isToday ? "var(--hh-teal-wash)" : "transparent",
                   color: on ? "#fff" : INK,
@@ -422,7 +422,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               <span className="mb-0.5 block text-[10.5px] font-extrabold uppercase tracking-[0.6px]" style={{ color: insight.tone }}>{insight.label}</span>
               <span className="block text-[14.5px] font-semibold leading-snug" style={{ color: INK }}>{insight.text}</span>
             </span>
-            <button type="button" onClick={() => setDismissed(true)} aria-label="Dismiss" className="-m-1 flex shrink-0 rounded-lg p-2">
+            <button type="button" onClick={() => setDismissed(true)} aria-label="Dismiss" className="hit-44 -m-1 flex shrink-0 rounded-lg p-2">
               <XIcon className="size-[17px]" style={{ color: FAINT }} />
             </button>
           </div>
@@ -455,7 +455,11 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               wobble mid-scroll and slid the headers around under the finger,
               which a tester read (fairly) as the headers being broken. Vertical
               pans now pass through to the page; genuine overflow still scrolls. */}
-          <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto no-scrollbar" style={{ touchAction: "pan-y" }}>
+          {/* -my-1.5 py-1.5: the scroller clips (and would scroll) anything
+              outside its padding box, so it gets 6px of room above and below
+              for the tabs' 44pt taps (hit-44) — the negative margin keeps the
+              row exactly the height it was. */}
+          <div className="-my-1.5 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-1.5 no-scrollbar" style={{ touchAction: "pan-y" }}>
           {([["urgency", "Urgency"], ["room", "Room"], ["item", "Item"], ["calendar", "Calendar"]] as const).map(
             ([k, label]) => {
               const on = k === "calendar" ? view === "calendar" : view === "list" && lens === k
@@ -468,14 +472,17 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                     if (k === "calendar") { setView("calendar"); return }
                     setView("list"); setLens(k as Lens)
                   }}
-                  className="relative shrink-0 rounded-t-lg px-2.5 pb-2 pt-1 text-[13.5px] font-bold"
+                  className="hit-44 relative shrink-0 rounded-t-lg px-2.5 pb-2 pt-1 text-[13.5px] font-bold"
                   style={{ color: on ? INK : SUB }}
                 >
                   {label}
                   {on && (
                     <span
                       className="absolute inset-x-2.5 rounded-full"
-                      style={{ bottom: -1, height: 2.5, background: TEAL }}
+                      // The scroller used to clip this bar's bottom pixel at
+                      // the tab's edge; with room in the scroller for the hit
+                      // area, the bar is drawn at exactly what used to show.
+                      style={{ bottom: 0, height: 1.5, background: TEAL }}
                     />
                   )}
                 </button>
@@ -490,7 +497,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               aria-haspopup="listbox"
               aria-expanded={tierOpen}
               onClick={() => setTierOpen((v) => !v)}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-bold"
+              className="hit-44 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-bold"
               style={{ border: "1.5px solid var(--hh-line2)", background: SURFACE, color: INK }}
             >
               {activeTier.dot && <span className="size-[7px] shrink-0 rounded-full" style={{ background: activeTier.dot }} />}

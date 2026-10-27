@@ -326,6 +326,41 @@ body {
   }
 }
 
+/* ── hit-44: a 44pt tap on a control that LOOKS smaller ─────────────────────
+   Apple HIG and design rule 4: every control takes a 44×44pt hit, and the way
+   to get there is to grow the hit area, not the glyph — the owner's constraint
+   is no visual change at the normal text size. So `hit-44` adds an invisible
+   `::after` centred on the control, at least 44×44 (never smaller than the
+   control itself). A pseudo-element hit-tests as its element, so a tap on the
+   slop IS a tap on the control — click, focus and :active all behave.
+
+   Rules for using it (e2e/device/hit-targets.spec.ts is the proof):
+   - Leaf controls only. The slop sits ABOVE the control's own content, so on
+     a big container with nested buttons it would swallow their taps.
+   - Not on an element that clips (`overflow-hidden`, `truncate`): it clips its
+     own slop. Put it on a wrapper, or grow padding with a matching negative
+     margin instead.
+   - A clipping ANCESTOR (a horizontal scroller) clips it too — give that
+     scroller vertical padding with a matching negative margin.
+   - Two controls closer than 44pt centre-to-centre cannot both have a 44pt
+     target without overlapping; there the spacing grows, deliberately.
+   `position: relative` is wrapped in :where() (zero specificity, components
+   layer) so an `absolute`/`fixed`/`sticky` utility on the same element wins. */
+@layer components {
+  :where(.hit-44) {
+    position: relative;
+  }
+  .hit-44::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* Inline code tokens must be allowed to break.
    `your_correct_schedule_type` is 26 unbroken characters; at 375px it does not
    fit a line, and the default `overflow-wrap: normal` refuses to break it, so

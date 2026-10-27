@@ -45,7 +45,7 @@ export function NoteRows({ notes, onEdit }: { notes: CareNote[]; onEdit: (note: 
               type="button"
               onClick={() => onEdit(note)}
               aria-label={`Edit note: ${name}`}
-              className="-mr-1.5 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-full"
+              className="hit-44 -mr-1.5 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-full"
             >
               <PencilIcon className="size-3.5" style={{ color: FAINT }} aria-hidden />
             </button>
@@ -67,7 +67,9 @@ export function IdeaChips({ ideas, selected, onPick, label = "Ideas" }: {
   return (
     <div className="flex flex-col gap-2">
       {label && <span className="text-[11px] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{label}</span>}
-      <div className="flex flex-wrap gap-2">
+      {/* gap-y 12px, not 8: wrapped 32px chips on a 40px pitch could not both
+          take a 44pt tap (hit-44) without the taps overlapping. */}
+      <div className="flex flex-wrap gap-x-2 gap-y-3">
         {ideas.map((idea) => {
           const on = idea.label === selected
           return (
@@ -76,7 +78,7 @@ export function IdeaChips({ ideas, selected, onPick, label = "Ideas" }: {
               type="button"
               aria-pressed={on}
               onClick={() => onPick(idea)}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold"
+              className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold"
               style={{
                 borderColor: on ? TEAL : "color-mix(in srgb, var(--hh-teal) 40%, transparent)",
                 background: on ? "var(--hh-teal-wash)" : SURFACE,

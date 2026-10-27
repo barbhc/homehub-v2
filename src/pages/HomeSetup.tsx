@@ -273,7 +273,7 @@ function CategoryQuestions({ homeId, category, facts, onSave, onDone }: {
                     aria-checked={on}
                     disabled={building}
                     onClick={() => set(q.fact, value)}
-                    className="min-h-9 rounded-full px-3.5 text-[13px] font-semibold"
+                    className="hit-44 min-h-9 rounded-full px-3.5 text-[13px] font-semibold"
                     style={{ background: on ? "var(--hh-teal-wash)" : "transparent", color: on ? TEAL : SUB, border: `1px solid ${on ? TEAL : LINE}` }}
                   >{label}</button>
                 )
@@ -305,7 +305,7 @@ function AddAll({ suggestions, onAdd }: { suggestions: Suggestion[]; onAdd: (s: 
   return (
     <span className="flex items-center gap-2">
       {error && <span role="alert" className="text-[12px]" style={{ color: CLAY }}>{error}</span>}
-      <button type="button" onClick={() => void run()} disabled={busy} className="min-h-9 text-[13px] font-bold" style={{ color: TEAL }}>{busy ? "Adding…" : "Add all"}</button>
+      <button type="button" onClick={() => void run()} disabled={busy} className="hit-44 min-h-9 text-[13px] font-bold" style={{ color: TEAL }}>{busy ? "Adding…" : "Add all"}</button>
     </span>
   )
 }

@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, PackageIcon, XIcon, Undo2Icon } from "lucide-react"
+import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, PackageIcon, XIcon, Undo2Icon, ArrowRightIcon, ChevronLeftIcon } from "lucide-react"
 import {
   isScheduledTask,
   willNotify,
@@ -494,7 +494,7 @@ export function TaskReviewSheet({
                   : <><b className="font-bold">Not scheduled</b> — {r.schedule === "setup" ? "a one-time step" : "you'll do it when needed"}</>}
               </span>
               <button type="button" onClick={() => toggleSchedule(r)}
-                className="ml-auto rounded-full border border-primary px-2.5 py-1.5 text-[11.5px] font-semibold text-primary whitespace-nowrap">
+                className="hit-44 ml-auto rounded-full border border-primary px-2.5 py-1.5 text-[11.5px] font-semibold text-primary whitespace-nowrap">
                 {onSched ? "Take off schedule" : "Put on a schedule"}
               </button>
             </div>
@@ -546,7 +546,9 @@ export function TaskReviewSheet({
             {r.schedule !== "setup" && (
               <>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground mt-4 mb-2">How often?</div>
-                <div className="flex flex-wrap gap-1.5">
+                {/* gap-y 13px, not 6: wrapped chip rows on a 37px pitch could not
+                    both take a 44pt tap without the taps overlapping. */}
+                <div className="flex flex-wrap gap-x-1.5 gap-y-[13px]">
                   {CADENCES.map((c) => (
                     <button key={c.id} type="button" aria-pressed={r.schedule === c.id}
                       onClick={() => patch(r.id, {
@@ -554,7 +556,7 @@ export function TaskReviewSheet({
                         scheduleSuggested: false,
                         intervalDays: c.id === "every_n_days" ? r.intervalDays ?? DEFAULT_INTERVAL_DAYS : null,
                       })}
-                      className={`rounded-full border px-3 py-1.5 text-[11.5px] font-bold transition-colors ${
+                      className={`hit-44 rounded-full border px-3 py-1.5 text-[11.5px] font-bold transition-colors ${
                         r.schedule === c.id
                           ? "border-primary bg-primary/10 text-foreground"
                           : "border-border bg-background text-muted-foreground"}`}>
@@ -662,10 +664,10 @@ export function TaskReviewSheet({
 
         <div className="flex gap-2 mt-3.5">
           <button type="button" onClick={() => { patch(r.id, { included: false }); if (opts?.guided) guideNext(); else setExpandedId(null) }}
-            className="flex-1 rounded-xl border border-border py-2.5 text-[12.5px] font-bold text-muted-foreground">Skip ✕</button>
+            className="hit-44 inline-flex flex-1 items-center justify-center gap-1 rounded-xl border border-border py-2.5 text-[12.5px] font-bold text-muted-foreground">Skip <XIcon className="size-3.5" aria-hidden /></button>
           <button type="button" onClick={() => { patch(r.id, { included: true }); if (opts?.guided) guideNext(); else setExpandedId(null) }}
-            className="flex-[2] rounded-xl bg-[var(--hh-teal-fill)] py-2.5 text-[12.5px] font-bold text-primary-foreground">
-            {opts?.guided ? "Keep →" : "Done"}
+            className="hit-44 inline-flex flex-[2] items-center justify-center gap-1 rounded-xl bg-[var(--hh-teal-fill)] py-2.5 text-[12.5px] font-bold text-primary-foreground">
+            {opts?.guided ? <>Keep <ArrowRightIcon className="size-3.5" aria-hidden /></> : "Done"}
           </button>
         </div>
       </div>
@@ -837,12 +839,12 @@ export function TaskReviewSheet({
                     setGuideIndex(Math.max(0, guideIndex! - 1))
                     scrollRef.current?.scrollTo?.({ top: 0 })
                   }}
-                  className="text-[12.5px] font-semibold text-muted-foreground px-1.5 py-1 disabled:opacity-40"
+                  className="hit-44 inline-flex items-center gap-0.5 text-[12.5px] font-semibold text-muted-foreground px-1.5 py-1 disabled:opacity-40"
                 >
-                  ‹ Previous
+                  <ChevronLeftIcon className="size-3.5" aria-hidden /> Previous
                 </button>
                 <button type="button" onClick={() => { setGuideIndex(null); setWalked(true) }}
-                  className="text-[12.5px] font-semibold text-muted-foreground px-1.5 py-1">✕ Exit</button>
+                  className="hit-44 inline-flex items-center gap-1 text-[12.5px] font-semibold text-muted-foreground px-1.5 py-1"><XIcon className="size-3.5" aria-hidden /> Exit</button>
               </div>
               <div className="text-center text-[10.5px] font-mono font-bold text-muted-foreground tracking-wider mb-1.5">
                 {guideIndex! + 1} of {rows.length}
@@ -988,7 +990,7 @@ export function TaskReviewSheet({
                           // offer SHOW; "Already set up? Hide them" only makes
                           // sense on the open state it describes.
                           <button type="button" onClick={() => setSetupOpen((v) => !v)} aria-expanded={setupOpen}
-                            className="rounded-full border border-border px-2 py-0.5 text-[10.5px] font-semibold text-muted-foreground">
+                            className="hit-44 rounded-full border border-border px-2 py-0.5 text-[10.5px] font-semibold text-muted-foreground">
                             {setupOpen ? "Already set up? Hide them" : `Show ${items.length} setup step${items.length === 1 ? "" : "s"}`}
                           </button>
                         )}
@@ -1121,7 +1123,7 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
         type="button"
         aria-pressed={open}
         onClick={() => patch(row.id, { lastDoneOn: open ? null : today })}
-        className={`rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${
+        className={`hit-44 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${
           open ? "border-[var(--hh-teal-fill)] bg-[var(--hh-teal-fill)] text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}
       >
         {open ? "✓ " : ""}I&rsquo;ve been doing this already

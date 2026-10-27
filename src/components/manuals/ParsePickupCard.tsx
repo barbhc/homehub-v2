@@ -288,7 +288,7 @@ export function ParsePickupCard({
           <button
             type="button"
             onClick={() => setOpen("sheet")}
-            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold"
+            className="hit-44 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold"
             style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
           >
             {reviewLabel(counts)}
@@ -297,7 +297,7 @@ export function ParsePickupCard({
             type="button"
             aria-label="Dismiss"
             onClick={() => dismiss(manualId)}
-            className="shrink-0 rounded-full p-1"
+            className="hit-44 shrink-0 rounded-full p-1"
             style={{ color: "var(--hh-sub)" }}
           >
             <XIcon className="size-4" />

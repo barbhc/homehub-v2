@@ -64,7 +64,7 @@ export function CategoryPickerDialog({
                 type="button"
                 onClick={() => setDrilledInto(null)}
                 aria-label="Back to categories"
-                className="-ml-1 rounded p-0.5"
+                className="hit-44 -ml-1 rounded p-0.5"
                 style={{ color: "var(--hh-sub)" }}
               >
                 <ChevronLeftIcon className="size-[18px]" />
