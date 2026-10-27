@@ -837,7 +837,7 @@ export default function DeepClean() {
                     </div>
                   ))}
                 </div>
-                {saveRoutineError && <InlineError className="mt-2">{saveRoutineError}</InlineError>}
+                {saveRoutineError && <InlineError save className="mt-2">{saveRoutineError}</InlineError>}
               </div>
             )}
 

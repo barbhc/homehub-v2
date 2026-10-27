@@ -487,7 +487,7 @@ export default function Settings() {
     [notifPrefs, updateNotifPrefs]
   )
   const notifSaveErrorFor = (section: NotifSection) =>
-    notifSaveError?.section === section ? <InlineError className="mx-1 mt-2.5">{notifSaveError.message}</InlineError> : null
+    notifSaveError?.section === section ? <InlineError save className="mx-1 mt-2.5">{notifSaveError.message}</InlineError> : null
 
   const [routines, setRoutines] = useState<RoutineTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -1071,7 +1071,7 @@ export default function Settings() {
                     {adding ? "Adding…" : "Add"}
                   </Button>
                 </div>
-                {routinesError && <InlineError className="mt-3">{routinesError}</InlineError>}
+                {routinesError && <InlineError save className="mt-3">{routinesError}</InlineError>}
               </>
             )}
           </CardContent>
@@ -1096,7 +1096,7 @@ export default function Settings() {
                     Couldn&apos;t load your rooms.
                   </InlineError>
                 )}
-                {roomsError && <InlineError className="mb-3">{roomsError}</InlineError>}
+                {roomsError && <InlineError save className="mb-3">{roomsError}</InlineError>}
                 <div className="space-y-1 mb-4">
                   {rooms.map((room) => (
                     <div

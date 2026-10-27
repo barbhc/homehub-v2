@@ -2,6 +2,7 @@ import { useState } from "react"
 import { BellRingIcon, ExternalLinkIcon, Loader2Icon, MapPinIcon, PackageIcon, PencilIcon, PlusIcon } from "lucide-react"
 import { addShoppingItem, addTaskSupply, getSupplyPlaces, removeShoppingItem, updateTaskSupply } from "@/modules/care"
 import type { TemplateSupply } from "@/integrations/types"
+import { useSaveFailedHaptic } from "@/lib/haptics"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const SURFACE = "var(--hh-surface)", SURFACE2 = "var(--hh-surface2)", LINE = "var(--hh-line)", LINE2 = "var(--hh-line2)"
@@ -44,6 +45,7 @@ export function SupplyRows({
   const [rows, setRows] = useState<TemplateSupply[]>(supplies)
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  useSaveFailedHaptic(error)
   const [haveState, setHaveState] = useState<Record<number, { id: string } | "saving">>({})
   // The places this home already uses, loaded when a place editor first opens.
   const [places, setPlaces] = useState<string[] | null>(null)

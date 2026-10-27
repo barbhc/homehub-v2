@@ -13,6 +13,7 @@
 import { useState } from "react"
 import { CheckIcon } from "lucide-react"
 import type { Suggestion } from "../../../shared/care/library"
+import { useSaveFailedHaptic } from "@/lib/haptics"
 
 const INK = "var(--hh-ink)"
 const SUB = "var(--hh-sub)"
@@ -37,6 +38,7 @@ export function SuggestedRow({ suggestion, itemName, onAdd, onDismiss, last }: S
   const { entry, backstopFor } = suggestion
   const [busy, setBusy] = useState<"add" | "dismiss" | null>(null)
   const [error, setError] = useState<string | null>(null)
+  useSaveFailedHaptic(error)
   const run = async (which: "add" | "dismiss") => {
     setBusy(which)
     setError(null)

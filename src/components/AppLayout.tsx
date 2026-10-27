@@ -7,6 +7,7 @@ import { useAuth } from "@/modules/auth"
 import { useUserLevel } from "@/hooks/useUserLevel"
 import { useInterfaceLevelSync } from "@/hooks/useInterfaceLevelSync"
 import { Button } from "@/components/ui/button"
+import { isNativePlatform } from "@/lib/native"
 
 // Mobile bottom tabs are FIXED at five (Home · Tasks · Items · Ask · Settings)
 // at every level — per the redesign spec, the level changes in-screen content,
@@ -28,6 +29,16 @@ const DESKTOP_LEVEL_NAV: { to: string; label: string; tourId: string; minLevel: 
   { to: "/providers", label: "Providers", tourId: "nav-providers", minLevel: "power" },
 ]
 const LEVEL_RANK: Record<string, number> = { essentials: 0, engaged: 1, power: 2 }
+
+/**
+ * In the iOS app a tab switch REPLACES the history entry instead of adding one.
+ * The shell's edge-swipe back walks web history, and in an iPhone app that
+ * gesture goes back within a tab — it never swipes from Items back to Home. With
+ * replace, a tab's first screen has nothing behind it, so iOS doesn't offer the
+ * swipe there; pages opened from a tab still push and swipe back as expected.
+ * A browser keeps push: its Back button between tabs is what people expect.
+ */
+const TAB_REPLACE = isNativePlatform()
 
 /** The Items tab owns the list, the add flow and an item's own page — the page
  *  lives at /items/:id, so matching /inventory alone left no tab lit there. */
@@ -80,6 +91,7 @@ export function AppLayout() {
                 <Link
                   key={to}
                   to={to}
+                  replace={TAB_REPLACE}
                   data-tour={tourId}
                   className={cn(
                     "hit-44 rounded-lg px-3 py-1.5 text-[length:min(0.875rem,21px)] font-semibold transition-colors",
@@ -101,6 +113,7 @@ export function AppLayout() {
                 <Link
                   key={to}
                   to={to}
+                  replace={TAB_REPLACE}
                   data-tour={tourId}
                   className={cn(
                     "hit-44 hidden rounded-lg px-3 py-1.5 text-[length:min(0.875rem,21px)] font-semibold transition-colors lg:block",
@@ -217,6 +230,7 @@ export function AppLayout() {
               <Link
                 key={to}
                 to={to}
+                replace={TAB_REPLACE}
                 data-tour={tourId}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 px-3 py-1 min-w-[58px] min-h-11 transition-colors",

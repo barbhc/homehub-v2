@@ -27,6 +27,8 @@ import "@fontsource/plus-jakarta-sans/latin-800.css"
 import "./index.css"
 import App from "./App.tsx"
 import { markNativePlatform } from "@/lib/native"
+import { syncStatusBarToDocument } from "@/lib/statusBar"
+import { startBackGestureGuard } from "@/lib/backGesture"
 import { markBoot } from "@/lib/bootTiming"
 import { registerDeepLinkListener } from "@/lib/nativePush"
 
@@ -34,6 +36,11 @@ import { registerDeepLinkListener } from "@/lib/nativePush"
 // the status-bar inset before anything paints.
 markBoot("js")
 markNativePlatform()
+// The pre-paint snippet in index.html already chose light or dark (including
+// the in-app Appearance override); the iOS status bar follows that choice, not
+// the phone's. Both calls are no-ops in a browser and on an older shell.
+syncStatusBarToDocument()
+startBackGestureGuard()
 
 // Before React, before auth: iOS hands a notification tap to the plugin at
 // launch, and an unregistered listener means the deep link is dropped and the

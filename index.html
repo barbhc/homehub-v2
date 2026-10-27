@@ -31,61 +31,45 @@
       (function(){var r=document.documentElement,last='',q=0;function m(){q=0;var s=1,p=null;try{if(window.CSS&&CSS.supports('-webkit-touch-callout','none')&&CSS.supports('font','-apple-system-body')){p=document.createElement('span');p.style.cssText='font:-apple-system-body;position:absolute;visibility:hidden';r.appendChild(p);var b=parseFloat(getComputedStyle(p).fontSize);if(b>0)s=Math.min(3.2,Math.max(1,b/17));}}catch(e){s=1;}if(p&&p.parentNode)p.parentNode.removeChild(p);var n=Math.round(s*1000)/1000,v=String(n);if(v!==last){last=v;r.style.setProperty('--type-scale',v);r.toggleAttribute('data-larger-text',n>1);}}function later(){if(!q)q=requestAnimationFrame(m);}m();document.addEventListener('visibilitychange',function(){if(!document.hidden)m();});window.addEventListener('pageshow',m);window.addEventListener('orientationchange',later);window.addEventListener('resize',later);})();
     </script>
     <style>
-      /* Instant boot splash — painted before the JS bundle parses and before
-         web fonts load, so the ~3-5s cold start (iOS WebView launch + 1MB bundle
-         parse + auth restore) shows the brand instead of a blank white screen.
-         Uses only inline markup + system fonts so it needs zero network. React
-         fades it out via hideBootSplash() once auth resolves (src/lib/bootSplash.ts);
-         a safety timeout removes it even if that never fires. */
+      /* Boot splash — painted with the very first frame, before the JS bundle
+         parses, and faded out by hideBootSplash() once auth resolves
+         (src/lib/bootSplash.ts); the inline timeout below removes it if that
+         never happens.
+
+         It is the PAGE COLOUR and nothing else (Apple-polish phase 3, HIG
+         "Launching"): the launch screen should look like the first screen, so
+         no logo, no wordmark, no animation. The iOS shell paints the same two
+         colours natively — its launch screen and the WebView behind this page
+         use the AppBackground colour asset in barbhc/homehub — so the cold
+         start is one surface from tap to content, in light and in dark.
+
+         Light/dark comes from the `dark` class the pre-paint script above has
+         already set, so the in-app Appearance choice is honoured here too. The
+         colours are --hh-bg (src/index.css); the literals are the fallback for
+         the instant before the stylesheet applies, and src/test/bootSplash.test.ts pins
+         them to the tokens. */
       #boot-splash {
         position: fixed;
         inset: 0;
         z-index: 2147483647;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 22px;
-        background: linear-gradient(155deg, #1B6B5A 0%, #2D9B82 100%);
+        background: var(--hh-bg, #F3F5F4);
         opacity: 1;
-        transition: opacity 0.45s ease;
+        transition: opacity 0.2s ease-out;
+      }
+      html.dark #boot-splash {
+        background: var(--hh-bg, #0D1411);
       }
       #boot-splash.boot-splash--hide {
         opacity: 0;
         pointer-events: none;
       }
-      #boot-splash .bs-mark {
-        width: 84px;
-        height: 84px;
-        animation: bs-breathe 1.7s ease-in-out infinite;
-        filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.18));
-      }
-      #boot-splash .bs-word {
-        /* Georgia, not a webfont: the splash exists to cover the cold start,
-           so it must never itself wait on a network request. */
-        font-family: Georgia, "Times New Roman", serif;
-        font-size: 27px;
-        letter-spacing: 0.01em;
-        color: #ffffff;
-        opacity: 0.96;
-      }
-      @keyframes bs-breathe {
-        0%, 100% { transform: scale(0.93); opacity: 0.82; }
-        50%      { transform: scale(1);    opacity: 1;    }
-      }
       @media (prefers-reduced-motion: reduce) {
-        #boot-splash .bs-mark { animation: none; }
+        #boot-splash { transition: none; }
       }
     </style>
   </head>
   <body>
-    <div id="boot-splash" aria-hidden="true">
-      <svg class="bs-mark" viewBox="0 0 84 84" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M42 11 L71 35 V66 a5 5 0 0 1 -5 5 H18 a5 5 0 0 1 -5 -5 V35 Z" fill="#ffffff"/>
-        <path d="M30 48 l8 8 l16 -17" stroke="#1B6B5A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div class="bs-word">Homehub</div>
-    </div>
+    <div id="boot-splash" aria-hidden="true"></div>
     <script>
       // Safety net: never trap the user on the splash if the app fails to signal
       // ready (offline auth hang, JS error). Force-remove after 9s.

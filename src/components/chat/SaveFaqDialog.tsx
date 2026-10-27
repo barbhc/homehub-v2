@@ -171,7 +171,7 @@ export function SaveFaqDialog({
               <p className="text-xs text-muted-foreground">Saved answers show on the item&apos;s page.</p>
             )}
           </div>
-          {saveError && <InlineError>{saveError}</InlineError>}
+          {saveError && <InlineError save>{saveError}</InlineError>}
         </div>
         <DialogFooter showCloseButton={false}>
           {saved ? (

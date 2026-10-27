@@ -311,7 +311,7 @@ export default function ProvidersPage() {
           )}
         </header>
 
-        {removeError && <InlineError className="mb-4">{removeError}</InlineError>}
+        {removeError && <InlineError save className="mb-4">{removeError}</InlineError>}
         {loading ? (
           <p className="text-[0.84375rem]" style={{ color: SUB }}>Loading…</p>
         ) : loadFailed ? (

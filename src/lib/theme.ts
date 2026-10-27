@@ -7,6 +7,7 @@
 // module keeps the class in sync afterwards.
 
 import { useCallback, useEffect, useState } from "react"
+import { syncStatusBar } from "./statusBar"
 
 export type Appearance = "light" | "dark" | "system"
 
@@ -37,10 +38,15 @@ export function resolveDark(pref: Appearance): boolean {
   return pref === "dark" || (pref === "system" && systemPrefersDark())
 }
 
-/** Apply (or remove) the `dark` class on <html> for the given preference. */
+/**
+ * Apply (or remove) the `dark` class on <html> for the given preference, and
+ * set the iOS status bar to match it (statusBar.ts — a no-op off the shell).
+ */
 export function applyAppearance(pref: Appearance): void {
   if (typeof document === "undefined") return
-  document.documentElement.classList.toggle("dark", resolveDark(pref))
+  const dark = resolveDark(pref)
+  document.documentElement.classList.toggle("dark", dark)
+  syncStatusBar(dark)
 }
 
 /**

@@ -30,6 +30,7 @@ import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
 import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
 import { addDays, diffDays, localToday } from "../../../shared/dates/calendar"
+import { hapticError, hapticSuccess } from "@/lib/haptics"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 
@@ -317,7 +318,7 @@ export function RefinedTaskDetail({
           ))}
         </div>
       )}
-      {assignError && <InlineError className="mt-1.5 px-1">{assignError}</InlineError>}
+      {assignError && <InlineError save className="mt-1.5 px-1">{assignError}</InlineError>}
     </>
   )
 
@@ -563,9 +564,11 @@ export function RefinedTaskDetail({
               // The server's date refusals say what to check, so they are
               // shown as sent; anything else reads as it does on Home and Tasks.
               setDoneError(doneFailedMessage(res.error))
+              hapticError()
               return
             }
             setDone({ nextDue })
+            hapticSuccess()
           }}
         />
       )}

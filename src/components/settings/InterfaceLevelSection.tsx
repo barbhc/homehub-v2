@@ -110,7 +110,7 @@ export function InterfaceLevelSection() {
           )
           })}
         </div>
-        {saveError && <InlineError className="mt-3">{saveError}</InlineError>}
+        {saveError && <InlineError save className="mt-3">{saveError}</InlineError>}
       </CardContent>
     </SectionCard>
   )

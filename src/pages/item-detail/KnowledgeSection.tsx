@@ -77,7 +77,7 @@ export function KnowledgeSection({
                         Delete
                       </Button>
                       {deleteFailedId === faq.faq_id && (
-                        <InlineError>Couldn't delete it. Try again.</InlineError>
+                        <InlineError save>Couldn't delete it. Try again.</InlineError>
                       )}
                     </li>
                   ))}

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { CloudOffIcon, RotateCwIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useSaveFailedHaptic } from "@/lib/haptics"
 
 /**
  * A failed read with nothing to show in its place: say what failed and offer
@@ -44,12 +45,21 @@ export function InlineError({
   onRetry,
   retryLabel = "Try again",
   className,
+  save = false,
 }: {
   children: ReactNode
   onRetry?: () => void
   retryLabel?: string
   className?: string
+  /**
+   * This line reports a failed WRITE the person asked for: on the iOS app it
+   * also plays the error haptic when it appears (src/lib/haptics.ts). Off by
+   * default — a failed read, or a background save nobody tapped, stays silent;
+   * the owner asked for haptics kept to a minimum.
+   */
+  save?: boolean
 }) {
+  useSaveFailedHaptic(save && (typeof children === "string" ? children : true))
   return (
     <div role="alert" className={cn("text-[0.8125rem] font-medium leading-snug", className)} style={{ color: INLINE_ERROR_COLOR }}>
       {children}

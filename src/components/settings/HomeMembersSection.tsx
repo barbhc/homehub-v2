@@ -26,6 +26,7 @@ import {
   type HomeInvite,
   type HomeMember,
 } from "@/modules/home"
+import { useSaveFailedHaptic } from "@/lib/haptics"
 
 type Props = {
   homeId: string
@@ -107,6 +108,7 @@ export function HomeMembersSection({ homeId }: Props) {
   // Every one of these used to be swallowed: the handlers keyed off `res.data`
   // and did nothing at all on `res.error`.
   const [actionError, setActionError] = useState<string | null>(null)
+  useSaveFailedHaptic(actionError)
   /** The clock the invites' "expires in Nd" counts from, read when the list
    *  lands rather than on every render (react-hooks/purity). */
   const [readAt, setReadAt] = useState(() => Date.now())

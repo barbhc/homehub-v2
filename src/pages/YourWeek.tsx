@@ -8,6 +8,7 @@ import { useWeekReminders, weekChip } from "@/hooks/useWeekReminders"
 import { buyFirstRows, type BuyFirstRow } from "@/lib/buyFirst"
 import { TIER, type Tier, shortDate } from "@/lib/redesign/tokens"
 import { addDays, localToday } from "../../shared/dates/calendar"
+import { useSaveFailedHaptic } from "@/lib/haptics"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -40,6 +41,7 @@ export default function YourWeek() {
   const buyFirst = useMemo(() => buyFirstRows(thisWeek, data?.shopping ?? []), [thisWeek, data])
 
   const [haveError, setHaveError] = useState<string | null>(null)
+  useSaveFailedHaptic(haveError)
   const markHave = async (row: BuyFirstRow) => {
     if (!homeId) return
     setHaveError(null)

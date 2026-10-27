@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import type { CareNote } from "@/integrations/types"
 import { isBlankNote, type NoteIdea } from "@/lib/notes"
 import { IdeaChips, SharedLine } from "./NoteParts"
+import { useSaveFailedHaptic } from "@/lib/haptics"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 
@@ -39,6 +40,7 @@ export function NoteComposer({
   const [picked, setPicked] = useState<NoteIdea | null>(startIdea ?? null)
   const [busy, setBusy] = useState<"save" | "delete" | null>(null)
   const [error, setError] = useState<string | null>(null)
+  useSaveFailedHaptic(error)
   const area = useRef<HTMLTextAreaElement>(null)
 
   const pick = (idea: NoteIdea) => {

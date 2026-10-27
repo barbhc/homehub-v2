@@ -8,6 +8,7 @@ import { uploadItemPhoto } from "@/modules/inventory/services/storageService"
 import { PhotoSearchSheet } from "@/components/inventory/PhotoSearchSheet"
 import { useStorageUrl } from "@/hooks/useStorageUrl"
 import { cn } from "@/lib/utils"
+import { useSaveFailedHaptic } from "@/lib/haptics"
 
 const INK = "var(--hh-ink)", TEAL = "var(--hh-teal)"
 // Frosted surface so the controls stay legible over both the empty gradient and
@@ -52,6 +53,7 @@ export function ItemPhoto({ item, homeId, Glyph, onItemUpdate, className, glyphC
   const { user } = useAuth()
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  useSaveFailedHaptic(error)
   const [searchOpen, setSearchOpen] = useState(false)
 
   const photoUrl = useStorageUrl(item.photo_storage_ref)

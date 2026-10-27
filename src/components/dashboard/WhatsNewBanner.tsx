@@ -119,7 +119,7 @@ export function WhatsNewBanner({ userId }: WhatsNewBannerProps) {
               ))}
             </ul>
           )}
-          {dismissError && <InlineError className="mt-2">{dismissError}</InlineError>}
+          {dismissError && <InlineError save className="mt-2">{dismissError}</InlineError>}
         </div>
         <button
           type="button"

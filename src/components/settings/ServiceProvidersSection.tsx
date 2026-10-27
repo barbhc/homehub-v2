@@ -139,7 +139,7 @@ export function ServiceProvidersSection({ homeId }: Props) {
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
             <>
-              {removeError && <InlineError className="mb-3">{removeError}</InlineError>}
+              {removeError && <InlineError save className="mb-3">{removeError}</InlineError>}
               {loadFailed ? (
                 <InlineError className="mb-4" onRetry={reload}>Couldn&apos;t load your service providers.</InlineError>
               ) : providers.length === 0 ? (

@@ -102,7 +102,7 @@ export function ProfileCompletionBanner({ homeId }: { homeId: string }) {
               Not now
             </button>
           </div>
-          {dismissError && <InlineError className="mt-2.5">{dismissError}</InlineError>}
+          {dismissError && <InlineError save className="mt-2.5">{dismissError}</InlineError>}
         </div>
         <button
           type="button"

@@ -21,6 +21,7 @@ import type { ScheduleType, TaskTemplate } from "@/integrations/types"
 import { CATEGORIES, categoryStatus, type Category, type FactKey } from "./homeSetupCategories"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { useIsCurrent } from "@/hooks/useIsCurrent"
+import { useSaveFailedHaptic } from "@/lib/haptics"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const SURFACE = "var(--hh-surface)", LINE = "var(--hh-line)"
@@ -233,6 +234,7 @@ function CategoryQuestions({ homeId, category, facts, onSave, onDone }: {
   const [draft, setDraft] = useState<CareFacts>(facts)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  useSaveFailedHaptic(error)
   const building = category.building ? !!draft[category.building] : false
   const isShown = useIsCurrent(homeId)
 
@@ -294,6 +296,7 @@ function CategoryQuestions({ homeId, category, facts, onSave, onDone }: {
 function AddAll({ suggestions, onAdd }: { suggestions: Suggestion[]; onAdd: (s: Suggestion) => Promise<{ error: { message: string } | null }> }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  useSaveFailedHaptic(error)
   const run = async () => {
     setBusy(true); setError(null)
     for (const s of suggestions) {
@@ -316,6 +319,7 @@ function CustomTask({ homeId, onAdded }: { homeId: string | null; onAdded: () =>
   const [cadence, setCadence] = useState<ScheduleType>("annual")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  useSaveFailedHaptic(error)
   const [added, setAdded] = useState<string | null>(null)
   const isShown = useIsCurrent(homeId)
   const submit = async () => {

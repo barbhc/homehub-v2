@@ -310,7 +310,7 @@ export function RefinedItemDetail({
               )}
             </div>
           )}
-          {identityError && <InlineError className="mt-1.5">{identityError}</InlineError>}
+          {identityError && <InlineError save className="mt-1.5">{identityError}</InlineError>}
           <div className="mt-3 flex flex-wrap gap-2">
             {onEditRoom ? (
               // Tappable: the room is the one basic fact people want to fix on
@@ -485,7 +485,7 @@ export function RefinedItemDetail({
             </button>
           </p>
         )}
-        {lookupError && <InlineError className="px-1">{lookupError}</InlineError>}
+        {lookupError && <InlineError save className="px-1">{lookupError}</InlineError>}
 
         {/* Warranty — status-first; self-hides when nothing is tracked */}
         <WarrantyPanel item={item} homeId={homeId} onEdit={onEditDetails} onItemUpdate={onItemUpdate} m />
