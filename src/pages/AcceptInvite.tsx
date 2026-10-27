@@ -177,7 +177,7 @@ export default function AcceptInvite() {
 
       <div className="mt-6 flex flex-col gap-2">
         <AuthCTA onClick={handleAccept}>Join {homeName} <ArrowRightIcon size={18} /></AuthCTA>
-        <button onClick={() => navigate(user ? "/home" : "/")} className="w-full py-2 text-[15px] font-semibold" style={{ color: AUTH.sub }}>Not now</button>
+        <button onClick={() => navigate(user ? "/home" : "/")} className="hit-44 w-full py-2 text-[15px] font-semibold" style={{ color: AUTH.sub }}>Not now</button>
       </div>
     </AuthScreen>
   )

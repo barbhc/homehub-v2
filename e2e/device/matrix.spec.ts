@@ -179,6 +179,11 @@ for (const vp of VIEWPORTS) {
           //
           // The count is printed so the gap has a number attached rather than
           // being a vague "we should look at tap targets some time".
+          //
+          // This measures BOXES, so it still lists controls that are drawn
+          // small on purpose and take a 44pt tap through the `hit-44` slop
+          // (src/index.css). The 44pt bar itself IS gated — by where a finger
+          // lands, not by box size — in hit-targets.spec.ts.
           if (small.length) {
             const list = small.map((t) => `${t.label} (${t.w}×${t.h})`).join(", ")
             console.log(`[devices:${vp.name}:${p.name}] ${small.length} control(s) under 44×44: ${list}`)

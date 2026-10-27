@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import { cn } from "@/lib/utils"
 import { TEAL } from "./shared"
 
 /**
@@ -16,7 +17,7 @@ import { TEAL } from "./shared"
 export function HiddenCleaningLink({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null
   return (
-    <Link to="/clean" className={className} style={{ color: "var(--hh-sub)" }}>
+    <Link to="/clean" className={cn("hit-44", className)} style={{ color: "var(--hh-sub)" }}>
       {count} cleaning job{count === 1 ? " for your items lives" : "s for your items live"} in <b style={{ color: TEAL }}>Deep Clean</b> →
     </Link>
   )

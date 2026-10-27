@@ -100,7 +100,7 @@ export function ReviewItemTasksButton({homeId,
           type="button"
           onClick={() => void start()}
           disabled={loading}
-          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold disabled:opacity-60"
+          className="hit-44 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11.5px] font-bold disabled:opacity-60"
           style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
         >
           {loading && <Loader2Icon className="size-3 animate-spin" />}

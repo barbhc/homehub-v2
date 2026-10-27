@@ -138,7 +138,7 @@ export function FindManualCard({
             type="button"
             onClick={() => void search()}
             disabled={disabled}
-            className="self-start rounded-lg border px-3 py-1.5 text-[12.5px] font-bold"
+            className="hit-44 self-start rounded-lg border px-3 py-1.5 text-[12.5px] font-bold"
             style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
           >
             Try the search
@@ -156,14 +156,14 @@ export function FindManualCard({
       {state === "error" && (
         <div className="text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
           Couldn't search just now — you can still upload or paste a link below.{" "}
-          <button type="button" onClick={() => void search()} className="font-semibold underline" style={{ color: "var(--hh-teal)" }}>
+          <button type="button" onClick={() => void search()} className="hit-44 font-semibold underline" style={{ color: "var(--hh-teal)" }}>
             Try again
           </button>{" "}
           <a
             href={manualSearchUrl(brand, model)}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold underline"
+            className="hit-44 font-semibold underline"
             style={{ color: "var(--hh-teal)" }}
           >
             Search Google for this manual →
@@ -269,7 +269,7 @@ export function FindManualCard({
                           type="button"
                           disabled={disabled}
                           onClick={() => setPreview(c)}
-                          className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[11.5px] font-semibold"
+                          className="hit-44 inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[11.5px] font-semibold"
                           style={{ borderColor: "var(--hh-line2)", color: "var(--hh-ink)" }}
                         >
                           <EyeIcon className="size-3" /> Preview
@@ -278,7 +278,7 @@ export function FindManualCard({
                           type="button"
                           disabled={disabled}
                           onClick={() => onPick(c.url, c.title)}
-                          className="rounded-md px-2.5 py-1 text-[11.5px] font-bold text-white"
+                          className="hit-44 rounded-md px-2.5 py-1 text-[11.5px] font-bold text-white"
                           style={{ background: "var(--hh-teal-fill)" }}
                         >
                           Use this
@@ -292,7 +292,7 @@ export function FindManualCard({
                 <button
                   type="button"
                   onClick={() => void search()}
-                  className="text-[11.5px] font-semibold underline"
+                  className="hit-44 text-[11.5px] font-semibold underline"
                   style={{ color: "var(--hh-sub)" }}
                 >
                   None of these match
@@ -301,7 +301,7 @@ export function FindManualCard({
                   href={manualSearchUrl(brand, model)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11.5px] font-semibold underline"
+                  className="hit-44 text-[11.5px] font-semibold underline"
                   style={{ color: "var(--hh-sub)" }}
                 >
                   Search Google for this manual →

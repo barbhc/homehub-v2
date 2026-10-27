@@ -406,7 +406,7 @@ export function HomeProfileSection({ homeId }: Props) {
                       aria-pressed={selected}
                       className={cn(
                         "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors inline-flex items-center",
-                        "min-h-11 md:min-h-8",
+                        "min-h-11 md:pointer-fine:min-h-8",
                         selected
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground",
@@ -487,7 +487,7 @@ export function HomeProfileSection({ homeId }: Props) {
                 <ul className="space-y-1">
                   {offer.tasks.map((t) => (
                     <li key={t.taskTemplateId}>
-                      <label className="flex min-h-11 cursor-pointer items-start gap-2.5 py-1 md:min-h-8">
+                      <label className="flex min-h-11 cursor-pointer items-start gap-2.5 py-1 md:pointer-fine:min-h-8">
                         <input
                           type="checkbox"
                           checked={offer.checked.has(t.taskTemplateId)}

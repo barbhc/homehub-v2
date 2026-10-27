@@ -69,7 +69,7 @@ export function DateField({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className={cn(
-          "flex h-11 w-full items-center justify-between rounded-md border px-3 text-base shadow-xs transition-colors md:h-9 md:text-sm",
+          "hit-44 flex h-11 w-full items-center justify-between rounded-md border px-3 text-base shadow-xs transition-colors md:h-9 md:text-sm",
           open ? "border-primary" : "border-input",
           value ? "text-foreground" : "text-muted-foreground"
         )}

@@ -204,7 +204,10 @@ function Band({ tone, title, count, children, onFirstOpen, defaultOpen = true, n
         type="button"
         onClick={() => { setOpen((v) => { if (!v) onFirstOpen?.(); return !v }) }}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left"
+        // py-[13px], not py-2.5: the card clips (overflow-hidden), so the
+        // band's own height has to hold a 44pt tap. 39px → 45px (44 exactly
+        // lost the bottom pixel to rounding).
+        className="flex w-full items-center gap-2 px-3.5 py-[13px] text-left"
         style={{ background: t.bg }}
       >
         <span className="text-[12.5px] font-extrabold tracking-[-0.01em]" style={{ color: t.fg }}>{title}</span>
@@ -392,7 +395,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                  came from the manual when it didn't. */
               <div className="mt-1 flex items-center gap-2 text-[11.5px]" style={{ color: FAINT }}>
                 <span>Added from typical care{entryByKey(libraryKeyOf(t)!)?.source ? ` · ${entryByKey(libraryKeyOf(t)!)!.source}` : ""}</span>
-                <button type="button" onClick={(e) => { e.stopPropagation(); void archiveLibraryTask() }} className="font-semibold" style={{ color: TEAL }}>Not this one</button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); void archiveLibraryTask() }} className="hit-44 font-semibold" style={{ color: TEAL }}>Not this one</button>
               </div>
             )}
           </div>
@@ -409,7 +412,7 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
         <span className="flex w-[14px] shrink-0 justify-center">
           {reminds && <BellRingIcon className="size-[14px]" style={{ color: TEAL }} aria-label="Notifies you" />}
         </span>
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="hit-44 inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEAL }}>
           {open ? "Hide" : "See how"}{open ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
         </button>
       </div>
@@ -523,7 +526,7 @@ function UsageTipRows({ tips, taskTips, onOpenManualPage, canOpenManual }: {
           {r.body && <p className="mt-0.5 text-[12.5px] leading-snug" style={{ color: SUB }}>{r.body}</p>}
           {r.page != null && (
             canOpenManual && onOpenManualPage ? (
-              <button type="button" onClick={() => onOpenManualPage(r.page!)} className="mt-1 text-[11.5px] font-bold" style={{ color: TEAL }}>
+              <button type="button" onClick={() => onOpenManualPage(r.page!)} className="hit-44 mt-1 text-[11.5px] font-bold" style={{ color: TEAL }}>
                 Manual p.{r.page}
               </button>
             ) : (
@@ -589,10 +592,25 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
           const triggers = parseTriggers(t.re_check_triggers ?? [])
           return (
             <div key={t.task_template_id}>
-              <div className="flex items-start gap-2.5">
-                <button type="button" onClick={() => toggleDone(t)} disabled={loading} aria-label={done ? "Mark not done" : "Mark done"} className="mt-px shrink-0 disabled:opacity-50" style={{ color: done ? TEAL : FAINT }}>
+              {/* The whole step is the control: circle, title and, once done,
+                  the redo mark. Steps sit on a 33px pitch, so a 44pt square per
+                  circle overlapped the next step's (a tap just under step 1
+                  toggled step 2). Instead each row takes the full width and
+                  exactly its own band: its height plus half the 12px gap above
+                  and below. The redo mark used to be a separate 14px button
+                  doing the same toggle; it is now part of the row, so "redo" is
+                  a tap anywhere on a done step. */}
+              <button
+                type="button"
+                onClick={() => toggleDone(t)}
+                disabled={loading}
+                aria-label={`${done ? "Mark not done" : "Mark done"}: ${t.title}`}
+                data-hit-dense="install steps sit on a 33px pitch; each row takes its own band"
+                className="hit-44 flex w-full items-start gap-2.5 text-left [--hit-h:calc(100%_+_12px)] disabled:opacity-50"
+              >
+                <span className="mt-px shrink-0" style={{ color: done ? TEAL : FAINT }}>
                   {done ? <CheckCircle2 className="size-5" /> : <Circle className="size-5" />}
-                </button>
+                </span>
                 <span className="flex-1 text-[13px] leading-snug" style={{ color: done ? FAINT : "var(--hh-ink-soft)", textDecoration: done ? "line-through" : undefined }}>
                   {t.title}
                   {optional && (
@@ -602,11 +620,11 @@ function SetupBody({ tasks, homeId, itemUnitId, m }: {
                   )}
                 </span>
                 {done && (
-                  <button type="button" onClick={() => toggleDone(t)} disabled={loading} aria-label="Mark as needing redo" className="mt-px shrink-0 disabled:opacity-50" style={{ color: FAINT }}>
+                  <span className="mt-px shrink-0" style={{ color: FAINT }} aria-hidden="true">
                     <RotateCcw className="size-3.5" />
-                  </button>
+                  </span>
                 )}
-              </div>
+              </button>
               {triggers.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[30px]">
                   {triggers.map((tr) => {
@@ -656,10 +674,10 @@ function VariantArea({ options, variant, showAll, inferred, onPick, onToggleShow
         <span className="flex-1 text-[12.5px] leading-snug" style={{ color: "var(--hh-ink-soft)" }}>
           {showAll ? "Showing care for all models" : <>Showing care for your <b className="font-bold">{label}</b> model</>}
         </span>
-        <button type="button" onClick={onToggleShowAll} className="shrink-0 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEALD }}>
+        <button type="button" onClick={onToggleShowAll} className="hit-44 shrink-0 whitespace-nowrap text-[12.5px] font-bold" style={{ color: TEALD }}>
           {showAll ? `${label} only` : "Show all"}
         </button>
-        <button type="button" onClick={onChange} className="shrink-0 whitespace-nowrap text-[11.5px] font-semibold" style={{ color: SUB }}>Change</button>
+        <button type="button" onClick={onChange} className="hit-44 shrink-0 whitespace-nowrap text-[11.5px] font-semibold" style={{ color: SUB }}>Change</button>
       </div>
     )
   }
@@ -1098,7 +1116,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
                on the rows' own inset and type, and the link says where it goes. */
             <div className="border-t px-4 py-2.5 text-[12px] leading-snug" style={{ borderColor: LINE, color: SUB }}>
               These live in your cleaning guides — nothing here reminds you.{" "}
-              <Link to="/clean" className="font-bold" style={{ color: TEAL }}>
+              <Link to="/clean" className="hit-44 font-bold" style={{ color: TEAL }}>
                 Open guides ›
               </Link>
             </div>

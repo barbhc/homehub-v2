@@ -43,7 +43,7 @@ function SourceChip({ source: s }: { source: ChatSource }) {
 
   if (isWeb && s.url) {
     return (
-      <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
+      <a href={s.url} target="_blank" rel="noopener noreferrer" className="hit-44 hover:opacity-80 transition-opacity">
         {chip}
       </a>
     )
@@ -87,6 +87,7 @@ export function ChatMessageBubble({
   const isUser = message.role === "user"
   /** Whitespace is not an answer — a finished bubble of blanks is an empty one. */
   const hasText = !!message.content?.trim()
+  const offerWeb = !isUser && !message.isStreaming && !message.isError && hasText && !!onWebSearch && shouldOfferWebSearch(message)
   /** The item a save goes to: the one the answer was about, else the scope
    *  filter's item. The page falls back the same way. */
   const saveItemId =
@@ -131,7 +132,7 @@ export function ChatMessageBubble({
           <button
             type="button"
             onClick={() => onRetry(message.id)}
-            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border rounded-md px-2.5 py-1 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors mt-1"
+            className="hit-44 flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border rounded-md px-2.5 py-1 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors mt-1"
           >
             <RotateCcwIcon className="size-3" aria-hidden />
             Try again
@@ -149,16 +150,14 @@ export function ChatMessageBubble({
             {message.sources.map((s, i) => <SourceChip key={i} source={s} />)}
           </div>
         )}
-        {!isUser &&
-          !message.isStreaming &&
-          !message.isError &&
-          hasText &&
-          onWebSearch &&
-          shouldOfferWebSearch(message) && (
+        {offerWeb && onWebSearch && (
             <button
               type="button"
               onClick={() => onWebSearch(message.id)}
-              className="flex items-center gap-1.5 text-xs font-medium text-[var(--hh-web-ink)] border border-[var(--hh-web-line)] rounded-md px-2.5 py-1 hover:bg-[var(--hh-web-soft)] transition-colors mt-1"
+              // Grows UP (into the answer above). "Save" sits right under it,
+              // 8px away (the column's gap-1 plus Save's mt-1); each takes 2px
+              // of that gap, so the two never meet whatever the spacing.
+              className="hit-44-up [--hit-out:2px] flex items-center gap-1.5 text-xs font-medium text-[var(--hh-web-ink)] border border-[var(--hh-web-line)] rounded-md px-2.5 py-1 hover:bg-[var(--hh-web-soft)] transition-colors mt-1"
             >
               <GlobeIcon className="size-3" aria-hidden />
               Search the web for more
@@ -173,7 +172,9 @@ export function ChatMessageBubble({
             <button
               type="button"
               onClick={() => onSaveFaq(precedingQuestion, message.content, saveItemId)}
-              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border rounded-md px-2.5 py-1 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors mt-1"
+              // Grows DOWN into the 16px before the next message, and up only
+              // 2px into the gap to "Search the web" when that shows.
+              className="hit-44-down [--hit-out:2px] flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border rounded-md px-2.5 py-1 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors mt-1"
             >
               <BookmarkIcon className="size-3" aria-hidden />
               {/* Plain words over our noun (audit 2026-10-15): where it goes

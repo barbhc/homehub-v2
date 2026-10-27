@@ -41,13 +41,13 @@ export function HouseNotesCard({ notes, error }: { notes: CareNote[] | null; err
 export function RoomNotesLink({ roomId, roomName, count }: { roomId: string; roomName: string; count: number }) {
   const to = `/inventory/rooms/${roomId}/notes`
   return count > 0 ? (
-    <Link to={to} aria-label={`${count} ${count === 1 ? "note" : "notes"} for ${roomName}`} className="inline-flex shrink-0 items-center gap-1 text-[12.5px] font-semibold normal-case tracking-normal" style={{ color: TEAL }}>
+    <Link to={to} aria-label={`${count} ${count === 1 ? "note" : "notes"} for ${roomName}`} className="hit-44 inline-flex shrink-0 items-center gap-1 text-[12.5px] font-semibold normal-case tracking-normal" style={{ color: TEAL }}>
       <StickyNoteIcon className="size-[13px]" aria-hidden />
       {count} {count === 1 ? "note" : "notes"}
       <ChevronRightIcon className="size-3" aria-hidden />
     </Link>
   ) : (
-    <Link to={to} aria-label={`Add a note for ${roomName}`} className="inline-flex shrink-0 items-center gap-1 text-[12.5px] font-semibold normal-case tracking-normal" style={{ color: FAINT }}>
+    <Link to={to} aria-label={`Add a note for ${roomName}`} className="hit-44 inline-flex shrink-0 items-center gap-1 text-[12.5px] font-semibold normal-case tracking-normal" style={{ color: FAINT }}>
       <PlusIcon className="size-[13px]" strokeWidth={2.2} aria-hidden />
       Add a note
     </Link>

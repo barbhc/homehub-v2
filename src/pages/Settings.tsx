@@ -957,7 +957,7 @@ export default function Settings() {
                 role="radio"
                 aria-checked={active}
                 onClick={() => setAppearance(value)}
-                className="rounded-lg px-4 py-1.5 text-[13px] font-semibold transition-colors"
+                className="hit-44 rounded-lg px-4 py-1.5 text-[13px] font-semibold transition-colors"
                 style={
                   active
                     ? { background: "var(--hh-surface)", color: "var(--hh-teal)", boxShadow: "0 1px 2px rgba(15,23,42,0.08)" }
@@ -1119,13 +1119,15 @@ export default function Settings() {
                       ) : (
                         <button
                           type="button"
-                          className="font-medium text-sm text-left hover:text-primary transition-colors"
+                          className="hit-44 font-medium text-sm text-left hover:text-primary transition-colors"
                           onClick={() => handleStartEditRoom(room)}
                         >
                           {room.name}
                         </button>
                       )}
-                      <div className="flex items-center gap-2">
+                      {/* gap-3 on a touch iPad: at md+ the icon buttons are 32px,
+                          and 8px apart their 44pt taps (hit-44) would overlap. */}
+                      <div className="flex items-center gap-2 md:pointer-coarse:gap-3">
                         {(roomItemCounts[room.room_id] ?? 0) > 0 && (
                           <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
                             {roomItemCounts[room.room_id]} item{roomItemCounts[room.room_id] !== 1 ? "s" : ""}
@@ -1134,7 +1136,7 @@ export default function Settings() {
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 hover:text-primary transition-opacity"
+                          className="text-muted-foreground sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 sm:pointer-fine:focus-visible:opacity-100 hover:text-primary transition-opacity"
                           onClick={() => handleStartEditRoom(room)}
                           aria-label={`Rename ${room.name}`}
                         >
@@ -1143,7 +1145,7 @@ export default function Settings() {
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 hover:text-destructive transition-opacity"
+                          className="text-muted-foreground sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 sm:pointer-fine:focus-visible:opacity-100 hover:text-destructive transition-opacity"
                           onClick={() => setDeleteConfirmRoom(room)}
                           aria-label={`Delete ${room.name}`}
                         >
@@ -1267,7 +1269,7 @@ export default function Settings() {
                 aria-checked={autoFindManuals}
                 aria-label="Find manuals automatically"
                 onClick={() => setAutoFindManuals(!autoFindManuals)}
-                className="relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors"
+                className="hit-44 relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors"
                 // Off track: --hh-line2 was 1.3:1 against the card, so the switch's
                 // off state was nearly invisible (WCAG 1.4.11 wants 3:1). Same
                 // token as the supply switch.
@@ -1367,13 +1369,16 @@ export default function Settings() {
                       {/* HH-154: per-row actions. Without these a stuck manual
                           was permanent — "Rescan All" was the only lever and it
                           re-ran every manual to fix one. */}
+                      {/* Rows sit on a 39px pitch: each action takes 44px across
+                          but only its own row's band (38px) down, so a tap is
+                          never shared with the row above or below. */}
                       <span className="flex shrink-0 items-center gap-2.5 text-xs font-bold" style={{ color: "var(--hh-teal)" }}>
                         {/* A read waiting to be saved offers its review, not
                             another read; everything else can be read again —
                             and either way it ends in the item page's review,
                             never in a save from here. */}
                         {state?.status === "ready" || (!state && awaitingReview) ? (
-                          <button type="button" onClick={() => handleOpenReview(m)}>
+                          <button type="button" onClick={() => handleOpenReview(m)} className="hit-44 [--hit-h:38px]" data-hit-dense="manual rows sit on a 39px pitch; each action takes its row's band">
                             Review
                           </button>
                         ) : (
@@ -1381,7 +1386,8 @@ export default function Settings() {
                             type="button"
                             onClick={() => void handleRescanOne(m)}
                             disabled={rescanRunning || state?.status === "scanning"}
-                            className="disabled:opacity-40"
+                            className="hit-44 [--hit-h:38px] disabled:opacity-40"
+                            data-hit-dense="manual rows sit on a 39px pitch; each action takes its row's band"
                           >
                             Rescan
                           </button>
@@ -1390,7 +1396,8 @@ export default function Settings() {
                           type="button"
                           onClick={() => void handleRemoveManual(m)}
                           disabled={removingManual === m.manual_id}
-                          className="disabled:opacity-40"
+                          className="hit-44 [--hit-h:38px] disabled:opacity-40"
+                          data-hit-dense="manual rows sit on a 39px pitch; each action takes its row's band"
                           style={{ color: "var(--hh-clay)" }}
                         >
                           {removingManual === m.manual_id ? "Removing…" : "Remove"}
@@ -1501,7 +1508,7 @@ export default function Settings() {
           <p className="text-sm text-muted-foreground mt-1">
             Something broken or confusing? This opens an email with your app version filled in.
             You can also write to{" "}
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="underline underline-offset-2">
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="hit-44 underline underline-offset-2">
               {SUPPORT_EMAIL}
             </a>{" "}
             directly.
@@ -1729,7 +1736,7 @@ export default function Settings() {
                               ? `${row.label} (always on)`
                               : `${row.label} push ${on ? "on" : "off"}`
                           }
-                          className="flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
+                          className="hit-44 flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
                           style={{
                             border: `1.5px solid ${on ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`,
                             background: on ? "var(--hh-teal-fill)" : "var(--hh-surface)",
@@ -1820,7 +1827,7 @@ export default function Settings() {
                       onClick={() => setWeeklyDigest({ enabled: !notifPrefs.weekly_digest.enabled })}
                       aria-pressed={notifPrefs.weekly_digest.enabled}
                       aria-label={`Weekly summary push ${notifPrefs.weekly_digest.enabled ? "on" : "off"}`}
-                      className="flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
+                      className="hit-44 flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
                       style={{
                         border: `1.5px solid ${notifPrefs.weekly_digest.enabled ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`,
                         background: notifPrefs.weekly_digest.enabled ? "var(--hh-teal-fill)" : "var(--hh-surface)",

@@ -86,7 +86,7 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
             type="button"
             onClick={() => openNew(null)}
             aria-label="Add a note"
-            className="shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"
+            className="hit-44 shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-bold"
             style={{ borderColor: "var(--hh-line2)", color: TEAL }}
           >
             Add
@@ -99,7 +99,7 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
       {error ? (
         <div role="alert" className={`flex items-center gap-2 text-[13px] ${CARD}`} style={{ background: SURFACE, color: CLAY }}>
           <span className="min-w-0 flex-1">Couldn&apos;t load notes: {error}</span>
-          <button type="button" onClick={reload} className="shrink-0 font-bold underline underline-offset-2">Try again</button>
+          <button type="button" onClick={reload} className="hit-44 shrink-0 font-bold underline underline-offset-2">Try again</button>
         </div>
       ) : loading ? (
         <div className={`text-[13px] ${CARD}`} style={{ background: SURFACE, color: FAINT }}>Loading notes…</div>

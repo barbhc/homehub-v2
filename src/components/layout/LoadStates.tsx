@@ -56,7 +56,7 @@ export function InlineError({
       {onRetry && (
         <>
           {" "}
-          <button type="button" onClick={onRetry} className="font-bold underline underline-offset-2">
+          <button type="button" onClick={onRetry} className="hit-44 font-bold underline underline-offset-2">
             {retryLabel}
           </button>
         </>
@@ -82,7 +82,7 @@ export function StaleDataNote({ onRetry, className }: { onRetry: () => void; cla
       <span className="min-w-0 flex-1 py-1.5 text-[12.5px]" style={{ color: "var(--hh-sub)" }}>
         Showing your last saved view — couldn&apos;t reach the server.
       </span>
-      <button type="button" onClick={onRetry} className="min-h-11 shrink-0 text-[12.5px] font-bold" style={{ color: "var(--hh-teal)" }}>
+      <button type="button" onClick={onRetry} className="hit-44 min-h-11 shrink-0 text-[12.5px] font-bold" style={{ color: "var(--hh-teal)" }}>
         Retry
       </button>
     </div>

@@ -111,7 +111,7 @@ function PickRow({ title, itemName, onAdd }: { title: string; itemName: string |
         <span className="block truncate text-[14px] font-medium" style={{ color: INK }}>{title}</span>
         {itemName && <span className="block truncate text-[12px]" style={{ color: SUB }}>{itemName}</span>}
       </span>
-      <button type="button" onClick={onAdd} aria-label={`Add ${title}`} className="shrink-0 text-[12.5px] font-bold" style={{ color: TEAL }}>Add</button>
+      <button type="button" onClick={onAdd} aria-label={`Add ${title}`} className="hit-44 shrink-0 text-[12.5px] font-bold" style={{ color: TEAL }}>Add</button>
     </div>
   )
 }
@@ -318,7 +318,7 @@ export default function YourReminders() {
     <PageContainer className="pb-28">
       <div className="mx-auto w-full max-w-[460px] lg:max-w-[560px]">
         <header className="flex flex-col gap-0.5 pt-2 pb-3">
-          <Link to="/settings#reminders" className="inline-flex items-center gap-0.5 text-[13px] font-semibold" style={{ color: SUB }}>
+          <Link to="/settings#reminders" className="hit-44 inline-flex items-center gap-0.5 text-[13px] font-semibold" style={{ color: SUB }}>
             <ChevronLeftIcon className="size-[15px]" /> Settings
           </Link>
           <h1 className="mt-1.5 text-[19px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your reminders</h1>
@@ -360,7 +360,7 @@ export default function YourReminders() {
             </button>
             <div className="text-center text-[12px]" style={{ color: FAINT }}>
               Takes a few seconds. You&apos;ll edit the list next. ·{" "}
-              <button type="button" onClick={skipToPick} className="font-semibold" style={{ color: TEAL }}>Skip — pick from your tasks</button>
+              <button type="button" onClick={skipToPick} className="hit-44 font-semibold" style={{ color: TEAL }}>Skip — pick from your tasks</button>
             </div>
           </div>
         )}
@@ -429,7 +429,7 @@ export default function YourReminders() {
                     {r.error && (
                       <div role="alert" className="mt-2 flex items-center gap-2 pl-[30px] text-[12.5px]" style={{ color: CLAY }}>
                         <span>{r.error}</span>
-                        <button type="button" onClick={() => void retryRow(r)} className="font-bold underline underline-offset-2">Retry</button>
+                        <button type="button" onClick={() => void retryRow(r)} className="hit-44 font-bold underline underline-offset-2">Retry</button>
                       </div>
                     )}
                   </div>

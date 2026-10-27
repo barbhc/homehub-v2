@@ -72,7 +72,7 @@ function ActionLink({
       href={href}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
-      className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[13.5px] font-semibold transition-colors"
+      className="hit-44 inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[13.5px] font-semibold transition-colors"
       style={
         soft
           ? { background: "var(--hh-teal-wash)", color: TEAL }
@@ -95,7 +95,7 @@ function Field({ label, value, mono, link }: { label: string; value: string; mon
           href={link}
           target={link.startsWith("http") ? "_blank" : undefined}
           rel={link.startsWith("http") ? "noopener noreferrer" : undefined}
-          className="mt-1 block break-words text-[14px] font-medium hover:underline"
+          className="hit-44 mt-1 block break-words text-[14px] font-medium hover:underline"
           style={{ color: TEAL }}
         >
           {value}
@@ -150,7 +150,9 @@ function ProviderDetail({
             onClick={onDelete}
             disabled={deleting}
             aria-label={`Delete ${p.name}`}
-            className="text-muted-foreground hover:text-foreground"
+            // Grows RIGHT, into the card's padding: on an iPad this icon is
+            // 32px and sits 4px from Edit, too close for two centred 44pt taps.
+            className="hit-44-right text-muted-foreground hover:text-foreground"
           >
             {deleting ? <Loader2Icon className="size-3.5 animate-spin" /> : <Trash2Icon className="size-3.5" />}
           </Button>

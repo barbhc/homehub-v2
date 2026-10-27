@@ -82,7 +82,7 @@ function LoadingStatus({ slow, onRetry }: { slow: boolean; onRetry: () => void }
           style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)", color: SUB }}
         >
           <span className="min-w-0 flex-1 py-2">Still loading…</span>
-          <button type="button" onClick={onRetry} className="min-h-11 shrink-0 font-bold" style={{ color: TEAL }}>
+          <button type="button" onClick={onRetry} className="hit-44 min-h-11 shrink-0 font-bold" style={{ color: TEAL }}>
             Try again
           </button>
         </div>

@@ -19,7 +19,7 @@
  */
 import type { ReactNode } from "react"
 import { IdentifyStep, type IdentifyData } from "@/components/smart-add/IdentifyStep"
-import { PageContainer } from "@/components/layout"
+import { PageContainer, InlineError, StaleDataNote, LoadErrorState } from "@/components/layout"
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 import type { ItemUnit, Room } from "@/integrations/types"
@@ -122,6 +122,22 @@ export const SCENARIOS: { id: string; note: string; render: () => ReactNode }[] 
     id: "item-suggestions-none",
     note: "Lookup missed. Identical to an item that never searched.",
     render: () => itemPage(dishwasher()),
+  },
+  {
+    id: "load-states",
+    note: "The shared failure states, each with its retry: InlineError (the most-reused retry in the app), StaleDataNote and LoadErrorState. The hit-target audit taps all three.",
+    render: () => (
+      <PageContainer>
+        <div className="flex flex-col gap-6 py-4">
+          <InlineError onRetry={noop}>Couldn&apos;t load the details.</InlineError>
+          <InlineError onRetry={noop} className="rounded-xl border px-3.5 py-3">
+            Couldn&apos;t search just now — you can still upload or paste a link below.
+          </InlineError>
+          <StaleDataNote onRetry={noop} />
+          <LoadErrorState title="Couldn’t load your items" message="Check your connection and try again." onRetry={noop} />
+        </div>
+      </PageContainer>
+    ),
   },
   {
     id: "home-skeleton",

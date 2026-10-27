@@ -134,7 +134,7 @@ export function SupplyRows({
           <PartForm mode="add" initial={EMPTY_PART} onCancel={() => setAdding(false)} onSubmit={add} />
         </div>
       ) : (
-        <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1 self-start text-[12.5px] font-bold" style={{ color: TEAL }}>
+        <button type="button" onClick={() => setAdding(true)} className="hit-44 inline-flex items-center gap-1 self-start text-[12.5px] font-bold" style={{ color: TEAL }}>
           <PlusIcon className="size-3.5" strokeWidth={2.4} aria-hidden />
           {rows.length ? "Add another part" : "Add a part"}
         </button>

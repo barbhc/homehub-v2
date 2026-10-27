@@ -332,7 +332,7 @@ export function HomeMembersSection({ homeId }: Props) {
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 hover:text-destructive transition-opacity"
+                          className="text-muted-foreground sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 sm:pointer-fine:focus-visible:opacity-100 hover:text-destructive transition-opacity"
                           onClick={() => setRemoveTarget(m)}
                           aria-label={`Remove ${m.profile?.full_name ?? "member"}`}
                         >

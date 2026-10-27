@@ -51,7 +51,7 @@ export function LevelUnlockBanner({ derivedLevel }: { derivedLevel: UserLevel | 
         <button
           type="button"
           onClick={dismiss}
-          className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+          className="hit-44 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
           aria-label="Dismiss"
         >
           <XIcon className="size-4" />

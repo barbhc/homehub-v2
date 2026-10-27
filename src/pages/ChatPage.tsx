@@ -539,7 +539,7 @@ function AskForHome() {
                 type="button"
                 onClick={() => handleItemSelect(null)}
                 disabled={isStreaming}
-                className="text-[12.5px] font-semibold transition-colors hover:opacity-80 disabled:opacity-50"
+                className="hit-44 text-[12.5px] font-semibold transition-colors hover:opacity-80 disabled:opacity-50"
                 style={{ color: "var(--hh-faint)" }}
               >
                 Clear
@@ -563,13 +563,16 @@ function AskForHome() {
             </InlineError>
           )}
           {/* Suggestion chips above input (mobile — desktop uses the rail) */}
-          <div className="flex gap-2 px-4 pt-2 overflow-x-auto shrink-0 [&::-webkit-scrollbar]:hidden scrollbar-none lg:hidden">
+          {/* pb-[7px] -mb-[7px]: room inside the scroller for the chips' 44pt
+              taps (hit-44) without moving anything. A scroller clips — and
+              scrolls — whatever sticks out of its padding box. */}
+          <div className="flex gap-2 px-4 pt-2 pb-[7px] -mb-[7px] overflow-x-auto shrink-0 [&::-webkit-scrollbar]:hidden scrollbar-none lg:hidden">
             {suggestions.map((q) => (
               <button
                 key={q}
                 type="button"
                 onClick={() => handleSend(q)}
-                className="shrink-0 text-xs text-primary bg-primary/8 border border-primary/20 rounded-full px-3 py-1.5 hover:bg-primary/14 transition-colors whitespace-nowrap"
+                className="hit-44 shrink-0 text-xs text-primary bg-primary/8 border border-primary/20 rounded-full px-3 py-1.5 hover:bg-primary/14 transition-colors whitespace-nowrap"
               >
                 {q}
               </button>

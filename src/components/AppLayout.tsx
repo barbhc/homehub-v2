@@ -60,7 +60,7 @@ export function AppLayout() {
       <header className="hidden border-b border-[var(--hh-line)] md:block" style={{ background: "var(--hh-surface)" }}>
         <nav className="mx-auto flex h-[60px] max-w-6xl items-center gap-6 px-6">
           {/* Brand mark */}
-          <Link to="/home" className="flex items-center gap-2.5">
+          <Link to="/home" className="hit-44 flex items-center gap-2.5">
             <span className="flex size-8 items-center justify-center rounded-[10px]" style={{ background: "var(--hh-teal-fill)" }}>
               <HomeIcon className="size-[18px] text-white" strokeWidth={2.4} />
             </span>
@@ -79,7 +79,7 @@ export function AppLayout() {
                   to={to}
                   data-tour={tourId}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-[14px] font-semibold transition-colors",
+                    "hit-44 rounded-lg px-3 py-1.5 text-[14px] font-semibold transition-colors",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
                   )}
                 >
@@ -100,7 +100,7 @@ export function AppLayout() {
                   to={to}
                   data-tour={tourId}
                   className={cn(
-                    "hidden rounded-lg px-3 py-1.5 text-[14px] font-semibold transition-colors lg:block",
+                    "hit-44 hidden rounded-lg px-3 py-1.5 text-[14px] font-semibold transition-colors lg:block",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
                   )}
                 >
@@ -109,11 +109,15 @@ export function AppLayout() {
               )
             })}
           </div>
-          <div className="ml-auto flex items-center gap-1.5">
+          {/* On touch the cluster spaces out to gap-2 (and the avatar takes
+              2px more): 36px icons 6px apart are on a 42px pitch, too tight for
+              each to take a 44pt tap (hit-44) without the taps overlapping.
+              A mouse keeps the compact spacing. */}
+          <div className="ml-auto flex items-center gap-1.5 pointer-coarse:gap-2">
             {/* Search — items list carries the search UI */}
             <Link
               to="/inventory"
-              className="hidden size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)] lg:flex"
+              className="hit-44 hidden size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)] lg:flex"
               aria-label="Search"
               title="Search"
             >
@@ -130,7 +134,7 @@ export function AppLayout() {
             <button
               type="button"
               onClick={() => void openFeedback("problem")}
-              className="flex size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)]"
+              className="hit-44 flex size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)]"
               aria-label="Send feedback"
               title="Send feedback"
             >
@@ -139,7 +143,7 @@ export function AppLayout() {
             {/* Notifications — prefs live in Settings */}
             <Link
               to="/settings"
-              className="hidden size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)] lg:flex"
+              className="hit-44 hidden size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)] lg:flex"
               aria-label="Notifications"
               title="Notifications"
             >
@@ -149,7 +153,7 @@ export function AppLayout() {
               to="/settings"
               data-tour="nav-settings"
               className={cn(
-                "flex size-9 items-center justify-center rounded-full transition-colors",
+                "hit-44 flex size-9 items-center justify-center rounded-full transition-colors",
                 location.pathname === "/settings" ? "text-[var(--hh-teal)] bg-[var(--hh-teal-wash)]" : "text-[var(--hh-sub)] hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)]"
               )}
               aria-label="Settings"
@@ -160,7 +164,7 @@ export function AppLayout() {
             {/* Account avatar — signed-in user's initial */}
             <Link
               to="/settings"
-              className="flex size-8 items-center justify-center rounded-full text-[13px] font-bold text-white transition-opacity hover:opacity-90"
+              className="hit-44 flex size-8 items-center justify-center rounded-full text-[13px] font-bold text-white transition-opacity hover:opacity-90 pointer-coarse:ml-0.5"
               style={{ background: "var(--hh-teal-fill)" }}
               aria-label="Account"
               title="Account"

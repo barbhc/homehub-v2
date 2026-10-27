@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { XIcon } from "lucide-react"
 
 /**
  * A brief confirmation of something that just happened, with a way back.
@@ -55,7 +56,7 @@ export function UndoBar({
               onUndo()
               if (!actionLabel) onDismiss()
             }}
-            className="shrink-0 text-[13.5px] font-bold underline underline-offset-2"
+            className="hit-44 shrink-0 text-[13.5px] font-bold underline underline-offset-2"
             // Not --hh-teal-deep: that is a colour for light SURFACES, and on
             // the ink bar it was 2.19:1. --hh-accent-on-ink flips with the bar.
             style={{ color: "var(--hh-accent-on-ink)" }}
@@ -67,9 +68,11 @@ export function UndoBar({
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss"
-          className="shrink-0 text-[13.5px] opacity-60"
+          // Grows RIGHT, into the bar's padding and the margin past it: Undo
+          // sits 12px to its left, too close for two centred 44pt taps.
+          className="hit-44-right flex shrink-0 opacity-60"
         >
-          ✕
+          <XIcon className="size-3.5" aria-hidden />
         </button>
       </div>
     </div>

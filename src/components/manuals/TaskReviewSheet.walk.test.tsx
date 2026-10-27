@@ -6,7 +6,7 @@
  * helper (react-hooks/refs — it read the scroll ref), and the reset on a new
  * draft was setState in an effect (set-state-in-effect). Behaviour pinned:
  *
- *  - Skip ✕ excludes the row and moves on; Keep → keeps it and moves on; Keep
+ *  - Skip excludes the row and moves on; Keep keeps it and moves on; Keep
  *    on the last row leaves the walk, and every step scrolls back to the top.
  *  - Outside the walk the same card says "Done" and only closes.
  *  - A different draft starts the review over: decisions, the open card and
@@ -60,18 +60,18 @@ describe("the one-at-a-time walk", () => {
     expect(screen.getByText("Inspect vent ductwork")).toBeInTheDocument()
 
     scrollTo.mockClear()
-    fireEvent.click(screen.getByRole("button", { name: "Skip ✕" }))
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }))
     expect(header()).toHaveTextContent("Deciding each task · 2 of 3")
     expect(screen.getByText("Clean the moisture sensors")).toBeInTheDocument()
     expect(scrollTo).toHaveBeenCalledWith({ top: 0 })
 
     scrollTo.mockClear()
-    fireEvent.click(screen.getByRole("button", { name: "Keep →" }))
+    fireEvent.click(screen.getByRole("button", { name: "Keep" }))
     expect(header()).toHaveTextContent("Deciding each task · 3 of 3")
     expect(scrollTo).toHaveBeenCalledWith({ top: 0 })
 
     scrollTo.mockClear()
-    fireEvent.click(screen.getByRole("button", { name: "Keep →" }))
+    fireEvent.click(screen.getByRole("button", { name: "Keep" }))
     // Out of the walk: back on the list, which offers the walk again.
     expect(header()).toHaveTextContent("3 things from the manual")
     expect(screen.getByRole("button", { name: /one by one again/ })).toBeInTheDocument()
@@ -89,7 +89,7 @@ describe("the one-at-a-time walk", () => {
   it("outside the walk the card says Done and only closes", () => {
     render(<Sheet previewData={DRYER} onSave={vi.fn()} />)
     fireEvent.click(screen.getByText("Check the drum seal").closest("button") as HTMLElement)
-    expect(screen.queryByRole("button", { name: "Keep →" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Keep" })).toBeNull()
     fireEvent.click(screen.getByRole("button", { name: "Done" }))
     // Closed, and still on the list — not moved into a walk.
     expect(screen.queryByRole("button", { name: "Done" })).toBeNull()
@@ -104,7 +104,7 @@ describe("a new draft starts the review over", () => {
 
     // A decision and a walk in progress on the first draft.
     fireEvent.click(screen.getByRole("button", { name: /Go through them one by one/ }))
-    fireEvent.click(screen.getByRole("button", { name: "Skip ✕" }))
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }))
     expect(header()).toHaveTextContent("Deciding each task · 2 of 3")
 
     const RESCAN = draft("Replace the lint screen", "Inspect vent ductwork")
@@ -112,7 +112,7 @@ describe("a new draft starts the review over", () => {
 
     expect(header()).toHaveTextContent("2 things from the manual")
     expect(screen.queryByText("Clean the moisture sensors")).toBeNull()
-    expect(screen.getByRole("button", { name: /Go through them one by one →/ })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /^Go through them one by one$/ })).toBeInTheDocument()
     // The skip belonged to the old draft's row, so nothing is excluded now.
     fireEvent.click(screen.getByRole("button", { name: "Save all 2" }))
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))

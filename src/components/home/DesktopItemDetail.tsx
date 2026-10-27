@@ -405,7 +405,7 @@ export function DesktopItemDetail({
 
   return (
     <div>
-      <button onClick={onBack} className="mb-3.5 inline-flex items-center gap-1 text-[13.5px] font-semibold" style={{ color: SUB }}>
+      <button onClick={onBack} className="hit-44 mb-3.5 inline-flex items-center gap-1 text-[13.5px] font-semibold" style={{ color: SUB }}>
         <ChevronLeftIcon className="size-[17px]" /> Items
       </button>
 

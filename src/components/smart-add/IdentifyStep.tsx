@@ -653,14 +653,14 @@ export function IdentifyStep({
                     <button
                       type="button"
                       onClick={handleSnapLabel}
-                      className="text-xs text-primary underline underline-offset-2 hover:no-underline"
+                      className="hit-44 text-xs text-primary underline underline-offset-2 hover:no-underline"
                     >
                       Re-snap photo
                     </button>
                     <button
                       type="button"
                       onClick={handlePickFromLibrary}
-                      className="text-xs text-primary underline underline-offset-2 hover:no-underline"
+                      className="hit-44 text-xs text-primary underline underline-offset-2 hover:no-underline"
                     >
                       From library
                     </button>
@@ -680,7 +680,7 @@ export function IdentifyStep({
                   setLabelPhotoUse("yes")
                   onLabelPhoto?.(pendingLabelFileRef.current)
                 }}
-                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                className="hit-44 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
               >
                 Use this shot as the item's photo
               </button>
@@ -694,7 +694,7 @@ export function IdentifyStep({
                     setLabelPhotoUse("no")
                     onLabelPhoto?.(null)
                   }}
-                  className="underline underline-offset-2 hover:text-foreground"
+                  className="hit-44 underline underline-offset-2 hover:text-foreground"
                 >
                   Undo
                 </button>
@@ -887,7 +887,7 @@ export function IdentifyStep({
                     type="button"
                     onClick={() => setOtherWaysOpen((v) => !v)}
                     aria-expanded={otherWaysOpen}
-                    className="flex items-center gap-1 text-sm font-semibold text-primary"
+                    className="hit-44 flex items-center gap-1 text-sm font-semibold text-primary"
                   >
                     <ChevronRight
                       className={cn("size-4 transition-transform", otherWaysOpen && "rotate-90")}
@@ -927,7 +927,7 @@ export function IdentifyStep({
                     <button
                       type="button"
                       onClick={() => onModeChange("simple")}
-                      className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      className="hit-44 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
                     >
                       I don't have a model number
                     </button>
@@ -970,7 +970,7 @@ export function IdentifyStep({
                   track("brand_suggestion_accepted")
                   setBrandSuggestion(null)
                 }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                className="hit-44 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
               >
                 <Sparkles className="size-3.5" aria-hidden />
                 {brandSuggestion}
@@ -982,7 +982,7 @@ export function IdentifyStep({
                 onClick={() =>
                   onDataChange({ ...data, itemCategory: catChip, subType: nameInference.subType, categoryFields: {} })
                 }
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                className="hit-44 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
               >
                 <Sparkles className="size-3.5" aria-hidden />
                 {getSubTypeLabel(catChip, nameInference.subType) ?? legacyCategoryLabelFromItemCategory(catChip)}
@@ -992,7 +992,7 @@ export function IdentifyStep({
               <button
                 type="button"
                 onClick={() => onDataChange({ ...data, locationId: roomChip.room_id })}
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                className="hit-44 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
               >
                 <MapPin className="size-3.5" aria-hidden />
                 {roomChip.name}
@@ -1018,7 +1018,7 @@ export function IdentifyStep({
           <button
             type="button"
             onClick={() => setMoreDetailsOpen(false)}
-            className="text-sm font-medium text-primary hover:underline text-left flex items-center gap-1"
+            className="hit-44 text-sm font-medium text-primary hover:underline text-left flex items-center gap-1"
             aria-expanded={true}
             aria-controls="identify-more-details"
           >

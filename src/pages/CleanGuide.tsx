@@ -53,7 +53,7 @@ export default function CleanGuide() {
   return (
     <div className="mx-auto min-h-[calc(100vh-48px)] w-full max-w-[820px] px-5 pb-16" style={{ background: BG }}>
       <div className="flex items-center pt-1 pb-2">
-        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
+        <button onClick={() => navigate(-1)} className="hit-44 inline-flex items-center gap-0.5 py-1.5 text-[16px] font-semibold" style={{ color: TEAL }}>
           <ChevronLeftIcon className="size-[22px]" strokeWidth={2.4} /> Back
         </button>
       </div>

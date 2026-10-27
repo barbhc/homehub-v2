@@ -63,7 +63,7 @@ export default function YourWeek() {
       <div className="lg:hidden -mx-6">
         <div className="mx-auto w-full max-w-[460px] px-4">
           <header className="flex flex-col gap-0.5 pt-2 pb-3">
-            <Link to="/home" className="inline-flex items-center gap-0.5 text-[13px] font-semibold" style={{ color: SUB }}>
+            <Link to="/home" className="hit-44 inline-flex items-center gap-0.5 text-[13px] font-semibold" style={{ color: SUB }}>
               <ChevronLeftIcon className="size-[15px]" /> Home
             </Link>
             <h1 className="mt-1.5 text-[19px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your week</h1>
@@ -106,11 +106,11 @@ export default function YourWeek() {
                           </div>
                           <div className="mt-2 flex items-center gap-3">
                             {row.supply.url && (
-                              <a href={row.supply.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: TEAL }}>
+                              <a href={row.supply.url} target="_blank" rel="noopener noreferrer" className="hit-44 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: TEAL }}>
                                 Buy <ExternalLinkIcon className="size-3" />
                               </a>
                             )}
-                            <button type="button" onClick={() => void markHave(row)} className="text-[12.5px] font-semibold" style={{ color: SUB }}>
+                            <button type="button" onClick={() => void markHave(row)} className="hit-44 text-[12.5px] font-semibold" style={{ color: SUB }}>
                               I have one
                             </button>
                           </div>
@@ -178,7 +178,7 @@ export default function YourWeek() {
       {/* Desktop: the same column, centered — the redesign has no wide layout for this page yet. */}
       <div className="hidden lg:block">
         <div className="mx-auto w-full max-w-[560px]">
-          <Link to="/home" className="text-[13px] font-semibold" style={{ color: SUB }}>← Home</Link>
+          <Link to="/home" className="hit-44 inline-flex items-center gap-0.5 text-[13px] font-semibold" style={{ color: SUB }}><ChevronLeftIcon className="size-[15px]" /> Home</Link>
           <h1 className="mt-2 text-[24px] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your week</h1>
           <p className="mb-4 text-[13px]" style={{ color: SUB }}>{shortDate(0)} – {shortDate(7)} · from your reminders</p>
           {data && thisWeek.length > 0 && (

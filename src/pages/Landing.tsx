@@ -36,7 +36,7 @@ function TopBar({ onSignIn }: { onSignIn: () => void }) {
         </div>
         <span className="text-[17px] font-extrabold tracking-[-0.3px] text-white">Homehub</span>
       </div>
-      <button onClick={onSignIn} className="text-sm font-bold text-white/85">Sign in</button>
+      <button onClick={onSignIn} className="hit-44 text-sm font-bold text-white/85">Sign in</button>
     </div>
   )
 }

@@ -43,7 +43,7 @@ function Disclosure({ label, children }: { label: string; children: React.ReactN
   const [open, setOpen] = useState(false)
   return (
     <>
-      <button onClick={() => setOpen((v) => !v)} className="mt-3 flex w-full items-center justify-between pt-3" style={{ borderTop: `1px solid ${LINE}` }}>
+      <button onClick={() => setOpen((v) => !v)} className="hit-44 mt-3 flex w-full items-center justify-between pt-3" style={{ borderTop: `1px solid ${LINE}` }}>
         <span className="text-[12.5px] font-bold" style={{ color: TEAL }}>{label}</span>
         {open ? <ChevronUpIcon className="size-4" style={{ color: TEAL }} /> : <ChevronDownIcon className="size-4" style={{ color: TEAL }} />}
       </button>
@@ -85,7 +85,7 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
         <div className="mt-1.5 text-[12.5px]" style={{ color: SUB }}>
           Nothing tracked yet — worth having for warranty and insurance claims.
         </div>
-        <button onClick={onEdit} className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: TEAL }}>
+        <button onClick={onEdit} className="hit-44 mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: TEAL }}>
           <PlusIcon className="size-[14px]" /> Add details
         </button>
       </div>
@@ -168,7 +168,7 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
 
       {/* registration_required → Register CTA */}
       {showRegister && (
-        <button onClick={handleRegister} disabled={registering} className="mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60" style={{ background: "var(--hh-teal-fill)" }}>
+        <button onClick={handleRegister} disabled={registering} className="hit-44 mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60" style={{ background: "var(--hh-teal-fill)" }}>
           <BadgeCheckIcon className="size-[15px]" /> Register to activate coverage
         </button>
       )}
@@ -196,7 +196,7 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
       )}
 
       {!active && renewable && onEdit && (
-        <button onClick={onEdit} className="mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] border py-2.5 text-[13.5px] font-bold" style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>
+        <button onClick={onEdit} className="hit-44 mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[11px] border py-2.5 text-[13.5px] font-bold" style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>
           <PlusIcon className="size-[15px]" style={{ color: TEAL }} /> Add extended coverage
         </button>
       )}
