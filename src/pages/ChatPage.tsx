@@ -626,8 +626,8 @@ function AskForHome() {
             </div>
           )}
 
-          {/* Launcher cards (both mobile and desktop) */}
-          <div className="grid w-full max-w-[560px] grid-cols-2 gap-3">
+          {/* Launcher cards (both mobile and desktop); one column under Larger Text. */}
+          <div className="grid w-full max-w-[560px] grid-cols-2 gap-3 larger-text:grid-cols-1">
             {LAUNCHERS.map((c) => (
               <button
                 key={c.label}

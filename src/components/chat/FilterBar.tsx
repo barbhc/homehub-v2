@@ -147,14 +147,15 @@ export function FilterBar({
             })}
           </div>
         )}
-        <div className="flex items-center gap-2">
-          <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0">
+        {/* Larger Text: the label takes its own width and the row may wrap. */}
+        <div className="flex items-center gap-2 larger-text:flex-wrap">
+          <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground w-9 shrink-0 larger-text:w-auto">
             Item
           </span>
-          <div ref={containerRef} className="relative flex-1">
+          <div ref={containerRef} className="relative flex-1 larger-text:min-w-[60%]">
             <div
               className={cn(
-                "flex items-center gap-2 rounded-lg border bg-background px-3 h-8 text-sm transition-colors",
+                "flex items-center gap-2 rounded-lg border bg-background px-3 h-8 text-sm transition-colors larger-text:h-auto larger-text:min-h-8 larger-text:py-1",
                 open || selectedItemId ? "border-primary ring-1 ring-primary/20" : "border-border"
               )}
             >
@@ -324,7 +325,7 @@ export function FilterBar({
     <div className="flex flex-col gap-3 pb-3 shrink-0">
       {rooms.length > 0 && (
         <div className="flex items-start gap-3">
-          <span className="text-xs text-muted-foreground pt-1.5 shrink-0 w-10">Rooms</span>
+          <span className="text-xs text-muted-foreground pt-1.5 shrink-0 w-10 larger-text:w-auto">Rooms</span>
           <div className="flex flex-wrap gap-1.5">
             {rooms.map((room) => {
               const active = selectedRoomIds.includes(room.room_id)
@@ -348,12 +349,12 @@ export function FilterBar({
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <span className="text-xs text-muted-foreground shrink-0 w-10">Item</span>
-        <div ref={containerRef} className="relative flex-1 max-w-sm">
+      <div className="flex items-center gap-3 larger-text:flex-wrap">
+        <span className="text-xs text-muted-foreground shrink-0 w-10 larger-text:w-auto">Item</span>
+        <div ref={containerRef} className="relative flex-1 max-w-sm larger-text:min-w-[60%]">
           <div
             className={cn(
-              "flex items-center gap-2 rounded-md border bg-background px-3 h-8 text-sm transition-colors",
+              "flex items-center gap-2 rounded-md border bg-background px-3 h-8 text-sm transition-colors larger-text:h-auto larger-text:min-h-8 larger-text:py-1",
               open || selectedItemId
                 ? "border-primary ring-1 ring-primary/20"
                 : "border-border"

@@ -1,6 +1,6 @@
-import { test, expect } from "../fixtures"
+import { test, expect, gotoStable } from "../fixtures"
 import type { Page } from "@playwright/test"
-import { PAGES, removeSetupItem } from "./pages"
+import { PAGES, removeSetupItem, type Setup } from "./pages"
 import { appliedTypeScale, emulateIosBodySize } from "./typeScale"
 import { SEED_TODAY } from "../seed-config"
 import { readFileSync, writeFileSync } from "node:fs"
@@ -34,6 +34,16 @@ const SCALES = [
 ] as const
 
 const JUDGED = ["home", "tasks", "task page", "your week", "items", "item page", "ask", "settings", "sign-in"]
+
+/** Ask before a question: the launcher cards and the item filter (the answer
+ *  state in PAGES hides them). */
+const ASK_EMPTY: Setup = {
+  name: "ask (empty)",
+  open: async (page) => {
+    await gotoStable(page, "/chat")
+    await page.getByRole("button", { name: /Troubleshoot/ }).filter({ visible: true }).first().waitFor({ timeout: 20_000 })
+  },
+}
 
 /** Tab label at the normal size (src/index.css --hh-tabbar-label), and its cap. */
 const TAB_LABEL_PX = 12
@@ -137,7 +147,7 @@ for (const s of SCALES) {
       await emulateIosBodySize(page, 17 * s.scale)
     })
 
-    for (const p of PAGES.filter((x) => JUDGED.includes(x.name))) {
+    for (const p of [...PAGES.filter((x) => JUDGED.includes(x.name)), ASK_EMPTY]) {
       test.describe(p.name, () => {
         if (p.signedOut) test.use({ storageState: { cookies: [], origins: [] } })
 
