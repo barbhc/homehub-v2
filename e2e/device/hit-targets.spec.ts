@@ -351,7 +351,7 @@ const PAGES: Setup[] = [
       ["your week", "/week", /week/i],
       ["reminders", "/reminders", /reminder/i],
       ["providers", "/providers", /Ace Heating & Air/],
-      ["deep clean", "/clean", /start cleaning|cleaning guides/i],
+
       ["notes", "/inventory/notes", /note/i],
     ] as const
   ).map(([name, path, ready]): Setup => ({
@@ -361,6 +361,14 @@ const PAGES: Setup[] = [
       await page.getByText(ready).filter(visible).first().waitFor({ timeout: 20_000 })
     },
   })),
+  {
+    name: "deep clean",
+    open: async (page) => {
+      await gotoStable(page, "/clean")
+      // The hub's "This week" rows load after the guides; judge them too.
+      await page.getByRole("button", { name: /Mark done/ }).filter(visible).first().waitFor({ timeout: 20_000 })
+    },
+  },
   ...([false, true] as const).map((session): Setup => ({
     // Deep Clean's setup (rooms, time budget), then the session checklist.
     name: session ? "deep clean session" : "deep clean setup",
