@@ -63,6 +63,21 @@ npm run test:e2e:journey:emu   # walk the 5 core journeys with step screenshots
 7. **Never test against a real Firebase project — the emulators exist for a reason.**
 8. `isAllowedUrl`-style SSRF guard on any server-side fetch of user URLs.
 
+## Design
+- **Tokens:** `src/index.css` (the `@theme` block and the `--hh-*` / `--t-*` variables) is the only
+  source of colours, fonts, sizes and radii. Docs and mockups point here and never copy values; a
+  doc that lists values (`design/README.md`) is updated in the same PR. `src/test/themeContrast.test.ts`
+  pins the text pairs.
+- **Rules:** the design-rules skill (contrast 4.5:1 in both themes, 12px floor, 44pt targets, one
+  icon set, no literal white surfaces). The project's own rules win where stricter (calm tiers,
+  non-negotiable 6).
+- **Check:** `npm run check:design` (`python3 scripts/design/check_design.py --root . --baseline
+  .design-rules-baseline.json`) must pass; CI runs it right after lint. It fails only when a rule's
+  count rises; when a PR pays debt down, lower the baseline in that PR (`--write-baseline`).
+  Suppress a measured exception with `design-rules: allow <rule> (<reason>)` on the line or the line
+  above. The skill's PostToolUse hook is not wired here: it lives in `.claude/settings.json`, and
+  this repo gitignores `.claude/`.
+
 ## Claiming something is done
 
 Seven rules, each written after a specific failure in this repo. They exist
