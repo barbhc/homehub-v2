@@ -1,5 +1,6 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
+import { MotionConfig } from "motion/react"
 // Fonts are self-hosted and bundled (latin subset, woff2, font-display: swap)
 // rather than fetched from Google Fonts: no third-party request on launch, and
 // the iOS shell renders the same glyphs offline. ONLY the weights the app
@@ -42,7 +43,12 @@ void registerDeepLinkListener()
 markBoot("react")
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    {/* reducedMotion="user": under iOS Reduce Motion, Motion skips transform
+        animations (slides land at once) and keeps opacity fades — Apple's own
+        substitution. See src/lib/motion.ts. */}
+    <MotionConfig reducedMotion="user">
+      <App />
+    </MotionConfig>
   </StrictMode>,
 )
 
