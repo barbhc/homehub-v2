@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { dueKindOf, dueWindow, shortDate, windowPhrase } from "@/lib/dueWindow"
 import { Link } from "react-router-dom"
-import { createPortal } from "react-dom"
-import { RemoveScroll } from "react-remove-scroll"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
   RepeatIcon, InfoIcon, ClockIcon, MapPinIcon, CalendarIcon, PackageIcon, MinusIcon, PlusIcon,
@@ -20,6 +18,7 @@ import { HowToSteps } from "@/components/tasks/HowToSteps"
 import { SupplyRows } from "@/components/item-care/SupplyRows"
 import { ManualDockPanel } from "@/components/care/ManualDockPanel"
 import { TaskEditSheet } from "@/components/tasks/TaskEditSheet"
+import { BottomSheet, SheetGrabber } from "@/components/ui/BottomSheet"
 import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
@@ -545,8 +544,9 @@ export function RefinedTaskDetail({
         </div>
       )}
 
-      {sheetOpen && (
-        <ConfirmDoneSheet
+      {/* The sheets stay mounted and follow `open`, so they can animate out. */}
+      <ConfirmDoneSheet
+          open={sheetOpen}
           d={d}
           recurring={recurring}
           scheduleType={detail.schedule?.scheduleType ?? null}
@@ -568,10 +568,10 @@ export function RefinedTaskDetail({
             setDone({ nextDue })
           }}
         />
-      )}
 
-      {homeId && feedbackOpen && (
+      {homeId && (
         <TaskFeedbackSheet
+          open={feedbackOpen}
           homeId={homeId}
           taskTemplateId={detail.taskTemplateId}
           taskInstanceId={detail.taskInstanceId}
@@ -585,8 +585,9 @@ export function RefinedTaskDetail({
         />
       )}
 
-      {editOpen && homeId && (
+      {homeId && (
         <TaskEditSheet
+          open={editOpen}
           homeId={homeId}
           detail={detail}
           onClose={() => setEditOpen(false)}
@@ -620,9 +621,7 @@ export function RefinedTaskDetail({
 }
 
 // ── Confirm-next-date sheet (Phase 1) ─────────────────────────────────────────
-function ConfirmDoneSheet({
-  d, recurring, scheduleType, intervalDays, season, onClose, onConfirm,
-}: {
+type ConfirmDoneProps = {
   d: ReturnType<typeof dens>
   recurring: boolean
   scheduleType: ScheduleType | null
@@ -630,7 +629,35 @@ function ConfirmDoneSheet({
   season: string | null
   onClose: () => void
   onConfirm: (v: { completedOn: string; backdated: boolean; nextDue: string | null }) => void
-}) {
+}
+
+/**
+ * The shared bottom sheet (phase 2), above the tab bar ("raised") and at the
+ * page column's width. It was `absolute` to the page wrapper once, so on a long
+ * task scrolled down it sat off-screen under the tab bar; the shared sheet is
+ * portalled and fixed. Nothing here is written until Confirm, so dismissing it
+ * loses nothing and asks nothing.
+ */
+function ConfirmDoneSheet({ open, ...props }: ConfirmDoneProps & { open: boolean }) {
+  return (
+    <BottomSheet
+      open={open}
+      onOpenChange={(o) => { if (!o) props.onClose() }}
+      label="Confirm done"
+      layer="raised"
+      grabber="none"
+      testId="confirm-done-sheet"
+      className="mx-auto w-full max-w-[460px] rounded-t-[20px] px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:max-w-[960px]"
+      style={{ paddingInline: props.d.pad, background: "var(--hh-surface)" }}
+    >
+      <ConfirmDoneBody {...props} />
+    </BottomSheet>
+  )
+}
+
+function ConfirmDoneBody({
+  recurring, scheduleType, intervalDays, season, onConfirm,
+}: ConfirmDoneProps) {
   const [whenDone, setWhenDone] = useState<"today" | "earlier">("today")
   const [bump, setBump] = useState(0)
   /** Adjust is the exception path: hidden until asked for. */
@@ -650,18 +677,11 @@ function ConfirmDoneSheet({
     return base ? addDays(base, bump * 7) : null
   }, [recurring, scheduleType, completedOn, intervalDays, season, bump])
 
-  // RemoveScroll, as the Radix sheets do: the page behind stays put while
-  // this is open (audit 2026-10-15).
-  //
-  // Portalled and FIXED, as TaskEditSheet is. It was `absolute` to the page
-  // wrapper, so on a long task scrolled down the sheet sat at the wrapper's
-  // bottom (off-screen) and its scrim covered the wrapper, not the screen, and
-  // the tab bar (z-50) painted over it. The panel keeps the page column's width.
-  return createPortal(
-    <RemoveScroll allowPinchZoom>
-      <div onClick={onClose} className="fixed inset-0 z-[60]" style={{ background: "rgba(8,12,11,0.4)" }} />
-      <div className="fixed inset-x-0 bottom-0 z-[70] mx-auto w-full max-w-[460px] rounded-t-[20px] px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:max-w-[960px]" style={{ paddingInline: d.pad, background: "var(--hh-surface)" }}>
-        <div className="mx-auto mb-4 h-1 w-9 rounded-full" style={{ background: "var(--hh-grab)" }} />
+  return (
+    <>
+        <div data-sheet-drag="" className="mb-4">
+          <SheetGrabber />
+        </div>
         {/* One decision, already made. The sheet used to open with six things
             to press — two when-buttons, two bump-buttons, Confirm, dismiss —
             to answer a question the app can assume: you did it today, and the
@@ -716,9 +736,7 @@ function ConfirmDoneSheet({
             )}
           </>
         )}
-        <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="w-full rounded-[14px] py-4 text-[1rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Confirm</button>
-      </div>
-    </RemoveScroll>,
-    document.body,
+        <button onClick={() => onConfirm({ completedOn, backdated: whenDone === "earlier", nextDue })} className="hh-press w-full rounded-[14px] py-4 text-[1rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Confirm</button>
+    </>
   )
 }

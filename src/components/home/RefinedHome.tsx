@@ -130,7 +130,7 @@ export function RefinedHome({
               <button
                 type="button"
                 onClick={onSelectHome}
-                className="hit-44 mt-0.5 flex max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[0.75rem]"
+                className="hh-press hit-44 mt-0.5 flex max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[0.75rem]"
                 style={{ borderColor: LINE, background: "var(--hh-surface)", color: SUB }}
               >
                 <HomeIcon className="size-3 shrink-0" style={{ color: TEAL }} aria-hidden />

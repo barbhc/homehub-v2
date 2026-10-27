@@ -33,38 +33,37 @@ describe("modal surfaces sit above the tab bar", () => {
   // it: the nav painted over TaskEditSheet's Save and Cancel buttons.
   const NAV_Z = 50
 
-  it("the task edit sheet portals to <body>", () => {
-    const src = read("../components/tasks/TaskEditSheet.tsx")
-    expect(src).toContain("createPortal")
-    expect(src).toContain("document.body")
-  })
-
-  it("the task edit sheet's overlay and panel outrank the nav", () => {
-    const src = read("../components/tasks/TaskEditSheet.tsx")
-    const zIndexes = [...src.matchAll(/\bz-\[(\d+)\]/g)].map((m) => Number(m[1]))
-    expect(zIndexes.length, "expected explicit z-[n] on the overlay and the panel").toBe(2)
-    for (const z of zIndexes) expect(z).toBeGreaterThan(NAV_Z)
+  // Every bottom sheet is now the shared BottomSheet (Apple polish phase 2).
+  // It portals (Radix Dialog.Portal → <body>), is `fixed` to the screen, and
+  // its "raised" layer is the explicit z-[60]/z-[70] the hand-built sheets had.
+  it("the shared sheet portals, is fixed to the screen, and its raised layer outranks the nav", () => {
+    const src = read("../components/ui/BottomSheet.tsx")
+    expect(src).toContain("<DialogPrimitive.Portal")
+    expect(src).toMatch(/className=\{cn\("fixed inset-0"/)
+    expect(src).toContain('"fixed inset-x-0 bottom-0')
+    const raised = src.match(/raised: \{ scrim: "z-\[(\d+)\]", panel: "z-\[(\d+)\]" \}/)
+    expect(raised, "the raised layer moved — re-point this test").not.toBeNull()
+    expect(Number(raised![1])).toBeGreaterThan(NAV_Z)
+    expect(Number(raised![2])).toBeGreaterThan(Number(raised![1]))
   })
 
   // The task page's Mark done sheet and Tune sheet were `absolute` to the page
   // wrapper: opened from the bottom of a long task, the sheet sat off-screen
   // and its scrim covered the wrapper, not the screen (Apple HIG review,
-  // 2026-10). They now portal and sit above the nav, as the edit sheet does.
+  // 2026-10). The edit sheet's Save and Cancel sat behind the nav. All three
+  // are the shared sheet on its raised layer.
   for (const [name, file, marker] of [
+    ["the task edit sheet", "../components/tasks/TaskEditSheet.tsx", "export function TaskEditSheet"],
     ["the Mark done confirm sheet", "../components/home/RefinedTaskDetail.tsx", "function ConfirmDoneSheet"],
     ["the Tune sheet", "../components/care/TaskFeedbackSheet.tsx", "export function TaskFeedbackSheet"],
   ] as const) {
-    it(`${name} portals to <body>, fixed, above the nav`, () => {
+    it(`${name} is the shared sheet, above the nav`, () => {
       const src = read(file)
       const body = src.slice(src.indexOf(marker))
-      const end = body.indexOf("\n}\n")
-      const fn = body.slice(0, end)
-      expect(fn).toContain("createPortal(")
-      expect(fn).toContain("document.body")
+      const fn = body.slice(0, body.indexOf("\n}\n"))
+      expect(fn).toContain("<BottomSheet")
+      expect(fn).toContain('layer="raised"')
       expect(fn, "an absolute sheet is positioned against the page, not the screen").not.toMatch(/className="absolute inset/)
-      const zIndexes = [...fn.matchAll(/\bfixed [^"]*\bz-\[(\d+)\]/g)].map((m) => Number(m[1]))
-      expect(zIndexes.length, "expected a fixed scrim and a fixed panel with explicit z-[n]").toBe(2)
-      for (const z of zIndexes) expect(z).toBeGreaterThan(NAV_Z)
     })
   }
 
@@ -93,6 +92,7 @@ describe("modal children are allowed to shrink", () => {
 
   it("sheet content does too", () => {
     expect(read("../components/ui/sheet.tsx")).toContain("[&>*]:min-w-0")
+    expect(read("../components/ui/BottomSheet.tsx")).toContain("[&>*]:min-w-0")
   })
 })
 

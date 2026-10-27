@@ -405,7 +405,7 @@ export function HomeProfileSection({ homeId }: Props) {
                       onClick={() => toggleConcern(opt.value)}
                       aria-pressed={selected}
                       className={cn(
-                        "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors inline-flex items-center",
+                        "hh-press rounded-full border px-3 py-1.5 text-xs font-medium transition-colors inline-flex items-center",
                         "min-h-11 md:pointer-fine:min-h-8",
                         selected
                           ? "border-primary bg-primary/10 text-primary"

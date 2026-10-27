@@ -1,9 +1,9 @@
 import { useState } from "react"
-import { createPortal } from "react-dom"
-import { RemoveScroll } from "react-remove-scroll"
 import { GripVerticalIcon, PlusIcon, XIcon } from "lucide-react"
 import { updateTaskContent, rescheduleTaskInstance, type TaskDetail } from "@/modules/care"
 import { classifyTaskDetail, stepsAllowedFor } from "@/lib/taskActor"
+import { BottomSheet, SheetGrabber } from "@/components/ui/BottomSheet"
+import { useSheetDirty } from "@/components/ui/bottomSheetDirty"
 
 /**
  * Edit a task: its name, when it's next due, and its steps.
@@ -22,6 +22,41 @@ import { classifyTaskDetail, stepsAllowedFor } from "@/lib/taskActor"
  * The sheet says which is which rather than expecting anyone to infer it.
  */
 export function TaskEditSheet({
+  open,
+  homeId,
+  detail,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  homeId: string
+  detail: TaskDetail
+  onClose: () => void
+  onSaved: () => void
+}) {
+  // The shared bottom sheet (phase 2). Above the tab bar ("raised": the nav in
+  // AppLayout is `fixed bottom-0 z-50`; rendered at z-50 earlier in the DOM it
+  // painted over Save and Cancel), and at `lg` the floating side panel it has
+  // always been. The form is a child so each open starts from `detail` and
+  // keeps its text while the sheet animates out.
+  return (
+    <BottomSheet
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose() }}
+      label="Edit task"
+      layer="raised"
+      grabber="none"
+      desktopPanel
+      testId="task-edit-sheet"
+      className="flex max-h-[88vh] flex-col rounded-t-[20px] shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:inset-x-auto lg:right-6 lg:top-6 lg:bottom-6 lg:w-[440px] lg:rounded-[20px]"
+      style={{ background: "var(--hh-surface)" }}
+    >
+      <TaskEditForm homeId={homeId} detail={detail} onClose={onClose} onSaved={onSaved} />
+    </BottomSheet>
+  )
+}
+
+function TaskEditForm({
   homeId,
   detail,
   onClose,
@@ -43,6 +78,8 @@ export function TaskEditSheet({
   const dateChanged = dueDate !== detail.dueDate
   const stepsChanged = JSON.stringify(steps.map((s) => s.trim()).filter(Boolean)) !== JSON.stringify(detail.steps ?? [])
   const dirty = titleChanged || dateChanged || stepsChanged
+  // A drag, scrim tap or Escape asks before throwing these edits away.
+  useSheetDirty(dirty)
 
   const setStep = (i: number, v: string) => setSteps((s) => s.map((x, n) => (n === i ? v : x)))
   const removeStep = (i: number) => setSteps((s) => s.filter((_, n) => n !== i))
@@ -83,35 +120,12 @@ export function TaskEditSheet({
   const fieldStyle = { borderColor: "var(--hh-line2)", background: "var(--hh-bg)", color: "var(--hh-ink)" }
   const label = "mb-1.5 block text-[0.6875rem] font-bold uppercase tracking-[0.5px]"
 
-  // Portalled to <body>, and explicitly ABOVE the tab bar.
-  //
-  // The bottom nav in AppLayout is `fixed bottom-0 z-50`. Rendered inline, this
-  // sheet was also z-50 and came EARLIER in the DOM, so the nav painted over
-  // it: Save and Cancel sat behind the tab bar, unreachable, on a panel that
-  // had already scrolled as far as it could. Portalling also escapes any
-  // transform/filter ancestor, which would otherwise trap `fixed` in a local
-  // stacking context. Any future sheet outside the Radix primitives needs both
-  // halves of this — the portal AND a z-index above the nav's.
-  //
-  // RemoveScroll is what the Radix sheets use: the page behind is locked while
-  // this is open, and a scroll that reaches the panel's end stops there
-  // (overscroll-contain) instead of moving the page (audit 2026-10-15).
-  return createPortal(
-    <RemoveScroll allowPinchZoom>
-      <button
-        type="button"
-        aria-label="Cancel editing"
-        onClick={onClose}
-        className="fixed inset-0 z-[60]"
-        style={{ background: "rgba(8,12,11,0.4)" }}
-      />
-      <div
-        role="dialog"
-        aria-label="Edit task"
-        className="fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] overflow-y-auto overscroll-contain rounded-t-[20px] px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:inset-x-auto lg:right-6 lg:top-6 lg:bottom-6 lg:w-[440px] lg:rounded-[20px]"
-        style={{ background: "var(--hh-surface)" }}
-      >
-        <div className="mx-auto mb-4 h-1 w-9 rounded-full lg:hidden" style={{ background: "var(--hh-grab)" }} />
+  // Only the fields scroll: the grabber and header stay put, so the sheet can
+  // always be dragged and closed from its top.
+  return (
+    <>
+      <div data-sheet-drag="" className="shrink-0 px-5 pt-4">
+        <SheetGrabber className="mb-4 lg:hidden" />
 
         <div className="mb-4 flex items-center gap-3">
           <h2 className="min-w-0 flex-1 text-[1.25rem] font-extrabold tracking-[-0.4px]" style={{ color: "var(--hh-ink)" }}>
@@ -121,7 +135,9 @@ export function TaskEditSheet({
             <XIcon className="size-[18px]" style={{ color: "var(--hh-sub)" }} />
           </button>
         </div>
+      </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(20px+env(safe-area-inset-bottom))]">
         <div className="flex flex-col gap-4">
           <div>
             <span className={label} style={{ color: "var(--hh-sub)" }}>Name</span>
@@ -203,7 +219,7 @@ export function TaskEditSheet({
               type="button"
               onClick={() => void save()}
               disabled={!dirty || saving}
-              className="flex-1 rounded-xl py-3 text-[0.9375rem] font-bold text-white disabled:opacity-40"
+              className="hh-press flex-1 rounded-xl py-3 text-[0.9375rem] font-bold text-white disabled:opacity-40"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {saving ? "Saving…" : "Save changes"}
@@ -211,7 +227,7 @@ export function TaskEditSheet({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border px-4 py-3 text-[0.9375rem] font-semibold"
+              className="hh-press rounded-xl border px-4 py-3 text-[0.9375rem] font-semibold"
               style={{ borderColor: "var(--hh-line2)", color: "var(--hh-sub)" }}
             >
               Cancel
@@ -219,7 +235,6 @@ export function TaskEditSheet({
           </div>
         </div>
       </div>
-    </RemoveScroll>,
-    document.body
+    </>
   )
 }

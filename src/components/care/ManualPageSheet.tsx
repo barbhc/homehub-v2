@@ -7,13 +7,8 @@ import {
   Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet"
+import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { BottomSheet, SHEET_SURFACE } from "@/components/ui/BottomSheet"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { cachedSheetPage, isCachedSheetBlob, renderSheetPage, type LoadedSheetPdf } from "./renderSheetPage"
 
@@ -149,11 +144,13 @@ export function ManualPageSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="h-[88vh] rounded-t-2xl flex flex-col"
-      >
+    <BottomSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      showCloseButton
+      testId="manual-page-sheet"
+      className={`${SHEET_SURFACE} h-[88vh] rounded-t-2xl flex flex-col`}
+    >
         <SheetHeader>
           <SheetTitle>
             Manual — Page {currentPage}
@@ -318,7 +315,6 @@ export function ManualPageSheet({
             <Button size="sm" onClick={() => onOpenChange(false)}>Done</Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+    </BottomSheet>
   )
 }

@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { CheckIcon, ChevronLeftIcon, HomeIcon, Loader2Icon, PlusIcon } from "lucide-react"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { BottomSheet, SHEET_SURFACE } from "@/components/ui/BottomSheet"
 import { Input } from "@/components/ui/input"
 import { createHome } from "@/modules/home"
 import type { Home } from "@/integrations/types"
@@ -70,16 +71,22 @@ export function HomeSwitcherSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      {/* This sheet pads ITSELF. SheetContent deliberately ships without
-          padding and every other bottom sheet pads its own children instead —
-          putting a default on the primitive would double-pad all seven. The
-          bottom inset is the part that was actually broken: the caption sat
-          under the home indicator, unreadable. */}
-      <SheetContent
-        side="bottom"
-        className="max-h-[85vh] overflow-y-auto px-5 pt-5 pb-[calc(20px+env(safe-area-inset-bottom))] sm:max-w-md"
-      >
+    <BottomSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      // A half-typed home name is input a stray drag shouldn't throw away.
+      isDirty={view === "add" && name.trim() !== ""}
+      showCloseButton
+      testId="home-switcher-sheet"
+      className={`${SHEET_SURFACE} max-h-[85vh] sm:max-w-md`}
+    >
+      {/* This sheet pads ITSELF. The sheet primitive deliberately ships without
+          padding and every other bottom sheet pads its own children instead.
+          The bottom inset is the part that was actually broken: the caption
+          sat under the home indicator, unreadable. The scroll is on this inner
+          box, not the panel, so the grabber stays at the top; it keeps the
+          panel's flex column and gap so the layout is unchanged. */}
+      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pt-5 pb-[calc(20px+env(safe-area-inset-bottom))]">
         {view === "list" ? (
           <>
             <SheetHeader className="px-0 pt-0">
@@ -97,7 +104,7 @@ export function HomeSwitcherSheet({
                       onSelect(h.home_id)
                       onOpenChange(false)
                     }}
-                    className="flex items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left"
+                    className="hh-press-row flex items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left"
                     style={{
                       borderColor: selected ? "var(--hh-teal)" : "var(--hh-line)",
                       background: selected ? "var(--hh-teal-wash)" : "var(--hh-surface)",
@@ -192,7 +199,7 @@ export function HomeSwitcherSheet({
               type="button"
               onClick={() => void submit()}
               disabled={saving || !name.trim()}
-              className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[0.84375rem] font-bold text-white disabled:opacity-60"
+              className="hh-press mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[0.84375rem] font-bold text-white disabled:opacity-60"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {saving && <Loader2Icon className="size-4 animate-spin" />}
@@ -203,7 +210,7 @@ export function HomeSwitcherSheet({
             </p>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </div>
+    </BottomSheet>
   )
 }

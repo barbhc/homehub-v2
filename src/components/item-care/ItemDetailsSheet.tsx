@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Loader2Icon } from "lucide-react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
+import { SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
+import { BottomSheet, SHEET_SURFACE } from "@/components/ui/BottomSheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,7 @@ import { DateField } from "@/components/ui/date-field"
 import { StoreField } from "@/components/ui/store-field"
 import { updateItemUnit, type UpdateItemUnitInput } from "@/modules/items"
 import { warrantyExpiry } from "@/lib/warrantyWindow"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
 import type { ItemUnit, Room } from "@/integrations/types"
 
 /** Coverage lengths that cover almost every appliance receipt, plus a way out. */
@@ -80,6 +82,22 @@ export function ItemDetailsSheet({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Each open starts from the item as saved. Without this, "Discard changes?"
+  // → Discard would close the sheet and the discarded text would be waiting
+  // in it next time. Reset in the render that opens it, so the old text never
+  // paints first.
+  if (useDepsChanged([open]) && open) {
+    setName(item.display_name ?? "")
+    setRoomId(item.room_id ?? NO_ROOM)
+    setSerial(item.serial_number ?? "")
+    setPurchaseDate(item.purchase_date?.slice(0, 10) ?? "")
+    setPrice(item.price_paid != null ? String(item.price_paid) : "")
+    setStore(item.store_name ?? "")
+    setMonths(item.warranty_duration_months != null ? String(item.warranty_duration_months) : "none")
+    setCategoryFields((item.category_fields as Record<string, unknown> | null) ?? {})
+    setError(null)
+  }
+
   const save = async () => {
     setSaving(true)
     setError(null)
@@ -114,13 +132,30 @@ export function ItemDetailsSheet({
     onOpenChange(false)
   }
 
+  // Anything typed and not yet saved: a drag, scrim tap or Escape asks first.
+  const dirty =
+    name !== (item.display_name ?? "") ||
+    roomId !== (item.room_id ?? NO_ROOM) ||
+    serial !== (item.serial_number ?? "") ||
+    purchaseDate !== (item.purchase_date?.slice(0, 10) ?? "") ||
+    price !== (item.price_paid != null ? String(item.price_paid) : "") ||
+    store !== (item.store_name ?? "") ||
+    months !== (item.warranty_duration_months != null ? String(item.warranty_duration_months) : "none") ||
+    JSON.stringify(categoryFields) !== JSON.stringify((item.category_fields as Record<string, unknown> | null) ?? {})
+
   return (
-    <Sheet open={open} onOpenChange={(o) => !saving && onOpenChange(o)}>
+    <BottomSheet
+      open={open}
+      onOpenChange={(o) => !saving && onOpenChange(o)}
+      isDirty={dirty}
+      showCloseButton
+      testId="item-details-sheet"
+      className={`${SHEET_SURFACE} max-h-[88dvh] sm:max-w-md`}
+    >
       {/* SheetContent carries no padding of its own — only SheetHeader/Footer do
           — so the body supplies its own px-4, and only the body scrolls: with
           overflow on the content itself, Save and Cancel scroll off the bottom
           of a phone. */}
-      <SheetContent side="bottom" className="max-h-[88dvh] sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Details &amp; records</SheetTitle>
           <SheetDescription>
@@ -234,7 +269,6 @@ export function ItemDetailsSheet({
             </Button>
           </div>
         </SheetFooter>
-      </SheetContent>
-    </Sheet>
+    </BottomSheet>
   )
 }

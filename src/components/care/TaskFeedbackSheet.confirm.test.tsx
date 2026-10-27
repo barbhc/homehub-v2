@@ -44,6 +44,7 @@ function renderSheet() {
   render(
     <MemoryRouter>
       <TaskFeedbackSheet
+        open
         homeId="h1" taskTemplateId="t1" taskInstanceId={null} title="Descale the coffee maker"
         tier="recommended" onClose={vi.fn()} onApplied={vi.fn()}
       />

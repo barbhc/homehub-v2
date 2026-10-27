@@ -273,7 +273,7 @@ function CategoryQuestions({ homeId, category, facts, onSave, onDone }: {
                     aria-checked={on}
                     disabled={building}
                     onClick={() => set(q.fact, value)}
-                    className="hit-44 min-h-9 rounded-full px-3.5 text-[0.8125rem] font-semibold"
+                    className="hh-press hit-44 min-h-9 rounded-full px-3.5 text-[0.8125rem] font-semibold"
                     style={{ background: on ? "var(--hh-teal-wash)" : "transparent", color: on ? TEAL : SUB, border: `1px solid ${on ? TEAL : LINE}` }}
                   >{label}</button>
                 )

@@ -10,8 +10,10 @@ import { cn } from "@/lib/utils"
 // text button's fixed height becomes a 44pt floor and its label may wrap, so a
 // grown label stays inside its button instead of spilling out of it or off the
 // screen. Icon-only sizes keep their box.
+// hh-press (src/index.css): shrinks to 96% and dims the instant a finger lands;
+// under Reduce Motion only the dim stays.
 const buttonVariants = cva(
-  "hit-44 larger-text:whitespace-normal inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "hh-press hit-44 larger-text:whitespace-normal inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
