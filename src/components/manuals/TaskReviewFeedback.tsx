@@ -76,7 +76,7 @@ export function TaskReviewFeedback({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="rounded-full border border-border bg-card px-3 py-2 text-[11.5px] font-semibold whitespace-nowrap"
+          className="hit-44 rounded-full border border-border bg-card px-3 py-2 text-[11.5px] font-semibold whitespace-nowrap"
         >
           {sent ? "Add more" : "Tell us what's off"}
         </button>

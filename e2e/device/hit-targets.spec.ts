@@ -249,6 +249,21 @@ const PAGES: Setup[] = [
       await page.getByText(ready).filter(visible).first().waitFor({ timeout: 20_000 })
     },
   })),
+  ...([false, true] as const).map((walk): Setup => ({
+    // The seeded microwave's unsaved read: the review sheet, then its
+    // one-by-one walk (Previous / Exit / Skip / Keep).
+    name: walk ? "review sheet: walk" : "review sheet",
+    open: async (page) => {
+      await gotoStable(page, "/items/microwave")
+      await page.getByRole("button", { name: /Review/ }).filter(visible).first().click()
+      const walkEntry = page.getByRole("button", { name: /Go through them one by one/ }).filter(visible).first()
+      await walkEntry.waitFor({ timeout: 20_000 })
+      if (walk) {
+        await walkEntry.click()
+        await page.getByRole("button", { name: /Exit/ }).filter(visible).first().waitFor({ timeout: 10_000 })
+      }
+    },
+  })),
   {
     // A real failure: Firestore cut off after a good first load (the technique
     // e2e/emu/inventory.spec.ts uses) leaves the item page at its dead end.

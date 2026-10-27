@@ -112,7 +112,7 @@ describe("a new draft starts the review over", () => {
 
     expect(header()).toHaveTextContent("2 things from the manual")
     expect(screen.queryByText("Clean the moisture sensors")).toBeNull()
-    expect(screen.getByRole("button", { name: /Go through them one by one →/ })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /^Go through them one by one$/ })).toBeInTheDocument()
     // The skip belonged to the old draft's row, so nothing is excluded now.
     fireEvent.click(screen.getByRole("button", { name: "Save all 2" }))
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))

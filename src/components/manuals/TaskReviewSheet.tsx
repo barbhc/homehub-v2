@@ -774,7 +774,7 @@ export function TaskReviewSheet({
         <span role="button" tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); patch(r.id, { included: !r.included }) }}
           aria-label={r.included ? `Skip ${r.title}` : `Bring back ${r.title}`}
-          className="shrink-0 grid place-items-center size-[26px] rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          className="hit-44 shrink-0 grid place-items-center size-[26px] rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
           {r.included ? <XIcon className="size-[13px]" aria-hidden /> : <Undo2Icon className="size-[13px]" aria-hidden />}
         </span>
       </button>
@@ -956,8 +956,8 @@ export function TaskReviewSheet({
                   or fix the two you disagree with and save. */}
               <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <button type="button" onClick={() => { setGuideIndex(0); scrollRef.current?.scrollTo?.({ top: 0 }) }}
-                  className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-[13px] font-bold text-foreground hover:border-primary transition-colors">
-                  Go through them one by one{walked ? " again" : ""} →
+                  className="hit-44 inline-flex items-center gap-1 rounded-xl border border-border bg-background px-3.5 py-2.5 text-[13px] font-bold text-foreground hover:border-primary transition-colors">
+                  Go through them one by one{walked ? " again" : ""} <ArrowRightIcon className="size-3.5" aria-hidden />
                 </button>
                 <span className="text-[12.5px] text-muted-foreground">or tap any task to change it</span>
               </div>
