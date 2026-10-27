@@ -153,11 +153,9 @@ describe("task page (Home → See details)", () => {
 describe("Tasks row — phone (RefinedWeek)", () => {
   const rowOf = (title: string) =>
     screen.getAllByTestId("phone-task-row").find((r) => within(r).queryByText(title))!
-  /** The phone row toggles on a tap expressed as pointerdown+pointerup with no move. */
+  /** The phone row opens on its opener (a button with aria-expanded). */
   const expand = async (title: string) => {
-    const target = screen.getByText(title).closest("div")!.parentElement!
-    fireEvent.pointerDown(target, { clientX: 10, pointerId: 1 })
-    fireEvent.pointerUp(target, { clientX: 10, pointerId: 1 })
+    fireEvent.click(within(rowOf(title)).getByRole("button", { expanded: false }))
     await within(rowOf(title)).findByRole("button", { name: /^snooze$/i })
     await waitFor(() => expect(within(rowOf(title)).queryByText("Loading…")).toBeNull())
   }

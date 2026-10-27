@@ -15,6 +15,7 @@ import {
   type QueuedDone,
 } from "./doneQueue"
 import type { Tier } from "@/lib/redesign/tokens"
+import { markReturning } from "./rowIntents"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { addDays, diffDays, localToday } from "../../../../shared/dates/calendar"
 import { SNOOZE_DAYS } from "../../../../shared/tasks/snooze"
@@ -201,6 +202,13 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
   /** Dones refused after their screen had gone — said here until they land or are dismissed. */
   const lost = useSyncExternalStore(subscribeDoneQueue, failedDones)
   const [retrying, setRetrying] = useState<string | null>(null)
+  /**
+   * Dones this screen is writing right now. The queue marks a refused write
+   * "failed" a moment before commit() takes it back onto its row, and that
+   * moment used to render the "Couldn't mark X done" line for one frame — now
+   * that the bar slides in and out, a one-frame line is a visible flash.
+   */
+  const [writing, setWriting] = useState<ReadonlySet<string>>(() => new Set())
 
   const hide = useCallback((id: string) => setHidden((s) => (s.has(id) ? s : new Set(s).add(id))), [])
   const unhide = useCallback((id: string) => setHidden((s) => {
@@ -217,8 +225,18 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
     pending.current.delete(id)
     if (p.timer !== null) window.clearTimeout(p.timer)
     // Its Undo is gone with it — a bar still offering Undo would offer nothing.
-    if (mounted.current) setBar((b) => (b?.doneId === id ? null : b))
+    if (mounted.current) {
+      setBar((b) => (b?.doneId === id ? null : b))
+      setWriting((s) => new Set(s).add(id))
+    }
     const res = await writeDone(p.homeId, id)
+    if (mounted.current) {
+      setWriting((s) => {
+        const next = new Set(s)
+        next.delete(id)
+        return next
+      })
+    }
     if (!res.success) {
       console.warn(`[${opts.current.where}] could not mark task done ${id} (home ${p.homeId}):`, res.error)
       const message = doneFailedMessage(res.error)
@@ -226,6 +244,8 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
         // Said on the task's own row, which is back with Mark done on it — so
         // the queue need not say it a second time.
         forgetDone(p.homeId, id)
+        // Back on the list, growing in rather than appearing (rowMotion).
+        markReturning(id)
         unhide(id)
         setFailure({ id, message })
       }
@@ -286,6 +306,7 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
         pending.current.delete(id)
         if (p.timer !== null) window.clearTimeout(p.timer)
         forgetDone(p.homeId, id)
+        markReturning(id)
         unhide(id)
         p.settle({ status: "undone" })
       }
@@ -330,6 +351,7 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
     function attempt() {
       void unsnoozeTaskInstance(home, id, prior).then((r) => {
         if (r.success) {
+          markReturning(id)
           unhide(id)
           follow(opts.current.where, id, () => opts.current.onUnsnoozed?.(id))
           return
@@ -385,7 +407,7 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
 
   // A Done refused after its screen had gone. Shown when this screen has
   // nothing of its own to say, and it stays until it lands or is dismissed.
-  const firstLost = options.showLostDones === false ? null : (lost[0] ?? null)
+  const firstLost = options.showLostDones === false ? null : (lost.find((d) => !writing.has(d.id)) ?? null)
   const retryLost = useCallback(() => {
     if (!firstLost) return
     setRetrying(firstLost.id)
