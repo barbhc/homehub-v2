@@ -1,5 +1,5 @@
 import {
-  useCallback, useEffect, useLayoutEffect, useRef, useState,
+  useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode,
 } from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
@@ -12,7 +12,7 @@ import { useIsDesktop } from "@/hooks/useIsDesktop"
 import {
   dismissDecision, releaseDecision, releaseVelocity, rubberBand, scrimFor, type DragSample,
 } from "@/lib/sheetGesture"
-import { SheetDirtyContext } from "./bottomSheetDirty"
+import { SheetDirtyContext, type SheetControls } from "./bottomSheetDirty"
 
 /**
  * THE bottom sheet (Apple polish phase 2). Every sheet that rises from the
@@ -146,7 +146,14 @@ function SheetPanel({
   const unmounted = useRef(false)
   const [confirming, setConfirming] = useState(false)
 
-  const setContentDirty = useCallback((d: boolean) => { dirtyFromContent.current = d }, [])
+  // Content controls (useSheetDirty / useSheetDismiss). Stable, so content
+  // effects keyed on them don't re-run every render; `dismiss` reaches the
+  // latest requestDismiss through a ref.
+  const dismissRef = useRef<() => void>(() => {})
+  const controls = useMemo<SheetControls>(() => ({
+    setDirty: (d) => { dirtyFromContent.current = d },
+    dismiss: () => dismissRef.current(),
+  }), [])
   const dirty = () => isDirty || dirtyFromContent.current
 
   const paint = useCallback(() => {
@@ -244,9 +251,13 @@ function SheetPanel({
     if (dismissDecision(dirty()) === "confirm-discard") setConfirming(true)
     else onOpenChange(false)
   }
+  useLayoutEffect(() => { dismissRef.current = requestDismiss })
 
   // ── Drag ────────────────────────────────────────────────────────────────────
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    // One finger drives the sheet: a second touch landing on the grabber
+    // mid-drag is ignored rather than taking the drag over.
+    if (drag.current) return
     if (!draggable || !isPresent || confirming || e.button !== 0) return
     const target = e.target as Element
     const zone = target.closest("[data-sheet-drag], [data-slot='sheet-header']")
@@ -336,7 +347,7 @@ function SheetPanel({
           opacity: initial.fade,
         }}
       >
-        <SheetDirtyContext.Provider value={setContentDirty}>
+        <SheetDirtyContext.Provider value={controls}>
           {label && <DialogPrimitive.Title className="sr-only">{label}</DialogPrimitive.Title>}
           {draggable && grabber === "overlay" && (
             <div data-sheet-drag="" className="absolute inset-x-0 top-0 flex h-5 justify-center pt-1.5">

@@ -3,7 +3,7 @@ import { GripVerticalIcon, PlusIcon, XIcon } from "lucide-react"
 import { updateTaskContent, rescheduleTaskInstance, type TaskDetail } from "@/modules/care"
 import { classifyTaskDetail, stepsAllowedFor } from "@/lib/taskActor"
 import { BottomSheet, SheetGrabber } from "@/components/ui/BottomSheet"
-import { useSheetDirty } from "@/components/ui/bottomSheetDirty"
+import { useSheetDirty, useSheetDismiss } from "@/components/ui/bottomSheetDirty"
 
 /**
  * Edit a task: its name, when it's next due, and its steps.
@@ -80,6 +80,10 @@ function TaskEditForm({
   const dirty = titleChanged || dateChanged || stepsChanged
   // A drag, scrim tap or Escape asks before throwing these edits away.
   useSheetDirty(dirty)
+  // The header ✕ is the sheet's own close control: with edits it asks first,
+  // like a drag, the scrim or Escape. (Cancel beside Save stays an explicit
+  // "throw these away".)
+  const dismiss = useSheetDismiss(onClose)
 
   const setStep = (i: number, v: string) => setSteps((s) => s.map((x, n) => (n === i ? v : x)))
   const removeStep = (i: number) => setSteps((s) => s.filter((_, n) => n !== i))
@@ -131,7 +135,7 @@ function TaskEditForm({
           <h2 className="min-w-0 flex-1 text-[1.25rem] font-extrabold tracking-[-0.4px]" style={{ color: "var(--hh-ink)" }}>
             Edit task
           </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="hit-44 rounded-full p-1.5" style={{ background: "var(--hh-bg)" }}>
+          <button type="button" onClick={dismiss} aria-label="Close" className="hit-44 rounded-full p-1.5" style={{ background: "var(--hh-bg)" }}>
             <XIcon className="size-[18px]" style={{ color: "var(--hh-sub)" }} />
           </button>
         </div>

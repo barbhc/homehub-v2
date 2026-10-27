@@ -23,6 +23,11 @@ async function openTaskPage(page: Page) {
   await PAGES.find((p) => p.name === "task page")!.open(page)
 }
 
+async function openItemPage(page: Page) {
+  await gotoStable(page, "/items/furnace")
+  await page.getByText(/Carrier Infinity Furnace/).filter({ visible: true }).first().waitFor({ timeout: 20_000 })
+}
+
 const sheet = (page: Page, id: string) => page.getByTestId(id)
 
 async function box(page: Page, id: string) {
@@ -201,6 +206,146 @@ test.describe("bottom sheet @ 390x844", () => {
     await page.keyboard.press("Escape")
     await expect(sheet(page, TUNE)).toHaveCount(0)
     await expect.poll(() => page.evaluate(() => document.activeElement?.textContent ?? "")).toContain("Tune this task")
+  })
+
+  test("grabbing the sheet mid-rise takes it over: it stops where the finger is, follows it, then settles", async ({ page }) => {
+    await openTaskPage(page)
+    // Slow motion (x10): frames hand the sheet a dilated clock, so the ~0.4s
+    // rise takes ~4s and a finger can land on it mid-flight every run.
+    await page.evaluate(() => {
+      const raf = window.requestAnimationFrame.bind(window)
+      const t0 = performance.now()
+      window.requestAnimationFrame = (cb) => raf((t) => cb(t0 + (t - t0) / 10))
+    })
+    await page.getByRole("button", { name: "Edit task" }).click()
+    // Catch it with 60–140px still to go — short of the 30% that would close
+    // it on release; the 77px header is the target.
+    const top = await page.waitForFunction(() => {
+      const el = document.querySelector('[data-testid="task-edit-sheet"]')
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      const offset = r.bottom - window.innerHeight
+      return offset > 60 && offset < 140 ? r.top : null
+    }, null, { polling: "raf", timeout: 10_000 }).then((h) => h.jsonValue() as Promise<number>)
+    await page.mouse.move(24, top + 38)
+    await page.mouse.down()
+    const offsetNow = async () => { const b = await box(page, EDIT); return b.bottom - b.vh }
+    const grabbed = await offsetNow()
+    await page.waitForTimeout(300)
+    const held = await offsetNow()
+    expect(grabbed, "caught mid-flight, still below rest").toBeGreaterThan(50)
+    expect(Math.abs(held - grabbed), "the spring stopped when grabbed").toBeLessThan(2)
+    await page.mouse.move(24, top + 38 + 60, { steps: 6 })
+    expect(Math.abs((await offsetNow()) - (grabbed + 60)), "follows the finger 1:1").toBeLessThan(3)
+    await page.mouse.move(24, top + 38, { steps: 6 })
+    await page.waitForTimeout(200)
+    await page.mouse.up()
+    await expect.poll(async () => Math.abs(await offsetNow()), { timeout: 10_000 }).toBeLessThan(1)
+    await expect(sheet(page, EDIT)).toBeVisible()
+  })
+
+  test("a second finger landing on the grabber mid-drag doesn't take the drag over", async ({ page }) => {
+    await openTaskPage(page)
+    await openTune(page)
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
+    const touch = (type: string, touchPoints: { x: number; y: number; id: number }[]) =>
+      cdp.send("Input.dispatchTouchEvent", { type, touchPoints } as never)
+    const g = (await sheet(page, TUNE).getByTestId("sheet-grabber").boundingBox())!
+    const x = g.x + g.width / 2
+    const y = g.y + g.height / 2
+    await touch("touchStart", [{ x, y, id: 1 }])
+    for (let i = 1; i <= 6; i++) await touch("touchMove", [{ x, y: y + i * 10, id: 1 }])
+    const offset = async () => { const b = await box(page, TUNE); return b.bottom - b.vh }
+    expect(await offset()).toBeGreaterThan(50)
+    // Second finger on the (moved) grabber strip, then dragged much further.
+    await touch("touchStart", [{ x, y: y + 60, id: 1 }, { x: x + 40, y: y + 60, id: 2 }])
+    for (let i = 1; i <= 6; i++) await touch("touchMove", [{ x, y: y + 60, id: 1 }, { x: x + 40, y: y + 60 + i * 40, id: 2 }])
+    expect(Math.abs((await offset()) - 60), "still where the first finger holds it").toBeLessThan(4)
+    await touch("touchEnd", [])
+    await expectAtRest(page, TUNE)
+  })
+
+  test("buttons inside a drag area still click: the edit sheet's header ✕, the home switcher's Back", async ({ page }) => {
+    await openTaskPage(page)
+    await page.getByRole("button", { name: "Edit task" }).click()
+    await expectAtRest(page, EDIT)
+    await sheet(page, EDIT).getByRole("button", { name: "Close" }).first().click()
+    await expect(sheet(page, EDIT)).toHaveCount(0)
+
+    await PAGES.find((p) => p.name === "home")!.open(page)
+    await page.getByRole("button", { name: /E2E Test Home/ }).filter({ visible: true }).first().click()
+    const switcher = sheet(page, "home-switcher-sheet")
+    await expectAtRest(page, "home-switcher-sheet")
+    await switcher.getByRole("button", { name: /Add a home/ }).click()
+    await expect(switcher.getByLabel("Home name")).toBeVisible()
+    await switcher.getByRole("button", { name: "Back to your homes" }).click()
+    await expect(switcher.getByText("Your homes")).toBeVisible()
+  })
+
+  test("the edit sheet's own header ✕ asks before dropping edits, like the scrim and Escape", async ({ page }) => {
+    await openTaskPage(page)
+    await page.getByRole("button", { name: "Edit task" }).click()
+    await expectAtRest(page, EDIT)
+    await sheet(page, EDIT).getByPlaceholder("What is this task called?").fill("Renamed by the header test")
+    await sheet(page, EDIT).getByRole("button", { name: "Close" }).first().click()
+    await expect(page.getByTestId("sheet-discard-prompt")).toBeVisible()
+    await page.getByRole("button", { name: "Keep editing" }).click()
+    await expect(sheet(page, EDIT).getByPlaceholder("What is this task called?")).toHaveValue("Renamed by the header test")
+  })
+
+  test("the review drawer: Exit (walkthrough) and its ✕ still click", async ({ page }) => {
+    await openItemPage(page)
+    await page.getByRole("button", { name: /Review (these )?tasks/ }).filter({ visible: true }).first().click()
+    const drawer = sheet(page, "task-review-sheet")
+    await expectAtRest(page, "task-review-sheet")
+    await drawer.getByRole("button", { name: /Go through them one by one/ }).click()
+    await expect(drawer.getByText(/Deciding each task/)).toBeVisible()
+    await drawer.getByRole("button", { name: "Exit" }).click()
+    await expect(drawer.getByText(/Deciding each task/)).toHaveCount(0)
+    await drawer.getByRole("button", { name: "Close" }).last().click()
+    await expect(drawer).toHaveCount(0)
+  })
+
+  test("Details & records: Discard really discards — it reopens with the saved values", async ({ page }) => {
+    await openItemPage(page)
+    const open = () => page.getByRole("button", { name: /^Rename / }).filter({ visible: true }).first().click()
+    await open()
+    const details = sheet(page, "item-details-sheet")
+    await expectAtRest(page, "item-details-sheet")
+    const name = details.locator("#details-name")
+    const saved = await name.inputValue()
+    await name.fill(`${saved} (unsaved)`)
+    await page.keyboard.press("Escape")
+    await expect(page.getByTestId("sheet-discard-prompt")).toBeVisible()
+    await page.getByRole("button", { name: "Discard" }).click()
+    await expect(details).toHaveCount(0)
+    await open()
+    await expect(sheet(page, "item-details-sheet").locator("#details-name")).toHaveValue(saved)
+  })
+
+  test("Tell us what's off: Discard really discards — it reopens empty", async ({ page }) => {
+    await openItemPage(page)
+    await page.getByRole("button", { name: /Review (these )?tasks/ }).filter({ visible: true }).first().click()
+    await expectAtRest(page, "task-review-sheet")
+    const off = page.getByRole("button", { name: /Tell us what's off/ })
+    await off.scrollIntoViewIfNeeded()
+    await off.click()
+    const fb = sheet(page, "task-review-feedback-sheet")
+    await expectAtRest(page, "task-review-feedback-sheet")
+    const chip = fb.getByRole("button", { name: "Too many tasks" })
+    await chip.click()
+    await expect(chip).toHaveAttribute("aria-pressed", "true")
+    await fb.getByPlaceholder("Anything specific? (optional)").fill("not discarded?")
+    await page.keyboard.press("Escape")
+    await expect(page.getByTestId("sheet-discard-prompt")).toBeVisible()
+    await page.getByRole("button", { name: "Discard" }).click()
+    await expect(fb).toHaveCount(0)
+    await expect(sheet(page, "task-review-sheet"), "only the feedback sheet closed").toBeVisible()
+    await off.click()
+    const again = sheet(page, "task-review-feedback-sheet")
+    await expect(again.getByRole("button", { name: "Too many tasks" })).toHaveAttribute("aria-pressed", "false")
+    await expect(again.getByPlaceholder("Anything specific? (optional)")).toHaveValue("")
   })
 
   test("it is a modal dialog with a name, and sits above the tab bar", async ({ page }) => {

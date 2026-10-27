@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
+import { SHEET_FLICK_VELOCITY as FLICK_VELOCITY } from "@/lib/motion"
 import {
-  DISMISS_FRACTION, RUBBER_BAND, SHEET_FLICK_VELOCITY as FLICK_VELOCITY, dismissDecision, releaseDecision, releaseVelocity, rubberBand, scrimFor,
+  DISMISS_FRACTION, RUBBER_BAND, dismissDecision, releaseDecision, releaseVelocity, rubberBand, scrimFor,
 } from "./sheetGesture"
 
 const H = 500

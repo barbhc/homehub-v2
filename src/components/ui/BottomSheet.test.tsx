@@ -8,7 +8,7 @@ import { describe, it, expect, vi } from "vitest"
 import { useState } from "react"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { BottomSheet } from "./BottomSheet"
-import { useSheetDirty } from "./bottomSheetDirty"
+import { useSheetDirty, useSheetDismiss } from "./bottomSheetDirty"
 
 function Harness({ dirty = false, viaHook = false, onClose = vi.fn() }: { dirty?: boolean; viaHook?: boolean; onClose?: () => void }) {
   const [open, setOpen] = useState(true)
@@ -103,6 +103,35 @@ describe("BottomSheet", () => {
       })
     })
   }
+
+  it("a close control inside the content goes through the same dirty gate (useSheetDismiss)", () => {
+    function Body({ dirty }: { dirty: boolean }) {
+      useSheetDirty(dirty)
+      const dismiss = useSheetDismiss(() => { throw new Error("fallback used inside a sheet") })
+      return <button type="button" onClick={dismiss}>Header close</button>
+    }
+    function Host({ dirty, onClose }: { dirty: boolean; onClose: () => void }) {
+      const [open, setOpen] = useState(true)
+      return (
+        <BottomSheet open={open} onOpenChange={(o) => { if (!o) { onClose(); setOpen(false) } }} label="Test sheet">
+          <Body dirty={dirty} />
+        </BottomSheet>
+      )
+    }
+    const dirtyClose = vi.fn()
+    const { unmount } = render(<Host dirty onClose={dirtyClose} />)
+    fireEvent.click(screen.getByRole("button", { name: "Header close" }))
+    expect(dirtyClose).not.toHaveBeenCalled()
+    expect(prompt()).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }))
+    expect(dirtyClose).toHaveBeenCalledTimes(1)
+    unmount()
+
+    const cleanClose = vi.fn()
+    render(<Host dirty={false} onClose={cleanClose} />)
+    fireEvent.click(screen.getByRole("button", { name: "Header close" }))
+    expect(cleanClose).toHaveBeenCalledTimes(1)
+  })
 
   it("focus returns to the control that opened it", async () => {
     function Opener() {

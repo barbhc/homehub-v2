@@ -1,3 +1,5 @@
+import { SHEET_FLICK_VELOCITY } from "@/lib/motion"
+
 /**
  * The bottom sheet's gesture maths, kept pure so the decisions can be pinned
  * by unit tests without a browser (src/components/ui/BottomSheet.tsx owns the
@@ -8,13 +10,6 @@
  * finger's travel, and on release closes when it is past 30% of its height or
  * was flicked down faster than SHEET_FLICK_VELOCITY.
  */
-
-/** A downward flick faster than this (px/s) closes the sheet even short of
- *  DISMISS_FRACTION — the demo's value. Sheet-specific, so it is not the row
- *  swipe's FLICK_VELOCITY (src/lib/motion.ts), which also has a minimum
- *  travel; a sheet flick needs none, since closing a sheet is always
- *  reversible by reopening it and a dirty one asks first. */
-export const SHEET_FLICK_VELOCITY = 600
 
 /** Past this fraction of its own height, a released sheet closes. */
 export const DISMISS_FRACTION = 0.3

@@ -35,6 +35,13 @@ export const SPRING_ROW = { type: "spring", stiffness: 520, damping: 42, mass: 1
  *  FLICK_MIN_DISTANCE, commits a swipe even short of the commit distance. */
 export const FLICK_VELOCITY = 500
 
+/** A downward flick faster than this (px/s) closes a bottom sheet even short
+ *  of its 30% distance threshold — the approved demo's value. Sheet-specific,
+ *  so it is not FLICK_VELOCITY above, which also needs FLICK_MIN_DISTANCE of
+ *  travel: a sheet flick needs none, since closing a sheet is always
+ *  reversible by reopening it, and a sheet holding unsaved input asks first. */
+export const SHEET_FLICK_VELOCITY = 600
+
 /** Minimum travel (px) before a flick can commit, so a fast jitter can't
  *  mark a task done. */
 export const FLICK_MIN_DISTANCE = 16
