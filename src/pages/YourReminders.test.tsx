@@ -418,7 +418,19 @@ describe("a proposal that suggests seasonal on a task with no season", () => {
         : { kind: "needs-season" },
       error: null,
     }))
+    // The preview is held unanswered at first: the button must already be shut.
+    let answer!: () => void
+    const held = new Promise<void>((r) => { answer = r })
+    const impl = previewCadenceChange.getMockImplementation()!
+    previewCadenceChange.mockImplementationOnce(async (...a: unknown[]) => { await held; return impl(...(a as [string, string, { season?: string | null }])) })
     await describeAndPropose([proposal("t1", "Service the AC", { current_schedule_type: "annual", suggested_schedule_type: "seasonal" })])
+    expect(screen.getByRole("button", { name: /Turn these on · 1/ })).toBeDisabled()
+    // The picker shows what the row says — the suggested Seasonal — not a blank.
+    fireEvent.click(screen.getByRole("button", { name: "Change" }))
+    const picker = screen.getByLabelText("How often for Service the AC") as HTMLSelectElement
+    expect(picker.value).toBe("seasonal")
+    expect(within(picker).getByRole("option", { name: "Seasonal" })).toBeInTheDocument()
+    answer()
     expect(await screen.findByText("Which season?")).toBeInTheDocument()
     const button = screen.getByRole("button", { name: /Turn these on · 1/ })
     await waitFor(() => expect(button).toBeDisabled())

@@ -1353,7 +1353,10 @@ export async function rescheduleTaskInstance(
         doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`),
         // Clearing snoozedUntil keeps one source of truth for "when next":
         // a snooze left in place would override the date just chosen.
-        { dueDate, snoozedUntil: null, status: "scheduled", updatedAt: serverTimestamp() },
+        // dueSource: null — every writer that moves dueDate says who set it
+        // (firestore-model.md §2); a date picked by hand is not the cadence
+        // rule's, so the nightly roll-forward treats it as it always has.
+        { dueDate, snoozedUntil: null, status: "scheduled", dueSource: null, updatedAt: serverTimestamp() },
         { merge: true },
       )
       .commit()
