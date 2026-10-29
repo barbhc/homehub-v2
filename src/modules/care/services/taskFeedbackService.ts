@@ -22,6 +22,7 @@ import { ruleMatchFor, matchLabel, findSimilar, seasonalFamily, type RuleMatch, 
 import { isAsNeededColdStorage } from "../../../../shared/tasks/houseRules"
 import { cadenceLabel } from "../../../../shared/tasks/cadenceLabel"
 import { patternKeyOf, type FeedbackPattern } from "../../../../shared/tasks/graduation"
+import { isCadenceSeason } from "../../../../shared/tasks/cadenceChange"
 
 export type { RuleMatch } from "@/lib/taskSimilarity"
 
@@ -160,6 +161,14 @@ async function applySeason(homeId: string, taskTemplateId: string, season: Seaso
   if (res.error) throw new Error(res.error.message)
 }
 
+/** `asked`, unless the template already has a season of its own (then null:
+ *  the cadence rule uses the stored one). */
+async function seasonUnlessKnown(homeId: string, taskTemplateId: string, asked: Season): Promise<Season | null> {
+  const snap = await getDoc(doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`))
+  const stored = (snap.data()?.schedule as { season?: unknown } | undefined)?.season
+  return isCadenceSeason(stored) ? null : asked
+}
+
 /** Applies one resolution to one template, throwing on failure (caller reports). */
 async function applyResolution(homeId: string, taskTemplateId: string, r: Resolution): Promise<void> {
   switch (r.action) {
@@ -175,10 +184,14 @@ async function applyResolution(homeId: string, taskTemplateId: string, r: Resolu
       return
     }
     case "cadence": {
+      // The season the sheet asked for fills in a task that has NONE; a task
+      // (primary or swept) that already knows its season keeps it — the
+      // owner answered for the task in front of her, not for every similar one.
+      const season = r.season ? await seasonUnlessKnown(homeId, taskTemplateId, r.season) : null
       const res = await updateTaskSchedule(
         homeId,
         taskTemplateId,
-        { schedule: { scheduleType: r.scheduleType, intervalDays: r.intervalDays ?? undefined, season: r.season ?? null } },
+        { schedule: { scheduleType: r.scheduleType, intervalDays: r.intervalDays ?? undefined, season } },
         "feedback"
       )
       if (res.error) throw new Error(res.error.message)

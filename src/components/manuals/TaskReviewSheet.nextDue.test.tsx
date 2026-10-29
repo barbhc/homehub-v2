@@ -82,4 +82,32 @@ describe("Review tasks · Next due before Save", () => {
     fireEvent.click(within(card).getByRole("button", { name: "Take off schedule" }))
     expect(within(card).getByTestId("next-due")).toHaveTextContent(/^No due date$/)
   })
+
+  it("an untouched review is 'Done'; a 'last done' date or a new interval makes it 'Save changes'", () => {
+    const { card } = renderSheet()
+    // The opened card has its own "Done"; the footer's is the one outside it.
+    expect(screen.getAllByRole("button", { name: "Done" }).filter((b) => !card.contains(b))).toHaveLength(1)
+    fireEvent.click(within(card).getByRole("button", { name: /been doing this already/ }))
+    // Claimed today (Oct 28), later than the Oct 20 completion → a month on.
+    expect(within(card).getByTestId("next-due")).toHaveTextContent(/^Next due: Nov 28$/)
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument()
+  })
+
+  it("an every-N-days interval change counts as a schedule edit", () => {
+    const facts = new Map(FACTS)
+    facts.set("tpl-a", { ...FACTS.get("tpl-a")!, scheduleType: "every_n_days", intervalDays: 14 })
+    const onSave = vi.fn<(t: PreviewTask[], c: PreviewChunk[], e: { schedule: number }) => Promise<string | null>>().mockResolvedValue(null)
+    render(
+      <TaskReviewSheet
+        freezeRiskFalse={false} notificationsBlocked={false} open onOpenChange={vi.fn()}
+        itemName="Coway purifier" previewData={{ ok: true, chunks: [], tasks: [task("tpl-a", "Clean the pre-filter", { schedule_type: "every_n_days", interval_days: 14 })] }}
+        alreadySaved cadenceFacts={facts} onSave={onSave} saving={false}
+      />,
+    )
+    fireEvent.click(screen.getByText("Clean the pre-filter").closest("button") as HTMLElement)
+    const card = document.querySelector("[data-expanded='true']") as HTMLElement
+    fireEvent.change(within(card).getByLabelText("Every"), { target: { value: "3" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
+    expect(onSave.mock.calls[0][2].schedule).toBe(1)
+  })
 })

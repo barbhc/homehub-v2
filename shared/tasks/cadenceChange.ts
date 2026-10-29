@@ -175,3 +175,17 @@ export function cadenceChanged(
   if (after.scheduleType === "seasonal" && after.season != null && (before.season ?? null) !== after.season) return true
   return false
 }
+
+const isYmd = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)
+
+/**
+ * The reviewer's "I've been doing this already" date for a row, when it counts:
+ * a real day, not in the future, and LATER than the task's current "last done"
+ * (its latest completion or earlier claim). An earlier date changes nothing —
+ * the rule counts from the latest of them. The save (taskReviewService) and the
+ * review sheet both decide through this, so the "Next due" shown is the date written.
+ */
+export function lastDoneClaim(day: string | null | undefined, currentLastDone: string | null, today: string): string | null {
+  if (!isYmd(day) || day > today) return null
+  return currentLastDone && currentLastDone >= day ? null : day
+}

@@ -50,4 +50,11 @@ describe("cadenceFactsFrom", () => {
     expect(planFor(f, { scheduleType: "seasonal" }, "2026-10-28")).toMatchObject({ kind: "scheduled", nextDue: "2026-10-15" })
     expect(planFor(f, { scheduleType: "seasonal", season: "spring" }, "2026-10-28")).toMatchObject({ kind: "scheduled", nextDue: "2026-04-15" })
   })
+
+  it("a stored 'last done' claim counts when it is later than the latest completion, never otherwise", () => {
+    const done = [inst("d1", { status: "done", completedAt: Timestamp.fromDate(new Date("2026-09-14T12:00:00Z")) })]
+    expect(cadenceFactsFrom({ ...tpl, lastDoneClaimedOn: "2026-10-01" }, done, "2026-10-28").lastDoneOn).toBe("2026-10-01")
+    expect(cadenceFactsFrom({ ...tpl, lastDoneClaimedOn: "2026-08-01" }, done, "2026-10-28").lastDoneOn).toBe("2026-09-14")
+    expect(cadenceFactsFrom({ ...tpl, lastDoneClaimedOn: "2026-08-01" }, [], "2026-10-28").lastDoneOn).toBe("2026-08-01")
+  })
 })

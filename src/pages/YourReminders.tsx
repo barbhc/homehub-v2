@@ -16,7 +16,7 @@ import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreference
 import type { NotificationPrefs } from "@/lib/notificationPreferences"
 import { cadenceLabel, cadenceLabelInline } from "../../shared/tasks/cadenceLabel"
 import { isRecurring } from "../../shared/tasks/reviewBuckets"
-import type { ScheduleType, TaskTemplate } from "@/integrations/types"
+import type { ScheduleType, Season, TaskTemplate } from "@/integrations/types"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 
@@ -75,6 +75,12 @@ type Row = {
   originalInterval: number | null
   checked: boolean
   editing: boolean
+  /** The season asked for when the row's NEW cadence is seasonal and the task
+   *  has none — a proposal may suggest seasonal (proposeReminders offers every
+   *  recurring cadence), even though CADENCE_CHOICES never does. */
+  season: Season | null
+  /** The preview said this row still needs that season: it holds the button. */
+  awaitingSeason: boolean
   error: string | null
 }
 
@@ -99,6 +105,8 @@ const fromProposal = (p: ProposedReminder): Row => {
     // A row that needs a cadence opens its picker at once — the choice is the
     // one thing standing between it and a reminder.
     editing: !isRecurring(scheduleType),
+    season: null,
+    awaitingSeason: false,
     error: null,
   }
 }
@@ -128,6 +136,8 @@ const fromTemplate = (t: TaskTemplate, itemName: string | null): Row => ({
   originalInterval: t.schedule?.intervalDays ?? null,
   checked: true,
   editing: !isRecurring(t.schedule?.scheduleType),
+  season: null,
+  awaitingSeason: false,
   error: null,
 })
 
@@ -265,6 +275,8 @@ export default function YourReminders() {
   // Ticked, but with no cadence that comes due. These hold the button until
   // the owner picks how often — or unticks them. Never silently "on".
   const blocked = chosen.filter((r) => !hasCadence(r))
+  // Ticked, going seasonal, and the task has no season yet: asked on the row.
+  const seasonless = chosen.filter((r) => hasCadence(r) && r.awaitingSeason)
 
   const applyRow = async (r: Row): Promise<boolean> => {
     if (!homeId) return false
@@ -273,7 +285,7 @@ export default function YourReminders() {
     // failed to save is exactly the silent no-op this page exists to prevent;
     // a schedule saved without its flag is merely a task to retry.
     if (r.scheduleType && r.scheduleType !== r.originalSchedule) {
-      const cad = await setTaskCadence(homeId, r.id, r.scheduleType, r.intervalDays)
+      const cad = await setTaskCadence(homeId, r.id, r.scheduleType, r.intervalDays, r.season)
       if (cad.error) { patch(r.id, { error: `The schedule didn't save: ${cad.error.message}` }); return false }
       // Saved — a retry of the flag need not write the schedule again.
       patch(r.id, { originalSchedule: r.scheduleType, originalInterval: r.intervalDays })
@@ -285,7 +297,7 @@ export default function YourReminders() {
   }
 
   const turnOn = async () => {
-    if (chosen.length === 0 || blocked.length > 0) return
+    if (chosen.length === 0 || blocked.length > 0 || seasonless.length > 0) return
     setApplying(true)
     const results = await Promise.all(chosen.map(applyRow))
     setApplying(false)
@@ -415,7 +427,7 @@ export default function YourReminders() {
                           onChange={(e) => {
                             const v = (e.target.value || null) as ScheduleType | null
                             // Back to the original keeps its interval; anything else has none.
-                            patch(r.id, { scheduleType: v, intervalDays: v === r.originalSchedule ? r.originalInterval : null })
+                            patch(r.id, { scheduleType: v, intervalDays: v === r.originalSchedule ? r.originalInterval : null, awaitingSeason: false })
                           }}
                           className="rounded-lg border px-2 py-1 text-[0.8125rem]"
                           style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
@@ -434,9 +446,13 @@ export default function YourReminders() {
                         className="mt-1.5 pl-[30px]"
                         homeId={homeId}
                         taskTemplateId={r.id}
-                        choice={{ scheduleType: r.scheduleType, intervalDays: r.intervalDays }}
-                        // Seasonal is never offered as a NEW cadence here.
-                        onSeason={() => {}}
+                        choice={{ scheduleType: r.scheduleType, intervalDays: r.intervalDays, season: r.season }}
+                        // The picker (CADENCE_CHOICES) never offers seasonal, but a
+                        // proposal can suggest it — so the ask is live, never inert:
+                        // the answer is saved with the cadence, and the row holds
+                        // "Turn these on" until it has one.
+                        onSeason={(season) => patch(r.id, { season })}
+                        onPlan={(plan) => patch(r.id, { awaitingSeason: plan?.kind === "needs-season" })}
                       />
                     )}
                     {r.error && (
@@ -496,13 +512,18 @@ export default function YourReminders() {
             <button
               type="button"
               onClick={() => void turnOn()}
-              disabled={chosen.length === 0 || blocked.length > 0 || applying}
+              disabled={chosen.length === 0 || blocked.length > 0 || seasonless.length > 0 || applying}
               className="flex items-center justify-center gap-2 rounded-xl py-3 text-[0.875rem] font-bold text-white disabled:opacity-50"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {applying && <Loader2Icon className="size-4 animate-spin" />}
               Turn these on · {chosen.length}
             </button>
+            {blocked.length === 0 && seasonless.length > 0 && (
+              <div role="status" className="text-center text-[0.78125rem] font-semibold" style={{ color: SUB }}>
+                Pick a season for “{seasonless[0].title}” first.
+              </div>
+            )}
             {blocked.length > 0 && (
               <div role="status" className="text-center text-[0.78125rem] font-semibold" style={{ color: CLAY }}>
                 {blocked.length === 1

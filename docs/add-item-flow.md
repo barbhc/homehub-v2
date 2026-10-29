@@ -390,8 +390,12 @@ setup."*
   cadence changed (or that the reviewer dated with "I've been doing this
   already") moves its date; re-saving an untouched row moves nothing. Going
   seasonal with no known season asks "Which season?" and Save waits for it.
-  A FRESH parse review is unchanged — it has no stored tasks to count from, and
-  commitDraft starts each one a cadence from today. — owner, 2026-10-28
+  A FRESH parse review is unchanged — it has no stored tasks to count from:
+  commitDraft anchors each new task on the reviewer's "last done" date, else
+  today, plus the cadence, and a seasonal one on its season's next window.
+  An existing task's "I've been doing this already" date is kept on the task
+  (`lastDoneClaimedOn`, never a completion), so a later cadence change still
+  counts from it. — owner, 2026-10-28
   (decision doc §B, "from when you last did it")
 - **A bell is never drawn that cannot be rung.** If permission was refused, the
   screen says so instead. — round 18. Wired by HH-161 (`lib/notifyGate`, read

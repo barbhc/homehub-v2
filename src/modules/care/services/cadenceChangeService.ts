@@ -25,7 +25,8 @@ export interface CadenceFacts {
   scheduleType: ScheduleType | null
   intervalDays: number | null
   season: Season | null
-  /** Most recent completion's day, or null when it was never done. */
+  /** The later of the most recent completion's day and the owner's claimed
+   *  "last done" date (`lastDoneClaimedOn`); null when neither exists. */
   lastDoneOn: string | null
   /** The day the task was added. */
   addedOn: string
@@ -87,6 +88,11 @@ export function cadenceFactsFrom(
       open.push({ id, status: data.status, dueDate: asDate(data.dueDate), snoozedUntil: asDate(data.snoozedUntil) })
     }
   }
+  // "I've been doing this already" (Review tasks) is stored on the template as
+  // a CLAIM, never as a completion: it counts as "last done" for the rule
+  // whenever it is later than the latest real completion.
+  const claimed = asDate(tpl.lastDoneClaimedOn)
+  if (claimed && (!lastDoneOn || claimed > lastDoneOn)) lastDoneOn = claimed
   return {
     scheduleType: typeof sched?.scheduleType === "string" ? (sched.scheduleType as ScheduleType) : null,
     intervalDays: typeof sched?.intervalDays === "number" ? sched.intervalDays : null,
@@ -139,6 +145,25 @@ export async function previewCadenceChange(
   }
 }
 
+/**
+ * Stamped on every occurrence whose date the cadence rule set. The nightly
+ * rollForwardNeverStarted job re-anchors never-started, past-due occurrences to
+ * today + cadence; it must leave these alone, because a past date here is the
+ * rule's honest answer (owner, 2026-10-28), not a stale seed. The functions
+ * side reads the same literal (firebase/functions/src/schedule/rollForward.ts).
+ */
+export const DUE_SOURCE_CADENCE_RULE = "cadence_rule"
+
+const scoreFor = (tpl: DocumentData, dueDate: string) =>
+  computePriorityScore(
+    (tpl.priorityTier ?? "recommended") as PriorityTier,
+    (tpl.riskLevel ?? "comfort") as RiskLevel,
+    dueDate,
+    null,
+    null,
+    tpl.estimatedMinutes ?? null,
+  )
+
 /** The message a writer refuses with if an editor skipped asking. */
 export const SEASON_NEEDED = "Pick a season first."
 
@@ -172,14 +197,24 @@ export async function writeCadencePlan(
       // Soft delete: completions are separate documents and are never touched.
       for (const id of plan.remove) set(inst(id), { deletedAt: now, updatedAt: now })
       return
-    case "scheduled":
+    case "scheduled": {
+      // The score the dashboard orders by depends on the due date (overdue,
+      // within 14 days…), so a moved date gets a fresh one.
+      const { priorityScore } = scoreFor(tpl, plan.nextDue)
       for (const m of plan.moves) {
-        set(inst(m.id), { dueDate: m.dueDate, status: m.status, snoozedUntil: m.snoozedUntil, scheduleType, updatedAt: now })
+        set(inst(m.id), {
+          dueDate: m.dueDate, status: m.status, snoozedUntil: m.snoozedUntil, scheduleType, priorityScore,
+          dueSource: DUE_SOURCE_CADENCE_RULE, updatedAt: now,
+        })
       }
       if (plan.create) {
-        set(doc(collection(db, `homes/${homeId}/taskInstances`)), await firstOccurrence(homeId, taskTemplateId, tpl, scheduleType, plan.nextDue))
+        set(doc(collection(db, `homes/${homeId}/taskInstances`)), {
+          ...(await firstOccurrence(homeId, taskTemplateId, tpl, scheduleType, plan.nextDue)),
+          dueSource: DUE_SOURCE_CADENCE_RULE,
+        })
       }
       return
+    }
   }
 }
 
@@ -208,14 +243,7 @@ export async function firstOccurrence(
     }
   }
   const tier = (tpl.priorityTier ?? "recommended") as PriorityTier
-  const { priorityScore, isSafetyCritical } = computePriorityScore(
-    tier,
-    (tpl.riskLevel ?? "comfort") as RiskLevel,
-    dueDate,
-    null,
-    null,
-    tpl.estimatedMinutes ?? null,
-  )
+  const { priorityScore, isSafetyCritical } = scoreFor(tpl, dueDate)
   const now = serverTimestamp()
   return {
     homeId,

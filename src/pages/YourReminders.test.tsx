@@ -85,7 +85,7 @@ describe("YourReminders", () => {
 
     expect(setTaskReminder).toHaveBeenCalledTimes(1)
     expect(setTaskReminder).toHaveBeenCalledWith("h1", "t1", true)
-    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t1", "monthly", null)
+    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t1", "monthly", null, null)
     // the unticked row is simply not written — and NOTHING is ever deleted
     expect(setTaskReminder).not.toHaveBeenCalledWith("h1", "t2", expect.anything())
     expect(deleteTaskTemplate).not.toHaveBeenCalled()
@@ -332,7 +332,7 @@ describe("a proposed row with no cadence", () => {
     expect(button).toBeEnabled()
     fireEvent.click(button)
     await waitFor(() => expect(screen.getByText("1 reminder on.")).toBeInTheDocument())
-    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t8", "quarterly", null)
+    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t8", "quarterly", null, null)
     expect(setTaskReminder).toHaveBeenCalledWith("h1", "t8", true)
     expect(setTaskCadence.mock.invocationCallOrder[0]).toBeLessThan(setTaskReminder.mock.invocationCallOrder[0])
   })
@@ -401,5 +401,34 @@ describe("a proposal the lanes would never send is not listed", () => {
     await screen.findByText("1 proposed · from what you told us")
     expect(screen.getByLabelText("Replace the furnace filter")).toBeInTheDocument()
     expect(screen.queryByLabelText("Wipe the control panel")).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * The picker never offers seasonal, but a PROPOSAL can suggest it (the
+ * callable offers every recurring cadence). On a task with no season the
+ * "Next due" preview asks "Which season?" — and that ask must be live: the
+ * answer is saved with the cadence, and the row holds the button until then.
+ */
+describe("a proposal that suggests seasonal on a task with no season", () => {
+  it("asks for the season, holds the button, then saves the cadence WITH it", async () => {
+    previewCadenceChange.mockImplementation(async (_h: string, _t: string, choice: { season?: string | null }) => ({
+      data: choice.season
+        ? { kind: "scheduled", nextDue: "2027-04-15", basis: "last-done", overdue: false, moves: [], create: false }
+        : { kind: "needs-season" },
+      error: null,
+    }))
+    await describeAndPropose([proposal("t1", "Service the AC", { current_schedule_type: "annual", suggested_schedule_type: "seasonal" })])
+    expect(await screen.findByText("Which season?")).toBeInTheDocument()
+    const button = screen.getByRole("button", { name: /Turn these on · 1/ })
+    await waitFor(() => expect(button).toBeDisabled())
+    expect(screen.getByText("Pick a season for “Service the AC” first.")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Spring" }))
+    expect(await screen.findByTestId("next-due")).toHaveTextContent("Next due: Apr 15, 2027")
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    await waitFor(() => expect(screen.getByText("1 reminder on.")).toBeInTheDocument())
+    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t1", "seasonal", null, "spring")
   })
 })

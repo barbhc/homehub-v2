@@ -153,3 +153,19 @@ describe("cadenceChanged — only a real change moves a date", () => {
     expect(cadenceChanged({}, { scheduleType: "monthly" })).toBe(true)
   })
 })
+
+describe("lastDoneClaim — 'I've been doing this already' counts only when it is the latest", () => {
+  it("a real past day later than the current last done is the claim", async () => {
+    const { lastDoneClaim } = await import("./cadenceChange")
+    expect(lastDoneClaim("2026-10-20", "2026-09-14", TODAY)).toBe("2026-10-20")
+    expect(lastDoneClaim("2026-10-20", null, TODAY)).toBe("2026-10-20")
+  })
+  it("an earlier or equal day, a future day, or no day is not", async () => {
+    const { lastDoneClaim } = await import("./cadenceChange")
+    expect(lastDoneClaim("2026-09-01", "2026-09-14", TODAY)).toBeNull()
+    expect(lastDoneClaim("2026-09-14", "2026-09-14", TODAY)).toBeNull()
+    expect(lastDoneClaim("2026-11-01", null, TODAY)).toBeNull()
+    expect(lastDoneClaim(null, null, TODAY)).toBeNull()
+    expect(lastDoneClaim("last week", null, TODAY)).toBeNull()
+  })
+})

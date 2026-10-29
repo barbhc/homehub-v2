@@ -33,7 +33,7 @@ import {
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { NextDueLine, SeasonAsk } from "@/components/care/NextDue"
 import { planFor, type CadenceFacts } from "@/modules/care/services/cadenceChangeService"
-import { cadenceChanged, type CadenceChangePlan } from "../../../shared/tasks/cadenceChange"
+import { cadenceChanged, lastDoneClaim, type CadenceChangePlan } from "../../../shared/tasks/cadenceChange"
 
 /**
  * The post-parse review — where a manual's extracted tasks become the user's
@@ -308,14 +308,18 @@ export function TaskReviewSheet({
     const id = r.task?.template_id
     const facts = id ? cadenceFacts?.get(id) : undefined
     if (!facts || !r.included || r.kind === "usage") return null
-    const changed = r.lastDoneOn != null ||
+    const claim = lastDoneClaim(r.lastDoneOn, facts.lastDoneOn, localToday())
+    const changed = !!claim ||
       cadenceChanged(facts, { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season })
     if (!changed) return null
-    const lastDoneOn = r.lastDoneOn && (!facts.lastDoneOn || r.lastDoneOn > facts.lastDoneOn) ? r.lastDoneOn : facts.lastDoneOn
-    return planFor({ ...facts, lastDoneOn }, { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season })
+    return planFor({ ...facts, lastDoneOn: claim ?? facts.lastDoneOn }, { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season })
   }
   /** Rows still waiting on a season: Save holds until they have one. */
   const seasonless = rows.filter((r) => planOfRow(r)?.kind === "needs-season")
+  /** A save that will move some task's date — a "last done" date included,
+   *  which is not a parser correction and so is not in `edits` — must not be
+   *  labelled "Done". */
+  const movesDates = rows.some((r) => planOfRow(r) != null)
 
 
   const edits: ReviewEditSummary = useMemo(() => {
@@ -326,7 +330,14 @@ export function TaskReviewSheet({
       const b = base.get(r.id); if (!b) continue
       if (r.tier !== b.tier) { tier++; details.push({ title: r.title, field: "tier", from: b.tier, to: r.tier }) }
       if (r.kind !== b.kind) { kind++; details.push({ title: r.title, field: "kind", from: b.kind, to: r.kind }) }
-      if (r.schedule !== b.schedule) { schedule++; details.push({ title: r.title, field: "schedule", from: b.schedule, to: r.schedule }) }
+      // The whole cadence, not just its type: a new interval ("every 2 weeks" →
+      // "every 6 weeks") or a season answered is a schedule correction too.
+      if (cadenceChanged({ scheduleType: b.schedule, intervalDays: b.intervalDays, season: b.season }, { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season })) {
+        schedule++
+        // Enum values, as before: parseFeedbackService and the parse-eval
+        // worksheet (scripts/parse-eval/reviewEdits.ts) read them as such.
+        details.push({ title: r.title, field: "schedule", from: b.schedule, to: r.schedule })
+      }
       if (!r.included) { skipped++; details.push({ title: r.title, field: "skip", from: "kept", to: "skipped" }) }
     }
     return { tier, kind, schedule, skipped, total: tier + kind + schedule + skipped, details }
@@ -1091,7 +1102,7 @@ export function TaskReviewSheet({
               Save genuinely has nothing left to do. */}
           <Button className="flex-1 font-bold" disabled={saving || seasonless.length > 0} onClick={() => { void handleSave() }}>
             {saving && <Loader2Icon className="size-4 mr-2 animate-spin" />}
-            {alreadySaved && edits.total === 0
+            {alreadySaved && edits.total === 0 && !movesDates
               ? "Done"
               : alreadySaved
                 ? "Save changes"

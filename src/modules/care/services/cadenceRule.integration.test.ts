@@ -36,6 +36,7 @@ import { setTaskCadence } from "./taskService"
 import { updateTaskSchedule } from "./taskScheduleService"
 import { loadItemTasksForReview, saveItemTaskReview } from "./taskReviewService"
 import { SEASON_NEEDED } from "./cadenceChangeService"
+import { submitTaskFeedback } from "./taskFeedbackService"
 import { rowsFrom } from "@/components/manuals/reviewRows"
 import type { ScheduleType, Season } from "@/integrations/types"
 import type { ServiceResult } from "./careNoteService"
@@ -174,6 +175,9 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("one cadence rule
         const open = await openOf(`${e.item}-tpl`)
         expect(open.map((d) => [d.id, d.get("dueDate"), d.get("scheduleType"), d.get("status")]))
           .toEqual([[`${e.item}-open`, "2026-12-14", "quarterly", "scheduled"]])
+        // Marked as the rule's date (rollForward leaves it alone), and re-scored
+        // for its new date: recommended 60 + performance 20, not due within 14 days.
+        expect([open[0].get("dueSource"), open[0].get("priorityScore")]).toEqual(["cadence_rule", 80])
         // Template ↔ open occurrence agree.
         const tpl = await tplOf(`${e.item}-tpl`)
         expect(tpl.schedule.scheduleType).toBe("quarterly")
@@ -204,6 +208,8 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("one cadence rule
         expect((await e.apply(`${e.item}-tpl`, { scheduleType: "every_n_days", intervalDays: 14 })).error).toBeNull()
         const [open] = await openOf(`${e.item}-tpl`)
         expect(open.get("dueDate")).toBe("2026-09-28")
+        // Overdue now, and scored that way (+60), so the dashboard orders it so.
+        expect(open.get("priorityScore")).toBe(140)
         expect((await tplOf(`${e.item}-tpl`)).schedule.intervalDays).toBe(14)
       })
     }
@@ -291,6 +297,54 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("one cadence rule
         expect(o2.get("dueDate")).toBe("2027-01-01")
       })
     }
+  })
+
+  it("Review tasks: 'I've been doing this already' is kept on the task, and a LATER change elsewhere counts from it", async () => {
+    const e = EDITORS[2]
+    await seed(e.item, `${e.item}-tpl`, {}, [
+      done(`${e.item}-tpl`, e.item, `${e.item}-done`),
+      [`${e.item}-open`, instance(`${e.item}-tpl`, e.item, "scheduled")],
+    ])
+    const loaded = (await loadItemTasksForReview(HOME, e.item)).data!
+    const res = await saveItemTaskReview({
+      homeId: HOME, itemUnitId: e.item, templateIds: loaded.templateIds, manualById: loaded.manualById,
+      shownTemplateIds: [`${e.item}-tpl`],
+      tasks: loaded.preview.tasks.map((t) => ({ ...t, last_done_on: "2026-10-10" })), chunks: [],
+    })
+    expect(res.error).toBeNull()
+    const tpl = await tplOf(`${e.item}-tpl`)
+    expect(tpl.lastDoneClaimedOn).toBe("2026-10-10")
+    expect((await openOf(`${e.item}-tpl`))[0].get("dueDate")).toBe("2026-11-10")
+    // Not a completion: history is still the one Sep 14 record.
+    expect((await instancesOf(`${e.item}-tpl`)).filter((d) => d.get("status") === "done").map((d) => d.id)).toEqual([`${e.item}-done`])
+
+    // Later, from Your reminders: quarterly counts from the claim (Oct 10), not Sep 14.
+    expect((await setTaskCadence(HOME, `${e.item}-tpl`, "quarterly", null)).error).toBeNull()
+    expect((await openOf(`${e.item}-tpl`))[0].get("dueDate")).toBe("2027-01-10")
+  })
+
+  it("Tune this task: the season asked for fills a swept task with none, and never overwrites a swept task's own", async () => {
+    const e = EDITORS[1]
+    await wipe(e.item)
+    await setDoc(doc(db, `homes/${HOME}/taskTemplates/${e.item}-primary`), template(e.item, "Service the AC"))
+    await setDoc(doc(db, `homes/${HOME}/taskTemplates/${e.item}-blank`), template(e.item, "Service the heat pump"))
+    await setDoc(doc(db, `homes/${HOME}/taskTemplates/${e.item}-own`), template(e.item, "Service the mini-split", {
+      schedule: { scheduleType: "annual", intervalDays: null, anchorDate: "2026-03-01", season: "fall", windowDaysBefore: 7, windowDaysAfter: 14 },
+    }))
+    const res = await submitTaskFeedback({
+      homeId: HOME, uid: auth.currentUser!.uid,
+      primary: { taskTemplateId: `${e.item}-primary`, taskInstanceId: null, title: "Service the AC" },
+      chip: "too_often",
+      resolution: { action: "cadence", scheduleType: "seasonal", intervalDays: null, season: "spring" },
+      note: null, sweepTemplateIds: [`${e.item}-blank`, `${e.item}-own`], match: null,
+    })
+    expect(res.error).toBeNull()
+    expect((await tplOf(`${e.item}-primary`)).schedule).toMatchObject({ scheduleType: "seasonal", season: "spring" })
+    expect((await tplOf(`${e.item}-blank`)).schedule).toMatchObject({ scheduleType: "seasonal", season: "spring" })
+    expect((await tplOf(`${e.item}-own`)).schedule).toMatchObject({ scheduleType: "seasonal", season: "fall" })
+    // Never done, added Mar 1: spring → Apr 15; its own fall → Oct 15.
+    expect((await openOf(`${e.item}-own`))[0].get("dueDate")).toBe("2026-10-15")
+    expect((await openOf(`${e.item}-blank`))[0].get("dueDate")).toBe("2026-04-15")
   })
 
   it("Review tasks: re-saving an UNCHANGED row moves nothing", async () => {

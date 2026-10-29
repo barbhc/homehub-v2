@@ -6,8 +6,8 @@ import type { ServiceResult } from "./careNoteService"
 import type { PreviewResult, PreviewTask, PreviewChunk, CareType, PriorityTier, RiskLevel, ScheduleType } from "@/modules/knowledge/types/previewTypes"
 import { USAGE_TIP_TAG } from "../../../../shared/tasks/taxonomy"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
-import { isCalendarDate, localToday } from "../../../../shared/dates/calendar"
-import { cadenceChanged, isCadenceSeason } from "../../../../shared/tasks/cadenceChange"
+import { localToday } from "../../../../shared/dates/calendar"
+import { cadenceChanged, isCadenceSeason, lastDoneClaim } from "../../../../shared/tasks/cadenceChange"
 
 /**
  * Re-review an item's EXISTING tasks through the parse-review wizard.
@@ -138,6 +138,8 @@ export interface SaveItemReviewInput {
 
 const RELOAD = "Close the review and open it again."
 
+
+
 export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<ServiceResult<{ updated: number; deactivated: number }>> {
   const { homeId, itemUnitId, templateIds, manualById, shownTemplateIds, tasks, chunks } = input
   try {
@@ -212,6 +214,15 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
         openByTemplate.set(tid, arr)
       }
       const todayStr = localToday()
+      // Each row's "last done" claim, decided once against the task's current
+      // last done, so the template write and the date plan agree.
+      const claimById = new Map<string, string>()
+      for (const t of tasks) {
+        const id = t.template_id!
+        const current = cadenceFactsFrom(liveById.get(id)!, instancesByTemplate.get(id) ?? [], todayStr).lastDoneOn
+        const claim = lastDoneClaim(t.last_done_on, current, todayStr)
+        if (claim) claimById.set(id, claim)
+      }
 
       for (const t of tasks) {
         const id = t.template_id!
@@ -234,6 +245,10 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
               ...(t.season ? { season: t.season } : {}),
             },
             isActive: true,
+            // "I've been doing this already": kept as a claim on the task, so a
+            // LATER cadence change still counts from it. Never a completion —
+            // nothing was done today, and history is never written here.
+            ...(claimById.get(id) ? { lastDoneClaimedOn: claimById.get(id) } : {}),
             userModifiedAt: now,
             updatedAt: now,
           },
@@ -258,8 +273,8 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
         // completions (non-negotiable 3).
         const live = liveById.get(id)!
         const facts = cadenceFactsFrom(live, instancesByTemplate.get(id) ?? [], todayStr)
-        const claimed = isCalendarDate(t.last_done_on) && t.last_done_on <= todayStr ? t.last_done_on : null
-        if (claimed && (!facts.lastDoneOn || claimed > facts.lastDoneOn)) facts.lastDoneOn = claimed
+        const claimed = claimById.get(id) ?? null
+        if (claimed) facts.lastDoneOn = claimed
         const stored = live.schedule as { scheduleType?: string; intervalDays?: number | null; season?: string | null } | null
         const changed =
           !!claimed ||
