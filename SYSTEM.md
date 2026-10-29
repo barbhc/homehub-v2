@@ -16,7 +16,7 @@ Every claim below was read at source; file:line references are the evidence. Whe
 | Build | Vite 7.3, TypeScript 5.9 (`npm run build` = `tsc -b && vite build`) |
 | Styling | Tailwind CSS 4.1, Radix UI 1.4, `class-variance-authority`, `lucide-react` |
 | Data fetching | SWR 2.4 + per-domain hooks/services under `src/modules/*/services` |
-| Backend | Firebase Cloud Functions **2nd gen, Node 20**, region `us-central1` (`firebase/functions/`) |
+| Backend | Firebase Cloud Functions **2nd gen, Node 22**, region `us-central1` (`firebase/functions/`) |
 | AI | `@anthropic-ai/sdk` 0.78. Models in use: `claude-sonnet-5` (thinking disabled on text/chat routes; omitted on forced-tool routes), `claude-haiku-4-5`, `claude-opus-5-5` (manual-parse escalation; extraction tool with tool_choice auto + checked call, streamed, server-side fallback beta `server-side-fallback-2026-07-01`). Per-model request rules: `shared/parse/modelParams.ts`. Prompt caching (5-minute `ephemeral` breakpoints): Ask's request is built by `buildChatRequest` (`shared/chat/chatMessages.ts`) with the manual PDFs leading the first user turn behind one breakpoint; the parse's PDF gets one only when `config/spend.parseCacheBreakpoint` is true. Every Claude response is logged as a `claude usage` line with its input / cache-write / cache-read / output tokens (`firebase/functions/src/lib/claudeUsage.ts`) |
 | PDF | `pdfjs-dist` 4.10 (client render, worker from a blob URL), Claude document blocks (server parse) |
 | Native shell | Capacitor 8.4 iOS — push-notifications, camera, apple-sign-in |
