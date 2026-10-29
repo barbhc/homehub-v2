@@ -19,6 +19,7 @@ import {
   type ExistingTask,
 } from "../../../../shared/tasks/cleanupPlan"
 import { USAGE_TIP_TAG } from "../../../../shared/tasks/taxonomy"
+import { memberActor, stamp } from "./fieldProvenance"
 
 export type { CleanupPlan, CleanupProposal }
 
@@ -109,6 +110,9 @@ export async function applyCleanupPlan(
   promoteToEssential: Set<string> = new Set(),
 ): Promise<ApplyCleanupResult> {
   const now = serverTimestamp()
+  // Provenance: every change this applies is a row she ticked (confirm-first),
+  // so the fields it changes are stamped as hers (decision C, step 1).
+  const actor = memberActor()
   const result: ApplyCleanupResult = { reclassified: 0, retiered: 0, convertedToTips: 0, merged: 0, denormRepaired: 0 }
   const templates = collection(db, `homes/${homeId}/taskTemplates`)
 
@@ -159,7 +163,11 @@ export async function applyCleanupPlan(
   for (const p of approved) {
     switch (p.kind) {
       case "reclassify": {
-        batch.set(doc(templates, p.taskTemplateId), { careType: p.to, updatedAt: now }, { merge: true })
+        batch.set(
+          doc(templates, p.taskTemplateId),
+          { careType: p.to, ...stamp("applyCleanupPlan", { careType: p.to }, actor), updatedAt: now },
+          { merge: true },
+        )
         // The agenda reads the instance's denormalized copy, not the template —
         // without this the reclassification is invisible on Home.
         await syncTemplateDenormToInstances(batch, homeId, p.taskTemplateId, { careType: p.to })
@@ -171,9 +179,13 @@ export async function applyCleanupPlan(
         const nextTier = promote ? "essential" : "recommended"
         batch.set(
           doc(templates, p.taskTemplateId),
-          promote
-            ? { priorityTier: "essential", essentialCandidate: null, updatedAt: now }
-            : { priorityTier: "recommended", essentialCandidate: p.candidate, updatedAt: now },
+          {
+            ...(promote
+              ? { priorityTier: "essential", essentialCandidate: null }
+              : { priorityTier: "recommended", essentialCandidate: p.candidate }),
+            ...stamp("applyCleanupPlan", { priorityTier: nextTier }, actor),
+            updatedAt: now,
+          },
           { merge: true },
         )
         await syncTemplateDenormToInstances(batch, homeId, p.taskTemplateId, { priorityTier: nextTier })

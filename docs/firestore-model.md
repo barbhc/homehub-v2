@@ -139,6 +139,42 @@ before she saved. **Any writer that moves an existing instance's `dueDate` must 
 the same write — `"cadence_rule"` if the date came from the rule, else `null`** — or a stale
 marker would shield a date the rule never chose (or a missing one expose one it did).
 
+**Field provenance rule (2026-10-29, decision C step 1).** `taskTemplates` record, per field, who set
+the current value of the four fields a re-scan used to overwrite — and the manual's latest suggestion
+for them — so a later re-scan can "keep mine, show differences"
+(`docs/decisions/task-consistency-decisions.md` §C). Canonical code: `shared/tasks/fieldProvenance.ts`.
+
+```
+fieldSources: {                       // each key optional; absent or null = unknown
+  priorityTier?:  FieldSource | null,
+  schedule?:      FieldSource | null, // value = { scheduleType, intervalDays, season }
+  remindEnabled?: FieldSource | null,
+  careType?:      FieldSource | null,
+}
+FieldSource = { by: "manual" | "user" | "system", uid: string | null /* iff "user" */,
+                at: Timestamp, via: <writer name>, value: <the value stamped> }
+manualSuggestion: { priorityTier, careType, remindEnabled,
+                    schedule: { scheduleType, intervalDays, season }, manualId, at } | null
+```
+
+- **Who is who.** `user` = a signed-in member acted on that field of that task: an editor, a row she
+  ticked in a confirm-first sweep, a value offered on screen that she accepted (a proposed reminder, a
+  library backstop), or a task she created with values she picked. `manual` = the parser
+  (`commitDraft`): the model's value after the deterministic taxonomy, or a review row left as the
+  draft had it. `system` = a rule or default nobody chose for this task: a learned house rule
+  re-applied at parse time, the classifier backfill, the library's defaults on a task added from it, a
+  routine's fixed kind/tier, a placeholder schedule written at creation.
+- **Every writer of those four fields stamps exactly the fields it changes, in the same write.** A
+  re-saving editor (Review tasks) compares each row with the stored task and stamps only what moved.
+  `manualSuggestion` is written only by `commitDraft` (worker and reviewed commit); the reviewed commit
+  (`commitManualDraft`) takes the manual's values from the `previewDraft` the review was opened from.
+- **Reading.** `sourceOf(tpl, field)` trusts a stamp only while its `value` equals the stored field;
+  missing, malformed or stale stamps are **unknown**. So a writer that forgets to stamp (an ops script,
+  the v1 import, an older functions build) fails safe — never into a wrong "you chose this". Nothing
+  reads provenance yet; existing tasks are not backfilled (open owner question for step 2).
+- **Rules** (`templateProvenanceOk`, §6): a client may keep, clear, stamp its own `user` edit (its own
+  uid) or a `system` default; never another member's uid, never `manual`, never `manualSuggestion`.
+
 **Link / auxiliary tables (present in `types.ts` beyond the core 19):**
 
 | v1 table | v2 disposition |
@@ -321,6 +357,10 @@ v1 has **78 RLS policies**, but the effective model is simpler than the count su
 - **Assignee-must-be-member** (v1 trigger `enforce_assignee_membership`): enforced in rules on
   `taskInstances` create/update — `assignedTo == null || exists(members/{assignedTo})`. Same guard on
   `taskTemplates.defaultAssignee`.
+- **Template provenance** (`templateProvenanceOk`, 2026-10-29): on `taskTemplates` create/update a
+  changed `fieldSources.<field>` stamp must be the caller's own `user` stamp (`uid ==
+  request.auth.uid`) or a `system` stamp with no uid (or be cleared); `manual` stamps and
+  `manualSuggestion` are Admin-SDK-only (the parser). See §2 "Field provenance rule".
 - **Self-only:** `users/{uid}` writes are `request.auth.uid == uid`; `users/{uid}/private/**` is
   self-only for read too. Member docs: the client creates exactly one — its own owner row when it
   creates the home (every other join is `acceptInvite`); self may update own row (`isPrimary`, never

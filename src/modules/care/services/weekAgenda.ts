@@ -306,6 +306,8 @@ export async function createTasksFromEditable(
       risk_level: "comfort",
       estimated_minutes: effortToMinutes(t.effort),
       source: "manual",
+      // Rows she edited in the Plan step.
+      fields_set_by: "user",
     })
     if (tmpl.error || !tmpl.data) {
       firstError ??= tmpl.error?.message ?? "Failed to create task"

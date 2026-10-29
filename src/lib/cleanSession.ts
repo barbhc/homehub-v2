@@ -20,6 +20,7 @@ import type { ScheduleType } from "@/integrations/types"
 import { generateTaskInstances, plannedInstanceDue } from "@/modules/care"
 import { readOpenInstances, readRecentDone, readTaskTemplates, type HomeReads, type ReadDoc } from "@/lib/homeReads"
 import { diffDays, localToday } from "../../shared/dates/calendar"
+import { stamp, systemStamp } from "@/modules/care/services/fieldProvenance"
 
 /** Timestamp | ISO string → ISO string ("" when absent). */
 function clnIso(v: unknown): string {
@@ -434,6 +435,12 @@ export async function saveRoutineTask(
     await writeBatch(db)
       .set(ref, {
         ...routineTemplateDoc({ title: title.trim(), careType: "cleaning", priorityTier: "recommended", estimatedMinutes, roomId: null, scheduleType: st }),
+        // Provenance: the cadence is hers; kind and priority are this
+        // routine's fixed defaults (shared/tasks/fieldProvenance.ts).
+        fieldSources: {
+          ...systemStamp("routineTemplate", { careType: "cleaning", priorityTier: "recommended" }).fieldSources,
+          ...stamp("routineTemplate", { schedule: { scheduleType: st, intervalDays: null, season: null } }).fieldSources,
+        },
       })
       .commit()
     return { task_template_id: ref.id }
@@ -524,14 +531,22 @@ export async function saveStandaloneTask(
   try {
     const ref = doc(collection(db, `homes/${homeId}/taskTemplates`))
     await writeBatch(db)
-      .set(ref, routineTemplateDoc({
-        title: opts.title.trim(),
-        careType: opts.careType,
-        priorityTier: opts.priorityTier,
-        estimatedMinutes: opts.estimatedMinutes,
-        roomId: opts.roomId,
-        scheduleType: st,
-      }))
+      .set(ref, {
+        ...routineTemplateDoc({
+          title: opts.title.trim(),
+          careType: opts.careType,
+          priorityTier: opts.priorityTier,
+          estimatedMinutes: opts.estimatedMinutes,
+          roomId: opts.roomId,
+          scheduleType: st,
+        }),
+        // Provenance: every one of these she picked.
+        ...stamp("routineTemplate", {
+          careType: opts.careType,
+          priorityTier: opts.priorityTier,
+          schedule: { scheduleType: st, intervalDays: null, season: null },
+        }),
+      })
       .commit()
     return { task_template_id: ref.id }
   } catch (e) {

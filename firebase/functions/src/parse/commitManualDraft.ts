@@ -14,6 +14,7 @@ import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { normalizeChunkRow, normalizeTaskRow } from "../../../../shared/parse/parseCore.js"
 import { commitDraft } from "./commitDraft.js"
 import { parseLastDone } from "../../../../shared/care/lastDone.js"
+import { pairReviewedWithDraft, type DraftRowLike } from "../../../../shared/tasks/fieldProvenance.js"
 import { CommitManualDraftRequest } from "./draftSchemas.js"
 import { parseCallableInput, storedText } from "../lib/validate.js"
 import { storedDocId } from "../lib/storedTask.js"
@@ -63,14 +64,24 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   // it rides alongside the normalized row instead of being added to parseCore
   // (which stays a verbatim port of v1).
   const todayStr = new Date().toISOString().slice(0, 10)
-  const normTasks = tasks.map((t) => ({
-    ...normalizeTaskRow(t),
+  const normalized = tasks.map((t) => normalizeTaskRow(t))
+  // Provenance (decision C, step 1): what the MANUAL said for each reviewed
+  // row is the parser's draft this review was opened from — so a field the
+  // reviewer changed is recorded as theirs, and one they left as the manual's.
+  // The draft is the worker's own write (runParse, preview mode) and is only
+  // compared field by field, never written; a row with no draft counterpart
+  // records the manual's suggestion as unknown.
+  const draftTasks = draftRows(manualSnap.get("previewDraft.tasks"))
+  const suggestions = pairReviewedWithDraft(normalized.map((t) => t.title), draftTasks)
+  const normTasks = tasks.map((t, i) => ({
+    ...normalized[i],
     remind_enabled: t.remind_enabled,
     // Parsed, not cast: this arrives from a form as `unknown`, and a bad anchor
     // would silently mis-schedule the task rather than fail loudly. Anything
     // unusable degrades to null, which is exactly the shipped behaviour
     // (anchor on today) — a malformed date must never cost the whole manual.
     last_done_on: parseLastDone(t.last_done_on, todayStr),
+    manual_suggestion_row: suggestions[i],
   }))
 
   // Fresh requestId per save — a distinct user intent (commitDraft is idempotent
@@ -79,7 +90,7 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   const now = new Date()
   let res
   try {
-    res = await commitDraft(db, { homeId, manualId, item, requestId, chunks: normChunks, tasks: normTasks, now })
+    res = await commitDraft(db, { homeId, manualId, item, requestId, chunks: normChunks, tasks: normTasks, reviewerUid: uid, now })
   } catch (e) {
     throw new HttpsError("internal", e instanceof Error ? e.message : "Save failed")
   }
@@ -101,3 +112,26 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
 
   return { ok: true, chunks: res.chunks, tasks: res.tasks }
 })
+
+/**
+ * The stored draft's task rows, read defensively: it is member-writable data
+ * (the manual doc), so anything that is not an object with a string title is
+ * dropped — those rows then simply have no manual suggestion (unknown).
+ */
+export function draftRows(raw: unknown): DraftRowLike[] {
+  if (!Array.isArray(raw)) return []
+  const str = (v: unknown) => (typeof v === "string" ? v : null)
+  return raw
+    .filter((r): r is Record<string, unknown> => !!r && typeof r === "object" && typeof (r as { title?: unknown }).title === "string")
+    .map((r) => ({
+      title: r.title as string,
+      description: str(r.description),
+      tags: Array.isArray(r.tags) ? r.tags.filter((x): x is string => typeof x === "string") : [],
+      instructions_override: str(r.instructions_override),
+      instructions_text: str(r.instructions_text),
+      care_type: str(r.care_type),
+      priority_tier: str(r.priority_tier),
+      schedule_type: str(r.schedule_type),
+      interval_days: typeof r.interval_days === "number" ? r.interval_days : null,
+    }))
+}

@@ -2,6 +2,8 @@ import { collection, doc, getDoc, serverTimestamp, writeBatch } from "firebase/f
 import { db, auth } from "@/integrations/firebase"
 import { syncTemplateDenormToInstances } from "./denormSync"
 import { planFor, readCadenceFacts, writeCadencePlan, SEASON_NEEDED } from "./cadenceChangeService"
+import { stamp } from "./fieldProvenance"
+import { cadenceValue, type ProvenanceValues } from "../../../../shared/tasks/fieldProvenance"
 import type {
   PriorityTier,
   RiskLevel,
@@ -31,7 +33,14 @@ export async function updateTaskSchedule(
 
     const batch = writeBatch(db)
     const fields: Record<string, unknown> = { updatedAt: serverTimestamp() }
-    if (updates.priorityTier) fields.priorityTier = updates.priorityTier
+    // Provenance (decision C): every caller is a member's own act — "This
+    // isn't right" on the task, or a similar task she ticked in that sheet —
+    // so the fields written here are stamped as hers, in the same write.
+    const chosen: Partial<ProvenanceValues> = {}
+    if (updates.priorityTier) {
+      fields.priorityTier = updates.priorityTier
+      chosen.priorityTier = updates.priorityTier
+    }
     if (updates.estimatedMinutes !== undefined) fields.estimatedMinutes = updates.estimatedMinutes
     if (updates.riskLevel) fields.riskLevel = updates.riskLevel
     if (updates.schedule) {
@@ -43,7 +52,9 @@ export async function updateTaskSchedule(
           updates.schedule.scheduleType === "every_n_days" ? (updates.schedule.intervalDays ?? 30) : null,
         ...(updates.schedule.season ? { season: updates.schedule.season } : {}),
       }
+      chosen.schedule = cadenceValue(fields.schedule as Record<string, unknown>)
     }
+    Object.assign(fields, stamp("updateTaskSchedule", chosen))
     batch.set(tplRef, fields, { merge: true })
 
     // Log a tier change (homes/{homeId}/tierChangeLog) when it actually changes.

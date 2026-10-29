@@ -2,6 +2,7 @@ import { collection, doc, getDoc, serverTimestamp, writeBatch, type DocumentData
 import { db } from "@/integrations/firebase"
 import type { ScheduleRule, ScheduleType, Season } from "@/integrations/types"
 import { computePriorityScore } from "./taskService"
+import { stamp } from "./fieldProvenance"
 import { addDays, localToday } from "../../../../shared/dates/calendar"
 
 export type ServiceResult<T> =
@@ -129,8 +130,11 @@ export async function createScheduleRule(
       windowDaysBefore: input.window_days_before ?? 7,
       windowDaysAfter: input.window_days_after ?? 14,
     }
+    // Provenance: the cadence she set in the Plan step (createTasksFromEditable,
+    // the only caller) — shared/tasks/fieldProvenance.ts.
+    const sources = stamp("createScheduleRule", { schedule: { scheduleType: schedule.scheduleType, intervalDays: schedule.intervalDays, season: schedule.season } })
     await writeBatch(db)
-      .set(doc(db, `homes/${homeId}/taskTemplates/${input.task_template_id}`), { schedule, updatedAt: serverTimestamp() }, { merge: true })
+      .set(doc(db, `homes/${homeId}/taskTemplates/${input.task_template_id}`), { schedule, ...sources, updatedAt: serverTimestamp() }, { merge: true })
       .commit()
     return { data: scheduleToRule(input.task_template_id, schedule) as ScheduleRule, error: null }
   } catch (e) {
