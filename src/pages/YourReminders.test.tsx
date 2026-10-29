@@ -29,6 +29,10 @@ vi.mock("@/modules/care", () => ({
   deleteTaskTemplate: (...a: unknown[]) => deleteTaskTemplate(...a),
   archiveTaskTemplate: (...a: unknown[]) => archiveTaskTemplate(...a),
 }))
+const previewCadenceChange = vi.fn()
+vi.mock("@/modules/care/services/cadenceChangeService", () => ({
+  previewCadenceChange: (...a: unknown[]) => previewCadenceChange(...a),
+}))
 const getItemUnits = vi.fn()
 vi.mock("@/modules/items", () => ({ getItemUnits: (...a: unknown[]) => getItemUnits(...a) }))
 vi.mock("@/lib/userPreferences", () => ({
@@ -56,6 +60,9 @@ beforeEach(() => {
   setTaskCadence.mockResolvedValue({ data: true, error: null })
   getNotificationPrefs.mockResolvedValue({ push_mode: "curated+essential", events: {}, weekly_digest: { enabled: true, day: 0, hour: 17 }, quiet_hours: null, lead_time_days: 0 })
   setNotificationPrefs.mockResolvedValue(undefined)
+  previewCadenceChange.mockResolvedValue({
+    data: { kind: "scheduled", nextDue: "2027-01-12", basis: "added", overdue: false, moves: [], create: true }, error: null,
+  })
 })
 
 async function describeAndPropose(proposals: unknown[]) {
@@ -78,15 +85,17 @@ describe("YourReminders", () => {
 
     expect(setTaskReminder).toHaveBeenCalledTimes(1)
     expect(setTaskReminder).toHaveBeenCalledWith("h1", "t1", true)
-    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t1", "monthly", null)
+    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t1", "monthly", null, null)
     // the unticked row is simply not written — and NOTHING is ever deleted
     expect(setTaskReminder).not.toHaveBeenCalledWith("h1", "t2", expect.anything())
     expect(deleteTaskTemplate).not.toHaveBeenCalled()
     expect(archiveTaskTemplate).not.toHaveBeenCalled()
   })
 
-  it("a proposal that keeps its schedule does not write a cadence", async () => {
+  it("a proposal that keeps its schedule does not write a cadence — or claim a new date", async () => {
     await describeAndPropose([proposal("t1", "Replace the furnace filter")])
+    expect(screen.queryByTestId("next-due")).toBeNull()
+    expect(previewCadenceChange).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole("button", { name: /Turn these on · 1/ }))
     await waitFor(() => expect(screen.getByText("1 reminder on.")).toBeInTheDocument())
     expect(setTaskCadence).not.toHaveBeenCalled()
@@ -315,11 +324,15 @@ describe("a proposed row with no cadence", () => {
     await describeAndPropose([nespresso()])
     fireEvent.change(screen.getByLabelText("How often for Descale the machine"), { target: { value: "quarterly" } })
     expect(screen.queryByRole("status")).not.toBeInTheDocument()
+    // Where the date lands, before anything is written (owner 2026-10-28).
+    expect(await screen.findByTestId("next-due")).toHaveTextContent("Next due: Jan 12, 2027")
+    expect(previewCadenceChange).toHaveBeenCalledWith("h1", "t8", { scheduleType: "quarterly", intervalDays: null, season: null })
+    expect(setTaskCadence).not.toHaveBeenCalled()
     const button = screen.getByRole("button", { name: /Turn these on · 1/ })
     expect(button).toBeEnabled()
     fireEvent.click(button)
     await waitFor(() => expect(screen.getByText("1 reminder on.")).toBeInTheDocument())
-    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t8", "quarterly", null)
+    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t8", "quarterly", null, null)
     expect(setTaskReminder).toHaveBeenCalledWith("h1", "t8", true)
     expect(setTaskCadence.mock.invocationCallOrder[0]).toBeLessThan(setTaskReminder.mock.invocationCallOrder[0])
   })
@@ -388,5 +401,46 @@ describe("a proposal the lanes would never send is not listed", () => {
     await screen.findByText("1 proposed · from what you told us")
     expect(screen.getByLabelText("Replace the furnace filter")).toBeInTheDocument()
     expect(screen.queryByLabelText("Wipe the control panel")).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * The picker never offers seasonal, but a PROPOSAL can suggest it (the
+ * callable offers every recurring cadence). On a task with no season the
+ * "Next due" preview asks "Which season?" — and that ask must be live: the
+ * answer is saved with the cadence, and the row holds the button until then.
+ */
+describe("a proposal that suggests seasonal on a task with no season", () => {
+  it("asks for the season, holds the button, then saves the cadence WITH it", async () => {
+    previewCadenceChange.mockImplementation(async (_h: string, _t: string, choice: { season?: string | null }) => ({
+      data: choice.season
+        ? { kind: "scheduled", nextDue: "2027-04-15", basis: "last-done", overdue: false, moves: [], create: false }
+        : { kind: "needs-season" },
+      error: null,
+    }))
+    // The preview is held unanswered at first: the button must already be shut.
+    let answer!: () => void
+    const held = new Promise<void>((r) => { answer = r })
+    const impl = previewCadenceChange.getMockImplementation()!
+    previewCadenceChange.mockImplementationOnce(async (...a: unknown[]) => { await held; return impl(...(a as [string, string, { season?: string | null }])) })
+    await describeAndPropose([proposal("t1", "Service the AC", { current_schedule_type: "annual", suggested_schedule_type: "seasonal" })])
+    expect(screen.getByRole("button", { name: /Turn these on · 1/ })).toBeDisabled()
+    // The picker shows what the row says — the suggested Seasonal — not a blank.
+    fireEvent.click(screen.getByRole("button", { name: "Change" }))
+    const picker = screen.getByLabelText("How often for Service the AC") as HTMLSelectElement
+    expect(picker.value).toBe("seasonal")
+    expect(within(picker).getByRole("option", { name: "Seasonal" })).toBeInTheDocument()
+    answer()
+    expect(await screen.findByText("Which season?")).toBeInTheDocument()
+    const button = screen.getByRole("button", { name: /Turn these on · 1/ })
+    await waitFor(() => expect(button).toBeDisabled())
+    expect(screen.getByText("Pick a season for “Service the AC” first.")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Spring" }))
+    expect(await screen.findByTestId("next-due")).toHaveTextContent("Next due: Apr 15, 2027")
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    await waitFor(() => expect(screen.getByText("1 reminder on.")).toBeInTheDocument())
+    expect(setTaskCadence).toHaveBeenCalledWith("h1", "t1", "seasonal", null, "spring")
   })
 })

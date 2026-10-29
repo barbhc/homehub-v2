@@ -1,39 +1,20 @@
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore"
+import { collection, doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db, auth } from "@/integrations/firebase"
 import { syncTemplateDenormToInstances } from "./denormSync"
+import { planFor, readCadenceFacts, writeCadencePlan, SEASON_NEEDED } from "./cadenceChangeService"
 import type {
   PriorityTier,
   RiskLevel,
   ScheduleType,
+  Season,
 } from "@/integrations/types"
 import type { ServiceResult } from "./careNoteService"
-import { addDays, addMonths, localToday } from "../../../../shared/dates/calendar"
 
 export type ScheduleInput = {
   scheduleType: ScheduleType
   intervalDays?: number
-}
-
-/** The first due date for a new cadence, counted from the device's today. It
- *  was local noon read back as UTC — a day early at UTC+13. */
-function computeDueDate(schedule: ScheduleInput): string {
-  const today = localToday()
-  switch (schedule.scheduleType) {
-    case "weekly":
-      return addDays(today, 7)
-    case "monthly":
-      return addMonths(today, 1)
-    case "quarterly":
-      return addMonths(today, 3)
-    case "semiannual":
-      return addMonths(today, 6)
-    case "annual":
-      return addMonths(today, 12)
-    case "every_n_days":
-      return addDays(today, schedule.intervalDays ?? 30)
-    default:
-      return addMonths(today, 120)
-  }
+  /** The season, when the editor asked for one (seasonal only). */
+  season?: Season | null
 }
 
 export async function updateTaskSchedule(
@@ -60,6 +41,7 @@ export async function updateTaskSchedule(
         scheduleType: updates.schedule.scheduleType,
         intervalDays:
           updates.schedule.scheduleType === "every_n_days" ? (updates.schedule.intervalDays ?? 30) : null,
+        ...(updates.schedule.season ? { season: updates.schedule.season } : {}),
       }
     }
     batch.set(tplRef, fields, { merge: true })
@@ -87,18 +69,19 @@ export async function updateTaskSchedule(
       await syncTemplateDenormToInstances(batch, homeId, taskTemplateId, { priorityTier: updates.priorityTier })
     }
 
-    // Re-anchor open instances' due date when the cadence changed.
+    // The cadence moved: the one rule every editor uses ("from when you last
+    // did it", shared/tasks/cadenceChange.ts). This used to put every open
+    // occurrence at TODAY + the new cadence — and anything without a fixed
+    // interval (seasonal, as needed, setup) ten years out, quietly — while
+    // a task with nothing open got nothing at all.
     if (updates.schedule) {
-      const newDue = computeDueDate(updates.schedule)
-      const openSnap = await getDocs(
-        query(collection(db, `homes/${homeId}/taskInstances`), where("taskTemplateId", "==", taskTemplateId))
-      )
-      for (const d of openSnap.docs) {
-        const st = d.data().status
-        if ((st === "scheduled" || st === "snoozed") && d.data().deletedAt == null) {
-          batch.set(d.ref, { dueDate: newDue, scheduleType: updates.schedule.scheduleType, updatedAt: serverTimestamp() }, { merge: true })
-        }
-      }
+      const read = await readCadenceFacts(homeId, taskTemplateId)
+      if (!read) return { data: null, error: { message: "Task template not found" } }
+      const intervalDays = updates.schedule.scheduleType === "every_n_days" ? (updates.schedule.intervalDays ?? 30) : null
+      const plan = planFor(read.facts, { scheduleType: updates.schedule.scheduleType, intervalDays, season: updates.schedule.season })
+      if (plan.kind === "needs-season") return { data: null, error: { message: SEASON_NEEDED } }
+      const after = { ...current, ...(updates.priorityTier ? { priorityTier: updates.priorityTier } : {}) }
+      await writeCadencePlan(batch, homeId, taskTemplateId, after, updates.schedule.scheduleType, plan)
     }
 
     await batch.commit()

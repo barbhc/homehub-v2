@@ -31,6 +31,9 @@ import {
   TIER_RAIL, SECTION_RAIL, rowsFrom, taskLikeOf, bucketOfRow, type ReviewRow,
 } from "./reviewRows"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { NextDueLine, SeasonAsk } from "@/components/care/NextDue"
+import { planFor, type CadenceFacts } from "@/modules/care/services/cadenceChangeService"
+import { cadenceChanged, lastDoneClaim, type CadenceChangePlan } from "../../../shared/tasks/cadenceChange"
 
 /**
  * The post-parse review — where a manual's extracted tasks become the user's
@@ -232,6 +235,14 @@ interface TaskReviewSheetProps {
    * design instead of silently escaping it.
    */
   focus?: "maintenance" | "all"
+  /**
+   * Existing-task review only (ReviewItemTasksButton): what the cadence rule
+   * needs per stored task, keyed by template id. With it, a row whose cadence
+   * changes shows "Next due: <date>" before Save — the plan the save writes
+   * (shared/tasks/cadenceChange.ts) — and a row going seasonal with no known
+   * season asks for one. A fresh parse has no stored tasks, so no facts.
+   */
+  cadenceFacts?: Map<string, CadenceFacts>
 }
 
 export function TaskReviewSheet({
@@ -240,6 +251,7 @@ export function TaskReviewSheet({
   alreadySaved = false,
   freezeRiskFalse,
   notificationsBlocked,
+  cadenceFacts,
 }: TaskReviewSheetProps) {
   const initial = useMemo(() => rowsFrom(previewData, freezeRiskFalse), [previewData, freezeRiskFalse])
   const [rows, setRows] = useState<ReviewRow[]>(initial)
@@ -289,6 +301,26 @@ export function TaskReviewSheet({
   /** A bell on this row — only where it can ring, on a phone that allows it. */
   const bellOn = (r: ReviewRow) => canRing(r) && !notificationsBlocked
 
+  /** What saving this row will do to its date — null when nothing moves (an
+   *  untouched cadence) or the row is not a stored task. Mirrors the save in
+   *  taskReviewService: a changed cadence, or a "last done" date, re-plans. */
+  const planOfRow = (r: ReviewRow): CadenceChangePlan | null => {
+    const id = r.task?.template_id
+    const facts = id ? cadenceFacts?.get(id) : undefined
+    if (!facts || !r.included || r.kind === "usage") return null
+    const claim = lastDoneClaim(r.lastDoneOn, facts.lastDoneOn, localToday())
+    const changed = !!claim ||
+      cadenceChanged(facts, { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season })
+    if (!changed) return null
+    return planFor({ ...facts, lastDoneOn: claim ?? facts.lastDoneOn }, { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season })
+  }
+  /** Rows still waiting on a season: Save holds until they have one. */
+  const seasonless = rows.filter((r) => planOfRow(r)?.kind === "needs-season")
+  /** A save that will move some task's date — a "last done" date included,
+   *  which is not a parser correction and so is not in `edits` — must not be
+   *  labelled "Done". */
+  const movesDates = rows.some((r) => planOfRow(r) != null)
+
 
   const edits: ReviewEditSummary = useMemo(() => {
     const base = new Map(initial.map((r) => [r.id, r]))
@@ -298,7 +330,14 @@ export function TaskReviewSheet({
       const b = base.get(r.id); if (!b) continue
       if (r.tier !== b.tier) { tier++; details.push({ title: r.title, field: "tier", from: b.tier, to: r.tier }) }
       if (r.kind !== b.kind) { kind++; details.push({ title: r.title, field: "kind", from: b.kind, to: r.kind }) }
-      if (r.schedule !== b.schedule) { schedule++; details.push({ title: r.title, field: "schedule", from: b.schedule, to: r.schedule }) }
+      // The whole cadence, not just its type: a new interval ("every 2 weeks" →
+      // "every 6 weeks") or a season answered is a schedule correction too.
+      if (cadenceChanged({ scheduleType: b.schedule, intervalDays: b.intervalDays, season: b.season }, { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season })) {
+        schedule++
+        // Enum values, as before: parseFeedbackService and the parse-eval
+        // worksheet (scripts/parse-eval/reviewEdits.ts) read them as such.
+        details.push({ title: r.title, field: "schedule", from: b.schedule, to: r.schedule })
+      }
       if (!r.included) { skipped++; details.push({ title: r.title, field: "skip", from: "kept", to: "skipped" }) }
     }
     return { tier, kind, schedule, skipped, total: tier + kind + schedule + skipped, details }
@@ -379,6 +418,7 @@ export function TaskReviewSheet({
         priority_tier: r.tier,
         schedule_type: r.schedule,
         interval_days: r.intervalDays,
+        season: r.season,
         remind_enabled: r.remindEnabled,
         last_done_on: r.lastDoneOn,
       })
@@ -598,6 +638,17 @@ export function TaskReviewSheet({
                 under the cadence because it is the same conversation: the
                 cadence says how often, this says from when. */}
             {onSched && <LastDoneControl row={r} patch={patch} />}
+
+            {/* The date this change lands on, before Save (owner, 2026-10-28:
+                "from when you last did it"); a seasonal task with no season
+                asks for one instead of guessing. */}
+            {(() => {
+              const plan = planOfRow(r)
+              if (!plan) return null
+              return plan.kind === "needs-season"
+                ? <SeasonAsk className="mt-3" value={r.season} onChange={(season) => patch(r.id, { season })} />
+                : <NextDueLine className="mt-2.5" plan={plan} />
+            })()}
 
             {/* The reminder, asked separately from priority. Only offered when the
                 task is actually scheduled — off the schedule there is no due date
@@ -1019,6 +1070,11 @@ export function TaskReviewSheet({
             </>
           )}
           {saveError && <p className="text-sm text-destructive mt-3">{saveError}</p>}
+          {seasonless.length > 0 && (
+            <p role="status" className="mt-3 text-[0.78125rem] font-semibold" style={{ color: "var(--hh-sub)" }}>
+              Pick a season for “{seasonless[0].title}” to save.
+            </p>
+          )}
         </div>
 
         <div className="border-t px-4 py-3 pb-5 flex items-center gap-2.5">
@@ -1044,9 +1100,9 @@ export function TaskReviewSheet({
               the ONLY thing that writes these rows, so it never disappears, and
               it never claims they are already saved. "Done" appears only when
               Save genuinely has nothing left to do. */}
-          <Button className="flex-1 font-bold" disabled={saving} onClick={() => { void handleSave() }}>
+          <Button className="flex-1 font-bold" disabled={saving || seasonless.length > 0} onClick={() => { void handleSave() }}>
             {saving && <Loader2Icon className="size-4 mr-2 animate-spin" />}
-            {alreadySaved && edits.total === 0
+            {alreadySaved && edits.total === 0 && !movesDates
               ? "Done"
               : alreadySaved
                 ? "Save changes"

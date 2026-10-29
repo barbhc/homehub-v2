@@ -15,6 +15,11 @@ import { MemoryRouter } from "react-router-dom"
 
 const getFeedbackContext = vi.hoisted(() => vi.fn())
 const submitTaskFeedback = vi.hoisted(() => vi.fn())
+const previewCadenceChange = vi.hoisted(() => vi.fn())
+vi.mock("@/modules/care/services/cadenceChangeService", async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  previewCadenceChange: (...a: unknown[]) => previewCadenceChange(...a),
+}))
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }))
 vi.mock("@/modules/home", () => ({ upsertHomeProfile: vi.fn() }))
 vi.mock("@/modules/care", async (orig) => ({
@@ -50,6 +55,13 @@ function renderSheet() {
     </MemoryRouter>,
   )
 }
+
+beforeEach(() => {
+  previewCadenceChange.mockReset()
+  previewCadenceChange.mockResolvedValue({
+    data: { kind: "scheduled", nextDue: "2026-12-08", basis: "last-done", overdue: false, moves: [], create: false }, error: null,
+  })
+})
 
 describe("TaskFeedbackSheet · confirm looks for similar tasks", () => {
   beforeEach(() => getFeedbackContext.mockReset())
@@ -114,11 +126,61 @@ describe("TaskFeedbackSheet · the custom interval box (HH-164)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }))
     expect(screen.getByText(/Change to every 6 weeks/i)).toBeInTheDocument()
+    // The date the change lands on, shown before Apply, from the same plan the save writes.
+    expect(previewCadenceChange).toHaveBeenCalledWith("h1", "t1", { scheduleType: "every_n_days", intervalDays: 42, season: null })
+    expect(await screen.findByTestId("next-due")).toHaveTextContent(/^Next due: Dec 8$/)
     await waitFor(() => expect(screen.getByRole("button", { name: /^Apply/ })).toBeEnabled())
     fireEvent.click(screen.getByRole("button", { name: /^Apply/ }))
     await waitFor(() => expect(submitTaskFeedback).toHaveBeenCalled())
     expect(submitTaskFeedback.mock.calls[0][0].resolution).toEqual({
       action: "cadence", scheduleType: "every_n_days", intervalDays: 42,
+    })
+  })
+})
+
+/**
+ * Owner decision 2026-10-28: a cadence that goes seasonal on a task with no
+ * season ASKS for one — no error, no guess — and Apply waits for the answer.
+ */
+describe("TaskFeedbackSheet · seasonal with no season asks", () => {
+  it("shows the season question, holds Apply, then shows the date and sends the season", async () => {
+    getFeedbackContext.mockResolvedValue({ ...CONTEXT, data: { ...CONTEXT.data, primary: { season: null } } })
+    submitTaskFeedback.mockResolvedValue({ data: null, error: { message: "stop here" } })
+    previewCadenceChange.mockImplementation(async (_h: string, _t: string, choice: { season?: string | null }) => ({
+      data: choice.season
+        ? { kind: "scheduled", nextDue: "2027-04-15", basis: "last-done", overdue: false, moves: [], create: false }
+        : { kind: "needs-season" },
+      error: null,
+    }))
+    const { proposalToResolution } = await import("@/modules/care")
+    expect(proposalToResolution({ action: "cadence", scheduleType: "seasonal" } as never)).toMatchObject({ scheduleType: "seasonal" })
+
+    // jsdom has no element scrolling; the discuss thread scrolls itself.
+    Element.prototype.scrollTo = vi.fn() as never
+    renderSheet()
+    // The chip set offers no "Seasonal"; the assistant can propose one. Drive
+    // the same state the proposal sets.
+    fireEvent.click(screen.getByText("Discuss with the assistant"))
+    const { discussTask } = await import("@/modules/care")
+    ;(discussTask as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { explanation: "Do it each spring.", proposal: { action: "cadence", scheduleType: "seasonal", rationale: "Once a year, in spring." } },
+      error: null,
+    })
+    fireEvent.change(screen.getAllByRole("textbox", { name: "Message" })[0], { target: { value: "less often?" } })
+    fireEvent.click(screen.getAllByRole("button", { name: "Send" })[0])
+    fireEvent.click(await screen.findByRole("button", { name: "Apply this change" }))
+
+    expect(await screen.findByText("Which season?")).toBeInTheDocument()
+    expect(screen.queryByTestId("next-due")).toBeNull()
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Apply/ })).toBeDisabled())
+
+    fireEvent.click(screen.getByRole("button", { name: "Spring" }))
+    expect(await screen.findByTestId("next-due")).toHaveTextContent("Next due: Apr 15, 2027")
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Apply/ })).toBeEnabled())
+    fireEvent.click(screen.getByRole("button", { name: /^Apply/ }))
+    await waitFor(() => expect(submitTaskFeedback).toHaveBeenCalled())
+    expect(submitTaskFeedback.mock.calls.at(-1)![0].resolution).toEqual({
+      action: "cadence", scheduleType: "seasonal", intervalDays: null, season: "spring",
     })
   })
 })

@@ -50,6 +50,10 @@ export interface PreviewTask {
   estimated_minutes: number | null
   schedule_type: ScheduleType
   interval_days: number | null
+  /** Existing-task review only: the task's season (seasonal cadence), from the
+   *  stored schedule or asked for in the review when it is not known. Never set
+   *  by the parser — commitDraft infers its own (seasonForTask). */
+  season?: "spring" | "summer" | "fall" | "winter" | null
   instructions_text: string | null
   /** PDF manual page this task's how-to came from; forwarded to save so the app
    *  can show a "From your manual · p.X" link. Null when unknown. */

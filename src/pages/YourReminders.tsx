@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { BellIcon, BellOffIcon, ChevronLeftIcon, Loader2Icon, SearchIcon } from "lucide-react"
 import { PageContainer } from "@/components/layout"
+import { CadencePreview } from "@/components/care/NextDue"
 import { useCurrentHome } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import {
@@ -15,7 +16,7 @@ import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreference
 import type { NotificationPrefs } from "@/lib/notificationPreferences"
 import { cadenceLabel, cadenceLabelInline } from "../../shared/tasks/cadenceLabel"
 import { isRecurring } from "../../shared/tasks/reviewBuckets"
-import type { ScheduleType, TaskTemplate } from "@/integrations/types"
+import type { ScheduleType, Season, TaskTemplate } from "@/integrations/types"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 
@@ -72,8 +73,19 @@ type Row = {
   intervalDays: number | null
   originalSchedule: ScheduleType | null
   originalInterval: number | null
+  /** The cadence the proposal suggested (null when it kept the current one or
+   *  the row came from search). Kept so the picker can still offer it — with
+   *  its interval — after the owner has looked at other options. */
+  proposedSchedule: ScheduleType | null
+  proposedInterval: number | null
   checked: boolean
   editing: boolean
+  /** The season asked for when the row's NEW cadence is seasonal and the task
+   *  has none — a proposal may suggest seasonal (proposeReminders offers every
+   *  recurring cadence), even though CADENCE_CHOICES never does. */
+  season: Season | null
+  /** The preview said this row still needs that season: it holds the button. */
+  awaitingSeason: boolean
   error: string | null
 }
 
@@ -94,10 +106,16 @@ const fromProposal = (p: ProposedReminder): Row => {
     intervalDays: p.suggested_interval_days ?? p.current_interval_days,
     originalSchedule: p.current_schedule_type,
     originalInterval: p.current_interval_days,
+    proposedSchedule: p.suggested_schedule_type,
+    proposedInterval: p.suggested_interval_days,
     checked: true,
     // A row that needs a cadence opens its picker at once — the choice is the
     // one thing standing between it and a reminder.
     editing: !isRecurring(scheduleType),
+    season: null,
+    // Seasonal suggested, no season answered, no preview yet: held from the
+    // first render, so "Turn these on" cannot be tapped while it loads.
+    awaitingSeason: scheduleType === "seasonal" && scheduleType !== p.current_schedule_type,
     error: null,
   }
 }
@@ -125,18 +143,33 @@ const fromTemplate = (t: TaskTemplate, itemName: string | null): Row => ({
   intervalDays: t.schedule?.intervalDays ?? null,
   originalSchedule: t.schedule?.scheduleType ?? null,
   originalInterval: t.schedule?.intervalDays ?? null,
+  proposedSchedule: null,
+  proposedInterval: null,
   checked: true,
   editing: !isRecurring(t.schedule?.scheduleType),
+  season: null,
+  awaitingSeason: false,
   error: null,
 })
 
-/** The picker's options: the fixed rhythms, plus the row's own cadence when it
- *  is one this page cannot construct (seasonal, every_n_days) so "keep it as
- *  it is" stays selectable. */
-const cadenceChoicesFor = (r: Row): ScheduleType[] =>
-  r.originalSchedule && isRecurring(r.originalSchedule) && !CADENCE_CHOICES.includes(r.originalSchedule)
-    ? [...CADENCE_CHOICES, r.originalSchedule]
-    : CADENCE_CHOICES
+/** The picker's options: the fixed rhythms, plus any cadence this page cannot
+ *  construct (seasonal, every_n_days) that the row has a claim to — its own
+ *  ("keep it as it is"), and the one the proposal suggested — so the select
+ *  always shows what the row currently says instead of a blank. */
+/** Before its preview answers: a row changing to seasonal with no season
+ *  chosen may need one (the task may have none stored), so it holds. */
+const awaitsSeason = (r: Pick<Row, "scheduleType" | "originalSchedule" | "season">): boolean =>
+  r.scheduleType === "seasonal" && r.scheduleType !== r.originalSchedule && !r.season
+
+const cadenceChoicesFor = (r: Row): ScheduleType[] => {
+  const extra = [r.originalSchedule, r.proposedSchedule, r.scheduleType].filter(
+    (c): c is ScheduleType => !!c && isRecurring(c) && !CADENCE_CHOICES.includes(c),
+  )
+  return [...CADENCE_CHOICES, ...new Set(extra)]
+}
+/** The interval that goes with choosing `c` on this row. */
+const intervalFor = (r: Row, c: ScheduleType | null): number | null =>
+  c === r.originalSchedule ? r.originalInterval : c === r.proposedSchedule ? r.proposedInterval : c === r.scheduleType ? r.intervalDays : null
 
 type Stage = "describe" | "proposal" | "done"
 
@@ -264,6 +297,8 @@ export default function YourReminders() {
   // Ticked, but with no cadence that comes due. These hold the button until
   // the owner picks how often — or unticks them. Never silently "on".
   const blocked = chosen.filter((r) => !hasCadence(r))
+  // Ticked, going seasonal, and the task has no season yet: asked on the row.
+  const seasonless = chosen.filter((r) => hasCadence(r) && r.awaitingSeason)
 
   const applyRow = async (r: Row): Promise<boolean> => {
     if (!homeId) return false
@@ -272,7 +307,7 @@ export default function YourReminders() {
     // failed to save is exactly the silent no-op this page exists to prevent;
     // a schedule saved without its flag is merely a task to retry.
     if (r.scheduleType && r.scheduleType !== r.originalSchedule) {
-      const cad = await setTaskCadence(homeId, r.id, r.scheduleType, r.intervalDays)
+      const cad = await setTaskCadence(homeId, r.id, r.scheduleType, r.intervalDays, r.season)
       if (cad.error) { patch(r.id, { error: `The schedule didn't save: ${cad.error.message}` }); return false }
       // Saved — a retry of the flag need not write the schedule again.
       patch(r.id, { originalSchedule: r.scheduleType, originalInterval: r.intervalDays })
@@ -284,7 +319,7 @@ export default function YourReminders() {
   }
 
   const turnOn = async () => {
-    if (chosen.length === 0 || blocked.length > 0) return
+    if (chosen.length === 0 || blocked.length > 0 || seasonless.length > 0) return
     setApplying(true)
     const results = await Promise.all(chosen.map(applyRow))
     setApplying(false)
@@ -414,17 +449,35 @@ export default function YourReminders() {
                           onChange={(e) => {
                             const v = (e.target.value || null) as ScheduleType | null
                             // Back to the original keeps its interval; anything else has none.
-                            patch(r.id, { scheduleType: v, intervalDays: v === r.originalSchedule ? r.originalInterval : null })
+                            patch(r.id, { scheduleType: v, intervalDays: intervalFor(r, v), awaitingSeason: awaitsSeason({ ...r, scheduleType: v }) })
                           }}
                           className="rounded-lg border px-2 py-1 text-[0.8125rem]"
                           style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
                         >
                           {!hasCadence(r) && <option value="" disabled>Choose…</option>}
                           {cadenceChoicesFor(r).map((c) => (
-                            <option key={c} value={c}>{cadenceLabel(c, c === r.originalSchedule ? r.originalInterval : null)}</option>
+                            <option key={c} value={c}>{cadenceLabel(c, intervalFor(r, c))}</option>
                           ))}
                         </select>
                       </div>
+                    )}
+                    {/* A changed cadence moves the date (shared/tasks/cadenceChange):
+                        say where to, before "Turn these on" writes it. */}
+                    {homeId && r.scheduleType && r.scheduleType !== r.originalSchedule && (
+                      <CadencePreview
+                        className="mt-1.5 pl-[30px]"
+                        homeId={homeId}
+                        taskTemplateId={r.id}
+                        choice={{ scheduleType: r.scheduleType, intervalDays: r.intervalDays, season: r.season }}
+                        // The picker (CADENCE_CHOICES) never offers seasonal, but a
+                        // proposal can suggest it — so the ask is live, never inert:
+                        // the answer is saved with the cadence, and the row holds
+                        // "Turn these on" until it has one.
+                        onSeason={(season) => patch(r.id, { season })}
+                        // null = the preview is (re)loading: a seasonal row with no season
+                        // answered stays held until the plan says otherwise.
+                        onPlan={(plan) => patch(r.id, { awaitingSeason: plan ? plan.kind === "needs-season" : awaitsSeason(r) })}
+                      />
                     )}
                     {r.error && (
                       <div role="alert" className="mt-2 flex items-center gap-2 pl-[30px] text-[0.78125rem]" style={{ color: CLAY }}>
@@ -483,13 +536,18 @@ export default function YourReminders() {
             <button
               type="button"
               onClick={() => void turnOn()}
-              disabled={chosen.length === 0 || blocked.length > 0 || applying}
+              disabled={chosen.length === 0 || blocked.length > 0 || seasonless.length > 0 || applying}
               className="flex items-center justify-center gap-2 rounded-xl py-3 text-[0.875rem] font-bold text-white disabled:opacity-50"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {applying && <Loader2Icon className="size-4 animate-spin" />}
               Turn these on · {chosen.length}
             </button>
+            {blocked.length === 0 && seasonless.length > 0 && (
+              <div role="status" className="text-center text-[0.78125rem] font-semibold" style={{ color: SUB }}>
+                Pick a season for “{seasonless[0].title}” first.
+              </div>
+            )}
             {blocked.length > 0 && (
               <div role="status" className="text-center text-[0.78125rem] font-semibold" style={{ color: CLAY }}>
                 {blocked.length === 1

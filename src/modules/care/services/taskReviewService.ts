@@ -1,11 +1,13 @@
-import { collection, doc, getDocs, query, runTransaction, serverTimestamp, where } from "firebase/firestore"
+import { collection, doc, getDocs, query, runTransaction, serverTimestamp, where, type DocumentData } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { syncTemplateDenormToInstances } from "./denormSync"
+import { cadenceFactsFrom, planFor, writeCadencePlan, type CadenceFacts } from "./cadenceChangeService"
 import type { ServiceResult } from "./careNoteService"
 import type { PreviewResult, PreviewTask, PreviewChunk, CareType, PriorityTier, RiskLevel, ScheduleType } from "@/modules/knowledge/types/previewTypes"
 import { USAGE_TIP_TAG } from "../../../../shared/tasks/taxonomy"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
 import { localToday } from "../../../../shared/dates/calendar"
+import { cadenceChanged, isCadenceSeason, lastDoneClaim } from "../../../../shared/tasks/cadenceChange"
 
 /**
  * Re-review an item's EXISTING tasks through the parse-review wizard.
@@ -45,6 +47,10 @@ export interface ExistingTaskReview {
    *  back as a chunk on that manual — the same storage the parse path and the
    *  cleanup sweep already use. No new collection, no new rules. */
   manualById: Map<string, string>
+  /** What the cadence rule needs per task (last completion, date added, open
+   *  occurrences), so the review can show "Next due" for a changed cadence
+   *  before Save — computed by the same `planFor` the save uses. */
+  cadenceFacts: Map<string, CadenceFacts>
 }
 
 const asCareType = (v: unknown): CareType => (v === "cleaning" || v === "mixed" ? v : "maintenance")
@@ -57,9 +63,19 @@ export async function loadItemTasksForReview(homeId: string, itemUnitId: string)
     const snap = await getDocs(
       query(collection(db, `homes/${homeId}/taskTemplates`), where("itemUnitId", "==", itemUnitId), where("deletedAt", "==", null)),
     )
+    const instSnap = await getDocs(
+      query(collection(db, `homes/${homeId}/taskInstances`), where("itemUnitId", "==", itemUnitId), where("deletedAt", "==", null)),
+    )
+    const instancesByTemplate = new Map<string, { id: string; data: DocumentData }[]>()
+    for (const d of instSnap.docs) {
+      const tid = String(d.get("taskTemplateId"))
+      instancesByTemplate.set(tid, [...(instancesByTemplate.get(tid) ?? []), { id: d.id, data: d.data() }])
+    }
+    const today = localToday()
     const tasks: PreviewTask[] = []
     const templateIds: string[] = []
     const manualById = new Map<string, string>()
+    const cadenceFacts = new Map<string, CadenceFacts>()
     for (const d of snap.docs) {
       if (d.get("isActive") === false) continue
       const title = String(d.get("title") ?? "")
@@ -67,6 +83,8 @@ export async function loadItemTasksForReview(homeId: string, itemUnitId: string)
       templateIds.push(d.id)
       const manualId = d.get("manualId") as string | null
       if (manualId) manualById.set(d.id, manualId)
+      cadenceFacts.set(d.id, cadenceFactsFrom(d.data(), instancesByTemplate.get(d.id) ?? [], today))
+      const season = d.get("schedule.season")
       tasks.push({
         template_id: d.id,
         title,
@@ -81,6 +99,7 @@ export async function loadItemTasksForReview(homeId: string, itemUnitId: string)
         estimated_minutes: (d.get("estimatedMinutes") as number | null) ?? null,
         schedule_type: (String(d.get("schedule.scheduleType") ?? "monthly")) as ScheduleType,
         interval_days: (d.get("schedule.intervalDays") as number | null) ?? null,
+        season: isCadenceSeason(season) ? season : null,
         instructions_text: (d.get("instructionsOverride") as string | null) ?? null,
         source_page: (d.get("sourcePage") as number | null) ?? null,
         justification: (d.get("justification") as string | null) ?? null,
@@ -90,7 +109,7 @@ export async function loadItemTasksForReview(homeId: string, itemUnitId: string)
     }
     // Existing usage tips aren't re-reviewed here: they live on manual chunks, and
     // reviewing an ITEM's tasks shouldn't silently rewrite its manual's chunks.
-    return { data: { preview: { ok: true, tasks, chunks: [] }, templateIds, manualById }, error: null }
+    return { data: { preview: { ok: true, tasks, chunks: [] }, templateIds, manualById, cadenceFacts }, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Could not load tasks" } }
   }
@@ -118,6 +137,8 @@ export interface SaveItemReviewInput {
 }
 
 const RELOAD = "Close the review and open it again."
+
+
 
 export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<ServiceResult<{ updated: number; deactivated: number }>> {
   const { homeId, itemUnitId, templateIds, manualById, shownTemplateIds, tasks, chunks } = input
@@ -164,11 +185,13 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
       // null). Titles come from here too: the denormalized copy on a new
       // occurrence is the template's own title.
       const titleById = new Map<string, string>()
+      const liveById = new Map<string, DocumentData>()
       const liveSnaps = await Promise.all([...shown].map((id) => tx.get(doc(templates, id))))
       for (const snap of liveSnaps) {
         const removed = !snap.exists() || snap.get("deletedAt") != null || snap.get("isActive") === false
         if (removed) throw new Error(`One of these tasks was removed on another device. ${RELOAD}`)
         titleById.set(snap.id, String(snap.get("title") ?? ""))
+        liveById.set(snap.id, snap.data()!)
       }
 
       const now = serverTimestamp()
@@ -180,15 +203,26 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
         query(collection(db, `homes/${homeId}/taskInstances`), where("itemUnitId", "==", itemUnitId), where("deletedAt", "==", null)),
       )
       const openByTemplate = new Map<string, { id: string }[]>()
+      const instancesByTemplate = new Map<string, { id: string; data: DocumentData }[]>()
       for (const d of allInstSnap.docs) {
+        const tid = String(d.get("taskTemplateId"))
+        instancesByTemplate.set(tid, [...(instancesByTemplate.get(tid) ?? []), { id: d.id, data: d.data() }])
         const status = d.get("status")
         if (status !== "scheduled" && status !== "snoozed") continue
-        const tid = String(d.get("taskTemplateId"))
         const arr = openByTemplate.get(tid) ?? []
         arr.push({ id: d.id })
         openByTemplate.set(tid, arr)
       }
       const todayStr = localToday()
+      // Each row's "last done" claim, decided once against the task's current
+      // last done, so the template write and the date plan agree.
+      const claimById = new Map<string, string>()
+      for (const t of tasks) {
+        const id = t.template_id!
+        const current = cadenceFactsFrom(liveById.get(id)!, instancesByTemplate.get(id) ?? [], todayStr).lastDoneOn
+        const claim = lastDoneClaim(t.last_done_on, current, todayStr)
+        if (claim) claimById.set(id, claim)
+      }
 
       for (const t of tasks) {
         const id = t.template_id!
@@ -208,8 +242,13 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
             schedule: {
               scheduleType: t.schedule_type,
               intervalDays: t.interval_days ?? null,
+              ...(t.season ? { season: t.season } : {}),
             },
             isActive: true,
+            // "I've been doing this already": kept as a claim on the task, so a
+            // LATER cadence change still counts from it. Never a completion —
+            // nothing was done today, and history is never written here.
+            ...(claimById.get(id) ? { lastDoneClaimedOn: claimById.get(id) } : {}),
             userModifiedAt: now,
             updatedAt: now,
           },
@@ -223,46 +262,36 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
           scheduleType: t.schedule_type,
         })
 
+        // The schedule, by the one cadence rule every editor uses
+        // (shared/tasks/cadenceChange.ts — "from when you last did it"). The
+        // review re-saves EVERY row, so only a row whose cadence actually
+        // changed (or that the reviewer dated with "I've been doing this
+        // already") moves its occurrence; an untouched row keeps its date.
+        // Either way a recurring task with nothing open gets an occurrence on
+        // the rule's date — it used to be seeded due TODAY, seasonal included
+        // — and a task taken off the schedule loses its open one, never its
+        // completions (non-negotiable 3).
+        const live = liveById.get(id)!
+        const facts = cadenceFactsFrom(live, instancesByTemplate.get(id) ?? [], todayStr)
+        const claimed = claimById.get(id) ?? null
+        if (claimed) facts.lastDoneOn = claimed
+        const stored = live.schedule as { scheduleType?: string; intervalDays?: number | null; season?: string | null } | null
+        const changed =
+          !!claimed ||
+          cadenceChanged(stored ?? {}, { scheduleType: t.schedule_type, intervalDays: t.interval_days, season: t.season })
         const open = openByTemplate.get(id) ?? []
-        if (!isRecurring(t.schedule_type)) {
-          // Moved OFF the schedule (→ setup / as-needed): its open instances are now
-          // meaningless, and leaving them makes Home keep showing a due date for a
-          // task the user just said has none — the same zombie class as the denorm
-          // drift bug. Done instances stay; they're history.
-          for (const inst of open) {
-            tx.set(doc(db, `homes/${homeId}/taskInstances/${inst.id}`), { deletedAt: now, updatedAt: now }, { merge: true })
+        if (changed || !isRecurring(t.schedule_type) || open.length === 0) {
+          const plan = planFor(facts, { scheduleType: t.schedule_type, intervalDays: t.interval_days, season: t.season ?? null }, todayStr)
+          if (plan.kind === "needs-season") {
+            // The sheet asks for the season before Save; an UNCHANGED seasonal
+            // row with no season keeps what it has (no occurrence), as a fresh
+            // parse leaves one.
+            if (changed) throw new Error(`Pick a season for “${titleById.get(id) ?? t.title}”.`)
+          } else {
+            await writeCadencePlan(tx, homeId, id, {
+              ...live, careType: t.care_type, priorityTier: t.priority_tier, riskLevel: t.risk_level,
+            }, t.schedule_type, plan)
           }
-        } else if (open.length === 0) {
-          // Moved ONTO a schedule with nothing open: seed one instance, due today,
-          // exactly as commitDraft does for a fresh parse. Never-completed past-due
-          // renders as calm "Start anytime", and rollForward re-anchors from there —
-          // it only fixes existing instances, it never creates one, so without this
-          // "Put on a schedule" would change the template and nothing visible.
-          tx.set(doc(collection(db, `homes/${homeId}/taskInstances`)), {
-            homeId,
-            taskTemplateId: id,
-            itemUnitId,
-            status: "scheduled",
-            dueDate: todayStr,
-            snoozedUntil: null,
-            priorityScore: t.priority_tier === "essential" ? 3 : t.priority_tier === "optional" ? 1 : 2,
-            isSafetyCritical: t.risk_level === "safety",
-            completedAt: null,
-            completionNotes: null,
-            completionPhotos: [],
-            assignedTo: null,
-            title: titleById.get(id) ?? t.title,
-            priorityTier: t.priority_tier,
-            careType: t.care_type,
-            scopeType: "item_unit",
-            estimatedMinutes: t.estimated_minutes ?? null,
-            scheduleType: t.schedule_type,
-            itemName: null,
-            roomName: null,
-            createdAt: now,
-            updatedAt: now,
-            deletedAt: null,
-          })
         }
         updated++
       }

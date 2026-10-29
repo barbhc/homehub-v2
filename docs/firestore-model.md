@@ -121,15 +121,23 @@ FK columns (v1 `*_id`) become either the doc's **path parent** or a stored **ref
 | 8 | `knowledge_chunk` | `homes/{homeId}/manuals/{manualId}/chunks/{chunkId}` | `manual_id`→path (+field) | `chunkType`, `contentLevel`, `content`, `tags`, `scenarios`, `sourcePages`, `sectionCategory`, `appliesTo`, `externalKey` |
 | 9 | `chat_faq` | `homes/{homeId}/chatFaqs/{faqId}` | `home_id`→path, `item_unit_id`→field | `question`, `answer` |
 | 10 | `manual_entity` | `homes/{homeId}/manuals/{manualId}/entities/{entityId}` | `manual_id`→path | `entityType`, `name`, `value`, `metadata` |
-| 11 | `task_template` | `homes/{homeId}/taskTemplates/{tplId}` | `home_id`→path; `room_id`,`item_unit_id`,`instructions_chunk_id`,`manual_id`,`default_assignee`→fields | + inlined `schedule` (schedule_rule) + inlined `supplies[]` (task_template_supply); `symptomTags`, `reCheckTriggers`, `steps`, `sourcePage`, `externalKey`, `sectionCategory`, `appliesTo` |
+| 11 | `task_template` | `homes/{homeId}/taskTemplates/{tplId}` | `home_id`→path; `room_id`,`item_unit_id`,`instructions_chunk_id`,`manual_id`,`default_assignee`→fields | + inlined `schedule` (schedule_rule) + inlined `supplies[]` (task_template_supply); `symptomTags`, `reCheckTriggers`, `steps`, `sourcePage`, `externalKey`, `sectionCategory`, `appliesTo`, `lastDoneClaimedOn` (v2-only: the owner's "I've been doing this already" date from Review tasks — a claim, never a completion; the cadence rule counts from the later of it and the latest completion) |
 | 12 | `schedule_rule` | inlined on template as `schedule: {…}` | `task_template_id`→parent | `scheduleType`, `intervalDays`, `anchorDate`, `season`, `windowDaysBefore`, `windowDaysAfter` |
-| 13 | `task_instance` | `homes/{homeId}/taskInstances/{instId}` | `home_id`→path; `task_template_id`,`item_unit_id`,`assigned_to`→fields | + **denormalized display fields** (§5); `status`, `dueDate`, `window*`, `snoozedUntil`, `priorityScore`, `isSafetyCritical`, `completedAt`, `completionNotes`, `completionPhotos` |
+| 13 | `task_instance` | `homes/{homeId}/taskInstances/{instId}` | `home_id`→path; `task_template_id`,`item_unit_id`,`assigned_to`→fields | + **denormalized display fields** (§5); `status`, `dueDate`, `window*`, `snoozedUntil`, `priorityScore`, `isSafetyCritical`, `completedAt`, `completionNotes`, `completionPhotos`, `dueSource` (v2-only, see below) |
 | 14 | `supply_item` | `supplyCatalog/{supplyItemId}` | (global) | `name`, `category`, `oemPartNumber`, `brand`, `model`, `spec` |
 | 15 | `shopping_list_item` | `homes/{homeId}/shoppingList/{itemId}` | `home_id`→path; `supply_item_id`,`source_task_instance_id`→fields | `name`, `quantity`, `status` |
 | 16 | `supply_option` | `supplyCatalog/{supplyItemId}/options/{supplyOptionId}` | `supply_item_id`→path | `optionType`, `seller`, `url`, `isPreferred` |
 | 17 | `cleaning_session` | `homes/{homeId}/cleaningSessions/{sessionId}` | `home_id`→path, `room_id`→field | `name`, `startedAt`, `endedAt` |
 | 18 | `web_retrieval` | `webRetrievals/{id}` | (global) | server-only cache |
 | 19 | `care_note` | `homes/{homeId}/careNotes/{noteId}` | `home_id`→path; `room_id`,`item_unit_id`,`task_template_id`→fields | `scope`, `chunkType`, `title`, `content`, `source`, `sourceUrl` |
+
+**`dueSource` rule (2026-10-28).** `taskInstances.dueSource` says who set `dueDate`: `"cadence_rule"`
+when the cadence rule did (`writeCadencePlan`, `src/modules/care/services/cadenceChangeService.ts` —
+"from when you last did it", decision doc §B), `null`/absent otherwise. `rollForwardNeverStarted`
+skips `"cadence_rule"` dates, because a past one is the rule's honest answer, shown to the owner
+before she saved. **Any writer that moves an existing instance's `dueDate` must set `dueSource` in
+the same write — `"cadence_rule"` if the date came from the rule, else `null`** — or a stale
+marker would shield a date the rule never chose (or a missing one expose one it did).
 
 **Link / auxiliary tables (present in `types.ts` beyond the core 19):**
 

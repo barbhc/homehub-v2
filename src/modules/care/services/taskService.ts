@@ -1,9 +1,10 @@
 import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverTimestamp, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
-import { syncTemplateDenormToInstances } from "./denormSync"
+import { computePriorityScore } from "./priorityScore"
+import { planFor, readCadenceFacts, writeCadencePlan, SEASON_NEEDED } from "./cadenceChangeService"
 import { computeNextDueDate } from "./nextDueDate"
-import { addDays, localDateString, localToday } from "../../../../shared/dates/calendar"
+import { localDateString, localToday } from "../../../../shared/dates/calendar"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
 import type {
   TaskTemplate,
@@ -132,54 +133,7 @@ export type ServiceResult<T> =
   | { data: T; error: null }
   | { data: null; error: { message: string } }
 
-// Priority scoring constants (from CHO spec)
-const TIER_BASE: Record<PriorityTier, number> = {
-  essential: 100,
-  recommended: 60,
-  optional: 30,
-}
-const RISK_BONUS: Record<RiskLevel, number> = {
-  safety: 100,
-  prevent_damage: 50,
-  performance: 20,
-  comfort: 10,
-}
-const DUENESS_OVERDUE = 60
-const DUENESS_WITHIN_WINDOW = 30
-const DUENESS_DUE_IN_14 = 15
-const EFFORT_PENALTY = 20
-
-/**
- * Computes priority_score and is_safety_critical for a task_instance.
- */
-export function computePriorityScore(
-  tier: PriorityTier,
-  riskLevel: RiskLevel,
-  dueDate: string,
-  windowStart: string | null,
-  windowEnd: string | null,
-  estimatedMinutes: number | null
-): { priorityScore: number; isSafetyCritical: boolean } {
-  const tierBase = TIER_BASE[tier] ?? 60
-  const riskBonus = RISK_BONUS[riskLevel] ?? 0
-  const isSafetyCritical = riskLevel === "safety"
-
-  let duenessBonus = 0
-  const today = localToday()
-  if (dueDate < today) duenessBonus = DUENESS_OVERDUE
-  else if (windowStart && windowEnd && today >= windowStart && today <= windowEnd)
-    duenessBonus = DUENESS_WITHIN_WINDOW
-  // Calendar days, not 14 x 24 h from noon: across the November change that
-  // reached only 11:00 on day 14 and missed a task due that day.
-  else if (dueDate <= addDays(today, 14)) duenessBonus = DUENESS_DUE_IN_14
-
-  let effortPenalty = 0
-  const isHighEffort = estimatedMinutes != null && estimatedMinutes > 20
-  if (tier === "optional" && isHighEffort) effortPenalty = EFFORT_PENALTY
-
-  const priorityScore = Math.max(0, tierBase + riskBonus + duenessBonus - effortPenalty)
-  return { priorityScore, isSafetyCritical }
-}
+export { computePriorityScore }
 
 export type CreateTaskTemplateInput = {
   home_id: string
@@ -427,133 +381,56 @@ export async function setTaskReminder(
 }
 
 /**
- * Changes how often a task repeats — and makes sure the change can come due.
+ * Changes how often a task repeats, by the one rule every cadence editor uses
+ * ("from when you last did it" — shared/tasks/cadenceChange.ts): the open
+ * occurrence moves to the last completion + the new cadence (never done: the
+ * day it was added + the cadence), a snooze survives only if it ends later, a
+ * task with nothing open gets an occurrence on that date, and "when needed" /
+ * setup / after each use remove the open one. Completions are never touched.
+ *
+ * Used by Your reminders and the library's backstop/add paths. The screen shows
+ * the resulting date first (previewCadenceChange — the same plan).
  *
  * NESTED object, not dotted keys — the documented set(merge) trap (see
  * taskReviewService): a dotted key is a literal field NAME under merge
- * semantics, and merge:true deep-merges maps so anchorDate/season/window
- * survive.
+ * semantics, and merge:true deep-merges maps so anchorDate/window survive.
  *
- * Two more things a cadence write owes the surfaces that read it:
+ * Open occurrences carry a denormalized `scheduleType` (firestore-model.md §5)
+ * that the week, the agenda and the push sweep phrase from; writeCadencePlan
+ * sets it on every occurrence it moves, in the same batch (denormSync's rule).
  *
- * 1. Open occurrences carry a denormalized `scheduleType` (firestore-model.md
- *    §5) that the week, the agenda and the push sweep phrase from; it is
- *    synced in the same batch, like every other template field a writer
- *    touches (denormSync). Their due DATE is left alone: the current
- *    occurrence is due when it was due, and the next cycle — computed by
- *    completeTask from the template — takes the new rhythm.
- *
- * 2. A task that has never had an occurrence gets its first one. The parse
- *    only seeds instances for recurring cadences, so a "when needed" tip the
- *    owner gives a real schedule (the /reminders proposal path, 2026-09-02:
- *    "Descale the Machine · when needed") would otherwise become a template
- *    that says "monthly" with nothing that ever comes due — and a reminder on
- *    it a silent no-op. The first occurrence lands one cadence from today,
- *    exactly as commitDraft anchors a freshly parsed task: giving a task a
- *    schedule is the moment its clock starts, not evidence of a backlog.
- *
- * A recurring cadence that cannot produce a date (seasonal with no season on
- * the template) is refused rather than written — the same no-op in a
- * different coat.
+ * Seasonal with no season known (stored, or `season` passed) is refused with
+ * SEASON_NEEDED — the screens ask for the season before they get here.
  */
 export async function setTaskCadence(
   homeId: string,
   taskTemplateId: string,
   scheduleType: ScheduleType,
-  intervalDays: number | null
+  intervalDays: number | null,
+  season?: Season | null
 ): Promise<ServiceResult<true>> {
   try {
-    const tplRef = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
-    const snap = await getDoc(tplRef)
-    if (!snap.exists() || snap.data().deletedAt != null) return { data: null, error: { message: "Task not found" } }
-    const tpl = snap.data()
+    const read = await readCadenceFacts(homeId, taskTemplateId)
+    if (!read) return { data: null, error: { message: "Task not found" } }
+    const plan = planFor(read.facts, { scheduleType, intervalDays, season })
+    if (plan.kind === "needs-season") return { data: null, error: { message: SEASON_NEEDED } }
     const now = serverTimestamp()
     const batch = writeBatch(db)
     batch.set(
-      tplRef,
+      doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
       {
-        schedule: { scheduleType, intervalDays: intervalDays ?? null },
+        schedule: { scheduleType, intervalDays: intervalDays ?? null, ...(season ? { season } : {}) },
         userModifiedAt: now,
         updatedAt: now,
       },
       { merge: true }
     )
-    const open = await syncTemplateDenormToInstances(batch, homeId, taskTemplateId, { scheduleType })
-    if (open === 0 && isRecurring(scheduleType)) {
-      const season = ((tpl.schedule as { season?: string | null } | null | undefined)?.season ?? null) as Season | null
-      const dueDate = computeNextDueDate(scheduleType, localToday(), { intervalDays, season })
-      if (!dueDate) return { data: null, error: { message: "A seasonal task needs a season before it can be scheduled." } }
-      batch.set(doc(collection(db, `homes/${homeId}/taskInstances`)), await firstOccurrence(homeId, taskTemplateId, tpl, scheduleType, dueDate))
-    }
+    await writeCadencePlan(batch, homeId, taskTemplateId, read.tpl, scheduleType, plan)
     await batch.commit()
     track("task_cadence_set", { homeId, taskTemplateId, scheduleType })
     return { data: true, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to change the schedule" } }
-  }
-}
-
-/** The first scheduled occurrence of a template that never had one — the
- *  shape commitDraft writes, denormalized display set
- *  included (firestore-model.md §5), because that copy is what every surface
- *  reads. */
-async function firstOccurrence(
-  homeId: string,
-  taskTemplateId: string,
-  tpl: DocumentData,
-  scheduleType: ScheduleType,
-  dueDate: string
-): Promise<DocumentData> {
-  const itemUnitId: string | null = tpl.itemUnitId ?? null
-  let itemName: string | null = null
-  let roomName: string | null = null
-  if (itemUnitId) {
-    const item = await getDoc(doc(db, `homes/${homeId}/items/${itemUnitId}`))
-    if (item.exists()) {
-      itemName = item.data().displayName ?? null
-      const roomId = item.data().roomId
-      if (roomId) {
-        const room = await getDoc(doc(db, `homes/${homeId}/rooms/${roomId}`))
-        roomName = room.exists() ? (room.data().name ?? null) : null
-      }
-    }
-  }
-  const tier = (tpl.priorityTier ?? "recommended") as PriorityTier
-  const { priorityScore, isSafetyCritical } = computePriorityScore(
-    tier,
-    (tpl.riskLevel ?? "comfort") as RiskLevel,
-    dueDate,
-    null,
-    null,
-    tpl.estimatedMinutes ?? null
-  )
-  const now = serverTimestamp()
-  return {
-    taskTemplateId,
-    itemUnitId,
-    status: "scheduled",
-    dueDate,
-    windowStart: null,
-    windowEnd: null,
-    snoozedUntil: null,
-    priorityScore,
-    isSafetyCritical,
-    completedAt: null,
-    completionNotes: null,
-    completionPhotos: [],
-    assignedTo: null,
-    // denorm (§5)
-    title: tpl.title ?? "",
-    priorityTier: tier,
-    careType: tpl.careType ?? null,
-    scopeType: tpl.scopeType ?? (itemUnitId ? "item_unit" : "home"),
-    estimatedMinutes: tpl.estimatedMinutes ?? null,
-    scheduleType,
-    itemName,
-    roomName,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
   }
 }
 
@@ -1480,7 +1357,10 @@ export async function rescheduleTaskInstance(
         doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`),
         // Clearing snoozedUntil keeps one source of truth for "when next":
         // a snooze left in place would override the date just chosen.
-        { dueDate, snoozedUntil: null, status: "scheduled", updatedAt: serverTimestamp() },
+        // dueSource: null — every writer that moves dueDate says who set it
+        // (firestore-model.md §2); a date picked by hand is not the cadence
+        // rule's, so the nightly roll-forward treats it as it always has.
+        { dueDate, snoozedUntil: null, status: "scheduled", dueSource: null, updatedAt: serverTimestamp() },
         { merge: true },
       )
       .commit()

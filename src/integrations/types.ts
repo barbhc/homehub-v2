@@ -482,6 +482,11 @@ export interface TaskTemplate {
   source: TaskSource
   is_user_editable: boolean
   user_modified_at: string | null
+  /** Stored as `lastDoneClaimedOn`: the owner's "I've been doing this already"
+   *  date from Review tasks (YYYY-MM-DD). A claim, never a completion — the
+   *  cadence rule (shared/tasks/cadenceChange.ts) counts "last done" as the
+   *  later of this and the latest completion. Absent on most templates. */
+  last_done_claimed_on?: string | null
   is_active: boolean
   metadata: Json
   /** Section-aware parser fields (migration 20260626000002). manual_id scopes
@@ -544,6 +549,11 @@ export interface TaskInstance {
   completion_photos: Json
   /** Home member this occurrence is assigned to (Phase 3); guarded to home_members. */
   assigned_to: string | null
+  /** Stored as `dueSource`: who set `due_date`. "cadence_rule" = the cadence
+   *  rule (writeCadencePlan), which rollForwardNeverStarted leaves alone; null
+   *  or absent = anything else. Every writer that MOVES dueDate sets it (or
+   *  null) — firestore-model.md §2. */
+  due_source?: "cadence_rule" | null
   created_at: string
   updated_at: string
   deleted_at: string | null
