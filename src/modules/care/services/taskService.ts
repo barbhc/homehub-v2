@@ -705,6 +705,9 @@ export type TaskDetail = {
    *  reversible — before this, the review sheet was the only place it could
    *  ever be set. */
   remindEnabled: boolean | null
+  /** The instance's safety flag — the same field the push sweep reads to put
+   *  lapsed safety work in the weekly digest, so the reminder switch can say so. */
+  isSafetyCritical?: boolean
 }
 
 /**
@@ -808,6 +811,7 @@ export async function getTaskDetail(
           ? { scheduleType: sched.scheduleType as ScheduleType, intervalDays: sched.intervalDays ?? null, season: sched.season ?? null }
           : null,
         remindEnabled: (tmpl?.remindEnabled as boolean | null | undefined) ?? null,
+        isSafetyCritical: inst.isSafetyCritical === true,
       },
       error: null,
     }

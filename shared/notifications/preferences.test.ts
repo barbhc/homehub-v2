@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest"
 import {
   DEFAULT_NOTIFICATION_PREFS,
   normalizeNotificationPrefs,
-  notifiesInMode,
+  taskNotifies,
+  type PushMode,
   isWithinQuietHours,
 } from "./preferences"
 
@@ -50,32 +51,80 @@ describe("normalizeNotificationPrefs — round 19 keys", () => {
   })
 })
 
-describe("notifiesInMode — the one breadth predicate", () => {
-  // rows: [remindEnabled, tier]
-  const explicitOn = [true, "recommended"] as const
-  const explicitOff = [false, "essential"] as const
-  const neverChoseEssential = [null, "essential"] as const
-  const neverChoseRecommended = [null, "recommended"] as const
+describe("taskNotifies — the ONE decision every lane and preview imports", () => {
+  // The switch: explicit On, explicit Off, never chose (null — and undefined,
+  // which is how a missing field reads).
+  const ON = true, OFF = false, NEVER = null
+  type Why = "ordinary" | "deadline" | "lapsed safety"
+  const why = (w: Why) => ({ isDeadline: w === "deadline", lapsedSafety: w === "lapsed safety" })
+  const ask = (mode: PushMode, remindEnabled: boolean | null | undefined, priorityTier: string, w: Why) =>
+    taskNotifies(mode, { remindEnabled, priorityTier, ...why(w) })
 
-  it("curated: only an explicit yes notifies", () => {
-    expect(notifiesInMode("curated", ...explicitOn)).toBe(true)
-    expect(notifiesInMode("curated", ...explicitOff)).toBe(false)
-    expect(notifiesInMode("curated", ...neverChoseEssential)).toBe(false)
-    expect(notifiesInMode("curated", ...neverChoseRecommended)).toBe(false)
+  // Every mode × switch × kind of message. Rows: [mode, switch, tier, kind, notifies?]
+  const table: Array<[PushMode, boolean | null, string, Why, boolean]> = [
+    // An explicit Off is silent everywhere — the owner's 2026-10-28 decision
+    // ("Off wins, no exceptions"), INCLUDING deadlines and lapsed safety work.
+    ...(["curated", "curated+essential", "all"] as const).flatMap((m) =>
+      (["ordinary", "deadline", "lapsed safety"] as const).flatMap((w) =>
+        (["essential", "recommended"] as const).map((tier) => [m, OFF, tier, w, false] as [PushMode, boolean | null, string, Why, boolean])
+      )
+    ),
+    // An explicit On notifies everywhere.
+    ...(["curated", "curated+essential", "all"] as const).flatMap((m) =>
+      (["ordinary", "deadline", "lapsed safety"] as const).map((w) => [m, ON, "recommended", w, true] as [PushMode, boolean | null, string, Why, boolean])
+    ),
+    // Never chose, deadline or lapsed safety: "Just my list" means ONLY what was
+    // switched On (owner, 2026-10-28 follow-up) — silent; the other two modes
+    // notify, as before.
+    ...(["deadline", "lapsed safety"] as const).flatMap((w) =>
+      (["essential", "recommended"] as const).map((tier) => ["curated", NEVER, tier, w, false] as [PushMode, boolean | null, string, Why, boolean])
+    ),
+    ...(["curated+essential", "all"] as const).flatMap((m) =>
+      (["deadline", "lapsed safety"] as const).flatMap((w) =>
+        (["essential", "recommended"] as const).map((tier) => [m, NEVER, tier, w, true] as [PushMode, boolean | null, string, Why, boolean])
+      )
+    ),
+    // Never chose, ordinary reminder: the mode decides.
+    ["curated", NEVER, "essential", "ordinary", false],
+    ["curated", NEVER, "recommended", "ordinary", false],
+    ["curated+essential", NEVER, "essential", "ordinary", true],
+    ["curated+essential", NEVER, "recommended", "ordinary", false],
+    ["curated+essential", NEVER, "optional", "ordinary", false],
+    ["all", NEVER, "essential", "ordinary", true],
+    ["all", NEVER, "recommended", "ordinary", true],
+    ["all", NEVER, "optional", "ordinary", true],
+  ]
+
+  it.each(table)("%s · switch %s · %s · %s → %s", (mode, sw, tier, w, expected) => {
+    expect(ask(mode, sw, tier, w)).toBe(expected)
   })
 
-  it("curated+essential: today's remindsWhenDue — explicit choice wins, else Essential-only", () => {
-    expect(notifiesInMode("curated+essential", ...explicitOn)).toBe(true)
-    expect(notifiesInMode("curated+essential", ...explicitOff)).toBe(false) // explicit no beats tier
-    expect(notifiesInMode("curated+essential", ...neverChoseEssential)).toBe(true)
-    expect(notifiesInMode("curated+essential", ...neverChoseRecommended)).toBe(false)
+  it("covers every mode × switch × kind of message", () => {
+    const seen = new Set(table.map(([m, sw, , w]) => `${m}|${sw}|${w}`))
+    expect(seen.size).toBe(3 * 3 * 3)
   })
 
-  it("all: everything notifies, even an explicit off is overridden by the mode", () => {
-    expect(notifiesInMode("all", ...explicitOn)).toBe(true)
-    expect(notifiesInMode("all", ...neverChoseRecommended)).toBe(true)
-    // Deliberate: "all" means all — a user who wants exceptions uses curated modes.
-    expect(notifiesInMode("all", ...explicitOff)).toBe(true)
+  it("'Everything on a schedule' means everything you have NOT switched off", () => {
+    // This used to be `if (mode === "all") return true` before the switch was
+    // read, and this test pinned it as "deliberate: 'all' means all". The owner
+    // decided the opposite on 2026-10-28 — an explicit Off is silent in every
+    // mode — so the pin is inverted, not deleted: re-adding the short-circuit
+    // must fail here.
+    expect(ask("all", OFF, "essential", "ordinary")).toBe(false)
+    expect(ask("all", NEVER, "recommended", "ordinary")).toBe(true)
+  })
+
+  it("'Just my list' is ONLY what was switched On — not a never-chose deadline or lapsed safety check", () => {
+    expect(ask("curated", NEVER, "essential", "deadline")).toBe(false)
+    expect(ask("curated", NEVER, "essential", "lapsed safety")).toBe(false)
+    expect(ask("curated", ON, "optional", "deadline")).toBe(true)
+  })
+
+  it("a missing switch (undefined) reads as never chose, not as Off", () => {
+    expect(ask("curated+essential", undefined, "essential", "ordinary")).toBe(true)
+    expect(ask("curated+essential", undefined, "recommended", "deadline")).toBe(true)
+    expect(ask("curated", undefined, "essential", "ordinary")).toBe(false)
+    expect(ask("all", undefined, "optional", "ordinary")).toBe(true)
   })
 })
 

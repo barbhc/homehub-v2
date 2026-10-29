@@ -56,9 +56,9 @@ function fakeSender() {
   return { sent, send }
 }
 
-test("Monday 9am, curated mode: the deadline pushes, the null-flag task does not, buy-ahead names the part", async () => {
+test("Monday 9am, default mode: the deadline pushes, the null-flag Recommended does not, buy-ahead names the part", async () => {
   const homeId = fresh(), uid = fresh()
-  await seedHome({ homeId, uid, prefs: { push_mode: "curated" } })
+  await seedHome({ homeId, uid, prefs: { push_mode: "curated+essential" } })
   const { sent, send } = fakeSender()
 
   const report = await runPushSweep(db, new Date("2026-09-07T16:00:00Z"), send) // 09:00 PDT Monday
@@ -66,7 +66,7 @@ test("Monday 9am, curated mode: the deadline pushes, the null-flag task does not
 
   const morning = mine.find((s) => s.title === "Deadline today")
   assert.ok(morning, `expected the deadline push, got ${JSON.stringify(mine)}`)
-  assert.equal(morning.body, "Warranty claim closes") // "Flush" is null-flag Recommended → not in curated mode
+  assert.equal(morning.body, "Warranty claim closes") // "Flush" is null-flag Recommended → not by default
   assert.equal(morning.url, `/tasks/inst-warranty?home=${homeId}`)
 
   const buy = mine.find((s) => /order this week/.test(s.title))
@@ -113,8 +113,9 @@ test("'I have one' on the shopping list removes the part from both the digest an
 })
 
 test("a user with the task-reminders switch OFF gets no morning push, but their digest still arrives", async () => {
+  // Default mode, where the seeded deadline WOULD push — so its absence is the switch's doing.
   const homeId = fresh(), uid = fresh()
-  await seedHome({ homeId, uid, prefs: { push_mode: "curated", events: { task_reminders: { push: false } }, weekly_digest: { enabled: true, day: 0, hour: 17 } } })
+  await seedHome({ homeId, uid, prefs: { push_mode: "curated+essential", events: { task_reminders: { push: false } }, weekly_digest: { enabled: true, day: 0, hour: 17 } } })
   const a = fakeSender()
   await runPushSweep(db, new Date("2026-09-07T16:00:00Z"), a.send)
   assert.equal(a.sent.some((s) => s.uid === uid && s.title === "Deadline today"), false)
@@ -241,4 +242,116 @@ test("a user in two homes still gets ONE morning push, for the home the old quer
   const mornings = sent.filter((s) => s.uid === uid && /deadline/i.test(s.title))
   assert.equal(mornings.length, 1, `one morning push, got ${JSON.stringify(mornings)}`)
   assert.match(mornings[0].url, new RegExp(`home=${first}`), "the home with the earliest eligible instance")
+})
+
+// ─── Off wins, no exceptions (owner decision 2026-10-28) ────────────────────
+
+/** One task per case, each with its own template so the switch is real data. */
+async function seedOffHome({ homeId, uid, mode, freezeRisk }) {
+  const home = `homes/${homeId}`
+  await db.doc(home).set({ name: "Off home", ...(freezeRisk === undefined ? {} : { freezeRisk }) })
+  await db.doc(`${home}/members/${uid}`).set({ role: "owner" })
+  await db.doc(`users/${uid}/private/preferences`).set({
+    notifications: { push_mode: mode, weekly_digest: { enabled: true, day: 0, hour: 17 } },
+  })
+  const task = async (id, { title, remindEnabled, dueDate, scheduleType = "monthly", isSafetyCritical = false, tier = "recommended" }) => {
+    await db.doc(`${home}/taskTemplates/tpl-${id}`).set({ title, priorityTier: tier, remindEnabled, isActive: true, deletedAt: null })
+    await db.doc(`${home}/taskInstances/inst-${id}`).set({
+      taskTemplateId: `tpl-${id}`, title, dueDate, status: "scheduled", deletedAt: null, careType: "maintenance", scopeType: "home",
+      itemUnitId: null, itemName: null, priorityTier: tier, scheduleType, isSafetyCritical,
+    })
+  }
+  return { home, task }
+}
+
+test("'Everything on a schedule': a task switched Off gets no push — ordinary, deadline or lapsed safety; never chose still does", async () => {
+  const homeId = fresh(), uid = fresh()
+  const { task } = await seedOffHome({ homeId, uid, mode: "all" })
+  await task("seal-off", { title: "Wipe the dryer door seal", remindEnabled: false, dueDate: "2026-09-07" })
+  await task("deadline-off", { title: "Warranty claim closes", remindEnabled: false, dueDate: "2026-09-07", scheduleType: "as_needed", tier: "essential" })
+  await task("deadline-never", { title: "Warranty registration due", remindEnabled: null, dueDate: "2026-09-07", scheduleType: "as_needed" })
+  // Lapsed: due a month ago, safety-critical, semiannual (safetyPhrase fires).
+  await task("smoke-off", { title: "Test smoke & CO detectors", remindEnabled: false, dueDate: "2026-08-01", scheduleType: "semiannual", isSafetyCritical: true, tier: "essential" })
+  await task("co-never", { title: "Test the CO alarm in the garage", remindEnabled: null, dueDate: "2026-08-01", scheduleType: "semiannual", isSafetyCritical: true, tier: "essential" })
+
+  const morning = fakeSender()
+  await runPushSweep(db, MONDAY_9AM, morning.send)
+  const mine = morning.sent.filter((s) => s.uid === uid)
+  const m = mine.find((s) => /deadline/i.test(s.title))
+  assert.ok(m, `expected the never-chose deadline, got ${JSON.stringify(mine)}`)
+  assert.equal(m.title, "Deadline today")
+  assert.doesNotMatch(`${m.title} ${m.body}`, /Warranty claim closes|dryer door seal/, "Off tasks must not be named")
+  assert.match(m.body, /Warranty registration due/)
+
+  const sunday = fakeSender()
+  await runPushSweep(db, new Date("2026-09-07T00:00:00Z"), sunday.send) // Sunday Sep 6, 17:00 PDT
+  const digest = sunday.sent.find((s) => s.uid === uid && s.title === "Your week at home")
+  assert.ok(digest, "the digest still goes for the never-chose tasks")
+  assert.match(digest.body, /Test the CO alarm in the garage/)
+  assert.match(digest.body, /Includes a safety check/)
+  assert.doesNotMatch(digest.body, /Test smoke & CO detectors|dryer door seal|Warranty claim closes/, "Off tasks must not be named")
+})
+
+test("'Just my list' is ONLY what was switched On: a never-chose deadline and lapsed safety work stay silent; an On task still pushes", async () => {
+  const homeId = fresh(), uid = fresh()
+  const { task } = await seedOffHome({ homeId, uid, mode: "curated" })
+  await task("deadline-never", { title: "Warranty registration due", remindEnabled: null, dueDate: "2026-09-07", scheduleType: "as_needed", tier: "essential" })
+  await task("smoke-never", { title: "Test smoke & CO detectors", remindEnabled: null, dueDate: "2026-08-01", scheduleType: "semiannual", isSafetyCritical: true, tier: "essential" })
+  await task("filter-on", { title: "Replace the furnace filter", remindEnabled: true, dueDate: "2026-09-07" })
+
+  const morning = fakeSender()
+  await runPushSweep(db, MONDAY_9AM, morning.send)
+  const m = morning.sent.filter((s) => s.uid === uid)
+  assert.equal(m.length, 1, `one morning push, for the On task only — got ${JSON.stringify(m)}`)
+  assert.equal(m[0].title, "Today: Replace the furnace filter")
+
+  const sunday = fakeSender()
+  await runPushSweep(db, new Date("2026-09-07T00:00:00Z"), sunday.send) // Sunday Sep 6, 17:00 PDT
+  const digest = sunday.sent.find((s) => s.uid === uid && s.title === "Your week at home")
+  assert.ok(digest, "the digest goes for the On task")
+  assert.equal(digest.body, "1 reminder: Replace the furnace filter.")
+})
+
+test("'Just my list' and the default: a lapsed safety task or a deadline switched Off is silent too", async () => {
+  for (const mode of ["curated", "curated+essential"]) {
+    const homeId = fresh(), uid = fresh()
+    const { task } = await seedOffHome({ homeId, uid, mode })
+    await task("deadline-off", { title: "Warranty claim closes", remindEnabled: false, dueDate: "2026-09-07", scheduleType: "as_needed", tier: "essential" })
+    await task("smoke-off", { title: "Test smoke & CO detectors", remindEnabled: false, dueDate: "2026-08-01", scheduleType: "semiannual", isSafetyCritical: true, tier: "essential" })
+    const morning = fakeSender()
+    await runPushSweep(db, MONDAY_9AM, morning.send)
+    assert.equal(morning.sent.filter((s) => s.uid === uid).length, 0, `${mode}: no morning push for Off tasks`)
+    const sunday = fakeSender()
+    await runPushSweep(db, new Date("2026-09-07T00:00:00Z"), sunday.send)
+    assert.equal(sunday.sent.filter((s) => s.uid === uid).length, 0, `${mode}: no digest when every task is Off`)
+  }
+})
+
+test("cold storage: a home that said it doesn't freeze is never pushed its as-needed winterizing — Home hides it too", async () => {
+  // HH-166's rule (shared/tasks/houseRules isAsNeededColdStorageRow) — Home's
+  // dated lists and Tasks' week agenda applied it; the sweep did not, so the
+  // phone could name a task the app had hidden.
+  const winterize = { title: "Winterize the washer for cold storage", remindEnabled: null, dueDate: "2026-09-07", scheduleType: "seasonal" }
+
+  const freeHome = fresh(), freeUid = fresh()
+  const free = await seedOffHome({ homeId: freeHome, uid: freeUid, mode: "all", freezeRisk: false })
+  await free.task("winterize", winterize)
+
+  // Control: a home that hasn't said (no freezeRisk) and one that freezes keep it.
+  const unsaidHome = fresh(), unsaidUid = fresh()
+  const unsaid = await seedOffHome({ homeId: unsaidHome, uid: unsaidUid, mode: "all" })
+  await unsaid.task("winterize", winterize)
+  const coldHome = fresh(), coldUid = fresh()
+  const cold = await seedOffHome({ homeId: coldHome, uid: coldUid, mode: "all", freezeRisk: true })
+  await cold.task("winterize", winterize)
+
+  const { sent, send } = fakeSender()
+  const report = await runPushSweep(db, MONDAY_9AM, send)
+  assert.equal(sent.some((s) => s.uid === freeUid), false, "freeze-free home: no push for as-needed cold storage")
+  for (const uid of [unsaidUid, coldUid]) {
+    const m = sent.find((s) => s.uid === uid)
+    assert.ok(m, "a home that freezes, or hasn't said, keeps its winterizing")
+    assert.equal(m.title, "Today: Winterize the washer for cold storage")
+  }
+  assert.ok(report.reads.homes >= 3, "each due home's document is read once, for its freeze answer")
 })

@@ -21,7 +21,8 @@
  *   2. each user's prefs + push state (two docs per user, batched);
  *   3. `decideLanes` per user — the SAME decision the send path makes;
  *   4. only for homes where at least one member has a lane firing: that home's
- *      candidates, bounded to [today − CANDIDATE_LOOKBACK_DAYS, today + 30].
+ *      document (its freeze answer) and its candidates, bounded to
+ *      [today − CANDIDATE_LOOKBACK_DAYS, today + 30].
  * A tick where nobody is due reads memberships and user docs and nothing else.
  * Every tick logs `docsRead` (structured) so the drop can be checked in Cloud
  * Logging rather than taken on trust.
@@ -39,6 +40,7 @@ import { storedText } from "../lib/validate.js"
 import { storedDocId } from "../lib/storedTask.js"
 import { dueKindOf, safetyPhrase } from "../../../../shared/care/dueWindow.js"
 import { isAgendaEligible } from "../../../../shared/tasks/agendaEligibility.js"
+import { isAsNeededColdStorageRow, isFreezeFree } from "../../../../shared/tasks/houseRules.js"
 import { effectiveDueDate, type SnoozeAware } from "../../../../shared/tasks/snooze.js"
 import { normalizeNotificationPrefs, type NotificationPrefs } from "../../../../shared/notifications/preferences.js"
 import {
@@ -115,7 +117,7 @@ export function onListInWindow<D extends { data(): unknown; ref: { path: string 
 
 /** Documents read, by what they were read for. Firestore bills an empty query
  *  as one read, so each query counts at least 1. */
-export type SweepReads = { members: number; userDocs: number; instances: number; templates: number; shopping: number }
+export type SweepReads = { members: number; userDocs: number; homes: number; instances: number; templates: number; shopping: number }
 
 async function readTemplates(
   db: Firestore,
@@ -155,7 +157,8 @@ async function readTemplates(
 
 /**
  * Every open (scheduled, or snoozed with its snooze over — shared/tasks/snooze),
- * agenda-eligible instance whose effective due date is in
+ * agenda-eligible instance that Home would list (not as-needed cold storage in
+ * a home that said it doesn't freeze), whose effective due date is in
  * [today − CANDIDATE_LOOKBACK_DAYS, today + CANDIDATE_HORIZON_DAYS] in the
  * given homes, joined to its template (reminder flag, tier, supplies) and to
  * the home's have/bought shopping rows. Filtering by lane happens later, per
@@ -171,14 +174,18 @@ export async function collectCandidates(
   db: Firestore,
   today: string,
   homePaths: string[],
-  reads: SweepReads = { members: 0, userDocs: 0, instances: 0, templates: 0, shopping: 0 },
+  reads: SweepReads = { members: 0, userDocs: 0, homes: 0, instances: 0, templates: 0, shopping: 0 },
 ): Promise<Map<string, HomeCandidates>> {
   const lower = addDays(today, -CANDIDATE_LOOKBACK_DAYS)
   const horizon = addDays(today, CANDIDATE_HORIZON_DAYS)
 
   const perHome = await Promise.all(
     homePaths.map(async (homePath) => {
-      const [scheduled, snoozed] = await Promise.all([
+      const [homeSnap, scheduled, snoozed] = await Promise.all([
+        // The home's freeze answer, for the cold-storage rule below. A read
+        // failure fails the tick (as every other read here does) rather than
+        // guessing; an absent field is "hasn't said", which hides nothing.
+        db.doc(homePath).get(),
         db
           .collection(`${homePath}/taskInstances`)
           .where("status", "==", "scheduled")
@@ -193,20 +200,28 @@ export async function collectCandidates(
         // a snoozed task never reminded anyone again.
         db.collection(`${homePath}/taskInstances`).where("status", "==", "snoozed").where("deletedAt", "==", null).get(),
       ])
+      reads.homes += 1
       reads.instances += Math.max(scheduled.size, 1) + Math.max(snoozed.size, 1)
-      return { homePath, docs: onListInWindow([...scheduled.docs, ...snoozed.docs], today, lower, horizon) }
+      return {
+        homePath,
+        freezeFree: isFreezeFree(homeSnap.get("freezeRisk")),
+        docs: onListInWindow([...scheduled.docs, ...snoozed.docs], today, lower, horizon),
+      }
     }),
   )
 
   const found: Array<{ home: HomeCandidates; first: { dueDate: string; path: string } }> = []
   const templatePaths = new Set<string>()
-  for (const { homePath, docs: placed } of perHome) {
+  for (const { homePath, freezeFree, docs: placed } of perHome) {
     const entry: HomeCandidates = { homeId: homePath.split("/")[1], homePath, pending: [], coveredParts: new Set<string>() }
     let first: { dueDate: string; path: string } | null = null
     for (const { doc: d, dueDate } of placed) {
       // Same eligibility as the Home agenda — a push must never count tasks the
-      // app deliberately hides (item-scoped cleaning).
+      // app deliberately hides: item-scoped cleaning, and (HH-166) as-needed
+      // cold-storage winterizing in a home that said it doesn't freeze — the
+      // filter Home's dated lists and Tasks' week agenda apply.
       if (!isAgendaEligible({ careType: storedText(d.get("careType")), scopeType: storedText(d.get("scopeType")) })) continue
+      if (isAsNeededColdStorageRow({ title: d.get("title"), scheduleType: d.get("scheduleType") }, freezeFree)) continue
 
       // Member-written fields (H3a §3): text that isn't text reads as absent,
       // and the template id becomes a path, so it must be one segment — a
@@ -359,7 +374,7 @@ export type SweepReport = {
  */
 export async function runPushSweep(db: Firestore, now: Date, send: Sender): Promise<SweepReport> {
   const local = laParts(now)
-  const reads: SweepReads = { members: 0, userDocs: 0, instances: 0, templates: 0, shopping: 0 }
+  const reads: SweepReads = { members: 0, userDocs: 0, homes: 0, instances: 0, templates: 0, shopping: 0 }
 
   const { homesByUser, membersByHome } = await readMemberships(db, reads)
   const uids = [...homesByUser.keys()]
@@ -432,7 +447,7 @@ export async function runPushSweep(db: Firestore, now: Date, send: Sender): Prom
     }
   }
 
-  report.docsRead = reads.members + reads.userDocs + reads.instances + reads.templates + reads.shopping
+  report.docsRead = reads.members + reads.userDocs + reads.homes + reads.instances + reads.templates + reads.shopping
   logger.info("sendPushSweep tick", {
     date: local.date,
     time: local.hhmm,
