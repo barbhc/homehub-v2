@@ -34,6 +34,7 @@ import {
   type ParsedTask,
 } from "../../../../shared/parse/parseCore.js"
 import { DocId } from "../lib/validate.js"
+import { SEASONS } from "../schedule/cadence.js"
 
 export const MAX_DRAFT_ROWS = 500
 
@@ -105,6 +106,10 @@ export const DraftTask = z.object({
     ),
   ),
   // The reviewer's own answers — not parser fields (see commitManualDraft).
+  // A seasonal row's season: the review asks for it when none is known, and
+  // only ever offers these four. Without it here zod stripped it and the
+  // commit re-derived the season from the title, discarding her choice.
+  season: oneOf(SEASONS),
   remind_enabled: z.boolean().nullish().transform((v) => v ?? null),
   last_done_on: z.unknown().optional(), // absent on every row the reviewer didn't date
 }) satisfies z.ZodType<ParsedTask>

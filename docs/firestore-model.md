@@ -167,7 +167,10 @@ manualSuggestion: { priorityTier, careType, remindEnabled,
 - **Every writer of those four fields stamps exactly the fields it changes, in the same write.** A
   re-saving editor (Review tasks) compares each row with the stored task and stamps only what moved.
   `manualSuggestion` is written only by `commitDraft` (worker and reviewed commit); the reviewed commit
-  (`commitManualDraft`) takes the manual's values from the `previewDraft` the review was opened from.
+  (`commitManualDraft`) takes the manual's values from the `previewDraft` the review was opened from;
+  a reviewed row with no draft counterpart writes no `manualSuggestion`, so a matched task keeps the
+  one an earlier parse recorded (a new task gets `null`). A seasonal row's season the reviewer set is
+  stored as hers (`schedule` stamped `user` when it differs from the manual's).
 - **Reading.** `sourceOf(tpl, field)` trusts a stamp only while its `value` equals the stored field;
   missing, malformed or stale stamps are **unknown**. So a writer that forgets to stamp (an ops script,
   the v1 import, an older functions build) fails safe — never into a wrong "you chose this". Nothing

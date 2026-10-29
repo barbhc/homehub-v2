@@ -75,6 +75,9 @@ describe("an untouched review row is the manual's value, by the server's own rec
       // it only on every_n_days) before comparing, exactly as the draft did.
       const savedInterval = row.schedule_type === "every_n_days" ? (row.interval_days ?? null) : null
       expect(savedInterval, row.title).toBe(expected.interval_days)
+      // The season: commitManualDraft honours it only on a seasonal row.
+      const savedSeason = row.schedule_type === "seasonal" ? (row.season ?? null) : null
+      expect(savedSeason, row.title).toBe(expected.season)
     }
   })
 })

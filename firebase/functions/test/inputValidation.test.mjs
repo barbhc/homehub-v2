@@ -520,6 +520,18 @@ test("commitManualDraft: a real reviewed draft parses — and normalizes to EXAC
   assert.equal(parsed.data.tasks[0].last_done_on, "2026-09-01")
 })
 
+test("commitManualDraft: the reviewer's season survives validation; null or absent reads as none", () => {
+  const sent = reviewedDraft()
+  sent.tasks.push({ ...sent.tasks[0], title: "Second row", season: null })
+  sent.tasks[0].season = "fall"
+  const parsed = CommitManualDraftRequest.safeParse(sent)
+  assert.equal(parsed.success, true, JSON.stringify(parsed.error?.issues?.slice(0, 3)))
+  assert.equal(parsed.data.tasks[0].season, "fall", "zod used to strip it")
+  assert.equal(parsed.data.tasks.at(-1).season, undefined)
+  const absent = CommitManualDraftRequest.safeParse(reviewedDraft())
+  assert.equal(absent.data.tasks[0].season, undefined)
+})
+
 test("commitManualDraft: a model glitch in page metadata drops that metadata, not the whole reviewed save", () => {
   const sent = reviewedDraft()
   sent.tasks[0].diagram_pages = [{ page: "22", caption: null }]
@@ -540,6 +552,7 @@ test("commitManualDraft: anything the review sheet cannot produce is refused", (
     ["missing chunk content", (d) => delete d.chunks[0].content],
     ["nested scenario garbage", (d) => (d.chunks[0].scenarios = [{ condition: 1 }])],
     ["slash in manualId", (d) => (d.manualId = "m1/chunks/x")],
+    ["a season the review never offers", (d) => (d.tasks[0].season = "autumn")],
   ]) {
     const d = structuredClone(base)
     mutate(d)

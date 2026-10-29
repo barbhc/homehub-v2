@@ -76,6 +76,13 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   const normTasks = tasks.map((t, i) => ({
     ...normalized[i],
     remind_enabled: t.remind_enabled,
+    // The reviewer's season for a seasonal row (the review asks for one when
+    // the title doesn't say). commitDraft's seasonForTask reads an explicit
+    // season ahead of its title inference, so this is what gets stored and
+    // scheduled; absent → the title-derived season, as before. Only on a
+    // seasonal row: a season left over on a row she moved to another cadence
+    // must not change what a non-seasonal task stores.
+    season: normalized[i].schedule_type === "seasonal" ? (t.season ?? null) : null,
     // Parsed, not cast: this arrives from a form as `unknown`, and a bad anchor
     // would silently mis-schedule the task rather than fail loudly. Anything
     // unusable degrades to null, which is exactly the shipped behaviour
@@ -133,5 +140,6 @@ export function draftRows(raw: unknown): DraftRowLike[] {
       priority_tier: str(r.priority_tier),
       schedule_type: str(r.schedule_type),
       interval_days: typeof r.interval_days === "number" ? r.interval_days : null,
+      season: str(r.season),
     }))
 }

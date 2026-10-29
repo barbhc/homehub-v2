@@ -6,6 +6,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { seasonForTask, seasonalNextDue, addCadence } from "../lib/firebase/functions/src/schedule/cadence.js"
+import { seasonalFamily } from "../lib/shared/tasks/houseRules.js"
 
 test("seasonForTask: winterize / cold storage → fall (prep before winter)", () => {
   assert.equal(seasonForTask({ title: "Winterize Washer for Cold Storage" }), "fall")
@@ -21,6 +22,26 @@ test("seasonForTask: reads description too — 'each heating season' → fall (f
   assert.equal(seasonForTask({ title: "Service AC", description: "Do this before each cooling season." }), "spring")
   // A vacation task has no season signal anywhere → null (it's not seasonal at all).
   assert.equal(seasonForTask({ title: "Prepare Dishwasher for Vacation", description: "Shut off the water supply when leaving for an extended period." }), null)
+})
+
+test("seasonForTask: de-winterizing is spring — it is not swallowed by the winterize test", () => {
+  assert.equal(seasonForTask({ title: "De-winterize the outdoor faucet" }), "spring")
+  assert.equal(seasonForTask({ title: "Dewinterize the sprinkler system" }), "spring")
+  assert.equal(seasonForTask({ title: "De winterize the pressure washer" }), "spring")
+  assert.equal(seasonForTask({ title: "Winterize the outdoor faucet" }), "fall")
+  assert.equal(seasonForTask({ title: "Winterise the pool pump" }), "fall")
+})
+
+test("seasonForTask agrees with houseRules.seasonalFamily on the winterize families", () => {
+  for (const title of [
+    "De-winterize the outdoor faucet", "Winterize the outdoor faucet", "Summerize the RV",
+    "Spring startup for irrigation", "Freeze protection for outdoor faucet", "Prepare for cold storage",
+  ]) {
+    const fam = seasonalFamily(title)
+    const expected = fam === "warm_startup" ? "spring" : fam === "freeze_prep" ? "fall" : null
+    assert.ok(expected, `fixture has a family: ${title}`)
+    assert.equal(seasonForTask({ title }), expected, title)
+  }
 })
 
 test("seasonForTask: explicit season wins; other seasons infer; unknown → null", () => {

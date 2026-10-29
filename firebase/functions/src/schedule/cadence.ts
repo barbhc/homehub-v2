@@ -99,8 +99,11 @@ export function seasonForTask(t: {
   const explicit = (t.season ?? "").toLowerCase()
   if ((SEASONS as readonly string[]).includes(explicit)) return explicit as Season
   const hay = `${t.title ?? ""} ${(t.tags ?? []).join(" ")} ${t.description ?? ""}`.toLowerCase()
-  if (/winteri[sz]|cold[- ]?storage|freeze[- ]?protect|frost[- ]?protect|heating season|before winter|pre[- ]?winter/.test(hay)) return "fall"
+  // The warm-startup family FIRST, as houseRules.seasonalFamily does:
+  // "de-winterize" contains "winteriz", so the fall test below swallowed it and
+  // a spring de-winterizing job was scheduled for October.
   if (/summeri[sz]|de[- ]?winteri[sz]|cooling season|spring (?:prep|start|open|startup)/.test(hay)) return "spring"
+  if (/winteri[sz]|cold[- ]?storage|freeze[- ]?protect|frost[- ]?protect|heating season|before winter|pre[- ]?winter/.test(hay)) return "fall"
   if (/\bwinter\b/.test(hay)) return "winter"
   if (/\bsummer\b/.test(hay)) return "summer"
   if (/\bspring\b/.test(hay)) return "spring"

@@ -60,6 +60,7 @@
  * serverTimestamp() sentinel, the Admin SDK a Timestamp.
  */
 import { looksLikeSetupStep } from "./houseRules.js"
+import { isCadenceSeason, type CadenceSeason } from "./cadenceChange.js"
 
 export const PROVENANCE_FIELDS = ["priorityTier", "schedule", "remindEnabled", "careType"] as const
 export type ProvenanceField = (typeof PROVENANCE_FIELDS)[number]
@@ -259,6 +260,7 @@ export interface DraftRowLike {
   priority_tier?: string | null
   schedule_type?: string | null
   interval_days?: number | null
+  season?: string | null
   remind_enabled?: boolean | null
 }
 
@@ -271,7 +273,10 @@ export interface DraftRowLike {
  *    parser, so still the manual's suggestion);
  *  - TaskReviewSheet.handleSave: kind is cleaning or maintenance (a draft's
  *    "mixed" goes back as maintenance); the reminder is "never chose";
- *  - normalizeTaskRow: an interval survives only on every_n_days.
+ *  - normalizeTaskRow: an interval survives only on every_n_days;
+ *  - commitManualDraft: a season counts only on a seasonal row (the sheet
+ *    sends the draft's own season back, `null` when it had none, and the
+ *    commit then infers it from the title for both sides alike).
  * src/components/manuals/reviewProvenance.test.ts pins it to rowsFrom.
  */
 export function draftRowAsReviewed(d: DraftRowLike): {
@@ -282,6 +287,7 @@ export function draftRowAsReviewed(d: DraftRowLike): {
   priority_tier: string
   schedule_type: string
   interval_days: number | null
+  season: CadenceSeason | null
   remind_enabled: boolean | null
 } {
   const schedule = d.schedule_type ?? "as_needed"
@@ -295,6 +301,7 @@ export function draftRowAsReviewed(d: DraftRowLike): {
     priority_tier: d.priority_tier ?? "recommended",
     schedule_type: scheduleType,
     interval_days: scheduleType === "every_n_days" && typeof d.interval_days === "number" ? d.interval_days : null,
+    season: scheduleType === "seasonal" && isCadenceSeason(d.season) ? d.season : null,
     remind_enabled: null,
   }
 }
