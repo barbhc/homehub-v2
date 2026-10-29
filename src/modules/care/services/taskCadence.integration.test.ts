@@ -90,7 +90,10 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("setTaskCadence (
     expect(d.assignedTo).toBeNull()
   })
 
-  it("a second cadence change relabels the open occurrence, keeps its date, and creates nothing", async () => {
+  // Owner decision 2026-10-28 ("from when you last did it"): the open
+  // occurrence MOVES — to the day added + the new cadence for a task never
+  // done. It used to keep its old date until the next cycle.
+  it("a second cadence change moves the same open occurrence to the new date, and creates nothing", async () => {
     const before = (await instancesOf(TPL))[0]
     const res = await setTaskCadence(HOME, TPL, "quarterly", null)
     expect(res.error).toBeNull()
@@ -98,7 +101,7 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("setTaskCadence (
     expect(after).toHaveLength(1)
     expect(after[0].id).toBe(before.id)
     expect(after[0].get("scheduleType")).toBe("quarterly")
-    expect(after[0].get("dueDate")).toBe(before.get("dueDate"))
+    expect(after[0].get("dueDate")).toBe(computeNextDueDate("quarterly", today()))
   })
 
   it("never invents an occurrence for a cadence that does not come due", async () => {

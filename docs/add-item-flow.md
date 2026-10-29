@@ -383,6 +383,16 @@ setup."*
 - **The cadence chip is identical on every scheduled row**; the bell beside it is
   the only thing that varies. Colouring the chip makes cadences incomparable
   down the column. — HH-144
+- **Re-reviewing an item's EXISTING tasks shows where a changed cadence lands,
+  before Save.** "Next due: <date>" under the cadence chips, by the one cadence
+  rule every editor uses — the last completion + the new cadence, never done:
+  the day added + the cadence (`shared/tasks/cadenceChange.ts`). Only a row whose
+  cadence changed (or that the reviewer dated with "I've been doing this
+  already") moves its date; re-saving an untouched row moves nothing. Going
+  seasonal with no known season asks "Which season?" and Save waits for it.
+  A FRESH parse review is unchanged — it has no stored tasks to count from, and
+  commitDraft starts each one a cadence from today. — owner, 2026-10-28
+  (decision doc §B, "from when you last did it")
 - **A bell is never drawn that cannot be rung.** If permission was refused, the
   screen says so instead. — round 18. Wired by HH-161 (`lib/notifyGate`, read
   per device by `useNotificationsBlocked`, a REQUIRED prop on every review door
@@ -479,6 +489,7 @@ and where they differ, the amended line governs:
 | Journey walks + their `snap()` notes | Visual drift — but ONLY if the note states the requirement rather than describing the screen | live |
 | **This file** | A change quietly undoing an earlier agreement | live |
 | `src/components/manuals/TaskReviewSheet.sections.test.tsx` | A bucket with no rail — the HH-140 mechanism, now impossible because `SECTION_RAIL` is typed `Record<ReviewBucket, string>` | live |
+| `src/components/manuals/TaskReviewSheet.nextDue.test.tsx` + `src/modules/care/services/cadenceRule.integration.test.ts` | Re-review of existing tasks: no "Next due" claimed for an untouched cadence; the date counted from the last completion; seasonal with no season asking and holding Save; the review, Your reminders and "Tune this task" writing the same date for the same change (2026-10-28) | live |
 | `src/components/manuals/TaskReviewSheet.rowstates.test.tsx` | The three timing states drifting — asserts a quiet row's chip is byte-identical to a notifying row's | live |
 | `src/lib/reviewBuckets.agreement.test.ts` | The review, the task page and `sendPush` disagreeing about whether one task notifies | live |
 | `remindsByDefault(tier: PriorityTierName)` | **The compiler.** Passing a bucket where a tier belongs fails `tsc -b`; a runtime test could not catch it, because today the bucket for a scheduled row IS the tier | live |

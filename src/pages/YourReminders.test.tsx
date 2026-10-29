@@ -29,6 +29,10 @@ vi.mock("@/modules/care", () => ({
   deleteTaskTemplate: (...a: unknown[]) => deleteTaskTemplate(...a),
   archiveTaskTemplate: (...a: unknown[]) => archiveTaskTemplate(...a),
 }))
+const previewCadenceChange = vi.fn()
+vi.mock("@/modules/care/services/cadenceChangeService", () => ({
+  previewCadenceChange: (...a: unknown[]) => previewCadenceChange(...a),
+}))
 const getItemUnits = vi.fn()
 vi.mock("@/modules/items", () => ({ getItemUnits: (...a: unknown[]) => getItemUnits(...a) }))
 vi.mock("@/lib/userPreferences", () => ({
@@ -56,6 +60,9 @@ beforeEach(() => {
   setTaskCadence.mockResolvedValue({ data: true, error: null })
   getNotificationPrefs.mockResolvedValue({ push_mode: "curated+essential", events: {}, weekly_digest: { enabled: true, day: 0, hour: 17 }, quiet_hours: null, lead_time_days: 0 })
   setNotificationPrefs.mockResolvedValue(undefined)
+  previewCadenceChange.mockResolvedValue({
+    data: { kind: "scheduled", nextDue: "2027-01-12", basis: "added", overdue: false, moves: [], create: true }, error: null,
+  })
 })
 
 async function describeAndPropose(proposals: unknown[]) {
@@ -85,8 +92,10 @@ describe("YourReminders", () => {
     expect(archiveTaskTemplate).not.toHaveBeenCalled()
   })
 
-  it("a proposal that keeps its schedule does not write a cadence", async () => {
+  it("a proposal that keeps its schedule does not write a cadence — or claim a new date", async () => {
     await describeAndPropose([proposal("t1", "Replace the furnace filter")])
+    expect(screen.queryByTestId("next-due")).toBeNull()
+    expect(previewCadenceChange).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole("button", { name: /Turn these on · 1/ }))
     await waitFor(() => expect(screen.getByText("1 reminder on.")).toBeInTheDocument())
     expect(setTaskCadence).not.toHaveBeenCalled()
@@ -315,6 +324,10 @@ describe("a proposed row with no cadence", () => {
     await describeAndPropose([nespresso()])
     fireEvent.change(screen.getByLabelText("How often for Descale the machine"), { target: { value: "quarterly" } })
     expect(screen.queryByRole("status")).not.toBeInTheDocument()
+    // Where the date lands, before anything is written (owner 2026-10-28).
+    expect(await screen.findByTestId("next-due")).toHaveTextContent("Next due: Jan 12, 2027")
+    expect(previewCadenceChange).toHaveBeenCalledWith("h1", "t8", { scheduleType: "quarterly", intervalDays: null, season: null })
+    expect(setTaskCadence).not.toHaveBeenCalled()
     const button = screen.getByRole("button", { name: /Turn these on · 1/ })
     expect(button).toBeEnabled()
     fireEvent.click(button)

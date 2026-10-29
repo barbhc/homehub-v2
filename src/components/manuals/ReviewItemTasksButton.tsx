@@ -146,6 +146,7 @@ export function ReviewItemTasksButton({homeId,
           // These came from loadItemTasksForReview — they are live tasks on the
           // item, not a pending draft. This is the ONLY caller that can say so.
           alreadySaved
+          cadenceFacts={review.cadenceFacts}
           onSave={handleSave}
           saving={saving}
           onFeedback={(p) => {

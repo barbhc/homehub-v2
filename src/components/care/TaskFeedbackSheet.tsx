@@ -16,6 +16,8 @@ import { cadenceLabelInline } from "../../../shared/tasks/cadenceLabel"
 import { splitInterval, toDays } from "../../../shared/care/interval"
 import { RepeatEveryInput } from "./RepeatEveryInput"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { CadencePreview } from "./NextDue"
+import type { CadenceChangePlan } from "../../../shared/tasks/cadenceChange"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)", CLAY = "var(--hh-clay)"
 
@@ -97,6 +99,11 @@ export function TaskFeedbackSheet({
    *  fortnight — the interval the tester actually asked for. */
   const [customDays, setCustomDays] = useState(() => toDays(2, "weeks"))
   const [seasonChoice, setSeasonChoice] = useState<Season | null>(null)
+  /** The season asked for when a cadence goes seasonal on a task with none. */
+  const [cadenceSeason, setCadenceSeason] = useState<Season | null>(null)
+  /** What the change will do to THIS task — shown before Apply, and Apply waits
+   *  while it still needs a season. */
+  const [primaryPlan, setPrimaryPlan] = useState<CadenceChangePlan | null>(null)
   const [note, setNote] = useState("")
   const [step, setStep] = useState<"choose" | "discuss" | "pushback" | "confirm">("choose")
   const [via, setVia] = useState<"chip" | "discuss">("chip")
@@ -128,12 +135,15 @@ export function TaskFeedbackSheet({
             // Non-custom cadences carry NO interval, so a leftover number can
             // never outlive the cadence that gave it meaning.
             intervalDays: cadenceChoice === "every_n_days" ? customDays : null,
+            // A season asked for here, else the task's own — passed to every
+            // swept task too, so none of them is left without one.
+            ...(cadenceChoice === "seasonal" ? { season: cadenceSeason ?? ctx?.primary.season ?? null } : {}),
           }
         : null
       case "wrong_season": return seasonChoice ? { action: "reschedule_season", season: seasonChoice } : null
       default: return null
     }
-  }, [chip, tierChoice, cadenceChoice, customDays, seasonChoice])
+  }, [chip, tierChoice, cadenceChoice, customDays, seasonChoice, cadenceSeason, ctx])
 
   const sweepEligible = chip !== null && chip !== "duplicate"
   const isFreezePrep = ctx?.match.by === "seasonalFamily" && ctx.match.family === "freeze_prep"
@@ -174,6 +184,7 @@ export function TaskFeedbackSheet({
   }, [resolution, title])
 
   const affectedCount = 1 + (sweepEligible ? sweep.size : 0)
+  const movesSchedule = resolution?.action === "cadence" || resolution?.action === "reschedule_season"
 
   /** Route a fully-specified resolution to the safety gate (hazard downgrade) or confirm. */
   function proceed() {
@@ -304,7 +315,7 @@ export function TaskFeedbackSheet({
                 <button
                   key={c.key}
                   type="button"
-                  onClick={() => { setChip(c.key); setTierChoice(null); setCadenceChoice(null); setSeasonChoice(null); setVia("chip") }}
+                  onClick={() => { setChip(c.key); setTierChoice(null); setCadenceChoice(null); setSeasonChoice(null); setCadenceSeason(null); setVia("chip") }}
                   className="flex items-center justify-between rounded-[12px] px-3.5 py-3 text-left"
                   style={chip === c.key
                     ? { border: "1.5px solid var(--hh-teal)", background: "var(--hh-teal-wash)" }
@@ -472,6 +483,21 @@ export function TaskFeedbackSheet({
               <SparklesIcon className="mt-0.5 size-[15px] shrink-0" style={{ color: TEAL }} />
               <span className="text-[0.84375rem] font-semibold leading-snug text-pretty" style={{ color: "var(--hh-ink-soft)" }}>{planSummary}.</span>
             </div>
+            {/* Where the date lands (shared/tasks/cadenceChange — "from when you
+                last did it"), before Apply. For this task; swept ones count
+                from their own last time. */}
+            {(resolution?.action === "cadence" || resolution?.action === "reschedule_season") && (
+              <CadencePreview
+                className="mt-2.5"
+                homeId={homeId}
+                taskTemplateId={taskTemplateId}
+                choice={resolution.action === "cadence"
+                  ? { scheduleType: resolution.scheduleType, intervalDays: resolution.intervalDays, season: resolution.season ?? null }
+                  : { scheduleType: "seasonal", season: resolution.season }}
+                onSeason={setCadenceSeason}
+                onPlan={setPrimaryPlan}
+              />
+            )}
 
             {sweepEligible && (
               <div className="mt-4">
@@ -539,7 +565,7 @@ export function TaskFeedbackSheet({
             <div className="mt-5 flex gap-2.5">
               <button onClick={() => { setStep("choose"); setError(null) }} className="rounded-[14px] px-4 py-3.5 text-[0.875rem] font-bold" style={{ border: "1.5px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}>Back</button>
               <button
-                disabled={submitting || loadingCtx}
+                disabled={submitting || loadingCtx || (movesSchedule && primaryPlan?.kind === "needs-season")}
                 onClick={apply}
                 className="flex-1 rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white disabled:opacity-50"
                 style={{ background: "var(--hh-teal-fill)" }}

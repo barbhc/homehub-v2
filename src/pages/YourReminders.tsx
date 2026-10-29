@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { BellIcon, BellOffIcon, ChevronLeftIcon, Loader2Icon, SearchIcon } from "lucide-react"
 import { PageContainer } from "@/components/layout"
+import { CadencePreview } from "@/components/care/NextDue"
 import { useCurrentHome } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
 import {
@@ -425,6 +426,18 @@ export default function YourReminders() {
                           ))}
                         </select>
                       </div>
+                    )}
+                    {/* A changed cadence moves the date (shared/tasks/cadenceChange):
+                        say where to, before "Turn these on" writes it. */}
+                    {homeId && r.scheduleType && r.scheduleType !== r.originalSchedule && (
+                      <CadencePreview
+                        className="mt-1.5 pl-[30px]"
+                        homeId={homeId}
+                        taskTemplateId={r.id}
+                        choice={{ scheduleType: r.scheduleType, intervalDays: r.intervalDays }}
+                        // Seasonal is never offered as a NEW cadence here.
+                        onSeason={() => {}}
+                      />
                     )}
                     {r.error && (
                       <div role="alert" className="mt-2 flex items-center gap-2 pl-[30px] text-[0.78125rem]" style={{ color: CLAY }}>

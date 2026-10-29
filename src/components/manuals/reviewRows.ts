@@ -77,6 +77,9 @@ export interface ReviewRow {
   /** HH-56: "I've been doing this already" — null means anchor on the add date,
    *  which is the behaviour for anyone who just bought the thing. */
   lastDoneOn: string | null
+  /** Seasonal only: the task's season — stored, or asked for in the review
+   *  when the cadence becomes seasonal and none is known. */
+  season: "spring" | "summer" | "fall" | "winter" | null
   included: boolean
   task?: PreviewTask
   chunk?: PreviewChunk
@@ -156,6 +159,7 @@ export function rowsFrom(data: PreviewResult, freezeRiskFalse = false): ReviewRo
     scheduleSuggested: false,
     remindEnabled: t.remind_enabled ?? null,
     lastDoneOn: null,
+    season: t.season ?? null,
     included: true,
     task: t,
   }))
@@ -178,6 +182,7 @@ export function rowsFrom(data: PreviewResult, freezeRiskFalse = false): ReviewRo
       scheduleSuggested: false,
       remindEnabled: null,
       lastDoneOn: null,
+      season: null,
       included: true,
       chunk: c,
     }))

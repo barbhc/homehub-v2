@@ -15,7 +15,6 @@
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where, writeBatch, Timestamp, type DocumentData } from "firebase/firestore"
 import { db, callable } from "@/integrations/firebase"
 import type { PriorityTier, ScheduleType, Season } from "@/integrations/types"
-import { computeNextDueDate } from "./nextDueDate"
 import { archiveTaskTemplate } from "./taskService"
 import { updateTaskSchedule } from "./taskScheduleService"
 import type { ServiceResult } from "./careNoteService"
@@ -23,7 +22,6 @@ import { ruleMatchFor, matchLabel, findSimilar, seasonalFamily, type RuleMatch, 
 import { isAsNeededColdStorage } from "../../../../shared/tasks/houseRules"
 import { cadenceLabel } from "../../../../shared/tasks/cadenceLabel"
 import { patternKeyOf, type FeedbackPattern } from "../../../../shared/tasks/graduation"
-import { localToday } from "../../../../shared/dates/calendar"
 
 export type { RuleMatch } from "@/lib/taskSimilarity"
 
@@ -35,7 +33,13 @@ export type Resolution =
   | { action: "suppress" }
   | { action: "archive_duplicate" }
   | { action: "tier_remap"; toTier: PriorityTier }
-  | { action: "cadence"; scheduleType: ScheduleType; intervalDays: number | null }
+  | {
+      action: "cadence"
+      scheduleType: ScheduleType
+      intervalDays: number | null
+      /** Seasonal only: the season the sheet asked for (or the task's own). */
+      season?: Season | null
+    }
   | { action: "reschedule_season"; season: Season }
 
 /** A learned rule, as surfaced in Settings › House rules. */
@@ -147,30 +151,13 @@ export async function getFeedbackContext(
   }
 }
 
-/** Sets a template to seasonal + re-anchors its open instances to that season. */
+/** Sets a template to seasonal in `season`. Its open occurrence moves by the
+ *  one cadence rule (shared/tasks/cadenceChange.ts): the season's next window
+ *  after the last completion — it used to count from today, so a task done
+ *  this fall was put back on for this fall. */
 async function applySeason(homeId: string, taskTemplateId: string, season: Season): Promise<void> {
-  const tplRef = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
-  const snap = await getDoc(tplRef)
-  if (!snap.exists()) throw new Error("Task template not found")
-  const existing = (snap.data().schedule ?? {}) as Record<string, unknown>
-  const nextDue = computeNextDueDate("seasonal", localToday(), { season })
-
-  const batch = writeBatch(db)
-  batch.set(
-    tplRef,
-    { schedule: { ...existing, scheduleType: "seasonal", season }, updatedAt: serverTimestamp() },
-    { merge: true }
-  )
-  const openSnap = await getDocs(
-    query(collection(db, `homes/${homeId}/taskInstances`), where("taskTemplateId", "==", taskTemplateId))
-  )
-  for (const d of openSnap.docs) {
-    const x = d.data()
-    if ((x.status === "scheduled" || x.status === "snoozed") && x.deletedAt == null && nextDue) {
-      batch.set(d.ref, { dueDate: nextDue, scheduleType: "seasonal", updatedAt: serverTimestamp() }, { merge: true })
-    }
-  }
-  await batch.commit()
+  const res = await updateTaskSchedule(homeId, taskTemplateId, { schedule: { scheduleType: "seasonal", season } }, "feedback")
+  if (res.error) throw new Error(res.error.message)
 }
 
 /** Applies one resolution to one template, throwing on failure (caller reports). */
@@ -191,7 +178,7 @@ async function applyResolution(homeId: string, taskTemplateId: string, r: Resolu
       const res = await updateTaskSchedule(
         homeId,
         taskTemplateId,
-        { schedule: { scheduleType: r.scheduleType, intervalDays: r.intervalDays ?? undefined } },
+        { schedule: { scheduleType: r.scheduleType, intervalDays: r.intervalDays ?? undefined, season: r.season ?? null } },
         "feedback"
       )
       if (res.error) throw new Error(res.error.message)
