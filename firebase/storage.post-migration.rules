@@ -1,0 +1,83 @@
+rules_version = '2';
+
+// PROPOSED post-migration Storage rules — NOT DEPLOYED. firebase.json deploys
+// storage.rules; this file exists so the cutover can be reviewed and tested
+// before it ships (docs/storage-legacy-migration.md, "Rule cutover").
+//
+// It is storage.rules with the two legacy clauses removed and nothing else
+// changed: everything from `service firebase.storage {` down to the legacy
+// marker is copied VERBATIM, and firebase/storage.rules.post-migration.test.ts
+// fails if the two drift apart. So after the cutover:
+//
+//   - every read requires membership of the home in the path (homes/{homeId}/…);
+//   - objects OUTSIDE homes/ are denied to every client, signed in or not —
+//     including the legacy originals the migration copied (they stay in the
+//     bucket, readable by the Admin SDK only, until the owner decides cleanup);
+//   - migrated copies live at homes/{homeId}/legacy/{originalPath}: members of
+//     that home may read them, and no client may write or delete them (no
+//     write clause matches that shape);
+//   - a download-token URL still reads its object whatever the rules say.
+//     Token URLs to legacy originals keep working until those tokens are
+//     revoked or the originals deleted — an owner decision, not a rule.
+//
+// To cut over: replace storage.rules with this file (minus this header), point
+// the cutover suite at the live file (STORAGE_LEGACY_CUTOVER=1), retire the
+// legacy-read cases in storage.rules.test.ts, deploy, run
+// `npm run smoke:storage` (expect case 2 to become 403), then delete this file.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isUser() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+    function isSelf(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    function isHomeMember(homeId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/homes/$(homeId)/members/$(request.auth.uid));
+    }
+
+    // ---- tenant-scoped subtree: read requires membership of THIS home ----
+    match /homes/{homeId}/{allPaths=**} {
+      allow get: if isUser() && isHomeMember(homeId);
+    }
+
+    // Manual PDFs — a member of THIS home, writing under their own uid
+    // segment. delete needs its own clause (request.resource is null on
+    // deletes; a size condition on a combined `write` would deny every delete
+    // and break removeManualPdf).
+    match /homes/{homeId}/manuals/{userId}/{itemId}/{fileName} {
+      allow create, update: if isUser() && isSelf(userId)
+        && request.resource.size < 50 * 1024 * 1024
+        && isHomeMember(homeId);
+      allow delete: if isUser() && isSelf(userId) && isHomeMember(homeId);
+    }
+
+    // Item photos — a member of THIS home, under their own uid segment.
+    match /homes/{homeId}/photos/{userId}/{itemId}/{fileName} {
+      allow create, update: if isUser() && isSelf(userId)
+        && request.resource.size < 50 * 1024 * 1024
+        && isHomeMember(homeId);
+    }
+
+    // Receipts — no uid in the path (v1 convention): any member, size-capped.
+    match /homes/{homeId}/receipts/{itemUnitId}/{fileName} {
+      allow create, update: if isUser()
+        && request.resource.size < 50 * 1024 * 1024
+        && isHomeMember(homeId);
+    }
+
+    // Diagram page renders — any member, smaller cap (JPEG pages).
+    match /homes/{homeId}/images/{manualId}/{fileName} {
+      allow create, update: if isUser()
+        && request.resource.size < 20 * 1024 * 1024
+        && isHomeMember(homeId);
+    }
+
+    // ---- legacy objects: NO CLAUSE. ----
+    // Nothing outside homes/ matches any rule above, so every client get,
+    // list, create, update and delete there is denied by default.
+  }
+}

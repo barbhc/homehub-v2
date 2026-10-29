@@ -33,7 +33,7 @@
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, resolve } from "node:path"
-import { afterAll, beforeAll, describe, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import {
   assertFails,
   assertSucceeds,
@@ -306,5 +306,133 @@ describe("tenant-scoped reads (membership of THIS home)", () => {
   it("getDownloadURL is gated the same way (it is a read)", async () => {
     await assertSucceeds(getDownloadURL(ref(asMe(), `homes/${HOME}/photos/${ME}/item1/photo.jpg`)))
     await assertFails(getDownloadURL(ref(asOther(), `homes/${HOME}/photos/${ME}/item1/photo.jpg`)))
+  })
+})
+
+// ── Package 1 (audit 2026-10-28): the two-account suite, extended ───────────
+//
+// Everything below runs against the LIVE storage.rules. The legacy-read case
+// above stays exactly as it is: the live rule still grants it, and this file
+// pins what is deployed. The post-cutover expectations ("legacy paths denied")
+// live in storage.rules.post-migration.test.ts, against the proposed rules.
+
+/** A member of HOME added and removed inside one test. */
+const FORMER = "uid-former"
+const asFormer = () => testEnv.authenticatedContext(FORMER).storage()
+
+/** One object per supported family in each home, plus the migration's destination shape. */
+const familyPaths = (homeId: string, uid: string) => [
+  `homes/${homeId}/manuals/${uid}/iso-item/manual_1.pdf`,
+  `homes/${homeId}/photos/${uid}/iso-item/photo.jpg`,
+  `homes/${homeId}/receipts/iso-item/1-receipt.jpg`,
+  `homes/${homeId}/images/iso-manual/page_1.jpg`,
+  `homes/${homeId}/legacy/photos/${uid}/iso-item/photo.jpg`,
+]
+
+describe("two accounts, two homes — isolation in both directions, every family", () => {
+  beforeAll(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      for (const p of [...familyPaths(HOME, ME), ...familyPaths(HOME2, OTHER)]) await uploadBytes(ref(ctx.storage(), p), BYTES)
+    })
+  })
+
+  it("each reads its own home's files", async () => {
+    for (const p of familyPaths(HOME, ME)) await assertSucceeds(getBytes(ref(asMe(), p)))
+    for (const p of familyPaths(HOME2, OTHER)) await assertSucceeds(getBytes(ref(asOther(), p)))
+  })
+
+  it("neither reads the other's — getBytes or getDownloadURL — even with the exact path", async () => {
+    for (const p of familyPaths(HOME2, OTHER)) {
+      await assertFails(getBytes(ref(asMe(), p)))
+      await assertFails(getDownloadURL(ref(asMe(), p)))
+    }
+    for (const p of familyPaths(HOME, ME)) {
+      await assertFails(getBytes(ref(asOther(), p)))
+      await assertFails(getDownloadURL(ref(asOther(), p)))
+    }
+  })
+
+  it("neither writes into the other's home, in any family", async () => {
+    await assertFails(uploadBytes(ref(asMe(), `homes/${HOME2}/manuals/${ME}/x/m.pdf`), BYTES))
+    await assertFails(uploadBytes(ref(asMe(), `homes/${HOME2}/photos/${ME}/x/p.jpg`), BYTES))
+    await assertFails(uploadBytes(ref(asMe(), `homes/${HOME2}/receipts/x/r.jpg`), BYTES))
+    await assertFails(uploadBytes(ref(asMe(), `homes/${HOME2}/images/x/page_1.jpg`), BYTES))
+    await assertFails(uploadBytes(ref(asOther(), `homes/${HOME}/receipts/x/r.jpg`), BYTES))
+    await assertFails(uploadBytes(ref(asOther(), `homes/${HOME}/images/x/page_1.jpg`), BYTES))
+  })
+
+  it("nobody lists a home's files, member or not", async () => {
+    await assertFails(listAll(ref(asMe(), `homes/${HOME}/photos/${ME}/iso-item`)))
+    await assertFails(listAll(ref(asOther(), `homes/${HOME}/receipts`)))
+  })
+})
+
+describe("a former member", () => {
+  afterAll(async () => {
+    await membership(HOME, FORMER, false)
+  })
+
+  it("reads and uploads while a member, and loses both the moment the membership row goes", async () => {
+    const path = `homes/${HOME}/photos/${ME}/iso-item/photo.jpg`
+    await membership(HOME, FORMER, true)
+    await assertSucceeds(getBytes(ref(asFormer(), path)))
+    await assertSucceeds(uploadBytes(ref(asFormer(), `homes/${HOME}/receipts/former/1-r.jpg`), BYTES))
+
+    await membership(HOME, FORMER, false)
+    await assertFails(getBytes(ref(asFormer(), path)))
+    await assertFails(getDownloadURL(ref(asFormer(), path)))
+    await assertFails(uploadBytes(ref(asFormer(), `homes/${HOME}/receipts/former/2-r.jpg`), BYTES))
+    await assertFails(uploadBytes(ref(asFormer(), `homes/${HOME}/photos/${FORMER}/i/photo.jpg`), BYTES))
+  })
+})
+
+describe("the app's supported flows: upload → getDownloadURL → plain fetch", () => {
+  const flows: Array<[string, string, Record<string, string> | undefined]> = [
+    // uploadManualPdf stamps the SHA-256 on custom metadata (HH-154).
+    [`homes/${HOME}/manuals/${ME}/flow-item/manual_1.pdf`, "application/pdf", { sha256: "flow-sha" }],
+    [`homes/${HOME}/photos/${ME}/flow-item/photo.jpg`, "image/jpeg", undefined],
+    [`homes/${HOME}/receipts/flow-item/1-receipt.pdf`, "application/pdf", undefined],
+  ]
+
+  it("a member's upload comes back byte-for-byte through the token URL the app renders", async () => {
+    for (const [path, contentType, customMetadata] of flows) {
+      await assertSucceeds(uploadBytes(ref(asMe(), path), BYTES, { contentType, customMetadata }))
+      const url = await assertSucceeds(getDownloadURL(ref(asMe(), path)))
+      const res = await fetch(url)
+      expect(res.status).toBe(200)
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(BYTES)
+    }
+  })
+
+  // Why the migration must think about token URLs at all: a download token is
+  // a bearer capability. Anyone holding the URL reads the object with NO auth,
+  // and storage.rules are never consulted. Revoking means removing the token.
+  it("a download-token URL reads the object with no sign-in at all (rules are not consulted)", async () => {
+    const [path] = flows[1]
+    const url = await getDownloadURL(ref(asMe(), path))
+    expect(new URL(url).searchParams.get("token")).toBeTruthy()
+    await assertFails(getBytes(ref(asAnon(), path))) // the SDK read IS gated…
+    expect((await fetch(url)).status).toBe(200) // …the token URL is not
+  })
+})
+
+describe("migrated copies (homes/{homeId}/legacy/…, the migration's destination)", () => {
+  const copy = `homes/${HOME}/legacy/receipts/item-1/old.jpg`
+  beforeAll(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(ref(ctx.storage(), copy), BYTES)
+    })
+  })
+
+  it("members of that home read them; anyone else is refused", async () => {
+    await assertSucceeds(getBytes(ref(asMe(), copy)))
+    await assertFails(getBytes(ref(asOther(), copy)))
+    await assertFails(getBytes(ref(asAnon(), copy)))
+  })
+
+  it("no client writes, overwrites or deletes them — not even a member", async () => {
+    await assertFails(uploadBytes(ref(asMe(), copy), BYTES))
+    await assertFails(uploadBytes(ref(asMe(), `homes/${HOME}/legacy/new/thing.jpg`), BYTES))
+    await assertFails(deleteObject(ref(asMe(), copy)))
   })
 })

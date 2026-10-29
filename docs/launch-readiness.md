@@ -264,6 +264,11 @@ prefixes would have broken existing photos and manuals.
       `photoPath` / `sourceRef` / `receipt_storage_path` / diagram-URL fields that
       point at them, then narrow the legacy clause in `storage.rules` to nothing.
       Until this runs, the tenant-scoping fix protects new content only.
+      **Tooling ready, not run (2026-10-28):** `scripts/ops/migrate-legacy-storage.ts`
+      (dry run by default; resumable manifest; rollback), proven on the emulators,
+      plus the proposed cutover rules and their tests. The inventory, the
+      ownership rule and the owner-approved production steps are in
+      [`docs/storage-legacy-migration.md`](./storage-legacy-migration.md).
 
 ## Post-deploy smoke check — Storage rules (REQUIRED, not optional)
 
