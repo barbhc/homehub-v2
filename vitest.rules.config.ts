@@ -10,8 +10,8 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["firebase/rules.test.ts", "firebase/storage.rules.test.ts"],
-    // One file at a time. Under `test:rules:emu` both files share one Firestore
+    include: ["firebase/rules.test.ts", "firebase/storage.rules.test.ts", "firebase/storage.rules.post-migration.test.ts"],
+    // One file at a time. Under `test:rules:emu` the files share one Firestore
     // project: rules.test.ts wipes it before EVERY case, and the storage suite's
     // membership docs (the cross-service lookups) live in it. In parallel the
     // wipe lands mid-suite and a member is refused for no reason in the rules.

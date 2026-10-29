@@ -183,6 +183,11 @@ jobs:
         run: npm run test:rules:emu
       - name: Parse-worker integration tests
         run: npm run test:worker:emu
+      # The legacy-Storage migration (docs/storage-legacy-migration.md): dry run,
+      # interrupted + resumed apply, rollback, and the app's own read paths after
+      # it — Auth + Firestore + Storage emulators, demo-homehub (the client pins it).
+      - name: Storage legacy-migration tests
+        run: npm run test:migration:emu
 
       # ONE emulator boot for all three browser suites. They used to be three
       # separate `emulators:exec` invocations, each paying a fresh JVM start.
