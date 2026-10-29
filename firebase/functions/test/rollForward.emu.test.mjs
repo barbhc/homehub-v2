@@ -116,4 +116,6 @@ test("still rolls a never-started past-due date with no marker, or another marke
   assert.equal(await due("marked"), PAST)
   assert.equal(await due("plain"), "2026-06-30") // today + 7
   assert.equal(await due("other"), "2026-06-30")
+  // A rolled date is not the rule's: the job says so (writers that move dueDate set dueSource).
+  assert.equal((await db.doc(`homes/${H}/taskInstances/other`).get()).get("dueSource"), null)
 })

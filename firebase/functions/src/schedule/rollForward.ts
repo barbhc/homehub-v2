@@ -26,7 +26,10 @@ const REGION = "us-central1"
 
 /** Written by the app's cadence editors on every occurrence whose date the
  *  cadence rule set (src/modules/care/services/cadenceChangeService.ts,
- *  DUE_SOURCE_CADENCE_RULE). The two literals must match. */
+ *  DUE_SOURCE_CADENCE_RULE). The two literals must match. Rule: any writer
+ *  that moves an instance's dueDate sets dueSource in the same write —
+ *  "cadence_rule" if the date came from the rule, else null (this job writes
+ *  null). */
 export const DUE_SOURCE_CADENCE_RULE = "cadence_rule"
 
 export interface RollForwardResult {
@@ -122,7 +125,10 @@ export async function runRollForward(
       continue
     }
 
-    batch.set(inst.ref, { dueDate: newDue, updatedAt: nowTs }, { merge: true })
+    // dueSource: null — every writer that moves dueDate says who set it
+    // (docs/firestore-model.md §2: "cadence_rule" or null); a roll-forward date
+    // is not the rule's, so it must never carry the marker.
+    batch.set(inst.ref, { dueDate: newDue, dueSource: null, updatedAt: nowTs }, { merge: true })
     result.rolled++
     pending++
     if (pending >= batchSize) await flush()
