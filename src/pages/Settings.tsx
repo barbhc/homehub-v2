@@ -107,14 +107,14 @@ const NOTIF_EVENT_ROWS: {
     key: "warranty_expiring",
     icon: ShieldCheckIcon,
     label: "Warranty expiring",
-    sub: "Coming later — not sent yet",
+    sub: "30 days before coverage ends",
     unavailable: true,
   },
   {
     key: "safety_recalls",
     icon: MegaphoneIcon,
     label: "Safety & recalls",
-    sub: "Coming later — Homehub doesn't check for recalls yet",
+    sub: "Homehub doesn't check for recalls yet",
     unavailable: true,
   },
   {

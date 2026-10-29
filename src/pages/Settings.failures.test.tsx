@@ -342,8 +342,8 @@ describe("Settings — only promises what ships", () => {
     renderSettings()
     await screen.findByRole("button", { name: "Task reminders push off" })
 
-    expect(screen.getByText("Coming later — not sent yet")).toBeInTheDocument()
-    expect(screen.getByText("Coming later — Homehub doesn't check for recalls yet")).toBeInTheDocument()
+    expect(screen.getByText("30 days before coverage ends")).toBeInTheDocument()
+    expect(screen.getByText("Homehub doesn't check for recalls yet")).toBeInTheDocument()
     expect(screen.getAllByText("Not yet")).toHaveLength(2)
     // Not rendered at all — there is nothing to turn on or off.
     expect(screen.queryByRole("button", { name: /Warranty expiring/ })).toBeNull()
