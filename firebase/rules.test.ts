@@ -137,6 +137,59 @@ describe("assignee-must-be-member guard", () => {
   })
 })
 
+describe("task-template provenance stamps (decision C step 1)", () => {
+  const TPL = `homes/${HOME}/taskTemplates/prov1`
+  const stampBy = (by: string, uid: string | null, value: unknown = "essential") => ({ by, uid, at: new Date(), via: "updateTaskSchedule", value })
+  const seedTpl = async (extra: Record<string, unknown> = {}) =>
+    testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), TPL), {
+        title: "Clean the filter", isActive: true, defaultAssignee: null, deletedAt: null, priorityTier: "recommended",
+        fieldSources: { careType: stampBy("manual", null, "maintenance") },
+        manualSuggestion: { priorityTier: "recommended", careType: "maintenance", remindEnabled: null, schedule: { scheduleType: "monthly", intervalDays: null, season: null }, manualId: "m1", at: new Date() },
+        ...extra,
+      })
+    })
+
+  it("a member stamps their OWN edit, and a second member stamps theirs", async () => {
+    await seedTpl()
+    await assertSucceeds(setDoc(doc(asMember(), TPL), { priorityTier: "essential", fieldSources: { priorityTier: stampBy("user", MEMBER) } }, { merge: true }))
+    await assertSucceeds(setDoc(doc(asOwner(), TPL), { remindEnabled: true, fieldSources: { remindEnabled: stampBy("user", OWNER, true) } }, { merge: true }))
+  })
+
+  it("a member cannot stamp another member's uid", async () => {
+    await seedTpl()
+    await assertFails(setDoc(doc(asMember(), TPL), { priorityTier: "essential", fieldSources: { priorityTier: stampBy("user", OWNER) } }, { merge: true }))
+    await assertFails(setDoc(doc(asMember(), TPL), { fieldSources: { priorityTier: { by: "user", value: "essential" } } }, { merge: true }))
+  })
+
+  it("a client cannot speak for the manual: no 'manual' stamps, no manualSuggestion writes", async () => {
+    await seedTpl()
+    await assertFails(setDoc(doc(asMember(), TPL), { fieldSources: { priorityTier: stampBy("manual", null) } }, { merge: true }))
+    await assertFails(setDoc(doc(asMember(), TPL), { manualSuggestion: { priorityTier: "essential" } }, { merge: true }))
+    await assertFails(setDoc(doc(asMember(), `homes/${HOME}/taskTemplates/prov-new`), {
+      title: "x", isActive: true, defaultAssignee: null, deletedAt: null, manualSuggestion: { priorityTier: "essential" },
+    }))
+  })
+
+  it("system stamps (defaults, the library) carry no uid; stamps may be left as they are", async () => {
+    await seedTpl()
+    await assertSucceeds(setDoc(doc(asMember(), TPL), { careType: "cleaning", fieldSources: { careType: stampBy("system", null, "cleaning") } }, { merge: true }))
+    await assertFails(setDoc(doc(asMember(), TPL), { fieldSources: { careType: stampBy("system", MEMBER, "cleaning") } }, { merge: true }))
+    // An edit to anything else leaves the parser's stamp and suggestion alone — allowed.
+    await assertSucceeds(setDoc(doc(asMember(), TPL), { title: "Rinse the filter" }, { merge: true }))
+    await assertSucceeds(updateDoc(doc(asMember(), TPL), { "fieldSources.priorityTier": stampBy("user", MEMBER) }))
+  })
+
+  it("a new template a member creates may carry their stamps; an outsider writes nothing", async () => {
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/taskTemplates/prov-mine`), {
+      title: "Mine", isActive: true, defaultAssignee: null, deletedAt: null,
+      fieldSources: { careType: stampBy("user", MEMBER, "cleaning"), schedule: stampBy("system", null, { scheduleType: "as_needed", intervalDays: null, season: null }) },
+    }))
+    await seedTpl()
+    await assertFails(setDoc(doc(asOutsider(), TPL), { fieldSources: { priorityTier: stampBy("user", OUTSIDER) } }, { merge: true }))
+  })
+})
+
 describe("users self-ownership", () => {
   it("a user writes their own profile but not another's", async () => {
     await assertSucceeds(setDoc(doc(asMember(), `users/${MEMBER}`), { fullName: "Me" }))

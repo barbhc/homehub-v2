@@ -40,8 +40,14 @@ as the record of what the app did before each decision and why.
 `shared/notifications/preferences.ts`, used by the morning, digest and
 buy-ahead pushes, /week and the task page's reminder switch. The switch now
 also appears on deadlines (one-off tasks), so a "Just my list" user can switch
-one On. The push sweep also applies Home's cold-storage rule. B and C are not
-built yet.
+one On. The push sweep also applies Home's cold-storage rule. B — the one
+cadence rule, `shared/tasks/cadenceChange.ts`, in all three editors.
+**C, step 1 only** — every writer of priority, cadence, reminder and kind now
+records who set the value (`fieldSources`) and the parser records the manual's
+suggestion (`manualSuggestion`); shape and rules in `docs/firestore-model.md`
+§2 "Field provenance rule", code in `shared/tasks/fieldProvenance.ts`. No
+visible change; a re-scan still overwrites. Step 2 (the re-scan keeps yours and
+the review shows the difference) is not built.
 
 *The analysis as written before the decisions:* the PR that added this
 document fixed only an engineering bug (the item review matched tasks by name

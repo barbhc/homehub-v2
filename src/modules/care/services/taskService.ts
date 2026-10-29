@@ -6,6 +6,8 @@ import { planFor, readCadenceFacts, writeCadencePlan, SEASON_NEEDED } from "./ca
 import { computeNextDueDate } from "./nextDueDate"
 import { localDateString, localToday } from "../../../../shared/dates/calendar"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
+import { cadenceValue, type ProvenanceActor, type ProvenanceVia } from "../../../../shared/tasks/fieldProvenance"
+import { memberActor, stamp, systemStamp } from "./fieldProvenance"
 import type {
   TaskTemplate,
   TaskInstance,
@@ -149,6 +151,13 @@ export type CreateTaskTemplateInput = {
   instructions_override?: string | null
   supplies_mode?: "none" | "suggested" | "required"
   source: "manual" | "user" | "cho_generated"
+  /** Who chose care_type and priority_tier (provenance, decision C step 1):
+   *  "user" when the member picked or confirmed them creating the task,
+   *  "library" when they are the care library's defaults. Required — there is
+   *  no safe guess (shared/tasks/fieldProvenance.ts). The placeholder schedule
+   *  written here is always stamped "system"; the cadence writer that follows
+   *  restamps it. */
+  fields_set_by: "user" | "library"
 }
 
 export type UpdateTaskInstanceInput = {
@@ -169,6 +178,9 @@ export async function createTaskTemplate(
   try {
     const ref = doc(collection(db, `homes/${input.home_id}/taskTemplates`))
     const now = serverTimestamp()
+    const chosen = { careType: input.care_type, priorityTier: input.priority_tier }
+    const chosenStamp = input.fields_set_by === "library" ? systemStamp("library", chosen) : stamp("createTaskTemplate", chosen)
+    const placeholderStamp = systemStamp("createTaskTemplate", { schedule: { scheduleType: "as_needed", intervalDays: null, season: null } })
     // schedule is inlined on the template (firestore-model.md §1). The caller
     // sets the real cadence via createScheduleRule; default to as_needed so a
     // template that's never scheduled still has a well-formed schedule object.
@@ -209,6 +221,8 @@ export async function createTaskTemplate(
           windowDaysBefore: 7,
           windowDaysAfter: 14,
         },
+        // Who set careType/priorityTier/schedule (shared/tasks/fieldProvenance).
+        fieldSources: { ...chosenStamp.fieldSources, ...placeholderStamp.fieldSources },
         createdAt: now,
         updatedAt: now,
         deletedAt: null,
@@ -338,7 +352,12 @@ export async function updateTaskCareType(
     await writeBatch(db)
       .set(
         doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
-        { careType, careTypeOverriddenAt: serverTimestamp(), updatedAt: serverTimestamp() },
+        {
+          careType,
+          careTypeOverriddenAt: serverTimestamp(),
+          ...stamp("updateTaskCareType", { careType }),
+          updatedAt: serverTimestamp(),
+        },
         { merge: true }
       )
       .commit()
@@ -369,7 +388,8 @@ export async function setTaskReminder(
     await writeBatch(db)
       .set(
         doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
-        { remindEnabled: enabled, updatedAt: serverTimestamp() },
+        // Provenance (decision C): the member set this field, in the same write.
+        { remindEnabled: enabled, ...stamp("setTaskReminder", { remindEnabled: enabled }), updatedAt: serverTimestamp() },
         { merge: true }
       )
       .commit()
@@ -409,6 +429,30 @@ export async function setTaskCadence(
   intervalDays: number | null,
   season?: Season | null
 ): Promise<ServiceResult<true>> {
+  // A member choosing (or accepting an offered) cadence: Your reminders, a
+  // library backstop, a custom task's cadence. Provenance "user".
+  let actor: ProvenanceActor
+  try {
+    actor = memberActor()
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Sign in again" } }
+  }
+  return applyCadence(homeId, taskTemplateId, { scheduleType, intervalDays, season }, actor, "setTaskCadence")
+}
+
+/**
+ * setTaskCadence's write, with the provenance stated by the caller. Exported
+ * for the care library's "add", whose cadence is the library's default rather
+ * than a choice the member made (shared/tasks/fieldProvenance.ts).
+ */
+export async function applyCadence(
+  homeId: string,
+  taskTemplateId: string,
+  choice: { scheduleType: ScheduleType; intervalDays: number | null; season?: Season | null },
+  actor: ProvenanceActor,
+  via: ProvenanceVia,
+): Promise<ServiceResult<true>> {
+  const { scheduleType, intervalDays, season } = choice
   try {
     const read = await readCadenceFacts(homeId, taskTemplateId)
     if (!read) return { data: null, error: { message: "Task not found" } }
@@ -416,10 +460,14 @@ export async function setTaskCadence(
     if (plan.kind === "needs-season") return { data: null, error: { message: SEASON_NEEDED } }
     const now = serverTimestamp()
     const batch = writeBatch(db)
+    // The cadence as stored after this merge: a season is written only when
+    // given, so otherwise the stored one stays.
+    const storedSeason = cadenceValue(read.tpl.schedule as Record<string, unknown> | null).season
     batch.set(
       doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
       {
         schedule: { scheduleType, intervalDays: intervalDays ?? null, ...(season ? { season } : {}) },
+        ...stamp(via, { schedule: { scheduleType, intervalDays: intervalDays ?? null, season: season || storedSeason } }, actor),
         userModifiedAt: now,
         updatedAt: now,
       },

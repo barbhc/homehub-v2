@@ -18,6 +18,14 @@ import type { ParseItemFacts } from "./parseTypes.js"
 import { addCadence, seasonForTask, seasonalNextDue } from "../schedule/cadence.js"
 import { applyHouseRules, type HouseRuleLike } from "../../../../shared/tasks/houseRules.js"
 import { storedCount } from "../lib/validate.js"
+import {
+  PROVENANCE_FIELDS,
+  sameValue,
+  stampFor,
+  type FieldSources,
+  type ManualSuggestion,
+  type ProvenanceValues,
+} from "../../../../shared/tasks/fieldProvenance.js"
 
 /** normalizeChunkRow output (snake_case) → Firestore chunk doc (camelCase). */
 type NormalizedChunk = ReturnType<typeof import("../../../../shared/parse/parseCore.js").normalizeChunkRow>
@@ -37,9 +45,44 @@ export interface CommitInput {
      *  user says they last did this work. Already validated by the caller
      *  (parseLastDone); null means anchor on today, the shipped behaviour. */
     last_done_on?: string | null
+    /**
+     * Provenance (decision C, step 1): the MANUAL's own version of this row,
+     * when the row is not it. commitManualDraft sends the reviewed row and
+     * sets this to the draft row the parser wrote (as an untouched review
+     * row would have come back), or null when no draft row matches — then
+     * the manual's suggestion is unknown. Absent on the worker path, where
+     * the row IS the manual's suggestion.
+     */
+    manual_suggestion_row?: SuggestionRow | null
   })[]
+  /** The member whose review is being committed (commitManualDraft). Absent
+   *  on the worker path: nobody chose anything there. */
+  reviewerUid?: string | null
   /** "today" anchor for schedules/instances — injectable for deterministic tests. */
   now: Date
+}
+
+/** The fields of a task row provenance reads. */
+export interface SuggestionRow {
+  title: string
+  tags?: string[] | null
+  description?: string | null
+  care_type: string
+  priority_tier: string
+  schedule_type: string
+  interval_days: number | null
+  season?: string | null
+  remind_enabled?: boolean | null
+}
+
+/** A row's four values exactly as templateDoc() stores them. */
+function rowValues(t: SuggestionRow): ProvenanceValues {
+  return {
+    priorityTier: t.priority_tier,
+    careType: t.care_type,
+    remindEnabled: t.remind_enabled ?? null,
+    schedule: { scheduleType: t.schedule_type, intervalDays: t.interval_days ?? null, season: seasonForTask(t) },
+  }
 }
 
 export interface CommitResult {
@@ -101,7 +144,14 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
       season: d.get("season") ?? null,
     }))
   const freezeRiskFalse = (await db.doc(`homes/${homeId}`).get()).get("freezeRisk") === false
-  const ruled = applyHouseRules(input.tasks, activeRules, { freezeRiskFalse })
+  // Each row carries its pre-rule self through applyHouseRules (which spreads
+  // the row), so provenance can tell a house rule's rewrite from the manual's
+  // value and from the reviewer's edit.
+  const ruled = applyHouseRules(
+    input.tasks.map((t) => ({ ...t, preRule: t as SuggestionRow })),
+    activeRules,
+    { freezeRiskFalse },
+  )
   const tasks = ruled.kept
 
   const nowTs = Timestamp.fromDate(now)
@@ -166,7 +216,41 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
 
   const batch = db.batch()
 
-  const templateDoc = (t: NormalizedTaskRow & { remind_enabled?: boolean | null }) => ({
+  /**
+   * Who set each of the four fields this commit writes, and the manual's
+   * suggestion for them (decision C, step 1 — shared/tasks/fieldProvenance.ts).
+   * Recorded only: what is WRITTEN is unchanged, so a re-scan still
+   * overwrites the task's values exactly as before. Per field:
+   *  - a house rule rewrote it (written ≠ the row before rules) → "system";
+   *  - the manual's suggestion is unknown → null (unknown);
+   *  - it is the manual's value → "manual";
+   *  - otherwise the reviewer changed it in the review → "user" (their uid).
+   */
+  const provenanceOf = (t: (typeof tasks)[number]): { fieldSources: FieldSources<Timestamp>; manualSuggestion: ManualSuggestion<Timestamp> | null } => {
+    const written = rowValues(t)
+    const pre = rowValues(t.preRule)
+    const suggested =
+      t.manual_suggestion_row === undefined ? pre : t.manual_suggestion_row === null ? null : rowValues(t.manual_suggestion_row)
+    const fieldSources: Record<string, unknown> = {}
+    for (const f of PROVENANCE_FIELDS) {
+      const value = written[f]
+      fieldSources[f] = !sameValue(f, value, pre[f])
+        ? stampFor(f, { by: "system" }, "houseRule", value, nowTs)
+        : suggested === null
+          ? null
+          : sameValue(f, value, suggested[f])
+            ? stampFor(f, { by: "manual" }, "commitDraft", value, nowTs)
+            : input.reviewerUid
+              ? stampFor(f, { by: "user", uid: input.reviewerUid }, "parseReview", value, nowTs)
+              : null
+    }
+    return {
+      fieldSources: fieldSources as FieldSources<Timestamp>,
+      manualSuggestion: suggested ? { ...suggested, manualId, at: nowTs } : null,
+    }
+  }
+
+  const templateDoc = (t: (typeof tasks)[number]) => ({
     scopeType: "item_unit" as const,
     itemUnitId: item.itemUnitId,
     roomId: null,
@@ -217,6 +301,7 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
       windowDaysBefore: 7,
       windowDaysAfter: 14,
     },
+    ...provenanceOf(t),
     updatedAt: nowTs,
   })
 

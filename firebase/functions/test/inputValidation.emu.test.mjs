@@ -162,7 +162,11 @@ test("classify apply: a real dry-run row writes exactly the four fields it names
     assert.deepEqual(after[k], before[k], k)
   }
   const changed = Object.keys(after).filter((k) => JSON.stringify(after[k]) !== JSON.stringify(before[k])).sort()
-  assert.deepEqual(changed, ["careType", "justification", "schedule", "symptomTags", "updatedAt"])
+  // + fieldSources: the provenance stamps for exactly the fields it changed
+  // (decision C step 1) — the row's smuggled priorityTier is not among them.
+  assert.deepEqual(changed, ["careType", "fieldSources", "justification", "schedule", "symptomTags", "updatedAt"])
+  assert.deepEqual(Object.keys(after.fieldSources).sort(), ["careType", "schedule"])
+  assert.equal(after.fieldSources.careType.by, "system")
 
   // Idempotent: the same report again finds it no longer a candidate.
   assert.equal((await applyAs("iv-u1", A, [row("a1")])).writes, 0)

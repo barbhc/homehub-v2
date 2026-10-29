@@ -20,6 +20,7 @@ import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { DocId, isDocIdSegment, parseCallableInput, storedText } from "../lib/validate.js"
 import { ScheduleTypeSchema, storedDocId } from "../lib/storedTask.js"
 import { assertNotRefused, thinkingParamsFor } from "../../../../shared/parse/modelParams.js"
+import { cadenceValue, provenanceUpdatePaths, type ProvenanceValues } from "../../../../shared/tasks/fieldProvenance.js"
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY")
 const REGION = "us-central1"
@@ -605,12 +606,22 @@ export const classifyExistingTasks = onCall(
           return true
         }
         const update: Record<string, unknown> = { justification: r.justification, updatedAt: now }
-        if (r.care_change) update.careType = r.proposed_care_type
+        // Provenance (decision C, step 1): the classifier's values are a
+        // model's backfill nobody chose for this task — "system". Dotted
+        // paths, because update() replaces a nested map given whole.
+        const changed: Partial<ProvenanceValues> = {}
+        if (r.care_change) {
+          update.careType = r.proposed_care_type
+          changed.careType = r.proposed_care_type
+        }
         if (r.symptom_tags_change) update.symptomTags = r.proposed_symptom_tags
         if (r.schedule_change && r.proposed_schedule_type) {
           update["schedule.scheduleType"] = r.proposed_schedule_type
           update["schedule.intervalDays"] = null
+          const season = cadenceValue(snap.get("schedule") as Record<string, unknown> | undefined).season
+          changed.schedule = { scheduleType: r.proposed_schedule_type, intervalDays: null, season }
         }
+        Object.assign(update, provenanceUpdatePaths({ by: "system" }, "classifyExistingTasks", changed, now))
         tx.update(ref, update)
         return true
       })

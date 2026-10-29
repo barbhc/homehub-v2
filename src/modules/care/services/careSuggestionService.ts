@@ -18,7 +18,7 @@ import { arrayUnion, doc, serverTimestamp, updateDoc } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { TaskTemplate, ScheduleType } from "@/integrations/types"
 import type { CareEntry } from "../../../../shared/care/library"
-import { createTaskTemplate, setTaskCadence } from "./taskService"
+import { applyCadence, createTaskTemplate, setTaskCadence } from "./taskService"
 
 export type ServiceResult<T> = { data: T; error: null } | { data: null; error: { message: string } }
 const err = (e: unknown, fallback: string): { data: null; error: { message: string } } =>
@@ -48,6 +48,8 @@ export async function addLibraryTask(homeId: string, itemUnitId: string | null, 
     risk_level: entry.riskLevel,
     estimated_minutes: entry.minutes,
     source: "cho_generated",
+    // The library's defaults, not choices she made (provenance "system").
+    fields_set_by: "library",
   })
   if (created.error || !created.data) return { data: null, error: created.error ?? { message: "Could not add the task" } }
   const id = created.data.task_template_id
@@ -60,7 +62,9 @@ export async function addLibraryTask(homeId: string, itemUnitId: string | null, 
   } catch (e) {
     return err(e, "Could not record where the task came from")
   }
-  const cad = await setTaskCadence(homeId, id, entry.scheduleType as ScheduleType, entry.intervalDays ?? null)
+  // The library's typical cadence — a default, stamped "system" (a backstop
+  // she accepts on an existing task is hers: applyLibraryBackstop below).
+  const cad = await applyCadence(homeId, id, { scheduleType: entry.scheduleType as ScheduleType, intervalDays: entry.intervalDays ?? null }, { by: "system" }, "library")
   if (cad.error) return { data: null, error: cad.error }
   return { data: { ...created.data, external_key: `${LIBRARY_KEY_PREFIX}${entry.key}` }, error: null }
 }
@@ -103,6 +107,7 @@ export async function addCustomHomeTask(homeId: string, title: string, scheduleT
     priority_tier: "recommended",
     risk_level: "performance",
     source: "user",
+    fields_set_by: "user",
   })
   if (created.error || !created.data) return { data: null, error: created.error ?? { message: "Could not create the task" } }
   const cad = await setTaskCadence(homeId, created.data.task_template_id, scheduleType, scheduleType === "every_n_days" ? intervalDays ?? null : null)

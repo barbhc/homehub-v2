@@ -99,6 +99,26 @@ service cloud.firestore {
         || request.resource.data[field] == null
         || exists(/databases/$(database)/documents/homes/$(homeId)/members/$(request.resource.data[field]));
     }
+    // Per-field provenance on task templates (shared/tasks/fieldProvenance.ts,
+    // decision C step 1). A client may leave a field's stamp as it was, clear
+    // it, stamp it as ITS OWN member edit ("user" + its own uid), or as a
+    // rule/default ("system", no uid). It may not stamp another member's uid,
+    // nor claim "manual" — only the parser (Admin SDK, commitDraft) speaks for
+    // the manual, and only it writes `manualSuggestion`.
+    function fieldStampOk(field) {
+      let after = request.resource.data.get('fieldSources', {}).get(field, null);
+      let before = resource == null ? null : resource.data.get('fieldSources', {}).get(field, null);
+      return after == before
+        || after == null
+        || (after.get('by', null) == 'user' && after.get('uid', null) == request.auth.uid)
+        || (after.get('by', null) == 'system' && after.get('uid', null) == null);
+    }
+    function templateProvenanceOk() {
+      return fieldStampOk('priorityTier') && fieldStampOk('schedule')
+        && fieldStampOk('remindEnabled') && fieldStampOk('careType')
+        && request.resource.data.get('manualSuggestion', null)
+             == (resource == null ? null : resource.data.get('manualSuggestion', null));
+    }
 
     // ---- users (profiles + private prefs/tokens) ----
     match /users/{uid} {
@@ -224,7 +244,8 @@ service cloud.firestore {
       // ---- task templates (defaultAssignee guard) ----
       match /taskTemplates/{tplId} {
         allow read: if isMember(homeId);
-        allow create, update: if isMember(homeId) && assigneeIsMember(homeId, 'defaultAssignee');
+        allow create, update: if isMember(homeId) && assigneeIsMember(homeId, 'defaultAssignee')
+          && templateProvenanceOk();
         allow delete: if isMember(homeId);
       }
 

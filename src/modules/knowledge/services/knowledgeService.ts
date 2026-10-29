@@ -420,6 +420,8 @@ export async function convertChunkToTask(
       instructions_override: content.slice(0, 2000) || null,
       supplies_mode: "none",
       source: "manual",
+      // She turned this chunk into a task and picked its kind.
+      fields_set_by: "user",
     })
     if (tplRes.error || !tplRes.data) return { data: null, error: { message: tplRes.error?.message ?? "Task creation failed" } }
 

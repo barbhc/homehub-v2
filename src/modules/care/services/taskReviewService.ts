@@ -8,6 +8,8 @@ import { USAGE_TIP_TAG } from "../../../../shared/tasks/taxonomy"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
 import { localToday } from "../../../../shared/dates/calendar"
 import { cadenceChanged, isCadenceSeason, lastDoneClaim } from "../../../../shared/tasks/cadenceChange"
+import { cadenceValue, changedFields, pick, storedValues, type ProvenanceValues } from "../../../../shared/tasks/fieldProvenance"
+import { memberActor, stamp } from "./fieldProvenance"
 
 /**
  * Re-review an item's EXISTING tasks through the parse-review wizard.
@@ -164,6 +166,9 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
     }
     const shown = new Set(shownTemplateIds.map((id) => owned(id, "row")))
     for (const id of keptIds) if (!shown.has(id)) throw new Error(`A saved task wasn't on screen. ${RELOAD}`)
+    // Who is saving — read once, before the transaction, for the provenance
+    // stamps below (decision C, step 1).
+    const actor = memberActor()
 
     // ONE transaction: the liveness check and every write. A plain read-then-
     // batch left a window in which another device could remove a task between
@@ -226,6 +231,23 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
 
       for (const t of tasks) {
         const id = t.template_id!
+        const live = liveById.get(id)!
+        // Provenance: the review re-saves EVERY row, so only the fields whose
+        // stored value this save actually changes are stamped as hers — an
+        // untouched row keeps whatever provenance it had (the parser's, or
+        // unknown). The values are what the document holds after this merge
+        // (a season is written only when the row has one).
+        const after: ProvenanceValues = {
+          priorityTier: t.priority_tier,
+          careType: t.care_type,
+          remindEnabled: t.remind_enabled ?? null,
+          schedule: {
+            scheduleType: t.schedule_type,
+            intervalDays: t.interval_days ?? null,
+            season: t.season || cadenceValue(live.schedule as Record<string, unknown> | null).season,
+          },
+        }
+        const sources = stamp("saveItemTaskReview", pick(after, changedFields(storedValues(live), after)), actor)
         tx.set(
           doc(templates, id),
           {
@@ -249,6 +271,7 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
             // LATER cadence change still counts from it. Never a completion —
             // nothing was done today, and history is never written here.
             ...(claimById.get(id) ? { lastDoneClaimedOn: claimById.get(id) } : {}),
+            ...sources,
             userModifiedAt: now,
             updatedAt: now,
           },
@@ -271,7 +294,6 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
         // the rule's date — it used to be seeded due TODAY, seasonal included
         // — and a task taken off the schedule loses its open one, never its
         // completions (non-negotiable 3).
-        const live = liveById.get(id)!
         const facts = cadenceFactsFrom(live, instancesByTemplate.get(id) ?? [], todayStr)
         const claimed = claimById.get(id) ?? null
         if (claimed) facts.lastDoneOn = claimed

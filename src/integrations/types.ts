@@ -500,6 +500,33 @@ export interface TaskTemplate {
   updated_at: string
   deleted_at: string | null
 }
+
+/**
+ * Per-field provenance stored on a task template (Firestore, camelCase) —
+ * decision C, step 1 (docs/decisions/task-consistency-decisions.md §C;
+ * docs/firestore-model.md §2 "Field provenance").
+ *
+ *   taskTemplates/{id}.fieldSources:     TaskFieldSources   (who set each of
+ *     priorityTier / schedule / remindEnabled / careType, with the value stamped)
+ *   taskTemplates/{id}.manualSuggestion: TaskManualSuggestion | null  (the
+ *     manual's latest values for the four, written only by commitDraft)
+ *
+ * The canonical definitions, the stamp helpers and the one reader rule
+ * (`sourceOf`: a stamp counts only while its value equals the stored field;
+ * missing = unknown) live in shared/tasks/fieldProvenance.ts, because the
+ * Functions write them too. Deliberately NOT on the component-facing
+ * TaskTemplate above: nothing renders provenance until step 2, and a mapped
+ * field with no reader is how a serialization-boundary bug hides.
+ */
+export type {
+  FieldSource as TaskFieldSource,
+  FieldSources as TaskFieldSources,
+  ManualSuggestion as TaskManualSuggestion,
+  ProvenanceBy as TaskProvenanceBy,
+  ProvenanceField as TaskProvenanceField,
+  ProvenanceVia as TaskProvenanceVia,
+} from "../../shared/tasks/fieldProvenance"
+
 export type TaskTemplateInsert = Omit<
   TaskTemplate,
   "task_template_id" | "created_at" | "updated_at" | "section_category" | "applies_to" | "external_key" | "manual_id"
