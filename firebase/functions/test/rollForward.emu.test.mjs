@@ -20,8 +20,8 @@ const NOW = Timestamp.fromDate(new Date(`${TODAY}T00:00:00Z`))
 async function tpl(H, id, scheduleType, intervalDays = null) {
   await db.doc(`homes/${H}/taskTemplates/${id}`).set({ schedule: { scheduleType, intervalDays }, deletedAt: null })
 }
-async function inst(H, id, templateId, { status = "scheduled", dueDate = PAST } = {}) {
-  await db.doc(`homes/${H}/taskInstances/${id}`).set({ taskTemplateId: templateId, status, dueDate, deletedAt: null, updatedAt: NOW })
+async function inst(H, id, templateId, { status = "scheduled", dueDate = PAST, ...extra } = {}) {
+  await db.doc(`homes/${H}/taskInstances/${id}`).set({ taskTemplateId: templateId, status, dueDate, deletedAt: null, updatedAt: NOW, ...extra })
 }
 
 test("re-anchors a never-started recurring past-due instance to next cycle", async () => {
@@ -87,4 +87,35 @@ test("ignores instances that are not past-due", async () => {
   const due = (await db.doc(`homes/${H}/taskInstances/i1`).get()).get("dueDate")
   assert.equal(due, "2026-07-01")
   assert.ok(res.scanned >= 0)
+})
+
+// Owner decision 2026-10-28 ("from when you last did it"): a date the app's
+// cadence rule set is shown to the owner before she saves; a past one is the
+// honest answer and must survive the night.
+test("leaves a never-started past-due date the cadence rule set (dueSource: cadence_rule)", async () => {
+  const H = "rf-cadence-rule"
+  await tpl(H, "t1", "weekly")
+  await inst(H, "i1", "t1", { dueSource: "cadence_rule" })
+  const res = await runRollForward(db, TODAY)
+  assert.ok(res.skippedCadenceRule >= 1)
+  const after = (await db.doc(`homes/${H}/taskInstances/i1`).get()).data()
+  assert.equal(after.dueDate, PAST) // untouched
+  assert.equal(after.updatedAt.isEqual(NOW), true) // not even re-stamped
+})
+
+test("still rolls a never-started past-due date with no marker, or another marker, beside a marked one", async () => {
+  const H = "rf-cadence-rule-mixed"
+  await tpl(H, "t1", "weekly")
+  await tpl(H, "t2", "weekly")
+  await tpl(H, "t3", "weekly")
+  await inst(H, "marked", "t1", { dueSource: "cadence_rule" })
+  await inst(H, "plain", "t2")
+  await inst(H, "other", "t3", { dueSource: "something_else" })
+  await runRollForward(db, TODAY)
+  const due = async (id) => (await db.doc(`homes/${H}/taskInstances/${id}`).get()).get("dueDate")
+  assert.equal(await due("marked"), PAST)
+  assert.equal(await due("plain"), "2026-06-30") // today + 7
+  assert.equal(await due("other"), "2026-06-30")
+  // A rolled date is not the rule's: the job says so (writers that move dueDate set dueSource).
+  assert.equal((await db.doc(`homes/${H}/taskInstances/other`).get()).get("dueSource"), null)
 })

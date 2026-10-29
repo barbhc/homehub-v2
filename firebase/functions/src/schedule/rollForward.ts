@@ -8,6 +8,14 @@
  *
  * Core (`runRollForward`) is a plain function over an injected Firestore + today,
  * directly testable on the emulator.
+ *
+ * EXCEPT a date the cadence rule set (`dueSource: "cadence_rule"`). When the
+ * owner changes how often a task repeats, the app puts its next date at the
+ * last completion — or, never done, the day it was added — plus the new
+ * cadence, and shows that date before she saves (owner decision 2026-10-28,
+ * "from when you last did it"). A past date there is the rule's honest answer:
+ * re-anchoring it to today overnight would silently replace the date she was
+ * shown. Those occurrences are skipped and counted.
  */
 import { onSchedule } from "firebase-functions/v2/scheduler"
 import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore"
@@ -16,11 +24,22 @@ import { readSchedule, storedDocId } from "../lib/storedTask.js"
 
 const REGION = "us-central1"
 
+/** Written by the app's cadence editors on every occurrence whose date the
+ *  cadence rule set (src/modules/care/services/cadenceChangeService.ts,
+ *  DUE_SOURCE_CADENCE_RULE). The two literals must match. Rule: any writer
+ *  that moves an instance's dueDate sets dueSource in the same write —
+ *  "cadence_rule" if the date came from the rule, else null (this job writes
+ *  null). */
+export const DUE_SOURCE_CADENCE_RULE = "cadence_rule"
+
 export interface RollForwardResult {
   scanned: number
   rolled: number
   skippedHasDone: number
   skippedNonRecurring: number
+  /** Never-started, past-due instances whose date the cadence rule set — left
+   *  as they are (see the header). */
+  skippedCadenceRule: number
   /** Instances whose stored template id is missing or not one path segment. */
   skippedMalformed: number
   /** Batched commits it took to write `rolled`. */
@@ -55,6 +74,7 @@ export async function runRollForward(
     rolled: 0,
     skippedHasDone: 0,
     skippedNonRecurring: 0,
+    skippedCadenceRule: 0,
     skippedMalformed: 0,
     batches: 0,
   }
@@ -72,6 +92,10 @@ export async function runRollForward(
   for (const inst of candidates.docs) {
     const homeRef = inst.ref.parent.parent // homes/{homeId}
     if (!homeRef) continue
+    if (inst.get("dueSource") === DUE_SOURCE_CADENCE_RULE) {
+      result.skippedCadenceRule++
+      continue
+    }
     // Member-written (H3a §3): it becomes a query value and a document path.
     // A missing one used to reach `where("taskTemplateId", "==", undefined)`,
     // which throws — and one bad instance stopped the night's run for every home.
@@ -101,7 +125,10 @@ export async function runRollForward(
       continue
     }
 
-    batch.set(inst.ref, { dueDate: newDue, updatedAt: nowTs }, { merge: true })
+    // dueSource: null — every writer that moves dueDate says who set it
+    // (docs/firestore-model.md §2: "cadence_rule" or null); a roll-forward date
+    // is not the rule's, so it must never carry the marker.
+    batch.set(inst.ref, { dueDate: newDue, dueSource: null, updatedAt: nowTs }, { merge: true })
     result.rolled++
     pending++
     if (pending >= batchSize) await flush()
@@ -121,6 +148,6 @@ export const rollForwardNeverStarted = onSchedule(
   { region: REGION, schedule: "30 5 * * *", timeZone: "America/Los_Angeles" },
   async () => {
     const res = await runRollForward(getFirestore(), todayInLA())
-    console.log(`rollForward: scanned=${res.scanned} rolled=${res.rolled} hasDone=${res.skippedHasDone} nonRecurring=${res.skippedNonRecurring} batches=${res.batches}`)
+    console.log(`rollForward: scanned=${res.scanned} rolled=${res.rolled} hasDone=${res.skippedHasDone} nonRecurring=${res.skippedNonRecurring} cadenceRule=${res.skippedCadenceRule} batches=${res.batches}`)
   }
 )
