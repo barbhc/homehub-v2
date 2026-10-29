@@ -5,7 +5,7 @@ import { isAwaitingReview } from "@/lib/manualReviewState"
 import { FeedbackButton } from "@/components/FeedbackButton"
 import { SUPPORT_EMAIL } from "@/lib/feedback"
 import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
-import { AlertCircleIcon, BellIcon, HomeIcon as HomeSetupIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LockIcon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2, ShoppingBagIcon, ChevronRightIcon } from "lucide-react"
+import { AlertCircleIcon, BellIcon, HomeIcon as HomeSetupIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2, ShoppingBagIcon, ChevronRightIcon } from "lucide-react"
 import { InlineError, SectionCard } from "@/components/layout"
 import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
 import { CardContent } from "@/components/ui/card"
@@ -88,13 +88,19 @@ const SCHEDULE_OPTIONS = [
 ] as const
 
 // Per-event notification rows for the preferences matrix. Push-only by design
-// (see notificationPreferences.ts). Safety & recalls is locked on.
+// (see notificationPreferences.ts).
+//
+// `unavailable`: no push lane sends this event yet (firebase/functions/src/push/
+// lanes.ts sends task reminders and buy-ahead only, and nothing schedules the
+// recall check), so the row says so instead of offering a switch that does
+// nothing. The stored preference is left untouched, so the person's choice is
+// still there when the alert ships. (Audit 2026-10-28, Package 0.)
 const NOTIF_EVENT_ROWS: {
   key: NotificationEventKey
   icon: typeof BellIcon
   label: string
   sub: string
-  locked?: boolean
+  unavailable?: boolean
 }[] = [
   { key: "task_reminders", icon: BellIcon, label: "Task reminders", sub: "When upkeep is due" },
   {
@@ -102,13 +108,14 @@ const NOTIF_EVENT_ROWS: {
     icon: ShieldCheckIcon,
     label: "Warranty expiring",
     sub: "30 days before coverage ends",
+    unavailable: true,
   },
   {
     key: "safety_recalls",
     icon: MegaphoneIcon,
     label: "Safety & recalls",
-    sub: "For items you own",
-    locked: true,
+    sub: "Homehub doesn't check for recalls yet",
+    unavailable: true,
   },
   {
     key: "buy_ahead",
@@ -443,7 +450,7 @@ export default function Settings() {
 
   const toggleNotifEvent = useCallback(
     (key: NotificationEventKey) => {
-      if (key === "safety_recalls") return // locked on
+      if (NOTIF_EVENT_ROWS.find((r) => r.key === key)?.unavailable) return // nothing sends it yet
       updateNotifPrefs({
         ...notifPrefs,
         events: {
@@ -1446,7 +1453,8 @@ export default function Settings() {
               Export Your Data
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Download all your items, tasks, knowledge, and manuals as a JSON file.
+              A JSON file of your items, task list, saved answers, manual list and the text read from your manuals.
+              Not included yet: photos, receipts, manual files, and some household data such as task history and notes.
             </p>
             <Button
               variant="outline"
@@ -1459,7 +1467,7 @@ export default function Settings() {
               ) : (
                 <DownloadIcon className="size-4 mr-1.5" />
               )}
-              {exporting ? "Exporting…" : "Export All Data"}
+              {exporting ? "Exporting…" : "Export data (JSON)"}
             </Button>
             {exportError && <InlineError className="mt-3">{exportError}</InlineError>}
           </CardContent>
@@ -1707,7 +1715,7 @@ export default function Settings() {
                   {NOTIF_EVENT_ROWS.map((row, i) => {
                     const RowIcon = row.icon
                     const on = notifPrefs.events[row.key].push
-                    const locked = !!row.locked
+                    const unavailable = !!row.unavailable
                     return (
                       <div
                         key={row.key}
@@ -1728,40 +1736,31 @@ export default function Settings() {
                             {row.sub}
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => toggleNotifEvent(row.key)}
-                          disabled={locked}
-                          aria-pressed={on}
-                          aria-label={
-                            locked
-                              ? `${row.label} (always on)`
-                              : `${row.label} push ${on ? "on" : "off"}`
-                          }
-                          className="hit-44 flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
-                          style={{
-                            border: `1.5px solid ${on ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`,
-                            background: on ? "var(--hh-teal-fill)" : "var(--hh-surface)",
-                            cursor: locked ? "default" : "pointer",
-                            opacity: locked ? 0.75 : 1,
-                          }}
-                        >
-                          {on &&
-                            (locked ? (
-                              <LockIcon className="size-3.5 text-white" strokeWidth={2.4} />
-                            ) : (
-                              <CheckIcon className="size-[17px] text-white" strokeWidth={3} />
-                            ))}
-                        </button>
+                        {unavailable ? (
+                          <span className="shrink-0 text-[0.8125rem] font-semibold" style={{ color: "var(--hh-sub)" }}>
+                            Not yet
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => toggleNotifEvent(row.key)}
+                            aria-pressed={on}
+                            aria-label={`${row.label} push ${on ? "on" : "off"}`}
+                            className="hit-44 flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
+                            style={{
+                              border: `1.5px solid ${on ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`,
+                              background: on ? "var(--hh-teal-fill)" : "var(--hh-surface)",
+                            }}
+                          >
+                            {on && <CheckIcon className="size-[17px] text-white" strokeWidth={3} />}
+                          </button>
+                        )}
                       </div>
                     )
                   })}
                 </div>
                 {notifSaveErrorFor("events")}
 
-                <p className="mx-1 mt-2.5 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
-                  Safety &amp; recall notices are always delivered.
-                </p>
 
                 {/* Notification style — the breadth dial. */}
                 <div className="mb-2 mt-5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-sub)" }}>

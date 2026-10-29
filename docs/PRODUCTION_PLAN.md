@@ -33,7 +33,7 @@ Supersedes the prior checkpoint plan (its Increments 1–9 are all complete; his
 - **Push wholly non-functional**: VITE_FIREBASE_VAPID_KEY unset (push UI gracefully hidden) AND public/firebase-messaging-sw.js still ships demo-homehub placeholder config.
 - **Storage bucket in the deployed bundle unverified**: real bucket is `homehub-2068d.firebasestorage.app` (`.appspot.com` proven nonexistent during import); repo docs reference wrong names (docs/DEPLOY.md:47, scripts/import/lib/env.ts:16). If `.env` had the wrong value at build time, ALL media 404s. Must check with the next hosting deploy.
 - Budget alert unconfirmed · reset-email action URL unset (console save failed once — retry after our flow fix) · re-parse not run (functions redeploy REQUIRED first: deployed worker predates parseCore nested-array fix 73903fa) · live verification of AI features/chat SSE/recalls not done · mobile visual baselines + CI visual job pending · Apple Sign-In, custom domain, v1 retirement pending.
-- Housekeeping: MIGRATION_STATUS.md:55 stale "inert-shim" note (dashboard loaders verified fully ported) · Node 20 runtime decommissions 2026-10-30 · firebase-functions ^6.3.0 upgrade warning · dead deps @supabase/supabase-js + @capacitor/*.
+- Housekeeping: MIGRATION_STATUS.md:55 stale "inert-shim" note (dashboard loaders verified fully ported) · Node 20 runtime decommissions 2026-10-30 (code moved to Node 22 in #261; functions deploy pending the owner's approval) · firebase-functions ^6.3.0 upgrade warning · dead deps @supabase/supabase-js + @capacitor/*.
 
 ---
 

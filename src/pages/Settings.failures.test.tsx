@@ -332,3 +332,31 @@ describe("Settings — rooms and custom tasks", () => {
     expect(screen.queryByText(/0 manuals uploaded/)).toBeNull()
   })
 })
+
+// Audit 2026-10-28, Package 0: Settings promised what nothing delivers. No push
+// lane sends warranty or recall alerts (push/lanes.ts: task reminders and
+// buy-ahead only) and nothing schedules the recall check; the export is a JSON
+// file of some records, not "all data".
+describe("Settings — only promises what ships", () => {
+  it("warranty and recall alerts say they're not available, with no switch to press", async () => {
+    renderSettings()
+    await screen.findByRole("button", { name: "Task reminders push off" })
+
+    expect(screen.getByText("30 days before coverage ends")).toBeInTheDocument()
+    expect(screen.getByText("Homehub doesn't check for recalls yet")).toBeInTheDocument()
+    expect(screen.getAllByText("Not yet")).toHaveLength(2)
+    // Not rendered at all — there is nothing to turn on or off.
+    expect(screen.queryByRole("button", { name: /Warranty expiring/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: /Safety & recalls/ })).toBeNull()
+    expect(screen.queryByText(/always delivered/)).toBeNull()
+    // The real switches are untouched.
+    expect(screen.getByRole("button", { name: /Buy-ahead reminders push/ })).toBeInTheDocument()
+  })
+
+  it("the export says what the file holds and what it leaves out", async () => {
+    renderSettings()
+    expect(await screen.findByRole("button", { name: "Export data (JSON)" })).toBeInTheDocument()
+    expect(screen.getByText(/Not included yet: photos, receipts, manual files/)).toBeInTheDocument()
+    expect(screen.queryByText("Export All Data")).toBeNull()
+  })
+})

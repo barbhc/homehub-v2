@@ -24,6 +24,8 @@ const svc = vi.hoisted(() => ({
   getRooms: vi.fn(),
   lookupProduct: vi.fn(),
   extractFromImage: vi.fn(),
+  /** The home the app is on; a test can switch it mid-wizard. */
+  homeId: "h1",
 }))
 
 vi.mock("@/modules/items", () => ({
@@ -33,7 +35,7 @@ vi.mock("@/modules/items", () => ({
   getItemUnits: (...a: unknown[]) => svc.getItemUnits(...a),
 }))
 vi.mock("@/modules/home", () => ({
-  useCurrentPropertyCompat: () => ({ property: { id: "h1", name: "Home" }, loading: false, refresh: vi.fn() }),
+  useCurrentPropertyCompat: () => ({ property: { id: svc.homeId, name: "Home" }, loading: false, refresh: vi.fn() }),
   useCurrentHome: () => ({ home: { home_id: "h1", name: "Home" } }),
   getRooms: (...a: unknown[]) => svc.getRooms(...a),
   createRoom: vi.fn(),
@@ -88,6 +90,7 @@ const FOUND_AIR_PURIFIER = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  svc.homeId = "h1"
   localStorage.clear()
   stored = null
   svc.getRooms.mockResolvedValue({ data: [], error: null })
@@ -273,5 +276,45 @@ describe("a saved session offers to pick up where it left off", () => {
     fireEvent.click(screen.getByRole("button", { name: "Finish adding it" }))
     expect(screen.queryByText("Pick up where you left off")).toBeNull()
     expect((document.getElementById("identify-name") as HTMLInputElement).value).toBe("Beer fridge")
+  })
+})
+
+// Audit 2026-10-28, Package 0: lint flagged `propertyId` missing from the
+// Replace handler's deps. Adding it would have been the bug — Replace would
+// then delete the upload's records in whatever home is current when pressed.
+// The prompt now carries the home the records were made in. NOTE: the old
+// code also passes this test, by accident of a stale closure; the test guards
+// against the lint-suggested fix (it fails with propertyId in the deps), not a
+// defect that shipped.
+describe("Replace on the 'not a manual' prompt", () => {
+  it("removes the upload in the home it was made in, even after switching homes", async () => {
+    const knowledge = await import("@/modules/knowledge")
+    const docs = await import("@/modules/knowledge/services/manualDocumentService")
+    vi.mocked(knowledge.createManualDocument).mockResolvedValue({ data: { manual_id: "m1" }, error: null } as never)
+    vi.mocked(knowledge.detectDocType).mockResolvedValue({ data: { docType: "warranty", confidence: 0.9, reason: "a warranty card" }, error: null } as never)
+    vi.mocked(docs.deleteManualDocument).mockResolvedValue({ data: true, error: null } as never)
+
+    const view = renderWizard()
+    await typeApplianceAndConfirm("Coway", "AP-1512HH")
+    fireEvent.click(screen.getByRole("button", { name: /Paste a link/ }))
+    fireEvent.change(document.getElementById("manual-url")!, { target: { value: "https://example.com/coway.pdf" } })
+    fireEvent.click(screen.getByRole("button", { name: "Scan the manual" }))
+    const replace = await screen.findByRole("button", { name: "Replace" })
+    expect(vi.mocked(knowledge.createManualDocument).mock.calls[0][0]).toBe("h1")
+
+    // The person switches to another home while the prompt is up.
+    svc.homeId = "h2"
+    view.rerender(
+      <MemoryRouter initialEntries={["/inventory/add"]}>
+        <Routes>
+          <Route path="/inventory/add" element={<SmartAddItem />} />
+          <Route path="/items/:id" element={<p>item page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(replace)
+
+    await waitFor(() => expect(docs.deleteManualDocument).toHaveBeenCalledTimes(1))
+    expect(docs.deleteManualDocument).toHaveBeenCalledWith("h1", "m1")
   })
 })

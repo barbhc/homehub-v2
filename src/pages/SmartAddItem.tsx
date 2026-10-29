@@ -40,6 +40,10 @@ import { isCapacityRefusal, queueScan } from "@/lib/scanCapacity"
 import { getRooms } from "@/modules/home"
 
 type ManualClassificationGate = {
+  /** The home the manual records were created in. Replace removes them HERE,
+   *  not in whatever home is current when the button is pressed — the person
+   *  can switch homes while this prompt is up (audit 2026-10-28, Package 0). */
+  homeId: string
   choices: ManualSourceChoice[]
   manualIds: string[]
   /** Storage paths for upload-type choices only; used to clean up on Replace. */
@@ -419,6 +423,7 @@ export default function SmartAddItem() {
         const d = det.data
         if (d && shouldPromptDocClassification(d.docType, d.confidence)) {
           setManualDocGate({
+            homeId: propertyId,
             choices,
             manualIds,
             uploadPaths,
@@ -474,7 +479,7 @@ export default function SmartAddItem() {
     setSavingMessage("Removing previous upload…")
     try {
       // Soft-delete manual_document rows so they don't appear as active docs on the item.
-      const rowResults = await Promise.all(g.manualIds.map((id) => deleteManualDocument(propertyId ?? "", id)))
+      const rowResults = await Promise.all(g.manualIds.map((id) => deleteManualDocument(g.homeId, id)))
       const rowFailure = rowResults.find((r) => r.error)
       if (rowFailure?.error) {
         throw new Error(rowFailure.error.message)

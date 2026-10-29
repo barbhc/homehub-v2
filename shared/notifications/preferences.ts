@@ -11,8 +11,10 @@
  * app lies about; from here on both sides import THIS file.
  *
  * Safety & recalls stays **locked on** — `normalizeNotificationPrefs` always
- * forces `safety_recalls.push = true`, and delivery ignores prefs and quiet
- * hours for it.
+ * forces `safety_recalls.push = true` — so that when recall alerts exist they
+ * can't be switched off. They do NOT exist yet: no push lane sends recall (or
+ * warranty) alerts and nothing schedules the recall check, and Settings says
+ * so (audit 2026-10-28, Package 0).
  */
 
 import { remindsWhenDue } from "../tasks/reviewBuckets.js"

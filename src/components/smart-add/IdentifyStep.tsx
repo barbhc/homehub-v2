@@ -1046,7 +1046,7 @@ export function IdentifyStep({
               )}
               <li className="flex items-center gap-1.5">
                 <BellRingIcon className="size-3.5 text-amber-600 shrink-0" aria-hidden />
-                <span><span className="font-medium text-foreground">Serial number</span> → recall alerts &amp; warranty claims</span>
+                <span><span className="font-medium text-foreground">Serial number</span> → checking recalls &amp; warranty claims</span>
               </li>
             </ul>
           </button>
