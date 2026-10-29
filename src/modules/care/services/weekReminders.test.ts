@@ -93,7 +93,7 @@ describe("getWeekReminders — the notification lens over the week", () => {
     expect(res.data!.hiddenCount).toBe(1)
   })
 
-  it("lapsed safety work is listed in every mode, as the digest names it — unless switched Off", async () => {
+  it("lapsed safety work is listed as the digest names it: never-chose outside Just my list, never when switched Off", async () => {
     const safety = { safetyNote: "Skipped a cycle", priorityTier: "recommended" as const }
     vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(
       agenda([agendaRow({ taskTemplateId: "null", ...safety }), agendaRow({ taskTemplateId: "off", taskInstanceId: "i2", ...safety })])
@@ -101,10 +101,14 @@ describe("getWeekReminders — the notification lens over the week", () => {
     vi.mocked(taskService.getTaskTemplates).mockResolvedValue(
       ok([template({ task_template_id: "null", remind_enabled: null }), template({ task_template_id: "off", remind_enabled: false })])
     )
-    for (const mode of ["curated", "curated+essential", "all"] as const) {
+    for (const mode of ["curated+essential", "all"] as const) {
       const res = await getWeekReminders("h1", mode)
       expect(res.data!.items.map((i) => i.taskTemplateId), mode).toEqual(["null"])
     }
+    // Just my list: only what was switched On (owner, 2026-10-28 follow-up).
+    const curated = await getWeekReminders("h1", "curated")
+    expect(curated.data!.items).toEqual([])
+    expect(curated.data!.hiddenCount).toBe(2)
   })
 
   it("a row whose template is missing survives the join (tier default decides)", async () => {

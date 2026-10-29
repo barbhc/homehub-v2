@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { dueKindOf, dueWindow, shortDate, windowPhrase } from "@/lib/dueWindow"
+import { dueKindOf, dueWindow, safetyPhrase, shortDate, windowPhrase } from "@/lib/dueWindow"
 import { Link } from "react-router-dom"
 import { createPortal } from "react-dom"
 import { RemoveScroll } from "react-remove-scroll"
@@ -263,12 +263,20 @@ export function RefinedTaskDetail({
    * invisible — a reversible default that the primary platform cannot reach is
    * the same broken promise in a new place.
    */
+  const reminderScheduleType = detail.schedule?.scheduleType ?? null
+  const isDeadline = dueKindOf({ title: detail.title, scheduleType: reminderScheduleType }) === "deadline"
   const reminder = reminderSwitch(pushMode, {
     remindEnabled: detail.remindEnabled,
     priorityTier: detail.tier,
-    isDeadline: dueKindOf({ title: detail.title, scheduleType: detail.schedule?.scheduleType ?? null }) === "deadline",
+    isDeadline,
+    lapsedSafety: !!detail.isSafetyCritical && safetyPhrase(detail.dueDate, reminderScheduleType) !== null,
   })
-  const reminderControl = recurring ? (
+  // Recurring tasks, and deadlines: a deadline is a one-off, but the morning
+  // push names it on its day — and in "Just my list" only a deadline switched
+  // On does, so this is the one place that choice can be made (owner,
+  // 2026-10-28). Other one-offs (as needed, setup) never come due, so a
+  // switch there would be a bell that cannot ring.
+  const reminderControl = recurring || isDeadline ? (
     <>
       <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[var(--hh-line)] px-3.5 py-3" style={{ background: "var(--hh-surface)" }}>
         <input
@@ -505,6 +513,9 @@ export function RefinedTaskDetail({
               <div className="mt-1.5">{reminderControl}</div>
             </div>
           )}
+          {/* A deadline with no stored schedule still gets its switch here —
+              the block above only renders when there is a schedule. */}
+          {!detail.schedule && reminderControl}
 
           {/* Assignment */}
           {showAssign && (

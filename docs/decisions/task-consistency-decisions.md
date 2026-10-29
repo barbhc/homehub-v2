@@ -14,9 +14,12 @@ as the record of what the app did before each decision and why.
   is silent in every notification style and every push — including deadlines
   and overdue safety work. (Chosen over the recommended option 1, "except
   safety".) "Everything on a schedule" means everything you have not switched
-  off. A task you never chose about still notifies as before, deadlines and
-  lapsed safety work included. Off is about notifications only: the task stays
-  on Home and in Tasks.
+  off. Off is about notifications only: the task stays on Home and in Tasks.
+  - **Follow-up, same day: "Just my list" means ONLY tasks you switched On.**
+    A deadline or lapsed safety task you never set does not notify in that
+    mode — it stays on Home and in Tasks, without a buzz. In "My list +
+    anything Essential" and "Everything on a schedule", a never-set deadline
+    or lapsed safety task still notifies as before.
 - **B — Changing how often a task repeats: "From when you last did it."**
   Next due = last completion + the new cadence (never done: the date it was
   added + the cadence). One rule across all three editors; show "Next due:
@@ -35,8 +38,10 @@ as the record of what the app did before each decision and why.
 
 **Built so far:** A — one shared decision, `taskNotifies` in
 `shared/notifications/preferences.ts`, used by the morning, digest and
-buy-ahead pushes, /week and the task page's reminder switch; the push sweep
-also applies Home's cold-storage rule. B and C are not built yet.
+buy-ahead pushes, /week and the task page's reminder switch. The switch now
+also appears on deadlines (one-off tasks), so a "Just my list" user can switch
+one On. The push sweep also applies Home's cold-storage rule. B and C are not
+built yet.
 
 *The analysis as written before the decisions:* the PR that added this
 document fixed only an engineering bug (the item review matched tasks by name

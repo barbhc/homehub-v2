@@ -129,11 +129,11 @@ const NOTIF_EVENT_ROWS: {
 // hard predicate — her mode is "Just my list"; the default keeps today's
 // behavior so safety work reminds unless someone deliberately opts down.
 // The mode decides only tasks whose bell was never touched: a bell switched
-// off is silent in every mode (owner, 2026-10-28 — taskNotifies). "Just my
-// list" still sends deadlines and lapsed safety checks nobody switched off, so
-// it says so rather than "Nothing else notifies".
+// off is silent in every mode, and "Just my list" is ONLY what was switched
+// on — no deadlines or lapsed safety checks either (owner, 2026-10-28 —
+// taskNotifies), which is what makes "Nothing else notifies" true.
 const PUSH_MODE_OPTIONS: { value: PushMode; label: string; sub: string }[] = [
-  { value: "curated", label: "Just my list", sub: "Reminders you turned on, plus deadlines and lapsed safety checks." },
+  { value: "curated", label: "Just my list", sub: "Only reminders you turned on. Nothing else notifies." },
   { value: "curated+essential", label: "My list + anything Essential", sub: "Your list, plus safety and damage-prevention work by default." },
   { value: "all", label: "Everything on a schedule", sub: "Every scheduled task, unless you turned it off." },
 ]

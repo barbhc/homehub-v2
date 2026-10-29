@@ -73,8 +73,13 @@ describe("taskNotifies — the ONE decision every lane and preview imports", () 
     ...(["curated", "curated+essential", "all"] as const).flatMap((m) =>
       (["ordinary", "deadline", "lapsed safety"] as const).map((w) => [m, ON, "recommended", w, true] as [PushMode, boolean | null, string, Why, boolean])
     ),
-    // Never chose: deadlines and lapsed safety work notify in every mode, as before.
-    ...(["curated", "curated+essential", "all"] as const).flatMap((m) =>
+    // Never chose, deadline or lapsed safety: "Just my list" means ONLY what was
+    // switched On (owner, 2026-10-28 follow-up) — silent; the other two modes
+    // notify, as before.
+    ...(["deadline", "lapsed safety"] as const).flatMap((w) =>
+      (["essential", "recommended"] as const).map((tier) => ["curated", NEVER, tier, w, false] as [PushMode, boolean | null, string, Why, boolean])
+    ),
+    ...(["curated+essential", "all"] as const).flatMap((m) =>
       (["deadline", "lapsed safety"] as const).flatMap((w) =>
         (["essential", "recommended"] as const).map((tier) => [m, NEVER, tier, w, true] as [PushMode, boolean | null, string, Why, boolean])
       )
@@ -109,9 +114,16 @@ describe("taskNotifies — the ONE decision every lane and preview imports", () 
     expect(ask("all", NEVER, "recommended", "ordinary")).toBe(true)
   })
 
+  it("'Just my list' is ONLY what was switched On — not a never-chose deadline or lapsed safety check", () => {
+    expect(ask("curated", NEVER, "essential", "deadline")).toBe(false)
+    expect(ask("curated", NEVER, "essential", "lapsed safety")).toBe(false)
+    expect(ask("curated", ON, "optional", "deadline")).toBe(true)
+  })
+
   it("a missing switch (undefined) reads as never chose, not as Off", () => {
     expect(ask("curated+essential", undefined, "essential", "ordinary")).toBe(true)
-    expect(ask("curated", undefined, "recommended", "deadline")).toBe(true)
+    expect(ask("curated+essential", undefined, "recommended", "deadline")).toBe(true)
+    expect(ask("curated", undefined, "essential", "ordinary")).toBe(false)
     expect(ask("all", undefined, "optional", "ordinary")).toBe(true)
   })
 })

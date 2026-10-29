@@ -108,7 +108,7 @@ export type Pending = {
   dueDate: string
   /** "deadline" per dueKindOf; everything else is a window. */
   isDeadline: boolean
-  /** Lapsed safety-critical work — rides the digest in every mode, unless switched Off. */
+  /** Lapsed safety-critical work — rides the digest outside "Just my list", unless switched Off. */
   safety: boolean
   /** From the template; null when the template could not be read. */
   remindEnabled: boolean | null
@@ -125,12 +125,13 @@ export function agreed(p: Pending, prefs: NotificationPrefs): boolean {
   return taskNotifies(prefs.push_mode, { remindEnabled: p.remindEnabled, priorityTier: p.priorityTier })
 }
 
-/** The same decision for a deadline: every mode, unless the task is switched Off. */
+/** The same decision for a deadline: never-chose notifies except in "Just my list"; Off never does. */
 function deadlineNotifies(p: Pending, prefs: NotificationPrefs): boolean {
   return taskNotifies(prefs.push_mode, { remindEnabled: p.remindEnabled, priorityTier: p.priorityTier, isDeadline: true })
 }
 
-/** The same decision for the digest: agreed reminders, plus lapsed safety work unless switched Off. */
+/** The same decision for the digest: agreed reminders, plus lapsed safety work (never-chose,
+ *  outside "Just my list"; never when switched Off). */
 function digestNotifies(p: Pending, prefs: NotificationPrefs): boolean {
   return taskNotifies(prefs.push_mode, { remindEnabled: p.remindEnabled, priorityTier: p.priorityTier, lapsedSafety: p.safety })
 }
@@ -177,7 +178,8 @@ export function composeMorning(pending: Pending[], prefs: NotificationPrefs, tod
 
 /**
  * DIGEST: agreed reminders due within the next 7 days (overdue included),
- * plus lapsed safety work regardless of mode (never when switched Off), plus
+ * plus lapsed safety work (never-chose, outside "Just my list"; never when
+ * switched Off), plus
  * "one thing to buy first" when a buy-ahead part is uncovered. Null when the
  * week is empty — a "nothing this week" push is noise (Relevant, Useful, Timely).
  */

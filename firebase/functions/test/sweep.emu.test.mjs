@@ -56,9 +56,9 @@ function fakeSender() {
   return { sent, send }
 }
 
-test("Monday 9am, curated mode: the deadline pushes, the null-flag task does not, buy-ahead names the part", async () => {
+test("Monday 9am, default mode: the deadline pushes, the null-flag Recommended does not, buy-ahead names the part", async () => {
   const homeId = fresh(), uid = fresh()
-  await seedHome({ homeId, uid, prefs: { push_mode: "curated" } })
+  await seedHome({ homeId, uid, prefs: { push_mode: "curated+essential" } })
   const { sent, send } = fakeSender()
 
   const report = await runPushSweep(db, new Date("2026-09-07T16:00:00Z"), send) // 09:00 PDT Monday
@@ -66,7 +66,7 @@ test("Monday 9am, curated mode: the deadline pushes, the null-flag task does not
 
   const morning = mine.find((s) => s.title === "Deadline today")
   assert.ok(morning, `expected the deadline push, got ${JSON.stringify(mine)}`)
-  assert.equal(morning.body, "Warranty claim closes") // "Flush" is null-flag Recommended → not in curated mode
+  assert.equal(morning.body, "Warranty claim closes") // "Flush" is null-flag Recommended → not by default
   assert.equal(morning.url, `/tasks/inst-warranty?home=${homeId}`)
 
   const buy = mine.find((s) => /order this week/.test(s.title))
@@ -113,8 +113,9 @@ test("'I have one' on the shopping list removes the part from both the digest an
 })
 
 test("a user with the task-reminders switch OFF gets no morning push, but their digest still arrives", async () => {
+  // Default mode, where the seeded deadline WOULD push — so its absence is the switch's doing.
   const homeId = fresh(), uid = fresh()
-  await seedHome({ homeId, uid, prefs: { push_mode: "curated", events: { task_reminders: { push: false } }, weekly_digest: { enabled: true, day: 0, hour: 17 } } })
+  await seedHome({ homeId, uid, prefs: { push_mode: "curated+essential", events: { task_reminders: { push: false } }, weekly_digest: { enabled: true, day: 0, hour: 17 } } })
   const a = fakeSender()
   await runPushSweep(db, new Date("2026-09-07T16:00:00Z"), a.send)
   assert.equal(a.sent.some((s) => s.uid === uid && s.title === "Deadline today"), false)
@@ -289,6 +290,26 @@ test("'Everything on a schedule': a task switched Off gets no push — ordinary,
   assert.match(digest.body, /Test the CO alarm in the garage/)
   assert.match(digest.body, /Includes a safety check/)
   assert.doesNotMatch(digest.body, /Test smoke & CO detectors|dryer door seal|Warranty claim closes/, "Off tasks must not be named")
+})
+
+test("'Just my list' is ONLY what was switched On: a never-chose deadline and lapsed safety work stay silent; an On task still pushes", async () => {
+  const homeId = fresh(), uid = fresh()
+  const { task } = await seedOffHome({ homeId, uid, mode: "curated" })
+  await task("deadline-never", { title: "Warranty registration due", remindEnabled: null, dueDate: "2026-09-07", scheduleType: "as_needed", tier: "essential" })
+  await task("smoke-never", { title: "Test smoke & CO detectors", remindEnabled: null, dueDate: "2026-08-01", scheduleType: "semiannual", isSafetyCritical: true, tier: "essential" })
+  await task("filter-on", { title: "Replace the furnace filter", remindEnabled: true, dueDate: "2026-09-07" })
+
+  const morning = fakeSender()
+  await runPushSweep(db, MONDAY_9AM, morning.send)
+  const m = morning.sent.filter((s) => s.uid === uid)
+  assert.equal(m.length, 1, `one morning push, for the On task only — got ${JSON.stringify(m)}`)
+  assert.equal(m[0].title, "Today: Replace the furnace filter")
+
+  const sunday = fakeSender()
+  await runPushSweep(db, new Date("2026-09-07T00:00:00Z"), sunday.send) // Sunday Sep 6, 17:00 PDT
+  const digest = sunday.sent.find((s) => s.uid === uid && s.title === "Your week at home")
+  assert.ok(digest, "the digest goes for the On task")
+  assert.equal(digest.body, "1 reminder: Replace the furnace filter.")
 })
 
 test("'Just my list' and the default: a lapsed safety task or a deadline switched Off is silent too", async () => {

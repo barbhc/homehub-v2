@@ -122,8 +122,8 @@ test("digest copy: a covered part ('I have one') is not counted; an empty week i
   assert.equal(composeDigest([pend({ dueDate: "2026-10-30" })], prefs(), SUN, "h1", new Set()), null)
 })
 
-test("digest: lapsed safety work the user never chose about rides in every mode", () => {
-  for (const push_mode of ["curated", "curated+essential", "all"]) {
+test("digest: lapsed safety work the user never chose about rides outside 'Just my list'", () => {
+  for (const push_mode of ["curated+essential", "all"]) {
     const d = composeDigest([pend({ remindEnabled: null, safety: true, title: "Test smoke alarms" })], prefs({ push_mode }), SUN, "h1", new Set())
     assert.ok(d, push_mode)
     assert.match(d.body, /Includes a safety check/)
@@ -143,10 +143,13 @@ test("Off: lapsed safety work switched Off is NOT in the digest, in any mode", (
   }
 })
 
-test("Off: a deadline switched Off is NOT in the morning push, in any mode; never chose still is", () => {
+test("Off: a deadline switched Off is NOT in the morning push, in any mode; never chose still is outside 'Just my list'", () => {
   for (const push_mode of MODES) {
     const off = pend({ id: "off", title: "Warranty claim closes", isDeadline: true, remindEnabled: false })
     assert.equal(composeMorning([off], prefs({ push_mode }), MON, "h1"), null, push_mode)
+  }
+  for (const push_mode of ["curated+essential", "all"]) {
+    const off = pend({ id: "off", title: "Warranty claim closes", isDeadline: true, remindEnabled: false })
     const never = pend({ id: "never", title: "Warranty registration due", isDeadline: true, remindEnabled: null })
     const m = composeMorning([off, never], prefs({ push_mode }), MON, "h1")
     assert.equal(m.title, "Deadline today", push_mode)
@@ -164,6 +167,18 @@ test("Off: 'Everything on a schedule' no longer overrides a task switched Off �
   const d = composeDigest([off, never], all, SUN, "h1", new Set())
   assert.equal(d.body, "1 reminder: Flush the water heater. One thing to buy first.")
   assert.deepEqual(buyAheadRows([off, never], all, MON, new Set(), {}).map((r) => r.pending.id), ["never"])
+})
+
+// ── Just my list = ONLY what was switched On (owner, 2026-10-28 follow-up) ──
+test("Just my list: a never-chose deadline gets no morning push, never-chose lapsed safety is not in the digest", () => {
+  const curated = prefs({ push_mode: "curated" })
+  const deadline = pend({ id: "d", title: "Warranty registration due", isDeadline: true, remindEnabled: null, priorityTier: "essential" })
+  assert.equal(composeMorning([deadline], curated, MON, "h1"), null)
+  const smoke = pend({ id: "s", title: "Test smoke alarms", safety: true, remindEnabled: null, priorityTier: "essential" })
+  assert.equal(composeDigest([smoke], curated, SUN, "h1", new Set()), null)
+  // ...while a task switched On still reaches both.
+  assert.equal(composeMorning([{ ...deadline, remindEnabled: true }], curated, MON, "h1").title, "Deadline today")
+  assert.match(composeDigest([{ ...smoke, remindEnabled: true }], curated, SUN, "h1", new Set()).body, /Includes a safety check/)
 })
 
 test("Off: an explicit On still notifies a deadline and lapsed safety work in every mode", () => {

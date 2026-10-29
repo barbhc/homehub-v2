@@ -14,7 +14,8 @@ import type { TemplateSupply } from "@/integrations/types"
  * remind you?" identically. Screen equals push, in every mode.
  *
  * The rows are what the weekly digest names: reminders the mode agrees to,
- * plus lapsed safety work (`safetyNote`) the user never switched off. A task
+ * plus lapsed safety work (`safetyNote`) the user never switched off (not in
+ * "Just my list", which is only what was switched On). A task
  * switched Off is never here, in any mode (owner, 2026-10-28) — it stays on
  * Home and in Tasks, which are about what to do, not what buzzes.
  */
