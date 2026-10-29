@@ -282,7 +282,10 @@ describe("a saved session offers to pick up where it left off", () => {
 // Audit 2026-10-28, Package 0: lint flagged `propertyId` missing from the
 // Replace handler's deps. Adding it would have been the bug — Replace would
 // then delete the upload's records in whatever home is current when pressed.
-// The prompt now carries the home the records were made in.
+// The prompt now carries the home the records were made in. NOTE: the old
+// code also passes this test, by accident of a stale closure; the test guards
+// against the lint-suggested fix (it fails with propertyId in the deps), not a
+// defect that shipped.
 describe("Replace on the 'not a manual' prompt", () => {
   it("removes the upload in the home it was made in, even after switching homes", async () => {
     const knowledge = await import("@/modules/knowledge")
