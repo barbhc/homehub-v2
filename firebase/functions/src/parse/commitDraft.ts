@@ -15,7 +15,7 @@ import {
   type ReconcileExisting,
 } from "../../../../shared/parse/parseCore.js"
 import type { ParseItemFacts } from "./parseTypes.js"
-import { addCadence, seasonForTask, seasonalNextDue } from "../schedule/cadence.js"
+import { addCadence, seasonForTask, seasonalNextDue, type Season } from "../schedule/cadence.js"
 import { applyHouseRules, type HouseRuleLike } from "../../../../shared/tasks/houseRules.js"
 import { storedCount } from "../lib/validate.js"
 import {
@@ -41,6 +41,10 @@ export interface CommitInput {
    *  leaves it null so the tier default applies. */
   tasks: (NormalizedTaskRow & {
     remind_enabled?: boolean | null
+    /** A seasonal row's season as the reviewer set it (commitManualDraft).
+     *  seasonForTask() reads it ahead of the title inference; absent or null
+     *  (the worker path, or a review that never asked) → the title decides. */
+    season?: Season | null
     /** "I've been doing this already" from the review screen — the date the
      *  user says they last did this work. Already validated by the caller
      *  (parseLastDone); null means anchor on today, the shipped behaviour. */
@@ -226,7 +230,7 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
    *  - it is the manual's value → "manual";
    *  - otherwise the reviewer changed it in the review → "user" (their uid).
    */
-  const provenanceOf = (t: (typeof tasks)[number]): { fieldSources: FieldSources<Timestamp>; manualSuggestion: ManualSuggestion<Timestamp> | null } => {
+  const provenanceOf = (t: (typeof tasks)[number]): { fieldSources: FieldSources<Timestamp>; manualSuggestion?: ManualSuggestion<Timestamp> } => {
     const written = rowValues(t)
     const pre = rowValues(t.preRule)
     const suggested =
@@ -244,10 +248,13 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
               ? stampFor(f, { by: "user", uid: input.reviewerUid }, "parseReview", value, nowTs)
               : null
     }
-    return {
-      fieldSources: fieldSources as FieldSources<Timestamp>,
-      manualSuggestion: suggested ? { ...suggested, manualId, at: nowTs } : null,
-    }
+    // An unknown suggestion (a reviewed row with no draft counterpart) writes
+    // NO manualSuggestion, so a matched task keeps the one an earlier parse
+    // recorded — the manual's last known word is still the best we have. A
+    // new task gets null (unknown) at insert.
+    return suggested
+      ? { fieldSources: fieldSources as FieldSources<Timestamp>, manualSuggestion: { ...suggested, manualId, at: nowTs } }
+      : { fieldSources: fieldSources as FieldSources<Timestamp> }
   }
 
   const templateDoc = (t: (typeof tasks)[number]) => ({
@@ -343,7 +350,7 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
       continue
     }
     const tplRef = templatesCol.doc()
-    batch.set(tplRef, { ...templateDoc(t), createdAt: nowTs, userModifiedAt: null, deletedAt: null })
+    batch.set(tplRef, { manualSuggestion: null, ...templateDoc(t), createdAt: nowTs, userModifiedAt: null, deletedAt: null })
     inserted++
     // Seasonal tasks anchor to their season (winterize → next fall), NOT the
     // parse date — else a winterize task lands "due today" in July. Unknown-season

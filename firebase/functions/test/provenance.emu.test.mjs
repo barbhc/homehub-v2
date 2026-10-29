@@ -191,6 +191,128 @@ test("a reviewed draft (the real commitManualDraft): her edits are hers, untouch
   assert.equal(extra.get("manualSuggestion"), null)
 })
 
+// The review sheet's PreviewTask shape for a row, as handleSave sends it.
+const sentRow = (r, over = {}) => ({
+  title: r.title, description: r.description, care_type: r.care_type, priority_tier: r.priority_tier,
+  risk_level: r.risk_level, estimated_minutes: r.estimated_minutes, schedule_type: r.schedule_type,
+  interval_days: r.interval_days, instructions_text: r.instructions_override, symptom_tags: [], re_check_triggers: [],
+  applies_to: [], supplies: [], remind_enabled: null, ...over,
+})
+
+async function reviewHome(H, uid, draft) {
+  await db.doc(`homes/${H}`).set({ name: "Season", freezeRisk: true })
+  await db.doc(`homes/${H}/members/${uid}`).set({ uid, role: "member" })
+  await db.doc(`homes/${H}/items/item1`).set({ displayName: "Outdoor faucet", itemCategory: "plumbing" })
+  await db.doc(`homes/${H}/manuals/m1`).set({ itemUnitId: "item1", title: "Manual", previewDraft: { chunks: [], tasks: draft } })
+}
+
+test("a season the reviewer picked is kept — not re-derived from the title — and is hers", async () => {
+  const H = "prov-season-picked"
+  const REVIEWER = "reviewer-season"
+  // "Spring startup" puts this task in SPRING by its title (seasonForTask).
+  const draft = [row({ title: "Spring startup of the sprinkler system", schedule_type: "seasonal" })]
+  await reviewHome(H, REVIEWER, draft)
+  const res = await commitManualDraft.run({
+    data: { homeId: H, manualId: "m1", chunks: [], tasks: [sentRow(draft[0], { season: "fall" })] },
+    auth: { uid: REVIEWER },
+  })
+  assert.equal(res.ok, true)
+
+  const tpl = (await byTitle(H))["Spring startup of the sprinkler system"]
+  assert.equal(tpl.get("schedule").season, "fall", "the reviewer's season is what is stored")
+  const s = stampOf(tpl, "schedule")
+  assert.deepEqual({ by: s.by, uid: s.uid, via: s.via }, { by: "user", uid: REVIEWER, via: "parseReview" })
+  assert.deepEqual(s.value, { scheduleType: "seasonal", intervalDays: null, season: "fall" })
+  assert.equal(sourceOf(tpl.data(), "schedule")?.by, "user")
+  assert.deepEqual(tpl.get("manualSuggestion").schedule, { scheduleType: "seasonal", intervalDays: null, season: "spring" }, "the manual (by its title) said spring")
+  for (const f of ["priorityTier", "remindEnabled", "careType"]) assert.equal(stampOf(tpl, f).by, "manual", `untouched: ${f}`)
+
+  // And it is SCHEDULED on her season: the one instance lands on a fall anchor.
+  const inst = await db.collection(`homes/${H}/taskInstances`).where("taskTemplateId", "==", tpl.id).get()
+  assert.equal(inst.size, 1)
+  assert.match(inst.docs[0].get("dueDate"), /-10-15$/, "fall's anchor, not spring's 04-15")
+})
+
+test("no season sent → the title decides, as before, and it is the manual's", async () => {
+  const H = "prov-season-absent"
+  const REVIEWER = "reviewer-season-2"
+  const draft = [row({ title: "Spring startup of the sprinkler system", schedule_type: "seasonal" })]
+  await reviewHome(H, REVIEWER, draft)
+  // One row sends nothing for season, the other the sheet's untouched null.
+  const res = await commitManualDraft.run({
+    data: { homeId: H, manualId: "m1", chunks: [], tasks: [sentRow(draft[0])] },
+    auth: { uid: REVIEWER },
+  })
+  assert.equal(res.ok, true)
+  const tpl = (await byTitle(H))["Spring startup of the sprinkler system"]
+  assert.equal(tpl.get("schedule").season, "spring")
+  assert.equal(stampOf(tpl, "schedule").by, "manual")
+  const inst = await db.collection(`homes/${H}/taskInstances`).where("taskTemplateId", "==", tpl.id).get()
+  assert.match(inst.docs[0].get("dueDate"), /-04-15$/)
+
+  // The sheet's untouched seasonal row sends `season: null` — same outcome.
+  const H2 = "prov-season-null"
+  await reviewHome(H2, REVIEWER, draft)
+  await commitManualDraft.run({
+    data: { homeId: H2, manualId: "m1", chunks: [], tasks: [sentRow(draft[0], { season: null })] },
+    auth: { uid: REVIEWER },
+  })
+  const tpl2 = (await byTitle(H2))["Spring startup of the sprinkler system"]
+  assert.equal(tpl2.get("schedule").season, "spring")
+  assert.equal(stampOf(tpl2, "schedule").by, "manual")
+})
+
+test("a season left on a row she moved off seasonal changes nothing", async () => {
+  const H = "prov-season-stale"
+  const REVIEWER = "reviewer-season-3"
+  const draft = [row({ title: "Spring startup of the sprinkler system", schedule_type: "seasonal" })]
+  await reviewHome(H, REVIEWER, draft)
+  await commitManualDraft.run({
+    data: { homeId: H, manualId: "m1", chunks: [], tasks: [sentRow(draft[0], { schedule_type: "annual", season: "fall" })] },
+    auth: { uid: REVIEWER },
+  })
+  const tpl = (await byTitle(H))["Spring startup of the sprinkler system"]
+  assert.equal(tpl.get("schedule").scheduleType, "annual")
+  assert.equal(tpl.get("schedule").season, "spring", "a non-seasonal row stores the title's season, exactly as before")
+})
+
+test("a reviewed row with no draft counterpart keeps the manual's earlier suggestion", async () => {
+  const H = "prov-keep-suggestion"
+  const REVIEWER = "reviewer-keep"
+  await reviewHome(H, REVIEWER, [])
+  // An earlier parse of m1 created the task and recorded the manual's word.
+  await commitDraft(db, {
+    homeId: H, manualId: "m1", item: itemFacts("item1"), requestId: "first-parse", chunks: [], now: NOW,
+    tasks: [row({ title: "Drain the supply line", priority_tier: "essential", schedule_type: "annual" })],
+  })
+  const before = (await byTitle(H))["Drain the supply line"]
+  assert.equal(before.get("manualSuggestion").priorityTier, "essential")
+  const at = before.get("manualSuggestion").at
+
+  // A review whose draft no longer has that row (nothing to pair it with).
+  await db.doc(`homes/${H}/manuals/m1`).set(
+    { previewDraft: { chunks: [], tasks: [row({ title: "Something else entirely" })] } },
+    { merge: true },
+  )
+  const res = await commitManualDraft.run({
+    data: {
+      homeId: H, manualId: "m1", chunks: [],
+      tasks: [sentRow(row({ title: "Drain the supply line", priority_tier: "essential", schedule_type: "annual" }), { priority_tier: "optional" })],
+    },
+    auth: { uid: REVIEWER },
+  })
+  assert.equal(res.ok, true)
+  const after = (await byTitle(H))["Drain the supply line"]
+  assert.equal(after.id, before.id, "matched in place, not re-created")
+  assert.equal(after.get("priorityTier"), "optional", "what is written is still the reviewed row")
+  const sug = after.get("manualSuggestion")
+  assert.ok(sug, "the earlier suggestion was kept, not overwritten with null")
+  assert.equal(sug.priorityTier, "essential")
+  assert.equal(sug.manualId, "m1")
+  assert.ok(sug.at.isEqual(at), "untouched — still the first parse's record")
+  for (const f of FIELDS) assert.equal(stampOf(after, f), null, `no draft row → unknown: ${f}`)
+})
+
 test("the classifier backfill stamps only what it changes, as system", async () => {
   const H = "prov-classify"
   const U = "member-c"
