@@ -1,5 +1,5 @@
 /**
- * Homehub v2 Cloud Functions (2nd gen, Node 20).
+ * Homehub v2 Cloud Functions (2nd gen, Node 22).
  *
  * Phase 3: parse pipeline — enqueueParse callable + parseWorker (onTaskDispatched,
  *   timeoutSeconds 1800). Worker logic lives in the testable runParse core.

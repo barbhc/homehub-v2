@@ -7,7 +7,7 @@ kept running untouched until the Phase 7 switch). **The plan is law:** read
 
 ## Stack
 React 19 + Vite 7 + Tailwind 4 (UI tree ported from v1 — **recreate zero screens**) ·
-Firebase: Auth, Firestore, Storage, Functions 2nd gen (Node 20), Cloud Tasks, Cloud Scheduler ·
+Firebase: Auth, Firestore, Storage, Functions 2nd gen (Node 22), Cloud Tasks, Cloud Scheduler ·
 Hosting: Firebase Hosting (default per plan; owner may revisit before cutover).
 
 ## Commands
