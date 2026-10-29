@@ -1,6 +1,7 @@
 import { useImperativeHandle, useState, type Ref } from "react"
 import { Loader2Icon, SlidersHorizontalIcon } from "lucide-react"
 import { TaskReviewSheet } from "./TaskReviewSheet"
+import { rowsFrom } from "./reviewRows"
 import { loadItemTasksForReview, saveItemTaskReview, type ExistingTaskReview } from "@/modules/care/services/taskReviewService"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import { useHomeProfile } from "@/modules/home"
@@ -37,6 +38,7 @@ export function ReviewItemTasksButton({homeId,
 }) {
   // Freeze-prep is suppressed before the review, not at save (see the prop).
   const { profile } = useHomeProfile(homeId)
+  const freezeRiskFalse = profile?.freeze_risk === false
   // No bell is drawn on a phone that refused notifications (HH-161 S5).
   const notificationsBlocked = useNotificationsBlocked()
   const [loading, setLoading] = useState(false)
@@ -65,8 +67,12 @@ export function ReviewItemTasksButton({homeId,
     const res = await saveItemTaskReview({
       homeId,
       itemUnitId,
-      idByTitle: review.idByTitle,
-      manualByTitle: review.manualByTitle,
+      templateIds: review.templateIds,
+      manualById: review.manualById,
+      // The rows the sheet drew — the same rowsFrom call, on the same inputs.
+      // A task it suppressed (freeze-prep in a freeze-free home) was never on
+      // screen, so the save must not read its absence as "skip this".
+      shownTemplateIds: rowsFrom(review.preview, freezeRiskFalse).flatMap((r) => (r.task?.template_id ? [r.task.template_id] : [])),
       tasks,
       chunks,
     })
@@ -128,7 +134,7 @@ export function ReviewItemTasksButton({homeId,
 
       {review && (
         <TaskReviewSheet
-          freezeRiskFalse={profile?.freeze_risk === false}
+          freezeRiskFalse={freezeRiskFalse}
           notificationsBlocked={notificationsBlocked}
           open={open}
           onOpenChange={(o) => {

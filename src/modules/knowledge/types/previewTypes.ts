@@ -23,6 +23,9 @@ export interface PreviewChunk {
   source_pages?: number[] | null
   /** Variant tags (e.g. ["gas"]); [] = applies to all. Forwarded to save. */
   applies_to?: string[]
+  /** Existing-task review only: the task template this tip was converted FROM.
+   *  Never set by the parser. See PreviewTask.template_id. */
+  template_id?: string
 }
 
 export interface PreviewSupply {
@@ -71,6 +74,12 @@ export interface PreviewTask {
   applies_to?: string[]
   /** Cited supplies for the "You'll need" chips; [] = none. Forwarded to save. */
   supplies?: PreviewSupply[]
+  /** Existing-task review only (taskReviewService): the stored task template
+   *  this row IS. Never set by the parser — a fresh extraction has no ids, and
+   *  matching it to stored tasks by title is commitDraft's job. Carried so a
+   *  review save writes back by identity: titles are not unique (two "Clean
+   *  the filter" rows on one item are two tasks), and a row's title is display. */
+  template_id?: string
 }
 
 export interface PreviewResult {

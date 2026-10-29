@@ -80,6 +80,23 @@ export default defineConfig(({ mode }) => {
       // to the plugin above.
       'import.meta.env.VITE_SENTRY_RELEASE': JSON.stringify(release),
     },
+    /**
+     * Browser suites serve a FROZEN copy of the source (E2E_WEB_SERVER_ENV in
+     * e2e/seed-config.ts sets the flag on every emulator suite's web server).
+     *
+     * With HMR on, any edit to a module the page has loaded — another agent's
+     * branch switch, a `git pull`, saving a file mid-run — hot-swaps or
+     * reloads the app under a running test. That remounts the add-item wizard,
+     * which sees its own saved session and shows "Pick up where you left off"
+     * mid-flow: exactly the 2026-10-28 audit flake (Back → Add the manual →
+     * resume screen, green when rerun alone). Proven by editing HomeProvider
+     * during a run (remount) and firebase/app.ts (full reload); both land on
+     * the resume screen. A test run should exercise one version of the app,
+     * so nothing here watches or pushes updates.
+     */
+    ...(process.env.HH_E2E_FROZEN_SOURCE === '1'
+      ? { server: { hmr: false, watch: null } }
+      : {}),
     build: {
       /**
        * "hidden", not true: maps are emitted for upload but NO

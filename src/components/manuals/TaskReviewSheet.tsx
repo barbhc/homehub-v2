@@ -361,6 +361,9 @@ export function TaskReviewSheet({
           r.chunk ?? {
             chunk_type: "how_to", title: r.title, content: r.description ?? r.title,
             tags: [USAGE_TIP_TAG], source_pages: r.task?.source_page ? [r.task.source_page] : [],
+            // An existing task converted to a tip names the task it was, so the
+            // save deactivates THAT task — not whichever one shares its title.
+            ...(r.task?.template_id ? { template_id: r.task.template_id } : {}),
           },
         )
         continue
