@@ -32,6 +32,7 @@ async function applyFreezeFree() {
   render(
     <MemoryRouter>
       <TaskFeedbackSheet
+        open
         homeId="h1" taskTemplateId="t-washer" taskInstanceId="i1" title="Winterize the washer for cold storage"
         tier="recommended" onClose={vi.fn()} onApplied={vi.fn()}
       />

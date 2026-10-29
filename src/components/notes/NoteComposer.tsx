@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import { LightbulbIcon, Loader2Icon, MapPinIcon } from "lucide-react"
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
+import { SheetDescription, SheetTitle } from "@/components/ui/sheet"
+import { BottomSheet, SHEET_SURFACE, SheetGrabber } from "@/components/ui/BottomSheet"
 import type { CareNote } from "@/integrations/types"
 import { isBlankNote, type NoteIdea } from "@/lib/notes"
 import { IdeaChips, SharedLine } from "./NoteParts"
@@ -62,12 +63,22 @@ export function NoteComposer({
   }
 
   const blank = isBlankNote(text)
+  // Typed-but-unsaved text is what a stray drag or scrim tap must not lose.
+  const [startText] = useState(text)
+  const dirty = text.trim() !== startText.trim()
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="mx-auto w-full max-w-lg gap-0 rounded-t-3xl border-0 p-0">
+    <BottomSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      isDirty={dirty}
+      grabber="none"
+      showCloseButton
+      testId="note-composer"
+      className={`${SHEET_SURFACE} mx-auto w-full max-w-lg gap-0 rounded-t-3xl border-0 p-0`}
+    >
         <div className="flex flex-col gap-3.5 px-5 pb-7 pt-2.5">
-          <span className="h-[5px] w-9 self-center rounded-full" style={{ background: "var(--hh-grab)" }} aria-hidden />
-          <div className="flex flex-wrap items-center gap-2 pr-10">
+          <SheetGrabber className="self-center" />
+          <div data-sheet-drag="" className="flex flex-wrap items-center gap-2 pr-10">
             <SheetTitle className="text-[1.125rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>
               {note ? "Edit note" : "New note"}
             </SheetTitle>
@@ -120,7 +131,7 @@ export function NoteComposer({
               type="button"
               onClick={() => void run("save", () => onSave(text.trim()))}
               disabled={blank || busy !== null}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3.5 text-[1rem] font-bold text-white disabled:opacity-50"
+              className="hh-press flex flex-1 items-center justify-center gap-2 rounded-xl py-3.5 text-[1rem] font-bold text-white disabled:opacity-50"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {busy === "save" && <Loader2Icon className="size-4 animate-spin" aria-hidden />}
@@ -128,7 +139,6 @@ export function NoteComposer({
             </button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+    </BottomSheet>
   )
 }

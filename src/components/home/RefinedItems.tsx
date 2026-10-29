@@ -68,7 +68,7 @@ export function ItemsPhoneHeader({ density = "cozy" }: { density?: "spacious" | 
       <Link
         to="/inventory/add"
         aria-label="Add item"
-        className="hit-44 flex items-center justify-center rounded-full"
+        className="hh-press hit-44 flex items-center justify-center rounded-full"
         style={{ width: d.tap + 6, height: d.tap + 6, background: "var(--hh-teal-fill)" }}
       >
         <PlusIcon className="size-5 text-white" strokeWidth={2.6} />
@@ -156,7 +156,7 @@ export function RefinedItems({
                 key={k}
                 type="button"
                 onClick={() => setSort(k)}
-                className="hit-44 rounded-full border px-3.5 py-1.5 text-[0.8125rem] font-semibold"
+                className="hh-press hit-44 rounded-full border px-3.5 py-1.5 text-[0.8125rem] font-semibold"
                 style={on ? { borderColor: TEAL, background: "var(--hh-teal-wash)", color: TEAL } : { borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: SUB }}
               >
                 {label}
@@ -185,7 +185,7 @@ export function RefinedItems({
                   <Link
                     key={it.item_unit_id}
                     to={`/items/${it.item_unit_id}`}
-                    className="flex items-center gap-3.5"
+                    className="hh-press-row flex items-center gap-3.5"
                     style={{ padding: `${d.rowPy}px ${d.cardPad}px`, borderBottom: i === g.items.length - 1 ? "none" : "0.5px solid var(--hh-line)" }}
                   >
                     <ItemThumb item={it} size={d.tap + 20} />

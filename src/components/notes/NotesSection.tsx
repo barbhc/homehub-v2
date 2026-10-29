@@ -13,7 +13,10 @@ const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", T
 const SURFACE = "var(--hh-surface)"
 const CARD = "rounded-2xl px-4 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
 
-type Composer = { key: string; note: CareNote | null; idea: NoteIdea | null }
+// `open` is separate from the composer itself: closing keeps the composer
+// mounted so the sheet can animate out with its text; each open gets a fresh
+// key, so it always starts from that note's own text.
+type Composer = { key: string; note: CareNote | null; idea: NoteIdea | null; open: boolean }
 
 /**
  * The item page's Notes — what you'd otherwise have to remember about THIS
@@ -47,7 +50,7 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
   // data caught this when a fixture that used "system" for `category` passed.
   const ideas = ideasFor("item_unit", item.item_category ?? null, all)
 
-  const openNew = (idea: NoteIdea | null) => setComposer({ key: `new:${idea?.label ?? ""}:${Date.now()}`, note: null, idea })
+  const openNew = (idea: NoteIdea | null) => setComposer({ key: `new:${idea?.label ?? ""}:${Date.now()}`, note: null, idea, open: true })
 
   const save = async (text: string): Promise<string | null> => {
     const note = composer?.note ?? null
@@ -86,7 +89,7 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
             type="button"
             onClick={() => openNew(null)}
             aria-label="Add a note"
-            className="hit-44 shrink-0 rounded-full border px-3 py-1 text-[0.78125rem] font-bold"
+            className="hh-press hit-44 shrink-0 rounded-full border px-3 py-1 text-[0.78125rem] font-bold"
             style={{ borderColor: "var(--hh-line2)", color: TEAL }}
           >
             Add
@@ -112,14 +115,14 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
           <IdeaChips ideas={ideas} onPick={openNew} label={null} />
         </div>
       ) : (
-        <NoteRows notes={all} onEdit={(note) => setComposer({ key: note.note_id, note, idea: null })} />
+        <NoteRows notes={all} onEdit={(note) => setComposer({ key: `${note.note_id}:${Date.now()}`, note, idea: null, open: true })} />
       )}
 
       {composer && (
         <NoteComposer
           key={composer.key}
-          open
-          onOpenChange={(open) => { if (!open) setComposer(null) }}
+          open={composer.open}
+          onOpenChange={(open) => { if (!open) setComposer((c) => c && { ...c, open: false }) }}
           scopeLabel={item.display_name}
           homeName={home?.name ?? null}
           ideas={ideas}

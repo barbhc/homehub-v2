@@ -78,7 +78,7 @@ export function IdeaChips({ ideas, selected, onPick, label = "Ideas" }: {
               type="button"
               aria-pressed={on}
               onClick={() => onPick(idea)}
-              className="hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.78125rem] font-semibold"
+              className="hh-press hit-44 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.78125rem] font-semibold"
               style={{
                 borderColor: on ? TEAL : "color-mix(in srgb, var(--hh-teal) 40%, transparent)",
                 background: on ? "var(--hh-teal-wash)" : SURFACE,

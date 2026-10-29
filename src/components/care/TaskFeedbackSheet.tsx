@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { createPortal } from "react-dom"
-import { RemoveScroll } from "react-remove-scroll"
 import { CheckIcon, SparklesIcon, MessageCircleIcon, ShieldAlertIcon, PhoneIcon } from "lucide-react"
 import { useAuth } from "@/modules/auth"
 import {
@@ -16,6 +14,8 @@ import { cadenceLabelInline } from "../../../shared/tasks/cadenceLabel"
 import { splitInterval, toDays } from "../../../shared/care/interval"
 import { RepeatEveryInput } from "./RepeatEveryInput"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { BottomSheet, SheetGrabber } from "@/components/ui/BottomSheet"
+import { useSheetDirty } from "@/components/ui/bottomSheetDirty"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", FAINT = "var(--hh-faint)", CLAY = "var(--hh-clay)"
 
@@ -63,7 +63,7 @@ function Choice({ label, selected, onClick }: { label: string; selected: boolean
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[11px] px-3.5 py-2.5 text-left text-[0.84375rem] font-semibold"
+      className="hh-press rounded-[11px] px-3.5 py-2.5 text-left text-[0.84375rem] font-semibold"
       style={selected
         ? { border: "1.5px solid var(--hh-teal)", background: "var(--hh-teal-wash)", color: TEAL }
         : { border: "1px solid var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
@@ -73,10 +73,7 @@ function Choice({ label, selected, onClick }: { label: string; selected: boolean
   )
 }
 
-export function TaskFeedbackSheet({
-  homeId, taskTemplateId, taskInstanceId, title, tier, justification, manualPage, hazardous,
-  onClose, onApplied,
-}: {
+type TaskFeedbackProps = {
   homeId: string
   taskTemplateId: string
   taskInstanceId: string | null
@@ -87,7 +84,35 @@ export function TaskFeedbackSheet({
   hazardous?: boolean
   onClose: () => void
   onApplied: (r: SubmitFeedbackResult) => void
-}) {
+}
+
+/**
+ * "Tune this task" — the shared bottom sheet (phase 2), above the tab bar
+ * ("raised"; the tab bar is z-50), at the task page column's width. Render it
+ * always and drive it with `open`: the body below holds the conversation, and
+ * keeps it on screen while the sheet animates out.
+ */
+export function TaskFeedbackSheet({ open, ...props }: TaskFeedbackProps & { open: boolean }) {
+  return (
+    <BottomSheet
+      open={open}
+      onOpenChange={(o) => { if (!o) props.onClose() }}
+      label="Tune this task"
+      layer="raised"
+      grabber="none"
+      testId="task-feedback-sheet"
+      className="mx-auto flex max-h-[88%] w-full max-w-[460px] flex-col rounded-t-[20px] shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:max-w-[960px]"
+      style={{ background: "var(--hh-surface)" }}
+    >
+      <TaskFeedbackBody {...props} />
+    </BottomSheet>
+  )
+}
+
+function TaskFeedbackBody({
+  homeId, taskTemplateId, taskInstanceId, title, tier, justification, manualPage, hazardous,
+  onClose, onApplied,
+}: TaskFeedbackProps) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [chip, setChip] = useState<FeedbackChip | null>(null)
@@ -252,24 +277,14 @@ export function TaskFeedbackSheet({
       return next
     })
 
-  // RemoveScroll, as the Radix sheets do: the page behind stays put while this
-  // is open (audit 2026-10-15).
-  //
-  // Portalled and FIXED, as TaskEditSheet is. It was `absolute` to the task
-  // page's wrapper, so opened from the bottom of a long task its top ran off
-  // the screen and its scrim covered the wrapper, not the screen; the tab bar
-  // (z-50) painted over it. The panel keeps the task page column's width.
-  return createPortal(
-    <RemoveScroll allowPinchZoom>
-      <div onClick={onClose} className="fixed inset-0 z-[60]" style={{ background: "rgba(8,12,11,0.4)" }} />
-      <div
-        className="fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[88%] w-full max-w-[460px] flex-col overflow-hidden rounded-t-[20px] shadow-[0_-8px_30px_rgba(0,0,0,0.18)] lg:max-w-[960px]"
-        style={{ background: "var(--hh-surface)" }}
-        role="dialog"
-        aria-label="Tune this task"
-      >
-        <div className="shrink-0 px-5 pt-4">
-          <div className="mx-auto mb-3 h-1 w-9 rounded-full" style={{ background: "var(--hh-grab)" }} />
+  // A reason picked, a note typed or a conversation started is input a stray
+  // drag shouldn't throw away. Once applied, there is nothing left to lose.
+  useSheetDirty(!result && (chip !== null || note.trim() !== "" || messages.length > 0))
+
+  return (
+    <>
+        <div data-sheet-drag="" className="shrink-0 px-5 pt-4">
+          <SheetGrabber className="mb-3" />
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(18px+env(safe-area-inset-bottom))]" style={{ display: step === "discuss" ? "flex" : "block", flexDirection: "column" }}>
@@ -289,7 +304,7 @@ export function TaskFeedbackSheet({
             {climateError && (
               <p className="-mt-2 mb-4 text-[0.8125rem] font-semibold" style={{ color: CLAY }}>{climateError}</p>
             )}
-            <button onClick={() => onApplied(result)} className="w-full rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Done</button>
+            <button onClick={() => onApplied(result)} className="hh-press w-full rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>Done</button>
           </div>
         ) : step === "choose" ? (
           /* ── STEP 1: pick a reason ── */
@@ -305,7 +320,7 @@ export function TaskFeedbackSheet({
                   key={c.key}
                   type="button"
                   onClick={() => { setChip(c.key); setTierChoice(null); setCadenceChoice(null); setSeasonChoice(null); setVia("chip") }}
-                  className="flex items-center justify-between rounded-[12px] px-3.5 py-3 text-left"
+                  className="hh-press-row flex items-center justify-between rounded-[12px] px-3.5 py-3 text-left"
                   style={chip === c.key
                     ? { border: "1.5px solid var(--hh-teal)", background: "var(--hh-teal-wash)" }
                     : { border: "1px solid var(--hh-line2)", background: "var(--hh-surface)" }}
@@ -321,7 +336,7 @@ export function TaskFeedbackSheet({
               <button
                 type="button"
                 onClick={() => setStep("discuss")}
-                className="flex items-center gap-2 rounded-[12px] px-3.5 py-3 text-left"
+                className="hh-press-row flex items-center gap-2 rounded-[12px] px-3.5 py-3 text-left"
                 style={{ border: "1px solid var(--hh-line2)", background: "var(--hh-surface)" }}
               >
                 <MessageCircleIcon className="size-[16px]" style={{ color: TEAL }} />
@@ -384,7 +399,7 @@ export function TaskFeedbackSheet({
             <button
               disabled={!resolution}
               onClick={proceed}
-              className="mt-5 w-full rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white disabled:opacity-40"
+              className="hh-press mt-5 w-full rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white disabled:opacity-40"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               Continue
@@ -541,7 +556,7 @@ export function TaskFeedbackSheet({
               <button
                 disabled={submitting || loadingCtx}
                 onClick={apply}
-                className="flex-1 rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white disabled:opacity-50"
+                className="hh-press flex-1 rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white disabled:opacity-50"
                 style={{ background: "var(--hh-teal-fill)" }}
               >
                 {submitting ? "Applying…" : `Apply${affectedCount > 1 ? ` to ${affectedCount} tasks` : ""}`}
@@ -550,9 +565,7 @@ export function TaskFeedbackSheet({
           </>
         )}
         </div>
-      </div>
-    </RemoveScroll>,
-    document.body,
+    </>
   )
 }
 

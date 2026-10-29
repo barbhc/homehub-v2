@@ -957,7 +957,7 @@ export default function Settings() {
                 role="radio"
                 aria-checked={active}
                 onClick={() => setAppearance(value)}
-                className="hit-44 rounded-lg px-4 py-1.5 text-[0.8125rem] font-semibold transition-colors"
+                className="hh-press hit-44 rounded-lg px-4 py-1.5 text-[0.8125rem] font-semibold transition-colors"
                 style={
                   active
                     ? { background: "var(--hh-surface)", color: "var(--hh-teal)", boxShadow: "0 1px 2px rgba(15,23,42,0.08)" }
@@ -1269,7 +1269,7 @@ export default function Settings() {
                 aria-checked={autoFindManuals}
                 aria-label="Find manuals automatically"
                 onClick={() => setAutoFindManuals(!autoFindManuals)}
-                className="hit-44 relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors"
+                className="hh-press hit-44 relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors"
                 // Off track: --hh-line2 was 1.3:1 against the card, so the switch's
                 // off state was nearly invisible (WCAG 1.4.11 wants 3:1). Same
                 // token as the supply switch.
@@ -1524,7 +1524,7 @@ export default function Settings() {
           </p>
           <Link
             to="/reminders"
-            className="flex items-center gap-3 rounded-2xl px-4 py-3"
+            className="hh-press-row flex items-center gap-3 rounded-2xl px-4 py-3"
             style={{ background: "var(--hh-surface2)", border: "1px solid var(--hh-line)" }}
           >
             <span className="flex size-9 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-teal-wash)" }}>
@@ -1547,7 +1547,7 @@ export default function Settings() {
           </p>
           <Link
             to="/home-setup"
-            className="flex items-center gap-3 rounded-2xl px-4 py-3"
+            className="hh-press-row flex items-center gap-3 rounded-2xl px-4 py-3"
             style={{ background: "var(--hh-surface2)", border: "1px solid var(--hh-line)" }}
           >
             <span className="flex size-9 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-teal-wash)" }}>
@@ -1738,7 +1738,7 @@ export default function Settings() {
                               ? `${row.label} (always on)`
                               : `${row.label} push ${on ? "on" : "off"}`
                           }
-                          className="hit-44 flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
+                          className="hh-press hit-44 flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
                           style={{
                             border: `1.5px solid ${on ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`,
                             background: on ? "var(--hh-teal-fill)" : "var(--hh-surface)",
@@ -1782,7 +1782,7 @@ export default function Settings() {
                         role="radio"
                         aria-checked={on}
                         onClick={() => setPushMode(opt.value)}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                        className="hh-press-row flex w-full items-center gap-3 px-4 py-3 text-left"
                         style={i ? { borderTop: "1px solid var(--hh-line)" } : undefined}
                       >
                         <span
@@ -1829,7 +1829,7 @@ export default function Settings() {
                       onClick={() => setWeeklyDigest({ enabled: !notifPrefs.weekly_digest.enabled })}
                       aria-pressed={notifPrefs.weekly_digest.enabled}
                       aria-label={`Weekly summary push ${notifPrefs.weekly_digest.enabled ? "on" : "off"}`}
-                      className="hit-44 flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
+                      className="hh-press hit-44 flex size-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
                       style={{
                         border: `1.5px solid ${notifPrefs.weekly_digest.enabled ? "var(--hh-teal-fill)" : "var(--hh-line2)"}`,
                         background: notifPrefs.weekly_digest.enabled ? "var(--hh-teal-fill)" : "var(--hh-surface)",

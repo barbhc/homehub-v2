@@ -135,7 +135,7 @@ export function FilterBar({
                   type="button"
                   onClick={() => onRoomToggle(room.room_id)}
                   className={cn(
-                    "hit-44 rounded-full text-xs px-3 py-1 border transition-colors whitespace-nowrap",
+                    "hh-press hit-44 rounded-full text-xs px-3 py-1 border transition-colors whitespace-nowrap",
                     active
                       ? "bg-[var(--hh-teal-fill)] text-primary-foreground border-[var(--hh-teal-fill)]"
                       : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary"

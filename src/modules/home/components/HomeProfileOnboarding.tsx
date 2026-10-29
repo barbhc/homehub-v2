@@ -349,7 +349,7 @@ function OptionRow({ selected, onClick, label, hint, role, ariaChecked }: Option
       aria-checked={ariaChecked}
       onClick={onClick}
       className={cn(
-        "w-full text-left rounded-lg border-2 px-4 py-3 transition-colors",
+        "hh-press-row w-full text-left rounded-lg border-2 px-4 py-3 transition-colors",
         "min-h-11 flex flex-col justify-center",
         selected
           ? "border-primary bg-primary/5"

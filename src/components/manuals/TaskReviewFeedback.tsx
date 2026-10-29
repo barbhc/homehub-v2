@@ -1,5 +1,7 @@
 import { useState } from "react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { BottomSheet, SHEET_SURFACE } from "@/components/ui/BottomSheet"
 
 /**
  * "These tasks don't look right" — the escape hatch at the bottom of the review.
@@ -54,6 +56,11 @@ export function TaskReviewFeedback({
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [note, setNote] = useState("")
   const [sent, setSent] = useState(false)
+  // Each open starts empty, so "Discard changes?" → Discard really discards.
+  if (useDepsChanged([open]) && open) {
+    setPicked(new Set())
+    setNote("")
+  }
 
   const send = (rescan: boolean) => {
     onSubmit({ reasons: [...picked], note: note.trim(), edits, rescan })
@@ -76,14 +83,20 @@ export function TaskReviewFeedback({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="hit-44 rounded-full border border-border bg-card px-3 py-2 text-[0.75rem] font-semibold whitespace-nowrap"
+          className="hh-press hit-44 rounded-full border border-border bg-card px-3 py-2 text-[0.75rem] font-semibold whitespace-nowrap"
         >
           {sent ? "Add more" : "Tell us what's off"}
         </button>
       </div>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="p-4 pb-6">
+      <BottomSheet
+        open={open}
+        onOpenChange={setOpen}
+        isDirty={picked.size > 0 || note.trim() !== ""}
+        showCloseButton
+        testId="task-review-feedback-sheet"
+        className={`${SHEET_SURFACE} p-4 pb-6`}
+      >
           <SheetHeader className="p-0 mb-2.5">
             <SheetTitle className="text-[0.8125rem]">What doesn't look right?</SheetTitle>
           </SheetHeader>
@@ -102,7 +115,7 @@ export function TaskReviewFeedback({
                     return next
                   })
                 }
-                className={`rounded-full border px-2.5 py-2 text-[0.75rem] font-semibold ${
+                className={`hh-press rounded-full border px-2.5 py-2 text-[0.75rem] font-semibold ${
                   picked.has(r.id)
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-background text-muted-foreground"
@@ -144,8 +157,7 @@ export function TaskReviewFeedback({
               Send feedback
             </button>
           </div>
-        </SheetContent>
-      </Sheet>
+      </BottomSheet>
     </>
   )
 }

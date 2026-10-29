@@ -640,6 +640,51 @@ code {
   .hh-scanrail { animation: none; width: 100%; opacity: 0.45; }
 }
 
+/* ── Press feedback (Apple polish phase 2) ────────────────────────────────────
+   Something answers the instant a finger lands (--dur-press), as in the
+   approved demo:
+   - .hh-press      buttons, chips, pills, segmented controls: shrink to 96%
+                    from the centre and dim.
+   - .hh-press-row  list rows and card-like links: the row washes teal. The
+                    tint is !important because these rows often paint their
+                    background inline, and the press has to show over it.
+   iOS only runs :active when a touchstart listener exists; src/lib/pressFeedback.ts
+   adds one passive listener to the document at boot.
+   Unlayered on purpose: a component's Tailwind `transition-*` utility (layered)
+   would otherwise replace this transition and the press would snap. The list
+   keeps the colour properties those utilities animated. */
+.hh-press {
+  transform-origin: center;
+  transition:
+    transform var(--dur-press) var(--ease-enter),
+    opacity var(--dur-press) linear,
+    color var(--dur-press) linear,
+    background-color var(--dur-press) linear,
+    border-color var(--dur-press) linear,
+    box-shadow var(--dur-press) linear;
+}
+.hh-press:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.96);
+  opacity: 0.75;
+}
+.hh-press-row {
+  transition:
+    background-color var(--dur-press) linear,
+    color var(--dur-press) linear,
+    border-color var(--dur-press) linear;
+}
+.hh-press-row:active:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--hh-teal-wash) !important;
+}
+/* Reduce Motion: the dim and the tint stay (they don't move); the shrink goes.
+   The global block below only drops the TRANSITION, which would leave the
+   scale landing in one frame — a jump. */
+@media (prefers-reduced-motion: reduce) {
+  .hh-press:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: none;
+  }
+}
+
 /* ── Reduce Motion (iOS Accessibility › Motion), app-wide ─────────────────────
    Until now only the scan rail above and the boot splash honoured it; the
    skeletons pulsed and every slide/scale transition still moved. One block, so

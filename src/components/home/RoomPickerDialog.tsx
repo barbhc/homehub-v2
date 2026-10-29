@@ -88,7 +88,7 @@ export function RoomPickerDialog({
               type="button"
               onClick={() => void handleCreate()}
               disabled={creating || !newName.trim()}
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-2 text-[0.78125rem] font-bold disabled:opacity-50"
+              className="hh-press inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-2 text-[0.78125rem] font-bold disabled:opacity-50"
               style={{ borderColor: "var(--hh-teal)", color: "var(--hh-teal)" }}
             >
               {creating ? <Loader2Icon className="size-3.5 animate-spin" /> : <PlusIcon className="size-3.5" />}

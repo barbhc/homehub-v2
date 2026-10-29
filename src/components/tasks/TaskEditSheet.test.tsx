@@ -30,7 +30,7 @@ beforeEach(() => {
 
 describe("TaskEditSheet", () => {
   it("locks the page behind while open, as the Radix sheets do, and lets go on close", async () => {
-    const { unmount } = render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
+    const { unmount } = render(<TaskEditSheet open homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
     // react-remove-scroll marks <body> once its side effect mounts.
     await waitFor(() => expect(document.body).toHaveAttribute("data-scroll-locked"))
     expect(screen.getByRole("dialog", { name: "Edit task" })).toHaveClass("overscroll-contain")
@@ -39,13 +39,13 @@ describe("TaskEditSheet", () => {
   })
 
   it("saves nothing until something actually changed", () => {
-    render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
+    render(<TaskEditSheet open homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
     expect(screen.getByRole("button", { name: /save changes/i })).toBeDisabled()
   })
 
   it("sends only the fields that changed, and reports saved", async () => {
     const onSaved = vi.fn()
-    render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={onSaved} />)
+    render(<TaskEditSheet open homeId="h1" detail={detail} onClose={() => {}} onSaved={onSaved} />)
     fireEvent.change(screen.getByPlaceholderText(/what is this task called/i), {
       target: { value: "Check the range grate bumpers" },
     })
@@ -59,7 +59,7 @@ describe("TaskEditSheet", () => {
   it("a failed content save STOPS — no date write, no false success", async () => {
     updateTaskContent.mockResolvedValue({ data: null, error: { message: "A task needs a name." } })
     const onSaved = vi.fn()
-    render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={onSaved} />)
+    render(<TaskEditSheet open homeId="h1" detail={detail} onClose={() => {}} onSaved={onSaved} />)
     fireEvent.change(screen.getByPlaceholderText(/what is this task called/i), { target: { value: "x" } })
     fireEvent.change(screen.getByDisplayValue("2026-08-15"), { target: { value: "2026-09-01" } })
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }))
@@ -70,7 +70,7 @@ describe("TaskEditSheet", () => {
 
   it("steps can be edited, added, and removed", async () => {
     const onSaved = vi.fn()
-    render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={onSaved} />)
+    render(<TaskEditSheet open homeId="h1" detail={detail} onClose={() => {}} onSaved={onSaved} />)
     fireEvent.click(screen.getByRole("button", { name: /remove step 2/i }))
     fireEvent.click(screen.getByRole("button", { name: /add a step/i }))
     fireEvent.change(screen.getByPlaceholderText("Step 2"), { target: { value: "Replace any cracked bumper." } })
@@ -98,7 +98,7 @@ describe("TaskEditSheet — hazardous work", () => {
   } as never
 
   it("hides the steps editor and keeps the name and date", () => {
-    render(<TaskEditSheet homeId="h1" detail={gas} onClose={() => {}} onSaved={() => {}} />)
+    render(<TaskEditSheet open homeId="h1" detail={gas} onClose={() => {}} onSaved={() => {}} />)
     expect(screen.queryByDisplayValue("Turn the gas valve to OFF.")).toBeNull()
     expect(screen.queryByRole("button", { name: /add a step/i })).toBeNull()
     expect(screen.getByPlaceholderText(/what is this task called/i)).toHaveValue("Relight the gas furnace pilot")
@@ -106,7 +106,7 @@ describe("TaskEditSheet — hazardous work", () => {
   })
 
   it("a DIY task keeps its steps editor", () => {
-    render(<TaskEditSheet homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
+    render(<TaskEditSheet open homeId="h1" detail={detail} onClose={() => {}} onSaved={() => {}} />)
     expect(screen.getByDisplayValue("Lift the grate.")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /add a step/i })).toBeInTheDocument()
   })

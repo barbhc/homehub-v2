@@ -2,13 +2,8 @@ import { useState } from "react"
 import { ImageIcon, Loader2Icon, SearchIcon, CheckIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet"
+import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { BottomSheet, SHEET_SURFACE } from "@/components/ui/BottomSheet"
 import {
   searchProductImages,
   saveProductPhotoFromUrl,
@@ -95,8 +90,13 @@ export function PhotoSearchSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="bottom" className="h-[70vh] rounded-t-2xl flex flex-col">
+    <BottomSheet
+      open={open}
+      onOpenChange={handleOpenChange}
+      showCloseButton
+      testId="photo-search-sheet"
+      className={`${SHEET_SURFACE} h-[70vh] rounded-t-2xl flex flex-col`}
+    >
         <SheetHeader>
           <SheetTitle>Find product photo</SheetTitle>
           <SheetDescription>Search for a product image to use as the item photo.</SheetDescription>
@@ -187,7 +187,6 @@ export function PhotoSearchSheet({
             </Button>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+    </BottomSheet>
   )
 }

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef } from "react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { BottomSheet, SHEET_SURFACE } from "@/components/ui/BottomSheet"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, PackageIcon, XIcon, Undo2Icon, ArrowRightIcon, ChevronLeftIcon } from "lucide-react"
@@ -1059,16 +1060,22 @@ export function TaskReviewSheet({
   )
 }
 
-/** The drawer, for someone who left and came back. */
+/** The drawer, for someone who left and came back. No "Discard changes?":
+ *  closing it loses nothing — the rows live in this component, which stays
+ *  mounted, so a reopened drawer has every edit where it was left. */
 function SheetFrame({
   open, onOpenChange, children,
 }: { open: boolean; onOpenChange: (o: boolean) => void; children: React.ReactNode }) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[92dvh] flex flex-col p-0 gap-0">
-        {children}
-      </SheetContent>
-    </Sheet>
+    <BottomSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      showCloseButton
+      testId="task-review-sheet"
+      className={`${SHEET_SURFACE} h-[92dvh] flex flex-col p-0 gap-0`}
+    >
+      {children}
+    </BottomSheet>
   )
 }
 

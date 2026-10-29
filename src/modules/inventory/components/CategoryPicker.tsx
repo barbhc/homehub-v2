@@ -42,7 +42,7 @@ export function CategoryPicker({
                 aria-label={`Select category ${cat.label}`}
                 aria-pressed={selected}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 bg-muted border-border transition-colors min-h-[88px]",
+                  "hh-press flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 bg-muted border-border transition-colors min-h-[88px]",
                   selected
                     ? "border-primary bg-primary/10 text-primary"
                     : "hover:border-muted-foreground/30"
@@ -77,7 +77,7 @@ export function CategoryPicker({
                         onClick={() => onSubTypeChange(opt.id)}
                         aria-pressed={selected}
                         className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                          "hh-press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                           selected
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-border bg-background hover:border-muted-foreground/40"
