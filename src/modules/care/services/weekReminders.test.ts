@@ -81,6 +81,36 @@ describe("getWeekReminders — the notification lens over the week", () => {
     expect(res.data!.hiddenCount).toBe(0)
   })
 
+  it("'all' mode: everything except what was switched Off (owner, 2026-10-28: Off wins)", async () => {
+    vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(
+      agenda([agendaRow({ taskTemplateId: "null" }), agendaRow({ taskTemplateId: "off", taskInstanceId: "i2" })])
+    )
+    vi.mocked(taskService.getTaskTemplates).mockResolvedValue(
+      ok([template({ task_template_id: "null", remind_enabled: null }), template({ task_template_id: "off", remind_enabled: false })])
+    )
+    const res = await getWeekReminders("h1", "all")
+    expect(res.data!.items.map((i) => i.taskTemplateId)).toEqual(["null"])
+    expect(res.data!.hiddenCount).toBe(1)
+  })
+
+  it("lapsed safety work is listed as the digest names it: never-chose outside Just my list, never when switched Off", async () => {
+    const safety = { safetyNote: "Skipped a cycle", priorityTier: "recommended" as const }
+    vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(
+      agenda([agendaRow({ taskTemplateId: "null", ...safety }), agendaRow({ taskTemplateId: "off", taskInstanceId: "i2", ...safety })])
+    )
+    vi.mocked(taskService.getTaskTemplates).mockResolvedValue(
+      ok([template({ task_template_id: "null", remind_enabled: null }), template({ task_template_id: "off", remind_enabled: false })])
+    )
+    for (const mode of ["curated+essential", "all"] as const) {
+      const res = await getWeekReminders("h1", mode)
+      expect(res.data!.items.map((i) => i.taskTemplateId), mode).toEqual(["null"])
+    }
+    // Just my list: only what was switched On (owner, 2026-10-28 follow-up).
+    const curated = await getWeekReminders("h1", "curated")
+    expect(curated.data!.items).toEqual([])
+    expect(curated.data!.hiddenCount).toBe(2)
+  })
+
   it("a row whose template is missing survives the join (tier default decides)", async () => {
     vi.mocked(weekAgenda.getWeekAgenda).mockResolvedValue(agenda([agendaRow({ taskTemplateId: "ghost", priorityTier: "essential" })]))
     vi.mocked(taskService.getTaskTemplates).mockResolvedValue(ok([]))

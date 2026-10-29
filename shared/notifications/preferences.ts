@@ -32,14 +32,15 @@ export type QuietHours = { start: string; end: string; tz: string }
  * breadth is a USER MODE, not a hard predicate:
  *
  *  - "curated": only tasks whose bell was explicitly turned on ("Just my
- *    list" — nothing else notifies).
+ *    list" — nothing else notifies, not even deadlines or lapsed safety work;
+ *    owner, 2026-10-28).
  *  - "curated+essential": the explicit list plus tier-default Essentials —
  *    exactly today's `remindsWhenDue` behavior, and the default, so safety
  *    work keeps reminding unless someone deliberately opts down.
- *  - "all": everything on a schedule.
+ *  - "all": everything on a schedule that the user has not switched off.
  *
- * The lapsed-safety-critical exception rides in every mode, decided at the
- * call sites that own that data — this predicate is only about breadth.
+ * The mode only decides tasks whose switch was never touched. An explicit
+ * Off is silent in every mode — see `taskNotifies`.
  */
 export type PushMode = "curated" | "curated+essential" | "all"
 
@@ -162,16 +163,48 @@ export function isWithinQuietHours(nowHHMM: string, quiet: QuietHours | null): b
 }
 
 /**
- * THE breadth predicate — the Home "This week" section, /week, and every push
- * lane answer "does this task notify?" through this one function, so what the
- * user sees can never disagree with what buzzes their phone.
+ * What a push lane knows about a task when it asks `taskNotifies`.
+ *
+ * `isDeadline` and `lapsedSafety` are the two kinds of message that reach a
+ * user in "My list + Essential" and "Everything on a schedule" even when the
+ * tier alone would not — but only for a task whose switch was never touched,
+ * and never in "Just my list". They are passed by the lane that sends that kind of message (the
+ * morning lane names deadlines, the digest names lapsed safety work), never
+ * inferred here.
  */
-export function notifiesInMode(
-  mode: PushMode,
-  remindEnabled: boolean | null | undefined,
+export type NotifyCandidate = {
+  /** The task's own switch: true = on, false = off, null/undefined = never chose. */
+  remindEnabled: boolean | null | undefined
   priorityTier: string | null | undefined
-): boolean {
+  /** A deadline (dueKindOf) — the morning lane names it unless the mode is "Just my list". */
+  isDeadline?: boolean
+  /** Safety-critical work that has lapsed — the weekly digest names it unless the mode is "Just my list". */
+  lapsedSafety?: boolean
+}
+
+/**
+ * THE decision "does this task notify?" — every push lane (morning, digest,
+ * buy-ahead) and every screen that previews them (/week, the task page's
+ * reminder switch) answer through this one function, so what the app says
+ * can never disagree with what buzzes the phone.
+ *
+ * Owner decisions, 2026-10-28 (docs/decisions/task-consistency-decisions.md,
+ * section A):
+ *   1. An explicit Off is silent. Every mode, every lane — including
+ *      deadlines and lapsed safety work. Chosen over "except safety":
+ *      "Off wins, no exceptions."
+ *   2. "Just my list" means ONLY tasks switched On. A deadline or lapsed
+ *      safety work the user never chose about stays on Home and in Tasks,
+ *      without a buzz.
+ *   3. In the other two modes a never-chose deadline or lapsed safety work
+ *      notifies, as before.
+ *   4. Otherwise the mode decides: "all" notifies (everything not switched
+ *      off), "curated+essential" an explicit On or the tier default (Essential).
+ */
+export function taskNotifies(mode: PushMode, t: NotifyCandidate): boolean {
+  if (t.remindEnabled === false) return false
+  if (mode === "curated") return t.remindEnabled === true
+  if (t.isDeadline || t.lapsedSafety) return true
   if (mode === "all") return true
-  if (mode === "curated") return remindEnabled === true
-  return remindsWhenDue(priorityTier, remindEnabled)
+  return remindsWhenDue(t.priorityTier, t.remindEnabled)
 }

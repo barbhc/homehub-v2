@@ -1,6 +1,6 @@
 import { getWeekAgenda, type WeekAgendaItem } from "./weekAgenda"
 import { getTaskTemplates, type ServiceResult } from "./taskService"
-import { notifiesInMode, type PushMode } from "../../../../shared/notifications/preferences.js"
+import { taskNotifies, type PushMode } from "../../../../shared/notifications/preferences.js"
 import type { TemplateSupply } from "@/integrations/types"
 
 /**
@@ -10,8 +10,14 @@ import type { TemplateSupply } from "@/integrations/types"
  * onto instances (commitDraft's stated decision), so the agenda alone cannot
  * say what will notify. This module is the one place that joins the two — the
  * Home "This week" section, /week, the Buy-first strip, and (via the same
- * `notifiesInMode` predicate in shared/) the push lanes all answer "does this
+ * `taskNotifies` decision in shared/) the push lanes all answer "does this
  * remind you?" identically. Screen equals push, in every mode.
+ *
+ * The rows are what the weekly digest names: reminders the mode agrees to,
+ * plus lapsed safety work (`safetyNote`) the user never switched off (not in
+ * "Just my list", which is only what was switched On). A task
+ * switched Off is never here, in any mode (owner, 2026-10-28) — it stays on
+ * Home and in Tasks, which are about what to do, not what buzzes.
  */
 
 export type WeekReminder = WeekAgendaItem & {
@@ -54,6 +60,8 @@ export async function getWeekReminders(
     }
   })
 
-  const items = joined.filter((r) => notifiesInMode(mode, r.remindEnabled, r.priorityTier))
+  const items = joined.filter((r) =>
+    taskNotifies(mode, { remindEnabled: r.remindEnabled, priorityTier: r.priorityTier, lapsedSafety: r.safetyNote !== null })
+  )
   return { data: { items, hiddenCount: joined.length - items.length }, error: null }
 }
