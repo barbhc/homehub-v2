@@ -11,10 +11,10 @@
  * Four lanes, one hourly sweep (round 19, design/reminders):
  *
  *   MORNING  — deadlines due today, plus day-of pings for reminders the user
- *              agreed to (their push mode). First hourly tick at/after 08:00
- *              local that is outside quiet hours; once per day. Deferred by
- *              quiet hours, never dropped — a deadline that goes silent is
- *              the distrust failure.
+ *              agreed to (their push mode). A task switched Off is in neither.
+ *              First hourly tick at/after 08:00 local that is outside quiet
+ *              hours; once per day. Deferred by quiet hours, never dropped — a
+ *              deadline that goes silent is the distrust failure.
  *   DIGEST   — "Your week at home", at the user's chosen weekday + hour.
  *              The chosen hour IS consent, so quiet hours do not veto it.
  *   BUY-AHEAD — parts to order before a curated reminder lands. Morning,
@@ -24,7 +24,7 @@
  * Timezone is one hardcoded value, isolated in `laParts` — the future
  * per-home swap point (homes.timezone exists in the model; nothing reads it).
  */
-import { isWithinQuietHours, notifiesInMode, type NotificationPrefs } from "../../../../shared/notifications/preferences.js"
+import { isWithinQuietHours, taskNotifies, type NotificationPrefs } from "../../../../shared/notifications/preferences.js"
 
 export const PUSH_TZ = "America/Los_Angeles"
 export const MORNING_HOUR = 8
@@ -108,7 +108,7 @@ export type Pending = {
   dueDate: string
   /** "deadline" per dueKindOf; everything else is a window. */
   isDeadline: boolean
-  /** Lapsed safety-critical work — rides the digest in every mode. */
+  /** Lapsed safety-critical work — rides the digest in every mode, unless switched Off. */
   safety: boolean
   /** From the template; null when the template could not be read. */
   remindEnabled: boolean | null
@@ -116,10 +116,23 @@ export type Pending = {
   supplies: PendingSupply[]
 }
 
-/** The breadth predicate, applied to a candidate. A missing template keeps the
- *  instance's own judgement rather than being silenced by a lookup failure. */
+/**
+ * `taskNotifies` (shared/notifications/preferences — the ONE decision), applied
+ * to a candidate as an ordinary reminder. A missing template reads as "never
+ * chose" rather than being silenced by a lookup failure.
+ */
 export function agreed(p: Pending, prefs: NotificationPrefs): boolean {
-  return notifiesInMode(prefs.push_mode, p.remindEnabled, p.priorityTier)
+  return taskNotifies(prefs.push_mode, { remindEnabled: p.remindEnabled, priorityTier: p.priorityTier })
+}
+
+/** The same decision for a deadline: every mode, unless the task is switched Off. */
+function deadlineNotifies(p: Pending, prefs: NotificationPrefs): boolean {
+  return taskNotifies(prefs.push_mode, { remindEnabled: p.remindEnabled, priorityTier: p.priorityTier, isDeadline: true })
+}
+
+/** The same decision for the digest: agreed reminders, plus lapsed safety work unless switched Off. */
+function digestNotifies(p: Pending, prefs: NotificationPrefs): boolean {
+  return taskNotifies(prefs.push_mode, { remindEnabled: p.remindEnabled, priorityTier: p.priorityTier, lapsedSafety: p.safety })
 }
 
 export type Composed = { title: string; body: string; url: string }
@@ -136,7 +149,7 @@ const nameList = (tasks: Pending[], max: number): string => {
  */
 export function composeMorning(pending: Pending[], prefs: NotificationPrefs, today: string, homeId: string): Composed | null {
   const dueToday = pending.filter((p) => p.dueDate <= today)
-  const deadlines = dueToday.filter((p) => p.isDeadline)
+  const deadlines = dueToday.filter((p) => p.isDeadline && deadlineNotifies(p, prefs))
   const windows = dueToday.filter((p) => !p.isDeadline && p.dueDate === today && agreed(p, prefs))
   const tasks = [...deadlines, ...windows]
   if (tasks.length === 0) return null
@@ -164,9 +177,9 @@ export function composeMorning(pending: Pending[], prefs: NotificationPrefs, tod
 
 /**
  * DIGEST: agreed reminders due within the next 7 days (overdue included),
- * plus lapsed safety work regardless of mode, plus "one thing to buy first"
- * when a buy-ahead part is uncovered. Null when the week is empty — a
- * "nothing this week" push is noise (Relevant, Useful, Timely).
+ * plus lapsed safety work regardless of mode (never when switched Off), plus
+ * "one thing to buy first" when a buy-ahead part is uncovered. Null when the
+ * week is empty — a "nothing this week" push is noise (Relevant, Useful, Timely).
  */
 export function composeDigest(
   pending: Pending[],
@@ -176,7 +189,7 @@ export function composeDigest(
   coveredParts: Set<string>,
 ): (Composed & { reminders: Pending[]; toBuy: number }) | null {
   const horizon = addDays(today, 7)
-  const reminders = pending.filter((p) => p.dueDate <= horizon && (agreed(p, prefs) || p.safety))
+  const reminders = pending.filter((p) => p.dueDate <= horizon && digestNotifies(p, prefs))
   if (reminders.length === 0) return null
 
   const toBuy = reminders.reduce(

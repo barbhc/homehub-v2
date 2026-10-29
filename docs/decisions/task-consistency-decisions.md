@@ -1,11 +1,46 @@
 # Task consistency — three decisions for the owner
 
-**Status:** open, waiting on the owner · **Written:** 2026-10-28 · **Source:**
-Package 2 of `HOMEHUB_IMPLEMENTATION_HANDOFF_2026-10-28.md` and the matching
-findings in `HOMEHUB_PRODUCT_AUDIT_2026-10-28.md`.
+**Status:** decided 2026-10-28 (one follow-up question open, under C) ·
+**Written:** 2026-10-28 · **Source:** Package 2 of
+`HOMEHUB_IMPLEMENTATION_HANDOFF_2026-10-28.md` and the matching findings in
+`HOMEHUB_PRODUCT_AUDIT_2026-10-28.md`.
 
-Nothing in this document has been built. The PR that adds it fixes only an
-engineering bug (the item review matched tasks by name — see the PR). The three
+## Owner decisions, 2026-10-28
+
+These supersede the options and recommendations below. The analysis is kept
+as the record of what the app did before each decision and why.
+
+- **A — Reminder Off: "Off wins, no exceptions."** An explicit Off on a task
+  is silent in every notification style and every push — including deadlines
+  and overdue safety work. (Chosen over the recommended option 1, "except
+  safety".) "Everything on a schedule" means everything you have not switched
+  off. A task you never chose about still notifies as before, deadlines and
+  lapsed safety work included. Off is about notifications only: the task stays
+  on Home and in Tasks.
+- **B — Changing how often a task repeats: "From when you last did it."**
+  Next due = last completion + the new cadence (never done: the date it was
+  added + the cadence). One rule across all three editors; show "Next due:
+  <date>" before saving; changing to seasonal asks for the season when we
+  don't know it (no ten-year parking); a snooze survives only if it is later
+  than the new date; as-needed/setup remove the open occurrence; history is
+  never rewritten.
+- **C — Re-scans: "Keep mine, show differences."** Per-field provenance for
+  priority, cadence, reminder and kind; a re-scan updates only the manual's
+  suggestion; the review shows "You chose X · the manual now says Y",
+  defaulting to yours; accepted changes update the open occurrence; a save
+  checks for other members' newer edits. Built in two steps: record
+  provenance first (no visible change), then switch the re-scan.
+  **Still open:** for existing tasks that have `userModifiedAt`, treat all
+  four fields as the owner's, or none — to be asked when step 2 is built.
+
+**Built so far:** A — one shared decision, `taskNotifies` in
+`shared/notifications/preferences.ts`, used by the morning, digest and
+buy-ahead pushes, /week and the task page's reminder switch; the push sweep
+also applies Home's cold-storage rule. B and C are not built yet.
+
+*The analysis as written before the decisions:* the PR that added this
+document fixed only an engineering bug (the item review matched tasks by name
+— see the PR). The three
 questions below change what a user's choice *means*, so they are yours to make.
 Each section says what the app does today, with the file and line that does
 it, where that goes wrong for a real household, two or three ways to fix it,

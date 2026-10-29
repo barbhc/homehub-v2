@@ -28,7 +28,8 @@ import { InlineError, LoadErrorState } from "@/components/layout/LoadStates"
 import { doneFailedMessage } from "./tasks/shared"
 import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
-import { remindsByDefault, asTier } from "../../../shared/tasks/reviewBuckets"
+import { usePushMode } from "@/hooks/usePushMode"
+import { reminderSwitch } from "@/lib/reminderSwitch"
 import { addDays, diffDays, localToday } from "../../../shared/dates/calendar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
@@ -135,6 +136,9 @@ export function RefinedTaskDetail({
   const [dockSize, setDockSize] = useState(52)
   // Only positions the dock (right panel vs bottom sheet); this page is one tree.
   const isDesktop = useIsDesktop()
+  // The user's notification style: the reminder switch says what THEIR phone
+  // will do, through the same decision the push lanes use (reminderSwitch).
+  const { mode: pushMode } = usePushMode()
   const pageBarRef = usePageBar()
   useEffect(() => {
     const itemId = detail?.itemUnitId
@@ -259,26 +263,25 @@ export function RefinedTaskDetail({
    * invisible — a reversible default that the primary platform cannot reach is
    * the same broken promise in a new place.
    */
+  const reminder = reminderSwitch(pushMode, {
+    remindEnabled: detail.remindEnabled,
+    priorityTier: detail.tier,
+    isDeadline: dueKindOf({ title: detail.title, scheduleType: detail.schedule?.scheduleType ?? null }) === "deadline",
+  })
   const reminderControl = recurring ? (
     <>
       <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[var(--hh-line)] px-3.5 py-3" style={{ background: "var(--hh-surface)" }}>
         <input
           type="checkbox"
-          checked={detail.remindEnabled ?? remindsByDefault(asTier(detail.tier))}
+          checked={reminder.on}
           onChange={(e) => void toggleReminder(e.target.checked)}
           className="size-[18px] shrink-0 accent-[var(--hh-teal)]"
         />
         <span className="min-w-0 flex-1">
           <span className="block text-[0.84375rem] font-semibold" style={{ color: INK }}>Remind me when it&apos;s due</span>
-          <span className="block text-[0.75rem]" style={{ color: SUB }}>
-            {detail.remindEnabled == null
-              ? remindsByDefault(asTier(detail.tier))
-                ? "On by default for Essential — you can turn it off"
-                : "Off by default — turn it on if you want one"
-              : detail.remindEnabled ? "You turned this on" : "You turned this off"}
-          </span>
+          <span className="block text-[0.75rem]" style={{ color: SUB }}>{reminder.line}</span>
         </span>
-        {(detail.remindEnabled ?? remindsByDefault(asTier(detail.tier))) && (
+        {reminder.on && (
           <BellRingIcon className="size-4 shrink-0" style={{ color: TEAL }} />
         )}
       </label>

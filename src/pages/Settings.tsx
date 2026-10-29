@@ -128,10 +128,14 @@ const NOTIF_EVENT_ROWS: {
 // The breadth dial (round 19). Owner's decision: breadth is a user MODE, not a
 // hard predicate — her mode is "Just my list"; the default keeps today's
 // behavior so safety work reminds unless someone deliberately opts down.
+// The mode decides only tasks whose bell was never touched: a bell switched
+// off is silent in every mode (owner, 2026-10-28 — taskNotifies). "Just my
+// list" still sends deadlines and lapsed safety checks nobody switched off, so
+// it says so rather than "Nothing else notifies".
 const PUSH_MODE_OPTIONS: { value: PushMode; label: string; sub: string }[] = [
-  { value: "curated", label: "Just my list", sub: "Only reminders you turned on. Nothing else notifies." },
+  { value: "curated", label: "Just my list", sub: "Reminders you turned on, plus deadlines and lapsed safety checks." },
   { value: "curated+essential", label: "My list + anything Essential", sub: "Your list, plus safety and damage-prevention work by default." },
-  { value: "all", label: "Everything on a schedule", sub: "Every scheduled task reminds you when it's due." },
+  { value: "all", label: "Everything on a schedule", sub: "Every scheduled task, unless you turned it off." },
 ]
 const DIGEST_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 const DIGEST_HOURS = [6, 7, 8, 9, 10, 12, 17, 18, 19, 20]
@@ -1800,7 +1804,7 @@ export default function Settings() {
                 </div>
                 {notifSaveErrorFor("mode")}
                 <p className="mx-1 mt-2.5 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
-                  Any single reminder can be turned off on its task — the bell. Lapsed safety checks are mentioned in every style.
+                  A task whose bell you turn off stays silent in every style.
                 </p>
 
                 {/* Weekly summary — the Sunday digest, at the user's hour. */}

@@ -5,7 +5,7 @@
  * checked they gave the same answer:
  *
  *   the review screen   willNotify(task)                    re-derives the bucket
- *   the task page       remindsByDefault(detail.tier)       reads the tier
+ *   the task page       reminderSwitch(mode, …).on          reads the tier (via taskNotifies)
  *   the server          remindsWhenDue(tier, remindEnabled) sends the push
  *
  * They agreed only because `remindsByDefault` took a ReviewBucket and compared
@@ -27,6 +27,7 @@ import {
   willNotify, remindsWhenDue, remindsByDefault, asTier, isScheduledTask,
   type ReviewTaskLike,
 } from "../../shared/tasks/reviewBuckets"
+import { reminderSwitch } from "./reminderSwitch"
 
 type Tier = "essential" | "recommended" | "optional"
 type Sched = "monthly" | "annual" | "as_needed" | "setup" | "after_each_use"
@@ -57,7 +58,9 @@ describe("all three notification paths agree", () => {
           const review = willNotify(t)
           // The task page reads a SAVED template: it already has a due instance,
           // so scheduling is settled and only the tier default is in question.
-          const taskPage = t.remind_enabled ?? remindsByDefault(asTier(tier))
+          // It asks reminderSwitch, in the default style (the server's
+          // remindsWhenDue IS that style; reminderSwitch.test.ts covers the others).
+          const taskPage = reminderSwitch("curated+essential", { remindEnabled: t.remind_enabled, priorityTier: tier, isDeadline: false }).on
           // The server asks the same question at send time.
           const server = remindsWhenDue(tier, t.remind_enabled)
 

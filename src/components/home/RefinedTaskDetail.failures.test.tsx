@@ -28,6 +28,8 @@ vi.mock("@/modules/care", async () => {
   }
 })
 vi.mock("@/modules/home", () => ({ getHomeMembers: (...a: unknown[]) => getHomeMembers(...a) }))
+// The reminder switch reads the notification style (no AuthProvider here); these tests use the default style.
+vi.mock("@/hooks/usePushMode", () => ({ usePushMode: () => ({ mode: "curated+essential" }) }))
 vi.mock("@/modules/knowledge", () => ({ getManualsByItem: vi.fn(async () => ({ data: [], error: null })) }))
 vi.mock("@/hooks/useManualManagement", () => ({ resolveManualUrl: vi.fn() }))
 vi.mock("@/components/care/TaskFeedbackSheet", () => ({ TaskFeedbackSheet: () => null }))

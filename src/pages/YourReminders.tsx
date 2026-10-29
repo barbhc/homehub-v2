@@ -515,7 +515,7 @@ export default function YourReminders() {
               <div className="rounded-2xl border border-[var(--hh-line)] px-4 py-4" style={{ background: "var(--hh-surface)" }}>
                 <div className="text-[0.9375rem] font-semibold" style={{ color: INK }}>From now on, notify only this list?</div>
                 <div className="mt-1 text-[0.78125rem]" style={{ color: SUB }}>
-                  Right now Homehub also reminds you about anything Essential by default. &ldquo;Just my list&rdquo; turns that off — lapsed safety checks still get a mention in the weekly summary.
+                  Right now Homehub also reminds you about anything Essential by default. &ldquo;Just my list&rdquo; turns that off — deadlines and lapsed safety checks still notify unless you turned them off.
                 </div>
                 {modeError && <div role="alert" className="mt-2 text-[0.78125rem]" style={{ color: CLAY }}>{modeError}</div>}
                 <div className="mt-3 flex items-center gap-3">
