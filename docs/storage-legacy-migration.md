@@ -91,7 +91,7 @@ works on it too (see §5).
 
 | Mode | What it does |
 |---|---|
-| *(default)* dry run | Lists object **metadata** and reads every document. Prints counts and bytes per category: objects (tenant vs legacy, by shape, how many carry a download token), references by field, token-bearing URLs, the plan per home, ambiguous / missing / conflicting / out-of-scope / unreferenced objects. Never prints a stored value, URL, token or file content. `--list` adds document and object paths (tokens redacted); `--report <file>` writes the census as JSON. |
+| *(default)* dry run | Lists object **metadata** and reads every document. Prints counts and bytes per category: objects (tenant vs legacy, by shape, how many carry a download token), references by field, token-bearing URLs, the plan per home, ambiguous / missing / conflicting / out-of-scope / protected / unreferenced objects, **foreign-bucket URLs** (a Storage URL naming another bucket — reported, never rewritten; a large count means the bucket name is wrong) and **unrecognised values** in the three declared path fields (gs://, an outside URL, junk — what the cutover would leave as it is). Never prints a stored value, URL, token or file content. `--list` adds document and object paths (tokens redacted) — **object paths can contain a receipt's original file name** (`receipts/{item}/{ts}-{name}`), so treat `--list` output as private; `--report <file>` writes the census as JSON (counts only). |
 | `--apply --manifest <file>` | For each resolved object: write a `copy-intent` line (fsynced) → server-side copy (never overwriting; `ifGenerationMatch: 0` in production — the emulator ignores that precondition, so the script checks existence first) → verify size, MD5, CRC32C, content type, cache headers and custom metadata → `copy-done`. Then per document: `ref-intent` (old value, new value, per field) → one transaction that rewrites a field only if it still holds the planned old value → `ref-done`. A reference is rewritten only after its object's copy is verified. `updatedAt` is not touched. Ends with a verify pass. |
 | `--rollback <file>` | Puts every field the manifest touched back to its previous value — only where it still holds the value the migration wrote. Copies stay. |
 | `--verify <file>` | Re-reads: new values in place, copies present, originals present. |
@@ -103,6 +103,23 @@ second complete run plans nothing. **Skipped, never guessed:** ambiguous
 objects, missing objects, a destination that exists with different bytes, a
 field someone changed since the plan.
 
+**The manifest is bound to one migration.** Its header records the project,
+bucket and `--home` set; a run with a different one is refused before the
+scan (use one manifest per home). A non-empty file that does not start with
+a header is refused. An existing manifest is tightened to `0600` when opened.
+
+**`--home` is checked first.** Unknown ids are refused; each home's name and
+member count is printed before anything else happens. Production `--apply`
+always needs `--home`; progress lines print every 25 copies / documents.
+Exit code is non-zero whenever a copy failed, a field changed since the plan,
+a reference does not hold its new value, or a copy or original is missing.
+
+**Sonia's home is denied by default.** `PROTECTED_HOMES`
+(`storageLegacyMigration.ts`) holds "My House" (`a3ba0e21…`). Its objects are
+never scheduled — not even when `--home` names it, which is refused outright —
+unless the run carries **both** `--include-home a3ba0e21-4bd2-481b-99b8-088d5a90c668`
+and `--sonia-agreed`. Either flag alone is refused.
+
 **The manifest is private.** It holds previous field values, which can be
 token URLs; the script creates it `0600`. Keep it outside the repo and keep it
 until cleanup — it is the rollback.
@@ -110,8 +127,11 @@ until cleanup — it is the rollback.
 **Production guard.** Emulator unless `--project homehub-2068d
 --i-have-owner-approval` are both given; any other non-`demo-` project is
 refused; production also needs an explicit `--bucket`, no emulator env vars,
-and `--home <homeId>` for `--apply`. With the pair, it is still a dry run
-unless `--apply` is added. Credentials: ADC with
+and `--home <homeId>` for `--apply`. The bucket must be
+`homehub-2068d.appspot.com` or `homehub-2068d.firebasestorage.app` and must
+exist (checked after init; the Storage emulator serves no bucket metadata, so
+on the emulator the foreign-bucket count is the safeguard). With the pair, it is
+still a dry run unless `--apply` is added. Credentials: ADC with
 `GOOGLE_CLOUD_QUOTA_PROJECT=homehub-2068d`.
 
 ## 4. Evidence (emulator only)
@@ -135,7 +155,12 @@ unless `--apply` is added. Credentials: ADC with
   diagram byte-for-byte, and the server's `manualSource` accepts the new manual
   paths for their own home only; a member of another home and a former member
   are refused; rollback restores every reference and leaves a field changed
-  after the migration alone.
+  after the migration alone. Guards: a manifest refuses a different `--home`
+  set and a header-less file, and is tightened to `0600`; unknown `--home` ids
+  are refused and known ones are named with their member count; Sonia's home is
+  skipped even when named; gs:// and other-bucket values in declared fields are
+  counted; a wrong bucket turns every URL into a visible foreign-bucket count;
+  progress is reported for every copy and document.
 - `npm run test:rules:emu` — the live rules: two-account isolation in both
   directions for every family, a former member losing read and write the moment
   the row goes, upload → `getDownloadURL` → plain fetch for each upload flow,
@@ -187,7 +212,7 @@ token, so the size of each option is known before choosing.
 |---|---|---|---|
 | 0 | Confirm the **deployed** rules match the repo and the bucket name | Console → Storage → Rules (compare with `storage.rules`); the `gs://` name at the top of Storage | **needs owner approval** (read-only, production console) |
 | 1 | **Dry run** (read-only: lists object metadata, one Firestore read per document) | `GOOGLE_CLOUD_QUOTA_PROJECT=homehub-2068d npx tsx scripts/ops/migrate-legacy-storage.ts --project homehub-2068d --i-have-owner-approval --bucket <bucket> --report ~/legacy-census.json --list` | **needs owner approval** |
-| 2 | **Review** counts and decisions: per-home plan; ambiguous / missing objects; unreferenced objects (keep, migrate by hand, or delete later); token option (§5); the guest decision (§8); **"My House" (`a3ba0e21…`) is Sonia's home** — migrate it only with her agreement, and note the cutover makes any of its legacy files unreadable if it is not migrated | owner reads the census | **owner decision** |
+| 2 | **Review** counts and decisions: per-home plan; ambiguous / missing objects; unreferenced objects (keep, migrate by hand, or delete later); token option (§5); the guest decision (§8); **"My House" (`a3ba0e21…`) is Sonia's home** — migrate it only with her agreement, and note the cutover makes any of its legacy files unreadable if it is not migrated (the script denies that home unless `--include-home a3ba0e21… --sonia-agreed`); **foreign-bucket and unrecognised counts** (what the cutover leaves alone) | owner reads the census | **owner decision** |
 | 3 | **Backup** of the fields to be rewritten (the manifest is the field-level rollback; this is the belt) | `gcloud firestore export gs://<backup-bucket>/legacy-migration-<date> --collection-ids=items,manuals,chunks,taskTemplates --project homehub-2068d` | **needs owner approval** |
 | 4 | **Apply, one home at a time** — SF Condo first | `… --project homehub-2068d --i-have-owner-approval --bucket <bucket> --apply --manifest ~/legacy-migration-sf-condo.jsonl --home c1d91d18-76d5-43cc-955d-ef73ba6f305f` (re-run the same line to resume) | **needs owner approval** (per home) |
 | 5 | **Verify** | `… --verify ~/legacy-migration-sf-condo.jsonl`; re-run the dry run (that home: nothing left to copy); on the phone, open items with photos, receipts and manuals, and ask a question that uses a manual; `WEB_API_KEY=… npm run smoke:storage` (unchanged: 7/7) | **needs owner approval** |

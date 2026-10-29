@@ -67,13 +67,46 @@ export interface V1UrlRef {
   objectPath: string
 }
 
+/** A Firebase/GCS URL naming a DIFFERENT bucket than the one being migrated —
+ *  reported, never rewritten. A wrong --bucket would make every URL land here,
+ *  so a large count is the census saying "check the bucket name". */
+export interface ForeignBucketUrlRef {
+  docPath: string
+  homeId: string | null
+  fieldPath: FieldPath
+  category: string
+  bucket: string
+}
+
+/** A declared path field (item photo / receipt, uploaded manual's source)
+ *  holding something this migration cannot resolve: gs://, an outside URL,
+ *  junk. Reported so the census shows what the cutover would leave alone. */
+export interface UnrecognisedRef {
+  docPath: string
+  homeId: string | null
+  fieldPath: FieldPath
+  category: string
+  kind: "gs-url" | "other-url" | "other"
+}
+
 export type Classified =
   | { form: "path"; objectPath: string }
   | { form: "url"; objectPath: string; hasToken: boolean }
   | { form: "v1-url"; objectPath: string }
+  | { form: "foreign-bucket"; bucket: string }
   | null
 
 export const LEGACY_DEST_SEGMENT = "legacy"
+
+/**
+ * Homes that belong to someone other than the operator, denied by default.
+ * "My House" is Sonia's test home (a friend of the owner): its files are hers,
+ * and nothing may move them without her agreement. Lifting the deny takes BOTH
+ * `--include-home <id>` and `--sonia-agreed` (storageLegacyMigrationCli.ts).
+ */
+export const PROTECTED_HOMES: ReadonlyMap<string, string> = new Map([
+  ["a3ba0e21-4bd2-481b-99b8-088d5a90c668", "My House (Sonia's home — needs her agreement)"],
+])
 
 export function isTenantPath(objectPath: string): boolean {
   return objectPath.startsWith("homes/")
@@ -165,12 +198,14 @@ export function classifyRefString(
       (u.protocol === "https:" && u.hostname === "firebasestorage.googleapis.com") ||
       (u.protocol === "http:" && EMULATOR_HOSTS.has(u.hostname))
     if (v0 && firebaseHost) {
-      if (decodeURIComponent(v0[1]) !== opts.bucket) return null
+      const b = decodeURIComponent(v0[1])
+      if (b !== opts.bucket) return { form: "foreign-bucket", bucket: b }
       return { form: "url", objectPath: decodeURIComponent(v0[2]), hasToken: u.searchParams.has("token") }
     }
     if (u.protocol === "https:" && u.hostname === "storage.googleapis.com") {
       const [, b, ...rest] = u.pathname.split("/")
-      if (b !== opts.bucket || rest.length === 0 || !rest.join("")) return null
+      if (rest.length === 0 || !rest.join("")) return null
+      if (b !== opts.bucket) return { form: "foreign-bucket", bucket: b }
       return { form: "url", objectPath: rest.map(decodeURIComponent).join("/"), hasToken: false }
     }
     if (u.hostname.endsWith(".supabase.co")) {
@@ -179,7 +214,7 @@ export function classifyRefString(
     }
     return null
   }
-  if (value.includes("://")) return null // gs://, blob:, data:… — not a reference this migration rewrites
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return null // gs:, blob:, data:… — not a reference this migration rewrites
   if (opts.declaredPath || opts.knownObjects.has(value)) return { form: "path", objectPath: value }
   return null
 }
@@ -260,27 +295,44 @@ export function fieldPathKey(fieldPath: FieldPath): string {
   return JSON.stringify(fieldPath)
 }
 
+export interface FoundRefs {
+  refs: StorageRef[]
+  v1Urls: V1UrlRef[]
+  foreignBucketUrls: ForeignBucketUrlRef[]
+  unrecognised: UnrecognisedRef[]
+}
+
+function unrecognisedKind(value: string): UnrecognisedRef["kind"] {
+  if (/^gs:\/\//i.test(value)) return "gs-url"
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return "other-url"
+  return "other"
+}
+
 /** Find every Storage reference in one document. */
 export function findRefs(
   docPath: string,
   data: Record<string, unknown>,
   opts: { bucket: string; knownObjects: ReadonlySet<string> },
-): { refs: StorageRef[]; v1Urls: V1UrlRef[] } {
-  const refs: StorageRef[] = []
-  const v1Urls: V1UrlRef[] = []
+): FoundRefs {
+  const out: FoundRefs = { refs: [], v1Urls: [], foreignBucketUrls: [], unrecognised: [] }
   const homeId = homeIdOfDoc(docPath)
   for (const { fieldPath, value } of walkStrings(data)) {
-    const c = classifyRefString(value, {
-      ...opts,
-      declaredPath: isDeclaredPathField(docPath, fieldPath, data),
-    })
-    if (!c) continue
+    const declaredPath = isDeclaredPathField(docPath, fieldPath, data)
+    const c = classifyRefString(value, { ...opts, declaredPath })
     const category = categoryFor(docPath, fieldPath)
-    if (c.form === "v1-url") {
-      v1Urls.push({ docPath, homeId, fieldPath, category, objectPath: c.objectPath })
+    if (!c) {
+      if (declaredPath && value.trim()) out.unrecognised.push({ docPath, homeId, fieldPath, category, kind: unrecognisedKind(value) })
       continue
     }
-    refs.push({
+    if (c.form === "v1-url") {
+      out.v1Urls.push({ docPath, homeId, fieldPath, category, objectPath: c.objectPath })
+      continue
+    }
+    if (c.form === "foreign-bucket") {
+      out.foreignBucketUrls.push({ docPath, homeId, fieldPath, category, bucket: c.bucket })
+      continue
+    }
+    out.refs.push({
       docPath,
       homeId,
       fieldPath,
@@ -291,7 +343,7 @@ export function findRefs(
       category,
     })
   }
-  return { refs, v1Urls }
+  return out
 }
 
 // ── the plan ─────────────────────────────────────────────────────────────────
@@ -334,11 +386,16 @@ export interface MigrationPlan {
   migratedOriginals: StorageObjectFacts[]
   /** Resolved, but the home is outside --home: left for a later run. */
   outOfScope: Array<{ objectPath: string; homeId: string; refs: number }>
+  /** Resolved to a PROTECTED home (another person's — see PROTECTED_HOMES) whose
+   *  owner has not agreed: never scheduled, whatever --home says. */
+  protectedSkipped: Array<{ objectPath: string; homeId: string; refs: number }>
   /** A tenant path referenced from a DIFFERENT home's document — already broken for that home's members. */
   crossHomeTenantRefs: StorageRef[]
   /** A tenant path with no object behind it — a pre-existing broken reference, not this migration's. */
   missingTenantRefs: StorageRef[]
   v1Urls: V1UrlRef[]
+  foreignBucketUrls: ForeignBucketUrlRef[]
+  unrecognised: UnrecognisedRef[]
   /** Every Storage reference found, for the per-field census. */
   allRefs: StorageRef[]
   objects: StorageObjectFacts[]
@@ -348,9 +405,13 @@ export function planMigration(input: {
   objects: StorageObjectFacts[]
   refs: StorageRef[]
   v1Urls?: V1UrlRef[]
+  foreignBucketUrls?: ForeignBucketUrlRef[]
+  unrecognised?: UnrecognisedRef[]
   /** Only these homes' objects are scheduled (others → outOfScope). Ambiguity is
    *  still judged across ALL homes. */
   homeFilter?: ReadonlySet<string> | null
+  /** Homes never scheduled, even when named in homeFilter (→ protectedSkipped). */
+  protectedHomes?: ReadonlySet<string>
 }): MigrationPlan {
   const byName = new Map(input.objects.map((o) => [o.name, o]))
   const plan: MigrationPlan = {
@@ -362,9 +423,12 @@ export function planMigration(input: {
     unreferenced: [],
     migratedOriginals: [],
     outOfScope: [],
+    protectedSkipped: [],
     crossHomeTenantRefs: [],
     missingTenantRefs: [],
     v1Urls: input.v1Urls ?? [],
+    foreignBucketUrls: input.foreignBucketUrls ?? [],
+    unrecognised: input.unrecognised ?? [],
     allRefs: input.refs,
     objects: input.objects,
   }
@@ -398,6 +462,10 @@ export function planMigration(input: {
       continue
     }
     const homeId = homes[0]
+    if (input.protectedHomes?.has(homeId)) {
+      plan.protectedSkipped.push({ objectPath, homeId, refs: refs.length })
+      continue
+    }
     if (input.homeFilter && !input.homeFilter.has(homeId)) {
       plan.outOfScope.push({ objectPath, homeId, refs: refs.length })
       continue
@@ -504,6 +572,9 @@ export interface MigrationSummary {
   missing: { refs: number; byCategory: Record<string, number> }
   conflicts: number
   outOfScope: { objects: number; byHome: Record<string, number> }
+  protectedSkipped: { objects: number; byHome: Record<string, number> }
+  foreignBucketUrls: { total: number; byBucket: Record<string, number>; byCategory: Record<string, number> }
+  unrecognised: { total: number; byCategory: Record<string, Record<string, number>> }
   unreferencedLegacy: Tally & { byFamily: Record<string, Tally> }
   migratedOriginals: Tally
   crossHomeTenantRefs: number
@@ -519,6 +590,9 @@ export function summarize(plan: MigrationPlan): MigrationSummary {
     missing: { refs: plan.missing.length, byCategory: {} },
     conflicts: plan.conflicts.length,
     outOfScope: { objects: plan.outOfScope.length, byHome: {} },
+    protectedSkipped: { objects: plan.protectedSkipped.length, byHome: {} },
+    foreignBucketUrls: { total: plan.foreignBucketUrls.length, byBucket: {}, byCategory: {} },
+    unrecognised: { total: plan.unrecognised.length, byCategory: {} },
     unreferencedLegacy: { count: 0, bytes: 0, byFamily: {} },
     migratedOriginals: { count: 0, bytes: 0 },
     crossHomeTenantRefs: plan.crossHomeTenantRefs.length,
@@ -572,6 +646,15 @@ export function summarize(plan: MigrationPlan): MigrationSummary {
   }
   for (const m of plan.missing) s.missing.byCategory[m.category] = (s.missing.byCategory[m.category] ?? 0) + 1
   for (const o of plan.outOfScope) s.outOfScope.byHome[o.homeId] = (s.outOfScope.byHome[o.homeId] ?? 0) + 1
+  for (const o of plan.protectedSkipped) s.protectedSkipped.byHome[o.homeId] = (s.protectedSkipped.byHome[o.homeId] ?? 0) + 1
+  for (const f of plan.foreignBucketUrls) {
+    s.foreignBucketUrls.byBucket[f.bucket] = (s.foreignBucketUrls.byBucket[f.bucket] ?? 0) + 1
+    s.foreignBucketUrls.byCategory[f.category] = (s.foreignBucketUrls.byCategory[f.category] ?? 0) + 1
+  }
+  for (const u of plan.unrecognised) {
+    const c = (s.unrecognised.byCategory[u.category] ??= {})
+    c[u.kind] = (c[u.kind] ?? 0) + 1
+  }
   for (const o of plan.unreferenced) {
     s.unreferencedLegacy.count++
     s.unreferencedLegacy.bytes += o.size
@@ -587,13 +670,40 @@ export function summarize(plan: MigrationPlan): MigrationSummary {
 // ── the manifest (JSON Lines, append-only, written BEFORE each mutation) ─────
 
 export type ManifestEntry =
-  | { t: "header"; version: 1; project: string; bucket: string; startedAt: string }
+  | { t: "header"; version: 1; project: string; bucket: string; startedAt: string; homes: string[] | null }
   | { t: "copy-intent"; src: string; dst: string; homeId: string; size: number; md5Hash: string | null; crc32c: string | null; at: string }
   | { t: "copy-done"; src: string; dst: string; at: string }
   | { t: "copy-failed"; src: string; dst: string; reason: string; at: string }
   | { t: "ref-intent"; docPath: string; updates: Array<Pick<RefUpdate, "fieldPath" | "prev" | "next" | "src" | "dst">>; at: string }
   | { t: "ref-done"; docPath: string; applied: number; already: number; conflicts: FieldPath[]; at: string }
   | { t: "rollback-done"; docPath: string; restored: number; already: number; conflicts: FieldPath[]; at: string }
+
+/** The --home scope a manifest is bound to: sorted ids, or null for "all
+ *  homes" (emulator only — production --apply requires --home). */
+export function manifestHomes(homes: readonly string[]): string[] | null {
+  return homes.length > 0 ? [...new Set(homes)].sort() : null
+}
+
+/** Refuse a manifest whose header does not match this run — a different
+ *  project, bucket or --home scope means a different migration. */
+export function checkManifestHeader(
+  header: Extract<ManifestEntry, { t: "header" }> | null,
+  run: { project: string; bucket: string; homes: string[] | null },
+  path: string,
+): void {
+  if (!header) return
+  if (header.version !== 1 || typeof header.project !== "string" || typeof header.bucket !== "string") {
+    throw new Error(`${path}: header is not a version-1 migration manifest header`)
+  }
+  if (header.project !== run.project || header.bucket !== run.bucket) {
+    throw new Error(`${path} belongs to ${header.project}/${header.bucket}, not ${run.project}/${run.bucket}`)
+  }
+  const recorded = Array.isArray(header.homes) ? header.homes : null
+  if (JSON.stringify(recorded) !== JSON.stringify(run.homes)) {
+    const show = (h: string[] | null) => (h ? h.join(", ") : "all homes")
+    throw new Error(`${path} was started for --home ${show(recorded)}; this run is for ${show(run.homes)}. Use a separate manifest per home scope.`)
+  }
+}
 
 export function parseManifest(text: string): ManifestEntry[] {
   const out: ManifestEntry[] = []
@@ -612,6 +722,16 @@ export function parseManifest(text: string): ManifestEntry[] {
     }
   })
   return out
+}
+
+/** A non-empty manifest must start with a header — anything else is not one
+ *  of ours (or was truncated at the front), and resuming from it is unsafe. */
+export function requireHeader(entries: ManifestEntry[], path: string): void {
+  if (entries.length === 0) return
+  const h = entries[0]
+  if (h.t !== "header" || h.version !== 1 || typeof h.project !== "string" || typeof h.bucket !== "string") {
+    throw new Error(`${path} is not empty and does not start with a migration manifest header — refusing to use it`)
+  }
 }
 
 export interface ManifestState {

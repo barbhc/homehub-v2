@@ -10,10 +10,11 @@
  * reads object METADATA only; the copy is server-side (GCS rewrite), so the
  * bytes never pass through this process.
  */
-import { appendFileSync, closeSync, existsSync, fsyncSync, openSync, readFileSync } from "node:fs"
+import { appendFileSync, chmodSync, closeSync, existsSync, fsyncSync, openSync, readFileSync, statSync } from "node:fs"
 import { FieldPath as FsFieldPath, type DocumentReference, type Firestore } from "firebase-admin/firestore"
 import type { getStorage } from "firebase-admin/storage"
 import {
+  checkManifestHeader,
   decideField,
   fieldPathKey,
   findRefs,
@@ -21,14 +22,17 @@ import {
   manifestState,
   parseManifest,
   planMigration,
+  requireHeader,
   sameBytes,
   setAt,
   type FieldPath,
+  type ForeignBucketUrlRef,
   type ManifestEntry,
   type MigrationPlan,
   type RefUpdate,
   type StorageObjectFacts,
   type StorageRef,
+  type UnrecognisedRef,
   type V1UrlRef,
 } from "./storageLegacyMigration.js"
 
@@ -88,30 +92,64 @@ export interface Discovery {
   objects: StorageObjectFacts[]
   refs: StorageRef[]
   v1Urls: V1UrlRef[]
+  foreignBucketUrls: ForeignBucketUrlRef[]
+  unrecognised: UnrecognisedRef[]
   scannedDocs: number
 }
 
 export async function discover(db: Firestore, bucket: Bucket): Promise<Discovery> {
   const objects = await listObjects(bucket)
   const knownObjects = new Set(objects.map((o) => o.name))
-  const refs: StorageRef[] = []
-  const v1Urls: V1UrlRef[] = []
+  const d: Omit<Discovery, "objects" | "scannedDocs"> = { refs: [], v1Urls: [], foreignBucketUrls: [], unrecognised: [] }
   const scannedDocs = await forEachDocument(db, (path, data) => {
     const found = findRefs(path, data, { bucket: bucket.name, knownObjects })
-    refs.push(...found.refs)
-    v1Urls.push(...found.v1Urls)
+    d.refs.push(...found.refs)
+    d.v1Urls.push(...found.v1Urls)
+    d.foreignBucketUrls.push(...found.foreignBucketUrls)
+    d.unrecognised.push(...found.unrecognised)
   })
-  refs.sort((a, b) => a.docPath.localeCompare(b.docPath) || fieldPathKey(a.fieldPath).localeCompare(fieldPathKey(b.fieldPath)))
-  return { objects, refs, v1Urls, scannedDocs }
+  d.refs.sort((a, b) => a.docPath.localeCompare(b.docPath) || fieldPathKey(a.fieldPath).localeCompare(fieldPathKey(b.fieldPath)))
+  return { objects, ...d, scannedDocs }
 }
 
 export async function planFromLive(
   db: Firestore,
   bucket: Bucket,
   homeFilter: ReadonlySet<string> | null = null,
+  protectedHomes: ReadonlySet<string> = new Set(),
 ): Promise<{ plan: MigrationPlan; scannedDocs: number }> {
   const d = await discover(db, bucket)
-  return { plan: planMigration({ objects: d.objects, refs: d.refs, v1Urls: d.v1Urls, homeFilter }), scannedDocs: d.scannedDocs }
+  return {
+    plan: planMigration({
+      objects: d.objects,
+      refs: d.refs,
+      v1Urls: d.v1Urls,
+      foreignBucketUrls: d.foreignBucketUrls,
+      unrecognised: d.unrecognised,
+      homeFilter,
+      protectedHomes,
+    }),
+    scannedDocs: d.scannedDocs,
+  }
+}
+
+export interface HomeFacts {
+  id: string
+  exists: boolean
+  name: string | null
+  members: number
+}
+
+/** What the operator is about to touch, per --home: does it exist, what is it
+ *  called, how many people belong to it. Read-only. */
+export async function describeHomes(db: Firestore, ids: readonly string[]): Promise<HomeFacts[]> {
+  return Promise.all(
+    ids.map(async (id) => {
+      const [home, members] = await Promise.all([db.doc(`homes/${id}`).get(), db.collection(`homes/${id}/members`).count().get()])
+      const name = home.get("name")
+      return { id, exists: home.exists, name: typeof name === "string" ? name : null, members: members.data().count }
+    }),
+  )
 }
 
 // ── the manifest file ────────────────────────────────────────────────────────
@@ -121,7 +159,16 @@ export class Manifest {
   readonly entries: ManifestEntry[]
   constructor(path: string) {
     this.path = path
-    this.entries = existsSync(path) ? parseManifest(readFileSync(path, "utf8")) : []
+    if (existsSync(path)) {
+      // It holds previous field values (token URLs among them): owner-only,
+      // whoever created it. Tightened rather than refused — the content is
+      // already on disk, so refusing would only stop the rollback it enables.
+      if ((statSync(path).mode & 0o077) !== 0) chmodSync(path, 0o600)
+      this.entries = parseManifest(readFileSync(path, "utf8"))
+      requireHeader(this.entries, path)
+    } else {
+      this.entries = []
+    }
   }
 
   /** Append one entry and fsync it, so the record of an intent is on disk
@@ -145,6 +192,9 @@ export interface ApplyHooks {
   /** Called before every mutation (a copy, a document write). Throwing here is
    *  how the emulator suite simulates a crash part-way through a run. */
   beforeMutation?: (kind: "copy" | "ref", label: string) => void
+  /** Called after each copy and each document, with running totals — the CLI
+   *  prints a line from it so a long apply is visibly alive. */
+  onProgress?: (p: { phase: "copy" | "ref"; done: number; total: number }) => void
 }
 
 export interface ApplyResult {
@@ -264,16 +314,13 @@ export async function applyPlan(
   bucket: Bucket,
   plan: MigrationPlan,
   manifest: Manifest,
-  ctx: { project: string },
+  ctx: { project: string; homes: string[] | null },
   hooks: ApplyHooks = {},
 ): Promise<ApplyResult> {
   const st = manifestState(manifest.entries)
+  checkManifestHeader(st.header, { project: ctx.project, bucket: bucket.name, homes: ctx.homes }, manifest.path)
   if (!st.header) {
-    manifest.append({ t: "header", version: 1, project: ctx.project, bucket: bucket.name, startedAt: now() })
-  } else if (st.header.project !== ctx.project || st.header.bucket !== bucket.name) {
-    throw new Error(
-      `manifest ${manifest.path} belongs to ${st.header.project}/${st.header.bucket}, not ${ctx.project}/${bucket.name}`,
-    )
+    manifest.append({ t: "header", version: 1, project: ctx.project, bucket: bucket.name, startedAt: now(), homes: ctx.homes })
   }
 
   const res: ApplyResult = {
@@ -288,7 +335,9 @@ export async function applyPlan(
   }
 
   const verified = new Set<string>()
+  let copiesSeen = 0
   for (const c of plan.copies) {
+    hooks.onProgress?.({ phase: "copy", done: copiesSeen++, total: plan.copies.length })
     if (c.alreadyCopied && st.copiesDone.has(c.src)) {
       verified.add(c.src)
       res.copyAlreadyPresent++
@@ -313,7 +362,10 @@ export async function applyPlan(
     else res.copied++
   }
 
-  for (const [docPath, updates] of groupByDoc(plan.refUpdates)) {
+  const byDoc = groupByDoc(plan.refUpdates)
+  let docsSeen = 0
+  for (const [docPath, updates] of byDoc) {
+    hooks.onProgress?.({ phase: "ref", done: docsSeen++, total: byDoc.size })
     const ready = updates.filter((u) => verified.has(u.src))
     res.skippedRefsForFailedCopies += updates.length - ready.length
     if (ready.length === 0) continue

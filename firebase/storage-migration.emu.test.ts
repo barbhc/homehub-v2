@@ -20,7 +20,7 @@
  *
  * Run: npm run test:migration:emu
  */
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
@@ -37,16 +37,19 @@ import { getChunksByManual } from "@/modules/knowledge/services/knowledgeService
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { manualSource } from "./functions/src/parse/manualSource"
 import {
+  PROTECTED_HOMES,
   isTenantPath,
+  manifestHomes,
   manifestState,
   parseManifest,
   planMigration,
   summarize,
   type MigrationPlan,
 } from "../scripts/ops/storageLegacyMigration"
-import { formatListing, formatSummary } from "../scripts/ops/storageLegacyMigrationCli"
+import { formatListing, formatSummary, homeGate } from "../scripts/ops/storageLegacyMigrationCli"
 import {
   applyPlan,
+  describeHomes,
   discover,
   Manifest,
   planFromLive,
@@ -69,6 +72,10 @@ const bucket: Bucket = getStorage().bucket(BUCKET_NAME)
 const H1 = "mig-h1"
 const H2 = "mig-h2"
 const FIXTURE_HOMES = new Set([H1, H2])
+/** Sonia's "My House" id — protected by default (PROTECTED_HOMES). Seeded here
+ *  only in the emulator, to prove the deny; cleared with the fixture. */
+const SONIA = "a3ba0e21-4bd2-481b-99b8-088d5a90c668"
+const SCOPE = { project: PROJECT, homes: manifestHomes([...FIXTURE_HOMES]) }
 const PASSWORD = "mig-test-password"
 const USERS = {
   a: { uid: "mig-ua", email: "mig-ua@example.test", home: H1 },
@@ -91,6 +98,7 @@ const OBJ = {
   h2Receipt: "receipts/mig-i20/1700000000001-r.jpg", // the other home's own legacy file
   orphan: "mig-orphan/old-export.bin", // nothing references it
   tenant: `homes/${H1}/photos/mig-ua/mig-i5/photo.jpg`, // already tenant-scoped
+  sonia: "photos/mig-sonia/mig-s1/photo.jpg", // Sonia's home — protected by default
 }
 const MISSING = "photos/mig-ua/mig-i4/photo.jpg" // referenced, never uploaded
 const DIAGRAM_TOKEN = "mig-diagram-token-SECRET"
@@ -125,6 +133,15 @@ async function seed(): Promise<void> {
   await db.doc(`homes/${H1}/items/mig-i3`).set(item("mig-i3", { photoPath: OBJ.shared }))
   await db.doc(`homes/${H1}/items/mig-i4`).set(item("mig-i4", { photoPath: MISSING }))
   await db.doc(`homes/${H1}/items/mig-i5`).set(item("mig-i5", { photoPath: OBJ.tenant }))
+  // Declared path fields this migration cannot resolve: a gs:// value and a
+  // download URL for some OTHER bucket. Both must show up in the census.
+  await db.doc(`homes/${H1}/items/mig-i6`).set(
+    item("mig-i6", { photoPath: `gs://${BUCKET_NAME}/photos/mig-ua/mig-i6/p.jpg`, receiptPath: emuUrl("x/r.jpg").replace(BUCKET_NAME, "mig-other-bucket") }),
+  )
+  // Sonia's home, with its own legacy photo: protected unless explicitly lifted.
+  await put(OBJ.sonia, JPEG, "image/jpeg")
+  await db.doc(`homes/${SONIA}`).set({ name: "My House", createdBy: "mig-sonia", ...stamp })
+  await db.doc(`homes/${SONIA}/items/mig-s1`).set(item("mig-s1", { homeId: SONIA, photoPath: OBJ.sonia }))
   await db.doc(`homes/${H2}/items/mig-i9`).set(item("mig-i9", { homeId: H2, photoPath: OBJ.shared }))
   await db.doc(`homes/${H2}/items/mig-i20`).set(item("mig-i20", { homeId: H2, receiptPath: OBJ.h2Receipt }))
   const manual = (itemUnitId: string, sourceRef: string) => ({
@@ -160,6 +177,9 @@ function scoped(plan: MigrationPlan): MigrationPlan {
     unreferenced: plan.unreferenced.filter((o) => mine(o.name)),
     migratedOriginals: plan.migratedOriginals.filter((o) => mine(o.name)),
     outOfScope: plan.outOfScope.filter((o) => mine(o.objectPath)),
+    protectedSkipped: plan.protectedSkipped.filter((o) => mine(o.objectPath)),
+    unrecognised: plan.unrecognised.filter((u) => mine(u.docPath)),
+    foreignBucketUrls: plan.foreignBucketUrls.filter((f) => mine(f.docPath)),
     crossHomeTenantRefs: plan.crossHomeTenantRefs.filter((r) => mine(r.docPath)),
     missingTenantRefs: plan.missingTenantRefs.filter((r) => mine(r.docPath)),
     v1Urls: plan.v1Urls.filter((v) => mine(v.docPath)),
@@ -204,7 +224,7 @@ let before: Awaited<ReturnType<typeof fixtureState>>
 async function clearFixture(): Promise<void> {
   const [files] = await bucket.getFiles()
   await Promise.all(files.filter((f) => f.name.includes("mig-")).map((f) => f.delete({ ignoreNotFound: true })))
-  for (const h of FIXTURE_HOMES) await db.recursiveDelete(db.doc(`homes/${h}`))
+  for (const h of [...FIXTURE_HOMES, SONIA]) await db.recursiveDelete(db.doc(`homes/${h}`))
   // Absent on a fresh emulator — deleting nothing is the goal, not a failure.
   for (const u of Object.values(USERS)) await getAuth().deleteUser(u.uid).catch(() => undefined)
 }
@@ -226,8 +246,12 @@ afterAll(async () => {
 
 describe("dry run", () => {
   it("resolves each reference to one home, or reports it — and counts bytes", async () => {
-    const { plan: live } = await planFromLive(db, bucket)
+    // As the CLI runs it with no --home: every home, protected homes denied.
+    const { plan: live } = await planFromLive(db, bucket, null, new Set(PROTECTED_HOMES.keys()))
     const plan = scoped(live)
+    expect(plan.protectedSkipped).toEqual([{ objectPath: OBJ.sonia, homeId: SONIA, refs: 1 }])
+    expect(plan.unrecognised.map((u) => [u.docPath, u.category, u.kind])).toEqual([[`homes/${H1}/items/mig-i6`, "items.photoPath", "gs-url"]])
+    expect(plan.foreignBucketUrls.map((f) => [f.category, f.bucket])).toEqual([["items.receiptPath", "mig-other-bucket"]])
 
     expect(plan.copies.map((c) => [c.src, c.dst]).sort()).toEqual(
       [
@@ -280,7 +304,7 @@ describe("apply — interrupted, resumed, verified, idempotent", () => {
     const { plan } = await planFromLive(db, bucket, FIXTURE_HOMES)
     let copies = 0
     await expect(
-      applyPlan(db, bucket, plan, new Manifest(manifestPath), { project: PROJECT }, {
+      applyPlan(db, bucket, plan, new Manifest(manifestPath), SCOPE, {
         beforeMutation: (kind) => {
           if (kind === "copy" && ++copies === 3) throw new Error("simulated crash")
         },
@@ -299,7 +323,7 @@ describe("apply — interrupted, resumed, verified, idempotent", () => {
     const { plan } = await planFromLive(db, bucket, FIXTURE_HOMES)
     let refs = 0
     await expect(
-      applyPlan(db, bucket, plan, new Manifest(manifestPath), { project: PROJECT }, {
+      applyPlan(db, bucket, plan, new Manifest(manifestPath), SCOPE, {
         beforeMutation: (kind) => {
           if (kind === "ref" && ++refs === 3) throw new Error("simulated crash")
         },
@@ -311,7 +335,13 @@ describe("apply — interrupted, resumed, verified, idempotent", () => {
 
   it("the resumed run finishes: same bytes, same metadata, every reference moved, every original kept", async () => {
     const { plan } = await planFromLive(db, bucket, FIXTURE_HOMES)
-    const res = await applyPlan(db, bucket, plan, new Manifest(manifestPath), { project: PROJECT })
+    const progress: string[] = []
+    const res = await applyPlan(db, bucket, plan, new Manifest(manifestPath), SCOPE, {
+      onProgress: (p) => progress.push(`${p.phase} ${p.done}/${p.total}`),
+    })
+    // Progress is reported for every copy and every document, with totals.
+    expect(progress.filter((l) => l.startsWith("copy")).length).toBe(plan.copies.length)
+    expect(progress.at(-1)).toMatch(/^ref \d+\/\d+$/)
     expect(res.copyFailed).toEqual([])
     expect(res.fieldConflicts).toEqual([])
 
@@ -360,7 +390,7 @@ describe("apply — interrupted, resumed, verified, idempotent", () => {
   })
 
   it("a second apply changes nothing", async () => {
-    const legacy = Object.values(OBJ).filter((n) => !isTenantPath(n) && n !== OBJ.shared && n !== OBJ.orphan)
+    const legacy = Object.values(OBJ).filter((n) => !isTenantPath(n) && n !== OBJ.shared && n !== OBJ.orphan && n !== OBJ.sonia)
     const gens = await generations([...legacy, ...legacy.map((n) => dst(n === OBJ.h2Receipt ? H2 : H1, n))])
     const stateBefore = await fixtureState()
     const { plan: live } = await planFromLive(db, bucket, FIXTURE_HOMES)
@@ -370,7 +400,7 @@ describe("apply — interrupted, resumed, verified, idempotent", () => {
     expect(plan.migratedOriginals.map((o) => o.name).sort()).toEqual(
       [OBJ.photo, OBJ.receipt, OBJ.manual, OBJ.oldManual, OBJ.diagram, OBJ.h2Receipt].sort(),
     )
-    const res = await applyPlan(db, bucket, live, new Manifest(manifestPath), { project: PROJECT })
+    const res = await applyPlan(db, bucket, live, new Manifest(manifestPath), SCOPE)
     expect(res).toMatchObject({ copied: 0, fieldsWritten: 0, docsUpdated: 0 })
     expect(await fixtureState()).toEqual(stateBefore)
     expect(await generations(Object.keys(gens))).toEqual(gens)
@@ -432,6 +462,56 @@ describe("the app's own read paths after migration (real client services, rules 
   })
 })
 
+describe("guards around a real run", () => {
+  it("a manifest started for one --home set refuses a run for another", async () => {
+    const { plan } = await planFromLive(db, bucket, new Set([H1]))
+    await expect(applyPlan(db, bucket, plan, new Manifest(manifestPath), { project: PROJECT, homes: [H1] })).rejects.toThrow(
+      /was started for --home mig-h1, mig-h2; this run is for mig-h1/,
+    )
+    await expect(applyPlan(db, bucket, plan, new Manifest(manifestPath), { project: PROJECT, homes: null })).rejects.toThrow(/all homes/)
+  })
+
+  it("a non-empty file without a manifest header is refused; an existing manifest is tightened to 0600", () => {
+    const junk = join(workDir, "not-a-manifest.jsonl")
+    writeFileSync(junk, `${JSON.stringify({ t: "copy-done", src: "a", dst: "b", at: "x" })}\n`)
+    expect(() => new Manifest(junk)).toThrow(/does not start with a migration manifest header/)
+
+    chmodSync(manifestPath, 0o644)
+    const m = new Manifest(manifestPath)
+    expect(m.entries.length).toBeGreaterThan(0)
+    expect(statSync(manifestPath).mode & 0o777).toBe(0o600)
+  })
+
+  it("--home ids are checked against the target: unknown refused, known ones named with their member count", async () => {
+    const facts = await describeHomes(db, [H1, "mig-no-such-home"])
+    expect(facts).toEqual([
+      { id: H1, exists: true, name: "Mig Home One", members: 1 }, // the former member left in the test above
+      { id: "mig-no-such-home", exists: false, name: null, members: 0 },
+    ])
+    expect(() => homeGate(facts)).toThrow(/Unknown --home id\(s\): mig-no-such-home/)
+    expect(homeGate(facts.slice(0, 1))).toEqual([`  --home ${H1}  "Mig Home One"  1 member(s)`])
+  })
+
+  it("Sonia's home is not migrated when the protected set is passed, even when --home names it", async () => {
+    const { plan } = await planFromLive(db, bucket, new Set([SONIA]), new Set([SONIA]))
+    expect(scoped(plan).copies).toEqual([])
+    expect(scoped(plan).protectedSkipped.map((p) => p.homeId)).toEqual([SONIA])
+    expect((await db.doc(`homes/${SONIA}/items/mig-s1`).get()).get("photoPath")).toBe(OBJ.sonia)
+  })
+
+  it("a wrong bucket cannot silently empty the census: every URL reference shows up as foreign-bucket", async () => {
+    // Production refuses a bucket outside the allowlist and one that does not
+    // exist (the emulator serves no bucket metadata, so that check is prod-only).
+    // What is left to prove here is the census itself.
+    const wrong = getStorage().bucket("mig-wrong-bucket.appspot.com")
+    const d = await discover(db, wrong)
+    const plan = scoped(planMigration({ objects: d.objects, refs: d.refs, foreignBucketUrls: d.foreignBucketUrls, unrecognised: d.unrecognised }))
+    expect(plan.copies).toEqual([])
+    expect(plan.foreignBucketUrls.map((f) => f.bucket).sort()).toEqual([BUCKET_NAME, BUCKET_NAME, "mig-other-bucket"].sort())
+    expect(summarize(plan).foreignBucketUrls.total).toBe(3)
+  })
+})
+
 describe("rollback", () => {
   it("restores every reference the manifest rewrote; copies stay; legacy reads still work", async () => {
     const res = await rollback(db, new Manifest(manifestPath))
@@ -451,7 +531,7 @@ describe("rollback", () => {
     // replaces the photo, then roll back.
     const { plan } = await planFromLive(db, bucket, FIXTURE_HOMES)
     expect(scoped(plan).copies.every((c) => c.alreadyCopied)).toBe(true)
-    const again = await applyPlan(db, bucket, plan, new Manifest(manifestPath), { project: PROJECT })
+    const again = await applyPlan(db, bucket, plan, new Manifest(manifestPath), SCOPE)
     expect(again.copied).toBe(0)
     expect(again.fieldsWritten).toBe(7)
     const replaced = `homes/${H1}/photos/${USERS.a.uid}/mig-i1/photo.jpg`

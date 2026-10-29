@@ -6,7 +6,9 @@
  */
 import { describe, expect, it } from "vitest"
 import {
+  PROTECTED_HOMES,
   categoryFor,
+  checkManifestHeader,
   classifyRefString,
   decideField,
   findRefs,
@@ -16,6 +18,7 @@ import {
   parseManifest,
   planMigration,
   redact,
+  requireHeader,
   rewriteRef,
   sameBytes,
   setAt,
@@ -24,7 +27,17 @@ import {
   type StorageObjectFacts,
   type StorageRef,
 } from "./storageLegacyMigration.js"
-import { formatListing, formatSummary, parseArgs, resolveTarget } from "./storageLegacyMigrationCli.js"
+import {
+  PROD_BUCKETS,
+  applyExitCode,
+  deniedProtectedHomes,
+  formatListing,
+  formatSummary,
+  homeGate,
+  parseArgs,
+  progressLine,
+  resolveTarget,
+} from "./storageLegacyMigrationCli.js"
 
 const BUCKET = "demo-homehub.appspot.com"
 const obj = (name: string, size = 100, md5 = `md5-${name}`, token = false): StorageObjectFacts => ({
@@ -321,12 +334,127 @@ describe("the production guard", () => {
       resolveTarget(parseArgs(["--project", "homehub-2068d", "--i-have-owner-approval", "--bucket", "b"]), { FIRESTORE_EMULATOR_HOST: "x" }),
     ).toThrow(/emulator env/)
     expect(() =>
-      resolveTarget(parseArgs(["--project", "homehub-2068d", "--i-have-owner-approval", "--bucket", "b", "--apply", "--manifest", "m"]), env),
+      resolveTarget(
+        parseArgs(["--project", "homehub-2068d", "--i-have-owner-approval", "--bucket", "homehub-2068d.appspot.com", "--apply", "--manifest", "m"]),
+        env,
+      ),
     ).toThrow(/--home/)
   })
   it("--apply needs a manifest; modes are exclusive", () => {
     expect(() => parseArgs(["--apply"])).toThrow(/--manifest/)
     expect(() => parseArgs(["--apply", "--manifest", "m", "--rollback", "m"])).toThrow(/Pick one/)
     expect(() => parseArgs(["--bogus"])).toThrow(/Unknown/)
+  })
+})
+
+// ── gate-1 review follow-ups ─────────────────────────────────────────────────
+
+const SONIA = "a3ba0e21-4bd2-481b-99b8-088d5a90c668"
+const PROD = ["--project", "homehub-2068d", "--i-have-owner-approval"]
+
+describe("a wrong bucket cannot hide references", () => {
+  it("production only accepts the project's own buckets", () => {
+    for (const b of PROD_BUCKETS) expect(resolveTarget(parseArgs([...PROD, "--bucket", b]), {}).bucket).toBe(b)
+    expect(() => resolveTarget(parseArgs([...PROD, "--bucket", "homehub-2068d.appspot"]), {})).toThrow(/not this project's bucket/)
+    expect(() => resolveTarget(parseArgs([...PROD, "--bucket", "someone-else.appspot.com"]), {})).toThrow(/not this project's bucket/)
+  })
+
+  it("Firebase URLs for another bucket are counted as foreign-bucket, never silently dropped", () => {
+    const data = { metadata: { diagram_image_urls: [{ url: tokenUrl("images/m1/page_1.jpg") }] }, gcs: `https://storage.googleapis.com/${BUCKET}/a.jpg` }
+    const right = findRefs("homes/h1/taskTemplates/t1", data, { bucket: BUCKET, knownObjects: known() })
+    expect(right.refs).toHaveLength(2)
+    expect(right.foreignBucketUrls).toHaveLength(0)
+    // The same document scanned with a mistyped bucket: every URL lands in the
+    // visible foreign-bucket count instead of vanishing.
+    const wrong = findRefs("homes/h1/taskTemplates/t1", data, { bucket: "typo.appspot.com", knownObjects: known() })
+    expect(wrong.refs).toHaveLength(0)
+    expect(wrong.foreignBucketUrls.map((f) => f.bucket)).toEqual([BUCKET, BUCKET])
+    const s = summarize(planMigration({ objects: [], refs: [], foreignBucketUrls: wrong.foreignBucketUrls }))
+    expect(s.foreignBucketUrls).toMatchObject({ total: 2, byBucket: { [BUCKET]: 2 } })
+    expect(formatSummary(s).join("\n")).toMatch(/Foreign-bucket Storage URLs .*: 2/)
+  })
+})
+
+describe("declared path fields holding something unrecognisable are reported", () => {
+  it("gs://, outside URLs and junk in photo / receipt / uploaded-manual fields count as unrecognised", () => {
+    const item = findRefs("homes/h1/items/i1", { photoPath: `gs://${BUCKET}/photos/x.jpg`, receiptPath: "https://shop.example/r.pdf", notes: "gs://not-declared" }, {
+      bucket: BUCKET,
+      knownObjects: known(),
+    })
+    expect(item.refs).toHaveLength(0)
+    expect(item.unrecognised.map((u) => [u.category, u.kind])).toEqual([
+      ["items.photoPath", "gs-url"],
+      ["items.receiptPath", "other-url"],
+    ])
+    const manual = findRefs("homes/h1/manuals/m1", { sourceType: "upload", sourceRef: "data:application/pdf;base64,AAAA" }, { bucket: BUCKET, knownObjects: known() })
+    expect(manual.unrecognised.map((u) => u.kind)).toEqual(["other-url"])
+    // A LINKED manual's URL is not a declared path — not reported.
+    expect(findRefs("homes/h1/manuals/m2", { sourceType: "url", sourceRef: "https://maker.example/m.pdf" }, { bucket: BUCKET, knownObjects: known() }).unrecognised).toEqual([])
+    const s = summarize(planMigration({ objects: [], refs: [], unrecognised: item.unrecognised }))
+    expect(s.unrecognised).toEqual({ total: 2, byCategory: { "items.photoPath": { "gs-url": 1 }, "items.receiptPath": { "other-url": 1 } } })
+    expect(formatSummary(s).join("\n")).toMatch(/Unrecognised values .*: 2/)
+  })
+})
+
+describe("protected homes (Sonia's \"My House\")", () => {
+  it("is protected by default", () => {
+    expect(PROTECTED_HOMES.has(SONIA)).toBe(true)
+    expect(deniedProtectedHomes(parseArgs([]))).toEqual(new Set([SONIA]))
+  })
+  it("naming it with --home is refused without the lift", () => {
+    expect(() => deniedProtectedHomes(parseArgs(["--home", SONIA]))).toThrow(/sonia-agreed/)
+  })
+  it("the lift needs BOTH --include-home <id> and --sonia-agreed", () => {
+    expect(() => deniedProtectedHomes(parseArgs(["--include-home", SONIA]))).toThrow(/--sonia-agreed/)
+    expect(() => deniedProtectedHomes(parseArgs(["--sonia-agreed"]))).toThrow(/lifts nothing/)
+    expect(() => deniedProtectedHomes(parseArgs(["--include-home", "c1d91d18", "--sonia-agreed"]))).toThrow(/not a protected home/)
+    expect(deniedProtectedHomes(parseArgs(["--home", SONIA, "--include-home", SONIA, "--sonia-agreed"]))).toEqual(new Set())
+  })
+  it("a protected home's objects are never scheduled, even when --home names it", () => {
+    const refs = refsOf(`homes/${SONIA}/items/i1`, { photoPath: "photos/s/i1/photo.jpg" }, [])
+    const p = planMigration({ objects: [obj("photos/s/i1/photo.jpg")], refs, homeFilter: new Set([SONIA]), protectedHomes: new Set([SONIA]) })
+    expect(p.copies).toEqual([])
+    expect(p.protectedSkipped).toEqual([{ objectPath: "photos/s/i1/photo.jpg", homeId: SONIA, refs: 1 }])
+    expect(formatSummary(summarize(p)).join("\n")).toContain(`Skipped — protected home (needs --include-home + --sonia-agreed): 1 (${SONIA}: 1)`)
+  })
+})
+
+describe("--home is checked against the target before anything runs", () => {
+  it("unknown ids are refused; known ones print name and member count", () => {
+    expect(() => homeGate([{ id: "nope", exists: false, name: null, members: 0 }])).toThrow(/Unknown --home id\(s\): nope/)
+    expect(homeGate([{ id: "c1", exists: true, name: "SF Condo", members: 2 }])).toEqual(['  --home c1  "SF Condo"  2 member(s)'])
+  })
+})
+
+describe("the manifest is bound to one migration", () => {
+  const header = { t: "header" as const, version: 1 as const, project: "p", bucket: "b", startedAt: "x", homes: ["h1"] }
+  it("a different --home scope, project or bucket is refused", () => {
+    expect(() => checkManifestHeader(header, { project: "p", bucket: "b", homes: ["h1"] }, "m")).not.toThrow()
+    expect(() => checkManifestHeader(header, { project: "p", bucket: "b", homes: ["h2"] }, "m")).toThrow(/started for --home h1; this run is for h2/)
+    expect(() => checkManifestHeader(header, { project: "p", bucket: "b", homes: null }, "m")).toThrow(/all homes/)
+    expect(() => checkManifestHeader(header, { project: "q", bucket: "b", homes: ["h1"] }, "m")).toThrow(/belongs to p\/b/)
+    expect(() => checkManifestHeader(null, { project: "p", bucket: "b", homes: null }, "m")).not.toThrow()
+  })
+  it("a non-empty manifest that does not start with a header is refused", () => {
+    expect(() => requireHeader([], "m")).not.toThrow()
+    expect(() => requireHeader([{ t: "copy-done", src: "a", dst: "b", at: "x" }], "m")).toThrow(/does not start with a migration manifest header/)
+    expect(() => requireHeader([header], "m")).not.toThrow()
+  })
+})
+
+describe("apply's exit code and progress", () => {
+  const clean = { refsNotUpdated: [], destinationsMissing: [], originalsMissing: [] }
+  it("any reference not holding its new value fails the run", () => {
+    expect(applyExitCode({ copyFailed: [], fieldConflicts: [] }, clean)).toBe(0)
+    expect(applyExitCode({ copyFailed: [], fieldConflicts: [] }, { ...clean, refsNotUpdated: [{}] })).toBe(2)
+    expect(applyExitCode({ copyFailed: [{}], fieldConflicts: [] }, clean)).toBe(2)
+    expect(applyExitCode({ copyFailed: [], fieldConflicts: [] }, { ...clean, originalsMissing: ["x"] })).toBe(2)
+  })
+  it("prints a progress line every 25 items and on the last", () => {
+    expect(progressLine({ phase: "copy", done: 0, total: 60 })).toBe("  … copying objects 1/60")
+    expect(progressLine({ phase: "copy", done: 1, total: 60 })).toBeNull()
+    expect(progressLine({ phase: "copy", done: 25, total: 60 })).toBe("  … copying objects 26/60")
+    expect(progressLine({ phase: "ref", done: 59, total: 60 })).toBe("  … rewriting documents 60/60")
+    expect(progressLine({ phase: "ref", done: 0, total: 0 })).toBeNull()
   })
 })

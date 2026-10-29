@@ -4,9 +4,13 @@
  * Firebase-free so the unit run gates the guard — the thing that decides
  * whether a run may touch production at all.
  */
-import { redact, type MigrationPlan, type MigrationSummary, type Tally } from "./storageLegacyMigration.js"
+import { PROTECTED_HOMES, redact, type MigrationPlan, type MigrationSummary, type Tally } from "./storageLegacyMigration.js"
 
 export const PROD_PROJECT = "homehub-2068d"
+/** The only buckets production may name. A wrong name would not fail — it
+ *  would silently push every URL reference into "foreign bucket" — so the
+ *  name is checked here and the bucket's existence after init. */
+export const PROD_BUCKETS: readonly string[] = [`${PROD_PROJECT}.appspot.com`, `${PROD_PROJECT}.firebasestorage.app`]
 
 // ── arguments ────────────────────────────────────────────────────────────────
 
@@ -21,6 +25,9 @@ export interface Args {
   homes: string[]
   list: boolean
   report: string | null
+  /** Protected homes the operator asks to include (needs soniaAgreed too). */
+  includeHomes: string[]
+  soniaAgreed: boolean
 }
 
 /** Parse argv. Throws (never exits) so the guard is unit-testable. */
@@ -36,6 +43,8 @@ export function parseArgs(argv: string[]): Args {
     homes: [],
     list: false,
     report: null,
+    includeHomes: [],
+    soniaAgreed: false,
   }
   const args = [...argv]
   while (args.length > 0) {
@@ -58,6 +67,8 @@ export function parseArgs(argv: string[]): Args {
     else if (flag === "--home") out.homes.push(take())
     else if (flag === "--list") out.list = true
     else if (flag === "--report") out.report = take()
+    else if (flag === "--include-home") out.includeHomes.push(take())
+    else if (flag === "--sonia-agreed") out.soniaAgreed = true
     else if (flag === "--") continue
     else throw new Error(`Unknown argument ${JSON.stringify(arg)} (see the header of scripts/ops/migrate-legacy-storage.ts).`)
   }
@@ -89,10 +100,61 @@ export function resolveTarget(args: Args, env: Record<string, string | undefined
   }
   if (emulatorEnv) throw new Error("Production project with emulator env vars set — unset FIRESTORE_EMULATOR_HOST / FIREBASE_STORAGE_EMULATOR_HOST first.")
   if (!args.bucket) throw new Error("Production needs an explicit --bucket <name> (the gs:// name in the console, without gs://).")
+  if (!PROD_BUCKETS.includes(args.bucket)) {
+    throw new Error(`--bucket ${JSON.stringify(args.bucket)} is not this project's bucket; expected one of ${PROD_BUCKETS.join(" | ")}.`)
+  }
   if (args.apply && args.homes.length === 0) {
     throw new Error("--apply in production needs --home <homeId> (one household at a time, each approved).")
   }
   return { kind: "production", project: args.project, bucket: args.bucket }
+}
+
+/**
+ * The protected homes still DENIED for this run. A protected home is lifted
+ * only by naming it with --include-home AND passing --sonia-agreed; either
+ * alone is refused, so a typo or a half-remembered flag cannot lift it.
+ */
+export function deniedProtectedHomes(args: Args): Set<string> {
+  for (const id of args.includeHomes) {
+    if (!PROTECTED_HOMES.has(id)) throw new Error(`--include-home ${id}: not a protected home (only ${[...PROTECTED_HOMES.keys()].join(", ")} needs it).`)
+  }
+  if (args.includeHomes.length > 0 && !args.soniaAgreed) {
+    throw new Error("--include-home also needs --sonia-agreed: that home is Sonia's, and moving her files needs her agreement.")
+  }
+  if (args.soniaAgreed && args.includeHomes.length === 0) throw new Error("--sonia-agreed without --include-home <id> lifts nothing.")
+  const denied = new Set(PROTECTED_HOMES.keys())
+  for (const id of args.includeHomes) denied.delete(id)
+  for (const id of args.homes) {
+    if (denied.has(id)) {
+      throw new Error(`--home ${id} is ${PROTECTED_HOMES.get(id)}. Add --include-home ${id} --sonia-agreed only once she has agreed.`)
+    }
+  }
+  return denied
+}
+
+/** Refuse --home ids that do not exist; otherwise the lines to print about
+ *  what is about to be touched (name and member count, never member ids). */
+export function homeGate(facts: ReadonlyArray<{ id: string; exists: boolean; name: string | null; members: number }>): string[] {
+  const unknown = facts.filter((f) => !f.exists)
+  if (unknown.length > 0) throw new Error(`Unknown --home id(s): ${unknown.map((f) => f.id).join(", ")} — no such home on this target.`)
+  return facts.map((f) => `  --home ${f.id}  "${f.name ?? "(no name)"}"  ${f.members} member(s)${PROTECTED_HOMES.has(f.id) ? `  [${PROTECTED_HOMES.get(f.id)} — included by --sonia-agreed]` : ""}`)
+}
+
+/** Non-zero whenever anything was left undone or unproven: a failed copy, a
+ *  field changed since the plan, a reference not holding its new value, a
+ *  missing copy or a missing original. */
+export function applyExitCode(
+  res: { copyFailed: unknown[]; fieldConflicts: unknown[] },
+  v: { refsNotUpdated: unknown[]; destinationsMissing: unknown[]; originalsMissing: unknown[] },
+): number {
+  const bad = res.copyFailed.length + res.fieldConflicts.length + v.refsNotUpdated.length + v.destinationsMissing.length + v.originalsMissing.length
+  return bad > 0 ? 2 : 0
+}
+
+/** One line every `every` items and on the last, for long applies. */
+export function progressLine(p: { phase: "copy" | "ref"; done: number; total: number }, every = 25): string | null {
+  if (p.total === 0 || (p.done % every !== 0 && p.done !== p.total - 1)) return null
+  return `  … ${p.phase === "copy" ? "copying objects" : "rewriting documents"} ${p.done + 1}/${p.total}`
 }
 
 // ── output (counts and bytes only) ───────────────────────────────────────────
@@ -112,6 +174,13 @@ export function formatSummary(s: MigrationSummary): string[] {
     out.push(`  ${cat.padEnd(56)} total ${c.total} · legacy ${c.legacy} · tenant ${c.tenant} · token URLs ${c.tokenUrls}`)
   }
   for (const [cat, n] of Object.entries(s.refs.v1UrlsByCategory).sort()) out.push(`  ${cat.padEnd(56)} dead v1 (Supabase) URLs ${n} — reported only`)
+  out.push(`Foreign-bucket Storage URLs (another bucket; reported, never rewritten): ${s.foreignBucketUrls.total}`)
+  for (const [b, n] of Object.entries(s.foreignBucketUrls.byBucket).sort()) out.push(`  bucket ${b.padEnd(48)} ${n}`)
+  for (const [cat, n] of Object.entries(s.foreignBucketUrls.byCategory).sort()) out.push(`  ${cat.padEnd(56)} ${n}`)
+  out.push(`Unrecognised values in photo / receipt / uploaded-manual fields (left alone; check before cutover): ${s.unrecognised.total}`)
+  for (const [cat, kinds] of Object.entries(s.unrecognised.byCategory).sort()) {
+    out.push(`  ${cat.padEnd(56)} ${Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(" · ")}`)
+  }
   out.push("")
   out.push(`Plan: copy ${tally(s.plan.toCopy)} · already copied ${tally(s.plan.alreadyCopied)} · rewrite ${s.plan.refUpdates} reference(s)`)
   for (const [cat, n] of Object.entries(s.plan.refUpdatesByCategory).sort()) out.push(`  rewrite ${cat.padEnd(48)} ${n}`)
@@ -123,6 +192,7 @@ export function formatSummary(s: MigrationSummary): string[] {
   for (const [cat, n] of Object.entries(s.missing.byCategory).sort()) out.push(`  missing ${cat.padEnd(48)} ${n}`)
   out.push(`Skipped — destination exists with different bytes: ${s.conflicts}`)
   out.push(`Skipped — outside --home: ${s.outOfScope.objects}${Object.keys(s.outOfScope.byHome).length ? ` (${Object.entries(s.outOfScope.byHome).map(([h, n]) => `${h}: ${n}`).join(", ")})` : ""}`)
+  out.push(`Skipped — protected home (needs --include-home + --sonia-agreed): ${s.protectedSkipped.objects}${Object.keys(s.protectedSkipped.byHome).length ? ` (${Object.entries(s.protectedSkipped.byHome).map(([h, n]) => `${h}: ${n}`).join(", ")})` : ""}`)
   out.push(`Unreferenced legacy objects (left in place): ${tally(s.unreferencedLegacy)}`)
   for (const [fam, t] of Object.entries(s.unreferencedLegacy.byFamily).sort()) out.push(`  unreferenced ${fam.padEnd(42)} ${tally(t)}`)
   out.push(`Migrated originals awaiting the owner's cleanup decision: ${tally(s.migratedOriginals)}`)
@@ -137,6 +207,8 @@ export function formatListing(plan: MigrationPlan): string[] {
   }
   for (const m of plan.missing) out.push(`  MISSING ${redact(m.objectPath)} ← ${m.docPath} (${m.category})`)
   for (const c of plan.conflicts) out.push(`  CONFLICT ${redact(c.src)} → ${redact(c.dst)} exists with different bytes`)
+  for (const u of plan.unrecognised) out.push(`  UNRECOGNISED ${u.kind} ← ${u.docPath} (${u.category})`)
+  for (const f of plan.foreignBucketUrls) out.push(`  FOREIGN-BUCKET ${f.bucket} ← ${f.docPath} (${f.category})`)
   return out
 }
 
