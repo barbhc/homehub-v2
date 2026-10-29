@@ -80,6 +80,27 @@ export default defineConfig(({ mode }) => {
       // to the plugin above.
       'import.meta.env.VITE_SENTRY_RELEASE': JSON.stringify(release),
     },
+    /**
+     * Browser suites run with no HMR and no file watching (E2E_WEB_SERVER_ENV
+     * in e2e/seed-config.ts sets the flag on every emulator suite's server).
+     *
+     * With HMR on, an edit to a module the page has loaded — another agent's
+     * branch switch, a `git pull`, saving a file mid-run — hot-swaps or reloads
+     * the app under a running test. That remounts the add-item wizard, which
+     * finds its own saved session and shows "Pick up where you left off"
+     * mid-flow. Reproduced on demand by editing HomeProvider (remount) and
+     * firebase/app.ts (full reload) during a run. It is A cause of the
+     * 2026-10-28 audit flake that we reproduced, not proven to be THE cause of
+     * that run: a propertyId change re-runs the same resume check
+     * (useDepsChanged in SmartAddItem).
+     *
+     * Not a snapshot: a module first requested AFTER an edit (a lazy route
+     * opened later in the run) is still read from disk as it is then. What
+     * this removes is the push — nothing already loaded is swapped or reloaded.
+     */
+    ...(process.env.HH_E2E_FROZEN_SOURCE === '1'
+      ? { server: { hmr: false, watch: null } }
+      : {}),
     build: {
       /**
        * "hidden", not true: maps are emitted for upload but NO

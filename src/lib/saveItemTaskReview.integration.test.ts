@@ -31,14 +31,16 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("saveItemTaskRevi
 
     const loaded = await loadItemTasksForReview(HOME, ITEM)
     expect(loaded.error).toBeNull()
-    const { preview, idByTitle, manualByTitle } = loaded.data!
+    const { preview, templateIds, manualById } = loaded.data!
 
     // The user's real move: "Service AC before summer" → one-time setup.
     const tasks = preview.tasks.map((t) =>
       t.title === "Service AC before summer" ? { ...t, schedule_type: "setup" as const } : t,
     )
 
-    const res = await saveItemTaskReview({ homeId: HOME, itemUnitId: ITEM, idByTitle, manualByTitle, tasks, chunks: [] })
+    const res = await saveItemTaskReview({
+      homeId: HOME, itemUnitId: ITEM, templateIds, manualById, shownTemplateIds: templateIds, tasks, chunks: [],
+    })
     expect(res.error).toBeNull()
     expect(res.data!.updated).toBeGreaterThan(0)
 

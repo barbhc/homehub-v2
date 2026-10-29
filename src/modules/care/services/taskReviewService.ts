@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore"
+import { collection, doc, getDocs, query, runTransaction, serverTimestamp, where } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { syncTemplateDenormToInstances } from "./denormSync"
 import type { ServiceResult } from "./careNoteService"
@@ -17,21 +17,34 @@ import { localToday } from "../../../../shared/dates/calendar"
  * only ever applies to appliances added from here on.
  *
  * Loads templates into the sheet's PreviewResult shape, then writes the reviewed
- * result straight back to the templates it came from (matched by id, carried in
- * the title field's prefix) rather than creating duplicates.
+ * result straight back to the templates it came from — matched by the template
+ * ID each row carries (`PreviewTask.template_id`), never by title.
+ *
+ * Titles used to be the key (an `idByTitle` map), and every way that broke was a
+ * silent write to the wrong task (audit 2026-10-28, Package 2):
+ *  - two tasks with the same title collapsed to one map entry, so both rows'
+ *    edits landed on one template and the other task never changed — while the
+ *    save reported both as updated;
+ *  - a row whose title differed from the stored one had no id, was skipped, and
+ *    its OWN task was then deactivated as "not kept";
+ *  - a row whose title matched a different task wrote its edits onto that task.
+ * Title matching (`titleSimilarity`) remains only where no id exists yet: a
+ * fresh extraction reconciled against stored tasks in commitDraft.
+ *
+ * The title is read-only in this flow. The review sheet has no title editor and
+ * this save never writes `title` — the title is also the key a later rescan
+ * reconciles on, so renaming belongs to the task editor (`updateTaskContent`),
+ * which is id-based and syncs the open occurrences.
  */
-
-/** Templates are round-tripped through PreviewTask, which has no id field — so the
- *  id rides in a parallel map keyed by title, rebuilt on save. Titles are unique
- *  per item in practice (the reconciler enforces it), and a collision only means
- *  one of two identical rows gets the edit. */
 export interface ExistingTaskReview {
+  /** Every task carries `template_id`. */
   preview: PreviewResult
-  idByTitle: Map<string, string>
+  /** Every template loaded for this item — the only ids a save may write. */
+  templateIds: string[]
   /** The manual each task came from, so a task converted to a tip can be written
    *  back as a chunk on that manual — the same storage the parse path and the
    *  cleanup sweep already use. No new collection, no new rules. */
-  manualByTitle: Map<string, string>
+  manualById: Map<string, string>
 }
 
 const asCareType = (v: unknown): CareType => (v === "cleaning" || v === "mixed" ? v : "maintenance")
@@ -45,16 +58,17 @@ export async function loadItemTasksForReview(homeId: string, itemUnitId: string)
       query(collection(db, `homes/${homeId}/taskTemplates`), where("itemUnitId", "==", itemUnitId), where("deletedAt", "==", null)),
     )
     const tasks: PreviewTask[] = []
-    const idByTitle = new Map<string, string>()
-    const manualByTitle = new Map<string, string>()
+    const templateIds: string[] = []
+    const manualById = new Map<string, string>()
     for (const d of snap.docs) {
       if (d.get("isActive") === false) continue
       const title = String(d.get("title") ?? "")
       if (!title) continue
-      idByTitle.set(title, d.id)
+      templateIds.push(d.id)
       const manualId = d.get("manualId") as string | null
-      if (manualId) manualByTitle.set(title, manualId)
+      if (manualId) manualById.set(d.id, manualId)
       tasks.push({
+        template_id: d.id,
         title,
         description: (d.get("description") as string | null) ?? null,
         care_type: asCareType(d.get("careType")),
@@ -76,7 +90,7 @@ export async function loadItemTasksForReview(homeId: string, itemUnitId: string)
     }
     // Existing usage tips aren't re-reviewed here: they live on manual chunks, and
     // reviewing an ITEM's tasks shouldn't silently rewrite its manual's chunks.
-    return { data: { preview: { ok: true, tasks, chunks: [] }, idByTitle, manualByTitle }, error: null }
+    return { data: { preview: { ok: true, tasks, chunks: [] }, templateIds, manualById }, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Could not load tasks" } }
   }
@@ -85,156 +99,218 @@ export async function loadItemTasksForReview(homeId: string, itemUnitId: string)
 export interface SaveItemReviewInput {
   homeId: string
   itemUnitId: string
-  idByTitle: Map<string, string>
-  manualByTitle: Map<string, string>
+  /** From loadItemTasksForReview. */
+  templateIds: string[]
+  manualById: Map<string, string>
+  /** The templates the reviewer was actually SHOWN. A loaded task the sheet
+   *  never drew — freeze-prep rows are suppressed before the review in a
+   *  freeze-free home — is not a task the reviewer chose to drop, so it is left
+   *  exactly as it is. Before this, such a row was simply absent from the save
+   *  and got deactivated without ever being on screen. Required: there is no
+   *  safe default ("every loaded id" is that bug). */
+  shownTemplateIds: string[]
+  /** Kept rows, each carrying its `template_id`. */
   tasks: PreviewTask[]
-  /** Rows the reviewer converted to tips or skipped — deactivated, never deleted,
+  /** Rows the reviewer converted to tips, each carrying its `template_id`. A
+   *  shown row in neither list was skipped. Both are deactivated, never deleted,
    *  so completion history survives and the choice stays reversible. */
   chunks: PreviewChunk[]
 }
 
+const RELOAD = "Close the review and open it again."
+
 export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<ServiceResult<{ updated: number; deactivated: number }>> {
-  const { homeId, itemUnitId, idByTitle, manualByTitle, tasks, chunks } = input
+  const { homeId, itemUnitId, templateIds, manualById, shownTemplateIds, tasks, chunks } = input
   try {
-    const now = serverTimestamp()
-    const batch = writeBatch(db)
-    const templates = collection(db, `homes/${homeId}/taskTemplates`)
-    const keptTitles = new Set(tasks.map((t) => t.title))
-    let updated = 0
-
-    // One instance query serves every per-template decision below (open lookup,
-    // zombie cleanup, seed-check) instead of a query per task.
-    const allInstSnap = await getDocs(
-      query(collection(db, `homes/${homeId}/taskInstances`), where("itemUnitId", "==", itemUnitId), where("deletedAt", "==", null)),
-    )
-    const openByTemplate = new Map<string, { id: string }[]>()
-    for (const d of allInstSnap.docs) {
-      const status = d.get("status")
-      if (status !== "scheduled" && status !== "snoozed") continue
-      const tid = String(d.get("taskTemplateId"))
-      const arr = openByTemplate.get(tid) ?? []
-      arr.push({ id: d.id })
-      openByTemplate.set(tid, arr)
+    // Identity first, before anything is written: every row names a task this
+    // review loaded, at most once. A row that doesn't would otherwise be a
+    // silent no-op — or, keyed by title, a write to some other task.
+    const loaded = new Set(templateIds)
+    const owned = (id: string | undefined, what: string): string => {
+      if (!id || !loaded.has(id)) throw new Error(`A reviewed ${what} isn't one of this item's tasks. ${RELOAD}`)
+      return id
     }
-    const todayStr = localToday()
-
+    const keptIds = new Set<string>()
     for (const t of tasks) {
-      const id = idByTitle.get(t.title)
-      if (!id) continue // a title the reviewer renamed — leave the original alone
-      batch.set(
-        doc(templates, id),
-        {
-          careType: t.care_type,
-          priorityTier: t.priority_tier,
-          remindEnabled: t.remind_enabled ?? null,
-          // NESTED object, not "schedule.scheduleType" string keys: set(merge)
-          // treats a dotted key as a literal field NAME (path semantics belong
-          // to update()), so the original write created a junk field with a dot
-          // in it and left the real schedule untouched — every cadence change
-          // saved through this path was silently dropped. A green build and a
-          // passing save; only reading the document back caught it. merge:true
-          // deep-merges maps, so anchorDate/season/window keys survive.
-          schedule: {
-            scheduleType: t.schedule_type,
-            intervalDays: t.interval_days ?? null,
-          },
-          isActive: true,
-          userModifiedAt: now,
-          updatedAt: now,
-        },
-        { merge: true },
+      const id = owned(t.template_id, "task")
+      if (keptIds.has(id)) throw new Error(`The same task appears twice in this review. ${RELOAD}`)
+      keptIds.add(id)
+    }
+    const tipById = new Map<string, PreviewChunk>()
+    for (const c of chunks) {
+      if (!(c.tags ?? []).includes(USAGE_TIP_TAG) || c.template_id === undefined) continue
+      tipById.set(owned(c.template_id, "tip"), c)
+    }
+    const shown = new Set(shownTemplateIds.map((id) => owned(id, "row")))
+    for (const id of keptIds) if (!shown.has(id)) throw new Error(`A saved task wasn't on screen. ${RELOAD}`)
+
+    // ONE transaction: the liveness check and every write. A plain read-then-
+    // batch left a window in which another device could remove a task between
+    // the check and the commit; inside runTransaction each reviewed template is
+    // read with tx.get, and if any of them changes before the commit, Firestore
+    // re-runs this whole callback against the new state — so the check below
+    // always judges the documents the writes land on. (Queries can't be
+    // transactional reads in the web SDK, so the open-occurrence lookups below
+    // are plain reads, re-run on every attempt. Detecting another member's
+    // EDITS to a reviewed task — not just its removal — is decision doc §C.)
+    const result = await runTransaction(db, async (tx) => {
+      const templates = collection(db, `homes/${homeId}/taskTemplates`)
+
+      // The templates as they are NOW. A task removed since this review opened
+      // must not be written back — set(merge) would make it active again and a
+      // schedule move would seed an occurrence for it. "Removed" is both shapes
+      // the app writes: soft-deleted (deletedAt set) and archived
+      // (archiveTaskTemplate, CareBlock's remove: isActive false, deletedAt left
+      // null). Titles come from here too: the denormalized copy on a new
+      // occurrence is the template's own title.
+      const titleById = new Map<string, string>()
+      const liveSnaps = await Promise.all([...shown].map((id) => tx.get(doc(templates, id))))
+      for (const snap of liveSnaps) {
+        const removed = !snap.exists() || snap.get("deletedAt") != null || snap.get("isActive") === false
+        if (removed) throw new Error(`One of these tasks was removed on another device. ${RELOAD}`)
+        titleById.set(snap.id, String(snap.get("title") ?? ""))
+      }
+
+      const now = serverTimestamp()
+      let updated = 0
+
+      // One instance query serves every per-template decision below (open lookup,
+      // zombie cleanup, seed-check) instead of a query per task.
+      const allInstSnap = await getDocs(
+        query(collection(db, `homes/${homeId}/taskInstances`), where("itemUnitId", "==", itemUnitId), where("deletedAt", "==", null)),
       )
-      // The agenda reads the instance's denormalized copy, not the template — skip
-      // this and the whole review is invisible on Home (see denormSync).
-      await syncTemplateDenormToInstances(batch, homeId, id, {
-        careType: t.care_type,
-        priorityTier: t.priority_tier,
-        scheduleType: t.schedule_type,
-      })
+      const openByTemplate = new Map<string, { id: string }[]>()
+      for (const d of allInstSnap.docs) {
+        const status = d.get("status")
+        if (status !== "scheduled" && status !== "snoozed") continue
+        const tid = String(d.get("taskTemplateId"))
+        const arr = openByTemplate.get(tid) ?? []
+        arr.push({ id: d.id })
+        openByTemplate.set(tid, arr)
+      }
+      const todayStr = localToday()
 
-      const open = openByTemplate.get(id) ?? []
-      if (!isRecurring(t.schedule_type)) {
-        // Moved OFF the schedule (→ setup / as-needed): its open instances are now
-        // meaningless, and leaving them makes Home keep showing a due date for a
-        // task the user just said has none — the same zombie class as the denorm
-        // drift bug. Done instances stay; they're history.
-        for (const inst of open) {
-          batch.set(doc(db, `homes/${homeId}/taskInstances/${inst.id}`), { deletedAt: now, updatedAt: now }, { merge: true })
-        }
-      } else if (open.length === 0) {
-        // Moved ONTO a schedule with nothing open: seed one instance, due today,
-        // exactly as commitDraft does for a fresh parse. Never-completed past-due
-        // renders as calm "Start anytime", and rollForward re-anchors from there —
-        // it only fixes existing instances, it never creates one, so without this
-        // "Put on a schedule" would change the template and nothing visible.
-        batch.set(doc(collection(db, `homes/${homeId}/taskInstances`)), {
-          homeId,
-          taskTemplateId: id,
-          itemUnitId,
-          status: "scheduled",
-          dueDate: todayStr,
-          snoozedUntil: null,
-          priorityScore: t.priority_tier === "essential" ? 3 : t.priority_tier === "optional" ? 1 : 2,
-          isSafetyCritical: t.risk_level === "safety",
-          completedAt: null,
-          completionNotes: null,
-          completionPhotos: [],
-          assignedTo: null,
-          title: t.title,
-          priorityTier: t.priority_tier,
+      for (const t of tasks) {
+        const id = t.template_id!
+        tx.set(
+          doc(templates, id),
+          {
+            careType: t.care_type,
+            priorityTier: t.priority_tier,
+            remindEnabled: t.remind_enabled ?? null,
+            // NESTED object, not "schedule.scheduleType" string keys: set(merge)
+            // treats a dotted key as a literal field NAME (path semantics belong
+            // to update()), so the original write created a junk field with a dot
+            // in it and left the real schedule untouched — every cadence change
+            // saved through this path was silently dropped. A green build and a
+            // passing save; only reading the document back caught it. merge:true
+            // deep-merges maps, so anchorDate/season/window keys survive.
+            schedule: {
+              scheduleType: t.schedule_type,
+              intervalDays: t.interval_days ?? null,
+            },
+            isActive: true,
+            userModifiedAt: now,
+            updatedAt: now,
+          },
+          { merge: true },
+        )
+        // The agenda reads the instance's denormalized copy, not the template — skip
+        // this and the whole review is invisible on Home (see denormSync).
+        await syncTemplateDenormToInstances(tx, homeId, id, {
           careType: t.care_type,
-          scopeType: "item_unit",
-          estimatedMinutes: t.estimated_minutes ?? null,
+          priorityTier: t.priority_tier,
           scheduleType: t.schedule_type,
-          itemName: null,
-          roomName: null,
-          createdAt: now,
-          updatedAt: now,
-          deletedAt: null,
         })
-      }
-      updated++
-    }
 
-    // Anything not kept as a task is deactivated. Its open instances go too, or the
-    // agenda keeps showing a row whose template is no longer active.
-    const tipTitles = new Set(chunks.filter((c) => (c.tags ?? []).includes(USAGE_TIP_TAG)).map((c) => c.title ?? ""))
-    let deactivated = 0
-    for (const [title, id] of idByTitle) {
-      if (keptTitles.has(title)) continue
-      batch.set(doc(templates, id), { isActive: false, deletedAt: now, updatedAt: now }, { merge: true })
-      deactivated++
-      for (const inst of openByTemplate.get(id) ?? []) {
-        batch.set(doc(db, `homes/${homeId}/taskInstances/${inst.id}`), { deletedAt: now, updatedAt: now }, { merge: true })
+        const open = openByTemplate.get(id) ?? []
+        if (!isRecurring(t.schedule_type)) {
+          // Moved OFF the schedule (→ setup / as-needed): its open instances are now
+          // meaningless, and leaving them makes Home keep showing a due date for a
+          // task the user just said has none — the same zombie class as the denorm
+          // drift bug. Done instances stay; they're history.
+          for (const inst of open) {
+            tx.set(doc(db, `homes/${homeId}/taskInstances/${inst.id}`), { deletedAt: now, updatedAt: now }, { merge: true })
+          }
+        } else if (open.length === 0) {
+          // Moved ONTO a schedule with nothing open: seed one instance, due today,
+          // exactly as commitDraft does for a fresh parse. Never-completed past-due
+          // renders as calm "Start anytime", and rollForward re-anchors from there —
+          // it only fixes existing instances, it never creates one, so without this
+          // "Put on a schedule" would change the template and nothing visible.
+          tx.set(doc(collection(db, `homes/${homeId}/taskInstances`)), {
+            homeId,
+            taskTemplateId: id,
+            itemUnitId,
+            status: "scheduled",
+            dueDate: todayStr,
+            snoozedUntil: null,
+            priorityScore: t.priority_tier === "essential" ? 3 : t.priority_tier === "optional" ? 1 : 2,
+            isSafetyCritical: t.risk_level === "safety",
+            completedAt: null,
+            completionNotes: null,
+            completionPhotos: [],
+            assignedTo: null,
+            title: titleById.get(id) ?? t.title,
+            priorityTier: t.priority_tier,
+            careType: t.care_type,
+            scopeType: "item_unit",
+            estimatedMinutes: t.estimated_minutes ?? null,
+            scheduleType: t.schedule_type,
+            itemName: null,
+            roomName: null,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null,
+          })
+        }
+        updated++
       }
-      // A row turned into a tip keeps its advice, written as a usage-tip chunk on
-      // the manual it came from — the same shape the parse path and the cleanup
-      // sweep write, so it renders in "Using it well" with no new storage.
-      const manualId = manualByTitle.get(title)
-      if (tipTitles.has(title) && manualId) {
-        batch.set(doc(collection(db, `homes/${homeId}/manuals/${manualId}/chunks`)), {
-          manualId,
-          chunkType: "how_to",
-          contentLevel: "everyday",
-          title,
-          content: chunks.find((c) => c.title === title)?.content ?? title,
-          tags: [USAGE_TIP_TAG],
-          scenarios: null,
-          sourcePages: [],
-          appliesTo: [],
-          sectionCategory: null,
-          externalKey: null,
-          embeddingRef: null,
-          metadata: {},
-          createdAt: now,
-          updatedAt: now,
-          deletedAt: null,
-        })
-      }
-    }
 
-    await batch.commit()
-    return { data: { updated, deactivated }, error: null }
+      // A SHOWN row that is no longer a task — skipped, or converted to a tip — is
+      // deactivated. Its open occurrences go too, or the agenda keeps showing a row
+      // whose template is no longer active. Done occurrences are untouched: they
+      // are history (non-negotiable 3). A loaded row the reviewer never saw is not
+      // in `shown` and is left alone.
+      let deactivated = 0
+      for (const id of shown) {
+        if (keptIds.has(id)) continue
+        tx.set(doc(templates, id), { isActive: false, deletedAt: now, updatedAt: now }, { merge: true })
+        deactivated++
+        for (const inst of openByTemplate.get(id) ?? []) {
+          tx.set(doc(db, `homes/${homeId}/taskInstances/${inst.id}`), { deletedAt: now, updatedAt: now }, { merge: true })
+        }
+        // A row turned into a tip keeps its advice, written as a usage-tip chunk on
+        // the manual it came from — the same shape the parse path and the cleanup
+        // sweep write, so it renders in "Using it well" with no new storage.
+        const tip = tipById.get(id)
+        const manualId = manualById.get(id)
+        if (tip && manualId) {
+          const title = titleById.get(id) ?? tip.title ?? ""
+          tx.set(doc(collection(db, `homes/${homeId}/manuals/${manualId}/chunks`)), {
+            manualId,
+            chunkType: "how_to",
+            contentLevel: "everyday",
+            title,
+            content: tip.content || title,
+            tags: [USAGE_TIP_TAG],
+            scenarios: null,
+            sourcePages: [],
+            appliesTo: [],
+            sectionCategory: null,
+            externalKey: null,
+            embeddingRef: null,
+            metadata: {},
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null,
+          })
+        }
+      }
+
+      return { updated, deactivated }
+    })
+    return { data: result, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Could not save review" } }
   }

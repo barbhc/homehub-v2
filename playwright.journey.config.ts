@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
-import { DESKTOP_VIEWPORT, WEB_PORT } from "./e2e/seed-config"
+import { DESKTOP_VIEWPORT, WEB_PORT, E2E_WEB_SERVER_ENV } from "./e2e/seed-config"
 
 /**
  * Journey-walk config: the chained happy-path walks in e2e/journey/, against
@@ -46,5 +46,8 @@ export default defineConfig({
     port: PORT,
     reuseExistingServer: false,
     timeout: 120_000,
+    // No HMR, no file watching: an edit to the tree mid-run must not remount
+    // the app under a test (see E2E_WEB_SERVER_ENV).
+    env: E2E_WEB_SERVER_ENV,
   },
 })
