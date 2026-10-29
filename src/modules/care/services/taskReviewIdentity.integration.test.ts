@@ -33,6 +33,7 @@ import {
 import { auth, db, firebaseApp } from "@/integrations/firebase"
 import { EMULATOR_PORTS } from "@/integrations/firebase/app"
 import { loadItemTasksForReview, saveItemTaskReview, type ExistingTaskReview } from "./taskReviewService"
+import { archiveTaskTemplate } from "./taskService"
 import { rowsFrom } from "@/components/manuals/reviewRows"
 import type { PreviewChunk, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import { USAGE_TIP_TAG } from "../../../../shared/tasks/taxonomy"
@@ -300,7 +301,7 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("item review keep
     expect((await tpl("rid-added-later")).isActive).toBe(true)
   })
 
-  it("refuses — writing nothing — when a reviewed task was removed on another device, or a row names a task this review didn't load", async () => {
+  it("refuses — writing nothing — when a reviewed task was soft-deleted on another device", async () => {
     const review = await load()
     // The partner deletes a task while the review is open.
     await setDoc(doc(secondDb, `homes/${HOME}/taskTemplates/rid-drain`), { deletedAt: new Date(), isActive: false }, { merge: true })
@@ -313,6 +314,30 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("item review keep
     expect((await tpl("rid-dup-1")).priorityTier).toBe("recommended")
     expect((await tpl("rid-drain")).isActive).toBe(false)
 
+  })
+
+  it("refuses — writing nothing — when a reviewed task was ARCHIVED mid-review (isActive false, deletedAt never set)", async () => {
+    const review = await load()
+    // CareBlock's "remove" — the real writer, which leaves deletedAt null.
+    const archived = await archiveTaskTemplate(HOME, "rid-drain")
+    expect(archived.success).toBe(true)
+    const before = await tpl("rid-drain")
+    expect([before.isActive, before.deletedAt]).toEqual([false, null])
+
+    const tasks = review.preview.tasks.map((t) => edit(t, { priority_tier: "essential" }))
+    const res = await saveItemTaskReview({
+      homeId: HOME, itemUnitId: ITEM, templateIds: review.templateIds, manualById: review.manualById,
+      shownTemplateIds: shownIds(review), tasks, chunks: [],
+    })
+    expect(res.error?.message).toMatch(/removed on another device/)
+    // Not resurrected, no fresh occurrence seeded for it, and nothing else written.
+    expect((await tpl("rid-drain")).isActive).toBe(false)
+    expect(await openInstances("rid-drain")).toHaveLength(0)
+    expect((await tpl("rid-dup-1")).priorityTier).toBe("recommended")
+  })
+
+  it("refuses a row that names a task this review didn't load, or no task at all", async () => {
+    const review = await load()
     const foreign = await saveItemTaskReview({
       homeId: HOME, itemUnitId: ITEM, templateIds: review.templateIds, manualById: review.manualById,
       shownTemplateIds: shownIds(review),

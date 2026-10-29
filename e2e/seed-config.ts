@@ -52,15 +52,18 @@ export function dayOffset(days: number, from: string = SEED_TODAY): string {
 export const WEB_PORT = Number(process.env.PW_WEB_PORT || 5273)
 
 /**
- * Environment for every emulator suite's web server: serve the source as it
- * was when the server started — no HMR, no file watching (vite.config.ts).
+ * Environment for every emulator suite's web server: no HMR and no file
+ * watching (vite.config.ts), so nothing the page has already loaded is
+ * hot-swapped or reloaded under a running test. (Not a snapshot: a module
+ * first requested after an edit is still read from disk.)
  *
  * The suites run a Vite DEV server against a working tree that people and
- * agents keep editing. An edit landing mid-run used to remount or reload the
- * app under the test; the add-item wizard then found its own saved session and
- * showed "Pick up where you left off" in the middle of the flow (the
- * 2026-10-28 audit's Back → Add the manual flake, green when rerun alone).
- * Pass this as `webServer.env` in any new emulator config.
+ * agents keep editing. An edit landing mid-run remounts or reloads the app;
+ * the add-item wizard then finds its own saved session and shows "Pick up
+ * where you left off" in the middle of the flow — reproduced on demand, and
+ * the reproduced cause of the 2026-10-28 audit's Back → Add the manual flake
+ * (green when rerun alone). Pass this as `webServer.env` in any new emulator
+ * config.
  */
 export const E2E_WEB_SERVER_ENV = { HH_E2E_FROZEN_SOURCE: "1" } as const
 

@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, query, serverTimestamp, where, type WriteBatch } from "firebase/firestore"
+import { collection, doc, getDocs, query, serverTimestamp, where, type Transaction, type WriteBatch } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 
 /**
@@ -33,7 +33,10 @@ export interface TemplateDenormFields {
 }
 
 export async function syncTemplateDenormToInstances(
-  batch: WriteBatch,
+  /** A batch, or a transaction when the caller's writes must be atomic with
+   *  its reads (saveItemTaskReview). Either way nothing is written until the
+   *  caller commits. */
+  batch: WriteBatch | Transaction,
   homeId: string,
   taskTemplateId: string,
   fields: TemplateDenormFields,
@@ -53,7 +56,10 @@ export async function syncTemplateDenormToInstances(
   for (const d of snap.docs) {
     const status = d.get("status")
     if ((status !== "scheduled" && status !== "snoozed") || d.get("deletedAt") != null) continue
-    batch.set(doc(db, `homes/${homeId}/taskInstances/${d.id}`), patch, { merge: true })
+    const ref = doc(db, `homes/${homeId}/taskInstances/${d.id}`)
+    // Narrowed per type: the two `set` overload sets don't unify on a union.
+    if ("commit" in batch) batch.set(ref, patch, { merge: true })
+    else batch.set(ref, patch, { merge: true })
     touched++
   }
   return touched

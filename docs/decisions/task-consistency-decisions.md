@@ -100,16 +100,18 @@ There are three places that change a task's cadence, and they disagree.
 |---|---|---|---|---|
 | Your reminders page (/reminders, turning a proposed reminder on) — `setTaskCadence`, `src/modules/care/services/taskService.ts:459-494` | updated | **keeps its due date**; the new rhythm starts next cycle | keeps due date and snooze | gets one, due one new cycle from today (`:482-487`); seasonal with no season → error |
 | "This isn't right" feedback → cadence fix — `updateTaskSchedule`, `taskScheduleService.ts:39-109` | updated | **moved to today + new cycle** (`:91-101`) | moved too; snooze date left as is | **nothing created** — the change is invisible |
-| Item "Review tasks" — `saveItemTaskReview`, `taskReviewService.ts` | updated | due date **unchanged**, label updated | unchanged | gets one **due today** — even seasonal, ignoring the season |
+| Item "Review tasks" — `saveItemTaskReview`, `taskReviewService.ts` | updated | due date **unchanged**, label updated; moved to as-needed/setup → **removed** | unchanged; moved to as-needed/setup → **removed too**, snooze and all | gets one **due today** — even seasonal, ignoring the season |
 
 Two more specifics:
 
 - `updateTaskSchedule` has no case for seasonal, as-needed or setup: it falls
   to `addMonths(today, 120)` (`taskScheduleService.ts:34-35`) — **ten years
   out**. A cadence fix to "seasonal" quietly parks the task until 2036.
-- Moving a task to "as needed" or "setup" in the review removes its open
-  occurrence (correct — it no longer has a date); the other two editors leave a
-  dated occurrence on a task that says it has no schedule.
+- Moving a task to "as needed" or "setup" in the review soft-deletes every open
+  occurrence, **including a snoozed one** — the snooze is not kept anywhere
+  (correct in that the task no longer has a date; worth knowing if you snoozed
+  it deliberately). The other two editors leave a dated occurrence on a task
+  that says it has no schedule.
 
 ### Where this goes wrong for you
 
@@ -233,7 +235,8 @@ any task with `userModifiedAt` should be treated as "all four fields are mine"
 - **Stale review saves.** The item review loads tasks, you edit for a while,
   then Save writes all reviewed rows. The PR that adds this document makes Save
   match by task id (so it can no longer hit the *wrong* task) and refuses to
-  save if one of the reviewed tasks was removed on another device meanwhile
+  save if one of the reviewed tasks was removed on another device meanwhile —
+  deleted or archived — checked inside the same transaction as the writes
   ("Close the review and open it again"). It does **not** yet detect another
   member *editing* a reviewed task in between — Save still overwrites their
   priority/cadence/reminder. That belongs with the provenance work in C.
