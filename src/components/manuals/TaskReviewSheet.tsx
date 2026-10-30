@@ -26,7 +26,7 @@ import { isFirstReview, markFirstReviewSeen } from "@/lib/firstReview"
 import type {
   PreviewChunk, PreviewResult, PreviewTask, PriorityTier, ScheduleType,
 } from "@/modules/knowledge/types/previewTypes"
-import { TaskReviewFeedback, type ReviewEdit, type ReviewEditSummary } from "./TaskReviewFeedback"
+import { TaskReviewFeedback, type ReviewEdit, type ReviewEditSummary, type RescanOutcome } from "./TaskReviewFeedback"
 import {
   TIER_RAIL, SECTION_RAIL, rowsFrom, taskLikeOf, bucketOfRow, type ReviewRow,
 } from "./reviewRows"
@@ -221,6 +221,9 @@ interface TaskReviewSheetProps {
   saving: boolean
   /** Fires when the user says the parse looks wrong. Carries their corrections. */
   onFeedback?: (payload: { reasons: string[]; note: string; edits: ReviewEditSummary; rescan: boolean }) => void
+  /** Start a fresh read of this manual. Without it the feedback sheet draws no
+   *  Re-scan button — see TaskReviewFeedback. */
+  onRescan?: () => Promise<RescanOutcome>
   /** "maintenance" reviews only the upkeep that needs a decision and saves the
    *  rest untouched. "all" (the default) is the full two-step sheet, still used
    *  by the item page's own "Review tasks" button. */
@@ -246,7 +249,7 @@ interface TaskReviewSheetProps {
 }
 
 export function TaskReviewSheet({
-  open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, focus = "maintenance",
+  open, onOpenChange, itemName, previewData, onSave, saving, onFeedback, onRescan, focus = "maintenance",
   presentation = "sheet",
   alreadySaved = false,
   freezeRiskFalse,
@@ -1066,7 +1069,7 @@ export function TaskReviewSheet({
                 )
               })}
 
-              <TaskReviewFeedback edits={edits} onSubmit={(p) => onFeedback?.(p)} />
+              <TaskReviewFeedback edits={edits} onSubmit={(p) => onFeedback?.(p)} onRescan={onRescan} />
             </>
           )}
           {saveError && <p className="text-sm text-destructive mt-3">{saveError}</p>}
