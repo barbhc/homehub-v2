@@ -54,6 +54,12 @@ export const PARSE_ERR = {
   stalled: "This scan stopped partway through on our side. Scanning it again will start it fresh.",
   /** The scan was saved but could not be handed to the worker queue. */
   notStarted: "We couldn't start this scan just now. Try again in a minute.",
+  /** The manual was deleted while we were watching its read. */
+  vanished: "That manual was removed while we were reading it.",
+  /** The listener on the manual died (permissions, index, connectivity), so no
+   *  further stage can arrive. Says what to do rather than what broke: waiting
+   *  forever on "Scanning…" is what this replaces. */
+  watchLost: "We lost track of this scan. Reopen the item to see where it got to.",
   /** A scan the client was following was replaced by a different kind of scan
    *  of the same manual (e.g. a rescan started elsewhere). */
   superseded: "A newer scan of this manual took over from this one.",

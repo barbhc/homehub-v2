@@ -430,6 +430,26 @@ setup."*
   write tasks with no review at all. — audit 2026-09-29. Settings' Review is
   a tap, so it asks the item page to OPEN that review on arrival (the page
   opens one by itself only for a read it watched finish). — HH-161
+- **A read that nobody can hear from again ends the wait.** `watchParse` takes
+  an error callback, so a listener that dies — a permission change, a missing
+  index, the manual deleted by another member — settles `parseManualAndWait`
+  with something the person can act on instead of leaving it pending. Settings'
+  "Rescan all" awaits that promise, and used to sit on "Scanning…" with every
+  action disabled, where not even the read finishing server-side could release
+  it. A deleted manual says so rather than waiting for a stage that is not
+  coming. — Codex review 2026-10-29
+- **A label scan the user walked away from lands nowhere.** Leaving the
+  appliance lane invalidates the request, not just the display: `clearOcrState`
+  bumps the request id. It cleared the shown state and left the request live, so
+  a slow scan's reply still matched and wrote the form object it had closed over
+  — start a scan, press Back, choose "Everything else", type a name, and the
+  late reply put the pre-Back form back and disabled Add. — Codex review
+  2026-10-29
+- **The parse tray belongs to the home on screen.** It is emptied in the render
+  that CHANGES home, not only one that loses it. Switching straight from one
+  home to another left the first home's rows visible and tappable until the
+  second home's snapshot arrived, and tapping Review then asked for the other
+  home's manual and landed on "Item not found". — Codex review 2026-10-29
 - **The one-by-one walkthrough survives**, speaking the same four words.
   Reclassifying a row visibly moves it between sections. It is the only route
   tasks from older parses have into the new vocabulary. — HH-144
