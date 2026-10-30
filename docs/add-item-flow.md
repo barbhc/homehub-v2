@@ -430,6 +430,31 @@ setup."*
   write tasks with no review at all. — audit 2026-09-29. Settings' Review is
   a tap, so it asks the item page to OPEN that review on arrival (the page
   opens one by itself only for a read it watched finish). — HH-161
+- **The review's "Re-scan" starts a read, or is not there.** It is drawn only
+  where a read can actually start — the hand-off's review, which has a manual
+  behind it. The existing-task review has no single manual (`manualId: null`)
+  and so has no button, rather than an inert one. A refused read keeps the sheet
+  open and says why; a read queued for capacity closes it and says it is queued,
+  never "Thanks". The corrections go in either way: they are the corpus, and a
+  refused read must not also cost us the report that came with it. Until now the
+  button called the same fire-and-forget handler as Send feedback with
+  `rescan: true`, which every caller wrote to a feedback document and nothing
+  acted on — so reporting the tasks were wrong and asking for a re-scan produced
+  "Thanks", no read, and no trace. — Codex review 2026-10-29
+- **On the item page too, a read refused for capacity shows as queued, not
+  failed** (the rule is already above, from the 2026-09-29 audit; this door did
+  not keep it). The refusal is recognised BEFORE the message is worded:
+  `${failure}: ${humanizeParseError(...)}` prefixed the server's sentence, so
+  nothing downstream could match it, and a read the server had parked at
+  `awaiting_capacity` was reported as one that could not start — beside an
+  Upkeep card and a tray that both showed it waiting. It joins the client queue
+  and reads as calm news. A real failure still says it failed. — Codex review
+  2026-10-29
+- **A relabel that failed keeps the editor open, with what was typed.** The
+  editor closed either way, so a failed write looked exactly like a successful
+  one: the draft vanished, the old label came back, and the only trace was a
+  console line. Offline is the ordinary way to reach it. — Codex review
+  2026-10-29
 - **The one-by-one walkthrough survives**, speaking the same four words.
   Reclassifying a row visibly moves it between sections. It is the only route
   tasks from older parses have into the new vocabulary. — HH-144

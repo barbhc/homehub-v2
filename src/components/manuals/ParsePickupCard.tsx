@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { CheckIcon, XIcon } from "lucide-react"
 import { readPreviewDraft, commitReviewedDraft } from "@/modules/knowledge/services/parseManualService"
+import { startRescanForReview } from "@/lib/manualRescan"
+import { capacityNotice } from "@/lib/scanCapacity"
 import { TaskReviewSheet } from "./TaskReviewSheet"
 import { draftReviewCounts } from "./reviewRows"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
@@ -234,6 +236,29 @@ export function ParsePickupCard({
         clearParsePending(manualId)
         onReviewSaved()
         return null
+      }}
+      // The one review that HAS a manual behind it, so the one that can offer
+      // Re-scan. The existing-task review (ReviewItemTasksButton) passes
+      // nothing and therefore draws no button, instead of drawing an inert one.
+      onRescan={async () => {
+        const started = await startRescanForReview(homeId, { manual_id: manualId, item_unit_id: itemUnitId })
+        if (started.ok) {
+          // The draft on screen is about to be replaced, so the review it was
+          // opened on closes with it. (Saving it afterwards would be refused
+          // server-side as superseded, which is correct but is not a thing to
+          // make someone discover.)
+          setOpen(null)
+          return { ok: true }
+        }
+        // Refused for capacity is queued work, not a failure: the server parked
+        // it and the sweep starts it. Say so, and close — there is nothing for
+        // the user to do differently.
+        if (started.queued) {
+          const notice = capacityNotice(started.error)
+          setOpen(null)
+          return { ok: true, message: `${notice.title} — ${notice.eta.toLowerCase()}.` }
+        }
+        return { ok: false, message: started.error }
       }}
       onFeedback={(p) => {
         void recordParseFeedback(homeId, {
