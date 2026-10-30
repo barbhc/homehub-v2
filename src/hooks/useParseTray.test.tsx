@@ -57,3 +57,48 @@ describe("useParseTray", () => {
     expect(fs.subscribed).toEqual(["homes/home-1/manuals", "homes/home-2/manuals"])
   })
 })
+
+// ── Switching home empties the tray in the same render ──────────────────────
+//
+// Codex review 2026-10-29, finding 7. The tray cleared only when `homeId`
+// became NULL, so going straight from home A to home B left A's rows on screen
+// and actionable until B's first snapshot arrived. Tapping a still-visible
+// Review asked for A's manual and navigated to A's item under home B, where
+// the person got "Item not found".
+describe("the tray belongs to the home on screen", () => {
+  beforeEach(() => {
+    fs.onNext = null
+    fs.unsub.mockClear()
+    fs.subscribed = []
+  })
+
+  it("A → B empties it immediately, without waiting for B's snapshot", () => {
+    const { result, rerender } = renderHook(({ homeId }: { homeId: string | null }) => useParseTray(homeId), {
+      initialProps: { homeId: "home-A" as string | null },
+    })
+    act(() => fs.onNext!({ docs: [READING, READY] }))
+    expect(result.current.ready.map((e) => e.manualId)).toEqual(["m2"])
+
+    // Straight to another home — no null in between, which is the case that
+    // was missed.
+    rerender({ homeId: "home-B" })
+
+    // Empty in that same render: nothing of A's is tappable under B.
+    expect(result.current).toEqual({ parsing: [], ready: [] })
+    expect(fs.subscribed).toEqual(["homes/home-A/manuals", "homes/home-B/manuals"])
+  })
+
+  it("B's own snapshot then fills it", () => {
+    const { result, rerender } = renderHook(({ homeId }: { homeId: string | null }) => useParseTray(homeId), {
+      initialProps: { homeId: "home-A" as string | null },
+    })
+    act(() => fs.onNext!({ docs: [READING, READY] }))
+    rerender({ homeId: "home-B" })
+    expect(result.current.ready).toEqual([])
+
+    const bReady = manual("m9", { itemUnitId: "i9", title: "B's manual", parse: { stage: "done" }, previewDraft: { tasks: [] } })
+    act(() => fs.onNext!({ docs: [bReady] }))
+    expect(result.current.ready.map((e) => e.manualId)).toEqual(["m9"])
+  })
+})
+
