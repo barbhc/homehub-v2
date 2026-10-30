@@ -1,5 +1,7 @@
-import { useEffect } from "react"
+import { useEffect, type ComponentProps } from "react"
 import { XIcon } from "lucide-react"
+import { AnimatePresence, motion, useIsPresent } from "motion/react"
+import { DURATION, EASE } from "@/lib/motion"
 
 /**
  * A brief confirmation of something that just happened, with a way back.
@@ -11,6 +13,11 @@ import { XIcon } from "lucide-react"
  * far as they are concerned, whatever the database did.
  *
  * Deliberately not a toast library: one element, no portal, no dependency.
+ *
+ * It slides up from below on --dur-move (ease-out) as it fades in, and slides
+ * away (ease-in) when it is dismissed or runs out — under Reduce Motion it only
+ * fades (MotionConfig in main.tsx). The slide-away needs the caller to keep it
+ * mounted while it leaves: render it through <UndoBarSlot>.
  */
 export function UndoBar({
   message,
@@ -29,25 +36,38 @@ export function UndoBar({
   /** 0: the bar stays until it is acted on or dismissed (a failure is not furniture to time out). */
   ms?: number
 }) {
+  // Leaving (after Undo, Dismiss or its timer): no longer a live region or a
+  // target, and its timer is spent — it is only sliding away.
+  const present = useIsPresent()
   useEffect(() => {
-    if (ms <= 0) return
+    if (ms <= 0 || !present) return
     const t = window.setTimeout(onDismiss, ms)
     return () => window.clearTimeout(t)
-  }, [onDismiss, ms, message])
+  }, [onDismiss, ms, message, present])
 
   return (
     <div
-      role="status"
-      aria-live="polite"
+      role={present ? "status" : undefined}
+      aria-live={present ? "polite" : undefined}
+      inert={!present}
       className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
       // Clears the tab bar, and the home indicator under it — and a page's own
       // bottom bar when it has one (--hh-page-bar-h, published by usePageBar).
       // 74px at the normal text size; rises with the tab bar under Larger Text.
       style={{ bottom: "calc(max(74px, var(--hh-tabbar-h) + 11.5px) + env(safe-area-inset-bottom) + var(--hh-page-bar-h, 0px))" }}
     >
-      <div
-        className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-xl px-4 py-3 shadow-[0_8px_28px_rgba(8,12,11,0.28)]"
+      <motion.div
+        data-testid="undo-bar"
+        className={`${present ? "pointer-events-auto" : ""} flex w-full max-w-md items-center gap-3 rounded-xl px-4 py-3 shadow-[0_8px_28px_rgba(8,12,11,0.28)]`}
         style={{ background: "var(--hh-ink)", color: "var(--hh-bg)" }}
+        initial={{ opacity: 0, y: "130%" }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{
+          opacity: 0,
+          y: "130%",
+          transition: { y: { duration: DURATION.move, ease: EASE.exit }, opacity: { duration: DURATION.fade, ease: "linear" } },
+        }}
+        transition={{ y: { duration: DURATION.move, ease: EASE.enter }, opacity: { duration: DURATION.fade, ease: "linear" } }}
       >
         <span className="min-w-0 flex-1 text-[0.84375rem] font-medium">{message}</span>
         {onUndo && (
@@ -75,7 +95,16 @@ export function UndoBar({
         >
           <XIcon className="size-3.5" aria-hidden />
         </button>
-      </div>
+      </motion.div>
     </div>
   )
+}
+
+/**
+ * Where a surface renders its UndoBar: `<UndoBarSlot bar={bar} />` for
+ * `{bar && <UndoBar {...bar} />}`. Keeps the bar mounted while it slides away;
+ * a new message replaces the text in place rather than re-entering.
+ */
+export function UndoBarSlot({ bar }: { bar: ComponentProps<typeof UndoBar> | null }) {
+  return <AnimatePresence>{bar && <UndoBar key="undo-bar" {...bar} />}</AnimatePresence>
 }

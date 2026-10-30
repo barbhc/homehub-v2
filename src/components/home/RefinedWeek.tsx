@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
-  AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon, XIcon,
+  AlarmClockIcon, CheckIcon, ChevronDownIcon, FlagIcon, XIcon,
 } from "lucide-react"
+import { AnimatePresence } from "motion/react"
 import type { WeekAgendaItem } from "@/modules/care"
 import { useCareSuggestions } from "@/hooks/useCareSuggestions"
 import { useWeekAgenda } from "@/hooks/useWeekAgenda"
@@ -20,7 +21,10 @@ import {
   tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL, SELECTED_DAY_RING, withoutHidden, fillFor,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
-import { UndoBar } from "@/components/ui/UndoBar"
+import { Collapse, PresenceGroup } from "./tasks/rowMotion"
+import { useTaskRowMotion } from "./tasks/useTaskRowMotion"
+import { CHEVRON_TURN } from "./tasks/rowAnim"
+import { UndoBarSlot } from "@/components/ui/UndoBar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
@@ -33,18 +37,18 @@ type View = "list" | "calendar"
 
 // ── Expanded detail (why · notes · actions) ───────────────────────────────────
 // Real data exposes justification + notes only; we link to the full guide rather
-// than invent supplies/numbered steps.
+// than invent supplies/numbered steps. Mounted only while the row is open or
+// closing (Collapse), so its detail read is always on.
 function ExpandedDetail({
-  homeId, taskInstanceId, expanded, onDone, onSnooze, onOpenGuide,
+  homeId, taskInstanceId, onDone, onSnooze, onOpenGuide,
 }: {
   homeId: string | null
   taskInstanceId: string
-  expanded: boolean
   onDone: () => void
   onSnooze: () => void
   onOpenGuide: () => void
 }) {
-  const { detail, loading } = useTaskDetail(homeId, taskInstanceId, expanded)
+  const { detail, loading } = useTaskDetail(homeId, taskInstanceId, true)
   const actor = detail ? classifyTaskDetail(detail) : "diy"
   return (
     <div className="flex flex-col gap-3" style={{ padding: `0 ${PAD - 3}px ${PAD - 3}px` }}>
@@ -93,6 +97,10 @@ function ExpandedDetail({
 }
 
 // ── Swipeable + expandable row ────────────────────────────────────────────────
+// Motion (Apple polish phase 2) lives in useTaskRowMotion: the row follows the
+// finger, resists past 60% of its width, commits past 30% or on a flick, and
+// leaves the way it was thrown; a tick fills the circle, slides the row right
+// and closes the list up over it. Mount it inside <AnimatePresence>.
 function TaskRow({
   homeId, t, groupLabel, expanded, error, onToggle, onDone, onSnooze, onOpenGuide,
 }: {
@@ -109,126 +117,119 @@ function TaskRow({
   onOpenGuide: () => void
 }) {
   const tier = (t.priorityTier as Tier) ?? "optional"
-  const [dx, setDx] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const drag = useRef<{ x: number; dx: number; moved: boolean } | null>(null)
-  const TH = 72
-
-  const down = (e: React.PointerEvent) => {
-    drag.current = { x: e.clientX, dx: 0, moved: false }
-    setDragging(true)
-    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
-  }
-  const move = (e: React.PointerEvent) => {
-    if (!drag.current) return
-    let nd = e.clientX - drag.current.x
-    if (Math.abs(nd) > 4) drag.current.moved = true
-    nd = Math.max(-120, Math.min(120, nd))
-    drag.current.dx = nd
-    setDx(nd)
-  }
-  const up = (e: React.PointerEvent) => {
-    const g = drag.current
-    drag.current = null
-    setDragging(false)
-    if (!g) return
-    // pointercancel is iOS saying "the scroll gesture took this pointer" — the
-    // finger was never a tap. Treating it as one expanded a task on almost
-    // every scroll, because a list this dense leaves nowhere neutral to put a
-    // finger down. Cancel resets; only a genuine up with no movement toggles.
-    if (e.type === "pointercancel") { setDx(0); return }
-    if (!g.moved) { setDx(0); onToggle(); return }
-    if (g.dx > TH) { setDx(0); onDone() }
-    else if (g.dx < -TH) { setDx(0); onSnooze() }
-    else setDx(0)
+  const { rowRef, slideRef, leaving, tick, snoozeTap, wasDrag, surface } = useTaskRowMotion({ id: t.taskInstanceId, error, onDone, onSnooze, swipe: true })
+  // A tap anywhere on the row's surface opens it — except the tail of a swipe.
+  // pointercancel is iOS saying "the scroll gesture took this pointer"; it
+  // fires no click, so a scroll never opens a row.
+  const tap = (e: React.MouseEvent) => {
+    if (wasDrag() || (e.target as Element).closest("button")) return
+    onToggle()
   }
 
   return (
-    <div data-testid="phone-task-row" className="relative overflow-hidden" style={{ borderTop: `0.5px solid ${LINE}` }}>
-      {/* Swipe reveals: right → Done (teal), left → Snooze (amber). Decoration
-          only — and it MUST NOT take pointer events. It's `inset-0` on the
-          container, so when the row is expanded it covers the detail panel too;
-          being a POSITIONED sibling it paints above that non-positioned panel,
-          and opacity:0 is still a hit target. Without this, every control in
-          the expanded card ("View full guide", "Mark done", "Snooze") silently
-          did nothing. */}
+    <div
+      ref={rowRef}
+      data-testid="phone-task-row"
+      data-leaving={leaving ? "" : undefined}
+      inert={leaving}
+      className="group/row relative overflow-hidden"
+      style={{ borderTop: `0.5px solid ${LINE}` }}
+    >
+      {/* Swipe reveals: right → Done (teal), left → Snooze (gold); the icon
+          grows once letting go would commit. Decoration only — and it MUST
+          NOT take pointer events. It's `inset-0` on the container, so when the
+          row is expanded it covers the detail panel too; opacity:0 is still a
+          hit target. Without this, every control in the expanded card ("View
+          full guide", "Mark done", "Snooze") silently did nothing. */}
       <div className="pointer-events-none absolute inset-0 flex">
-        <div className="flex flex-1 items-center pl-5" style={{ background: "var(--hh-teal-fill)", opacity: dx > 4 ? 1 : 0 }}>
-          <span className="inline-flex items-center gap-1.5 text-[0.84375rem] font-bold text-white"><CheckIcon className="size-[18px]" strokeWidth={2.6} /> Done</span>
+        <div className="flex flex-1 items-center pl-5 opacity-0 group-data-[reveal=done]/row:opacity-100" style={{ background: "var(--hh-teal-fill)" }}>
+          <span className="inline-flex origin-left items-center gap-1.5 text-[0.84375rem] font-bold text-white transition-transform duration-(--dur-press) ease-(--ease-enter) group-data-[armed]/row:scale-[1.18]"><CheckIcon className="size-[18px]" strokeWidth={2.6} /> Done</span>
         </div>
-        <div className="flex flex-1 items-center justify-end pr-5" style={{ background: "var(--hh-gold-fill)", opacity: dx < -4 ? 1 : 0 }}>
-          <span className="inline-flex items-center gap-1.5 text-[0.84375rem] font-bold text-white">Snooze <AlarmClockIcon className="size-[17px]" strokeWidth={2.4} /></span>
+        <div className="flex flex-1 items-center justify-end pr-5 opacity-0 group-data-[reveal=snooze]/row:opacity-100" style={{ background: "var(--hh-gold-fill)" }}>
+          <span className="inline-flex origin-right items-center gap-1.5 text-[0.84375rem] font-bold text-white transition-transform duration-(--dur-press) ease-(--ease-enter) group-data-[armed]/row:scale-[1.18]">Snooze <AlarmClockIcon className="size-[17px]" strokeWidth={2.4} /></span>
         </div>
       </div>
 
-      <div
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={up}
-        className="relative flex items-center gap-2.5"
-        style={{
-          padding: `13px ${PAD - 3}px`,
-          cursor: "pointer",
-          background: SURFACE,
-          transform: `translateX(${dx}px)`,
-          transition: dragging ? "none" : "transform .22s ease",
-          touchAction: "pan-y",
-        }}
-      >
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onDone() }}
-          aria-label="Mark done"
-          className="hit-44 -mx-0.5 flex shrink-0 p-2"
-        >
-          <span className="flex size-6 items-center justify-center rounded-full border-2" style={{ borderColor: TEAL }}>
-            <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
-          </span>
-        </button>
-
-        <div className="min-w-0 flex-1">
-          <div className="text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full px-2 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
-            {t.trulyOverdue && <span className="size-[5px] shrink-0 rounded-full" style={{ background: CLAY }} />}
-            <span className="text-[0.78125rem]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</span>
-          </div>
-        </div>
-
-        {t.estimatedMinutes != null && (
-          <span className="shrink-0 text-[0.78125rem] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>
-        )}
-        {expanded
-          ? <ChevronUpIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />
-          : <ChevronDownIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />}
-      </div>
-
-      {/* A failed Done/Snooze is said HERE, on the task it failed on — as on
-          desktop. In the page header it scrolled away above a long list, so a
-          failure on a lower row put nothing readable on screen. Positioned and
-          filled so the swipe-reveal layer never shows through it. */}
-      {error && (
+      {/* What slides: the whole row, detail and all, on the surface colour so
+          the reveal shows only where the row has moved off it. */}
+      <div ref={slideRef} className="relative" style={{ background: SURFACE }}>
         <div
-          role="alert"
-          className="relative -mt-1.5 pb-3 text-[0.84375rem] font-medium"
-          style={{ paddingLeft: 63, paddingRight: PAD - 3, color: CLAY, background: SURFACE }}
+          {...surface}
+          onClick={tap}
+          data-testid="phone-task-row-surface"
+          className="relative flex items-center gap-2.5 bg-(--hh-surface) transition-[background-color] duration-(--dur-press) ease-linear data-[pressed]:bg-(--hh-teal-wash)"
+          style={{ padding: `0 ${PAD - 3}px`, cursor: "pointer", touchAction: "pan-y" }}
         >
-          {error}
-        </div>
-      )}
+          <button
+            type="button"
+            data-no-press
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!wasDrag()) tick()
+            }}
+            aria-label="Mark done"
+            className="group/check hit-44 -mx-0.5 flex shrink-0 p-2"
+          >
+            <span className="flex size-6 items-center justify-center rounded-full border-2 border-(--hh-teal) transition-[background-color,border-color,scale] duration-(--dur-press) ease-(--ease-enter) group-active/check:scale-[0.88] group-data-[ticked]/row:border-(--hh-teal-fill) group-data-[ticked]/row:bg-(--hh-teal-fill)">
+              <CheckIcon className="size-3 opacity-0 transition-opacity duration-(--dur-press) group-data-[ticked]/row:opacity-100" style={{ color: "var(--hh-on-fill)" }} strokeWidth={3} />
+            </span>
+          </button>
 
-      {expanded && (
-        <ExpandedDetail
-          homeId={homeId}
-          taskInstanceId={t.taskInstanceId}
-          expanded={expanded}
-          onDone={onDone}
-          onSnooze={onSnooze}
-          onOpenGuide={onOpenGuide}
-        />
-      )}
+          {/* The row's opener: a real button, so it is reachable and announced
+              (aria-expanded). The 13px of row padding lives inside it. */}
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!wasDrag()) onToggle()
+            }}
+            className="flex min-w-0 flex-1 items-center gap-2.5 py-[13px] text-left"
+          >
+            <span className="block min-w-0 flex-1">
+              <span className="block text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</span>
+              <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                <span className="rounded-full px-2 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
+                {t.trulyOverdue && <span className="size-[5px] shrink-0 rounded-full" style={{ background: CLAY }} />}
+                <span className="text-[0.78125rem]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</span>
+              </span>
+            </span>
+
+            {t.estimatedMinutes != null && (
+              <span className="shrink-0 text-[0.78125rem] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>
+            )}
+            <ChevronDownIcon
+              aria-hidden
+              className={`size-[18px] shrink-0 ${CHEVRON_TURN} ${expanded ? "rotate-180" : ""}`}
+              style={{ color: FAINT }}
+            />
+          </button>
+        </div>
+
+        {/* A failed Done/Snooze is said HERE, on the task it failed on — as on
+            desktop. In the page header it scrolled away above a long list, so a
+            failure on a lower row put nothing readable on screen. Positioned and
+            filled so the swipe-reveal layer never shows through it. */}
+        {error && (
+          <div
+            role="alert"
+            className="relative -mt-1.5 pb-3 text-[0.84375rem] font-medium"
+            style={{ paddingLeft: 63, paddingRight: PAD - 3, color: CLAY, background: SURFACE }}
+          >
+            {error}
+          </div>
+        )}
+
+        <Collapse open={expanded}>
+          <ExpandedDetail
+            homeId={homeId}
+            taskInstanceId={t.taskInstanceId}
+            onDone={tick}
+            onSnooze={snoozeTap}
+            onOpenGuide={onOpenGuide}
+          />
+        </Collapse>
+      </div>
     </div>
   )
 }
@@ -379,7 +380,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
-      {bar && <UndoBar {...bar} />}
+      <UndoBarSlot bar={bar} />
       {/* A refresh failed behind an agenda we still hold: keep it, and say so
           quietly at the top of the screen — where Home and Items say it. */}
       {agenda.error && agenda.data && (
@@ -572,14 +573,20 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                 <div className="py-10 text-center text-[0.9375rem]" style={{ color: SUB }}>Nothing matches these filters.</div>
               )
             )}
-            {groups.map((g) => (
-              <div key={g.key} className="mb-4">
-                <GroupHeader label={g.label} tone={g.tone} count={g.items.length} mins={g.mins} />
-                <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
-                  {g.items.map((t) => renderRow(t, g.label))}
-                </div>
-              </div>
-            ))}
+            {/* A group whose last row leaves closes up with it; the rows
+                inside play their own exits (propagate). */}
+            <AnimatePresence initial={false}>
+              {groups.map((g) => (
+                <PresenceGroup key={g.key} ids={g.items.map((t) => t.taskInstanceId)} className="mb-4">
+                  <GroupHeader label={g.label} tone={g.tone} count={g.items.length} mins={g.mins} />
+                  <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
+                    <AnimatePresence initial={false} propagate>
+                      {g.items.map((t) => renderRow(t, g.label))}
+                    </AnimatePresence>
+                  </div>
+                </PresenceGroup>
+              ))}
+            </AnimatePresence>
             {/* HH-94, the rule's third invisibility report: with a NON-empty
                 list, a scheduled cleaning task was simply absent and nothing
                 said so — the explanation only existed in the empty state. The
@@ -620,7 +627,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               {selDay != null && dayTasks.length === 0 && <div className="px-0.5 py-1.5 text-[0.84375rem]" style={{ color: FAINT }}>Nothing due {dayLabel(selDay)} — enjoy the calm.</div>}
               {dayTasks.length > 0 && (
                 <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
-                  {dayTasks.map((t) => renderRow(t))}
+                  <AnimatePresence initial={false}>{dayTasks.map((t) => renderRow(t))}</AnimatePresence>
                 </div>
               )}
             </div>

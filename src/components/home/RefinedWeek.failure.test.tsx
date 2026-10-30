@@ -86,15 +86,21 @@ const acceptDone = async () => {
 
 const renderAndSettle = async () => {
   render(<RefinedWeek homeId="home-1" />)
-  await waitFor(() => expect(screen.getByText(/replace the furnace filter/i)).toBeInTheDocument())
+  // On the read, not a clock (see DesktopTasks.test.tsx `loaded`): the agenda
+  // has resolved and its row is on screen. The timeout is a stalled runner's ceiling.
+  await waitFor(() => expect(getWeekAgenda).toHaveBeenCalled(), { timeout: 15_000 })
+  await act(async () => {
+    await getWeekAgenda.mock.results[getWeekAgenda.mock.results.length - 1].value
+  })
+  await screen.findByText(/replace the furnace filter/i, undefined, { timeout: 15_000 })
 }
 
-/** The row toggles on a tap expressed as pointerdown+pointerup with no move. */
+/** The row opens on its opener — a real button, announced with aria-expanded. */
 const expandRow = async () => {
-  const row = screen.getByText(/replace the furnace filter/i).closest("div")!.parentElement!
-  fireEvent.pointerDown(row, { clientX: 10, pointerId: 1 })
-  fireEvent.pointerUp(row, { clientX: 10, pointerId: 1 })
+  const row = screen.getByTestId("phone-task-row")
+  fireEvent.click(within(row).getByRole("button", { expanded: false }))
   await waitFor(() => expect(screen.getByRole("button", { name: /^snooze$/i })).toBeInTheDocument())
+  expect(within(row).getByRole("button", { expanded: true })).toBeInTheDocument()
 }
 
 /** The phone row a title belongs to. */
@@ -122,8 +128,7 @@ describe("RefinedWeek — a failed check-off must say so", () => {
     snoozeTaskInstance.mockResolvedValue({ success: false, error: "network down" })
     await renderAndSettle()
 
-    // Snooze lives in the expanded row, and the row expands on a pointer
-    // down/up with no movement — a swipe handler, not a click handler.
+    // Snooze lives in the expanded row.
     await expandRow()
     fireEvent.click(screen.getByRole("button", { name: /^snooze$/i }))
 
@@ -157,5 +162,51 @@ describe("RefinedWeek — a failed check-off must say so", () => {
       expect(screen.queryByText(/replace the furnace filter/i)).not.toBeInTheDocument(),
     )
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  it("a swiped-away Done whose write is REJECTED comes back: row on the list, error on it, no 'Done' left, nothing left mid-swipe", async () => {
+    markTaskInstanceDone.mockRejectedValue(new Error("network down"))
+    await renderAndSettle()
+
+    // Swipe right past the commit distance (jsdom: the row is the window's 1024 wide).
+    const surface = screen.getByTestId("phone-task-row-surface")
+    fireEvent.pointerDown(surface, { clientX: 300, clientY: 10, pointerId: 1 })
+    fireEvent.pointerMove(surface, { clientX: 500, clientY: 10, pointerId: 1 })
+    fireEvent.pointerMove(surface, { clientX: 700, clientY: 10, pointerId: 1 })
+    fireEvent.pointerUp(surface, { clientX: 700, clientY: 10, pointerId: 1 })
+    // It left the list at once (the optimistic half)…
+    await screen.findByRole("status")
+    expect(screen.queryByText(/replace the furnace filter/i)).toBeNull()
+    // …and the write, when it goes, is refused.
+    await acceptDone()
+
+    const row = await waitFor(() => rowOf(/replace the furnace filter/i))
+    await waitFor(() => expect(within(row).getByRole("alert")).toHaveTextContent("Couldn't mark this done."))
+    // Never a success state: no "Done" receipt, and no "Couldn't mark X done" second line either.
+    // (A bar sliding away has no status role: only a live bar counts.)
+    expect(screen.queryByRole("status")).toBeNull()
+    expect(screen.queryByText(/Couldn't mark “/)).toBeNull()
+    // Back whole: not leaving, not inert, nothing left inline from the swipe.
+    expect(row).not.toHaveAttribute("data-leaving")
+    expect(row).not.toHaveAttribute("inert")
+    expect(row).not.toHaveAttribute("data-reveal")
+    expect(row.style.height).toBe("")
+    await waitFor(() => expect((row.querySelector("[data-testid=phone-task-row-surface]")!.parentElement as HTMLElement).style.transform).toBe(""))
+  })
+
+  it("a swiped-away Snooze whose write FAILS springs back with the error on the row", async () => {
+    snoozeTaskInstance.mockRejectedValue(new Error("network down"))
+    await renderAndSettle()
+    const surface = screen.getByTestId("phone-task-row-surface")
+    fireEvent.pointerDown(surface, { clientX: 700, clientY: 10, pointerId: 1 })
+    fireEvent.pointerMove(surface, { clientX: 500, clientY: 10, pointerId: 1 })
+    fireEvent.pointerMove(surface, { clientX: 300, clientY: 10, pointerId: 1 })
+    fireEvent.pointerUp(surface, { clientX: 300, clientY: 10, pointerId: 1 })
+
+    const row = rowOf(/replace the furnace filter/i)
+    await waitFor(() => expect(within(row).getByRole("alert")).toHaveTextContent("Couldn't snooze this."))
+    expect(screen.queryByText(/Snoozed until/)).toBeNull()
+    await waitFor(() => expect(row).not.toHaveAttribute("data-reveal"), { timeout: 3000 })
+    expect((surface.parentElement as HTMLElement).style.transform).toBe("")
   })
 })
