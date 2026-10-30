@@ -114,23 +114,121 @@ function priorityScoreFor(tier: string): number {
   return tier === "essential" ? 100 : tier === "recommended" ? 50 : 10
 }
 
+/** How long a commit claim is trusted before another attempt may take it over.
+ *  Longer than commitManualDraft's 120s timeout and the worker's attempt
+ *  deadline, so an attempt that is still alive is never displaced — and one
+ *  that died between claiming and committing stops blocking its own retry
+ *  instead of wedging the manual for good. */
+export const COMMIT_CLAIM_TTL_MS = 5 * 60 * 1000
+
+/** Another attempt holds the commit. Thrown rather than returned because every
+ *  caller must do something visible with it: the review says so, the worker
+ *  retries. */
+export class CommitInProgressError extends Error {
+  constructor(readonly heldBy: string) {
+    super("This manual is already being saved. Give it a moment and try again.")
+    this.name = "CommitInProgressError"
+  }
+}
+
+/** `parse.commitClaim` as stored — member-writable data, so it is read, never
+ *  cast: anything that is not {requestId: string, at: Timestamp} is no claim. */
+function readClaim(raw: unknown): { requestId: string; atMs: number } | null {
+  if (!raw || typeof raw !== "object") return null
+  const r = raw as { requestId?: unknown; at?: unknown }
+  if (typeof r.requestId !== "string" || !r.requestId) return null
+  return { requestId: r.requestId, atMs: r.at instanceof Timestamp ? r.at.toMillis() : 0 }
+}
+
+type ClaimOutcome =
+  | { kind: "claimed" }
+  | { kind: "already_committed"; result: CommitResult }
+  | { kind: "in_progress"; heldBy: string }
+
+/**
+ * Take exclusive ownership of this manual's commit, atomically.
+ *
+ * What this replaced was a plain read of `parse.committedRequestId` followed,
+ * hundreds of lines later, by a batch write of it. Two saves of the same review
+ * therefore both read "nothing committed yet" and both inserted every task, so
+ * the household saw each upkeep task twice (Codex review 2026-10-29, finding 2).
+ * Reading and stamping in one transaction is what makes "exactly one of us
+ * commits" true instead of merely likely.
+ *
+ * The claim expires on purpose: an attempt that dies after claiming must not
+ * wedge the manual, because silently losing a paid parse is worse than the
+ * duplicate this guards against.
+ */
+async function claimCommit(
+  db: Firestore,
+  manualRef: FirebaseFirestore.DocumentReference,
+  requestId: string,
+  nowMs: number,
+): Promise<ClaimOutcome> {
+  return db.runTransaction<ClaimOutcome>(async (tx) => {
+    const snap = await tx.get(manualRef)
+    if (snap.get("parse.committedRequestId") === requestId) {
+      return {
+        kind: "already_committed",
+        result: {
+          chunks: storedCount(snap.get("parse.summary.chunks")) ?? 0,
+          tasks: storedCount(snap.get("parse.summary.tasks")) ?? 0,
+          matched: 0,
+          inserted: 0,
+          flagged: 0,
+          deleted: 0,
+        },
+      }
+    }
+    const held = readClaim(snap.get("parse.commitClaim"))
+    if (held && nowMs - held.atMs < COMMIT_CLAIM_TTL_MS) return { kind: "in_progress", heldBy: held.requestId }
+    tx.set(manualRef, { parse: { commitClaim: { requestId, at: Timestamp.fromMillis(nowMs) } } }, { merge: true })
+    return { kind: "claimed" }
+  })
+}
+
+/** Hand the claim back so this request's own retry is not locked out for the
+ *  whole TTL. Only ever clears OUR claim — an attempt that took over after ours
+ *  expired keeps its own. */
+async function releaseCommitClaim(
+  db: Firestore,
+  manualRef: FirebaseFirestore.DocumentReference,
+  requestId: string,
+): Promise<void> {
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(manualRef)
+      if (readClaim(snap.get("parse.commitClaim"))?.requestId !== requestId) return
+      tx.set(manualRef, { parse: { commitClaim: null } }, { merge: true })
+    })
+  } catch (e) {
+    // The caller is already failing; a failed release only costs the TTL.
+    console.error(`[commitDraft] could not release commit claim on ${manualRef.path}:`, e)
+  }
+}
+
 export async function commitDraft(db: Firestore, input: CommitInput): Promise<CommitResult> {
-  const { homeId, manualId, item, requestId, chunks, now } = input
+  const { homeId, manualId, requestId, now } = input
   const manualRef = db.doc(`homes/${homeId}/manuals/${manualId}`)
 
-  // Idempotency: a redelivered task whose requestId already committed is a no-op.
-  const manualSnap = await manualRef.get()
-  const committed = manualSnap.get("parse.committedRequestId")
-  if (committed === requestId) {
-    return {
-      chunks: storedCount(manualSnap.get("parse.summary.chunks")) ?? 0,
-      tasks: storedCount(manualSnap.get("parse.summary.tasks")) ?? 0,
-      matched: 0,
-      inserted: 0,
-      flagged: 0,
-      deleted: 0,
-    }
+  const claim = await claimCommit(db, manualRef, requestId, now.getTime())
+  if (claim.kind === "already_committed") return claim.result
+  if (claim.kind === "in_progress") throw new CommitInProgressError(claim.heldBy)
+
+  try {
+    return await executeCommit(db, input, manualRef)
+  } catch (e) {
+    await releaseCommitClaim(db, manualRef, requestId)
+    throw e
   }
+}
+
+async function executeCommit(
+  db: Firestore,
+  input: CommitInput,
+  manualRef: FirebaseFirestore.DocumentReference,
+): Promise<CommitResult> {
+  const { homeId, manualId, item, requestId, chunks, now } = input
 
   // ── Apply the home's learned house rules + climate to the extracted rows,
   // BEFORE reconciliation (Phase B). Suppressed titles never become templates;
@@ -428,7 +526,9 @@ export async function commitDraft(db: Firestore, input: CommitInput): Promise<Co
     {
       parsedAt: nowTs,
       draft: null,
-      parse: { committedRequestId: requestId },
+      // The claim is released by the same write that records the commit, so
+      // there is no window where this manual is committed but still claimed.
+      parse: { committedRequestId: requestId, commitClaim: null },
       updatedAt: nowTs,
     },
     { merge: true }

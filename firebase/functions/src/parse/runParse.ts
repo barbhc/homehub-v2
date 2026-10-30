@@ -248,7 +248,11 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
       // newer run's draft).
       await writeOwned(
         { stage: "done", summary: { chunks: normChunks.length, tasks: normTasks.length, confidence } },
-        { previewDraft: { chunks: normChunks, tasks: normTasks, confidence } },
+        // The draft carries the run that produced it. Without this the review's
+        // Save had no way to tell whether the draft it was opened on is still
+        // the one on the server, so a stale Save could commit old rows over a
+        // newer read's result (Codex review 2026-10-29, finding 1).
+        { previewDraft: { chunks: normChunks, tasks: normTasks, confidence, requestId } },
       )
       return { stage: "done", summary: { chunks: normChunks.length, tasks: normTasks.length } }
     }
