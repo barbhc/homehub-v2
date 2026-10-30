@@ -422,6 +422,25 @@ setup."*
 - It never claims rows are saved while the button underneath is what saves
   them. `runParse` writes `previewDraft` only; `commitDraft` is what
   saves. — HH-134
+- **A review belongs to the read that produced it, and only that read can be
+  saved.** The draft carries its run (`previewDraft.requestId`, stamped by
+  `runParse`), the review sends it back on Save, and the server refuses a Save
+  whose draft the server has since replaced: "This manual was read again since
+  you opened this review. Close it and open the new one — nothing was saved."
+  Nothing is written, and the newer read keeps its draft and its stage.
+  Before this, Save committed the reviewer's rows whatever the server held and
+  then nulled `previewDraft` blindly, so a review left open across a rescan —
+  Rescan all, another tab, another member — committed stale tasks AND deleted
+  the newer read the owner had just paid for.
+- **Saving the same review twice saves it once.** The commit's id is the
+  draft's run, not the moment of the press, and `commitDraft` claims the manual
+  in one transaction before it writes. Two tabs, or two people, pressing Save
+  together commit one set of tasks; the second is told it is already being
+  saved. The id used to be `review-${uid}-${Date.now()}`, unique per press, so
+  the idempotency it relied on could never fire and both saves inserted every
+  task — the household saw each upkeep task twice. A claim expires after five
+  minutes, because an attempt that dies mid-save must not wedge the manual:
+  losing a paid read is worse than the duplicate. — Codex review 2026-10-29
 - **Every read ends here — a rescan too.** Settings → Manuals' Rescan starts a
   PREVIEW and hands off to the item page exactly as the wizard does
   (`markParsePending`); "Rescan all" reads one manual at a time and leaves each
