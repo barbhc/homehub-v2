@@ -49,7 +49,8 @@ import {
   type RoutineTemplate,
 } from "@/lib/cleanSession"
 import { getManualsByHome, getKnowledgeChunksByHome, getFaqsByHome, deleteManualDocument } from "@/modules/knowledge"
-import { openPendingReview, rescanForReviewAndWait, startRescanForReview } from "@/lib/manualRescan"
+import { isReferenceDoc, openPendingReview, rescanForReviewAndWait, rescanTargets, startRescanForReview } from "@/lib/manualRescan"
+import { ingestReference } from "@/modules/knowledge"
 import { isCapacityRefusal } from "@/lib/scanCapacity"
 import { getItemUnits } from "@/modules/items"
 import { getTaskTemplates } from "@/modules/care"
@@ -75,6 +76,7 @@ type ManualWithName = ManualDocument & { display_name: string }
  *  `queued`: refused for capacity and recorded to start itself (HH-124). */
 type ManualStatus = "idle" | "scanning" | "ready" | "queued" | "error"
 type ManualScanState = { status: ManualStatus; error?: string }
+
 /** Which block of notification controls a failed save belongs to — its error is said there. */
 type NotifSection = "events" | "mode" | "digest" | "timing"
 
@@ -810,6 +812,17 @@ export default function Settings() {
   const handleRescanOne = useCallback(async (m: ManualWithName) => {
     if (!homeId || rescanRunning) return
     setManualStates((prev) => ({ ...prev, [m.manual_id]: { status: "scanning" } }))
+    // A reference document is re-READ, never re-parsed for upkeep. Sending one
+    // through the owner-manual parser would break the promise made when it was
+    // attached ("won't generate upkeep") — see rescanTargets.
+    if (isReferenceDoc(m)) {
+      const res = await ingestReference(homeId, m.manual_id)
+      setManualStates((prev) => ({
+        ...prev,
+        [m.manual_id]: res.error ? { status: "error", error: res.error.message } : { status: "idle" },
+      }))
+      return
+    }
     const started = await startRescanForReview(homeId, m)
     if (started.ok) {
       navigate(started.reviewPath)
@@ -839,13 +852,17 @@ export default function Settings() {
   }, [homeId, removingManual])
 
   const handleRescanAll = useCallback(() => {
-    runRescan(manuals)
+    runRescan(rescanTargets(manuals))
   }, [manuals, runRescan])
 
   const handleRetryFailed = useCallback(() => {
     const failed = manuals.filter((m) => manualStates[m.manual_id]?.status === "error")
-    runRescan(failed)
+    runRescan(rescanTargets(failed))
   }, [manuals, manualStates, runRescan])
+
+  /** What "Rescan All" leaves alone, named on the button so skipping is not
+   *  silent. */
+  const rescanSkipped = manuals.length - rescanTargets(manuals).length
 
   const handleExport = useCallback(async () => {
     if (!homeId) return
@@ -1400,7 +1417,10 @@ export default function Settings() {
                             className="hit-44 [--hit-h:38px] disabled:opacity-40"
                             data-hit-dense="manual rows sit on a 39px pitch; each action takes its row's band"
                           >
-                            Rescan
+                            {/* A reference doc is read for answers, not for
+                                upkeep, so it does not say "Rescan" — the word
+                                this screen uses for a task read. */}
+                            {isReferenceDoc(m) ? "Re-read" : "Rescan"}
                           </button>
                         )}
                         <button
@@ -1436,6 +1456,11 @@ export default function Settings() {
                 <RefreshCwIcon className="size-4 mr-1.5" />
                 {rescanRunning ? "Scanning…" : "Rescan All"}
               </Button>
+              {rescanSkipped > 0 && !rescanRunning && (
+                <p className="self-center text-xs text-muted-foreground">
+                  Leaves {rescanSkipped} alone — reviews waiting, and reference docs.
+                </p>
+              )}
               {failedCount > 0 && !rescanRunning && (
                 <Button
                   variant="outline"

@@ -426,7 +426,20 @@ setup."*
   PREVIEW and hands off to the item page exactly as the wizard does
   (`markParsePending`); "Rescan all" reads one manual at a time and leaves each
   for its review; a manual already "Read — not saved" offers Review, not
-  another read. None of them commits. They used to run in commit mode and
+  another read. **"Rescan all" keeps that last rule too** — it passed every
+  manual, so it re-read exactly the drafts the row protects, and the guard was
+  on the row and missing from the button beneath it. One rule now,
+  `rescanTargets()` in `src/lib/manualRescan.ts`, and what it leaves alone is
+  named on the screen rather than skipped silently. — Codex review 2026-10-29
+- **A reference document is read for answers, never parsed for upkeep.** The
+  screen that attaches one promises it won't generate upkeep, so every door that
+  reads it again re-INGESTS it: the item page's "Read again" (which takes the
+  document's `role` — required at the prop boundary, because a call site that
+  can omit it is a call site that will), its row in Settings (which says
+  "Re-read", not "Rescan"), and "Rescan all", which skips it. Attaching one had
+  always branched on the role; reading one again never did, so a recipe book
+  could go through the owner-manual parser and saving that review created
+  upkeep templates from it. — Codex review 2026-10-29 None of them commits. They used to run in commit mode and
   write tasks with no review at all. — audit 2026-09-29. Settings' Review is
   a tap, so it asks the item page to OPEN that review on arrival (the page
   opens one by itself only for a read it watched finish). — HH-161

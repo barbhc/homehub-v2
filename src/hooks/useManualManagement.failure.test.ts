@@ -178,3 +178,45 @@ describe("Read again — the item page's own rescan — is a PREVIEW that ends i
     expect(result.current.parseError).toMatch(/^The read could not start/)
   })
 })
+
+// ── A reference document is read for answers, never parsed for upkeep ───────
+//
+// Codex review 2026-10-29, finding 5. Attaching one has always branched on the
+// role — reference docs get light ingestion, primary gets the full parse — but
+// "Read again" never did, so a recipe book attached as "Reference doc", on the
+// screen's own promise that it won't generate upkeep, could be run through the
+// owner-manual parser, and saving that review created upkeep templates from it.
+describe("reading a reference document again (finding 5)", () => {
+  it("ingests it, and never reaches the task parser", async () => {
+    ingestReference.mockResolvedValue({ data: { sections_count: 3 }, error: null })
+    getChunksByItem.mockResolvedValue({ data: [], error: null })
+
+    const { result } = mount()
+    await act(async () => { await result.current.handleReadManual("man-ref", "reference") })
+
+    expect(ingestReference).toHaveBeenCalledWith("home-1", "man-ref")
+    // The promise the attach screen made.
+    expect(startParse).not.toHaveBeenCalled()
+  })
+
+  it("an owner's manual still gets the full read", async () => {
+    startParse.mockResolvedValue({ ok: true, requestId: "req-1" })
+
+    const { result } = mount()
+    await act(async () => { await result.current.handleReadManual("man-1", "primary") })
+
+    expect(startParse).toHaveBeenCalledWith("man-1", { homeId: "home-1", mode: "preview" })
+    expect(ingestReference).not.toHaveBeenCalled()
+  })
+
+  it("a failed ingest is surfaced, not swallowed", async () => {
+    ingestReference.mockResolvedValue({ data: null, error: { message: "that PDF could not be opened" } })
+
+    const { result } = mount()
+    await act(async () => { await result.current.handleReadManual("man-ref", "reference") })
+
+    await waitFor(() => expect(result.current.parseError).toMatch(/could not be read again/i))
+    expect(result.current.parseError).toMatch(/could not be opened/i)
+  })
+})
+
