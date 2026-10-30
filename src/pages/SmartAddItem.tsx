@@ -25,7 +25,7 @@ import {
   type ParsedConfidence,
 } from "@/modules/knowledge"
 import { startParse } from "@/modules/knowledge/services/parseManualService"
-import type { WizardSession } from "@/lib/wizardSession"
+import type { ResumedSession } from "@/lib/wizardSession"
 import {
   getWizardSession,
   setWizardSession,
@@ -90,7 +90,7 @@ export default function SmartAddItem() {
   const [actionLoading, setActionLoading] = useState(false)
   const [savingMessage, setSavingMessage] = useState<string | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
-  const [resumePrompt, setResumePrompt] = useState<WizardSession | null>(null)
+  const [resumePrompt, setResumePrompt] = useState<ResumedSession | null>(null)
   /** When the page opened: "You started this {when}" counts to here — a render
    *  must not read the clock (react-hooks/purity). */
   const [openedAt] = useState(() => Date.now())
@@ -116,11 +116,18 @@ export default function SmartAddItem() {
   const checkResume = useCallback(() => {
     const session = getWizardSession()
     if (!session || !propertyId || session.propertyId !== propertyId) return
-    // A session saved on the retired Purchase step has nothing left to resume
-    // INTO — the item exists, its manual is attached, and purchase details are
-    // the item page's Details sheet now. Send them to the item rather than to a
-    // step that no longer exists.
-    if ((session.step as string) === "purchase" && session.itemId) {
+    // Nothing left to resume INTO: the item exists and the wizard is behind it.
+    // That covers the retired Plan and Purchase steps, the two the wizard
+    // stopped using when it stopped waiting on the parse, and any step this
+    // build has never heard of. The item page is where the flow ends, so that
+    // is where Continue goes — never a screen we deleted, and never the manual
+    // step for an item whose manual is already attached.
+    //
+    // This branch existed before and could not run: the read path resolved
+    // every retired step to "manual" before the test for "purchase" could see
+    // it (Codex review 2026-10-29, finding 11). The decision is one function
+    // now, in wizardSession.ts, so resolving and testing cannot disagree.
+    if (session.resume.at === "item") {
       clearWizardSession()
       navigate(`/items/${session.itemId}`)
       return
@@ -143,18 +150,8 @@ export default function SmartAddItem() {
     setHasManual(session.hasManual)
     setHasTasks(session.hasTasks)
     setParseConfidence((session.parseConfidence as ParsedConfidence | null | undefined) ?? null)
-    // Steps retired when the wizard stopped waiting on the parse. "parsing"
-    // and "review" both mean "the manual was attached", so resuming at the
-    // manual step is honest — attaching again re-runs the read.
-    const raw = session.step as string
-    const safeStep: WizardStep =
-      raw === "parsing" || raw === "review"
-        ? "manual"
-        : raw === "add"
-          ? "identify"
-          : (session.step as WizardStep)
-    setStep(safeStep)
-    if (session.step === "identify") {
+    setStep(session.resume.step)
+    if (session.resume.step === "identify") {
       // Resume into the lane that matches the saved data (legacy sessions from
       // the manual/photo modes land in "simple" unless they carried a brand or
       // model, which belongs to the appliance lane).

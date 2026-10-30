@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import { basename, resolve, join } from "node:path"
 
 /**
@@ -86,8 +86,11 @@ const RETIRED_PAGES = [
 /** Their paths: nothing may route them again, whatever the component is called. */
 const RETIRED_ROUTES = ["/faq", "/tasks", "/care", "/schedule", "/cleaning"]
 
-/** Wizard steps that no longer have a screen. */
-const RETIRED_STEPS = ["plan", "purchase"]
+/** Wizard steps that no longer have a screen. `parsing` and `review` joined
+ *  the list on 2026-10-29: nothing had written them since the wizard stopped
+ *  waiting on the parse, but the union still offered them, which is what made
+ *  the dead resume branch below look live. */
+const RETIRED_STEPS = ["plan", "purchase", "parsing", "review"]
 
 function walk(dir: string): string[] {
   const out: string[] = []
@@ -201,18 +204,52 @@ describe("a saved wizard session cannot resume into a deleted screen", () => {
   it("does not offer a retired step in its type", () => {
     const type = wizard.text.slice(
       wizard.text.indexOf("export type WizardStep"),
-      wizard.text.indexOf("const RETIRED_STEPS"),
+      wizard.text.indexOf("export const PAST_THE_WIZARD"),
     )
     for (const step of RETIRED_STEPS) {
       expect(type, `WizardStep still offers "${step}"`).not.toContain(`"${step}"`)
     }
   })
 
-  it("normalises a stored retired step forward instead of trusting it", () => {
-    // The failure this prevents is invisible in a fresh install: the session
-    // lives in localStorage, so only someone who used the app BEFORE the
-    // rebuild hits it — which is exactly the beta testers.
-    expect(wizard.text).toMatch(/RETIRED_STEPS\.has\([^)]*\)\s*\?\s*"manual"/)
+  it("never resolves a stored step to a wizard screen", () => {
+    // This assertion is the INVERSE of the one it replaces, because the one it
+    // replaces pinned a bug. It required
+    //   RETIRED_STEPS.has(step) ? "manual"
+    // — resolving a retired step forward on read — which is precisely what
+    // made SmartAddItem's "send this session to its item page" branch dead
+    // code: the step it tested for had already been rewritten. The user saw
+    // "Add the manual" again for an item whose manual was attached, and the
+    // guard reported green. (Codex review 2026-10-29, finding 11.)
+    //
+    // A step is now CLASSIFIED, never rewritten, by resumeTarget().
+    expect(wizard.text).not.toMatch(/RETIRED_STEPS/)
+    expect(wizard.text).toMatch(/export function resumeTarget/)
+    expect(wizard.text).toMatch(/return \{ at: "item" \}/)
+  })
+
+  it("the resume decision lives in exactly one place", () => {
+    // Resolving a step and testing for it were two halves of one decision in
+    // two files, and they disagreed for months. Nothing that reads the wizard
+    // session may classify a step again.
+    //
+    // Scoped to session readers on purpose: a first pass matched any `===
+    // "review"` in the app and flagged TaskCleanupSweep's own unrelated phase
+    // machine. A guard that reports innocent files teaches people to ignore it.
+    const readers = sources.filter(
+      (s) => !s.path.endsWith("src/lib/wizardSession.ts") && /from "@\/lib\/wizardSession"/.test(s.text),
+    )
+    expect(readers.length, "no file reads the wizard session — this guard has nothing to check").toBeGreaterThan(0)
+    const classifying = readers
+      .filter((s) => RETIRED_STEPS.some((step) => new RegExp(`===\\s*"${step}"|"${step}"\\s*===`).test(s.text)))
+      .map((s) => s.path)
+    expect(classifying, "a retired step is being tested for outside wizardSession.ts").toEqual([])
+  })
+
+  it("the behaviour itself is pinned, not just the source text", () => {
+    // The real guard: a text match cannot tell a rule from its inverse, which
+    // is how the assertion above shipped backwards.
+    expect(sources.map((s) => s.path)).not.toContain("src/lib/wizardSession.test.ts")
+    expect(existsSync(join(SRC, "lib/wizardSession.test.ts"))).toBe(true)
   })
 })
 
