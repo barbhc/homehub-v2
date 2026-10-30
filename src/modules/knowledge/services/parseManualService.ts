@@ -337,7 +337,10 @@ export type PreviewManualResult = PreviewResult | { ok: false; error: string }
 
 /** The worker's normalized previewDraft is snake_case already; the only rename
  *  the review UI needs is instructions_override → instructions_text. */
-function draftToPreview(draft: { chunks?: unknown[]; tasks?: unknown[] }, pdfPages?: number | null): PreviewResult {
+function draftToPreview(
+  draft: { chunks?: unknown[]; tasks?: unknown[]; requestId?: unknown },
+  pdfPages?: number | null,
+): PreviewResult {
   const chunks = (Array.isArray(draft.chunks) ? draft.chunks : []).map((raw) => {
     const c = (raw ?? {}) as Record<string, unknown>
     return {
@@ -356,7 +359,15 @@ function draftToPreview(draft: { chunks?: unknown[]; tasks?: unknown[] }, pdfPag
       instructions_text: (t.instructions_override ?? t.instructions_text ?? null) as string | null,
     } as unknown as PreviewTask
   })
-  return { ok: true, chunks, tasks, pdfPages: pdfPages ?? null }
+  return {
+    ok: true,
+    chunks,
+    tasks,
+    pdfPages: pdfPages ?? null,
+    // Read, not cast: it comes off a member-writable doc, and a non-string is
+    // the same as absent (the server then falls back to its own draft's id).
+    draftRequestId: typeof draft.requestId === "string" ? draft.requestId : null,
+  }
 }
 
 /**
@@ -370,7 +381,7 @@ function draftToPreview(draft: { chunks?: unknown[]; tasks?: unknown[] }, pdfPag
 export async function readPreviewDraft(homeId: string, manualId: string): Promise<PreviewResult | null> {
   const snap = await getDoc(docRef(`homes/${homeId}/manuals/${manualId}`))
   const data = snap.data()
-  const draft = data?.previewDraft as { chunks?: unknown[]; tasks?: unknown[] } | undefined
+  const draft = data?.previewDraft as { chunks?: unknown[]; tasks?: unknown[]; requestId?: unknown } | undefined
   if (!draft) return null
   const pdfPages = (data?.parse as { pdfPages?: number | null } | undefined)?.pdfPages ?? null
   return draftToPreview(draft, pdfPages)
@@ -388,7 +399,7 @@ export async function previewManualParse(
   if (!res.ok) return { ok: false, error: res.error }
   const snap = await getDoc(docRef(`homes/${homeId}/manuals/${manualId}`))
   const data = snap.data()
-  const draft = data?.previewDraft as { chunks?: unknown[]; tasks?: unknown[] } | undefined
+  const draft = data?.previewDraft as { chunks?: unknown[]; tasks?: unknown[]; requestId?: unknown } | undefined
   if (!draft) return { ok: false, error: "Preview produced no draft" }
   // Written by the worker at the pdf_fetched stage — the same snapshot, so no
   // extra read.
@@ -401,20 +412,31 @@ export type CommitReviewedResult =
   | { ok: false; error: string }
 
 const commitManualDraftCallable = callable<
-  { homeId: string; manualId: string; chunks: PreviewChunk[]; tasks: PreviewTask[] },
+  { homeId: string; manualId: string; chunks: PreviewChunk[]; tasks: PreviewTask[]; draftRequestId?: string },
   { ok: boolean; chunks?: number; tasks?: number; error?: string }
 >("commitManualDraft")
 
 /** Commit the user-reviewed (possibly edited) chunks + tasks. commitDraft seeds
- *  recurring instances server-side — no follow-up generateTaskInstances needed. */
+ *  recurring instances server-side — no follow-up generateTaskInstances needed.
+ *
+ *  `draftRequestId` is the run the review was opened on. The server refuses the
+ *  save if its draft is a different run, so a review left open across a newer
+ *  read reports that instead of committing stale rows over the new result. */
 export async function commitReviewedDraft(
   homeId: string,
   manualId: string,
   chunks: PreviewChunk[],
-  tasks: PreviewTask[]
+  tasks: PreviewTask[],
+  draftRequestId?: string | null,
 ): Promise<CommitReviewedResult> {
   try {
-    const data = await commitManualDraftCallable({ homeId, manualId, chunks, tasks })
+    const data = await commitManualDraftCallable({
+      homeId,
+      manualId,
+      chunks,
+      tasks,
+      ...(draftRequestId ? { draftRequestId } : {}),
+    })
     if (!data?.ok) return { ok: false, error: data?.error ?? "Save failed" }
     return { ok: true, chunks: data.chunks ?? 0, tasks: data.tasks ?? 0 }
   } catch (err) {

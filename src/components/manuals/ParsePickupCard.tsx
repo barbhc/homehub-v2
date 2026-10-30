@@ -213,7 +213,7 @@ export function ParsePickupCard({
       saving={saving}
       onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[], edits: ReviewEditSummary) => {
         setSaving(true)
-        const res = await commitReviewedDraft(homeId, manualId, chunks, tasks)
+        const res = await commitReviewedDraft(homeId, manualId, chunks, tasks, draft.draftRequestId)
         setSaving(false)
         if (!res.ok) return res.error
         // Corrections made in a fresh read's review are parser feedback too —

@@ -119,4 +119,10 @@ export const CommitManualDraftRequest = z.object({
   manualId: DocId,
   chunks: z.array(DraftChunk).max(MAX_DRAFT_ROWS),
   tasks: z.array(DraftTask).max(MAX_DRAFT_ROWS),
+  /** The parse run whose draft this review was opened on (`previewDraft.requestId`).
+   *  The server refuses the save when the server's draft is a different run, so
+   *  a review left open across a newer read cannot commit its old rows over the
+   *  new result. Optional: a draft written before this shipped carries no run
+   *  id, and a tab holding one must still be able to save. */
+  draftRequestId: z.string().min(1).max(200).optional(),
 })
