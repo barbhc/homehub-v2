@@ -294,14 +294,7 @@ export function useManualManagement({
 
       // 2. Branch on role: reference docs get light ingestion, primary gets full parse
       if (addRole === "reference") {
-        const ingestRes = await ingestReference(homeId, manualId)
-        if (ingestRes.error) {
-          setParseError(`Document saved, but it could not be read: ${humanizeParseError(ingestRes.error.message)}`)
-        } else {
-          // Refresh chunks (reference chunks now in DB)
-          const chunksRes = await getChunksByItem(homeId, itemId)
-          if (chunksRes.data && isCurrentItem(itemKey(homeId, itemId))) setChunks(chunksRes.data)
-        }
+        await readReferenceDoc(manualId, "Document saved, but it could not be read")
       } else if (isAwaitingReview(manual)) {
         // The same PDF again, already read and waiting to be saved (HH-154
         // returns the record this item has). Reading it again would throw that
@@ -350,8 +343,43 @@ export function useManualManagement({
    * Both are a preview read that ends in the hand-off card's review, so
    * nothing changes on the item until the owner saves.
    */
-  const handleReadManual = async (manualId: string) => {
+  /**
+   * Read a REFERENCE document: light ingestion for answers, never the task
+   * parser. Its own function because two doors need it — attaching one, and
+   * reading one again — and the second door did not have it.
+   */
+  const readReferenceDoc = async (manualId: string, failure: string): Promise<void> => {
+    if (!homeId || !itemId) return
+    setParsingManualId(manualId)
+    setParseError(null)
+    const ingestRes = await ingestReference(homeId, manualId)
+    setParsingManualId(null)
+    if (ingestRes.error) {
+      setParseError(`${failure}: ${humanizeParseError(ingestRes.error.message)}`)
+      return
+    }
+    // The reference chunks are in the database now.
+    const chunksRes = await getChunksByItem(homeId, itemId)
+    if (chunksRes.data && isCurrentItem(itemKey(homeId, itemId))) setChunks(chunksRes.data)
+  }
+
+  /**
+   * `role` decides which kind of read this is, and it is REQUIRED from the
+   * caller rather than guessed.
+   *
+   * "Read again" ran the owner-manual parser whatever the document was, so a
+   * recipe book attached as "Reference doc" — on the screen's own promise that
+   * it won't generate upkeep — could be parsed for tasks, and saving that
+   * review created upkeep templates from it. Attaching one has always branched
+   * on the role; reading one again never did (Codex review 2026-10-29,
+   * finding 5).
+   */
+  const handleReadManual = async (manualId: string, role?: string | null) => {
     if (!homeId) return
+    if (role === "reference") {
+      await readReferenceDoc(manualId, "That document could not be read again")
+      return
+    }
     await startReadForReview(manualId, "The read could not start")
   }
 

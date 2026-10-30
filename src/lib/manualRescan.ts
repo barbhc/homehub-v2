@@ -20,12 +20,45 @@ import { markParsePending } from "@/lib/parsePickup"
 import { requestReview } from "@/lib/reviewRequest"
 import { isCapacityRefusal, queueScan } from "@/lib/scanCapacity"
 import { isParseInFlightMessage } from "../../shared/parse/parseErrors"
+import { isAwaitingReview, type ManualParseFacts } from "@/lib/manualReviewState"
 
 type ManualRef = Pick<ManualDocument, "manual_id" | "item_unit_id">
 
 /** Where a manual's review happens: its item page, which watches the read and opens the review. */
 export function reviewPathFor(m: ManualRef): string {
   return `/items/${m.item_unit_id}`
+}
+
+/** A document attached as "Reference doc". The screen that attaches one says it
+ *  won't generate upkeep, so no read of it may run the task parser.
+ *
+ *  Takes a nullable role although `ManualDocument.role` is not: this reads a
+ *  stored field, and a document written before the role existed has none. Only
+ *  an explicit "reference" is one — never the absence of an answer. */
+export function isReferenceDoc(m: { role?: string | null }): boolean {
+  return m.role === "reference"
+}
+
+/**
+ * Which manuals a bulk rescan may read.
+ *
+ * "Rescan All" passed every manual, which broke two promises the rest of the
+ * screen keeps (Codex review 2026-10-29, findings 3 and 5):
+ *
+ *  - A manual already "Read — not saved" has a draft waiting on a decision, and
+ *    a new read replaces exactly that draft. This is why the ROW offers Review
+ *    instead of Rescan, and why the rule at the top of this file and
+ *    `docs/add-item-flow.md` both already said "a manual already 'Read — not
+ *    saved' offers Review, not another read". The guard was on the row and
+ *    missing from the button underneath it.
+ *  - A reference document was attached on the promise that it won't generate
+ *    upkeep. Rescan All ran the owner-manual parser over it anyway, and saving
+ *    the review that came back created upkeep templates from a recipe book.
+ *
+ * Skipping is never silent: the caller says how many were left alone.
+ */
+export function rescanTargets<T extends { role?: string | null } & ManualParseFacts>(manuals: T[]): T[] {
+  return manuals.filter((m) => !isReferenceDoc(m) && !isAwaitingReview(m))
 }
 
 export type RescanStart =

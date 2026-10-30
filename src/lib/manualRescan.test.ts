@@ -114,3 +114,76 @@ describe("the Settings page itself", () => {
     expect(settings).toContain("openPendingReview(m)")
   })
 })
+
+// ── What a bulk rescan may read ─────────────────────────────────────────────
+//
+// Codex review 2026-10-29, findings 3 and 5. The guard was on the ROW — a
+// manual "Read — not saved" offers Review, not another read — and missing from
+// the "Rescan All" button underneath it, which passed every manual. Both
+// promises it broke are written down above and in docs/add-item-flow.md.
+describe("rescanTargets — Rescan All keeps the promises the rows keep", () => {
+  const doc = (over: Record<string, unknown> = {}) => ({
+    manual_id: "m-x",
+    role: "primary" as "primary" | "reference",
+    parse_stage: "done",
+    parsed_at: "2026-10-01T00:00:00.000Z",
+    has_preview_draft: false,
+    parse_mode: "preview",
+    ...over,
+  })
+
+  it("leaves a review that is waiting alone — a new read would replace that draft", async () => {
+    const { rescanTargets } = await import("./manualRescan")
+    // "Read — not saved": done, with a draft, never saved (isAwaitingReview).
+    const waiting = doc({ manual_id: "waiting", parsed_at: null, has_preview_draft: true })
+    const ordinary = doc({ manual_id: "ordinary" })
+    expect(rescanTargets([waiting, ordinary]).map((m) => m.manual_id)).toEqual(["ordinary"])
+  })
+
+  it("leaves a rescan's unsaved draft alone too (HH-161: a read AGAIN keeps its old parsed_at)", async () => {
+    const { rescanTargets } = await import("./manualRescan")
+    const reRead = doc({ manual_id: "re-read", has_preview_draft: true, parse_mode: "preview" })
+    expect(rescanTargets([reRead])).toEqual([])
+  })
+
+  it("never sends a reference document through the task parser", async () => {
+    const { rescanTargets } = await import("./manualRescan")
+    // Attached as "Reference doc", on the screen's promise that it won't
+    // generate upkeep. Saving a review of it created upkeep from a recipe book.
+    const reference = doc({ manual_id: "recipes", role: "reference" })
+    const owners = doc({ manual_id: "dishwasher" })
+    expect(rescanTargets([reference, owners]).map((m) => m.manual_id)).toEqual(["dishwasher"])
+  })
+
+  it("a stale draft overtaken by a commit run is still readable — it is not waiting on anyone", async () => {
+    const { rescanTargets } = await import("./manualRescan")
+    // done + draft + saved by a later commit run → not awaiting review.
+    const stale = doc({ manual_id: "stale", has_preview_draft: true, parse_mode: "fill_gaps" })
+    expect(rescanTargets([stale]).map((m) => m.manual_id)).toEqual(["stale"])
+  })
+
+  it("isReferenceDoc reads the role and nothing else", async () => {
+    const { isReferenceDoc } = await import("./manualRescan")
+    expect(isReferenceDoc({ role: "reference" })).toBe(true)
+    expect(isReferenceDoc({ role: "primary" })).toBe(false)
+    expect(isReferenceDoc({ role: null } as { role: string | null })).toBe(false)
+  })
+})
+
+describe("the Settings page routes bulk rescans through the rule", () => {
+  it("Rescan All and Retry failed both filter, rather than passing every manual", () => {
+    expect(settings).toContain("runRescan(rescanTargets(manuals))")
+    expect(settings).not.toMatch(/runRescan\(manuals\)/)
+    expect(settings).toContain("rescanTargets(failed)")
+  })
+
+  it("says how many it left alone, so skipping is not silent", () => {
+    expect(settings).toContain("rescanSkipped")
+  })
+
+  it("a reference document is re-read, never parsed, from its own row", () => {
+    expect(settings).toContain("isReferenceDoc(m)")
+    expect(settings).toContain("ingestReference(homeId, m.manual_id)")
+  })
+})
+

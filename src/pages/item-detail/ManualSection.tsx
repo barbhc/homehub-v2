@@ -76,7 +76,10 @@ interface ManualSectionProps {
   handleAddManual: (choice: ManualSourceChoice) => Promise<void>
   /** "Read the manual" / "Read again": a preview read that ends in the item's
    *  hand-off card — this section opens no review of its own (HH-120). */
-  handleReadManual: (id: string) => void
+  /** `role` is REQUIRED here even though the hook's parameter is optional: a
+   *  reference document must never reach the task parser, and a call site that
+   *  can omit the role is a call site that will. */
+  handleReadManual: (id: string, role: string | null) => void
   handleFillGaps: (id: string) => void
   handleDeleteManual: (id: string) => void
 }
@@ -238,13 +241,13 @@ export function ManualSection({
                   )}
                   {/* "Rescan" / "Re-ingest" before HH-161, and a commit with no
                       review. Now a read that ends in the review. */}
-                  <DropdownMenuItem disabled={isBusy} onClick={() => handleReadManual(m.manual_id)}>
+                  <DropdownMenuItem disabled={isBusy} onClick={() => handleReadManual(m.manual_id, m.role)}>
                     <RefreshCwIcon className="size-4" />
                     {isBusy ? "Reading…" : "Read again"}
                   </DropdownMenuItem>
                 </>
               ) : (
-                <DropdownMenuItem disabled={isBusy} onClick={() => handleReadManual(m.manual_id)}>
+                <DropdownMenuItem disabled={isBusy} onClick={() => handleReadManual(m.manual_id, m.role)}>
                   <SparklesIcon className="size-4" />
                   {/* Was "Parse" — developer jargon in the one menu a person
                       opens to ask for this (scanCopy's vocabulary rule). */}
