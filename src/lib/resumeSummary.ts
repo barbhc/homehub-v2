@@ -1,5 +1,11 @@
 import type { WizardSession } from "@/lib/wizardSession"
 
+/** What the prompt's sentences are built from. Deliberately NOT a full
+ *  `WizardSession`: this says nothing about the step, so it reads a session
+ *  straight off storage (where the step may name a screen we deleted) without
+ *  anyone having to invent one. */
+export type ResumeSummaryInput = Omit<WizardSession, "step">
+
 /**
  * What the "you have an incomplete setup" prompt should actually say.
  *
@@ -46,7 +52,7 @@ export function describeWhen(iso: string | null | undefined, nowMs: number): str
   return `${days} days ago`
 }
 
-export function resumeSummary(session: WizardSession, nowMs: number): ResumeSummary {
+export function resumeSummary(session: ResumeSummaryInput, nowMs: number): ResumeSummary {
   const name = (session.itemName ?? "").trim()
   const brandModel = [session.brand ?? "", session.model ?? ""]
     .map((s) => s.trim())
