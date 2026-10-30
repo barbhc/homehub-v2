@@ -12,7 +12,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { normalizeChunkRow, normalizeTaskRow } from "../../../../shared/parse/parseCore.js"
-import { commitDraft } from "./commitDraft.js"
+import { commitDraft, CommitInProgressError } from "./commitDraft.js"
 import { parseLastDone } from "../../../../shared/care/lastDone.js"
 import { pairReviewedWithDraft, type DraftRowLike } from "../../../../shared/tasks/fieldProvenance.js"
 import { CommitManualDraftRequest } from "./draftSchemas.js"
@@ -22,11 +22,29 @@ import type { ParseItemFacts } from "./parseTypes.js"
 
 const REGION = "us-central1"
 
+/**
+ * Has a newer read replaced the draft this review was opened on?
+ *
+ * Both the Save and the terminal `done` write ask this, because both used to
+ * assume the answer was no: the save committed the reviewer's rows whatever the
+ * server now held, and the write that followed nulled `previewDraft` blindly.
+ * A review left open while Settings → Rescan All, another tab, or another
+ * member re-read the manual therefore committed stale tasks AND deleted the
+ * newer read's paid result (Codex review 2026-10-29, finding 1).
+ *
+ * Unknown on either side is not a mismatch: a draft written before runParse
+ * stamped its run, or a client that predates the field, must still be able to
+ * save — they keep the old behaviour rather than losing the ability to commit.
+ */
+export function supersededDraft(reviewedRun: string | undefined, serverRun: string | null): boolean {
+  return !!reviewedRun && !!serverRun && reviewedRun !== serverRun
+}
+
 export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
   // Parsed, never cast (H3a): the rows' contract is in draftSchemas.ts.
-  const { homeId, manualId, chunks, tasks } = parseCallableInput(
+  const { homeId, manualId, chunks, tasks, draftRequestId } = parseCallableInput(
     "commitManualDraft",
     CommitManualDraftRequest,
     request.data,
@@ -71,6 +89,20 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   // The draft is the worker's own write (runParse, preview mode) and is only
   // compared field by field, never written; a row with no draft counterpart
   // records the manual's suggestion as unknown.
+  // Which read produced the draft on the server right now. runParse stamps it
+  // inside the same owned write as the draft itself, so it is the owning run's
+  // id by construction.
+  const serverDraftRun = storedText(manualSnap.get("previewDraft.requestId"))
+  // A review open across a newer read must not commit its old rows: the newer
+  // run has already replaced `previewDraft`, and saving would both commit stale
+  // tasks and delete the result the newer read was paid for.
+  if (supersededDraft(draftRequestId, serverDraftRun)) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This manual was read again since you opened this review. Close it and open the new one — nothing was saved.",
+    )
+  }
+
   const draftTasks = draftRows(manualSnap.get("previewDraft.tasks"))
   const suggestions = pairReviewedWithDraft(normalized.map((t) => t.title), draftTasks)
   const normTasks = tasks.map((t, i) => ({
@@ -91,31 +123,56 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
     manual_suggestion_row: suggestions[i],
   }))
 
-  // Fresh requestId per save — a distinct user intent (commitDraft is idempotent
-  // per requestId, so a double-click still commits at most once).
-  const requestId = `review-${uid}-${Date.now()}`
+  // The requestId is DERIVED FROM THE DRAFT, not from the clock. Two saves of
+  // the same review therefore carry the same id, which is what lets
+  // commitDraft's claim make the second one a no-op instead of a second full
+  // insert of every task. A `review-${uid}-${Date.now()}` id — what this was —
+  // is unique per press, so the idempotency it claimed to rely on could never
+  // fire for the case that actually happens: two tabs, or two people, pressing
+  // Save on the same ready review.
+  //
+  // A draft written before the run id shipped has nothing to key on; it falls
+  // back to the old per-press id, so those saves keep working exactly as they
+  // did (and keep the old race until that draft is replaced by a new read).
+  const requestId = serverDraftRun ? `review-${serverDraftRun}` : `review-${uid}-${Date.now()}`
   const now = new Date()
   let res
   try {
     res = await commitDraft(db, { homeId, manualId, item, requestId, chunks: normChunks, tasks: normTasks, reviewerUid: uid, now })
   } catch (e) {
+    if (e instanceof CommitInProgressError) {
+      throw new HttpsError("failed-precondition", "This review is already being saved. Give it a moment.")
+    }
     throw new HttpsError("internal", e instanceof Error ? e.message : "Save failed")
   }
 
   // Stamp a terminal parse.stage (commitDraft sets committedRequestId/parsedAt but
-  // not stage) and clear the consumed previewDraft.
-  await manualRef.set(
-    {
-      previewDraft: null,
-      parse: {
-        stage: "done",
-        stageAt: Timestamp.fromDate(now),
-        summary: { chunks: res.chunks, tasks: res.tasks },
+  // not stage) and clear the draft we just consumed.
+  //
+  // Conditional, and for the same reason the save itself is: this used to be a
+  // blind merge, so a save that raced a newer read nulled THAT read's draft and
+  // stamped the manual `done` — the newer run's paid result vanished and its
+  // watcher saw someone else's terminal stage. If the draft on the server is no
+  // longer the one we committed, the newer read owns the manual's parse state
+  // and we leave it alone.
+  await db.runTransaction(async (tx) => {
+    const cur = await tx.get(manualRef)
+    const curRun = storedText(cur.get("previewDraft.requestId"))
+    if (supersededDraft(serverDraftRun ?? undefined, curRun)) return
+    tx.set(
+      manualRef,
+      {
+        previewDraft: null,
+        parse: {
+          stage: "done",
+          stageAt: Timestamp.fromDate(now),
+          summary: { chunks: res.chunks, tasks: res.tasks },
+        },
+        updatedAt: Timestamp.fromDate(now),
       },
-      updatedAt: Timestamp.fromDate(now),
-    },
-    { merge: true },
-  )
+      { merge: true },
+    )
+  })
 
   return { ok: true, chunks: res.chunks, tasks: res.tasks }
 })
