@@ -94,4 +94,9 @@ export interface PreviewResult {
    *  compressed and unreadable. Drives the "this is only a cover page" warning
    *  — absent means we make no claim either way. */
   pdfPages?: number | null
+  /** The parse run that produced this draft (`previewDraft.requestId`). Sent
+   *  back on Save so the server can refuse a review that a newer read has
+   *  already superseded. Absent for an existing-task review (no draft) and for
+   *  drafts written before runParse stamped it. */
+  draftRequestId?: string | null
 }
