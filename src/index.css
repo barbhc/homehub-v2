@@ -719,3 +719,32 @@ code {
     --hh-faint: var(--hh-sub);
   }
 }
+
+/* ── Small motions (Apple polish phase 2) ──────────────────────────────────────
+   Tokens above. Both survive Reduce Motion on purpose: neither moves anything.
+   - hh-fade-in: content that replaces a loading skeleton fades in over
+     --dur-fade instead of popping (useFadeAfterSkeleton decides when — never
+     on a warm render). A CSS animation, so it plays once, on mount.
+   - hh-scroll-edge: a sticky header's hairline, drawn only once content has
+     scrolled beneath it (StickyHeader / useScrollEdge set data-scrolled).
+     An ::after fading on opacity, so the header's own layout never changes. */
+@keyframes hh-fade-in {
+  from { opacity: 0; }
+}
+.hh-fade-in {
+  animation: hh-fade-in var(--dur-fade) var(--ease-enter);
+}
+.hh-scroll-edge::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 1px;
+  background: var(--hh-line2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fade) linear;
+}
+.hh-scroll-edge[data-scrolled]::after {
+  opacity: 1;
+}
