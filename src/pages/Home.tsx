@@ -31,6 +31,10 @@ import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 import { WhatsNewBanner } from "@/components/dashboard/WhatsNewBanner"
 import { LevelUnlockBanner } from "@/components/dashboard/LevelUnlockBanner"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { useFadeAfterSkeleton } from "@/hooks/useFadeAfterSkeleton"
+import { useIsDesktop } from "@/hooks/useIsDesktop"
+import { PullToRefresh } from "@/components/layout/PullToRefresh"
+import { cn } from "@/lib/utils"
 
 // ── Agenda ──────────────────────────────────────────────────────────────────
 
@@ -197,6 +201,11 @@ export default function Home() {
   // starts its patience over.
   const skeletonShown = shouldShowHomeSkeleton(isLoading, !!stats)
   if (useDepsChanged([skeletonShown]) && !skeletonShown) setSkeletonSlow(false)
+  // Content that replaces a skeleton the user saw fades in; a warm start (the
+  // persisted Home on the first frame) never does.
+  const fadeIn = useFadeAfterSkeleton(skeletonShown)
+  // Pull to refresh is the phone's; desktop keeps its Retry.
+  const isDesktop = useIsDesktop()
   useEffect(() => {
     if (!shouldShowHomeSkeleton(isLoading, !!stats)) return
     const t = window.setTimeout(() => setSkeletonSlow(true), SKELETON_PATIENCE_MS)
@@ -255,7 +264,7 @@ export default function Home() {
   // page the device could already render — which is what the owner hit on 5G.
   if (dashError && !stats) {
     return (
-      <div className="px-4 lg:px-8 py-8 max-w-xl mx-auto">
+      <div className={cn("px-4 lg:px-8 py-8 max-w-xl mx-auto", fadeIn && "hh-fade-in")}>
         <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5">
           <h2 className="text-base font-semibold text-destructive mb-1">
             Couldn't load your home
@@ -287,7 +296,9 @@ export default function Home() {
   const hasItemsNoUpkeep = !isNewUser && (stats?.scheduledTaskCount ?? 0) === 0
 
   return (
-    <div className="flex flex-col pb-8">
+    // Pull to refresh runs the same reload as Retry/Try again (useDashboard's
+    // refresh), so a failed pull lands in the "couldn't reach the server" note.
+    <PullToRefresh onRefresh={refresh} enabled={!isDesktop} className={cn("flex flex-col pb-8", fadeIn && "hh-fade-in")}>
       {actions.bar && <UndoBar {...actions.bar} />}
       {/* Cached view + a failed refresh: say so quietly and stay usable. The
           user can still read everything and complete work; only freshness is
@@ -420,6 +431,6 @@ export default function Home() {
           onCreated={(newHomeId) => refreshHomes(newHomeId)}
         />
       )}
-    </div>
+    </PullToRefresh>
   )
 }

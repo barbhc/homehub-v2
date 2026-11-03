@@ -2,6 +2,10 @@ import { PageContainer } from "@/components/layout"
 import { useCurrentHome } from "@/modules/home"
 import { RefinedWeek } from "@/components/home/RefinedWeek"
 import { DesktopTasks } from "@/components/home/DesktopTasks"
+import { PullToRefresh } from "@/components/layout/PullToRefresh"
+import { useIsDesktop } from "@/hooks/useIsDesktop"
+import { weekAgendaKey } from "@/hooks/useWeekAgenda"
+import { useSWRConfig } from "swr"
 
 /**
  * The Tasks page (routed at /maintenance — the bottom nav calls it "Tasks").
@@ -33,14 +37,21 @@ import { DesktopTasks } from "@/components/home/DesktopTasks"
 export default function Maintenance() {
   const { home } = useCurrentHome()
   const homeId = home?.home_id ?? null
+  const isDesktop = useIsDesktop()
+  // Pull to refresh revalidates the agenda's own SWR key — the read the
+  // page's "Try again" and Retry run (useWeekAgenda's refresh) — without
+  // subscribing this shell to the agenda. A failed read lands in RefinedWeek's
+  // own error states (StaleDataNote over a held list, the error card without).
+  const { mutate } = useSWRConfig()
+  const refresh = () => (homeId ? mutate(weekAgendaKey(homeId)) : Promise.resolve())
 
   return (
     <PageContainer className="pb-28">
-      <div className="lg:hidden -mx-6">
+      <PullToRefresh onRefresh={refresh} enabled={!isDesktop} className="lg:hidden -mx-6">
         <div className="mx-auto w-full max-w-[460px]">
           <RefinedWeek homeId={homeId} />
         </div>
-      </div>
+      </PullToRefresh>
       <div className="hidden lg:block">
         <DesktopTasks homeId={homeId} />
       </div>
