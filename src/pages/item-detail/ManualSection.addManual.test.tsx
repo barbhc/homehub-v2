@@ -25,6 +25,7 @@ type UploadResult =
 const uploadManualPdfWithUrl = vi.fn<(homeId: string, itemId: string, file: File, userId: string | null) => Promise<UploadResult>>()
 const createManualDocument = vi.fn()
 const startParse = vi.fn()
+const updateManualLabel = vi.fn()
 
 vi.mock("@/modules/inventory/services/storageService", () => ({
   MAX_UPLOAD_BYTES: 50 * 1024 * 1024,
@@ -39,7 +40,7 @@ vi.mock("@/modules/knowledge", () => ({
   parseManualAndWait: vi.fn(),
   previewManualParse: vi.fn(),
   commitReviewedDraft: vi.fn(),
-  updateManualLabel: vi.fn(),
+  updateManualLabel: (...a: unknown[]) => updateManualLabel(...a),
 }))
 vi.mock("@/modules/knowledge/services/parseManualService", () => ({
   startParse: (...a: unknown[]) => startParse(...a),
@@ -407,3 +408,52 @@ describe("the manual row's menu — reading, and the one review (HH-161)", () =>
     expect(document.body.textContent).not.toMatch(/sec remaining|Almost done/)
   })
 })
+
+// ── A relabel that failed must not look like one that worked ────────────────
+//
+// Codex review 2026-10-29, finding 13. The editor closed either way: the typed
+// label vanished, the old one came back, and the only trace was a console line.
+// Offline is the ordinary way to reach this.
+describe("relabelling a manual", () => {
+  async function openRelabelEditor() {
+    const user = userEvent.setup()
+    render(<ItemPageManual manuals={[manualDoc({ label: "Owner's manual" })]} />)
+    // The rows live in a collapsed accordion, so the menu is two taps in.
+    await user.click(screen.getByRole("button", { name: /Manuals & References/i }))
+    await user.click(await screen.findByRole("button", { name: /manual actions/i }))
+    await user.click(await screen.findByText(/relabel/i))
+    return user
+  }
+
+  it("a failed save keeps the editor open, keeps the draft, and says what happened", async () => {
+    updateManualLabel.mockResolvedValue({ data: null, error: { message: "client is offline" } })
+    const user = await openRelabelEditor()
+
+    await user.click(screen.getByRole("button", { name: /^custom/i }))
+    const input = screen.getByPlaceholderText(/installation guide/i)
+    await user.clear(input)
+    await user.type(input, "Installation guide")
+    await user.click(screen.getByRole("button", { name: /^save$/i }))
+
+    // Visible, not just logged.
+    expect(await screen.findByRole("alert")).toHaveTextContent(/offline/i)
+    // The editor is still there with what was typed — the draft was being
+    // thrown away before anyone could see the failure.
+    expect(screen.getByPlaceholderText(/installation guide/i)).toHaveValue("Installation guide")
+  })
+
+  it("a successful save closes the editor and shows no alert", async () => {
+    updateManualLabel.mockResolvedValue({ data: {}, error: null })
+    const user = await openRelabelEditor()
+
+    await user.click(screen.getByRole("button", { name: /^custom/i }))
+    const input = screen.getByPlaceholderText(/installation guide/i)
+    await user.clear(input)
+    await user.type(input, "Installation guide")
+    await user.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => expect(screen.queryByPlaceholderText(/installation guide/i)).toBeNull())
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
+})
+
