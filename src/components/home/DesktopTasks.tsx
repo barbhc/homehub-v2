@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
-  CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon, SparklesIcon, XIcon,
+  CheckIcon, ChevronDownIcon, FlagIcon, SparklesIcon, XIcon,
 } from "lucide-react"
+import { AnimatePresence } from "motion/react"
 import type { WeekAgendaItem } from "@/modules/care"
 import { useCareSuggestions } from "@/hooks/useCareSuggestions"
 import { useWeekAgenda } from "@/hooks/useWeekAgenda"
@@ -21,7 +22,10 @@ import {
   fillFor,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
-import { UndoBar } from "@/components/ui/UndoBar"
+import { Collapse, PresenceGroup } from "./tasks/rowMotion"
+import { useTaskRowMotion } from "./tasks/useTaskRowMotion"
+import { CHEVRON_TURN } from "./tasks/rowAnim"
+import { UndoBarSlot } from "@/components/ui/UndoBar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)"
 const LINE = "var(--hh-line2)", SURFACE = "var(--hh-surface)"
@@ -30,17 +34,17 @@ const LINE = "var(--hh-line2)", SURFACE = "var(--hh-surface)"
 const NO_TASKS: WeekAgendaItem[] = []
 
 // ── Expanded two-column detail (why · notes left · actions right) ─────────────
+// Mounted only while the row is open or closing (Collapse), so its read is always on.
 function DkDetail({
-  homeId, taskInstanceId, expanded, onDone, onSnooze, onOpenGuide,
+  homeId, taskInstanceId, onDone, onSnooze, onOpenGuide,
 }: {
   homeId: string | null
   taskInstanceId: string
-  expanded: boolean
   onDone: () => void
   onSnooze: () => void
   onOpenGuide: () => void
 }) {
-  const { detail, loading } = useTaskDetail(homeId, taskInstanceId, expanded)
+  const { detail, loading } = useTaskDetail(homeId, taskInstanceId, true)
   const actor = detail ? classifyTaskDetail(detail) : "diy"
   return (
     <div className="grid items-start gap-7" style={{ gridTemplateColumns: "1.5fr 1fr", padding: "4px 20px 20px 56px" }}>
@@ -112,36 +116,59 @@ function DkRow({
   const tier = (t.priorityTier as Tier) ?? "optional"
   // Not repeated under its own header — the Item and Room lenses group by it (HH-165).
   const where = phraseUnderGroup(t.itemName ?? t.roomName ?? "Home", groupLabel) ?? ""
+  // Motion (Apple polish phase 2): press tint, the tick that slides the row
+  // out, the close-up, and Undo growing it back. Mount inside <AnimatePresence>.
+  const { rowRef, leaving, tick, snoozeTap, surface } = useTaskRowMotion({ id: t.taskInstanceId, error, onDone, onSnooze })
   return (
-    <div data-testid="desktop-task-row" style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}>
-      <div onClick={onToggle} className="flex cursor-pointer items-center gap-4 px-5 py-[15px]">
+    <div
+      ref={rowRef}
+      data-testid="desktop-task-row"
+      data-leaving={leaving ? "" : undefined}
+      inert={leaving}
+      className="group/row"
+      style={{ borderTop: last ? "none" : `1px solid ${LINE}` }}
+    >
+      <div
+        {...surface}
+        onClick={(e) => {
+          if (!(e.target as Element).closest("button")) onToggle()
+        }}
+        className="flex cursor-pointer items-center gap-4 px-5 py-[15px] transition-[background-color] duration-(--dur-press) ease-linear data-[pressed]:bg-(--hh-teal-wash)"
+      >
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); onDone() }}
+          data-no-press
+          onClick={(e) => { e.stopPropagation(); tick() }}
           aria-label="Mark done"
-          className="-m-1.5 flex shrink-0 p-1.5"
+          className="group/check -m-1.5 flex shrink-0 p-1.5"
         >
-          <span className="flex size-[22px] items-center justify-center rounded-full border-2" style={{ borderColor: TEAL }}>
-            <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
+          <span className="flex size-[22px] items-center justify-center rounded-full border-2 border-(--hh-teal) transition-[background-color,border-color,scale] duration-(--dur-press) ease-(--ease-enter) group-active/check:scale-[0.88] group-data-[ticked]/row:border-(--hh-teal-fill) group-data-[ticked]/row:bg-(--hh-teal-fill)">
+            <CheckIcon className="size-3 opacity-0 transition-opacity duration-(--dur-press) group-data-[ticked]/row:opacity-100" style={{ color: "var(--hh-on-fill)" }} strokeWidth={3} />
           </span>
         </button>
-        <div className="min-w-0 flex-1">
-          <div className="text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px]" style={{ color: INK }}>{t.title}</div>
-          <div className="mt-1 flex items-center gap-2">
-            <span className="rounded-full px-2.5 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
-            {t.isOverdue && <span className="size-[5px] rounded-full" style={{ background: CLAY }} />}
-            <span className="text-[0.8125rem]" style={{ color: SUB }}>{where}</span>
-          </div>
-        </div>
-        {/* Blank, not removed, when it would only repeat the group's header
-            (HH-165) — the minutes column stays aligned down the card. */}
-        <span className="w-[88px] text-right text-[0.8125rem] font-semibold" style={{ color: t.isOverdue ? CLAY : SUB }}>
-          {phraseUnderGroup(whenLabel(t), groupLabel) ?? ""}
-        </span>
-        <span className="w-12 text-right text-[0.8125rem] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes != null ? `${t.estimatedMinutes} min` : ""}</span>
-        {expanded
-          ? <ChevronUpIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />
-          : <ChevronDownIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />}
+        {/* The row's opener: a real button, so it is reachable and announced. */}
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={(e) => { e.stopPropagation(); onToggle() }}
+          className="flex min-w-0 flex-1 items-center gap-4 text-left"
+        >
+          <span className="block min-w-0 flex-1">
+            <span className="block text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
+            <span className="mt-1 flex items-center gap-2">
+              <span className="rounded-full px-2.5 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
+              {t.isOverdue && <span className="size-[5px] rounded-full" style={{ background: CLAY }} />}
+              <span className="text-[0.8125rem]" style={{ color: SUB }}>{where}</span>
+            </span>
+          </span>
+          {/* Blank, not removed, when it would only repeat the group's header
+              (HH-165) — the minutes column stays aligned down the card. */}
+          <span className="w-[88px] text-right text-[0.8125rem] font-semibold" style={{ color: t.isOverdue ? CLAY : SUB }}>
+            {phraseUnderGroup(whenLabel(t), groupLabel) ?? ""}
+          </span>
+          <span className="w-12 text-right text-[0.8125rem] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes != null ? `${t.estimatedMinutes} min` : ""}</span>
+          <ChevronDownIcon aria-hidden className={`size-[18px] shrink-0 ${CHEVRON_TURN} ${expanded ? "rotate-180" : ""}`} style={{ color: FAINT }} />
+        </button>
       </div>
       {/* A failed Done/Snooze is said HERE, beside the task it failed on. In
           the page header it scrolled away above a long list: a failure on a
@@ -151,16 +178,15 @@ function DkRow({
           {error}
         </div>
       )}
-      {expanded && (
+      <Collapse open={expanded}>
         <DkDetail
           homeId={homeId}
           taskInstanceId={t.taskInstanceId}
-          expanded={expanded}
-          onDone={onDone}
-          onSnooze={onSnooze}
+          onDone={tick}
+          onSnooze={snoozeTap}
           onOpenGuide={onOpenGuide}
         />
-      )}
+      </Collapse>
     </div>
   )
 }
@@ -281,7 +307,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
 
   return (
     <div style={{ maxWidth: 1140, margin: "0 auto", padding: "30px 0 48px" }}>
-      {bar && <UndoBar {...bar} />}
+      <UndoBarSlot bar={bar} />
       {/* A refresh failed behind an agenda we still hold: keep it, and say so
           quietly at the top of the screen — where Home and Items say it. */}
       {agenda.error && agenda.data && <StaleDataNote className="mb-5" onRetry={() => void agenda.refresh()} />}
@@ -406,8 +432,9 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                   <div className="py-16 text-center text-[0.9375rem]" style={{ color: SUB }}>Nothing matches these filters.</div>
                 )
               )}
+              <AnimatePresence initial={false}>
               {groups.map((g) => (
-                <div key={g.key}>
+                <PresenceGroup key={g.key} ids={g.items.map((t) => t.taskInstanceId)}>
                   <div className="mb-3 flex items-center gap-2.5 pl-0.5">
                     <span className="size-[9px] rounded-full" style={{ background: g.tone }} />
                     <span className="text-[1rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{g.label}</span>
@@ -416,6 +443,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                     {g.mins > 0 && <span className="text-[0.8125rem] font-semibold" style={{ color: FAINT }}>{g.mins} min</span>}
                   </div>
                   <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
+                    <AnimatePresence initial={false} propagate>
                     {g.items.map((t, i) => (
                       <DkRow
                         key={t.taskInstanceId}
@@ -431,9 +459,11 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                         onOpenGuide={() => openGuide(t)}
                       />
                     ))}
+                    </AnimatePresence>
                   </div>
-                </div>
+                </PresenceGroup>
               ))}
+              </AnimatePresence>
               {/* HH-94 — the phone's footer, in the phone's words: a list with
                   tasks on it still says where the withheld cleaning lives. */}
               {totalAll > 0 && <HiddenCleaningLink count={hiddenCleaning} className="block pl-0.5 text-[0.8125rem]" />}

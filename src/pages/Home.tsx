@@ -14,7 +14,7 @@ import {
 import type { DashboardTask } from "@/lib/dashboard"
 import { useDashboard } from "@/lib/useDashboard"
 import { shouldShowHomeSkeleton, SKELETON_PATIENCE_MS } from "@/lib/homeLoadingGate"
-import { UndoBar } from "@/components/ui/UndoBar"
+import { UndoBarSlot } from "@/components/ui/UndoBar"
 import { useTaskActions } from "@/components/home/tasks/shared"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useAuth } from "@/modules/auth"
@@ -288,7 +288,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col pb-8">
-      {actions.bar && <UndoBar {...actions.bar} />}
+      <UndoBarSlot bar={actions.bar} />
       {/* Cached view + a failed refresh: say so quietly and stay usable. The
           user can still read everything and complete work; only freshness is
           in question, so this is a note, not an error state. */}

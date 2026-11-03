@@ -77,6 +77,22 @@ const FILTER = task("ti-1", "Replace the furnace filter")
 const agenda = (rows: unknown[], itemCleaning = 0) =>
   svc.getWeekAgenda.mockResolvedValue({ data: rows, error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning } })
 const footer = () => screen.queryAllByRole("link", { name: /for your items lives? in Deep Clean/ })
+/**
+ * Rendered WITH its data: the agenda read has resolved, and the row it carried
+ * is on screen. Waits on the read, not on a clock. The old wait was a bare
+ * findByText — 1s by default — and a loaded CI runner took longer than that
+ * just to resolve the read and paint (run 40551934074: "Unable to find an
+ * element with the text: Clean the gutters" at ~1.1s, on a branch that changed
+ * no component). The timeouts below are ceilings for a stalled runner, not the
+ * condition.
+ */
+const loaded = async (title: string | RegExp) => {
+  await waitFor(() => expect(svc.getWeekAgenda).toHaveBeenCalled(), { timeout: 15_000 })
+  await act(async () => {
+    await svc.getWeekAgenda.mock.results[svc.getWeekAgenda.mock.results.length - 1].value
+  })
+  return screen.findByText(title, undefined, { timeout: 15_000 })
+}
 /** The desktop row that holds `title`. */
 const rowOf = (title: string) => screen.getByText(title).closest<HTMLElement>('[data-testid="desktop-task-row"]')!
 
@@ -92,7 +108,7 @@ describe("DesktopTasks — an empty list says where the cleaning went (HH-94)", 
   it("names the hidden cleaning instead of 'enjoy the calm'", async () => {
     agenda([], 3)
     renderWith(<DesktopTasks homeId="h1" />)
-    expect(await screen.findByText("Nothing on the schedule — 3 cleaning jobs live in your guides.")).toBeInTheDocument()
+    expect(await loaded("Nothing on the schedule — 3 cleaning jobs live in your guides.")).toBeInTheDocument()
     expect(screen.queryByText(/enjoy the calm/)).toBeNull()
     // Said once: the headline carries it, so no footer repeats it (not rendered).
     expect(footer()).toHaveLength(0)
@@ -101,13 +117,13 @@ describe("DesktopTasks — an empty list says where the cleaning went (HH-94)", 
   it("one job is one job", async () => {
     agenda([], 1)
     renderWith(<DesktopTasks homeId="h1" />)
-    expect(await screen.findByText("Nothing on the schedule — 1 cleaning job lives in your guides.")).toBeInTheDocument()
+    expect(await loaded("Nothing on the schedule — 1 cleaning job lives in your guides.")).toBeInTheDocument()
   })
 
   it("with nothing hidden, the calm line stands", async () => {
     agenda([], 0)
     renderWith(<DesktopTasks homeId="h1" />)
-    expect(await screen.findByText("Nothing due — enjoy the calm.")).toBeInTheDocument()
+    expect(await loaded("Nothing due — enjoy the calm.")).toBeInTheDocument()
   })
 
   it("phone and desktop say the same words — one implementation, not two that drift", async () => {
@@ -154,7 +170,7 @@ describe("a list WITH tasks still names the cleaning it leaves out (HH-94's foot
   it("one job lives, several live", async () => {
     agenda([FILTER], 1)
     renderWith(<DesktopTasks homeId="h1" />)
-    await screen.findByText("Replace the furnace filter")
+    await loaded("Replace the furnace filter")
     expect(footer()).toHaveLength(1)
     expect(footer()[0]).toHaveTextContent("1 cleaning job for your items lives in Deep Clean →")
   })
@@ -174,7 +190,7 @@ describe("a list WITH tasks still names the cleaning it leaves out (HH-94's foot
     agenda([FILTER], 2)
     renderWith(<><RefinedWeek homeId="h1" /><DesktopTasks homeId="h1" /></>)
 
-    expect(await screen.findByText("0 of 1")).toBeInTheDocument()
+    expect(await loaded("0 of 1")).toBeInTheDocument()
     expect(screen.getByText("0 of 1 across your home")).toBeInTheDocument()
     expect(screen.queryByText(/Nothing on the schedule|Nothing due/)).toBeNull()
     // The agenda has tasks, so the footer still closes the (filtered) list.
@@ -193,7 +209,7 @@ describe("DesktopTasks — a failed check-off or snooze is said on the row that 
   })
   const settle = async () => {
     renderWith(<DesktopTasks homeId="h1" />)
-    await screen.findByText(LOWER)
+    await loaded(LOWER)
   }
   /** The row expands on a click anywhere on it; its detail carries Mark done + Snooze. */
   const expand = async (title: string) => {
@@ -290,7 +306,7 @@ describe("DesktopTasks — the Suggested group renders once, after the groups (w
       task("ti-later", "Clean the gutters", { windowState: "upcoming" }),
     ])
     renderWith(<DesktopTasks homeId="h1" />)
-    await screen.findByText("Clean the gutters")
+    await loaded("Clean the gutters")
 
     // Rendered once — it used to sit inside each of the three group cards.
     const groups = screen.getAllByTestId("suggested-group")
@@ -307,7 +323,7 @@ describe("DesktopTasks — the Suggested group renders once, after the groups (w
   it("an empty list still shows the suggestions, as the phone does", async () => {
     care.rows = [{ entry: hepa, itemUnitId: "item-levoit", itemName: "Levoit Core 400S" }]
     renderWith(<DesktopTasks homeId="h1" />)
-    expect(await screen.findByText("Nothing due — enjoy the calm.")).toBeInTheDocument()
+    expect(await loaded("Nothing due — enjoy the calm.")).toBeInTheDocument()
     expect(screen.getAllByTestId("suggested-group")).toHaveLength(1)
   })
 })

@@ -82,18 +82,22 @@ const settle = async () => {
 const rowEl = () => screen.getByTestId("phone-task-row")
 const bar = () => screen.findByRole("status")
 
-/** The row toggles on pointer down/up with no movement; a drag past 72px is a swipe. */
+/** A swipe on the row's surface. jsdom has no layout, so the row is as wide as
+ *  the window (1024): ±400 is past the 30% commit distance. */
 const drag = (dx: number) => {
-  const target = screen.getByText(TITLE).closest("div")!.parentElement!
-  fireEvent.pointerDown(target, { clientX: 100, pointerId: 1 })
-  fireEvent.pointerMove(target, { clientX: 100 + dx, pointerId: 1 })
-  fireEvent.pointerUp(target, { clientX: 100 + dx, pointerId: 1 })
+  const target = screen.getByTestId("phone-task-row-surface")
+  fireEvent.pointerDown(target, { clientX: 500, clientY: 10, pointerId: 1 })
+  fireEvent.pointerMove(target, { clientX: 500 + dx / 2, clientY: 10, pointerId: 1 })
+  fireEvent.pointerMove(target, { clientX: 500 + dx, clientY: 10, pointerId: 1 })
+  fireEvent.pointerUp(target, { clientX: 500 + dx, clientY: 10, pointerId: 1 })
 }
+/** The row opens on its opener (a button with aria-expanded). */
+const openRow = () => fireEvent.click(within(rowEl()).getByRole("button", { expanded: false }))
 
 describe("Tasks — Snooze is the 14-day snooze with a receipt and Undo", () => {
   it("snoozes for 14 days, says until when, and Undo un-snoozes and brings it back", async () => {
     await settle()
-    drag(0) // open the row
+    openRow()
     fireEvent.click(await screen.findByRole("button", { name: /^snooze$/i }))
 
     await waitFor(() => expect(svc.snoozeTaskInstance).toHaveBeenCalledWith("home-1", "ti-1", addDays(localToday(), 14)))
@@ -115,7 +119,7 @@ describe("Tasks — Undo of a RE-snooze puts the earlier snooze back", () => {
     const prior = { status: "snoozed", snoozedUntil: addDays(localToday(), 3) }
     svc.snoozeTaskInstance.mockResolvedValue({ success: true, prior })
     await settle()
-    drag(-110)
+    drag(-400)
     fireEvent.click(within(await bar()).getByRole("button", { name: "Undo" }))
     await waitFor(() => expect(svc.unsnoozeTaskInstance).toHaveBeenCalledWith("home-1", "ti-1", prior))
   })
@@ -295,7 +299,7 @@ describe("Tasks — Done from the list: receipt and Undo first, the write after"
 describe("Tasks — the swipe uses the same bar", () => {
   it("swipe right is Done, with 'Done · next due' and Undo", async () => {
     await settle()
-    drag(110)
+    drag(400)
     const receipt = await bar()
     expect(receipt).toHaveTextContent(`Done · next due ${short(NEXT_DUE)}`)
     expect(within(receipt).getByRole("button", { name: "Undo" })).toBeInTheDocument()
@@ -304,7 +308,7 @@ describe("Tasks — the swipe uses the same bar", () => {
 
   it("swipe left is the 14-day Snooze, with 'Snoozed until' and Undo", async () => {
     await settle()
-    drag(-110)
+    drag(-400)
     const receipt = await bar()
     expect(receipt).toHaveTextContent(`Snoozed until ${short(addDays(localToday(), 14))}`)
     expect(within(receipt).getByRole("button", { name: "Undo" })).toBeInTheDocument()

@@ -13,9 +13,13 @@
  */
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { BellOffIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, MapPinIcon, PhoneIcon, PackageIcon, ShieldIcon } from "lucide-react"
+import { BellOffIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, MapPinIcon, PhoneIcon, PackageIcon, ShieldIcon } from "lucide-react"
+import { AnimatePresence } from "motion/react"
 import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@/lib/dashboard"
 import { useTaskDetail } from "@/components/home/tasks/shared"
+import { Collapse } from "@/components/home/tasks/rowMotion"
+import { useTaskRowMotion } from "@/components/home/tasks/useTaskRowMotion"
+import { CHEVRON_TURN } from "@/components/home/tasks/rowAnim"
 import { InlineError } from "@/components/layout/LoadStates"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { localToday } from "../../../shared/dates/calendar"
@@ -70,10 +74,11 @@ export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completin
       </div>
 
       <div className="overflow-hidden rounded-2xl border shadow-[0_1px_2px_rgba(15,23,42,0.04)]" style={{ background: SURFACE, borderColor: LINE }}>
-        {rows.length === 0 ? (
-          <QuietWeek nextUp={nextUp} ahead={ahead} sc={sc} />
-        ) : (
-          rows.map((r, i) => (
+        {rows.length === 0 && <QuietWeek nextUp={nextUp} ahead={ahead} sc={sc} />}
+        {/* A row that is done or snoozed slides out and the list closes up
+            over it (useTaskRowMotion); Undo grows it back. */}
+        <AnimatePresence initial={false}>
+          {rows.map((r, i) => (
             <WeekRow
               key={r.id}
               row={r}
@@ -87,8 +92,8 @@ export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completin
               onSnooze={() => onSnooze(r.id)}
               sc={sc}
             />
-          ))
-        )}
+          ))}
+        </AnimatePresence>
         {/* py-[13px], not py-2.5: the card clips (overflow-hidden), so the
             footer itself has to be tall enough to hold All tasks' 44pt tap. */}
         <div className="flex items-center justify-end px-3.5 py-[13px]" style={{ borderTop: `1px solid ${LINE}`, background: "color-mix(in srgb, var(--hh-surface2) 60%, var(--hh-surface))" }}>
@@ -115,26 +120,35 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
 }) {
   const when = row.safetyNote ?? row.duePhrase
   const clay = row.trulyOverdue || !!row.safetyNote
+  const { rowRef, leaving, tick, snoozeTap, surface } = useTaskRowMotion({ id: row.id, error, onDone: onComplete, onSnooze })
   return (
     <div
+      ref={rowRef}
       data-testid="week-row"
       data-open={open ? "true" : "false"}
+      data-leaving={leaving ? "" : undefined}
+      inert={leaving}
+      className="group/row"
       style={{
         borderTop: first ? "none" : `1px solid ${LINE}`,
         background: open ? WASH : "transparent",
         boxShadow: open ? `inset 2px 0 0 ${EDGE}, inset -2px 0 0 ${EDGE}` : "none",
       }}
     >
-      <div className={`flex items-center gap-2.5 ${sc.rowPad}`}>
+      <div
+        {...surface}
+        className={`flex items-center gap-2.5 ${sc.rowPad} transition-[background-color] duration-(--dur-press) ease-linear data-[pressed]:bg-(--hh-teal-wash)`}
+      >
         <button
           type="button"
-          onClick={onComplete}
+          data-no-press
+          onClick={tick}
           disabled={completing}
           aria-label={`Mark ${row.title} done`}
-          className="hit-44 -m-1.5 flex shrink-0 p-1.5 disabled:opacity-60"
+          className="group/check hit-44 -m-1.5 flex shrink-0 p-1.5 disabled:opacity-60"
         >
-          <span className="flex size-6 items-center justify-center rounded-full border-2" style={{ borderColor: TEAL, background: SURFACE }}>
-            <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
+          <span className="flex size-6 items-center justify-center rounded-full border-2 border-(--hh-teal) bg-(--hh-surface) transition-[background-color,border-color,scale] duration-(--dur-press) ease-(--ease-enter) group-active/check:scale-[0.88] group-data-[ticked]/row:border-(--hh-teal-fill) group-data-[ticked]/row:bg-(--hh-teal-fill)">
+            <CheckIcon className="size-3 opacity-0 transition-opacity duration-(--dur-press) group-data-[ticked]/row:opacity-100" style={{ color: "var(--hh-on-fill)" }} strokeWidth={3} />
           </span>
         </button>
         <button type="button" onClick={onToggle} aria-expanded={open} className="hit-44 flex min-w-0 flex-1 items-center gap-2.5 text-left">
@@ -155,14 +169,14 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
             style={open ? { background: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" } : { background: "var(--hh-surface2)", color: SUB }}
             aria-hidden
           >
-            {open ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}
+            <ChevronDownIcon className={`size-3.5 ${CHEVRON_TURN} ${open ? "rotate-180" : ""}`} />
           </span>
         </button>
       </div>
       {error && <InlineError className={sc.notePad}>{error}</InlineError>}
-      {open && (
-        <OpenBody key={row.id} row={row} homeId={homeId} when={when} clay={clay} completing={completing} onComplete={onComplete} onSnooze={onSnooze} sc={sc} />
-      )}
+      <Collapse open={open}>
+        <OpenBody key={row.id} row={row} homeId={homeId} when={when} clay={clay} completing={completing} onComplete={tick} onSnooze={snoozeTap} sc={sc} />
+      </Collapse>
     </div>
   )
 }
