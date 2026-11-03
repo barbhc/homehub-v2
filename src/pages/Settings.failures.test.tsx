@@ -74,10 +74,19 @@ vi.mock("@/modules/knowledge", () => ({
   getKnowledgeChunksByHome: vi.fn(async () => ({ data: [], error: null })),
   getFaqsByHome: vi.fn(async () => ({ data: [], error: null })),
   deleteManualDocument: vi.fn(),
+  ingestReference: vi.fn(async () => ({ data: { sections_count: 0 }, error: null })),
 }))
 vi.mock("@/modules/items", () => ({ getItemUnits: vi.fn(async () => ({ data: [], error: null })) }))
 vi.mock("@/modules/care", () => ({ getTaskTemplates: vi.fn(async () => ({ data: [], error: null })) }))
-vi.mock("@/lib/manualRescan", () => ({ openPendingReview: vi.fn(), rescanForReviewAndWait: vi.fn(), startRescanForReview: vi.fn() }))
+// The network-touching half is stubbed; `rescanTargets` / `isReferenceDoc` are
+// the REAL rule, because a mock that let every manual through would hide what
+// the page is now relying on them for.
+vi.mock("@/lib/manualRescan", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/manualRescan")>()),
+  openPendingReview: vi.fn(),
+  rescanForReviewAndWait: vi.fn(),
+  startRescanForReview: vi.fn(),
+}))
 vi.mock("@/hooks/useUserLevel", () => ({ useUserLevel: () => ({ level: "engaged", derivedLevel: "engaged" }) }))
 vi.mock("@/hooks/useFeatureTour", () => ({ useFeatureTour: () => ({ restartTour: vi.fn() }) }))
 vi.mock("@/hooks/useAutoFindManuals", () => ({ useAutoFindManuals: () => [false, vi.fn()] }))
