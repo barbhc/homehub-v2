@@ -36,6 +36,31 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   here; `/inventory/:id/setup` was a second wizard and is deleted. — HH-81
 - Pinned by `src/lib/retiredDesigns.test.ts`, which fails if a second creator
   appears.
+- **An unfinished session resumes into the wizard only if the wizard still has
+  that screen.** The prompt ("Pick up where you left off") appears for any
+  saved session of this home, and Continue goes to one of two places, decided
+  by `resumeTarget()` in `src/lib/wizardSession.ts`:
+  - `identify` or `manual` — back into the wizard at that step;
+  - anything else — the **item page**. The item exists, so the flow is already
+    past the wizard: that covers the retired `plan` and `purchase` steps, the
+    `parsing` and `review` steps the wizard stopped using when it stopped
+    waiting on the read, and a step this build has never heard of (a session
+    written by a newer build, or restored half-formed).
+  A step is **classified, never rewritten**. The read path used to resolve every
+  retired step to `"manual"`, which made the branch that sends such a session to
+  its item page unreachable — so someone who had used the app before the rebuild
+  was handed "Add the manual" for an item whose manual was already attached, and
+  an unrecognized step rendered the wizard's header over an empty screen.
+  Resolving a step and testing for it are two halves of one decision and they
+  were in two files; `retiredDesigns.test.ts` asserted the resolving half, so it
+  reported green on the bug it existed to catch. The behaviour is pinned by
+  `src/lib/wizardSession.test.ts`. — Codex review 2026-10-29
+- **A stored session is read, not cast.** `JSON.parse(...) as WizardSession` was
+  a cast at a serialization boundary; a session without an `itemId` or a
+  `propertyId` is now no session at all (there is nothing to resume, and no home
+  to resume it in), and a wrong-typed field degrades rather than reaching the UI
+  as itself — notably `hasManual: "yes"`, which must never read as a manual
+  being attached. — Codex review 2026-10-29
 
 ## Screen 1 — Lane chooser
 
