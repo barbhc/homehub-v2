@@ -9,6 +9,7 @@ import {
 } from "@/modules/knowledge"
 import { startParse } from "@/modules/knowledge/services/parseManualService"
 import { markParsePending, clearParsePending } from "@/lib/parsePickup"
+import { capacityNotice, isCapacityRefusal, queueScan } from "@/lib/scanCapacity"
 import { isAwaitingReview } from "@/lib/manualReviewState"
 import { requestReview } from "@/lib/reviewRequest"
 // updateManualLabel intentionally omitted here — ManualSection calls it directly
@@ -195,6 +196,19 @@ export function useManualManagement({
    * one silent second attempt is the difference between a pause and a dead end,
    * while a retry loop would be the runaway the limiter exists to stop.
    */
+  const handledAsCapacity = (manualId: string, message: string | undefined): boolean => {
+    if (!isCapacityRefusal(message)) return false
+    // The client half of the queue (HH-124). The server has already parked the
+    // manual at `awaiting_capacity` and its hourly sweep will start it, so the
+    // pending hand-off flag stays put: when the read lands, the page opens its
+    // review exactly as it would have.
+    if (itemId) queueScan(manualId, itemId, Date.now())
+    setParseError(null)
+    const notice = capacityNotice(message)
+    setParseNotice(`${notice.title} — ${notice.eta.toLowerCase()}. Nothing was lost.`)
+    return true
+  }
+
   const handledAsRateLimit = (message: string | undefined, retry: () => void): boolean => {
     if (!isRateLimitMessage(message)) return false
     const wait = retryAfterFromMessage(message)
@@ -226,6 +240,13 @@ export function useManualManagement({
     setParsingManualId(null)
     if (started.ok) return
     if (started.inFlight || isParseInFlightMessage(started.error)) return
+    // Checked BEFORE the error is worded, because wording it is what hid it:
+    // `${failure}: ${humanizeParseError(...)}` prefixes the server's sentence,
+    // so nothing downstream could match it as a capacity refusal, and a read
+    // the server had queued was reported as one that could not start — beside
+    // an Upkeep card and a tray that both showed it waiting (Codex review
+    // 2026-10-29, finding 8).
+    if (handledAsCapacity(manualId, started.error)) return
     if (handledAsRateLimit(started.error, () => void startReadForReview(manualId, failure))) return
     clearParsePending(manualId)
     setParseError(`${failure}: ${humanizeParseError(started.error)}`)

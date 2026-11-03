@@ -43,21 +43,72 @@ const REASONS: { id: string; label: string }[] = [
   { id: "wrong_product", label: "Not my model" },
 ]
 
+/**
+ * What starting a fresh read actually did, so the sheet can stop guessing.
+ *
+ * `ok: false` keeps the sheet open with `message` shown as a failure; `ok: true`
+ * closes it, and a `message` then replaces "Thanks" (a read refused for
+ * capacity is queued, not failed — it has news, not an error).
+ */
+export type RescanOutcome = { ok: boolean; message?: string | null }
+
 export function TaskReviewFeedback({
   edits,
   onSubmit,
+  onRescan,
 }: {
   edits: ReviewEditSummary
   onSubmit: (p: { reasons: string[]; note: string; edits: ReviewEditSummary; rescan: boolean }) => void
+  /**
+   * Start a fresh read of this manual.
+   *
+   * REQUIRED for the Re-scan button to exist. The button used to be
+   * unconditional and called the same fire-and-forget `onSubmit` as Send
+   * feedback with `rescan: true`, which every caller persisted as a boolean on
+   * a feedback document and nothing acted on — so someone who reported the
+   * tasks were wrong and pressed Re-scan got "Thanks", no new read, and no
+   * trace. (Codex review 2026-10-29, finding 6.)
+   *
+   * Absent means there is nothing to re-scan — the existing-task review has no
+   * single manual behind it — and then the button is not drawn at all, rather
+   * than drawn and inert.
+   */
+  onRescan?: () => Promise<RescanOutcome>
 }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [note, setNote] = useState("")
   const [sent, setSent] = useState(false)
+  const [sentNote, setSentNote] = useState<string | null>(null)
+  const [rescanning, setRescanning] = useState(false)
+  const [rescanError, setRescanError] = useState<string | null>(null)
+
+  /** The corrections go in either way: they are the corpus, and a refused read
+   *  must not also cost us the feedback that came with it. */
+  const record = (rescan: boolean) => {
+    onSubmit({ reasons: [...picked], note: note.trim(), edits, rescan })
+  }
 
   const send = (rescan: boolean) => {
-    onSubmit({ reasons: [...picked], note: note.trim(), edits, rescan })
-    setOpen(false); setSent(true); setPicked(new Set()); setNote("")
+    record(rescan)
+    setOpen(false); setSent(true); setSentNote(null); setPicked(new Set()); setNote("")
+  }
+
+  const sendAndRescan = async () => {
+    if (!onRescan || rescanning) return
+    setRescanError(null)
+    setRescanning(true)
+    record(true)
+    const outcome = await onRescan()
+    setRescanning(false)
+    if (!outcome.ok) {
+      // Stay open. The whole defect was a screen that said "Thanks" for work
+      // it had not done.
+      setRescanError(outcome.message ?? "We couldn't start another read just now.")
+      return
+    }
+    setOpen(false); setSent(true); setSentNote(outcome.message ?? null)
+    setPicked(new Set()); setNote("")
   }
 
   const editBits = [
@@ -71,7 +122,7 @@ export function TaskReviewFeedback({
     <>
       <div className="mt-6 pt-3.5 border-t border-border flex items-center gap-2">
         <div className="flex-1 text-[0.75rem] text-muted-foreground">
-          {sent ? "Thanks — that helps us fix it for everyone." : "These tasks don't look right?"}
+          {sent ? (sentNote ?? "Thanks — that helps us fix it for everyone.") : "These tasks don't look right?"}
         </div>
         <button
           type="button"
@@ -128,18 +179,28 @@ export function TaskReviewFeedback({
             </div>
           )}
 
+          {rescanError && (
+            <p role="alert" className="mt-2.5 text-[0.75rem]" style={{ color: "var(--hh-clay)" }}>
+              {rescanError}
+            </p>
+          )}
+
           <div className="flex gap-2 mt-3">
-            <button
-              type="button"
-              onClick={() => send(true)}
-              className="flex-1 rounded-xl border border-border py-2.5 text-[0.78125rem] font-bold text-muted-foreground"
-            >
-              Re-scan
-            </button>
+            {onRescan && (
+              <button
+                type="button"
+                onClick={() => void sendAndRescan()}
+                disabled={rescanning}
+                className="flex-1 rounded-xl border border-border py-2.5 text-[0.78125rem] font-bold text-muted-foreground disabled:opacity-60"
+              >
+                {rescanning ? "Starting…" : "Re-scan"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => send(false)}
-              className="flex-[2] rounded-xl bg-[var(--hh-teal-fill)] py-2.5 text-[0.78125rem] font-bold text-primary-foreground"
+              disabled={rescanning}
+              className={`${onRescan ? "flex-[2]" : "flex-1"} rounded-xl bg-[var(--hh-teal-fill)] py-2.5 text-[0.78125rem] font-bold text-primary-foreground disabled:opacity-60`}
             >
               Send feedback
             </button>
