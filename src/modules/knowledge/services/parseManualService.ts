@@ -227,17 +227,45 @@ interface ManualParseSnapshot {
   pdfPages?: number | null
 }
 
-/** Subscribe to a manual's parse.stage. Returns an unsubscribe fn. */
+/**
+ * Subscribe to a manual's parse.stage. Returns an unsubscribe fn.
+ *
+ * `onGone` is how a waiter stops waiting. Without an error callback,
+ * `onSnapshot` swallows a fatal listener error — a permission change, a missing
+ * index, the document being deleted by another member — and the subscription
+ * simply stops producing stages. `parseManualAndWait` then never settles, and
+ * the caller that awaited it (Settings' "Rescan all") sat on "Scanning…" with
+ * every action disabled, where even the read finishing server-side could not
+ * release it. (Codex review 2026-10-29, finding 9.)
+ */
 export function watchParse(
   homeId: string,
   manualId: string,
-  onStage: (stage: ParseStage, parse: ManualParseSnapshot) => void
+  onStage: (stage: ParseStage, parse: ManualParseSnapshot) => void,
+  onGone?: (reason: string) => void,
 ): Unsubscribe {
-  return onSnapshot(docRef(`homes/${homeId}/manuals/${manualId}`), (snap) => {
-    const data = snap.data() as { parse?: ManualParseSnapshot } | undefined
-    const parse = data?.parse
-    if (parse?.stage) onStage(parse.stage, parse)
-  })
+  return onSnapshot(
+    docRef(`homes/${homeId}/manuals/${manualId}`),
+    (snap) => {
+      // Deleted while we watched: there is no stage coming, so say so rather
+      // than wait for one.
+      if (!snap.exists()) {
+        onGone?.(PARSE_ERR.vanished)
+        return
+      }
+      const data = snap.data() as { parse?: ManualParseSnapshot } | undefined
+      const parse = data?.parse
+      if (parse?.stage) onStage(parse.stage, parse)
+    },
+    (err) => {
+      // "[read]", not "[parse]": scanCopy.test.ts checks every prose string in
+      // src for the parse vocabulary, and it is right to — this product says
+      // "read the manual" everywhere a person can see, and a log is the one
+      // place a developer is most likely to copy a word from.
+      console.error(`[read] lost the watch on ${homeId}/${manualId}:`, err)
+      onGone?.(PARSE_ERR.watchLost)
+    },
+  )
 }
 
 /**
@@ -288,26 +316,33 @@ export async function parseManualAndWait(
     // Snapshots arrive in order, so once the followed run has been seen, a
     // different requestId can only be a NEWER run — never a stale cached one.
     let seenOurs = false
-    const unsub = watchParse(opts.homeId, manualId, (stage, parse) => {
+    // Held in an object, not a `const`, because `onSnapshot` can fire
+    // SYNCHRONOUSLY from cache: settle() may run before watchParse has
+    // returned, and a const would be in its temporal dead zone.
+    const sub: { off?: Unsubscribe; wanted: boolean } = { wanted: true }
+    const settle = (result: ParseManualResult) => {
+      if (settled) return
+      settled = true
+      sub.wanted = false
+      sub.off?.()
+      if (!result.ok) onStage?.("error")
+      resolve(result)
+    }
+    sub.off = watchParse(opts.homeId, manualId, (stage, parse) => {
       if (settled) return
       if (parse.requestId !== follow) {
         if (!seenOurs || !parse.requestId) return
         if (parse.mode === opts.mode) {
           follow = parse.requestId
         } else {
-          settled = true
-          unsub()
-          onStage?.("error")
-          resolve({ ok: false, error: PARSE_ERR.superseded })
+          settle({ ok: false, error: PARSE_ERR.superseded })
           return
         }
       }
       seenOurs = true
       onStage?.(toUiStage(stage))
       if (stage === "done") {
-        settled = true
-        unsub()
-        resolve({
+        settle({
           ok: true,
           chunks: parse.summary?.chunks ?? 0,
           tasks: parse.summary?.tasks ?? 0,
@@ -317,11 +352,18 @@ export async function parseManualAndWait(
           confidence: coerceConfidence(parse.summary?.confidence),
         })
       } else if (stage === "error") {
-        settled = true
-        unsub()
-        resolve({ ok: false, error: parse.error?.message ?? "The scan failed" })
+        settle({ ok: false, error: parse.error?.message ?? "The scan failed" })
       }
-    })
+    },
+    // The watch ended with no stage coming — the manual was deleted, or the
+    // listener died. Either way this promise must end: a caller awaiting it
+    // (Settings' "Rescan all") otherwise waits for a stage that can never
+    // arrive, with every action on the screen disabled.
+    (reason) => settle({ ok: false, error: reason }),
+    )
+    // settle() may have run from a synchronous first snapshot, before the
+    // unsubscribe existed. Honour it now that it does.
+    if (!sub.wanted) sub.off()
   })
 }
 

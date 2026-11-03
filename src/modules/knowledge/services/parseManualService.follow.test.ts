@@ -12,9 +12,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { PARSE_ERR } from "../../../../shared/parse/parseErrors"
 
+/** The listener pair `onSnapshot` is given: the data callback and the error
+ *  callback. The error one went unmodelled until the watch could die
+ *  (finding 9), which is part of why it went unnoticed. */
+type Snap = { exists: () => boolean; data: () => unknown }
 const h = vi.hoisted(() => ({
   enqueue: vi.fn(),
-  listeners: [] as Array<(snap: { data: () => unknown }) => void>,
+  listeners: [] as Array<(snap: { exists: () => boolean; data: () => unknown }) => void>,
+  errorListeners: [] as Array<(err: unknown) => void>,
   unsubscribed: 0,
   docData: undefined as unknown,
 }))
@@ -24,8 +29,9 @@ vi.mock("@/integrations/firebase", () => ({
   docRef: (path: string) => ({ path }),
 }))
 vi.mock("firebase/firestore", () => ({
-  onSnapshot: (_ref: unknown, cb: (snap: { data: () => unknown }) => void) => {
+  onSnapshot: (_ref: unknown, cb: (snap: Snap) => void, onErr?: (err: unknown) => void) => {
     h.listeners.push(cb)
+    if (onErr) h.errorListeners.push(onErr)
     return () => {
       h.unsubscribed += 1
     }
@@ -36,7 +42,16 @@ vi.mock("firebase/firestore", () => ({
 import { parseManualAndWait } from "./parseManualService"
 
 const emit = (parse: Record<string, unknown>) => {
-  for (const cb of [...h.listeners]) cb({ data: () => ({ parse }) })
+  for (const cb of [...h.listeners]) cb({ exists: () => true, data: () => ({ parse }) })
+}
+/** The manual is deleted while the read is watched. */
+const emitDeleted = () => {
+  for (const cb of [...h.listeners]) cb({ exists: () => false, data: () => undefined })
+}
+/** The listener itself dies — a permission change, a missing index, a dropped
+ *  connection. Before finding 9 this produced no callback at all. */
+const emitWatchError = (err: unknown = new Error("permission-denied")) => {
+  for (const cb of [...h.errorListeners]) cb(err)
 }
 const subscribed = () => vi.waitFor(() => expect(h.listeners.length).toBeGreaterThan(0))
 const OPTS = { homeId: "home-1", mode: "preview" as const }
@@ -57,6 +72,7 @@ const refusal = (details?: Record<string, unknown>) =>
 beforeEach(() => {
   h.enqueue.mockReset()
   h.listeners.length = 0
+  h.errorListeners.length = 0
   h.unsubscribed = 0
   h.docData = undefined
 })
@@ -160,3 +176,53 @@ describe("replaced while watching", () => {
     await expect(p).resolves.toMatchObject({ ok: true, tasks: 2 })
   })
 })
+
+// ── A watch that ends with no stage coming must end the wait ────────────────
+//
+// Codex review 2026-10-29, finding 9. `watchParse` passed no error callback to
+// `onSnapshot`, so a fatal listener error — a permission change, a missing
+// index, the document deleted by another member — silently stopped the
+// subscription. `parseManualAndWait` then never settled, and Settings' "Rescan
+// all", which awaits it, sat on "Scanning…" with every action disabled, where
+// not even the read finishing server-side could release it.
+describe("the wait ends even when the watch does", () => {
+  it("a dead listener resolves with something the user can act on", async () => {
+    h.enqueue.mockResolvedValue({ ok: true, requestId: "req-1" })
+    const p = parseManualAndWait("m-1", OPTS)
+    await subscribed()
+
+    emitWatchError()
+
+    const res = await p
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/lost track of this scan/i)
+    // And it stops listening rather than leaking the subscription.
+    expect(h.unsubscribed).toBeGreaterThan(0)
+  })
+
+  it("the manual being deleted mid-read says so, instead of waiting for a stage", async () => {
+    h.enqueue.mockResolvedValue({ ok: true, requestId: "req-1" })
+    const p = parseManualAndWait("m-1", OPTS)
+    await subscribed()
+    emit({ stage: "claude_call", requestId: "req-1", mode: "preview" })
+
+    emitDeleted()
+
+    const res = await p
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/removed while we were reading/i)
+  })
+
+  it("a dead listener AFTER the read finished does not overturn the result", async () => {
+    h.enqueue.mockResolvedValue({ ok: true, requestId: "req-1" })
+    const p = parseManualAndWait("m-1", OPTS)
+    await subscribed()
+    emit({ stage: "done", requestId: "req-1", mode: "preview", summary: { chunks: 2, tasks: 3 } })
+
+    emitWatchError()
+
+    const res = await p
+    expect(res.ok).toBe(true)
+  })
+})
+

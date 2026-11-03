@@ -77,8 +77,15 @@ export function trayEntryFacts(d: DocumentSnapshot) {
 export function useParseTray(homeId: string | null): ParseTray {
   const [tray, setTray] = useState<ParseTray>(EMPTY)
 
-  // No home, no tray — cleared in the render that loses the home.
-  if (useDepsChanged([homeId]) && !homeId) setTray(EMPTY)
+  // The tray belongs to the home on screen, so it is cleared in the render that
+  // CHANGES home — not only in one that loses it.
+  //
+  // It used to clear only when `homeId` became null, so switching straight from
+  // home A to home B left A's rows on screen and actionable until B's first
+  // snapshot arrived. Tapping a still-visible Review then asked for A's manual
+  // and navigated to A's item under home B, where the person got "Item not
+  // found". (Codex review 2026-10-29, finding 7.)
+  if (useDepsChanged([homeId])) setTray(EMPTY)
 
   useEffect(() => {
     if (!homeId) return

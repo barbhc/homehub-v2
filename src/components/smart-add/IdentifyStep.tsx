@@ -510,6 +510,14 @@ export function IdentifyStep({
   }
 
   const clearOcrState = () => {
+    // Clearing the OCR state means nothing in flight counts any more. Without
+    // this the display state was cleared and the REQUEST was not, so its reply
+    // still matched `ocrRequestIdRef` and wrote the form object it had closed
+    // over: start a slow label scan, press Back, choose "Everything else",
+    // type "Patio sofa" — and the late reply put the pre-Back form back,
+    // erasing the name and disabling Add. (Codex review 2026-10-29, finding 10.)
+    ocrRequestIdRef.current++
+    setOcrLoading(false)
     setOcrError(null)
     setOcrOutcome(null)
     setOcrRawText(null)

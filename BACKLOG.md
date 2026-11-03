@@ -271,6 +271,38 @@ lives five minutes from the start of the request that last used it.
 
 ---
 
+## 3.5 The same-PDF dedupe race — needs a decision, not a fix (Codex finding 4, 2026-10-29)
+
+**The defect is real and the fix is a product call, which is why it is here and
+not in a PR.**
+
+`createManualDocument` dedupes by content hash with a QUERY followed by an
+independent `set` (`manualDocumentService.ts:139`, `:193`). Two uploads of the
+same PDF to the same item, close together — two tabs, two household members —
+both read "no twin" and both create a manual. The user sees the document twice,
+and **both copies start a paid read**. That second read is the cost that makes
+this worth fixing.
+
+Firestore transactions cannot run queries, only document reads, so the query
+cannot simply be wrapped. Three ways out, each with a real cost:
+
+| Option | How | What it costs |
+|---|---|---|
+| **A. Deterministic document id** from `itemUnitId + contentHash`, created in a transaction | Atomic with no new collection and no rules change | Re-adding a PDF that was removed reuses the tombstone's id. `deleteManualDocument` soft-deletes the manual and **leaves its `chunks` subcollection intact**, so reviving the doc resurrects stale knowledge. Needs delete to clean up chunks first — which is its own change, with its own review. |
+| **B. A hash-claim document** (`homes/{id}/manualHashes/{hash}`) read and written in one transaction | Atomic, keeps soft-delete semantics exactly as they are | A new collection, so `firestore.rules` needs a rule — rules are deny-by-default and publishing them is an approval gate. |
+| **C. An index map on the item doc** (`items/{id}.manualHashes`) | Atomic, no new collection, no rules change | A denormalized index with no designated sync path — the exact shape of the `taskInstances` drift that made a whole cleanup sweep invisible (see `project_denorm_instance_drift`). A removed manual leaves a stale entry that has to be validated on every read. |
+
+**Recommendation: B**, taken together with a decision about whether deleting a
+manual should delete its chunks (which option A would force anyway, and which
+is arguably a bug in its own right — a removed manual's content can still be
+answered from).
+
+Until then the race stands. It needs two near-simultaneous uploads of the same
+file to the same item, so it is rare; what it costs when it happens is one extra
+manual row and one extra paid read.
+
+---
+
 ## 4. Designed, approved, not built
 
 Confirmed by grep on 2026-09-16, not by the docs' status lines: no
