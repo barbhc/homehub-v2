@@ -178,3 +178,59 @@ describe("Read again — the item page's own rescan — is a PREVIEW that ends i
     expect(result.current.parseError).toMatch(/^The read could not start/)
   })
 })
+
+// ── A ceiling WE set is not a read that failed ───────────────────────────────
+//
+// Codex review 2026-10-29, finding 8. The hook reported a capacity refusal as
+// a hard failure although the server had already parked the manual at
+// `awaiting_capacity` — so Upkeep and the tray showed the read waiting while
+// the item page said it could not start. The reason it slipped past HH-124's
+// matcher is worth keeping: the message was WORDED first
+// (`${failure}: ${humanizeParseError(...)}`), and that prefix meant nothing
+// downstream could recognise what the server had said.
+describe("a read refused for capacity is queued, not failed (finding 8)", () => {
+  const QUEUE_KEY = "homehub:scans-awaiting-capacity"
+
+  it("reads as calm news, sets no error, and joins the client queue", async () => {
+    createManualDocument.mockResolvedValue(saved())
+    startParse.mockResolvedValue({
+      ok: false,
+      error: "You've used your manual scans today. This one is saved and will start when capacity frees up.",
+    })
+
+    const { result } = mount()
+    await act(async () => { await result.current.handleAddManual({ type: "url", url: "https://example.com/m.pdf" }) })
+
+    await waitFor(() => expect(result.current.parseNotice).toBeTruthy())
+    // The distinction the whole of HH-124 rests on.
+    expect(result.current.parseError).toBeNull()
+    expect(result.current.parseNotice).toMatch(/later/i)
+    expect(result.current.parseNotice).toMatch(/nothing was lost/i)
+    // And it is actually recorded, so something picks it back up.
+    expect(localStorage.getItem(QUEUE_KEY) ?? "").toContain("man-1")
+  })
+
+  it("the app-wide budget reads the same way — it is still not the user's fault", async () => {
+    createManualDocument.mockResolvedValue(saved())
+    startParse.mockResolvedValue({ ok: false, error: "The monthly AI budget is used up." })
+
+    const { result } = mount()
+    await act(async () => { await result.current.handleAddManual({ type: "url", url: "https://example.com/m.pdf" }) })
+
+    await waitFor(() => expect(result.current.parseNotice).toBeTruthy())
+    expect(result.current.parseError).toBeNull()
+  })
+
+  it("a REAL failure still says it failed — the calm path must not swallow those", async () => {
+    createManualDocument.mockResolvedValue(saved())
+    startParse.mockResolvedValue({ ok: false, error: "worker timed out" })
+
+    const { result } = mount()
+    await act(async () => { await result.current.handleAddManual({ type: "url", url: "https://example.com/m.pdf" }) })
+
+    await waitFor(() => expect(result.current.parseError).toBeTruthy())
+    expect(result.current.parseNotice).toBeNull()
+    expect(localStorage.getItem(QUEUE_KEY) ?? "").not.toContain("man-1")
+  })
+})
+

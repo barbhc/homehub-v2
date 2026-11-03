@@ -36,6 +36,31 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   here; `/inventory/:id/setup` was a second wizard and is deleted. — HH-81
 - Pinned by `src/lib/retiredDesigns.test.ts`, which fails if a second creator
   appears.
+- **An unfinished session resumes into the wizard only if the wizard still has
+  that screen.** The prompt ("Pick up where you left off") appears for any
+  saved session of this home, and Continue goes to one of two places, decided
+  by `resumeTarget()` in `src/lib/wizardSession.ts`:
+  - `identify` or `manual` — back into the wizard at that step;
+  - anything else — the **item page**. The item exists, so the flow is already
+    past the wizard: that covers the retired `plan` and `purchase` steps, the
+    `parsing` and `review` steps the wizard stopped using when it stopped
+    waiting on the read, and a step this build has never heard of (a session
+    written by a newer build, or restored half-formed).
+  A step is **classified, never rewritten**. The read path used to resolve every
+  retired step to `"manual"`, which made the branch that sends such a session to
+  its item page unreachable — so someone who had used the app before the rebuild
+  was handed "Add the manual" for an item whose manual was already attached, and
+  an unrecognized step rendered the wizard's header over an empty screen.
+  Resolving a step and testing for it are two halves of one decision and they
+  were in two files; `retiredDesigns.test.ts` asserted the resolving half, so it
+  reported green on the bug it existed to catch. The behaviour is pinned by
+  `src/lib/wizardSession.test.ts`. — Codex review 2026-10-29
+- **A stored session is read, not cast.** `JSON.parse(...) as WizardSession` was
+  a cast at a serialization boundary; a session without an `itemId` or a
+  `propertyId` is now no session at all (there is nothing to resume, and no home
+  to resume it in), and a wrong-typed field degrades rather than reaching the UI
+  as itself — notably `hasManual: "yes"`, which must never read as a manual
+  being attached. — Codex review 2026-10-29
 
 ## Screen 1 — Lane chooser
 
@@ -469,6 +494,31 @@ setup."*
   home to another left the first home's rows visible and tappable until the
   second home's snapshot arrived, and tapping Review then asked for the other
   home's manual and landed on "Item not found". — Codex review 2026-10-29
+- **The review's "Re-scan" starts a read, or is not there.** It is drawn only
+  where a read can actually start — the hand-off's review, which has a manual
+  behind it. The existing-task review has no single manual (`manualId: null`)
+  and so has no button, rather than an inert one. A refused read keeps the sheet
+  open and says why; a read queued for capacity closes it and says it is queued,
+  never "Thanks". The corrections go in either way: they are the corpus, and a
+  refused read must not also cost us the report that came with it. Until now the
+  button called the same fire-and-forget handler as Send feedback with
+  `rescan: true`, which every caller wrote to a feedback document and nothing
+  acted on — so reporting the tasks were wrong and asking for a re-scan produced
+  "Thanks", no read, and no trace. — Codex review 2026-10-29
+- **On the item page too, a read refused for capacity shows as queued, not
+  failed** (the rule is already above, from the 2026-09-29 audit; this door did
+  not keep it). The refusal is recognised BEFORE the message is worded:
+  `${failure}: ${humanizeParseError(...)}` prefixed the server's sentence, so
+  nothing downstream could match it, and a read the server had parked at
+  `awaiting_capacity` was reported as one that could not start — beside an
+  Upkeep card and a tray that both showed it waiting. It joins the client queue
+  and reads as calm news. A real failure still says it failed. — Codex review
+  2026-10-29
+- **A relabel that failed keeps the editor open, with what was typed.** The
+  editor closed either way, so a failed write looked exactly like a successful
+  one: the draft vanished, the old label came back, and the only trace was a
+  console line. Offline is the ordinary way to reach it. — Codex review
+  2026-10-29
 - **The one-by-one walkthrough survives**, speaking the same four words.
   Reclassifying a row visibly moves it between sections. It is the only route
   tasks from older parses have into the new vocabulary. — HH-144

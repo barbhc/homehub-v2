@@ -112,6 +112,7 @@ export function ManualSection({
   const [labelDraft, setLabelDraft] = useState("")
   const [savingLabelId, setSavingLabelId] = useState<string | null>(null)
   const [customLabelMode, setCustomLabelMode] = useState(false)
+  const [labelError, setLabelError] = useState<string | null>(null)
 
   const startEditLabel = (m: ManualDocument) => {
     setEditingLabelId(m.manual_id)
@@ -123,6 +124,7 @@ export function ManualSection({
     setEditingLabelId(null)
     setLabelDraft("")
     setCustomLabelMode(false)
+    setLabelError(null)
   }
 
   const saveLabel = async (manualId: string, valueOverride?: string) => {
@@ -130,9 +132,15 @@ export function ManualSection({
     setSavingLabelId(manualId)
     const result = await updateManualLabel(homeId, manualId, value)
     setSavingLabelId(null)
-    // The live list carries the new label; a failed write leaves the old one
-    // showing, and is logged with what it was for.
-    if (result.error) console.error(`[manuals] could not relabel ${manualId}:`, result.error.message)
+    if (result.error) {
+      // The editor used to close either way, so a failed write looked exactly
+      // like a successful one: the typed label vanished, the old one came back,
+      // and the only trace was a console line nobody reads (Codex review
+      // 2026-10-29, finding 13). Offline is the ordinary way to hit this.
+      console.error(`[manuals] could not relabel ${manualId}:`, result.error.message)
+      setLabelError(result.error.message)
+      return
+    }
     cancelEditLabel()
   }
 
@@ -355,6 +363,11 @@ export function ManualSection({
                   if (e.key === "Escape") cancelEditLabel()
                 }}
               />
+            )}
+            {labelError && (
+              <p role="alert" className="text-[0.75rem]" style={{ color: "var(--hh-clay)" }}>
+                Couldn&rsquo;t save that label: {labelError}
+              </p>
             )}
             <div className="flex items-center gap-1.5">
               <Button

@@ -534,15 +534,29 @@ describe("the wizard ends at the manual", () => {
     // wizard — so the promise now lives in the WizardStep union itself, which is
     // the thing that can actually route someone into a screen.
     const wizard = read("../../lib/wizardSession.ts")
-    const union = wizard.slice(wizard.indexOf("export type WizardStep"), wizard.indexOf("RETIRED_STEPS"))
+    const union = wizard.slice(
+      wizard.indexOf("export type WizardStep"),
+      wizard.indexOf("export const PAST_THE_WIZARD"),
+    )
     expect(union).toContain('"identify"')
     expect(union).toContain('"manual"')
-    for (const retired of ['"plan"', '"purchase"']) {
+    // `parsing` and `review` join the retired list: nothing had written them
+    // since the wizard stopped waiting on the read, and a union advertising
+    // screens the app does not have is what made the resume branch below look
+    // live while it was dead. — Codex review 2026-10-29
+    for (const retired of ['"plan"', '"purchase"', '"parsing"', '"review"']) {
       expect(union).not.toContain(retired)
     }
   })
 
-  it("sends a session saved on the retired purchase step to the item", () => {
-    expect(page).toContain('(session.step as string) === "purchase"')
+  it("sends a session the wizard cannot resume to the item page", () => {
+    // What this replaces asserted the PRESENCE of
+    //   (session.step as string) === "purchase"
+    // — a branch that could never run, because the read path had already
+    // rewritten every retired step to "manual". The test passed on dead code
+    // for as long as the dead code was there. The decision is one function now,
+    // and it is pinned behaviourally in src/lib/wizardSession.test.ts.
+    expect(page).toContain('session.resume.at === "item"')
+    expect(page).not.toContain('session.step')
   })
 })
