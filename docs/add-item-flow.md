@@ -251,6 +251,17 @@ page watches it.
   stops writing for 35 minutes is ended as an error the manual card can
   restart, never left "reading" forever; a scan retrying after a transient
   failure shows as queued, not failed. — audit 2026-09-29, Package C (C1/C2)
+- **A reply Claude garbled is asked for once more before the read fails.**
+  Claude sometimes answers a read with something that cannot be saved — the
+  list of tasks sent as one long string, not as a list (4 of 22 measured reads
+  on 2026-11-17). The worker asks **once more, inside the same read**: the
+  person keeps seeing "Reading the manual", nothing shows as failed or queued in
+  between, and the read is charged once. If the second answer is unusable too,
+  the read ends with **one** error and one sentence — "This scan came back
+  unreadable on our side, so nothing was saved. Scanning it again will start it
+  fresh." — never our own error text ("malformed extraction: chunks/tasks not
+  arrays" reached the banner word for word until then). A read that got any
+  answer from Claude is not refunded, usable or not. — measured 2026-11-17
 - **On the item page too:** re-adding a manual while it is being read follows
   that read — no "could not start" beside a read that is plainly going — and
   the same PDF, already read and waiting for its review, opens that review
@@ -607,6 +618,7 @@ and where they differ, the amended line governs:
 | `src/components/manuals/TaskReviewSheet.channels.test.tsx` | "N will show up in Tasks" counting what Tasks never lists, a notify count that is not the bells on screen, a bell on item cleaning or on a phone that refused, a no-maintenance review with a Maintenance section, a notify line or one fact said twice, a per-row "Lives on the item page", or a link inside a collapsed row (HH-161 S3b, S4, S5, as the owner's review of #228 refined them) | live |
 | `src/components/settings/NotificationsRefusedNote.test.tsx` | Settings' Notifications section — where "Turn on in Settings" lands — not naming the phone's menu on a device that refused (the approved sentence, word for word), naming it while notifications are allowed, or leaving that section (owner's review of #228) | live |
 | `e2e/emu/item-page-scan-indicator.spec.ts` | The mock's frames against the real emulators at 390px and desktop: the read in Upkeep and the pill on the item and on Home; the pill covering the page's last card; the tray naming items; the hand-off; the review opening in place from the pill; notifications refused (the collapsed row's status, the opened row's link, Settings' sentence) and granted; no maintenance through Save (HH-161, with the owner's #228 refinements) | live |
+| `firebase/functions/test/malformedRetry.emu.test.mjs` | A garbled reply failing the read without the one retry, or with more than one; a second garbled reply writing the error twice, going back to the queue, showing our own error text, or being refunded (measured 2026-11-17) | live |
 | `src/pages/item-detail/ManualSection.addManual.test.tsx` | An item-page door that fails its first "Add the manual", a retry that re-sends the previous file, or a reopened dialog still carrying the last error, document type or panel (HH-159) | live |
 | `e2e/emu/item-add-manual.spec.ts` | Two add-manual dialogs or two item headings in the DOM at 390px or desktop, or more than one scan started per add (HH-159) | live |
 | `e2e/emu/item-page-manual.spec.ts` | The item page's link lane, from a seeded appliance with no manual: one dialog opening on the link field, the Google search for this model, one read, the live rail, the pill counting it here and elsewhere alike, no second read on return; and HH-161's "Upkeep never offers a manual it is reading", checked on every DOM change from the tap on | live |

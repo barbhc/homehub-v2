@@ -119,6 +119,42 @@ Being explicit, because a gap you cannot see reads as coverage you have:
   the stale note in `scripts/parse-eval/README.md` claiming that coverage was
   lost is wrong.
 
+## Malformed replies — measured 2026-11-17
+
+Not a score: a fault rate. The production request (`buildExtractionRequest`,
+Sonnet 5, forced `record_extraction`) was sent 22 times across four manuals.
+
+| | calls | arrays as sent | stringified, repaired | **malformed (unrepairable)** |
+|---|---:|---:|---:|---:|
+| first session (nespresso-vertuo ×2, ninja-creami, blender-beast) | 4 | — | — | **2** |
+| re-measure: nespresso-vertuo ×3 | 3 | 3 | 0 | 0 |
+| re-measure: washer-lg ×3 | 3 | 3 | 0 | 0 |
+| re-measure: blender-beast ×6 | 6 | 5 | 1 | 0 |
+| re-measure: ninja-creami ×6 | 6 | 2 | 2 | **2** |
+| **all** | **22** | | | **4 (18%)** |
+
+Every malformed reply was the same thing underneath: `chunks` or `tasks` sent as
+one long string, with a JSON mistake inside it (an unquoted key; a stray quote
+and newline before a key; twice, a `table_data` array never closed). They are
+not repairable without guessing, and the scan failed in production each time.
+
+**What changed (this PR):** the worker asks once more before failing
+(`MAX_EXTRACTION_CALLS`). Two unusable replies in a row are needed to fail a
+scan now — roughly the square of the per-call rate, so ~1–3% overall and more
+for a manual that is prone to it (ninja-creami was 2 of 6).
+
+**What did not help — both tried against the live API that day:**
+
+- **`strict: true` on the tool** — refused: *"The compiled grammar is too
+  large"*, for the full shape, with every nullable union removed, and even
+  with only the `chunks` and `tasks` arrays in the schema. Same answer
+  structured outputs gave on Opus on 2026-09-23.
+- **Spelling out the array item schemas without `strict`** (a hint, not a
+  constraint; accepted, +1,765 input tokens). On ninja-creami and blender-beast,
+  6 calls each: 7 clean, 2 repaired, **3 malformed** — against 7 clean, 3
+  repaired, 2 malformed for the unchanged tool on the same two manuals. No
+  difference, so the schema stays as it is.
+
 ## Reading a future run
 
 Two numbers move for two different reasons:

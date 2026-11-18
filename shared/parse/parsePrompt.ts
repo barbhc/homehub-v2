@@ -436,6 +436,76 @@ export class NoToolCallError extends Error {
 }
 
 /**
+ * The model called EXTRACTION_TOOL, but what it sent cannot be committed:
+ * `chunks` / `tasks` are not both arrays even after repairStringifiedFields.
+ *
+ * Measured 2026-11-17 on Sonnet 5: 4 of 22 calls of the production request
+ * (2 of 4, then 2 of 18 in a re-measure), every one beyond repair. Two of them:
+ *   - `tasks` was a string holding INVALID JSON (an unquoted key:
+ *     `..."title":"Run Initial Cleaning Cycles",description:"..."`);
+ *   - `chunks` was a 21k-character string that had swallowed the rest of the
+ *     object, with an unbalanced bracket inside it, and `tasks` was missing.
+ * It is the model's sampling, not the manual: each of those PDFs came back
+ * clean on other calls the same day. So it is worth ONE retry (MAX_EXTRACTION_CALLS) and is never
+ * repaired by guessing at the JSON — a lenient parse of a string the model
+ * garbled is the text-JSON fallback this pipeline does not have.
+ *
+ * `shape` says what arrived, for the log; the message keeps the
+ * "malformed extraction" prefix the stored `parse.error.raw` has always had.
+ */
+export class MalformedExtractionError extends Error {
+  constructor(readonly shape: string) {
+    super(`malformed extraction: chunks/tasks not arrays (${shape})`)
+    this.name = "MalformedExtractionError"
+  }
+}
+
+/** What a tool argument is, without its content: "array(26)", "string(7751)", "missing". */
+function shapeOf(value: unknown): string {
+  if (Array.isArray(value)) return `array(${value.length})`
+  if (typeof value === "string") return `string(${value.length})`
+  return value == null ? "missing" : typeof value
+}
+
+/**
+ * THE read of an extraction reply: extractParsedResult (the tool call's
+ * arguments, stringified fields repaired) plus the commitable-draft guard —
+ * `chunks` and `tasks` must both be arrays. Throws MalformedExtractionError
+ * otherwise. One function so the worker's retry (anthropic.ts), the guard
+ * before normalization (runParse) and the eval runner all draw the line in the
+ * same place.
+ */
+export function readExtraction<T extends { chunks: unknown[]; tasks: unknown[] } = { chunks: unknown[]; tasks: unknown[] }>(
+  claudeData: { content?: ClaudeContentBlock[] },
+): T {
+  const result = extractParsedResult(claudeData) as { chunks?: unknown; tasks?: unknown } | null
+  if (!result || !Array.isArray(result.chunks) || !Array.isArray(result.tasks)) {
+    throw new MalformedExtractionError(`chunks ${shapeOf(result?.chunks)}, tasks ${shapeOf(result?.tasks)}`)
+  }
+  return result as T
+}
+
+/**
+ * Claude calls one extraction may make: the first, plus ONE more when the
+ * reply is unusable through no fault of the manual (no tool call on the
+ * unforced route; malformed arguments on any route). Every call is paid for.
+ */
+export const MAX_EXTRACTION_CALLS = 2
+
+/**
+ * Is this failed reply worth the one retry? Typed, not message-matched.
+ *   - no tool call (unforced route): always, as before — whether the model
+ *     reaches for the tool varies call to call;
+ *   - malformed arguments: yes, unless the reply was cut off at max_tokens —
+ *     the same manual runs out of room the same way, so a second call would
+ *     buy the same truncation.
+ */
+export function isRetryableExtractionReply(err: unknown, stopReason: string | null | undefined): boolean {
+  if (err instanceof NoToolCallError) return true
+  return err instanceof MalformedExtractionError && stopReason !== "max_tokens"
+}
+
+/**
  * Check an extraction response before extractParsedResult reads it. Refusals
  * throw (never read a decline as an empty extraction). On the unforced-tool
  * route a missing tool call throws NoToolCallError instead of falling through

@@ -15,6 +15,7 @@ import assert from "node:assert/strict"
 import { getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { runParse } from "../lib/firebase/functions/src/parse/runParse.js"
+import { PARSE_ERR } from "../lib/shared/parse/parseErrors.js"
 
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be set (run via emulators:exec)")
 
@@ -126,7 +127,10 @@ test("malformed extraction refuses to commit (error stage, no chunk swap)", asyn
   assert.equal(out.stage, "error")
   const manual = await db.doc(`homes/${H}/manuals/m1`).get()
   assert.equal(manual.get("parse.stage"), "error")
-  assert.ok(manual.get("parse.error.message").includes("malformed"))
+  // The person reads a sentence (2026-11-17: this used to be our own error
+  // string, word for word); the diagnosis is kept beside it.
+  assert.equal(manual.get("parse.error.message"), PARSE_ERR.unusableReply)
+  assert.match(manual.get("parse.error.raw"), /^malformed extraction: chunks\/tasks not arrays/)
   // Chunks from the good commit are untouched (no partial swap).
   assert.equal(await count(`homes/${H}/manuals/m1/chunks`), 1)
 })

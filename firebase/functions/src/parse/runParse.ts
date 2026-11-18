@@ -30,7 +30,7 @@
  *     is written once as `error` and never retried (parseWorker).
  */
 import { Timestamp, type DocumentSnapshot, type Firestore } from "firebase-admin/firestore"
-import { buildPrompt, extractParsedResult } from "../../../../shared/parse/parsePrompt.js"
+import { buildPrompt, readExtraction } from "../../../../shared/parse/parsePrompt.js"
 import { humanizeParseError } from "../../../../shared/parse/parseErrors.js"
 import { countPdfPages } from "../../../../shared/parse/pdfShape.js"
 import { normalizeChunkRow, normalizeTaskRow, type ParsedChunk, type ParsedTask } from "../../../../shared/parse/parseCore.js"
@@ -211,17 +211,38 @@ export async function runParse(db: Firestore, deps: RunParseDeps, input: RunPars
     // `held` only). If the sweep has already written this run off, stop.
     if ((await markParseChargeVendor(db, requestId)) === "refunded") throw new SupersededError()
     const prompt = buildPrompt(item.accessories, undefined, mode === "fill_gaps" ? input.existingTitles : undefined)
-    const claudeData = await deps.callClaude({ model, pdfBase64, prompt, existingTitles: input.existingTitles })
+    const claudeData = await deps
+      .callClaude({
+        model,
+        pdfBase64,
+        prompt,
+        existingTitles: input.existingTitles,
+        // Fires as each answer arrives. The production call can still throw
+        // after one — an unusable reply, then a retry that fails differently
+        // (anthropic.ts) — and that answer was paid for all the same.
+        onReply: () => {
+          claudeAnswered = true
+        },
+      })
+      .catch(async (e: unknown) => {
+        if (claudeAnswered) {
+          // Claude answered and the call failed anyway: the charge is spent
+          // and is never refunded, exactly as when the guard below throws.
+          stage = "claude_responded"
+          await markParseChargeBilled(db, requestId)
+        }
+        throw e
+      })
     claudeAnswered = true
     await markParseChargeBilled(db, requestId)
     stage = "claude_responded"
     await setStage("claude_responded")
 
-    const result = extractParsedResult(claudeData) as ExtractionResult
     // Commitable-draft guard (invariant 5): real extraction arrays required.
-    if (!result || !Array.isArray(result.chunks) || !Array.isArray(result.tasks)) {
-      throw new Error("malformed extraction: chunks/tasks not arrays")
-    }
+    // readExtraction throws MalformedExtractionError otherwise — permanent
+    // (errorClass.ts), so the error is written once and the run is not retried
+    // by Cloud Tasks; the one retry it deserves already happened in callClaude.
+    const result = readExtraction<ExtractionResult>(claudeData)
     const rawChunks = (result.chunks as ParsedChunk[]).map((c) => normalizeChunkRow(c, manualId))
     const rawTasks = (result.tasks as ParsedTask[]).map((t) => normalizeTaskRow(t))
 

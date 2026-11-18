@@ -52,10 +52,13 @@ npm run test:e2e:journey:emu   # walk the 5 core journeys with step screenshots
    with `samplingParamsFor(model)`). Only models that 400 on forced tool use
    (`rejectsForcedToolChoice`; in production, Opus 5.5, the gas/safety escalation) send the
    same tool with `tool_choice: "auto"` + a steering system line, and a reply without the tool
-   call throws `NoToolCallError` (one retry) — never a text-JSON fallback. (Structured outputs
-   was tried for Opus: "compiled grammar is too large".) Either way the result must be the tool
-   call's `input`, and it must pass `runParse`'s `chunks`/`tasks` array guard before it is
-   normalized.
+   call throws `NoToolCallError`. Either way the result must be the tool call's `input`, and it
+   must pass the `chunks`/`tasks` array guard (`readExtraction`, called by `runParse`) before it
+   is normalized; a reply that fails it throws `MalformedExtractionError`. An unusable reply of
+   either kind gets ONE in-process retry (`MAX_EXTRACTION_CALLS`, in `parse/anthropic.ts`) —
+   never a text-JSON fallback, and never a lenient parse of a string the model garbled. The tool
+   schema stays permissive: `strict: true` (Sonnet 5, 2026-11-17) and structured outputs (Opus,
+   2026-09-23) both answer "compiled grammar is too large" for the full extraction shape.
 3. `planTaskReconciliation` stays pure; never delete completion-bearing tasks.
 4. Never commit breadcrumb/`_error` drafts.
 5. Prompt changes go through `scripts/parse-eval/run.ts` (unpiped) vs goldens BEFORE deploy.

@@ -48,6 +48,21 @@ describe("humanizeParseError", () => {
     expect(humanizeParseError("Parsing timed out. Try again.")).toBe("Parsing timed out. Try again.")
   })
 
+  it("an unusable Claude reply reads as a sentence, never as our own error string", () => {
+    // Until 2026-11-17 these two reached the banner word for word.
+    for (const raw of [
+      "malformed extraction: chunks/tasks not arrays (chunks string(21313), tasks missing)",
+      "malformed extraction: chunks/tasks not arrays", // stored before the typed error existed
+      "malformed extraction: the model did not call record_extraction (stop_reason end_turn)",
+    ]) {
+      const out = humanizeParseError(raw)
+      expect(out).toBe(PARSE_ERR.unusableReply)
+      expect(out).not.toMatch(/malformed|chunks|record_extraction/)
+    }
+    // Already human: untouched on the client's second pass.
+    expect(humanizeParseError(PARSE_ERR.unusableReply)).toBe(PARSE_ERR.unusableReply)
+  })
+
   it("never returns an empty string", () => {
     expect(humanizeParseError("")).toBe(PARSE_ERR.generic)
   })
