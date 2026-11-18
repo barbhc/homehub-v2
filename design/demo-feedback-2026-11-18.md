@@ -19,7 +19,7 @@ manual by title and URL alone shows more new people the weak spot.
 | ID | Point | Size | Order | Server change |
 |---|---|---|---|---|
 | D4 | Task level, chosen before adding (decided 2026-11-18) | 2 days | 1st | none |
-| D5 | Short Ask answers | 1 day | 2nd | `chatQuery` deploy |
+| D5 | Short Ask answers (decided 2026-11-18) | 1 day | 2nd | `chatQuery` deploy |
 | D2 | Verified automatic manual finding | about 2 weeks | 3rd | `findManual` deploy |
 | D1 | Snap first, photo queue | 2 days, then 1 week | 4th | step C only |
 | D3 | Receipt reading | 3 days | 5th | `ocr` deploy |
@@ -188,6 +188,8 @@ So notifications are already rare. The load is in what people see: the review an
 ---
 
 ## D5. Ask answers that can be acted on in one read
+
+**Decided by the owner, 2026-11-18:** short for everyone, with a More detail chip. No Short/Detailed setting.
 
 **Said:** the answer about a dryer problem was thorough but verbose. Apply the i-have-adhd skill's rules.
 
