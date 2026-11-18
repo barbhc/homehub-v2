@@ -49,8 +49,14 @@ env:
   FIREBASE_TOOLS_VERSION: "15.23.0"
 
 jobs:
+  # The runner is PINNED, not `ubuntu-latest`. Some time between 2026-11-03 and
+  # 2026-11-18 `ubuntu-latest` became Ubuntu 26.04, and `playwright install --with-deps` (Playwright 1.59.1)
+  # refused it outright — "Playwright does not support chromium on
+  # ubuntu26.04-x64" — so `checks` and `emulator` went red on every PR before a
+  # single test ran. Move this label and the Playwright version TOGETHER, in a
+  # PR whose only change is that.
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -109,7 +115,7 @@ jobs:
           retention-days: 7
 
   functions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: firebase/functions
@@ -125,7 +131,7 @@ jobs:
   # end-to-end (auth + home so far, growing per migrated module). Needs Java (the
   # Firestore emulator) + firebase-tools + a browser for the e2e.
   emulator:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
