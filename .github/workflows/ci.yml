@@ -50,7 +50,10 @@ env:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04 (seen 2026-11-17) and the pinned
+    # Playwright 1.59.1 cannot install browsers there. Playwright stays pinned for
+    # baseline comparability, so the image is pinned instead. Revisit together.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -125,7 +128,10 @@ jobs:
   # end-to-end (auth + home so far, growing per migrated module). Needs Java (the
   # Firestore emulator) + firebase-tools + a browser for the e2e.
   emulator:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04 (seen 2026-11-17) and the pinned
+    # Playwright 1.59.1 cannot install browsers there. Playwright stays pinned for
+    # baseline comparability, so the image is pinned instead. Revisit together.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
