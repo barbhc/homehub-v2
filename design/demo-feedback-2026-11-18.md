@@ -18,7 +18,7 @@ manual by title and URL alone shows more new people the weak spot.
 
 | ID | Point | Size | Order | Server change |
 |---|---|---|---|---|
-| D4 | Essentials-first task level | 2 days | 1st | none |
+| D4 | Task level, chosen before adding (decided 2026-11-18) | 2 days | 1st | none |
 | D5 | Short Ask answers | 1 day | 2nd | `chatQuery` deploy |
 | D2 | Verified automatic manual finding | about 2 weeks | 3rd | `findManual` deploy |
 | D1 | Snap first, photo queue | 2 days, then 1 week | 4th | step C only |
@@ -144,7 +144,9 @@ Sources: [Brave search operators](https://api-dashboard.search.brave.com/documen
 
 ---
 
-## D4. Only the critical tasks, unless more is asked for
+## D4. Fewer tasks, chosen before any are added
+
+**Decided by the owner, 2026-11-18:** new homes start on Recommended too, and the tasks are shown to the person before they are added. Her reason: editing and deleting tasks after they have been added is tedious. Assumed, not yet confirmed: Recommended tasks arrive switched on and the person switches off what they do not want.
 
 **Said:** neither friend wants many tasks to manage; cleaning, setup and non-critical upkeep should not be pushed.
 
@@ -158,21 +160,24 @@ Sources: [Brave search operators](https://api-dashboard.search.brave.com/documen
 
 So notifications are already rare. The load is in what people see: the review and the lists.
 
-**Proposed: a task level per home.** Just the essentials, Recommended too, or Everything. New homes start on Just the essentials.
+**Proposed: a task level per home.** Just the essentials, Recommended too, or Everything. New homes start on Recommended too.
 - Home and Tasks show tasks at or above the level.
-- The review opens with the essentials only, switched on; the rest sits in one collapsed line, off. Accepting is one tap.
-- Cleaning, setup and usage tips stay on the item page and are not asked about in the review.
-- A manual with no essentials says "Nothing critical for this one. N optional things are saved on its page."
+- Nothing from a scan is added until the person taps Add. The review lists the Essential and Recommended tasks that would land on the schedule, switched on; Optional sits in one collapsed line, off. Accepting is one tap.
+- The same review reopens from the item page, so removing tasks later is switching them off in one list instead of editing or deleting them one at a time.
+- Optional tasks, cleaning, setup and usage tips stay on the item page; they are not added and not asked about in the review.
+- A manual with nothing for the schedule says "Nothing to schedule for this one. N optional things are saved on its page."
 - The level is a filter. It deletes nothing and changing it is instant.
 
 **Must be true**
-1. A new home on the default level never sees a Recommended or Optional task on Home or in a notification.
-2. The review after a scan takes one tap when the essentials are accepted.
+1. A new home on the default level never sees an Optional task on Home or in a notification.
+2. The review after a scan takes one tap when what is switched on is accepted.
 3. The level is visible in Settings and on the review, and reversible in one step.
 4. Existing homes see no change until someone picks a level (no backfill, no migration of choices).
 5. An Essential task with no date still shows on the item page with its priority.
 6. A task the person switches on by hand shows on Home whatever the level is.
 7. The level is stored on the home, so every member sees the same list.
+8. No task from a scan is written to the home before the person taps Add.
+9. Reopening the review from the item page can remove several tasks in one action.
 
 **Edge cases:** a person promotes one Recommended task; two members disagree on the level (last write wins, shown in Settings with who set it); the Essential tier is inflated on install-heavy manuals (`evals/manual-parser/BASELINE.md:72`), which is a parse-quality item tracked in BACKLOG section 5, not here.
 

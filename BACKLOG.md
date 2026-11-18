@@ -41,7 +41,7 @@ Same scoring as §1: (Risk + Impact) / Scope.
 
 | ID | Item | Risk | Impact | Scope | Score | Note |
 |---|---|---|---|---|---|---|
-| D4 | **Essentials-first task level** — new homes see Essential tasks only; the review opens with them and files the rest | 3 | 5 | 3 | 2.7 | Client only. Recommended first. Amends `docs/add-item-flow.md:368-405`. |
+| D4 | **Task level, chosen before adding** — new homes start on Essential + Recommended; the review shows them before anything is added and reopens from the item page; Optional, cleaning and setup are filed | 3 | 5 | 3 | 2.7 | **Direction decided by the owner 2026-11-18** (mock still required). Client only. Recommended first. Amends `docs/add-item-flow.md:368-405`. |
 | D5 | **Short Ask answers** — fix first, up to 5 steps, about 120 words, detail behind chips | 2 | 3 | 2 | 2.5 | Needs a new `evals/ask-shape/` set and a `chatQuery` functions deploy. |
 | D1a | **Camera right after sign-in** — home auto-named, profile questions off the front door | 3 | 4 | 3 | 2.3 | Builds the approved profile nudge (§4.3) and addresses HH-168. |
 | D6 | **Monthly AI opportunity scan** for Homehub and SkinIQ | 1 | 3 | 2 | 2.0 | Process, not product. Not scheduled until the owner picks a cadence. |
