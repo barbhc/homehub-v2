@@ -28,12 +28,12 @@ Migration phases 0–5 are complete and the shim is deleted. Read
 
 ---
 
-## Demo feedback 2026-11-17 — six items, proposed, awaiting the owner's review
+## Demo feedback 2026-11-17 — seven items, directions decided 2026-11-18, none built
 
 Two friends at the owner's live demo. Designs, requirements, edge cases and the
 code each "today" line was checked against are in
 `design/demo-feedback-2026-11-18.md`; the review page with sketches is
-https://claude.ai/artifact/NpwhqZ8tEj832z8Zw4uCho. **None of these is approved.**
+https://claude.ai/artifact/NpwhqZ8tEj832z8Zw4uCho. **The owner decided the direction of each on 2026-11-18; none is built.**
 Each needs a build-ready mock before code (CLAUDE.md rule 7). They are not yet
 merged into the ranked table in §1; that happens when the owner decides.
 
@@ -41,16 +41,17 @@ Same scoring as §1: (Risk + Impact) / Scope.
 
 | ID | Item | Risk | Impact | Scope | Score | Note |
 |---|---|---|---|---|---|---|
-| D4 | **Task level, chosen before adding** — new homes start on Essential + Recommended; the review shows them before anything is added and reopens from the item page; Optional, cleaning and setup are filed | 3 | 5 | 3 | 2.7 | **Direction decided by the owner 2026-11-18** (mock still required). Client only. Recommended first. Amends `docs/add-item-flow.md:368-405`. |
+| D4 | **Task level, chosen before adding** — new homes start on Essential + Recommended; the review shows them before anything is added and reopens from the item page; Optional, cleaning and setup are filed | 3 | 5 | 3 | 2.7 | **Direction decided by the owner 2026-11-18** (mock still required). Client only. Recommended first. Includes the owner's "filters people forget" finding: care-library filter entries join the review, washer filters are added, the lint screen becomes a tip. Amends `docs/add-item-flow.md:368-405`. |
 | D5 | **Short Ask answers** — fix first, up to 5 steps, about 120 words, detail behind chips | 2 | 3 | 2 | 2.5 | **Direction decided by the owner 2026-11-18:** short for everyone, no setting. Needs a new `evals/ask-shape/` set and a `chatQuery` functions deploy. |
 | D1a | **Camera right after sign-in** — home auto-named, profile questions off the front door | 3 | 4 | 3 | 2.3 | Builds the approved profile nudge (§4.3) and addresses HH-168. |
-| D6 | **Monthly AI opportunity scan** for Homehub and SkinIQ | 1 | 3 | 2 | 2.0 | Process, not product. Not scheduled until the owner picks a cadence. |
-| D2 | **Verified automatic manual finding** — open and check every PDF, maker sites first, one confirmed answer, a labelled general plan when nothing verifies | 4 | 5 | 5 | 1.8 | Absorbs §4.1 (brand registry). Supersedes add-item-flow line 191 once a 50-model eval meets the bar. `findManual` deploy. |
+| D6 | **Monthly AI opportunity scan** for Homehub and SkinIQ | 1 | 3 | 2 | 2.0 | **Decided 2026-11-18: monthly, and scheduled** (first run 2026-12-01). It opens unmerged "AI opportunity scan" docs PRs; it never merges or deploys. |
+| D2 | **Verified automatic manual finding** — open and check every PDF, maker sites first, one confirmed answer, a labelled general plan when nothing verifies | 4 | 5 | 5 | 1.8 | Absorbs §4.1 (brand registry). Supersedes add-item-flow line 191 once a 50-model eval meets the bar. **Bar decided 2026-11-18:** wrong document under 2%, found over 70%. `findManual` deploy. |
 | D1b | **Photo queue** — the camera stays open, reads run in the background, one review list | 2 | 4 | 5 | 1.2 | Blocked on a half-day test of in-page camera inside the iOS shell. |
-| D3 | **Receipt reading** — "Add receipt" fills store, date, price, order, plan | 1 | 3 | 4 | 1.0 | Partly exists: `ocr` already returns date and price from a receipt in the add flow. `ocr` deploy. |
-| D1c | **Try before sign-in** (guest mode, 5 labels) | 2 | 3 | 5 | 1.0 | Owner decision. Needs App Check, guest caps, and an adversarial review. |
+| D3 | **Receipt reading** — "Add receipt" fills store, date, price, order, plan | 1 | 3 | 4 | 1.0 | Partly exists: `ocr` already returns date and price from a receipt in the add flow. **Decided 2026-11-18:** one receipt can cover several items. `ocr` deploy. |
+| D1c | **Try before sign-in** (guest mode, 5 labels) | 2 | 3 | 5 | 1.0 | **Decided 2026-11-18: on during the beta**, revisit before a public launch. Needs App Check, guest caps, and an adversarial review. |
+| D7 | **Region from a zip code** — replaces the climate question; sets freeze risk, seasonal timing and regional house tasks | 2 | 4 | 5 | 1.2 | Owner's own addition, **decided 2026-11-18**. Addresses HH-168 at the root. First half day: confirm the public data sources. |
 
-**Recommended order:** D4, D5, D2, D1a, D1b, D3. D1, D2 and D4 are one journey
+**Recommended order:** D4 (with D7 alongside), D5, D2, D1a, D1b and D1c, D3. D1, D2 and D4 are one journey
 (snap, find, few tasks) and it is safer built back to front.
 
 ---

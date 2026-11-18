@@ -1,6 +1,6 @@
-# Demo feedback, 2026-11-17: six points, designs and requirements
+# Demo feedback, 2026-11-17: seven points, designs and requirements
 
-**Status: proposed, awaiting the owner's review.** Nothing here is approved or built.
+**Status: the owner decided the direction of every point on 2026-11-18. Nothing is built.** Each point still needs a build-ready mock before code. D7 is the owner's own addition from the review.
 Review page with the sketches: https://claude.ai/artifact/NpwhqZ8tEj832z8Zw4uCho
 
 Source: two friends, at the owner's live demo on 2026-11-17. "Today" lines were
@@ -20,10 +20,11 @@ manual by title and URL alone shows more new people the weak spot.
 |---|---|---|---|---|
 | D4 | Task level, chosen before adding (decided 2026-11-18) | 2 days | 1st | none |
 | D5 | Short Ask answers (decided 2026-11-18) | 1 day | 2nd | `chatQuery` deploy |
-| D2 | Verified automatic manual finding | about 2 weeks | 3rd | `findManual` deploy |
-| D1 | Snap first, photo queue | 2 days, then 1 week | 4th | step C only |
-| D3 | Receipt reading | 3 days | 5th | `ocr` deploy |
-| D6 | Monthly AI opportunity scan | 1 hour setup | ongoing | none |
+| D2 | Verified automatic manual finding (bar decided) | about 2 weeks | 3rd | `findManual` deploy |
+| D1 | Snap first, photo queue, guest mode during the beta (decided) | 2 days, then about 2 weeks | 4th | step C |
+| D3 | Receipt reading, one receipt for several items (decided) | 3 to 4 days | 5th | `ocr` deploy |
+| D6 | Monthly AI opportunity scan (decided and scheduled) | set up | ongoing | none |
+| D7 | Region from a zip code, replacing the climate question (decided) | about 1 week | with D4 | to be settled in design |
 
 ---
 
@@ -42,7 +43,7 @@ account and answering questions; queue the photos so the process is not interrup
 **Proposed**
 - **A. Camera right after sign-in (2 days, client only).** Create the home as "My Home" (renamable). Remove the profile questions from the front door and build the approved nudge instead (`design/profile-nudge.md`, BACKLOG 4.3): climate is asked the first time a freeze task appears. That also addresses HH-168.
 - **B. Photo queue (about 1 week).** A camera that stays open; each tap adds a photo to a tray; reads run in the background; a review list at the end shows brand and model per photo with fix, retake and type-it actions; "Add N items".
-- **C. Try before sign-in (about 1 week plus a security review; owner decision).** A guest snaps up to 5 labels and sees what was recognised; sign-in is asked at "Keep these".
+- **C. Try before sign-in (about 1 week plus a security review). Decided by the owner, 2026-11-18: on "during this beta period"; revisit before a public launch.** Proposed limits: 5 labels per guest, App Check, one daily cap across all guests, no manual scans before sign-in. Open design point: if the growth gate is on, a guest who signs in to keep their items would be asked for an invite code. A guest snaps up to 5 labels and sees what was recognised; sign-in is asked at "Keep these".
 
 **Must be true**
 1. After sign-in the camera is open within 2 taps, and no question is asked before the first item is saved.
@@ -111,7 +112,7 @@ Sources: [Brave search operators](https://api-dashboard.search.brave.com/documen
 
 **Supersedes:** once the bar is met, this replaces `docs/add-item-flow.md:191` ("last, muted, badged Beta") and absorbs BACKLOG 4.1 (brand registry). The PR must say so and amend the spec.
 
-**Proposed bar for making finding the default:** on the 50-model set, a wrong document offered under 2% of the time and the right one found over 70%. Both numbers are a proposal for the owner.
+**Bar for making finding the default (decided by the owner, 2026-11-18):** on the 50-model set, a wrong document offered under 2% of the time and the right one found over 70%. Until the eval shows both, the rule at `docs/add-item-flow.md:191` stands.
 
 **Done means:** the eval exists with a recorded baseline for today's pipeline, the bar is met, and the journey walk covers the confirm card and the nothing-found state.
 
@@ -138,7 +139,7 @@ Sources: [Brave search operators](https://api-dashboard.search.brave.com/documen
 6. The extraction is a forced tool call with a schema, validated with Zod at the callable's boundary.
 7. A failed read shows an error, keeps the file attached, and leaves typing available.
 
-**Edge cases:** a store SKU with no model on the line; a multi-item receipt (owner decision: offer to apply it to each matching item, about half a day more); no receipt at all.
+**Edge cases:** a store SKU with no model on the line; a multi-item receipt (decided by the owner, 2026-11-18: offer to apply it to each matching item, confirmed before saving; about half a day more); no receipt at all.
 
 **Done means:** the 10-receipt eval reports per-field accuracy, the failure-path test asserts a visible error, and the phone sheet has the same control as desktop.
 
@@ -181,7 +182,21 @@ So notifications are already rare. The load is in what people see: the review an
 
 **Edge cases:** a person promotes one Recommended task; two members disagree on the level (last write wins, shown in Settings with who set it); the Essential tier is inflated on install-heavy manuals (`evals/manual-parser/BASELINE.md:72`), which is a parse-quality item tracked in BACKLOG section 5, not here.
 
-**Docs:** amends the review rules in `docs/add-item-flow.md:368-405`. Keep the name distinct from the interface level in `useUserLevel`.
+**The filters people forget (owner, 2026-11-18).** Her finding from living with the app: the tasks that matter most are filters on appliances people forget to maintain (dishwasher, washer, range hood) and replacing filters in air purifiers and the heater. The dryer lint screen is not one of them, because people clean it as they go.
+
+Checked against the code the same day:
+- The care library (`shared/care/library.ts`, `design/care-library.md`, decided 2026-09-06) already lists filters first: dishwasher filter, range-hood mesh and charcoal, purifier HEPA and pre-filter, fridge water filter, furnace and HVAC air filter.
+- It is offered only as a "Suggested" band on the item page and a last group on Tasks. It is not part of the review after a scan.
+- The washer has one entry (`washer.tub`) and no filter entry. In the `washer-lg` golden both filter tasks are `as_needed`, so they never reach Home.
+- `dryer.lint` is `essential`, and the `dryer-lg` golden has "Clean the Lint Filter" as `essential` / `after_each_use`.
+
+Added to this design:
+- Library filter entries for the item's kind appear in the same review list as the manual's tasks, with a provenance line ("Typical for dishwashers").
+- A filter task the manual leaves `as_needed` is offered with the library's typical interval (the existing backstop, moved into the review).
+- The library gains washer drain-pump and inlet-filter entries.
+- After-each-use habits such as the lint screen become tips with no reminder. This changes a tier the library and the parser both assign, so it goes through the goldens (non-negotiable 5).
+
+**Docs:** amends the review rules in `docs/add-item-flow.md:368-405` and `design/care-library.md` (the "three surfaces" gain a fourth). Keep the name distinct from the interface level in `useUserLevel`.
 
 **Done means:** a mock approved by the owner; assertions for 1 to 7 in the journey walk; all four emulator suites green; the owner's home unchanged in production.
 
@@ -237,4 +252,39 @@ So notifications are already rare. The load is in what people see: the review an
 
 **First candidates, SkinIQ (from its CLAUDE.md only, not yet checked in its code):** its seven Claude functions are pinned to `claude-sonnet-4-5-20250929`, so the first job is running its evals on a current model; product label or barcode capture; voice logging.
 
-**Not set up yet.** The cadence is the owner's decision (monthly recommended, or quarterly).
+**Decided by the owner, 2026-11-18: monthly.** A scheduled task, `monthly-ai-opportunity-scan`, runs at 9:00 on the 1st of each month from 2026-12-01 on the owner's machine. It opens one unmerged docs PR per app titled "docs(backlog): AI opportunity scan YYYY-MM" and reports one page. It never merges, deploys, or changes a model.
+
+---
+
+## D7. House tasks that fit the region, from a zip code
+
+**Said (owner, during the review on 2026-11-18):** for houses, it would be ideal to get the most recommended tasks for the region the person is in. Would asking for location or zip code help?
+
+**Answer: yes, a zip code. Decided by the owner the same day: it replaces the climate question.**
+
+**Today**
+- Climate is one of four choices in the five-step profile (`HomeProfileSection.tsx`, `design/profile-nudge.md`); `freezeRisk` is derived from it. No city, zip or coordinates are stored on a home.
+- A home with no climate answer cannot be recognised as freeze-free, so `isAsNeededColdStorage` (`shared/tasks/houseRules.ts`) never fires for it. That is the likely cause of HH-168.
+- Home-level suggestions exist in the care library: alarm test, alarm batteries, extinguisher, water-heater flush, HVAC service, termite, birds, rodents, gutters. Each is gated on a yes/no `CareFacts` answer (`shared/care/library.ts:152`) collected under Settings, Your home. None is regional.
+
+**Proposed**
+- One skippable zip-code field, asked after the first item is saved, with the reason shown.
+- The zip code derives climate and freeze risk, the months seasonal jobs belong in, and the regional facts the library gates on (termite pressure, wildfire, hurricane, earthquake). Each conclusion is shown and can be changed in one tap.
+- Regional entries join the library (for example water-heater earthquake straps, shutting off hose taps before a freeze, storm preparation) and go through the same choose-before-adding review as D4.
+- Home type and "the building handles it" stay as questions; a zip code cannot answer them.
+- A home with no zip code keeps the climate answer it already has.
+
+**Must be true**
+1. Homehub asks for a zip code only: never a street address, never device location permission.
+2. The field is skippable and appears after the first item is saved.
+3. Every conclusion drawn from the zip code is visible and reversible in one step.
+4. Regional tasks are never added without a tap on Add.
+5. A home in a freeze-free zip code is never shown a winterizing task.
+6. The lookup is a bundled table read on the server or in a lazy chunk. No third-party service receives the zip code.
+7. An unknown or non-US zip code says so and falls back to the climate choice.
+
+**Edge cases:** a zip code that spans climates (use the county's, show it, let it be corrected); a second home in another region (the zip code is per home); a home whose members disagree (the home's value, with who set it); existing homes with a climate already chosen (nothing changes until a zip code is entered).
+
+**Not verified yet:** the public county-level sources (DOE/IECC climate zones, FEMA National Risk Index, EPA radon zones) and their terms, the zip-to-county crosswalk, and any reliable hard-water source. Confirming these is the first half day. US only, as in D2.
+
+**Done means:** a mock approved by the owner; the zip table has a recorded source and date; SF Condo, given its zip code, shows no winterizing task; the profile no longer asks the climate question.
