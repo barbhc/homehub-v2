@@ -86,6 +86,27 @@ export const VALID_SCHEDULES = new Set([
   "annual", "seasonal", "every_n_days", "as_needed", "setup",
 ])
 
+/**
+ * What is wrong with an extraction whose `chunks` / `tasks` are not both
+ * arrays, or null when it is commitable. Production refuses such a reply
+ * (runParse's array guard, MalformedExtractionError), so nothing in it can be
+ * scored as if it had been saved.
+ *
+ * The model does this for real: on 2026-11-17 one reply carried `tasks` as a
+ * 7,751-character string of invalid JSON, and another carried `chunks` as a
+ * 21k-character string with `tasks` missing. The scorer used to call `.every`
+ * on those and crash, so the worst outcome the parser has produced no score.
+ */
+export function malformedExtraction(ext: { chunks?: unknown; tasks?: unknown }): string | null {
+  const shape = (v: unknown) =>
+    Array.isArray(v) ? null : typeof v === "string" ? `a ${v.length}-character string` : v == null ? "missing" : `a ${typeof v}`
+  const problems = (["chunks", "tasks"] as const)
+    .map((k) => [k, shape(ext[k])] as const)
+    .filter(([, bad]) => bad !== null)
+    .map(([k, bad]) => `${k} is ${bad}`)
+  return problems.length ? problems.join(", ") : null
+}
+
 /** Lowercase, collapse punctuation to spaces. Titles are matched on this. */
 export function norm(s: string | undefined): string {
   return (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim()
@@ -235,8 +256,9 @@ export function scoreVolume(tasks: RawTask[], exp: Expectations): Dimension {
  */
 export function scoreSafety(ext: Extraction, exp: Expectations): Dimension {
   const d = empty()
-  const tasks = ext.tasks ?? []
-  const chunks = ext.chunks ?? []
+  // Arrays or nothing: a stringified field has a .length and no .map.
+  const tasks = Array.isArray(ext.tasks) ? ext.tasks : []
+  const chunks = Array.isArray(ext.chunks) ? ext.chunks : []
 
   for (const s of exp.safety_expectations ?? []) {
     d.possible++
@@ -260,8 +282,9 @@ export function scoreSafety(ext: Extraction, exp: Expectations): Dimension {
 /** The floor: a commitable extraction with the fields the app needs. */
 export function scoreStructure(ext: Extraction): Dimension {
   const d = empty()
-  const tasks = ext.tasks ?? []
-  const chunks = ext.chunks ?? []
+  const malformed = malformedExtraction(ext)
+  const tasks = Array.isArray(ext.tasks) ? ext.tasks : []
+  const chunks = Array.isArray(ext.chunks) ? ext.chunks : []
 
   const checks: [string, boolean, string][] = [
     ["arrays", Array.isArray(ext.tasks) && Array.isArray(ext.chunks), "chunks/tasks must both be arrays — commitDraft refuses otherwise"],
@@ -275,6 +298,14 @@ export function scoreStructure(ext: Extraction): Dimension {
     ["source-page", tasks.length > 0 && tasks.every((t) => typeof t.source_page === "number" && t.source_page >= 1 && t.source_page <= 999), "every task needs a plausible source_page"],
     ["chunk-pages", chunks.length > 0 && chunks.every((c) => Array.isArray(c.source_pages) && c.source_pages.length > 0), "every chunk needs source_pages"],
   ]
+  if (malformed) {
+    // Structure 0, and ONE line that says why. Production commits nothing from
+    // a reply like this, so no per-field check has anything to credit — and
+    // eight separate failures would bury the only one that matters.
+    d.possible = checks.length
+    d.detail.push(`STRUCTURE malformed extraction — ${malformed}; production refuses to commit it and the scan fails`)
+    return d
+  }
   for (const [id, ok, why] of checks) {
     d.possible++
     if (ok) d.earned++
@@ -322,6 +353,8 @@ export interface ManualScore {
   should: Dimension
   taskCount: number
   chunkCount: number
+  /** What was wrong with the reply's shape (malformedExtraction), or null. */
+  malformed: string | null
   failures: string[]
 }
 
@@ -362,6 +395,7 @@ export function scoreManual(ext: Extraction, exp: Expectations): ManualScore {
     should: scoreShould(tasks, exp),
     taskCount: tasks.length,
     chunkCount: chunks.length,
+    malformed: malformedExtraction(ext),
     failures: (Object.values(dimensions) as Dimension[]).flatMap((d) => d.detail),
   }
 }

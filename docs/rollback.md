@@ -220,7 +220,15 @@ on the input of every send that is never repeated.
 | Path | State | Pays when | Costs when |
 |---|---|---|---|
 | **Ask (chatQuery)** | **On** in code — no switch | a follow-up about the same manual within 5 min (~0.1× instead of 1× on ~100K tokens) | a one-off question (+25% on its input), or a turn whose rule lines differ (web search / warranty / notes) — it writes a new entry |
-| **Manual scan (parseWorker)** | **Off** — `config/spend.parseCacheBreakpoint` | the same PDF re-sent within 5 min: a Cloud Tasks retry, Opus's no-tool retry, a rescan right after a scan | every other scan: +25% on ~100–150K input tokens (≈ +$0.05–0.08 a scan on Sonnet 5) |
+| **Manual scan (parseWorker)** | **Off** — `config/spend.parseCacheBreakpoint` | the same PDF re-sent within 5 min: a Cloud Tasks retry, the unusable-reply retry (no tool call on Opus; malformed arguments on any model — 4 of 22 Sonnet 5 calls measured 2026-11-17), a rescan right after a scan | every other scan: +25% on ~100–150K input tokens (≈ +$0.05–0.08 a scan on Sonnet 5) |
+
+**The unusable-reply retry and the parse switch.** With the switch off, a
+retried scan pays for its whole PDF twice. Turning it on costs 25% of the input
+on every scan to save 90% of it on the retried ones, so it pays only when more
+than about 28% of scans are retried (0.25 ÷ 0.9). Measured 2026-11-17: 4 of 22
+calls (18%) — below the line, so the switch stays off. Count the retries in
+Logs Explorer: `jsonPayload.message="claude usage"`,
+`jsonPayload.callSite="parseWorker"`, `jsonPayload.call=2`.
 
 A chat turn never reads a scan's cache entry, or the reverse: a prefix must match
 from its first byte, and the two requests differ from the start (different tools

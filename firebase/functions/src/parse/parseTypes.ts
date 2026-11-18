@@ -83,6 +83,15 @@ export type CallClaude = (args: {
   pdfBase64: string
   prompt: string
   existingTitles?: string[]
+  /**
+   * Called each time Claude RETURNED an answer — before it is read, so before
+   * anything can go wrong with it. An answer is paid for whether or not it is
+   * usable, and the call may still throw after one (a malformed reply, then a
+   * retry that times out), so "did it return?" cannot tell the caller whether
+   * money was spent; this can. Not called for a decline (stop_reason
+   * "refusal"): that run is refunded, as it always has been.
+   */
+  onReply?: () => void
 }) => Promise<{ content?: Array<{ type: string; name?: string; input?: unknown; text?: string }> }>
 
 /** Fetch the manual PDF as base64. Injectable (Storage in prod, fixture in tests). */

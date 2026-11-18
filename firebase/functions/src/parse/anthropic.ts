@@ -21,9 +21,41 @@
  *   - the SDK's per-request timeout (10 min) with ONE SDK retry, and
  *   - an AbortSignal for whatever is left of the attempt's Claude budget
  *     (CLAUDE_BUDGET_MS from the worker's start), which also bounds streaming
- *     and the unforced-tool retry below.
+ *     and the unusable-reply retry below.
  * So the worker always gets control back with minutes to spare, writes an
  * honest stage, and decides — as a transient failure — whether to retry.
+ *
+ * ── The unusable-reply retry (2026-11-17) ────────────────────────────────────
+ *
+ * A reply can arrive, be billed, and still be unusable: no tool call (only on
+ * the unforced Opus route), or tool arguments that are not arrays even after
+ * the repair — Sonnet 5 did that in 4 of 22 measured calls on 2026-11-17 (see
+ * MalformedExtractionError). The second used to reach runParse's guard as a
+ * plain Error, which is permanent: the person saw a failed scan after a paid
+ * call and had to tap to scan again, for a fault that is the model's sampling
+ * and not the manual (the same PDF comes back clean on other calls).
+ *
+ * So the reply is read HERE (readExtraction — the same read runParse does),
+ * and an unusable one gets ONE more call (MAX_EXTRACTION_CALLS), in this
+ * process, inside the same Claude budget. Rules:
+ *   - one retry for the whole extraction, whichever fault it was;
+ *   - not for malformed arguments cut off at max_tokens (they would be cut
+ *     off again), and not when too little of the budget is left for a call;
+ *   - each call is logged with its own usage line (`call: 1`, `call: 2`) and
+ *     the retry with a warning carrying what arrived, so the rate is countable;
+ *   - never a text-JSON fallback: a second unusable reply throws the typed
+ *     error and runParse writes the error once.
+ * The retry is a second PAID call. It is not charged extra units: a scan is
+ * priced at 10 units ≈ $0.55 (shared/quota/policy.ts) against a measured
+ * $0.14–0.47 a call, so the price already covers most of it.
+ *
+ * Because a call can now fail AFTER an answer was paid for (a malformed reply,
+ * then a retry that times out), "did callClaude return?" no longer says
+ * whether money was spent. Each answer is reported through `onReply` as it
+ * arrives, and runParse marks the run billed from that — never refunded —
+ * however the call ends. Worst case for one scan: two calls in this attempt
+ * and, if the second died on a transient fault, two more in Cloud Tasks' one
+ * retry; all under the one charge.
  *
  * ── Prompt cache and usage (2026-09-30) ──────────────────────────────────────
  *
@@ -34,14 +66,18 @@
  * read, so a week of logs with the switch on says whether it earns its keep.
  */
 import Anthropic, { type ClientOptions } from "@anthropic-ai/sdk"
-import { buildExtractionRequest, extractionContent, NoToolCallError } from "../../../../shared/parse/parsePrompt.js"
+import {
+  buildExtractionRequest,
+  extractionContent,
+  EXTRACTION_TOOL,
+  isRetryableExtractionReply,
+  MAX_EXTRACTION_CALLS,
+  readExtraction,
+} from "../../../../shared/parse/parsePrompt.js"
 import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { ParseTimeBudgetError } from "./errorClass.js"
 import { PARSE_ATTEMPT_DEADLINE_SECONDS } from "./parseState.js"
 import type { CallClaude } from "./parseTypes.js"
-
-/** Unforced tool calls get one retry when the model answers without the tool. */
-const MAX_ATTEMPTS_UNFORCED = 2
 
 /** Everything Claude may take within one worker attempt, counted from the
  *  attempt's start (the PDF download comes out of it too). The last five
@@ -99,9 +135,8 @@ export function makeCallClaude(apiKey: string, opts: CallClaudeOptions = {}): Ca
   const client = new Anthropic({ apiKey, maxRetries: CLAUDE_SDK_MAX_RETRIES, ...(opts.fetch ? { fetch: opts.fetch } : {}) })
   const deadlineAt = opts.deadlineAt ?? Date.now() + CLAUDE_BUDGET_MS
   const cacheBreakpoint = opts.cacheBreakpoint === true
-  return async ({ model, pdfBase64, prompt }) => {
+  return async ({ model, pdfBase64, prompt, onReply }) => {
     const req = buildExtractionRequest(model, pdfBase64, prompt, { cacheBreakpoint })
-    const attempts = req.toolCallUnforced ? MAX_ATTEMPTS_UNFORCED : 1
     for (let attempt = 1; ; attempt++) {
       const options = claudeRequestOptions(deadlineAt)
       // Outgoing request body built by the shared builder; the SDK version
@@ -119,15 +154,29 @@ export function makeCallClaude(apiKey: string, opts: CallClaudeOptions = {}): Ca
           ? await client.messages.stream(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming, options).finalMessage()
           : await client.messages.create(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming, options)
       logClaudeUsage("parseWorker", model, res, { ...opts.logFields, cacheBreakpoint, call: attempt })
+      // An answer arrived and is paid for, whatever happens to it next.
+      if (res.stop_reason !== "refusal") onReply?.()
       try {
         // The SDK's content blocks are the shape extractParsedResult expects.
-        return extractionContent(
+        const { content } = extractionContent(
           res as { stop_reason?: string | null; content?: Array<{ type: string; name?: string; input?: unknown; text?: string }> },
           req.toolCallUnforced,
         )
+        // Read it now, while a retry is still possible. The arguments go back
+        // already repaired, so runParse's own read neither repairs nor logs
+        // the repair a second time.
+        const extraction = readExtraction({ content })
+        return {
+          content: content.map((b) => (b.type === "tool_use" && b.name === EXTRACTION_TOOL.name ? { ...b, input: extraction } : b)),
+        }
       } catch (e) {
-        if (e instanceof NoToolCallError && attempt < attempts) {
-          console.warn(`[parse] ${model} answered without the extraction tool (attempt ${attempt}); retrying`)
+        const budgetLeft = deadlineAt - Date.now() >= CLAUDE_MIN_WINDOW_MS
+        if (attempt < MAX_EXTRACTION_CALLS && budgetLeft && isRetryableExtractionReply(e, res.stop_reason)) {
+          console.warn(
+            `[parse] ${model} sent an unusable extraction reply on call ${attempt} of ${MAX_EXTRACTION_CALLS} ` +
+              `(${e instanceof Error ? e.message : String(e)}); calling once more`,
+            { ...opts.logFields, call: attempt, error: e instanceof Error ? e.name : "unknown" },
+          )
           continue
         }
         throw e

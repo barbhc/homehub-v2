@@ -1,6 +1,17 @@
 import { describe, it, expect } from "vitest"
 import { MODEL_HAIKU, MODEL_OPUS, MODEL_SONNET, rejectsForcedToolChoice, thinkingParamsFor } from "../modelParams"
-import { buildExtractionRequest, extractionContent, extractParsedResult, EXTRACTION_TOOL, NoToolCallError, repairStringifiedFields } from "../parsePrompt"
+import {
+  buildExtractionRequest,
+  extractionContent,
+  extractParsedResult,
+  EXTRACTION_TOOL,
+  isRetryableExtractionReply,
+  MalformedExtractionError,
+  MAX_EXTRACTION_CALLS,
+  NoToolCallError,
+  readExtraction,
+  repairStringifiedFields,
+} from "../parsePrompt"
 import { pickParseModel } from "../pickParseModel"
 
 // Each of these request shapes is an HTTP 400 on the model it guards against,
@@ -86,5 +97,51 @@ describe("repairStringifiedFields (Sonnet 5 stringified tool arguments)", () => 
   it("leaves well-formed input untouched", () => {
     const input = { chunks: [], tasks: [], manufactured_year: null }
     expect(repairStringifiedFields(input)).toBe(input)
+  })
+})
+
+describe("readExtraction (the commitable-draft guard) and the one retry", () => {
+  const reply = (input: unknown) => ({ content: [{ type: "tool_use", name: EXTRACTION_TOOL.name, input }] })
+
+  it("returns the tool call's arguments when chunks and tasks are arrays", () => {
+    const out = readExtraction(reply({ chunks: [{ title: "a" }], tasks: [] }))
+    expect(out).toEqual({ chunks: [{ title: "a" }], tasks: [] })
+  })
+
+  it("accepts a stringified field the repair can decode", () => {
+    expect(readExtraction(reply({ chunks: '[{"title":"a"}]', tasks: [] })).chunks).toEqual([{ title: "a" }])
+  })
+
+  // The two replies measured 2026-11-17. Neither is valid JSON inside the
+  // string, so neither is repairable — and neither is guessed at.
+  it.each([
+    ["tasks: a string with an unquoted key", { chunks: [], tasks: '[{"title":"Run Initial Cleaning Cycles",description:"x"}]' }, "chunks array(0), tasks string(57)"],
+    ["chunks: swallowed the object, unbalanced inside", { chunks: '[{"rows":[["a"]]]},"applies_to":[]}],"tasks":[]}' }, "chunks string(48), tasks missing"],
+    ["an empty call", {}, "chunks missing, tasks missing"],
+  ])("throws the TYPED error for %s, saying what arrived but not its content", (_label, input, shape) => {
+    let thrown: unknown
+    try {
+      readExtraction(reply(input))
+    } catch (e) {
+      thrown = e
+    }
+    expect(thrown).toBeInstanceOf(MalformedExtractionError)
+    expect((thrown as MalformedExtractionError).shape).toBe(shape)
+    // The prefix the stored breadcrumb has always had; humanizeParseError keys on it.
+    expect((thrown as Error).message).toBe(`malformed extraction: chunks/tasks not arrays (${shape})`)
+  })
+
+  it("one retry, for an unusable reply only — and never for one cut off at max_tokens", () => {
+    expect(MAX_EXTRACTION_CALLS).toBe(2)
+    const malformed = new MalformedExtractionError("chunks string(9), tasks missing")
+    expect(isRetryableExtractionReply(malformed, "tool_use")).toBe(true)
+    expect(isRetryableExtractionReply(new NoToolCallError("end_turn"), "end_turn")).toBe(true)
+    // Truncated arguments: the same manual runs out of room the same way.
+    expect(isRetryableExtractionReply(malformed, "max_tokens")).toBe(false)
+    // No tool call is retried whatever stopped it (the rule since the Opus route existed).
+    expect(isRetryableExtractionReply(new NoToolCallError("max_tokens"), "max_tokens")).toBe(true)
+    // Decided by type. A look-alike message is not enough.
+    expect(isRetryableExtractionReply(new Error("malformed extraction: chunks/tasks not arrays"), "tool_use")).toBe(false)
+    expect(isRetryableExtractionReply(new Error("The AI declined to answer this request."), "refusal")).toBe(false)
   })
 })

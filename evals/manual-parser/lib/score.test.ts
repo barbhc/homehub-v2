@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import {
   corpusScore,
+  malformedExtraction,
   scoreManual,
   WEIGHTS,
   type Expectations,
@@ -104,6 +105,46 @@ describe("structure", () => {
 
   it("rejects an off-enum schedule_type", () => {
     expect(scoreManual(ext([task({ schedule_type: "every_fortnight" })]), exp()).failures.join(" ")).toContain("valid-schedules")
+  })
+})
+
+describe("a malformed extraction (2026-11-17: 4 of 22 live calls)", () => {
+  // The two shapes Sonnet 5 actually sent. Both crashed the scorer —
+  // `tasks.every is not a function` — so the worst result had no score at all.
+  // `as never`: the types say arrays, and the point is that the wire does not.
+  const stringifiedTasks = ext([], { tasks: '[{"title":"Rinse and Fill Water Tank"},{"title":"Run Initial Cleaning Cycles",description:"x"}]' as never })
+  const swallowed = { chunks: '[{"chunk_type":"safety"}],\n"tasks":[{"title":"t"}]]}' } as never as Extraction
+  const e = exp({ must_have: [{ id: "descale", title_matches: ["descal"], why: "w" }], bounds: { min_tasks: 1 } })
+
+  it.each([
+    ["tasks is a string of invalid JSON", stringifiedTasks, "tasks is a 95-character string"],
+    ["chunks is a string that swallowed the object; tasks is missing", swallowed, "tasks is missing"],
+  ])("%s: scores instead of throwing, structure 0, and says so once", (_label, bad, why) => {
+    const s = scoreManual(bad, e)
+    expect(s.dimensions.structure.earned).toBe(0)
+    expect(s.dimensions.structure.possible).toBeGreaterThan(0)
+    // ONE structure line, naming the fault — not eight per-field failures.
+    expect(s.dimensions.structure.detail).toHaveLength(1)
+    expect(s.dimensions.structure.detail[0]).toContain("malformed extraction")
+    expect(s.dimensions.structure.detail[0]).toContain(why)
+    expect(s.failures.join("\n")).toContain("malformed extraction")
+    expect(s.malformed).toContain(why)
+    // No task in it is counted as if it had been saved.
+    expect(s.taskCount).toBe(0)
+    expect(s.dimensions.recall.earned).toBe(0)
+  })
+
+  it("does not flag a commitable extraction, including an empty one", () => {
+    expect(malformedExtraction(ext([task({})]))).toBeNull()
+    expect(malformedExtraction({ chunks: [], tasks: [] })).toBeNull()
+    expect(scoreManual(ext([task({})]), exp()).malformed).toBeNull()
+    expect(scoreManual(ext([task({})]), exp()).dimensions.structure.detail).toEqual([])
+  })
+
+  it("scores safety without touching a stringified field", () => {
+    const withSafety = exp({ safety_expectations: [{ id: "unplug", matches: ["unplug"], why: "w" }] })
+    expect(() => scoreManual(swallowed, withSafety)).not.toThrow()
+    expect(scoreManual(swallowed, withSafety).dimensions.safety.earned).toBe(0)
   })
 })
 

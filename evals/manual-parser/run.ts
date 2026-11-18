@@ -19,7 +19,16 @@ import Anthropic from "@anthropic-ai/sdk"
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { buildPrompt, buildExtractionRequest, extractionContent, extractParsedResult } from "../../shared/parse/parsePrompt.js"
+import {
+  buildPrompt,
+  buildExtractionRequest,
+  extractionContent,
+  extractParsedResult,
+  isRetryableExtractionReply,
+  MalformedExtractionError,
+  MAX_EXTRACTION_CALLS,
+  readExtraction,
+} from "../../shared/parse/parsePrompt.js"
 import { EVAL_DIR, requireAnthropicKey } from "./lib/env.js"
 import { loadPdfBase64 } from "./lib/pdf.js"
 import { corpusScore, scoreManual, WEIGHTS, type Extraction, type Expectations, type ManualScore } from "./lib/score.js"
@@ -58,15 +67,26 @@ function expectationsFor(name: string): Expectations {
   return JSON.parse(readFileSync(join(EVAL_DIR, "corpus", "expectations", `${name}.json`), "utf8"))
 }
 
+/** What the runner stamps on a run file beside the extraction itself. */
+interface RunMeta {
+  model?: string
+  promptHash?: string
+  at?: string
+  /** Claude calls this run made: 1, or 2 when the first reply was unusable. */
+  calls?: number
+  /** Why each unusable reply was unusable, in order. Empty on a clean run. */
+  unusableReplies?: string[]
+}
+
 /** The newest committed run for a manual, or null. */
-function latestRun(name: string): (Extraction & { model?: string; promptHash?: string; at?: string }) | null {
+function latestRun(name: string): (Extraction & RunMeta) | null {
   if (!existsSync(RUNS)) return null
   const files = readdirSync(RUNS).filter((f) => f.startsWith(`${name}.`) && f.endsWith(".json")).sort()
   if (!files.length) return null
   return JSON.parse(readFileSync(join(RUNS, files[files.length - 1]), "utf8"))
 }
 
-async function extract(m: (typeof corpus.manuals)[number]): Promise<Extraction & { model: string; promptHash: string; at: string }> {
+async function extract(m: (typeof corpus.manuals)[number]): Promise<Extraction & RunMeta> {
   const client = new Anthropic({ apiKey: requireAnthropicKey() })
   const pdfBase64 = await loadPdfBase64(m.home_id, m.manual_id)
   // THE production request (buildExtractionRequest): forced EXTRACTION_TOOL on
@@ -76,34 +96,60 @@ async function extract(m: (typeof corpus.manuals)[number]): Promise<Extraction &
   // the failure class this whole pipeline already eliminated, and an eval that
   // used a softer path would be measuring something the product does not do.
   const req = buildExtractionRequest(m.model, pdfBase64, buildPrompt())
-  // Outgoing request body built by the shared builder; the SDK version pinned
-  // here predates the `fallbacks` field, hence the param-type assertion.
-  const res = req.betas.length
-    ? req.stream
-      ? await client.beta.messages
-          .stream({ ...req.params, betas: req.betas } as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming)
-          .finalMessage()
-      : await client.beta.messages.create({ ...req.params, betas: req.betas } as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming)
-    : req.stream
-      ? await client.messages.stream(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming).finalMessage()
-      : await client.messages.create(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming)
-  const parsed = extractParsedResult(extractionContent(res as never, req.toolCallUnforced)) as Extraction
-  return {
-    ...parsed,
-    truncated: res.stop_reason === "max_tokens",
-    model: m.model,
-    promptHash: PROMPT_HASH,
-    at: new Date().toISOString(),
+  const unusableReplies: string[] = []
+  // The worker's rule, from the same two shared pieces (anthropic.ts): an
+  // unusable reply gets ONE more call. Without it the eval would score a
+  // failure production no longer has; with it, `calls` and `unusableReplies`
+  // on the run file keep the first-reply fault rate visible.
+  for (let call = 1; ; call++) {
+    // Outgoing request body built by the shared builder; the SDK version pinned
+    // here predates the `fallbacks` field, hence the param-type assertion.
+    const res = req.betas.length
+      ? req.stream
+        ? await client.beta.messages
+            .stream({ ...req.params, betas: req.betas } as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming)
+            .finalMessage()
+        : await client.beta.messages.create({ ...req.params, betas: req.betas } as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming)
+      : req.stream
+        ? await client.messages.stream(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming).finalMessage()
+        : await client.messages.create(req.params as unknown as Anthropic.MessageCreateParamsNonStreaming)
+    // Built when the run is returned, so it carries every reason recorded by then.
+    const stamp = () => ({
+      truncated: res.stop_reason === "max_tokens",
+      model: m.model,
+      promptHash: PROMPT_HASH,
+      at: new Date().toISOString(),
+      calls: call,
+      unusableReplies: [...unusableReplies],
+    })
+    try {
+      const content = extractionContent(res as never, req.toolCallUnforced)
+      return { ...(readExtraction(content) as Extraction), ...stamp() }
+    } catch (e) {
+      unusableReplies.push(e instanceof Error ? e.message : String(e))
+      if (call < MAX_EXTRACTION_CALLS && isRetryableExtractionReply(e, res.stop_reason)) {
+        process.stderr.write(`unusable reply (${unusableReplies[unusableReplies.length - 1]}), calling once more … `)
+        continue
+      }
+      // Malformed to the end: keep what arrived, so the run file shows it and
+      // the scorer reports it — this is the scan production fails. Anything
+      // else (no tool call at all, a refusal) has nothing to score.
+      if (e instanceof MalformedExtractionError) {
+        return { ...(extractParsedResult(extractionContent(res as never, req.toolCallUnforced)) as Extraction), ...stamp() }
+      }
+      throw e
+    }
   }
 }
 
 // ── Run ──────────────────────────────────────────────────────────────────────
 const scores: ManualScore[] = []
 const skipped: string[] = []
+const retried: string[] = []
 
 for (const m of manuals) {
   const exp = expectationsFor(m.name)
-  let ext: (Extraction & { model?: string; promptHash?: string }) | null
+  let ext: (Extraction & RunMeta) | null
 
   if (OFFLINE) {
     ext = latestRun(m.name)
@@ -120,7 +166,10 @@ for (const m of manuals) {
       // makes --offline reproducible, and it lets a reviewer read what the
       // model actually produced instead of taking the number on faith.
       writeFileSync(join(RUNS, `${m.name}.json`), JSON.stringify(ext, null, 1) + "\n")
-      process.stderr.write(`${(ext.tasks ?? []).length} tasks, ${(ext.chunks ?? []).length} chunks\n`)
+      // Counted only when they ARE arrays: a stringified field has a .length
+      // too, which is how this line once reported "0 tasks, 21313 chunks".
+      const n = (v: unknown) => (Array.isArray(v) ? v.length : "MALFORMED")
+      process.stderr.write(`${n(ext.tasks)} tasks, ${n(ext.chunks)} chunks${(ext.calls ?? 1) > 1 ? ` (after ${ext.calls} calls)` : ""}\n`)
     } catch (e) {
       process.stderr.write(`FAILED\n`)
       skipped.push(`${m.name} (${e instanceof Error ? e.message : String(e)})`)
@@ -128,6 +177,7 @@ for (const m of manuals) {
     }
   }
 
+  if (ext.unusableReplies?.length) retried.push(`${m.name}: ${ext.unusableReplies.join(" → ")}`)
   scores.push(scoreManual(ext, exp))
 }
 
@@ -147,7 +197,7 @@ for (const s of scores) {
   console.log(
     pad(s.name, 22) + lpad(s.score.toFixed(1), 6) + lpad(pctOf(d.recall), 5) + lpad(pctOf(d.precision), 5) +
     lpad(pctOf(d.cadence), 5) + lpad(pctOf(d.careType), 6) + lpad(pctOf(d.safety), 6) +
-    lpad(pctOf(d.structure), 6) + lpad(pctOf(d.tier), 6) + lpad(pctOf(d.volume), 5) + lpad(s.taskCount, 7),
+    lpad(pctOf(d.structure), 6) + lpad(pctOf(d.tier), 6) + lpad(pctOf(d.volume), 5) + lpad(s.malformed ? "MALF" : s.taskCount, 7),
   )
 }
 console.log("─".repeat(84))
@@ -173,6 +223,9 @@ if (failing.length) {
 const softMisses = scores.flatMap((s) => s.should.detail.map((d) => `${s.name}: ${d}`))
 if (softMisses.length) {
   console.log(`SOFT COVERAGE (not scored — signal only)\n${softMisses.map((s) => `    ${s}`).join("\n")}\n`)
+}
+if (retried.length) {
+  console.log(`UNUSABLE REPLIES (each first one cost a second call; production retries the same way)\n${retried.map((s) => `    ${s}`).join("\n")}\n`)
 }
 if (skipped.length) console.log(`SKIPPED\n${skipped.map((s) => `    ${s}`).join("\n")}\n`)
 

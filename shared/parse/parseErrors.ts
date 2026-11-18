@@ -46,6 +46,10 @@ export const PARSE_ERR = {
     `The site wouldn't let us download that link (HTTP ${status}). Open it in your browser, download the PDF, then upload it here.`,
   generic:
     "Reading the manual failed on our side. Try again in a minute — if it keeps happening, upload the PDF directly instead of a link.",
+  /** Claude answered, but the reply could not be used: malformed tool
+   *  arguments, or no tool call at all — after the one in-process retry
+   *  (MalformedExtractionError / NoToolCallError). Nothing was committed. */
+  unusableReply: "This scan came back unreadable on our side, so nothing was saved. Scanning it again will start it fresh.",
   /** enqueueParse refused a second scan of a manual that is being read right
    *  now (the scan in flight is not affected). isParseInFlightMessage below
    *  must keep matching it. */
@@ -99,6 +103,10 @@ export function humanizeParseError(raw: string): string {
   if (raw.includes("PDF specified was not valid") || (raw.includes("could not process") && raw.toLowerCase().includes("pdf"))) {
     return PARSE_ERR.pdfUnreadable
   }
+  // MalformedExtractionError and NoToolCallError both start their message this
+  // way, and so does every such error stored before 2026-11-17 — which reached
+  // the banner word for word ("malformed extraction: chunks/tasks not arrays").
+  if (/^malformed extraction\b/i.test(raw.trim())) return PARSE_ERR.unusableReply
   if (looksLikeRawApiError(raw)) return PARSE_ERR.generic
   return raw
 }

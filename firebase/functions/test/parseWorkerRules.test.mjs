@@ -20,7 +20,7 @@ import {
 } from "../lib/firebase/functions/src/parse/anthropic.js"
 import { isFinalAttempt, parseTaskPayload } from "../lib/firebase/functions/src/parse/parseWorker.js"
 import { PARSE_ATTEMPT_DEADLINE_SECONDS, PARSE_MAX_ATTEMPTS, STALE_PARSE_MS } from "../lib/firebase/functions/src/parse/parseState.js"
-import { NoToolCallError } from "../lib/shared/parse/parsePrompt.js"
+import { MalformedExtractionError, NoToolCallError } from "../lib/shared/parse/parsePrompt.js"
 
 const H = () => new Headers()
 const apiBody = (type) => ({ type: "error", error: { type, message: type } })
@@ -52,8 +52,10 @@ test("Anthropic: a bad request, bad key, or a model that answered wrong fails th
     new Anthropic.AuthenticationError(401, apiBody("authentication_error"), "invalid x-api-key", H()),
     new Anthropic.PermissionDeniedError(403, apiBody("permission_error"), "no", H()),
     new Anthropic.NotFoundError(404, apiBody("not_found_error"), "model", H()),
+    // Both get their ONE retry in-process (anthropic.ts). Cloud Tasks must not
+    // add another: that would be a third and fourth paid call for one scan.
     new NoToolCallError("end_turn"),
-    new Error("malformed extraction: chunks/tasks not arrays"),
+    new MalformedExtractionError("chunks string(21313), tasks missing"),
   ]) {
     assert.equal(isTransientParseError(err), false, `${err.constructor.name}: ${err.message}`)
   }

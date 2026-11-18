@@ -62,6 +62,22 @@ A **2-point corpus drop fails the command**, which is set above this pipeline's
 measured run-to-run noise. A hair-trigger threshold on a stochastic pipeline
 produces a suite nobody runs.
 
+## Malformed replies
+
+Sonnet 5 sometimes sends the extraction tool's `chunks` or `tasks` as one long
+**string** instead of an array, with invalid JSON inside it (4 of 22 calls on
+2026-11-17). Production cannot commit that, so it asks once more
+(`MAX_EXTRACTION_CALLS`, `firebase/functions/src/parse/anthropic.ts`) and the
+runner does the same, from the same shared rule:
+
+- a run file records `calls` (1 or 2) and `unusableReplies` (why each was
+  unusable), and the report lists them under **UNUSABLE REPLIES** — that
+  list is the first-reply fault rate, so watch it across runs;
+- a manual whose replies were malformed to the end scores **structure 0**,
+  shows `MALF` in the tasks column, and fails with one line that says
+  `malformed extraction` and what arrived. (The scorer used to crash on these,
+  so the worst outcome the parser has was the one result with no score.)
+
 ## Adding a manual to the corpus
 
 1. **Find one that covers something the corpus doesn't.** Head-count is not the
