@@ -27,6 +27,7 @@ export function HomeSwitcherSheet({
   userId,
   onSelect,
   onCreated,
+  startWith = "list",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -36,17 +37,20 @@ export function HomeSwitcherSheet({
   onSelect: (homeId: string) => void
   /** Called with the new home's id — the caller refreshes and selects it. */
   onCreated: (homeId: string) => Promise<void>
+  /** Settings' "Add a home" opens straight on the form; Home opens on the list. */
+  startWith?: "list" | "add"
 }) {
-  const [view, setView] = useState<"list" | "add">("list")
+  const [view, setView] = useState<"list" | "add">(startWith)
   const [name, setName] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Always reopen on the list. Reopening into a half-typed add form would be a
-  // small mystery every time. Reset in the render that opens it, so the sheet
+  // Always reopen where the caller starts (the list, unless Settings asked for
+  // the form) and never on a half-typed form — that would be a small mystery
+  // every time. Reset in the render that opens it, so the sheet
   // never paints the old form first.
   if (useDepsChanged([open]) && open) {
-    setView("list")
+    setView(startWith)
     setName("")
     setError(null)
   }

@@ -50,6 +50,7 @@ function toHome(id: string, d: DocumentData): Home {
     created_at: iso(d.createdAt),
     updated_at: iso(d.updatedAt),
     deleted_at: isoOrNull(d.deletedAt),
+    created_by: typeof d.createdBy === "string" ? d.createdBy : null,
   }
 }
 function toRoom(id: string, homeId: string, d: DocumentData): Room {
