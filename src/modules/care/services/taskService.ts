@@ -451,13 +451,26 @@ export async function applyCadence(
   choice: { scheduleType: ScheduleType; intervalDays: number | null; season?: Season | null },
   actor: ProvenanceActor,
   via: ProvenanceVia,
+  /**
+   * The FIRST occurrence's date, for a task that has none yet — used when a
+   * task is added because it is worth doing now (D8's first list), where one
+   * full interval out would hide it for months. Ignored when an occurrence is
+   * already open. Stamped like the rule's own dates, so the nightly
+   * roll-forward leaves it where she can see it rather than pushing it a
+   * cadence away if the weekend passes.
+   */
+  opts: { firstDue?: string } = {},
 ): Promise<ServiceResult<true>> {
   const { scheduleType, intervalDays, season } = choice
   try {
     const read = await readCadenceFacts(homeId, taskTemplateId)
     if (!read) return { data: null, error: { message: "Task not found" } }
-    const plan = planFor(read.facts, { scheduleType, intervalDays, season })
+    let plan = planFor(read.facts, { scheduleType, intervalDays, season })
     if (plan.kind === "needs-season") return { data: null, error: { message: SEASON_NEEDED } }
+    if (opts.firstDue && plan.kind === "scheduled" && plan.create) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.firstDue)) return { data: null, error: { message: "That date isn't valid." } }
+      plan = { ...plan, nextDue: opts.firstDue, overdue: false }
+    }
     const now = serverTimestamp()
     const batch = writeBatch(db)
     // The cadence as stored after this merge: a season is written only when

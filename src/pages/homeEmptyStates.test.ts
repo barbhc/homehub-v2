@@ -19,10 +19,13 @@ const dash = readFileSync(resolve(__dirname, "../lib/dashboard.ts"), "utf8")
 
 /** The state machine, mirrored from Home.tsx so the cases are readable here. */
 function state(totalItems: number, scheduledTaskCount: number) {
-  const isNewUser = totalItems === 0
+  const noItems = totalItems === 0
+  const isNewUser = noItems && scheduledTaskCount === 0
+  const tasksBeforeItems = noItems && !isNewUser
   const hasItemsNoUpkeep = !isNewUser && scheduledTaskCount === 0
   if (isNewUser) return "empty-hero"
   if (hasItemsNoUpkeep) return "no-upkeep-hero"
+  if (tasksBeforeItems) return "agenda-and-label-card"
   return "agenda"
 }
 
@@ -33,6 +36,13 @@ describe("which Home a user gets", () => {
 
   it("items with no upkeep get the add-a-manual hero — the reported case", () => {
     expect(state(1, 0)).toBe("no-upkeep-hero")
+  })
+
+  it("tasks but no items (the first minute's list, D8) is a working home: its agenda, and the label as the next step", () => {
+    // Was "empty-hero": Home keyed "new" on items alone, so the first list's
+    // tasks were invisible behind "Let's set up your home".
+    expect(state(0, 2)).toBe("agenda-and-label-card")
+    expect(home).toContain("const isNewUser = noItems && (stats?.scheduledTaskCount ?? 0) === 0")
   })
 
   it("a working home gets its agenda", () => {
@@ -62,7 +72,7 @@ describe("precedence", () => {
   it("the profile nag yields to the upkeep prompt", () => {
     // Both ask for the user's next action. Four profile questions produce no
     // tasks; a manual does.
-    expect(home).toContain("{!isNewUser && !hasItemsNoUpkeep && profileIncomplete && homeId && (")
+    expect(home).toContain("{!isNewUser && !hasItemsNoUpkeep && !tasksBeforeItems && profileIncomplete && homeId && (")
   })
 
   it("does not tell them to add an item they have already added", () => {

@@ -10,6 +10,7 @@ import {
   CloudOffIcon,
   HomeIcon,
   ChevronDownIcon,
+  CameraIcon,
 } from "lucide-react"
 import type { DashboardTask } from "@/lib/dashboard"
 import { useDashboard } from "@/lib/useDashboard"
@@ -43,6 +44,36 @@ import { useDepsChanged } from "@/hooks/useDepsChanged"
  * to repeat the step that did not work is how an empty screen becomes an
  * insulting one.
  */
+/**
+ * A home with tasks but no items yet — what the first minute (D8) leaves: a
+ * few typical tasks, and nothing scanned. The one next step is a label, and
+ * the camera opens only on this tap (must-be-true 14).
+ */
+function SnapLabelCard() {
+  return (
+    // data-tour-halt: like the set-up hero, this is still the first minute —
+    // the tour narrates manuals and a schedule this home does not have yet.
+    <section aria-labelledby="snap-label-title" data-testid="snap-label-card" data-tour-halt=""
+      className="rounded-2xl px-5 py-5"
+      style={{ background: "var(--hh-teal-wash)" }}>
+      <h2 id="snap-label-title" className="text-[1.0625rem] font-extrabold tracking-[-0.015em]" style={{ color: "var(--hh-ink)" }}>
+        Get the exact schedule
+      </h2>
+      <p className="mt-1.5 text-[0.875rem] leading-snug" style={{ color: "var(--hh-sub)" }}>
+        These are typical plans. Snap an appliance label and its manual takes over.
+      </p>
+      <Link
+        to="/inventory/add"
+        className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full px-5 py-2.5 text-[0.9375rem] font-bold"
+        style={{ background: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" }}
+      >
+        <CameraIcon className="size-4" aria-hidden />
+        Snap a label
+      </Link>
+    </section>
+  )
+}
+
 function NoUpkeepYetHero() {
   return (
     <div className="rounded-2xl border px-5 py-5 sm:px-6"
@@ -278,7 +309,13 @@ export default function Home() {
     console.error("[Home] home_profile fetch failed:", profileError.message)
   }
 
-  const isNewUser = (stats?.totalItems ?? 0) === 0
+  const noItems = (stats?.totalItems ?? 0) === 0
+  // New = nothing at all. A home with no items but some tasks (the first
+  // minute's list, D8) is a working home: it shows This week, and the hero
+  // gives way to the one next step, a label (design/first-minute-onboarding.md,
+  // "Two things the build must change outside onboarding", 2).
+  const isNewUser = noItems && (stats?.scheduledTaskCount ?? 0) === 0
+  const tasksBeforeItems = noItems && !isNewUser
   // HH-80: the state between "no items" and "a working home". The owner added
   // an item, its manual search offered her two wrong documents (HH-73), so it
   // produced no upkeep — and Home answered with "All quiet · Nothing scheduled
@@ -345,7 +382,7 @@ export default function Home() {
         {/* The profile banner yields to the upkeep prompt. Both are asking for
             the user's next action, and answering four profile questions does
             not get them a single task — adding a manual does. */}
-        {!isNewUser && !hasItemsNoUpkeep && profileIncomplete && homeId && (
+        {!isNewUser && !hasItemsNoUpkeep && !tasksBeforeItems && profileIncomplete && homeId && (
           <ProfileCompletionBanner homeId={homeId} />
         )}
 
@@ -356,7 +393,7 @@ export default function Home() {
             user has a home. Only one opt-in banner shows at a time — if the
             profile banner is still visible, skip the push nudge to avoid
             stacking. */}
-        {!isNewUser && !hasItemsNoUpkeep && !profileIncomplete && user?.id && homeId && (
+        {!isNewUser && !hasItemsNoUpkeep && !tasksBeforeItems && !profileIncomplete && user?.id && homeId && (
           <PushOptInNudge userId={user.id} homeId={homeId} />
         )}
 
@@ -382,6 +419,7 @@ export default function Home() {
               onComplete={handleMarkComplete}
               onSnooze={handleSnooze}
             />
+            {tasksBeforeItems && <div className="mx-5 mt-6"><SnapLabelCard /></div>}
           </div>
         </div>
         {/* Break out of the page's max-w-5xl wrapper: DesktopHome owns its own
@@ -400,6 +438,7 @@ export default function Home() {
             actionError={actions.failure}
             onComplete={handleMarkComplete}
             onSnooze={handleSnooze}
+            nextStep={tasksBeforeItems ? <SnapLabelCard /> : undefined}
           />
         </div>
           </>
