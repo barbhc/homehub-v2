@@ -355,3 +355,33 @@ test("cold storage: a home that said it doesn't freeze is never pushed its as-ne
   }
   assert.ok(report.reads.homes >= 3, "each due home's document is read once, for its freeze answer")
 })
+
+// ─── each person's own clock (2026-11-19) ─────────────────────────────────────
+
+test("a person in New York gets the morning push at 8am New York time; one with no zone stays on Pacific", async () => {
+  const nyHome = fresh(), ny = fresh(), laHome = fresh(), la = fresh()
+  await seedHome({ homeId: nyHome, uid: ny, prefs: { push_mode: "curated+essential" } })
+  await db.doc(`users/${ny}/private/preferences`).set({ time_zone: "America/New_York" }, { merge: true })
+  await seedHome({ homeId: laHome, uid: la, prefs: { push_mode: "curated+essential" } })
+
+  // 12:00Z Monday Sep 7 = 08:00 EDT, 05:00 PDT.
+  const early = fakeSender()
+  await runPushSweep(db, new Date("2026-09-07T12:00:00Z"), early.send)
+  assert.ok(early.sent.some((s) => s.uid === ny && s.title === "Deadline today"), `New York at 8am: ${JSON.stringify(early.sent.filter((s) => s.uid === ny))}`)
+  assert.equal(early.sent.filter((s) => s.uid === la && s.title === "Deadline today").length, 0, "Pacific at 5am: not yet")
+
+  // 15:00Z = 08:00 PDT: now Pacific; New York already had today's.
+  const later = fakeSender()
+  await runPushSweep(db, new Date("2026-09-07T15:00:00Z"), later.send)
+  assert.ok(later.sent.some((s) => s.uid === la && s.title === "Deadline today"))
+  assert.equal(later.sent.filter((s) => s.uid === ny && s.title === "Deadline today").length, 0, "one morning push a day")
+})
+
+test("a stored zone the runtime does not know is ignored, never a crash", async () => {
+  const homeId = fresh(), uid = fresh()
+  await seedHome({ homeId, uid, prefs: { push_mode: "curated+essential" } })
+  await db.doc(`users/${uid}/private/preferences`).set({ time_zone: "Mars/Olympus_Mons" }, { merge: true })
+  const { sent, send } = fakeSender()
+  await runPushSweep(db, new Date("2026-09-07T16:00:00Z"), send) // 09:00 PDT
+  assert.ok(sent.some((s) => s.uid === uid && s.title === "Deadline today"))
+})

@@ -44,7 +44,7 @@ import { isAsNeededColdStorageRow, isFreezeFree } from "../../../../shared/tasks
 import { effectiveDueDate, type SnoozeAware } from "../../../../shared/tasks/snooze.js"
 import { normalizeNotificationPrefs, type NotificationPrefs } from "../../../../shared/notifications/preferences.js"
 import {
-  addDays, agreed, buyAheadRows, composeBuyAhead, composeDigest, composeMorning, decideLanes, laParts,
+  addDays, agreed, buyAheadRows, composeBuyAhead, composeDigest, composeMorning, decideLanes, localParts, validTimeZone, PUSH_TZ,
   type Composed, type LocalParts, type Pending, type PendingSupply, type PushState,
 } from "./lanes.js"
 
@@ -326,6 +326,8 @@ const StoredPushState = z.object({
 async function readUserState(db: Firestore, uids: string[], reads: SweepReads) {
   const prefs = new Map<string, NotificationPrefs>()
   const state = new Map<string, PushState>()
+  /** Each person's zone from their phone; absent = PUSH_TZ (lanes.ts). */
+  const zones = new Map<string, string>()
   const perChunk = Math.floor(BATCH / 2)
   for (let i = 0; i < uids.length; i += perChunk) {
     const chunk = uids.slice(i, i + perChunk)
@@ -337,9 +339,11 @@ async function readUserState(db: Firestore, uids: string[], reads: SweepReads) {
       const s = snaps[j * 2 + 1]
       prefs.set(uid, normalizeNotificationPrefs(p.exists ? p.get("notifications") : undefined))
       state.set(uid, s.exists ? StoredPushState.parse(s.data() ?? {}) : {})
+      const tz = validTimeZone(p.exists ? p.get("time_zone") : undefined)
+      if (tz) zones.set(uid, tz)
     })
   }
-  return { prefs, state }
+  return { prefs, state, zones }
 }
 
 const anyLane = (local: LocalParts, prefs: NotificationPrefs, state: PushState) => {
@@ -373,17 +377,25 @@ export type SweepReport = {
  * compose, send, and record their dedupe key in the same pass.
  */
 export async function runPushSweep(db: Firestore, now: Date, send: Sender): Promise<SweepReport> {
-  const local = laParts(now)
+  // The tick's own clock, for the candidate window and the log line. Each
+  // person's lanes run on their own (localFor), so 8am is 8am where they are.
+  const local = localParts(now, PUSH_TZ)
   const reads: SweepReads = { members: 0, userDocs: 0, homes: 0, instances: 0, templates: 0, shopping: 0 }
 
   const { homesByUser, membersByHome } = await readMemberships(db, reads)
   const uids = [...homesByUser.keys()]
-  const { prefs, state } = await readUserState(db, uids, reads)
+  const { prefs, state, zones } = await readUserState(db, uids, reads)
+  const localByUser = new Map(uids.map((uid) => [uid, localParts(now, zones.get(uid) ?? PUSH_TZ)]))
+  const localFor = (uid: string) => localByUser.get(uid)!
 
-  const due = new Set(uids.filter((uid) => anyLane(local, prefs.get(uid)!, state.get(uid)!)))
+  const due = new Set(uids.filter((uid) => anyLane(localFor(uid), prefs.get(uid)!, state.get(uid)!)))
   const homesDue = [...new Set([...due].flatMap((uid) => homesByUser.get(uid) ?? []))]
 
-  const byHome = homesDue.length > 0 ? await collectCandidates(db, local.date, homesDue, reads) : new Map<string, HomeCandidates>()
+  // One window for everyone due: the earliest local date among them, so a
+  // person a day behind still finds their tasks (the 30-day horizon covers a
+  // day ahead).
+  const windowDate = [...due].map((uid) => localFor(uid).date).sort()[0] ?? local.date
+  const byHome = homesDue.length > 0 ? await collectCandidates(db, windowDate, homesDue, reads) : new Map<string, HomeCandidates>()
   const report: SweepReport = {
     usersChecked: uids.length,
     usersDue: due.size,
@@ -406,38 +418,39 @@ export async function runPushSweep(db: Firestore, now: Date, send: Sender): Prom
       // The state as it stands NOW, after any earlier home's pushes this tick —
       // what the old per-home re-read of pushState returned.
       const userState = state.get(uid)!
-      const lanes = decideLanes(local, userPrefs, userState)
+      const userLocal = localFor(uid)
+      const lanes = decideLanes(userLocal, userPrefs, userState)
       const patch: Partial<PushState> = {}
 
       if (lanes.morning) {
-        const msg = composeMorning(home.pending, userPrefs, local.date, home.homeId)
+        const msg = composeMorning(home.pending, userPrefs, userLocal.date, home.homeId)
         if (msg) {
           report.pushesSent += (await deliver(db, uid, msg, home.homePath, send)).sent
           report.morning += 1
         }
         // Mark even when there was nothing to say: the lane's question for
         // today has been answered, so the next tick is not a second look.
-        patch.lastMorningDate = local.date
+        patch.lastMorningDate = userLocal.date
       }
 
       if (lanes.digest) {
-        const msg = composeDigest(home.pending, userPrefs, local.date, home.homeId, home.coveredParts)
+        const msg = composeDigest(home.pending, userPrefs, userLocal.date, home.homeId, home.coveredParts)
         if (msg) {
           report.pushesSent += (await deliver(db, uid, msg, home.homePath, send)).sent
           report.digest += 1
         }
-        patch.lastDigestKey = local.date
+        patch.lastDigestKey = userLocal.date
       }
 
       if (lanes.buyAhead) {
-        const rows = buyAheadRows(home.pending, userPrefs, local.date, home.coveredParts, userState)
+        const rows = buyAheadRows(home.pending, userPrefs, userLocal.date, home.coveredParts, userState)
         const msg = composeBuyAhead(rows, home.homeId)
         if (msg) {
           report.pushesSent += (await deliver(db, uid, msg, home.homePath, send)).sent
           report.buyAhead += 1
-          patch.buyAheadSent = { ...(userState.buyAheadSent ?? {}), ...Object.fromEntries(rows.map((r) => [r.key, local.date])) }
+          patch.buyAheadSent = { ...(userState.buyAheadSent ?? {}), ...Object.fromEntries(rows.map((r) => [r.key, userLocal.date])) }
         }
-        patch.lastBuyAheadDate = local.date
+        patch.lastBuyAheadDate = userLocal.date
       }
 
       if (Object.keys(patch).length > 0) {
@@ -451,6 +464,7 @@ export async function runPushSweep(db: Firestore, now: Date, send: Sender): Prom
   logger.info("sendPushSweep tick", {
     date: local.date,
     time: local.hhmm,
+    zones: zones.size,
     ...report,
   })
   return report
