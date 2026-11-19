@@ -25,7 +25,6 @@ const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", T
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
 /** The open row's fill and its two edges — mixed from the tokens so both themes hold. */
 const WASH = "color-mix(in srgb, var(--hh-teal) 12%, var(--hh-surface))"
-const EDGE = "color-mix(in srgb, var(--hh-teal) 45%, transparent)"
 
 export type ThisWeekVariant = "mobile" | "desktop"
 const SCALE = {
@@ -122,7 +121,6 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
       style={{
         borderTop: first ? "none" : `1px solid ${LINE}`,
         background: open ? WASH : "transparent",
-        boxShadow: open ? `inset 2px 0 0 ${EDGE}, inset -2px 0 0 ${EDGE}` : "none",
       }}
     >
       <div className={`flex items-center gap-2.5 ${sc.rowPad}`}>

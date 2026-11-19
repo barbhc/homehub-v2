@@ -36,7 +36,7 @@ const m = vi.hoisted(() => ({
 
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1", email: "e2e@homehub.test" }, signOut: vi.fn() }) }))
 vi.mock("@/modules/home", () => ({
-  useCurrentHome: () => ({ home: { home_id: "home-1", name: "Test Home" } }),
+  useCurrentHome: () => ({ home: { home_id: "home-1", name: "Test Home" }, homes: [{ home_id: "home-1", name: "Test Home" }], setCurrentHome: () => {}, refresh: async () => {} }),
   getRooms: (...a: unknown[]) => m.getRooms(...a),
   createRoom: (...a: unknown[]) => m.createRoom(...a),
   renameRoom: (...a: unknown[]) => m.renameRoom(...a),
@@ -367,5 +367,24 @@ describe("Settings — only promises what ships", () => {
     expect(await screen.findByRole("button", { name: "Export data (JSON)" })).toBeInTheDocument()
     expect(screen.getByText(/Not included yet: photos, receipts, manual files/)).toBeInTheDocument()
     expect(screen.queryByText("Export All Data")).toBeNull()
+  })
+})
+
+describe("Settings — Homes", () => {
+  // The name under Home's greeting shows only with a choice to make (owner,
+  // 2026-11-19), so Settings is where a one-home person adds a second.
+  it("offers Add a home, and no switch while there is only one", async () => {
+    renderSettings()
+    const section = await screen.findByRole("heading", { name: "Homes" })
+    const card = section.closest("section")!
+    expect(within(card).getByRole("button", { name: /Add a home/ })).toBeInTheDocument()
+    expect(within(card).queryByRole("button", { name: "Switch home" })).toBeNull()
+  })
+
+  it("Add a home opens straight on the form", async () => {
+    renderSettings()
+    const card = (await screen.findByRole("heading", { name: "Homes" })).closest("section")!
+    fireEvent.click(within(card).getByRole("button", { name: /Add a home/ }))
+    expect(await screen.findByLabelText("Home name")).toBeInTheDocument()
   })
 })

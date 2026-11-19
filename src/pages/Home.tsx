@@ -175,6 +175,12 @@ export default function Home() {
   const { user } = useAuth()
   const { home, homes, setCurrentHome, refresh: refreshHomes } = useCurrentHome()
   const [switcherOpen, setSwitcherOpen] = useState(false)
+  // The home's name under the greeting is prime space (owner, 2026-11-19), so
+  // it shows only when it answers a question: which of your homes this is
+  // (two or more), or whose home you joined (someone else created it). A
+  // legacy home with no createdBy keeps the name: hide only what we know is
+  // yours. Adding a home lives in Settings → Homes.
+  const showHomeName = !!home && (homes.length > 1 || home.created_by !== user?.id)
   const { level, derivedLevel } = useUserLevel()
   const homeId = home?.home_id ?? ""
 
@@ -352,14 +358,13 @@ export default function Home() {
         {/* ── New-user empty state ── */}
         {isNewUser && (
           <div className="mt-2 mb-4">
-            {/* The switcher lives in the greeting header, which this branch
-                replaces — so this pill is the empty state's only door between
-                homes. It must show for a SINGLE home too: gating on
-                homes.length > 1 meant a one-home user had no way to add a
-                second home anywhere in the app until their first home had
-                tasks — the audit walked Sonia's exact setup path (fresh
-                account, own home, then the parents' house) straight into it. */}
-            {home && (
+            {/* The greeting header is replaced in this branch, so the pill
+                stands in for it — under the same rule (showHomeName). Adding a
+                second home no longer depends on it: Settings → Homes is the
+                door for a one-home user (it once was this pill — the audit
+                walked Sonia's setup path, own home then the parents', into a
+                dead end when it was gated on homes.length > 1). */}
+            {home && showHomeName && (
               <button
                 type="button"
                 onClick={() => setSwitcherOpen(true)}
@@ -405,7 +410,7 @@ export default function Home() {
         <div className="lg:hidden -mx-4">
           <div className="mx-auto w-full max-w-[460px]">
             <RefinedHome
-              homeName={home?.name ?? null}
+              homeName={showHomeName ? (home?.name ?? null) : null}
               onSelectHome={() => setSwitcherOpen(true)}
               tasks={homeTasks}
               upcoming={visibleUpcoming}

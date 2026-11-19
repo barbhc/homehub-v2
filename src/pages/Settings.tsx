@@ -10,6 +10,7 @@ import { InlineError, SectionCard } from "@/components/layout"
 import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -154,6 +155,7 @@ const NOTIF_LEAD_TIME_OPTIONS: { value: number; label: string }[] = [
 // Desktop section-index rail (anchors map to ids on the sections below).
 const SETTINGS_NAV: [string, string][] = [
   ["account", "Account"],
+  ["homes", "Homes"],
   ["level", "Experience level"],
   ["appearance", "Appearance"],
   ["tasks", "Custom tasks"],
@@ -221,7 +223,10 @@ export default function Settings() {
   // `user.id` inside them made the compiler infer `user` and skip them
   // (react-hooks/preserve-manual-memoization).
   const userId = user?.id
-  const { home } = useCurrentHome()
+  const { home, homes, setCurrentHome, refresh: refreshHomes } = useCurrentHome()
+  // Settings → Homes: where a second home is added (owner, 2026-11-19 — the
+  // name under Home's greeting now shows only once there is a choice to make).
+  const [homesSheet, setHomesSheet] = useState<"list" | "add" | null>(null)
   const { level } = useUserLevel()
   const { appearance, setAppearance } = useAppearance()
   const homeId = home?.home_id ?? null
@@ -948,6 +953,45 @@ export default function Settings() {
           <div className="truncate text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>{user?.email ?? ""}</div>
         </div>
       </div>
+
+      {/* Homes — which home these settings are for, and the one place to add another. */}
+      {home && user && (
+        <section
+          id="homes"
+          className="scroll-mt-6 rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
+          style={{ background: "var(--hh-surface)" }}
+        >
+          <h2 className="text-[1.0625rem] font-bold tracking-[-0.3px]" style={{ color: "var(--hh-ink)" }}>
+            Homes
+          </h2>
+          <p className="mt-1 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
+            {homes.length > 1
+              ? `These settings are for ${home.name}.`
+              : "Each home keeps its own items, tasks and rooms."}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {homes.length > 1 && (
+              <Button variant="outline" size="sm" className="hit-44" onClick={() => setHomesSheet("list")}>
+                Switch home
+              </Button>
+            )}
+            <Button variant="outline" size="sm" className="hit-44" onClick={() => setHomesSheet("add")}>
+              <PlusIcon className="size-4" aria-hidden />
+              Add a home
+            </Button>
+          </div>
+          <HomeSwitcherSheet
+            open={homesSheet !== null}
+            onOpenChange={(open) => { if (!open) setHomesSheet(null) }}
+            startWith={homesSheet ?? "list"}
+            homes={homes}
+            currentHomeId={home.home_id}
+            userId={user.id}
+            onSelect={setCurrentHome}
+            onCreated={(newHomeId) => refreshHomes(newHomeId)}
+          />
+        </section>
+      )}
 
       {/* Homehub level — the signature progressive-disclosure control, up top */}
       <div id="level" className="scroll-mt-6">

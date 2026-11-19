@@ -227,8 +227,10 @@ export interface Home {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  /** The owner's uid (`createdBy`); null on homes written before it existed. */
+  created_by?: string | null
 }
-export type HomeInsert = Omit<Home, "home_id" | "created_at" | "updated_at">
+export type HomeInsert = Omit<Home, "home_id" | "created_at" | "updated_at" | "created_by">
 
 export interface HomeMember {
   home_id: string

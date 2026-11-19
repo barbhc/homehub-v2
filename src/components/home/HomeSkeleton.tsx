@@ -4,7 +4,6 @@ import { dens } from "@/lib/redesign/tokens"
 const SUB = "var(--hh-sub)", LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
 /** ThisWeekList's open-row fill and edges, so the first row reads as open while it loads. */
 const WASH = "color-mix(in srgb, var(--hh-teal) 12%, var(--hh-surface))"
-const EDGE = "color-mix(in srgb, var(--hh-teal) 45%, transparent)"
 
 /**
  * Home while its first read is in flight, shaped like the Home it turns into
@@ -114,7 +113,7 @@ function WeekListSkeleton({ variant }: { variant: keyof typeof SCALE }) {
     <section className="flex flex-col gap-2.5" data-testid="home-skeleton-week">
       <Skeleton className="ml-0.5 h-3 w-[72px]" />
       <div className="overflow-hidden rounded-2xl border shadow-[0_1px_2px_rgba(15,23,42,0.04)]" style={{ background: SURFACE, borderColor: LINE }}>
-        <div data-open="true" style={{ background: WASH, boxShadow: `inset 2px 0 0 ${EDGE}, inset -2px 0 0 ${EDGE}` }}>
+        <div data-open="true" style={{ background: WASH }}>
           <div className={`flex items-center gap-2.5 ${sc.rowPad}`}>
             <Skeleton className="size-6 shrink-0 rounded-full" />
             <div className="min-w-0 flex-1">
