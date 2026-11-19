@@ -160,9 +160,10 @@ export function HomeProfileSection({ homeId }: Props) {
   const [offerKept, setOfferKept] = useState(false)
   /** A lookup that comes back after the zip changed again is dropped. */
   const lookupSeq = useRef(0)
+  const savedToken = useRef(0)
 
-  const resetZipEntry = (savedZipValue: string | null) => {
-    lookupSeq.current += 1
+  /** State only, so the home-switch reset can run during render. */
+  const clearZipEntry = (savedZipValue: string | null) => {
     setZip(savedZipValue ?? "")
     setLookup({ status: "idle" })
     setZipError(null)
@@ -170,6 +171,10 @@ export function HomeProfileSection({ homeId }: Props) {
     setHazardsOff([])
     setUseZip(false)
     setOfferKept(false)
+  }
+  const resetZipEntry = (savedZipValue: string | null) => {
+    lookupSeq.current += 1
+    clearZipEntry(savedZipValue)
   }
 
   const applyProfile = (p: HomeProfile | null) => {
@@ -197,9 +202,11 @@ export function HomeProfileSection({ homeId }: Props) {
     setOffer(null)
     setOfferError(null)
     setBar(null)
-    resetZipEntry(null)
+    clearZipEntry(null)
   }
   useEffect(() => {
+    // A lookup still running for the previous home is dropped.
+    lookupSeq.current += 1
     let cancelled = false
     getHomeProfile(homeId).then((result) => {
       if (cancelled) return
@@ -240,6 +247,7 @@ export function HomeProfileSection({ homeId }: Props) {
 
   const runLookup = async (value: string) => {
     const seq = ++lookupSeq.current
+    setZipError(null)
     setLookup({ status: "busy" })
     try {
       const found = await lookupZipArea(value)
@@ -295,7 +303,7 @@ export function HomeProfileSection({ homeId }: Props) {
         return
       }
       if (lookup.status === "failed") {
-        setZipError("Couldn't load area data. Try again, or clear the zip to save the rest.")
+        setZipError("Couldn’t load area data. Try again, or clear the zip to save the rest.")
         return
       }
       if (lookup.status === "busy") return
@@ -351,8 +359,10 @@ export function HomeProfileSection({ homeId }: Props) {
     const freezeNowOff =
       climateFields.freeze_risk === false && (savedFreeze !== false || savedClimate !== climateFields.climate)
     applyProfile(result.data)
-    setSavedAt(Date.now())
-    setTimeout(() => setSavedAt((ts) => (ts && Date.now() - ts >= 2400 ? null : ts)), 2500)
+    // "Saved" shows for 2.5 s; a later save restarts it (its own token), no clock needed.
+    const token = (savedToken.current += 1)
+    setSavedAt(token)
+    setTimeout(() => setSavedAt((t) => (t === token ? null : t)), 2500)
     if (freezeNowOff) await offerWinterizingSweep()
   }
 
@@ -513,7 +523,15 @@ export function HomeProfileSection({ homeId }: Props) {
                 aria-invalid={zipError ? true : undefined}
                 className="w-full sm:w-40 tracking-[0.12em]"
               />
-              {zipError ? (
+              {lookup.status === "failed" ? (
+                // Try again stays reachable even after a Save asked for it.
+                <div id="hp-zip-note" role="alert" className="flex flex-wrap items-center gap-x-3 text-sm text-destructive">
+                  <span>{zipError ?? "Couldn’t load area data."}</span>
+                  <button type="button" onClick={() => void runLookup(zip)} className="min-h-11 font-bold" style={{ color: "var(--hh-teal)" }}>
+                    Try again
+                  </button>
+                </div>
+              ) : zipError ? (
                 <p id="hp-zip-note" role="alert" className="text-sm text-destructive">{zipError}</p>
               ) : lookup.status === "busy" ? (
                 <p id="hp-zip-note" className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -523,13 +541,6 @@ export function HomeProfileSection({ homeId }: Props) {
                 <p id="hp-zip-note" role="alert" className="text-sm font-medium" style={{ color: "var(--hh-clay-ink)" }}>
                   We don’t have {zip}, so it won’t be saved. Your climate below still counts.
                 </p>
-              ) : lookup.status === "failed" ? (
-                <div id="hp-zip-note" role="alert" className="flex flex-wrap items-center gap-x-3 text-sm text-destructive">
-                  <span>Couldn’t load area data.</span>
-                  <button type="button" onClick={() => void runLookup(zip)} className="min-h-11 font-bold" style={{ color: "var(--hh-teal)" }}>
-                    Try again
-                  </button>
-                </div>
               ) : !zipChanged && savedArea?.county ? (
                 <p id="hp-zip-note" className="text-xs text-muted-foreground">{savedArea.county}. It stays in Homehub.</p>
               ) : (
