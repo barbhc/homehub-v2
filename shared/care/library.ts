@@ -79,6 +79,7 @@ export type Archetype =
   | "sensor.clean" | "descale" | "duct.clean" | "tub.clean" | "coils.clean"
   | "safety.test.alarm" | "battery.replace.alarm" | "flush.tank" | "service.pro"
   | "pest.termite" | "pest.bird" | "pest.rodent" | "gutters.clean" | "extinguisher.check"
+  | "quake.strap" | "freeze.taps" | "wildfire.clear" | "hurricane.prep"
 
 const ARCHETYPE_RULES: [Archetype, RegExp][] = [
   ["filter.replace.hepa", /\b(replace|change)\b.*\bhepa\b/i],
@@ -101,8 +102,14 @@ const ARCHETYPE_RULES: [Archetype, RegExp][] = [
   ["pest.termite", /\btermite/i],
   ["pest.bird", /\b(pigeon|bird)/i],
   ["pest.rodent", /\b(rodent|mouse|mice|rat)\b/i],
+  // Before gutters: "Clear leaves from the roof, gutters and vents" is wildfire
+  // prep, and must not count as (or suppress) the gutters task.
+  ["wildfire.clear", /\bwildfire\b|\bembers?\b|\broof\b.*\bgutters?\b.*\bvents?\b/i],
   ["gutters.clean", /\bgutter/i],
   ["extinguisher.check", /\bextinguisher\b/i],
+  ["quake.strap", /\b(quake|earthquake|seismic)\b.*\bstraps?\b|\bwater heater\b.*\bstraps?\b/i],
+  ["freeze.taps", /\b(outdoor|outside|exterior)\b.*\b(taps?|faucets?|spigots?|hose ?bibs?)\b|\bhose ?bibs?\b/i],
+  ["hurricane.prep", /\bhurricane\b/i],
 ]
 
 /** Which archetype a task title is, by rule first, then by similarity to the
@@ -146,6 +153,8 @@ export interface CareEntry {
   indicator?: boolean
   /** Home-level entries apply only when this profile fact is true. */
   fact?: keyof CareFacts
+  /** Offered only where the home's area carries this (D8). */
+  area?: AreaGate
 }
 
 /** Answers from the home-setup questionnaire that gate home-level entries. */
@@ -161,11 +170,25 @@ export interface CareFacts {
   /** The building handles pests / exterior — suppresses those entries. */
   building_handles_pests?: boolean
   building_handles_exterior?: boolean
+  /** A furnace or central air, i.e. an air filter to change (D8). */
+  has_air_filter?: boolean
+  /** Outdoor taps (hose bibs) that can freeze (D8). */
+  has_outdoor_taps?: boolean
 }
+
+/** What the home's zip says (shared/area/zipArea.ts). An entry gated on one is
+ *  offered only to a home whose area carries it — never by default. */
+export type AreaGate = "earthquake" | "wildfire" | "hurricane" | "freeze"
 
 const MFR = "Typical manufacturer guidance for this category"
 const NFPA = "NFPA and USFA guidance on alarm testing"
 const PEST = "Pest-industry guidance (annual inspections; quarterly bird control)"
+// D8 starter entries (design/first-minute-onboarding.md), each checked 2026-11-19.
+const ENERGY_STAR = "ENERGY STAR: check the filter monthly, change it at least every 3 months"
+const RED_CROSS = "American Red Cross guidance on preventing frozen pipes"
+const ECA = "Earthquake Country Alliance: strap the tank top and bottom to the wall studs"
+const FIREWISE = "NFPA Firewise USA: keep roofs, gutters and vents clear of leaves and needles"
+const NWS = "National Weather Service: prepare before the season starts on June 1"
 
 export const LIBRARY: CareEntry[] = [
   // ── filters first ──
@@ -190,7 +213,13 @@ export const LIBRARY: CareEntry[] = [
   { key: "home.alarm_batteries", kind: "home", archetype: "battery.replace.alarm", title: "Replace alarm batteries", careType: "maintenance", priorityTier: "essential", riskLevel: "safety", scheduleType: "annual", minutes: 15, cadenceLabel: "Yearly", why: "A chirping alarm gets pulled down; a dead one stays silent.", how: "Fresh batteries in every unit at once; note the date inside the cover.", source: NFPA, fact: "has_smoke_alarms" },
   { key: "home.extinguisher", kind: "home", archetype: "extinguisher.check", title: "Check the fire extinguisher", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 3, cadenceLabel: "Yearly", why: "Gauge in the green, pin in place, nothing blocking it.", how: "Read the gauge, check the tag date, shake a dry-chemical unit.", source: NFPA, fact: "has_extinguisher" },
   { key: "home.water_heater", kind: "home", archetype: "flush.tank", title: "Flush the water heater", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 45, cadenceLabel: "Yearly", why: "Sediment shortens the tank's life and makes it noisy and slow.", how: "Power off, hose on the drain valve, drain a few gallons until clear.", source: MFR, fact: "has_water_heater" },
+  { key: "home.air_filter", kind: "home", archetype: "filter.replace.air", title: "Replace the air filter", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "quarterly", minutes: 10, cadenceLabel: "Every 1–3 months", why: "A clogged filter makes the system work harder, raises the bill and shortens its life.", how: "Note the size on the old filter's frame, slide it out, fit the new one with the arrow toward the unit.", source: ENERGY_STAR, fact: "has_air_filter" },
   { key: "home.hvac_service", kind: "home", archetype: "service.pro", title: "Furnace or HVAC service", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, before heating season", why: "A tune-up catches the failures that happen on the first cold night.", how: "Book a technician; ask for the heat-exchanger check.", source: MFR, pro: true, fact: "has_hvac_service" },
+  { key: "home.quake_straps", kind: "home", archetype: "quake.strap", title: "Check the water heater's quake straps", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 5, cadenceLabel: "Yearly", why: "A tank that tips in a quake can break its gas or water line.", how: "Look for two metal straps, one near the top and one near the bottom, screwed into the wall studs; plumber's tape is not enough.", source: ECA, fact: "has_water_heater", area: "earthquake" },
+  // ── weather and the outside ──
+  { key: "home.outdoor_taps", kind: "home", archetype: "freeze.taps", title: "Shut off and drain the outdoor taps", careType: "maintenance", priorityTier: "essential", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 10, cadenceLabel: "Yearly, before the first freeze", why: "Water left in an outdoor tap's pipe freezes, splits it, and leaks inside the wall.", how: "Close the shut-off valve indoors, open the outdoor tap to let it drain, and take the hose off.", source: RED_CROSS, fact: "has_outdoor_taps", area: "freeze" },
+  { key: "home.wildfire_prep", kind: "home", archetype: "wildfire.clear", title: "Clear leaves from the roof, gutters and vents", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, before fire season", why: "Embers land in dry leaves and needles; that is how most homes catch fire in a wildfire.", how: "Clear the roof, gutters and the first five feet around the house; check that vent screens are intact.", source: FIREWISE, area: "wildfire" },
+  { key: "home.hurricane_prep", kind: "home", archetype: "hurricane.prep", title: "Get ready for hurricane season", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, before June", why: "Supplies, shutters and insurance all take time; once a storm is named it is too late.", how: "Check your evacuation zone, restock water and batteries, test shutters, and review your flood cover.", source: NWS, area: "hurricane" },
   // ── pests and the building ──
   { key: "home.termite", kind: "home", archetype: "pest.termite", title: "Termite inspection", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, late spring", why: "Colonies swarm as it warms; catching them early is the cheap version.", how: "Book a licensed inspector; keep the report.", source: PEST, pro: true, fact: "termite_risk" },
   { key: "home.birds", kind: "home", archetype: "pest.bird", title: "Pigeon deterrent check", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "quarterly", minutes: 15, cadenceLabel: "Quarterly", why: "Deterrents shift and nests start fast; droppings damage surfaces and carry disease.", how: "Check spikes, netting and ledges; clear nesting material before eggs.", source: PEST, fact: "birds_roosting" },
@@ -246,12 +275,19 @@ export function suggestionsForItem(item: KindInput, existing: ExistingTask[], di
   return out
 }
 
-/** Home-level entries whose fact is true and which no home-scoped task already covers. */
-export function suggestionsForHome(facts: CareFacts, existing: ExistingTask[], dismissed: Iterable<string> = []): Suggestion[] {
+/**
+ * Home-level entries whose fact is true and which no home-scoped task already covers.
+ * An entry gated on the home's area is offered only when `area` names it — so a
+ * caller that knows nothing about the area (every caller before D8) never sees
+ * quake straps in Ohio.
+ */
+export function suggestionsForHome(facts: CareFacts, existing: ExistingTask[], dismissed: Iterable<string> = [], area: Iterable<AreaGate> = []): Suggestion[] {
   const gone = new Set(dismissed)
+  const here = new Set(area)
   const matched = new Set(existing.map((t) => archetypeOf(t.title)).filter(Boolean))
   return LIBRARY
     .filter((e) => e.kind === "home" && e.fact && facts[e.fact] === true && !gone.has(e.key) && !matched.has(e.archetype))
+    .filter((e) => !e.area || here.has(e.area))
     .filter((e) => !(e.archetype.startsWith("pest.") && facts.building_handles_pests) && !(e.archetype === "gutters.clean" && facts.building_handles_exterior))
     .map((entry) => ({ entry }))
 }
