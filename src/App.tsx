@@ -83,6 +83,7 @@ const SWR_CONFIG = { fallback: readPersistedSwrFallback() }
 const Privacy = lazyWithRetry(() => import("@/pages/legal/Privacy"))
 const Terms = lazyWithRetry(() => import("@/pages/legal/Terms"))
 const OnboardingProfile = lazyWithRetry(() => import("@/pages/OnboardingProfile"))
+const FirstMinute = lazyWithRetry(() => import("@/pages/FirstMinute"))
 const Home = lazyWithRetry(() => import("@/pages/Home"))
 const Inventory = lazyWithRetry(() => import("@/pages/Inventory"))
 // The add-item flow's one door (docs/add-item-flow.md) — the only page that
@@ -153,6 +154,15 @@ function App() {
               <Route path="/invite/:token" element={<AcceptInvite />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
+              {/* D8: the first minute after the zip — area facts, then this month's list. */}
+              <Route
+                path="/onboarding/first"
+                element={
+                  <AuthGate>
+                    <FirstMinute />
+                  </AuthGate>
+                }
+              />
               <Route
                 path="/onboarding/profile"
                 element={

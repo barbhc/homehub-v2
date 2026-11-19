@@ -25,20 +25,24 @@ column) in the PR that changed the flow.
 
 ## Journey 1 — Onboarding: brand-new person to first item
 
-**Promise:** from "never heard of Homehub" to a home with its first item,
-without a dead end — and every profile question skippable ("suggest, never
-assume").
+**Promise:** from "never heard of Homehub" to something true and useful about
+*her* home in under a minute — a zip, not a street address, and nothing saved
+she did not choose ("suggest, never assume") — then a home with its first item,
+without a dead end. The first minute is D8 (`design/first-minute-onboarding.md`,
+owner-approved mock 2026-11-18).
 
 ```mermaid
 flowchart LR
     A[Marketing page /] --> B[Create account /signup]
-    B --> C["Set up your home"\nname + invite code when gated]
-    C --> D[Home profile /onboarding/profile\n5 questions, all skippable]
-    D --> D2{"Where next?"\nAdd your first item / Take me to my home page}
-    D2 -->|Add your first item| E[First item /inventory/add\nlane chooser]
-    D2 -->|Take me to my home page| G
+    B --> C["What's your zip code?"\n+ invite code when gated · Skip]
+    C -->|zip| D["What your area means for upkeep"\n/onboarding/first · facts + home type]
+    C -->|unknown zip| C2[Pick a climate] --> D
+    C -->|Skip| L
+    D --> L["Worth doing this month"\n≤3 rows · Add / Not now]
+    L --> G[Home: This week\n+ "Snap a label"]
+    G -->|Snap a label| E[First item /inventory/add\nlane chooser]
     E --> F[Item page /items/:id]
-    F --> G[Home: "No upkeep yet"\n+ first-run tour]
+    F --> G2[Home: the week + first-run tour]
     B -. "?returnTo=/invite/…" .-> H[Accept invite /invite/:token]
 ```
 
@@ -46,14 +50,15 @@ flowchart LR
 |---|---|---|---|---|
 | 1 | Marketing page → Get started / Sign in | `/` | `src/pages/Landing.tsx` | — |
 | 2 | Email+password (**Create account**), magic link, Apple (flag-gated) | `/signup` | `src/modules/auth/components/SignInForm.tsx`, `AuthProvider.tsx` | Auth user |
-| 3 | **Set up your home** — name; invite-code field only when the growth gate is on | `/` | `HomeOnboarding.tsx` → `createHome` / `redeemInviteCode` | `homes/{id}`, `members/{uid}`, 9 default rooms |
-| 4 | Home profile: type → own/rent → climate → concerns → mode; **Skip for now** honored | `/onboarding/profile` | `HomeProfileOnboarding.tsx` → `upsertHomeProfile` | profile fields folded onto `homes/{id}` |
-| 5 | **"Your home profile is set — where to next?"**: *Add your first item* / *Take me to my home page*. Asked, not assumed (HH-93) | `/onboarding/profile` | `OnboardingProfile.tsx` (`ProfileDone`) | — |
+| 3 | **What's your zip code?** — five digits, "never your street", looked up on the device (`src/data/zip-area.json`, its own chunk); invite-code field only when the growth gate is on; **Skip for now**. An unknown zip offers the four climate choices. The home is created here, named "My home" | `/` | `HomeOnboarding.tsx` → `createHome` / `redeemInviteCode`, `zipAreaService` → `upsertHomeProfile` | `homes/{id}` (+ `zip`, `area`, `climate`, `freezeRisk`, `climateSource`), `members/{uid}`, 9 default rooms |
+| 4 | **What your area means for upkeep** — only the facts that change this month's list, each with its source and **Not true here** / Undo; then the home type. **See this month** saves them | `/onboarding/first` | `FirstMinute.tsx` (`AreaStep`) | `homeType`, corrections, `profileCompletedAt` |
+| 5 | **Worth doing this month** — ≤3 rows, ≤2 inline Yes / No / Not sure, × with an optional reason, **Not on your list** with Change. Nothing is saved until **Add**; **Not now** saves nothing. Skip path: same list, no area words, an **Add zip** row | `/onboarding/first` | `FirstMinute.tsx` (`ListStep`), `shared/care/firstList.ts` → `addLibraryTask(…, { firstDue })` | `careFacts`, `dismissedCare`, `taskTemplates` (`library:` provenance) + first `taskInstances` due this weekend |
+| 5b | Home: the added tasks under **This week**, and **Get the exact schedule · Snap a label** as the one next step (the camera opens only on tap) | `/home` | `Home.tsx` (`SnapLabelCard`) | — |
 | 6 | Lane chooser → simple lane: **Name on the main column** → Add item | `/inventory/add` | `IdentifyStep.tsx`, `SmartAddItem.tsx` → `createItemUnit` | `homes/{id}/items/{id}` |
 | 6b | Appliance lane instead: brand + model → **Add the manual** (the button and the next screen share the words) → attaching it starts the scan and lands on the item page (J2) | `/inventory/add` | `SmartAddItem.tsx` → `startParseAndLeave` | `homes/{id}/manuals/{id}`, `parse.stage` |
 | 7 | Item page: the name first; Upkeep leads **"No upkeep yet — add the manual"** with one **Add the manual** door (HH-91). One tree for the width, so one of each (HH-159). While a manual is being read: **"Reading the manual"** inside the Upkeep card — one line, the worker's page count, an indeterminate rail, and "You can close the app — these keep going." (HH-135, HH-116) — and the pill says **"1 reading"** on this page too: one indicator, everywhere (HH-161, superseding HH-118) | `/items/:id` | `ItemDetailPage.tsx` (`useIsDesktop`), `CareBlock.tsx`, `ParsePickupCard.tsx`, `ParseTrayPill.tsx` | — |
 | 7b | Scan done → **the review, one screen**: Maintenance → Cleaning → Usage → Setup, each row carrying its own cadence and bell. A section of the page for anyone who watched the scan run, a drawer for anyone who came back; it opens itself only when there is maintenance to decide (HH-121). With none, round 14's card reports instead ("We finished reading the … manual") — superseded in `docs/add-item-flow.md`, to be retired by the HH-161 work (Package E2) | `/items/:id` | `ParsePickupCard.tsx`, `TaskReviewSheet.tsx` | `commitManualDraft` → `taskTemplates`, `taskInstances` |
-| 8 | Home: the first-run tour (5 steps, the first titled **"Welcome"**, Esc-closable), then **"No upkeep yet — add a manual"** (Pick an item / Add another item) — the profile banner yields to it (HH-80) | `/home` | `useFeatureTour`, `tourSteps.ts`, `Home.tsx` | — |
+| 8 | Home: the first-run tour (5 steps, the first titled **"Welcome"**, Esc-closable; held while the label card shows), then the week with the first minute's tasks. A home that added nothing still gets **"No upkeep yet — add a manual"** (HH-80) | `/home` | `useFeatureTour`, `tourSteps.ts`, `Home.tsx` | — |
 
 **Guards that make or break this journey**
 - `AuthGate` / `HomeGate`; the **`fromCache` guard** in `homeService.getMyHomes` —
@@ -64,7 +69,8 @@ flowchart LR
   is absent, so `npm run seed:emu` writes `config/growth: {inviteGateEnabled: false}` —
   that seeded doc is why this walk needs no code.
 - **The funnel handoff** (regressed → fixed in #150): Index must not let its
-  signed-in redirect stomp the navigation to `/onboarding/profile`
+  signed-in redirect stomp the navigation to `/onboarding/first` (it was
+  `/onboarding/profile` until D8)
   (`funnelingRef`), `refresh(homeId)` polls until the members collection-group
   query can see a just-created home, and `OnboardingProfile` gives the context
   a grace window before bouncing.
@@ -75,9 +81,12 @@ the manual; Reading, Review and Purchase left it. The item page watches the
 manual being read and asks for ONE review. Round 18 (#185) made that review one
 screen grouped by kind; `docs/add-item-flow.md` is the canonical flow.
 
-**Spec coverage:** `journey.spec.ts` J1 (signup → home → profile → simple-lane
-item → the tour → "No upkeep yet"; steps 7b and the scan are J2's and
-`emu/item-page-manual`'s) · `emu/auth-home` · `emu/smart-add` (the spec that
+**Spec coverage:** `journey.spec.ts` J1 (signup → zip 94110 → area facts with
+Not true here / Undo → condo → this month's three rows → Add → Home's week and
+Snap a label → simple-lane item → the tour → the week; the clock is pinned to
+the mock's day; steps 7b and the scan are J2's and `emu/item-page-manual`'s) ·
+`HomeOnboarding.test.tsx` and `FirstMinute.test.tsx` (D8 must-be-true 1–15,
+the failure paths, the skip path) · `emu/auth-home` · `emu/smart-add` (the spec that
 caught the accordion dead-end) · rules tests, `inviteActions.emu`, `membership.emu`.
 
 ---

@@ -1,6 +1,6 @@
 # First-minute onboarding — zip code, then this month's short list (D8)
 
-**Status: direction decided by the owner, 2026-11-18. Mock ready for her approval. Not built.**
+**Status: mock approved by the owner 2026-11-18 ("Approve mock"); built 2026-11-19 in three PRs (zip table and list rule; Home fixes; the screens). Where the build departs from this doc's prose, see "As built" at the end.**
 Build-ready mock (real captures from the seeded emulator, rearranged): https://claude.ai/artifact/2VnY3jhXgB2ALEVkB8CzQC
 Research and the four versions that lost: https://claude.ai/artifact/K9hhfgysCBHpiXB1pEz4Wz
 
@@ -208,3 +208,22 @@ The owner approves the mock; the zip table exists with its sources and date reco
 the 15 checks above pass in a journey spec with a failure-path test for Add; 94110 shows
 no winterizing; Home shows onboarding tasks for a home with no items; `docs/user-journeys.md`
 and the journey spec change in the same PR.
+
+## As built (2026-11-19)
+
+Where the build differs from the prose above, and why. The approved mock wins over prose.
+
+| Spec said | Built | Why |
+|---|---|---|
+| Air-filter window in cold climates Sep–Oct | Sep–Nov | The mock shows it in Minneapolis in November |
+| Starter list with no home type (zip skipped) | Outside work (outdoor taps, gutters, wildfire) is not offered | The mock's no-zip list is two rows; that work depends on the building |
+| Quake straps and outdoor taps minutes (unstated) | 5 and 10 minutes | The mock's rows |
+| County hazard ratings "expected" | Read from FEMA NRI v1.20. Connecticut zips carry none | FEMA rates CT's 2022 planning regions, which the 2020 Census zip file cannot place; silence over a guess |
+| "the coming Saturday, shown on the row" | First row due Saturday, the rest Sunday; the row shows Home's usual window wording ("Good to do now"), not "Due Sat" | Home's due wording is shared by every task; changing it for these alone is a separate decision |
+| (unstated) reload mid-flow | Reopening `/onboarding/first` after step 2 starts at step 2 with the home type kept | Steps 2–3 hold their state in the page; the zip and home type are already saved |
+| "Not now saves nothing (the zip and home type are kept)" | As written. `profileCompletedAt` is set when the home type is saved, so the old profile banner does not reappear | The zip and home type answer what the five questions were for |
+| A × "with a reason writes a fact or dismissed_care" | The building handles it → `building_handles_exterior` and `building_handles_pests`; We don't have one → the row's fact false (or dismissed); Already done recently → nothing; Just not for me → dismissed; Skip → nothing. All written on Add | The mock's sheet |
+| Settings, Your home offers the zip to existing homes | Not built | Follow-up (BACKLOG D8 row) |
+
+Failure honesty: a task add that fails part-way rolls its own template back (`addLibraryTask`), so "No tasks were saved" is true; when the answers write itself fails, the message is "Nothing was saved".
+

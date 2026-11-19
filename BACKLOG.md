@@ -64,7 +64,7 @@ no code was changed.
 
 | ID | Item | Risk | Impact | Scope | Score | Note |
 |---|---|---|---|---|---|---|
-| D8 | **Zip code, then this month's short list** (Version B on the page), with the same list minus the area facts when the zip is skipped (Version E) | 2 | 4 | 3 | 2.0 | **Decided by the owner 2026-11-18.** It is D7 moved to the first screen, so the zip table is the same work. Spec: `design/first-minute-onboarding.md`; build-ready mock https://claude.ai/artifact/2VnY3jhXgB2ALEVkB8CzQC (awaiting approval). The build also fixes two things found on the emulator: library tasks are first due a full interval out, and Home hides tasks when a home has no items. |
+| D8 | **Zip code, then this month's short list** (Version B on the page), with the same list minus the area facts when the zip is skipped (Version E) | 2 | 4 | 3 | 2.0 | **Decided by the owner 2026-11-18.** It is D7 moved to the first screen, so the zip table is the same work. Spec: `design/first-minute-onboarding.md`; mock https://claude.ai/artifact/2VnY3jhXgB2ALEVkB8CzQC, **approved 2026-11-18; built 2026-11-19** (PRs: zip table + list rule, Home fixes, screens). **Not built yet:** the zip in Settings → Your home for existing homes. The build also fixes two things found on the emulator: library tasks are first due a full interval out, and Home hides tasks when a home has no items. |
 | D8b | **Address reveal** (Version A): type the street address, see the public record, confirm it | 3 | 3 | 4 | 1.5 | **Parked by the owner 2026-11-18 as a paid-tier feature.** Waits for a paid tier to exist. Houses first; weak for condos. About 7 to 20 cents a lookup (RentCast). |
 
 **The owner's three decisions, 2026-11-18:**

@@ -9,6 +9,7 @@
  * writes anything — the rows become tasks only when the owner taps Add.
  */
 import { archetypeOf, entryByKey, type AreaGate, type CareEntry, type CareFacts, type ExistingTask } from "./library.js"
+import { addDays } from "../dates/calendar.js"
 
 export type Climate = "mild" | "moderate" | "cold" | "hot"
 export type HomeType = "house" | "condo" | "townhouse" | "apartment" | "other"
@@ -256,4 +257,18 @@ export function firstList(input: FirstListInput): FirstList {
     rows: rows.map(({ entry, question, checked, ifNotDoneYet, reason }) => ({ entry, question, checked, ifNotDoneYet, reason })),
     leftOff: LEFT_OFF_ORDER.flatMap((r) => leftOff.get(r) ?? []).slice(0, 2),
   }
+}
+
+/**
+ * When the tasks added from the list are first due: the coming weekend, inside
+ * Home's 7-day week, so they appear under This week the same day (must-be-true
+ * 11). The first row Saturday, the rest Sunday — the approved mock's Home.
+ * Saturday itself counts as "coming"; on a Sunday it is the next weekend.
+ */
+export function firstDueDates(today: string, count: number): string[] {
+  const weekday = new Date(`${today}T12:00:00Z`).getUTCDay() // 0 = Sunday
+  const toSaturday = weekday === 6 ? 0 : 6 - weekday
+  const saturday = addDays(today, toSaturday)
+  const sunday = addDays(saturday, 1)
+  return Array.from({ length: count }, (_, i) => (i === 0 ? saturday : sunday))
 }

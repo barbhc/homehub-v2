@@ -4,8 +4,15 @@ import { Input } from "@/components/ui/input"
 import { useAuth } from "@/modules/auth"
 import { createHome, getPrimaryHome } from "../services/homeService"
 import { getGateStatus, redeemInviteCode } from "../services/growthGate"
+import { upsertHomeProfile, type Climate } from "../services/homeProfileService"
+import { lookupZipArea, type ZipLookup } from "../services/zipAreaService"
 import { track } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
+import { OnboardingSteps, OptionRow } from "./onboardingParts"
+import { CLIMATE_OPTIONS, freezeRiskFor } from "./onboardingOptions"
+
+/** D1a: the home is named for her; she renames it from the switcher. */
+export const FIRST_HOME_NAME = "My home"
 
 type HomeOnboardingProps = {
   /** Called when the user has a home. Carries the home id when this component
@@ -15,16 +22,29 @@ type HomeOnboardingProps = {
   className?: string
 }
 
+/**
+ * Step 1 of the first minute (D8, design/first-minute-onboarding.md): a zip,
+ * or Skip. The home is created here either way.
+ *
+ * Only the zip is asked — never a street address, never device location
+ * (must-be-true 1) — and it is looked up in a table on the device (2).
+ */
 export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
   const { user } = useAuth()
-  const [name, setName] = useState("")
+  const [zip, setZip] = useState("")
+  const [lookup, setLookup] = useState<ZipLookup | null>(null)
+  const [climate, setClimate] = useState<Climate | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tableFailed, setTableFailed] = useState(false)
   const [loading, setLoading] = useState(false)
   // The invite gate. `needsCode` stays false until we have actually READ the
   // flag, so the code field never flashes in front of a user who does not need
   // one — the gate is off by default and looks it.
   const [needsCode, setNeedsCode] = useState(false)
   const [code, setCode] = useState("")
+  // A home created on an earlier try whose zip write then failed: Try again
+  // writes the zip to THAT home, never a second one.
+  const [createdId, setCreatedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -37,12 +57,12 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
     }
   }, [user])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user || loading) return
-    setError(null)
-    setLoading(true)
+  const unknown = lookup?.kind === "unknown"
 
+  /** The home, created once — or the one this account already has. */
+  async function ensureHome(): Promise<{ homeId: string; existed: boolean } | null> {
+    if (!user) return null
+    if (createdId) return { homeId: createdId, existed: false }
     // "Do I already have a home?" — same membership lookup the home gate uses
     // (collectionGroup(members).where uid == me, via homeService).
     const existing = await getPrimaryHome()
@@ -51,15 +71,9 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
       // already exists — creating one anyway is how duplicate homes get minted.
       console.error("[HomeOnboarding] membership pre-check failed:", existing.error.message)
       setError("We couldn't check your account just now. Please try again in a moment — don't create a new home.")
-      setLoading(false)
-      return
+      return null
     }
-    if (existing.data) {
-      console.debug("[HomeOnboarding] User already has home:", existing.data.home_id)
-      setLoading(false)
-      onComplete(existing.data.home_id)
-      return
-    }
+    if (existing.data) return { homeId: existing.data.home_id, existed: true }
 
     // Redeem BEFORE creating, because the rules will refuse the create without
     // an admission and the resulting error is a bare permission-denied with
@@ -70,71 +84,139 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
         setNeedsCode(false)
       } catch (err) {
         setError(err instanceof Error ? err.message : "That invite code isn't valid.")
-        setLoading(false)
-        return
+        return null
       }
     }
 
-    const result = await createHome({ name: name.trim(), userId: user.id })
-    if (result.data) {
-      console.debug("[HomeOnboarding] Created home:", result.data.homeId)
-      // True-creation branch only — the already-has-home early return above must
-      // not fire the funnel event.
-      track("home_created", { home_id: result.data.homeId })
+    const result = await createHome({ name: FIRST_HOME_NAME, userId: user.id })
+    if (result.error || !result.data) {
+      const msg = result.error?.message ?? "Couldn't create your home."
+      setError(msg === "Failed to fetch" ? "Unable to connect. Check your internet connection and try again." : msg)
+      return null
     }
-    if (result.error) {
-      const msg = result.error.message
-      if (msg.includes("duplicate") || msg.includes("23505")) {
-        onComplete()
-        setLoading(false)
-        return
-      }
-      setError(
-        msg === "Failed to fetch"
-          ? "Unable to connect. Check your internet connection and try again."
-          : msg
-      )
+    // True-creation branch only — the already-has-home path must not fire the funnel event.
+    track("home_created", { home_id: result.data.homeId })
+    setCreatedId(result.data.homeId)
+    return { homeId: result.data.homeId, existed: false }
+  }
+
+  async function finish(save: (homeId: string) => Promise<string | null>) {
+    if (loading) return
+    setError(null)
+    setLoading(true)
+    const home = await ensureHome()
+    if (!home) {
       setLoading(false)
       return
     }
-    onComplete(result.data?.homeId)
+    // A home this account already had keeps its own answers: nothing is written over them.
+    if (!home.existed) {
+      const failed = await save(home.homeId)
+      if (failed) {
+        setError(failed)
+        setLoading(false)
+        return
+      }
+    }
+    setLoading(false)
+    onComplete(home.homeId)
   }
+
+  async function handleContinue(e: React.FormEvent) {
+    e.preventDefault()
+    if (unknown) {
+      if (!climate) return
+      track("onboarding_zip_entered", { known: false })
+      await finish(async (homeId) => {
+        const r = await upsertHomeProfile(homeId, { climate, freeze_risk: freezeRiskFor(climate), climate_source: "owner" })
+        return r.error ? "Couldn't save your climate. Check your connection and try again." : null
+      })
+      return
+    }
+    let found: ZipLookup
+    try {
+      found = await lookupZipArea(zip)
+      setTableFailed(false)
+    } catch (err) {
+      console.warn("[HomeOnboarding] the zip table did not load:", err instanceof Error ? err.message : err)
+      setTableFailed(true)
+      return
+    }
+    setLookup(found)
+    if (found.kind === "invalid") {
+      setError("Enter the five digits of your zip code.")
+      return
+    }
+    if (found.kind === "unknown") return // the climate choices take over
+    const a = found.area
+    track("onboarding_zip_entered", { known: true })
+    await finish(async (homeId) => {
+      const r = await upsertHomeProfile(homeId, {
+        zip: a.zip,
+        climate: a.climate,
+        freeze_risk: a.freezeRisk,
+        climate_source: "zip",
+        area: {
+          hazards: a.hazards.map((h) => h.hazard),
+          hazardsCorrected: [],
+          hardinessZone: a.hardinessZone,
+          county: a.county?.name ?? null,
+          observesDst: a.observesDst,
+          tableVersion: a.tableVersion,
+        },
+      })
+      return r.error ? "Couldn't save your zip. Check your connection and try again." : null
+    })
+  }
+
+  const skip = () => void finish(async () => null)
 
   return (
     <div className={cn("w-full max-w-md mx-auto", className)}>
-      <h1 className="text-2xl font-display font-normal mb-2">Set up your home</h1>
-      <p className="text-muted-foreground mb-6">
-        {/* HH-79: the old line ended "there is no long setup", which names the
-            fear instead of the payoff. Owner picked this wording. */}
-        Give it a name. You can add appliances one at a time — start with one.
-      </p>
-      {/* THE ESCAPE HATCH IS GONE, and it is worth saying why rather than
-          leaving a silent gap.
-
-          It read "Not sure yet? Look around a sample home first" and linked to
-          /sample. It existed for a real reason: this screen asks for a
-          commitment before the person has seen anything the product does, and
-          the sample was the "find out first" half.
-
-          Removed at the owner's request (round 18) because /sample still renders
-          the pre-round-18 layout, and the fix for showing someone a stale
-          product is not to show it to the people who have seen nothing else.
-          BACKLOG §4b parks the redesign until the add-item flow and the item
-          page are final; both doors reopen when it lands.
-
-          The route still exists and still works by direct link — this closed the
-          doors, it did not retire the page. Restoring this one is a three-line
-          change, and the argument it was built on has not stopped being true. */}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <OnboardingSteps step={1} />
+      <h1 className="text-2xl font-display font-normal mb-2">What&apos;s your zip code?</h1>
+      <p className="text-muted-foreground mb-6">So the tasks fit your weather and local risks.</p>
+      <form onSubmit={handleContinue} className="space-y-5">
         <div>
-          <label className="text-sm font-medium block mb-1.5">Home name</label>
+          <label className="text-sm font-medium block mb-1.5" htmlFor="onboarding-zip">
+            Zip code
+          </label>
           <Input
-            placeholder="e.g., My House, Downtown Apartment"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
+            id="onboarding-zip"
+            inputMode="numeric"
+            autoComplete="postal-code"
+            maxLength={5}
+            value={zip}
+            onChange={(e) => {
+              setZip(e.target.value.replace(/\D/g, "").slice(0, 5))
+              if (lookup) setLookup(null)
+              setClimate(null)
+              setError(null)
+            }}
+            aria-invalid={unknown || undefined}
+            aria-describedby="onboarding-zip-note"
+            className={cn("h-12 text-xl font-semibold tracking-[0.2em]", unknown && "border-[var(--hh-clay)]")}
           />
+          {unknown ? (
+            <p id="onboarding-zip-note" role="alert" className="mt-1.5 text-sm font-medium" style={{ color: "var(--hh-clay-ink)" }}>
+              We don’t have {zip}. Pick your climate instead.
+            </p>
+          ) : (
+            <p id="onboarding-zip-note" className="mt-1.5 text-sm text-muted-foreground">
+              Only the zip, never your street. It stays in Homehub.
+            </p>
+          )}
         </div>
+
+        {unknown && (
+          <div className="space-y-2" role="radiogroup" aria-label="Climate">
+            {CLIMATE_OPTIONS.map((o) => (
+              <OptionRow key={o.value} role="radio" selected={climate === o.value} ariaChecked={climate === o.value}
+                onClick={() => setClimate(o.value)} label={o.label} hint={o.hint} />
+            ))}
+          </div>
+        )}
+
         {needsCode && (
           <div>
             <label className="text-sm font-medium block mb-1.5" htmlFor="invite-code">
@@ -155,10 +237,21 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
             </p>
           </div>
         )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Creating..." : "Continue"}
+
+        {tableFailed && (
+          <div role="alert" className="rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
+            Couldn&apos;t load area data. Try again, or skip for now.
+          </div>
+        )}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
+        <Button type="submit" className="w-full h-12 text-base" disabled={loading || (unknown ? !climate : zip.length !== 5)}>
+          {loading ? "Setting up…" : tableFailed ? "Try again" : "Continue"}
         </Button>
+        <button type="button" onClick={skip} disabled={loading}
+          className="block w-full min-h-11 text-center text-[0.9375rem] font-medium text-muted-foreground">
+          Skip for now
+        </button>
       </form>
     </div>
   )

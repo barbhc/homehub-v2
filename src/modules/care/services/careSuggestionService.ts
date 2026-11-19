@@ -18,7 +18,7 @@ import { arrayUnion, doc, serverTimestamp, updateDoc } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { TaskTemplate, ScheduleType } from "@/integrations/types"
 import type { CareEntry } from "../../../../shared/care/library"
-import { applyCadence, createTaskTemplate, setTaskCadence } from "./taskService"
+import { applyCadence, createTaskTemplate, deleteTaskTemplate, setTaskCadence } from "./taskService"
 
 export type ServiceResult<T> = { data: T; error: null } | { data: null; error: { message: string } }
 const err = (e: unknown, fallback: string): { data: null; error: { message: string } } =>
@@ -61,6 +61,13 @@ export async function addLibraryTask(
   })
   if (created.error || !created.data) return { data: null, error: created.error ?? { message: "Could not add the task" } }
   const id = created.data.task_template_id
+  // A later write that fails takes the template back out, so a failed add
+  // leaves nothing behind — no half-made task with no date, and nothing a
+  // retry would duplicate. A rollback that also fails is logged with its ids.
+  const undo = async (why: string) => {
+    const r = await deleteTaskTemplate(homeId, id)
+    if (!r.success) console.warn(`[care library] could not roll back task ${id} (home ${homeId}) after: ${why}:`, r.error)
+  }
   try {
     await updateDoc(doc(db, `homes/${homeId}/taskTemplates/${id}`), {
       externalKey: `${LIBRARY_KEY_PREFIX}${entry.key}`,
@@ -68,12 +75,16 @@ export async function addLibraryTask(
       updatedAt: serverTimestamp(),
     })
   } catch (e) {
+    await undo("provenance write")
     return err(e, "Could not record where the task came from")
   }
   // The library's typical cadence — a default, stamped "system" (a backstop
   // she accepts on an existing task is hers: applyLibraryBackstop below).
   const cad = await applyCadence(homeId, id, { scheduleType: entry.scheduleType as ScheduleType, intervalDays: entry.intervalDays ?? null }, { by: "system" }, "library", { firstDue: opts.firstDue })
-  if (cad.error) return { data: null, error: cad.error }
+  if (cad.error) {
+    await undo("cadence write")
+    return { data: null, error: cad.error }
+  }
   return { data: { ...created.data, external_key: `${LIBRARY_KEY_PREFIX}${entry.key}` }, error: null }
 }
 
