@@ -21,8 +21,11 @@
  *              once per day, only for (instance, part) pairs not already
  *              pushed and not covered by a have/bought shopping row.
  *
- * Timezone is one hardcoded value, isolated in `laParts` — the future
- * per-home swap point (homes.timezone exists in the model; nothing reads it).
+ * Time zone: each PERSON's, from their phone (`time_zone` in
+ * users/{uid}/private/preferences, written by the app — src/lib/timeZone.ts).
+ * Per person, not per home: the phone is what wakes them, and members of one
+ * home can live in different zones. Anyone not yet recorded keeps PUSH_TZ,
+ * the single zone this ran on before (2026-11-19).
  */
 import { isWithinQuietHours, taskNotifies, type NotificationPrefs } from "../../../../shared/notifications/preferences.js"
 
@@ -32,10 +35,22 @@ export const BUY_AHEAD_HOUR = 9
 
 export type LocalParts = { date: string; hhmm: string; hour: number; weekday: number }
 
-/** `now` in the delivery timezone: ISO date, HH:MM, hour, weekday (0 = Sunday). */
-export function laParts(now: Date): LocalParts {
+/** An IANA zone this runtime can format in, or null. Stored data is never trusted. */
+export function validTimeZone(tz: unknown): string | null {
+  if (typeof tz !== "string" || tz.length === 0 || tz.length > 64) return null
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz })
+    return tz
+  } catch {
+    // RangeError: not a zone this runtime knows. Unknown is the same as unset.
+    return null
+  }
+}
+
+/** `now` in a person's time zone (PUSH_TZ when unknown): ISO date, HH:MM, hour, weekday (0 = Sunday). */
+export function localParts(now: Date, tz: string = PUSH_TZ): LocalParts {
   const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: PUSH_TZ, hour12: false, weekday: "short",
+    timeZone: tz, hour12: false, weekday: "short",
     year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
   })
   const p = Object.fromEntries(fmt.formatToParts(now).map((x) => [x.type, x.value]))
@@ -47,6 +62,11 @@ export function laParts(now: Date): LocalParts {
     hour,
     weekday,
   }
+}
+
+/** The old single-zone reading, kept for its tests: `localParts` in PUSH_TZ. */
+export function laParts(now: Date): LocalParts {
+  return localParts(now, PUSH_TZ)
 }
 
 export function addDays(dateStr: string, days: number): string {

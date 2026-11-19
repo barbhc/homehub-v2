@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { clearCachedHome } from "@/lib/homeCache"
 import { markBoot } from "@/lib/bootTiming"
 import { ensureNativePushToken } from "@/lib/nativePush"
+import { syncTimeZone } from "@/lib/timeZone"
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -102,6 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // re-registered and stayed silently unreachable. No-op on web, no-op
         // when a token already exists, and never prompts.
         if (u) void ensureNativePushToken(u.uid)
+        // Reminders run on the person's own clock (src/lib/timeZone.ts).
+        if (u) void syncTimeZone(u.uid)
       },
       // Without this third argument the observer's error path is unhandled, so
       // setLoading(false) never runs and EVERY authenticated screen sits on
