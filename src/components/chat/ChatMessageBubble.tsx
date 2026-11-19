@@ -150,6 +150,14 @@ export function ChatMessageBubble({
             {message.sources.map((s, i) => <SourceChip key={i} source={s} />)}
           </div>
         )}
+        {/* A general answer (the home had nothing Ask could read — design/
+            day-one-home.md, release B): say so in plain words, and how to get
+            answers about their own equipment. */}
+        {!isUser && !message.isStreaming && message.sources && message.sources.length > 0 && message.sources.every((s) => s.source_type === "ai" || s.source_type === "web") && message.sources.some((s) => s.source_type === "ai") && (
+          <p className="mt-1.5 text-xs text-muted-foreground" data-testid="general-answer-note">
+            Not from a manual. Snap a label to get answers about your own equipment.
+          </p>
+        )}
         {offerWeb && onWebSearch && (
             <button
               type="button"

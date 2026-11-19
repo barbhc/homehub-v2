@@ -15,15 +15,17 @@ import type { UserLevel } from "@/hooks/useUserLevel"
 import { dens, greeting, shortDate } from "@/lib/redesign/tokens"
 import { ThisWeekList, TimelyWarrantyLine } from "@/components/home/ThisWeekList"
 import type { ComingUp } from "@/lib/homeWeek"
+import type { AskStarter } from "../../../shared/care/dayOne"
 import { useDisplayName } from "@/hooks/useDisplayName"
 
 // Calm palette (design/hh-home2.jsx)
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 const LINE = "var(--hh-line)"
 
-function AskModule({ d }: { d: ReturnType<typeof dens> }) {
+function AskModule({ d, starters = [] }: { d: ReturnType<typeof dens>; starters?: AskStarter[] }) {
   const [open, setOpen] = useState(false)
   return (
+    <div>
     <div className="overflow-hidden rounded-[18px] border border-[var(--hh-line2)] shadow-[0_1px_2px_rgba(15,23,42,0.04)]" style={{ background: "var(--hh-surface)" }}>
       <div className="flex items-center gap-2.5 py-2 pl-4 pr-2">
         <SparklesIcon className="size-[17px] shrink-0" style={{ color: TEAL }} />
@@ -67,6 +69,26 @@ function AskModule({ d }: { d: ReturnType<typeof dens> }) {
         </div>
       )}
     </div>
+      {starters.length > 0 && <AskStarters starters={starters} />}
+    </div>
+  )
+}
+
+/** Two questions this home would ask now — each opens Ask with it sent (design/day-one-home.md). */
+export function AskStarters({ starters }: { starters: AskStarter[] }) {
+  return (
+    <div className="mt-2.5 flex flex-wrap gap-2" data-testid="ask-starters">
+      {starters.map((s) => (
+        <Link
+          key={s.question}
+          to={`/chat?q=${encodeURIComponent(s.question)}`}
+          className="inline-flex min-h-9 items-center rounded-full border px-3 text-[0.8125rem] font-medium"
+          style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
+        >
+          {s.label}
+        </Link>
+      ))}
+    </div>
   )
 }
 
@@ -76,6 +98,7 @@ export function RefinedHome({
   upcoming,
   nextUp = null,
   comingUp = null,
+  askStarters = [],
   warranties,
   homeId,
   homeName,
@@ -91,6 +114,8 @@ export function RefinedHome({
   upcoming: MaintenanceTaskFull[]
   nextUp?: { dueDate: string; windowStart: string } | null
   comingUp?: ComingUp | null
+  /** Starter questions under the Ask bar, for an early home (design/day-one-home.md). */
+  askStarters?: AskStarter[]
   warranties: ExpiringWarrantyItem[]
   cleaningGuides?: DeepCleanGuide[]
   level: UserLevel
@@ -148,7 +173,7 @@ export function RefinedHome({
       </div>
 
       <div className="flex flex-1 flex-col px-5 pt-4" style={{ paddingInline: d.pad, gap: d.stack }}>
-        <AskModule d={d} />
+        <AskModule d={d} starters={askStarters} />
 
         {/* Home, focused (design/home-focus.md, owner 2026-09-08): ONE list —
             the week, first task open — where the hero, the stat band, the

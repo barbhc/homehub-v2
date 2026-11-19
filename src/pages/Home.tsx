@@ -24,6 +24,8 @@ import { AskFirstHero } from "@/components/dashboard/AskFirstHero"
 import { RefinedHome } from "@/components/home/RefinedHome"
 import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
 import { NextStepCard } from "@/components/home/NextStepCard"
+import { askStarters } from "../../shared/care/dayOne"
+import { localToday } from "../../shared/dates/calendar"
 import { DesktopHome } from "@/components/home/DesktopHome"
 import { ProfileCompletionBanner } from "@/components/dashboard/ProfileCompletionBanner"
 import { PushOptInNudge } from "@/components/dashboard/PushOptInNudge"
@@ -301,6 +303,11 @@ export default function Home() {
   // Day-one Home (design/day-one-home.md): an early home (fewer than 3 items)
   // with upkeep gets ONE next-step card under the list — appliances, then one
   // question, then the label. Keyed by home so a switch starts it fresh.
+  // And two starter questions under Ask (release B): Ask answers a home with
+  // nothing to read from general know-how now, so a first question works.
+  const starters = !isNewUser && (stats?.totalItems ?? 0) < 3
+    ? askStarters({ month: Number(localToday().slice(5, 7)), freezeRisk: homeProfile?.freeze_risk ?? null, hazards: homeProfile?.area?.hazards ?? [] })
+    : []
   const nextStep = !isNewUser && !hasItemsNoUpkeep && homeId && (stats?.totalItems ?? 0) < 3
     ? <NextStepCard key={homeId} homeId={homeId} totalItems={stats?.totalItems ?? 0} onChanged={() => refresh()} />
     : null
@@ -392,6 +399,7 @@ export default function Home() {
               upcoming={visibleUpcoming}
             nextUp={stats?.nextUp ?? null}
             comingUp={stats?.comingUp ?? null}
+            askStarters={starters}
               warranties={expiringWarranties}
               cleaningGuides={cleaningGuides}
               level={level}
@@ -414,6 +422,7 @@ export default function Home() {
             upcoming={visibleUpcoming}
             nextUp={stats?.nextUp ?? null}
             comingUp={stats?.comingUp ?? null}
+            askStarters={starters}
             cleaningGuides={cleaningGuides}
             level={level}
             homeId={homeId || null}

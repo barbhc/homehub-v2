@@ -155,3 +155,29 @@ export function nextQuestion(facts: CareFacts, ctx: HomeContext & { skipped?: It
   }
   return null
 }
+
+// ── two starter questions under Ask (release B) ─────────────────────────────
+
+export interface AskStarter {
+  /** The chip. */
+  label: string
+  /** What is sent to Ask. */
+  question: string
+}
+
+/**
+ * Two questions this home would plausibly ask this month, from what the zip
+ * said. Shown on an early home only, once Ask can answer without a manual.
+ * The questions are the eval's own (evals/ask-general/goldens.json).
+ */
+export function askStarters(input: { month: number; freezeRisk: boolean | null; hazards: readonly string[] }): AskStarter[] {
+  const out: AskStarter[] = []
+  const freezeSeason = [10, 11, 12, 1, 2].includes(input.month)
+  if (input.freezeRisk !== false && freezeSeason) out.push({ label: "Before the first freeze?", question: "What should I do before the first freeze?" })
+  if (input.hazards.includes("hurricane") && input.month >= 4 && input.month <= 10) out.push({ label: "Hurricane prep?", question: "When should I start preparing for hurricane season?" })
+  if (input.hazards.includes("wildfire")) out.push({ label: "Wildfire-ready?", question: "How can I protect my house from wildfire?" })
+  if (input.hazards.includes("earthquake")) out.push({ label: "Earthquake-ready?", question: "How do I get my home ready for an earthquake?" })
+  out.push({ label: "Air filter: how often?", question: "How often should I change my air filter?" })
+  out.push({ label: "This month's upkeep?", question: "What should I do for my home this month?" })
+  return out.slice(0, 2)
+}

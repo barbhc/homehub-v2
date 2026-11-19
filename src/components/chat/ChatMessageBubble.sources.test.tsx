@@ -29,4 +29,18 @@ describe("ChatMessageBubble — sources", () => {
     expect(screen.getByText("Carrier Infinity Furnace — Replacing the filter")).toBeInTheDocument()
     expect(screen.queryByText(/Your note/)).toBeNull()
   })
+
+  it("a general answer says, under it, that it is not from a manual", () => {
+    render(<MemoryRouter><ChatMessageBubble message={answer([{ title: "General knowledge", item_name: "General knowledge", source_type: "ai" }])} /></MemoryRouter>)
+    expect(screen.getByText("General knowledge")).toBeInTheDocument()
+    expect(screen.getByTestId("general-answer-note")).toHaveTextContent("Not from a manual. Snap a label to get answers about your own equipment.")
+  })
+
+  it("an answer with a manual source carries no such note", () => {
+    render(<MemoryRouter><ChatMessageBubble message={answer([
+      { title: "Replacing the filter", item_name: "Carrier Infinity Furnace", source_type: "manual" },
+      { title: "General knowledge", item_name: "General knowledge", source_type: "ai" },
+    ])} /></MemoryRouter>)
+    expect(screen.queryByTestId("general-answer-note")).toBeNull()
+  })
 })

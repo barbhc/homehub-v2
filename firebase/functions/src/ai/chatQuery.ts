@@ -24,7 +24,8 @@ import { getAuth } from "firebase-admin/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { isAllowedUrl } from "../../../../shared/parse/ssrf.js"
 import { assertNotRefused } from "../../../../shared/parse/modelParams.js"
-import { buildChatRequest, normalizeHistory, type PdfDoc } from "../../../../shared/chat/chatMessages.js"
+import { buildChatRequest, normalizeHistory, type ChatRequest, type PdfDoc } from "../../../../shared/chat/chatMessages.js"
+import { buildGeneralRequest, GENERAL_SOURCE, type HomeFacts } from "../../../../shared/chat/generalGuidance.js"
 import { logClaudeUsage } from "../lib/claudeUsage.js"
 import { isWarrantyQuestion, warrantyFactsFromDoc, formatWarrantyBlock, type WarrantyFacts } from "./warrantyContext.js"
 import { pickNotes, formatNotesBlock, noteSources, type NoteInput } from "./notesContext.js"
@@ -158,7 +159,7 @@ export const ChatQueryRequest = z.object({
   home_id: z.string({ error: QUESTION_AND_HOME }).refine(isDocIdSegment, { error: QUESTION_AND_HOME }),
   allow_web_search: z.boolean().nullish(),
 })
-type ChatSource = { title: string; item_name: string; source_type: "manual" | "web" | "note"; url?: string }
+type ChatSource = { title: string; item_name: string; source_type: "manual" | "web" | "note" | "ai"; url?: string }
 type WebResult = { title: string; url: string; snippet: string }
 
 const PREFERRED_TYPES = ["care", "how_to", "troubleshooting", "reference"]
@@ -298,11 +299,91 @@ export const chatQuery = onRequest(
       res.write(sse({ done: true, sources }))
       res.end()
     }
-    // Nothing to ask Claude about: no vendor call, so no charge.
-    const nothingToAsk = async () => {
-      await hold.refund()
-      done([])
-      logReads("nothing-to-ask")
+    // Stream one request to the person, then send its sources. Both paths —
+    // the manual answer and the general one — end here.
+    const streamAnswer = async (request: ChatRequest, sources: ChatSource[], outcome: "answered" | "general") => {
+      openStream()
+      try {
+        const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() })
+        const stream = client.messages.stream(request.params)
+        stream.on("text", (text) => {
+          res.write(sse({ delta: text }))
+        })
+        const answer = await stream.finalMessage()
+        // Every answered call is logged with its cache numbers — a declined one
+        // too, so before the refusal check.
+        logClaudeUsage("chatQuery", request.params.model, answer, { homeId, scope: filter?.type ?? "all", general: outcome === "general", ...request.meta })
+        // A safety decline is a 200 with stop_reason "refusal": surface it
+        // through the catch below (refund + SSE error), never as a silent answer.
+        assertNotRefused(answer)
+        done(sources)
+        logReads(outcome)
+      } catch (err) {
+        // The stream never completed, so refund. This is the case that used to
+        // tell someone "your limit resets at midnight UTC" after our own outage
+        // ate their allowance.
+        await hold.refund()
+        const status = (err as { status?: number })?.status
+        const friendly =
+          status === 429
+            ? "The assistant is receiving too many requests right now. Please wait a moment and try again."
+            : status === 529
+              ? "The assistant is temporarily overloaded. Please try again in a few seconds."
+              : err instanceof Error
+                ? err.message
+                : "Stream failed"
+        res.write(sse({ error: friendly }))
+        res.end()
+        logReads("failed")
+      }
+    }
+
+    // Nothing in the home to read for this question — no manual, warranty or
+    // note (design/day-one-home.md, release B; owner 2026-11-19). Answer from
+    // general know-how fitted to what Homehub knows about the home, instead of
+    // "I couldn't find anything in your manuals". Same charge as any question:
+    // the hold already covers one answer.
+    const answerGeneral = async (itemNames: string[], scopeName: string | null) => {
+      const [homeSnap, tplSnap] = await Promise.all([
+        db.doc(`homes/${homeId}`).get(),
+        db.collection(`homes/${homeId}/taskTemplates`).get(),
+      ])
+      tally.docs("home", 1)
+      tally.query("tasks", tplSnap.size)
+      // Stored fields, read defensively: anything not the expected shape is
+      // treated as unknown, never trusted into the prompt.
+      const area = homeSnap.get("area") as unknown
+      const areaField = (k: string): unknown => (area && typeof area === "object" ? (area as Record<string, unknown>)[k] : undefined)
+      const hazards = areaField("hazards")
+      const freeze = homeSnap.get("freezeRisk") as unknown
+      const ownership = storedText(homeSnap.get("ownership"))
+      const facts: HomeFacts = {
+        zip: storedText(homeSnap.get("zip")),
+        county: typeof areaField("county") === "string" ? (areaField("county") as string) : null,
+        hardinessZone: typeof areaField("hardinessZone") === "string" ? (areaField("hardinessZone") as string) : null,
+        freezeRisk: typeof freeze === "boolean" ? freeze : null,
+        hazards: Array.isArray(hazards) ? hazards.filter((h): h is string => typeof h === "string") : [],
+        homeType: storedText(homeSnap.get("homeType")),
+        ownership: ownership === "own" || ownership === "rent" ? ownership : null,
+        itemNames,
+        taskTitles: tplSnap.docs
+          .filter((d) => d.get("deletedAt") == null && d.get("isActive") !== false)
+          .map((d) => storedText(d.get("title")))
+          .filter((t): t is string => !!t),
+        scopeName,
+      }
+      let webContextBlock = ""
+      const webSources: ChatSource[] = []
+      const braveKey = BRAVE_SEARCH_API_KEY.value()
+      if (allowWebSearch === true && braveKey) {
+        const webResults = await fetchBraveTop(braveKey, scopeName ? `"${scopeName}" ${question}` : question, 3)
+        if (webResults.length > 0) {
+          webContextBlock = formatWebContextBlock(question, webResults)
+          for (const r of webResults) webSources.push({ title: r.title, item_name: "Web", source_type: "web", url: r.url })
+        }
+      }
+      const request = buildGeneralRequest({ question, history, facts, webContextBlock })
+      await streamAnswer(request, [GENERAL_SOURCE, ...webSources], "general")
     }
 
     // --- Resolve in-scope items ---
@@ -314,7 +395,7 @@ export const chatQuery = onRequest(
       category: storedText(d.get("category")),
       displayName: storedText(d.get("displayName")) ?? "Unknown",
     }))
-    if (items.length === 0) return nothingToAsk()
+    if (items.length === 0) return answerGeneral([], null)
 
     let scopedItems = items
     if (filter?.type === "item" && filter.value) {
@@ -325,7 +406,8 @@ export const chatQuery = onRequest(
     } else if (filter?.type === "category" && filter.value) {
       scopedItems = items.filter((i) => i.category === filter.value)
     }
-    if (scopedItems.length === 0) return nothingToAsk()
+    // A room or category with nothing in it: still a question about the home.
+    if (scopedItems.length === 0) return answerGeneral(items.map((i) => i.displayName), filter?.label?.trim() || null)
 
     const scopedIds = new Set(scopedItems.map((i) => i.id))
     const nameByItem = new Map(items.map((i) => [i.id, i.displayName]))
@@ -381,7 +463,9 @@ export const chatQuery = onRequest(
         itemUnitId: storedText(d.get("itemUnitId")) ?? "",
         ...askManualSource(homeId, d.get("sourceType"), d.get("sourceRef")),
       }))
-    if (manuals.length === 0 && warrantyBlock.length === 0 && notesBlock.length === 0) return nothingToAsk()
+    if (manuals.length === 0 && warrantyBlock.length === 0 && notesBlock.length === 0) {
+      return answerGeneral(scopedItems.map((i) => i.displayName), wholeHome ? null : (filter?.label?.trim() || scopedItems.map((i) => i.displayName).join(", ")))
+    }
 
     // --- Decide PDF vs chunk retrieval, and pay for the PDFs ---
     const fetchPdf = makeFetchPdf()
@@ -472,39 +556,6 @@ export const chatQuery = onRequest(
     }
 
     // --- Stream Claude ---
-    openStream()
-    try {
-      const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() })
-      const stream = client.messages.stream(request.params)
-      stream.on("text", (text) => {
-        res.write(sse({ delta: text }))
-      })
-      const answer = await stream.finalMessage()
-      // Every answered call is logged with its cache numbers — a declined one
-      // too, so before the refusal check.
-      logClaudeUsage("chatQuery", request.params.model, answer, { homeId, scope: filter?.type ?? "all", ...request.meta })
-      // A safety decline is a 200 with stop_reason "refusal": surface it
-      // through the catch below (refund + SSE error), never as a silent answer.
-      assertNotRefused(answer)
-      done(sources)
-      logReads("answered")
-    } catch (err) {
-      // The stream never completed, so refund. This is the case that used to
-      // tell someone "your limit resets at midnight UTC" after our own outage
-      // ate their allowance.
-      await hold.refund()
-      const status = (err as { status?: number })?.status
-      const friendly =
-        status === 429
-          ? "The assistant is receiving too many requests right now. Please wait a moment and try again."
-          : status === 529
-            ? "The assistant is temporarily overloaded. Please try again in a few seconds."
-            : err instanceof Error
-              ? err.message
-              : "Stream failed"
-      res.write(sse({ error: friendly }))
-      res.end()
-      logReads("failed")
-    }
+    await streamAnswer(request, sources, "answered")
   },
 )
