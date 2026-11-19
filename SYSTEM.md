@@ -122,6 +122,7 @@ All app data is path-tenanted under `homes/{homeId}/…`; membership at `homes/{
 | `homes/{homeId}/invites/{id}` | member | member | Acceptance is **not** a client write — `acceptInvite` (Admin SDK) |
 | `homes/{homeId}/taskInstances`, `taskTemplates` | member | member + assignee-must-be-member guard | `assigneeIsMember()` |
 | `taskFeedback`, `parseFeedback` | member read/create | **update/delete denied** | append-only ledgers |
+| `homes/{homeId}/manualHashes/{itemUnitId}_{hash}` | member | create: member, exact shape, id = item + hash, named manual exists after; update: only when the claimed manual is gone or removed; **delete denied** | `manualHashClaimOk()` — one manual per item + uploaded file (Codex finding 4, 2026-11-19) |
 | `rooms`, `items`, `careNotes`, `chatFaqs`, `shoppingList`, `tierChangeLog`, `serviceProviders`, `houseRules`, `manuals/**`, `cleaningSessions/**`, `chatConversations/**`, `troubleshootingCases/**` | member | member | flat member-CRUD |
 | `users/{uid}` | `get` any signed-in; **`list` denied** | self only | `list` closed against name/avatar enumeration |
 | `users/{uid}/private/**` | self | self | prefs, FCM tokens |

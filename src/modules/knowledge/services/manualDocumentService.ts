@@ -14,6 +14,7 @@ import { getMetadata, ref as storageRef } from "firebase/storage"
 import { db, callable, storage } from "@/integrations/firebase"
 import type { ManualDocument, ManualSourceType, ManualRole } from "@/integrations/types"
 import { MANUAL_HASH_METADATA_KEY, removeManualPdf } from "@/modules/inventory/services/storageService"
+import { createManualUnderHashClaim } from "./manualHashClaim"
 
 export type ServiceResult<T> =
   | { data: T; error: null }
@@ -120,6 +121,9 @@ async function storedContentHash(path: string): Promise<string | null> {
  *    not hash is stored without one and falls back to the path match below.
  *  - a LINK: the same URL. What a URL serves can change, so the record's parse
  *    state is reset and the link is actually read again.
+ *
+ * Two adds of the same file at the same moment are settled by a claim document
+ * (manualHashClaim.ts, Codex finding 4): the query alone let both create.
  */
 export async function createManualDocument(
   homeId: string,
@@ -150,13 +154,22 @@ export async function createManualDocument(
         return null
       })
       const twin = same?.docs?.[0]
-      if (twin) {
-        if (twin.get("sourceRef") !== input.source_ref) {
-          const removed = await removeManualPdf(input.source_ref)
-          // Best effort: an orphaned copy costs storage, never the manual.
-          if (removed.error) console.warn("[manuals] could not remove the redundant upload:", removed.error.message)
-        }
-        return { data: toManual(twin.id, twin.data()), error: null }
+      if (twin) return await reuseTwin(twin.id, twin.data(), input.source_ref)
+
+      // The query above cannot see an add of the same file that is in flight
+      // right now (Codex finding 4). The claim can: of two simultaneous adds,
+      // exactly one creates the manual and the other gets it back as a twin.
+      const claimed = await createManualUnderHashClaim(
+        db, homeId, input.item_unit_id, contentHash, newManualFields(input, contentHash),
+      ).catch((e: unknown) => {
+        // Same policy as the checks above: a failed guard never blocks the add.
+        console.warn("[manuals] could not claim this file against a simultaneous add; adding without that guard:", e instanceof Error ? e.message : e)
+        return null
+      })
+      if (claimed?.kind === "twin") return await reuseTwin(claimed.manualId, claimed.data, input.source_ref)
+      if (claimed?.kind === "created") {
+        const snap = await getDoc(doc(manuals, claimed.manualId))
+        return { data: toManual(claimed.manualId, snap.data() ?? {}), error: null }
       }
     }
 
@@ -191,34 +204,51 @@ export async function createManualDocument(
       return { data: toManual(hit.ref.id, again.data() ?? {}), error: null }
     }
     const ref = doc(manuals)
-    const now = serverTimestamp()
-    await writeBatch(db)
-      .set(ref, {
-        itemUnitId: input.item_unit_id,
-        title: input.title,
-        label: input.label ?? null,
-        sourceType: input.source_type,
-        sourceRef: input.source_ref,
-        // What the next upload of this same file is recognised by (HH-154).
-        // Absent — never null — when there is none: a link, or a file the
-        // browser could not hash. Those are matched by their path or URL.
-        ...(contentHash ? { contentHash } : {}),
-        role: input.role ?? "primary",
-        version: input.version ?? null,
-        language: input.language ?? null,
-        parsedAt: null,
-        parse: null,
-        draft: null,
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null,
-      })
-      .commit()
+    await writeBatch(db).set(ref, newManualFields(input, contentHash)).commit()
     const snap = await getDoc(ref)
     return { data: toManual(ref.id, snap.data() ?? {}), error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to create manual" } }
   }
+}
+
+/** A brand-new manual record's fields — the plain create and the claimed one alike. */
+function newManualFields(input: CreateManualDocumentInput, contentHash: string | null): DocumentData {
+  const now = serverTimestamp()
+  return {
+    itemUnitId: input.item_unit_id,
+    title: input.title,
+    label: input.label ?? null,
+    sourceType: input.source_type,
+    sourceRef: input.source_ref,
+    // What the next upload of this same file is recognised by (HH-154).
+    // Absent — never null — when there is none: a link, or a file the
+    // browser could not hash. Those are matched by their path or URL.
+    ...(contentHash ? { contentHash } : {}),
+    role: input.role ?? "primary",
+    version: input.version ?? null,
+    language: input.language ?? null,
+    parsedAt: null,
+    parse: null,
+    draft: null,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  }
+}
+
+/**
+ * The same file is already this item's manual: hand that record back as it is
+ * (identical bytes, so its scan is still right) and remove the copy just
+ * uploaded, unless it IS that record's file.
+ */
+async function reuseTwin(manualId: string, data: DocumentData, uploadedPath: string): Promise<ServiceResult<ManualDocument>> {
+  if (data.sourceRef !== uploadedPath) {
+    const removed = await removeManualPdf(uploadedPath)
+    // Best effort: an orphaned copy costs storage, never the manual.
+    if (removed.error) console.warn("[manuals] could not remove the redundant upload:", removed.error.message)
+  }
+  return { data: toManual(manualId, data), error: null }
 }
 
 /**

@@ -13,14 +13,15 @@
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, resolve } from "node:path"
-import { afterAll, beforeAll, beforeEach, describe, it } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import {
   assertFails,
   assertSucceeds,
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing"
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, writeBatch } from "firebase/firestore"
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, type Firestore } from "firebase/firestore"
+import { createManualUnderHashClaim, manualHashClaimId } from "../src/modules/knowledge/services/manualHashClaim"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -762,5 +763,70 @@ describe("growth gate (invite codes)", () => {
     await setGate(true)
     await assertSucceeds(getDoc(doc(asMember(), `homes/${HOME}`)))
     await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/items/i-gate`), { displayName: "Kettle", deletedAt: null }))
+  })
+})
+
+describe("manual hash claims (Codex finding 4): one manual per item + file", () => {
+  const ITEM = "rice-cooker"
+  const HASH = "a".repeat(64)
+  const CLAIM = `homes/${HOME}/manualHashes/${ITEM}_${HASH}`
+  const manualFields = (sourceRef: string) => ({
+    itemUnitId: ITEM, title: "Rice Cooker.pdf", sourceType: "upload", sourceRef, contentHash: HASH,
+    role: "primary", parsedAt: null, parse: null, draft: null, deletedAt: null,
+  })
+  const claimBatch = (db: Firestore, manualId: string, claim: Record<string, unknown>) =>
+    writeBatch(db)
+      .set(doc(db, `homes/${HOME}/manuals/${manualId}`), manualFields(`p/${manualId}.pdf`))
+      .set(doc(db, CLAIM), claim)
+      .commit()
+
+  it("TWO members adding the same PDF at the same moment end with ONE manual", async () => {
+    // The real thing: two clients, two transactions, one emulator. Neither has
+    // seen the other's write when it starts.
+    const [a, b] = await Promise.all([
+      createManualUnderHashClaim(asOwner(), HOME, ITEM, HASH, manualFields("p/owner.pdf")),
+      createManualUnderHashClaim(asMember(), HOME, ITEM, HASH, manualFields("p/member.pdf")),
+    ])
+    expect([a.kind, b.kind].sort()).toEqual(["created", "twin"])
+    expect(a.manualId).toBe(b.manualId)
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const manuals = await getDocs(collection(ctx.firestore(), `homes/${HOME}/manuals`))
+      expect(manuals.size).toBe(1)
+      const claim = await getDoc(doc(ctx.firestore(), CLAIM))
+      expect(claim.get("manualId")).toBe(a.manualId)
+    })
+  })
+
+  it("a removed manual's claim is taken over by the next add of that file", async () => {
+    const first = await createManualUnderHashClaim(asMember(), HOME, ITEM, HASH, manualFields("p/1.pdf"))
+    await assertSucceeds(setDoc(doc(asMember(), `homes/${HOME}/manuals/${first.manualId}`), { deletedAt: serverTimestamp() }, { merge: true }))
+    const second = await createManualUnderHashClaim(asMember(), HOME, ITEM, HASH, manualFields("p/2.pdf"))
+    expect(second.kind).toBe("created")
+    expect(second.manualId).not.toBe(first.manualId)
+  })
+
+  it("an outsider can neither read nor write a home's claims", async () => {
+    await assertFails(getDoc(doc(asOutsider(), CLAIM)))
+    await assertFails(claimBatch(asOutsider(), "m-out", { manualId: "m-out", itemUnitId: ITEM, contentHash: HASH, claimedAt: serverTimestamp() }))
+  })
+
+  it("the claim's id must be the item and hash it claims, with nothing extra", async () => {
+    const ok = { manualId: "m1", itemUnitId: ITEM, contentHash: HASH, claimedAt: serverTimestamp() }
+    await assertFails(claimBatch(asMember(), "m1", { ...ok, contentHash: "b".repeat(64) }))
+    await assertFails(claimBatch(asMember(), "m1", { ...ok, extra: true }))
+    await assertFails(claimBatch(asMember(), "m1", { ...ok, claimedAt: Timestamp.fromMillis(0) }))
+    await assertSucceeds(claimBatch(asMember(), "m1", ok))
+  })
+
+  it("a claim must name a manual that exists once the write lands", async () => {
+    await assertFails(setDoc(doc(asMember(), CLAIM), { manualId: "no-such-manual", itemUnitId: ITEM, contentHash: HASH, claimedAt: serverTimestamp() }))
+  })
+
+  it("a LIVE manual's claim is never re-pointed, and claims are never deleted", async () => {
+    const held = await createManualUnderHashClaim(asMember(), HOME, ITEM, HASH, manualFields("p/1.pdf"))
+    expect(held.kind).toBe("created")
+    await assertFails(claimBatch(asMember(), "m2", { manualId: "m2", itemUnitId: ITEM, contentHash: HASH, claimedAt: serverTimestamp() }))
+    await assertFails(deleteDoc(doc(asOwner(), CLAIM)))
+    expect(manualHashClaimId(ITEM, HASH)).toBe(`${ITEM}_${HASH}`)
   })
 })

@@ -338,35 +338,21 @@ lives five minutes from the start of the request that last used it.
 
 ---
 
-## 3.5 The same-PDF dedupe race — needs a decision, not a fix (Codex finding 4, 2026-10-29)
+## 3.5 The same-PDF dedupe race — FIXED (Codex finding 4, 2026-10-29)
 
-**The defect is real and the fix is a product call, which is why it is here and
-not in a PR.**
+**Owner, 2026-11-19: option B.** Two adds of one PDF to one item at the same
+moment no longer make two manuals (or two paid reads): the content-hash match
+ends in a claim document, `homes/{homeId}/manualHashes/{itemUnitId}_{hash}`,
+written in the same transaction as the manual (`manualHashClaim.ts`; rule
+`manualHashClaimOk`). Soft delete is unchanged — a removed manual's claim is
+taken over by the next add of that file. Proven with two real concurrent
+transactions against the emulator (`firebase/rules.test.ts`).
 
-`createManualDocument` dedupes by content hash with a QUERY followed by an
-independent `set` (`manualDocumentService.ts:139`, `:193`). Two uploads of the
-same PDF to the same item, close together — two tabs, two household members —
-both read "no twin" and both create a manual. The user sees the document twice,
-and **both copies start a paid read**. That second read is the cost that makes
-this worth fixing.
-
-Firestore transactions cannot run queries, only document reads, so the query
-cannot simply be wrapped. Three ways out, each with a real cost:
-
-| Option | How | What it costs |
-|---|---|---|
-| **A. Deterministic document id** from `itemUnitId + contentHash`, created in a transaction | Atomic with no new collection and no rules change | Re-adding a PDF that was removed reuses the tombstone's id. `deleteManualDocument` soft-deletes the manual and **leaves its `chunks` subcollection intact**, so reviving the doc resurrects stale knowledge. Needs delete to clean up chunks first — which is its own change, with its own review. |
-| **B. A hash-claim document** (`homes/{id}/manualHashes/{hash}`) read and written in one transaction | Atomic, keeps soft-delete semantics exactly as they are | A new collection, so `firestore.rules` needs a rule — rules are deny-by-default and publishing them is an approval gate. |
-| **C. An index map on the item doc** (`items/{id}.manualHashes`) | Atomic, no new collection, no rules change | A denormalized index with no designated sync path — the exact shape of the `taskInstances` drift that made a whole cleanup sweep invisible (see `project_denorm_instance_drift`). A removed manual leaves a stale entry that has to be validated on every read. |
-
-**Recommendation: B**, taken together with a decision about whether deleting a
-manual should delete its chunks (which option A would force anyway, and which
-is arguably a bug in its own right — a removed manual's content can still be
-answered from).
-
-Until then the race stands. It needs two near-simultaneous uploads of the same
-file to the same item, so it is rare; what it costs when it happens is one extra
-manual row and one extra paid read.
+**Correction to this entry as first written:** it said a removed manual's
+content "can still be answered from". It cannot — Ask (`askReads.ts`
+`readScopedManuals`), the item page and the knowledge views all read chunks
+only through live manuals (`deletedAt == null`). Removing a manual therefore
+needs no chunk deletion, and none was made.
 
 ---
 
