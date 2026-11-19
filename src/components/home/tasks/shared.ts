@@ -372,13 +372,12 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
     return { error: null }
   }, [homeId, flush, hide, undoSnooze])
 
-  const barNow = useRef<BarState | null>(null)
-  useEffect(() => {
-    barNow.current = bar
-  })
-  const dismiss = useCallback(() => {
-    // Closing a Done's bar accepts it: write it now rather than at the timer.
-    const doneId = barNow.current?.doneId
+  // Closing a Done's bar accepts it: write it now rather than at the timer.
+  // The bar's own Done is handed in by the bar that was drawn (barProps). It
+  // used to be read from a ref an effect kept current — and effects run after
+  // the bar is on screen, so a close tapped in that gap read the previous bar,
+  // wrote nothing, and left the row hidden until the 6 s timer.
+  const dismiss = useCallback((doneId: string | undefined) => {
     setBar(null)
     if (doneId) void commit(doneId)
   }, [commit])
@@ -403,7 +402,7 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
   }, [firstLost])
 
   const barProps: TaskActionBar | null = useMemo(() => {
-    if (bar) return { message: bar.message, onUndo: bar.onUndo, onDismiss: dismiss, ms: bar.ms }
+    if (bar) return { message: bar.message, onUndo: bar.onUndo, onDismiss: () => dismiss(bar.doneId), ms: bar.ms }
     if (firstLost && retrying !== firstLost.id) {
       return { message: lostDoneMessage(firstLost), onUndo: retryLost, actionLabel: "Try again", onDismiss: dismissLost, ms: 0 }
     }
