@@ -35,7 +35,15 @@ export const libraryKeyOf = (t: Pick<TaskTemplate, "external_key">): string | nu
  * same writer every other cadence change uses — so the first occurrence is
  * minted exactly the way a parsed task's would be.
  */
-export async function addLibraryTask(homeId: string, itemUnitId: string | null, entry: CareEntry): Promise<ServiceResult<TaskTemplate>> {
+export async function addLibraryTask(
+  homeId: string,
+  itemUnitId: string | null,
+  entry: CareEntry,
+  /** `firstDue`: the first occurrence's date (applyCadence). Without it the
+   *  first is one full cadence out — right for "add this to my plan", wrong
+   *  for "this is worth doing this month". */
+  opts: { firstDue?: string } = {},
+): Promise<ServiceResult<TaskTemplate>> {
   const created = await createTaskTemplate({
     home_id: homeId,
     scope_type: itemUnitId ? "item_unit" : "home",
@@ -64,7 +72,7 @@ export async function addLibraryTask(homeId: string, itemUnitId: string | null, 
   }
   // The library's typical cadence — a default, stamped "system" (a backstop
   // she accepts on an existing task is hers: applyLibraryBackstop below).
-  const cad = await applyCadence(homeId, id, { scheduleType: entry.scheduleType as ScheduleType, intervalDays: entry.intervalDays ?? null }, { by: "system" }, "library")
+  const cad = await applyCadence(homeId, id, { scheduleType: entry.scheduleType as ScheduleType, intervalDays: entry.intervalDays ?? null }, { by: "system" }, "library", { firstDue: opts.firstDue })
   if (cad.error) return { data: null, error: cad.error }
   return { data: { ...created.data, external_key: `${LIBRARY_KEY_PREFIX}${entry.key}` }, error: null }
 }

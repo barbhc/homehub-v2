@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
 import {
   SparklesIcon, ArrowRightIcon, MegaphoneIcon, } from "lucide-react"
@@ -56,7 +57,7 @@ function RecallCard({ recall }: { recall: HomeNotices["recalls"][number] }) {
 
 
 export function DesktopHome({
-  tasks, upcoming, nextUp = null, warranties, notices, homeId, completingId, actionError = null, onComplete, onSnooze,
+  tasks, upcoming, nextUp = null, warranties, notices, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
 }: {
   tasks: DashboardTask[]
   /** Forward schedule for the Coming-up drawer. */
@@ -72,6 +73,8 @@ export function DesktopHome({
   actionError?: { id: string; message: string } | null
   onComplete: (id: string) => void
   onSnooze: (id: string) => void
+  /** The one next step under the week, when Home has one (a home with tasks but no items: Snap a label). */
+  nextStep?: ReactNode
 }) {
   const { firstName } = useDisplayName()
 
@@ -109,6 +112,7 @@ export function DesktopHome({
               onComplete={onComplete}
               onSnooze={onSnooze}
             />
+            {nextStep && <div className="max-w-xl">{nextStep}</div>}
           </div>
 
           {/* Side rail — only what is timely: a recall on something you own,
