@@ -121,3 +121,30 @@ export const WHAT_NOTIFICATIONS_SEND_SENTENCE =
  *  each kind off, so it says what is on by default. */
 export const WHAT_NOTIFICATIONS_SEND_ON =
   "On by default: reminders for Essential tasks, deadlines and any task you turn on, a Sunday summary, and buy-ahead heads-ups."
+
+/**
+ * The reminder ask after a Mark done (design/day-one-home.md, release C).
+ * Asked once per device, at the moment the value is concrete: an Essential
+ * task was just done, and its next one will come due. Never when the answer
+ * is already known — on, refused (iOS will not prompt again), turned off on
+ * this phone in Settings, or this ask or Home's nudge was declined here.
+ */
+export function shouldAskAfterDone(args: {
+  essential: boolean
+  /** "prompt" = never asked; the web's "default" means the same. */
+  permission: "granted" | "denied" | "prompt" | "unsupported"
+  alreadyOn: boolean
+  turnedOffHere: boolean
+  declinedHere: boolean
+}): boolean {
+  if (!args.essential) return false
+  if (args.alreadyOn || args.turnedOffHere || args.declinedHere) return false
+  return args.permission === "prompt"
+}
+
+/** The morning push for one task, word for word (composeMorning in
+ *  firebase/functions/src/push/lanes.ts) — the reminder ask previews exactly
+ *  what would arrive. */
+export function sampleReminder(t: { title: string; itemName: string | null }): { title: string; body: string } {
+  return { title: `Today: ${t.title}`, body: `${t.itemName ? `${t.itemName}. ` : ""}You asked to be reminded for this one.` }
+}

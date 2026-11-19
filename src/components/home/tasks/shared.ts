@@ -94,7 +94,8 @@ export const DONE_UNDO_MS = 6000
 const PREVIEW_WAIT_MS = 700
 
 export type DoneOutcome =
-  | { status: "saved" }
+  /** `nextDue`: the date the receipt named, when it arrived in time (the reminder ask uses it). */
+  | { status: "saved"; nextDue: string | null }
   | { status: "undone" }
   | { status: "failed"; message: string }
 
@@ -130,6 +131,8 @@ type PendingDone = {
   homeId: string
   timer: number | null
   settle: (o: DoneOutcome) => void
+  /** The next date the receipt named, once previewNextDue answered. */
+  nextDue: string | null
 }
 
 type BarState = { message: string; onUndo?: () => void; doneId?: string; ms: number }
@@ -240,7 +243,7 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
       console.warn(`[${opts.current.where}] task ${id} is done, but the list did not refresh (home ${p.homeId}):`, e instanceof Error ? e.message : e)
     }
     unhide(id)
-    p.settle({ status: "saved" })
+    p.settle({ status: "saved", nextDue: p.nextDue })
   }, [unhide])
 
   /** Write every waiting Done now. */
@@ -277,7 +280,7 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
     // On disk before anything else happens, so nothing after this can lose it.
     queueDone({ homeId, id, label, completedOn })
     return new Promise<DoneOutcome>((settle) => {
-      const entry: PendingDone = { homeId, timer: null, settle }
+      const entry: PendingDone = { homeId, timer: null, settle, nextDue: null }
       pending.current.set(id, entry)
       let nextDue: string | null = null
       const undo = () => {
@@ -296,6 +299,7 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
         }
         if (next) {
           nextDue = next
+          entry.nextDue = next
           setQueuedNextDue(homeId, id, next)
         }
         setBar({

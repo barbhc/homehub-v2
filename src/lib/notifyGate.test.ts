@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest"
+import { shouldAskAfterDone, sampleReminder } from "./notifyGate"
 import {
   NOTIFICATION_SETTINGS_PATH,
   notificationsBlocked,
@@ -100,5 +101,23 @@ describe("where the switch is, once a device has refused (owner, #228 review)", 
 
   it("the review's 'Turn on in Settings' goes to the section that says it", () => {
     expect(NOTIFICATION_SETTINGS_PATH).toBe("/settings#notifications")
+  })
+})
+
+describe("shouldAskAfterDone (the reminder ask, release C)", () => {
+  const base = { essential: true, permission: "prompt" as const, alreadyOn: false, turnedOffHere: false, declinedHere: false }
+  it("asks only with the system prompt unspent, after an Essential Done", () => {
+    expect(shouldAskAfterDone(base)).toBe(true)
+    expect(shouldAskAfterDone({ ...base, essential: false })).toBe(false)
+    expect(shouldAskAfterDone({ ...base, permission: "denied" })).toBe(false)
+    expect(shouldAskAfterDone({ ...base, permission: "granted" })).toBe(false)
+    expect(shouldAskAfterDone({ ...base, permission: "unsupported" })).toBe(false)
+    expect(shouldAskAfterDone({ ...base, alreadyOn: true })).toBe(false)
+    expect(shouldAskAfterDone({ ...base, turnedOffHere: true })).toBe(false)
+    expect(shouldAskAfterDone({ ...base, declinedHere: true })).toBe(false)
+  })
+  it("previews the morning push word for word", () => {
+    expect(sampleReminder({ title: "Replace the air filter", itemName: "Furnace" })).toEqual({ title: "Today: Replace the air filter", body: "Furnace. You asked to be reminded for this one." })
+    expect(sampleReminder({ title: "Test smoke and CO alarms", itemName: null }).body).toBe("You asked to be reminded for this one.")
   })
 })

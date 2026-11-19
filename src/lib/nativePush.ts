@@ -227,6 +227,20 @@ export async function ensureNativePushToken(userId: string): Promise<boolean> {
   }
 }
 
+/** The phone's notification permission, as iOS reports it: "prompt" means it
+ *  has never been asked (the one ask iOS allows is still unspent). Unreadable
+ *  reads as "denied", so nothing offers a prompt that may not open. */
+export async function nativePushPermission(): Promise<"granted" | "denied" | "prompt"> {
+  if (!isNativePlatform()) return "denied"
+  try {
+    const perm = await PushNotifications.checkPermissions()
+    return perm.receive === "granted" ? "granted" : perm.receive === "denied" ? "denied" : "prompt"
+  } catch (err) {
+    console.warn("[nativePush] could not read notification permission:", err instanceof Error ? err.message : err)
+    return "denied"
+  }
+}
+
 /** True if native push permission is granted on this device and its reminders
  *  were not turned off here (permission outlives a Disable). */
 export async function isNativePushRegistered(): Promise<boolean> {
