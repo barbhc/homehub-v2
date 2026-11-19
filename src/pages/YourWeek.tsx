@@ -8,6 +8,7 @@ import { useWeekReminders, weekChip } from "@/hooks/useWeekReminders"
 import { buyFirstRows, type BuyFirstRow } from "@/lib/buyFirst"
 import { TIER, type Tier, shortDate } from "@/lib/redesign/tokens"
 import { addDays, localToday } from "../../shared/dates/calendar"
+import { usePressTint } from "@/components/home/tasks/useTaskRowMotion"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -210,8 +211,15 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function ReminderRow({ t, chip }: { t: WeekReminder; chip: string }) {
   const tier = asTier(t.priorityTier)
   const meta = [t.itemName, chip].filter(Boolean).join(" · ")
+  // The task rows' press tint (Apple polish phase 2): washes ~40ms after a
+  // finger lands, clears on a scroll or release.
+  const press = usePressTint()
   return (
-    <Link to={`/tasks/${t.taskInstanceId}`} className="flex items-center gap-3 px-3.5 py-3">
+    <Link
+      to={`/tasks/${t.taskInstanceId}`}
+      {...press}
+      className="flex items-center gap-3 px-3.5 py-3 transition-[background-color] duration-(--dur-press) ease-linear data-[pressed]:bg-(--hh-teal-wash)"
+    >
       <span className="flex size-6 shrink-0 items-center justify-center rounded-full border-2" style={{ borderColor: TEAL }}>
         <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
       </span>
