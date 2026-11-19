@@ -54,6 +54,45 @@ Same scoring as §1: (Risk + Impact) / Scope.
 **Recommended order:** D4 (with D7 alongside), D5, D2, D1a, D1b and D1c, D3. D1, D2 and D4 are one journey
 (snap, find, few tasks) and it is safer built back to front.
 
+### D8 (proposed 2026-11-18, not decided). First-minute onboarding: something true about the home before any item
+
+From Seema at the same demo: too much setup before anything useful. The idea was
+an address (or only a zip code) in, a picture of the home out, then a short list
+of tasks to choose from. Research, five mocked versions and a comparison are on
+one page: https://claude.ai/artifact/K9hhfgysCBHpiXB1pEz4Wz. Nothing is built and
+no code was changed.
+
+| ID | Item | Risk | Impact | Scope | Score | Note |
+|---|---|---|---|---|---|---|
+| D8 | **Zip code, then this month's short list** (Version B on the page), with the same list minus the area facts when the zip is skipped (Version E) | 2 | 4 | 3 | 2.0 | Proposed scores. It is D7 moved to the first screen, so the table is the same work. Needs a build-ready mock (CLAUDE.md rule 7). |
+
+**Three decisions for the owner before a mock:**
+1. Which version. Recommended B with E as its skip path. B asks for the zip on the
+   first screen, which amends D7 must-be-true 2 ("appears after the first item is saved").
+2. Whether a street address stays off the table. Version A (type the address, see
+   the public record) reverses D7 must-be-true 1 and 6. Recommended: keep both rules;
+   revisit A later as a test for houses only.
+3. What comes first after sign-in: this list or D1a's camera. Recommended: the list,
+   with "Snap a label" as its closing step.
+
+**What the research settled (checked on the publishers' pages, 2026-11-18):**
+- **Zip sources for D7.** The USDA Plant Hardiness zip file (PRISM, 2023; 39,921 rows,
+  1.2 MB; free to redistribute with credit) gives the coldest night of a normal year
+  per zip: 94110 reads 35 to 40°F, 55406 reads -20 to -15°F. That is the freeze signal.
+  FEMA closed the National Risk Index website, but v1.20 (Dec 2025) is still published
+  as a county and census-tract file on OpenFEMA. The Census zip-to-county file is free;
+  10,186 of 33,791 zip areas touch two counties.
+- **Water hardness by zip cannot be done honestly.** The only public map is USGS stream
+  data from 1975, and USGS says not to use it for local decisions.
+- **Still unverified:** NOAA frost and rain normals at zip grain, the FEMA and Energy
+  Department reuse terms, and the Census figures (they need a free API key).
+- **Address lookup is cheap but thin.** RentCast is free for 50 lookups a month, then
+  20 cents each, or $74 a month for 1,000; its terms allow storing and showing the data.
+  Google's address box is free at this size. But every vendor resells the assessor's
+  roll: in San Francisco's 2024 roll, bedrooms are blank on 22% of condos and stories
+  on 34%, and heating, cooling and roof are not recorded at all. A condo's record is
+  the unit, so nothing about the building is on it.
+
 ---
 
 ## Audit 2026-09-29 — the clean-up plan
