@@ -91,7 +91,7 @@ test("ReadTally bills an empty query as one read and sums per collection", () =>
   t.query("notes", 0)
   t.docs("rooms", 2)
   t.query("chunks", 40)
-  assert.deepEqual(t.reads, { member: 1, items: 25, notes: 1, rooms: 2, manuals: 0, chunks: 40 })
+  assert.deepEqual(t.reads, { member: 1, items: 25, notes: 1, rooms: 2, manuals: 0, chunks: 40, home: 0, tasks: 0 })
   assert.equal(t.docsRead, 69)
 })
 
@@ -103,6 +103,6 @@ test("the per-question log line: docsRead, and each collection's share of it", (
   t.query("chunks", 120)
   assert.deepEqual(askReadsLogFields("h1", "all", "answered", t), {
     homeId: "h1", scope: "all", outcome: "answered",
-    docsRead: 171, member: 1, items: 25, notes: 0, rooms: 0, manuals: 25, chunks: 120,
+    docsRead: 171, member: 1, items: 25, notes: 0, rooms: 0, manuals: 25, chunks: 120, home: 0, tasks: 0,
   })
 })
