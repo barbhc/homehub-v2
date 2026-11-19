@@ -65,6 +65,8 @@ homes/{homeId}                       ← home
   manuals/{manualId}                 ← manual_document  (+ parse state machine, §8)
     chunks/{chunkId}                 ← knowledge_chunk  (hard-delete+reinsert on re-parse)
     entities/{entityId}              ← manual_entity
+  manualHashes/{itemUnitId}_{hash}   ← v2-only: one claim per item + uploaded file
+                                        (manualHashClaim.ts; never deleted, a stale one is taken over)
   taskTemplates/{tplId}              ← task_template + schedule_rule (inlined) +
                                         task_template_supply (inlined supplies[])
   taskInstances/{instId}             ← task_instance  (+ denormalized display fields, §5)
@@ -364,6 +366,10 @@ v1 has **78 RLS policies**, but the effective model is simpler than the count su
   changed `fieldSources.<field>` stamp must be the caller's own `user` stamp (`uid ==
   request.auth.uid`) or a `system` stamp with no uid (or be cleared); `manual` stamps and
   `manualSuggestion` are Admin-SDK-only (the parser). See §2 "Field provenance rule".
+- **Manual hash claims** (`manualHashClaimOk`, Codex finding 4): `manualHashes/{claimId}` holds
+  exactly `manualId`, `itemUnitId`, `contentHash`, `claimedAt == request.time`; the id must be
+  `{itemUnitId}_{contentHash}`; the named manual must exist after the write (`existsAfter`). An
+  update is allowed only when the claimed manual is gone or soft-deleted; delete is denied.
 - **Self-only:** `users/{uid}` writes are `request.auth.uid == uid`; `users/{uid}/private/**` is
   self-only for read too. Member docs: the client creates exactly one — its own owner row when it
   creates the home (every other join is `acceptInvite`); self may update own row (`isPrimary`, never

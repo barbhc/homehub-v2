@@ -20,24 +20,51 @@ type Clause = { f: string; op: string; v: unknown }
 
 /** The emulated manuals collection: id → fields. */
 const store = new Map<string, Data>()
+/** The emulated manualHashes collection (Codex finding 4): claim id → fields. */
+const claims = new Map<string, Data>()
 let nextId = 1
-const snapOf = (id: string) => {
-  const data = store.get(id) ?? {}
-  return { id, ref: { id }, data: () => data, get: (k: string) => data[k] }
+const snapOf = (id: string, from: Map<string, Data> = store) => {
+  const data = from.get(id) ?? {}
+  return { id, ref: { id }, exists: () => from.has(id), data: () => data, get: (k: string) => data[k] }
 }
+type Ref = { id: string; path: string }
+const isClaim = (ref: Ref) => ref.path.includes("/manualHashes/")
 
 const getDocs = vi.fn(async (q: { q: [unknown, ...Clause[]] }) => {
   const clauses = q.q.slice(1) as Clause[]
   const ids = [...store.keys()].filter((id) => clauses.every((c) => (store.get(id)![c.f] ?? null) === c.v))
-  return { docs: ids.map(snapOf) }
+  return { docs: ids.map((id) => snapOf(id)) }
 })
 const set = vi.fn((ref: { id: string }, data: Data) => { store.set(ref.id, { ...data }); return batch })
 const update = vi.fn((ref: { id: string }, data: Data) => { store.set(ref.id, { ...store.get(ref.id), ...data }); return batch })
 const batch = { set, update, commit: vi.fn(async () => undefined) }
 
+/**
+ * Firestore runs transactions as if one at a time — a transaction whose reads
+ * went stale is retried — so the emulation runs them strictly in turn. That is
+ * the guarantee the claim relies on; the real concurrent pair runs against the
+ * emulator in firebase/rules.test.ts.
+ */
+let txChain: Promise<unknown> = Promise.resolve()
+const runTransaction = vi.fn((_db: unknown, fn: (tx: unknown) => Promise<unknown>) => {
+  const tx = {
+    get: async (ref: Ref) => (isClaim(ref) ? snapOf(ref.id, claims) : snapOf(ref.id)),
+    set: (ref: Ref, data: Data) => { if (isClaim(ref)) claims.set(ref.id, { ...data }); else set(ref, data); return tx },
+  }
+  const run = txChain.then(() => fn(tx))
+  txChain = run.catch(() => undefined)
+  return run
+})
+
 vi.mock("firebase/firestore", () => ({
   collection: (_db: unknown, path: string) => ({ path }),
-  doc: () => ({ id: `new-${nextId++}` }),
+  // doc(db, "a/b/id") and doc(collectionRef, "id") name a doc; doc(collectionRef) mints one.
+  doc: (parent: { path?: string }, path?: string) => {
+    if (path) return { id: path.split("/").pop()!, path: parent.path ? `${parent.path}/${path}` : path }
+    const id = `new-${nextId++}`
+    return { id, path: `${parent.path}/${id}` }
+  },
+  runTransaction: (db: unknown, fn: (tx: unknown) => Promise<unknown>) => runTransaction(db, fn),
   query: (...a: unknown[]) => ({ q: a }),
   where: (f: string, op: string, v: unknown) => ({ f, op, v }),
   getDocs: (q: { q: [unknown, ...Clause[]] }) => getDocs(q),
@@ -77,6 +104,7 @@ const live = () => [...store.values()].filter((d) => d.deletedAt == null)
 beforeEach(() => {
   vi.clearAllMocks()
   store.clear()
+  claims.clear()
   nextId = 1
 })
 
@@ -178,6 +206,53 @@ describe("an upload is the same manual when its CONTENT is (HH-154)", () => {
     const res = await createManualDocument("h1", upload(1))
     expect(res.error).toBeNull()
     expect(set).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("two adds of the same file at the same moment (Codex finding 4)", () => {
+  // Both adds query before either has written, so both see "no twin" — the
+  // review's case: two tabs, or two household members, adding one PDF. Before
+  // the claim, both created a manual and both started a paid read.
+  it("leave ONE manual; the second add gets the first one's record and its upload is removed", async () => {
+    const [a, b] = await Promise.all([
+      createManualDocument("h1", upload(1)),
+      createManualDocument("h1", upload(2)),
+    ])
+    expect(a.error).toBeNull()
+    expect(b.error).toBeNull()
+    expect(b.data?.manual_id).toBe(a.data?.manual_id)
+    expect(live()).toHaveLength(1)
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(removeManualPdf.mock.calls.map((c) => c[0])).toEqual([upload(2).source_ref])
+  })
+
+  it("the claim names the manual it was taken for", async () => {
+    const res = await createManualDocument("h1", upload(1))
+    expect(claims.get(`rice-cooker_${RICE}`)).toMatchObject({
+      manualId: res.data?.manual_id, itemUnitId: "rice-cooker", contentHash: RICE,
+    })
+  })
+
+  it("a claim left by a REMOVED manual is taken over — removing stays a soft delete", async () => {
+    store.set("gone", { itemUnitId: "rice-cooker", sourceRef: upload(1).source_ref, contentHash: RICE, deletedAt: "2026-09-06" })
+    claims.set(`rice-cooker_${RICE}`, { manualId: "gone", itemUnitId: "rice-cooker", contentHash: RICE })
+    const res = await createManualDocument("h1", upload(2))
+    expect(res.data?.manual_id).not.toBe("gone")
+    expect(claims.get(`rice-cooker_${RICE}`)?.manualId).toBe(res.data?.manual_id)
+    // The removed manual is left exactly as it was.
+    expect(store.get("gone")?.deletedAt).toBe("2026-09-06")
+  })
+
+  it("a claim that cannot be taken (offline, refused) never blocks the add", async () => {
+    runTransaction.mockRejectedValueOnce(new Error("permission-denied"))
+    const res = await createManualDocument("h1", upload(1))
+    expect(res.error).toBeNull()
+    expect(live()).toHaveLength(1)
+  })
+
+  it("a link is never claimed — it has no content hash", async () => {
+    await createManualDocument("h1", { item_unit_id: "rice-cooker", title: "x", source_type: "url", source_ref: "https://example.com/r.pdf" })
+    expect(runTransaction).not.toHaveBeenCalled()
   })
 })
 

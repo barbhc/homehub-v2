@@ -120,6 +120,20 @@ service cloud.firestore {
              == (resource == null ? null : resource.data.get('manualSuggestion', null));
     }
 
+    // Manual hash claims (homes/{homeId}/manualHashes, Codex finding 4).
+    function manualHashClaimOk(homeId, claimId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['manualId', 'itemUnitId', 'contentHash', 'claimedAt'])
+        && d.manualId is string && d.itemUnitId is string && d.contentHash is string
+        && d.claimedAt == request.time
+        && claimId == d.itemUnitId + '_' + d.contentHash
+        && existsAfter(/databases/$(database)/documents/homes/$(homeId)/manuals/$(d.manualId));
+    }
+    function manualHashClaimStale(homeId) {
+      let held = /databases/$(database)/documents/homes/$(homeId)/manuals/$(resource.data.manualId);
+      return !exists(held) || get(held).data.get('deletedAt', null) != null;
+    }
+
     // ---- users (profiles + private prefs/tokens) ----
     match /users/{uid} {
       // Profile fields readable by any signed-in user ONLY as single-doc gets
@@ -247,6 +261,23 @@ service cloud.firestore {
         allow create, update: if isMember(homeId) && assigneeIsMember(homeId, 'defaultAssignee')
           && templateProvenanceOk();
         allow delete: if isMember(homeId);
+      }
+
+      // ---- manual hash claims (Codex finding 4) ----
+      // One doc per (item, file content), id `{itemUnitId}_{contentHash}`,
+      // written in the same transaction as the manual it names
+      // (src/modules/knowledge/services/manualHashClaim.ts). It is how two
+      // simultaneous adds of one PDF end up as one manual. Exactly the four
+      // fields; the id must be the fields it claims; the manual must exist once
+      // the write lands. Re-pointing is only for a claim whose manual is gone
+      // or removed — a live manual's claim is never taken away. Never deleted:
+      // a stale claim is simply taken over by the next add of that file.
+      match /manualHashes/{claimId} {
+        allow read: if isMember(homeId);
+        allow create: if isMember(homeId) && manualHashClaimOk(homeId, claimId);
+        allow update: if isMember(homeId) && manualHashClaimOk(homeId, claimId)
+          && manualHashClaimStale(homeId);
+        allow delete: if false;
       }
 
       // ---- manuals + chunks + entities (path-tenanted subtree) ----

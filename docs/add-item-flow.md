@@ -163,6 +163,15 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   `createManualDocument`. A browser that cannot hash (no Web Crypto) still
   attaches the file, says so in the console, stores no hash — never a null
   one — and falls back to the path match. — HH-154 (audit 2026-09-29)
+- **The same PDF added twice AT ONCE is still one manual.** Two tabs or two
+  household members adding one file to one item both found "no twin" and both
+  created a manual, each starting a paid read. The hash match now ends in a
+  claim document, `homes/{homeId}/manualHashes/{itemUnitId}_{contentHash}`,
+  written in the same transaction as the manual: exactly one add creates it,
+  the other gets that manual back and its upload is removed. Removing a manual
+  is still a soft delete — the next add of that file takes the stale claim
+  over. A claim that cannot be taken never blocks the add. — Codex review
+  2026-10-29, finding 4
 - **Upload leads** and holds the only filled button. — HH-109, HH-115
 - Upload and Paste a link are joined by the same **"or" rule** as the identify
   step's type-or-scan, so the sources read as alternatives, not a list. —
@@ -629,6 +638,7 @@ and where they differ, the amended line governs:
 | `src/modules/inventory/services/postCreateLookup.test.ts`, "as it is now" | A lookup landing on an item renamed, re-categorised or re-identified while it ran (HH-125, HH-130) | live |
 | `src/modules/knowledge/services/manualDedupe.test.ts` | A re-upload of the same PDF — at a new path, as every upload is — minting a second record (HH-154) | live |
 | `e2e/emu/smart-add.spec.ts`, the same PDF twice | Through the real Storage and Firestore emulators: a scan retried with the same file leaving two records, or two stored PDFs (HH-154) | live |
+| `firebase/rules.test.ts`, "manual hash claims" + `manualDedupe.test.ts`, "two adds … at the same moment" | Two members adding one PDF to one item at the same moment leaving two manuals — run as two real concurrent transactions against the Firestore emulator (Codex finding 4) | live |
 | `src/lib/manualRescan.test.ts` | A rescan from Settings that commits instead of ending in the review | live |
 | `seedUnreviewedManual` in `scripts/seed-emulator.ts` | **The gap, now closed.** A read-but-unsaved manual with no maintenance in it — the state all five repeated reports came from, which no test could visit because every seeded manual was committed and every seeded item already had tasks | live |
 
