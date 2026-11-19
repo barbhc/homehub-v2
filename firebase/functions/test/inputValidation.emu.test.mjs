@@ -200,9 +200,11 @@ test("classify apply: a reference row only deactivates; a deleted or overridden 
 test("chatQuery: a 600-turn thread is answered — not a 400", async () => {
   const H = home("ask-long")
   await seedMember(H, ASK_UID)
-  // No items: the handler answers "nothing to ask about" (done, no sources)
-  // without calling Claude — the full path past validation, membership and
-  // the quota charge (refunded), end to end.
+  // No items: the handler now answers from general know-how (generalGuidance,
+  // release B of design/day-one-home.md), so it goes past validation,
+  // membership and the quota charge to the vendor call. The emulator has no
+  // API key, so that call fails and the stream says so (and refunds) — what
+  // matters here is that a 600-turn thread was not refused with a 400.
   const thread = Array.from({ length: 600 }, (_, i) => ({ role: i % 2 === 0 ? "user" : "assistant", content: `turn ${i}` }))
   const headers = { authorization: "Bearer iv-good-token", "content-type": "application/json" }
   const req = {
@@ -229,7 +231,9 @@ test("chatQuery: a 600-turn thread is answered — not a 400", async () => {
   await chatQuery(req, res)
   assert.equal(out.status, null, `no error status (got ${out.status} ${JSON.stringify(out.json)})`)
   assert.ok(out.ended)
-  assert.ok(out.written.some((w) => w.includes('"done":true')), out.written.join(""))
+  const stream = out.written.join("")
+  assert.ok(stream.includes('"done":true') || stream.includes('"error"'), stream)
+  assert.doesNotMatch(stream, /couldn't be sent as it was/, "the thread was not rejected as invalid input")
 })
 
 // ─── manual sources: never another home's Storage folder ───────────────────
