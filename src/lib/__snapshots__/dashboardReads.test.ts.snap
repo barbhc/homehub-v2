@@ -22,6 +22,14 @@ exports[`fields Home never renders > suggested + neverCompleted look back DONE_H
 exports[`one Home load — a home with history, no user routines (the usual case) > renders exactly what it always rendered > core 1`] = `
 {
   "stats": {
+    "comingUp": {
+      "again": false,
+      "date": "2026-07-02",
+      "titles": [
+        "Flush water heater",
+        "Check anode rod",
+      ],
+    },
     "completedThisMonth": 3,
     "dueSoonCount": 4,
     "nextUp": {
@@ -660,6 +668,14 @@ exports[`one Home load — a home with history, no user routines (the usual case
 exports[`one Home load — with user routines (guides come from the routines) > renders exactly what it always rendered > core 1`] = `
 {
   "stats": {
+    "comingUp": {
+      "again": false,
+      "date": "2026-07-02",
+      "titles": [
+        "Flush water heater",
+        "Check anode rod",
+      ],
+    },
     "completedThisMonth": 3,
     "dueSoonCount": 4,
     "nextUp": {

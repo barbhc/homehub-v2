@@ -7,7 +7,7 @@
  * invisible. Found walking the real flow on the emulator, 2026-11-18.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { cleanup, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 
 const dash = vi.hoisted(() => ({ totalItems: 0, scheduledTaskCount: 2, upcoming: [] as unknown[] }))
@@ -38,6 +38,10 @@ vi.mock("@/components/dashboard/LevelUnlockBanner", () => ({ LevelUnlockBanner: 
 vi.mock("@/components/dashboard/PushOptInNudge", () => ({ PushOptInNudge: () => <div data-testid="push-nudge" /> }))
 vi.mock("@/components/dashboard/ProfileCompletionBanner", () => ({ ProfileCompletionBanner: () => <div data-testid="profile-banner" /> }))
 vi.mock("@/components/home/HomeSwitcherSheet", () => ({ HomeSwitcherSheet: () => null }))
+// The card's own states are NextStepCard.test.tsx's; here, only whether Home places it.
+vi.mock("@/components/home/NextStepCard", () => ({
+  NextStepCard: ({ totalItems }: { totalItems: number }) => <div data-testid="next-step-card" data-items={totalItems} />,
+}))
 vi.mock("@/components/home/tasks/shared", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   useTaskDetail: () => ({ detail: null, loading: false, error: null }),
@@ -67,19 +71,14 @@ describe("Home — tasks before any item", () => {
     expect(screen.getAllByText("Check the water heater's quake straps").length).toBeGreaterThan(0)
   })
 
-  it("offers the label as the next step — a link, so the camera opens only on tap", () => {
+  it("offers one next step under the list (design/day-one-home.md)", () => {
     renderHome()
-    const cards = screen.getAllByTestId("snap-label-card")
+    const cards = screen.getAllByTestId("next-step-card")
     expect(cards.length).toBeGreaterThan(0) // phone and desktop trees; CSS shows one
-    for (const c of cards) {
-      expect(c).toHaveTextContent("Get the exact schedule")
-      expect(c.querySelector("a")?.getAttribute("href")).toBe("/inventory/add")
-      // Holds the feature tour, as the set-up hero did: it would narrate manuals this home has none of.
-      expect(c.hasAttribute("data-tour-halt")).toBe(true)
-    }
+    for (const c of cards) expect(c.getAttribute("data-items")).toBe("0")
   })
 
-  it("the label card is the one next step: no profile banner, no push nudge beside it", () => {
+  it("the next step is the only one: no profile banner, no push nudge beside it", () => {
     renderHome()
     expect(screen.queryByTestId("profile-banner")).toBeNull()
     expect(screen.queryByTestId("push-nudge")).toBeNull()
@@ -90,13 +89,17 @@ describe("Home — tasks before any item", () => {
     dash.upcoming = []
     renderHome()
     expect(screen.getByText("Let's set up your home")).toBeInTheDocument()
-    expect(screen.queryByTestId("snap-label-card")).toBeNull()
+    expect(screen.queryByTestId("next-step-card")).toBeNull()
   })
 
-  it("once there is an item, the label card goes", () => {
-    dash.totalItems = 1
+  it("an early home keeps the card; three items retire it", () => {
+    dash.totalItems = 2
     renderHome()
-    expect(screen.queryByTestId("snap-label-card")).toBeNull()
+    expect(screen.getAllByTestId("next-step-card")[0].getAttribute("data-items")).toBe("2")
+    cleanup()
+    dash.totalItems = 3
+    renderHome()
+    expect(screen.queryByTestId("next-step-card")).toBeNull()
     expect(screen.queryByText("Let's set up your home")).toBeNull()
   })
 })

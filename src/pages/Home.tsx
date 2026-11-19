@@ -10,7 +10,6 @@ import {
   CloudOffIcon,
   HomeIcon,
   ChevronDownIcon,
-  CameraIcon,
 } from "lucide-react"
 import type { DashboardTask } from "@/lib/dashboard"
 import { useDashboard } from "@/lib/useDashboard"
@@ -24,6 +23,7 @@ import { useUserLevel } from "@/hooks/useUserLevel"
 import { AskFirstHero } from "@/components/dashboard/AskFirstHero"
 import { RefinedHome } from "@/components/home/RefinedHome"
 import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
+import { NextStepCard } from "@/components/home/NextStepCard"
 import { DesktopHome } from "@/components/home/DesktopHome"
 import { ProfileCompletionBanner } from "@/components/dashboard/ProfileCompletionBanner"
 import { PushOptInNudge } from "@/components/dashboard/PushOptInNudge"
@@ -44,36 +44,6 @@ import { useDepsChanged } from "@/hooks/useDepsChanged"
  * to repeat the step that did not work is how an empty screen becomes an
  * insulting one.
  */
-/**
- * A home with tasks but no items yet — what the first minute (D8) leaves: a
- * few typical tasks, and nothing scanned. The one next step is a label, and
- * the camera opens only on this tap (must-be-true 14).
- */
-function SnapLabelCard() {
-  return (
-    // data-tour-halt: like the set-up hero, this is still the first minute —
-    // the tour narrates manuals and a schedule this home does not have yet.
-    <section aria-labelledby="snap-label-title" data-testid="snap-label-card" data-tour-halt=""
-      className="rounded-2xl px-5 py-5"
-      style={{ background: "var(--hh-teal-wash)" }}>
-      <h2 id="snap-label-title" className="text-[1.0625rem] font-extrabold tracking-[-0.015em]" style={{ color: "var(--hh-ink)" }}>
-        Get the exact schedule
-      </h2>
-      <p className="mt-1.5 text-[0.875rem] leading-snug" style={{ color: "var(--hh-sub)" }}>
-        These are typical plans. Snap an appliance label and its manual takes over.
-      </p>
-      <Link
-        to="/inventory/add"
-        className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full px-5 py-2.5 text-[0.9375rem] font-bold"
-        style={{ background: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" }}
-      >
-        <CameraIcon className="size-4" aria-hidden />
-        Snap a label
-      </Link>
-    </section>
-  )
-}
-
 function NoUpkeepYetHero() {
   return (
     <div className="rounded-2xl border px-5 py-5 sm:px-6"
@@ -328,6 +298,12 @@ export default function Home() {
   // yet" over a profile nag. Nothing on the screen was false and nothing was
   // any use. This is the one state where we know exactly what would help.
   const hasItemsNoUpkeep = !isNewUser && (stats?.scheduledTaskCount ?? 0) === 0
+  // Day-one Home (design/day-one-home.md): an early home (fewer than 3 items)
+  // with upkeep gets ONE next-step card under the list — appliances, then one
+  // question, then the label. Keyed by home so a switch starts it fresh.
+  const nextStep = !isNewUser && !hasItemsNoUpkeep && homeId && (stats?.totalItems ?? 0) < 3
+    ? <NextStepCard key={homeId} homeId={homeId} totalItems={stats?.totalItems ?? 0} onChanged={() => refresh()} />
+    : null
 
   return (
     <div className="flex flex-col pb-8">
@@ -415,6 +391,7 @@ export default function Home() {
               tasks={homeTasks}
               upcoming={visibleUpcoming}
             nextUp={stats?.nextUp ?? null}
+            comingUp={stats?.comingUp ?? null}
               warranties={expiringWarranties}
               cleaningGuides={cleaningGuides}
               level={level}
@@ -424,7 +401,7 @@ export default function Home() {
               onComplete={handleMarkComplete}
               onSnooze={handleSnooze}
             />
-            {tasksBeforeItems && <div className="mx-5 mt-6"><SnapLabelCard /></div>}
+            {nextStep && <div className="mx-5 mt-6">{nextStep}</div>}
           </div>
         </div>
         {/* Break out of the page's max-w-5xl wrapper: DesktopHome owns its own
@@ -436,6 +413,7 @@ export default function Home() {
             notices={notices}
             upcoming={visibleUpcoming}
             nextUp={stats?.nextUp ?? null}
+            comingUp={stats?.comingUp ?? null}
             cleaningGuides={cleaningGuides}
             level={level}
             homeId={homeId || null}
@@ -443,7 +421,7 @@ export default function Home() {
             actionError={actions.failure}
             onComplete={handleMarkComplete}
             onSnooze={handleSnooze}
-            nextStep={tasksBeforeItems ? <SnapLabelCard /> : undefined}
+            nextStep={nextStep ?? undefined}
           />
         </div>
           </>

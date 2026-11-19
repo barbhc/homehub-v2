@@ -1,0 +1,157 @@
+/**
+ * Day-one Home (design/day-one-home.md; owner approved the mock 2026-11-19).
+ *
+ * The pure rules behind Home's one next-step card for an early home:
+ *   · "What's in your home?" — which appliances to offer, and each one's typical
+ *     care, with essentials pre-checked;
+ *   · one question at a time — the next unanswered care fact that would add
+ *     something this home does not already have.
+ *
+ * Nothing here writes. A tap selects; tasks are added only when the person
+ * taps Add (suggest, never assume). The manual wins and nothing doubles: an
+ * entry whose archetype an existing task already matches is never offered.
+ */
+import { archetypeOf, entryByKey, kindOf, suggestionsForItem, type AreaGate, type CareEntry, type CareFacts, type CareKind } from "./library.js"
+
+export type ApplianceItemCategory = "major_appliance" | "small_appliance" | "system"
+
+export interface Appliance {
+  kind: CareKind
+  /** The chip, and the new item's display name. */
+  label: string
+  /** The default room's name, when the home has a room by that name. */
+  room: string | null
+  itemCategory: ApplianceItemCategory
+  /** Home-level library entries that belong with this appliance. */
+  extra?: string[]
+  /** The care fact a tap on this chip makes true. */
+  fact?: keyof CareFacts
+  /** Behind "More…". */
+  more?: boolean
+}
+
+/**
+ * Only kinds the library has care for. A microwave or an oven is left out on
+ * purpose: tapping it would give nothing, and an offer that gives nothing is
+ * worse than no offer.
+ */
+export const APPLIANCES: Appliance[] = [
+  { kind: "furnace", label: "Furnace", room: "Utility Room", itemCategory: "system", extra: ["home.hvac_service"] },
+  { kind: "hvac", label: "Central air", room: "Utility Room", itemCategory: "system", extra: ["home.hvac_service"] },
+  { kind: "water_heater", label: "Water heater", room: "Utility Room", itemCategory: "system", extra: ["home.water_heater", "home.quake_straps"], fact: "has_water_heater" },
+  { kind: "dishwasher", label: "Dishwasher", room: "Kitchen", itemCategory: "major_appliance" },
+  { kind: "washer", label: "Washer", room: "Laundry Room", itemCategory: "major_appliance" },
+  { kind: "dryer", label: "Dryer", room: "Laundry Room", itemCategory: "major_appliance" },
+  { kind: "refrigerator", label: "Fridge", room: "Kitchen", itemCategory: "major_appliance" },
+  { kind: "range_hood", label: "Range hood", room: "Kitchen", itemCategory: "major_appliance" },
+  { kind: "air_purifier", label: "Air purifier", room: null, itemCategory: "small_appliance", more: true },
+  { kind: "coffee_machine", label: "Coffee machine", room: "Kitchen", itemCategory: "small_appliance", more: true },
+  { kind: "food_recycler", label: "Food recycler", room: "Kitchen", itemCategory: "small_appliance", more: true },
+]
+
+/** The chips still worth offering: appliances whose kind no item in the home already is. */
+export function appliancesToOffer(items: { display_name?: string | null; category?: string | null; brand?: string | null; model?: string | null }[]): Appliance[] {
+  const have = new Set(items.map((i) => kindOf(i)).filter(Boolean))
+  return APPLIANCES.filter((a) => !have.has(a.kind))
+}
+
+export interface CareRow {
+  entry: CareEntry
+  /** Pre-checked: essentials. The person can change it. */
+  checked: boolean
+}
+
+export interface HomeContext {
+  /** Titles of every task the home already has, home-level and on items. */
+  existingTitles: string[]
+  /** Library keys dismissed on the home. */
+  dismissed?: Iterable<string>
+  /** Hazards the zip carries (and the person did not correct). */
+  area?: Iterable<AreaGate>
+}
+
+/** Not covered by an existing task, not dismissed, and (when area-gated) true here. */
+function offerable(entry: CareEntry, covered: Set<string>, gone: Set<string>, here: Set<AreaGate>): boolean {
+  if (gone.has(entry.key) || covered.has(entry.archetype)) return false
+  return !entry.area || here.has(entry.area)
+}
+
+const coveredBy = (titles: string[]) => new Set(titles.map((t) => archetypeOf(t)).filter((a): a is NonNullable<typeof a> => !!a))
+
+/** One appliance's typical care: its own library entries, then the home-level ones that belong with it. */
+export function applianceCare(a: Appliance, ctx: HomeContext): CareRow[] {
+  const covered = coveredBy(ctx.existingTitles)
+  const gone = new Set(ctx.dismissed ?? [])
+  const here = new Set(ctx.area ?? [])
+  const own = suggestionsForItem({ display_name: a.label, category: a.kind }, []).map((s) => s.entry)
+  const extra = (a.extra ?? []).map((k) => entryByKey(k)).filter((e): e is CareEntry => !!e)
+  const rows: CareRow[] = []
+  for (const entry of [...own, ...extra]) {
+    if (!offerable(entry, covered, gone, here)) continue
+    covered.add(entry.archetype) // one per archetype, so a furnace never offers two filter tasks
+    rows.push({ entry, checked: entry.priorityTier === "essential" })
+  }
+  return rows
+}
+
+// ── one question at a time ────────────────────────────────────────────────────
+
+interface Question {
+  fact: keyof CareFacts
+  text: string
+  entries: string[]
+}
+
+/** Full questions for Home; the Settings questionnaire keeps its own shorter wording. */
+const QUESTIONS: Question[] = [
+  { fact: "has_air_filter", text: "Do you have a furnace or central air?", entries: ["home.air_filter"] },
+  { fact: "has_water_heater", text: "Is there a water heater that's yours to look after?", entries: ["home.water_heater", "home.quake_straps"] },
+  { fact: "has_smoke_alarms", text: "Do you have smoke or CO alarms?", entries: ["home.alarm_test", "home.alarm_batteries"] },
+  { fact: "has_extinguisher", text: "Do you have a fire extinguisher?", entries: ["home.extinguisher"] },
+  { fact: "has_gutters", text: "Does your home have gutters?", entries: ["home.gutters"] },
+]
+
+/** What Yes would add, in words — the hint under the question. */
+const ADDS: Record<string, string> = {
+  "home.air_filter": "a filter change every 1–3 months",
+  "home.water_heater": "a yearly flush",
+  "home.quake_straps": "a yearly quake-strap check",
+  "home.alarm_test": "an alarm test twice a year",
+  "home.alarm_batteries": "a yearly battery change",
+  "home.extinguisher": "a 3-minute yearly check",
+  "home.gutters": "a gutter clean in spring and fall",
+}
+
+export interface NextQuestion {
+  fact: keyof CareFacts
+  text: string
+  /** "Yes adds a yearly flush. You choose before anything is added." */
+  hint: string
+  /** What Yes would offer, in order. Never empty. */
+  entries: CareEntry[]
+}
+
+/**
+ * The next question worth asking: its fact is unanswered, the person has not
+ * skipped it here, no task the home has already answers it, and Yes would
+ * offer at least one task the home lacks.
+ * Null when there is nothing left to ask.
+ */
+export function nextQuestion(facts: CareFacts, ctx: HomeContext & { skipped?: Iterable<string> }): NextQuestion | null {
+  const covered = coveredBy(ctx.existingTitles)
+  const gone = new Set(ctx.dismissed ?? [])
+  const here = new Set(ctx.area ?? [])
+  const skipped = new Set(ctx.skipped ?? [])
+  for (const q of QUESTIONS) {
+    if (facts[q.fact] !== undefined || skipped.has(q.fact)) continue
+    if (q.fact === "has_gutters" && facts.building_handles_exterior) continue
+    // A task the home already has answers the question (an alarm test means
+    // there are alarms): asking it anyway reads as not listening.
+    if (q.entries.some((k) => { const e = entryByKey(k); return !!e && covered.has(e.archetype) })) continue
+    const entries = q.entries.map((k) => entryByKey(k)).filter((e): e is CareEntry => !!e && offerable(e, covered, gone, here))
+    if (entries.length === 0) continue
+    const adds = entries.map((e) => ADDS[e.key] ?? e.title.toLowerCase())
+    return { fact: q.fact, text: q.text, hint: `Yes adds ${adds.join(" and ")}. You choose before anything is added.`, entries }
+  }
+  return null
+}

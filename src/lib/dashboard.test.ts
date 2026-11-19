@@ -9,6 +9,7 @@ describe("computeHealthScore", () => {
     completedThisMonth: 0,
     scheduledTaskCount: 0,
     nextUp: null,
+    comingUp: null,
   }
 
   it("returns 100 when nothing is overdue and nothing completed", () => {

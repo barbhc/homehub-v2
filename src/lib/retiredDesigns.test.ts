@@ -163,12 +163,16 @@ describe("the add-item flow has one way in and no way into an old screen", () =>
     expect(app.text).toContain('path="/tasks/:taskInstanceId"')
   })
 
-  it("only SmartAddItem creates items, so there is one add flow to keep honest", () => {
+  it("only SmartAddItem and Home's appliance chips create items — two known ways in, nothing else", () => {
+    // The second one is deliberate (design/day-one-home.md, owner 2026-11-19):
+    // a tap on "Furnace" adds an item with no label, its typical care, and the
+    // label later. Any third creator is a new add flow and needs the same review.
     const creators = sources
       .filter((s) => /\bcreateItemUnit\s*\(/.test(s.text))
       .map((s) => s.path)
       .filter((p) => !p.includes("/services/") && !p.includes("/hooks/") && !p.includes("/modules/"))
-    expect(creators).toEqual(["src/pages/SmartAddItem.tsx"])
+      .sort()
+    expect(creators).toEqual(["src/components/home/NextStepCard.tsx", "src/pages/SmartAddItem.tsx"])
   })
 })
 
