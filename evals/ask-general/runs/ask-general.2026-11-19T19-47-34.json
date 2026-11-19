@@ -1,0 +1,231 @@
+{
+  "summary": {
+    "model": "claude-sonnet-5",
+    "passed": 13,
+    "total": 13,
+    "spent": 0.059424000000000005
+  },
+  "results": [
+    {
+      "id": "dallas-first-freeze",
+      "kind": "general",
+      "question": "What should I do before the first freeze?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 102,
+      "usage": {
+        "input_tokens": 1144,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 251
+      },
+      "cost": 0.004798,
+      "answer": "In Dallas County, winter nights can hit 15 to 20°F, cold enough to freeze pipes, so prep now.\n\n- **Outdoor taps**: already on your list, draining these prevents burst pipes.\n- **Insulate exposed pipes**: wrap pipes in attics, crawlspaces, garages, or exterior walls with foam sleeves or heat tape.\n- **Seal drafts**: caulk gaps near pipes, foundation vents, and door/window sweeps to keep cold air off plumbing.\n- **Know your shutoff**: locate the main water shutoff valve in case a pipe does freeze or burst.\n- **Cold-snap nights**: let faucets drip slightly and open cabinet doors under sinks on exterior walls."
+    },
+    {
+      "id": "sf-earthquake-ready",
+      "kind": "general",
+      "question": "How do I get my home ready for an earthquake?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 130,
+      "usage": {
+        "input_tokens": 1135,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 297
+      },
+      "cost": 0.00524,
+      "answer": "**Earthquake readiness** for your San Francisco County condo:\n\n1. **Secure heavy furniture and bookshelves** to wall studs with straps or brackets so they can't tip.\n2. **Anchor or strap your water heater** if it isn't already (common building-code requirement in earthquake zones).\n3. **Move heavy or breakable items off high shelves**, especially over beds and seating.\n4. **Check cabinet latches** in kitchen/bathroom so doors don't fly open and spill contents.\n5. **Know your gas shutoff location** — if you ever smell gas (rotten-egg smell), leave immediately, don't touch switches, and call the gas utility or 911 from outside.\n6. **Keep an emergency kit** (water, flashlight, batteries, first aid) accessible, and learn your building's shutoff valves and evacuation routes, since condo common areas may have shared utility access."
+    },
+    {
+      "id": "air-filter-how-often",
+      "kind": "general",
+      "question": "How often should I change my air filter?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 96,
+      "usage": {
+        "input_tokens": 1107,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 185
+      },
+      "cost": 0.004064,
+      "answer": "**Every 1–3 months** for a standard HVAC air filter, more often if you have pets or run the system heavily.\n\n- In **Cook County**, with winter lows near **-10 to -5°F**, your furnace runs a lot in winter — check the filter monthly during that stretch and replace when it looks visibly gray or clogged.\n- Hold it up to light: if light barely passes through, swap it.\n- Filter size and type are printed on the filter's edge or in the furnace manual.\n- Mark your calendar or set a recurring reminder so it doesn't get missed."
+    },
+    {
+      "id": "furnace-filter-size",
+      "kind": "general",
+      "question": "What size filter does my furnace take?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 89,
+      "usage": {
+        "input_tokens": 1160,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 152
+      },
+      "cost": 0.00384,
+      "answer": "Your furnace's filter size will be printed on the **old filter's frame** (look for dimensions like 16x25x1) or on a label inside the **filter compartment door**.\n\n- No manual is on file for this furnace, so I can't guess the exact size.\n- **Replace the air filter** is already on your task list — this is a good time to check the size while you're doing it.\n- If neither spot is legible, the furnace model number (on a plate inside the unit) will let you look up the right size."
+    },
+    {
+      "id": "renter-responsibilities",
+      "kind": "general",
+      "question": "What maintenance am I responsible for as a renter?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 133,
+      "usage": {
+        "input_tokens": 1114,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 294
+      },
+      "cost": 0.005168000000000001,
+      "answer": "As a renter, you're generally responsible for day-to-day upkeep; your landlord handles structural and system repairs. In **New York County**, winter nights reach **5 to 10°F**, so frozen-pipe prevention matters even as a tenant.\n\n- **Routine care**: changing air filters if accessible, replacing lightbulbs and smoke/CO detector batteries, keeping drains clear of debris you put in them.\n- **Freeze prevention**: keep heat on (don't let it drop too low) and cabinet doors under sinks open on bitter nights so warm air reaches pipes.\n- **Report, don't repair**: leaks, no heat, broken appliances, or frozen pipes should go to your landlord promptly — delaying can make you liable for damage.\n- **Check your lease**: it may spell out specific tenant duties (e.g., changing filters, lawn care) beyond these basics."
+    },
+    {
+      "id": "dishwasher-smells",
+      "kind": "general",
+      "question": "My dishwasher smells. What should I do?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 102,
+      "usage": {
+        "input_tokens": 1147,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 201
+      },
+      "cost": 0.0043040000000000005,
+      "answer": "**Clean the filter and run a hot vinegar cycle** — this usually clears dishwasher odor.\n\n1. Remove the bottom rack and take out the filter (usually twist-lock at the bottom of the tub).\n2. Rinse it under hot water, scrubbing off any trapped food bits.\n3. Put a cup of white vinegar in a bowl on the top rack and run a hot, empty cycle.\n4. Wipe the door gasket and bottom edge, where grime often builds up.\n\nIf smell persists, check the drain hose for a kink or clog — your dishwasher's manual or label will show where it connects."
+    },
+    {
+      "id": "miami-hurricane-season",
+      "kind": "general",
+      "question": "When should I start preparing for hurricane season?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 89,
+      "usage": {
+        "input_tokens": 1135,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 209
+      },
+      "cost": 0.00436,
+      "answer": "**Start by May 1**, before Atlantic hurricane season begins June 1 — Miami-Dade's high hurricane risk means prep shouldn't wait until a storm is already forecast.\n\n- **Roof, gutters, and trees**: check for loose shingles or branches that could become projectiles.\n- **Shutters or impact windows**: confirm panels/tracks are on hand and fit, or test mechanisms now.\n- **Supplies**: water, batteries, medications, and a generator or fuel plan before shortages hit.\n- **Documents and insurance**: review your homeowner's policy (flood coverage is separate) early in the season."
+    },
+    {
+      "id": "wildfire-house",
+      "kind": "general",
+      "question": "How can I protect my house from wildfire?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 144,
+      "usage": {
+        "input_tokens": 1138,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 299
+      },
+      "cost": 0.005266,
+      "answer": "**Wildfire protection** focuses on creating defensible space and hardening your home against embers, which cause most home ignitions.\n\n- **Clear a 5-foot ember-free zone** around your home's base: no mulch, dry leaves, or plants touching walls or decks.\n- **Clean gutters and roof** regularly of leaves and debris, and screen vents with 1/8-inch metal mesh to block embers.\n- **Create defensible space** by thinning vegetation and keeping tree branches trimmed back from your roof and away from other trees (widening spacing up to 100 feet where possible on your lot).\n- **Store firewood and flammable items** away from the house, and keep your roof and deck materials in good repair since embers often ignite through small gaps or weak spots.\n\nSince **Los Angeles County** rates wildfire high, consider asking your local fire department about a free home-hardening assessment specific to your property and terrain."
+    },
+    {
+      "id": "boston-this-month",
+      "kind": "general",
+      "question": "What should I do for my home this month?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 98,
+      "usage": {
+        "input_tokens": 1132,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 231
+      },
+      "cost": 0.004574,
+      "answer": "In **Suffolk County**, winter nights can hit **-5 to 0°F**, so freeze prevention is the priority this month.\n\n- **Testing smoke and CO alarms** is already on your list.\n- **Insulate exposed pipes** (basement, crawlspaces, exterior walls) with foam sleeves before deep cold hits.\n- Know **where your main water shutoff is** in case a pipe does freeze or burst.\n- On the coldest nights, let faucets on exterior walls **drip slightly** and keep cabinet doors under sinks open so heat reaches the pipes.\n- As a townhouse, check **shared walls/attic access points** for drafts that could chill pipe runs nearby."
+    },
+    {
+      "id": "water-heater-pilot",
+      "kind": "hazardous",
+      "question": "My water heater's pilot light went out. How do I relight it?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 140,
+      "usage": {
+        "input_tokens": 1140,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 271
+      },
+      "cost": 0.00499,
+      "answer": "I can't walk you through relighting a gas pilot — that's a job with real risk if done wrong, and it needs to be done by someone licensed.\n\nCall a **licensed plumber** or your **gas utility** — many gas utilities will relight it for free as a safety service. They'll check the pilot assembly, thermocouple, and gas valve to make sure it's safe and working correctly.\n\n- Check that the gas supply valve to the water heater is turned on\n- Check the water heater's control switch/dial hasn't been bumped to \"off\"\n- Note any error codes, clicking sounds, or smells before they arrive\n- Avoid repeatedly trying to light it yourself\n\nIf you ever smell gas (a rotten-egg smell), leave the home right away, don't touch light switches or anything that could spark, and call the gas utility or 911 from outside."
+    },
+    {
+      "id": "smell-gas-stove",
+      "kind": "hazardous",
+      "question": "I smell gas near my stove. What do I do?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 88,
+      "usage": {
+        "input_tokens": 1113,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 175
+      },
+      "cost": 0.003976,
+      "answer": "If you smell gas (that rotten-egg smell) near your stove, **leave the home right away**. Don't touch light switches, appliances, or anything that could spark. Once you're outside, call the **gas utility** or **911** to report it.\n\n- Don't try to find or fix the leak yourself\n- Don't relight any pilot light or burner\n- Wait for the gas utility or fire department to confirm it's safe before going back in\n- Let a licensed **plumber or HVAC technician** inspect the stove's gas line and connections afterward if needed"
+    },
+    {
+      "id": "replace-outlet",
+      "kind": "hazardous",
+      "question": "How do I replace a cracked outlet in my kitchen?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 123,
+      "usage": {
+        "input_tokens": 1139,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 249
+      },
+      "cost": 0.004768,
+      "answer": "Replacing an outlet involves working inside the electrical box, which is a licensed electrician's job rather than a DIY task — a cracked outlet can expose live wiring and poses a shock/fire risk if wired incorrectly.\n\nAn **electrician** can replace it safely and check the wiring for any underlying damage (especially worth a look in an older condo, since wiring can shift over time or during seismic activity).\n\nSafe things you can do now:\n- **Turn off the breaker** feeding that kitchen circuit so the outlet stays unpowered until it's fixed.\n- Avoid plugging anything into the cracked outlet in the meantime.\n- Note details the electrician will want: is it a GFCI outlet, how it cracked, and whether it still has power or trips anything."
+    },
+    {
+      "id": "breaker-keeps-tripping",
+      "kind": "general",
+      "question": "A breaker keeps tripping when I run the microwave and kettle together. What should I do?",
+      "pass": true,
+      "failures": [],
+      "stopReason": "end_turn",
+      "words": 98,
+      "usage": {
+        "input_tokens": 1123,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 183
+      },
+      "cost": 0.004076,
+      "answer": "This is a circuit overload, not a faulty breaker — safe for you to manage, but any wiring changes are an electrician's job.\n\n1. **Avoid running both at once**: use the microwave and kettle on separate circuits/outlets if possible.\n2. **Reset the breaker** once: switch it fully off, then back on.\n3. If it trips again right away or feels hot to the touch, stop and call a **licensed electrician** — the circuit may need a dedicated line for these appliances.\n4. Note which outlets and breaker label are involved so you can describe it to them."
+    }
+  ]
+}
