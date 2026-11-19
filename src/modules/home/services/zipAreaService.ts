@@ -4,6 +4,7 @@
  * anywhere (must-be-true 2): there is no network request that carries it.
  */
 import { lookupZip, type ZipArea, type ZipAreaTable } from "../../../../shared/area/zipArea"
+import type { HomeArea } from "./homeProfileService"
 
 let table: Promise<ZipAreaTable> | null = null
 
@@ -32,4 +33,20 @@ export async function lookupZipArea(input: string): Promise<ZipLookup> {
   if (!/^\s*\d{5}\s*$/.test(input)) return { kind: "invalid" }
   const area = lookupZip(await loadZipTable(), input)
   return area ? { kind: "found", area } : { kind: "unknown" }
+}
+
+/**
+ * What the home doc keeps from a lookup (`HomeProfile.area`). Hazards the owner
+ * said are not true here are dropped from `hazards` and remembered in
+ * `hazardsCorrected`, so a table refresh never offers them again.
+ */
+export function toHomeArea(area: ZipArea, hazardsOff: ZipArea["hazards"][number]["hazard"][] = []): HomeArea {
+  return {
+    hazards: area.hazards.map((h) => h.hazard).filter((h) => !hazardsOff.includes(h)),
+    hazardsCorrected: [...new Set(hazardsOff)],
+    hardinessZone: area.hardinessZone,
+    county: area.county?.name ?? null,
+    observesDst: area.observesDst,
+    tableVersion: area.tableVersion,
+  }
 }

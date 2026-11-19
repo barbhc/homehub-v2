@@ -5,7 +5,7 @@ import { useAuth } from "@/modules/auth"
 import { createHome, getPrimaryHome } from "../services/homeService"
 import { getGateStatus, redeemInviteCode } from "../services/growthGate"
 import { upsertHomeProfile, type Climate } from "../services/homeProfileService"
-import { lookupZipArea, type ZipLookup } from "../services/zipAreaService"
+import { lookupZipArea, toHomeArea, type ZipLookup } from "../services/zipAreaService"
 import { track } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
 import { OnboardingSteps, OptionRow } from "./onboardingParts"
@@ -156,14 +156,7 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
         climate: a.climate,
         freeze_risk: a.freezeRisk,
         climate_source: "zip",
-        area: {
-          hazards: a.hazards.map((h) => h.hazard),
-          hazardsCorrected: [],
-          hardinessZone: a.hardinessZone,
-          county: a.county?.name ?? null,
-          observesDst: a.observesDst,
-          tableVersion: a.tableVersion,
-        },
+        area: toHomeArea(a),
       })
       return r.error ? "Couldn't save your zip. Check your connection and try again." : null
     })

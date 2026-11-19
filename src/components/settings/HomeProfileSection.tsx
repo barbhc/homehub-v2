@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Loader2Icon, HomeIcon, CheckCircle2Icon } from "lucide-react"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -21,9 +22,22 @@ import {
   type OwnershipDuration,
   type PreferredMode,
   type Climate,
+  type ClimateSource,
+  type HomeArea,
   type TopConcernKey,
   markWinterizingOfferAnswered,
 } from "@/modules/home"
+import { lookupZipArea, toHomeArea } from "@/modules/home/services/zipAreaService"
+import { FactRow, HAZARD_TITLE, type AreaHazard } from "@/modules/home/components/areaFacts"
+import { coldestNightF, type ZipArea } from "../../../shared/area/zipArea"
+import { track } from "@/lib/analytics"
+import {
+  climateOffer,
+  climateOrigin,
+  climatePatch,
+  shownClimate,
+  type ZipClimateInput,
+} from "./zipClimate"
 import { useAuth } from "@/modules/auth"
 import {
   getWinterizingTasks,
@@ -72,11 +86,21 @@ const CLIMATES: { value: Climate; label: string }[] = [
   { value: "hot", label: "Hot / arid" },
 ]
 
-/** Climate → whether pipes can freeze here. Drives winterizing suppression. */
-function freezeRiskFor(climate: Climate | ""): boolean | null {
-  if (!climate) return null
-  return climate === "mild" || climate === "hot" ? false : true
+/** "Mild — rarely freezes", plus the freeze fact when it is not what that climate implies. */
+function climateWords(climate: Climate, freeze: boolean | null): string {
+  const label = CLIMATES.find((c) => c.value === climate)?.label ?? climate
+  const implied = climate === "mild" || climate === "hot" ? false : true
+  if (freeze === null || freeze === implied) return label
+  return `${label} · pipes ${freeze ? "can freeze" : "rarely freeze"}`
 }
+
+/** The zip lookup, which runs on the device as soon as five digits are typed. */
+type ZipLookupState =
+  | { status: "idle" }
+  | { status: "busy" }
+  | { status: "found"; area: ZipArea }
+  | { status: "unknown" }
+  | { status: "failed" }
 
 const MODES: { value: PreferredMode; label: string; hint: string }[] = [
   { value: "ask_first", label: "Ask-first", hint: "Chat hero on Home" },
@@ -102,7 +126,8 @@ export function HomeProfileSection({ homeId }: Props) {
   const [homeType, setHomeType] = useState<HomeType | "">("")
   const [ownership, setOwnership] = useState<Ownership | "">("")
   const [duration, setDuration] = useState<OwnershipDuration | "">("")
-  const [climate, setClimate] = useState<Climate | "">("")
+  /** A climate the owner picked from the list since the last save; null = untouched. */
+  const [pickedClimate, setPickedClimate] = useState<Climate | "" | null>(null)
   const [concerns, setConcerns] = useState<TopConcernKey[]>([])
   const [mode, setMode] = useState<PreferredMode>("unset")
   const [completedAt, setCompletedAt] = useState<string | null>(null)
@@ -118,13 +143,46 @@ export function HomeProfileSection({ homeId }: Props) {
   /** The climate as last read or saved — the offer follows only a CHANGE to
    *  Mild/Hot, never a re-save of the profile (gate-1 review). */
   const [savedClimate, setSavedClimate] = useState<Climate | null>(null)
+  const [savedFreeze, setSavedFreeze] = useState<boolean | null>(null)
+  const [savedSource, setSavedSource] = useState<ClimateSource | null>(null)
+
+  // D8 edge case: a home from before the first minute adds its zip here.
+  // Nothing is written until Save, and an owner's own climate answer is only
+  // ever OFFERED the zip's (zipClimate.ts).
+  const [savedZip, setSavedZip] = useState<string | null>(null)
+  const [savedArea, setSavedArea] = useState<HomeArea | null>(null)
+  const [zip, setZip] = useState("")
+  const [lookup, setLookup] = useState<ZipLookupState>({ status: "idle" })
+  const [zipError, setZipError] = useState<string | null>(null)
+  const [freezeFix, setFreezeFix] = useState<boolean | null>(null)
+  const [hazardsOff, setHazardsOff] = useState<AreaHazard[]>([])
+  const [useZip, setUseZip] = useState(false)
+  const [offerKept, setOfferKept] = useState(false)
+  /** A lookup that comes back after the zip changed again is dropped. */
+  const lookupSeq = useRef(0)
+
+  const resetZipEntry = (savedZipValue: string | null) => {
+    lookupSeq.current += 1
+    setZip(savedZipValue ?? "")
+    setLookup({ status: "idle" })
+    setZipError(null)
+    setFreezeFix(null)
+    setHazardsOff([])
+    setUseZip(false)
+    setOfferKept(false)
+  }
 
   const applyProfile = (p: HomeProfile | null) => {
     setSavedClimate(p?.climate ?? null)
+    setSavedFreeze(p?.freeze_risk ?? null)
+    setSavedSource(p?.climate_source ?? null)
+    setSavedZip(p?.zip ?? null)
+    setSavedArea(p?.area ?? null)
+    resetZipEntry(p?.zip ?? null)
+    setPickedClimate(null)
     setHomeType(p?.home_type ?? "")
     setOwnership(p?.ownership ?? "")
     setDuration(p?.ownership_duration ?? "")
-    setClimate(p?.climate ?? "")
     setConcerns(p?.top_concerns ?? [])
     setMode(p?.preferred_mode ?? "unset")
     setCompletedAt(p?.completed_at ?? null)
@@ -139,6 +197,7 @@ export function HomeProfileSection({ homeId }: Props) {
     setOffer(null)
     setOfferError(null)
     setBar(null)
+    resetZipEntry(null)
   }
   useEffect(() => {
     let cancelled = false
@@ -166,6 +225,48 @@ export function HomeProfileSection({ homeId }: Props) {
     }
   }, [homeId])
 
+  const zipChanged = zip !== (savedZip ?? "")
+  const pending = zipChanged && lookup.status === "found" ? lookup.area : null
+  const zipInput: ZipClimateInput = {
+    saved: { climate: savedClimate, freeze_risk: savedFreeze, climate_source: savedSource },
+    pending,
+    useZip,
+    picked: pickedClimate,
+    freezeFix,
+  }
+  const climate = shownClimate(zipInput)
+  const origin = climateOrigin(zipInput)
+  const suggestion = offerKept ? null : climateOffer(zipInput)
+
+  const runLookup = async (value: string) => {
+    const seq = ++lookupSeq.current
+    setLookup({ status: "busy" })
+    try {
+      const found = await lookupZipArea(value)
+      if (seq !== lookupSeq.current) return
+      setLookup(found.kind === "found" ? { status: "found", area: found.area } : found.kind === "unknown" ? { status: "unknown" } : { status: "idle" })
+    } catch (err) {
+      if (seq !== lookupSeq.current) return
+      console.warn(`[Settings] the zip table did not load (home ${homeId}):`, err instanceof Error ? err.message : err)
+      setLookup({ status: "failed" })
+    }
+  }
+
+  const changeZip = (raw: string) => {
+    const next = raw.replace(/\D/g, "").slice(0, 5)
+    setZip(next)
+    setZipError(null)
+    setFreezeFix(null)
+    setHazardsOff([])
+    setUseZip(false)
+    setOfferKept(false)
+    if (next.length === 5 && next !== (savedZip ?? "")) void runLookup(next)
+    else {
+      lookupSeq.current += 1
+      setLookup({ status: "idle" })
+    }
+  }
+
   const toggleConcern = (key: TopConcernKey) => {
     setConcerns((prev) => {
       if (key === "not_sure") return prev.includes("not_sure") ? [] : ["not_sure"]
@@ -187,20 +288,34 @@ export function HomeProfileSection({ homeId }: Props) {
   }
 
   const handleSave = async () => {
+    // A zip that is typed but not looked up is not saved quietly without it.
+    if (zipChanged && zip !== "") {
+      if (zip.length !== 5) {
+        setZipError("Enter the five digits of your zip code.")
+        return
+      }
+      if (lookup.status === "failed") {
+        setZipError("Couldn't load area data. Try again, or clear the zip to save the rest.")
+        return
+      }
+      if (lookup.status === "busy") return
+    }
     setSaving(true)
     setError(null)
     setOffer(null)
     setOfferError(null)
-    const wantClimate = climate || null
-    const wantFreezeRisk = freezeRiskFor(climate)
+    const climateFields = climatePatch(zipInput)
+    const zipFields = pending
+      ? { zip: pending.zip, area: toHomeArea(pending, hazardsOff) }
+      : zipChanged && zip === "" ? { zip: null, area: null } : {}
     const result = await upsertHomeProfile(
       homeId,
       {
         home_type: homeType || null,
         ownership: ownership || null,
         ownership_duration: duration || null,
-        climate: wantClimate,
-        freeze_risk: wantFreezeRisk,
+        ...climateFields,
+        ...zipFields,
         top_concerns: concerns,
         preferred_mode: mode,
         // Promote to "completed" once user fills in the basics from Settings.
@@ -217,15 +332,28 @@ export function HomeProfileSection({ homeId }: Props) {
     // HH-166: the owner's home showed "Usually autumn" — the phrase for a home
     // with NO climate — after she had answered mild. Whatever lost it, a save
     // is only "Saved" if the home doc we read back carries what we wrote.
-    if (result.data.climate !== wantClimate || result.data.freeze_risk !== wantFreezeRisk) {
+    if (
+      (climateFields.climate !== undefined && result.data.climate !== climateFields.climate) ||
+      (climateFields.freeze_risk !== undefined && result.data.freeze_risk !== climateFields.freeze_risk)
+    ) {
       setError("Your climate didn't save. Try again.")
       return
     }
-    const climateChanged = savedClimate !== wantClimate
+    if (zipFields.zip !== undefined && result.data.zip !== zipFields.zip) {
+      setError("Your zip didn't save. Try again.")
+      return
+    }
+    if (pending) {
+      track("settings_zip_entered", { known: true })
+      if (freezeFix !== null) track("area_fact_corrected", { fact: "freeze" })
+      for (const h of hazardsOff) track("area_fact_corrected", { fact: h })
+    }
+    const freezeNowOff =
+      climateFields.freeze_risk === false && (savedFreeze !== false || savedClimate !== climateFields.climate)
     applyProfile(result.data)
     setSavedAt(Date.now())
     setTimeout(() => setSavedAt((ts) => (ts && Date.now() - ts >= 2400 ? null : ts)), 2500)
-    if (climateChanged && wantFreezeRisk === false) await offerWinterizingSweep()
+    if (freezeNowOff) await offerWinterizingSweep()
   }
 
 
@@ -369,12 +497,56 @@ export function HomeProfileSection({ homeId }: Props) {
               </div>
             </div>
 
+            {/* Zip (D8) — looked up on the device; written only on Save */}
+            <div className="space-y-1.5">
+              <label htmlFor="hp-zip" className="text-sm font-medium">
+                Zip code
+              </label>
+              <Input
+                id="hp-zip"
+                inputMode="numeric"
+                autoComplete="postal-code"
+                maxLength={5}
+                value={zip}
+                onChange={(e) => changeZip(e.target.value)}
+                aria-describedby="hp-zip-note"
+                aria-invalid={zipError ? true : undefined}
+                className="w-full sm:w-40 tracking-[0.12em]"
+              />
+              {zipError ? (
+                <p id="hp-zip-note" role="alert" className="text-sm text-destructive">{zipError}</p>
+              ) : lookup.status === "busy" ? (
+                <p id="hp-zip-note" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2Icon className="size-3.5 animate-spin" /> Looking up {zip}…
+                </p>
+              ) : lookup.status === "unknown" ? (
+                <p id="hp-zip-note" role="alert" className="text-sm font-medium" style={{ color: "var(--hh-clay-ink)" }}>
+                  We don’t have {zip}, so it won’t be saved. Your climate below still counts.
+                </p>
+              ) : lookup.status === "failed" ? (
+                <div id="hp-zip-note" role="alert" className="flex flex-wrap items-center gap-x-3 text-sm text-destructive">
+                  <span>Couldn’t load area data.</span>
+                  <button type="button" onClick={() => void runLookup(zip)} className="min-h-11 font-bold" style={{ color: "var(--hh-teal)" }}>
+                    Try again
+                  </button>
+                </div>
+              ) : !zipChanged && savedArea?.county ? (
+                <p id="hp-zip-note" className="text-xs text-muted-foreground">{savedArea.county}. It stays in Homehub.</p>
+              ) : (
+                <p id="hp-zip-note" className="text-xs text-muted-foreground">Only the zip, never your street. It stays in Homehub.</p>
+              )}
+              {pending && <ZipFacts area={pending} freezeFix={freezeFix} hazardsOff={hazardsOff}
+                zipDecides={origin === "zip"}
+                onFreeze={() => setFreezeFix((f) => (f === null ? !pending.freezeRisk : null))}
+                onHazard={(h) => setHazardsOff((x) => (x.includes(h) ? x.filter((k) => k !== h) : [...x, h]))} />}
+            </div>
+
             {/* Climate — drives winterizing (freeze-prep) suppression during parsing */}
             <div className="space-y-1.5">
               <label htmlFor="hp-climate" className="text-sm font-medium">
                 Local climate
               </label>
-              <Select value={climate} onValueChange={(v) => setClimate(v as Climate)}>
+              <Select value={climate} onValueChange={(v) => { setPickedClimate(v as Climate); setUseZip(false) }}>
                 <SelectTrigger id="hp-climate" className="w-full sm:w-72">
                   <SelectValue placeholder="Select…" />
                 </SelectTrigger>
@@ -386,9 +558,41 @@ export function HomeProfileSection({ homeId }: Props) {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                A mild or hot climate skips winterizing tasks in new manuals, and offers to turn off the ones you already have.
-              </p>
+              {origin === "zip" ? (
+                <p className="text-xs text-muted-foreground" data-testid="climate-from-zip">
+                  From your zip. Pick another if it’s wrong.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  A mild or hot climate skips winterizing tasks in new manuals, and offers to turn off the ones you already have.
+                </p>
+              )}
+              {/* An owner's own answer is never overwritten: the zip's is offered, and kept only on "Use". */}
+              {suggestion && (
+                <div data-testid="zip-climate-offer" className="mt-2 space-y-2.5 rounded-lg border border-border bg-muted/40 p-3.5">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Your zip suggests {climateWords(suggestion.climate, suggestion.freeze_risk)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      You chose {savedClimate ? climateWords(savedClimate, savedFreeze) : `pipes ${savedFreeze ? "can freeze" : "rarely freeze"}`}. Nothing changes unless you pick.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => setUseZip(true)}>
+                      Use the zip’s
+                    </Button>
+                    <Button variant="ghost" onClick={() => setOfferKept(true)}>
+                      Keep mine
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {useZip && pending && (
+                <button type="button" onClick={() => setUseZip(false)} className="min-h-11 text-sm font-bold" style={{ color: "var(--hh-teal)" }}>
+                  Undo, keep mine
+                </button>
+              )}
             </div>
 
             {/* Concerns */}
@@ -447,7 +651,7 @@ export function HomeProfileSection({ homeId }: Props) {
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <div className="flex items-center gap-3 pt-1">
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving || lookup.status === "busy"}>
                 {saving ? (
                   <>
                     <Loader2Icon className="size-4 animate-spin mr-2" />
@@ -529,5 +733,55 @@ export function HomeProfileSection({ homeId }: Props) {
         )}
       </CardContent>
     </SectionCard>
+  )
+}
+
+/** The zip's facts while a new zip is pending, each with "Not true here" (as the first minute's area step). */
+function ZipFacts({ area, freezeFix, hazardsOff, zipDecides, onFreeze, onHazard }: {
+  area: ZipArea
+  freezeFix: boolean | null
+  hazardsOff: AreaHazard[]
+  /** The zip's freeze answer will be written (no owner answer, or she took the zip's). */
+  zipDecides: boolean
+  onFreeze: () => void
+  onHazard: (h: AreaHazard) => void
+}) {
+  const range = coldestNightF(area.hardinessZone)
+  const county = area.county ? `${area.county.name}` : null
+  const showFreeze = area.freezeRisk !== null
+  if (!showFreeze && area.hazards.length === 0) return null
+  return (
+    <div className="pt-2" data-testid="zip-facts">
+      <p className="mb-2 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
+        {area.zip}{county ? ` · ${county}` : ""}
+      </p>
+      <ul className="divide-y divide-[var(--hh-line)] overflow-hidden rounded-xl border bg-[var(--hh-surface)]" style={{ borderColor: "var(--hh-line)" }}>
+        {showFreeze && (() => {
+          const value = freezeFix ?? area.freezeRisk!
+          const changed = freezeFix !== null
+          return (
+            <FactRow
+              title={value ? "Pipes can freeze here" : "Pipes rarely freeze here"}
+              detail={changed
+                ? zipDecides ? `You changed this. Winterizing ${value ? "stays on" : "is off"}.` : "You changed this."
+                : range ? `A typical winter's coldest night is ${range[0]} to ${range[1]}°F.` : "Based on winter lows for your zip."}
+              action={changed ? "Undo" : "Not true here"}
+              onAction={onFreeze}
+            />
+          )
+        })()}
+        {area.hazards.map(({ hazard: h }) => {
+          const off = hazardsOff.includes(h)
+          return (
+            <FactRow key={h}
+              title={off ? HAZARD_TITLE[h].replace(" is high", ": not here") : HAZARD_TITLE[h]}
+              detail={off ? "You changed this. We won’t suggest tasks for it." : `FEMA risk index for ${county ?? "this county"}.`}
+              action={off ? "Undo" : "Not true here"}
+              onAction={() => onHazard(h)}
+            />
+          )
+        })}
+      </ul>
+    </div>
   )
 }

@@ -46,6 +46,8 @@ export {
   type OwnershipDuration,
   type PreferredMode,
   type Climate,
+  type ClimateSource,
+  type HomeArea,
   type TopConcernKey,
 } from "./services/homeProfileService"
 

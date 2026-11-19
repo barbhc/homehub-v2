@@ -19,9 +19,10 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useCurrentHome, useHomeProfile } from "@/modules/home"
 import { upsertHomeProfile, type HomeProfile, type HomeType } from "@/modules/home/services/homeProfileService"
-import { lookupZipArea } from "@/modules/home/services/zipAreaService"
+import { lookupZipArea, toHomeArea } from "@/modules/home/services/zipAreaService"
 import { OnboardingSteps, OptionRow } from "@/modules/home/components/onboardingParts"
 import { HOME_TYPE_OPTIONS, buildingHandlesByDefault } from "@/modules/home/components/onboardingOptions"
+import { FactRow, HAZARD_TITLE, type AreaHazard } from "@/modules/home/components/areaFacts"
 import { addLibraryTask } from "@/modules/care/services/careSuggestionService"
 import { firstDueDates, firstList, type FirstListInput, type FirstListRow, type LeftOffReason } from "../../shared/care/firstList"
 import { coldestNightF, type ZipArea } from "../../shared/area/zipArea"
@@ -31,10 +32,9 @@ import { track } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
 
 const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-const HAZARD_TITLE = { earthquake: "Earthquake risk is high", wildfire: "Wildfire risk is high", hurricane: "Hurricane risk is high" } as const
 const TYPE_WORD: Record<HomeType, string> = { house: "House", condo: "Condo", townhouse: "Townhouse", apartment: "Apartment", other: "Home" }
 const CADENCE: Record<string, string> = { weekly: "Weekly", monthly: "Monthly", quarterly: "Every 3 months", semiannual: "Twice a year", annual: "Yearly" }
-type Hazard = keyof typeof HAZARD_TITLE
+type Hazard = AreaHazard
 
 const thisMonth = () => Number(localToday().slice(5, 7))
 
@@ -231,20 +231,6 @@ function AreaStep({ homeId, profile, onSaved }: { homeId: string; profile: HomeP
   )
 }
 
-function FactRow({ title, detail, action, onAction }: { title: string; detail: string; action: string; onAction: () => void }) {
-  return (
-    <li className="flex items-center gap-3 px-5 py-4">
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold" style={{ color: "var(--hh-ink)" }}>{title}</p>
-        <p className="mt-0.5 text-sm text-muted-foreground">{detail}</p>
-      </div>
-      <button type="button" onClick={onAction} className="min-h-11 shrink-0 text-sm font-bold" style={{ color: "var(--hh-teal)" }}>
-        {action}
-      </button>
-    </li>
-  )
-}
-
 // ── adding a zip from the skip path ───────────────────────────────────────────
 
 function AddZip({ homeId, onSaved, onBack }: { homeId: string; onSaved: (p: HomeProfile) => void; onBack: () => void }) {
@@ -273,7 +259,7 @@ function AddZip({ homeId, onSaved, onBack }: { homeId: string; onSaved: (p: Home
     track("onboarding_zip_entered", { known: true })
     const r = await upsertHomeProfile(homeId, {
       zip: area.zip, climate: area.climate, freeze_risk: area.freezeRisk, climate_source: "zip",
-      area: { hazards: area.hazards.map((h) => h.hazard), hazardsCorrected: [], hardinessZone: area.hardinessZone, county: area.county?.name ?? null, observesDst: area.observesDst, tableVersion: area.tableVersion },
+      area: toHomeArea(area),
     })
     setSaving(false)
     if (r.error || !r.data) {
