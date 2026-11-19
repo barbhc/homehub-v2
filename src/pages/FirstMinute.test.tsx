@@ -82,7 +82,7 @@ describe("step 2 — what your area means", () => {
     renderFlow()
     expect(screen.getByText("94110 · San Francisco County")).toBeInTheDocument()
     expect(screen.getByText("Pipes rarely freeze here")).toBeInTheDocument()
-    expect(screen.getByText("Coldest nights are 35 to 40°F. USDA zone 10b.")).toBeInTheDocument()
+    expect(screen.getByText("A typical winter's coldest night is 35 to 40°F.")).toBeInTheDocument()
     expect(screen.getByText("Earthquake risk is high")).toBeInTheDocument()
     expect(screen.getByText("FEMA risk index for San Francisco County.")).toBeInTheDocument()
   })

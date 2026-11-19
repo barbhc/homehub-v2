@@ -193,7 +193,8 @@ function AreaStep({ homeId, profile, onSaved }: { homeId: string; profile: HomeP
                     title={value ? "Pipes can freeze here" : "Pipes rarely freeze here"}
                     detail={changed
                       ? `You changed this. Winterizing ${value ? "stays on" : "is off"}.`
-                      : range ? `Coldest nights are ${range[0]} to ${range[1]}°F. USDA zone ${area.hardinessZone}.` : `USDA zone ${area.hardinessZone}.`}
+                      // Plain temperature, never the zone code: "USDA zone 8b" means nothing to most people.
+                      : range ? `A typical winter's coldest night is ${range[0]} to ${range[1]}°F.` : "Based on winter lows for your zip."}
                     action={changed ? "Undo" : "Not true here"}
                     onAction={() => setC((x) => ({ ...x, freeze: changed ? null : !derivedFreeze }))}
                   />

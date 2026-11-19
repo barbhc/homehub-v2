@@ -141,7 +141,7 @@ test.describe("journey walks", () => {
     await page.waitForURL(/\/onboarding\/first/, { timeout: 20_000 })
     await expect(page.getByText("94110 · San Francisco County")).toBeVisible({ timeout: 20_000 })
     const freeze = page.getByRole("listitem").filter({ hasText: "Pipes rarely freeze here" })
-    await expect(freeze).toContainText("Coldest nights are 35 to 40°F. USDA zone 10b.")
+    await expect(freeze).toContainText("A typical winter's coldest night is 35 to 40°F.")
     await expect(page.getByText("FEMA risk index for San Francisco County.")).toBeVisible()
     // must-be-true 5: one tap, with Undo.
     await freeze.getByRole("button", { name: "Not true here" }).click()
