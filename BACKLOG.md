@@ -43,18 +43,18 @@ Same scoring as §1: (Risk + Impact) / Scope.
 |---|---|---|---|---|---|---|
 | D4 | **Task level, chosen before adding** — new homes start on Essential + Recommended; the review shows them before anything is added and reopens from the item page; Optional, cleaning and setup are filed | 3 | 5 | 3 | 2.7 | **Direction decided by the owner 2026-11-18** (mock still required). Client only. Recommended first. Includes the owner's "filters people forget" finding: care-library filter entries join the review, washer filters are added, the lint screen becomes a tip. Amends `docs/add-item-flow.md:368-405`. |
 | D5 | **Short Ask answers** — fix first, up to 5 steps, about 120 words, detail behind chips | 2 | 3 | 2 | 2.5 | **Direction decided by the owner 2026-11-18:** short for everyone, no setting. Needs a new `evals/ask-shape/` set and a `chatQuery` functions deploy. |
-| D1a | **Camera right after sign-in** — home auto-named, profile questions off the front door | 3 | 4 | 3 | 2.3 | Builds the approved profile nudge (§4.3) and addresses HH-168. |
+| D1a | **Camera right after sign-in** — home auto-named, profile questions off the front door | 3 | 4 | 3 | 2.3 | Builds the approved profile nudge (§4.3) and addresses HH-168. **Reordered by D8 (2026-11-18):** the zip and this month's list come first; the camera is the list's closing step. Home auto-naming and the profile questions leaving the front door stand. |
 | D6 | **Monthly AI opportunity scan** for Homehub and SkinIQ | 1 | 3 | 2 | 2.0 | **Decided 2026-11-18: monthly, and scheduled** (first run 2026-12-01). It opens unmerged "AI opportunity scan" docs PRs; it never merges or deploys. |
 | D2 | **Verified automatic manual finding** — open and check every PDF, maker sites first, one confirmed answer, a labelled general plan when nothing verifies | 4 | 5 | 5 | 1.8 | Absorbs §4.1 (brand registry). Supersedes add-item-flow line 191 once a 50-model eval meets the bar. **Bar decided 2026-11-18:** wrong document under 2%, found over 70%. `findManual` deploy. |
 | D1b | **Photo queue** — the camera stays open, reads run in the background, one review list | 2 | 4 | 5 | 1.2 | Blocked on a half-day test of in-page camera inside the iOS shell. |
 | D3 | **Receipt reading** — "Add receipt" fills store, date, price, order, plan | 1 | 3 | 4 | 1.0 | Partly exists: `ocr` already returns date and price from a receipt in the add flow. **Decided 2026-11-18:** one receipt can cover several items. `ocr` deploy. |
 | D1c | **Try before sign-in** (guest mode, 5 labels) | 2 | 3 | 5 | 1.0 | **Decided 2026-11-18: on during the beta**, revisit before a public launch. Needs App Check, guest caps, and an adversarial review. |
-| D7 | **Region from a zip code** — replaces the climate question; sets freeze risk, seasonal timing and regional house tasks | 2 | 4 | 5 | 1.2 | Owner's own addition, **decided 2026-11-18**. Addresses HH-168 at the root. First half day: confirm the public data sources. |
+| D7 | **Region from a zip code** — replaces the climate question; sets freeze risk, seasonal timing and regional house tasks | 2 | 4 | 5 | 1.2 | Owner's own addition, **decided 2026-11-18**. Addresses HH-168 at the root. Sources checked 2026-11-18 (see D8). **Amended by D8:** asked on the first screen after sign-in, not after the first item. |
 
 **Recommended order:** D4 (with D7 alongside), D5, D2, D1a, D1b and D1c, D3. D1, D2 and D4 are one journey
 (snap, find, few tasks) and it is safer built back to front.
 
-### D8 (proposed 2026-11-18, not decided). First-minute onboarding: something true about the home before any item
+### D8 (decided 2026-11-18). First-minute onboarding: something true about the home before any item
 
 From Seema at the same demo: too much setup before anything useful. The idea was
 an address (or only a zip code) in, a picture of the home out, then a short list
@@ -64,16 +64,16 @@ no code was changed.
 
 | ID | Item | Risk | Impact | Scope | Score | Note |
 |---|---|---|---|---|---|---|
-| D8 | **Zip code, then this month's short list** (Version B on the page), with the same list minus the area facts when the zip is skipped (Version E) | 2 | 4 | 3 | 2.0 | Proposed scores. It is D7 moved to the first screen, so the table is the same work. Needs a build-ready mock (CLAUDE.md rule 7). |
+| D8 | **Zip code, then this month's short list** (Version B on the page), with the same list minus the area facts when the zip is skipped (Version E) | 2 | 4 | 3 | 2.0 | **Decided by the owner 2026-11-18.** It is D7 moved to the first screen, so the zip table is the same work. Spec: `design/first-minute-onboarding.md`; build-ready mock https://claude.ai/artifact/2VnY3jhXgB2ALEVkB8CzQC (awaiting approval). The build also fixes two things found on the emulator: library tasks are first due a full interval out, and Home hides tasks when a home has no items. |
+| D8b | **Address reveal** (Version A): type the street address, see the public record, confirm it | 3 | 3 | 4 | 1.5 | **Parked by the owner 2026-11-18 as a paid-tier feature.** Waits for a paid tier to exist. Houses first; weak for condos. About 7 to 20 cents a lookup (RentCast). |
 
-**Three decisions for the owner before a mock:**
-1. Which version. Recommended B with E as its skip path. B asks for the zip on the
-   first screen, which amends D7 must-be-true 2 ("appears after the first item is saved").
-2. Whether a street address stays off the table. Version A (type the address, see
-   the public record) reverses D7 must-be-true 1 and 6. Recommended: keep both rules;
-   revisit A later as a test for houses only.
-3. What comes first after sign-in: this list or D1a's camera. Recommended: the list,
-   with "Snap a label" as its closing step.
+**The owner's three decisions, 2026-11-18:**
+1. **Version B first**, with E as its skip path. This amends D7 must-be-true 2: the zip
+   is asked on the first screen after sign-in, not after the first item is saved.
+2. **A street address is a paid-tier case** (D8b), not part of onboarding. D7
+   must-be-true 1 and 6 stand for everyone on the free path.
+3. **The list comes right after sign-in, and the camera after it.** "Snap a label" is
+   the list's closing step on Home. This reorders D1a, which put the camera first.
 
 **What the research settled (checked on the publishers' pages, 2026-11-18):**
 - **Zip sources for D7.** The USDA Plant Hardiness zip file (PRISM, 2023; 39,921 rows,

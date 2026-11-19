@@ -268,7 +268,7 @@ Added to this design:
 - Home-level suggestions exist in the care library: alarm test, alarm batteries, extinguisher, water-heater flush, HVAC service, termite, birds, rodents, gutters. Each is gated on a yes/no `CareFacts` answer (`shared/care/library.ts:152`) collected under Settings, Your home. None is regional.
 
 **Proposed**
-- One skippable zip-code field, asked after the first item is saved, with the reason shown.
+- One skippable zip-code field, with the reason shown. **Amended 2026-11-18 by D8** (`design/first-minute-onboarding.md`): asked on the first screen after sign-in, not after the first item is saved.
 - The zip code derives climate and freeze risk, the months seasonal jobs belong in, and the regional facts the library gates on (termite pressure, wildfire, hurricane, earthquake). Each conclusion is shown and can be changed in one tap.
 - Regional entries join the library (for example water-heater earthquake straps, shutting off hose taps before a freeze, storm preparation) and go through the same choose-before-adding review as D4.
 - Home type and "the building handles it" stay as questions; a zip code cannot answer them.
@@ -276,7 +276,7 @@ Added to this design:
 
 **Must be true**
 1. Homehub asks for a zip code only: never a street address, never device location permission.
-2. The field is skippable and appears after the first item is saved.
+2. The field is skippable. ~~It appears after the first item is saved.~~ Superseded 2026-11-18 by D8: it is the first screen after sign-in.
 3. Every conclusion drawn from the zip code is visible and reversible in one step.
 4. Regional tasks are never added without a tap on Add.
 5. A home in a freeze-free zip code is never shown a winterizing task.
