@@ -89,3 +89,32 @@ Nothing new is stored, except two per-device conveniences in localStorage
 New events: `home_kind_added` (kind, tasks), `home_question_answered` (fact, answer),
 `home_question_task_added` (key). The number to watch: share of new homes that add a
 second thing (task, item or answer) in their first week.
+
+## Release C — the reminder ask after Mark done
+
+Owner asked for it on 2026-11-19 (idea 6 of the brainstorm). A new home never saw
+Home's "Turn on notifications" nudge (it gives way to the first-minute cards), so
+nothing could bring the person back. And iOS shows its permission dialog once per
+install, so the ask has to come at a concrete moment.
+
+- **When:** after a Mark done is SAVED (past its Undo), on an Essential task, once
+  per device. Never when the answer is known: notifications on, refused (iOS will
+  not prompt again), turned off on this phone, this ask declined here, or Home's
+  nudge dismissed for this home.
+- **What it shows:** the push that would arrive, word for word
+  (`sampleReminder`, mirroring `composeMorning` in `push/lanes.ts`), and "We'd
+  send this on May 21, the day it's due." from the Done receipt's next date; then
+  everything the switch turns on (`WHAT_NOTIFICATIONS_SEND`).
+- **Answers:** Turn on reminders → the system prompt (web push or APNs) → "Reminders
+  are on" only on success; a refusal closes it; any other failure is said and the
+  button stays. Not now (or closing the sheet) → never asked again on this device.
+- **Code:** `src/hooks/useReminderAsk.tsx`, `shouldAskAfterDone` and
+  `sampleReminder` in `src/lib/notifyGate.ts`, `nativePushPermission` in
+  `src/lib/nativePush.ts`; the Done outcome now carries `nextDue`.
+- **Events:** `reminder_ask_shown`, `reminder_ask_answered` (on, not_now, denied,
+  error).
+- **Known gap (functions, separate):** the morning lane runs on Pacific time
+  (`PUSH_TZ` in `push/lanes.ts`), so "the day it's due" holds everywhere but the
+  hour does not: 08:00 Pacific is 11:00 in New York. The fix has two halves: homes
+  record the device's timezone (today every home is stored as Pacific — `createHome`
+  is never passed one), and the lanes read it. The second needs a functions deploy.

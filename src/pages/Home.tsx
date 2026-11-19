@@ -24,6 +24,7 @@ import { AskFirstHero } from "@/components/dashboard/AskFirstHero"
 import { RefinedHome } from "@/components/home/RefinedHome"
 import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
 import { NextStepCard } from "@/components/home/NextStepCard"
+import { useReminderAsk } from "@/hooks/useReminderAsk"
 import { askStarters } from "../../shared/care/dayOne"
 import { localToday } from "../../shared/dates/calendar"
 import { DesktopHome } from "@/components/home/DesktopHome"
@@ -213,17 +214,24 @@ export default function Home() {
   }, [isLoading, stats])
 
   const { done: markDone, snooze } = actions
+  // The reminder ask (design/day-one-home.md, release C): once a Done is
+  // SAVED (past its Undo), an Essential one may offer reminders — once per device.
+  const reminderAsk = useReminderAsk(user?.id ?? null, homeId || null)
+  const offerReminders = reminderAsk.offer
   // The title rides with the Done, so a write refused after leaving Home can
   // still say WHICH task on the next screen.
   const handleMarkComplete = useCallback(
     (taskId: string) => {
-      const label =
-        [...(dashTasks?.overdue ?? []), ...(dashTasks?.dueSoon ?? [])].find((t) => t.id === taskId)?.name ??
-        upcoming?.find((t) => t.id === taskId)?.title ??
-        null
-      void markDone(taskId, label)
+      const dash = [...(dashTasks?.overdue ?? []), ...(dashTasks?.dueSoon ?? [])].find((t) => t.id === taskId)
+      const ahead = upcoming?.find((t) => t.id === taskId)
+      const label = dash?.name ?? ahead?.title ?? null
+      const essential = (dash?.priority ?? ahead?.priority) === "critical"
+      const itemName = dash?.itemName ?? ahead?.itemName ?? null
+      void markDone(taskId, label).then((outcome) => {
+        if (outcome.status === "saved" && label) void offerReminders({ title: label, essential, itemName, nextDue: outcome.nextDue })
+      })
     },
-    [markDone, dashTasks, upcoming],
+    [markDone, dashTasks, upcoming, offerReminders],
   )
   const handleSnooze = useCallback((taskId: string) => void snooze(taskId), [snooze])
 
@@ -315,6 +323,7 @@ export default function Home() {
   return (
     <div className="flex flex-col pb-8">
       {actions.bar && <UndoBar {...actions.bar} />}
+      {reminderAsk.sheet}
       {/* Cached view + a failed refresh: say so quietly and stay usable. The
           user can still read everything and complete work; only freshness is
           in question, so this is a note, not an error state. */}
