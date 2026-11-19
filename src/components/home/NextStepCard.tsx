@@ -113,7 +113,10 @@ export function NextStepCard({ homeId, totalItems, onChanged }: {
   const { data, error, mutate } = useSWR(`day-one:${homeId}`, () => fetchDayOne(homeId), { revalidateOnFocus: false })
   const [dismissed, setDismissed] = useState(() => readLocal(dismissKey(homeId)) === "1")
   const [skipped, setSkipped] = useState(() => readSkipped(homeId))
-  // Once shown in this visit, the appliances card stays until dismissed.
+  // Once the person has tapped a chip, the appliances card stays for this
+  // visit (adding the first appliance must not swap it out from under their
+  // thumb). Only a tap pins it: pinning on sight would pin it on a warm-cache
+  // "0 items" that the fresh read is about to correct.
   const [appliancesPinned, setAppliancesPinned] = useState(false)
 
   if (error) {
@@ -126,8 +129,9 @@ export function NextStepCard({ homeId, totalItems, onChanged }: {
   if (!data) return null
 
   const offers = appliancesToOffer(data.items)
-  const showAppliances = !dismissed && (appliancesPinned || (totalItems === 0 && offers.length > 0))
-  if (showAppliances && !appliancesPinned) setAppliancesPinned(true)
+  // Both counts must say none: Home's (which can be a warm-cache snapshot)
+  // and this card's own read.
+  const showAppliances = !dismissed && (appliancesPinned || (totalItems === 0 && data.items.length === 0 && offers.length > 0))
 
   const refreshAll = async () => {
     onChanged()
@@ -140,6 +144,7 @@ export function NextStepCard({ homeId, totalItems, onChanged }: {
         homeId={homeId}
         data={data}
         onAdded={refreshAll}
+        onEngaged={() => setAppliancesPinned(true)}
         onDismiss={() => {
           writeLocal(dismissKey(homeId), "1")
           setDismissed(true)
@@ -171,10 +176,12 @@ export function NextStepCard({ homeId, totalItems, onChanged }: {
 
 // ── "What's in your home?" ──────────────────────────────────────────────────
 
-function AppliancesCard({ homeId, data, onAdded, onDismiss }: {
+function AppliancesCard({ homeId, data, onAdded, onEngaged, onDismiss }: {
   homeId: string
   data: DayOneData
   onAdded: () => Promise<void>
+  /** The first chip tap: keep this card for the rest of the visit. */
+  onEngaged: () => void
   onDismiss: () => void
 }) {
   const [showMore, setShowMore] = useState(false)
@@ -207,7 +214,7 @@ function AppliancesCard({ homeId, data, onAdded, onDismiss }: {
               type="button"
               disabled={isAdded}
               aria-pressed={isSelected || isAdded}
-              onClick={() => { setConfirm(null); setSelected(isSelected ? null : a) }}
+              onClick={() => { onEngaged(); setConfirm(null); setSelected(isSelected ? null : a) }}
               className="inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3.5 text-[0.875rem] font-medium"
               style={isSelected || isAdded
                 ? { background: "var(--hh-teal-fill)", borderColor: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" }

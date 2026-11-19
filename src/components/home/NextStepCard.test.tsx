@@ -113,6 +113,13 @@ describe("What's in your home?", () => {
     expect(window.localStorage.getItem("hh.dayOne.appliancesDismissed.home-1")).toBe("1")
   })
 
+  it("a warm-cache zero does not bring it back once the home has an item", async () => {
+    svc.items = [{ display_name: "Journey Kettle", category: "kettle", brand: null, model: null }]
+    renderCard(0) // Home's snapshot still says none; this card's own read has one
+    expect(await screen.findByText("Do you have a furnace or central air?")).toBeInTheDocument()
+    expect(screen.queryByText("What's in your home?")).toBeNull()
+  })
+
   it("a failed load says so and offers Try again — never chips with unknown duplicates", async () => {
     svc.loadFails = true
     renderCard()
