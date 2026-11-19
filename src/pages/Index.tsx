@@ -72,14 +72,17 @@ export default function Index() {
 
   if (!home) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
+      <div className="min-h-screen bg-background px-6 pt-10 pb-10">
         <HomeOnboarding
           onComplete={async (homeId) => {
             funnelingRef.current = true
             // Pass the created home's id: refresh() polls until the members
             // collection-group query can actually see it (HomeProvider.load).
             await refresh(homeId)
-            navigate("/onboarding/profile", { replace: true })
+            // D8: the zip (or Skip) created the home; the area facts and this
+            // month's list come next. The old five profile questions are no
+            // longer on the way in — they live in Settings, Your home.
+            navigate("/onboarding/first", { replace: true })
           }}
         />
       </div>

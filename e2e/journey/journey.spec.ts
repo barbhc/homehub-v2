@@ -122,28 +122,61 @@ test.describe("journey walks", () => {
     await page.locator('input[type="password"]').fill("JourneyWalk!2026")
     await page.getByRole("button", { name: /^create account$/i }).click()
 
-    // First landing signed-in with no home → "Set up your home".
-    await expect(page.getByText("Set up your home").filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J1", "home-setup", "Set up your home: name field, no invite-code field (the seed turns the gate OFF; a missing flag would now mean ON)")
-    await page.getByPlaceholder(/My House, Downtown Apartment/).fill("Journey Test Home")
+    // The first list is THIS MONTH's, so the walk pins the page clock to the
+    // approved mock's day (Wed 18 Nov 2026) to assert the mock's rows in any
+    // month. Pinned after sign-up, as e2e/fixtures.ts does after auth, and with
+    // setFixedTime (not install), so timers keep running.
+    await page.clock.setFixedTime(new Date("2026-11-18T10:00:00"))
+
+    // First landing signed-in with no home → the first minute (D8,
+    // design/first-minute-onboarding.md): zip → area → this month's list.
+    const zipField = page.getByLabel("Zip code")
+    await expect(zipField.filter(visible).first()).toBeVisible({ timeout: 20_000 })
+    await snap(page, "J1", "zip", "Step 1 of 3: What's your zip code? — five digits only, 'never your street', Skip for now; no invite-code field (the seed turns the gate OFF)",
+      zipField)
+    await zipField.fill("94110")
     await page.getByRole("button", { name: /^Continue$/ }).click()
 
-    // Home profile (5 questions, skippable) follows; honor the skip path.
-    await page
-      .waitForURL(/\/onboarding\/profile/, { timeout: 10_000 })
-      .then(async () => {
-        await snap(page, "J1", "profile", "Home profile questions — every one skippable ('Suggest, never assume')",
-          page.getByRole("button", { name: /skip for now/i }).first())
-        await page.getByRole("button", { name: /skip for now/i }).click()
-      })
-      .catch(() => {/* profile step not offered — fine, the funnel continues */})
+    // Step 2: only the facts that change this month's list, each with its source.
+    await page.waitForURL(/\/onboarding\/first/, { timeout: 20_000 })
+    await expect(page.getByText("94110 · San Francisco County")).toBeVisible({ timeout: 20_000 })
+    const freeze = page.getByRole("listitem").filter({ hasText: "Pipes rarely freeze here" })
+    await expect(freeze).toContainText("Coldest nights are 35 to 40°F. USDA zone 10b.")
+    await expect(page.getByText("FEMA risk index for San Francisco County.")).toBeVisible()
+    // must-be-true 5: one tap, with Undo.
+    await freeze.getByRole("button", { name: "Not true here" }).click()
+    await expect(page.getByText("You changed this. Winterizing stays on.")).toBeVisible()
+    await page.getByRole("button", { name: "Undo" }).click()
+    await expect(page.getByText("Pipes rarely freeze here")).toBeVisible()
+    await page.getByRole("radio", { name: /Condo/ }).click()
+    await snap(page, "J1", "area", "Step 2 of 3: 94110 · San Francisco County — 'Pipes rarely freeze here' (USDA 10b) and 'Earthquake risk is high' (FEMA), each with Not true here; Condo picked",
+      page.getByText("What your area means for upkeep"))
+    await page.getByRole("button", { name: "See this month" }).click()
 
-    // HH-93: finishing (or skipping) the profile no longer drops you into the
-    // add form — it ASKS. Both doors are real; this walk takes the first.
-    const fork = page.getByText("Your home profile is set").filter(visible).first()
-    await expect(fork).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J1", "profile-done", "Where next? — 'Add your first item' or 'Take me to my home page' (asked, not assumed)", fork)
-    await page.getByRole("link", { name: /Add your first item/i }).filter(visible).first().click()
+    // Step 3: the mock's three rows; nothing is saved until Add.
+    await expect(page.getByText("Worth doing this month")).toBeVisible({ timeout: 20_000 })
+    const rows = page.getByTestId("first-list-row")
+    await expect(rows).toHaveCount(3)
+    await expect(rows.nth(0)).toContainText("Test smoke and CO alarms")
+    await expect(rows.nth(1)).toContainText("Replace the air filter")
+    await expect(rows.nth(2)).toContainText("Check the water heater's quake straps")
+    await expect(page.getByTestId("not-on-your-list")).toContainText("Winterizing: it rarely freezes here.")
+    await rows.nth(2).getByRole("radio", { name: "Yes" }).click()
+    await snap(page, "J1", "first-list", "Step 3 of 3: Worth doing this month — alarms ✓, air filter asks, quake straps answered Yes; 'Not on your list' names winterizing and the roof; Add 2 tasks",
+      page.getByRole("button", { name: "Add 2 tasks" }))
+    await page.getByRole("button", { name: "Add 2 tasks" }).click()
+
+    // must-be-true 11 + D8's Home fix: the tasks are on This week the same
+    // day, and the next step is a label — the camera opens only on tap.
+    await page.waitForURL(/\/home/, { timeout: 20_000 })
+    await expect(page.getByText("Test smoke and CO alarms").filter(visible).first()).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText("Check the water heater's quake straps").filter(visible).first()).toBeVisible()
+    await expect(page.getByText("Let's set up your home")).toHaveCount(0)
+    const snapCard = page.getByTestId("snap-label-card").filter(visible).first()
+    await expect(snapCard).toContainText("Get the exact schedule")
+    await snap(page, "J1", "home-first-tasks", "Home after the first minute: both tasks under This week, due this weekend; 'Get the exact schedule · Snap a label' as the one next step — no set-up hero, no tour yet",
+      snapCard)
+    await snapCard.getByRole("link", { name: /Snap a label/ }).click()
     await page.waitForURL(/\/inventory\/add/, { timeout: 20_000 })
 
     // First item through the simple lane. REGRESSION GUARD (2026-08-21): the
@@ -188,12 +221,16 @@ test.describe("journey walks", () => {
       tour, { viewportOnly: true })
     await page.keyboard.press("Escape")
     await expect(tour).toHaveCount(0)
-    const upkeepHero = page.getByText(/No upkeep yet/i).filter(visible).first()
-    await expect(upkeepHero).toBeVisible({ timeout: 15_000 })
-    // HH-80: the profile was skipped, and its banner still yields to this.
+    // With an item and the first minute's tasks, Home is a working home: its
+    // week, no "No upkeep yet", no label card, and no profile nag (the zip and
+    // home type answered what the old five questions were for).
+    const week = page.getByText("Test smoke and CO alarms").filter(visible).first()
+    await expect(week).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(/No upkeep yet/i)).toHaveCount(0)
+    await expect(page.getByTestId("snap-label-card")).toHaveCount(0)
     await expect(page.getByText("Finish your home profile")).toHaveCount(0)
-    await snap(page, "J1", "home-after-first-item", "Home: “No upkeep yet — add a manual” names the next step (Pick an item / Add another item) — not a profile nag, and not an empty schedule dressed as calm (HH-80)",
-      upkeepHero)
+    await snap(page, "J1", "home-after-first-item", "Home after the first item: This week with the first minute's tasks; the label card gone; no profile nag",
+      week)
   })
 
   /**

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest"
 import table from "../../src/data/zip-area.json"
 import { lookupZip, type ZipAreaTable } from "../area/zipArea"
-import { firstList, type FirstListInput, type HomeType } from "./firstList"
+import { firstDueDates, firstList, type FirstListInput, type HomeType } from "./firstList"
 
 const T = table as unknown as ZipAreaTable
 
@@ -143,5 +143,17 @@ describe("the rules", () => {
   })
   it("an alarm test opening next month is already worth doing (February → March window)", () => {
     expect(keys(firstList(fromZip("55406", "house", 2)))).toContain("home.alarm_test")
+  })
+})
+
+describe("firstDueDates: the coming weekend, inside Home's week", () => {
+  it("Wednesday → that Saturday, then Sunday", () => {
+    expect(firstDueDates("2026-11-18", 3)).toEqual(["2026-11-21", "2026-11-22", "2026-11-22"])
+  })
+  it("Saturday → today, then tomorrow", () => {
+    expect(firstDueDates("2026-11-21", 2)).toEqual(["2026-11-21", "2026-11-22"])
+  })
+  it("Sunday → next weekend, still within 7 days", () => {
+    expect(firstDueDates("2026-11-22", 2)).toEqual(["2026-11-28", "2026-11-29"])
   })
 })

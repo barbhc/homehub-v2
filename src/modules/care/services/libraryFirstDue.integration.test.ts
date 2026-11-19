@@ -61,13 +61,13 @@ describe.skipIf(import.meta.env.VITE_USE_EMULATORS !== "true")("a library task's
     expect(live.map((o) => o.dueDate)).toEqual([addMonths(localToday(), 12)])
   })
 
-  it("a malformed date is refused before anything is minted for it", async () => {
+  it("a refused add leaves nothing behind: the template it had written is rolled back", async () => {
     const res = await addLibraryTask(HOME, null, entryByKey("home.water_heater")!, { firstDue: "next Saturday" })
     expect(res.error?.message).toBe("That date isn't valid.")
-    // The template itself was written first; clean it up.
     const tpl = await getDocs(query(collection(db, `homes/${HOME}/taskTemplates`), where("externalKey", "==", "library:home.water_heater")))
     for (const d of tpl.docs) {
       created.push(d.id)
+      expect(d.data().deletedAt, "rolled back").not.toBeNull()
       expect((await occurrences(d.id)).filter((o) => o.deletedAt == null)).toEqual([])
     }
   })

@@ -9,6 +9,42 @@ export type OwnershipDuration = "new_under_1yr" | "1_to_5yr" | "5_plus"
 export type PreferredMode = "ask_first" | "inventory_first" | "unset"
 /** Local climate — read by house-rule application (freeze_prep suppression) and tiering. */
 export type Climate = "mild" | "moderate" | "cold" | "hot"
+/** Who set `climate` / `freeze_risk`: the zip table, or the owner (an answer or a "Not true here"). */
+export type ClimateSource = "zip" | "owner"
+type Hazard = "earthquake" | "wildfire" | "hurricane"
+
+/**
+ * What the zip said, kept with the table version that said it (D8). The zip
+ * itself stays in Homehub: it is stored on the home doc and never sent anywhere.
+ */
+export type HomeArea = {
+  /** Hazards shown and still believed true here (a "Not true here" removes one). */
+  hazards: Hazard[]
+  /** Hazards the owner said are not true here — never offered again on a table refresh. */
+  hazardsCorrected: Hazard[]
+  hardinessZone: string | null
+  county: string | null
+  observesDst: boolean | null
+  tableVersion: string
+}
+
+function toArea(v: unknown): HomeArea | null {
+  if (!v || typeof v !== "object") return null
+  const r = v as Record<string, unknown>
+  const hz = (x: unknown): Hazard[] =>
+    Array.isArray(x) ? x.filter((h): h is Hazard => h === "earthquake" || h === "wildfire" || h === "hurricane") : []
+  const str = (x: unknown) => (typeof x === "string" && x ? x : null)
+  const version = str(r.tableVersion)
+  if (!version) return null
+  return {
+    hazards: hz(r.hazards),
+    hazardsCorrected: hz(r.hazardsCorrected),
+    hardinessZone: str(r.hardinessZone),
+    county: str(r.county),
+    observesDst: typeof r.observesDst === "boolean" ? r.observesDst : null,
+    tableVersion: version,
+  }
+}
 
 /**
  * Concerns keys are stable strings; labels live in the UI.
@@ -48,6 +84,11 @@ export type HomeProfile = {
   /** True if pipes/appliances can freeze here. `false` suppresses winterizing
    *  (freeze_prep) tasks during a parse; null = unknown (no effect). */
   freeze_risk: boolean | null
+  /** Five-digit zip, or null (skipped, or a home from before D8). */
+  zip: string | null
+  area: HomeArea | null
+  /** Who set climate/freeze_risk; null for a home from before D8. */
+  climate_source: ClimateSource | null
   /** Home-setup answers that gate the care library's building-level entries. */
   care_facts: CareFacts
   /** Home-level suggestion keys the owner dismissed. */
@@ -68,6 +109,9 @@ export type HomeProfileUpsert = {
   preferred_mode?: PreferredMode
   climate?: Climate | null
   freeze_risk?: boolean | null
+  zip?: string | null
+  area?: HomeArea | null
+  climate_source?: ClimateSource | null
   /** When omitted, caller hasn't finished the flow. Pass `new Date().toISOString()` on completion. */
   completed_at?: string | null
   care_facts?: CareFacts
@@ -89,6 +133,9 @@ function toHomeProfile(homeId: string, d: DocumentData): HomeProfile {
     preferred_mode: (d.preferredMode ?? "unset") as PreferredMode,
     climate: (d.climate ?? null) as Climate | null,
     freeze_risk: typeof d.freezeRisk === "boolean" ? d.freezeRisk : null,
+    zip: typeof d.zip === "string" && /^\d{5}$/.test(d.zip) ? d.zip : null,
+    area: toArea(d.area),
+    climate_source: d.climateSource === "zip" || d.climateSource === "owner" ? d.climateSource : null,
     care_facts: (d.careFacts && typeof d.careFacts === "object") ? (d.careFacts as CareFacts) : {},
     dismissed_care: Array.isArray(d.dismissedCare) ? d.dismissedCare.filter((k: unknown) => typeof k === "string") : [],
     winterizing_offer_answered_at: hpIso(d.winterizingOfferAnsweredAt),
@@ -108,6 +155,9 @@ function patchToFields(patch: HomeProfileUpsert): DocumentData {
   if (patch.preferred_mode !== undefined) f.preferredMode = patch.preferred_mode
   if (patch.climate !== undefined) f.climate = patch.climate
   if (patch.freeze_risk !== undefined) f.freezeRisk = patch.freeze_risk
+  if (patch.zip !== undefined) f.zip = patch.zip
+  if (patch.area !== undefined) f.area = patch.area
+  if (patch.climate_source !== undefined) f.climateSource = patch.climate_source
   if (patch.care_facts !== undefined) f.careFacts = patch.care_facts
   if (patch.dismissed_care !== undefined) f.dismissedCare = patch.dismissed_care
   if (patch.completed_at !== undefined)
