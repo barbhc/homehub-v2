@@ -167,16 +167,19 @@ test.describe("journey walks", () => {
     await page.getByRole("button", { name: "Add 2 tasks" }).click()
 
     // must-be-true 11 + D8's Home fix: the tasks are on This week the same
-    // day, and the next step is a label — the camera opens only on tap.
+    // day. The next step (design/day-one-home.md) is "What's in your home?" —
+    // a tap shows care and writes nothing; the label is its second way in,
+    // and the camera opens only on tap.
     await page.waitForURL(/\/home/, { timeout: 20_000 })
     await expect(page.getByText("Test smoke and CO alarms").filter(visible).first()).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText("Check the water heater's quake straps").filter(visible).first()).toBeVisible()
     await expect(page.getByText("Let's set up your home")).toHaveCount(0)
-    const snapCard = page.getByTestId("snap-label-card").filter(visible).first()
-    await expect(snapCard).toContainText("Get the exact schedule")
-    await snap(page, "J1", "home-first-tasks", "Home after the first minute: both tasks under This week, due this weekend; 'Get the exact schedule · Snap a label' as the one next step — no set-up hero, no tour yet",
-      snapCard)
-    await snapCard.getByRole("link", { name: /Snap a label/ }).click()
+    const nextCard = page.getByTestId("appliances-card").filter(visible).first()
+    await expect(nextCard).toContainText("What's in your home?")
+    await expect(page.getByTestId("coming-up").filter(visible).first()).toContainText("Coming up in")
+    await snap(page, "J1", "home-first-tasks", "Home after the first minute: both tasks under This week, due this weekend; a 'Coming up in …' line; 'What's in your home?' appliance chips as the one next step, 'Snap a label instead' under them — no set-up hero, no tour yet",
+      nextCard)
+    await nextCard.getByRole("link", { name: /Snap a label instead/ }).click()
     await page.waitForURL(/\/inventory\/add/, { timeout: 20_000 })
 
     // First item through the simple lane. REGRESSION GUARD (2026-08-21): the
@@ -228,8 +231,9 @@ test.describe("journey walks", () => {
     await expect(week).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText(/No upkeep yet/i)).toHaveCount(0)
     await expect(page.getByTestId("snap-label-card")).toHaveCount(0)
+    await expect(page.getByTestId("appliances-card")).toHaveCount(0)
     await expect(page.getByText("Finish your home profile")).toHaveCount(0)
-    await snap(page, "J1", "home-after-first-item", "Home after the first item: This week with the first minute's tasks; the label card gone; no profile nag",
+    await snap(page, "J1", "home-after-first-item", "Home after the first item: This week with the first minute's tasks; the appliance and label cards gone (one question about the home instead); no profile nag",
       week)
   })
 

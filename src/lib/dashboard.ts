@@ -19,6 +19,9 @@ import { freezeFreeFrom, type HomeReads, type ReadDoc } from "@/lib/homeReads"
 import { isAsNeededColdStorageRow } from "../../shared/tasks/houseRules"
 import { addDays, diffDays, localToday } from "../../shared/dates/calendar"
 import { asListedToday, effectiveDueDate } from "../../shared/tasks/snooze"
+import { isRecurring } from "../../shared/tasks/reviewBuckets"
+import { computeNextDueDate } from "@/modules/care/services/nextDueDate"
+import { WEEK_DAYS, pickComingUp, type AheadDate, type ComingUp } from "@/lib/homeWeek"
 
 type Row = { id: string } & Record<string, unknown>
 /** `{ id, ...data }` — the row shape these derivations were written against. */
@@ -104,6 +107,12 @@ export interface DashboardStats {
    *  Window vocabulary on purpose: the stat chip beside it says "in their
    *  window", so the two speak the same language. */
   nextUp: { dueDate: string; windowStart: string } | null
+  /** Home's "Coming up" line (design/day-one-home.md): the next due month after
+   *  this week and up to two tasks in it. A brand-new home has nothing past this
+   *  week yet, so a recurring task in the week also counts by the date its next
+   *  one will take when done (`again`) — the same arithmetic as the Mark-done
+   *  receipt (previewNextDue). */
+  comingUp: ComingUp | null
   /** Every open scheduled instance, at ANY date and of any care type.
    *  HH-80 needs to tell "you have upkeep, none of it this week" apart from
    *  "you have no upkeep at all", and dueSoonCount/overdueTaskCount both
@@ -455,6 +464,8 @@ export function deriveDashboardStats(reads: HomeReads): DashboardStats {
   let completedThisMonth = 0
   let scheduledTaskCount = 0
   let nextUp: { dueDate: string; windowStart: string } | null = null
+  const weekEnd = addDays(todayStr, WEEK_DAYS)
+  const ahead: AheadDate[] = []
   // The 1st of the month is always inside the done-history window.
   for (const { data: r } of reads.recentDone) {
     if (r.deletedAt !== null || r.status !== "done") continue
@@ -484,9 +495,20 @@ export function deriveDashboardStats(reads: HomeReads): DashboardStats {
       const w = dueWindow(d, (r.scheduleType as string | null) ?? null)
       nextUp = { dueDate: d, windowStart: w.start }
     }
+    const title = typeof r.title === "string" && r.title.trim() ? r.title.trim() : null
+    if (!title) continue
+    if (d > weekEnd) {
+      ahead.push({ date: d, title, again: false })
+    } else if (typeof r.scheduleType === "string" && isRecurring(r.scheduleType)) {
+      // Done on time (or today, if it is late), when does it come back?
+      const next = computeNextDueDate(r.scheduleType as ScheduleType, d < todayStr ? todayStr : d, {
+        intervalDays: typeof r.intervalDays === "number" ? r.intervalDays : null,
+      })
+      if (next && next > weekEnd) ahead.push({ date: next, title, again: true })
+    }
   }
 
-  return { totalItems, overdueTaskCount, dueSoonCount, completedThisMonth, scheduledTaskCount, nextUp }
+  return { totalItems, overdueTaskCount, dueSoonCount, completedThisMonth, scheduledTaskCount, nextUp, comingUp: pickComingUp(ahead) }
 }
 
 export interface MaintenanceTaskFull {

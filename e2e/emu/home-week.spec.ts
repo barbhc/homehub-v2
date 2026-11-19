@@ -30,7 +30,10 @@ test.describe("emulator e2e — Home: This week", () => {
     await expect(first.getByRole("link", { name: /See details/ })).toHaveAttribute("href", /\/tasks\//)
 
     // Nothing the old Home carried survives: no stat band, no drawer, no strip.
-    await expect(page.getByText(/in their window|Coming up|Full calendar view|across your home/)).toHaveCount(0)
+    // ("Coming up" is back, but as ONE line under the list naming the next
+    // due month — design/day-one-home.md, owner 2026-11-19 — not the drawer.)
+    await expect(page.getByText(/in their window|Full calendar view|across your home/)).toHaveCount(0)
+    await expect(page.getByTestId("coming-up").filter(visible)).toHaveCount(1)
 
     // Any row opens the same way, and the first closes.
     const second = rows().nth(1)
@@ -44,7 +47,7 @@ test.describe("emulator e2e — Home: This week", () => {
     await expect(section().getByRole("link", { name: /All tasks/ })).toHaveAttribute("href", "/maintenance")
 
     // No task is listed twice on the page.
-    await expect(page.getByText("Replace HVAC furnace filter").filter(visible)).toHaveCount(1)
+    await expect(page.getByText("Replace HVAC furnace filter", { exact: true }).filter(visible)).toHaveCount(1)
     await expect(page.getByText(/Failed to load|Something went wrong/i)).toHaveCount(0)
   })
 

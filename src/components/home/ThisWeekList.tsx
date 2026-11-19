@@ -2,7 +2,8 @@
  * Home · "This week" — the one list (design/home-focus.md; owner, 2026-09-08).
  *
  * The week's tasks, the first one open. The open row is the row itself,
- * grown edge to edge (wash fill, teal edges left and right, caret flipped):
+ * grown edge to edge (wash fill, caret flipped; no side edges — owner,
+ * 2026-11-19, they read as unfinished):
  * when · cadence · minutes as pills, ONE prep line when the task needs
  * something, then Mark done / Snooze / See details. No kicker, no how line —
  * the steps live behind See details. Tapping any other row opens it and
@@ -13,17 +14,17 @@
  */
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { BellOffIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, MapPinIcon, PhoneIcon, PackageIcon, ShieldIcon } from "lucide-react"
+import { BellOffIcon, CalendarIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, MapPinIcon, PhoneIcon, PackageIcon, ShieldIcon } from "lucide-react"
 import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@/lib/dashboard"
 import { useTaskDetail } from "@/components/home/tasks/shared"
 import { InlineError } from "@/components/layout/LoadStates"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { localToday } from "../../../shared/dates/calendar"
-import { weekRows, nextUpRows, prepLine, prepPlace, timelyWarranty, fmtShortDate, type HomeWeekRow } from "@/lib/homeWeek"
+import { weekRows, nextUpRows, prepLine, prepPlace, timelyWarranty, fmtShortDate, comingUpLine, type ComingUp, type HomeWeekRow } from "@/lib/homeWeek"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
-/** The open row's fill and its two edges — mixed from the tokens so both themes hold. */
+/** The open row's fill — mixed from the tokens so both themes hold. */
 const WASH = "color-mix(in srgb, var(--hh-teal) 12%, var(--hh-surface))"
 
 export type ThisWeekVariant = "mobile" | "desktop"
@@ -32,13 +33,15 @@ const SCALE = {
   desktop: { rowPad: "px-5 py-3.5", title: "text-[0.9375rem]", openTitle: "text-[1.0625rem]", meta: "text-[0.78125rem]", bodyPad: "pl-[58px] pr-5 pb-4", notePad: "pl-[58px] pr-5 pb-3" },
 } as const
 
-export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completingId, actionError = null, onComplete, onSnooze, variant = "mobile" }: {
+export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, comingUp = null, completingId, actionError = null, onComplete, onSnooze, variant = "mobile" }: {
   homeId: string | null
   /** Overdue + due-soon feed (lead first). */
   tasks: DashboardTask[]
   /** Forward schedule; the next 7 days join the list, the rest feed the quiet week. */
   upcoming: MaintenanceTaskFull[]
   nextUp?: { dueDate: string; windowStart: string } | null
+  /** The next due month after this week (design/day-one-home.md). */
+  comingUp?: ComingUp | null
   completingId: string | null
   /** A check-off or snooze the server refused. Said on the row it belongs to —
    *  the row stays, because the task is not done, and it says why. */
@@ -96,7 +99,20 @@ export function ThisWeekList({ homeId, tasks, upcoming, nextUp = null, completin
           </Link>
         </div>
       </div>
+      {/* One line, not a list: what is next after this week, so Home looks
+          ahead. The quiet week says it already, so not twice. */}
+      {rows.length > 0 && comingUp && <ComingUpLine comingUp={comingUp} today={today} sc={sc} />}
     </section>
+  )
+}
+
+function ComingUpLine({ comingUp, today, sc }: { comingUp: ComingUp; today: string; sc: (typeof SCALE)[ThisWeekVariant] }) {
+  const { lead, rest } = comingUpLine(comingUp, today)
+  return (
+    <p className={`mt-1.5 flex items-start gap-2.5 px-1 ${sc.meta === "text-[0.75rem]" ? "text-[0.875rem]" : "text-[0.9375rem]"} leading-snug`} style={{ color: SUB }} data-testid="coming-up">
+      <CalendarIcon className="mt-0.5 size-4 shrink-0" style={{ color: TEAL }} aria-hidden />
+      <span><span className="font-semibold" style={{ color: INK }}>{lead}</span> {rest}</span>
+    </p>
   )
 }
 

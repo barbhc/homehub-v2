@@ -122,3 +122,38 @@ export function fmtShortDate(dateStr: string): string {
   if (Number.isNaN(d.getTime())) return dateStr
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
+
+// ── Coming up (design/day-one-home.md) ────────────────────────────────────────
+
+/** A task's next date beyond this week: an open instance already there, or (`again`) the next one a task in this week will make when it is done. */
+export interface AheadDate { date: string; title: string; again: boolean }
+
+/** The next due month after this week, and up to two tasks in it. */
+export interface ComingUp { date: string; titles: string[]; again: boolean }
+
+/** The earliest month ahead, its first two distinct tasks; `again` only when every one named is a repeat. */
+export function pickComingUp(ahead: AheadDate[]): ComingUp | null {
+  if (ahead.length === 0) return null
+  const sorted = [...ahead].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+  const month = sorted[0].date.slice(0, 7)
+  const picked: AheadDate[] = []
+  for (const a of sorted) {
+    if (a.date.slice(0, 7) !== month) break
+    if (picked.some((p) => p.title === a.title)) continue
+    picked.push(a)
+    if (picked.length === 2) break
+  }
+  return { date: sorted[0].date, titles: picked.map((p) => p.title), again: picked.every((p) => p.again) }
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+/** "Test smoke and CO alarms" → "test smoke and CO alarms"; "HVAC service" stays. */
+const lowerFirst = (t: string) => (t.length > 1 && t[1] === t[1].toUpperCase() && /[A-Z]/.test(t[1]) ? t : t.charAt(0).toLowerCase() + t.slice(1))
+
+/** "Coming up in March: clean the gutters and test smoke and CO alarms again." */
+export function comingUpLine(c: ComingUp, today: string): { lead: string; rest: string } {
+  const sameMonth = c.date.slice(0, 7) === today.slice(0, 7)
+  const lead = sameMonth ? "Later this month:" : `Coming up in ${MONTHS[Number(c.date.slice(5, 7)) - 1]}:`
+  const names = c.titles.map(lowerFirst)
+  return { lead, rest: `${names.join(" and ")}${c.again ? " again" : ""}.` }
+}

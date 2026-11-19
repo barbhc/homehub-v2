@@ -14,6 +14,7 @@ import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { dens, greeting, shortDate } from "@/lib/redesign/tokens"
 import { ThisWeekList, TimelyWarrantyLine } from "@/components/home/ThisWeekList"
+import type { ComingUp } from "@/lib/homeWeek"
 import { useDisplayName } from "@/hooks/useDisplayName"
 
 // Calm palette (design/hh-home2.jsx)
@@ -74,6 +75,7 @@ export function RefinedHome({
   tasks,
   upcoming,
   nextUp = null,
+  comingUp = null,
   warranties,
   homeId,
   homeName,
@@ -88,6 +90,7 @@ export function RefinedHome({
   /** Forward schedule for the Coming-up drawer. */
   upcoming: MaintenanceTaskFull[]
   nextUp?: { dueDate: string; windowStart: string } | null
+  comingUp?: ComingUp | null
   warranties: ExpiringWarrantyItem[]
   cleaningGuides?: DeepCleanGuide[]
   level: UserLevel
@@ -156,6 +159,7 @@ export function RefinedHome({
           tasks={tasks}
           upcoming={upcoming}
           nextUp={nextUp}
+          comingUp={comingUp}
           completingId={completingId}
           actionError={actionError}
           onComplete={onComplete}

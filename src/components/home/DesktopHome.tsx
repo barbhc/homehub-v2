@@ -7,6 +7,7 @@ import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { greeting } from "@/lib/redesign/tokens"
 import { ThisWeekList, TimelyWarrantyLine } from "@/components/home/ThisWeekList"
+import type { ComingUp } from "@/lib/homeWeek"
 import { timelyWarranty } from "@/lib/homeWeek"
 import { useDisplayName } from "@/hooks/useDisplayName"
 
@@ -57,12 +58,13 @@ function RecallCard({ recall }: { recall: HomeNotices["recalls"][number] }) {
 
 
 export function DesktopHome({
-  tasks, upcoming, nextUp = null, warranties, notices, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
+  tasks, upcoming, nextUp = null, comingUp = null, warranties, notices, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
 }: {
   tasks: DashboardTask[]
   /** Forward schedule for the Coming-up drawer. */
   upcoming: MaintenanceTaskFull[]
   nextUp?: { dueDate: string; windowStart: string } | null
+  comingUp?: ComingUp | null
   warranties: ExpiringWarrantyItem[]
   notices: HomeNotices
   cleaningGuides: DeepCleanGuide[]
@@ -107,6 +109,7 @@ export function DesktopHome({
               tasks={tasks}
               upcoming={upcoming}
               nextUp={nextUp}
+              comingUp={comingUp}
               completingId={completingId}
               actionError={actionError}
               onComplete={onComplete}
