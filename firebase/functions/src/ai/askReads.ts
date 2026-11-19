@@ -30,11 +30,12 @@ export const CANDIDATES_PER_MANUAL = 40
 /** Firestore's `in` takes at most 30 values per query. */
 const IN_MAX = 30
 
-export type ReadKind = "member" | "items" | "notes" | "rooms" | "manuals" | "chunks"
+/** `home` and `tasks`: read only for a general answer (generalGuidance.ts). */
+export type ReadKind = "member" | "items" | "notes" | "rooms" | "manuals" | "chunks" | "home" | "tasks"
 
 /** Document reads per collection, as Firestore bills them: a query that returns nothing still costs one. */
 export class ReadTally {
-  readonly reads: Record<ReadKind, number> = { member: 0, items: 0, notes: 0, rooms: 0, manuals: 0, chunks: 0 }
+  readonly reads: Record<ReadKind, number> = { member: 0, items: 0, notes: 0, rooms: 0, manuals: 0, chunks: 0, home: 0, tasks: 0 }
   query(kind: ReadKind, returned: number): void {
     this.reads[kind] += Math.max(returned, 1)
   }
@@ -46,7 +47,8 @@ export class ReadTally {
   }
 }
 
-export type AskOutcome = "answered" | "failed" | "nothing-to-ask" | "refused"
+/** `general`: answered from general know-how — the home had nothing Ask could read. */
+export type AskOutcome = "answered" | "general" | "failed" | "nothing-to-ask" | "refused"
 
 /** The structured line chatQuery logs once per question ("chatQuery reads"). */
 export function askReadsLogFields(homeId: string, scope: string, outcome: AskOutcome, tally: ReadTally) {

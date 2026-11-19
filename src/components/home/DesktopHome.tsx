@@ -8,6 +8,8 @@ import type { UserLevel } from "@/hooks/useUserLevel"
 import { greeting } from "@/lib/redesign/tokens"
 import { ThisWeekList, TimelyWarrantyLine } from "@/components/home/ThisWeekList"
 import type { ComingUp } from "@/lib/homeWeek"
+import type { AskStarter } from "../../../shared/care/dayOne"
+import { AskStarters } from "@/components/home/RefinedHome"
 import { timelyWarranty } from "@/lib/homeWeek"
 import { useDisplayName } from "@/hooks/useDisplayName"
 
@@ -58,13 +60,14 @@ function RecallCard({ recall }: { recall: HomeNotices["recalls"][number] }) {
 
 
 export function DesktopHome({
-  tasks, upcoming, nextUp = null, comingUp = null, warranties, notices, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
+  tasks, upcoming, nextUp = null, comingUp = null, askStarters = [], warranties, notices, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
 }: {
   tasks: DashboardTask[]
   /** Forward schedule for the Coming-up drawer. */
   upcoming: MaintenanceTaskFull[]
   nextUp?: { dueDate: string; windowStart: string } | null
   comingUp?: ComingUp | null
+  askStarters?: AskStarter[]
   warranties: ExpiringWarrantyItem[]
   notices: HomeNotices
   cleaningGuides: DeepCleanGuide[]
@@ -97,6 +100,7 @@ export function DesktopHome({
             <SparklesIcon className="size-[17px]" /> Ask Homehub
           </Link>
         </div>
+        {askStarters.length > 0 && <div className="-mt-1.5 mb-5 flex justify-end"><AskStarters starters={askStarters} /></div>}
 
         <div className={railHasContent ? "grid items-start gap-[22px] lg:grid-cols-[minmax(0,1.85fr)_minmax(280px,1fr)]" : "grid items-start gap-[22px]"}>
           {/* Main column — leads with Your Focus; the task counts moved to the

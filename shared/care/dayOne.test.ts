@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { APPLIANCES, applianceCare, appliancesToOffer, nextQuestion } from "./dayOne"
+import { APPLIANCES, applianceCare, appliancesToOffer, askStarters, nextQuestion } from "./dayOne"
 
 const by = (label: string) => APPLIANCES.find((a) => a.label === label)!
 const keys = (rows: { entry: { key: string } }[]) => rows.map((r) => r.entry.key)
@@ -77,5 +77,27 @@ describe("the next question", () => {
 
   it("honours Not sure on this device", () => {
     expect(nextQuestion({}, { existingTitles: [], skipped: ["has_air_filter"] })!.fact).toBe("has_water_heater")
+  })
+})
+
+describe("askStarters", () => {
+  it("a Dallas November: the freeze first, then the filter", () => {
+    expect(askStarters({ month: 11, freezeRisk: true, hazards: [] }).map((s) => s.label)).toEqual(["Before the first freeze?", "Air filter: how often?"])
+  })
+  it("San Francisco: no freeze talk; the quake comes first", () => {
+    expect(askStarters({ month: 11, freezeRisk: false, hazards: ["earthquake"] }).map((s) => s.label)).toEqual(["Earthquake-ready?", "Air filter: how often?"])
+  })
+  it("Miami in May: hurricane prep", () => {
+    expect(askStarters({ month: 5, freezeRisk: false, hazards: ["hurricane"] })[0].question).toBe("When should I start preparing for hurricane season?")
+  })
+  it("every starter is a question the eval scores", async () => {
+    // Imported as data (no node:fs in shared code's test environment).
+    const goldens = (await import("../../evals/ask-general/goldens.json")).default as { cases: { question: string }[] }
+    const asked = new Set(goldens.cases.map((c) => c.question))
+    for (const s of [
+      ...askStarters({ month: 11, freezeRisk: true, hazards: ["earthquake", "wildfire"] }),
+      ...askStarters({ month: 6, freezeRisk: false, hazards: ["hurricane"] }),
+      ...askStarters({ month: 6, freezeRisk: false, hazards: [] }),
+    ]) expect(asked.has(s.question), s.question).toBe(true)
   })
 })

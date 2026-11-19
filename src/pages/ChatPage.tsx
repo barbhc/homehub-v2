@@ -70,7 +70,7 @@ function AskForHome() {
   // Pre-scope to an item when arriving from "Fix a problem" (/chat?item=ID).
   // This is how troubleshooting now enters Ask — scoped to the appliance, with
   // its problem-oriented suggestions ready and chat answering anything.
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([])
   const [selectedItemId, setSelectedItemId] = useState<string | null>(() => searchParams.get("item"))
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -298,6 +298,22 @@ function AskForHome() {
    * becomes the new answer. The question itself was saved to the conversation
    * when it was first asked, so only the answer is saved now.
    */
+  // A starter question from Home ("Before the first freeze?" under the Ask
+  // bar — design/day-one-home.md, release B) arrives as ?q=. Sent once, then
+  // taken off the URL so Back does not ask it again. Sent from a callback, not
+  // the effect body: an effect calling a function that sets state reads, to
+  // react-hooks, as setting it in the effect.
+  const starter = searchParams.get("q")
+  const starterSent = useRef(false)
+  useEffect(() => {
+    if (!starter || starterSent.current || !homeId || isStreaming) return
+    starterSent.current = true
+    void Promise.resolve().then(() => {
+      handleSend(starter.trim().slice(0, 500))
+      setSearchParams((p) => { const n = new URLSearchParams(p); n.delete("q"); return n }, { replace: true })
+    })
+  }, [starter, homeId, isStreaming, handleSend, setSearchParams])
+
   const handleRetry = useCallback(
     (messageId: string) => {
       if (!homeId || isStreaming) return
@@ -594,7 +610,7 @@ function AskForHome() {
             </span>
             <h1 className="text-[1.875rem] font-extrabold tracking-[-0.6px]" style={{ color: "var(--hh-ink)" }}>Ask</h1>
             <p className="mt-1.5 text-[0.9375rem]" style={{ color: "var(--hh-sub)" }}>
-              Your home assistant — grounded in your manuals.
+              Answers from your manuals when you have them, general guidance when you don't.
             </p>
           </div>
 
