@@ -9,7 +9,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import {
-  laParts, decideLanes, composeMorning, composeDigest, composeBuyAhead, buyAheadRows,
+  laParts, localParts, validTimeZone, decideLanes, composeMorning, composeDigest, composeBuyAhead, buyAheadRows,
 } from "../lib/firebase/functions/src/push/lanes.js"
 import { normalizeNotificationPrefs } from "../lib/shared/notifications/preferences.js"
 
@@ -25,6 +25,18 @@ test("laParts renders the delivery timezone, not UTC — the bug the old cron ha
   assert.equal(p.hour, 17)
   assert.equal(p.weekday, 6)
   assert.equal(p.hhmm, "17:30")
+})
+
+test("localParts reads a person's own zone, half-hour zones included", () => {
+  const now = new Date("2026-09-07T12:00:00Z")
+  assert.deepEqual(localParts(now, "America/New_York"), { date: "2026-09-07", hhmm: "08:00", hour: 8, weekday: 1 })
+  assert.equal(localParts(now, "Asia/Kolkata").hhmm, "17:30")
+  assert.equal(localParts(now).hour, 5, "no zone: Pacific, as before")
+})
+
+test("validTimeZone keeps real zones and drops anything else", () => {
+  assert.equal(validTimeZone("Europe/London"), "Europe/London")
+  for (const bad of ["Mars/Olympus_Mons", "", 42, null, undefined, "x".repeat(80)]) assert.equal(validTimeZone(bad), null)
 })
 
 test("laParts: midnight is hour 0, not 24", () => {

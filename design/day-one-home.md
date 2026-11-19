@@ -113,8 +113,10 @@ install, so the ask has to come at a concrete moment.
   `src/lib/nativePush.ts`; the Done outcome now carries `nextDue`.
 - **Events:** `reminder_ask_shown`, `reminder_ask_answered` (on, not_now, denied,
   error).
-- **Known gap (functions, separate):** the morning lane runs on Pacific time
-  (`PUSH_TZ` in `push/lanes.ts`), so "the day it's due" holds everywhere but the
-  hour does not: 08:00 Pacific is 11:00 in New York. The fix has two halves: homes
-  record the device's timezone (today every home is stored as Pacific — `createHome`
-  is never passed one), and the lanes read it. The second needs a functions deploy.
+- **Time zone (fixed 2026-11-19, owner approved):** the sweep ran every lane on
+  Pacific time, so "8am" was 11am in New York. Now each person's lanes run on their
+  own clock: the app records the phone's zone at sign-in (`time_zone` in
+  users/{uid}/private/preferences, `src/lib/timeZone.ts`), and the sweep reads it
+  with the preferences it already loads (`localParts`/`validTimeZone` in
+  `push/lanes.ts`). Per person, not per home. Anyone not yet recorded stays on
+  Pacific until their next sign-in or app start.
