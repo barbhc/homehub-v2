@@ -122,8 +122,33 @@ describe("the library's own hygiene", () => {
       keys.add(e.key)
     }
   })
-  it("home entries are all fact-gated; item entries never are", () => {
-    for (const e of LIBRARY) expect(!!e.fact).toBe(e.kind === "home")
+  it("home entries are all gated, by a fact or the home's area; item entries never are", () => {
+    for (const e of LIBRARY) expect(!!(e.fact || e.area)).toBe(e.kind === "home")
+    for (const e of LIBRARY) if (e.kind !== "home") expect(e.fact ?? e.area).toBeUndefined()
     expect(entriesForKind("air_purifier").length).toBe(3)
+  })
+  it("every entry's own title is its own archetype — so adding it is never offered again", () => {
+    for (const e of LIBRARY) expect([e.key, archetypeOf(e.title)]).toEqual([e.key, e.archetype])
+  })
+})
+
+describe("D8 starter entries", () => {
+  it("an area-gated entry is never offered without the area — quake straps never reach Ohio", () => {
+    const facts = { has_water_heater: true, has_outdoor_taps: true }
+    const keys = (area: Parameters<typeof suggestionsForHome>[3]) => suggestionsForHome(facts, [], [], area).map((s) => s.entry.key)
+    expect(keys(undefined)).not.toContain("home.quake_straps")
+    expect(keys(undefined)).not.toContain("home.outdoor_taps")
+    expect(keys(["earthquake"])).toContain("home.quake_straps")
+    expect(keys(["freeze"])).toContain("home.outdoor_taps")
+  })
+  it("the wildfire task is not the gutters task, in either direction", () => {
+    expect(archetypeOf("Clear leaves from the roof, gutters and vents")).toBe("wildfire.clear")
+    expect(archetypeOf("Clean the gutters")).toBe("gutters.clean")
+  })
+  it("recognises the new work in a manual's words", () => {
+    expect(archetypeOf("Inspect seismic straps on the water heater")).toBe("quake.strap")
+    expect(archetypeOf("Drain outdoor faucets before winter")).toBe("freeze.taps")
+    expect(archetypeOf("Winterize hose bibs")).toBe("freeze.taps")
+    expect(archetypeOf("Hurricane shutter check")).toBe("hurricane.prep")
   })
 })
