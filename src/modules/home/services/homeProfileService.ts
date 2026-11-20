@@ -96,6 +96,8 @@ export type HomeProfile = {
   /** HH-166: when someone answered the Settings winterizing offer ("Keep
    *  them" or a turn-off) for this home; null = never asked or never answered. */
   winterizing_offer_answered_at: string | null
+  /** "YYYY-MM": the month whose "This month at your home" card was answered (Add or Not now) — design/day-one-home.md, release D. */
+  refresh_answered_month: string | null
   completed_at: string | null
   created_at: string
   updated_at: string
@@ -116,6 +118,7 @@ export type HomeProfileUpsert = {
   completed_at?: string | null
   care_facts?: CareFacts
   dismissed_care?: string[]
+  refresh_answered_month?: string | null
 }
 
 // home_profile is folded onto the home doc (firestore-model.md §2).
@@ -139,6 +142,7 @@ function toHomeProfile(homeId: string, d: DocumentData): HomeProfile {
     care_facts: (d.careFacts && typeof d.careFacts === "object") ? (d.careFacts as CareFacts) : {},
     dismissed_care: Array.isArray(d.dismissedCare) ? d.dismissedCare.filter((k: unknown) => typeof k === "string") : [],
     winterizing_offer_answered_at: hpIso(d.winterizingOfferAnsweredAt),
+    refresh_answered_month: typeof d.refreshAnsweredMonth === "string" && /^\d{4}-\d{2}$/.test(d.refreshAnsweredMonth) ? d.refreshAnsweredMonth : null,
     completed_at: hpIso(d.profileCompletedAt),
     created_at: hpIso(d.createdAt) ?? "",
     updated_at: hpIso(d.updatedAt) ?? "",
@@ -159,6 +163,7 @@ function patchToFields(patch: HomeProfileUpsert): DocumentData {
   if (patch.area !== undefined) f.area = patch.area
   if (patch.climate_source !== undefined) f.climateSource = patch.climate_source
   if (patch.care_facts !== undefined) f.careFacts = patch.care_facts
+  if (patch.refresh_answered_month !== undefined) f.refreshAnsweredMonth = patch.refresh_answered_month
   if (patch.dismissed_care !== undefined) f.dismissedCare = patch.dismissed_care
   if (patch.completed_at !== undefined)
     f.profileCompletedAt = patch.completed_at ? Timestamp.fromDate(new Date(patch.completed_at)) : null

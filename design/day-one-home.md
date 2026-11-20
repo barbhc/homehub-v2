@@ -120,3 +120,30 @@ install, so the ask has to come at a concrete moment.
   with the preferences it already loads (`localParts`/`validTimeZone` in
   `push/lanes.ts`). Per person, not per home. Anyone not yet recorded stays on
   Pacific until their next sign-in or app start.
+
+## Release D — the monthly refresh ("This month at your home")
+
+Owner asked for it 2026-11-19 (idea 7). The first-minute list was the part that
+landed, and it ran once.
+
+- **What:** the same list (`firstList`, same rules: at most three rows, at most two
+  questions, one per system, timely), for this month, minus everything the home
+  already has (archetype match against its tasks) or dismissed. **No fillers:** the
+  year-round extinguisher and water-heater rows only top up onboarding's short
+  list; offered monthly they would repeat every month.
+- **When:** any working home, from the month after it was created (onboarding just
+  showed that month's list), until the month is answered. It takes Home's one
+  next-step slot; with nothing timely, the slot's usual card shows.
+- **Answers:** Add → the checked tasks (due this weekend, as onboarding), then the
+  month marked answered (`refreshAnsweredMonth` on the home doc, with any Yes/No
+  answers as care facts) — for the whole home. Not now → the month marked answered.
+  Partial failures are said; a retry adds only what is missing.
+- **Code:** `src/components/home/MonthlyRefreshCard.tsx`, `src/lib/monthlyRefresh.ts`,
+  `src/lib/firstListInput.ts` (shared with onboarding), `fillers` on `firstList`.
+- **Events:** `monthly_refresh_shown`, `monthly_refresh_added`, `monthly_refresh_dismissed`.
+- **Coverage, honestly:** the seasonal library has ten starters. For a Dallas house
+  that already has alarms, taps and gutters, the card appears in September (HVAC
+  service) and October–November (air filter) only. More months need more seasonal
+  entries, each with a source — content for the owner to approve, not invent.
+- **Not built:** a notification on the 1st. It needs a new push lane (functions
+  deploy) and the owner's call on whether a monthly ping is welcome.

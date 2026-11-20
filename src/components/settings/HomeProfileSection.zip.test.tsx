@@ -35,7 +35,7 @@ type P = Record<string, unknown>
 const profile = (over: P = {}): P => ({
   home_type: "condo", ownership: "own", ownership_duration: "5_plus", climate: null, freeze_risk: null,
   climate_source: null, zip: null, area: null, top_concerns: [], preferred_mode: "unset",
-  completed_at: "2026-09-01T00:00:00Z", updated_at: "2026-09-01T00:00:00Z", winterizing_offer_answered_at: null, ...over,
+  completed_at: "2026-09-01T00:00:00Z", updated_at: "2026-09-01T00:00:00Z", winterizing_offer_answered_at: null, refresh_answered_month: null, ...over,
 })
 
 /** The upsert echoes the stored doc: what was there, merged with the patch. */
