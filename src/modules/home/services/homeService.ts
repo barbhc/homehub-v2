@@ -1,3 +1,4 @@
+import { NEW_HOME_TASK_LEVEL } from "../../../../shared/tasks/taskLevel"
 import {
   collection,
   collectionGroup,
@@ -118,6 +119,10 @@ export async function createHome(input: CreateHomeInput): Promise<CreateHomeResu
       // once written; every later home write is a {merge:true} that carries it
       // through untouched.
       createdBy: input.userId,
+      // D4 (owner, 2026-11-18): a new home starts on "Recommended too". A home
+      // with no level stored predates the setting and keeps showing everything
+      // (taskLevelOf), so this is written at creation and nowhere else.
+      taskLevel: NEW_HOME_TASK_LEVEL,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       deletedAt: null,

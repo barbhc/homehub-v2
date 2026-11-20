@@ -39,7 +39,7 @@ const MN: Partial<HomeProfile> = {
 }
 function profile(over: Partial<HomeProfile> = {}): HomeProfile {
   return {
-    home_id: "h1", home_type: null, ownership: null, ownership_duration: null, top_concerns: [], preferred_mode: "unset",
+    home_id: "h1", task_level: null, home_type: null, ownership: null, ownership_duration: null, top_concerns: [], preferred_mode: "unset",
     climate: null, freeze_risk: null, zip: null, area: null, climate_source: null, care_facts: {}, dismissed_care: [],
     winterizing_offer_answered_at: null, refresh_answered_month: null, completed_at: null, created_at: "", updated_at: "", ...over,
   }

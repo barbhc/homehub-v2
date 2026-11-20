@@ -350,6 +350,9 @@ export default function ItemDetailPage() {
       homeId={home.home_id}
       itemUnitId={id}
       itemName={item.display_name || "This item"}
+      itemCategory={item.category ?? null}
+      itemBrand={item.brand ?? null}
+      itemModel={item.model ?? null}
       manuals={manuals}
       watched={live.watched}
       onReviewSaved={refreshAfterReview}

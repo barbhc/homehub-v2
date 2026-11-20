@@ -1,3 +1,4 @@
+import type { TaskLevel } from "../../../../shared/tasks/taskLevel"
 import { doc, getDoc, runTransaction, serverTimestamp, setDoc, Timestamp, type DocumentData } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { CareFacts } from "../../../../shared/care/library"
@@ -78,6 +79,10 @@ function sanitizeTopConcerns(input: unknown): TopConcernKey[] {
 
 export type HomeProfile = {
   home_id: string
+  /** D4: how much of a manual's upkeep this home wants in Tasks. null = the
+   *  home has never picked one (it predates the setting) and behaves as
+   *  "everything" — read it through taskLevelOf(). */
+  task_level: TaskLevel | null
   home_type: HomeType | null
   ownership: Ownership | null
   ownership_duration: OwnershipDuration | null
@@ -133,6 +138,7 @@ function hpIso(v: unknown): string | null {
 function toHomeProfile(homeId: string, d: DocumentData): HomeProfile {
   return {
     home_id: homeId,
+    task_level: d.taskLevel === "essential" || d.taskLevel === "recommended" || d.taskLevel === "everything" ? d.taskLevel : null,
     home_type: (d.homeType ?? null) as HomeType | null,
     ownership: (d.ownership ?? null) as Ownership | null,
     ownership_duration: (d.ownershipDuration ?? null) as OwnershipDuration | null,

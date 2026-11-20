@@ -31,7 +31,7 @@ const { MonthlyRefreshCard } = await import("./MonthlyRefreshCard")
 
 /** A Dallas house created in November: December's list. */
 const dallas = (over: Partial<HomeProfile> = {}): HomeProfile => ({
-  home_id: "h1", home_type: "house", ownership: "own", ownership_duration: null, top_concerns: [], preferred_mode: "unset",
+  home_id: "h1", task_level: null, home_type: "house", ownership: "own", ownership_duration: null, top_concerns: [], preferred_mode: "unset",
   climate: "moderate", freeze_risk: true, zip: "75201", climate_source: "zip",
   area: { hazards: [], hazardsCorrected: [], hardinessZone: "8b", county: "Dallas County", observesDst: true, tableVersion: "2026-11-19" },
   care_facts: { has_outdoor_taps: true, has_gutters: true }, dismissed_care: [],

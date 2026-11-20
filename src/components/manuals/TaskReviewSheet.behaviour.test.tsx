@@ -66,17 +66,22 @@ function renderSheet(onSave = vi.fn().mockResolvedValue(null)) {
 }
 
 describe("the review, on one screen", () => {
-  it("shows every section it has rows for — nothing is hidden", () => {
+  it("names every section it has rows for, and lists the upkeep that needs a decision", () => {
     renderSheet()
-    // The old design showed maintenance and hid the rest behind a disclosure.
-    // Four sections, all present, is what replaced that.
+    // Round 18: four sections on one screen, none behind a separate step.
+    // D4 (owner, mock approved 2026-11-19) superseded "nothing is hidden" for
+    // a fresh read: every section is still NAMED with its count, Maintenance
+    // is listed, and Cleaning arrives tucked away one tap from open — the way
+    // Setup has since HH-85 — because it never goes into Tasks.
     // The section SUB-LINES, not the titles: a row's kind pill also reads
     // "Maintenance", and matching that would pass with no heading at all.
     expect(screen.getByText(/Keeps it working/)).toBeInTheDocument()
     expect(screen.getByText(/Keeps it nice/)).toBeInTheDocument()
     expect(screen.getByText(/Once, when you install it/)).toBeInTheDocument()
-    // And the rows themselves, not just the headings.
     expect(screen.getByText("Inspect vent ductwork")).toBeInTheDocument()
+    // Not rendered until asked for — and then it is the same row as before.
+    expect(screen.queryByText("Clean the drum")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Show 2 cleaning jobs" }))
     expect(screen.getByText("Clean the drum")).toBeInTheDocument()
   })
 

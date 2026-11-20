@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { kindOf, archetypeOf, suggestionsForItem, suggestionsForHome, entriesForKind, LIBRARY } from "./library"
+import { kindOf, archetypeOf, suggestionsForItem, suggestionsForHome, entriesForKind, LIBRARY, typicalFilterCadence as typical } from "./library"
 
 /**
  * The care library, pinned against the owner's REAL home (2026-09-06):
@@ -154,5 +154,47 @@ describe("D8 starter entries", () => {
     expect(archetypeOf("Drain outdoor faucets before winter")).toBe("freeze.taps")
     expect(archetypeOf("Winterize hose bibs")).toBe("freeze.taps")
     expect(archetypeOf("Hurricane shutter check")).toBe("hurricane.prep")
+  })
+})
+
+// ── D4: the filters people forget ────────────────────────────────────────────
+
+describe("typicalFilterCadence (D4)", () => {
+  const washer = { display_name: "LG Front Load Washer", category: "washer" }
+
+  it("offers the library's cadence for a washer filter the manual left when-needed", () => {
+    const drain = typical(washer, { title: "Clean the Drain Pump Filter", scheduleType: "as_needed" })
+    expect(drain?.entry.key).toBe("washer.drain_filter")
+    expect(drain?.entry.scheduleType).toBe("quarterly")
+    expect(drain?.kindLabel).toBe("washers")
+    expect(typical(washer, { title: "Clean the Water Inlet Filters", scheduleType: "as_needed" })?.entry.scheduleType).toBe("semiannual")
+  })
+
+  it("the manual's own cadence always wins", () => {
+    expect(typical(washer, { title: "Clean the Drain Pump Filter", scheduleType: "monthly" })).toBeNull()
+  })
+
+  it("never the lint screen — it is cleaned as you go", () => {
+    expect(typical({ display_name: "LG Dryer", category: "dryer" }, { title: "Clean the Lint Filter", scheduleType: "as_needed" })).toBeNull()
+  })
+
+  it("only filters, only for a kind the library knows", () => {
+    expect(typical(washer, { title: "Run the Tub Clean Cycle", scheduleType: "as_needed" })).toBeNull()
+    expect(typical({ display_name: "Vitamix Blender" }, { title: "Clean the Drain Pump Filter", scheduleType: "as_needed" })).toBeNull()
+    expect(typical({ display_name: "Bosch Dishwasher" }, { title: "Clean the Filter System", scheduleType: "setup" })).toBeNull()
+  })
+
+  it("covers the other forgettable filters the library already had", () => {
+    expect(typical({ display_name: "Bosch Dishwasher" }, { title: "Clean the drain filter", scheduleType: "as_needed" })?.entry.key).toBe("dishwasher.filter")
+    expect(typical({ display_name: "Zephyr Range Hood" }, { title: "Clean the mesh grease filters", scheduleType: "as_needed" })?.entry.key).toBe("range_hood.mesh")
+  })
+
+  it("a washer with no filter task is never told it has one (top-loaders may not)", () => {
+    const keys = suggestionsForItem(washer, []).map((s) => s.entry.key)
+    expect(keys).not.toContain("washer.drain_filter")
+    expect(keys).not.toContain("washer.inlet_filter")
+    // …but the manual's own when-needed task gets the backstop offer on the item page.
+    const withTask = suggestionsForItem(washer, [{ title: "Clean the Drain Pump Filter", scheduleType: "as_needed" }])
+    expect(withTask.find((s) => s.entry.key === "washer.drain_filter")?.backstopFor?.title).toBe("Clean the Drain Pump Filter")
   })
 })
