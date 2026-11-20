@@ -41,7 +41,7 @@ Same scoring as §1: (Risk + Impact) / Scope.
 
 | ID | Item | Risk | Impact | Scope | Score | Note |
 |---|---|---|---|---|---|---|
-| D4 | **Task level, chosen before adding** — new homes start on Essential + Recommended; the review shows them before anything is added and reopens from the item page; Optional, cleaning and setup are filed | 3 | 5 | 3 | 2.7 | **Direction decided by the owner 2026-11-18** (mock still required). Client only. Recommended first. Includes the owner's "filters people forget" finding: care-library filter entries join the review, washer filters are added, the lint screen becomes a tip. Amends `docs/add-item-flow.md:368-405`. |
+| D4 | **Task level, chosen before adding** — BUILT 2026-11-20 (branch `feat/task-level`): the review after a scan offers usual intervals for when-needed filters, starts below-level rows skipped and tucks Cleaning and Usage away; Settings › Task level; Home and Tasks leave out what the level hides and say so | — | — | — | done | Both mock screens approved by the owner (2026-11-19, 2026-11-20). No server change. "As built" record, with where it differs from the mock, in `design/demo-feedback-2026-11-18.md`. **Still open from D4:** the dryer lint screen is ranked Essential by the parser and the care library, the opposite of the owner's note; changing it moves a tier the goldens pin, so it goes through the parse eval (§5). |
 | D5 | **Short Ask answers** — fix first, up to 5 steps, about 120 words, detail behind chips | 2 | 3 | 2 | 2.5 | **Direction decided by the owner 2026-11-18:** short for everyone, no setting. Needs a new `evals/ask-shape/` set and a `chatQuery` functions deploy. |
 | D1a | **Camera right after sign-in** — home auto-named, profile questions off the front door | 3 | 4 | 3 | 2.3 | Builds the approved profile nudge (§4.3) and addresses HH-168. **Reordered by D8 (2026-11-18):** the zip and this month's list come first; the camera is the list's closing step. Home auto-naming and the profile questions leaving the front door stand. |
 | D6 | **Monthly AI opportunity scan** for Homehub and SkinIQ | 1 | 3 | 2 | 2.0 | **Decided 2026-11-18: monthly, and scheduled** (first run 2026-12-01). It opens unmerged "AI opportunity scan" docs PRs; it never merges or deploys. |
@@ -51,7 +51,7 @@ Same scoring as §1: (Risk + Impact) / Scope.
 | D1c | **Try before sign-in** (guest mode, 5 labels) | 2 | 3 | 5 | 1.0 | **Decided 2026-11-18: on during the beta**, revisit before a public launch. Needs App Check, guest caps, and an adversarial review. |
 | D7 | **Region from a zip code** — replaces the climate question; sets freeze risk, seasonal timing and regional house tasks | 2 | 4 | 5 | 1.2 | Owner's own addition, **decided 2026-11-18**. Addresses HH-168 at the root. Sources checked 2026-11-18 (see D8). **Amended by D8:** asked on the first screen after sign-in, not after the first item. |
 
-**Recommended order:** D4 (with D7 alongside), D5, D2, D1a, D1b and D1c, D3. D1, D2 and D4 are one journey
+**Recommended order:** ~~D4~~ (built), D5, D2, D1a, D1b and D1c, D3. D7 and D1a were largely delivered by D8 (first-minute onboarding). D1, D2 and D4 are one journey
 (snap, find, few tasks) and it is safer built back to front.
 
 ### D8 (decided 2026-11-18). First-minute onboarding: something true about the home before any item
