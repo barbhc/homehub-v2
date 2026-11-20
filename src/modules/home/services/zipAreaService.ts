@@ -5,6 +5,7 @@
  */
 import { lookupZip, type ZipArea, type ZipAreaTable } from "../../../../shared/area/zipArea"
 import type { HomeArea } from "./homeProfileService"
+import { termitesCommon } from "../../../../shared/area/termites"
 
 let table: Promise<ZipAreaTable> | null = null
 
@@ -47,6 +48,7 @@ export function toHomeArea(area: ZipArea, hazardsOff: ZipArea["hazards"][number]
     hardinessZone: area.hardinessZone,
     county: area.county?.name ?? null,
     observesDst: area.observesDst,
+    termites: termitesCommon(area.county?.state, area.county?.name),
     tableVersion: area.tableVersion,
   }
 }

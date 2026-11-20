@@ -32,6 +32,7 @@ export function listInput(profile: HomeProfile | null, homeType: HomeType | null
     },
     hasArea: !!profile?.area,
     observesDst: profile?.area?.observesDst ?? null,
+    termites: profile?.area?.termites ?? null,
   }
 }
 

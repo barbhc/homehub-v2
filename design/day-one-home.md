@@ -145,5 +145,16 @@ landed, and it ran once.
   that already has alarms, taps and gutters, the card appears in September (HVAC
   service) and October–November (air filter) only. More months need more seasonal
   entries, each with a source — content for the owner to approve, not invent.
+- **Seasonal entries (owner approved 2026-11-20):** radon test (January, houses),
+  leak check (March), A/C tune-up (spring, asks "central air?"), chimney inspection
+  (before the first fire, asks "fireplace or wood stove?"), alarm batteries (March and
+  November) and the termite inspection (April–May, houses). Monthly card only;
+  onboarding is unchanged. She dropped the fire-drill and draft-sealing drafts.
+  A No to any question removes the task for good; Not sure asks again next season.
+- **Termites by zip:** `shared/area/termites.ts` holds the VA's wood-destroying-insect
+  inspection list (states and counties, updated July 2025). A zip lookup stores
+  `area.termites`; where it is true the card offers the inspection without asking,
+  where false it is not offered, and homes looked up before this change are asked.
+  Her own answer always wins.
 - **Not built:** a notification on the 1st. It needs a new push lane (functions
   deploy) and the owner's call on whether a monthly ping is welcome.

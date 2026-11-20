@@ -54,13 +54,21 @@ beforeEach(() => {
 })
 
 describe("MonthlyRefreshCard", () => {
-  it("offers only what is timely: no year-round fillers, so a month with nothing timely shows the usual card", async () => {
+  it("offers only what is timely: no year-round fillers", async () => {
     // Dallas in December with alarms, taps and gutters already on the list:
-    // onboarding would top up with the extinguisher and the water heater.
+    // onboarding would top up with the extinguisher and the water heater; the
+    // monthly card offers only January's radon test (opening next month).
     svc.titles = ["Test smoke and CO alarms", "Shut off and drain the outdoor taps", "Clean the gutters"]
     renderCard(dallas())
-    expect(await screen.findByTestId("fallback")).toBeInTheDocument()
+    expect(await screen.findByText("This month at your home")).toBeInTheDocument()
+    expect(rowTitles()).toEqual(["Test for radon"])
     expect(screen.queryByText("Check the fire extinguisher")).toBeNull()
+  })
+
+  it("a month with nothing timely shows the usual card", async () => {
+    svc.titles = ["Test smoke and CO alarms", "Shut off and drain the outdoor taps", "Clean the gutters", "Test for radon"]
+    renderCard(dallas())
+    expect(await screen.findByTestId("fallback")).toBeInTheDocument()
   })
 
   it("offers this month's list, skipping what the home already has", async () => {

@@ -80,6 +80,8 @@ export type Archetype =
   | "safety.test.alarm" | "battery.replace.alarm" | "flush.tank" | "service.pro"
   | "pest.termite" | "pest.bird" | "pest.rodent" | "gutters.clean" | "extinguisher.check"
   | "quake.strap" | "freeze.taps" | "wildfire.clear" | "hurricane.prep"
+  // Seasonal entries for the monthly card (owner approved 2026-11-20)
+  | "radon.test" | "leak.check" | "service.cooling" | "chimney.inspect"
 
 const ARCHETYPE_RULES: [Archetype, RegExp][] = [
   ["filter.replace.hepa", /\b(replace|change)\b.*\bhepa\b/i],
@@ -98,6 +100,11 @@ const ARCHETYPE_RULES: [Archetype, RegExp][] = [
   ["safety.test.alarm", /\btest\b.*\b(smoke|co|carbon monoxide|alarm|detector)/i],
   ["battery.replace.alarm", /\b(replace|change)\b.*\bbatter/i],
   ["flush.tank", /\b(flush|drain)\b.*\b(tank|water heater)\b/i],
+  // Before service.pro: these name what is serviced, and must not read as the furnace visit.
+  ["service.cooling", /\b(air[\s-]?condition\w*|a\/?c|cooling)\b.*\b(tune[\s-]?up|service|check)\b/i],
+  ["chimney.inspect", /\b(chimney|fireplace|wood stove)\b/i],
+  ["radon.test", /\bradon\b/i],
+  ["leak.check", /\b(toilet|faucet)s?\b.*\bleak|\bleak\w*\b.*\b(toilet|faucet)s?\b/i],
   ["service.pro", /\b(annual|yearly|professional|technician)\b.*\b(service|tune[\s-]?up|inspection)\b/i],
   ["pest.termite", /\btermite/i],
   ["pest.bird", /\b(pigeon|bird)/i],
@@ -172,6 +179,10 @@ export interface CareFacts {
   building_handles_exterior?: boolean
   /** A furnace or central air, i.e. an air filter to change (D8). */
   has_air_filter?: boolean
+  /** Central air conditioning (the spring tune-up). */
+  has_central_air?: boolean
+  /** A fireplace or wood stove (the yearly chimney inspection). */
+  has_fireplace?: boolean
   /** Outdoor taps (hose bibs) that can freeze (D8). */
   has_outdoor_taps?: boolean
 }
@@ -189,6 +200,11 @@ const RED_CROSS = "American Red Cross guidance on preventing frozen pipes"
 const ECA = "Earthquake Country Alliance: strap the tank top and bottom to the wall studs"
 const FIREWISE = "NFPA Firewise USA: keep roofs, gutters and vents clear of leaves and needles"
 const NWS = "National Weather Service: prepare before the season starts on June 1"
+// Seasonal sources, each checked 2026-11-19 (owner approved the set 2026-11-20).
+const EPA_RADON = "EPA: test your home for radon (January is National Radon Action Month); retest every two years (Surgeon General and EPA guidance)"
+const EPA_LEAKS = "EPA WaterSense Fix a Leak Week (every March): the food-colouring toilet test and the faucet check"
+const ENERGY_STAR_SEASONAL = "ENERGY STAR maintenance checklist: check the cooling system in spring and the heating system in fall"
+const NFPA_211 = "NFPA 211: chimneys, fireplaces and vents inspected at least once a year"
 
 export const LIBRARY: CareEntry[] = [
   // ── filters first ──
@@ -220,6 +236,11 @@ export const LIBRARY: CareEntry[] = [
   { key: "home.outdoor_taps", kind: "home", archetype: "freeze.taps", title: "Shut off and drain the outdoor taps", careType: "maintenance", priorityTier: "essential", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 10, cadenceLabel: "Yearly, before the first freeze", why: "Water left in an outdoor tap's pipe freezes, splits it, and leaks inside the wall.", how: "Close the shut-off valve indoors, open the outdoor tap to let it drain, and take the hose off.", source: RED_CROSS, fact: "has_outdoor_taps", area: "freeze" },
   { key: "home.wildfire_prep", kind: "home", archetype: "wildfire.clear", title: "Clear leaves from the roof, gutters and vents", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, before fire season", why: "Embers land in dry leaves and needles; that is how most homes catch fire in a wildfire.", how: "Clear the roof, gutters and the first five feet around the house; check that vent screens are intact.", source: FIREWISE, area: "wildfire" },
   { key: "home.hurricane_prep", kind: "home", archetype: "hurricane.prep", title: "Get ready for hurricane season", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, before June", why: "Supplies, shutters and insurance all take time; once a storm is named it is too late.", how: "Check your evacuation zone, restock water and batteries, test shutters, and review your flood cover.", source: NWS, area: "hurricane" },
+  // ── seasonal entries: the monthly card only (owner approved 2026-11-20) ──
+  { key: "home.radon_test", kind: "home", archetype: "radon.test", title: "Test for radon", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "every_n_days", intervalDays: 730, minutes: 10, cadenceLabel: "Every 2 years, in January", why: "Radon is invisible and odourless, and a test is the only way to know your level.", how: "Put a short-term test kit on the lowest floor you live on for the days the kit says, then mail it to the lab.", source: EPA_RADON },
+  { key: "home.leak_check", kind: "home", archetype: "leak.check", title: "Check toilets and faucets for leaks", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 10, cadenceLabel: "Yearly, in March", why: "Small leaks are easy to miss and run all day.", how: "Put a few drops of food colouring in each toilet tank and wait 10 minutes without flushing; colour in the bowl means a leak. Look for drips at every faucet and showerhead.", source: EPA_LEAKS },
+  { key: "home.cooling_service", kind: "home", archetype: "service.cooling", title: "Air-conditioning tune-up", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, before cooling season", why: "Technicians are booked solid once the heat arrives, and a tune-up catches the failure before the first hot week.", how: "Book an HVAC technician for a cooling check before summer.", source: ENERGY_STAR_SEASONAL, pro: true, fact: "has_central_air" },
+  { key: "home.chimney", kind: "home", archetype: "chimney.inspect", title: "Chimney and fireplace inspection", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, before the first fire", why: "Creosote and blockages build up unseen and cause chimney fires.", how: "Book a certified chimney sweep for an inspection before you light the first fire of the season.", source: NFPA_211, pro: true, fact: "has_fireplace" },
   // ── pests and the building ──
   { key: "home.termite", kind: "home", archetype: "pest.termite", title: "Termite inspection", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, late spring", why: "Colonies swarm as it warms; catching them early is the cheap version.", how: "Book a licensed inspector; keep the report.", source: PEST, pro: true, fact: "termite_risk" },
   { key: "home.birds", kind: "home", archetype: "pest.bird", title: "Pigeon deterrent check", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "quarterly", minutes: 15, cadenceLabel: "Quarterly", why: "Deterrents shift and nests start fast; droppings damage surfaces and carry disease.", how: "Check spikes, netting and ledges; clear nesting material before eggs.", source: PEST, fact: "birds_roosting" },
