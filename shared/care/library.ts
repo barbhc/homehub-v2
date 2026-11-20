@@ -75,7 +75,7 @@ export function kindOf(item: KindInput): CareKind | null {
 
 export type Archetype =
   | "filter.replace.hepa" | "filter.replace.carbon" | "filter.replace.water" | "filter.replace.air"
-  | "filter.clean.pre" | "filter.clean.mesh" | "filter.clean.lint" | "filter.clean.drain"
+  | "filter.clean.pre" | "filter.clean.mesh" | "filter.clean.lint" | "filter.clean.drain" | "filter.clean.inlet"
   | "sensor.clean" | "descale" | "duct.clean" | "tub.clean" | "coils.clean"
   | "safety.test.alarm" | "battery.replace.alarm" | "flush.tank" | "service.pro"
   | "pest.termite" | "pest.bird" | "pest.rodent" | "gutters.clean" | "extinguisher.check"
@@ -91,6 +91,7 @@ const ARCHETYPE_RULES: [Archetype, RegExp][] = [
   ["filter.clean.pre", /\b(clean|wash|vacuum)\b.*\bpre[\s-]?filter\b/i],
   ["filter.clean.lint", /\b(clean|empty)\b.*\blint\b/i],
   ["filter.clean.drain", /\b(clean|clear)\b.*\b(drain|sump)\b.*\b(filter|pump)\b/i],
+  ["filter.clean.inlet", /\b(clean|rinse)\b.*\binlet\b.*\b(filters?|screens?)\b/i],
   ["filter.clean.mesh", /\b(clean|wash|degrease)\b.*\b(mesh|grease|baffle|aluminum|aluminium)\b.*\bfilter/i],
   ["sensor.clean", /\b(clean|wipe)\b.*\bsensor\b/i],
   ["descale", /\b(descal|delim|scale|limescale)/i],
@@ -158,6 +159,11 @@ export interface CareEntry {
   /** The appliance signals this itself; the library cadence is a BACKSTOP the
    *  owner may add, never a due date we assert. */
   indicator?: boolean
+  /** Only ever a cadence behind a task the manual already has — never a new
+   *  suggestion. Not every unit has the part: Samsung's top-load washers have
+   *  no pump filter at all, so offering "clean the drain pump filter" to every
+   *  washer would assert something nobody checked. */
+  backstopOnly?: boolean
   /** Home-level entries apply only when this profile fact is true. */
   fact?: keyof CareFacts
   /** Offered only where the home's area carries this (D8). */
@@ -221,6 +227,15 @@ export const LIBRARY: CareEntry[] = [
   { key: "dryer.lint", kind: "dryer", archetype: "filter.clean.lint", title: "Clean the lint filter", careType: "maintenance", priorityTier: "essential", riskLevel: "safety", scheduleType: "weekly", minutes: 2, cadenceLabel: "Every load, or at least weekly", why: "Lint is what dryer fires are made of.", how: "Pull the screen, roll the lint off, wash the screen monthly if softener leaves a film.", source: MFR },
   { key: "dryer.duct", kind: "dryer", archetype: "duct.clean", title: "Clean the dryer vent duct", careType: "maintenance", priorityTier: "essential", riskLevel: "safety", scheduleType: "annual", minutes: 45, cadenceLabel: "Yearly", why: "A lint-packed duct is the leading cause of dryer fires and slow drying.", how: "Disconnect the duct, brush or vacuum its full length, check the outside flap opens.", source: MFR },
   { key: "washer.tub", kind: "washer", archetype: "tub.clean", title: "Run a tub-clean cycle", careType: "maintenance", priorityTier: "recommended", riskLevel: "performance", scheduleType: "monthly", minutes: 5, cadenceLabel: "Monthly", why: "Residue and mould build in the drum and the gasket; this is what removes them.", how: "Empty drum, washer cleaner or bleach per the panel, run the Tub Clean cycle.", source: MFR },
+  // D4, owner 2026-11-18: "the most critical tasks are cleaning filters … for
+  // appliances that you forget to maintain". Manuals leave both of these "when
+  // needed", so they never reached Tasks. The cadences are the makers' own
+  // (checked 2026-11-20): LG and Samsung say monthly for the pump filter,
+  // Whirlpool "every few months", Electrolux every two. Owner, 2026-11-20:
+  // "go with what the manual says" — monthly, the LG and Samsung manuals'
+  // own answer. LG and Samsung put the inlet screens at about twice a year.
+  { key: "washer.drain_filter", kind: "washer", archetype: "filter.clean.drain", title: "Clean the drain pump filter", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "monthly", minutes: 15, cadenceLabel: "Monthly", why: "Lint, coins and hair collect here; a blocked filter stops the washer draining.", how: "Towel and shallow tray under the access door, drain the hose, unscrew the filter, rinse, refit.", source: MFR, indicator: true, backstopOnly: true },
+  { key: "washer.inlet_filter", kind: "washer", archetype: "filter.clean.inlet", title: "Clean the water inlet filters", careType: "maintenance", priorityTier: "recommended", riskLevel: "performance", scheduleType: "semiannual", minutes: 15, cadenceLabel: "About twice a year", why: "Grit and scale clog the small screens where the hoses connect, and the washer fills slowly.", how: "Taps off, unscrew the hoses at the washer, pull the screens with pliers, rinse, refit.", source: MFR, indicator: true, backstopOnly: true },
   { key: "food_recycler.carbon", kind: "food_recycler", archetype: "filter.replace.carbon", title: "Replace the carbon filters", careType: "maintenance", priorityTier: "recommended", riskLevel: "performance", scheduleType: "quarterly", minutes: 5, cadenceLabel: "Every 3–6 months", why: "Spent filters are why the unit starts to smell.", how: "Open the filter compartment, swap the cartridges, reset the indicator.", source: MFR },
   // ── descaling and the indicator-driven backstop ──
   { key: "coffee_machine.descale", kind: "coffee_machine", archetype: "descale", title: "Descale the machine", careType: "maintenance", priorityTier: "essential", riskLevel: "prevent_damage", scheduleType: "quarterly", minutes: 25, cadenceLabel: "About every 3 months", why: "Scale narrows the boiler and is the usual cause of a machine that runs cool or slow.", how: "Descaling solution per the manual, run the descale program, rinse twice.", source: MFR, indicator: true },
@@ -290,7 +305,7 @@ export function suggestionsForItem(item: KindInput, existing: ExistingTask[], di
   for (const entry of entriesForKind(kind)) {
     if (gone.has(entry.key)) continue
     const hit = matched.get(entry.archetype)
-    if (!hit) { out.push({ entry }); continue }
+    if (!hit) { if (!entry.backstopOnly) out.push({ entry }); continue }
     if (entry.indicator && !(hit.scheduleType && RECURRING.has(hit.scheduleType))) out.push({ entry, backstopFor: hit })
   }
   return out
@@ -311,6 +326,42 @@ export function suggestionsForHome(facts: CareFacts, existing: ExistingTask[], d
     .filter((e) => !e.area || here.has(e.area))
     .filter((e) => !(e.archetype.startsWith("pest.") && facts.building_handles_pests) && !(e.archetype === "gutters.clean" && facts.building_handles_exterior))
     .map((entry) => ({ entry }))
+}
+
+/** "Typical for washers" — the plural the review prints beside a usual interval. */
+const KIND_PLURAL: Record<CareKind, string> = {
+  air_purifier: "air purifiers", range_hood: "range hoods", dishwasher: "dishwashers", refrigerator: "refrigerators",
+  furnace: "furnaces", hvac: "heating and cooling systems", dryer: "dryers", washer: "washers",
+  coffee_machine: "coffee machines", microwave: "microwaves", water_heater: "water heaters", ceiling_fan: "ceiling fans",
+  food_recycler: "food recyclers", oven_range: "ovens and ranges", smoke_alarm: "smoke alarms",
+}
+
+/**
+ * The usual interval for a FILTER task the manual left "when needed" — D4.
+ *
+ * Owner, 2026-11-18: the filters people forget (dishwasher, washer, range hood,
+ * purifier, heater) are the tasks that matter most, and a manual that says
+ * "clean when needed" keeps them off the schedule for good. The review offers
+ * the library's cadence in the manual's place, labelled as typical, and the row
+ * can be put back to "when needed" before anything is saved.
+ *
+ * Narrow on purpose:
+ *   - only `as_needed` — a manual that names its own cadence wins, always;
+ *   - only filter care, and never the lint screen, which she cleans as she
+ *     goes ("as opposed to cleaning out regularly like the lint filter");
+ *   - only when the library has that filter for THIS kind of appliance.
+ */
+export function typicalFilterCadence(
+  item: KindInput,
+  task: { title: string; scheduleType: string | null },
+): { entry: CareEntry; kindLabel: string } | null {
+  if (task.scheduleType !== "as_needed") return null
+  const kind = kindOf(item)
+  if (!kind) return null
+  const a = archetypeOf(task.title)
+  if (!a || !a.startsWith("filter.") || a === "filter.clean.lint") return null
+  const entry = entriesForKind(kind).find((e) => e.archetype === a)
+  return entry ? { entry, kindLabel: KIND_PLURAL[kind] } : null
 }
 
 export function entryByKey(key: string): CareEntry | undefined {

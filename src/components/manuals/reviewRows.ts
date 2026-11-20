@@ -5,7 +5,9 @@
  * module that also exports values), and so ParsePickupCard can count a draft's
  * rows without the sheet.
  */
-import { reviewBucketFor, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
+import { reviewBucketFor, showsInTasks, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
+import { tierMeetsLevel, type TaskLevel } from "../../../shared/tasks/taskLevel"
+import { typicalFilterCadence, type KindInput } from "../../../shared/care/library"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { applyHouseRules, looksLikeSetupStep } from "../../../shared/tasks/houseRules"
 import { classifyActorFromText } from "@/lib/taskActor"
@@ -81,8 +83,26 @@ export interface ReviewRow {
    *  when the cadence becomes seasonal and none is known. */
   season: "spring" | "summer" | "fall" | "winter" | null
   included: boolean
+  /** D4: this row's cadence is the care library's usual interval, offered in
+   *  place of the manual's "when needed" (a forgettable filter). The row says
+   *  "Typical for washers" while its cadence is still that offer. */
+  typical: { kindLabel: string; schedule: ScheduleType; intervalDays: number | null } | null
+  /** D4: started skipped because its tier is below the home's task level. */
+  levelSkipped: boolean
   task?: PreviewTask
   chunk?: PreviewChunk
+}
+
+/**
+ * What a FRESH read's review knows about the home it is for (D4). Both are
+ * left out when stored tasks are re-reviewed: nothing there is skipped or
+ * re-timed on the home's behalf.
+ */
+export interface ReviewRowOptions {
+  /** The home's chosen task level. Rows headed for Tasks below it start skipped. */
+  taskLevel?: TaskLevel
+  /** What the item is — the care library's usual intervals are per kind. */
+  item?: KindInput
 }
 
 /**
@@ -98,8 +118,8 @@ export interface ReviewRow {
  * HH-161 (S2.1, S3.1): "Review 6 upkeep tasks" is the Maintenance section's
  * count; with none, "Review 6 tips & steps" is every row the review lists.
  */
-export function draftReviewCounts(data: PreviewResult, freezeRiskFalse: boolean): { total: number; maintenance: number } {
-  const rows = rowsFrom(data, freezeRiskFalse)
+export function draftReviewCounts(data: PreviewResult, freezeRiskFalse: boolean, opts: ReviewRowOptions = {}): { total: number; maintenance: number } {
+  const rows = rowsFrom(data, freezeRiskFalse, opts)
   return { total: rows.length, maintenance: rows.filter((r) => bucketOfRow(r) === "maintenance").length }
 }
 
@@ -134,8 +154,16 @@ function correctDraft(tasks: PreviewResult["tasks"], freezeRiskFalse: boolean): 
   )
 }
 
-export function rowsFrom(data: PreviewResult, freezeRiskFalse = false): ReviewRow[] {
-  const taskRows: ReviewRow[] = correctDraft(data.tasks, freezeRiskFalse).map((t, i) => ({
+export function rowsFrom(data: PreviewResult, freezeRiskFalse = false, opts: ReviewRowOptions = {}): ReviewRow[] {
+  const taskRows: ReviewRow[] = correctDraft(data.tasks, freezeRiskFalse).map((t, i) => {
+    // D4: a filter the manual leaves "when needed" gets the library's usual
+    // interval for this kind of appliance — the manual's own cadence, when it
+    // names one, is never touched (typicalFilterCadence).
+    const usual = opts.item ? typicalFilterCadence(opts.item, { title: t.title, scheduleType: t.schedule_type }) : null
+    const typical = usual
+      ? { kindLabel: usual.kindLabel, schedule: usual.entry.scheduleType as ScheduleType, intervalDays: usual.entry.intervalDays ?? null }
+      : null
+    const row: ReviewRow = {
     id: `t${i}:${t.title}`,
     origin: "task",
     title: t.title,
@@ -154,15 +182,31 @@ export function rowsFrom(data: PreviewResult, freezeRiskFalse = false): ReviewRo
         ? "usage"
         : t.care_type === "cleaning" ? "cleaning" : "maintenance",
     tier: t.priority_tier,
-    schedule: t.schedule_type,
-    intervalDays: t.interval_days ?? null,
+    schedule: typical ? typical.schedule : t.schedule_type,
+    intervalDays: typical ? typical.intervalDays : t.interval_days ?? null,
     scheduleSuggested: false,
     remindEnabled: t.remind_enabled ?? null,
     lastDoneOn: null,
     season: t.season ?? null,
     included: true,
+    typical,
+    levelSkipped: false,
     task: t,
-  }))
+    }
+    // D4: below the home's task level AND headed for Tasks starts skipped —
+    // visibly, with the arrow to bring it back. A row that only ever lives on
+    // the item page (cleaning, when-needed, setup) is not what the level is
+    // about, and skipping it would drop it without it ever being seen.
+    if (
+      opts.taskLevel && row.kind !== "usage" &&
+      !tierMeetsLevel(row.tier, opts.taskLevel) &&
+      showsInTasks(taskLikeOf(row), "item_unit")
+    ) {
+      row.included = false
+      row.levelSkipped = true
+    }
+    return row
+  })
   const tipRows: ReviewRow[] = data.chunks
     .filter((c) => (c.tags ?? []).includes(USAGE_TIP_TAG))
     .map((c, i) => ({
@@ -184,6 +228,8 @@ export function rowsFrom(data: PreviewResult, freezeRiskFalse = false): ReviewRo
       lastDoneOn: null,
       season: null,
       included: true,
+      typical: null,
+      levelSkipped: false,
       chunk: c,
     }))
   return [...taskRows, ...tipRows]

@@ -96,7 +96,7 @@ describe("getWeekAgenda({ refuseOfflineEmpty })", () => {
 
   it("a served empty read is a real empty agenda; without the option nothing changes", async () => {
     // An empty agenda withheld nothing either — and says so, with its rows.
-    const empty = { data: [], error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } }
+    const empty = { data: [], error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0, belowLevel: 0 } }
     getDocs.mockResolvedValue(SERVED_EMPTY)
     expect(await getWeekAgenda("h1", { days: 31, refuseOfflineEmpty: true })).toEqual(empty)
     getDocs.mockResolvedValue(OFFLINE_EMPTY)

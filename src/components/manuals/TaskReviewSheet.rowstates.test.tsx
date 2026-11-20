@@ -44,11 +44,18 @@ const DRAFT: PreviewResult = {
   ],
 }
 
+/** D4: on a fresh read Cleaning and Usage arrive tucked away (one tap from
+ *  open, like Setup). These tests are about the rows inside, so they open them;
+ *  the tucked default has its own tests in TaskReviewSheet.level.test.tsx. */
+const openTucked = () =>
+  screen.queryAllByRole("button", { name: /^Show \d+ (cleaning jobs?|tips?)$/ }).forEach((b) => fireEvent.click(b))
+
 function renderSheet() {
   render(
     <TaskReviewSheet freezeRiskFalse={false} notificationsBlocked={false} open onOpenChange={vi.fn()} itemName="Furnace"
       previewData={DRAFT} saving={false} onSave={vi.fn().mockResolvedValue(null)} />,
   )
+  openTucked()
 }
 
 /** The row button containing this title. */

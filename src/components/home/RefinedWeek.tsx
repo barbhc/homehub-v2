@@ -20,6 +20,7 @@ import {
   tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL, SELECTED_DAY_RING, withoutHidden, fillFor,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
+import { HiddenByLevelLink } from "./tasks/HiddenByLevelLink"
 import { UndoBar } from "@/components/ui/UndoBar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
@@ -331,6 +332,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const items = useMemo(() => withoutHidden(allItems, hidden), [allItems, hidden])
   /** Scheduled work the agenda hides by design (item-scoped cleaning). */
   const hiddenCleaning = agenda.data?.hiddenCleaning ?? 0
+  const hiddenByLevel = agenda.data?.hiddenByLevel ?? 0
   const loadState = pageLoadState(agenda.data !== undefined, agenda.error !== undefined)
   const loading = loadState === "loading"
   const loadFailed = loadState === "error"
@@ -587,6 +589,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
                 actually lives. (An empty agenda says it in the headline, so
                 this waits for one with tasks.) */}
             {totalAll > 0 && <HiddenCleaningLink count={hiddenCleaning} className="block px-0.5 pb-2 text-[0.78125rem]" />}
+            {/* D4: and what the task level hides — on an empty list too. */}
+            <HiddenByLevelLink count={hiddenByLevel} className="block px-0.5 pb-2 text-[0.78125rem]" />
             {(care.rows.length > 0 || care.error) && (
               <div className="mb-4" data-testid="suggested-group">
                 <div className="mb-2 flex items-center gap-1.5 pl-0.5">

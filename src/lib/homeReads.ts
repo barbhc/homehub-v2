@@ -11,6 +11,7 @@
  * Now one load reads: items once, the OPEN instances once, the last
  * DONE_HISTORY_DAYS of completions once, and (extras only) templates once.
  */
+import { readHiddenTemplateIds } from "@/modules/care/services/taskLevelService"
 import { collection, getDocs, query, where, Timestamp, type DocumentData } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 // An offline cache-miss is a failure, never an empty home — see the helper.
@@ -40,6 +41,12 @@ export interface HomeReads {
    * read never fails Home — and a null profile never hides a task.
    */
   profile?: HomeProfile | null
+  /**
+   * D4: task templates the home's task level is hiding from Home and Tasks
+   * (taskLevelService). EMPTY when the read failed — a list never loses a task
+   * because a query did not answer.
+   */
+  hiddenTemplateIds?: ReadonlySet<string>
 }
 
 /** Freeze-free only when the profile SAYS so; an unread or unanswered profile is not. */
@@ -79,13 +86,25 @@ export async function readHomeCollections(homeId: string): Promise<HomeReads> {
     readRecentDone(homeId),
     getHomeProfile(homeId),
   ])
+  // D4: which tasks the level hides — asked only of a home whose level hides
+  // any (the profile carries the count), so the usual Home load reads nothing
+  // more than it did.
+  let hiddenTemplateIds: ReadonlySet<string> = new Set()
+  if ((profileRes.data?.task_level_hidden ?? 0) > 0) {
+    try {
+      hiddenTemplateIds = await readHiddenTemplateIds(homeId)
+    } catch (e) {
+      // Logged, not surfaced: a failed read hides nothing (HomeReads.hiddenTemplateIds).
+      console.warn(`[homeReads] task-level marks for home ${homeId} could not be read:`, e instanceof Error ? e.message : e)
+    }
+  }
   assertServed(itemsSnap, "home")
   if (profileRes.error) {
     // Logged, not surfaced: see HomeReads.profile — a null profile degrades
     // ordering and never hides a task.
     console.warn(`[homeReads] profile for home ${homeId} could not be read:`, profileRes.error.message)
   }
-  return { items: toReadDocs(itemsSnap), live, recentDone, profile: profileRes.data }
+  return { items: toReadDocs(itemsSnap), live, recentDone, profile: profileRes.data, hiddenTemplateIds }
 }
 
 /** Open instances — see HomeReads.live. */

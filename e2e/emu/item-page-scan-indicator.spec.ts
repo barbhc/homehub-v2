@@ -314,6 +314,8 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(essential.getByRole("link")).toHaveCount(0)
       // S4.4 — cadenced cleaning never rings, and carries no line of its own:
       // the Cleaning header says where it lives.
+      // D4: on a fresh read Cleaning arrives tucked away, one tap from open.
+      await dialog.getByRole("button", { name: /^Show \d+ cleaning jobs?$/ }).click()
       const cleaning = dialog.getByRole("button", { name: /Clean the tub and door edges/ }).first()
       await expect(cleaning).not.toContainText("Lives on the item page")
       await expect(anyBell(cleaning)).toHaveCount(0)
@@ -465,6 +467,8 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(essential).toContainText("Yearly")
       // S4.4 — a cleaning row with a cadence: no bell, whatever its tier, and
       // no line of its own — the Cleaning header says where it lives.
+      // D4: on a fresh read Cleaning arrives tucked away, one tap from open.
+      await dialog.getByRole("button", { name: /^Show \d+ cleaning jobs?$/ }).click()
       const cleaning = dialog.getByRole("button", { name: /Clean the tub and door edges/ }).first()
       await expect(cleaning.getByLabel("Notifies you")).toHaveCount(0)
       await expect(cleaning).not.toContainText("Lives on the item page")

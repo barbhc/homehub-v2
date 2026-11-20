@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { CheckIcon, XIcon } from "lucide-react"
 import { readPreviewDraft, commitReviewedDraft } from "@/modules/knowledge/services/parseManualService"
 import { startRescanForReview } from "@/lib/manualRescan"
@@ -62,12 +63,20 @@ export function ParsePickupCard({
   homeId,
   itemUnitId,
   itemName,
+  itemCategory,
+  itemBrand,
+  itemModel,
   manuals,
   watched,
   onReviewSaved,
 }: {
   homeId: string
   itemUnitId: string
+  /** D4: what the item is, for the care library's usual filter intervals.
+   *  Primitives, so the review's rows are not rebuilt on every render. */
+  itemCategory?: string | null
+  itemBrand?: string | null
+  itemModel?: string | null
   itemName: string
   /** The item's live manual docs (useItemManuals). */
   manuals: ManualDocument[]
@@ -78,6 +87,14 @@ export function ParsePickupCard({
   // Freeze-prep is suppressed before the review rather than at save.
   const { profile } = useHomeProfile(homeId)
   const freezeRiskFalse = profile?.freeze_risk === false
+  // D4: the home's CHOSEN level only. A home that never picked one passes
+  // nothing, and its review is exactly the one it always had.
+  const taskLevel = profile?.task_level ?? undefined
+  const careItem = useMemo(
+    () => ({ display_name: itemName, category: itemCategory ?? null, brand: itemBrand ?? null, model: itemModel ?? null }),
+    [itemName, itemCategory, itemBrand, itemModel],
+  )
+  const navigate = useNavigate()
   const notificationsBlocked = useNotificationsBlocked()
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({})
   const [loaded, setLoaded] = useState<{ key: string; draft: PreviewResult } | null>(null)
@@ -194,13 +211,16 @@ export function ParsePickupCard({
   }
 
   const manualId = pickup.manual_id
-  const counts = draftReviewCounts(draft, freezeRiskFalse)
+  const counts = draftReviewCounts(draft, freezeRiskFalse, { taskLevel, item: careItem })
 
   // The one review element, built once and rendered in exactly one place —
   // which is what makes "only ONE review is ever mounted" structural.
   const reviewSheet = (
     <TaskReviewSheet
       freezeRiskFalse={freezeRiskFalse}
+      taskLevel={taskLevel}
+      careItem={careItem}
+      onChangeTaskLevel={() => navigate("/settings#task-level")}
       notificationsBlocked={notificationsBlocked}
       open={open !== null}
       onOpenChange={(o) => { if (!o) setOpen(null) }}

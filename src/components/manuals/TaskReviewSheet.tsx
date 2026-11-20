@@ -30,6 +30,8 @@ import { TaskReviewFeedback, type ReviewEdit, type ReviewEditSummary, type Resca
 import {
   TIER_RAIL, SECTION_RAIL, rowsFrom, taskLikeOf, bucketOfRow, type ReviewRow,
 } from "./reviewRows"
+import { TASK_LEVEL_COPY, type TaskLevel } from "../../../shared/tasks/taskLevel"
+import type { KindInput } from "../../../shared/care/library"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { NextDueLine, SeasonAsk } from "@/components/care/NextDue"
 import { planFor, type CadenceFacts } from "@/modules/care/services/cadenceChangeService"
@@ -246,6 +248,20 @@ interface TaskReviewSheetProps {
    * season asks for one. A fresh parse has no stored tasks, so no facts.
    */
   cadenceFacts?: Map<string, CadenceFacts>
+  /**
+   * D4 — a FRESH read's review only (ParsePickupCard). The home's chosen task
+   * level: rows headed for Tasks below it start skipped, and the screen names
+   * the level beside a way to change it. Left out when the home has never
+   * picked one (a home from before the setting sees no change) and whenever
+   * stored tasks are re-reviewed (nothing there is skipped on anyone's behalf).
+   */
+  taskLevel?: TaskLevel
+  /** D4 — fresh read only: what the item is, so a filter the manual leaves
+   *  "when needed" can be offered the usual interval for that kind of appliance. */
+  careItem?: KindInput
+  /** D4: "Change" beside the task level. The caller navigates; this component
+   *  is rendered in tests without a router (see freezeRiskFalse). */
+  onChangeTaskLevel?: () => void
 }
 
 export function TaskReviewSheet({
@@ -255,8 +271,14 @@ export function TaskReviewSheet({
   freezeRiskFalse,
   notificationsBlocked,
   cadenceFacts,
+  taskLevel,
+  careItem,
+  onChangeTaskLevel,
 }: TaskReviewSheetProps) {
-  const initial = useMemo(() => rowsFrom(previewData, freezeRiskFalse), [previewData, freezeRiskFalse])
+  const initial = useMemo(
+    () => rowsFrom(previewData, freezeRiskFalse, { taskLevel, item: careItem }),
+    [previewData, freezeRiskFalse, taskLevel, careItem],
+  )
   const [rows, setRows] = useState<ReviewRow[]>(initial)
   /**
    * "maintenance" opens straight on the schedule screen, listing only the
@@ -279,6 +301,11 @@ export function TaskReviewSheet({
   const [showFirstRun] = useState(() => isFirstReview())
   /** HH-85: the setup section starts tucked away; one tap reveals it. */
   const [setupOpen, setSetupOpen] = useState(false)
+  /** D4: on a fresh read with upkeep to decide, Cleaning and Usage arrive
+   *  tucked away exactly as Setup does — they never go into Tasks, so listing
+   *  them is what made "13 things" out of the 5 that needed a decision. */
+  const [cleaningOpen, setCleaningOpen] = useState(false)
+  const [usageOpen, setUsageOpen] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -296,6 +323,13 @@ export function TaskReviewSheet({
   // The summary's two channels, counted off the rows exactly as the rows draw
   // themselves (HH-161): "N will show up in Tasks" is what the Tasks page will
   // list, and "M of those will also notify your phone" is the bells on screen.
+  /** D4: Cleaning and Usage tuck away only on a fresh read that has upkeep to
+   *  decide. Re-reviewing stored tasks lists everything (that is what the door
+   *  is for), and a read with no Maintenance has nothing to make room for. */
+  const tuckable = !alreadySaved && rows.some((r) => bucketOfRow(r) === "maintenance")
+  const tucks = (bucket: string) => tuckable && (bucket === "cleaning" || bucket === "usage")
+  const tuckOpen = (bucket: string) => (bucket === "cleaning" ? cleaningOpen : usageOpen)
+
   const counts = useMemo(() => ({
     total: rows.filter((r) => r.included).length,
     inTasks: rows.filter(inTasksRow).length,
@@ -335,13 +369,21 @@ export function TaskReviewSheet({
       if (r.kind !== b.kind) { kind++; details.push({ title: r.title, field: "kind", from: b.kind, to: r.kind }) }
       // The whole cadence, not just its type: a new interval ("every 2 weeks" →
       // "every 6 weeks") or a season answered is a schedule correction too.
-      if (cadenceChanged({ scheduleType: b.schedule, intervalDays: b.intervalDays, season: b.season }, { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season })) {
+      const now = { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season }
+      // D4: on a row offered a usual interval, going back to what the manual
+      // said ("when needed") agrees with the parser — it corrects nothing.
+      const backToManual = b.typical !== null &&
+        !cadenceChanged({ scheduleType: b.origSchedule, intervalDays: b.task?.interval_days ?? null, season: b.season }, now)
+      if (!backToManual && cadenceChanged({ scheduleType: b.schedule, intervalDays: b.intervalDays, season: b.season }, now)) {
         schedule++
         // Enum values, as before: parseFeedbackService and the parse-eval
         // worksheet (scripts/parse-eval/reviewEdits.ts) read them as such.
-        details.push({ title: r.title, field: "schedule", from: b.schedule, to: r.schedule })
+        // A usual interval we offered is not what the manual said: the parser
+        // is credited with its own answer, not ours (D4).
+        details.push({ title: r.title, field: "schedule", from: b.typical ? b.origSchedule : b.schedule, to: r.schedule })
       }
-      if (!r.included) { skipped++; details.push({ title: r.title, field: "skip", from: "kept", to: "skipped" }) }
+      // A row the task level skipped was never the reviewer's correction (D4).
+      if (b.included && !r.included) { skipped++; details.push({ title: r.title, field: "skip", from: "kept", to: "skipped" }) }
     }
     return { tier, kind, schedule, skipped, total: tier + kind + schedule + skipped, details }
   }, [rows, initial])
@@ -792,6 +834,11 @@ export function TaskReviewSheet({
               section's header already says it lives on the item page, and the
               missing bell says the rest (owner, #228 review). */}
           {notificationsBlocked && canRing(r) && <RemindersOff className="mt-px" />}
+          {/* D4: the cadence on this row is the usual one for this kind of
+              appliance, not the manual's — said for as long as it still is. */}
+          {r.included && r.typical && r.schedule === r.typical.schedule && r.intervalDays === r.typical.intervalDays && (
+            <span className="text-[0.75rem] font-medium text-muted-foreground mt-px">Typical for {r.typical.kindLabel}</span>
+          )}
         </span>
 
         {r.included && kindSaysSomething && (
@@ -1054,6 +1101,21 @@ export function TaskReviewSheet({
                             {setupOpen ? "Already set up? Hide them" : `Show ${items.length} setup step${items.length === 1 ? "" : "s"}`}
                           </button>
                         )}
+                        {/* D4: the same door for Cleaning and Usage, on a fresh read
+                            that has upkeep to decide. Their sub-lines already
+                            say where they live, so the closed state adds no
+                            sentence of its own. */}
+                        {tucks(bucket) && items.length > 0 && (
+                          <button type="button" aria-expanded={tuckOpen(bucket)}
+                            onClick={() => (bucket === "cleaning" ? setCleaningOpen : setUsageOpen)((v) => !v)}
+                            className="hit-44 rounded-full border border-border px-2 py-0.5 text-[0.75rem] font-semibold text-muted-foreground">
+                            {tuckOpen(bucket)
+                              ? "Hide them"
+                              : bucket === "cleaning"
+                                ? `Show ${items.length} cleaning job${items.length === 1 ? "" : "s"}`
+                                : `Show ${items.length} tip${items.length === 1 ? "" : "s"}`}
+                          </button>
+                        )}
                         <span className="ml-auto text-[0.78125rem] font-mono font-bold text-muted-foreground tabular-nums">{items.length}</span>
                       </div>
                       <div className="text-[0.75rem] text-muted-foreground mt-0.5 pl-[13px]">{copy.sub}</div>
@@ -1062,9 +1124,29 @@ export function TaskReviewSheet({
                       <div className="text-[0.75rem] text-muted-foreground pl-6 pb-1">
                         Tucked away — they&rsquo;ll be on the item page if you ever need them.
                       </div>
-                    ) : items.length === 0
+                    ) : tucks(bucket) && !tuckOpen(bucket) && items.length > 0
+                      ? null
+                      : items.length === 0
                       ? <div className="text-[0.75rem] text-muted-foreground pl-6 pb-1">{copy.empty}</div>
                       : items.map((r) => (expandedId === r.id ? <div key={r.id}>{expandedCard(r)}</div> : collapsedRow(r)))}
+                    {/* D4: the level is named where it acted, with the way to
+                        change it. A line under the section, never inside a row:
+                        a link in a row was the mis-tap that left the review
+                        (owner, in the review of PR 228). */}
+                    {bucket === "maintenance" && taskLevel && items.length > 0 && (
+                      <div className="text-[0.75rem] text-muted-foreground pl-[13px] pt-0.5 pb-1">
+                        Task level: <b className="font-bold text-foreground">{TASK_LEVEL_COPY[taskLevel].label}</b>
+                        {onChangeTaskLevel && (
+                          <>
+                            {" \u00b7 "}
+                            <button type="button" onClick={onChangeTaskLevel}
+                              className="hit-44 font-bold" style={{ color: "var(--hh-teal)" }}>
+                              Change
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })}

@@ -1,3 +1,4 @@
+import type { TaskLevel } from "../../../../shared/tasks/taskLevel"
 import { doc, getDoc, runTransaction, serverTimestamp, setDoc, Timestamp, type DocumentData } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import type { CareFacts } from "../../../../shared/care/library"
@@ -78,6 +79,14 @@ function sanitizeTopConcerns(input: unknown): TopConcernKey[] {
 
 export type HomeProfile = {
   home_id: string
+  /** D4: how much of a manual's upkeep this home wants in Tasks. null = the
+   *  home has never picked one (it predates the setting) and behaves as
+   *  "everything" — read it through taskLevelOf(). */
+  task_level: TaskLevel | null
+  /** D4: how many of the home's tasks the level is hiding — written with the
+   *  level, so Home and Tasks only ask WHICH ones when the answer is not "none"
+   *  (no extra read for a home that never lowered its level). */
+  task_level_hidden: number
   home_type: HomeType | null
   ownership: Ownership | null
   ownership_duration: OwnershipDuration | null
@@ -133,6 +142,8 @@ function hpIso(v: unknown): string | null {
 function toHomeProfile(homeId: string, d: DocumentData): HomeProfile {
   return {
     home_id: homeId,
+    task_level: d.taskLevel === "essential" || d.taskLevel === "recommended" || d.taskLevel === "everything" ? d.taskLevel : null,
+    task_level_hidden: typeof d.taskLevelHidden === "number" && d.taskLevelHidden > 0 ? d.taskLevelHidden : 0,
     home_type: (d.homeType ?? null) as HomeType | null,
     ownership: (d.ownership ?? null) as Ownership | null,
     ownership_duration: (d.ownershipDuration ?? null) as OwnershipDuration | null,

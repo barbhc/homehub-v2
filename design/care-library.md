@@ -29,7 +29,7 @@ it fills the gaps and says where it came from.
 | **Suggestion** | An entry the item or home lacks, minus dismissed ones. |
 | **Backstop** | For an indicator entry (descale) when the manual's task exists but is `as_needed`: offer a time-based cadence *behind* the indicator, never instead of it. |
 
-## The three surfaces
+## The four surfaces
 
 1. **Item page → "Suggested" band** (after Cleaning). One row per suggestion:
    detail full width, actions beneath, a source line for the kind. Add creates
@@ -42,6 +42,18 @@ it fills the gaps and says where it came from.
    SOP systems plus pests / yard / exterior, each with "the building handles
    it"; drill-in questions write `homes.careFacts`; results offer Add / Add
    all; a free-text "Add something the library missed" creates a plain task.
+
+4. **The review after a scan (D4, 2026-11-20).** A FILTER task the manual
+   leaves `as_needed` starts on the library's cadence for that kind of
+   appliance, with "Typical for <kind>" under its title
+   (`typicalFilterCadence`; `docs/add-item-flow.md`, "D4 — choose before
+   adding"). Never the lint screen, never when the manual names a cadence.
+
+**`backstopOnly` entries** (washer drain-pump filter, washer inlet filters) are
+only ever a cadence behind a task the manual already has. They are never
+suggested as a new task: not every washer has the part (Samsung's top-loaders
+have no pump filter), and "clean a filter you may not have" is an assertion
+nobody checked.
 
 ## Rules that hold everywhere
 

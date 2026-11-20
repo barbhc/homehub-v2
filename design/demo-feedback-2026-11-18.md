@@ -200,6 +200,49 @@ Added to this design:
 
 **Done means:** a mock approved by the owner; assertions for 1 to 7 in the journey walk; all four emulator suites green; the owner's home unchanged in production.
 
+### D4 as built (2026-11-20)
+
+Both mock screens were approved by the owner (review after a scan 2026-11-19;
+Task level in Settings 2026-11-20): https://claude.ai/artifact/Ao4AvquYrsTwZDs4oUUSuo.
+The live review screen already showed everything before Save and already had
+Skip, and it groups by kind (round 18), so the build is narrower than the first
+sketch above.
+
+**Data model** (no server change, no rules change)
+
+| Where | Field | Meaning |
+|---|---|---|
+| `homes/{id}` | `taskLevel`: `"essential" \| "recommended" \| "everything"` | Written at creation as `"recommended"`. Absent = a home from before the setting; it behaves as `"everything"` (`taskLevelOf`). |
+| `homes/{id}` | `taskLevelHidden: number` | How many tasks the level hides, written in the same batch. Home and Tasks query the marks only when it is above zero, so a home that never lowered its level makes no extra read. |
+| `homes/{id}/taskTemplates/{id}` | `hiddenByLevel: boolean` | The level is hiding this task from Home and Tasks. Set and cleared only by a level change. |
+| `homes/{id}/taskTemplates/{id}` | `levelKept: true` | The task was showing below the level when the level changed, so a person kept it by hand; the level never hides it again. |
+
+Rules live in `shared/tasks/taskLevel.ts` (pure, tested); the writes in
+`src/modules/care/services/taskLevelService.ts`.
+
+**What was built**
+1. **Review after a scan** (`reviewRows.rowsFrom`, `TaskReviewSheet`): usual interval for a when-needed filter with "Typical for <kind>"; rows headed for Tasks below the level start skipped; Cleaning and Usage tucked away; the level named with Change.
+2. **Care library**: washer drain-pump filter (monthly — owner, 2026-11-20: "go with what the manual says") and inlet filters (twice a year), both `backstopOnly`. Makers' stated intervals, checked 2026-11-20: LG and Samsung US say monthly for the pump filter, Whirlpool "every few months", Electrolux every two months, GE none; LG and Samsung (regional pages) say about twice a year for the inlet screens, the others none.
+3. **Settings › Task level** (`TaskLevelSection`), above House rules, one choice per row.
+4. **Home and Tasks** leave out tasks marked `hiddenByLevel` (`homeReads`, `dashboard.onDatedListToday`, `weekAgenda`), and Tasks says how many: "N tasks are hidden by your task level. Change" (the HH-82 / HH-94 rule that a list never withholds work silently).
+
+**Where the build differs from the mock, and why**
+- The drain filter is offered monthly, where the mock drew every 3 months (owner, 2026-11-20). The chips use the app's own labels ("Monthly", "Twice a year").
+- "Every Optional task starts skipped" is built as every Optional task **headed for Tasks**. A row that lives on the item page (cleaning, when-needed, setup) is not skipped: it would be dropped without ever being seen.
+- The level line shows on a fresh read whenever the home has chosen a level, not only when a row was skipped.
+- A level change hides by writing a mark on the task, where the mock text said only that Home and Tasks change. The mark is what lets a task kept by hand stay.
+
+**What the level never hides:** Essential tasks; a task typed in (`source: "user"`) or added from a suggestion (`externalKey: "library:…"`); a task whose reminder was switched on; a task kept by hand; a task of unknown tier.
+
+**Edge cases decided**
+- Two members change the level at once: last write wins for the level and the marks together (one batch).
+- Offline with an empty cache: the change is refused with an error rather than saved over a task list that was never read.
+- A failed read of the marks on Home or Tasks hides nothing.
+- A rescan that recreates a task loses its mark, so the task shows. That direction (showing, never hiding) is the safe failure.
+- Notifications are unchanged. Only Essential notifies by default, and Essential is never hidden; a reminder switched on by hand exempts the task.
+
+**Not built here:** the dryer lint screen's Essential tier in the parser and library (it changes a tier the goldens pin, so it goes through the parse eval), and usual intervals for stored tasks (the item page's existing backstop offer covers those).
+
 ---
 
 ## D5. Ask answers that can be acted on in one read

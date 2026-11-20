@@ -389,7 +389,15 @@ export async function setTaskReminder(
       .set(
         doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
         // Provenance (decision C): the member set this field, in the same write.
-        { remindEnabled: enabled, ...stamp("setTaskReminder", { remindEnabled: enabled }), updatedAt: serverTimestamp() },
+        {
+          remindEnabled: enabled,
+          // D4: a reminder switched on by hand is a choice the task level never
+          // overrides — so a task the level was hiding comes back with it, in
+          // this write, rather than buzzing for something Tasks does not list.
+          ...(enabled === true ? { hiddenByLevel: false } : {}),
+          ...stamp("setTaskReminder", { remindEnabled: enabled }),
+          updatedAt: serverTimestamp(),
+        },
         { merge: true }
       )
       .commit()

@@ -29,6 +29,11 @@ export interface WeekAgendaSnapshot {
    * footer under a full one (HH-94).
    */
   hiddenCleaning: number
+  /**
+   * D4: tasks on the list today that the home's task level is hiding. Optional
+   * so a snapshot persisted before the level existed still loads (it hid none).
+   */
+  hiddenByLevel?: number
 }
 
 export function weekAgendaKey(homeId: string): string {
@@ -51,7 +56,7 @@ async function fetchWeekAgenda(homeId: string): Promise<WeekAgendaSnapshot> {
   // render. Still free: getWeekAgenda tallies what it withheld from the very
   // snapshot it just read and returns it WITH the rows, so this costs no
   // second query, and no other read in flight can swap in its own home's count.
-  return { items: res.data, hiddenCleaning: res.withheld.itemCleaning }
+  return { items: res.data, hiddenCleaning: res.withheld.itemCleaning, hiddenByLevel: res.withheld.belowLevel }
 }
 
 export function useWeekAgenda(homeId: string | null) {

@@ -93,8 +93,15 @@ function Screen({ data, notificationsBlocked, onSave }: { data: PreviewResult; n
   )
 }
 
+/** D4: on a fresh read Cleaning and Usage arrive tucked away (one tap from
+ *  open, like Setup). These tests are about the rows inside, so they open them;
+ *  the tucked default has its own tests in TaskReviewSheet.level.test.tsx. */
+const openTucked = () =>
+  screen.queryAllByRole("button", { name: /^Show \d+ (cleaning jobs?|tips?)$/ }).forEach((b) => fireEvent.click(b))
+
 function sheet(data: PreviewResult, notificationsBlocked: boolean, onSave = vi.fn().mockResolvedValue(null)) {
   const r = render(<Screen data={data} notificationsBlocked={notificationsBlocked} onSave={onSave} />)
+  openTucked()
   /** The same review, same state — only the phone's permission changes. */
   const permission = (blocked: boolean) => r.rerender(<Screen data={data} notificationsBlocked={blocked} onSave={onSave} />)
   return { ...r, onSave, permission }
