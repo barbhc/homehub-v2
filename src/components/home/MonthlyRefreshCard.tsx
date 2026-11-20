@@ -59,7 +59,7 @@ export function MonthlyRefreshCard({ homeId, profile, fallback, onChanged }: {
 
   const month = Number(today.slice(5, 7))
   const input = listInput(profile, profile.home_type, NO_CORRECTIONS, {}, month)
-  const list = firstList({ ...input, existing: titles, dismissed: profile.dismissed_care, fillers: false })
+  const list = firstList({ ...input, existing: titles, dismissed: profile.dismissed_care, fillers: false, monthly: true })
   if (list.rows.length === 0) return <>{fallback}</>
 
   return <Card homeId={homeId} profile={profile} month={month} rows={list.rows} onAnswered={() => { setAnswered(true); onChanged() }} />

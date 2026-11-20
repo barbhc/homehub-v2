@@ -17,6 +17,8 @@ type Months = [number, number]
 
 /** The physical system a row belongs to: one row per system (rule 6). */
 type System = "alarms" | "hvac" | "water_heater" | "exterior" | "plumbing_outside" | "storm" | "fire_safety"
+  // DRAFT systems for the seasonal entries (2026-11-19)
+  | "cooling" | "fireplace" | "air_quality" | "plumbing_inside" | "envelope" | "pests" | "alarm_batteries"
 
 interface Starter {
   key: string
@@ -33,10 +35,16 @@ interface Starter {
   graceMonth?: boolean
   /** Not timely on its own: used only to fill a list shorter than two rows. */
   filler?: boolean
+  /** DRAFT (2026-11-19): offered by the monthly refresh only, never in onboarding's first list. */
+  monthly?: boolean
 }
 
 /** The heating season's start, when the filter matters most; cooling season in hot climates. */
 const FILTER: Record<Climate | "default", Months> = { cold: [9, 11], moderate: [10, 11], mild: [10, 11], hot: [4, 5], default: [10, 11] }
+/** DRAFT: the spring cooling check, before each band's heat (ENERGY STAR: cooling in spring). */
+const COOLING: Record<Climate, Months> = { hot: [2, 3], moderate: [4, 4], mild: [4, 5], cold: [5, 5] }
+/** DRAFT: the chimney before the first fire, by band. */
+const CHIMNEY: Record<Climate, Months> = { cold: [8, 9], moderate: [9, 10], mild: [9, 10], hot: [10, 11] }
 /** Autumn work before the first frost, by band (matches shared/care/seasonalWindow.ts). */
 const FALL: Record<Climate | "default", Months> = { cold: [9, 10], moderate: [9, 11], mild: [10, 11], hot: [10, 12], default: [9, 11] }
 const band = <T,>(t: Record<Climate | "default", T>, c: Climate | null): T => (c ? t[c] : t.default)
@@ -82,6 +90,15 @@ const STARTERS: Starter[] = [
   { key: "home.wildfire_prep", system: "exterior", windows: () => [[5, 6]], homeTypes: ["house", "townhouse"], reason: () => "High wildfire risk in this county. Fire season is close." },
   { key: "home.hurricane_prep", system: "storm", windows: () => [[5, 5]], reason: () => "Hurricane season starts June 1." },
   { key: "home.extinguisher", system: "fire_safety", windows: () => "any", question: () => "Do you have a fire extinguisher?", filler: true, reason: () => "A quick look once a year." },
+  // ── DRAFT seasonal starters (2026-11-19): for the owner's review ──
+  { key: "home.radon_test", monthly: true, system: "air_quality", windows: () => [[1, 1]], homeTypes: ["house", "townhouse"], reason: () => "January is National Radon Action Month." },
+  { key: "home.leak_check", monthly: true, system: "plumbing_inside", windows: () => [[3, 3]], reason: () => "Fix a Leak Week is in March." },
+  { key: "home.cooling_service", monthly: true, system: "cooling", windows: (c) => [COOLING[c ?? "moderate"]], question: () => "Do you have central air conditioning?", reason: (i) => (i.climate === "hot" ? "Book it before the heat arrives." : "Book it before the first hot week.") },
+  { key: "home.chimney", monthly: true, system: "fireplace", windows: (c) => [CHIMNEY[c ?? "moderate"]], question: () => "Do you have a fireplace or wood stove?", reason: () => "Before the first fire of the season." },
+  { key: "home.fire_drill", monthly: true, system: "fire_safety", windows: () => [[4, 4], [10, 10]], reason: (i) => (i.month >= 8 ? "Fire Prevention Week is in October." : "Twice a year keeps it fresh.") },
+  { key: "home.draft_seal", monthly: true, system: "envelope", windows: (c) => [c === "hot" ? [4, 5] : band(FALL, c)], reason: (i) => (i.climate === "hot" ? "Before the cooling bills start." : "Before the heating bills start.") },
+  { key: "home.alarm_batteries", monthly: true, system: "alarm_batteries", windows: () => [[3, 3], [11, 11]], question: () => "Do you have smoke or CO alarms?", reason: () => "Easy to remember with the clock change. Skip it for sealed 10-year alarms." },
+  { key: "home.termite", monthly: true, system: "pests", windows: () => [[4, 5]], homeTypes: ["house", "townhouse"], question: () => "Are termites a known risk where you live?", reason: () => "Termites swarm as it warms." },
 ]
 
 /** The fact a starter's question answers — the same fact that gates its library entry. */
@@ -109,6 +126,8 @@ export interface FirstListInput {
    *  refresh says false: a filler is not timely, and offering the same one every
    *  month is noise (design/day-one-home.md, release D). Default true. */
   fillers?: boolean
+  /** Include the monthly-only starters (the monthly refresh). Default false: onboarding is unchanged. */
+  monthly?: boolean
 }
 
 export interface FirstListRow {
@@ -204,6 +223,7 @@ export function firstList(input: FirstListInput): FirstList {
   const leftOff = new Map<LeftOffReason, LeftOff>()
 
   for (const s of STARTERS) {
+    if (s.monthly && !input.monthly) continue
     const entry = entryByKey(s.key)
     if (!entry || gone.has(entry.key) || covered.has(entry.archetype)) continue
     if (entry.priorityTier === "optional") continue // rule 2: Useful
