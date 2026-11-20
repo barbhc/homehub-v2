@@ -51,7 +51,7 @@ Same scoring as §1: (Risk + Impact) / Scope.
 | D1c | **Try before sign-in** (guest mode, 5 labels) | 2 | 3 | 5 | 1.0 | **Decided 2026-11-18: on during the beta**, revisit before a public launch. Needs App Check, guest caps, and an adversarial review. |
 | D7 | **Region from a zip code** — replaces the climate question; sets freeze risk, seasonal timing and regional house tasks | 2 | 4 | 5 | 1.2 | Owner's own addition, **decided 2026-11-18**. Addresses HH-168 at the root. Sources checked 2026-11-18 (see D8). **Amended by D8:** asked on the first screen after sign-in, not after the first item. |
 
-**Recommended order:** ~~D4~~ (built), D5, D2, D1a, D1b and D1c, D3. D7 and D1a were largely delivered by D8 (first-minute onboarding). D1, D2 and D4 are one journey
+**Recommended order:** ~~D4~~ (built), D5, D2, D1a, D1b and D1c, D3. D1, D2 and D4 are one journey
 (snap, find, few tasks) and it is safer built back to front.
 
 ### D8 (decided 2026-11-18). First-minute onboarding: something true about the home before any item
