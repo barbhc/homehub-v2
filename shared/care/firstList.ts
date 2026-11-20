@@ -105,6 +105,10 @@ export interface FirstListInput {
   hasArea: boolean
   /** The zip's state changes its clocks; null without a zip. */
   observesDst: boolean | null
+  /** Top a short list up with the year-round fillers (onboarding). The monthly
+   *  refresh says false: a filler is not timely, and offering the same one every
+   *  month is noise (design/day-one-home.md, release D). Default true. */
+  fillers?: boolean
 }
 
 export interface FirstListRow {
@@ -251,7 +255,7 @@ export function firstList(input: FirstListInput): FirstList {
     }
   }
   take(candidates.filter((c) => c.t.timely), 3)
-  if (rows.length < 2) take(candidates.filter((c) => c.filler), 2)
+  if (rows.length < 2 && input.fillers !== false) take(candidates.filter((c) => c.filler), 2)
 
   return {
     rows: rows.map(({ entry, question, checked, ifNotDoneYet, reason }) => ({ entry, question, checked, ifNotDoneYet, reason })),

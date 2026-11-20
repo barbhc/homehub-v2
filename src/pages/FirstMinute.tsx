@@ -22,19 +22,19 @@ import { upsertHomeProfile, type HomeProfile, type HomeType } from "@/modules/ho
 import { lookupZipArea, toHomeArea } from "@/modules/home/services/zipAreaService"
 import { OnboardingSteps, OptionRow } from "@/modules/home/components/onboardingParts"
 import { HOME_TYPE_OPTIONS, buildingHandlesByDefault } from "@/modules/home/components/onboardingOptions"
-import { FactRow, HAZARD_TITLE, type AreaHazard } from "@/modules/home/components/areaFacts"
+import { FactRow, HAZARD_TITLE } from "@/modules/home/components/areaFacts"
 import { addLibraryTask } from "@/modules/care/services/careSuggestionService"
-import { firstDueDates, firstList, type FirstListInput, type FirstListRow, type LeftOffReason } from "../../shared/care/firstList"
+import { firstDueDates, firstList, type FirstListRow, type LeftOffReason } from "../../shared/care/firstList"
 import { coldestNightF, type ZipArea } from "../../shared/area/zipArea"
 import type { CareFacts } from "../../shared/care/library"
 import { localToday } from "../../shared/dates/calendar"
 import { track } from "@/lib/analytics"
+import { listInput, type Corrections } from "@/lib/firstListInput"
 import { cn } from "@/lib/utils"
 
 const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 const TYPE_WORD: Record<HomeType, string> = { house: "House", condo: "Condo", townhouse: "Townhouse", apartment: "Apartment", other: "Home" }
 const CADENCE: Record<string, string> = { weekly: "Weekly", monthly: "Monthly", quarterly: "Every 3 months", semiannual: "Twice a year", annual: "Yearly" }
-type Hazard = AreaHazard
 
 const thisMonth = () => Number(localToday().slice(5, 7))
 
@@ -103,31 +103,10 @@ function Flow({ homeId, profile, onSaved }: { homeId: string; profile: HomeProfi
 
 // ── step 2 ────────────────────────────────────────────────────────────────────
 
-interface Corrections { freeze: boolean | null; hazardsOff: Hazard[] }
 
 /** The list for a home type, with the corrections applied — used to decide which facts matter. */
 function listFor(profile: HomeProfile | null, homeType: HomeType | null, c: Corrections) {
   return firstList(listInput(profile, homeType, c, {}))
-}
-
-function listInput(profile: HomeProfile | null, homeType: HomeType | null, c: Corrections, answers: CareFacts): FirstListInput {
-  const facts: CareFacts = { ...(profile?.care_facts ?? {}), ...answers }
-  if (buildingHandlesByDefault(homeType) && facts.building_handles_exterior === undefined) facts.building_handles_exterior = true
-  const freeze = c.freeze ?? profile?.freeze_risk ?? null
-  return {
-    month: thisMonth(),
-    climate: profile?.climate ?? null,
-    freezeRisk: freeze,
-    homeType,
-    hazards: (profile?.area?.hazards ?? []).filter((h) => !c.hazardsOff.includes(h)),
-    facts,
-    derived: {
-      freezeRisk: c.freeze === null && profile?.climate_source === "zip",
-      buildingHandlesExterior: buildingHandlesByDefault(homeType) && profile?.care_facts?.building_handles_exterior === undefined,
-    },
-    hasArea: !!profile?.area,
-    observesDst: profile?.area?.observesDst ?? null,
-  }
 }
 
 const sig = (l: ReturnType<typeof firstList>) => JSON.stringify([l.rows.map((r) => r.entry.key), l.leftOff.map((x) => x.reason)])

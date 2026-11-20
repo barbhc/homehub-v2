@@ -24,6 +24,7 @@ import { AskFirstHero } from "@/components/dashboard/AskFirstHero"
 import { RefinedHome } from "@/components/home/RefinedHome"
 import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
 import { NextStepCard } from "@/components/home/NextStepCard"
+import { MonthlyRefreshCard } from "@/components/home/MonthlyRefreshCard"
 import { useReminderAsk } from "@/hooks/useReminderAsk"
 import { askStarters } from "../../shared/care/dayOne"
 import { localToday } from "../../shared/dates/calendar"
@@ -168,7 +169,7 @@ export default function Home() {
     error: dashError,
     refresh,
   } = useDashboard(homeId || null)
-  const { profile: homeProfile, error: profileError } = useHomeProfile(homeId || null)
+  const { profile: homeProfile, error: profileError, refresh: refreshProfile } = useHomeProfile(homeId || null)
   const askFirst = homeProfile?.preferred_mode === "ask_first"
   const profileIncomplete =
     !profileError && (homeProfile === null || homeProfile?.completed_at === null)
@@ -316,8 +317,14 @@ export default function Home() {
   const starters = !isNewUser && (stats?.totalItems ?? 0) < 3
     ? askStarters({ month: Number(localToday().slice(5, 7)), freezeRisk: homeProfile?.freeze_risk ?? null, hazards: homeProfile?.area?.hazards ?? [] })
     : []
-  const nextStep = !isNewUser && !hasItemsNoUpkeep && homeId && (stats?.totalItems ?? 0) < 3
+  const earlyCard = !isNewUser && !hasItemsNoUpkeep && homeId && (stats?.totalItems ?? 0) < 3
     ? <NextStepCard key={homeId} homeId={homeId} totalItems={stats?.totalItems ?? 0} onChanged={() => refresh()} />
+    : null
+  // The monthly refresh (release D) takes the same one slot when this month
+  // has something to offer — for every working home, not only early ones.
+  const nextStep = !isNewUser && !hasItemsNoUpkeep && homeId
+    ? <MonthlyRefreshCard key={`m-${homeId}`} homeId={homeId} profile={homeProfile} fallback={earlyCard}
+        onChanged={() => { void refresh(); void refreshProfile() }} />
     : null
 
   return (
