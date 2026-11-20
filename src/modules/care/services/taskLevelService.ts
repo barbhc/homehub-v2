@@ -2,6 +2,7 @@ import {
   collection, doc, getDoc, getDocs, query, serverTimestamp, where, writeBatch,
 } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
+import { withTimeout } from "@/lib/withTimeout"
 import {
   planLevelChange, taskLevelOf, type LevelTemplate, type TaskLevel,
 } from "../../../../shared/tasks/taskLevel"
@@ -25,6 +26,9 @@ import {
 export type ServiceResult<T> = { data: T; error: null } | { data: null; error: { message: string } }
 const fail = (e: unknown, fallback: string): { data: null; error: { message: string } } =>
   ({ data: null, error: { message: e instanceof Error ? e.message : fallback } })
+
+/** How long a level change may take before the card stops waiting for it. */
+const SAVE_TIMEOUT_MS = 20_000
 
 /** A Firestore batch holds 500 writes; the home doc takes one of them. */
 const BATCH_LIMIT = 450
@@ -101,7 +105,9 @@ export async function setTaskLevel(
       // ask for the marks only when that count is above zero, so marks from a
       // change that never finished are ignored until it does.
       if (last) batch.set(homeRef, { taskLevel: to, taskLevelHidden: hiddenAfter, updatedAt: serverTimestamp() }, { merge: true })
-      await batch.commit()
+      // With no connection a commit never settles: say so, instead of a card
+      // that reads "Saving…" for good. Choosing again is safe (idempotent).
+      await withTimeout(batch.commit(), SAVE_TIMEOUT_MS, "Couldn't confirm your choice was saved. Check your connection and try again.")
       if (last) break
     }
     return { data: { hidden: plan.hide.length, shown: plan.unhide.length }, error: null }

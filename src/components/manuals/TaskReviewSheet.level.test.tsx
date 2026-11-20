@@ -221,3 +221,27 @@ describe("re-reviewing tasks you already have (must-be-true 7)", () => {
     expect(screen.queryByText(/Task level:/)).not.toBeInTheDocument()
   })
 })
+
+describe("what counts as correcting the parser (review_save feedback)", () => {
+  it("setting an offered interval back to the manual's 'when needed' is not a correction", async () => {
+    const onSave = review()
+    fireEvent.click(row("Clean the Drain Pump Filter"))
+    fireEvent.click(screen.getByRole("button", { name: /^As needed$/ }))
+    fireEvent.click(screen.getByRole("button", { name: /^Done$/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Save all 12" }))
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    expect(onSave.mock.calls[0][2].schedule).toBe(0)
+  })
+
+  it("choosing a different cadence IS one, reported against what the manual said", async () => {
+    const onSave = review()
+    fireEvent.click(row("Clean the Drain Pump Filter"))
+    fireEvent.click(screen.getByRole("button", { name: /^Monthly$/ }))
+    fireEvent.click(screen.getByRole("button", { name: /^Done$/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Save all 12" }))
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const edits = onSave.mock.calls[0][2]
+    expect(edits.schedule).toBe(1)
+    expect(edits.details).toContainEqual({ title: "Clean the Drain Pump Filter", field: "schedule", from: "as_needed", to: "monthly" })
+  })
+})

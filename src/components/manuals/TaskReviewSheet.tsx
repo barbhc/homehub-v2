@@ -369,7 +369,12 @@ export function TaskReviewSheet({
       if (r.kind !== b.kind) { kind++; details.push({ title: r.title, field: "kind", from: b.kind, to: r.kind }) }
       // The whole cadence, not just its type: a new interval ("every 2 weeks" →
       // "every 6 weeks") or a season answered is a schedule correction too.
-      if (cadenceChanged({ scheduleType: b.schedule, intervalDays: b.intervalDays, season: b.season }, { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season })) {
+      const now = { scheduleType: r.schedule, intervalDays: r.intervalDays, season: r.season }
+      // D4: on a row offered a usual interval, going back to what the manual
+      // said ("when needed") agrees with the parser — it corrects nothing.
+      const backToManual = b.typical !== null &&
+        !cadenceChanged({ scheduleType: b.origSchedule, intervalDays: b.task?.interval_days ?? null, season: b.season }, now)
+      if (!backToManual && cadenceChanged({ scheduleType: b.schedule, intervalDays: b.intervalDays, season: b.season }, now)) {
         schedule++
         // Enum values, as before: parseFeedbackService and the parse-eval
         // worksheet (scripts/parse-eval/reviewEdits.ts) read them as such.
