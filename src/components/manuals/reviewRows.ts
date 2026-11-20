@@ -5,7 +5,7 @@
  * module that also exports values), and so ParsePickupCard can count a draft's
  * rows without the sheet.
  */
-import { reviewBucketFor, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
+import { reviewBucketFor, showsInTasks, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
 import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { applyHouseRules, looksLikeSetupStep } from "../../../shared/tasks/houseRules"
 import { classifyActorFromText } from "@/lib/taskActor"
@@ -199,3 +199,71 @@ export const taskLikeOf = (r: ReviewRow) => ({
   remind_enabled: r.remindEnabled,
 })
 export const bucketOfRow = (r: ReviewRow): ReviewBucket => reviewBucketFor(taskLikeOf(r))
+
+/** Everything a review lists is one item's upkeep: item-scoped. */
+export const ROW_SCOPE = "item_unit"
+/** HH-161 (S4.1): on a schedule AND on the agenda — the rows the Tasks page
+ *  will list. Item-scoped cleaning is scheduled and still never shows there. */
+export const inTasksRow = (r: ReviewRow): boolean =>
+  r.included && r.kind !== "usage" && showsInTasks(taskLikeOf(r), ROW_SCOPE)
+
+/**
+ * What Save hands to commitReviewedDraft for these rows: the tasks kept, with
+ * the review's choices written onto them, and the chunks — the draft's own,
+ * plus a tip for every row filed as usage. One function, so the review's Save
+ * and the hand-off card's "Keep these" cannot save two different things.
+ */
+export function savePayloadFrom(rows: ReviewRow[], draftChunks: PreviewChunk[]): { tasks: PreviewTask[]; chunks: PreviewChunk[] } {
+  const tasks: PreviewTask[] = []
+  const chunks: PreviewChunk[] = draftChunks.filter((c) => !(c.tags ?? []).includes(USAGE_TIP_TAG))
+  for (const r of rows) {
+    if (!r.included) continue
+    if (r.kind === "usage") {
+      chunks.push(
+        r.chunk ?? {
+          chunk_type: "how_to", title: r.title, content: r.description ?? r.title,
+          tags: [USAGE_TIP_TAG], source_pages: r.task?.source_page ? [r.task.source_page] : [],
+          // An existing task converted to a tip names the task it was, so the
+          // save deactivates THAT task — not whichever one shares its title.
+          ...(r.task?.template_id ? { template_id: r.task.template_id } : {}),
+        },
+      )
+      continue
+    }
+    const base: PreviewTask = r.task ?? {
+      title: r.title, description: r.description, care_type: "maintenance", priority_tier: r.tier,
+      risk_level: "performance", estimated_minutes: r.minutes, schedule_type: r.schedule,
+      interval_days: r.intervalDays, instructions_text: null, symptom_tags: [], re_check_triggers: [],
+    }
+    tasks.push({
+      ...base,
+      care_type: r.kind === "cleaning" ? "cleaning" : "maintenance",
+      priority_tier: r.tier,
+      schedule_type: r.schedule,
+      interval_days: r.intervalDays,
+      season: r.season,
+      remind_enabled: r.remindEnabled,
+      last_done_on: r.lastDoneOn,
+    })
+  }
+  return { tasks, chunks }
+}
+
+/**
+ * HH-137, owner 2026-11-19 ("One-tap 'Keep these'"): a first read with nothing
+ * for Tasks has no decision in it, so it gets no review — the hand-off card
+ * offers to keep what was found in one tap. This says whether a draft is that
+ * case, and what it holds, by the review's own rows and rules: no row in the
+ * Maintenance section and none the Tasks page would list. Null when it is not
+ * (there is maintenance, something would reach Tasks, or nothing was found).
+ */
+export function keepTheseSummary(
+  data: PreviewResult,
+  freezeRiskFalse: boolean,
+): { cleaning: number; usage: number; setup: number; total: number } | null {
+  const rows = rowsFrom(data, freezeRiskFalse)
+  if (rows.length === 0) return null
+  if (rows.some((r) => bucketOfRow(r) === "maintenance" || inTasksRow(r))) return null
+  const count = (b: ReviewBucket) => rows.filter((r) => bucketOfRow(r) === b).length
+  return { cleaning: count("cleaning"), usage: count("usage"), setup: count("setup"), total: rows.length }
+}

@@ -281,7 +281,7 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       // S2.4 — this page did not watch it finish: the card waits.
       await expect(page.getByRole("dialog")).toHaveCount(0)
       // S2.5 — Upkeep holds the space, with no button of its own.
-      await expect(page.getByText("Upkeep lands here once you save the review.")).toBeVisible()
+      await expect(page.getByText("Upkeep lands here once you save what we found.")).toBeVisible()
       await expect(page.getByText("No upkeep yet — add the manual")).toHaveCount(0)
       // S2.3 — the pill counts it, here too.
       await expect.poll(() => readyCount(page), { timeout: 15_000 }).toBe(baseline + 1)
@@ -341,7 +341,7 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible()
     })
 
-    test("S3 → S3b → S3c: no maintenance — the same hand-off, one screen, nothing into Tasks, saved only on Save", async ({ page }) => {
+    test("S3 → S3b → S3c: no maintenance — Keep these on the card, Review first opens the one screen, saved only on a tap", async ({ page }) => {
       await page.goto("/home")
       await page.waitForTimeout(1_500)
       const baseline = await readyCount(page)
@@ -351,18 +351,22 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await page.goto(`/items/${itemId}`)
       await expect(page.getByRole("heading", { name, exact: true })).toBeVisible({ timeout: 20_000 })
 
-      // ── S3: the SAME hand-off card ─────────────────────────────────────────
+      // ── S3: the hand-off card — HH-137, nothing to decide, so Keep these ──
       const card = page.getByTestId("handoff-card")
       await expect(card).toHaveCount(1, { timeout: 15_000 })
       await expect(card).toContainText("We read the manual")
       await expect(card).not.toContainText(name)
-      const review = card.getByRole("button", { name: "Review 6 tips & steps" })
+      await expect(card.getByText("4 cleaning tips and 2 setup steps. Nothing here goes into Tasks.")).toBeVisible()
+      await expect(card.getByRole("button", { name: "Keep these" })).toBeVisible()
+      // No button counting rows to review (not rendered).
+      await expect(card.getByRole("button", { name: /^Review \d+ / })).toHaveCount(0)
+      const review = card.getByRole("button", { name: "Review first" })
       await expect(review).toBeVisible()
       // S3.2 — no other card, and round 14's sentence nowhere.
       await expect(page.getByText(/No maintenance in this manual/)).toHaveCount(0)
       await expect(page.getByText(/nothing will remind you/)).toHaveCount(0)
       // S3.4 — nothing saved yet: Upkeep holds the space, no rows.
-      await expect(page.getByText("Upkeep lands here once you save the review.")).toBeVisible()
+      await expect(page.getByText("Upkeep lands here once you save what we found.")).toBeVisible()
       await expect(page.getByTestId("care-row")).toHaveCount(0)
       // S3.5 — the pill.
       await expect.poll(() => readyCount(page), { timeout: 15_000 }).toBe(baseline + 1)
@@ -420,6 +424,44 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(page.getByTestId("handoff-card")).toHaveCount(0)
       await expect.poll(() => readyCount(page), { timeout: 15_000 }).toBe(baseline)
       await shot(page, label, "s3c-item-after-save")
+    })
+
+    test("HH-137: a read with nothing for Tasks, watched as it finishes, opens NO review — Keep these saves it in one tap", async ({ page }) => {
+      await page.goto("/home")
+      await page.waitForTimeout(1_500)
+      const baseline = await readyCount(page)
+      const commit = await answerCommit(page, db, itemId)
+      // The wizard's hand-off: the item page is open while the read runs.
+      await writeStage(db, manualId, { stage: "claude_call", requestId: "req-keep-1", pdfPages: 48 })
+      await page.goto(`/items/${itemId}`)
+      await expect(page.getByRole("heading", { name, exact: true })).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByText("Reading the manual", { exact: true })).toHaveCount(1)
+      await writeStage(db, manualId, { stage: "done", requestId: "req-keep-1", pdfPages: 48, summary: { chunks: 0, tasks: SHARP.length } },
+        { previewDraft: asDraft(SHARP) })
+
+      const card = page.getByTestId("handoff-card")
+      await expect(card).toHaveCount(1, { timeout: 15_000 })
+      const keep = card.getByRole("button", { name: "Keep these" })
+      await expect(keep).toBeVisible()
+      // The finding the owner reported four times: a review with nothing in it
+      // to decide. Not opened in flow, not opened as a drawer (not rendered).
+      await page.waitForTimeout(1_500)
+      await expect(page.getByText(/\d+ things? from the manual/)).toHaveCount(0)
+      await expect(page.getByRole("dialog")).toHaveCount(0)
+      expect(commit.count()).toBe(0)
+      await shot(page, label, "hh137-keep-these")
+
+      await keep.click()
+      await expect.poll(() => commit.count(), { timeout: 15_000 }).toBe(1)
+      // Lands exactly as a Save from the review does (S3c).
+      const lives = page.getByTestId("upkeep-lives-here")
+      await expect(lives).toBeVisible({ timeout: 15_000 })
+      await expect(lives).toContainText("4 cleaning tips and 2 setup steps live below.")
+      await expect(page.getByTestId("care-row").filter({ hasText: "Wipe the drawer interior" })).toContainText("Weekly")
+      await expect(page.getByTestId("handoff-card")).toHaveCount(0)
+      await expect(page.getByRole("dialog")).toHaveCount(0)
+      await expect.poll(() => readyCount(page), { timeout: 15_000 }).toBe(baseline)
+      await shot(page, label, "hh137-after-keep")
     })
   })
 
@@ -488,7 +530,11 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
     })
     test.afterEach(async () => { await clearItem(db, itemId) })
 
-    test("S3.3 / S2.4 — watched to the end, the review opens by itself, in place of the card — with no maintenance too", async ({ page }) => {
+    test("S3.3 / S2.4 — watched to the end, the review opens by itself, in place of the card — a read AGAIN with no maintenance too", async ({ page }) => {
+      // A read again (the manual was saved before): it can change upkeep the
+      // item already has, so it keeps the review. A FIRST read with nothing
+      // for Tasks is HH-137's case — Keep these, no review (tested above).
+      await db.doc(`homes/${HOME}/manuals/${manualId}`).set({ parsedAt: Timestamp.fromDate(new Date("2026-09-01T00:00:00Z")) }, { merge: true })
       await writeStage(db, manualId, { stage: "claude_call", requestId: "req-watch-1", pdfPages: 12 })
       await page.goto(`/items/${itemId}`)
       await expect(page.getByText("Reading the manual", { exact: true })).toHaveCount(1, { timeout: 20_000 })

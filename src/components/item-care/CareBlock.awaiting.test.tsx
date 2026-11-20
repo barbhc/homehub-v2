@@ -59,7 +59,7 @@ describe("a manual that was read but never saved", () => {
 
   it("holds the space, in the mock's words (HH-161 S2.5, S3.4)", () => {
     renderCare({ manualAwaitingReview: true })
-    expect(screen.getByText("Upkeep lands here once you save the review.")).toBeTruthy()
+    expect(screen.getByText("Upkeep lands here once you save what we found.")).toBeTruthy()
   })
 
   it("carries no button of its own — the hand-off card owns that decision", () => {

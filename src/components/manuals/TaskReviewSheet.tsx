@@ -16,7 +16,6 @@ import {
   REVIEW_BUCKET_COPY,
 } from "../../../shared/tasks/reviewBuckets"
 import { NotificationSettingsLink } from "./NotificationSettingsLink"
-import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { RepeatEveryInput } from "@/components/care/RepeatEveryInput"
 import { earliestLastDone } from "../../../shared/care/lastDone"
@@ -28,7 +27,7 @@ import type {
 } from "@/modules/knowledge/types/previewTypes"
 import { TaskReviewFeedback, type ReviewEdit, type ReviewEditSummary, type RescanOutcome } from "./TaskReviewFeedback"
 import {
-  TIER_RAIL, SECTION_RAIL, rowsFrom, taskLikeOf, bucketOfRow, type ReviewRow,
+  TIER_RAIL, SECTION_RAIL, rowsFrom, taskLikeOf, bucketOfRow, ROW_SCOPE, inTasksRow, savePayloadFrom, type ReviewRow,
 } from "./reviewRows"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { NextDueLine, SeasonAsk } from "@/components/care/NextDue"
@@ -143,11 +142,6 @@ const displayKind = (r: ReviewRow): KindChoice =>
 /** The owner's reminder choice for this row (or its tier's default) — what the
  *  switch shows and what Save writes. Not the same as a bell: see `canRing`. */
 const remindsOfRow = (r: ReviewRow): boolean => willNotify(taskLikeOf(r))
-/** Everything a review lists is one item's upkeep: item-scoped. */
-const ROW_SCOPE = "item_unit"
-/** HH-161 (S4.1): on a schedule AND on the agenda — the rows the Tasks page
- *  will list. Item-scoped cleaning is scheduled and still never shows there. */
-const inTasksRow = (r: ReviewRow): boolean => r.included && r.kind !== "usage" && showsInTasks(taskLikeOf(r), ROW_SCOPE)
 /** Would a bell on this row ring, if the phone allows it? The same rule the
  *  item page and the push sweep use (notifiesPhone). */
 const canRing = (r: ReviewRow): boolean => r.included && notifiesPhone(taskLikeOf(r), ROW_SCOPE)
@@ -394,38 +388,7 @@ export function TaskReviewSheet({
 
   const handleSave = async () => {
     setSaveError(null)
-    const keptTasks: PreviewTask[] = []
-    const keptChunks: PreviewChunk[] = previewData.chunks.filter((c) => !(c.tags ?? []).includes(USAGE_TIP_TAG))
-    for (const r of rows) {
-      if (!r.included) continue
-      if (r.kind === "usage") {
-        keptChunks.push(
-          r.chunk ?? {
-            chunk_type: "how_to", title: r.title, content: r.description ?? r.title,
-            tags: [USAGE_TIP_TAG], source_pages: r.task?.source_page ? [r.task.source_page] : [],
-            // An existing task converted to a tip names the task it was, so the
-            // save deactivates THAT task — not whichever one shares its title.
-            ...(r.task?.template_id ? { template_id: r.task.template_id } : {}),
-          },
-        )
-        continue
-      }
-      const base: PreviewTask = r.task ?? {
-        title: r.title, description: r.description, care_type: "maintenance", priority_tier: r.tier,
-        risk_level: "performance", estimated_minutes: r.minutes, schedule_type: r.schedule,
-        interval_days: r.intervalDays, instructions_text: null, symptom_tags: [], re_check_triggers: [],
-      }
-      keptTasks.push({
-        ...base,
-        care_type: r.kind === "cleaning" ? "cleaning" : "maintenance",
-        priority_tier: r.tier,
-        schedule_type: r.schedule,
-        interval_days: r.intervalDays,
-        season: r.season,
-        remind_enabled: r.remindEnabled,
-        last_done_on: r.lastDoneOn,
-      })
-    }
+    const { tasks: keptTasks, chunks: keptChunks } = savePayloadFrom(rows, previewData.chunks)
     const err = await onSave(keptTasks, keptChunks, edits)
     if (err) setSaveError(err)
     // The explanation retires on the first successful SAVE, not on a "Got it".

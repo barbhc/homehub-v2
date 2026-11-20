@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { CheckIcon, XIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { readPreviewDraft, commitReviewedDraft } from "@/modules/knowledge/services/parseManualService"
 import { startRescanForReview } from "@/lib/manualRescan"
 import { capacityNotice } from "@/lib/scanCapacity"
 import { TaskReviewSheet } from "./TaskReviewSheet"
-import { draftReviewCounts } from "./reviewRows"
+import { draftReviewCounts, keepTheseSummary, rowsFrom, savePayloadFrom } from "./reviewRows"
+import { upkeepKindsPhrase } from "@/lib/upkeepKinds"
 import { recordParseFeedback } from "@/modules/knowledge/services/parseFeedbackService"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import type { ReviewEditSummary } from "./TaskReviewFeedback"
@@ -56,7 +58,14 @@ function reviewLabel(counts: { total: number; maintenance: number }): string {
  *
  * Exactly one review element, rendered in one place: in place of the card when
  * it opened itself (the page's own next section — round 11), or as a drawer
- * beside it when someone tapped Review. Nothing is saved before Save (HH-134).
+ * beside it when someone tapped Review. Nothing is saved before a tap (HH-134).
+ *
+ * HH-137 (owner, 2026-11-19, "One-tap 'Keep these'"): a FIRST read with nothing
+ * for Tasks — no Maintenance row, nothing the Tasks page would list — has no
+ * decision in it. It never opens the review by itself; the card says what was
+ * found and offers "Keep these", which saves exactly what the review's Save
+ * would (savePayloadFrom), with "Review first" beside it. A read AGAIN is not
+ * this case: it can change upkeep the item already has, so it keeps the review.
  */
 export function ParsePickupCard({
   homeId,
@@ -83,6 +92,9 @@ export function ParsePickupCard({
   const [loaded, setLoaded] = useState<{ key: string; draft: PreviewResult } | null>(null)
   const [open, setOpen] = useState<"inline" | "sheet" | null>(null)
   const [saving, setSaving] = useState(false)
+  /** HH-137: the card's own one-tap save, and what it says if that fails. */
+  const [keeping, setKeeping] = useState(false)
+  const [keepError, setKeepError] = useState<string | null>(null)
   /** Runs saved here. The save's answer can beat the listener's news of it by
    *  a moment; without this the card would flash back for that moment. */
   const [savedRuns, setSavedRuns] = useState<ReadonlySet<string>>(new Set())
@@ -96,6 +108,9 @@ export function ParsePickupCard({
   useEffect(() => { watchedRef.current = watched; openRef.current = open })
   /** The run whose draft is on hand. */
   const loadedRef = useRef<{ manualId: string; runKey: string } | null>(null)
+  /** Runs whose draft has nothing to decide (HH-137): they never open the
+   *  review by themselves. A door that ASKS for the review still gets it. */
+  const quietRuns = useRef(new Set<string>())
 
   /**
    * Open the review for a run whose draft is here: a door's request opens it in
@@ -110,7 +125,7 @@ export function ParsePickupCard({
     if (asked) {
       setDismissed((prev) => ({ ...prev, [manualId]: false }))
       setOpen("sheet")
-    } else if (watchedRef.current.has(manualId) && !autoOpened.has(runKey)) {
+    } else if (watchedRef.current.has(manualId) && !autoOpened.has(runKey) && !quietRuns.current.has(runKey)) {
       autoOpened.add(runKey)
       setOpen("inline")
     }
@@ -138,6 +153,11 @@ export function ParsePickupCard({
   const draftKey = pickup ? `${runKey}:${pickup.parse_stage_at ?? ""}` : null
 
   const pickupId = pickup?.manual_id ?? null
+  /** A first read: nothing of this manual's has been saved yet. */
+  const firstRead = pickup ? pickup.parsed_at == null : false
+  /** Read by the draft's arrival, outside render (HH-137). */
+  const keepableRef = useRef<(d: PreviewResult) => boolean>(() => false)
+  useEffect(() => { keepableRef.current = (d) => firstRead && keepTheseSummary(d, freezeRiskFalse) != null })
   useEffect(() => {
     if (!pickupId || !draftKey || !runKey) return
     let cancelled = false
@@ -146,6 +166,7 @@ export function ParsePickupCard({
         if (cancelled || !d) return
         setLoaded({ key: draftKey, draft: d })
         loadedRef.current = { manualId: pickupId, runKey }
+        if (keepableRef.current(d)) quietRuns.current.add(runKey)
         openIfDue(pickupId, runKey)
       },
       (e: unknown) => {
@@ -195,6 +216,20 @@ export function ParsePickupCard({
 
   const manualId = pickup.manual_id
   const counts = draftReviewCounts(draft, freezeRiskFalse)
+  const keepable = firstRead ? keepTheseSummary(draft, freezeRiskFalse) : null
+
+  /** "Keep these": the review's Save, untouched rows and all, without the review. */
+  const keep = async () => {
+    setKeeping(true)
+    setKeepError(null)
+    const { tasks, chunks } = savePayloadFrom(rowsFrom(draft, freezeRiskFalse), draft.chunks)
+    const res = await commitReviewedDraft(homeId, manualId, chunks, tasks, draft.draftRequestId)
+    setKeeping(false)
+    if (!res.ok) { setKeepError(res.error); return }
+    setSavedRuns((prev) => new Set(prev).add(`${manualId}:${pickup.parse_request_id ?? ""}`))
+    clearParsePending(manualId)
+    onReviewSaved()
+  }
 
   // The one review element, built once and rendered in exactly one place —
   // which is what makes "only ONE review is ever mounted" structural.
@@ -279,6 +314,59 @@ export function ParsePickupCard({
 
   // A card someone waved away stays away, unless a door asked for its review.
   if (dismissed[manualId] && open === null) return null
+
+  // HH-137: nothing to decide, so no review — say what was found and keep it
+  // in one tap. The sentence is the one Upkeep shows after the save (S3c).
+  if (keepable) {
+    return (
+      <div
+        data-testid="handoff-card"
+        data-keep="true"
+        className="rounded-xl border px-4 py-3"
+        style={{ borderColor: "var(--hh-teal)", background: "var(--hh-surface)" }}
+      >
+        <div className="flex items-start gap-3">
+          <span
+            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full"
+            style={{ background: "color-mix(in srgb, var(--hh-teal) 15%, transparent)" }}
+          >
+            <CheckIcon className="size-3.5" style={{ color: "var(--hh-teal)" }} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.84375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
+              We read the manual
+            </p>
+            <p className="mt-0.5 text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>
+              {upkeepKindsPhrase(keepable)}. Nothing here goes into Tasks.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => dismiss(manualId)}
+            className="hit-44 shrink-0 rounded-full p-1"
+            style={{ color: "var(--hh-sub)" }}
+          >
+            <XIcon className="size-4" />
+          </button>
+        </div>
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 pl-9">
+          <Button size="sm" className="font-bold" disabled={keeping} onClick={() => { void keep() }}>
+            {keeping ? "Keeping…" : "Keep these"}
+          </Button>
+          <Button size="sm" variant="ghost" className="font-bold" style={{ color: "var(--hh-teal)" }} disabled={keeping} onClick={() => setOpen("sheet")}>
+            Review first
+          </Button>
+        </div>
+        {keepError && (
+          <p role="alert" className="mt-2 pl-9 text-[0.8125rem]" style={{ color: "var(--hh-clay)" }}>
+            Couldn&apos;t keep them: {keepError}
+          </p>
+        )}
+        {reviewSheet}
+      </div>
+    )
+  }
 
   return (
     /* HH-143: the action row drops below the sentence until the CARD (not the
