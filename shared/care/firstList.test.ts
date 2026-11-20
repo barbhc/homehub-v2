@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest"
 import table from "../../src/data/zip-area.json"
 import { lookupZip, type ZipAreaTable } from "../area/zipArea"
+import { termitesCommon } from "../area/termites"
 import { firstDueDates, firstList, type FirstListInput, type HomeType } from "./firstList"
 
 const T = table as unknown as ZipAreaTable
@@ -24,6 +25,7 @@ function fromZip(zip: string, homeType: HomeType, month: number): FirstListInput
     derived: { freezeRisk: true, buildingHandlesExterior: condoish },
     hasArea: true,
     observesDst: a.observesDst,
+    termites: termitesCommon(a.county?.state, a.county?.name),
   }
 }
 const keys = (l: ReturnType<typeof firstList>) => l.rows.map((r) => r.entry.key)
@@ -155,5 +157,49 @@ describe("firstDueDates: the coming weekend, inside Home's week", () => {
   })
   it("Sunday → next weekend, still within 7 days", () => {
     expect(firstDueDates("2026-11-22", 2)).toEqual(["2026-11-28", "2026-11-29"])
+  })
+})
+
+describe("seasonal starters on the monthly card (owner approved 2026-11-20)", () => {
+  const monthly = (zip: string, homeType: HomeType, month: number, facts = {}) => {
+    const i = fromZip(zip, homeType, month)
+    return firstList({ ...i, facts: { ...i.facts, ...facts }, monthly: true, fillers: false })
+  }
+  const row = (l: ReturnType<typeof firstList>, key: string) => l.rows.find((r) => r.entry.key === key)
+
+  it("never in onboarding's first list", () => {
+    expect(keys(firstList(fromZip("75201", "house", 4)))).not.toContain("home.termite")
+  })
+  it("termites: a Dallas house is offered the inspection in April without being asked", () => {
+    const r = row(monthly("75201", "house", 4, { has_central_air: false, has_gutters: false }), "home.termite")
+    expect(r?.question).toBeNull()
+    expect(r?.reason).toBe("Termites are common here, and they swarm as it warms.")
+  })
+  it("termites: a Minneapolis house is not offered it", () => {
+    expect(row(monthly("55401", "house", 5, { has_central_air: false }), "home.termite")).toBeUndefined()
+  })
+  it("termites: her own Yes wins over the list; her No wins too", () => {
+    expect(row(monthly("55401", "house", 5, { has_central_air: false, termite_risk: true }), "home.termite")).toBeDefined()
+    expect(row(monthly("75201", "house", 4, { has_central_air: false, has_gutters: false, termite_risk: false }), "home.termite")).toBeUndefined()
+  })
+  it("termites: a home looked up before the list existed is asked", () => {
+    const i = { ...fromZip("75201", "house", 4), termites: null, monthly: true, fillers: false }
+    const r = firstList({ ...i, facts: { has_central_air: false, has_gutters: false } }).rows.find((x) => x.entry.key === "home.termite")
+    expect(r?.question?.text).toBe("Are termites a known risk where you live?")
+  })
+  it("air conditioning asks first, and a No takes it away", () => {
+    expect(row(monthly("55401", "house", 5), "home.cooling_service")?.question?.text).toBe("Do you have central air conditioning?")
+    expect(row(monthly("55401", "house", 5, { has_central_air: false }), "home.cooling_service")).toBeUndefined()
+    expect(row(monthly("55401", "house", 5, { has_central_air: true }), "home.cooling_service")?.question).toBeNull()
+  })
+  it("the chimney asks first, and a No takes it away", () => {
+    expect(row(monthly("55401", "house", 9, { has_air_filter: true, has_gutters: true }), "home.chimney")?.question?.text).toBe("Do you have a fireplace or wood stove?")
+    expect(row(monthly("55401", "house", 9, { has_fireplace: false }), "home.chimney")).toBeUndefined()
+  })
+  it("the fire drill and draft sealing are gone (owner dropped them)", () => {
+    for (const m of [4, 5, 9, 10, 11]) {
+      const k = keys(monthly("55401", "house", m))
+      expect(k.some((x) => x === "home.fire_drill" || x === "home.draft_seal")).toBe(false)
+    }
   })
 })

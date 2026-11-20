@@ -123,10 +123,10 @@ describe("the library's own hygiene", () => {
     }
   })
   it("home entries are all gated, by a fact or the home's area; item entries never are", () => {
-    // DRAFT (2026-11-19): four seasonal entries apply to every home and are
+    // Two seasonal entries (2026-11-19) apply to every home and are
     // reached only through the monthly refresh's timing, never the fact-gated
     // Suggested group (suggestionsForHome requires a true fact).
-    const everyHome = new Set(["home.radon_test", "home.leak_check", "home.fire_drill", "home.draft_seal"])
+    const everyHome = new Set(["home.radon_test", "home.leak_check"])
     for (const e of LIBRARY) expect(!!(e.fact || e.area) || everyHome.has(e.key)).toBe(e.kind === "home")
     for (const e of LIBRARY) if (e.kind !== "home") expect(e.fact ?? e.area).toBeUndefined()
     expect(entriesForKind("air_purifier").length).toBe(3)

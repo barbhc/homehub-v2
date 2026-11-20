@@ -25,6 +25,9 @@ export type HomeArea = {
   hardinessZone: string | null
   county: string | null
   observesDst: boolean | null
+  /** The county is on the VA's termite-inspection list (shared/area/termites.ts).
+   *  Absent on homes looked up before 2026-11-20: the termite question is asked. */
+  termites?: boolean | null
   tableVersion: string
 }
 
@@ -42,6 +45,7 @@ function toArea(v: unknown): HomeArea | null {
     hardinessZone: str(r.hardinessZone),
     county: str(r.county),
     observesDst: typeof r.observesDst === "boolean" ? r.observesDst : null,
+    termites: typeof r.termites === "boolean" ? r.termites : null,
     tableVersion: version,
   }
 }
