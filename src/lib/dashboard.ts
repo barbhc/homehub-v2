@@ -45,9 +45,14 @@ const onListToday = (docs: ReadDoc[], today: string): Row[] =>
  * doesn't freeze (HH-166) — the same shared filter Tasks' week agenda applies,
  * so the washer can't be gone from Tasks and still on Home.
  */
-const onDatedListToday = (reads: Pick<HomeReads, "live" | "profile">, today: string): Row[] => {
+const onDatedListToday = (reads: Pick<HomeReads, "live" | "profile" | "hiddenTemplateIds">, today: string): Row[] => {
   const freezeFree = freezeFreeFrom(reads)
-  return onListToday(reads.live, today).filter((r) => !isAsNeededColdStorageRow(r, freezeFree))
+  // D4: and minus what the home's task level hides — the same marks Tasks'
+  // week agenda reads, so a task can't be gone from one and still on the other.
+  const hidden = reads.hiddenTemplateIds
+  return onListToday(reads.live, today)
+    .filter((r) => !isAsNeededColdStorageRow(r, freezeFree))
+    .filter((r) => !hidden?.has((r.taskTemplateId as string) ?? ""))
 }
 
 /** Due-soon window: tasks due within this many days count as "urgent". */

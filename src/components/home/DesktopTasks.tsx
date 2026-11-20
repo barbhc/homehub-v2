@@ -21,6 +21,7 @@ import {
   fillFor,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
+import { HiddenByLevelLink } from "./tasks/HiddenByLevelLink"
 import { UndoBar } from "@/components/ui/UndoBar"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)"
@@ -262,6 +263,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const items = useMemo(() => withoutHidden(allItems, hidden), [allItems, hidden])
   /** Scheduled work the agenda hides by design (item-scoped cleaning) — HH-94. */
   const hiddenCleaning = agenda.data?.hiddenCleaning ?? 0
+  const hiddenByLevel = agenda.data?.hiddenByLevel ?? 0
   const loadState = pageLoadState(agenda.data !== undefined, agenda.error !== undefined)
   const loading = loadState === "loading"
   const loadFailed = loadState === "error"
@@ -437,6 +439,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
               {/* HH-94 — the phone's footer, in the phone's words: a list with
                   tasks on it still says where the withheld cleaning lives. */}
               {totalAll > 0 && <HiddenCleaningLink count={hiddenCleaning} className="block pl-0.5 text-[0.8125rem]" />}
+            {/* D4: and what the task level hides — on an empty list too. */}
+            <HiddenByLevelLink count={hiddenByLevel} className="block pl-0.5 text-[0.8125rem]" />
               {/* The care library's standing group: ONCE, after every group —
                   where the phone puts it. It was nested inside the groups.map,
                   so it rendered inside every group's card. */}

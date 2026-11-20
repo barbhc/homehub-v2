@@ -35,6 +35,7 @@ import { InterfaceLevelSection } from "@/components/settings/InterfaceLevelSecti
 import { ServiceProvidersSection } from "@/components/settings/ServiceProvidersSection"
 import { AdminToolsSection } from "@/components/settings/AdminToolsSection"
 import { HouseRulesSection } from "@/components/settings/HouseRulesSection"
+import { TaskLevelSection } from "@/components/settings/TaskLevelSection"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
 import { useUserLevel } from "@/hooks/useUserLevel"
 import { useAppearance, type Appearance } from "@/lib/theme"
@@ -1303,6 +1304,9 @@ export default function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* D4: above House rules — both decide which tasks this home sees. */}
+      {homeId && <TaskLevelSection homeId={homeId} />}
 
       {homeId && <HouseRulesSection homeId={homeId} />}
 

@@ -13,6 +13,7 @@ import { asListedToday } from "../../../../shared/tasks/snooze"
 import { createTaskTemplate } from "./taskService"
 import { createScheduleRule, generateTaskInstances } from "./scheduleService"
 import { taskSource, effortToMinutes, frequencyToSchedule, type TaskSource } from "./taskMapping"
+import { readHiddenTemplateIds } from "./taskLevelService"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
 import { assertServed } from "@/lib/assertServed"
 
@@ -74,6 +75,8 @@ export interface AgendaWithheld {
   nextDueDate: string | null
   /** Hidden by the item-cleaning rule, at any date. */
   itemCleaning: number
+  /** D4: on the list today and eligible, but hidden by the home's task level. */
+  belowLevel: number
 }
 
 /**
@@ -123,10 +126,21 @@ export async function getWeekAgenda(
     } catch {
       climate = null
     }
-    /** On the dated agenda: the shared eligibility rule, minus as-needed cold storage. */
-    const onAgenda = (r: Record<string, unknown>) =>
+    // D4: what the home's task level hides. A failed read hides nothing.
+    let hiddenByLevel: ReadonlySet<string> = new Set()
+    try {
+      hiddenByLevel = await readHiddenTemplateIds(homeId)
+    } catch (e) {
+      console.warn(`[weekAgenda] task-level marks for home ${homeId} could not be read:`, e instanceof Error ? e.message : e)
+    }
+    /** Eligible for the dated agenda before the task level has its say. */
+    const eligible = (r: Record<string, unknown>) =>
       isAgendaEligible({ careType: r.careType as string | null, scopeType: r.scopeType as string | null }) &&
       !isAsNeededColdStorageRow(r, freezeFree)
+    /** On the dated agenda: the shared eligibility rule, minus as-needed cold
+     *  storage, minus what the task level hides. */
+    const onAgenda = (r: Record<string, unknown>) =>
+      eligible(r) && !hiddenByLevel.has((r.taskTemplateId as string) ?? "")
 
     // Single-collection read — the joins are gone: taskInstances carry the
     // denormalized display fields (firestore-model.md §5). One equality filter
@@ -192,6 +206,7 @@ export async function getWeekAgenda(
         .map((r) => r.dueDate as string)
         .sort()[0] ?? null,
       itemCleaning: itemCleaning.length,
+      belowLevel: pending.filter((r) => eligible(r) && hiddenByLevel.has((r.taskTemplateId as string) ?? "")).length,
     }
 
     const items: WeekAgendaItem[] = pending

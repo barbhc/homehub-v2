@@ -1127,7 +1127,7 @@ export function TaskReviewSheet({
                     {/* D4: the level is named where it acted, with the way to
                         change it. A line under the section, never inside a row:
                         a link in a row was the mis-tap that left the review
-                        (owner, #228 review). */}
+                        (owner, in the review of PR 228). */}
                     {bucket === "maintenance" && taskLevel && items.length > 0 && (
                       <div className="text-[0.75rem] text-muted-foreground pl-[13px] pt-0.5 pb-1">
                         Task level: <b className="font-bold text-foreground">{TASK_LEVEL_COPY[taskLevel].label}</b>

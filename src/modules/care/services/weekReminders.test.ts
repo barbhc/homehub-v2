@@ -45,7 +45,7 @@ beforeEach(() => vi.resetAllMocks())
 
 const ok = <T,>(data: T) => ({ data, error: null })
 /** getWeekAgenda's answer: the rows, and what that read withheld. */
-const agenda = (rows: WeekAgendaItem[]) => ({ ...ok(rows), withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
+const agenda = (rows: WeekAgendaItem[]) => ({ ...ok(rows), withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0, belowLevel: 0 } })
 const fail = { data: null, error: { message: "boom" } }
 
 describe("getWeekReminders — the notification lens over the week", () => {

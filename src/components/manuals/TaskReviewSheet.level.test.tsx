@@ -13,16 +13,18 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { TaskReviewSheet } from "./TaskReviewSheet"
-import type { PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
+import type { PreviewChunk, PreviewResult, PreviewTask } from "@/modules/knowledge/types/previewTypes"
+import type { ReviewEditSummary } from "./TaskReviewFeedback"
 import type { TaskLevel } from "../../../shared/tasks/taskLevel"
 
 const t = (
   title: string,
-  care_type: PreviewTask["care_type"],
+  care_type: PreviewTask["care_type"] | "operating",
   schedule_type: PreviewTask["schedule_type"],
   priority_tier: PreviewTask["priority_tier"],
 ): PreviewTask => ({
-  title, description: null, care_type, priority_tier, risk_level: "performance",
+  // "operating" is what the parser sends for a usage habit; the stored type is narrower.
+  title, description: null, care_type: care_type as PreviewTask["care_type"], priority_tier, risk_level: "performance",
   estimated_minutes: 10, schedule_type, interval_days: null,
   instructions_text: null, symptom_tags: [], re_check_triggers: [],
 })
@@ -47,12 +49,13 @@ const WASHER: PreviewResult = {
   ],
 }
 const LG = { display_name: "LG Front Load Washer", category: "washer" }
+type Save = (tasks: PreviewTask[], chunks: PreviewChunk[], edits: ReviewEditSummary) => Promise<string | null>
 
 function review(over: {
   taskLevel?: TaskLevel; careItem?: typeof LG | undefined; alreadySaved?: boolean; data?: PreviewResult
-  onSave?: ReturnType<typeof vi.fn>; onChangeTaskLevel?: () => void
+  onChangeTaskLevel?: () => void
 } = {}) {
-  const onSave = over.onSave ?? vi.fn().mockResolvedValue(null)
+  const onSave = vi.fn<Save>().mockResolvedValue(null)
   render(
     <TaskReviewSheet freezeRiskFalse={false} notificationsBlocked={false} open onOpenChange={vi.fn()}
       itemName="LG Front Load Washer" previewData={over.data ?? WASHER} saving={false} onSave={onSave}
@@ -118,7 +121,7 @@ describe("forgettable filters get a usual interval (must-be-true 1, 2, 6)", () =
     fireEvent.click(screen.getByRole("button", { name: "Save all 12" }))
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const [tasks, , edits] = onSave.mock.calls[0]
-    const saved = Object.fromEntries((tasks as PreviewTask[]).map((x) => [x.title, x.schedule_type]))
+    const saved = Object.fromEntries(tasks.map((x) => [x.title, x.schedule_type]))
     expect(saved["Clean the Drain Pump Filter"]).toBe("quarterly")
     expect(saved["Clean the Water Inlet Filters"]).toBe("semiannual")
     expect(edits.total).toBe(0)
@@ -155,7 +158,7 @@ describe("the task level (must-be-true 3, 4)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save all 12" }))
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const [tasks, , edits] = onSave.mock.calls[0]
-    expect((tasks as PreviewTask[]).map((x) => x.title)).not.toContain("Check That the Washer Is Level")
+    expect(tasks.map((x) => x.title)).not.toContain("Check That the Washer Is Level")
     expect(edits.skipped).toBe(0)
   })
 
@@ -163,7 +166,7 @@ describe("the task level (must-be-true 3, 4)", () => {
     const onSave = review()
     fireEvent.click(screen.getByRole("button", { name: "Save all 12" }))
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
-    expect((onSave.mock.calls[0][0] as PreviewTask[]).map((x) => x.title)).toContain("Clean the Exterior")
+    expect(onSave.mock.calls[0][0].map((x) => x.title)).toContain("Clean the Exterior")
   })
 
   it("names the level and offers Change", () => {
@@ -197,8 +200,8 @@ describe("Cleaning and Usage arrive tucked away (must-be-true 5)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save all 12" }))
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const [tasks, chunks] = onSave.mock.calls[0]
-    expect((tasks as PreviewTask[]).map((x) => x.title)).toContain("Clean the Detergent Dispenser Drawer")
-    expect((chunks as { title: string }[]).map((c) => c.title)).toContain("Leave the Door Open After a Wash")
+    expect(tasks.map((x) => x.title)).toContain("Clean the Detergent Dispenser Drawer")
+    expect(chunks.map((c) => c.title)).toContain("Leave the Door Open After a Wash")
   })
 
   it("a read with no Maintenance tucks nothing — there is nothing to make room for", () => {

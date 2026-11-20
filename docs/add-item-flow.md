@@ -556,6 +556,51 @@ setup."*
   Reclassifying a row visibly moves it between sections. It is the only route
   tasks from older parses have into the new vocabulary. — HH-144
 
+### D4 — choose before adding (owner, mock approved 2026-11-19 and 2026-11-20)
+
+From the 2026-11-17 demo: friends "would not want a ton of tasks to manage",
+and the owner: *"show them to the user before adding. I found that
+editing/deleting tasks after they've been added can be tedious."* The review
+already showed everything before Save and already had Skip; what D4 changes is
+what a FRESH read's review asks someone to read and decide. Mock and its
+"must be true" lists: https://claude.ai/artifact/Ao4AvquYrsTwZDs4oUUSuo.
+Spec: `design/demo-feedback-2026-11-18.md` (D4, "As built").
+
+- **A filter the manual leaves "when needed" is offered the usual interval for
+  that kind of appliance**, with "Typical for washers" under its title for as
+  long as the cadence is still that offer. Only `as_needed`, only filter care,
+  never the lint screen, and only when the care library has that filter for
+  that kind (`typicalFilterCadence`). The manual's own cadence always wins. The
+  row can be skipped or set back to "As needed" before Save. — owner,
+  2026-11-18: *"the most critical tasks are cleaning filters … for appliances
+  that you forget to maintain"*
+- **Rows headed for Tasks below the home's task level start skipped**, with the
+  arrow to bring them back. Only rows that would go INTO Tasks: a row that
+  lives on the item page is not what the level is about, and skipping it would
+  drop it unseen. Only for a home that has CHOSEN a level (every home created
+  after this ships is created on "Recommended too"); a home from before sees
+  the review it always had. — owner, 2026-11-18
+- **The level is named under Maintenance, with Change** (Settings › Task
+  level). A line under the section, never inside a row.
+- **Cleaning and Usage arrive tucked away, one tap from open, as Setup does** —
+  on a fresh read that has Maintenance to decide. They still save to the item
+  page. Their sub-lines already say where they live, so the closed state adds
+  no sentence. A read with no Maintenance tucks nothing.
+- **Re-reviewing stored tasks is untouched**: nothing skipped, tucked or
+  re-timed on anyone's behalf, and no level line.
+- **Neither a level skip nor an offered interval is the reviewer correcting the
+  parser.** `review_save` feedback counts neither, and a cadence changed away
+  from an offer is reported against what the MANUAL said.
+
+Pinned by `TaskReviewSheet.level.test.tsx`, one test per must-be-true line.
+
+### Superseded by D4
+
+| Rule | Why it no longer applies |
+|---|---|
+| Round 18, `TaskReviewSheet.behaviour`: *"shows every section it has rows for — nothing is hidden"* | For a fresh read with Maintenance, Cleaning and Usage are named with their counts and open on one tap. Listing ten rows to decide five is what the demo's "a ton of tasks" was. Stored-task reviews still list everything. |
+| `design/care-library.md`: *"Indicator care is never forced onto a clock. The backstop is an offer"* — for FILTER care in a fresh read | The review now starts a when-needed filter on the library's cadence and says so. It is still an offer in the sense that matters: shown before Save, labelled, one tap from "As needed". Every other indicator entry (descaling) is unchanged. |
+
 ### Superseded by round 18
 
 Named here rather than deleted, because a rule vanishing silently is the failure

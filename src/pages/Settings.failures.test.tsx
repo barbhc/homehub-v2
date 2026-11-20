@@ -36,6 +36,8 @@ const m = vi.hoisted(() => ({
 
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1", email: "e2e@homehub.test" }, signOut: vi.fn() }) }))
 vi.mock("@/modules/home", () => ({
+  // D4: the Task level card reads the home profile; these tests are about other cards.
+  useHomeProfile: () => ({ profile: null, isLoading: false, error: undefined, refresh: vi.fn() }),
   useCurrentHome: () => ({ home: { home_id: "home-1", name: "Test Home" }, homes: [{ home_id: "home-1", name: "Test Home" }], setCurrentHome: () => {}, refresh: async () => {} }),
   getRooms: (...a: unknown[]) => m.getRooms(...a),
   createRoom: (...a: unknown[]) => m.createRoom(...a),
