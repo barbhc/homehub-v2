@@ -46,6 +46,7 @@ import { updateItemUnit } from "@/modules/items/services/itemService"
 import { ScanningLine } from "@/components/manuals/ScanningLine"
 import type { ManualReading } from "@/lib/manualReviewState"
 import { SupplyRows } from "./SupplyRows"
+import { upkeepKindsPhrase } from "@/lib/upkeepKinds"
 import type { TemplateSupply } from "@/integrations/types"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
@@ -238,10 +239,6 @@ function Placeholders() {
   )
 }
 
-/** "a", "a and b", "a, b and c". */
-function joinList(parts: string[]): string {
-  return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`
-}
 // ── Habit bands (read-only) ──────────────────────────────────────────────────
 // ── Schedule hero ────────────────────────────────────────────────────────────
 // Match a safety chunk to the task(s) it describes by keyword overlap, so a
@@ -970,7 +967,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
       <Card>
         <div className="p-4" aria-live="polite">
           <p className="text-[0.84375rem]" style={{ color: SUB }}>
-            Upkeep lands here once you save the review.
+            Upkeep lands here once you save what we found.
           </p>
           <Placeholders />
         </div>
@@ -1026,12 +1023,8 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
   const usageCount = usageTips.length + fUsageTasks.length
   const anyInTasks = tasks.some((t) => showsInTasks(taskLikeOf(t), t.scope_type ?? null))
   const livesHere = fMaintenance.length === 0 && !anyInTasks
-    ? [
-        fCleaning.length > 0 ? `${fCleaning.length} cleaning ${fCleaning.length === 1 ? "tip" : "tips"}` : null,
-        usageCount > 0 ? `${usageCount} usage ${usageCount === 1 ? "tip" : "tips"}` : null,
-        fSetup.length > 0 ? `${fSetup.length} setup ${fSetup.length === 1 ? "step" : "steps"}` : null,
-      ].filter((x): x is string => !!x)
-    : []
+    ? upkeepKindsPhrase({ cleaning: fCleaning.length, usage: usageCount, setup: fSetup.length })
+    : ""
 
   return (
     <div className="flex flex-col" style={{ gap: m ? 16 : 20 }}>
@@ -1053,7 +1046,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
               Nothing here goes into Tasks
             </p>
             <p className="mt-0.5 text-[0.84375rem]" style={{ color: SUB }}>
-              {joinList(livesHere)} live below.
+              {livesHere} live below.
             </p>
           </div>
         </Card>

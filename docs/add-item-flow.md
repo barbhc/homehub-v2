@@ -340,7 +340,7 @@ page watches it.
   - **Read, nothing saved yet:** stage "done" with a preview draft waiting —
     and either never saved, or read again (a rescan) since it was. A draft a
     later commit-mode run (Fill gaps) overtook does not count. Upkeep says
-    "Upkeep lands here once you save the review." and holds the space with
+    "Upkeep lands here once you save what we found." and holds the space with
     no button: the hand-off card owns that decision. The Ask card says "Save
     what we found and answers come from your manual." — HH-141; the rescan
     case HH-161 (the tray and the page used to disagree about it)
@@ -354,8 +354,19 @@ page watches it.
   maintenance; no reading band, and none of round 14's card. It opens the
   review by itself **only when this page watched the read finish** (HH-48) —
   once per read, per session, as the page's next section — otherwise the card
-  waits for a tap, here or on the pill. Nothing is saved before Save
-  (HH-134). — HH-161, mock 2026-09-30 (S2, S3)
+  waits for a tap, here or on the pill. Nothing is saved without a tap: Save,
+  or "Keep these" below (HH-134). — HH-161, mock 2026-09-30 (S2, S3)
+- **A first read with nothing for Tasks gets "Keep these", not a review.** No
+  row in the Maintenance section and none the Tasks page would list means
+  there is no decision to make, so the review never opens by itself for it.
+  The card says what was found in Upkeep's own words — "4 cleaning tips and 2
+  setup steps. Nothing here goes into Tasks." — and offers **Keep these**
+  (saves exactly what the review's Save would, `savePayloadFrom`) and **Review
+  first**. A read AGAIN keeps the review: it can change upkeep the item
+  already has. A failed Keep says so on the card and keeps it. The pill's
+  Review still opens the review. — HH-137, owner 2026-11-19 ("One-tap 'Keep
+  these'"); supersedes, for this case only, "the same card with or without
+  maintenance" and "it opens by itself … with or without maintenance"
 - **Every read the item page starts ends in that one review** — adding a
   manual, "Read the manual" on one never read (it said "Parse"), and "Read
   again" on one already read (it said "Rescan", and COMMITTED with no review).
@@ -399,9 +410,10 @@ setup."*
   property of the row. `SECTION_RAIL` and `TIER_RAIL` are separate maps, because
   one map holding both is exactly how HH-140 happened. — HH-144
 - **No maintenance simply means no Maintenance section.** No special screen, no
-  card instead of a sheet, no sentence explaining an absence — on the review,
-  and on the hand-off card that leads to it ("No maintenance in this manual, so
-  nothing will remind you" is gone app-wide). — HH-142; HH-161 (S3b)
+  sentence explaining an absence — on the review ("No maintenance in this
+  manual, so nothing will remind you" is gone app-wide). A first read with
+  nothing for Tasks never reaches the review unasked: its card offers "Keep
+  these" (above). — HH-142; HH-161 (S3b); HH-137 2026-11-19
 - **The summary states TWO channels, apart.** How many show up in Tasks when due
   (always on, no permission), and how many also notify (opt-in). Owner: *"there
   are items that are scheduled to be reminded within the app even if there's no
@@ -602,6 +614,14 @@ and where they differ, the amended line governs:
 
 ---
 
+### Superseded by HH-137 "Keep these" (owner, 2026-11-19)
+
+| Rule | What replaces it |
+|---|---|
+| HH-161 S3: *"The same card with or without maintenance"* and S3.3: *"it opens by itself … with or without maintenance"* | For a FIRST read with nothing for Tasks only: the card offers "Keep these" / "Review first" and never opens the review by itself. A read again, and any read with maintenance, are unchanged. |
+| HH-134 as worded: *"Nothing is saved before Save"* | "Nothing is saved without a tap" — Save, or Keep these, which saves the same payload. |
+| Upkeep's waiting line *"Upkeep lands here once you save the review."* | "Upkeep lands here once you save what we found." — true whether the save is the review's or the card's, and the Ask card's own words. |
+
 ## What guards this
 
 | Guard | Catches | State |
@@ -639,6 +659,7 @@ and where they differ, the amended line governs:
 | `src/modules/knowledge/services/manualDedupe.test.ts` | A re-upload of the same PDF — at a new path, as every upload is — minting a second record (HH-154) | live |
 | `e2e/emu/smart-add.spec.ts`, the same PDF twice | Through the real Storage and Firestore emulators: a scan retried with the same file leaving two records, or two stored PDFs (HH-154) | live |
 | `firebase/rules.test.ts`, "manual hash claims" + `manualDedupe.test.ts`, "two adds … at the same moment" | Two members adding one PDF to one item at the same moment leaving two manuals — run as two real concurrent transactions against the Firestore emulator (Codex finding 4) | live |
+| `src/components/manuals/ParsePickupCard.test.tsx`, "Keep these (HH-137)" + `e2e/emu/item-page-scan-indicator.spec.ts`, "HH-137" | A first read with nothing for Tasks opening a review (in flow or as a drawer) when the page watched it finish; Keep these saving anything other than what the review's Save saves; a failed Keep looking like success | live |
 | `src/lib/manualRescan.test.ts` | A rescan from Settings that commits instead of ending in the review | live |
 | `seedUnreviewedManual` in `scripts/seed-emulator.ts` | **The gap, now closed.** A read-but-unsaved manual with no maintenance in it — the state all five repeated reports came from, which no test could visit because every seeded manual was committed and every seeded item already had tasks | live |
 
