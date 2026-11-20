@@ -10,6 +10,7 @@ import { getHomeNotes } from "@/modules/care"
 import { DesktopItems } from "@/components/home/DesktopItems"
 import { useHomeItems } from "@/lib/useHomeItems"
 import { pageLoadState } from "@/lib/homeLoadingGate"
+import { useFadeAfterSkeleton } from "@/hooks/useFadeAfterSkeleton"
 import type { ItemUnit, Room } from "@/integrations/types"
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,9 @@ export default function Inventory() {
   // What to show is decided by what we HOLD, never by SWR's isLoading (true
   // while a warm snapshot revalidates) — see pageLoadState.
   const view = pageLoadState(data !== undefined, error !== undefined)
+  // The list (or the error) fades in only when it replaces the skeleton; a
+  // warm revisit paints at once.
+  const fade = useFadeAfterSkeleton(view === "loading") ? "hh-fade-in" : undefined
   if (view === "loading") {
     return (
       <PageContainer>
@@ -47,14 +51,14 @@ export default function Inventory() {
   }
   if (view === "error") {
     return (
-      <PageContainer>
+      <PageContainer className={fade}>
         <ItemsLoadError message={error?.message ?? "Something went wrong."} onRetry={retry} />
       </PageContainer>
     )
   }
 
   return (
-    <PageContainer>
+    <PageContainer className={fade}>
       {/* A refresh failed behind a list we still hold: show the list, say so quietly.
           Aligned with the phone list's own gutter, and with the page at lg+. */}
       {error && (

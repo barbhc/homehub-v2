@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { ChatMessageBubble } from "./ChatMessageBubble"
 import { stillFollowing } from "./threadFollow"
+import { prefersReducedMotion } from "@/lib/reducedMotion"
 import type { ChatMessage } from "@/modules/knowledge/services/chatService"
 import type { ChatFilter } from "@/modules/knowledge/services/chatService"
 
@@ -84,7 +85,10 @@ export function ChatThread({
     const switched = firstId !== prevFirstIdRef.current
     prevFirstIdRef.current = firstId
     if (added || switched) followingRef.current = true
-    if (followingRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    // An explicit "smooth" overrides the CSS that turns smooth scrolling into a
+    // jump under Reduce Motion, so the preference is read here, at the moment
+    // of the scroll.
+    if (followingRef.current) bottomRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth" })
   }, [messages])
 
   // The keyboard opened or closed: the thread just changed height under the
