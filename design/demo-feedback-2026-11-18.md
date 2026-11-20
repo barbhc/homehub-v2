@@ -222,12 +222,12 @@ Rules live in `shared/tasks/taskLevel.ts` (pure, tested); the writes in
 
 **What was built**
 1. **Review after a scan** (`reviewRows.rowsFrom`, `TaskReviewSheet`): usual interval for a when-needed filter with "Typical for <kind>"; rows headed for Tasks below the level start skipped; Cleaning and Usage tucked away; the level named with Change.
-2. **Care library**: washer drain-pump filter (quarterly) and inlet filters (twice a year), both `backstopOnly`. Makers' stated intervals, checked 2026-11-20: LG and Samsung US say monthly for the pump filter, Whirlpool "every few months", Electrolux every two months, GE none; LG and Samsung (regional pages) say about twice a year for the inlet screens, the others none.
+2. **Care library**: washer drain-pump filter (monthly — owner, 2026-11-20: "go with what the manual says") and inlet filters (twice a year), both `backstopOnly`. Makers' stated intervals, checked 2026-11-20: LG and Samsung US say monthly for the pump filter, Whirlpool "every few months", Electrolux every two months, GE none; LG and Samsung (regional pages) say about twice a year for the inlet screens, the others none.
 3. **Settings › Task level** (`TaskLevelSection`), above House rules, one choice per row.
 4. **Home and Tasks** leave out tasks marked `hiddenByLevel` (`homeReads`, `dashboard.onDatedListToday`, `weekAgenda`), and Tasks says how many: "N tasks are hidden by your task level. Change" (the HH-82 / HH-94 rule that a list never withholds work silently).
 
 **Where the build differs from the mock, and why**
-- The cadence chips read "Quarterly" and "Twice a year", the app's own cadence labels, where the mock drew "Every 3 mo" and "Every 6 mo".
+- The drain filter is offered monthly, where the mock drew every 3 months (owner, 2026-11-20). The chips use the app's own labels ("Monthly", "Twice a year").
 - "Every Optional task starts skipped" is built as every Optional task **headed for Tasks**. A row that lives on the item page (cleaning, when-needed, setup) is not skipped: it would be dropped without ever being seen.
 - The level line shows on a fresh read whenever the home has chosen a level, not only when a row was skipped.
 - A level change hides by writing a mark on the task, where the mock text said only that Home and Tasks change. The mark is what lets a task kept by hand stay.

@@ -165,7 +165,7 @@ describe("typicalFilterCadence (D4)", () => {
   it("offers the library's cadence for a washer filter the manual left when-needed", () => {
     const drain = typical(washer, { title: "Clean the Drain Pump Filter", scheduleType: "as_needed" })
     expect(drain?.entry.key).toBe("washer.drain_filter")
-    expect(drain?.entry.scheduleType).toBe("quarterly")
+    expect(drain?.entry.scheduleType).toBe("monthly")
     expect(drain?.kindLabel).toBe("washers")
     expect(typical(washer, { title: "Clean the Water Inlet Filters", scheduleType: "as_needed" })?.entry.scheduleType).toBe("semiannual")
   })

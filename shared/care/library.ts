@@ -231,10 +231,10 @@ export const LIBRARY: CareEntry[] = [
   // appliances that you forget to maintain". Manuals leave both of these "when
   // needed", so they never reached Tasks. The cadences are the makers' own
   // (checked 2026-11-20): LG and Samsung say monthly for the pump filter,
-  // Whirlpool "every few months", Electrolux every two — quarterly is the
-  // starting offer, and the row says so. LG and Samsung put the inlet screens
-  // at about twice a year.
-  { key: "washer.drain_filter", kind: "washer", archetype: "filter.clean.drain", title: "Clean the drain pump filter", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "quarterly", minutes: 15, cadenceLabel: "Every 1–3 months", why: "Lint, coins and hair collect here; a blocked filter stops the washer draining.", how: "Towel and shallow tray under the access door, drain the hose, unscrew the filter, rinse, refit.", source: MFR, indicator: true, backstopOnly: true },
+  // Whirlpool "every few months", Electrolux every two. Owner, 2026-11-20:
+  // "go with what the manual says" — monthly, the LG and Samsung manuals'
+  // own answer. LG and Samsung put the inlet screens at about twice a year.
+  { key: "washer.drain_filter", kind: "washer", archetype: "filter.clean.drain", title: "Clean the drain pump filter", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "monthly", minutes: 15, cadenceLabel: "Monthly", why: "Lint, coins and hair collect here; a blocked filter stops the washer draining.", how: "Towel and shallow tray under the access door, drain the hose, unscrew the filter, rinse, refit.", source: MFR, indicator: true, backstopOnly: true },
   { key: "washer.inlet_filter", kind: "washer", archetype: "filter.clean.inlet", title: "Clean the water inlet filters", careType: "maintenance", priorityTier: "recommended", riskLevel: "performance", scheduleType: "semiannual", minutes: 15, cadenceLabel: "About twice a year", why: "Grit and scale clog the small screens where the hoses connect, and the washer fills slowly.", how: "Taps off, unscrew the hoses at the washer, pull the screens with pliers, rinse, refit.", source: MFR, indicator: true, backstopOnly: true },
   { key: "food_recycler.carbon", kind: "food_recycler", archetype: "filter.replace.carbon", title: "Replace the carbon filters", careType: "maintenance", priorityTier: "recommended", riskLevel: "performance", scheduleType: "quarterly", minutes: 5, cadenceLabel: "Every 3–6 months", why: "Spent filters are why the unit starts to smell.", how: "Open the filter compartment, swap the cartridges, reset the indicator.", source: MFR },
   // ── descaling and the indicator-driven backstop ──

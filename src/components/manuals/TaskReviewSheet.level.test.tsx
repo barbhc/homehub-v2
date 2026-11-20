@@ -74,7 +74,7 @@ describe("forgettable filters get a usual interval (must-be-true 1, 2, 6)", () =
   it("a filter the manual leaves 'when needed' shows the usual interval and says whose it is", () => {
     review()
     const drain = row("Clean the Drain Pump Filter")
-    expect(drain).toHaveTextContent("Quarterly")
+    expect(drain).toHaveTextContent("Monthly")
     expect(drain).toHaveTextContent("Typical for washers")
     expect(drain).not.toHaveTextContent("when needed")
     const inlet = row("Clean the Water Inlet Filters")
@@ -122,7 +122,7 @@ describe("forgettable filters get a usual interval (must-be-true 1, 2, 6)", () =
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const [tasks, , edits] = onSave.mock.calls[0]
     const saved = Object.fromEntries(tasks.map((x) => [x.title, x.schedule_type]))
-    expect(saved["Clean the Drain Pump Filter"]).toBe("quarterly")
+    expect(saved["Clean the Drain Pump Filter"]).toBe("monthly")
     expect(saved["Clean the Water Inlet Filters"]).toBe("semiannual")
     expect(edits.total).toBe(0)
   })
@@ -236,12 +236,12 @@ describe("what counts as correcting the parser (review_save feedback)", () => {
   it("choosing a different cadence IS one, reported against what the manual said", async () => {
     const onSave = review()
     fireEvent.click(row("Clean the Drain Pump Filter"))
-    fireEvent.click(screen.getByRole("button", { name: /^Monthly$/ }))
+    fireEvent.click(screen.getByRole("button", { name: /^Quarterly$/ }))
     fireEvent.click(screen.getByRole("button", { name: /^Done$/ }))
     fireEvent.click(screen.getByRole("button", { name: "Save all 12" }))
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const edits = onSave.mock.calls[0][2]
     expect(edits.schedule).toBe(1)
-    expect(edits.details).toContainEqual({ title: "Clean the Drain Pump Filter", field: "schedule", from: "as_needed", to: "monthly" })
+    expect(edits.details).toContainEqual({ title: "Clean the Drain Pump Filter", field: "schedule", from: "as_needed", to: "quarterly" })
   })
 })
