@@ -213,6 +213,7 @@ sketch above.
 | Where | Field | Meaning |
 |---|---|---|
 | `homes/{id}` | `taskLevel`: `"essential" \| "recommended" \| "everything"` | Written at creation as `"recommended"`. Absent = a home from before the setting; it behaves as `"everything"` (`taskLevelOf`). |
+| `homes/{id}` | `taskLevelHidden: number` | How many tasks the level hides, written in the same batch. Home and Tasks query the marks only when it is above zero, so a home that never lowered its level makes no extra read. |
 | `homes/{id}/taskTemplates/{id}` | `hiddenByLevel: boolean` | The level is hiding this task from Home and Tasks. Set and cleared only by a level change. |
 | `homes/{id}/taskTemplates/{id}` | `levelKept: true` | The task was showing below the level when the level changed, so a person kept it by hand; the level never hides it again. |
 
@@ -231,7 +232,7 @@ Rules live in `shared/tasks/taskLevel.ts` (pure, tested); the writes in
 - The level line shows on a fresh read whenever the home has chosen a level, not only when a row was skipped.
 - A level change hides by writing a mark on the task, where the mock text said only that Home and Tasks change. The mark is what lets a task kept by hand stay.
 
-**What the level never hides:** Essential tasks; a task typed in or added from a suggestion; a task whose reminder was switched on; a task kept by hand; a task of unknown tier.
+**What the level never hides:** Essential tasks; a task typed in (`source: "user"`) or added from a suggestion (`externalKey: "library:…"`); a task whose reminder was switched on; a task kept by hand; a task of unknown tier.
 
 **Edge cases decided**
 - Two members change the level at once: last write wins for the level and the marks together (one batch).

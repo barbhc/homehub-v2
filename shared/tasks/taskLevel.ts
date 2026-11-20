@@ -15,7 +15,8 @@
  *
  * What the level never touches, because each is something a person chose by
  * hand rather than a default they inherited:
- *   - a task they typed in or added from a suggestion (source !== "manual"),
+ *   - a task they typed in (source "user") or added from a suggestion
+ *     (externalKey "library:…"),
  *   - a task whose reminder they switched on,
  *   - a task that was showing BELOW the old level — the only way it got there
  *     was a row brought back in a review, so it is marked kept for good.
@@ -66,8 +67,11 @@ export function tierMeetsLevel(tier: string | null | undefined, level: TaskLevel
 export interface LevelTemplate {
   id: string
   priorityTier: string | null
-  /** "manual" (read from a manual), "user" (typed in) or "cho_generated" (added from a suggestion). */
+  /** "manual" (read from a manual), "user" (typed in) or "cho_generated"
+   *  (written by the app: a suggestion someone added, or older generated work). */
   source: string | null
+  /** "library:<key>" when the task was added from a care-library suggestion. */
+  externalKey: string | null
   remindEnabled: boolean | null
   hiddenByLevel: boolean
   levelKept: boolean
@@ -82,10 +86,18 @@ export interface LevelPlan {
   keep: string[]
 }
 
+/** The prefix careSuggestionService stamps on a task added from a suggestion. */
+const LIBRARY_KEY_PREFIX = "library:"
+
+/** Typed in, or added from a suggestion with a tap: an explicit choice either
+ *  way. App-generated work with no such stamp is a default like a manual's. */
+const addedByHand = (t: LevelTemplate): boolean =>
+  t.source === "user" || (t.externalKey ?? "").startsWith(LIBRARY_KEY_PREFIX)
+
 /** Chosen by hand — the level never hides it. `from` is the level being left. */
 function chosenByHand(t: LevelTemplate, from: TaskLevel): boolean {
   if (t.levelKept) return true
-  if (t.source !== "manual") return true
+  if (addedByHand(t)) return true
   if (t.remindEnabled === true) return true
   // Showing below the old level: only a row brought back in a review does that.
   return !t.hiddenByLevel && !tierMeetsLevel(t.priorityTier, from)
@@ -99,7 +111,7 @@ export function planLevelChange(templates: readonly LevelTemplate[], from: TaskL
   const plan: LevelPlan = { hide: [], unhide: [], keep: [] }
   for (const t of templates) {
     const byHand = chosenByHand(t, from)
-    if (byHand && !t.levelKept && t.source === "manual" && t.remindEnabled !== true) plan.keep.push(t.id)
+    if (byHand && !t.levelKept && !addedByHand(t) && t.remindEnabled !== true) plan.keep.push(t.id)
     const shouldHide = !byHand && !tierMeetsLevel(t.priorityTier, to)
     if (shouldHide && !t.hiddenByLevel) plan.hide.push(t.id)
     // A hand-chosen task is never left hidden either (a reminder switched on

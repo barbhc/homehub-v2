@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { planLevelChange, taskLevelOf, tierMeetsLevel, NEW_HOME_TASK_LEVEL, type LevelTemplate } from "./taskLevel"
 
 const tpl = (id: string, priorityTier: string | null, over: Partial<LevelTemplate> = {}): LevelTemplate => ({
-  id, priorityTier, source: "manual", remindEnabled: null, hiddenByLevel: false, levelKept: false, ...over,
+  id, priorityTier, source: "manual", externalKey: null, remindEnabled: null, hiddenByLevel: false, levelKept: false, ...over,
 })
 
 describe("taskLevelOf", () => {
@@ -58,11 +58,13 @@ describe("planLevelChange", () => {
   it("never hides a task someone typed in, added from a suggestion, or switched a reminder on for", () => {
     const h = [
       tpl("typed", "optional", { source: "user" }),
-      tpl("suggested", "recommended", { source: "cho_generated" }),
+      tpl("suggested", "recommended", { source: "cho_generated", externalKey: "library:washer.tub" }),
       tpl("bell", "recommended", { remindEnabled: true }),
       tpl("plain", "recommended"),
+      // App-generated with no suggestion stamp: a default, like a manual's task.
+      tpl("generated", "recommended", { source: "cho_generated" }),
     ]
-    expect(planLevelChange(h, "everything", "essential")).toEqual({ hide: ["plain"], unhide: [], keep: [] })
+    expect(planLevelChange(h, "everything", "essential")).toEqual({ hide: ["plain", "generated"], unhide: [], keep: [] })
   })
 
   it("a reminder switched on after a task was hidden brings it back at the next change", () => {

@@ -118,20 +118,27 @@ export async function getWeekAgenda(
     // HH-166: only a home that SAID it doesn't freeze treats cold-storage
     // winterizing as as-needed; a failed read keeps it (never hide on a guess).
     let freezeFree = false
+    // D4: how many tasks the home's task level hides (written with the level).
+    let levelHides = 0
     try {
       const homeSnap = await getDoc(doc(db, `homes/${homeId}`))
       const c = homeSnap.get("climate")
       if (c === "mild" || c === "moderate" || c === "cold" || c === "hot") climate = c
       freezeFree = isFreezeFree(homeSnap.get("freezeRisk"))
+      const n = homeSnap.get("taskLevelHidden")
+      levelHides = typeof n === "number" && n > 0 ? n : 0
     } catch {
       climate = null
     }
-    // D4: what the home's task level hides. A failed read hides nothing.
+    // D4: what the home's task level hides — asked only when it hides any.
+    // A failed read hides nothing.
     let hiddenByLevel: ReadonlySet<string> = new Set()
-    try {
-      hiddenByLevel = await readHiddenTemplateIds(homeId)
-    } catch (e) {
-      console.warn(`[weekAgenda] task-level marks for home ${homeId} could not be read:`, e instanceof Error ? e.message : e)
+    if (levelHides > 0) {
+      try {
+        hiddenByLevel = await readHiddenTemplateIds(homeId)
+      } catch (e) {
+        console.warn(`[weekAgenda] task-level marks for home ${homeId} could not be read:`, e instanceof Error ? e.message : e)
+      }
     }
     /** Eligible for the dated agenda before the task level has its say. */
     const eligible = (r: Record<string, unknown>) =>

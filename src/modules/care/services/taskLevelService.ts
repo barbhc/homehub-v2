@@ -74,11 +74,15 @@ export async function setTaskLevel(
         id: d.id,
         priorityTier: typeof d.get("priorityTier") === "string" ? d.get("priorityTier") : null,
         source: typeof d.get("source") === "string" ? d.get("source") : "manual",
+        externalKey: typeof d.get("externalKey") === "string" ? d.get("externalKey") : null,
         remindEnabled: typeof d.get("remindEnabled") === "boolean" ? d.get("remindEnabled") : null,
         hiddenByLevel: d.get("hiddenByLevel") === true,
         levelKept: d.get("levelKept") === true,
       }))
     const plan = planLevelChange(templates, from, to)
+
+    const unhidden = new Set(plan.unhide)
+    const hiddenAfter = templates.filter((t) => t.hiddenByLevel && !unhidden.has(t.id)).length + plan.hide.length
 
     const writes: { id: string; fields: Record<string, unknown> }[] = [
       ...plan.keep.map((id) => ({ id, fields: { levelKept: true } })),
@@ -93,8 +97,10 @@ export async function setTaskLevel(
         batch.update(doc(db, `homes/${homeId}/taskTemplates/${w.id}`), { ...w.fields, updatedAt: serverTimestamp() })
       }
       // The level itself goes in the final batch — with every mark when the
-      // change fits in one.
-      if (last) batch.set(homeRef, { taskLevel: to, updatedAt: serverTimestamp() }, { merge: true })
+      // change fits in one — along with how many tasks it now hides. Readers
+      // ask for the marks only when that count is above zero, so marks from a
+      // change that never finished are ignored until it does.
+      if (last) batch.set(homeRef, { taskLevel: to, taskLevelHidden: hiddenAfter, updatedAt: serverTimestamp() }, { merge: true })
       await batch.commit()
       if (last) break
     }

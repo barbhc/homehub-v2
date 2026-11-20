@@ -80,17 +80,24 @@ const toReadDocs = (snap: { docs: Array<{ id: string; data(): DocumentData }> })
 
 /** The three reads every Home load makes. Rejects when any one fails. */
 export async function readHomeCollections(homeId: string): Promise<HomeReads> {
-  const [itemsSnap, live, recentDone, profileRes, hiddenTemplateIds] = await Promise.all([
+  const [itemsSnap, live, recentDone, profileRes] = await Promise.all([
     getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))),
     readOpenInstances(homeId),
     readRecentDone(homeId),
     getHomeProfile(homeId),
-    readHiddenTemplateIds(homeId).catch((e: unknown) => {
+  ])
+  // D4: which tasks the level hides — asked only of a home whose level hides
+  // any (the profile carries the count), so the usual Home load reads nothing
+  // more than it did.
+  let hiddenTemplateIds: ReadonlySet<string> = new Set()
+  if ((profileRes.data?.task_level_hidden ?? 0) > 0) {
+    try {
+      hiddenTemplateIds = await readHiddenTemplateIds(homeId)
+    } catch (e) {
       // Logged, not surfaced: a failed read hides nothing (HomeReads.hiddenTemplateIds).
       console.warn(`[homeReads] task-level marks for home ${homeId} could not be read:`, e instanceof Error ? e.message : e)
-      return new Set<string>()
-    }),
-  ])
+    }
+  }
   assertServed(itemsSnap, "home")
   if (profileRes.error) {
     // Logged, not surfaced: see HomeReads.profile — a null profile degrades
