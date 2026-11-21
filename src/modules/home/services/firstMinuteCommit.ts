@@ -4,14 +4,18 @@
  * Order matters, and every step is safe to run again:
  *   1. Does this account already have a home? A FAILED lookup stops here —
  *      creating a home without knowing is how duplicate homes get minted.
- *      A home that isn't the one this flow made is never written over: the
- *      caller asks before adding the tasks to it.
+ *      A home of theirs that was never set up (no zip, no home type, never
+ *      completed) is theirs to finish: it gets this setup, so a save that died
+ *      after creating the home — before its id came back, or before the profile
+ *      write — never leaves an empty home plus a "you already have one" prompt.
+ *      Any other home is never written over: the caller asks before adding
+ *      the tasks to it.
  *   2. Create the home (or reuse the one a failed attempt already made).
  *   3. Write the profile the steps collected: zip, area, home type, answers.
  *   4. Add each picked task, skipping any a failed attempt already added.
  */
 import { createHome, getPrimaryHome } from "./homeService"
-import { upsertHomeProfile } from "./homeProfileService"
+import { getHomeProfile, upsertHomeProfile } from "./homeProfileService"
 import type { DraftProfile, PendingTask } from "./firstMinuteDraft"
 import { addLibraryTask } from "@/modules/care/services/careSuggestionService"
 import { entryByKey } from "../../../../shared/care/library"
@@ -46,7 +50,9 @@ export async function commitFirstMinute(input: CommitInput): Promise<CommitResul
     return fail("We couldn't check your account just now. Try again in a moment.")
   }
   if (existing.data && existing.data.home_id !== input.createdHomeId) {
-    return { kind: "existing", homeId: existing.data.home_id, homeName: existing.data.name }
+    const unset = await neverSetUp(existing.data.home_id, existing.data.created_by ?? null, input.userId)
+    if (unset === "unknown") return fail("We couldn't check your account just now. Try again in a moment.")
+    if (!unset) return { kind: "existing", homeId: existing.data.home_id, homeName: existing.data.name }
   }
 
   let homeId = existing.data?.home_id ?? null
@@ -80,6 +86,17 @@ export async function addToExistingHome(homeId: string, tasks: PendingTask[], ad
   const added = await addTasks(homeId, tasks, addedKeys)
   if (added.failed.length) return { kind: "failed", message: added.message, createdHomeId: null, addedKeys: added.addedKeys }
   return { kind: "saved", homeId, addedKeys: added.addedKeys }
+}
+
+/** Their own home, with nothing set up yet? "unknown" when the profile can't be read. */
+async function neverSetUp(homeId: string, createdBy: string | null, userId: string): Promise<boolean | "unknown"> {
+  if (createdBy !== userId) return false
+  const p = await getHomeProfile(homeId)
+  if (p.error) {
+    console.warn(`[first minute] could not read home ${homeId} to see if it was set up:`, p.error.message)
+    return "unknown"
+  }
+  return !p.data || (!p.data.zip && !p.data.home_type && !p.data.climate && !p.data.completed_at)
 }
 
 async function addTasks(homeId: string, tasks: PendingTask[], already: string[]) {

@@ -21,11 +21,13 @@ const svc = vi.hoisted(() => ({
   refresh: vi.fn(async () => {}),
   signUp: vi.fn(),
   track: vi.fn(),
+  redirectError: null as string | null,
 }))
 
 vi.mock("@/modules/auth", () => ({
   useAuth: () => ({ user: svc.user, loading: false, signUp: svc.signUp, signIn: vi.fn(), signInWithApple: vi.fn(async () => ({ error: null })) }),
-  takeAppleRedirectError: () => null,
+  takeAppleRedirectError: () => { const e = svc.redirectError; svc.redirectError = null; return e },
+  APPLE_REDIRECT_ERROR_EVENT: "homehub:appleRedirectError",
   authErrorMessage: (e: Error) => e.message,
   AppleButton: ({ label, onClick }: { label: string; onClick: () => void }) => <button type="button" onClick={onClick}>{label}</button>,
 }))
@@ -40,7 +42,7 @@ vi.mock("@/modules/home/services/firstMinuteCommit", () => ({
 vi.mock("@/lib/analytics", () => ({ track: (...a: unknown[]) => svc.track(...a) }))
 
 const { default: FirstMinute } = await import("./FirstMinute")
-const { DRAFT_KEY, loadDraft } = await import("@/modules/home/services/firstMinuteDraft")
+const { DRAFT_KEY, SAVE_MARK_KEY, loadDraft } = await import("@/modules/home/services/firstMinuteDraft")
 
 const SF: DraftProfile = {
   zip: "94110", climate: "mild", freeze_risk: false, climate_source: "zip",
@@ -52,8 +54,12 @@ const MN: DraftProfile = {
 }
 
 function seed(over: Partial<FirstMinuteDraft>) {
-  const d: FirstMinuteDraft = { v: 1, step: "zip", profile: {}, list: null, pending: null, createdHomeId: null, addedKeys: [], ...over }
+  const d: FirstMinuteDraft = { v: 1, step: "zip", profile: {}, list: null, pending: null, createdHomeId: null, addedKeys: [], savedAt: Date.now(), ...over }
   window.localStorage.setItem(DRAFT_KEY, JSON.stringify(d))
+}
+/** The save was asked for in this browser visit (what Apple's redirect keeps). */
+function askedThisVisit() {
+  window.sessionStorage.setItem(SAVE_MARK_KEY, "1")
 }
 
 beforeAll(() => {
@@ -65,6 +71,7 @@ afterAll(() => vi.useRealTimers())
 beforeEach(() => {
   vi.clearAllMocks()
   window.localStorage.clear()
+  window.sessionStorage.clear()
   svc.user = { id: "u1" }
   svc.home = null
   svc.commit.mockImplementation(async (input: { tasks: { key: string }[] }) => ({ kind: "saved", homeId: "h1", addedKeys: input.tasks.map((t) => t.key) }))
@@ -316,6 +323,7 @@ describe("after a reload (Apple's redirect)", () => {
       list: { month: 11, answers: { "home.air_filter": "yes" }, checked: {}, removed: {}, corrections: { freeze: null, hazardsOff: [] }, exteriorMine: false },
       pending: { kind: "add", patch: { ...SF, home_type: "condo" }, tasks: [{ key: "home.alarm_test", due: "2026-11-21" }, { key: "home.air_filter", due: "2026-11-22" }] },
     })
+    askedThisVisit()
     renderFlow()
     expect(await screen.findByText("HOME")).toBeInTheDocument()
     expect(svc.commit).toHaveBeenCalledTimes(1)
@@ -329,10 +337,35 @@ describe("after a reload (Apple's redirect)", () => {
       list: { month: 11, answers: { "home.air_filter": "yes" }, checked: {}, removed: {}, corrections: { freeze: null, hazardsOff: [] }, exteriorMine: false },
       pending: { kind: "add", patch: { ...SF, home_type: "condo" }, tasks: [{ key: "home.alarm_test", due: "2026-11-21" }] },
     })
+    askedThisVisit()
     renderFlow()
     expect(await screen.findByRole("heading", { name: "Keep your list" })).toBeInTheDocument()
     // The open sheet hides the page from assistive tech (modal), hence `hidden`.
     expect(within(rows()[1]).getByRole("radio", { name: "Yes", hidden: true })).toHaveAttribute("aria-checked", "true")
+  })
+
+  it("a waiting save from another visit is never run for whoever signs in (shared device)", async () => {
+    seed({
+      step: "list", profile: { ...SF, home_type: "condo" },
+      pending: { kind: "add", patch: { ...SF, home_type: "condo" }, tasks: [{ key: "home.alarm_test", due: "2026-11-21" }] },
+      createdHomeId: "someone-elses", addedKeys: ["home.alarm_test"],
+    })
+    renderFlow() // no askedThisVisit(): the tab that asked is gone
+    expect(await screen.findByText("Worth doing this month")).toBeInTheDocument()
+    expect(svc.commit).not.toHaveBeenCalled()
+    expect(screen.queryByTestId("keep-list-sheet")).toBeNull()
+    expect(loadDraft()).toMatchObject({ pending: null, createdHomeId: null, addedKeys: [] })
+  })
+
+  it("Apple's failure message, stashed after the screen rendered, shows in the sheet", async () => {
+    svc.user = null
+    seed({ step: "list", profile: { ...SF, home_type: "condo" }, pending: { kind: "keep", patch: SF } })
+    askedThisVisit()
+    renderFlow()
+    expect(await screen.findByRole("heading", { name: "Keep your area and home type" })).toBeInTheDocument()
+    svc.redirectError = "Apple sign-in failed. Try again."
+    act(() => { window.dispatchEvent(new Event("homehub:appleRedirectError")) })
+    expect(await screen.findByRole("alert")).toHaveTextContent("Apple sign-in failed. Try again.")
   })
 })
 
@@ -373,6 +406,35 @@ describe("when the save fails or finds a home", () => {
     await act(async () => { tap("Don’t add") })
     expect(await screen.findByText("HOME")).toBeInTheDocument()
     expect(svc.addToExisting).not.toHaveBeenCalled()
+  })
+})
+
+describe("closing the sheet", () => {
+  it("closing 'You already have a home' is Don't add: Home, draft cleared", async () => {
+    svc.commit.mockResolvedValueOnce({ kind: "existing", homeId: "h9", homeName: "SF Condo" })
+    atArea(SF)
+    await toList(/Condo/)
+    tap("Add 1 task")
+    await screen.findByRole("heading", { name: "You already have a home" })
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Close" })) })
+    expect(await screen.findByText("HOME")).toBeInTheDocument()
+    expect(svc.addToExisting).not.toHaveBeenCalled()
+    expect(window.localStorage.getItem(DRAFT_KEY)).toBeNull()
+  })
+
+  it("after a save made the home and failed, closing the error stays on the list — never an empty Home", async () => {
+    svc.commit.mockResolvedValueOnce({ kind: "failed", message: "Couldn't save your home. Check your connection and try again.", createdHomeId: "h7", addedKeys: [] })
+    atArea(SF)
+    await toList(/Condo/)
+    tap("Add 1 task")
+    await screen.findByRole("heading", { name: "Couldn’t save" })
+    svc.home = { home_id: "h7", name: "My home" } // the provider has found the half-made home
+    fireEvent.click(screen.getByRole("button", { name: "Close" }))
+    expect(screen.getByText("Worth doing this month")).toBeInTheDocument()
+    expect(screen.queryByText("HOME")).toBeNull()
+    tap("Add 1 task")
+    expect(await screen.findByText("HOME")).toBeInTheDocument()
+    expect(svc.commit.mock.calls[1][0]).toMatchObject({ createdHomeId: "h7" })
   })
 })
 

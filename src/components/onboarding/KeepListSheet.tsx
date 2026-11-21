@@ -20,7 +20,7 @@ import { AppleButton, authErrorMessage, useAuth } from "@/modules/auth"
 
 export type KeepSheetView =
   | { kind: "ask"; title: string; description: string; error?: string | null }
-  | { kind: "saving"; title: string }
+  | { kind: "saving"; title: string; slow?: boolean }
   | { kind: "error"; message: string }
   | { kind: "existing"; homeName: string; count: number }
 
@@ -36,16 +36,21 @@ const TITLE = "font-display text-[1.375rem] leading-7 font-bold tracking-[-0.01e
 const tasks = (n: number) => `${n} task${n === 1 ? "" : "s"}`
 
 export function KeepListSheet({ view, onClose, onRetry, onAddToExisting, onSkipExisting }: Props) {
-  const saving = view?.kind === "saving"
+  // While saving the sheet can't be dismissed — until it has been slow, then it
+  // can (the save keeps going underneath).
+  const locked = view?.kind === "saving" && !view.slow
   return (
-    <Sheet open={view !== null} onOpenChange={(o) => { if (!o && !saving) onClose() }}>
-      <SheetContent side="bottom" className="mx-auto w-full max-w-md rounded-t-3xl" showCloseButton={!saving} data-testid="keep-list-sheet">
-        {view?.kind === "ask" && <Ask key={view.title} title={view.title} description={view.description} initialError={view.error ?? null} />}
+    <Sheet open={view !== null} onOpenChange={(o) => { if (!o && !locked) onClose() }}>
+      <SheetContent side="bottom" className="mx-auto w-full max-w-md rounded-t-3xl" showCloseButton={!locked} data-testid="keep-list-sheet">
+        {/* Keyed on the error too: Apple's failure can arrive after the sheet opened. */}
+        {view?.kind === "ask" && <Ask key={`${view.title}|${view.error ?? ""}`} title={view.title} description={view.description} initialError={view.error ?? null} />}
 
         {view?.kind === "saving" && (
           <SheetHeader className="pb-8" aria-busy="true">
             <SheetTitle className={TITLE}>{view.title}</SheetTitle>
-            <SheetDescription>This takes a moment.</SheetDescription>
+            <SheetDescription role={view.slow ? "status" : undefined}>
+              {view.slow ? "This is taking longer than usual. Check your connection. You can close this; it keeps saving." : "This takes a moment."}
+            </SheetDescription>
           </SheetHeader>
         )}
 

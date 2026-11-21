@@ -20,12 +20,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { KeepListSheet, type KeepSheetView } from "@/components/onboarding/KeepListSheet"
-import { takeAppleRedirectError, useAuth } from "@/modules/auth"
+import { APPLE_REDIRECT_ERROR_EVENT, takeAppleRedirectError, useAuth } from "@/modules/auth"
 import { useCurrentHome } from "@/modules/home"
 import type { HomeProfile, HomeType, Climate } from "@/modules/home/services/homeProfileService"
 import { lookupZipArea, toHomeArea, type ZipLookup } from "@/modules/home/services/zipAreaService"
 import {
-  EMPTY_DRAFT, clearDraft, loadDraft, saveDraft,
+  EMPTY_DRAFT, clearDraft, clearSaveAsked, markSaveAsked, saveDraft, startingDraft,
   type Answer, type DraftList, type DraftProfile, type FirstMinuteDraft, type Pending, type Step, type WhyNot,
 } from "@/modules/home/services/firstMinuteDraft"
 import { addToExistingHome, commitFirstMinute } from "@/modules/home/services/firstMinuteCommit"
@@ -70,19 +70,27 @@ function askFor(pending: Pending, profile: DraftProfile, error: string | null): 
 }
 
 const savingTitle = (p: Pending) => (p.kind === "add" ? "Saving your list…" : "Saving your home…")
+/** After this long the saving sheet says so and can be closed; the save keeps going. */
+const SLOW_MS = 15_000
 
 export default function FirstMinute() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const { home, loading: homeLoading, refresh } = useCurrentHome()
-  const [draft, setDraft] = useState<FirstMinuteDraft>(() => loadDraft() ?? EMPTY_DRAFT)
+  const [draft, setDraft] = useState<FirstMinuteDraft>(startingDraft)
   const draftRef = useRef(draft)
   const done = useRef(false)
   const running = useRef(false)
   const [sheet, setSheet] = useState<KeepSheetView | null>(null)
   const [existingHomeId, setExistingHomeId] = useState<string | null>(null)
-  // A failed Apple redirect reports on the return load; show it in the sheet once.
-  const [redirectError] = useState(takeAppleRedirectError)
+  // A failed Apple redirect reports on the return load, usually after this
+  // screen has rendered: read it now, and again when AuthProvider stashes it.
+  const [redirectError, setRedirectError] = useState(takeAppleRedirectError)
+  useEffect(() => {
+    const onError = () => setRedirectError(takeAppleRedirectError())
+    window.addEventListener(APPLE_REDIRECT_ERROR_EVENT, onError)
+    return () => window.removeEventListener(APPLE_REDIRECT_ERROR_EVENT, onError)
+  }, [])
 
   useEffect(() => {
     draftRef.current = draft
@@ -106,9 +114,16 @@ export default function FirstMinute() {
     setSheet({ kind: "saving", title: savingTitle(pending) })
     const d = draftRef.current
     const tasks = pending.kind === "add" ? pending.tasks : []
-    const r = intoExisting
-      ? await addToExistingHome(intoExisting, tasks, d.addedKeys)
-      : await commitFirstMinute({ userId: user.id, patch: pending.patch, tasks, createdHomeId: d.createdHomeId, addedKeys: d.addedKeys })
+    const save = intoExisting
+      ? addToExistingHome(intoExisting, tasks, d.addedKeys)
+      : commitFirstMinute({ userId: user.id, patch: pending.patch, tasks, createdHomeId: d.createdHomeId, addedKeys: d.addedKeys })
+    // A write that stalls offline never rejects. Say so and let them close the
+    // sheet; the save keeps going and still lands them on Home when it finishes.
+    const slow = window.setTimeout(() => {
+      setSheet((v) => (v?.kind === "saving" ? { ...v, slow: true } : v))
+    }, SLOW_MS)
+    const r = await save
+    window.clearTimeout(slow)
     running.current = false
     if (r.kind === "saved") {
       if (pending.kind === "add") track("first_list_added", { count: r.addedKeys.length, keys: r.addedKeys.join(",") })
@@ -137,6 +152,7 @@ export default function FirstMinute() {
 
   /** Add / Not now: keep what they asked for; save now if there's an account. */
   const request = (pending: Pending) => {
+    markSaveAsked()
     update((d) => ({ ...d, pending }))
     if (user) {
       autoRan.current = user.id
@@ -145,6 +161,11 @@ export default function FirstMinute() {
   }
 
   const closeSheet = () => {
+    // A save still running (the slow case) keeps going; only the sheet goes.
+    if (running.current) { setSheet(null); return }
+    // Closing "You already have a home" is "Don't add".
+    if (sheet?.kind === "existing") { void finish(existingHomeId); return }
+    clearSaveAsked()
     setSheet(null)
     update((d) => ({ ...d, pending: null }))
   }
@@ -153,8 +174,9 @@ export default function FirstMinute() {
     return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Loading" />
   }
   // Someone with a home has nothing to set up — unless they just signed in
-  // from the sheet and their list is waiting for an answer.
-  if (user && home && !draft.pending) return <Navigate to="/home" replace />
+  // from the sheet and their list is waiting, or a save made the home and then
+  // failed (Home would be empty; the list and Try again are here).
+  if (user && home && !draft.pending && !draft.createdHomeId) return <Navigate to="/home" replace />
 
   const view = sheet ?? (draft.pending && !user ? askFor(draft.pending, draft.profile, redirectError) : null)
 

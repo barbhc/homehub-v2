@@ -8,13 +8,17 @@ const svc = vi.hoisted(() => ({
   getPrimaryHome: vi.fn(),
   createHome: vi.fn(),
   upsert: vi.fn(),
+  getProfile: vi.fn(),
   addLibraryTask: vi.fn(),
 }))
 vi.mock("./homeService", () => ({
   getPrimaryHome: (...a: unknown[]) => svc.getPrimaryHome(...a),
   createHome: (...a: unknown[]) => svc.createHome(...a),
 }))
-vi.mock("./homeProfileService", () => ({ upsertHomeProfile: (...a: unknown[]) => svc.upsert(...a) }))
+vi.mock("./homeProfileService", () => ({
+  upsertHomeProfile: (...a: unknown[]) => svc.upsert(...a),
+  getHomeProfile: (...a: unknown[]) => svc.getProfile(...a),
+}))
 vi.mock("@/modules/care/services/careSuggestionService", () => ({ addLibraryTask: (...a: unknown[]) => svc.addLibraryTask(...a) }))
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }))
 
@@ -28,6 +32,7 @@ beforeEach(() => {
   svc.getPrimaryHome.mockResolvedValue({ data: null, error: null })
   svc.createHome.mockResolvedValue({ data: { homeId: "new1" }, error: null })
   svc.upsert.mockResolvedValue({ data: {}, error: null })
+  svc.getProfile.mockResolvedValue({ data: { zip: "94110", home_type: "condo", climate: "mild", completed_at: "2026-10-01T00:00:00Z" }, error: null })
   svc.addLibraryTask.mockResolvedValue({ data: { task_template_id: "t" }, error: null })
 })
 
@@ -99,6 +104,36 @@ describe("commitFirstMinute", () => {
     svc.addLibraryTask.mockResolvedValue({ data: null, error: { message: "unavailable" } })
     const r = await commitFirstMinute(base)
     expect(r).toMatchObject({ kind: "failed", message: "Couldn’t add your tasks. Check your connection and try again." })
+  })
+})
+
+describe("a home of theirs that was never set up", () => {
+  // A save that died after createHome committed — before its id came back, or
+  // the tab closed before the profile write — must not turn into "you already
+  // have a home" with the zip and home type thrown away.
+  it("gets this setup instead of the existing-home question", async () => {
+    svc.getPrimaryHome.mockResolvedValue({ data: { home_id: "h5", name: "My home", created_by: "u1" }, error: null })
+    svc.getProfile.mockResolvedValue({ data: { zip: null, home_type: null, climate: null, completed_at: null }, error: null })
+    const r = await commitFirstMinute(base)
+    expect(r).toMatchObject({ kind: "saved", homeId: "h5" })
+    expect(svc.createHome).not.toHaveBeenCalled()
+    expect(svc.upsert).toHaveBeenCalledWith("h5", base.patch)
+  })
+
+  it("a set-up home, or one someone else created, is still asked about", async () => {
+    svc.getPrimaryHome.mockResolvedValue({ data: { home_id: "h5", name: "My home", created_by: "u1" }, error: null })
+    expect(await commitFirstMinute(base)).toMatchObject({ kind: "existing", homeId: "h5" })
+    svc.getPrimaryHome.mockResolvedValue({ data: { home_id: "h6", name: "Shared", created_by: "partner" }, error: null })
+    expect(await commitFirstMinute(base)).toMatchObject({ kind: "existing", homeId: "h6" })
+    expect(svc.upsert).not.toHaveBeenCalled()
+  })
+
+  it("can't read the profile: stop, write nothing", async () => {
+    svc.getPrimaryHome.mockResolvedValue({ data: { home_id: "h5", name: "My home", created_by: "u1" }, error: null })
+    svc.getProfile.mockResolvedValue({ data: null, error: { message: "unavailable" } })
+    expect(await commitFirstMinute(base)).toMatchObject({ kind: "failed" })
+    expect(svc.upsert).not.toHaveBeenCalled()
+    expect(svc.createHome).not.toHaveBeenCalled()
   })
 })
 
