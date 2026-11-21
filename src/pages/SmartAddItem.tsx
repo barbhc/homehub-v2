@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { PageContainer, PageHeader, SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import {
@@ -76,7 +76,14 @@ export default function SmartAddItem() {
   // Flow A: every add starts at the lane chooser ("Appliance or device" vs
   // "Everything else") — brand+model lead in the appliance lane, name leads in
   // the simple lane. The label photo is an assist inside the appliance lane.
-  const [identifyMode, setIdentifyMode] = useState<IdentifyMode>("choice")
+  // The empty Items tab shows the same chooser and opens this screen with
+  // ?lane=appliance|simple: start in that lane. The chooser stays a state, not
+  // a route — Back from the lane returns to it here. Anything else: the chooser.
+  const [searchParams] = useSearchParams()
+  const [identifyMode, setIdentifyMode] = useState<IdentifyMode>(() => {
+    const lane = searchParams.get("lane")
+    return lane === "appliance" || lane === "simple" ? lane : "choice"
+  })
   const [identifyData, setIdentifyData] = useState<IdentifyData>({ ...DEFAULT_IDENTIFY_DATA })
   // Downscaled nameplate photo from IdentifyStep — attached as the item photo
   // after creation. Not persisted in the wizard session (a File can't be), so

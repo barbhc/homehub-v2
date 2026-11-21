@@ -78,6 +78,13 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 - **Everything else** — a name is enough; **no manual step at all**.
 - The chooser is a **state, not a route**, which is why Back exists on the next
   screen and why removing it would strand anyone who picked the wrong lane. — HH-110
+- **The empty Items tab shows the same chooser** (`AddLaneChooser`, one
+  component), headed "Add your first item" with the House notes card under it.
+  A pick there opens `/inventory/add?lane=appliance|simple`, which starts the
+  wizard in that lane; it is still a state — Back returns to the chooser, and
+  any other `lane` value is just the chooser. It replaced "No items yet" (two
+  add buttons and a promise that Homehub finds and reads the manual). Still one
+  door: `SmartAddItem` is the only creator. — owner, 2026-11-21
 
 ## Screen 2 — Identify it (appliance lane)
 

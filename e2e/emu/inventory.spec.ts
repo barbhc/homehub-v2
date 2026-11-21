@@ -81,11 +81,13 @@ test.describe("emulator e2e — inventory", () => {
     await expect(itemLink(page, /Bosch 800 Series Dishwasher/)).toBeVisible({ timeout: 15_000 })
     await expect(itemLink(page, /Carrier Infinity Furnace/)).toBeVisible()
     // The failed refresh surfaces as the quiet note — it must not replace the
-    // list with "No items yet" (Firestore answers an offline read with an EMPTY
+    // list with the empty state — "Add your first item", the lane chooser,
+    // since 2026-11-21 (Firestore answers an offline read with an EMPTY
     // result from its cache, which the service reports as a failure).
     await expect(page.getByText(/Showing your last saved view/).filter(visible)).toBeVisible({ timeout: 30_000 })
     await expect(itemLink(page, /Bosch 800 Series Dishwasher/)).toBeVisible()
-    await expect(page.getByText("No items yet")).toHaveCount(0)
+    await expect(page.getByTestId("add-lane-chooser")).toHaveCount(0)
+    await expect(page.getByText("Add your first item")).toHaveCount(0)
   })
 
   test("a deleted item is gone from Items the moment the page comes back — never painted from the cache", async ({ page }) => {
