@@ -1,0 +1,109 @@
+/**
+ * Save the first minute once there is an account (design/account-after-list.md).
+ *
+ * Order matters, and every step is safe to run again:
+ *   1. Does this account already have a home? A FAILED lookup stops here —
+ *      creating a home without knowing is how duplicate homes get minted.
+ *      A home that isn't the one this flow made is never written over: the
+ *      caller asks before adding the tasks to it.
+ *   2. Create the home (or reuse the one a failed attempt already made).
+ *   3. Write the profile the steps collected: zip, area, home type, answers.
+ *   4. Add each picked task, skipping any a failed attempt already added.
+ */
+import { createHome, getPrimaryHome } from "./homeService"
+import { upsertHomeProfile } from "./homeProfileService"
+import type { DraftProfile, PendingTask } from "./firstMinuteDraft"
+import { addLibraryTask } from "@/modules/care/services/careSuggestionService"
+import { entryByKey } from "../../../../shared/care/library"
+import { track } from "@/lib/analytics"
+
+/** D1a: the home is named for her; she renames it from the switcher. */
+export const FIRST_HOME_NAME = "My home"
+
+export type CommitInput = {
+  userId: string
+  patch: DraftProfile
+  tasks: PendingTask[]
+  createdHomeId: string | null
+  addedKeys: string[]
+}
+
+export type CommitResult =
+  | { kind: "saved"; homeId: string; addedKeys: string[] }
+  /** The account already has a different home. Nothing was written. */
+  | { kind: "existing"; homeId: string; homeName: string }
+  | { kind: "failed"; message: string; createdHomeId: string | null; addedKeys: string[] }
+
+const OFFLINE = "Unable to connect. Check your internet connection and try again."
+
+export async function commitFirstMinute(input: CommitInput): Promise<CommitResult> {
+  const fail = (message: string, createdHomeId = input.createdHomeId, addedKeys = input.addedKeys): CommitResult =>
+    ({ kind: "failed", message, createdHomeId, addedKeys })
+
+  const existing = await getPrimaryHome()
+  if (existing.error) {
+    console.error("[first minute] membership lookup failed before saving:", existing.error.message)
+    return fail("We couldn't check your account just now. Try again in a moment.")
+  }
+  if (existing.data && existing.data.home_id !== input.createdHomeId) {
+    return { kind: "existing", homeId: existing.data.home_id, homeName: existing.data.name }
+  }
+
+  let homeId = existing.data?.home_id ?? null
+  if (!homeId) {
+    const created = await createHome({ name: FIRST_HOME_NAME, userId: input.userId })
+    if (created.error || !created.data) {
+      const msg = created.error?.message ?? ""
+      console.error("[first minute] could not create the home:", msg)
+      return fail(msg === "Failed to fetch" ? OFFLINE : "Couldn't create your home. Nothing was saved. Try again.")
+    }
+    homeId = created.data.homeId
+    track("home_created", { home_id: homeId })
+  }
+
+  const profile = await upsertHomeProfile(homeId, input.patch)
+  if (profile.error) {
+    console.warn(`[first minute] could not save the profile (home ${homeId}):`, profile.error.message)
+    return fail("Couldn't save your home. Check your connection and try again.", homeId)
+  }
+
+  const added = await addTasks(homeId, input.tasks, input.addedKeys)
+  if (added.failed.length) return fail(added.message, homeId, added.addedKeys)
+  return { kind: "saved", homeId, addedKeys: added.addedKeys }
+}
+
+/**
+ * Add the picked tasks to a home that already existed ("Add them to it").
+ * Its own profile answers are left alone.
+ */
+export async function addToExistingHome(homeId: string, tasks: PendingTask[], addedKeys: string[]): Promise<CommitResult> {
+  const added = await addTasks(homeId, tasks, addedKeys)
+  if (added.failed.length) return { kind: "failed", message: added.message, createdHomeId: null, addedKeys: added.addedKeys }
+  return { kind: "saved", homeId, addedKeys: added.addedKeys }
+}
+
+async function addTasks(homeId: string, tasks: PendingTask[], already: string[]) {
+  const addedKeys = [...already]
+  const failed: string[] = []
+  for (const t of tasks) {
+    if (addedKeys.includes(t.key)) continue
+    const entry = entryByKey(t.key)
+    if (!entry) {
+      // A key from an older app version that the library no longer has: there
+      // is nothing to add, and refusing the whole save over it would strand her.
+      console.warn(`[first minute] no library entry for ${t.key}; skipped`)
+      continue
+    }
+    const res = await addLibraryTask(homeId, null, entry, { firstDue: t.due })
+    if (res.error) {
+      console.warn(`[first minute] could not add ${t.key} (home ${homeId}):`, res.error.message)
+      failed.push(entry.title)
+    } else addedKeys.push(t.key)
+  }
+  const message = failed.length === 0
+    ? ""
+    : addedKeys.length === already.length && addedKeys.length === 0
+      ? "Couldn’t add your tasks. Check your connection and try again."
+      : `Couldn’t add ${failed.map((t) => `“${t}”`).join(" or ")}. The others were added. Try again for the rest.`
+  return { addedKeys, failed, message }
+}

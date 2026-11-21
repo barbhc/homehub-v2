@@ -1,8 +1,6 @@
-import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
   HouseIcon,
-  MailIcon,
   PackageIcon,
   ListChecksIcon,
   ShieldCheckIcon,
@@ -41,27 +39,18 @@ function TopBar({ onSignIn }: { onSignIn: () => void }) {
   )
 }
 
-/** Email + CTA. Submitting hands the email to /signup. `alignLeftLg` left-aligns
- *  it on desktop (hero); otherwise it stays centered (CTA card). */
-function SignupRow({ cta = "Get started", onGo, alignLeftLg }: { cta?: string; onGo: (email: string) => void; alignLeftLg?: boolean }) {
-  const [email, setEmail] = useState("")
+/** Get started: straight into the first minute (zip → area → list). There is
+ *  nothing to type yet — the account is asked for once they have a list to
+ *  keep (design/account-after-list.md), so the old email box had no job. */
+function GetStarted({ alignLeftLg }: { alignLeftLg?: boolean }) {
   return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); onGo(email) }}
-      className={cn("flex flex-wrap gap-2 max-w-[380px] mx-auto", alignLeftLg && "lg:mx-0")}
+    <Link
+      to="/onboarding/first"
+      className={cn("flex h-[50px] w-full max-w-[340px] items-center justify-center mx-auto rounded-[13px] text-[0.9375rem] font-bold text-white", alignLeftLg && "lg:mx-0")}
+      style={{ background: TEAL_FILL }}
     >
-      <div className="flex-1 min-w-0 flex items-center gap-2.5 rounded-[13px] px-3.5" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.22)" }}>
-        <MailIcon size={16} className="shrink-0" style={{ color: "rgba(255,255,255,0.6)" }} />
-        <input
-          type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@email.com" autoComplete="email"
-          className="flex-1 min-w-0 border-none outline-none bg-transparent py-[14px] text-[0.9375rem] text-white placeholder:text-white/45"
-        />
-      </div>
-      <button type="submit" className="shrink-0 rounded-[13px] px-5 h-[50px] text-[0.9375rem] font-bold text-white" style={{ background: TEAL_FILL }}>
-        {cta}
-      </button>
-    </form>
+      Get started
+    </Link>
   )
 }
 
@@ -129,7 +118,6 @@ const STEPS: [string, string, string][] = [
 
 export default function Landing() {
   const navigate = useNavigate()
-  const goSignup = (email: string) => navigate("/signup", { state: email.trim() ? { email: email.trim() } : undefined })
 
   return (
     <div className="min-h-[100dvh]" style={{ background: "var(--hh-surface)", color: INK }}>
@@ -147,7 +135,7 @@ export default function Landing() {
               <p className="text-[1.03125rem] lg:text-[1.125rem] leading-[1.5] mt-4 mb-6 max-w-[340px] lg:max-w-[420px] mx-auto lg:mx-0" style={{ color: "rgba(255,255,255,0.78)" }}>
                 Items, manuals, warranties, maintenance and a built-in assistant — organized to effortlessly care for your home.
               </p>
-              <SignupRow onGo={goSignup} alignLeftLg />
+              <GetStarted alignLeftLg />
             </div>
             <div className="mt-[38px] lg:mt-0 lg:flex-1 lg:flex lg:justify-center">
               <PhoneMock />
@@ -208,11 +196,11 @@ export default function Landing() {
       <section>
         <div className="mx-auto max-w-[480px] lg:max-w-[760px] px-6 lg:px-8 pt-[30px] lg:pt-16 pb-11 lg:pb-20">
           <div className="text-center text-white" style={{ background: "var(--hh-hero-card)", borderRadius: 24, padding: 28 }}>
-            <h2 className="text-[1.5625rem] lg:text-[1.875rem] font-extrabold tracking-[-0.5px] mb-2">Create your free account</h2>
+            <h2 className="text-[1.5625rem] lg:text-[1.875rem] font-extrabold tracking-[-0.5px] mb-2">See what your home needs this month</h2>
             <p className="text-[0.90625rem] lg:text-[1rem] leading-[1.5] mb-5 lg:max-w-[440px] lg:mx-auto" style={{ color: "rgba(255,255,255,0.74)" }}>
-              Start keeping your home in order — add your first item in minutes.
+              Your zip, your kind of home, then a short list. Free.
             </p>
-            <SignupRow cta="Sign up" onGo={goSignup} />
+            <GetStarted />
           </div>
           <div className="mt-[26px] text-center text-[0.78125rem]" style={{ color: SUB }}>
             © Homehub ·{" "}
