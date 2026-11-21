@@ -1,5 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom"
-import { ParseTrayPill } from "@/components/manuals/ParseTrayPill"
+import { ScanTrayProvider, ScanCountBadge } from "@/components/manuals/ScanTray"
+import { scanCount, useScanTray } from "@/components/manuals/scanStatus"
+import { useCurrentHome } from "@/modules/home"
 import { openFeedback } from "@/lib/feedback"
 import { HomeIcon, ListChecksIcon, PackageIcon, SparklesIcon, Settings2Icon, PlusIcon, SearchIcon, BellIcon, MessageSquareWarningIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -35,7 +37,18 @@ const inItems = (pathname: string) =>
   pathname === "/inventory" || pathname.startsWith("/inventory/") || pathname.startsWith("/items/")
 
 export function AppLayout() {
+  const { home } = useCurrentHome()
+  // One subscription to the home's reads for the whole app (scanStatus.tsx).
+  return (
+    <ScanTrayProvider homeId={home?.home_id ?? null}>
+      <AppShell />
+    </ScanTrayProvider>
+  )
+}
+
+function AppShell() {
   const location = useLocation()
+  const scan = scanCount(useScanTray())
   const navigate = useNavigate()
   const { signOut, user } = useAuth()
   const { level } = useUserLevel()
@@ -81,12 +94,14 @@ export function AppLayout() {
                   key={to}
                   to={to}
                   data-tour={tourId}
+                  aria-label={to === "/inventory" && scan.count > 0 ? `${label}, ${scan.label}` : undefined}
                   className={cn(
-                    "hit-44 rounded-lg px-3 py-1.5 text-[length:min(0.875rem,21px)] font-semibold transition-colors",
+                    "hit-44 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[length:min(0.875rem,21px)] font-semibold transition-colors",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
                   )}
                 >
                   {label}
+                  {to === "/inventory" && <ScanCountBadge count={scan.count} />}
                 </Link>
               )
             })}
@@ -195,10 +210,10 @@ export function AppLayout() {
         <Outlet />
       </main>
 
-      {/* HH-87: the in-progress window — parses in flight and reviews waiting,
-          so the review sheet stops appearing out of nowhere. Renders null when
-          nothing is happening, which is almost always. */}
-      <ParseTrayPill />
+      {/* HH-87's in-progress window is no longer a floating pill (owner,
+          2026-11-20: nothing may cover what people read). A read in flight or
+          waiting for review is a count on the Items tab, and a line on that
+          item's row in the Items list — scanStatus.tsx. */}
 
       {/* Mobile bottom nav — translucent, iOS-native (redesign shell).
           Its height is --hh-tabbar-h (index.css) plus the home-indicator inset;
@@ -218,12 +233,14 @@ export function AppLayout() {
                 key={to}
                 to={to}
                 data-tour={tourId}
+                aria-label={to === "/inventory" && scan.count > 0 ? `${label}, ${scan.label}` : undefined}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-1 min-w-[58px] min-h-11 transition-colors",
+                  "relative flex flex-col items-center justify-center gap-1 px-3 py-1 min-w-[58px] min-h-11 transition-colors",
                   isActive ? "text-[var(--hh-teal)]" : "text-[var(--hh-sub)]"
                 )}
               >
                 <Icon className="size-6" strokeWidth={isActive ? 2.4 : 2} />
+                {to === "/inventory" && <ScanCountBadge count={scan.count} className="absolute left-[calc(50%+6px)] top-0" />}
                 <span className={cn("text-[length:var(--hh-tabbar-label)] leading-tight", isActive ? "font-semibold" : "font-medium")}>{label}</span>
               </Link>
             )

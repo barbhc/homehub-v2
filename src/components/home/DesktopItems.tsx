@@ -7,6 +7,9 @@ import {
   WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, type LucideIcon,
 } from "lucide-react"
 import type { ItemUnit } from "@/integrations/types"
+import { scanStatusByItem, useScanTray, type ItemScanStatus } from "@/components/manuals/scanStatus"
+import { requestReview } from "@/lib/reviewRequest"
+import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 
@@ -38,6 +41,18 @@ export function ItemsDesktopTitle() {
   return <h1 className="text-[1.6875rem] font-extrabold tracking-[-0.6px]" style={{ color: INK }}>Items</h1>
 }
 
+/** A read in flight or waiting for review, on the item's own card (scanStatus.tsx). */
+function ScanStatusLine({ status }: { status: ItemScanStatus }) {
+  const ready = status.state === "ready"
+  return (
+    <div data-testid="item-scan-status" data-state={status.state}
+      className={`mt-1 text-[0.78125rem] ${ready ? "font-semibold" : ""}`}
+      style={{ color: ready ? "var(--hh-teal)" : "var(--hh-sub)" }}>
+      {status.text}
+    </div>
+  )
+}
+
 export function DesktopItems({
   items, rooms, notes = null, notesError = null,
 }: {
@@ -47,6 +62,8 @@ export function DesktopItems({
   notes?: CareNote[] | null
   notesError?: string | null
 }) {
+  const tray = useScanTray()
+  const scanStatus = useMemo(() => scanStatusByItem(tray), [tray])
   const [sort, setSort] = useState<SortMode>("room")
   const [roomFilter, setRoomFilter] = useState<string | "all">("all")
   const roomName = useMemo(() => new Map(rooms.map((r) => [r.room_id, r.name])), [rooms])
@@ -87,6 +104,9 @@ export function DesktopItems({
       </div>
 
       <div className="flex flex-col gap-6">
+        {tray.parsing.length > 0 && (
+          <p className="text-[0.8125rem]" style={{ color: SUB }}>{SCAN_KEEPS_GOING_SHORT}</p>
+        )}
         {groups.map((g) => (
           <div key={g.key ?? "all"}>
             {g.key && (
@@ -101,13 +121,16 @@ export function DesktopItems({
               {g.items.map((it) => {
                 const Glyph = glyphFor(it)
                 return (
-                  <Link key={it.item_unit_id} to={`/items/${it.item_unit_id}`} className="relative flex min-h-[168px] flex-col gap-3 rounded-[18px] bg-[var(--hh-surface)] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+                  <Link key={it.item_unit_id} to={`/items/${it.item_unit_id}`}
+                    onClick={() => { const st = scanStatus.get(it.item_unit_id); if (st?.state === "ready") requestReview(st.manualId) }}
+                    className="relative flex min-h-[168px] flex-col gap-3 rounded-[18px] bg-[var(--hh-surface)] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
                     <div className="flex size-12 items-center justify-center rounded-xl" style={{ background: "var(--hh-tile)", color: "var(--hh-tile-ink)" }}>
                       <Glyph className="size-6" strokeWidth={1.8} />
                     </div>
                     <div>
                       <div className="text-[0.90625rem] font-bold leading-tight tracking-[-0.2px]" style={{ color: INK }}>{it.display_name}</div>
                       {it.brand && <div className="mt-0.5 text-[0.78125rem]" style={{ color: SUB }}>{it.brand}</div>}
+                      {scanStatus.has(it.item_unit_id) && <ScanStatusLine status={scanStatus.get(it.item_unit_id)!} />}
                     </div>
                     <div className="mt-auto flex items-center justify-between">
                       <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ color: FAINT }}>{sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : "")}</span>

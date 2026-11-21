@@ -386,13 +386,13 @@ test.describe("journey walks", () => {
     await page.waitForURL(/\/items\//, { timeout: 30_000 })
     const itemHeading = page.getByRole("heading", { name: "LG DLGX3901B" }).filter(visible).first()
     await expect(itemHeading).toBeVisible({ timeout: 20_000 })
-    // HH-161 (supersedes HH-118): ONE reading indicator, and it shows HERE too
-    // — the pill, on the item whose manual is being read. (This used to match
-    // "item scanning", which the pill never said, and then assert the ABSENCE
-    // of a count the stub could not produce.) The seeded Sharp microwave waits
-    // for its review, so the pill may add "· 1 ready to review".
-    const pill = page.getByRole("button", { name: /\d+ (reading|queued|ready to review)/ })
-    await expect(pill).toHaveText(/(^|· )1 reading( ·|$)/, { timeout: 15_000 })
+    // Owner 2026-11-20 (supersedes HH-161's pill): nothing floats over the
+    // page. The read is counted on the Items tab, which says it aloud; the
+    // seeded Sharp microwave waits for its review, so it may add
+    // ", 1 ready to review".
+    await expect(page.getByRole("button", { name: /\d+ (reading|queued|ready to review)/ })).toHaveCount(0)
+    const itemsTab = page.getByRole("link", { name: /^Items(,|$)/ }).filter(visible).first()
+    await expect.poll(async () => (await itemsTab.getAttribute("aria-label")) ?? "", { timeout: 15_000 }).toMatch(/, 1 reading(,|$)/)
     // …and the page body says it once, inside Upkeep, where the tasks will
     // land — never "No upkeep yet — add the manual" under a manual being read.
     await expect(page.getByText("Reading the manual", { exact: true })).toHaveCount(1)

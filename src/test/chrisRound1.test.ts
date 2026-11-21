@@ -181,8 +181,11 @@ describe("HH-87 — a manual mid-parse is neither 'has one' nor 'has none'", () 
     const hook = read("../hooks/useParseTray.ts")
     expect(hook).toContain('previewDraft") != null')
     expect(hook).toContain("isAwaitingReview(facts)")
-    const pill = read("../components/manuals/ParseTrayPill.tsx")
-    expect(pill).toContain("if (total === 0) return null")
+    // The count on the Items tab draws nothing when nothing is waiting (the pill it replaced did the same).
+    const status = read("../components/manuals/ScanTray.tsx")
+    expect(status).toContain("if (count <= 0) return null")
+    // Owner 2026-11-20: nothing floats over a page — the layout has no scan pill.
+    expect(read("../components/AppLayout.tsx")).not.toMatch(/ParseTrayPill|tray-clearance/)
   })
 })
 

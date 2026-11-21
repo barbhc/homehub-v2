@@ -219,7 +219,19 @@ page watches it.
 
 - Leaving is safe and **said out loud** on every surface showing a live
   scan. — HH-116, HH-117
-- **One reading indicator: the pill, at the bottom of every page** — the item
+- **SUPERSEDED 2026-11-20 — no floating pill.** Owner (walk comments): "the
+  navigation should never block the text that should be readable by the
+  user", and a floating pill always covers what scrolls under it. A read in
+  flight or waiting for review is now a **count on the Items tab** (the tab
+  says it aloud: "Items, 1 reading, 1 ready to review") and **a line on that
+  item's row in the Items list** ("Reading the manual · 42 pages", "Queued to
+  read", "Ready to review"; a ready row opens its review on arrival). The item
+  page itself is unchanged: its Upkeep card shows the read and the hand-off
+  card leads to the review. The Items list carries the keeps-going line while
+  anything is being read (HH-116/117). `components/manuals/scanStatus.ts`,
+  `ScanTray.tsx`. Mock: https://claude.ai/artifact/Cz4hWKhTjR5YenPBdaJjeU.
+  The rule below is kept as the record of what this replaced.
+- ~~**One reading indicator: the pill, at the bottom of every page**~~ — the item
   whose manual is being read included ("1 reading", then "1 ready to review").
   On that item's own page its Review opens the review IN PLACE, with no
   navigation; anywhere else it goes to the item, which opens it on arrival. The

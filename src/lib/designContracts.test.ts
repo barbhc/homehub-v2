@@ -151,7 +151,9 @@ import { ManualStep } from "@/components/smart-add/ManualStep"
 import { IdentifyStep } from "@/components/smart-add/IdentifyStep"
 import { DEFAULT_IDENTIFY_DATA } from "@/components/smart-add/identifyData"
 import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
-import { ParseTrayPill } from "@/components/manuals/ParseTrayPill"
+import { ScanTrayProvider } from "@/components/manuals/ScanTray"
+import { scanCount } from "@/components/manuals/scanStatus"
+import { RefinedItems } from "@/components/home/RefinedItems"
 import { CareBlock } from "@/components/item-care/CareBlock"
 import { ThisWeekList } from "@/components/home/ThisWeekList"
 import { whenLabel } from "@/components/home/tasks/shared"
@@ -375,24 +377,25 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
     expect(document.body.textContent).toContain(SCAN_KEEPS_GOING_SHORT)
   })
 
-  it("HH-116 / HH-117 · …and on the tray, everywhere else", () => {
+  it("HH-116 / HH-117 · …and on the Items list, where a read in flight is listed", () => {
     fake.tray = { parsing: [{ manualId: "m-elsewhere", itemUnitId: "item-9", title: "Dryer manual", pages: 30, stage: "claude_call" }], ready: [] }
-    render(h(MemoryRouter, { initialEntries: ["/home"] }, h(ParseTrayPill)))
-    fireEvent.click(screen.getByRole("button", { name: /1 reading/ }))
+    const dryer = { item_unit_id: "item-9", display_name: "LG dryer", brand: "LG", category: "Dryer", room_id: null } as unknown as Parameters<typeof RefinedItems>[0]["items"][number]
+    render(h(MemoryRouter, { initialEntries: ["/inventory"] }, h(ScanTrayProvider, { homeId: "h1", children: h(RefinedItems, { items: [dryer], rooms: [] }) })))
     expect(screen.getByText(SCAN_KEEPS_GOING_SHORT)).toBeInTheDocument()
+    expect(screen.getByTestId("item-scan-status")).toHaveTextContent("Reading the manual · 30 pages")
   })
 
-  it("HH-161 (supersedes HH-118) · ONE indicator: the pill shows on the page already showing that read, as everywhere else", () => {
-    // HH-118 had the tray stand down here, because the page carried its own
-    // band above "‹ Items". The owner's agreed design was always one
-    // indicator, at the bottom of every page; the band is gone (the read lives
-    // in the Upkeep card), so the pill no longer defers to anything.
-    fake.tray = { parsing: [{ manualId: "m-here", itemUnitId: "item-1", title: "Bosch manual", pages: 24, stage: "claude_call" }], ready: [] }
-    const onItem = render(h(MemoryRouter, { initialEntries: ["/items/item-1"] }, h(ParseTrayPill)))
-    expect(screen.getByRole("button", { name: "1 reading" })).toBeInTheDocument()
-    onItem.unmount()
-    render(h(MemoryRouter, { initialEntries: ["/home"] }, h(ParseTrayPill)))
-    expect(screen.getByRole("button", { name: "1 reading" })).toBeInTheDocument()
+  it("owner 2026-11-20 (supersedes HH-161's pill) · nothing floats over a page: a read is a count on the Items tab and a line on the item's row", () => {
+    // HH-161 made the pill the ONE indicator, on every page. The owner's walk
+    // comments: "the navigation should never block the text that should be
+    // readable by the user" — and a floating pill always covers what scrolls
+    // under it. The layout renders no floating scan element at all.
+    // (That the layout renders no floating scan element is pinned in src/test/chrisRound1.test.ts.)
+    expect(scanCount({ parsing: [{ manualId: "a", itemUnitId: "i", title: "t", pages: 24, stage: "claude_call" }], ready: [] }))
+      .toEqual({ count: 1, label: "1 reading" })
+    expect(scanCount({ parsing: [{ manualId: "a", itemUnitId: "i", title: "t", pages: null, stage: "awaiting_capacity" }],
+      ready: [{ manualId: "b", itemUnitId: "j", title: "u", pages: 12, stage: "done" }] }))
+      .toEqual({ count: 2, label: "1 queued, 1 ready to review" })
   })
 
   it("HH-135 · a live scan is one indeterminate rail — no spinner, no percentage — and it sits in Upkeep, not above the page", async () => {

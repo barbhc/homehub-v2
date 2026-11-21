@@ -12,11 +12,11 @@ import { DESKTOP_VIEWPORT, EMULATOR_PROJECT_ID, SEED_TODAY } from "../seed-confi
  * mode, pdfPages, previewDraft), in the order it writes them — and the review's
  * Save is answered the way `commitManualDraft` answers it: templates written,
  * `parsedAt` stamped, the draft cleared. Everything the PAGE does in between is
- * real: its live listener, the pill, the hand-off, the review.
+ * real: its live listener, the Items tab count, the hand-off, the review.
  *
  * Counting (CLAUDE.md rule 3): "not rendered" is toHaveCount(0); "not shown"
  * is toBeHidden(). The seeded Sharp microwave already waits for its review, so
- * the pill's "ready to review" count is measured as a difference from the
+ * the Items tab's "ready to review" count is measured as a difference from the
  * seed's own, never as an absolute.
  *
  * Screenshots of each state go to $SCAN_SHOTS_DIR (default test-results/…,
@@ -25,11 +25,13 @@ import { DESKTOP_VIEWPORT, EMULATOR_PROJECT_ID, SEED_TODAY } from "../seed-confi
  * The owner's review of #228 (2026-09-30) refined five things, pinned here
  * with the frames they touch: the hand-off card says "We read the manual" (the
  * item's name is the heading above it); a cleaning row carries no "Lives on
- * the item page" line of its own; the tray names the ITEM first; a
+ * the item page" line of its own; the item is named first; a
  * no-maintenance summary says one thing once; and a refused phone's collapsed
  * row says only "Reminders off", with "Turn on in Settings" in the opened row
- * and the phone's menu named in Settings. Plus the gatekeeper's check: the
- * pill never covers the page's last card.
+ * and the phone's menu named in Settings. Plus the gatekeeper's check: nothing
+ * covers the page's last card. Owner, 2026-11-20: the floating pill is gone
+ * (it always covered something); a read is a count on the Items tab and a
+ * line on the item's row in the Items list.
  */
 const HOME = "e2e-home"
 const SHOTS = process.env.SCAN_SHOTS_DIR ?? "test-results/scan-indicator"
@@ -153,12 +155,15 @@ async function answerCommit(page: Page, db: Firestore, itemId: string) {
   return { count: () => calls }
 }
 
-/** The pill (on every page, the item's own included). */
+/** The floating pill HH-161 had — gone (owner, 2026-11-20: nothing covers what people read). */
 const pill = (page: Page) => page.getByRole("button", { name: /\d+ (reading|queued|ready to review)/ })
-/** How many the pill says are waiting for review — 0 when it says none. */
+/** The Items tab (phone tab bar, or the desktop header): it carries the count and says it aloud. */
+const itemsTab = (page: Page) => page.getByRole("link", { name: /^Items(,|$)/ }).filter({ visible: true }).first()
+/** What the Items tab says about reads — "" when nothing is waiting. */
+const tabSays = async (page: Page) => (await itemsTab(page).getAttribute("aria-label")) ?? ""
+/** How many the Items tab says are waiting for review — 0 when it says none. */
 async function readyCount(page: Page): Promise<number> {
-  if ((await pill(page).count()) === 0) return 0
-  return Number((await pill(page).first().textContent())?.match(/(\d+) ready to review/)?.[1] ?? 0)
+  return Number((await tabSays(page)).match(/(\d+) ready to review/)?.[1] ?? 0)
 }
 const bells = (root: Locator) => root.locator("svg.lucide-bell-ring")
 const anyBell = (root: Locator) => root.locator("svg.lucide-bell-ring, svg.lucide-bell-off, svg.lucide-bell")
@@ -185,7 +190,7 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
     })
     test.afterEach(async () => { await clearItem(db, itemId) })
 
-    test("S1 → S6 → S2 → S5: reading in Upkeep, the pill everywhere, the hand-off, the review in place", async ({ page }) => {
+    test("S1 → S6 → S2 → S5: reading in Upkeep, the Items tab count, the hand-off, the review", async ({ page }) => {
       const baseline = await (async () => { await page.goto("/home"); await page.waitForTimeout(1_500); return readyCount(page) })()
 
       // ── S1: the manual is being read ──────────────────────────────────────
@@ -209,20 +214,19 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       // S1.2 — never the empty state, never its button (not rendered).
       await expect(page.getByText("No upkeep yet — add the manual")).toHaveCount(0)
       await expect(page.getByRole("button", { name: "Add the manual", exact: true })).toHaveCount(0)
-      // S1.3 — the pill reads "1 reading" on this item's OWN page.
-      await expect(pill(page)).toBeVisible()
-      await expect(pill(page)).toHaveText(/(^|· )1 reading( ·|$)/)
+      // S1.3 — no floating pill; the Items tab counts the read, on this page too.
+      await expect(pill(page)).toHaveCount(0)
+      await expect.poll(() => tabSays(page), { timeout: 15_000 }).toMatch(/(, )1 reading(,|$)/)
       // S1.4 — the Ask card.
       await expect(page.getByText("Works best once we’ve read the manual.").first()).toBeVisible()
       // S1.5 — the worker's count only; never a position it does not report.
       await expect(page.getByText(/page \d+ of \d+/)).toHaveCount(0)
       await shot(page, label, "s1-item-reading")
 
-      // The pill never covers the page's end (HH-118's actual complaint, now
-      // answered by clearance): on the phone, scrolled all the way down, the
-      // last card — "Delete item", quiet and last — ends above the pill's top
-      // edge. (Desktop puts the pill bottom-right, beside the columns, and
-      // tucks "Delete item" inside "Manuals & References".)
+      // Nothing covers the page's end (HH-118; owner, 2026-11-20): on the
+      // phone, scrolled all the way down, the last card — "Delete item",
+      // quiet and last — ends above the tab bar, and nothing floats between.
+      // (Desktop tucks "Delete item" inside "Manuals & References".)
       if (label === "390px") {
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
         await expect.poll(() => page.evaluate(() =>
@@ -230,29 +234,29 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
         const lastCard = page.getByRole("button", { name: "Delete item" })
         await expect(lastCard).toBeInViewport()
         const lastBox = (await lastCard.boundingBox())!
-        const pillBox = (await pill(page).boundingBox())!
-        expect(lastBox.y + lastBox.height, "the last card ends above the pill's top edge").toBeLessThanOrEqual(pillBox.y)
+        const barTop = await page.evaluate(() => document.querySelector("nav.fixed")!.getBoundingClientRect().top)
+        expect(lastBox.y + lastBox.height, "the last card ends above the tab bar").toBeLessThanOrEqual(barTop)
+        await expect(pill(page)).toHaveCount(0)
         await shot(page, label, "s1-item-bottom-clearance")
         await page.evaluate(() => window.scrollTo(0, 0))
       }
 
       // ── S6: the same read, from Home ─────────────────────────────────────
       await page.goto("/home")
-      await expect(pill(page)).toHaveText(/(^|· )1 reading( ·|$)/, { timeout: 20_000 })
+      await expect.poll(() => tabSays(page), { timeout: 20_000 }).toMatch(/(, )1 reading(,|$)/)
+      await expect(pill(page)).toHaveCount(0)
       // S6.3 — Home shows no other reading indicator.
       await expect(page.getByText("Reading the manual")).toHaveCount(0)
       await expect(page.getByRole("progressbar")).toHaveCount(0)
-      await shot(page, label, "s6-home-pill")
-      // S6.2 — the tray: the ITEM first with "42 pages" (owner, #228 review:
-      // people think in items), the manual's title as the line beneath it,
-      // and the keeps-going line.
-      await pill(page).click()
-      const trayRow = page.getByRole("listitem").filter({ hasText: title })
-      await expect(trayRow).toContainText(`${name} · 42 pages`)
-      const nameY = (await trayRow.getByText(name, { exact: true }).boundingBox())!.y
-      expect(nameY).toBeLessThan((await trayRow.getByText(title, { exact: true }).boundingBox())!.y)
-      await expect(page.getByText("You can close the app — these keep going.").first()).toBeVisible()
-      await shot(page, label, "s6-home-tray")
+      await shot(page, label, "s6-home-count")
+      // S6.2 — the Items list: the item's own row says it is being read, with
+      // the worker's page count, and the keeps-going line (HH-116/117).
+      await itemsTab(page).click()
+      const itemStatus = page.getByTestId("item-scan-status").filter({ visible: true }).filter({ hasText: "42 pages" })
+      await expect(itemStatus).toHaveText("Reading the manual · 42 pages", { timeout: 20_000 })
+      await expect(itemStatus.locator("xpath=ancestor::a[1]")).toContainText(name)
+      await expect(page.getByText("You can close the app — these keep going.").filter({ visible: true }).first()).toBeVisible()
+      await shot(page, label, "s6-items-row")
 
       // ── S2: the read finished while nobody was looking ───────────────────
       await writeStage(db, manualId, { stage: "done", requestId: "req-scan-1", pdfPages: 42, summary: { chunks: 0, tasks: BOSCH.length } },
@@ -283,18 +287,20 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       // S2.5 — Upkeep holds the space, with no button of its own.
       await expect(page.getByText("Upkeep lands here once you save the review.")).toBeVisible()
       await expect(page.getByText("No upkeep yet — add the manual")).toHaveCount(0)
-      // S2.3 — the pill counts it, here too.
+      // S2.3 — the Items tab counts it, here too.
       await expect.poll(() => readyCount(page), { timeout: 15_000 }).toBe(baseline + 1)
       await shot(page, label, "s2-item-handoff")
 
-      // S2.3 — the pill's Review opens THIS review in place, no navigation.
+      // S2.3 — from anywhere, the Items list leads to it: the row says
+      // "Ready to review", and tapping it opens THIS review on the item page.
       const url = page.url()
-      await pill(page).click()
-      const row = page.getByRole("listitem").filter({ hasText: title })
-      await expect(row).toContainText(`${name} — ready to review`)
-      await row.getByRole("button", { name: "Review" }).click()
+      await itemsTab(page).click()
+      const readyRow = page.getByTestId("item-scan-status").filter({ visible: true }).filter({ hasText: "Ready to review" })
+        .locator("xpath=ancestor::a[1]").filter({ hasText: name })
+      await expect(readyRow).toHaveCount(1, { timeout: 20_000 })
+      await readyRow.click()
       const dialog = page.getByRole("dialog")
-      await expect(dialog).toHaveCount(1)
+      await expect(dialog).toHaveCount(1, { timeout: 20_000 })
       expect(page.url()).toBe(url)
       await expect(dialog.getByText("12 things from the manual")).toBeVisible()
 
@@ -366,7 +372,7 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       // S3.4 — nothing saved yet: Upkeep holds the space, no rows.
       await expect(page.getByText("Upkeep lands here once you save the review.")).toBeVisible()
       await expect(page.getByTestId("care-row")).toHaveCount(0)
-      // S3.5 — the pill.
+      // S3.5 — the Items tab count.
       await expect.poll(() => readyCount(page), { timeout: 15_000 }).toBe(baseline + 1)
       await shot(page, label, "s3-item-handoff-no-maintenance")
 
@@ -418,7 +424,7 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(rows.filter({ hasText: "Clean the waveguide cover" })).toContainText("Monthly")
       // S3c.4 — no bell on any row.
       await expect(page.getByLabel("Notifies you")).toHaveCount(0)
-      // S3c.5 — no hand-off card, and the pill no longer counts this manual.
+      // S3c.5 — no hand-off card, and the Items tab no longer counts this manual.
       await expect(page.getByTestId("handoff-card")).toHaveCount(0)
       await expect.poll(() => readyCount(page), { timeout: 15_000 }).toBe(baseline)
       await shot(page, label, "s3c-item-after-save")
