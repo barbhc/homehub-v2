@@ -71,14 +71,14 @@ test.describe("emulator e2e — home feed", () => {
     await expect(page.getByText(/Failed to load|Something went wrong/i)).toHaveCount(0)
   })
 
-  test("the first task is open on arrival, and See details reaches its real detail (getTaskDetail end-to-end)", async ({ page }) => {
+  test("the first task is open on arrival, and its arrow reaches its real detail (getTaskDetail end-to-end)", async ({ page }) => {
     await page.goto("/home")
-    // Home, focused: the week's first task opens by default; its "See details"
-    // is the one door to the full view.
+    // Home, focused: the week's first task opens by default; its arrow (the
+    // task card, 2026-11-21) is the one door to the full view.
     await expect(page.getByText("Replace HVAC furnace filter", { exact: true }).filter(visible)).toBeVisible({ timeout: 20_000 })
     const open = page.locator('[data-testid="week-row"][data-open="true"]').filter(visible).first()
     await expect(open).toBeVisible()
-    await open.getByRole("link", { name: /See details/ }).click()
+    await open.getByRole("link", { name: /^Open / }).click()
     // The template's justification (why-it-matters) renders only after
     // getTaskDetail resolves the taskInstance → taskTemplate read.
     await expect(

@@ -27,7 +27,8 @@ test.describe("emulator e2e — Home: This week", () => {
     await expect(first).toHaveAttribute("data-open", "true")
     await expect(first).toContainText("Replace HVAC furnace filter")
     await expect(first.getByRole("button", { name: "Mark done" })).toBeVisible()
-    await expect(first.getByRole("link", { name: /See details/ })).toHaveAttribute("href", /\/tasks\//)
+    // The task card (2026-11-21): the arrow opens the task's page; no "See details" link.
+    await expect(first.getByRole("link", { name: "Open Replace HVAC furnace filter" })).toHaveAttribute("href", /\/tasks\//)
 
     // Nothing the old Home carried survives: no stat band, no drawer, no strip.
     // ("Coming up" is back, but as ONE line under the list naming the next
@@ -60,7 +61,7 @@ test.describe("emulator e2e — Home: This week", () => {
     await expect(section()).toBeVisible({ timeout: 20_000 })
     const before = await rows().count()
     expect(before).toBeGreaterThan(1)
-    const leadTitle = (await rows().first().locator("span.truncate").first().textContent())?.trim() ?? ""
+    const leadTitle = (await rows().first().getByTestId("week-row-title").textContent())?.trim() ?? ""
 
     await rows().first().getByRole("button", { name: /Snooze/ }).click()
     await expect(rows()).toHaveCount(before - 1, { timeout: 15_000 })

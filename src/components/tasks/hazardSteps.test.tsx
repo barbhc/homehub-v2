@@ -164,20 +164,23 @@ describe("Tasks row — phone (RefinedWeek)", () => {
     await waitFor(() => expect(within(rowOf(title)).queryByText("Loading…")).toBeNull())
   }
 
-  it("a hazardous task's open row shows the pro notice and NOT its steps", async () => {
+  // The task card (2026-11-21): an open row never shows steps — they live on
+  // the task's page, behind the row's arrow. A hazardous task's supply slot
+  // says to book a technician instead.
+  it("a hazardous task's open row says to book a technician and shows NO steps", async () => {
     renderApp(<RefinedWeek homeId="home-1" />)
     await screen.findByText(GAS_TITLE)
     await expand(GAS_TITLE)
-    expect(within(rowOf(GAS_TITLE)).getByText(PRO_NOTICE)).toBeInTheDocument()
+    expect(within(rowOf(GAS_TITLE)).getByText("Schedule a visit with a technician.")).toBeInTheDocument()
     expectNoGasSteps()
   })
 
-  it("a DIY task's open row still shows its steps", async () => {
+  it("a DIY task's open row shows no steps either; its arrow opens the task's page", async () => {
     renderApp(<RefinedWeek homeId="home-1" />)
     await screen.findByText(DIY_TITLE)
     await expand(DIY_TITLE)
-    expectDiySteps(rowOf(DIY_TITLE))
-    expect(screen.queryByText(PRO_NOTICE)).toBeNull()
+    for (const s of DIY_STEPS) expect(within(rowOf(DIY_TITLE)).queryByText(s)).toBeNull()
+    expect(within(rowOf(DIY_TITLE)).getByRole("button", { name: `Open ${DIY_TITLE}` })).toBeInTheDocument()
   })
 })
 
@@ -190,20 +193,20 @@ describe("Tasks row — desktop (DesktopTasks)", () => {
     await waitFor(() => expect(within(rowOf(title)).queryByText("Loading…")).toBeNull())
   }
 
-  it("a hazardous task's open row shows the pro notice and NOT its steps", async () => {
+  it("a hazardous task's open row says to book a technician and shows NO steps", async () => {
     renderApp(<DesktopTasks homeId="home-1" />)
     await screen.findByText(GAS_TITLE)
     await expand(GAS_TITLE)
-    expect(within(rowOf(GAS_TITLE)).getByText(PRO_NOTICE)).toBeInTheDocument()
+    expect(within(rowOf(GAS_TITLE)).getByText("Schedule a visit with a technician.")).toBeInTheDocument()
     expectNoGasSteps()
   })
 
-  it("a DIY task's open row still shows its steps", async () => {
+  it("a DIY task's open row shows no steps either; its arrow opens the task's page", async () => {
     renderApp(<DesktopTasks homeId="home-1" />)
     await screen.findByText(DIY_TITLE)
     await expand(DIY_TITLE)
-    expectDiySteps(rowOf(DIY_TITLE))
-    expect(screen.queryByText(PRO_NOTICE)).toBeNull()
+    for (const s of DIY_STEPS) expect(within(rowOf(DIY_TITLE)).queryByText(s)).toBeNull()
+    expect(within(rowOf(DIY_TITLE)).getByRole("button", { name: `Open ${DIY_TITLE}` })).toBeInTheDocument()
   })
 })
 

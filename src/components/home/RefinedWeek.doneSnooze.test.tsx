@@ -64,7 +64,7 @@ beforeEach(() => {
   resetDoneQueueForTests()
   session.auth.currentUser = { uid: "user-a" }
   svc.getWeekAgenda.mockResolvedValue({ data: [TASK], error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
-  svc.getTaskDetail.mockResolvedValue({ data: { steps: [], infoBlurb: null }, error: null })
+  svc.getTaskDetail.mockResolvedValue({ data: { title: "", steps: [], infoBlurb: null, supplies: [] }, error: null })
   svc.markTaskInstanceDone.mockResolvedValue({ success: true, data: {}, nextInstanceId: "ti-2" })
   svc.snoozeTaskInstance.mockResolvedValue({ success: true })
   svc.unsnoozeTaskInstance.mockResolvedValue({ success: true })

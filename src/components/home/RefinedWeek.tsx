@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
-  AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FlagIcon, XIcon,
+  AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, FlagIcon, XIcon,
 } from "lucide-react"
 import type { WeekAgendaItem } from "@/modules/care"
 import { useCareSuggestions } from "@/hooks/useCareSuggestions"
@@ -10,10 +10,9 @@ import { LoadErrorState, StaleDataNote } from "@/components/layout"
 import { pageLoadState } from "@/lib/homeLoadingGate"
 import { SuggestedRow } from "@/components/care/SuggestedRow"
 import { TIER, type Tier } from "@/lib/redesign/tokens"
-import { parseSteps } from "@/pages/item-detail/utils"
-import { InfoBlurb, StepList } from "@/components/tasks/TaskHowTo"
-import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
-import { classifyTaskDetail } from "@/lib/taskActor"
+import { TaskCardActions, TaskStatusLine, TaskSupplyLine } from "@/components/tasks/TaskCard"
+import { itemMinutesLine, whenTone } from "@/lib/taskCard"
+import { prepLine, prepPlace } from "@/lib/homeWeek"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
   nothingDueLine, phraseUnderGroup, TIER_FILTERS, tierFilterCounts,
@@ -32,63 +31,26 @@ const NO_TASKS: WeekAgendaItem[] = []
 
 type View = "list" | "calendar"
 
-// ── Expanded detail (why · notes · actions) ───────────────────────────────────
-// Real data exposes justification + notes only; we link to the full guide rather
-// than invent supplies/numbered steps.
+// ── Open row: the task card's lower half (design/task-card.md) ──────────────
+// Supply or who to book, then Mark done and Snooze at one size. The steps and
+// the why live on the task's page, which the row's arrow opens.
 function ExpandedDetail({
-  homeId, taskInstanceId, expanded, onDone, onSnooze, onOpenGuide,
+  homeId, taskInstanceId, expanded, onDone, onSnooze,
 }: {
   homeId: string | null
   taskInstanceId: string
   expanded: boolean
   onDone: () => void
   onSnooze: () => void
-  onOpenGuide: () => void
 }) {
   const { detail, loading } = useTaskDetail(homeId, taskInstanceId, expanded)
-  const actor = detail ? classifyTaskDetail(detail) : "diy"
+  const prep = prepLine(detail)
+  const place = prepPlace(detail)
   return (
     <div className="flex flex-col gap-3" style={{ padding: `0 ${PAD - 3}px ${PAD - 3}px` }}>
-      {loading ? (
-        <div className="text-[0.8125rem]" style={{ color: FAINT }}>Loading…</div>
-      ) : (
-        <>
-          {detail?.justification && <InfoBlurb text={detail.justification} />}
-          {/* Hazardous work: the pro notice instead of the steps. */}
-          <StepsOrProNotice actor={actor}>
-            {detail?.notes && <StepList steps={parseSteps(detail.notes)} />}
-          </StepsOrProNotice>
-          {!loading && actor === "diy" && !detail?.justification && !detail?.notes && (
-            <div className="text-[0.8125rem]" style={{ color: FAINT }}>No extra details yet.</div>
-          )}
-          <button
-            type="button"
-            onClick={onOpenGuide}
-            className="self-start text-[0.8125rem] font-semibold underline-offset-2 hover:underline"
-            style={{ color: TEAL }}
-          >
-            View full guide
-          </button>
-        </>
-      )}
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onDone}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-[0.875rem] font-bold text-white"
-          style={{ background: "var(--hh-teal-fill)" }}
-        >
-          <CheckIcon className="size-4" strokeWidth={2.6} /> Mark done
-        </button>
-        <button
-          type="button"
-          onClick={onSnooze}
-          className="rounded-xl px-4 py-3 text-[0.875rem] font-bold"
-          style={{ border: "1.5px solid var(--hh-line2)", background: SURFACE, color: INK }}
-        >
-          Snooze
-        </button>
-      </div>
+      {loading && <div className="text-[0.8125rem]" style={{ color: FAINT }}>Loading…</div>}
+      {prep && <TaskSupplyLine text={prep} place={place} />}
+      <TaskCardActions onDone={onDone} onSnooze={onSnooze} />
     </div>
   )
 }
@@ -190,20 +152,27 @@ function TaskRow({
         </button>
 
         <div className="min-w-0 flex-1">
-          <div className="text-[0.9375rem] font-semibold leading-snug tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full px-2 py-0.5 text-[0.75rem] font-bold" style={{ background: TIER[tier].soft, color: TIER[tier].dot }}>{TIER[tier].label}</span>
-            {t.trulyOverdue && <span className="size-[5px] shrink-0 rounded-full" style={{ background: CLAY }} />}
-            <span className="text-[0.78125rem]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</span>
-          </div>
+          <TaskStatusLine tier={tier} when={rowWhen(t, groupLabel)} tone={whenTone(t.safetyNote ?? t.duePhrase, { trulyOverdue: t.trulyOverdue, safetyNote: t.safetyNote })} />
+          <div className="mt-0.5 text-[1.0625rem] font-semibold leading-[1.375rem] tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</div>
+          {itemMeta(t, groupLabel) && <div className="mt-0.5 text-[0.8125rem] leading-[1.125rem]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</div>}
         </div>
 
-        {t.estimatedMinutes != null && (
-          <span className="shrink-0 text-[0.78125rem] font-semibold" style={{ color: FAINT }}>{t.estimatedMinutes}m</span>
+        {/* Closed: the caret opens the row here. Open: the arrow opens the
+            task's page (owner, 2026-11-21: the arrow instead of a link). */}
+        {expanded ? (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onOpenGuide() }}
+            aria-label={`Open ${t.title}`}
+            className="hit-44 flex shrink-0 p-1"
+            style={{ color: FAINT }}
+          >
+            <ChevronRightIcon className="size-5" />
+          </button>
+        ) : (
+          <ChevronDownIcon className="size-5 shrink-0" style={{ color: FAINT }} aria-hidden />
         )}
-        {expanded
-          ? <ChevronUpIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />
-          : <ChevronDownIcon className="size-[18px] shrink-0" style={{ color: FAINT }} />}
       </div>
 
       {/* A failed Done/Snooze is said HERE, on the task it failed on — as on
@@ -227,21 +196,23 @@ function TaskRow({
           expanded={expanded}
           onDone={onDone}
           onSnooze={onSnooze}
-          onOpenGuide={onOpenGuide}
         />
       )}
     </div>
   )
 }
 
-function itemMeta(t: WeekAgendaItem, groupLabel?: string): string {
+function itemMeta(t: WeekAgendaItem, groupLabel?: string): string | null {
   // Neither half repeats the group's header (HH-165): no "Furnace" under the
-  // Furnace group, no "Good to do now" under Good to do now.
-  const where = phraseUnderGroup(t.itemName ?? t.roomName ?? "Home", groupLabel)
-  // Safety work states the skipped cycle instead of a window phrase — firm
-  // without a date, and without red (owner-approved, design/due-windows.md).
-  const when = phraseUnderGroup(t.safetyNote ?? t.duePhrase, groupLabel)
-  return [where, when].filter(Boolean).join(" · ")
+  // Furnace group.
+  const where = phraseUnderGroup(t.itemName ?? t.roomName ?? "Whole home", groupLabel)
+  return itemMinutesLine(where, t.estimatedMinutes)
+}
+
+/** The status line's timing. Safety work states the skipped cycle instead of
+ *  a window phrase (design/due-windows.md); never the group header again (HH-165). */
+function rowWhen(t: WeekAgendaItem, groupLabel?: string): string | null {
+  return phraseUnderGroup(t.safetyNote ?? t.duePhrase, groupLabel)
 }
 
 // ── Segmented controls ────────────────────────────────────────────────────────

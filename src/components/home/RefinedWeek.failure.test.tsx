@@ -71,7 +71,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   // With the agenda's own tally of the cleaning it withheld (HH-94) — none here.
   getWeekAgenda.mockResolvedValue({ data: [TASK], error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
-  getTaskDetail.mockResolvedValue({ data: { steps: [], infoBlurb: null }, error: null })
+  getTaskDetail.mockResolvedValue({ data: { title: "", steps: [], infoBlurb: null, supplies: [] }, error: null })
   previewNextDue.mockResolvedValue("2026-11-15")
   unsnoozeTaskInstance.mockResolvedValue({ success: true })
 })

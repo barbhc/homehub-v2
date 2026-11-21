@@ -229,7 +229,7 @@ const TASK_TITLE = "Replace HVAC furnace filter"
 async function openTaskPage(page: Page) {
   await gotoStable(page, "/maintenance")
   await page.getByText(TASK_TITLE).filter({ visible: true }).first().click()
-  await page.getByRole("button", { name: /View full guide/ }).filter({ visible: true }).first().click()
+  await page.getByRole("button", { name: `Open ${TASK_TITLE}` }).filter({ visible: true }).first().click()
   await page.waitForURL(/\/tasks\//, { timeout: 15_000 })
   await page.getByRole("button", { name: /Tune this task/ }).waitFor({ state: "visible", timeout: 20_000 })
 }
