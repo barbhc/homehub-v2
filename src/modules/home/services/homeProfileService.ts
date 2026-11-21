@@ -53,7 +53,7 @@ export function toArea(v: unknown): HomeArea | null {
 
 /**
  * Concerns keys are stable strings; labels live in the UI.
- * Add new keys here (and in HomeProfileOnboarding) together.
+ * Add new keys here (and in Settings' HomeProfileSection) together.
  */
 export const TOP_CONCERN_KEYS = [
   "surprise_repairs",
