@@ -87,8 +87,10 @@ async function fakeEnqueue(page: Page, db: Firestore): Promise<{ count: () => nu
 /** What the Items tab says is being read, as a number — 0 when it says nothing.
  *  (Owner 2026-11-20: the floating pill is gone; the tab carries the count and says it aloud.) */
 async function trayReading(page: Page): Promise<number> {
-  const tab = page.getByRole("link", { name: /^Items(,|$)/ }).filter({ visible: true }).first()
-  return Number(((await tab.getAttribute("aria-label")) ?? "").match(/(\d+) reading/)?.[1] ?? 0)
+  const tab = page.getByRole("link", { name: /^Items$/ }).filter({ visible: true }).first()
+  const id = await tab.getAttribute("aria-describedby")
+  const says = id ? ((await page.locator(`#${id}`).textContent()) ?? "") : ""
+  return Number(says.match(/(\d+) reading/)?.[1] ?? 0)
 }
 
 /** Every role=dialog in the DOM, hidden or not. */

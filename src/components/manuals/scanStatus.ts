@@ -52,7 +52,7 @@ export function scanStatusByItem(tray: ParseTray): Map<string, ItemScanStatus> {
   return out
 }
 
-/** The Items tab's count and its spoken form ("1 reading, 1 ready to review"). */
+/** The Items tab's count and its spoken description ("1 reading, 1 ready to review"). */
 export function scanCount(tray: ParseTray): { count: number; label: string } {
   const queued = tray.parsing.filter((e) => isQueued(e.stage)).length
   const reading = tray.parsing.length - queued

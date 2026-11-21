@@ -235,7 +235,8 @@ page watches it.
   navigation should never block the text that should be readable by the
   user", and a floating pill always covers what scrolls under it. A read in
   flight or waiting for review is now a **count on the Items tab** (the tab
-  says it aloud: "Items, 1 reading, 1 ready to review") and **a line on that
+  keeps the name "Items" and describes the count aloud: "1 reading, 1 ready to
+  review") and **a line on that
   item's row in the Items list** ("Reading the manual · 42 pages", "Queued to
   read", "Ready to review"; a ready row opens its review on arrival). The item
   page itself is unchanged: its Upkeep card shows the read and the hand-off

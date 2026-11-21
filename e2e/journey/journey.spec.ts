@@ -391,8 +391,11 @@ test.describe("journey walks", () => {
     // seeded Sharp microwave waits for its review, so it may add
     // ", 1 ready to review".
     await expect(page.getByRole("button", { name: /\d+ (reading|queued|ready to review)/ })).toHaveCount(0)
-    const itemsTab = page.getByRole("link", { name: /^Items(,|$)/ }).filter(visible).first()
-    await expect.poll(async () => (await itemsTab.getAttribute("aria-label")) ?? "", { timeout: 15_000 }).toMatch(/, 1 reading(,|$)/)
+    const itemsTab = page.getByRole("link", { name: /^Items$/ }).filter(visible).first()
+    await expect.poll(async () => {
+      const id = await itemsTab.getAttribute("aria-describedby")
+      return id ? ((await page.locator(`#${id}`).textContent()) ?? "") : ""
+    }, { timeout: 15_000 }).toMatch(/(^|, )1 reading(,|$)/)
     // …and the page body says it once, inside Upkeep, where the tasks will
     // land — never "No upkeep yet — add the manual" under a manual being read.
     await expect(page.getByText("Reading the manual", { exact: true })).toHaveCount(1)

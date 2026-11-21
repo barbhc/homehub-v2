@@ -157,10 +157,13 @@ async function answerCommit(page: Page, db: Firestore, itemId: string) {
 
 /** The floating pill HH-161 had — gone (owner, 2026-11-20: nothing covers what people read). */
 const pill = (page: Page) => page.getByRole("button", { name: /\d+ (reading|queued|ready to review)/ })
-/** The Items tab (phone tab bar, or the desktop header): it carries the count and says it aloud. */
-const itemsTab = (page: Page) => page.getByRole("link", { name: /^Items(,|$)/ }).filter({ visible: true }).first()
-/** What the Items tab says about reads — "" when nothing is waiting. */
-const tabSays = async (page: Page) => (await itemsTab(page).getAttribute("aria-label")) ?? ""
+/** The Items tab (phone tab bar, or the desktop header): it carries the count, and describes it aloud. */
+const itemsTab = (page: Page) => page.getByRole("link", { name: /^Items$/ }).filter({ visible: true }).first()
+/** What the Items tab says about reads (its accessible description) — "" when nothing is waiting. */
+const tabSays = async (page: Page) => {
+  const id = await itemsTab(page).getAttribute("aria-describedby")
+  return id ? ((await page.locator(`#${id}`).textContent()) ?? "") : ""
+}
 /** How many the Items tab says are waiting for review — 0 when it says none. */
 async function readyCount(page: Page): Promise<number> {
   return Number((await tabSays(page)).match(/(\d+) ready to review/)?.[1] ?? 0)
@@ -216,7 +219,7 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(page.getByRole("button", { name: "Add the manual", exact: true })).toHaveCount(0)
       // S1.3 — no floating pill; the Items tab counts the read, on this page too.
       await expect(pill(page)).toHaveCount(0)
-      await expect.poll(() => tabSays(page), { timeout: 15_000 }).toMatch(/(, )1 reading(,|$)/)
+      await expect.poll(() => tabSays(page), { timeout: 15_000 }).toMatch(/(^|, )1 reading(,|$)/)
       // S1.4 — the Ask card.
       await expect(page.getByText("Works best once we’ve read the manual.").first()).toBeVisible()
       // S1.5 — the worker's count only; never a position it does not report.
@@ -243,7 +246,7 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
 
       // ── S6: the same read, from Home ─────────────────────────────────────
       await page.goto("/home")
-      await expect.poll(() => tabSays(page), { timeout: 20_000 }).toMatch(/(, )1 reading(,|$)/)
+      await expect.poll(() => tabSays(page), { timeout: 20_000 }).toMatch(/(^|, )1 reading(,|$)/)
       await expect(pill(page)).toHaveCount(0)
       // S6.3 — Home shows no other reading indicator.
       await expect(page.getByText("Reading the manual")).toHaveCount(0)

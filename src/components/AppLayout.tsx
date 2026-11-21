@@ -94,7 +94,8 @@ function AppShell() {
                   key={to}
                   to={to}
                   data-tour={tourId}
-                  aria-label={to === "/inventory" && scan.count > 0 ? `${label}, ${scan.label}` : undefined}
+                  // The name stays "Items"; what is being read is its description.
+                  aria-describedby={to === "/inventory" && scan.count > 0 ? "items-scan-desktop" : undefined}
                   className={cn(
                     "hit-44 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[length:min(0.875rem,21px)] font-semibold transition-colors",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
@@ -102,6 +103,7 @@ function AppShell() {
                 >
                   {label}
                   {to === "/inventory" && <ScanCountBadge count={scan.count} />}
+                  {to === "/inventory" && scan.count > 0 && <span id="items-scan-desktop" className="sr-only">{scan.label}</span>}
                 </Link>
               )
             })}
@@ -233,7 +235,7 @@ function AppShell() {
                 key={to}
                 to={to}
                 data-tour={tourId}
-                aria-label={to === "/inventory" && scan.count > 0 ? `${label}, ${scan.label}` : undefined}
+                aria-describedby={to === "/inventory" && scan.count > 0 ? "items-scan-mobile" : undefined}
                 className={cn(
                   "relative flex flex-col items-center justify-center gap-1 px-3 py-1 min-w-[58px] min-h-11 transition-colors",
                   isActive ? "text-[var(--hh-teal)]" : "text-[var(--hh-sub)]"
@@ -241,6 +243,7 @@ function AppShell() {
               >
                 <Icon className="size-6" strokeWidth={isActive ? 2.4 : 2} />
                 {to === "/inventory" && <ScanCountBadge count={scan.count} className="absolute left-[calc(50%+6px)] top-0" />}
+                {to === "/inventory" && scan.count > 0 && <span id="items-scan-mobile" className="sr-only">{scan.label}</span>}
                 <span className={cn("text-[length:var(--hh-tabbar-label)] leading-tight", isActive ? "font-semibold" : "font-medium")}>{label}</span>
               </Link>
             )
