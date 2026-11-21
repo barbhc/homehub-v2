@@ -387,12 +387,15 @@ page watches it.
   A manual read and waiting offers "Review what we found", not another read.
   The manual section opens no review of its own, so the page mounts one draft
   review by construction (HH-120). — HH-161
-- **After Save, a manual with no maintenance says where its upkeep lives:**
-  Upkeep leads with "Nothing here goes into Tasks" and "4 cleaning tips and 2
-  setup steps live below.", then the rows in kind order (Cleaning open, Setup
-  closed, "already installed?"), each cadence in its row's detail line
-  (HH-155), no bell on any of them — and no hand-off card or pill left for that
-  manual. — HH-161 (S3c)
+- **After Save, a manual with no maintenance shows its upkeep, unexplained:**
+  the rows in kind order (Cleaning open, Setup closed, "already installed?"),
+  each cadence in its row's detail line (HH-155), no bell on any of them — and
+  no hand-off card or pill left for that manual. — HH-161 (S3c). *Amended
+  2026-11-21 (owner: no side explanation lines unless critical):* the lead card
+  ("Nothing here goes into Tasks" / "4 cleaning tips and 2 setup steps live
+  below.") and the Cleaning band's "These live in your cleaning guides — nothing
+  here reminds you. Open guides ›" are removed. The review sheet's own summary
+  ("Nothing here goes into Tasks.", before Save) is unchanged.
 - **One tree for the width, never two.** The page renders the phone layout OR
   the desktop one (`useIsDesktop`, Tailwind's `lg`), not both with CSS hiding
   one: a portaled dialog escapes `display:none`, so two trees meant one tap
