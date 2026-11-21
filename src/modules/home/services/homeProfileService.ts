@@ -32,7 +32,7 @@ export type HomeArea = {
   tableVersion: string
 }
 
-function toArea(v: unknown): HomeArea | null {
+export function toArea(v: unknown): HomeArea | null {
   if (!v || typeof v !== "object") return null
   const r = v as Record<string, unknown>
   const hz = (x: unknown): Hazard[] =>

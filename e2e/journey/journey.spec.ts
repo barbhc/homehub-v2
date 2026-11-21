@@ -108,37 +108,27 @@ async function signInSeeded(page: Page) {
 
 test.describe("journey walks", () => {
   test("J1 — onboarding: brand-new person to first item", async ({ page }) => {
-    await page.goto("/")
-    await snap(page, "J1", "landing", "Marketing page: hero copy, Get started, Sign in — no errors",
-      page.getByRole("heading", { name: /Everything your home needs/i }).first())
-
-    // Fresh account every run — the emulator is cleared+seeded per invocation,
-    // and a unique address keeps re-runs against a warm emulator honest too.
-    const email = `journey-${Date.now()}@homehub.test`
-    await page.goto("/signup")
-    await snap(page, "J1", "signup", "Auth card in create-account mode: email+password, Apple, magic link",
-      page.getByRole("button", { name: /^create account$/i }).first())
-    await page.locator('input[type="email"]').fill(email)
-    await page.locator('input[type="password"]').fill("JourneyWalk!2026")
-    await page.getByRole("button", { name: /^create account$/i }).click()
-
     // The first list is THIS MONTH's, so the walk pins the page clock to the
     // approved mock's day (Wed 18 Nov 2026) to assert the mock's rows in any
-    // month. Pinned after sign-up, as e2e/fixtures.ts does after auth, and with
-    // setFixedTime (not install), so timers keep running.
+    // month — with setFixedTime (not install), so timers keep running.
     await page.clock.setFixedTime(new Date("2026-11-18T10:00:00"))
+    await page.goto("/")
+    await snap(page, "J1", "landing", "Marketing page: hero copy and one Get started button (no email box), Sign in top right — no errors",
+      page.getByRole("heading", { name: /Everything your home needs/i }).first())
 
-    // First landing signed-in with no home → the first minute (D8,
-    // design/first-minute-onboarding.md): zip → area → this month's list.
+    // account-after-list (design/account-after-list.md): Get started goes
+    // straight to the zip. No account, no invite code — and nothing is written
+    // until "Keep your list" makes the account.
+    await page.getByRole("link", { name: "Get started" }).first().click()
     const zipField = page.getByLabel("Zip code")
     await expect(zipField.filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J1", "zip", "Step 1 of 3: Where's home? — one line on why, five digits only, 'never your street', Skip for now; no invite-code field (the seed turns the gate OFF)",
+    await expect(page.getByLabel(/invite code/i)).toHaveCount(0)
+    await snap(page, "J1", "zip", "Step 1 of 3, signed out: Where's home? — one line on why, five digits only, 'never your street', Skip for now; no invite-code field",
       zipField)
     await zipField.fill("94110")
     await page.getByRole("button", { name: /^Continue$/ }).click()
 
     // Step 2: only the facts that change this month's list, each with its source.
-    await page.waitForURL(/\/onboarding\/first/, { timeout: 20_000 })
     await expect(page.getByText("94110 · San Francisco County")).toBeVisible({ timeout: 20_000 })
     const freeze = page.getByRole("listitem").filter({ hasText: "Pipes rarely freeze here" })
     await expect(freeze).toContainText("A typical winter's coldest night is 35 to 40°F.")
@@ -162,9 +152,26 @@ test.describe("journey walks", () => {
     await expect(rows.nth(2)).toContainText("Check the water heater's quake straps")
     await expect(page.getByTestId("not-on-your-list")).toContainText("Winterizing: it rarely freezes here.")
     await rows.nth(2).getByRole("radio", { name: "Yes" }).click()
-    await snap(page, "J1", "first-list", "Step 3 of 3: Worth doing this month — alarms ✓, air filter asks, quake straps answered Yes; 'Not on your list' names winterizing and the roof; Add 2 tasks",
+    await snap(page, "J1", "first-list", "Step 3 of 3: Worth doing this month — alarms ✓, air filter asks, quake straps answered Yes; 'Not on your list' names winterizing and the roof; '2 picked, not added yet'; Add 2 tasks",
       page.getByRole("button", { name: "Add 2 tasks" }))
     await page.getByRole("button", { name: "Add 2 tasks" }).click()
+
+    // Keep your list: the account ask, over the list it saves.
+    const sheet = page.getByTestId("keep-list-sheet")
+    await expect(sheet.getByRole("heading", { name: "Keep your list" })).toBeVisible({ timeout: 10_000 })
+    await expect(sheet.getByRole("button", { name: "Continue with Apple" })).toBeVisible()
+    await snap(page, "J1", "keep-your-list", "Keep your list sheet over the list: 'Make a free account to save these 2 tasks.' — Continue with Apple, Continue with email, Terms line",
+      sheet.getByRole("button", { name: "Continue with email" }), { viewportOnly: true })
+    await sheet.getByRole("button", { name: "Continue with email" }).click()
+    // Fresh account every run — the emulator is cleared+seeded per invocation,
+    // and a unique address keeps re-runs against a warm emulator honest too.
+    const email = `journey-${Date.now()}@homehub.test`
+    await sheet.getByLabel("Email").fill(email)
+    await sheet.getByLabel("Password", { exact: true }).fill("JourneyWalk!2026")
+    await expect(sheet.getByLabel(/name/i)).toHaveCount(0)
+    await snap(page, "J1", "keep-email", "Email in the same sheet: Other ways, Email, Password (no name field), Create account, 'Already have an account? Sign in'",
+      sheet.getByRole("button", { name: "Create account" }), { viewportOnly: true })
+    await sheet.getByRole("button", { name: "Create account" }).click()
 
     // must-be-true 11 + D8's Home fix: the tasks are on This week the same
     // day. The next step (design/day-one-home.md) is "What's in your home?" —

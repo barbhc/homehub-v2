@@ -31,7 +31,6 @@ export {
 
 export { HomeProvider, useCurrentHome, useCurrentPropertyCompat } from "./components/HomeProvider"
 export { HomeGate } from "./components/HomeGate"
-export { HomeOnboarding } from "./components/HomeOnboarding"
 export { HomeProfileOnboarding } from "./components/HomeProfileOnboarding"
 
 export {

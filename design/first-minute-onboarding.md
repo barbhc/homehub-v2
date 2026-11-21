@@ -4,6 +4,12 @@
 Build-ready mock (real captures from the seeded emulator, rearranged): https://claude.ai/artifact/2VnY3jhXgB2ALEVkB8CzQC
 Research and the four versions that lost: https://claude.ai/artifact/K9hhfgysCBHpiXB1pEz4Wz
 
+> **Superseded in part, 2026-11-20 — `design/account-after-list.md`.** Step 0 (sign in)
+> moved to the end: zip, area and list now run with no account and write nothing;
+> "Keep your list" asks for the account at Add / Not now, and the home is created
+> then. The invite-code field on step 1 is gone. Decision 3 below ("the list comes
+> right after sign-in") now reads "the list comes before sign-in".
+
 ## Why
 
 A friend at the Nov 17 demo (BACKLOG D8) did not want setup before seeing anything
