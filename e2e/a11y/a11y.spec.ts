@@ -49,6 +49,8 @@ const SIGNED_OUT_PAGES: PageCase[] = [
   { name: "sign-in", path: "/signin", ready: /welcome back/i },
   { name: "reset-password (bad link)", path: "/reset-password", ready: /that link didn't work/i },
   { name: "not-found", path: "/no-such-page", ready: /page not found/i },
+  // account-after-list: the first minute is a visitor's page now (no account).
+  { name: "first minute (zip)", path: "/onboarding/first", ready: /where's home/i },
 ]
 
 /**

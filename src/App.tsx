@@ -154,15 +154,10 @@ function App() {
               <Route path="/invite/:token" element={<AcceptInvite />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
-              {/* D8: the first minute after the zip — area facts, then this month's list. */}
-              <Route
-                path="/onboarding/first"
-                element={
-                  <AuthGate>
-                    <FirstMinute />
-                  </AuthGate>
-                }
-              />
+              {/* D8 + account-after-list: the first minute — zip, area, this month's
+                  list — runs BEFORE any account. No AuthGate: it writes nothing
+                  until "Keep your list" signs them in (design/account-after-list.md). */}
+              <Route path="/onboarding/first" element={<FirstMinute />} />
               <Route
                 path="/onboarding/profile"
                 element={

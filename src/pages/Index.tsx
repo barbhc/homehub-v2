@@ -1,13 +1,13 @@
-import { useEffect, useRef } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useEffect } from "react"
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/modules/auth"
-import { HomeOnboarding, useCurrentHome } from "@/modules/home"
+import { useCurrentHome } from "@/modules/home"
 import Landing from "@/pages/Landing"
 
 /**
  * Entry at "/": marketing landing, onboarding, or redirect to the app.
  * - Not authenticated → marketing Landing (sign-in lives at /signin)
- * - Authenticated, no home → HomeOnboarding
+ * - Authenticated, no home → the first minute (/onboarding/first), which saves on tap
  * - Authenticated, has home → redirect to /home
  */
 export default function Index() {
@@ -18,15 +18,7 @@ export default function Index() {
 
   const returnTo = searchParams.get("returnTo")
 
-  // Set the moment onboarding hands off to the profile step. Without it, the
-  // redirect effect below fires on Index's final render (home just landed in
-  // context) and its navigate("/home") stomps the funnel's navigate to
-  // /onboarding/profile — every new user skipped the profile questions and
-  // the first-item step behind them.
-  const funnelingRef = useRef(false)
-
   useEffect(() => {
-    if (funnelingRef.current) return
     if (!user || homeLoading) return
     if (home) {
       navigate(returnTo || "/home", { replace: true })
@@ -70,24 +62,9 @@ export default function Index() {
     )
   }
 
-  if (!home) {
-    return (
-      <div className="min-h-screen bg-background px-6 pt-10 pb-10">
-        <HomeOnboarding
-          onComplete={async (homeId) => {
-            funnelingRef.current = true
-            // Pass the created home's id: refresh() polls until the members
-            // collection-group query can actually see it (HomeProvider.load).
-            await refresh(homeId)
-            // D8: the zip (or Skip) created the home; the area facts and this
-            // month's list come next. The old five profile questions are no
-            // longer on the way in — they live in Settings, Your home.
-            navigate("/onboarding/first", { replace: true })
-          }}
-        />
-      </div>
-    )
-  }
+  // Signed in with no home (an account made at /signup, or a deleted home):
+  // the same first minute a new visitor walks; with an account it saves on tap.
+  if (!home && !returnTo?.startsWith("/invite/")) return <Navigate to="/onboarding/first" replace />
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

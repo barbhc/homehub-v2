@@ -20,6 +20,7 @@ import {
   type User as FirebaseUser,
 } from "firebase/auth"
 import { auth } from "@/integrations/firebase"
+import { clearDraft } from "@/modules/home/services/firstMinuteDraft"
 import { isNativePlatform } from "@/lib/native"
 import { clearPersistedSwrCache } from "@/lib/swrPersist"
 import { clearDoneQueue, writeAllDonesNow } from "@/components/home/tasks/doneQueue"
@@ -43,6 +44,9 @@ const AuthContext = createContext<AuthState | null>(null)
 /** An Apple sign-in via redirect (the native shell — WKWebView blocks popups) reports
  *  failures only on the return page load. Stash the message so SignInForm can show it. */
 export const APPLE_REDIRECT_ERROR_KEY = "homehub:appleRedirectError"
+/** Fired once the stashed message is there: the return load usually renders
+ *  the screen BEFORE getRedirectResult settles, so a read on mount misses it. */
+export const APPLE_REDIRECT_ERROR_EVENT = "homehub:appleRedirectError"
 
 /** Firebase user → the app's minimal AuthUser (id = uid). */
 function toAuthUser(u: FirebaseUser | null): AuthUser | null {
@@ -84,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       .catch((err) => {
         window.sessionStorage.setItem(APPLE_REDIRECT_ERROR_KEY, toError(err).message)
+        window.dispatchEvent(new Event(APPLE_REDIRECT_ERROR_EVENT))
       })
 
     let lastUid: string | null = null
@@ -139,6 +144,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // this device never briefly sees the previous user's home.
     clearPersistedSwrCache()
     clearCachedHome()
+    // An unsaved first-minute list is this person's; the next account on this
+    // device must never inherit it (design/account-after-list.md).
+    clearDraft()
     // A Done tapped just before signing out said "Done": write it while this
     // account is still signed in (bounded — sign-out never hangs). Then clear
     // the queue: the next account must never see "Couldn't mark X done" for

@@ -10,7 +10,8 @@ test.describe("v2 boot smoke", () => {
   test("landing renders", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Everything your home needs, in one place.")).toBeVisible()
-    await expect(page.getByRole("button", { name: /get started/i })).toBeVisible()
+    // A link since account-after-list: it opens the zip step, no form to submit.
+    await expect(page.getByRole("link", { name: /get started/i }).first()).toBeVisible()
   })
 
   test("sign-in card renders at /signin", async ({ page }) => {
