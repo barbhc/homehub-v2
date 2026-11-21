@@ -27,7 +27,7 @@ export function TaskStatusLine({ tier, when, tone = "plain", className }: {
 }) {
   const t = tierWord(tier)
   return (
-    <span className={cn("block text-[0.8125rem] leading-[1.125rem] font-semibold", className)} style={{ color: SUB }} data-testid="task-status">
+    <span className={cn("block text-[0.8125rem] leading-[1.38] font-semibold", className)} style={{ color: SUB }} data-testid="task-status">
       <span style={{ color: t.color }}>{t.label}</span>
       {when && (
         <>
@@ -43,7 +43,7 @@ export function TaskStatusLine({ tier, when, tone = "plain", className }: {
 export function TaskSupplyLine({ text, place }: { text: string; place?: string | null }) {
   const pro = isProLine(text)
   return (
-    <div className="flex items-start gap-2.5 rounded-[10px] px-3 py-2.5 text-[0.9375rem] leading-5" style={{ background: "var(--hh-surface2)", color: INK }} data-testid="prep-line">
+    <div className="flex items-start gap-2.5 rounded-[10px] px-3 py-2.5 text-[0.9375rem] leading-[1.33]" style={{ background: "var(--hh-surface2)", color: INK }} data-testid="prep-line">
       <span className="mt-px shrink-0" style={{ color: SUB }} aria-hidden>
         {pro ? <PhoneIcon className="size-[18px]" /> : <PackageIcon className="size-[18px]" />}
       </span>

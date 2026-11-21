@@ -80,7 +80,7 @@ export function DesktopHome({
               onComplete={onComplete}
               onSnooze={onSnooze}
             />
-            <ComingUp upcoming={upcoming} forecast={comingUp} />
+            <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} />
             {nextStep && <div className="max-w-xl">{nextStep}</div>}
           </div>
           <div className="flex flex-col gap-6">

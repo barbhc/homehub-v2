@@ -35,7 +35,7 @@ function Section({ label, right, children, testId }: { label: string; right?: Re
   return (
     <section className="flex flex-col gap-2" data-testid={testId} aria-label={label}>
       <div className="flex items-baseline justify-between pl-0.5">
-        <span className="text-xs font-bold uppercase leading-4 tracking-[0.6px]" style={{ color: SUB }}>{label}</span>
+        <span className="text-xs font-bold uppercase leading-[1.33] tracking-[0.6px]" style={{ color: SUB }}>{label}</span>
         {right}
       </div>
       {children}
@@ -81,8 +81,8 @@ function Row({ icon, tone, title, sub, action, first, to, onClick, testId }: {
     >
       <IconTile icon={icon} tone={tone} />
       <span className="min-w-0 flex-1">
-        <span className="block text-[1.0625rem] font-semibold leading-[1.375rem] [overflow-wrap:anywhere]" style={{ color: INK }}>{title}</span>
-        {sub && <span className="mt-0.5 block text-[0.8125rem] leading-[1.125rem] [overflow-wrap:anywhere]" style={{ color: SUB }}>{sub}</span>}
+        <span className="block text-[1.0625rem] font-semibold leading-[1.3] [overflow-wrap:anywhere]" style={{ color: INK }}>{title}</span>
+        {sub && <span className="mt-0.5 block text-[0.8125rem] leading-[1.38] [overflow-wrap:anywhere]" style={{ color: SUB }}>{sub}</span>}
       </span>
       {action
         ? <span className="shrink-0 text-[0.9375rem] font-semibold" style={{ color: TEAL }}>{action}</span>
@@ -144,8 +144,8 @@ export function NextUp({ homeId, tasks, upcoming, nextUp = null, completingId, a
     return (
       <Section label="Next up" testId="next-up">
         <div className={`${CARD} px-4 py-4`} style={{ background: SURFACE, borderColor: LINE }} data-testid="next-up-quiet">
-          <p className="text-[1.0625rem] font-semibold leading-[1.375rem]" style={{ color: INK }}>Nothing due this week</p>
-          <p className="mt-0.5 text-[0.9375rem] leading-5" style={{ color: SUB }}>
+          <p className="text-[1.0625rem] font-semibold leading-[1.3]" style={{ color: INK }}>Nothing due this week</p>
+          <p className="mt-0.5 text-[0.9375rem] leading-[1.33]" style={{ color: SUB }}>
             {/* HH-92: never "nothing is scheduled" over scheduled work. */}
             {ahead?.dueDate
               ? `Next up: ${ahead.title.toLowerCase()}, ${fmtShortDate(ahead.dueDate)}.`
@@ -200,8 +200,8 @@ function NextUpCard({ row, homeId, completing, error, onComplete, onSnooze }: {
       <Link to={`/tasks/${row.id}`} aria-label={`Open ${row.title}`} className="flex items-start gap-3">
         <span className="min-w-0 flex-1">
           <TaskStatusLine tier={row.tier} when={when} tone={tone} />
-          <span className="mt-1 block text-[1.25rem] font-semibold leading-[1.5625rem] tracking-[-0.2px]" style={{ color: INK }} data-testid="next-up-title">{row.title}</span>
-          {meta && <span className="mt-1 block text-[0.9375rem] leading-5" style={{ color: SUB }}>{meta}</span>}
+          <span className="mt-1 block text-[1.25rem] font-semibold leading-[1.25] tracking-[-0.2px]" style={{ color: INK }} data-testid="next-up-title">{row.title}</span>
+          {meta && <span className="mt-1 block text-[0.9375rem] leading-[1.33]" style={{ color: SUB }}>{meta}</span>}
         </span>
         <ChevronRightIcon className="mt-6 size-5 shrink-0" style={{ color: FAINT }} aria-hidden />
       </Link>
@@ -258,12 +258,15 @@ export function HeadsUp({ recalls, ready, warranties }: {
 
 // ── Coming up ─────────────────────────────────────────────────────────────────
 
-export function ComingUp({ upcoming, forecast = null }: {
+export function ComingUp({ tasks, upcoming, forecast = null }: {
+  /** The urgent feed, so a task that is Next up (or in this week) is not repeated here. */
+  tasks: DashboardTask[]
   upcoming: MaintenanceTaskFull[]
   /** Each task's next round (stats.comingUp), shown when nothing is on the calendar after this week. */
   forecast?: ComingUpForecast | null
 }) {
-  const rows = comingUpRows(upcoming, localToday(), 3, forecast)
+  const today = localToday()
+  const rows = comingUpRows(upcoming, today, 3, forecast, weekRows(tasks, upcoming, today))
   if (rows.length === 0) return null
   return (
     <Section
@@ -275,13 +278,13 @@ export function ComingUp({ upcoming, forecast = null }: {
         {rows.map((r, i) => (
           <Link key={r.id} to={r.href} className="flex min-h-[60px] items-center gap-3 px-3.5 py-3" style={{ borderTop: i === 0 ? "none" : `1px solid ${LINE}` }} data-testid="coming-up-row">
             {/* Month always; the day only for a real deadline (design/due-windows.md). */}
-            <span className="flex size-11 shrink-0 flex-col items-center justify-center rounded-[10px] leading-none" style={{ background: "var(--hh-surface2)" }} aria-label={r.day ? `${r.month} ${r.day}` : r.month}>
+            <span className="flex min-h-11 min-w-11 shrink-0 flex-col items-center justify-center rounded-[10px] px-1.5 py-1 leading-none" style={{ background: "var(--hh-surface2)" }} aria-label={r.day ? `${r.month} ${r.day}` : r.month}>
               <span className="text-xs font-bold tracking-[0.5px]" style={{ color: CLAY }}>{r.month}</span>
               {r.day && <span className="mt-1 text-[1.0625rem] font-bold" style={{ color: INK }}>{r.day}</span>}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[1.0625rem] font-semibold leading-[1.375rem]" style={{ color: INK }}>{r.title}</span>
-              <span className="mt-0.5 block text-[0.8125rem] leading-[1.125rem]" style={{ color: SUB }}>{r.item}</span>
+              <span className="block text-[1.0625rem] font-semibold leading-[1.3]" style={{ color: INK }}>{r.title}</span>
+              <span className="mt-0.5 block text-[0.8125rem] leading-[1.38]" style={{ color: SUB }}>{r.item}</span>
             </span>
           </Link>
         ))}

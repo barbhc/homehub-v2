@@ -140,7 +140,7 @@ export function RefinedHome({
           onSnooze={onSnooze}
         />
         <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} />
-        <ComingUp upcoming={upcoming} forecast={comingUp} />
+        <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} />
         {nextStep}
         {homeId && <PinchAndPinned homeId={homeId} />}
       </div>

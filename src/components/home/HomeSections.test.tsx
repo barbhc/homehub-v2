@@ -66,7 +66,7 @@ describe("sections that hide when they have nothing to say", () => {
   })
 
   it("Coming up is not rendered with nothing after this week", () => {
-    wrap(<ComingUp upcoming={[]} />)
+    wrap(<ComingUp tasks={[]} upcoming={[]} />)
     expect(screen.queryByTestId("coming-up")).toBeNull()
   })
 

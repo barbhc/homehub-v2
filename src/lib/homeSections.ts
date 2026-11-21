@@ -83,7 +83,7 @@ export function headsUpRows(input: {
     rows.push({ kind: "recall", key: `recall:${r.item_unit_id}`, title: `Safety notice for ${r.display_name}`, sub: r.recall_notes?.trim() || "Check whether your model is affected", itemId: r.item_unit_id })
   }
   for (const e of input.ready) {
-    rows.push({ kind: "review", key: `review:${e.manualId}`, title: "A manual is ready to review", sub: e.title, itemId: e.itemUnitId, manualId: e.manualId })
+    rows.push({ kind: "review", key: `review:${e.manualId}`, title: "Manual ready to review", sub: e.title, itemId: e.itemUnitId, manualId: e.manualId })
   }
   const w = timelyWarranty(input.warranties)
   if (w) {
@@ -109,10 +109,15 @@ export type ComingRow = { id: string; title: string; item: string; month: string
  * the day only for a real deadline. A window has no day, and printing one
  * would invent a promise the task never made (design/due-windows.md).
  */
-export function comingUpRows(upcoming: MaintenanceTaskFull[], today: string, limit = 3, forecast: ComingUp | null = null): ComingRow[] {
+export function comingUpRows(
+  upcoming: MaintenanceTaskFull[], today: string, limit = 3, forecast: ComingUp | null = null,
+  /** This week's tasks (Next up and "N more"): never repeated under Coming up. */
+  thisWeek: { id: string; title: string; itemName: string | null }[] = [],
+): ComingRow[] {
   const weekEnd = addDays(today, WEEK_DAYS)
+  const sameTask = (t: MaintenanceTaskFull) => thisWeek.some((w) => w.id === t.id || (w.title === t.title && (w.itemName ?? null) === (t.itemName ?? null)))
   const rows: ComingRow[] = upcoming
-    .filter((t) => !!t.next_due_date && t.next_due_date > weekEnd)
+    .filter((t) => !!t.next_due_date && t.next_due_date > weekEnd && !sameTask(t))
     .sort((a, b) => (a.next_due_date! < b.next_due_date! ? -1 : a.next_due_date! > b.next_due_date! ? 1 : 0))
     .slice(0, limit)
     .map((t) => ({

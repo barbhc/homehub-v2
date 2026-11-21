@@ -42,7 +42,7 @@ test.describe("emulator e2e — Home: Next up and what Tasks can't show", () => 
     expect([...order].sort((a, b) => a! - b!)).toEqual(order)
 
     // Heads up: the seeded microwave manual waits for review.
-    await expect(page.getByTestId("heads-up").filter(visible)).toContainText("A manual is ready to review")
+    await expect(page.getByTestId("heads-up").filter(visible)).toContainText("Manual ready to review")
     // In a pinch: the seeded providers fill Your pros; unnoted shutoffs say Add.
     const pinch = page.getByTestId("in-a-pinch").filter(visible)
     await expect(pinch).toContainText("Water shutoff")

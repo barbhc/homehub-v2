@@ -81,6 +81,12 @@ describe("Coming up", () => {
     expect(rows.map((r) => r.id)).toEqual(["d", "c", "a"])
   })
 
+  it("never repeats a task that is already in this week (Next up), even as a later round", () => {
+    const rows = comingUpRows([task("next-round", "2026-07-20", { title: "Replace filter", itemName: "Furnace" }), task("other", "2026-07-25")], today, 3, null,
+      [{ id: "now", title: "Replace filter", itemName: "Furnace" }])
+    expect(rows.map((r) => r.id)).toEqual(["other"])
+  })
+
   it("a new home with nothing on the calendar yet shows each task's next round, month only", () => {
     const rows = comingUpRows([], today, 3, { date: "2026-12-01", titles: ["Test smoke and CO alarms"], again: true })
     expect(rows).toEqual([{ id: "forecast:Test smoke and CO alarms", title: "Test smoke and CO alarms", item: "Its next round", month: "DEC", day: null, href: "/maintenance" }])
