@@ -9,12 +9,12 @@ export function ScanTrayProvider({ homeId, children }: { homeId: string | null; 
   return <ScanTrayContext.Provider value={tray}>{children}</ScanTrayContext.Provider>
 }
 
-/** The small count on the Items tab. Nothing when there is nothing. */
+/** The small count on the Items tab. Nothing when there is nothing. Its size follows the tab labels, which stop growing at 1.5x Larger Text. */
 export function ScanCountBadge({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null
   return (
     <span aria-hidden="true" data-testid="scan-count"
-      className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-xs font-bold leading-none ${className ?? ""}`}
+      className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[length:var(--hh-tabbar-label)] font-bold leading-none ${className ?? ""}`}
       style={{ background: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" }}>
       {count}
     </span>
