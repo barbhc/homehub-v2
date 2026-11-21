@@ -14,7 +14,10 @@ export function AppleButton({ label, onClick, disabled }: { label: string; onCli
   return (
     <button
       type="button" onClick={onClick} disabled={disabled}
-      className="w-full inline-flex items-center justify-center gap-2.5 rounded-[14px] py-[14px] text-[0.9375rem] font-bold text-white bg-black disabled:opacity-70"
+      // Apple's two styles: black on a light screen, white on a dark one. The
+      // ink/background tokens flip with the theme, so the button follows it.
+      className="w-full inline-flex items-center justify-center gap-2.5 rounded-[14px] py-[14px] text-[0.9375rem] font-bold disabled:opacity-70"
+      style={{ background: "var(--hh-ink)", color: "var(--hh-bg)" }}
     >
       <AppleLogo size={18} /> {label}
     </button>

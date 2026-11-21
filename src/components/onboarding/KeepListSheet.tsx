@@ -39,7 +39,7 @@ export function KeepListSheet({ view, onClose, onRetry, onAddToExisting, onSkipE
   const saving = view?.kind === "saving"
   return (
     <Sheet open={view !== null} onOpenChange={(o) => { if (!o && !saving) onClose() }}>
-      <SheetContent side="bottom" className="rounded-t-3xl" showCloseButton={!saving} data-testid="keep-list-sheet">
+      <SheetContent side="bottom" className="mx-auto w-full max-w-md rounded-t-3xl" showCloseButton={!saving} data-testid="keep-list-sheet">
         {view?.kind === "ask" && <Ask key={view.title} title={view.title} description={view.description} initialError={view.error ?? null} />}
 
         {view?.kind === "saving" && (

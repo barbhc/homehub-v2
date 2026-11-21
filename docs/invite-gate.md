@@ -1,5 +1,12 @@
 # Invite gate — the growth throttle
 
+> **Retired from the client 2026-11-20 (owner decision; `design/account-after-list.md`).**
+> No screen asks for a code. `config/growth.inviteGateEnabled` is `false` in production,
+> so `admitted()` passes for everyone. The rules check and `redeemInviteCode` remain
+> deployed but dormant until a rules + functions deploy removes them. Cost is bounded by
+> the spend caps (`config/spend`), not by account count. Do not delete `config/growth`:
+> a missing doc turns the gate back ON and every new home is refused.
+
 A cap on how fast strangers arrive. It is three things at once, which is why it
 is worth the small amount of machinery:
 
