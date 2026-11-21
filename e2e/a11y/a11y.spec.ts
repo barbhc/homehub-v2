@@ -27,8 +27,10 @@ const PAGES: PageCase[] = [
   { name: "tasks", path: "/maintenance", ready: /Replace HVAC furnace filter/i },
   { name: "items", path: "/inventory", ready: /Bosch 800 Series Dishwasher/i },
   { name: "ask", path: "/chat", ready: /ask|help|question/i },
-  { name: "warranties", path: "/warranties", ready: /Bosch|coverage/i },
-  { name: "clean", path: "/clean", ready: /start cleaning|cleaning guides/i },
+  // Views of Items and Tasks since design/tasks-items-views.md (their old
+  // addresses redirect here).
+  { name: "warranties", path: "/inventory?view=warranties", ready: /Bosch|coverage/i },
+  { name: "clean", path: "/maintenance?view=cleaning", ready: /start cleaning|cleaning guides/i },
   { name: "providers", path: "/providers", ready: /Ace Heating & Air/i },
   { name: "settings", path: "/settings", ready: /settings|appearance|account/i },
 ]

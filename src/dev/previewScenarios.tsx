@@ -23,6 +23,10 @@ import { PageContainer, InlineError, StaleDataNote, LoadErrorState } from "@/com
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 import type { ItemUnit, Room } from "@/integrations/types"
+import { RefinedItems } from "@/components/home/RefinedItems"
+import { DesktopItems } from "@/components/home/DesktopItems"
+import { WarrantiesView } from "@/pages/WarrantiesPage"
+import { useItemsView } from "@/hooks/usePageView"
 
 const noop = () => {}
 
@@ -78,6 +82,31 @@ const itemPage = (item: ItemUnit) => (
     onBack={noop} onItemUpdate={noop} onEditDetails={noop}
   />
 )
+
+/** Items with the Items | Warranties control, composed as the Items page composes it. */
+function ItemsViews() {
+  const [view] = useItemsView()
+  const items = [
+    dishwasher({ warranty_expiry_date: "2099-12-05" }),
+    dishwasher({ item_unit_id: "i-fridge", display_name: "Refrigerator", category: "refrigerator", brand: "Bosch", warranty_expiry_date: "2020-04-14" }),
+    dishwasher({ item_unit_id: "i-furnace", display_name: "Furnace", category: "hvac", brand: "Carrier", room_id: null }),
+  ]
+  return (
+    <PageContainer>
+      <div className="lg:hidden -mx-6">
+        <div className="mx-auto w-full max-w-[460px]"><RefinedItems items={items} rooms={rooms} /></div>
+      </div>
+      <div className="hidden lg:block"><DesktopItems items={items} rooms={rooms} /></div>
+      {view === "warranties" && (
+        <div className="-mx-6 lg:mx-0">
+          <div className="mx-auto w-full max-w-[460px] px-5 lg:mx-0 lg:max-w-3xl lg:px-0">
+            <WarrantiesView items={items} rooms={rooms} />
+          </div>
+        </div>
+      )}
+    </PageContainer>
+  )
+}
 
 export const SCENARIOS: { id: string; note: string; render: () => ReactNode }[] = [
   {
@@ -143,6 +172,11 @@ export const SCENARIOS: { id: string; note: string; render: () => ReactNode }[] 
     id: "home-skeleton",
     note: "Home before its first read lands — shaped like Home, focused: greeting, Ask, one list with the first task open. No stat band.",
     render: () => <HomeSkeleton />,
+  },
+  {
+    id: "items-views",
+    note: "Items with its Items | Warranties segmented control (design/tasks-items-views.md). Add &view=warranties, or tap the control, for the Warranties view.",
+    render: () => <ItemsViews />,
   },
   {
     id: "home-skeleton-slow",

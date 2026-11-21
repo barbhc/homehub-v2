@@ -160,16 +160,17 @@ export const PAGES: Setup[] = [
   {
     name: "deep clean",
     open: async (page) => {
-      await gotoStable(page, "/clean")
-      // The hub's "This week" rows load after the guides; judge them too.
-      await page.getByRole("button", { name: /Mark done/ }).filter(visible).first().waitFor({ timeout: 20_000 })
+      // Tasks → Cleaning (design/tasks-items-views.md). Its old "This week"
+      // rows are gone; the guides load after the hero, so wait for one.
+      await gotoStable(page, "/maintenance?view=cleaning")
+      await page.getByText("Clean the Bosch 800 Series Dishwasher").filter(visible).first().waitFor({ timeout: 20_000 })
     },
   },
   ...([false, true] as const).map((session): Setup => ({
     // Deep Clean's setup (rooms, time budget), then the session checklist.
     name: session ? "deep clean session" : "deep clean setup",
     open: async (page) => {
-      await gotoStable(page, "/clean")
+      await gotoStable(page, "/maintenance?view=cleaning")
       await page.getByRole("button", { name: /Start cleaning/ }).filter(visible).first().click()
       await page.getByRole("button", { name: "Whole Home" }).filter(visible).first().waitFor({ timeout: 20_000 })
       if (session) {

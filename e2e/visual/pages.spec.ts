@@ -25,8 +25,10 @@ const PAGES: PageCase[] = [
   { name: "tasks", path: "/maintenance", ready: /Replace HVAC furnace filter/i },
   { name: "items", path: "/inventory", ready: /Bosch 800 Series Dishwasher/i },
   { name: "ask", path: "/chat", ready: /ask|help|question/i },
-  { name: "warranties", path: "/warranties", ready: /Bosch|Carrier|coverage/i },
-  { name: "clean", path: "/clean", ready: /start cleaning|cleaning guides|this week/i },
+  // Views of Items and Tasks since design/tasks-items-views.md (their old
+  // addresses redirect here). Both baselines need re-baking for that change.
+  { name: "warranties", path: "/inventory?view=warranties", ready: /Bosch|Carrier|coverage/i },
+  { name: "clean", path: "/maintenance?view=cleaning", ready: /start cleaning|cleaning guides/i },
   { name: "providers", path: "/providers", ready: /Ace Heating & Air/i },
   { name: "settings", path: "/settings", ready: /settings|appearance|account/i },
 ]
@@ -75,7 +77,7 @@ for (const p of PAGES) {
 test("item detail page matches snapshot", async ({ page }) => {
   await gotoStable(page, "/inventory")
   // Exact match so the item CARD is clicked, not a "Clean the <item>" guide
-  // link (which navigates to /clean).
+  // link (which navigates to /clean/:itemUnitId).
   const card = page.getByText("Bosch 800 Series Dishwasher", { exact: true }).filter({ visible: true }).first()
   await card.waitFor({ timeout: 20_000 })
   await card.click()

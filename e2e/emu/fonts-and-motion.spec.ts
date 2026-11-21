@@ -60,7 +60,7 @@ test.describe("self-hosted fonts", () => {
 /**
  * Mount probe elements carrying the real utility classes and read their
  * computed motion. The classes are the app's own compiled CSS (skeleton.tsx,
- * ItemDetailPage and WarrantiesPage use animate-pulse; 60 call sites use
+ * and ItemDetailPage use animate-pulse; 60 call sites use
  * animate-spin), so the computed style is exactly what a rendered skeleton or
  * spinner gets — without racing a loading state that lasts a few frames.
  */

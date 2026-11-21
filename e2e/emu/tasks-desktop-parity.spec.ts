@@ -8,8 +8,8 @@ import { test, expect, type Route } from "@playwright/test"
  *  · HH-94's footer. The seeded home has scheduled tasks AND item-scoped
  *    cleaning (oven door glass, dishwasher descale, fridge shelves), which the
  *    agenda withholds by design. With tasks on the list, the list must still
- *    say where that work lives: "N cleaning jobs for your items live in Deep
- *    Clean →". It could never render — the count was only taken for an EMPTY
+ *    say where that work lives: "N cleaning jobs for your items live in
+ *    Cleaning →" (Tasks → Cleaning, design/tasks-items-views.md). It could never render — the count was only taken for an EMPTY
  *    agenda — and desktop had no footer at all.
  *  · The Suggested group renders ONCE at desktop width, below every task. It
  *    was nested in the groups.map and drawn inside each group's card.
@@ -18,7 +18,7 @@ import { test, expect, type Route } from "@playwright/test"
  * to the visible one.
  */
 const visible = { visible: true } as const
-const FOOTER = /\d+ cleaning jobs? for your items lives? in Clean/
+const FOOTER = /\d+ cleaning jobs? for your items lives? in Cleaning/
 
 /** The completeTask callable, failed at the network layer — no write lands,
  *  so nothing in the shared emulator changes. */
@@ -41,7 +41,7 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
 
     const footer = page.getByRole("link", { name: FOOTER }).filter(visible)
     await expect(footer).toHaveCount(1)
-    await expect(footer).toHaveAttribute("href", "/clean")
+    await expect(footer).toHaveAttribute("href", "/maintenance?view=cleaning")
     // At least the three seeded item-cleaning jobs.
     const n = Number((await footer.textContent())?.match(/(\d+) cleaning/)?.[1] ?? 0)
     expect(n).toBeGreaterThanOrEqual(3)
@@ -116,7 +116,7 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
     await page.screenshot({ path: test.info().outputPath("tasks-phone-refused-checkoff-390.png") })
   })
 
-  test("phone (390px): the same footer, and it goes to Clean", async ({ page }) => {
+  test("phone (390px): the same footer, and it goes to Tasks → Cleaning", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto("/maintenance")
     await expect(page.getByText("Replace HVAC furnace filter").filter(visible)).toBeVisible({ timeout: 20_000 })
@@ -124,6 +124,8 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
     const footer = page.getByRole("link", { name: FOOTER }).filter(visible)
     await expect(footer).toHaveCount(1)
     await footer.click()
-    await expect(page).toHaveURL(/\/clean$/)
+    await expect(page).toHaveURL(/\/maintenance\?view=cleaning$/)
+    await expect(page.getByRole("tab", { name: "Cleaning", selected: true }).filter(visible)).toHaveCount(1)
+    await expect(page.getByText("Start cleaning").filter(visible)).toBeVisible()
   })
 })
