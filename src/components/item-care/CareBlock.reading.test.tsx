@@ -127,8 +127,8 @@ describe("S3c — after Save, a manual with no maintenance says where its upkeep
   it("S3c.3 — a row with a cadence shows it in its meta line", () => {
     renderCare({ hasManual: true, tasks: SAVED })
     const rows = screen.getAllByTestId("care-row").map((r) => r.textContent ?? "")
-    expect(rows.find((t) => t.includes("Wipe the drawer interior"))).toMatch(/Weekly · 5 min · Deep Clean/)
-    expect(rows.find((t) => t.includes("Clean the waveguide cover"))).toMatch(/Monthly · 5 min · Deep Clean/)
+    expect(rows.find((t) => t.includes("Wipe the drawer interior"))).toMatch(/Weekly · 5 min · Clean/)
+    expect(rows.find((t) => t.includes("Clean the waveguide cover"))).toMatch(/Monthly · 5 min · Clean/)
   })
 
   it("S3c.4 — no row shows a bell, not even an Essential cleaning job with a cadence", () => {

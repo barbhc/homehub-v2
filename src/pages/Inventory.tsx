@@ -72,7 +72,7 @@ export default function Inventory() {
               redesigned page — but retitling the empty state is the owner's
               call, so it is left as it was. */}
           <PageHeader
-            title="Inventory"
+            title="Items"
             action={
               <Button asChild className="gap-2" size="sm">
                 <Link to="/inventory/add">

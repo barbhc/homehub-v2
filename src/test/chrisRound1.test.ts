@@ -268,9 +268,9 @@ describe("round 10 — the overnight fallout, pinned", () => {
     expect(sheet).toContain("on a schedule")
   })
 
-  it("HH-97: no leading chip; the marker is meta text naming Deep Clean", () => {
+  it("HH-97: no leading chip; the marker is meta text naming Clean", () => {
     expect(care).not.toContain("In guides")
-    expect(care).toContain('onAgenda ? "" : "Deep Clean"')
+    expect(care).toContain('onAgenda ? "" : "Clean"')
   })
 
   it("HH-94: a non-empty Tasks list still accounts for withheld cleaning", () => {

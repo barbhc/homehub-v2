@@ -18,7 +18,7 @@ import { test, expect, type Route } from "@playwright/test"
  * to the visible one.
  */
 const visible = { visible: true } as const
-const FOOTER = /\d+ cleaning jobs? for your items lives? in Deep Clean/
+const FOOTER = /\d+ cleaning jobs? for your items lives? in Clean/
 
 /** The completeTask callable, failed at the network layer — no write lands,
  *  so nothing in the shared emulator changes. */
@@ -116,7 +116,7 @@ test.describe("emulator e2e — the desktop Tasks tree matches the phone's", () 
     await page.screenshot({ path: test.info().outputPath("tasks-phone-refused-checkoff-390.png") })
   })
 
-  test("phone (390px): the same footer, and it goes to Deep Clean", async ({ page }) => {
+  test("phone (390px): the same footer, and it goes to Clean", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto("/maintenance")
     await expect(page.getByText("Replace HVAC furnace filter").filter(visible)).toBeVisible({ timeout: 20_000 })

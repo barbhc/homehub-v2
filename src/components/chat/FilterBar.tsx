@@ -169,7 +169,7 @@ export function FilterBar({
                   ref={inputRef}
                   type="text"
                   className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground/50 text-xs"
-                  placeholder="Search appliances…"
+                  placeholder="Search items…"
                   value={query}
                   onChange={handleInputChange}
                   onFocus={() => { if (query.trim().length >= 2) setOpen(true) }}
@@ -368,7 +368,7 @@ export function FilterBar({
                 ref={inputRef}
                 type="text"
                 className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground text-xs"
-                placeholder="Search appliances…"
+                placeholder="Search items…"
                 value={query}
                 onChange={handleInputChange}
                 onFocus={() => { if (query.trim().length >= 2) setOpen(true) }}

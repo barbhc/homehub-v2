@@ -374,14 +374,14 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                   and blindly prefixing the separator rendered a stray "· 15 min". */}
               {/* HH-97 (was HH-82's leading chip): the off-agenda marker lives
                   in the meta line now — the chip broke row alignment, and
-                  "In guides" named a concept nobody had met. "Deep Clean" is
-                  the surface's own name on Home, so the words point somewhere
+                  "In guides" named a concept nobody had met. "Clean" is
+                  the surface's own name in the nav, so the words point somewhere
                   visible. */}
               {/* The cadence moved to the chip on the right — same slot, same
                   mono, same box as the review's. What stays here is what the
                   chip cannot carry: effort, and the due phrase, which is the
                   most important thing on the row. */}
-              {[freqLabel(t), t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Deep Clean"].filter(Boolean).join(" · ")}
+              {[freqLabel(t), t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Clean"].filter(Boolean).join(" · ")}
               {due != null && days != null && (
                 <span style={{ color: neverStarted ? SUB : dueStatusColor(days), fontWeight: !neverStarted && days <= 7 ? 700 : 500 }}>
                   {" · "}{neverStarted ? "Start anytime" : duePhraseOf(t, due)}
