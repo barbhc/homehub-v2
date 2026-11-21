@@ -26,7 +26,7 @@ const { default: NotesPage } = await import("./NotesPage")
 const n = (id: string, scope: CareNote["scope"], content: string, room_id: string | null = null): CareNote => ({
   note_id: id, home_id: "h1", room_id, item_unit_id: scope === "item_unit" ? "furnace" : null, scope, category: null, chunk_type: "care",
   title: null, content, source: "user", source_url: null, task_template_id: null,
-  created_at: "2026-09-12T10:00:00Z", updated_at: "2026-09-12T10:00:00Z", deleted_at: null,
+  created_at: "2026-09-12T10:00:00Z", updated_at: "2026-09-12T10:00:00Z", deleted_at: null, pinned_at: null,
 })
 
 const at = (path: string) =>

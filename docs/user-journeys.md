@@ -262,13 +262,16 @@ Key mechanics:
   lapsed safety earns **"Worth doing — N safety checks have skipped a cycle"**
   (`computeInsight`); seasonal windows resolve against home climate; an empty
   agenda explains what's withheld.
-- Home is ONE list (`ThisWeekList`, design/home-focus.md): the week's tasks
-  with the first open; any row opens the same way and closes the other; the
-  open row is the task card: status line (tier · timing) above the title,
-  item · minutes as text, one supply line ("You'll need…" /
-  "Schedule a visit with a technician."), Mark done / Snooze (one size) and an arrow to the task page — the task card, `design/task-card.md`
-  → `/tasks/:id`. "All tasks" is the only door out. The stat band, the swipe
-  face, the Coming-up drawer and the 7-day strip are gone.
+- Home (design/home-next.md, owner 2026-11-21): **Ask** as one field; **Next up**,
+  the week's first task as the task card, with "N more this week" to Tasks;
+  **Heads up** (a recall, a manual ready to review, a warranty ending inside 60
+  days; hidden when empty); **Coming up** (up to three tasks after this week, a
+  month tile, the day only for a real deadline; a new home sees each task's next
+  round); the one next-step card; **In a pinch** (water, gas and power shutoffs
+  from house notes, then Your pros; an empty row says Add and opens that note;
+  a failed read says so, never Add); **Pinned by you** (notes pinned from House
+  notes; hidden when none). The week list, the warranty line and the desktop
+  recall rail are gone from Home.
 - Tasks: rows (phone and desktop) open in place into the task card (Mark
   done / Snooze; the arrow → `/tasks/:id`). Inside every group
   (any lens, both widths) a passed deadline leads, then rows run Essential →

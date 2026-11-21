@@ -178,13 +178,17 @@ test.describe("journey walks", () => {
     // a tap shows care and writes nothing; the label is its second way in,
     // and the camera opens only on tap.
     await page.waitForURL(/\/home/, { timeout: 20_000 })
-    await expect(page.getByText("Test smoke and CO alarms").filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByText("Check the water heater's quake straps").filter(visible).first()).toBeVisible()
+    // Home, next (design/home-next.md): the first task as Next up, the other one
+    // tap away in Tasks ("1 more this week"), each task's next round under
+    // Coming up, In a pinch asking for the basics.
+    await expect(page.getByTestId("next-up-title").filter(visible).first()).toHaveText("Test smoke and CO alarms", { timeout: 20_000 })
+    await expect(page.getByRole("link", { name: /1 more this week/ }).filter(visible)).toBeVisible()
     await expect(page.getByText("Let's set up your home")).toHaveCount(0)
     const nextCard = page.getByTestId("appliances-card").filter(visible).first()
     await expect(nextCard).toContainText("What's in your home?")
-    await expect(page.getByTestId("coming-up").filter(visible).first()).toContainText("Coming up in")
-    await snap(page, "J1", "home-first-tasks", "Home after the first minute: both tasks under This week, due this weekend; a 'Coming up in …' line; 'What's in your home?' appliance chips as the one next step, 'Snap a label instead' under them — no set-up hero, no tour yet",
+    await expect(page.getByTestId("coming-up").filter(visible).first()).toBeVisible()
+    await expect(page.getByTestId("in-a-pinch").filter(visible).first()).toContainText("Water shutoff")
+    await snap(page, "J1", "home-first-tasks", "Home after the first minute: 'Test smoke and CO alarms' as Next up with Mark done + Snooze, '1 more this week'; Coming up with its next round; 'What's in your home?' chips; In a pinch rows saying Add — no set-up hero, no tour yet",
       nextCard)
     await nextCard.getByRole("link", { name: /Snap a label instead/ }).click()
     await page.waitForURL(/\/inventory\/add/, { timeout: 20_000 })
@@ -488,7 +492,7 @@ test.describe("journey walks", () => {
     // Home, focused (design/home-focus.md): one list, the first task open as
     // the task card (design/task-card.md): status line, title, item and
     // minutes, a supply line when it needs something, Mark done + Snooze.
-    const openRow = page.locator('[data-testid="week-row"][data-open="true"]').filter(visible).first()
+    const openRow = page.getByTestId("next-up-card").filter(visible).first()
     await expect(openRow).toBeVisible({ timeout: 20_000 })
     await snap(page, "J4", "home-week", "Home: 'This week' with the first task open as the task card — 'Essential · Been a while' above the title, item and minutes as text (no pills), Mark done + Snooze the same size, an arrow to the task page; no stat band, no drawer",
       openRow)

@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test"
 
 /**
- * Home, focused (design/home-focus.md) on the seeded emulator: ONE list titled
- * This week, the first task open, any row opening the same way, "All tasks" as
- * the only door out — and when the open task leaves, the new first opens.
+ * Home, next (design/home-next.md, owner 2026-11-21) on the seeded emulator:
+ * ONE task as the task card, "N more this week" to Tasks, then only what Tasks
+ * can't show — Heads up, Coming up, In a pinch — and the old week list gone.
  *
  * Mark done needs the functions emulator (completeTask is a callable), so the
  * "task leaves" half rides on Snooze, a pure Firestore write with a visible
@@ -11,69 +11,65 @@ import { test, expect } from "@playwright/test"
  */
 const visible = { visible: true } as const
 
-test.describe("emulator e2e — Home: This week", () => {
-  test("first task open on arrival; a tap opens another and closes it; the door is All tasks", async ({ page }) => {
+test.describe("emulator e2e — Home: Next up and what Tasks can't show", () => {
+  test("one task card, then Heads up, Coming up and In a pinch, in that order; no week list", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    // Mobile + desktop Homes are both in the DOM; only one is visible.
-    const section = () => page.getByTestId("this-week").filter(visible)
-    const rows = () => section().getByTestId("week-row")
-
     await page.goto("/home")
-    await expect(section()).toBeVisible({ timeout: 20_000 })
-    await expect(section().getByText("This week", { exact: true })).toBeVisible()
+    const card = page.getByTestId("next-up-card").filter(visible)
+    await expect(card).toBeVisible({ timeout: 20_000 })
 
-    // The seed's lapsed essential leads, and it is open.
-    const first = rows().first()
-    await expect(first).toHaveAttribute("data-open", "true")
-    await expect(first).toContainText("Replace HVAC furnace filter")
-    await expect(first.getByRole("button", { name: "Mark done" })).toBeVisible()
-    // The task card (2026-11-21): the arrow opens the task's page; no "See details" link.
-    await expect(first.getByRole("link", { name: "Open Replace HVAC furnace filter" })).toHaveAttribute("href", /\/tasks\//)
+    // The seed's lapsed essential leads, as the task card.
+    await expect(card.getByTestId("next-up-title")).toHaveText("Replace HVAC furnace filter")
+    await expect(card.getByTestId("task-status")).toContainText("Essential")
+    await expect(card.getByRole("button", { name: "Mark done" })).toBeVisible()
+    await expect(card.getByRole("button", { name: "Snooze" })).toBeVisible()
+    await expect(card.getByRole("link", { name: "Open Replace HVAC furnace filter" })).toHaveAttribute("href", /\/tasks\//)
+    await expect(page.getByRole("link", { name: /more this week/ }).filter(visible)).toHaveAttribute("href", "/maintenance")
 
-    // Nothing the old Home carried survives: no stat band, no drawer, no strip.
-    // ("Coming up" is back, but as ONE line under the list naming the next
-    // due month — design/day-one-home.md, owner 2026-11-19 — not the drawer.)
-    await expect(page.getByText(/in their window|Full calendar view|across your home/)).toHaveCount(0)
-    await expect(page.getByTestId("coming-up").filter(visible)).toHaveCount(1)
+    // The week list is gone from Home: not rendered (it lives in Tasks).
+    await expect(page.getByTestId("this-week")).toHaveCount(0)
+    await expect(page.getByTestId("week-row")).toHaveCount(0)
+    // Only one task's title on Home: the second task is not here.
+    await expect(page.getByText("Test smoke & CO detectors", { exact: true }).filter(visible)).toHaveCount(0)
 
-    // Any row opens the same way, and the first closes.
-    const second = rows().nth(1)
-    await expect(second).toHaveAttribute("data-open", "false")
-    await second.getByRole("button", { expanded: false }).click()
-    await expect(second).toHaveAttribute("data-open", "true")
-    await expect(first).toHaveAttribute("data-open", "false")
-    await expect(second.getByRole("button", { name: "Mark done" })).toBeVisible()
+    // Order on the page: Next up, Heads up, Coming up, In a pinch.
+    const order = await page.evaluate(() =>
+      ["next-up", "heads-up", "coming-up", "in-a-pinch"].map((id) => {
+        const el = [...document.querySelectorAll(`[data-testid="${id}"]`)].find((e) => (e as HTMLElement).offsetParent)
+        return el ? Math.round(el.getBoundingClientRect().top) : null
+      }))
+    expect(order.every((y) => y !== null)).toBe(true)
+    expect([...order].sort((a, b) => a! - b!)).toEqual(order)
 
-    // One door out, and it says where it goes.
-    await expect(section().getByRole("link", { name: /All tasks/ })).toHaveAttribute("href", "/maintenance")
+    // Heads up: the seeded microwave manual waits for review.
+    await expect(page.getByTestId("heads-up").filter(visible)).toContainText("A manual is ready to review")
+    // In a pinch: the seeded providers fill Your pros; unnoted shutoffs say Add.
+    const pinch = page.getByTestId("in-a-pinch").filter(visible)
+    await expect(pinch).toContainText("Water shutoff")
+    await expect(pinch).toContainText("Your pros")
+    await expect(pinch.getByRole("link", { name: /Gas shutoff/ })).toHaveAttribute("href", "/inventory/notes?idea=Gas%20shutoff")
 
-    // No task is listed twice on the page.
-    await expect(page.getByText("Replace HVAC furnace filter", { exact: true }).filter(visible)).toHaveCount(1)
+    // Ask is one field: typing and sending opens Ask with the question.
+    await page.getByRole("textbox", { name: "Ask about your home" }).filter(visible).fill("Why is my furnace clicking?")
+    await page.getByRole("button", { name: "Ask", exact: true }).filter(visible).click()
+    await page.waitForURL(/\/chat/, { timeout: 10_000 })
     await expect(page.getByText(/Failed to load|Something went wrong/i)).toHaveCount(0)
   })
 
-  test("when the open task leaves, the new first opens in its place", async ({ page }) => {
+  test("when the task leaves, the next one takes its place", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    const section = () => page.getByTestId("this-week").filter(visible)
-    const rows = () => section().getByTestId("week-row")
-
     await page.goto("/home")
-    await expect(section()).toBeVisible({ timeout: 20_000 })
-    const before = await rows().count()
-    expect(before).toBeGreaterThan(1)
-    const leadTitle = (await rows().first().getByTestId("week-row-title").textContent())?.trim() ?? ""
+    const title = () => page.getByTestId("next-up-title").filter(visible)
+    await expect(title()).toBeVisible({ timeout: 20_000 })
+    const lead = ((await title().textContent()) ?? "").trim()
 
-    await rows().first().getByRole("button", { name: /Snooze/ }).click()
-    await expect(rows()).toHaveCount(before - 1, { timeout: 15_000 })
-    await expect(rows().first()).toHaveAttribute("data-open", "true")
-    await expect(rows().first()).not.toContainText(leadTitle)
+    await page.getByTestId("next-up-card").filter(visible).getByRole("button", { name: "Snooze" }).click()
+    await expect(title()).not.toHaveText(lead, { timeout: 15_000 })
     // Snooze is reversible, and says so — and this walk puts the seed back the
     // way it found it, because home.spec runs after it on the same emulator.
     const undo = page.getByRole("button", { name: /Undo/ }).filter(visible)
     await expect(undo).toBeVisible({ timeout: 10_000 })
     await undo.click()
-    await expect(rows()).toHaveCount(before, { timeout: 15_000 })
-    await expect(rows().first()).toContainText(leadTitle)
-    await expect(rows().first()).toHaveAttribute("data-open", "true")
+    await expect(title()).toHaveText(lead, { timeout: 15_000 })
   })
 })

@@ -22,7 +22,10 @@ const care = vi.hoisted(() => ({
 }))
 const refresh = vi.hoisted(() => vi.fn(async () => {}))
 
+// Home's In a pinch reads providers (design/home-next.md); none saved here.
+vi.mock("@/hooks/useServiceProviders", () => ({ useServiceProviders: () => ({ providers: [], loading: false, loadFailed: false }) }))
 vi.mock("@/modules/care", () => ({
+  getHomeNotes: vi.fn(async () => ({ data: [], error: null })),
   markTaskInstanceDone: (...a: unknown[]) => care.markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => care.snoozeTaskInstance(...a),
   unsnoozeTaskInstance: (...a: unknown[]) => care.unsnoozeTaskInstance(...a),
@@ -90,14 +93,14 @@ function renderHome() {
 }
 
 /** Phone (RefinedHome) and desktop (DesktopHome) lists are both in the DOM; CSS shows one. */
-const firstRow = () => screen.getAllByTestId("week-row")[0]
+const firstRow = () => screen.getAllByTestId("next-up-card")[0]
 
 describe("Home — a failed check-off or snooze is said on its row", () => {
   it("mark done fails → the row comes back and says so, and no receipt is left claiming it is done", async () => {
     care.markTaskInstanceDone.mockResolvedValue({ success: false, error: "INTERNAL" })
     renderHome()
 
-    fireEvent.click(within(firstRow()).getByRole("button", { name: `Mark ${TITLE} done` }))
+    fireEvent.click(within(firstRow()).getByRole("button", { name: "Mark done" }))
     await acceptDone()
 
     expect(await within(firstRow()).findByRole("alert")).toHaveTextContent("Couldn't mark this done.")
@@ -136,7 +139,7 @@ describe("Home — a failed check-off or snooze is said on its row", () => {
 
   it("mark done SUCCEEDS → no alert, and the receipt says so (the control case)", async () => {
     renderHome()
-    fireEvent.click(within(firstRow()).getByRole("button", { name: `Mark ${TITLE} done` }))
+    fireEvent.click(within(firstRow()).getByRole("button", { name: "Mark done" }))
     expect((await screen.findByRole("status")).textContent).toMatch(/^Done/)
     await acceptDone()
     await waitFor(() => expect(care.markTaskInstanceDone).toHaveBeenCalledTimes(1))

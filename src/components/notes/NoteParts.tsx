@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { PencilIcon, PlusIcon, UsersIcon } from "lucide-react"
+import { PencilIcon, PinIcon, PinOffIcon, PlusIcon, UsersIcon } from "lucide-react"
 import type { CareNote } from "@/integrations/types"
 import { displayBody, noteDate, splitNote, type NoteIdea } from "@/lib/notes"
 
@@ -17,8 +17,14 @@ export function NotesHeading({ children, action }: { children: ReactNode; action
   )
 }
 
-/** The notes as one card of rows — heading, text, date, and a pencil. */
-export function NoteRows({ notes, onEdit }: { notes: CareNote[]; onEdit: (note: CareNote) => void }) {
+/** The notes as one card of rows — heading, text, date, a pin (when offered) and a pencil. */
+export function NoteRows({ notes, onEdit, onTogglePin, pinBusyId = null }: {
+  notes: CareNote[]
+  onEdit: (note: CareNote) => void
+  /** Pin to Home's "Pinned by you" (design/home-next.md). Absent = no pin control. */
+  onTogglePin?: (note: CareNote) => void
+  pinBusyId?: string | null
+}) {
   return (
     <ul className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
       {notes.map((note, i) => {
@@ -41,6 +47,21 @@ export function NoteRows({ notes, onEdit }: { notes: CareNote[]; onEdit: (note: 
               )}
               {date && <span className="mt-1 text-[0.75rem]" style={{ color: FAINT }}>{date}</span>}
             </div>
+            {onTogglePin && (
+              <button
+                type="button"
+                onClick={() => onTogglePin(note)}
+                disabled={pinBusyId === note.note_id}
+                aria-pressed={!!note.pinned_at}
+                aria-label={note.pinned_at ? `Unpin from Home: ${name}` : `Pin to Home: ${name}`}
+                className="hit-44 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
+                data-testid="note-pin"
+              >
+                {note.pinned_at
+                  ? <PinOffIcon className="size-3.5" style={{ color: TEAL }} aria-hidden />
+                  : <PinIcon className="size-3.5" style={{ color: FAINT }} aria-hidden />}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onEdit(note)}

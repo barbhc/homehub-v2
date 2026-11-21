@@ -24,12 +24,10 @@ test.describe("emulator e2e — Home: a refused check-off is said", () => {
       })
     })
 
-    const section = () => page.getByTestId("this-week").filter(visible)
-    const rows = () => section().getByTestId("week-row")
+    // Home, next (design/home-next.md): the task is Next up's card.
+    const lead = page.getByTestId("next-up-card").filter(visible)
     await page.goto("/home")
-    await expect(section()).toBeVisible({ timeout: 20_000 })
-    const before = await rows().count()
-    const lead = rows().first()
+    await expect(lead).toBeVisible({ timeout: 20_000 })
     await expect(lead).toContainText("Replace HVAC furnace filter")
 
     await lead.getByRole("button", { name: "Mark done" }).click()
@@ -40,9 +38,8 @@ test.describe("emulator e2e — Home: a refused check-off is said", () => {
     const alert = lead.getByRole("alert")
     await expect(alert).toHaveText("Couldn't mark this done. Check your connection and try again.", { timeout: 15_000 })
     expect(calls).toBe(1)
-    // The task is genuinely not done: still listed, still first, no receipt.
-    await expect(rows()).toHaveCount(before)
-    await expect(rows().first()).toContainText("Replace HVAC furnace filter")
+    // The task is genuinely not done: still Next up, no receipt.
+    await expect(lead).toContainText("Replace HVAC furnace filter")
     await expect(page.getByText("Marked done")).toHaveCount(0)
     await page.screenshot({ path: test.info().outputPath("home-row-refused-checkoff-390.png") })
   })

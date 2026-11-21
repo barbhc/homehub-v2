@@ -413,6 +413,8 @@ export default function Home() {
             comingUp={stats?.comingUp ?? null}
             askStarters={starters}
               warranties={expiringWarranties}
+              notices={notices}
+              nextStep={nextStep}
               cleaningGuides={cleaningGuides}
               level={level}
               homeId={homeId || null}
@@ -421,7 +423,6 @@ export default function Home() {
               onComplete={handleMarkComplete}
               onSnooze={handleSnooze}
             />
-            {nextStep && <div className="mx-5 mt-6">{nextStep}</div>}
           </div>
         </div>
         {/* Break out of the page's max-w-5xl wrapper: DesktopHome owns its own

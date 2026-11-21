@@ -101,8 +101,9 @@ describe("HH-92 / HH-95 — the young home's screen stops stacking disappointmen
   it("the all-quiet card never asserts an empty schedule over a full one", () => {
     // Home, focused: the quiet card renders only when the week's list is
     // empty, and says "nothing is scheduled yet" only when nothing is ahead.
-    const list = readFileSync(resolve(__dirname, "../components/home/ThisWeekList.tsx"), "utf8")
-    expect(list).toContain("rows.length === 0 ? (")
-    expect(list).toContain('until ? "Nothing is late." : "Nothing is late, and nothing is scheduled yet."')
+    // Home, next (design/home-next.md): Next up's quiet card, with the same rule.
+    const list = readFileSync(resolve(__dirname, "../components/home/HomeSections.tsx"), "utf8")
+    expect(list).toContain("if (!lead) {")
+    expect(list).toContain(': "Nothing is late, and nothing is scheduled yet."')
   })
 })

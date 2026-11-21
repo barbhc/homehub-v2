@@ -9,7 +9,10 @@ import { MemoryRouter } from "react-router-dom"
 
 const dash = vi.hoisted(() => ({ totalItems: 0, scheduledTaskCount: 2, upcoming: [] as unknown[] }))
 
+// Home's In a pinch reads providers (design/home-next.md); none saved here.
+vi.mock("@/hooks/useServiceProviders", () => ({ useServiceProviders: () => ({ providers: [], loading: false, loadFailed: false }) }))
 vi.mock("@/modules/care", () => ({
+  getHomeNotes: vi.fn(async () => ({ data: [], error: null })),
   markTaskInstanceDone: vi.fn(), snoozeTaskInstance: vi.fn(), unsnoozeTaskInstance: vi.fn(), previewNextDue: vi.fn(async () => null),
 }))
 vi.mock("@/lib/useDashboard", () => ({

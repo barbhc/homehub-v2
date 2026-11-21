@@ -76,7 +76,7 @@ test.describe("emulator e2e — home feed", () => {
     // Home, focused: the week's first task opens by default; its arrow (the
     // task card, 2026-11-21) is the one door to the full view.
     await expect(page.getByText("Replace HVAC furnace filter", { exact: true }).filter(visible)).toBeVisible({ timeout: 20_000 })
-    const open = page.locator('[data-testid="week-row"][data-open="true"]').filter(visible).first()
+    const open = page.getByTestId("next-up-card").filter(visible).first()
     await expect(open).toBeVisible()
     await open.getByRole("link", { name: /^Open / }).click()
     // The template's justification (why-it-matters) renders only after

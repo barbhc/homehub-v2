@@ -107,13 +107,10 @@ test.describe("emulator e2e — the part card", () => {
     await expect(page.getByTestId("task-supplies").filter(visible).first()
       .getByRole("button", { name: /^Kept in Hall closet, top shelf/ })).toBeVisible({ timeout: 15_000 })
 
-    // Home: the furnace row's prep line carries the place as a pill.
+    // Home: Next up (the furnace task) carries the place under its supply line.
     await page.goto("/home")
-    const row = page.getByTestId("week-row").filter({ hasText: "Replace HVAC furnace filter" }).filter(visible).first()
-    await expect(row).toBeVisible({ timeout: 20_000 })
-    if ((await row.getAttribute("data-open")) !== "true") {
-      await row.getByRole("button", { name: /^Replace HVAC furnace filter/ }).click()
-    }
-    await expect(row.getByTestId("prep-place")).toHaveText(/Hall closet, top shelf/, { timeout: 15_000 })
+    const card = page.getByTestId("next-up-card").filter({ hasText: "Replace HVAC furnace filter" }).filter(visible).first()
+    await expect(card).toBeVisible({ timeout: 20_000 })
+    await expect(card.getByTestId("prep-place")).toHaveText(/Hall closet, top shelf/, { timeout: 15_000 })
   })
 })

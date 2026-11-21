@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react"
 import type { CareNote } from "@/integrations/types"
-import { createCareNote, deleteCareNote, getHomeNotes, updateCareNote } from "@/modules/care"
+import { createCareNote, deleteCareNote, getHomeNotes, setCareNotePinned, updateCareNote } from "@/modules/care"
 import { getRooms, useCurrentHome } from "@/modules/home"
-import { ideasFor, roomNoteCounts, type NoteIdea, type NoteScope } from "@/lib/notes"
+import { HOUSE_IDEAS, ideasFor, roomNoteCounts, type NoteIdea, type NoteScope } from "@/lib/notes"
 import { NoteComposer } from "@/components/notes/NoteComposer"
 import { IdeaChips, NoteRows, SharedLine } from "@/components/notes/NoteParts"
 import { useNotes } from "@/components/notes/useNotes"
@@ -55,7 +55,33 @@ export default function NotesPage() {
   const mine = (notes ?? []).filter((n) => (scope === "home" ? n.scope === "home" : n.scope === "room" && n.room_id === roomId))
   const ideas = ideasFor(scope, null, mine)
   const roomCounts = roomNoteCounts(notes)
-  const [composer, setComposer] = useState<Composer | null>(null)
+  // Home's In a pinch "Add" lands here as ?idea=Water%20shutoff: that idea's
+  // composer opens straight away (design/home-next.md).
+  const [params, setParams] = useSearchParams()
+  const [composer, setComposer] = useState<Composer | null>(() => {
+    const idea = scope === "home" ? HOUSE_IDEAS.find((i) => i.label === params.get("idea")) : undefined
+    return idea ? { key: `new:${idea.label}:arrived`, note: null, idea } : null
+  })
+  const closeComposer = () => {
+    setComposer(null)
+    if (params.has("idea")) setParams((p) => { const n = new URLSearchParams(p); n.delete("idea"); return n }, { replace: true })
+  }
+  // Pin a note to Home. A refusal is said above the notes; the note stays as it was.
+  const [pinBusyId, setPinBusyId] = useState<string | null>(null)
+  const [pinError, setPinError] = useState<string | null>(null)
+  const togglePin = async (note: CareNote) => {
+    if (!homeId || pinBusyId) return
+    setPinBusyId(note.note_id)
+    setPinError(null)
+    const res = await setCareNotePinned(homeId, note.note_id, !note.pinned_at)
+    setPinBusyId(null)
+    if (res.error) {
+      console.warn(`[notes] could not ${note.pinned_at ? "unpin" : "pin"} note ${note.note_id} (home ${homeId}):`, res.error.message)
+      setPinError(note.pinned_at ? "Couldn't unpin that note. Try again." : "Couldn't pin that note. Try again.")
+      return
+    }
+    reload()
+  }
   const openNew = (idea: NoteIdea | null) => setComposer({ key: `new:${idea?.label ?? ""}:${Date.now()}`, note: null, idea })
 
   const title = scope === "home" ? "House notes" : room?.name ?? (roomsError ? "Room notes" : "")
@@ -111,7 +137,10 @@ export default function NotesPage() {
                   <span className="text-[0.75rem]" style={{ color: SUB }}>Things you&apos;d otherwise have to remember — start with an idea below.</span>
                 </div>
               ) : (
-                <NoteRows notes={mine} onEdit={(note) => setComposer({ key: note.note_id, note, idea: null })} />
+                <>
+                  {pinError && <div role="alert" className="text-[0.8125rem] font-medium" style={{ color: CLAY }}>{pinError}</div>}
+                  <NoteRows notes={mine} onEdit={(note) => setComposer({ key: note.note_id, note, idea: null })} onTogglePin={(n) => void togglePin(n)} pinBusyId={pinBusyId} />
+                </>
               )}
 
               <button
@@ -165,7 +194,7 @@ export default function NotesPage() {
         <NoteComposer
           key={composer.key}
           open
-          onOpenChange={(open) => { if (!open) setComposer(null) }}
+          onOpenChange={(open) => { if (!open) closeComposer() }}
           scopeLabel={scopeLabel}
           homeName={home?.name ?? null}
           ideas={ideas}

@@ -27,9 +27,12 @@ vi.mock("firebase/firestore", async (importOriginal) => ({
 }))
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }))
 // The real check-off service; the rest of the module is not on this path.
+// Home's In a pinch reads providers (design/home-next.md); none saved here.
+vi.mock("@/hooks/useServiceProviders", () => ({ useServiceProviders: () => ({ providers: [], loading: false, loadFailed: false }) }))
 vi.mock("@/modules/care", async () => {
   const ts = await vi.importActual<typeof import("@/modules/care/services/taskService")>("@/modules/care/services/taskService")
   return {
+    getHomeNotes: vi.fn(async () => ({ data: [], error: null })),
     markTaskInstanceDone: ts.markTaskInstanceDone,
     previewNextDue: vi.fn(async () => null),
     snoozeTaskInstance: vi.fn(),
@@ -90,8 +93,9 @@ describe("Home — a completion that landed reads as done, even if its read-back
     fb.getDoc.mockRejectedValue(new Error("Failed to get document because the client is offline."))
     render(<MemoryRouter><Home /></MemoryRouter>)
 
-    const row = screen.getAllByTestId("week-row")[0]
-    fireEvent.click(within(row).getByRole("button", { name: `Mark ${TITLE} done` }))
+    const row = screen.getAllByTestId("next-up-card")[0]
+    expect(within(row).getByTestId("next-up-title")).toHaveTextContent(TITLE)
+    fireEvent.click(within(row).getByRole("button", { name: "Mark done" }))
 
     // The receipt, with the way back; the completion is written when the bar goes.
     expect((await screen.findByRole("status")).textContent).toMatch(/^Done/)
@@ -103,7 +107,7 @@ describe("Home — a completion that landed reads as done, even if its read-back
     // after the (mocked) refetch, and its Mark done is live again — where the
     // old rejection left it disabled for good.
     await waitFor(() => {
-      const buttons = screen.getAllByRole("button", { name: `Mark ${TITLE} done` })
+      const buttons = screen.getAllByRole("button", { name: "Mark done" })
       expect(buttons.length).toBeGreaterThan(0)
       for (const b of buttons) expect(b).toBeEnabled()
     })

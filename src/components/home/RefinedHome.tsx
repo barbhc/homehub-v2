@@ -1,78 +1,19 @@
-import { useState } from "react"
+import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
-import {
-  SparklesIcon,
-  ArrowUpIcon,
-  ChevronUpIcon,
-  WrenchIcon,
-  BookOpenIcon,
-  HomeIcon,
-  ChevronDownIcon,
-} from "lucide-react"
-import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@/lib/dashboard"
+import { HomeIcon, ChevronDownIcon } from "lucide-react"
+import type { DashboardTask, ExpiringWarrantyItem, HomeNotices, MaintenanceTaskFull } from "@/lib/dashboard"
 import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { dens, greeting, shortDate } from "@/lib/redesign/tokens"
-import { ThisWeekList, TimelyWarrantyLine } from "@/components/home/ThisWeekList"
-import type { ComingUp } from "@/lib/homeWeek"
+import type { ComingUp as ComingUpLine } from "@/lib/homeWeek"
 import type { AskStarter } from "../../../shared/care/dayOne"
 import { useDisplayName } from "@/hooks/useDisplayName"
+import { useScanTray } from "@/components/manuals/scanStatus"
+import { AskField, ComingUp, HeadsUp, NextUp, PinchAndPinned } from "@/components/home/HomeSections"
 
 // Calm palette (design/hh-home2.jsx)
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 const LINE = "var(--hh-line)"
-
-function AskModule({ d, starters = [] }: { d: ReturnType<typeof dens>; starters?: AskStarter[] }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div>
-    <div className="overflow-hidden rounded-[18px] border border-[var(--hh-line2)] shadow-[0_1px_2px_rgba(15,23,42,0.04)]" style={{ background: "var(--hh-surface)" }}>
-      <div className="flex items-center gap-2.5 py-2 pl-4 pr-2">
-        <SparklesIcon className="size-[17px] shrink-0" style={{ color: TEAL }} />
-        <Link to="/chat" className="hit-44 flex-1 text-[0.9375rem]" style={{ color: "var(--hh-sub)" }}>
-          Ask about your home…
-        </Link>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Quick actions"
-          aria-expanded={open}
-          className="hit-44 flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--hh-line2)]"
-          style={{ background: open ? "var(--hh-teal-wash)" : "var(--hh-surface)" }}
-        >
-          {open ? <ChevronUpIcon className="size-4" style={{ color: TEAL }} /> : <WrenchIcon className="size-4" style={{ color: TEAL }} />}
-        </button>
-        <Link
-          to="/chat"
-          aria-label="Ask"
-          className="hit-44 flex size-9 shrink-0 items-center justify-center rounded-full"
-          style={{ background: "var(--hh-teal-fill)" }}
-        >
-          <ArrowUpIcon className="size-[18px] text-white" strokeWidth={2.6} />
-        </Link>
-      </div>
-      {open && (
-        <div className="flex gap-3 border-t border-[var(--hh-line)] bg-[var(--hh-surface2)] p-4" style={{ gap: d.gap }}>
-          {[
-            { icon: WrenchIcon, label: "Troubleshoot", to: "/chat" },
-            { icon: BookOpenIcon, label: "Ask a manual", to: "/chat" },
-          ].map((b) => (
-            <Link
-              key={b.label}
-              to={b.to}
-              className="flex flex-1 flex-col items-center gap-1.5 rounded-xl border-0 bg-[var(--hh-surface2)] py-3 text-center"
-            >
-              <b.icon className="size-[19px]" style={{ color: TEAL }} />
-              <span className="text-[0.78125rem] font-semibold" style={{ color: INK }}>{b.label}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-      {starters.length > 0 && <AskStarters starters={starters} />}
-    </div>
-  )
-}
 
 /** Two questions this home would ask now — each opens Ask with it sent (design/day-one-home.md). */
 export function AskStarters({ starters }: { starters: AskStarter[] }) {
@@ -100,6 +41,8 @@ export function RefinedHome({
   comingUp = null,
   askStarters = [],
   warranties,
+  notices,
+  nextStep,
   homeId,
   homeName,
   onSelectHome,
@@ -110,13 +53,18 @@ export function RefinedHome({
   density = "cozy",
 }: {
   tasks: DashboardTask[]
-  /** Forward schedule for the Coming-up drawer. */
+  /** Forward schedule: the week's rest and Coming up. */
   upcoming: MaintenanceTaskFull[]
+  /** Kept for callers; Home now derives "next" from `upcoming` (design/home-next.md). */
   nextUp?: { dueDate: string; windowStart: string } | null
-  comingUp?: ComingUp | null
+  comingUp?: ComingUpLine | null
   /** Starter questions under the Ask bar, for an early home (design/day-one-home.md). */
   askStarters?: AskStarter[]
   warranties: ExpiringWarrantyItem[]
+  /** Recalls for Heads up. */
+  notices: HomeNotices
+  /** The one next-step card (What's in your home? / This month at your home), placed after Coming up. */
+  nextStep?: ReactNode
   cleaningGuides?: DeepCleanGuide[]
   level: UserLevel
   homeId: string | null
@@ -125,7 +73,7 @@ export function RefinedHome({
   /** Makes the home name a pill that opens the switcher. Absent = plain text. */
   onSelectHome?: () => void
   completingId: string | null
-  /** A refused check-off or snooze, shown on its row (ThisWeekList). */
+  /** A refused check-off or snooze, shown on its row (HomeSections NextUp). */
   actionError?: { id: string; message: string } | null
   onComplete: (id: string) => void
   onSnooze: (id: string) => void
@@ -136,6 +84,7 @@ export function RefinedHome({
   // was being greeted by its author's name; drop the name entirely when we
   // don't know it rather than guessing.
   const { firstName } = useDisplayName()
+  const tray = useScanTray()
 
 
   return (
@@ -172,26 +121,28 @@ export function RefinedHome({
         <span className="text-[0.78125rem] font-semibold" style={{ color: SUB }}>{shortDate(0)}</span>
       </div>
 
-      <div className="flex flex-1 flex-col px-5 pt-4" style={{ paddingInline: d.pad, gap: d.stack }}>
-        <AskModule d={d} starters={askStarters} />
-
-        {/* Home, focused (design/home-focus.md, owner 2026-09-08): ONE list —
-            the week, first task open — where the hero, the stat band, the
-            Coming-up drawer and the reminders section each showed the same
-            tasks. Below it only what is timely. */}
-        <ThisWeekList
+      <div className="flex flex-1 flex-col px-5 pb-6 pt-4" style={{ paddingInline: d.pad, gap: 24 }}>
+        <div>
+          <AskField />
+          {askStarters.length > 0 && <AskStarters starters={askStarters} />}
+        </div>
+        {/* Home, next (design/home-next.md, owner 2026-11-21): one task, then
+            only what the Tasks tab can't show. Each section hides when it has
+            nothing to say, except In a pinch, which is fixed. */}
+        <NextUp
           homeId={homeId}
           tasks={tasks}
           upcoming={upcoming}
           nextUp={nextUp}
-          comingUp={comingUp}
           completingId={completingId}
           actionError={actionError}
           onComplete={onComplete}
           onSnooze={onSnooze}
         />
-        <TimelyWarrantyLine warranties={warranties} />
-        <div className="h-1" />
+        <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} />
+        <ComingUp upcoming={upcoming} forecast={comingUp} />
+        {nextStep}
+        {homeId && <PinchAndPinned homeId={homeId} />}
       </div>
     </div>
   )

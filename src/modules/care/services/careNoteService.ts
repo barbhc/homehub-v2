@@ -39,6 +39,7 @@ function toCareNote(homeId: string, id: string, d: DocumentData): CareNote {
     created_at: iso(d.createdAt),
     updated_at: iso(d.updatedAt),
     deleted_at: d.deletedAt == null ? null : iso(d.deletedAt),
+    pinned_at: d.pinnedAt == null ? null : iso(d.pinnedAt) || null,
   }
 }
 function err(e: unknown): { data: null; error: { message: string } } {
@@ -103,6 +104,20 @@ export async function updateCareNote(
     const snap = await getDoc(ref)
     if (!snap.exists()) return { data: null, error: { message: "Care note not found" } }
     return { data: toCareNote(homeId, ref.id, snap.data()), error: null }
+  } catch (e) {
+    return err(e)
+  }
+}
+
+/**
+ * Pin a note to Home's "Pinned by you", or take it off. Pinning isn't an edit,
+ * so `updatedAt` (the date the note shows) is left alone.
+ */
+export async function setCareNotePinned(homeId: string, noteId: string, pinned: boolean): Promise<ServiceResult<true>> {
+  try {
+    const ref = doc(db, `homes/${homeId}/careNotes/${noteId}`)
+    await writeBatch(db).set(ref, { pinnedAt: pinned ? serverTimestamp() : null }, { merge: true }).commit()
+    return { data: true, error: null }
   } catch (e) {
     return err(e)
   }

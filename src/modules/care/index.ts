@@ -3,6 +3,7 @@ export {
   createCareNote,
   updateCareNote,
   deleteCareNote,
+  setCareNotePinned,
   getHomeNotes,
   promoteLegacyItemNote,
   clearLegacyItemNote,
