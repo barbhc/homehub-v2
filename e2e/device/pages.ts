@@ -135,9 +135,9 @@ export const PAGES: Setup[] = [
       await gotoStable(page, "/settings")
       await page.getByText(/appearance/i).filter(visible).first().waitFor({ timeout: 20_000 })
       // The sections load independently; audit the page once the slow ones
-      // (rooms, providers, manuals) are in, or the run judges whichever half
-      // happened to arrive.
-      for (const ready of ["Living Room", "Sears Appliance Repair", "Carrier Infinity Furnace"]) {
+      // (rooms, manuals) are in, or the run judges whichever half happened to
+      // arrive. Providers moved to their own page (Settings links to it).
+      for (const ready of ["Living Room", "Service providers", "Carrier Infinity Furnace"]) {
         await page.getByText(ready).filter(visible).first().waitFor({ timeout: 20_000 })
       }
     },
