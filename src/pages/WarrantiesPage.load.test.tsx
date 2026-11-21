@@ -55,3 +55,27 @@ describe("WarrantiesPage · reading by home", () => {
     await waitFor(() => expect(screen.getByText("We couldn't load your warranties just now.")).toBeInTheDocument())
   })
 })
+
+describe("WarrantiesPage · a row", () => {
+  beforeEach(() => {
+    svc.homeId = "home-1"
+    svc.getRooms.mockReset().mockResolvedValue({ data: [], error: null })
+  })
+
+  it("gives the name its own wrapping line, with the status on the line under it", async () => {
+    const name = "Bosch 800 Series Dishwasher with a very long model name"
+    svc.getItemUnits.mockReset().mockResolvedValue({
+      data: [
+        { item_unit_id: "i1", display_name: name, category: "dishwasher", warranty_expiry_date: "2099-12-05" },
+        { item_unit_id: "i2", display_name: "Old fridge", category: "refrigerator", warranty_expiry_date: "2020-04-14" },
+      ],
+      error: null,
+    })
+    render(page())
+    const nameLine = await screen.findByText(name)
+    expect(nameLine.className).not.toMatch(/\btruncate\b/)
+    // The very next line is the status — not a column beside the name.
+    expect(nameLine.nextElementSibling?.textContent).toBe("Covered · Dec 5, 2099")
+    expect(screen.getByText("Old fridge").nextElementSibling?.textContent).toBe("Lapsed · Apr 14, 2020")
+  })
+})
