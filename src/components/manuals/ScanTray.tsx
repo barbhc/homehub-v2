@@ -14,7 +14,7 @@ export function ScanCountBadge({ count, className }: { count: number; className?
   if (count <= 0) return null
   return (
     <span aria-hidden="true" data-testid="scan-count"
-      className={`grid h-[18px] min-w-[18px] place-items-center rounded-full px-[5px] text-[0.6875rem] font-bold leading-none ${className ?? ""}`}
+      className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-xs font-bold leading-none ${className ?? ""}`}
       style={{ background: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" }}>
       {count}
     </span>
