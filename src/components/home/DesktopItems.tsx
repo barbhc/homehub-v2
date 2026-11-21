@@ -10,6 +10,7 @@ import type { ItemUnit } from "@/integrations/types"
 import { scanStatusByItem, useScanTray, type ItemScanStatus } from "@/components/manuals/scanStatus"
 import { requestReview } from "@/lib/reviewRequest"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
+import { categoryLabel } from "@/lib/categoryLabel"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 
@@ -133,7 +134,7 @@ export function DesktopItems({
                       {scanStatus.has(it.item_unit_id) && <ScanStatusLine status={scanStatus.get(it.item_unit_id)!} />}
                     </div>
                     <div className="mt-auto flex items-center justify-between">
-                      <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ color: FAINT }}>{sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : "")}</span>
+                      <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ color: FAINT }}>{sort === "room" ? categoryLabel(it) : (it.room_id ? roomName.get(it.room_id) : "")}</span>
                     </div>
                   </Link>
                 )

@@ -12,6 +12,7 @@ import type { ItemUnit } from "@/integrations/types"
 import { scanStatusByItem, useScanTray, type ItemScanStatus } from "@/components/manuals/scanStatus"
 import { requestReview } from "@/lib/reviewRequest"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
+import { categoryLabel } from "@/lib/categoryLabel"
 import { dens } from "@/lib/redesign/tokens"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
@@ -216,7 +217,7 @@ export function RefinedItems({
                     <div className="min-w-0 flex-1">
                       <div className="truncate larger-text:whitespace-normal text-[0.9375rem] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{it.display_name}</div>
                       <div className="mt-0.5 text-[0.78125rem]" style={{ color: SUB }}>
-                        {[it.brand, sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : null)].filter(Boolean).join(" · ")}
+                        {[it.brand, sort === "room" ? categoryLabel(it) : (it.room_id ? roomName.get(it.room_id) : null)].filter(Boolean).join(" · ")}
                       </div>
                       {scanStatus.has(it.item_unit_id) && <ScanStatusLine status={scanStatus.get(it.item_unit_id)!} />}
                     </div>
