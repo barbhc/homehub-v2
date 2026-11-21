@@ -248,7 +248,7 @@ default, "this isn't right" always one tap away.
 ```mermaid
 flowchart LR
     A[Home /home\n"This week", first task open] --> B[Tasks /maintenance\nlenses + calendar]
-    B --> C[Row expands:\nMark done / Snooze / View full guide]
+    B --> C[Row opens as the task card:\nMark done / Snooze · arrow to the task page]
     C --> D[Task detail /tasks/:id\nwindow phrase, steps]
     D --> E[Mark done → completeTask\nnext instance minted]
     A --> F[Snooze +14 from the open row\nvisible Undo]
@@ -264,12 +264,13 @@ Key mechanics:
   agenda explains what's withheld.
 - Home is ONE list (`ThisWeekList`, design/home-focus.md): the week's tasks
   with the first open; any row opens the same way and closes the other; the
-  open row shows when · cadence · minutes, one prep line ("You'll need…" /
-  "Schedule a visit with a technician."), Mark done / Snooze / **See details**
+  open row is the task card: status line (tier · timing) above the title,
+  item · minutes as text, one supply line ("You'll need…" /
+  "Schedule a visit with a technician."), Mark done / Snooze (one size) and an arrow to the task page — the task card, `design/task-card.md`
   → `/tasks/:id`. "All tasks" is the only door out. The stat band, the swipe
   face, the Coming-up drawer and the 7-day strip are gone.
-- Tasks: desktop rows expand in place (Mark done / Snooze / **View full
-  guide** → `/tasks/:id`); mobile rows navigate directly. Inside every group
+- Tasks: rows (phone and desktop) open in place into the task card (Mark
+  done / Snooze; the arrow → `/tasks/:id`). Inside every group
   (any lens, both widths) a passed deadline leads, then rows run Essential →
   Recommended → Optional, the date breaking ties; no row repeats its group's
   name — neither the when-phrase ("Good to do now") nor the item/room

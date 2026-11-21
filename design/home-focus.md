@@ -1,3 +1,5 @@
+> **2026-11-21:** the open row is now the task card (`design/task-card.md`): status line above the title, no pills, Mark done and Snooze the same size, an arrow instead of See details.
+
 # Home, focused — design doc (draft for the build branch)
 
 _Chosen by the owner on 2026-09-08 from the "Homehub Home, focused" canvas

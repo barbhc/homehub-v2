@@ -485,11 +485,12 @@ test.describe("journey walks", () => {
     await signInSeeded(page)
 
     await page.goto("/home")
-    // Home, focused (design/home-focus.md): one list, the first task open —
-    // pills, a prep line when it needs something, Mark done + Snooze.
+    // Home, focused (design/home-focus.md): one list, the first task open as
+    // the task card (design/task-card.md): status line, title, item and
+    // minutes, a supply line when it needs something, Mark done + Snooze.
     const openRow = page.locator('[data-testid="week-row"][data-open="true"]').filter(visible).first()
     await expect(openRow).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J4", "home-week", "Home: 'This week' with the first task open — pills, Mark done + Snooze, See details; no stat band, no drawer",
+    await snap(page, "J4", "home-week", "Home: 'This week' with the first task open as the task card — 'Essential · Been a while' above the title, item and minutes as text (no pills), Mark done + Snooze the same size, an arrow to the task page; no stat band, no drawer",
       openRow)
 
     await page.goto("/maintenance")
@@ -499,12 +500,13 @@ test.describe("journey walks", () => {
     await snap(page, "J4", "agenda", "Tasks: urgency lenses, calendar, 'Worth doing' safety nudge — calm language throughout",
       page.getByText("Worth doing").filter(visible).first())
 
-    // Desktop rows expand in place; "View full guide" opens the detail page.
+    // Desktop rows open in place into the task card; its arrow opens the detail page.
     await page.getByText("Replace HVAC furnace filter").filter(visible).first().click()
-    await expect(page.getByRole("button", { name: /View full guide/ }).filter(visible).first()).toBeVisible({ timeout: 10_000 })
-    await snap(page, "J4", "row-expanded", "Expanded row: Mark done, Snooze, View full guide — actions where the task lives",
-      page.getByRole("button", { name: /View full guide/ }).filter(visible).first())
-    await page.getByRole("button", { name: /View full guide/ }).filter(visible).first().click()
+    const openArrow = page.getByRole("button", { name: "Open Replace HVAC furnace filter" }).filter(visible).first()
+    await expect(openArrow).toBeVisible({ timeout: 10_000 })
+    await snap(page, "J4", "row-expanded", "Open row as the task card: status line, title, item and minutes, Mark done + Snooze the same size, an arrow to the task page — no steps inline",
+      openArrow)
+    await openArrow.click()
     await page.waitForURL(/\/tasks\//, { timeout: 15_000 })
     // The tune-this-task control exists ONLY on the detail page — without it as
     // the anchor this shot lands on the still-mounted Tasks list (it did).

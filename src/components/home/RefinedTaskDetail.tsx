@@ -1,3 +1,5 @@
+import { TaskStatusLine } from "@/components/tasks/TaskCard"
+import { itemMinutesLine, type WhenTone } from "@/lib/taskCard"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { dueKindOf, dueWindow, safetyPhrase, shortDate, windowPhrase } from "@/lib/dueWindow"
 import { Link } from "react-router-dom"
@@ -5,7 +7,7 @@ import { createPortal } from "react-dom"
 import { RemoveScroll } from "react-remove-scroll"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
-  RepeatIcon, InfoIcon, ClockIcon, MapPinIcon, CalendarIcon, PackageIcon, MinusIcon, PlusIcon,
+  RepeatIcon, InfoIcon, PackageIcon, MinusIcon, PlusIcon,
   BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon, BellRingIcon,
 } from "lucide-react"
 import {
@@ -26,7 +28,7 @@ import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { usePageBar } from "@/hooks/usePageBar"
 import { InlineError, LoadErrorState } from "@/components/layout/LoadStates"
 import { doneFailedMessage } from "./tasks/shared"
-import { TIER, dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
+import { dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
 import type { ScheduleType } from "@/integrations/types"
 import { usePushMode } from "@/hooks/usePushMode"
 import { reminderSwitch } from "@/lib/reminderSwitch"
@@ -170,6 +172,14 @@ export function RefinedTaskDetail({
     if (kind === "deadline") return dueLabel(dueDaysFromDate(detail.dueDate))
     if (detail.neverCompleted && dueDaysFromDate(detail.dueDate) < 0) return "Start anytime"
     return windowPhrase(detail.dueDate, st, { kind })
+  })()
+  // The status line's colour (src/lib/taskCard.ts): a real deadline is ink,
+  // a passed one clay; a window stays grey.
+  const headerTone: WhenTone = (() => {
+    if (!detail) return "plain"
+    const kind = dueKindOf({ title: detail.title, scheduleType: detail.schedule?.scheduleType ?? null })
+    if (kind !== "deadline") return "plain"
+    return dueDaysFromDate(detail.dueDate) < 0 ? "attention" : "date"
   })()
 
   const nextLabel = (() => {
@@ -362,10 +372,9 @@ export function RefinedTaskDetail({
                 <PackageIcon className="size-6 lg:size-7" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
-                <span style={{ background: TIER[tier].soft, color: TIER[tier].dot }} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-[0.5px]">
-                  <span className="size-1.5 rounded-full" style={{ background: TIER[tier].dot }} />{TIER[tier].label}
-                </span>
-                <h1 className="mt-2 text-[1.5rem] font-extrabold leading-tight tracking-[-0.5px] text-balance lg:text-[1.75rem] lg:tracking-[-0.7px]" style={{ color: INK }}>{detail.title}</h1>
+                {/* The task card's order (design/task-card.md): status line, title, item. */}
+                <TaskStatusLine tier={tier} when={headerWhen} tone={headerTone} />
+                <h1 className="mt-1 text-[1.5rem] font-extrabold leading-tight tracking-[-0.5px] text-balance lg:text-[1.75rem] lg:tracking-[-0.7px]" style={{ color: INK }}>{detail.title}</h1>
               </div>
               {/* The parser wrote this task; the owner gets to correct it. */}
               <button
@@ -378,14 +387,15 @@ export function RefinedTaskDetail({
                 <PencilIcon className="size-[16px]" style={{ color: TEAL }} />
               </button>
             </div>
-            <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-2 text-[0.8125rem] lg:text-[0.84375rem]" style={{ color: SUB }}>
-              {detail.estimatedMinutes != null && <span className="inline-flex items-center gap-1.5"><ClockIcon className="size-[15px]" /> {detail.estimatedMinutes} min</span>}
-              {(detail.itemName || detail.roomName) && <span className="inline-flex items-center gap-1.5"><MapPinIcon className="size-[15px]" /> {[detail.itemName, detail.roomName].filter(Boolean).join(" · ")}</span>}
-              {/* "63 days overdue" for a filter change was the loudest false
-                  urgency in the app. Window-kind work says where it sits;
-                  deadlines keep the countdown. */}
-              <span className="inline-flex items-center gap-1.5"><CalendarIcon className="size-[15px]" /> {headerWhen}</span>
-            </div>
+            {/* Item, room and minutes as one line of text. The timing is in the
+                status line above ("63 days overdue" for a filter change was the
+                loudest false urgency in the app: a window says where it sits,
+                a deadline keeps its date). */}
+            {itemMinutesLine([detail.itemName, detail.roomName].filter(Boolean).join(" · ") || null, detail.estimatedMinutes) && (
+              <p className="mt-3.5 text-[0.9375rem] leading-5" style={{ color: SUB }}>
+                {itemMinutesLine([detail.itemName, detail.roomName].filter(Boolean).join(" · ") || null, detail.estimatedMinutes)}
+              </p>
+            )}
           </div>
 
           {/* Recurrence strip — mobile only (desktop shows it in the rail) */}

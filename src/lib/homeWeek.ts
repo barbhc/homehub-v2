@@ -13,6 +13,9 @@ import { classifyActorFromText } from "@/lib/taskActor"
 import type { TemplateSupply } from "@/integrations/types"
 import { addDays } from "../../shared/dates/calendar"
 
+import type { Tier } from "@/lib/redesign/tokens"
+import { tierOfPriority } from "@/lib/taskCard"
+
 export interface HomeWeekRow {
   /** Task INSTANCE id — what Mark done, Snooze and /tasks/:id take. */
   id: string
@@ -26,8 +29,10 @@ export interface HomeWeekRow {
   trulyOverdue: boolean
   /** Lapsed safety work carries a firm, dateless note; null otherwise. */
   safetyNote: string | null
-  /** Essential (priority "critical") earns the one pill the row shows. */
+  /** Essential (priority "critical"). */
   essential: boolean
+  /** The calm tier the card's status line names. */
+  tier: Tier
 }
 
 export const WEEK_DAYS = 7
@@ -36,11 +41,11 @@ export const WARRANTY_TIMELY_DAYS = 60
 
 const fromUrgent = (t: DashboardTask): HomeWeekRow => ({
   id: t.id, title: t.name, itemName: t.itemName, itemId: t.itemId, dueDate: t.dueDate,
-  duePhrase: t.duePhrase, trulyOverdue: t.trulyOverdue, safetyNote: t.safetyNote, essential: t.priority === "critical",
+  duePhrase: t.duePhrase, trulyOverdue: t.trulyOverdue, safetyNote: t.safetyNote, essential: t.priority === "critical", tier: tierOfPriority(t.priority),
 })
 const fromUpcoming = (t: MaintenanceTaskFull): HomeWeekRow => ({
   id: t.id, title: t.title, itemName: t.itemName, itemId: t.item_id, dueDate: t.next_due_date,
-  duePhrase: t.duePhrase ?? "", trulyOverdue: false, safetyNote: t.safetyNote ?? null, essential: t.priority === "critical",
+  duePhrase: t.duePhrase ?? "", trulyOverdue: false, safetyNote: t.safetyNote ?? null, essential: t.priority === "critical", tier: tierOfPriority(t.priority),
 })
 
 /**

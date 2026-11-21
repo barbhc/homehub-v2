@@ -1,31 +1,29 @@
 /**
  * Home · "This week" — the one list (design/home-focus.md; owner, 2026-09-08).
  *
- * The week's tasks, the first one open. The open row is the row itself,
- * grown edge to edge (wash fill, caret flipped; no side edges — owner,
- * 2026-11-19, they read as unfinished):
- * when · cadence · minutes as pills, ONE prep line when the task needs
- * something, then Mark done / Snooze / See details. No kicker, no how line —
- * the steps live behind See details. Tapping any other row opens it and
- * closes this one.
+ * The week's tasks, the first one open. Each row follows the task card
+ * (owner-approved 2026-11-21, design/task-card.md): status line
+ * ("Essential · Good to do now"), title, item. The open row adds item and
+ * minutes, ONE supply line when the task needs something, and Mark done /
+ * Snooze at one size; its arrow opens the task's page. No pills: only the
+ * buttons look like buttons. Tapping any other row opens it and closes this one.
  *
  * Replaces HomeComposed (hero + stat band + faces + Coming-up drawer) and
  * ThisWeekSection: four views of the same ten tasks became one.
  */
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { BellOffIcon, CalendarIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, MapPinIcon, PhoneIcon, PackageIcon, ShieldIcon } from "lucide-react"
+import { CalendarIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ShieldIcon } from "lucide-react"
 import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@/lib/dashboard"
 import { useTaskDetail } from "@/components/home/tasks/shared"
 import { InlineError } from "@/components/layout/LoadStates"
-import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
+import { TaskCardActions, TaskStatusLine, TaskSupplyLine } from "@/components/tasks/TaskCard"
+import { itemMinutesLine, whenTone } from "@/lib/taskCard"
 import { localToday } from "../../../shared/dates/calendar"
 import { weekRows, nextUpRows, prepLine, prepPlace, timelyWarranty, fmtShortDate, comingUpLine, type ComingUp, type HomeWeekRow } from "@/lib/homeWeek"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
-/** The open row's fill — mixed from the tokens so both themes hold. */
-const WASH = "color-mix(in srgb, var(--hh-teal) 12%, var(--hh-surface))"
 
 export type ThisWeekVariant = "mobile" | "desktop"
 const SCALE = {
@@ -129,64 +127,56 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
   sc: (typeof SCALE)[ThisWeekVariant]
 }) {
   const when = row.safetyNote ?? row.duePhrase
-  const clay = row.trulyOverdue || !!row.safetyNote
+  const tone = whenTone(when, { trulyOverdue: row.trulyOverdue, safetyNote: row.safetyNote })
   return (
     <div
       data-testid="week-row"
       data-open={open ? "true" : "false"}
-      style={{
-        borderTop: first ? "none" : `1px solid ${LINE}`,
-        background: open ? WASH : "transparent",
-      }}
+      style={{ borderTop: first ? "none" : `1px solid ${LINE}` }}
     >
-      <div className={`flex items-center gap-2.5 ${sc.rowPad}`}>
+      <div className={`flex items-start gap-2.5 ${sc.rowPad}`}>
         <button
           type="button"
           onClick={onComplete}
           disabled={completing}
           aria-label={`Mark ${row.title} done`}
-          className="hit-44 -m-1.5 flex shrink-0 p-1.5 disabled:opacity-60"
+          className="hit-44 -m-1.5 mt-1 flex shrink-0 p-1.5 disabled:opacity-60"
         >
           <span className="flex size-6 items-center justify-center rounded-full border-2" style={{ borderColor: TEAL, background: SURFACE }}>
             <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
           </span>
         </button>
-        <button type="button" onClick={onToggle} aria-expanded={open} className="hit-44 flex min-w-0 flex-1 items-center gap-2.5 text-left">
-          <span className="min-w-0 flex-1">
-            <span className={`block truncate larger-text:whitespace-normal ${open ? sc.openTitle : sc.title} font-semibold leading-snug tracking-[-0.2px]`} style={{ color: INK }}>{row.title}</span>
-            <span className={`mt-0.5 flex items-center gap-1.5 larger-text:flex-wrap ${sc.meta}`} style={{ color: SUB }}>
-              {row.essential && (
-                <span className="rounded-full px-2 py-px text-[0.75rem] font-bold" style={{ background: "var(--hh-clay-soft)", color: CLAY }}>Essential</span>
-              )}
-              <span className="truncate larger-text:whitespace-normal">
-                {row.itemName ?? "Home"}
-                {!open && when && <> · <span style={clay ? { color: CLAY, fontWeight: 700 } : undefined}>{when}</span></>}
-              </span>
-            </span>
-          </span>
-          <span
-            className="flex size-[22px] shrink-0 items-center justify-center rounded-full"
-            style={open ? { background: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" } : { background: "var(--hh-surface2)", color: SUB }}
-            aria-hidden
-          >
-            {open ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}
-          </span>
+        {/* The task card's order (src/components/tasks/TaskCard.tsx): status
+            line, title, then the item. Tapping the text opens or closes the row. */}
+        <button type="button" onClick={onToggle} aria-expanded={open} className="hit-44 min-w-0 flex-1 text-left">
+          <TaskStatusLine tier={row.tier} when={when} tone={tone} />
+          <span className={`mt-0.5 block ${open ? "" : "truncate larger-text:whitespace-normal"} text-[1.0625rem] leading-[1.375rem] font-semibold tracking-[-0.2px]`} style={{ color: INK }}>{row.title}</span>
+          {!open && <span className={`mt-0.5 block truncate larger-text:whitespace-normal ${sc.meta}`} style={{ color: SUB }}>{row.itemName ?? "Whole home"}</span>}
         </button>
+        {/* Closed: a caret that opens it. Open: the arrow goes to the task's page
+            (owner, 2026-11-21: the arrow, not a "See details" link). */}
+        {open ? (
+          <Link to={`/tasks/${row.id}`} aria-label={`Open ${row.title}`} className="hit-44 mt-1.5 flex size-[22px] shrink-0 items-center justify-center" style={{ color: FAINT }}>
+            <ChevronRightIcon className="size-5" />
+          </Link>
+        ) : (
+          <button type="button" onClick={onToggle} aria-label={`Open ${row.title} here`} className="hit-44 mt-1.5 flex size-[22px] shrink-0 items-center justify-center" style={{ color: FAINT }}>
+            <ChevronDownIcon className="size-5" />
+          </button>
+        )}
       </div>
       {error && <InlineError className={sc.notePad}>{error}</InlineError>}
       {open && (
-        <OpenBody key={row.id} row={row} homeId={homeId} when={when} clay={clay} completing={completing} onComplete={onComplete} onSnooze={onSnooze} sc={sc} />
+        <OpenBody key={row.id} row={row} homeId={homeId} completing={completing} onComplete={onComplete} onSnooze={onSnooze} sc={sc} />
       )}
     </div>
   )
 }
 
-/** The grown row's inside. Details load on open; a failure says so in place. */
-function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, sc }: {
+/** The open row: the task card's lower half. Details load on open; a failure says so in place. */
+function OpenBody({ row, homeId, completing, onComplete, onSnooze, sc }: {
   row: HomeWeekRow
   homeId: string | null
-  when: string
-  clay: boolean
   completing: boolean
   onComplete: () => void
   onSnooze: () => void
@@ -194,79 +184,23 @@ function OpenBody({ row, homeId, when, clay, completing, onComplete, onSnooze, s
 }) {
   const [attempt, setAttempt] = useState(0)
   const { detail, loading, error } = useTaskDetail(homeId, row.id, true, attempt)
-  const cadence = detail ? cadenceLabel(detail.scheduleType, detail.intervalDays) : null
   const prep = prepLine(detail)
   const place = prepPlace(detail)
+  const meta = itemMinutesLine(row.itemName ?? "Whole home", detail?.estimatedMinutes)
   return (
-    <div className={`flex flex-col gap-2.5 ${sc.bodyPad}`} data-testid="week-row-body">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {when && <Pill text={when} tone={clay ? "clay" : "when"} />}
-        {cadence && cadence !== "When needed" && <Pill text={cadence} />}
-        {detail?.estimatedMinutes != null && <Pill text={`${detail.estimatedMinutes} min`} />}
-        {loading && !detail && <span className={sc.meta} style={{ color: FAINT }}>Loading…</span>}
-      </div>
+    <div className={`flex flex-col gap-3 ${sc.bodyPad}`} data-testid="week-row-body">
+      {meta && <p className="-mt-1 text-[0.9375rem] leading-5" style={{ color: SUB }}>{meta}</p>}
+      {loading && !detail && <span className={sc.meta} style={{ color: FAINT }}>Loading…</span>}
       {error && (
         <div role="alert" className={`flex items-center gap-2 ${sc.meta}`} style={{ color: CLAY }}>
           <span>Couldn&apos;t load the details: {error}</span>
           <button type="button" onClick={() => setAttempt((n) => n + 1)} className="hit-44 font-bold underline underline-offset-2">Try again</button>
         </div>
       )}
-      {prep && (
-        <div className="flex items-start gap-2 text-[0.8125rem] leading-[1.4]" style={{ color: INK }} data-testid="prep-line">
-          <span className="flex size-[22px] shrink-0 items-center justify-center rounded-[7px] border" style={{ background: SURFACE, borderColor: LINE, color: TEAL }}>
-            {/technician/i.test(prep) ? <PhoneIcon className="size-3" /> : <PackageIcon className="size-3" />}
-          </span>
-          <span className="flex min-w-0 flex-col items-start gap-1.5">
-            <span>{prep}</span>
-            {place && (
-              <span
-                data-testid="prep-place"
-                className="inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-[0.75rem] font-semibold"
-                style={{ borderColor: "color-mix(in srgb, var(--hh-teal) 25%, transparent)", background: "var(--hh-teal-wash)", color: "var(--hh-teal-deep)" }}
-              >
-                <MapPinIcon className="size-3 shrink-0" style={{ color: TEAL }} aria-hidden />
-                <span className="sr-only">Kept in </span>
-                <span className="truncate">{place}</span>
-              </span>
-            )}
-          </span>
-        </div>
-      )}
-      {/* Larger Text: the three actions wrap rather than run off the edge. */}
-      <div className="flex items-center gap-2 pt-0.5 larger-text:flex-wrap">
-        <button
-          type="button"
-          onClick={onComplete}
-          disabled={completing}
-          className="hit-44 shrink-0 whitespace-nowrap rounded-[11px] px-4 py-2 text-[0.8125rem] font-bold text-white disabled:opacity-60"
-          style={{ background: "var(--hh-teal-fill)" }}
-        >
-          Mark done
-        </button>
-        <button
-          type="button"
-          onClick={onSnooze}
-          className="hit-44 shrink-0 whitespace-nowrap rounded-[11px] border px-3.5 py-2 text-[0.78125rem] font-semibold"
-          style={{ borderColor: LINE, background: SURFACE, color: SUB }}
-        >
-          <BellOffIcon className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />Snooze
-        </button>
-        <Link to={`/tasks/${row.id}`} className="hit-44 ml-auto inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap larger-text:min-h-11 text-[0.78125rem] font-bold" style={{ color: TEAL }}>
-          See details <ChevronRightIcon className="size-3" aria-hidden />
-        </Link>
-      </div>
+      {prep && <TaskSupplyLine text={prep} place={place} />}
+      <TaskCardActions onDone={onComplete} onSnooze={onSnooze} completing={completing} />
     </div>
   )
-}
-
-function Pill({ text, tone = "plain" }: { text: string; tone?: "plain" | "when" | "clay" }) {
-  const style =
-    tone === "clay"
-      ? { background: "var(--hh-clay-soft)", color: CLAY }
-      : tone === "when"
-        ? { background: SURFACE, color: "var(--hh-teal-deep)", border: `1px solid color-mix(in srgb, var(--hh-teal) 25%, transparent)` }
-        : { background: SURFACE, color: SUB, border: `1px solid ${LINE}` }
-  return <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[0.75rem] font-semibold" style={style}>{text}</span>
 }
 
 /** Nothing in the window: one sentence, the next few ahead, and stop. */

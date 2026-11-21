@@ -45,23 +45,28 @@ beforeEach(() => {
 })
 
 describe("ThisWeekList", () => {
-  it("opens the first task by default, with its pills and no prep line when it needs nothing", async () => {
+  it("opens the first task by default as the task card: status line, item and minutes, no pills, the arrow opens its page", async () => {
     renderList([urgent("lead", "Clean Aluminum Mesh Filters")], [ahead("tub", "Run Tub Clean Cycle", 3)])
     const rows = screen.getAllByTestId("week-row")
     expect(rows).toHaveLength(2)
     expect(rows[0]).toHaveAttribute("data-open", "true")
     expect(rows[1]).toHaveAttribute("data-open", "false")
+    // Owner, 2026-11-21: the status line sits above the title; timing is text, not a pill.
+    expect(within(rows[0]).getByTestId("task-status").textContent).toMatch(/Been a while/)
     const body = within(rows[0]).getByTestId("week-row-body")
-    expect(body.textContent).toMatch(/Been a while/)
-    expect(body.textContent).toMatch(/Monthly/)
     expect(body.textContent).toMatch(/15 min/)
+    expect(body.textContent).not.toMatch(/Monthly/)
     expect(within(rows[0]).queryByTestId("prep-line")).toBeNull()
-    expect(within(rows[0]).getByRole("link", { name: /See details/ })).toHaveAttribute("href", "/tasks/lead")
+    // The arrow, not a "See details" link.
+    expect(within(rows[0]).queryByText(/See details/)).toBeNull()
+    expect(within(rows[0]).getByRole("link", { name: "Open Clean Aluminum Mesh Filters" })).toHaveAttribute("href", "/tasks/lead")
+    // Mark done and Snooze are one size, side by side.
+    expect(within(rows[0]).getByTestId("task-actions")).toBeInTheDocument()
   })
 
   it("tapping another row opens it the same way and closes the first; its prep line names the supply", async () => {
     renderList([urgent("lead", "Clean Aluminum Mesh Filters")], [ahead("tub", "Run Tub Clean Cycle", 3)])
-    fireEvent.click(screen.getByRole("button", { name: /^Run Tub Clean Cycle/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Open Run Tub Clean Cycle here" }))
     const rows = screen.getAllByTestId("week-row")
     await waitFor(() => expect(rows[1]).toHaveAttribute("data-open", "true"))
     expect(rows[0]).toHaveAttribute("data-open", "false")
@@ -76,7 +81,7 @@ describe("ThisWeekList", () => {
     expect(line.textContent).toMatch(/^You'll need 16×25×1 MERV 8 pleated filter\./)
     expect(within(line).getByTestId("prep-place")).toHaveTextContent("Kept in Hall closet, top shelf")
     // The tablet has no place on record: its line is the sentence alone.
-    fireEvent.click(screen.getByRole("button", { name: /^Run Tub Clean Cycle/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Open Run Tub Clean Cycle here" }))
     expect(within(rows[1]).queryByTestId("prep-place")).toBeNull()
   })
 
