@@ -58,6 +58,21 @@ export function nothingDueLine(hiddenCleaning: number): string {
   return `Nothing on the schedule — ${hiddenCleaning} cleaning job${hiddenCleaning === 1 ? " lives" : "s live"} in your guides.`
 }
 
+/**
+ * The line under the Tasks title in the Cleaning view — the same words in both
+ * trees. A failed read says nothing here (the view below says it failed): "0
+ * cleaning guides" about a list never read would be a confident wrong answer.
+ */
+export function cleaningGuidesLine({ guides, loading, failed }: {
+  guides: readonly unknown[] | undefined
+  loading: boolean
+  failed: boolean
+}): string | null {
+  if (loading) return "Loading…"
+  if (failed || !guides) return null
+  return `${guides.length} cleaning guide${guides.length === 1 ? "" : "s"}`
+}
+
 // ── Check-off and snooze, for both trees ─────────────────────────────────────
 
 /**

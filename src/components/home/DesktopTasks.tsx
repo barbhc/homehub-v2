@@ -15,13 +15,16 @@ import { whenTone } from "@/lib/taskCard"
 import { prepLine, prepPlace } from "@/lib/homeWeek"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
-  nothingDueLine, TIER_FILTERS, tierFilterCounts,
+  nothingDueLine, cleaningGuidesLine, TIER_FILTERS, tierFilterCounts,
   tasksDueOnDay, useAgendaRowActions, useTaskDetail, whenLabel, phraseUnderGroup, type Lens, CLAY, TEAL, SELECTED_DAY_RING, withoutHidden,
   fillFor,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 import { HiddenByLevelLink } from "./tasks/HiddenByLevelLink"
 import { UndoBar } from "@/components/ui/UndoBar"
+import { SegmentedControl } from "@/components/ui/SegmentedControl"
+import { TASKS_VIEWS, useTasksView } from "@/hooks/usePageView"
+import { useCleaningGuides } from "@/hooks/useCleaningGuides"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)"
 const LINE = "var(--hh-line2)", SURFACE = "var(--hh-surface)"
@@ -208,6 +211,13 @@ function TierPill({ active, color, onClick, children, dot, count }: {
 export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const care = useCareSuggestions(homeId)
   const navigate = useNavigate()
+  // Upkeep | Cleaning, from the URL (?view=) — as on the phone. In Cleaning
+  // this tree is only the header: the count, the control, Ask. The lenses, the
+  // priority chips and the calendar aside are Upkeep's, so they are not drawn;
+  // the Tasks page mounts the Cleaning content once, below.
+  const [pageView, setPageView] = useTasksView()
+  const cleaning = pageView === "cleaning"
+  const guides = useCleaningGuides(homeId, cleaning)
   const [tier, setTier] = useTierFilter()
   // Item filtering is the "Item" lens now; kept as a constant so the shared
   // tier helpers keep their signature.
@@ -245,11 +255,11 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const tierCounts = useMemo(() => tierFilterCounts(items, item), [items, item])
 
   return (
-    <div style={{ maxWidth: 1140, margin: "0 auto", padding: "30px 0 48px" }}>
+    <div style={{ maxWidth: 1140, margin: "0 auto", padding: cleaning ? "30px 0 0" : "30px 0 48px" }}>
       {bar && <UndoBar {...bar} />}
       {/* A refresh failed behind an agenda we still hold: keep it, and say so
           quietly at the top of the screen — where Home and Items say it. */}
-      {agenda.error && agenda.data && <StaleDataNote className="mb-5" onRetry={() => void agenda.refresh()} />}
+      {!cleaning && agenda.error && agenda.data && <StaleDataNote className="mb-5" onRetry={() => void agenda.refresh()} />}
       {/* Header */}
       <div className="mb-[22px] flex items-end justify-between gap-4">
         <div className="min-w-0">
@@ -260,7 +270,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                 with cleaning scheduled says where it went (HH-94), in the same
                 words as the phone — and only an EMPTY agenda says it: a filter
                 that empties a full list gets "0 of 5" instead. */}
-            {loading ? "Loading…" : loadFailed ? null : totalAll === 0 ? nothingDueLine(hiddenCleaning)
+            {cleaning ? cleaningGuidesLine(guides) : loading ? "Loading…" : loadFailed ? null : totalAll === 0 ? nothingDueLine(hiddenCleaning)
               // Just the count — a whole-list minute total reads as a bill, not a
               // plan; the per-group minutes are where a pass gets planned. The
               // same words as the phone (owner, 2026-11-21: one thing, one name).
@@ -278,6 +288,15 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
         </button>
       </div>
 
+      <SegmentedControl
+        className={cleaning ? "max-w-[360px]" : "mb-[22px] max-w-[360px]"}
+        label="Tasks view"
+        segments={TASKS_VIEWS}
+        value={pageView}
+        onChange={setPageView}
+      />
+
+      {!cleaning && (<>
       {/* "Start here" insight banner — dismissible */}
       {!loading && !dismissed && insight && total > 0 && (
         <div
@@ -463,6 +482,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
           </div>
         </div>
       </div>
+      </>)}
     </div>
   )
 }

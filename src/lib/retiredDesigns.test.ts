@@ -318,3 +318,31 @@ describe("the manual step is one component, not two that drift", () => {
     expect(offenders).toEqual([])
   })
 })
+
+describe("Clean and Warranties are views, not pages (design/tasks-items-views.md)", () => {
+  const app = sources.find((s) => s.path === "src/App.tsx")!.text
+
+  it("App routes /clean and /warranties only through the redirects, and lazy-loads neither old page", () => {
+    expect(app).toContain("{viewRedirectRoutes()}")
+    expect(app).not.toMatch(/import\("@\/pages\/(DeepClean|WarrantiesPage)"\)/)
+    expect(app).not.toMatch(/path="\/(clean|warranties)" element/)
+  })
+
+  it("nothing links to the old addresses — except Home's own files, rebuilt in parallel, which the redirects keep working", () => {
+    // Home (Home.tsx, RefinedHome, DesktopHome, ThisWeekList) was being rebuilt
+    // in another branch when this change landed, so its links were left alone
+    // on purpose; the redirect is what keeps them landing. Shrink this list as
+    // those files move to CLEANING_PATH / WARRANTIES_PATH.
+    const HOME_REBUILD = [
+      "src/pages/Home.tsx",
+      "src/components/home/RefinedHome.tsx",
+      "src/components/home/DesktopHome.tsx",
+      "src/components/home/ThisWeekList.tsx",
+    ]
+    const offenders = sources
+      .filter((s) => !HOME_REBUILD.includes(s.path) && s.path !== "src/lib/viewRedirects.ts")
+      .filter((s) => /["'`]\/(clean|warranties)["'`?]/.test(s.text))
+      .map((s) => s.path)
+    expect(offenders).toEqual([])
+  })
+})

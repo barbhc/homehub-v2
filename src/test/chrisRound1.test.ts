@@ -275,7 +275,8 @@ describe("round 10 — the overnight fallout, pinned", () => {
       const src = read(`../components/home/${page}.tsx`)
       expect(src, page).toMatch(/totalAll > 0 && <HiddenCleaningLink count=\{hiddenCleaning\}/)
     }
-    expect(read("../components/home/tasks/HiddenCleaningLink.tsx")).toContain('Link to="/clean"')
+    // Clean is Tasks → Cleaning now (design/tasks-items-views.md).
+    expect(read("../components/home/tasks/HiddenCleaningLink.tsx")).toContain("Link to={CLEANING_PATH}")
   })
 
   it("HH-99: the last-done control speaks the sheet's chip language", () => {

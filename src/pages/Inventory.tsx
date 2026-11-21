@@ -8,6 +8,8 @@ import { ItemsLoadError, ItemsSkeleton } from "@/components/home/ItemsSkeleton"
 import { useNotes } from "@/components/notes/useNotes"
 import { getHomeNotes } from "@/modules/care"
 import { DesktopItems } from "@/components/home/DesktopItems"
+import { WarrantiesView } from "@/pages/WarrantiesPage"
+import { useItemsView } from "@/hooks/usePageView"
 import { useHomeItems } from "@/lib/useHomeItems"
 import { pageLoadState } from "@/lib/homeLoadingGate"
 import type { ItemUnit, Room } from "@/integrations/types"
@@ -34,6 +36,10 @@ export default function Inventory() {
   // Notes load on their own: a failed notes read must never cost the item list.
   const homeNotes = useNotes(homeId ? `home-notes:${homeId}` : null, () => getHomeNotes(homeId!))
   const retry = () => void refresh()
+  // Items | Warranties (?view=). Each tree draws its own header and control;
+  // the Warranties view is mounted HERE, once, below both, from the items
+  // already read. With no items there is no control and no view to switch to.
+  const [itemsView] = useItemsView()
 
   // What to show is decided by what we HOLD, never by SWR's isLoading (true
   // while a warm snapshot revalidates) — see pageLoadState.
@@ -89,6 +95,14 @@ export default function Inventory() {
         <div className="hidden lg:block">
           <DesktopItems items={items} rooms={rooms} notes={homeNotes.notes} notesError={homeNotes.error} />
         </div>
+        {itemsView === "warranties" && (
+          // The phone list's gutter on phones; Warranties' own readable width at lg+.
+          <div className="-mx-6 lg:mx-0">
+            <div className="mx-auto w-full max-w-[460px] px-5 lg:mx-0 lg:max-w-3xl lg:px-0">
+              <WarrantiesView items={items} rooms={rooms} />
+            </div>
+          </div>
+        )}
         </>
       )}
     </PageContainer>

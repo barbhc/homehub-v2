@@ -22,11 +22,11 @@ const nav = [
 ] as const
 
 // Desktop navigation GROWS with the user's level (spec: the desktop nav grows
-// rather than gating in-screen). Maps to dt-kit `navFor`: standard adds Clean +
-// Warranties; advanced adds Providers. (engaged ≈ standard, power ≈ advanced.)
+// rather than gating in-screen). Advanced (power) adds Providers. Clean and
+// Warranties used to be entries here too; they are views of Tasks and Items now
+// — Tasks → Cleaning, Items → Warranties (design/tasks-items-views.md) — so the
+// header no longer lists them.
 const DESKTOP_LEVEL_NAV: { to: string; label: string; tourId: string; minLevel: "engaged" | "power" }[] = [
-  { to: "/clean", label: "Clean", tourId: "nav-clean", minLevel: "engaged" },
-  { to: "/warranties", label: "Warranties", tourId: "nav-warranties", minLevel: "engaged" },
   { to: "/providers", label: "Providers", tourId: "nav-providers", minLevel: "power" },
 ]
 const LEVEL_RANK: Record<string, number> = { essentials: 0, engaged: 1, power: 2 }
@@ -109,8 +109,8 @@ function AppShell() {
             {/* From lg: only. These grow with the user's level, so a power user
                 on an iPad had a header that needed ~1102px in an 820px viewport
                 and ran off the right edge — Settings and the avatar simply gone.
-                Everything here stays reachable: Clean, Warranties and Providers
-                are all linked from Home. */}
+                Everything here stays reachable: Providers is linked from
+                Settings and from every pro task. */}
             {desktopExtraNav.map(({ to, label, tourId }) => {
               const isActive = location.pathname === to
               return (

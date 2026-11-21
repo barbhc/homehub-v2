@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
   ArrowRight,
-  CheckIcon,
   ChevronDown,
   ChevronRight,
   RotateCcw,
@@ -14,18 +13,16 @@ import { useCurrentHome, getRooms } from "@/modules/home"
 import { markTaskInstanceDone } from "@/modules/care"
 import {
   getCleaningTasks,
-  getDeepCleanGuides,
   saveRoutineTask,
   type CleanTask,
   type CleanSessionMode,
   type DeepCleanGuide,
 } from "@/lib/cleanSession"
-import { InlineError, PageContainer, PageHeader, SectionCard } from "@/components/layout"
+import { InlineError, SectionCard } from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import { cleanDueLabel as dueLabel, daysUntilDue } from "@/lib/cleanDue"
 import { splitCautions } from "@/lib/cautions"
 import { CautionCallout } from "@/components/tasks/CautionCallout"
 import { StepsOrProNotice } from "@/components/tasks/StepsOrProNotice"
@@ -33,14 +30,14 @@ import { classifyTaskFields } from "@/lib/taskActor"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { useIsCurrent } from "@/hooks/useIsCurrent"
 import { usePageBar } from "@/hooks/usePageBar"
+import { useCleaningGuides } from "@/hooks/useCleaningGuides"
 
 type Step = "setup" | "checklist" | "summary"
 type View = "hub" | "session"
 
 const INK = "var(--hh-ink)",
   SUB = "var(--hh-sub)",
-  TEAL = "var(--hh-teal)",
-  CLAY = "var(--hh-clay)"
+  TEAL = "var(--hh-teal)"
 
 /**
  * Time budgets per spec: each option carries a short note. "No limit" maps to a
@@ -74,7 +71,20 @@ function formatStaleDays(days: number): string {
   return "3+ months ago"
 }
 
-export default function DeepClean() {
+/**
+ * Tasks → Cleaning (`/maintenance?view=cleaning`) — what was the Clean page
+ * (`/clean`, which now redirects here; design/tasks-items-views.md).
+ *
+ * The hub is the "Start cleaning" card and the cleaning guides. Clean's own
+ * "This week" list is gone: the week is one list, in Upkeep. Item-scoped
+ * cleaning that list used to surface is still in every session's checklist
+ * and in each appliance's guide.
+ *
+ * Rendered ONCE by the Tasks page, under both trees' headers (which carry the
+ * title, the guide count and the Upkeep | Cleaning control), so a visit costs
+ * one guides read and one rooms read — and there is one session, not two.
+ */
+export function CleaningView() {
   const navigate = useNavigate()
   const { home } = useCurrentHome()
   const homeId = home?.home_id ?? null
@@ -90,15 +100,10 @@ export default function DeepClean() {
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set())
   // Default budget so "Let's clean" can be active on entry (room is auto-picked).
   const [selectedTime, setSelectedTime] = useState<(typeof TIME_OPTIONS)[number]>(TIME_OPTIONS[1])
-  // Hub data
-  const [guides, setGuides] = useState<DeepCleanGuide[]>([])
-  const [weekTasks, setWeekTasks] = useState<CleanTask[]>([])
-  const [hubLoading, setHubLoading] = useState(true)
-  /** Hub reads that failed — said in place of "No cleaning guides yet" and
-   *  "Nothing due this week", which were shown for lists never read (audit H6). */
-  const [guidesFailed, setGuidesFailed] = useState(false)
-  const [weekFailed, setWeekFailed] = useState(false)
-  const [hubAttempt, setHubAttempt] = useState(0)
+  // Hub data — shared with the count under the Tasks title (useCleaningGuides).
+  // A failed read is said in place of "No cleaning guides yet", which was shown
+  // for a list never read (audit H6).
+  const hub = useCleaningGuides(homeId)
   const [saveRoutineError, setSaveRoutineError] = useState<string | null>(null)
   const [tasks, setTasks] = useState<CleanTask[]>([])
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
@@ -173,40 +178,6 @@ export default function DeepClean() {
     })
     return () => { cancelled = true }
   }, [homeId])
-
-  // Hub data: curated guides + this-week cleaning tasks (due/overdue, short list).
-  // A home switch (or Try again) shows the loading hub in the render that asks;
-  // the effect only reads.
-  if (useDepsChanged([homeId, hubAttempt]) && homeId) setHubLoading(true)
-  useEffect(() => {
-    if (!homeId) return
-    let cancelled = false
-    // Each half fails on its own: logged, and null (not []) so the hub can tell
-    // "couldn't read" from "nothing there".
-    const failed = (what: string) => (e: unknown) => {
-      console.warn(`[clean] could not load ${what} for home ${homeId}:`, e instanceof Error ? e.message : e)
-      return null
-    }
-    Promise.all([
-      getDeepCleanGuides(homeId).catch(failed("cleaning guides")),
-      getCleaningTasks(homeId, "cleaning").catch(failed("this week's cleaning")),
-    ]).then(([g, tasks]) => {
-      if (cancelled) return
-      setGuides(g ?? [])
-      setGuidesFailed(g === null)
-      // "This week": due-soon or overdue cleaning tasks, capped to a short list.
-      const due = (tasks ?? [])
-        .filter((t) => t.isOverdue || daysUntilDue(t.dueDate) <= 7)
-        .sort((a, b) => b.priorityScore - a.priorityScore)
-        .slice(0, 6)
-      setWeekTasks(due)
-      setWeekFailed(tasks === null)
-      setHubLoading(false)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [homeId, hubAttempt])
 
   const handleWholeHome = useCallback(() => {
     setWholeHome((prev) => {
@@ -465,44 +436,36 @@ export default function DeepClean() {
   const backToHub = useCallback(() => setView("hub"), [])
 
   if (!homeId) {
-    return (
-      <PageContainer>
-        <PageHeader title="Clean" subtitle="Select a home to continue." />
-      </PageContainer>
-    )
+    return <p className="text-[0.875rem]" style={{ color: SUB }}>Select a home to continue.</p>
   }
 
   if (view === "hub") {
     return (
-      <PageContainer className="pb-24">
-        <CleanHub
-          guides={guides}
-          weekTasks={weekTasks}
-          loading={hubLoading}
-          guidesFailed={guidesFailed}
-          weekFailed={weekFailed}
-          onRetry={() => setHubAttempt((n) => n + 1)}
-          resuming={sessionInProgress}
-          onStart={enterSession}
-          onToggleWeekTask={toggleTask}
-          completedIds={completedIds}
-        />
-      </PageContainer>
+      <CleanHub
+        guides={hub.guides ?? []}
+        loading={hub.loading}
+        guidesFailed={hub.failed}
+        onRetry={hub.retry}
+        resuming={sessionInProgress}
+        onStart={enterSession}
+      />
     )
   }
 
   return (
-    <PageContainer className="pb-24">
-      <PageHeader
-        title="Clean"
-        subtitle={
-          step === "setup"
+    <div className="space-y-6 pb-24">
+      {/* The page's title is "Tasks" (above the Upkeep | Cleaning control), so
+          the session names itself one level down. */}
+      <header>
+        <h2 className="text-[1.25rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Cleaning session</h2>
+        <p className="mt-1 text-[0.875rem]" style={{ color: SUB }}>
+          {step === "setup"
             ? "Pick rooms and your time budget."
             : step === "checklist"
               ? "Check off cleaning tasks."
-              : "All done!"
-        }
-      />
+              : "All done!"}
+        </p>
+      </header>
 
       {step === "setup" && (
         <SectionCard>
@@ -847,28 +810,20 @@ export default function DeepClean() {
           </CardContent>
         </SectionCard>
       )}
-    </PageContainer>
+    </div>
   )
 }
 
 // ── Clean hub ────────────────────────────────────────────────────────────────
-// Landing surface for /clean. A green "Start cleaning" hero enters the session
-// flow; a curated guides grid (getDeepCleanGuides — NOT the raw per-step feed);
-// and a short "This week" list of due/overdue cleaning tasks.
+// What Tasks → Cleaning lands on. A green "Start cleaning" hero enters the
+// session flow; then a curated guides grid (getDeepCleanGuides — NOT the raw
+// per-step feed). How many guides there are is said once, under the Tasks
+// title — not again on this list's label.
 
-function HubSectionLabel({
-  children,
-  right,
-}: {
-  children: React.ReactNode
-  right?: React.ReactNode
-}) {
+function HubSectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-2.5 flex items-baseline justify-between">
-      <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ color: SUB }}>
-        {children}
-      </span>
-      {right}
+    <div className="mb-2.5 text-[0.6875rem] font-bold uppercase tracking-[0.3px]" style={{ color: SUB }}>
+      {children}
     </div>
   )
 }
@@ -886,183 +841,99 @@ function HubGlyph({ size = 42 }: { size?: number }) {
 
 function CleanHub({
   guides,
-  weekTasks,
   loading,
   guidesFailed,
-  weekFailed,
   onRetry,
   resuming,
   onStart,
-  onToggleWeekTask,
-  completedIds,
 }: {
   guides: DeepCleanGuide[]
-  weekTasks: CleanTask[]
   loading: boolean
   /** The guides could not be read — not "no guides yet". */
   guidesFailed: boolean
-  /** This week's cleaning could not be read — not "nothing due". */
-  weekFailed: boolean
   onRetry: () => void
   resuming: boolean
   onStart: () => void
-  onToggleWeekTask: (id: string) => void
-  completedIds: Set<string>
 }) {
   return (
-    <div>
-      <div className="mb-5 flex items-end justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-[1.75rem] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>
-            Clean
-          </h1>
-          <div className="mt-1.5 text-[0.84375rem]" style={{ color: SUB }}>
-            A calm way to keep things fresh — guided sessions and step-by-step guides.
+    <div className="flex flex-col gap-6">
+      {/* Hero: start / resume session */}
+      <button
+        type="button"
+        onClick={onStart}
+        className="w-full rounded-2xl p-6 text-left text-white shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
+        style={{ background: "linear-gradient(150deg,var(--hh-teal-fill),var(--hh-teal-fill-hover))" }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex size-[54px] shrink-0 items-center justify-center rounded-[15px]" style={{ background: "rgba(255,255,255,0.16)" }}>
+            {resuming ? <RotateCcw className="size-7" /> : <SprayCanIcon className="size-7" />}
           </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,1fr)]">
-        <div className="flex flex-col gap-6">
-          {/* Hero: start / resume session */}
-          <button
-            type="button"
-            onClick={onStart}
-            className="w-full rounded-2xl p-6 text-left text-white shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
-            style={{ background: "linear-gradient(150deg,var(--hh-teal-fill),var(--hh-teal-fill-hover))" }}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex size-[54px] shrink-0 items-center justify-center rounded-[15px]" style={{ background: "rgba(255,255,255,0.16)" }}>
-                {resuming ? <RotateCcw className="size-7" /> : <SprayCanIcon className="size-7" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                {resuming && (
-                  <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "rgba(255,255,255,0.75)" }}>
-                    In progress
-                  </div>
-                )}
-                <div className="text-[1.1875rem] font-extrabold tracking-[-0.3px]">
-                  {resuming ? "Resume session" : "Start cleaning"}
-                </div>
-                <div className="mt-0.5 text-[0.84375rem]" style={{ color: "rgba(255,255,255,0.82)" }}>
-                  {resuming
-                    ? "Pick up where you left off."
-                    : "Pick rooms and a time budget — we'll size a checklist to fit."}
-                </div>
-              </div>
-              <ArrowRight className="size-[22px]" style={{ color: "rgba(255,255,255,0.9)" }} />
-            </div>
-          </button>
-
-          {/* Cleaning guides grid — curated guide-level list, not per-step. */}
-          <div>
-            <HubSectionLabel right={guidesFailed ? undefined : <span className="text-[0.78125rem] font-semibold" style={{ color: SUB }}>{guides.length} guide{guides.length === 1 ? "" : "s"}</span>}>
-              Cleaning guides
-            </HubSectionLabel>
-            {loading ? (
-              <div className="rounded-2xl bg-[var(--hh-surface)] py-12 text-center text-[0.875rem] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
-                Loading…
-              </div>
-            ) : guidesFailed ? (
-              <div className="rounded-2xl bg-[var(--hh-surface)] px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-                <InlineError onRetry={onRetry}>Couldn&apos;t load your cleaning guides.</InlineError>
-              </div>
-            ) : guides.length === 0 ? (
-              <div className="flex items-center gap-3 rounded-2xl bg-[var(--hh-surface)] px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={{ background: "var(--hh-teal-wash)" }}>
-                  <SparklesIcon className="size-[18px]" style={{ color: TEAL }} />
-                </div>
-                <div className="text-[0.84375rem]" style={{ color: SUB }}>
-                  No cleaning guides yet — start a session to build a checklist.
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3.5">
-                {guides.map((g) => {
-                  const card = (
-                    <>
-                      <HubGlyph />
-                      <div className="text-[0.90625rem] font-bold leading-tight tracking-[-0.2px]" style={{ color: INK }}>
-                        {g.title}
-                      </div>
-                      {g.estimatedMinutes != null && (
-                        <div className="mt-auto text-[0.78125rem]" style={{ color: SUB }}>
-                          {g.estimatedMinutes} min guide
-                        </div>
-                      )}
-                    </>
-                  )
-                  const cls = "flex flex-col gap-2.5 rounded-2xl bg-[var(--hh-surface)] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
-                  return g.itemUnitId ? (
-                    <Link key={g.id} to={`/clean/${g.itemUnitId}`} className={`${cls} transition-shadow hover:shadow-[0_4px_16px_rgba(15,23,42,0.1)]`}>
-                      {card}
-                    </Link>
-                  ) : (
-                    <div key={g.id} className={cls}>{card}</div>
-                  )
-                })}
+          <div className="min-w-0 flex-1">
+            {resuming && (
+              <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "rgba(255,255,255,0.75)" }}>
+                In progress
               </div>
             )}
+            <div className="text-[1.1875rem] font-extrabold tracking-[-0.3px]">
+              {resuming ? "Resume session" : "Start cleaning"}
+            </div>
+            <div className="mt-0.5 text-[0.84375rem]" style={{ color: "rgba(255,255,255,0.82)" }}>
+              {resuming
+                ? "Pick up where you left off."
+                : "Pick rooms and a time budget — we'll size a checklist to fit."}
+            </div>
           </div>
+          <ArrowRight className="size-[22px]" style={{ color: "rgba(255,255,255,0.9)" }} />
         </div>
+      </button>
 
-        {/* This week — due / overdue cleaning tasks, short list. */}
-        <div>
-          <HubSectionLabel>This week</HubSectionLabel>
-          {loading ? (
-            <div className="rounded-2xl bg-[var(--hh-surface)] py-12 text-center text-[0.875rem] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
-              Loading…
+      {/* Cleaning guides grid — curated guide-level list, not per-step. */}
+      <div>
+        <HubSectionLabel>Cleaning guides</HubSectionLabel>
+        {loading ? (
+          <div className="rounded-2xl bg-[var(--hh-surface)] py-12 text-center text-[0.875rem] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
+            Loading…
+          </div>
+        ) : guidesFailed ? (
+          <div className="rounded-2xl bg-[var(--hh-surface)] px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+            <InlineError onRetry={onRetry}>Couldn&apos;t load your cleaning guides.</InlineError>
+          </div>
+        ) : guides.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-2xl bg-[var(--hh-surface)] px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={{ background: "var(--hh-teal-wash)" }}>
+              <SparklesIcon className="size-[18px]" style={{ color: TEAL }} />
             </div>
-          ) : weekFailed ? (
-            <div className="rounded-2xl bg-[var(--hh-surface)] px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-              <InlineError onRetry={onRetry}>Couldn&apos;t load this week&apos;s cleaning.</InlineError>
+            <div className="text-[0.84375rem]" style={{ color: SUB }}>
+              No cleaning guides yet — start a session to build a checklist.
             </div>
-          ) : weekTasks.length === 0 ? (
-            <div className="rounded-2xl bg-[var(--hh-surface)] px-4 py-6 text-center text-[0.84375rem] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB }}>
-              Nothing due this week — enjoy the calm.
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-2xl bg-[var(--hh-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-              {weekTasks.map((t, i) => {
-                const due = dueLabel(t)
-                const done = completedIds.has(t.id)
-                return (
-                  // The whole row is the control — the 20px circle alone was a
-                  // 20pt target. Same layout; a tap anywhere on the row toggles.
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => onToggleWeekTask(t.id)}
-                    aria-label={`${done ? "Mark not done" : "Mark done"}: ${t.title}`}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left"
-                    style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none" }}
-                  >
-                    <span
-                      className="flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
-                      style={{ borderColor: done ? "var(--hh-teal-fill)" : TEAL, background: done ? "var(--hh-teal-fill)" : "transparent" }}
-                    >
-                      {done && <CheckIcon className="size-3 text-white" strokeWidth={3} />}
-                    </span>
-                    <span className="block min-w-0 flex-1">
-                      <span className={cn("block truncate text-[0.84375rem] font-semibold", done && "line-through opacity-60")} style={{ color: INK }}>
-                        {t.title}
-                      </span>
-                      <span className="mt-px block text-[0.75rem]" style={{ color: SUB }}>
-                        {(t.itemName ?? t.roomName ?? "Home")} · {t.estimatedMinutes ?? 15} min
-                      </span>
-                    </span>
-                    <span
-                      className="shrink-0 whitespace-nowrap text-[0.75rem] font-bold"
-                      style={{ color: due.overdue ? CLAY : due.text === "Today" ? TEAL : SUB }}
-                    >
-                      {due.text}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3.5">
+            {guides.map((g) => {
+              const card = (
+                <>
+                  <HubGlyph />
+                  <div className="text-[0.90625rem] font-bold leading-tight tracking-[-0.2px]" style={{ color: INK }}>
+                    {g.title}
+                  </div>
+                  {g.estimatedMinutes != null && (
+                    <div className="mt-auto text-[0.78125rem]" style={{ color: SUB }}>
+                      {g.estimatedMinutes} min guide
+                    </div>
+                  )}
+                </>
+              )
+              const cls = "flex flex-col gap-2.5 rounded-2xl bg-[var(--hh-surface)] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
+              return g.itemUnitId ? (
+                <Link key={g.id} to={`/clean/${g.itemUnitId}`} className={`${cls} transition-shadow hover:shadow-[0_4px_16px_rgba(15,23,42,0.1)]`}>
+                  {card}
+                </Link>
+              ) : (
+                <div key={g.id} className={cls}>{card}</div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

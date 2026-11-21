@@ -8,10 +8,14 @@
  *   · one visit = one agenda read and one suggestions read;
  *   · a check-off in one tree leaves the task in neither (one shared list);
  *   · a failed read is a visible failure in both — never "Nothing due".
+ *
+ * And the Upkeep | Cleaning control (design/tasks-items-views.md): it switches
+ * views and writes ?view=; Cleaning is mounted ONCE (not per tree) and draws
+ * none of Upkeep's own controls.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react"
-import { MemoryRouter } from "react-router-dom"
+import { MemoryRouter, useLocation } from "react-router-dom"
 import { SWRConfig } from "swr"
 import { localToday } from "../../shared/dates/calendar"
 
@@ -23,6 +27,9 @@ const svc = vi.hoisted(() => ({
   getTaskTemplates: vi.fn(),
   getItemUnits: vi.fn(),
   getHomeProfile: vi.fn(),
+  getDeepCleanGuides: vi.fn(),
+  getCleaningTasks: vi.fn(),
+  getRooms: vi.fn(),
 }))
 vi.mock("@/modules/care", () => ({
   getWeekAgenda: (...a: unknown[]) => svc.getWeekAgenda(...a),
@@ -40,6 +47,12 @@ vi.mock("@/modules/items", () => ({ getItemUnits: (...a: unknown[]) => svc.getIt
 vi.mock("@/modules/home", () => ({
   useCurrentHome: () => ({ home: { home_id: "h1" } }),
   getHomeProfile: (...a: unknown[]) => svc.getHomeProfile(...a),
+  getRooms: (...a: unknown[]) => svc.getRooms(...a),
+}))
+vi.mock("@/lib/cleanSession", () => ({
+  getDeepCleanGuides: (...a: unknown[]) => svc.getDeepCleanGuides(...a),
+  getCleaningTasks: (...a: unknown[]) => svc.getCleaningTasks(...a),
+  saveRoutineTask: vi.fn(),
 }))
 
 const { default: Maintenance } = await import("./Maintenance")
@@ -55,14 +68,25 @@ const ok = <T,>(data: T) => ({ data, error: null })
 /** getWeekAgenda's answer: the rows, and what that read withheld (none here). */
 const agenda = <T,>(rows: T) => ({ ...ok(rows), withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning: 0 } })
 
-const renderPage = () =>
+const renderPage = (at = "/maintenance") =>
   render(
     <SWRConfig value={{ provider: () => new Map(), shouldRetryOnError: false }}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[at]}>
         <Maintenance />
+        <Where />
       </MemoryRouter>
     </SWRConfig>,
   )
+
+function Where() {
+  const loc = useLocation()
+  return <span data-testid="where">{loc.pathname + loc.search}</span>
+}
+
+const GUIDES = [
+  { id: "g1", title: "Clean the Bosch dishwasher", estimatedMinutes: 20, itemUnitId: "i1" },
+  { id: "g2", title: "Descale the kettle", estimatedMinutes: 10, itemUnitId: null },
+]
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -72,6 +96,8 @@ beforeEach(() => {
   svc.getItemUnits.mockResolvedValue(ok([]))
   svc.getTaskTemplates.mockResolvedValue(ok([]))
   svc.getHomeProfile.mockResolvedValue(ok(null))
+  svc.getDeepCleanGuides.mockResolvedValue(GUIDES)
+  svc.getRooms.mockResolvedValue(ok([]))
 })
 
 describe("Tasks page — both trees, one fetch", () => {
@@ -135,5 +161,89 @@ describe("Tasks page — both trees, one fetch", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /try again/i })[0])
     expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
     expect(screen.queryByText("Couldn't load your tasks")).toBeNull()
+  })
+})
+
+describe("Tasks page — Upkeep | Cleaning", () => {
+  /** Both trees' controls (phone and desktop are both mounted in jsdom). */
+  const tablists = () => screen.getAllByRole("tablist", { name: "Tasks view" })
+
+  it("the control switches to Cleaning and writes ?view=cleaning; Upkeep takes the param away again", async () => {
+    renderPage()
+    expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
+    expect(tablists()).toHaveLength(2)
+    for (const list of tablists()) {
+      expect(within(list).getByRole("tab", { name: "Upkeep" })).toHaveAttribute("aria-selected", "true")
+      expect(within(list).getByRole("tab", { name: "Cleaning" })).toHaveAttribute("aria-selected", "false")
+    }
+    // Upkeep is today's page, its lenses in both trees…
+    expect(screen.getAllByRole("button", { name: /^Urgency$/i })).toHaveLength(2)
+    // …and Cleaning's content is not rendered, nor read.
+    expect(screen.queryByText("Start cleaning")).toBeNull()
+    expect(svc.getDeepCleanGuides).not.toHaveBeenCalled()
+
+    fireEvent.click(within(tablists()[0]).getByRole("tab", { name: "Cleaning" }))
+
+    expect(screen.getByTestId("where")).toHaveTextContent("/maintenance?view=cleaning")
+    for (const list of tablists()) {
+      expect(within(list).getByRole("tab", { name: "Cleaning" })).toHaveAttribute("aria-selected", "true")
+    }
+    // Clean's content, mounted ONCE under both headers — one guides read.
+    expect(await screen.findByText("Clean the Bosch dishwasher")).toBeInTheDocument()
+    expect(screen.getAllByText("Start cleaning")).toHaveLength(1)
+    expect(svc.getDeepCleanGuides).toHaveBeenCalledTimes(1)
+    // The count line under the title, in both trees.
+    expect(screen.getAllByText("2 cleaning guides")).toHaveLength(2)
+    expect(screen.queryByText("1 to do")).toBeNull()
+
+    fireEvent.click(within(tablists()[1]).getByRole("tab", { name: "Upkeep" }))
+    expect(screen.getByTestId("where")).toHaveTextContent(/^\/maintenance$/)
+    expect(screen.queryByText("Start cleaning")).toBeNull()
+    expect(screen.getAllByText("Replace the furnace filter")).toHaveLength(2)
+  })
+
+  it("the arrow keys move the selection, and it is written to the URL", async () => {
+    renderPage()
+    const upkeep = within(tablists()[0]).getByRole("tab", { name: "Upkeep" })
+    // One Tab stop: the selected segment.
+    expect(upkeep).toHaveAttribute("tabindex", "0")
+    expect(within(tablists()[0]).getByRole("tab", { name: "Cleaning" })).toHaveAttribute("tabindex", "-1")
+    fireEvent.keyDown(upkeep, { key: "ArrowRight" })
+    expect(screen.getByTestId("where")).toHaveTextContent("/maintenance?view=cleaning")
+    expect(within(tablists()[0]).getByRole("tab", { name: "Cleaning" })).toHaveFocus()
+  })
+
+  it("in Cleaning, Upkeep's own controls are not rendered — lenses, priority filter, calendar — nor its list", async () => {
+    renderPage("/maintenance?view=cleaning")
+    expect(await screen.findByText("Clean the Bosch dishwasher")).toBeInTheDocument()
+    await waitFor(() => expect(svc.getWeekAgenda).toHaveBeenCalled())
+
+    // Not rendered (absent from the DOM), in either tree.
+    for (const lens of ["Urgency", "Room", "Item", "Calendar"]) {
+      expect(screen.queryAllByRole("button", { name: new RegExp(`^${lens}$`, "i") })).toHaveLength(0)
+    }
+    expect(screen.queryAllByRole("button", { name: /Needs you|All priorities|Essential|Recommended|Optional/ })).toHaveLength(0)
+    expect(screen.queryByText("Pick a date")).toBeNull()
+    expect(screen.queryByText("Pick a day")).toBeNull()
+    expect(screen.queryByText("Replace the furnace filter")).toBeNull()
+    // The page is still Tasks, with its count in Cleaning's words.
+    expect(screen.getAllByRole("heading", { level: 1, name: "Tasks" })).toHaveLength(2)
+    expect(screen.getAllByText("2 cleaning guides")).toHaveLength(2)
+  })
+
+  it("Cleaning has no 'This week' list of its own (not rendered): the week is one list, in Upkeep", async () => {
+    renderPage("/maintenance?view=cleaning")
+    expect(await screen.findByText("Clean the Bosch dishwasher")).toBeInTheDocument()
+    expect(screen.queryByText("This week")).toBeNull()
+    expect(screen.queryByText(/Nothing due this week/)).toBeNull()
+    expect(svc.getCleaningTasks).not.toHaveBeenCalled()
+  })
+
+  it("a failed guides read says so below and claims no count above", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    svc.getDeepCleanGuides.mockRejectedValue(new Error("unavailable"))
+    renderPage("/maintenance?view=cleaning")
+    expect(await screen.findByText("Couldn't load your cleaning guides.")).toBeInTheDocument()
+    expect(screen.queryByText(/cleaning guides?$/)).toBeNull()
   })
 })

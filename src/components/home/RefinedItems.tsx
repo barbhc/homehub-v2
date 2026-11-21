@@ -13,6 +13,8 @@ import { requestReview } from "@/lib/reviewRequest"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 import { categoryLabel } from "@/lib/categoryLabel"
 import { dens } from "@/lib/redesign/tokens"
+import { SegmentedControl } from "@/components/ui/SegmentedControl"
+import { ITEMS_VIEWS, useItemsView } from "@/hooks/usePageView"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 
@@ -108,6 +110,10 @@ export function RefinedItems({
   density?: "spacious" | "cozy" | "compact"
 }) {
   const d = dens(density)
+  // Items | Warranties, from the URL (?view=). The Warranties content is
+  // mounted once by the Items page below this header; in that view this tree
+  // is only the header and the control — none of the list's own controls.
+  const [view, setView] = useItemsView()
   const tray = useScanTray()
   const scanStatus = useMemo(() => scanStatusByItem(tray), [tray])
   const [sort, setSort] = useState<SortMode>("room")
@@ -144,7 +150,11 @@ export function RefinedItems({
   return (
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
       <ItemsPhoneHeader density={density} />
+      <div className="px-5 pt-3.5" style={{ paddingInline: d.pad }}>
+        <SegmentedControl label="Items view" segments={ITEMS_VIEWS} value={view} onChange={setView} />
+      </div>
 
+      {view === "items" && (
       <div className="flex flex-1 flex-col px-5 pt-4" style={{ paddingInline: d.pad }}>
         {/* House notes — shutoffs, breakers, paint: what belongs to no single item */}
         <div className="mb-3"><HouseNotesCard notes={notes} error={notesError} /></div>
@@ -227,6 +237,7 @@ export function RefinedItems({
         )}
         <div className="h-2" />
       </div>
+      )}
     </div>
   )
 }

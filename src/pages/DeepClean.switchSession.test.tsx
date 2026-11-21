@@ -15,6 +15,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
+import { SWRConfig } from "swr"
 import type { CleanTask } from "@/lib/cleanSession"
 
 const svc = vi.hoisted(() => ({
@@ -36,7 +37,9 @@ vi.mock("@/lib/cleanSession", () => ({
   saveRoutineTask: (...a: unknown[]) => svc.saveRoutineTask(...a),
 }))
 
-const { default: DeepClean } = await import("./DeepClean")
+const { CleaningView } = await import("./DeepClean")
+/** A fresh cache per render tree; the guides are read through SWR (useCleaningGuides). */
+const SWR = { provider: () => new Map(), shouldRetryOnError: false }
 
 const ROOMS: Record<string, { data: { room_id: string; name: string }[]; error: null }> = {
   "home-a": { data: [{ room_id: "ka", name: "Kitchen" }], error: null },
@@ -57,7 +60,7 @@ function deferred<T>() {
   const promise = new Promise<T>((r) => { resolve = r })
   return { promise, resolve }
 }
-const page = () => <MemoryRouter><DeepClean /></MemoryRouter>
+const page = () => <SWRConfig value={SWR}><MemoryRouter><CleaningView /></MemoryRouter></SWRConfig>
 const switchTo = (homeId: string, rerender: (ui: React.ReactElement) => void) => {
   svc.homeId = homeId
   rerender(page())

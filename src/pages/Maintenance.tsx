@@ -2,6 +2,8 @@ import { PageContainer } from "@/components/layout"
 import { useCurrentHome } from "@/modules/home"
 import { RefinedWeek } from "@/components/home/RefinedWeek"
 import { DesktopTasks } from "@/components/home/DesktopTasks"
+import { CleaningView } from "@/pages/DeepClean"
+import { useTasksView } from "@/hooks/usePageView"
 
 /**
  * The Tasks page (routed at /maintenance — the bottom nav calls it "Tasks").
@@ -29,10 +31,16 @@ import { DesktopTasks } from "@/components/home/DesktopTasks"
  * unreachable, since its trigger lived inside the hidden block, so nothing that
  * worked stopped working — but it means tasks come from parsing a manual and
  * nowhere else. A deliberate manual-add path can be designed if it's wanted.
+ *
+ * Two views, under one Upkeep | Cleaning control (design/tasks-items-views.md):
+ * Upkeep is the agenda; Cleaning (`?view=cleaning`) is what was the Clean page.
+ * Each tree draws its own header and control; the Cleaning content is mounted
+ * HERE, once, below both — so its reads and its session are not doubled.
  */
 export default function Maintenance() {
   const { home } = useCurrentHome()
   const homeId = home?.home_id ?? null
+  const [view] = useTasksView()
 
   return (
     <PageContainer className="pb-28">
@@ -44,6 +52,17 @@ export default function Maintenance() {
       <div className="hidden lg:block">
         <DesktopTasks homeId={homeId} />
       </div>
+      {view === "cleaning" && (
+        // The phone list's gutter on phones; the desktop page's column at lg+,
+        // held to a readable width now that no calendar sits beside it.
+        <div className="-mx-6 lg:mx-0">
+          <div className="mx-auto w-full max-w-[460px] px-5 lg:max-w-[1140px] lg:px-0">
+            <div className="lg:max-w-3xl">
+              <CleaningView />
+            </div>
+          </div>
+        </div>
+      )}
     </PageContainer>
   )
 }

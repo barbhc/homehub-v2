@@ -7,6 +7,7 @@ import { HowToSteps } from "@/components/tasks/HowToSteps"
 import { classifyTaskFields } from "@/lib/taskActor"
 import { LoadErrorState } from "@/components/layout/LoadStates"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
+import { CLEANING_PATH } from "@/hooks/usePageView"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 
@@ -14,7 +15,8 @@ const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG 
  * Per-appliance deep-clean guide (/clean/:itemUnitId). Assembles the item's
  * manual-parsed cleaning tasks into a real step-by-step guide — each task is a
  * numbered section with its structured steps (warnings split into a caution
- * callout) and cited supplies. Replaces the old dead-end link to the /clean hub.
+ * callout) and cited supplies. Replaces the old dead-end link to the /clean hub
+ * (now Tasks → Cleaning, CLEANING_PATH).
  */
 export default function CleanGuide() {
   const { itemUnitId } = useParams<{ itemUnitId: string }>()
@@ -69,7 +71,7 @@ export default function CleanGuide() {
       ) : !guide ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
           <p className="text-[0.9375rem]" style={{ color: SUB }}>No cleaning guide for this item yet.</p>
-          <Link to="/clean" className="text-[0.875rem] font-bold" style={{ color: TEAL }}>Back to Clean</Link>
+          <Link to={CLEANING_PATH} className="hit-44 text-[0.875rem] font-bold" style={{ color: TEAL }}>Back to Cleaning</Link>
         </div>
       ) : (
         <>

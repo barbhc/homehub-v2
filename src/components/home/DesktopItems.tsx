@@ -10,6 +10,8 @@ import { scanStatusByItem, useScanTray, type ItemScanStatus } from "@/components
 import { requestReview } from "@/lib/reviewRequest"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 import { categoryLabel } from "@/lib/categoryLabel"
+import { SegmentedControl } from "@/components/ui/SegmentedControl"
+import { ITEMS_VIEWS, useItemsView } from "@/hooks/usePageView"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 
@@ -62,6 +64,9 @@ export function DesktopItems({
   notes?: CareNote[] | null
   notesError?: string | null
 }) {
+  // Items | Warranties, from the URL (?view=) — as on the phone. In Warranties
+  // this tree is only the header; the Items page mounts that view once, below.
+  const [view, setView] = useItemsView()
   const tray = useScanTray()
   const scanStatus = useMemo(() => scanStatusByItem(tray), [tray])
   const [sort, setSort] = useState<SortMode>("room")
@@ -89,6 +94,9 @@ export function DesktopItems({
         <div className="mt-1.5 text-[0.8125rem]" style={{ color: SUB }}>{items.length} items across {roomsWithItems.length} rooms</div>
       </div>
 
+      <SegmentedControl className="mb-5 max-w-[360px]" label="Items view" segments={ITEMS_VIEWS} value={view} onChange={setView} />
+
+      {view === "items" && (<>
       <div className="mb-4 max-w-md"><HouseNotesCard notes={notes} error={notesError} /></div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -135,6 +143,7 @@ export function DesktopItems({
           </div>
         ))}
       </div>
+      </>)}
     </div>
   )
 }
