@@ -151,7 +151,9 @@ import { ManualStep } from "@/components/smart-add/ManualStep"
 import { IdentifyStep } from "@/components/smart-add/IdentifyStep"
 import { DEFAULT_IDENTIFY_DATA } from "@/components/smart-add/identifyData"
 import { TaskReviewSheet } from "@/components/manuals/TaskReviewSheet"
-import { ParseTrayPill } from "@/components/manuals/ParseTrayPill"
+import { ScanTrayProvider } from "@/components/manuals/ScanTray"
+import { scanCount } from "@/components/manuals/scanStatus"
+import { RefinedItems } from "@/components/home/RefinedItems"
 import { CareBlock } from "@/components/item-care/CareBlock"
 import { ThisWeekList } from "@/components/home/ThisWeekList"
 import { whenLabel } from "@/components/home/tasks/shared"
@@ -300,7 +302,7 @@ beforeEach(() => {
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe("The add-item flow (docs/add-item-flow.md)", () => {
-  it("HH-110 · Screen 2: the appliance lane is two fields and nothing else — no stepper, no details disclosure", () => {
+  it("HH-110 · Screen 2: the appliance lane has two fields — no stepper, no details disclosure (plus the optional kind chips, below)", () => {
     // PR #167 said this in its body while the disclosure, the stepper and Back
     // were all still on screen (CLAUDE.md, "Claiming something is done" #1).
     const { container } = render(withSwr(h(IdentifyStep, {
@@ -315,6 +317,31 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
     expect(screen.queryByText(/Add more details/)).toBeNull()
     expect(screen.queryByText(/Step \d+ of \d+/)).toBeNull()
     expect(container.querySelector('nav[aria-label="Progress"]')).toBeNull()
+  })
+
+  it("owner 2026-11-20 (supersedes HH-110's 'nothing else') · an optional 'What is it?' names the appliance by its type", () => {
+    const onDataChange = vi.fn()
+    const data = { ...DEFAULT_IDENTIFY_DATA, brand: "LG", model: "WM4000HWA" }
+    const view = render(withSwr(h(IdentifyStep, {
+      mode: "appliance", data, onModeChange: () => {}, onDataChange,
+      onConfirm: () => {}, isCreating: false, error: null,
+    })))
+    const group = screen.getByRole("radiogroup", { name: "What is it?" })
+    expect(within(group).getAllByRole("radio").map((r) => r.textContent)).toEqual(
+      ["Washer", "Dryer", "Dishwasher", "Fridge", "Water heater", "Furnace", "Oven or range", "Something else"])
+    fireEvent.click(within(group).getByRole("radio", { name: "Washer" }))
+    expect(onDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ itemCategory: "major_appliance", subType: "washing-machine" }))
+    // Picked, it shows as picked; tapping it again, or Something else, clears it.
+    view.rerender(withSwr(h(IdentifyStep, {
+      mode: "appliance", data: { ...data, itemCategory: "major_appliance", subType: "washing-machine" }, onModeChange: () => {}, onDataChange,
+      onConfirm: () => {}, isCreating: false, error: null,
+    })))
+    expect(screen.getByRole("radio", { name: "Washer" })).toHaveAttribute("aria-checked", "true")
+    fireEvent.click(screen.getByRole("radio", { name: "Something else" }))
+    expect(onDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ itemCategory: null, subType: null }))
+    // Still optional: the two fields are the only fields.
+    expect(Array.from(view.container.querySelectorAll("input")).filter((el) => el.type !== "file" && el.type !== "hidden").map((el) => el.id))
+      .toEqual(["identify-brand", "identify-model"])
   })
 
   it("HH-128 · Screen 3: a zero-byte file is refused before any upload — with the reason, not 'try again'", () => {
@@ -375,24 +402,25 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
     expect(document.body.textContent).toContain(SCAN_KEEPS_GOING_SHORT)
   })
 
-  it("HH-116 / HH-117 · …and on the tray, everywhere else", () => {
+  it("HH-116 / HH-117 · …and on the Items list, where a read in flight is listed", () => {
     fake.tray = { parsing: [{ manualId: "m-elsewhere", itemUnitId: "item-9", title: "Dryer manual", pages: 30, stage: "claude_call" }], ready: [] }
-    render(h(MemoryRouter, { initialEntries: ["/home"] }, h(ParseTrayPill)))
-    fireEvent.click(screen.getByRole("button", { name: /1 reading/ }))
+    const dryer = { item_unit_id: "item-9", display_name: "LG dryer", brand: "LG", category: "Dryer", room_id: null } as unknown as Parameters<typeof RefinedItems>[0]["items"][number]
+    render(h(MemoryRouter, { initialEntries: ["/inventory"] }, h(ScanTrayProvider, { homeId: "h1", children: h(RefinedItems, { items: [dryer], rooms: [] }) })))
     expect(screen.getByText(SCAN_KEEPS_GOING_SHORT)).toBeInTheDocument()
+    expect(screen.getByTestId("item-scan-status")).toHaveTextContent("Reading the manual · 30 pages")
   })
 
-  it("HH-161 (supersedes HH-118) · ONE indicator: the pill shows on the page already showing that read, as everywhere else", () => {
-    // HH-118 had the tray stand down here, because the page carried its own
-    // band above "‹ Items". The owner's agreed design was always one
-    // indicator, at the bottom of every page; the band is gone (the read lives
-    // in the Upkeep card), so the pill no longer defers to anything.
-    fake.tray = { parsing: [{ manualId: "m-here", itemUnitId: "item-1", title: "Bosch manual", pages: 24, stage: "claude_call" }], ready: [] }
-    const onItem = render(h(MemoryRouter, { initialEntries: ["/items/item-1"] }, h(ParseTrayPill)))
-    expect(screen.getByRole("button", { name: "1 reading" })).toBeInTheDocument()
-    onItem.unmount()
-    render(h(MemoryRouter, { initialEntries: ["/home"] }, h(ParseTrayPill)))
-    expect(screen.getByRole("button", { name: "1 reading" })).toBeInTheDocument()
+  it("owner 2026-11-20 (supersedes HH-161's pill) · nothing floats over a page: a read is a count on the Items tab and a line on the item's row", () => {
+    // HH-161 made the pill the ONE indicator, on every page. The owner's walk
+    // comments: "the navigation should never block the text that should be
+    // readable by the user" — and a floating pill always covers what scrolls
+    // under it. The layout renders no floating scan element at all.
+    // (That the layout renders no floating scan element is pinned in src/test/chrisRound1.test.ts.)
+    expect(scanCount({ parsing: [{ manualId: "a", itemUnitId: "i", title: "t", pages: 24, stage: "claude_call" }], ready: [] }))
+      .toEqual({ count: 1, label: "1 reading" })
+    expect(scanCount({ parsing: [{ manualId: "a", itemUnitId: "i", title: "t", pages: null, stage: "awaiting_capacity" }],
+      ready: [{ manualId: "b", itemUnitId: "j", title: "u", pages: 12, stage: "done" }] }))
+      .toEqual({ count: 2, label: "1 queued, 1 ready to review" })
   })
 
   it("HH-135 · a live scan is one indeterminate rail — no spinner, no percentage — and it sits in Upkeep, not above the page", async () => {

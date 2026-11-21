@@ -56,7 +56,10 @@ const RETIRED_COMPONENTS = [
   // HH-161: one reading indicator. The manual row's countdown bar ("~28 sec
   // remaining") was an ESTIMATE beside a read whose position the worker never
   // reports; the read is shown by the pill and the Upkeep card, honestly.
-  "ManualParseProgress", // -> ScanningLine in CareBlock + ParseTrayPill
+  "ManualParseProgress", // -> ScanningLine in CareBlock + the Items tab count (scanStatus)
+  // Owner 2026-11-20: nothing floats over a page. The read is a count on the
+  // Items tab and a line on the item's row (components/manuals/scanStatus.ts, ScanTray.tsx).
+  "ParseTrayPill",
   // #229's follow-up (2026-09-30): the pre-redesign item page's task area and
   // sidebar, exported by item-detail/index.ts and rendered by nothing. Their
   // jobs live in CareBlock (Upkeep), the task page and NotesSection now. The

@@ -77,7 +77,7 @@ function PhoneMock() {
             <div className="flex gap-[3px]">{[0, 1, 2].map((i) => <div key={i} style={{ width: 5, height: 9, borderRadius: 1, background: "var(--hh-icon-faint)" }} />)}</div>
           </div>
           <div className="text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: TEAL }}>TUESDAY</div>
-          <div className="text-[1.25rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>Good morning, Barb</div>
+          <div className="text-[1.25rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>Good morning</div>
         </div>
         <div className="mx-[17px] my-3.5 p-3.5" style={{ background: "var(--hh-surface)", borderRadius: 18, boxShadow: "0 6px 18px rgba(11,26,22,0.08)" }}>
           <div className="flex justify-between mb-2.5">

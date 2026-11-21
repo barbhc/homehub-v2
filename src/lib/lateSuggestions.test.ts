@@ -63,6 +63,10 @@ describe("lateNameSuggestion", () => {
     expect(lateNameSuggestion(item({ display_name: "Beer fridge" }))).toBeNull()
   })
 
+  it("never offers to name an item \"Other\" (owner, walk 2026-11-20)", () => {
+    expect(lateNameSuggestion(item({ display_name: "LG WM4000HWA", brand: "LG", model: "WM4000HWA", item_category: null, sub_type: null, category: "other" }))).toBeNull()
+  })
+
   it("says nothing when the name already IS the type", () => {
     expect(lateNameSuggestion(item({ display_name: "Dishwasher" }))).toBeNull()
   })

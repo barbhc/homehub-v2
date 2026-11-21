@@ -58,6 +58,13 @@ describe("HH-112 — only a name the user typed is theirs", () => {
     expect(w.fields.model).toBe("AP-1512HH")
   })
 
+  it("a kind picked on 'What is it?' names it the same way: an LG washer is \"Washer\", filed under its type (owner, 2026-11-20)", () => {
+    const w = first("appliance", appliance({ brand: "LG", model: "WM4000HWA", itemCategory: "major_appliance", subType: "washing-machine" }))
+    expect(w.fields.display_name).toBe("Washer")
+    expect(w.fields.category).toBe("washing-machine")
+    expect(w.fields.item_category).toBe("major_appliance")
+  })
+
   it("category blank: the exact 'Brand Model' placeholder the lookup knows is ours to rename", () => {
     const w = first("appliance", appliance())
     // postCreateLookup renames only `${brand} ${model}` — byte for byte.

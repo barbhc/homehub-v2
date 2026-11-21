@@ -9,6 +9,10 @@ import {
   PackageIcon, type LucideIcon,
 } from "lucide-react"
 import type { ItemUnit } from "@/integrations/types"
+import { scanStatusByItem, useScanTray, type ItemScanStatus } from "@/components/manuals/scanStatus"
+import { requestReview } from "@/lib/reviewRequest"
+import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
+import { categoryLabel } from "@/lib/categoryLabel"
 import { dens } from "@/lib/redesign/tokens"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
@@ -77,6 +81,19 @@ export function ItemsPhoneHeader({ density = "cozy" }: { density?: "spacious" | 
   )
 }
 
+
+/** A read in flight or waiting for review, on the item's own row (scanStatus.tsx). */
+function ScanStatusLine({ status }: { status: ItemScanStatus }) {
+  const ready = status.state === "ready"
+  return (
+    <div data-testid="item-scan-status" data-state={status.state}
+      className={`mt-0.5 text-[0.78125rem] ${ready ? "font-semibold" : ""}`}
+      style={{ color: ready ? "var(--hh-teal)" : "var(--hh-sub)" }}>
+      {status.text}
+    </div>
+  )
+}
+
 export function RefinedItems({
   items,
   rooms,
@@ -92,6 +109,8 @@ export function RefinedItems({
   density?: "spacious" | "cozy" | "compact"
 }) {
   const d = dens(density)
+  const tray = useScanTray()
+  const scanStatus = useMemo(() => scanStatusByItem(tray), [tray])
   const [sort, setSort] = useState<SortMode>("room")
   const [query, setQuery] = useState("")
 
@@ -165,6 +184,10 @@ export function RefinedItems({
           })}
         </div>
 
+        {/* HH-116/117: every surface showing a live read says leaving is safe. */}
+        {tray.parsing.length > 0 && (
+          <p className="mb-2 pl-0.5 text-[0.8125rem]" style={{ color: SUB }}>{SCAN_KEEPS_GOING_SHORT}</p>
+        )}
         {filtered.length === 0 ? (
           <div className="rounded-2xl p-6 text-center text-[0.875rem] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ color: SUB, background: "var(--hh-surface)" }}>
             No items match “{query}”.
@@ -185,6 +208,8 @@ export function RefinedItems({
                   <Link
                     key={it.item_unit_id}
                     to={`/items/${it.item_unit_id}`}
+                    // A read waiting for review opens it when the item page arrives.
+                    onClick={() => { const st = scanStatus.get(it.item_unit_id); if (st?.state === "ready") requestReview(st.manualId) }}
                     className="flex items-center gap-3.5"
                     style={{ padding: `${d.rowPy}px ${d.cardPad}px`, borderBottom: i === g.items.length - 1 ? "none" : "0.5px solid var(--hh-line)" }}
                   >
@@ -192,8 +217,9 @@ export function RefinedItems({
                     <div className="min-w-0 flex-1">
                       <div className="truncate larger-text:whitespace-normal text-[0.9375rem] font-semibold tracking-[-0.2px]" style={{ color: INK }}>{it.display_name}</div>
                       <div className="mt-0.5 text-[0.78125rem]" style={{ color: SUB }}>
-                        {[it.brand, sort === "room" ? it.category : (it.room_id ? roomName.get(it.room_id) : null)].filter(Boolean).join(" · ")}
+                        {[it.brand, sort === "room" ? categoryLabel(it) : (it.room_id ? roomName.get(it.room_id) : null)].filter(Boolean).join(" · ")}
                       </div>
+                      {scanStatus.has(it.item_unit_id) && <ScanStatusLine status={scanStatus.get(it.item_unit_id)!} />}
                     </div>
                     {/* The clay dot that used to sit here was titled "Task due"
                         but its condition was "has any tasks at all" — true for

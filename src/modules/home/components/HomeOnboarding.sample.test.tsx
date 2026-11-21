@@ -33,7 +33,7 @@ describe("the onboarding screen", () => {
     // Removing the escape hatch must not have taken the screen's job with it.
     // Since D8 that one thing is a zip (and the home is named for her).
     render(<MemoryRouter><HomeOnboarding onComplete={vi.fn()} /></MemoryRouter>)
-    expect(screen.getByText(/What's your zip code\?/)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Where's home?" })).toBeInTheDocument()
     expect(screen.getByLabelText("Zip code")).toBeInTheDocument()
   })
 })

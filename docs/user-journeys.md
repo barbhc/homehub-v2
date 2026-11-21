@@ -34,7 +34,7 @@ owner-approved mock 2026-11-18).
 ```mermaid
 flowchart LR
     A[Marketing page /] --> B[Create account /signup]
-    B --> C["What's your zip code?"\n+ invite code when gated · Skip]
+    B --> C["Where's home?" zip\n+ invite code when gated · Skip]
     C -->|zip| D["What your area means for upkeep"\n/onboarding/first · facts + home type]
     C -->|unknown zip| C2[Pick a climate] --> D
     C -->|Skip| L
@@ -51,13 +51,13 @@ flowchart LR
 |---|---|---|---|---|
 | 1 | Marketing page → Get started / Sign in | `/` | `src/pages/Landing.tsx` | — |
 | 2 | Email+password (**Create account**), magic link, Apple (flag-gated) | `/signup` | `src/modules/auth/components/SignInForm.tsx`, `AuthProvider.tsx` | Auth user |
-| 3 | **What's your zip code?** — five digits, "never your street", looked up on the device (`src/data/zip-area.json`, its own chunk); invite-code field only when the growth gate is on; **Skip for now**. An unknown zip offers the four climate choices. The home is created here, named "My home" | `/` | `HomeOnboarding.tsx` → `createHome` / `redeemInviteCode`, `zipAreaService` → `upsertHomeProfile` | `homes/{id}` (+ `zip`, `area`, `climate`, `freezeRisk`, `climateSource`), `members/{uid}`, 9 default rooms |
+| 3 | **Where's home?** — why the zip matters in one line; five digits, "Just the zip. Never your street.", looked up on the device (`src/data/zip-area.json`, its own chunk); invite-code field only when the growth gate is on; **Skip for now**. An unknown zip offers the four climate choices. The home is created here, named "My home" | `/` | `HomeOnboarding.tsx` → `createHome` / `redeemInviteCode`, `zipAreaService` → `upsertHomeProfile` | `homes/{id}` (+ `zip`, `area`, `climate`, `freezeRisk`, `climateSource`), `members/{uid}`, 9 default rooms |
 | 4 | **What your area means for upkeep** — only the facts that change this month's list, each with its source and **Not true here** / Undo; then the home type. **See this month** saves them | `/onboarding/first` | `FirstMinute.tsx` (`AreaStep`) | `homeType`, corrections, `profileCompletedAt` |
-| 5 | **Worth doing this month** — ≤3 rows, ≤2 inline Yes / No / Not sure, × with an optional reason, **Not on your list** with Change. Nothing is saved until **Add**; **Not now** saves nothing. Skip path: same list, no area words, an **Add zip** row | `/onboarding/first` | `FirstMinute.tsx` (`ListStep`), `shared/care/firstList.ts` → `addLibraryTask(…, { firstDue })` | `careFacts`, `dismissedCare`, `taskTemplates` (`library:` provenance) + first `taskInstances` due this weekend |
+| 5 | **Worth doing this month** — ≤3 rows (name, priority, how often; no explanation line), ≤2 inline Yes / No / Not sure, "N picked, not added yet" above Add, × with an optional reason, **Not on your list** with Change. Nothing is saved until **Add**; **Not now** saves nothing. Skip path: same list, no area words, an **Add zip** row | `/onboarding/first` | `FirstMinute.tsx` (`ListStep`), `shared/care/firstList.ts` → `addLibraryTask(…, { firstDue })` | `careFacts`, `dismissedCare`, `taskTemplates` (`library:` provenance) + first `taskInstances` due this weekend |
 | 5b | Home: the added tasks under **This week**, a **Coming up in …** line, and one next-step card (design/day-one-home.md): **What's in your home?** appliance chips — a tap shows that appliance's typical care and writes nothing; **Add** makes the item and the checked tasks; **Snap a label instead** opens the add flow (the camera only on tap). With an item, or after **Not now**: one question at a time (Yes → offer → Add). Nothing left and no items: **Get the exact schedule · Snap a label**. From the month after the home was created, **This month at your home** (`MonthlyRefreshCard.tsx`) takes the slot until Add or Not now answers the month | `/home` | `Home.tsx`, `NextStepCard.tsx`, `shared/care/dayOne.ts`, `homeWeek.ts` (`comingUpLine`) | on Add: `items/{id}`, `taskTemplates` (`library:`), `careFacts`, `dismissedCare` |
 | 6 | Lane chooser → simple lane: **Name on the main column** → Add item | `/inventory/add` | `IdentifyStep.tsx`, `SmartAddItem.tsx` → `createItemUnit` | `homes/{id}/items/{id}` |
 | 6b | Appliance lane instead: brand + model → **Add the manual** (the button and the next screen share the words) → attaching it starts the scan and lands on the item page (J2) | `/inventory/add` | `SmartAddItem.tsx` → `startParseAndLeave` | `homes/{id}/manuals/{id}`, `parse.stage` |
-| 7 | Item page: the name first; Upkeep leads **"No upkeep yet — add the manual"** with one **Add the manual** door (HH-91). One tree for the width, so one of each (HH-159). While a manual is being read: **"Reading the manual"** inside the Upkeep card — one line, the worker's page count, an indeterminate rail, and "You can close the app — these keep going." (HH-135, HH-116) — and the pill says **"1 reading"** on this page too: one indicator, everywhere (HH-161, superseding HH-118) | `/items/:id` | `ItemDetailPage.tsx` (`useIsDesktop`), `CareBlock.tsx`, `ParsePickupCard.tsx`, `ParseTrayPill.tsx` | — |
+| 7 | Item page: the name first; Upkeep leads **"No upkeep yet — add the manual"** with one **Add the manual** door (HH-91). One tree for the width, so one of each (HH-159). While a manual is being read: **"Reading the manual"** inside the Upkeep card — one line, the worker's page count, an indeterminate rail, and "You can close the app — these keep going." (HH-135, HH-116) — and the Items tab counts it (its description reads "1 reading"); nothing floats over the page (owner, 2026-11-20, superseding HH-161's pill) | `/items/:id` | `ItemDetailPage.tsx` (`useIsDesktop`), `CareBlock.tsx`, `ParsePickupCard.tsx`, `ParseTrayPill.tsx` | — |
 | 7b | Scan done → **the review, one screen**: Maintenance → Cleaning → Usage → Setup, each row carrying its own cadence and bell. A section of the page for anyone who watched the scan run, a drawer for anyone who came back; it opens itself only when there is maintenance to decide (HH-121). With none, round 14's card reports instead ("We finished reading the … manual") — superseded in `docs/add-item-flow.md`, to be retired by the HH-161 work (Package E2) | `/items/:id` | `ParsePickupCard.tsx`, `TaskReviewSheet.tsx` | `commitManualDraft` → `taskTemplates`, `taskInstances` |
 | 8 | Home: the first-run tour (5 steps, the first titled **"Welcome"**, Esc-closable; held while the label card shows), then the week with the first minute's tasks. A home that added nothing still gets **"No upkeep yet — add a manual"** (HH-80) | `/home` | `useFeatureTour`, `tourSteps.ts`, `Home.tsx` | — |
 
@@ -161,9 +161,9 @@ Key mechanics (the agreement is `docs/add-item-flow.md`; fuller data trace in
 step → the item page, enqueue stubbed) · `emu/smart-add` (simple-lane create,
 OCR states, exactly one enqueue per add) · `emu/item-add-manual` (the item
 page's upload doors at 390px and desktop) · `emu/item-page-manual` (the link
-lane from a seeded appliance, the read's live state, the pill) ·
-`emu/item-page-scan-indicator` (HH-161's frames: the read in Upkeep, the pill on
-the item and on Home, the hand-off, the review in place) · `emu/scan-fit`
+lane from a seeded appliance, the read's live state) ·
+`emu/item-page-scan-indicator` (HH-161's frames: the read in Upkeep, the Items tab
+count and the item's row in the Items list, the hand-off, the review) · `emu/scan-fit`
 · `emu/storage` · `emu/knowledge*` · `worker.emu`, `quota.emu` (server) ·
 parser quality: `evals/manual-parser/`.
 
@@ -178,7 +178,7 @@ and every correction teaches the parser.
 flowchart LR
     A[previewDraft ready] --> B[The review opens itself — once,\nif this page watched the read finish]
     A --> B2[Otherwise the hand-off card offers it:\nReview N upkeep tasks / tips & steps]
-    P[The pill: 1 ready to review] --> B2
+    P[Items list row: Ready to review] --> B2
     R[Review tasks\non the item's Upkeep heading] --> C
     B --> C[ONE screen: Maintenance → Cleaning → Usage → Setup\nkind / cadence / bell / skip on every row]
     B2 --> C
@@ -205,7 +205,7 @@ Key mechanics:
   Settings" beside its switch (HH-161, as the owner's review of #228 refined
   it).
 - **Two doors, one screen (HH-119):** `ParsePickupCard` (after a read — the
-  add, "Read the manual", "Read again"; the pill's and Settings' Review open it
+  add, "Read the manual", "Read again"; a ready row in the Items list and Settings' Review open it
   too) and **Review tasks** on the item's Upkeep heading
   (`ReviewItemTasksButton`, the phone layout). The manual section's own review
   is gone (HH-161). The `focus` prop defaults to the approved review, so a door

@@ -37,3 +37,23 @@ export function missingToAdd(mode: IdentifyMode, d: IdentifyData): string | null
   }
   return d.name.trim().length > 0 ? null : "Add a name to continue."
 }
+
+/**
+ * "What is it?" — owner, walk comments 2026-11-20: "Make sure and use the item
+ * name. I don't know if this is the Washer by just the model number." The
+ * lookup runs only after the item exists, and when it misses, an appliance was
+ * created as "LG WM4000HWA", filed under Other, offered the name "Other" and
+ * missed its typical care. One optional tap here names it by its type
+ * ("Washer") and files it. Never required; the lookup still fills a blank.
+ * Mock: https://claude.ai/artifact/Cz4hWKhTjR5YenPBdaJjeU (screen 1).
+ */
+export const KIND_CHIPS: { subType: string; label: string }[] = [
+  { subType: "washing-machine", label: "Washer" },
+  { subType: "dryer", label: "Dryer" },
+  { subType: "dishwasher", label: "Dishwasher" },
+  { subType: "refrigerator", label: "Fridge" },
+  { subType: "water-heater", label: "Water heater" },
+  { subType: "hvac-furnace", label: "Furnace" },
+  { subType: "oven-range", label: "Oven or range" },
+]
+export const KIND_CATEGORY = "major_appliance" as const

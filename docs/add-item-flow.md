@@ -81,7 +81,19 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 
 ## Screen 2 — Identify it (appliance lane)
 
-- **Two fields and nothing else.** No stepper anywhere in the flow. — HH-110
+- **Two fields, then one optional question.** No stepper anywhere in the flow.
+  — HH-110. SUPERSEDED IN PART 2026-11-20: under the model field an optional
+  **"What is it?"** offers one-tap kinds (Washer, Dryer, Dishwasher, Fridge,
+  Water heater, Furnace, Oven or range, Something else). The lookup runs only
+  after the item exists, and when it missed, an appliance was created as "LG
+  WM4000HWA", filed under Other, offered the name "Other" and missed its
+  typical care. A picked kind names the item for its type ("Washer") and files
+  it; the lookup still fills a blank. It is never required, it hides once a
+  label scan has filed the item under another kind, and the brand and model
+  stay the only fields. Owner's walk comment: "Make sure and use the item name.
+  I don't know if this is the Washer by just the model number." Mock:
+  https://claude.ai/artifact/Cz4hWKhTjR5YenPBdaJjeU. The item page never offers
+  "Other" as a name (`lateNameSuggestion`).
 - A disabled button **says why**: once something is typed and the button still
   cannot go, one line under it names what is missing ("Add the model to
   continue."). The untouched screen shows no such line — its empty fields
@@ -219,7 +231,20 @@ page watches it.
 
 - Leaving is safe and **said out loud** on every surface showing a live
   scan. — HH-116, HH-117
-- **One reading indicator: the pill, at the bottom of every page** — the item
+- **SUPERSEDED 2026-11-20 — no floating pill.** Owner (walk comments): "the
+  navigation should never block the text that should be readable by the
+  user", and a floating pill always covers what scrolls under it. A read in
+  flight or waiting for review is now a **count on the Items tab** (the tab
+  keeps the name "Items" and describes the count aloud: "1 reading, 1 ready to
+  review") and **a line on that
+  item's row in the Items list** ("Reading the manual · 42 pages", "Queued to
+  read", "Ready to review"; a ready row opens its review on arrival). The item
+  page itself is unchanged: its Upkeep card shows the read and the hand-off
+  card leads to the review. The Items list carries the keeps-going line while
+  anything is being read (HH-116/117). `components/manuals/scanStatus.ts`,
+  `ScanTray.tsx`. Mock: https://claude.ai/artifact/Cz4hWKhTjR5YenPBdaJjeU.
+  The rule below is kept as the record of what this replaced.
+- ~~**One reading indicator: the pill, at the bottom of every page**~~ — the item
   whose manual is being read included ("1 reading", then "1 ready to review").
   On that item's own page its Review opens the review IN PLACE, with no
   navigation; anywhere else it goes to the item, which opens it on arrival. The
