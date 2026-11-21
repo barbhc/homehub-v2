@@ -5,7 +5,7 @@ import { isAwaitingReview } from "@/lib/manualReviewState"
 import { FeedbackButton } from "@/components/FeedbackButton"
 import { SUPPORT_EMAIL } from "@/lib/feedback"
 import { BootDiagnostics } from "@/components/settings/BootDiagnostics"
-import { AlertCircleIcon, BellIcon, HomeIcon as HomeSetupIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2, ShoppingBagIcon, ChevronRightIcon } from "lucide-react"
+import { AlertCircleIcon, BellIcon, HomeIcon as HomeSetupIcon, CheckCircle2Icon, CheckIcon, CircleDotIcon, CompassIcon, DownloadIcon, LifeBuoyIcon, Loader2Icon, LogOutIcon, MegaphoneIcon, PencilIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon, ShieldIcon, Trash2, ShoppingBagIcon, ChevronRightIcon, WrenchIcon } from "lucide-react"
 import { InlineError, SectionCard } from "@/components/layout"
 import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
 import { CardContent } from "@/components/ui/card"
@@ -32,12 +32,10 @@ import { useCurrentHome, getRooms, createRoom, renameRoom, deleteRoom } from "@/
 import { HomeMembersSection } from "@/components/settings/HomeMembersSection"
 import { HomeProfileSection } from "@/components/settings/HomeProfileSection"
 import { InterfaceLevelSection } from "@/components/settings/InterfaceLevelSection"
-import { ServiceProvidersSection } from "@/components/settings/ServiceProvidersSection"
 import { AdminToolsSection } from "@/components/settings/AdminToolsSection"
 import { HouseRulesSection } from "@/components/settings/HouseRulesSection"
 import { TaskLevelSection } from "@/components/settings/TaskLevelSection"
 import { useFeatureTour } from "@/hooks/useFeatureTour"
-import { useUserLevel } from "@/hooks/useUserLevel"
 import { useAppearance, type Appearance } from "@/lib/theme"
 import { useAuth } from "@/modules/auth"
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, isSubscribed as checkIsSubscribed } from "@/lib/pushNotifications"
@@ -56,7 +54,7 @@ import { ingestReference } from "@/modules/knowledge"
 import { isCapacityRefusal } from "@/lib/scanCapacity"
 import { getItemUnits } from "@/modules/items"
 import { getTaskTemplates } from "@/modules/care"
-import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
+import { getDevToolsEnabled, getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
 import {
   DEFAULT_NOTIFICATION_PREFS,
   MAX_LEAD_TIME_DAYS,
@@ -228,12 +226,34 @@ export default function Settings() {
   // Settings → Homes: where a second home is added (owner, 2026-11-19 — the
   // name under Home's greeting now shows only once there is a choice to make).
   const [homesSheet, setHomesSheet] = useState<"list" | "add" | null>(null)
-  const { level } = useUserLevel()
   const { appearance, setAppearance } = useAppearance()
   const homeId = home?.home_id ?? null
   const { restartTour } = useFeatureTour()
   const navigate = useNavigate()
   const [isSigningOut, setIsSigningOut] = useState(false)
+
+  // Internal tools (startup diagnostics, admin tools) show only to a person
+  // whose prefs doc says `dev_tools: true` — set by hand, never in the app.
+  // Holds the uid it was read for, so a different sign-in never inherits it.
+  const [devToolsFor, setDevToolsFor] = useState<string | null>(null)
+  const showDevTools = !!userId && devToolsFor === userId
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    getDevToolsEnabled(userId).then(
+      (on) => {
+        if (!cancelled) setDevToolsFor(on ? userId : null)
+      },
+      (e: unknown) => {
+        // Hidden is the safe answer for everyone; log so a tester who expects
+        // the tools can see why they are missing.
+        console.warn(`[settings] could not read dev_tools for ${userId}:`, e instanceof Error ? e.message : e)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
 
   // Profile editing state
   const [profileName, setProfileName] = useState("")
@@ -1048,7 +1068,7 @@ export default function Settings() {
         <SectionCard id="tasks" className="mt-6 scroll-mt-6">
           <CardContent className="p-4">
             <h2 className="text-sm font-semibold text-foreground mb-3">
-              Custom Tasks
+              Custom tasks
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
               {/* HH-153 (owner, 2026-09-05): this promised a door that does not
@@ -1276,7 +1296,7 @@ export default function Settings() {
                     }}
                   >
                     <PlusIcon className="size-4 mr-1.5" />
-                    Add Room
+                    Add room
                   </Button>
                 )}
               </>
@@ -1312,7 +1332,28 @@ export default function Settings() {
 
       {homeId && <div id="home-profile" className="scroll-mt-6"><HomeProfileSection homeId={homeId} /></div>}
 
-      {homeId && <div id="providers" className="scroll-mt-6"><ServiceProvidersSection homeId={homeId} /></div>}
+      {/* One place for providers: the Providers page. Settings carried a
+          second full list + add form (owner, 2026-11-21); now it links there. */}
+      {homeId && (
+        <SectionCard id="providers" className="mt-6 scroll-mt-6">
+          <CardContent className="p-4">
+            <Link
+              to="/providers"
+              className="flex items-center gap-3 rounded-2xl px-4 py-3"
+              style={{ background: "var(--hh-surface2)", border: "1px solid var(--hh-line)" }}
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-[9px]" style={{ background: "var(--hh-teal-wash)" }}>
+                <WrenchIcon className="size-[18px]" style={{ color: "var(--hh-teal)" }} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>Service providers</span>
+                <span className="mt-0.5 block text-[0.8125rem]" style={{ color: "var(--hh-sub)" }}>Your trusted pros, grouped by trade</span>
+              </span>
+              <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: "var(--hh-faint)" }} />
+            </Link>
+          </CardContent>
+        </SectionCard>
+      )}
 
       {homeId && <div id="members" className="scroll-mt-6"><HomeMembersSection homeId={homeId} /></div>}
 
@@ -1527,7 +1568,7 @@ export default function Settings() {
         <SectionCard id="data" className="mt-6 scroll-mt-6">
           <CardContent className="p-4">
             <h2 className="text-sm font-semibold text-foreground mb-1">
-              Export Your Data
+              Export your data
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
               A JSON file of your items, task list, saved answers, manual list and the text read from your manuals.
@@ -1556,7 +1597,7 @@ export default function Settings() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CompassIcon className="size-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Feature Tour</h2>
+              <h2 className="text-sm font-semibold text-foreground">Feature tour</h2>
             </div>
             <Button
               variant="outline"
@@ -1566,7 +1607,7 @@ export default function Settings() {
                 setTimeout(() => restartTour(), 300)
               }}
             >
-              Restart Tour
+              Restart tour
             </Button>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
@@ -2011,16 +2052,19 @@ export default function Settings() {
         </SectionCard>
       )}
 
-      {/* Real numbers from the real device — see BootDiagnostics for why. */}
-      <div className="mt-6">
-        <BootDiagnostics />
-      </div>
+      {/* Real numbers from the real device — see BootDiagnostics for why.
+          Internal: only for a person with dev_tools on. */}
+      {showDevTools && (
+        <div className="mt-6">
+          <BootDiagnostics />
+        </div>
+      )}
 
       <SectionCard id="privacy" className="mt-6 scroll-mt-6">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-1">
             <ShieldIcon className="size-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Data &amp; Privacy</h2>
+            <h2 className="text-sm font-semibold text-foreground">Data &amp; privacy</h2>
           </div>
           <p className="text-sm text-muted-foreground mb-3">
             Your data is stored in your private database. Homehub does not sell data or show ads.
@@ -2043,9 +2087,10 @@ export default function Settings() {
         </CardContent>
       </SectionCard>
 
-      {/* Admin/classifier tools are a power-user surface — hidden until the
-          user reaches the Power level (progressive complexity). */}
-      {homeId && level === "power" && <AdminToolsSection homeId={homeId} />}
+      {/* Admin/classifier tools are internal — only for a person with
+          dev_tools on (owner, 2026-11-21: the Power level showed them to
+          testers). */}
+      {homeId && showDevTools && <AdminToolsSection homeId={homeId} />}
 
       <SectionCard title="Account">
         <CardContent className="pt-4 space-y-4">

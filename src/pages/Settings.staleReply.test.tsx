@@ -40,6 +40,7 @@ vi.mock("@/modules/home", () => ({
 vi.mock("@/lib/userPreferences", () => ({
   getNotificationPrefs: vi.fn(async () => normalizeNotificationPrefs(undefined)),
   setNotificationPrefs: vi.fn(async () => undefined),
+  getDevToolsEnabled: vi.fn(async () => false),
 }))
 vi.mock("@/lib/pushNotifications", () => ({
   isPushSupported: () => false,
@@ -91,7 +92,6 @@ for (const path of [
   "@/components/settings/HomeMembersSection",
   "@/components/settings/HomeProfileSection",
   "@/components/settings/InterfaceLevelSection",
-  "@/components/settings/ServiceProvidersSection",
   "@/components/settings/AdminToolsSection",
   "@/components/settings/HouseRulesSection",
   "@/components/settings/NotificationsRefusedNote",

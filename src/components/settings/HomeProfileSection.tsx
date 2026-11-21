@@ -102,12 +102,6 @@ type ZipLookupState =
   | { status: "unknown" }
   | { status: "failed" }
 
-const MODES: { value: PreferredMode; label: string; hint: string }[] = [
-  { value: "ask_first", label: "Ask-first", hint: "Chat hero on Home" },
-  { value: "inventory_first", label: "Inventory-first", hint: "Items & tasks hero on Home" },
-  { value: "unset", label: "Balanced (default)", hint: "Show everything" },
-]
-
 /**
  * HH-166: the offer that follows a Mild/Hot save. The climate answer only ever
  * filtered manuals scanned AFTER it, so the owner — set to mild — still had a
@@ -129,6 +123,9 @@ export function HomeProfileSection({ homeId }: Props) {
   /** A climate the owner picked from the list since the last save; null = untouched. */
   const [pickedClimate, setPickedClimate] = useState<Climate | "" | null>(null)
   const [concerns, setConcerns] = useState<TopConcernKey[]>([])
+  // No picker any more (owner, 2026-11-21: it said "wired in a follow-up
+  // release"). The stored value is read and written back unchanged so a save
+  // here never clears it for the readers that still use it.
   const [mode, setMode] = useState<PreferredMode>("unset")
   const [completedAt, setCompletedAt] = useState<string | null>(null)
   // Tracks the last known updated_at so saves use a CAS guard.
@@ -632,31 +629,6 @@ export function HomeProfileSection({ homeId }: Props) {
                   )
                 })}
               </div>
-            </div>
-
-            {/* Mode */}
-            <div className="space-y-1.5">
-              <label htmlFor="hp-mode" className="text-sm font-medium">
-                Preferred mode
-              </label>
-              <Select value={mode} onValueChange={(v) => setMode(v as PreferredMode)}>
-                <SelectTrigger id="hp-mode" className="w-full sm:w-72">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MODES.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      <span>
-                        <span className="font-medium">{opt.label}</span>
-                        <span className="text-muted-foreground"> — {opt.hint}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Affects the Home page default layout (wired in a follow-up release).
-              </p>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}

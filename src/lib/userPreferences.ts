@@ -9,6 +9,11 @@ import { coerceInterfaceOverride, type InterfaceOverride } from "./interfaceLeve
 
 export const PREF_TOUR_COMPLETED = "tour_completed"
 export const PREF_INTERFACE_LEVEL = "interface_level"
+/**
+ * Shows the internal tools in Settings (startup diagnostics, admin tools) to
+ * this person. Set by hand on the prefs doc; there is no switch in the app.
+ */
+export const PREF_DEV_TOOLS = "dev_tools"
 /** Home ids whose "Finish your home profile" banner has been dismissed. */
 export const PREF_PROFILE_BANNER_DISMISSED = "profile_banner_dismissed"
 
@@ -78,4 +83,13 @@ export async function dismissProfileBanner(userId: string, homeId: string): Prom
   const current = await getDismissedProfileBanners(userId)
   if (current.includes(homeId)) return
   await setPreference(userId, PREF_PROFILE_BANNER_DISMISSED, [...current, homeId])
+}
+
+/**
+ * Whether this person sees Settings' internal tools. Only a stored boolean
+ * `true` turns them on; absent, or any other value, is off.
+ */
+export async function getDevToolsEnabled(userId: string): Promise<boolean> {
+  const v = await getPreference<unknown>(userId, PREF_DEV_TOOLS)
+  return v === true
 }

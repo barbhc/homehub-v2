@@ -20,6 +20,7 @@ import { normalizeNotificationPrefs } from "@/lib/notificationPreferences"
 const m = vi.hoisted(() => ({
   getNotificationPrefs: vi.fn(),
   setNotificationPrefs: vi.fn(),
+  getDevToolsEnabled: vi.fn(),
   unsubscribeFromPush: vi.fn(),
   getRooms: vi.fn(),
   deleteRoom: vi.fn(),
@@ -47,6 +48,7 @@ vi.mock("@/modules/home", () => ({
 vi.mock("@/lib/userPreferences", () => ({
   getNotificationPrefs: (...a: unknown[]) => m.getNotificationPrefs(...a),
   setNotificationPrefs: (...a: unknown[]) => m.setNotificationPrefs(...a),
+  getDevToolsEnabled: (...a: unknown[]) => m.getDevToolsEnabled(...a),
 }))
 vi.mock("@/lib/pushNotifications", () => ({
   isPushSupported: () => true,
@@ -103,7 +105,6 @@ for (const path of [
   "@/components/settings/HomeMembersSection",
   "@/components/settings/HomeProfileSection",
   "@/components/settings/InterfaceLevelSection",
-  "@/components/settings/ServiceProvidersSection",
   "@/components/settings/AdminToolsSection",
   "@/components/settings/HouseRulesSection",
   "@/components/settings/NotificationsRefusedNote",
@@ -111,7 +112,9 @@ for (const path of [
   "@/components/FeedbackButton",
 ]) {
   const name = path.split("/").pop()!
-  vi.doMock(path, () => ({ [name]: () => null }))
+  // The internal tools render a marker, so their absence can be asserted.
+  const marker = name === "BootDiagnostics" || name === "AdminToolsSection" ? `[${name}]` : null
+  vi.doMock(path, () => ({ [name]: () => marker }))
 }
 
 const { default: Settings } = await import("./Settings")
@@ -126,6 +129,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   m.getNotificationPrefs.mockResolvedValue(REAL_PREFS)
   m.setNotificationPrefs.mockResolvedValue(undefined)
+  m.getDevToolsEnabled.mockResolvedValue(false)
   m.unsubscribeFromPush.mockResolvedValue(undefined)
   m.getRooms.mockResolvedValue({ data: [{ room_id: "r1", name: "Kitchen" }], error: null })
   m.deleteRoom.mockResolvedValue({ data: true, error: null })
@@ -136,6 +140,43 @@ beforeEach(() => {
 })
 
 const renderSettings = () => render(<MemoryRouter><Settings /></MemoryRouter>)
+
+describe("Settings — internal tools", () => {
+  it("are not rendered for a person without dev_tools", async () => {
+    renderSettings()
+    await waitFor(() => expect(m.getDevToolsEnabled).toHaveBeenCalledWith("uid-1"))
+    await screen.findByRole("heading", { name: "Rooms" })
+    expect(screen.queryByText("[BootDiagnostics]")).toBeNull()
+    expect(screen.queryByText("[AdminToolsSection]")).toBeNull()
+  })
+
+  it("render for a person whose prefs say dev_tools: true", async () => {
+    m.getDevToolsEnabled.mockResolvedValue(true)
+    renderSettings()
+    expect(await screen.findByText("[BootDiagnostics]")).toBeInTheDocument()
+    expect(screen.getByText("[AdminToolsSection]")).toBeInTheDocument()
+  })
+
+  it("stay hidden when the prefs read fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    m.getDevToolsEnabled.mockRejectedValue(new Error("unavailable"))
+    renderSettings()
+    await waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining("dev_tools"), "unavailable"))
+    expect(screen.queryByText("[BootDiagnostics]")).toBeNull()
+    expect(screen.queryByText("[AdminToolsSection]")).toBeNull()
+    warn.mockRestore()
+  })
+})
+
+describe("Settings — service providers", () => {
+  it("is one link to the Providers page, with no list or add form of its own", async () => {
+    renderSettings()
+    // The section index's "#providers" anchor shares the name; the row is the other one.
+    const links = await screen.findAllByRole("link", { name: /Service providers/ })
+    expect(links.map((l) => l.getAttribute("href")).sort()).toEqual(["#providers", "/providers"])
+    expect(screen.queryByRole("button", { name: /Add provider/i })).toBeNull()
+  })
+})
 
 describe("Settings — notification preferences", () => {
   it("a failed save puts the switch back and says so", async () => {

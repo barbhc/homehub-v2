@@ -72,6 +72,8 @@ const RETIRED_COMPONENTS = [
   "SidebarActions",         // desktop scroll-to sidebar -> DesktopItemDetail's own header
   "CompleteTaskPopover",    // -> the task page's check-off (RefinedTaskDetail)
   "TaskEditPopover",        // -> TaskEditSheet
+  // Before-sharing cleanup (owner, 2026-11-21): one place per thing.
+  "ServiceProvidersSection", // Settings' second providers list + form -> a link to /providers
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */
