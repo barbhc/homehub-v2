@@ -34,7 +34,6 @@ import { PushOptInNudge } from "@/components/dashboard/PushOptInNudge"
 import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 
 import { WhatsNewBanner } from "@/components/dashboard/WhatsNewBanner"
-import { LevelUnlockBanner } from "@/components/dashboard/LevelUnlockBanner"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 // ── Agenda ──────────────────────────────────────────────────────────────────
@@ -155,7 +154,7 @@ export default function Home() {
   // legacy home with no createdBy keeps the name: hide only what we know is
   // yours. Adding a home lives in Settings → Homes.
   const showHomeName = !!home && (homes.length > 1 || home.created_by !== user?.id)
-  const { level, derivedLevel } = useUserLevel()
+  const { level } = useUserLevel()
   const homeId = home?.home_id ?? ""
 
   const {
@@ -350,9 +349,6 @@ export default function Home() {
       <div className="px-4 lg:px-8 max-w-5xl mx-auto w-full">
         {/* What's new banner */}
         {user?.id && <WhatsNewBanner userId={user.id} />}
-
-        {/* Progressive-complexity: celebrate when the user grows into a new level */}
-        <LevelUnlockBanner derivedLevel={derivedLevel} />
 
         {/* ── New-user empty state ── */}
         {isNewUser && (
