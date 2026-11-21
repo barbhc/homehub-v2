@@ -47,7 +47,7 @@ function ExpandedDetail({
   const prep = prepLine(detail)
   const place = prepPlace(detail)
   return (
-    <div className="flex flex-col gap-3" style={{ padding: `0 ${PAD - 3}px ${PAD - 3}px 63px` }}>
+    <div className="flex flex-col gap-3" style={{ padding: `0 ${PAD - 3}px ${PAD - 3}px` }}>
       {loading && <div className="text-[0.8125rem]" style={{ color: FAINT }}>Loading…</div>}
       {prep && <TaskSupplyLine text={prep} place={place} />}
       <TaskCardActions onDone={onDone} onSnooze={onSnooze} />

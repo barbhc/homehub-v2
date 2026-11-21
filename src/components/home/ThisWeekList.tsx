@@ -150,7 +150,7 @@ function WeekRow({ row, homeId, first, open, onToggle, completing, error, onComp
             line, title, then the item. Tapping the text opens or closes the row. */}
         <button type="button" onClick={onToggle} aria-expanded={open} className="hit-44 min-w-0 flex-1 text-left">
           <TaskStatusLine tier={row.tier} when={when} tone={tone} />
-          <span className={`mt-0.5 block ${open ? "" : "truncate larger-text:whitespace-normal"} text-[1.0625rem] leading-[1.375rem] font-semibold tracking-[-0.2px]`} style={{ color: INK }}>{row.title}</span>
+          <span className={`mt-0.5 block ${open ? "" : "truncate larger-text:whitespace-normal"} text-[1.0625rem] leading-[1.375rem] font-semibold tracking-[-0.2px]`} style={{ color: INK }} data-testid="week-row-title">{row.title}</span>
           {!open && <span className={`mt-0.5 block truncate larger-text:whitespace-normal ${sc.meta}`} style={{ color: SUB }}>{row.itemName ?? "Whole home"}</span>}
         </button>
         {/* Closed: a caret that opens it. Open: the arrow goes to the task's page
@@ -198,7 +198,8 @@ function OpenBody({ row, homeId, completing, onComplete, onSnooze, sc }: {
         </div>
       )}
       {prep && <TaskSupplyLine text={prep} place={place} />}
-      <TaskCardActions onDone={onComplete} onSnooze={onSnooze} completing={completing} />
+      {/* Held to a readable width: on desktop two buttons across the page read as a banner. */}
+      <TaskCardActions onDone={onComplete} onSnooze={onSnooze} completing={completing} className="max-w-[440px]" />
     </div>
   )
 }

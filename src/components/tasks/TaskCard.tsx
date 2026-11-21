@@ -74,7 +74,7 @@ export function TaskCardActions({ onDone, onSnooze, completing = false, classNam
         type="button"
         onClick={onDone}
         disabled={completing}
-        className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl px-3.5 text-base font-semibold disabled:opacity-60"
+        className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-base font-semibold disabled:opacity-60"
         style={{ background: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" }}
       >
         <CheckIcon className="size-[18px]" strokeWidth={2.4} aria-hidden /> Mark done
@@ -82,7 +82,7 @@ export function TaskCardActions({ onDone, onSnooze, completing = false, classNam
       <button
         type="button"
         onClick={onSnooze}
-        className="flex min-h-11 flex-1 items-center justify-center rounded-xl border px-3.5 text-base font-semibold"
+        className="flex min-h-11 flex-1 items-center justify-center whitespace-nowrap rounded-xl border px-3 text-base font-semibold"
         style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
       >
         Snooze
