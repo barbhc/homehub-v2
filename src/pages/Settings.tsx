@@ -1543,7 +1543,7 @@ export default function Settings() {
                 onClick={handleRescanAll}
               >
                 <RefreshCwIcon className="size-4 mr-1.5" />
-                {rescanRunning ? "Scanning…" : "Rescan All"}
+                {rescanRunning ? "Scanning…" : "Rescan all"}
               </Button>
               {rescanSkipped > 0 && !rescanRunning && (
                 <p className="self-center text-xs text-muted-foreground">

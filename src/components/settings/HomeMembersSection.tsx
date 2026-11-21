@@ -377,7 +377,7 @@ export function HomeMembersSection({ homeId }: Props) {
                               {isCopied ? (
                                 <><Check className="size-3 mr-1" /> Copied</>
                               ) : (
-                                <><Copy className="size-3 mr-1" /> Copy Link</>
+                                <><Copy className="size-3 mr-1" /> Copy link</>
                               )}
                             </Button>
                             <Button
