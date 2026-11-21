@@ -181,3 +181,20 @@ export function askStarters(input: { month: number; freezeRisk: boolean | null; 
   out.push({ label: "This month's upkeep?", question: "What should I do for my home this month?" })
   return out.slice(0, 2)
 }
+
+/**
+ * The starters for one home today — the ONE place a home's profile becomes
+ * starter questions. Home (under the Ask bar) and the Ask tab's chips both
+ * read it, so neither suggests an appliance the home may not have.
+ * `today` is a local YYYY-MM-DD.
+ */
+export function askStartersForHome(
+  profile: { freeze_risk?: boolean | null; area?: { hazards: readonly string[] } | null } | null | undefined,
+  today: string,
+): AskStarter[] {
+  return askStarters({
+    month: Number(today.slice(5, 7)),
+    freezeRisk: profile?.freeze_risk ?? null,
+    hazards: profile?.area?.hazards ?? [],
+  })
+}

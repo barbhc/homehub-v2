@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { APPLIANCES, applianceCare, appliancesToOffer, askStarters, nextQuestion } from "./dayOne"
+import { APPLIANCES, applianceCare, appliancesToOffer, askStarters, askStartersForHome, nextQuestion } from "./dayOne"
 
 const by = (label: string) => APPLIANCES.find((a) => a.label === label)!
 const keys = (rows: { entry: { key: string } }[]) => rows.map((r) => r.entry.key)
@@ -99,5 +99,16 @@ describe("askStarters", () => {
       ...askStarters({ month: 6, freezeRisk: false, hazards: ["hurricane"] }),
       ...askStarters({ month: 6, freezeRisk: false, hazards: [] }),
     ]) expect(asked.has(s.question), s.question).toBe(true)
+  })
+})
+
+describe("askStartersForHome", () => {
+  it("reads the month from today and the facts from the profile", () => {
+    expect(askStartersForHome({ freeze_risk: false, area: { hazards: ["earthquake"] } }, "2026-11-21"))
+      .toEqual(askStarters({ month: 11, freezeRisk: false, hazards: ["earthquake"] }))
+  })
+  it("no profile: the defaults, never an appliance", () => {
+    const labels = askStartersForHome(null, "2026-06-01").map((s) => s.label)
+    expect(labels).toEqual(["Air filter: how often?", "This month's upkeep?"])
   })
 })

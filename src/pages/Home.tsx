@@ -26,7 +26,7 @@ import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
 import { NextStepCard } from "@/components/home/NextStepCard"
 import { MonthlyRefreshCard } from "@/components/home/MonthlyRefreshCard"
 import { useReminderAsk } from "@/hooks/useReminderAsk"
-import { askStarters } from "../../shared/care/dayOne"
+import { askStartersForHome } from "../../shared/care/dayOne"
 import { localToday } from "../../shared/dates/calendar"
 import { DesktopHome } from "@/components/home/DesktopHome"
 import { ProfileCompletionBanner } from "@/components/dashboard/ProfileCompletionBanner"
@@ -314,7 +314,7 @@ export default function Home() {
   // And two starter questions under Ask (release B): Ask answers a home with
   // nothing to read from general know-how now, so a first question works.
   const starters = !isNewUser && (stats?.totalItems ?? 0) < 3
-    ? askStarters({ month: Number(localToday().slice(5, 7)), freezeRisk: homeProfile?.freeze_risk ?? null, hazards: homeProfile?.area?.hazards ?? [] })
+    ? askStartersForHome(homeProfile, localToday())
     : []
   const earlyCard = !isNewUser && !hasItemsNoUpkeep && homeId && (stats?.totalItems ?? 0) < 3
     ? <NextStepCard key={homeId} homeId={homeId} totalItems={stats?.totalItems ?? 0} onChanged={() => refresh()} />

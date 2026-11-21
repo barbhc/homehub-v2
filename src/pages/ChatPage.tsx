@@ -8,7 +8,9 @@ import { SaveFaqDialog } from "@/components/chat/SaveFaqDialog"
 import { getSuggestions } from "@/components/chat/chatSuggestions"
 import { InlineError } from "@/components/layout/LoadStates"
 import { useKeyboardInset, useKeyboardPadding } from "@/hooks/useKeyboardInset"
-import { useCurrentHome } from "@/modules/home"
+import { useCurrentHome, useHomeProfile } from "@/modules/home"
+import { askStartersForHome } from "../../shared/care/dayOne"
+import { localToday } from "../../shared/dates/calendar"
 import { useAuth } from "@/modules/auth"
 import { useChatFilters } from "@/modules/knowledge/hooks/useChatFilters"
 import { streamChatQuery } from "@/modules/knowledge/services/chatService"
@@ -60,6 +62,7 @@ function AskForHome() {
   const { user } = useAuth()
   const homeId = home?.home_id ?? ""
   const { rooms, items, loading: filtersLoading, error: filtersError, reload: reloadFilters } = useChatFilters(homeId)
+  const { profile: homeProfile } = useHomeProfile(homeId || null)
   // How much of the screen the on-screen keyboard covers (0 when closed). In
   // the iOS shell the keyboard does not shrink the page, so the composer sat
   // under it; the page's bottom padding grows to at least this much instead.
@@ -409,7 +412,9 @@ function AskForHome() {
     [homeId, isStreaming, messages, activeFilter, appendToAnswer, failAnswer]
   )
 
-  const suggestions = getSuggestions(selectedRoomIds, selectedItemId, rooms, items)
+  // A profile that failed to read gives the defaults (no zip facts) — the
+  // starters are suggestions, and Home treats an absent profile the same way.
+  const suggestions = getSuggestions(selectedItemId, items, askStartersForHome(homeProfile, localToday()))
   const hasMessages = messages.length > 0
   const hasHistory = conversations !== null && conversations.length > 0
   // A Recent read that failed, said in Recent itself (rail and phone alike).
@@ -584,14 +589,14 @@ function AskForHome() {
               taps (hit-44) without moving anything. A scroller clips — and
               scrolls — whatever sticks out of its padding box. */}
           <div className="flex gap-2 px-4 pt-2 pb-[7px] -mb-[7px] overflow-x-auto shrink-0 [&::-webkit-scrollbar]:hidden scrollbar-none lg:hidden">
-            {suggestions.map((q) => (
+            {suggestions.map((s) => (
               <button
-                key={q}
+                key={s.question}
                 type="button"
-                onClick={() => handleSend(q)}
+                onClick={() => handleSend(s.question)}
                 className="hit-44 shrink-0 text-xs text-primary bg-primary/8 border border-primary/20 rounded-full px-3 py-1.5 hover:bg-primary/14 transition-colors whitespace-nowrap"
               >
-                {q}
+                {s.label}
               </button>
             ))}
           </div>
@@ -690,14 +695,14 @@ function AskForHome() {
 
           {/* Suggestion chips (both mobile and desktop) */}
           <div className="flex flex-wrap gap-2 justify-center max-w-[560px]">
-            {suggestions.map((q) => (
+            {suggestions.map((s) => (
               <button
-                key={q}
+                key={s.question}
                 type="button"
-                onClick={() => handleSend(q)}
+                onClick={() => handleSend(s.question)}
                 className="text-sm text-primary bg-primary/8 border border-primary/20 rounded-full px-4 py-2 hover:bg-primary/14 hover:-translate-y-0.5 transition-all"
               >
-                {q}
+                {s.label}
               </button>
             ))}
           </div>

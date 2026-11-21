@@ -23,7 +23,7 @@ const svc = vi.hoisted(() => ({
   getItemUnits: vi.fn(),
 }))
 
-vi.mock("@/modules/home", () => ({ useCurrentHome: () => ({ home: { home_id: "home-1", name: "Test Home" } }) }))
+vi.mock("@/modules/home", () => ({ useCurrentHome: () => ({ home: { home_id: "home-1", name: "Test Home" } }), useHomeProfile: () => ({ profile: null }) }))
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1" } }) }))
 vi.mock("@/modules/knowledge/hooks/useChatFilters", () => ({
   useChatFilters: () => ({ rooms: [], items: [], loading: false, error: null, reload: () => {} }),
