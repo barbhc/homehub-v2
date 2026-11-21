@@ -84,11 +84,11 @@ async function fakeEnqueue(page: Page, db: Firestore): Promise<{ count: () => nu
   return { count: () => calls }
 }
 
-/** What the tray pill says is being read, as a number — 0 when it says nothing. */
+/** What the Items tab says is being read, as a number — 0 when it says nothing.
+ *  (Owner 2026-11-20: the floating pill is gone; the tab carries the count and says it aloud.) */
 async function trayReading(page: Page): Promise<number> {
-  const pill = page.getByRole("button", { name: /\d+ reading/ })
-  if ((await pill.count()) === 0) return 0
-  return Number((await pill.first().textContent())?.match(/(\d+) reading/)?.[1] ?? 0)
+  const tab = page.getByRole("link", { name: /^Items(,|$)/ }).filter({ visible: true }).first()
+  return Number(((await tab.getAttribute("aria-label")) ?? "").match(/(\d+) reading/)?.[1] ?? 0)
 }
 
 /** Every role=dialog in the DOM, hidden or not. */
@@ -163,8 +163,9 @@ function describeAt(label: string, viewport: { width: number; height: number }) 
       await expect(rail).toHaveCount(1, { timeout: 15_000 })
       await expect(rail).not.toHaveAttribute("aria-valuenow")
 
-      // HH-161 (supersedes HH-118): ONE indicator. The pill counts THIS read
-      // on this item's own page, and the same count everywhere else. At least
+      // One count, everywhere: the Items tab counts THIS read on this item's
+      // own page, and the same everywhere else (owner 2026-11-20, superseding
+      // HH-161's pill). At least
       // one here (a read another spec left running in the shared emulator may
       // add to it), and the same number on another page.
       await expect.poll(() => trayReading(page), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
