@@ -95,7 +95,7 @@ function AppShell() {
                   to={to}
                   data-tour={tourId}
                   // The name stays "Items"; what is being read is its description.
-                  aria-describedby={to === "/inventory" && scan.count > 0 ? "items-scan-desktop" : undefined}
+                  aria-describedby={to === "/inventory" && scan.count > 0 ? "items-scan-status" : undefined}
                   className={cn(
                     "hit-44 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[length:min(0.875rem,21px)] font-semibold transition-colors",
                     isActive ? "bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "text-[var(--hh-sub)] hover:text-[var(--hh-ink)]"
@@ -103,7 +103,6 @@ function AppShell() {
                 >
                   {label}
                   {to === "/inventory" && <ScanCountBadge count={scan.count} />}
-                  {to === "/inventory" && scan.count > 0 && <span id="items-scan-desktop" className="sr-only">{scan.label}</span>}
                 </Link>
               )
             })}
@@ -212,6 +211,10 @@ function AppShell() {
         <Outlet />
       </main>
 
+      {/* What the Items tab's count means, read as the link's DESCRIPTION.
+          Outside both links on purpose: text inside a link becomes part of its
+          name, and the link is called "Items". */}
+      {scan.count > 0 && <span id="items-scan-status" className="sr-only">{scan.label}</span>}
       {/* HH-87's in-progress window is no longer a floating pill (owner,
           2026-11-20: nothing may cover what people read). A read in flight or
           waiting for review is a count on the Items tab, and a line on that
@@ -235,7 +238,7 @@ function AppShell() {
                 key={to}
                 to={to}
                 data-tour={tourId}
-                aria-describedby={to === "/inventory" && scan.count > 0 ? "items-scan-mobile" : undefined}
+                aria-describedby={to === "/inventory" && scan.count > 0 ? "items-scan-status" : undefined}
                 className={cn(
                   "relative flex flex-col items-center justify-center gap-1 px-3 py-1 min-w-[58px] min-h-11 transition-colors",
                   isActive ? "text-[var(--hh-teal)]" : "text-[var(--hh-sub)]"
@@ -243,7 +246,6 @@ function AppShell() {
               >
                 <Icon className="size-6" strokeWidth={isActive ? 2.4 : 2} />
                 {to === "/inventory" && <ScanCountBadge count={scan.count} className="absolute left-[calc(50%+6px)] top-0" />}
-                {to === "/inventory" && scan.count > 0 && <span id="items-scan-mobile" className="sr-only">{scan.label}</span>}
                 <span className={cn("text-[length:var(--hh-tabbar-label)] leading-tight", isActive ? "font-semibold" : "font-medium")}>{label}</span>
               </Link>
             )
