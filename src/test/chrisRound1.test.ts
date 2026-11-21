@@ -56,18 +56,9 @@ describe("empty Tasks must not contradict the item page", () => {
   })
 })
 
-describe("screens outside AppLayout clear the Dynamic Island", () => {
-  // AppLayout supplies pt-safe-top; these render outside it, so Chris's
-  // "Add your first items" heading sat under the island on an iPhone 17.
-  // OnboardingInventory was the third; it is gone (HH-81) — /onboarding/inventory
-  // now redirects into the real add flow, which lives INSIDE AppLayout and gets
-  // the inset from there.
-  for (const page of ["OnboardingProfile", "SampleHome"]) {
-    it(`${page} carries the top inset`, () => {
-      expect(read(`../pages/${page}.tsx`)).toContain("pt-safe-top")
-    })
-  }
-})
+// "screens outside AppLayout clear the Dynamic Island" pinned the top inset on
+// OnboardingProfile and SampleHome. Both pages are gone (2026-11-21; their
+// routes redirect to /home), and OnboardingInventory before them (HH-81).
 
 describe("What's New only speaks to people who were there", () => {
   it("skips an entry that predates the account", () => {
@@ -268,9 +259,9 @@ describe("round 10 — the overnight fallout, pinned", () => {
     expect(sheet).toContain("on a schedule")
   })
 
-  it("HH-97: no leading chip; the marker is meta text naming Deep Clean", () => {
+  it("HH-97: no leading chip; the marker is meta text naming Clean", () => {
     expect(care).not.toContain("In guides")
-    expect(care).toContain('onAgenda ? "" : "Deep Clean"')
+    expect(care).toContain('onAgenda ? "" : "Clean"')
   })
 
   it("HH-94: a non-empty Tasks list still accounts for withheld cleaning", () => {

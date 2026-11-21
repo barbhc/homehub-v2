@@ -223,7 +223,7 @@ export function HomeMembersSection({ homeId }: Props) {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Users className="size-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Home Members</h2>
+              <h2 className="text-sm font-semibold text-foreground">Home members</h2>
             </div>
             <Button
               variant="outline"
@@ -377,7 +377,7 @@ export function HomeMembersSection({ homeId }: Props) {
                               {isCopied ? (
                                 <><Check className="size-3 mr-1" /> Copied</>
                               ) : (
-                                <><Copy className="size-3 mr-1" /> Copy Link</>
+                                <><Copy className="size-3 mr-1" /> Copy link</>
                               )}
                             </Button>
                             <Button

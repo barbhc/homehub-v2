@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react"
 import type { CareNote } from "@/integrations/types"
-import { HouseNotesCard, RoomNotesLink } from "@/components/notes/ItemsNotes"
-import { roomNoteCounts } from "@/lib/notes"
+import { HouseNotesCard } from "@/components/notes/ItemsNotes"
 import { Link } from "react-router-dom"
 import {
   PlusIcon, SearchIcon, ChevronRightIcon,
@@ -119,9 +118,6 @@ export function RefinedItems({
     for (const r of rooms) m.set(r.room_id, r.name)
     return m
   }, [rooms])
-  // Groups are keyed by room NAME; the room headings need the id for their notes link.
-  const roomIdByName = useMemo(() => new Map(rooms.map((r) => [r.name, r.room_id])), [rooms])
-  const noteCounts = useMemo(() => roomNoteCounts(notes), [notes])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -196,12 +192,7 @@ export function RefinedItems({
           groups.map((g) => (
             <div key={g.key ?? "all"} style={{ marginBottom: d.stack }}>
               {g.key && (
-                <div className="mb-2 flex items-center justify-between gap-3 pl-0.5">
-                  <div className="text-xs font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>
-                  {sort === "room" && !notesError && notes !== null && roomIdByName.has(g.key) && (
-                    <RoomNotesLink roomId={roomIdByName.get(g.key)!} roomName={g.key} count={noteCounts.get(roomIdByName.get(g.key)!) ?? 0} />
-                  )}
-                </div>
+                <div className="mb-2 pl-0.5 text-xs font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>
               )}
               <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
                 {g.items.map((it, i) => (

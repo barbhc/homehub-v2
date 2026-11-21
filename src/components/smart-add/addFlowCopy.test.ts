@@ -131,11 +131,20 @@ describe("when the scan misses a required field", () => {
 })
 
 describe("the lane chooser", () => {
+  // One chooser (AddLaneChooser), rendered by IdentifyStep and the empty Items tab.
+  const chooser = read("./AddLaneChooser.tsx")
+
+  it("is the one component IdentifyStep renders for it", () => {
+    expect(identify).toContain("<AddLaneChooser onPick={onModeChange} />")
+    expect(identify).not.toContain("Appliance or device")
+  })
+
   it("puts the camera hint on the lane that has a camera", () => {
-    expect(identify).toContain("Type it, or scan the label.")
+    expect(chooser).toContain("Type it, or scan the label.")
   })
 
   it("no longer captions both lanes with a note about one of them", () => {
+    expect(chooser).not.toContain("snap it inside the appliance form")
     expect(identify).not.toContain("snap it inside the appliance form")
   })
 })

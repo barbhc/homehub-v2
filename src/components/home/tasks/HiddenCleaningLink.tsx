@@ -18,7 +18,7 @@ export function HiddenCleaningLink({ count, className }: { count: number; classN
   if (count <= 0) return null
   return (
     <Link to="/clean" className={cn("hit-44", className)} style={{ color: "var(--hh-sub)" }}>
-      {count} cleaning job{count === 1 ? " for your items lives" : "s for your items live"} in <b style={{ color: TEAL }}>Deep Clean</b> →
+      {count} cleaning job{count === 1 ? " for your items lives" : "s for your items live"} in <b style={{ color: TEAL }}>Clean</b> →
     </Link>
   )
 }

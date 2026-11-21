@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { ChevronRightIcon, HomeIcon, PlusIcon, StickyNoteIcon } from "lucide-react"
+import { ChevronRightIcon, HomeIcon } from "lucide-react"
 import type { CareNote } from "@/integrations/types"
 import { notesSummary } from "@/lib/notes"
 
@@ -7,7 +7,9 @@ const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", T
 
 /**
  * The top of Items: the house's own notes — shutoffs, breakers, paint — the
- * things that belong to no single item (owner's pick, 2026-09-27).
+ * things that belong to no single item (owner's pick, 2026-09-27). It is the
+ * one notes door on Items: room notes are reached from House notes' "By room"
+ * list, not from each room heading (owner, 2026-11-21).
  */
 export function HouseNotesCard({ notes, error }: { notes: CareNote[] | null; error: string | null }) {
   const house = (notes ?? []).filter((n) => n.scope === "home")
@@ -33,23 +35,6 @@ export function HouseNotesCard({ notes, error }: { notes: CareNote[] | null; err
         <span className="truncate text-[0.78125rem]" style={{ color: error ? CLAY : SUB }}>{line}</span>
       </span>
       <ChevronRightIcon className="size-[18px] shrink-0 text-[var(--hh-icon-faint)]" aria-hidden />
-    </Link>
-  )
-}
-
-/** Beside a room heading: "2 notes ›", or a quiet "Add a note" when there are none. */
-export function RoomNotesLink({ roomId, roomName, count }: { roomId: string; roomName: string; count: number }) {
-  const to = `/inventory/rooms/${roomId}/notes`
-  return count > 0 ? (
-    <Link to={to} aria-label={`${count} ${count === 1 ? "note" : "notes"} for ${roomName}`} className="hit-44 inline-flex shrink-0 items-center gap-1 text-[0.78125rem] font-semibold normal-case tracking-normal" style={{ color: TEAL }}>
-      <StickyNoteIcon className="size-[13px]" aria-hidden />
-      {count} {count === 1 ? "note" : "notes"}
-      <ChevronRightIcon className="size-3" aria-hidden />
-    </Link>
-  ) : (
-    <Link to={to} aria-label={`Add a note for ${roomName}`} className="hit-44 inline-flex shrink-0 items-center gap-1 text-[0.78125rem] font-semibold normal-case tracking-normal" style={{ color: FAINT }}>
-      <PlusIcon className="size-[13px]" strokeWidth={2.2} aria-hidden />
-      Add a note
     </Link>
   )
 }

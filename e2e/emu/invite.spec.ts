@@ -41,7 +41,7 @@ test.describe("emulator e2e — invites under the role rules", () => {
 
     await page.goto("/settings")
     const section = page.locator("#members")
-    await expect(section.getByText("Home Members")).toBeVisible({ timeout: 20_000 })
+    await expect(section.getByText("Home members")).toBeVisible({ timeout: 20_000 })
     await section.getByRole("button", { name: /^invite$/i }).click()
 
     // Landed: a pending invite row, and no error in the section.

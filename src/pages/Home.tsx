@@ -26,7 +26,7 @@ import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
 import { NextStepCard } from "@/components/home/NextStepCard"
 import { MonthlyRefreshCard } from "@/components/home/MonthlyRefreshCard"
 import { useReminderAsk } from "@/hooks/useReminderAsk"
-import { askStarters } from "../../shared/care/dayOne"
+import { askStartersForHome } from "../../shared/care/dayOne"
 import { localToday } from "../../shared/dates/calendar"
 import { DesktopHome } from "@/components/home/DesktopHome"
 import { ProfileCompletionBanner } from "@/components/dashboard/ProfileCompletionBanner"
@@ -34,7 +34,6 @@ import { PushOptInNudge } from "@/components/dashboard/PushOptInNudge"
 import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 
 import { WhatsNewBanner } from "@/components/dashboard/WhatsNewBanner"
-import { LevelUnlockBanner } from "@/components/dashboard/LevelUnlockBanner"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 // ── Agenda ──────────────────────────────────────────────────────────────────
@@ -155,7 +154,7 @@ export default function Home() {
   // legacy home with no createdBy keeps the name: hide only what we know is
   // yours. Adding a home lives in Settings → Homes.
   const showHomeName = !!home && (homes.length > 1 || home.created_by !== user?.id)
-  const { level, derivedLevel } = useUserLevel()
+  const { level } = useUserLevel()
   const homeId = home?.home_id ?? ""
 
   const {
@@ -315,7 +314,7 @@ export default function Home() {
   // And two starter questions under Ask (release B): Ask answers a home with
   // nothing to read from general know-how now, so a first question works.
   const starters = !isNewUser && (stats?.totalItems ?? 0) < 3
-    ? askStarters({ month: Number(localToday().slice(5, 7)), freezeRisk: homeProfile?.freeze_risk ?? null, hazards: homeProfile?.area?.hazards ?? [] })
+    ? askStartersForHome(homeProfile, localToday())
     : []
   const earlyCard = !isNewUser && !hasItemsNoUpkeep && homeId && (stats?.totalItems ?? 0) < 3
     ? <NextStepCard key={homeId} homeId={homeId} totalItems={stats?.totalItems ?? 0} onChanged={() => refresh()} />
@@ -350,9 +349,6 @@ export default function Home() {
       <div className="px-4 lg:px-8 max-w-5xl mx-auto w-full">
         {/* What's new banner */}
         {user?.id && <WhatsNewBanner userId={user.id} />}
-
-        {/* Progressive-complexity: celebrate when the user grows into a new level */}
-        <LevelUnlockBanner derivedLevel={derivedLevel} />
 
         {/* ── New-user empty state ── */}
         {isNewUser && (

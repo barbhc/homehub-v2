@@ -10,6 +10,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 type Stream = { onDelta: (d: string) => void; onDone: (s: unknown[], i?: unknown) => void; homeId: string }
 const svc = vi.hoisted(() => ({
   homeId: "home-a",
+  profile: null as { freeze_risk: boolean | null; area: { hazards: string[] } | null } | null,
   listConversations: vi.fn(),
   getConversationMessages: vi.fn(),
   createConversation: vi.fn(),
@@ -17,7 +18,10 @@ const svc = vi.hoisted(() => ({
   streams: [] as Stream[],
 }))
 
-vi.mock("@/modules/home", () => ({ useCurrentHome: () => ({ home: { home_id: svc.homeId, name: svc.homeId } }) }))
+vi.mock("@/modules/home", () => ({
+  useCurrentHome: () => ({ home: { home_id: svc.homeId, name: svc.homeId } }),
+  useHomeProfile: () => ({ profile: svc.profile }),
+}))
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1" } }) }))
 vi.mock("@/modules/knowledge/hooks/useChatFilters", () => ({
   useChatFilters: () => ({ rooms: [], items: [], loading: false, error: null, reload: () => {} }),
@@ -41,6 +45,8 @@ vi.mock("@/modules/knowledge", async (orig) => ({
 vi.mock("@/modules/items", () => ({ getItemUnits: vi.fn(async () => ({ data: [], error: null })) }))
 
 const { default: ChatPage } = await import("./ChatPage")
+const { askStartersForHome } = await import("../../shared/care/dayOne")
+const { localToday } = await import("../../shared/dates/calendar")
 
 beforeAll(() => {
   Element.prototype.hasPointerCapture ??= () => false
@@ -61,6 +67,7 @@ const page = (url: string) => (
 
 beforeEach(() => {
   vi.clearAllMocks()
+  svc.profile = null
   svc.streams.length = 0
   svc.listConversations.mockResolvedValue([])
   svc.createConversation.mockResolvedValue({ id: "c-new" })
@@ -82,5 +89,25 @@ describe("Ask — a starter question from Home", () => {
     render(page("/chat"))
     await new Promise((r) => setTimeout(r, 30))
     expect(svc.streams).toHaveLength(0)
+  })
+})
+
+describe("Ask — its suggestion chips are the home's starters", () => {
+  it("never suggests an appliance the home may not have", async () => {
+    svc.profile = { freeze_risk: false, area: { hazards: ["earthquake"] } }
+    render(page("/chat"))
+    const expected = askStartersForHome(svc.profile, localToday())
+    expect(expected.length).toBeGreaterThan(0)
+    for (const s of expected) expect(await screen.findByRole("button", { name: s.label })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Earthquake-ready?" })).toBeInTheDocument()
+    expect(screen.queryByText(/dishwasher|washer|refrigerator/i)).toBeNull()
+  })
+
+  it("a chip asks the starter's full question", async () => {
+    svc.profile = { freeze_risk: false, area: null }
+    render(page("/chat"))
+    ;(await screen.findByRole("button", { name: "Air filter: how often?" })).click()
+    await waitFor(() => expect(svc.streams).toHaveLength(1))
+    expect(svc.streams[0]).toMatchObject({ question: "How often should I change my air filter?" })
   })
 })

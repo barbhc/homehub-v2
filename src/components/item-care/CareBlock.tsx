@@ -17,7 +17,7 @@
  * Pass `m` for mobile spacing.
  */
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronUpIcon, Circle, GitBranchIcon, RotateCcw, SlidersHorizontalIcon, Check, BellOff, Pencil, ArrowUpRight } from "lucide-react"
 import type { ItemUnit, KnowledgeChunk, Json } from "@/integrations/types"
 import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, type TaskTemplateWithSchedule } from "@/modules/care"
@@ -30,7 +30,7 @@ import { SuggestedRow, SuggestedSource } from "@/components/care/SuggestedRow"
 import { KIND_LABELS } from "@/components/care/kindLabels"
 import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
 import { dueKindOf, windowPhrase } from "@/lib/dueWindow"
-import { reviewBucketFor, isScheduledTask, notifiesPhone, showsInTasks, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
+import { reviewBucketFor, isScheduledTask, notifiesPhone, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
 import { getTaskGuidance } from "@/pages/item-detail/utils"
 import { classifyTaskActor } from "@/lib/taskActor"
@@ -238,10 +238,6 @@ function Placeholders() {
   )
 }
 
-/** "a", "a and b", "a, b and c". */
-function joinList(parts: string[]): string {
-  return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`
-}
 // ── Habit bands (read-only) ──────────────────────────────────────────────────
 // ── Schedule hero ────────────────────────────────────────────────────────────
 // Match a safety chunk to the task(s) it describes by keyword overlap, so a
@@ -374,14 +370,14 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                   and blindly prefixing the separator rendered a stray "· 15 min". */}
               {/* HH-97 (was HH-82's leading chip): the off-agenda marker lives
                   in the meta line now — the chip broke row alignment, and
-                  "In guides" named a concept nobody had met. "Deep Clean" is
-                  the surface's own name on Home, so the words point somewhere
+                  "In guides" named a concept nobody had met. "Clean" is
+                  the surface's own name in the nav, so the words point somewhere
                   visible. */}
               {/* The cadence moved to the chip on the right — same slot, same
                   mono, same box as the review's. What stays here is what the
                   chip cannot carry: effort, and the due phrase, which is the
                   most important thing on the row. */}
-              {[freqLabel(t), t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Deep Clean"].filter(Boolean).join(" · ")}
+              {[freqLabel(t), t.estimated_minutes ? `${t.estimated_minutes} min` : "", onAgenda ? "" : "Clean"].filter(Boolean).join(" · ")}
               {due != null && days != null && (
                 <span style={{ color: neverStarted ? SUB : dueStatusColor(days), fontWeight: !neverStarted && days <= 7 ? 700 : 500 }}>
                   {" · "}{neverStarted ? "Start anytime" : duePhraseOf(t, due)}
@@ -1018,21 +1014,11 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
     )
   }
 
-  // HH-161 (S3c): after Save, a manual with no maintenance leaves upkeep that
-  // lives on this page and nowhere else — cleaning, usage and setup never reach
-  // Tasks or Home (isAgendaEligible), and none of it notifies. The review said
-  // "Nothing here goes into Tasks." before Save; the page keeps saying it after,
-  // rather than letting a column of cadences imply a schedule.
-  const usageCount = usageTips.length + fUsageTasks.length
-  const anyInTasks = tasks.some((t) => showsInTasks(taskLikeOf(t), t.scope_type ?? null))
-  const livesHere = fMaintenance.length === 0 && !anyInTasks
-    ? [
-        fCleaning.length > 0 ? `${fCleaning.length} cleaning ${fCleaning.length === 1 ? "tip" : "tips"}` : null,
-        usageCount > 0 ? `${usageCount} usage ${usageCount === 1 ? "tip" : "tips"}` : null,
-        fSetup.length > 0 ? `${fSetup.length} setup ${fSetup.length === 1 ? "step" : "steps"}` : null,
-      ].filter((x): x is string => !!x)
-    : []
-
+  // HH-161 (S3c)'s "Nothing here goes into Tasks / N cleaning tips live
+  // below." card, and the Cleaning band's "These live in your cleaning guides —
+  // nothing here reminds you. Open guides ›", are gone (owner, 2026-11-21: no
+  // side explanation lines unless critical). Each row's meta still says
+  // "Clean" when it lives off the agenda.
   return (
     <div className="flex flex-col" style={{ gap: m ? 16 : 20 }}>
       {/* A read of a manual this item already has upkeep from (Read again, or
@@ -1042,19 +1028,6 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
         <Card>
           <div className="p-4" aria-busy="true" aria-live="polite">
             <ScanningLine reading={reading} />
-          </div>
-        </Card>
-      )}
-
-      {livesHere.length > 0 && (
-        <Card>
-          <div className="px-4 py-3.5" data-testid="upkeep-lives-here">
-            <p className="text-[0.9375rem] font-extrabold tracking-[-0.01em]" style={{ color: INK }}>
-              Nothing here goes into Tasks
-            </p>
-            <p className="mt-0.5 text-[0.84375rem]" style={{ color: SUB }}>
-              {joinList(livesHere)} live below.
-            </p>
           </div>
         </Card>
       )}
@@ -1109,18 +1082,6 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
 
       {fCleaning.length > 0 && (
         <Band tone="gold" title="Cleaning" count={fCleaning.length}>
-          {fCleaning.every((t) => !isAgendaEligible({ careType: t.care_type ?? null, scopeType: t.scope_type ?? null })) && (
-            /* HH-151 (owner, 2026-09-05): "looks too close to header and
-               stylistically different". It was an 11.5px one-off with almost no
-               padding, jammed under the gold band. It now sits INSIDE the band
-               on the rows' own inset and type, and the link says where it goes. */
-            <div className="border-t px-4 py-2.5 text-[0.75rem] leading-snug" style={{ borderColor: LINE, color: SUB }}>
-              These live in your cleaning guides — nothing here reminds you.{" "}
-              <Link to="/clean" className="hit-44 font-bold" style={{ color: TEAL }}>
-                Open guides ›
-              </Link>
-            </div>
-          )}
           {orderInBand(fCleaning).map((t, i) => (
             <ScheduleRow
               onLibraryTaskRemoved={onTaskAdded}

@@ -61,7 +61,6 @@ vi.mock("@/hooks/useUserLevel", () => ({ useUserLevel: () => ({ level: "engaged"
 vi.mock("@/hooks/useFeatureTour", () => ({ useFeatureTour: () => ({ restartTour: () => {} }) }))
 vi.mock("@/hooks/useDisplayName", () => ({ useDisplayName: () => ({ firstName: null, fullName: null }) }))
 vi.mock("@/components/dashboard/WhatsNewBanner", () => ({ WhatsNewBanner: () => null }))
-vi.mock("@/components/dashboard/LevelUnlockBanner", () => ({ LevelUnlockBanner: () => null }))
 vi.mock("@/components/dashboard/PushOptInNudge", () => ({ PushOptInNudge: () => null }))
 vi.mock("@/components/home/HomeSwitcherSheet", () => ({ HomeSwitcherSheet: () => null }))
 vi.mock("@/components/home/tasks/shared", async (orig) => ({

@@ -69,7 +69,7 @@ export default function CleanGuide() {
       ) : !guide ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
           <p className="text-[0.9375rem]" style={{ color: SUB }}>No cleaning guide for this item yet.</p>
-          <Link to="/clean" className="text-[0.875rem] font-bold" style={{ color: TEAL }}>Back to Deep Clean</Link>
+          <Link to="/clean" className="text-[0.875rem] font-bold" style={{ color: TEAL }}>Back to Clean</Link>
         </div>
       ) : (
         <>
@@ -80,7 +80,7 @@ export default function CleanGuide() {
                 <SparklesIcon className="size-6" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>Deep-clean guide</div>
+                <div className="text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: TEAL }}>Cleaning guide</div>
                 <h1 className="mt-0.5 text-[1.625rem] font-extrabold leading-tight tracking-[-0.6px]" style={{ color: INK }}>Clean the {guide.itemName}</h1>
               </div>
             </div>

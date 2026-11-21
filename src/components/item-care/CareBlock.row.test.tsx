@@ -132,11 +132,14 @@ describe("HH-155 — the title owns the row", () => {
   })
 })
 
-describe("HH-151 — the cleaning-guides line belongs to its band", () => {
-  it("reads in the rows' own voice and says where the link goes", async () => {
+describe("the Cleaning band carries no explanation line (was HH-151's)", () => {
+  it("shows the rows and nothing about where they live", async () => {
     renderRows([task({ task_template_id: "c1", title: "Clean Dryer Exterior", care_type: "cleaning", risk_level: null, estimated_minutes: 5 })])
-    expect(await screen.findByText(/These live in your cleaning guides/)).toBeTruthy()
-    expect(screen.getByRole("link", { name: /Open guides/ })).toHaveAttribute("href", "/clean")
+    expect(await screen.findByText("Clean Dryer Exterior")).toBeTruthy()
+    // Not rendered (owner, 2026-11-21: no side explanation lines unless critical).
+    expect(screen.queryByText(/These live in your cleaning guides/)).toBeNull()
+    expect(screen.queryByText(/nothing here reminds you/)).toBeNull()
+    expect(screen.queryByRole("link", { name: /Open guides/ })).toBeNull()
   })
 })
 

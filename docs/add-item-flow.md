@@ -78,6 +78,13 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 - **Everything else** — a name is enough; **no manual step at all**.
 - The chooser is a **state, not a route**, which is why Back exists on the next
   screen and why removing it would strand anyone who picked the wrong lane. — HH-110
+- **The empty Items tab shows the same chooser** (`AddLaneChooser`, one
+  component), headed "Add your first item" with the House notes card under it.
+  A pick there opens `/inventory/add?lane=appliance|simple`, which starts the
+  wizard in that lane; it is still a state — Back returns to the chooser, and
+  any other `lane` value is just the chooser. It replaced "No items yet" (two
+  add buttons and a promise that Homehub finds and reads the manual). Still one
+  door: `SmartAddItem` is the only creator. — owner, 2026-11-21
 
 ## Screen 2 — Identify it (appliance lane)
 
@@ -387,12 +394,15 @@ page watches it.
   A manual read and waiting offers "Review what we found", not another read.
   The manual section opens no review of its own, so the page mounts one draft
   review by construction (HH-120). — HH-161
-- **After Save, a manual with no maintenance says where its upkeep lives:**
-  Upkeep leads with "Nothing here goes into Tasks" and "4 cleaning tips and 2
-  setup steps live below.", then the rows in kind order (Cleaning open, Setup
-  closed, "already installed?"), each cadence in its row's detail line
-  (HH-155), no bell on any of them — and no hand-off card or pill left for that
-  manual. — HH-161 (S3c)
+- **After Save, a manual with no maintenance shows its upkeep, unexplained:**
+  the rows in kind order (Cleaning open, Setup closed, "already installed?"),
+  each cadence in its row's detail line (HH-155), no bell on any of them — and
+  no hand-off card or pill left for that manual. — HH-161 (S3c). *Amended
+  2026-11-21 (owner: no side explanation lines unless critical):* the lead card
+  ("Nothing here goes into Tasks" / "4 cleaning tips and 2 setup steps live
+  below.") and the Cleaning band's "These live in your cleaning guides — nothing
+  here reminds you. Open guides ›" are removed. The review sheet's own summary
+  ("Nothing here goes into Tasks.", before Save) is unchanged.
 - **One tree for the width, never two.** The page renders the phone layout OR
   the desktop one (`useIsDesktop`, Tailwind's `lg`), not both with CSS hiding
   one: a portaled dialog escapes `display:none`, so two trees meant one tap

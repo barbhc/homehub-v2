@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
-import { ChevronLeftIcon, PlusIcon } from "lucide-react"
+import { Link, useNavigate, useParams } from "react-router-dom"
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react"
 import type { CareNote } from "@/integrations/types"
 import { createCareNote, deleteCareNote, getHomeNotes, updateCareNote } from "@/modules/care"
 import { getRooms, useCurrentHome } from "@/modules/home"
-import { ideasFor, type NoteIdea, type NoteScope } from "@/lib/notes"
+import { ideasFor, roomNoteCounts, type NoteIdea, type NoteScope } from "@/lib/notes"
 import { NoteComposer } from "@/components/notes/NoteComposer"
 import { IdeaChips, NoteRows, SharedLine } from "@/components/notes/NoteParts"
 import { useNotes } from "@/components/notes/useNotes"
@@ -18,7 +18,9 @@ type Composer = { key: string; note: CareNote | null; idea: NoteIdea | null }
 /**
  * House notes (`/inventory/notes`) and a room's notes
  * (`/inventory/rooms/:roomId/notes`) — design/spares-and-notes.md §2.
- * Reached from the top of Items and from each room's heading there.
+ * House notes is reached from the top of Items; a room's notes from House
+ * notes' "By room" list (owner, 2026-11-21: Items no longer puts a notes link
+ * on every room heading).
  */
 export default function NotesPage() {
   const { roomId } = useParams<{ roomId?: string }>()
@@ -28,24 +30,31 @@ export default function NotesPage() {
   const scope: NoteScope = roomId ? "room" : "home"
 
   // A room page needs the room's name — and to know when the room is gone.
+  // House notes lists the rooms ("By room"), the way into each room's notes.
   const [rooms, setRooms] = useState<{ room_id: string; name: string }[] | null>(null)
   const [roomsError, setRoomsError] = useState<string | null>(null)
+  const [roomsAttempt, setRoomsAttempt] = useState(0)
   useEffect(() => {
-    if (!homeId || !roomId) return
+    if (!homeId) return
     let cancelled = false
     void getRooms(homeId).then((res) => {
       if (cancelled) return
-      if (res.error) setRoomsError(res.error.message)
-      else setRooms(res.data ?? [])
+      if (res.error) {
+        setRoomsError(res.error.message)
+      } else {
+        setRoomsError(null)
+        setRooms(res.data ?? [])
+      }
     })
     return () => { cancelled = true }
-  }, [homeId, roomId])
+  }, [homeId, roomId, roomsAttempt])
   const room = roomId && rooms ? rooms.find((r) => r.room_id === roomId) ?? null : null
   const roomGone = !!roomId && rooms !== null && room === null
 
   const { notes, error, loading, reload } = useNotes(homeId ? `home-notes:${homeId}` : null, () => getHomeNotes(homeId!))
   const mine = (notes ?? []).filter((n) => (scope === "home" ? n.scope === "home" : n.scope === "room" && n.room_id === roomId))
   const ideas = ideasFor(scope, null, mine)
+  const roomCounts = roomNoteCounts(notes)
   const [composer, setComposer] = useState<Composer | null>(null)
   const openNew = (idea: NoteIdea | null) => setComposer({ key: `new:${idea?.label ?? ""}:${Date.now()}`, note: null, idea })
 
@@ -117,6 +126,37 @@ export default function NotesPage() {
               </button>
               {!error && <IdeaChips ideas={ideas} onPick={openNew} />}
             </>
+          )}
+
+          {scope === "home" && (roomsError || (rooms && rooms.length > 0)) && (
+            <section aria-labelledby="notes-by-room" className="mt-2">
+              <h2 id="notes-by-room" className="mb-2 pl-0.5 text-xs font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>By room</h2>
+              {roomsError ? (
+                <div role="alert" className={`flex items-center gap-2 text-[0.8125rem] ${CARD}`} style={{ background: SURFACE, color: CLAY }}>
+                  <span className="min-w-0 flex-1">Couldn&apos;t load your rooms: {roomsError}</span>
+                  <button type="button" onClick={() => setRoomsAttempt((n) => n + 1)} className="hit-44 shrink-0 font-bold underline underline-offset-2">Try again</button>
+                </div>
+              ) : (
+                <ul className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
+                  {rooms!.map((r, i) => {
+                    const count = roomCounts.get(r.room_id) ?? 0
+                    return (
+                      <li key={r.room_id} style={{ borderTop: i === 0 ? "none" : "0.5px solid var(--hh-line)" }}>
+                        <Link to={`/inventory/rooms/${r.room_id}/notes`} className="flex min-h-11 items-center gap-3 px-4 py-3">
+                          <span className="min-w-0 flex-1 text-[0.90625rem] font-semibold [overflow-wrap:anywhere]" style={{ color: INK }}>{r.name}</span>
+                          {count > 0 && (
+                            <span className="shrink-0 text-[0.78125rem] font-semibold" style={{ color: SUB }}>
+                              {count} {count === 1 ? "note" : "notes"}
+                            </span>
+                          )}
+                          <ChevronRightIcon className="size-[18px] shrink-0 text-[var(--hh-icon-faint)]" aria-hidden />
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </section>
           )}
         </div>
       </div>

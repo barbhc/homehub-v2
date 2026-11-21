@@ -49,3 +49,10 @@ describe("ProfileCompletionBanner — Not now", () => {
     expect(screen.queryByRole("alert")).toBeNull()
   })
 })
+
+describe("ProfileCompletionBanner — Finish profile", () => {
+  it("opens Settings → Home profile, not the retired /onboarding/profile", () => {
+    renderBanner()
+    expect(screen.getByRole("link", { name: "Finish profile" })).toHaveAttribute("href", "/settings#home-profile")
+  })
+})

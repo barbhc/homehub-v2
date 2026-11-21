@@ -126,17 +126,20 @@ function WarrantyListRow({ row, last }: { row: WarrantyRow; last: boolean }) {
   const tone = TONE[row.status]
   const Icon = row.icon
   // Status hint + the actual coverage end date — that's the point of the page.
-  const right =
+  const status =
     row.status === "expired"
       ? row.expiry ? `Lapsed · ${formatDate(row.expiry)}` : "Lapsed"
       : row.expiry
         ? `Covered · ${formatDate(row.expiry)}`
         : "Covered"
-  const subtitle = [row.brand, row.room].filter(Boolean).join(" · ") || "Warranty on file"
+  const subtitle = [row.brand, row.room].filter(Boolean).join(" · ")
+  // The name gets its own line and wraps (owner, 2026-11-21: a status beside it
+  // truncated "Bosch 800 Series Dishwasher" to "Bosch 800…"); the status sits
+  // under it.
   return (
     <Link
       to={`/inventory/${row.id}`}
-      className="flex w-full items-center gap-3 bg-[var(--hh-surface)] px-4 py-3.5"
+      className="flex min-h-11 w-full items-center gap-3 bg-[var(--hh-surface)] px-4 py-3.5"
       style={{ borderTop: last ? "none" : "0.5px solid var(--hh-line)" }}
     >
       <span
@@ -146,13 +149,11 @@ function WarrantyListRow({ row, last }: { row: WarrantyRow; last: boolean }) {
         <Icon className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[0.9375rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>{row.name}</div>
-        <div className="mt-px truncate text-[0.78125rem]" style={{ color: SUB }}>{subtitle}</div>
+        <div className="text-[0.9375rem] font-bold tracking-[-0.2px] [overflow-wrap:anywhere]" style={{ color: INK }}>{row.name}</div>
+        <div className="mt-px text-[0.8125rem] font-bold" style={{ color: tone.fg }}>{status}</div>
+        {subtitle && <div className="mt-px truncate text-[0.78125rem]" style={{ color: SUB }}>{subtitle}</div>}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        <span className="whitespace-nowrap text-[0.8125rem] font-bold" style={{ color: tone.fg }}>{right}</span>
-        <ChevronRightIcon className="size-4" style={{ color: "var(--hh-icon-faint)" }} />
-      </div>
+      <ChevronRightIcon className="size-4 shrink-0" style={{ color: "var(--hh-icon-faint)" }} />
     </Link>
   )
 }
@@ -286,7 +287,7 @@ export default function WarrantiesPage() {
                         <div className="inline-flex items-center gap-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: GOLD }}>
                           Expires in {row.daysRemaining} day{row.daysRemaining === 1 ? "" : "s"}
                         </div>
-                        <div className="my-0.5 truncate text-[1.1875rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{row.name}</div>
+                        <div className="my-0.5 text-[1.1875rem] font-extrabold tracking-[-0.3px] [overflow-wrap:anywhere]" style={{ color: INK }}>{row.name}</div>
                         <div className="truncate text-[0.8125rem]" style={{ color: "var(--hh-gold-sub)" }}>
                           Coverage ends {formatDate(row.expiry)}{[row.brand, row.room].filter(Boolean).length ? ` · ${[row.brand, row.room].filter(Boolean).join(" · ")}` : ""}
                         </div>

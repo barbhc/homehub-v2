@@ -4,7 +4,7 @@
  * (design/mocks/scan-indicator), rendered and read the way a person reads it.
  */
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import type { ItemUnit } from "@/integrations/types"
 import type { ManualReading } from "@/lib/manualReviewState"
@@ -102,11 +102,13 @@ describe("S3c — after Save, a manual with no maintenance says where its upkeep
     task("s2", "Level the drawer front", { care_type: "maintenance", schedule_rule: [{ schedule_type: "setup", interval_days: null }] }),
   ]
 
-  it("S3c.2 — 'Nothing here goes into Tasks' and '4 cleaning tips and 2 setup steps live below.'", () => {
+  it("S3c.2 — no card explaining where the upkeep lives (owner, 2026-11-21: no side explanation lines)", () => {
     renderCare({ hasManual: true, tasks: SAVED })
-    const card = screen.getByTestId("upkeep-lives-here")
-    expect(within(card).getByText("Nothing here goes into Tasks")).toBeInTheDocument()
-    expect(within(card).getByText("4 cleaning tips and 2 setup steps live below.")).toBeInTheDocument()
+    // Not rendered at all — the rows below are the upkeep.
+    expect(screen.queryByTestId("upkeep-lives-here")).toBeNull()
+    expect(screen.queryByText(/Nothing here goes into Tasks/)).toBeNull()
+    expect(screen.queryByText(/live below/)).toBeNull()
+    expect(screen.getAllByTestId("care-row").length).toBeGreaterThan(0)
   })
 
   it("S3c.1 — Cleaning (4, open) then Setup (2, closed, 'already installed?')", () => {
@@ -127,8 +129,8 @@ describe("S3c — after Save, a manual with no maintenance says where its upkeep
   it("S3c.3 — a row with a cadence shows it in its meta line", () => {
     renderCare({ hasManual: true, tasks: SAVED })
     const rows = screen.getAllByTestId("care-row").map((r) => r.textContent ?? "")
-    expect(rows.find((t) => t.includes("Wipe the drawer interior"))).toMatch(/Weekly · 5 min · Deep Clean/)
-    expect(rows.find((t) => t.includes("Clean the waveguide cover"))).toMatch(/Monthly · 5 min · Deep Clean/)
+    expect(rows.find((t) => t.includes("Wipe the drawer interior"))).toMatch(/Weekly · 5 min · Clean/)
+    expect(rows.find((t) => t.includes("Clean the waveguide cover"))).toMatch(/Monthly · 5 min · Clean/)
   })
 
   it("S3c.4 — no row shows a bell, not even an Essential cleaning job with a cadence", () => {

@@ -4,7 +4,7 @@
  * Its load() set the spinner synchronously inside the effect that called it
  * (H5, react-hooks/set-state-in-effect). Now one read lands through one
  * function; the spinner starts in the render that switches homes; Try again is
- * its own path. ServiceProvidersSection.failure.test.tsx pins the failure and
+ * its own path. ProvidersPage.failure.test.tsx pins the failure and
  * Try again; this pins the switch: loading at once, then THAT home's list, and
  * a late answer for the home just left never lands.
  */

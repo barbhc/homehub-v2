@@ -88,8 +88,10 @@ export function ProfileCompletionBanner({ homeId }: { homeId: string }) {
             assistant to your home.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
+            {/* Settings → Home profile: the five-step /onboarding/profile
+                page is retired (2026-11-21) and redirects to Home. */}
             <Link
-              to="/onboarding/profile"
+              to="/settings#home-profile"
               className="inline-flex items-center rounded-lg bg-[var(--hh-teal-fill)] px-3 py-2.5 text-sm font-medium text-primary-foreground min-h-11"
             >
               Finish profile

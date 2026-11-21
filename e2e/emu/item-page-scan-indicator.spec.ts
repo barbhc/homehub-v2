@@ -417,12 +417,13 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       expect(commit.count()).toBe(1)
 
       // ── S3c: after Save ─────────────────────────────────────────────────────
-      const lives = page.getByTestId("upkeep-lives-here")
-      await expect(lives).toBeVisible({ timeout: 15_000 })
-      await expect(lives).toContainText("Nothing here goes into Tasks")
-      await expect(lives).toContainText("4 cleaning tips and 2 setup steps live below.")
-      // S3c.3 — cadences in the rows' meta lines.
+      // S3c.2 — no card explaining where the upkeep lives (owner, 2026-11-21:
+      // no side explanation lines). Not rendered; the rows are the upkeep.
       const rows = page.getByTestId("care-row")
+      await expect(rows.filter({ hasText: "Wipe the drawer interior" })).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByTestId("upkeep-lives-here")).toHaveCount(0)
+      await expect(page.getByText(/live below\./)).toHaveCount(0)
+      // S3c.3 — cadences in the rows' meta lines.
       await expect(rows.filter({ hasText: "Wipe the drawer interior" })).toContainText("Weekly")
       await expect(rows.filter({ hasText: "Clean the waveguide cover" })).toContainText("Monthly")
       // S3c.4 — no bell on any row.

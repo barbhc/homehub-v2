@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test"
 
 /**
  * Notes, end to end on the seeded emulator (design/spares-and-notes.md §2):
- * a house note from the top of Items, a room note from its heading, an item
- * note from the item page — each started by an idea, each surviving a reload.
+ * a house note from the top of Items, a room note from House notes' "By room"
+ * list, an item note from the item page — each started by an idea, each surviving a reload.
  * The item walk edits and deletes its own note, leaving the seed as it found it.
  */
 const visible = { visible: true } as const
@@ -36,9 +36,15 @@ test.describe("emulator e2e — notes", () => {
     await expect(page.getByTestId("house-notes-card").filter(visible).first()).toContainText("Water shutoff", { timeout: 15_000 })
   })
 
-  test("a room note: from the room's heading on Items, and the heading counts it", async ({ page }) => {
+  test("a room note: from House notes' By room list, which counts it; Items' room headings carry no notes link", async ({ page }) => {
     await page.goto("/inventory")
-    await page.getByRole("link", { name: /(Add a note|notes?) for Kitchen$/ }).filter(visible).first().click()
+    await expect(page.getByTestId("house-notes-card").filter(visible).first()).toBeVisible({ timeout: 15_000 })
+    // Not rendered (owner, 2026-11-21): one notes door on Items, the House notes card.
+    await expect(page.getByRole("link", { name: /(Add a note|notes?) for Kitchen$/ })).toHaveCount(0)
+    await page.getByTestId("house-notes-card").filter(visible).first().click()
+    await page.waitForURL(/\/inventory\/notes$/, { timeout: 15_000 })
+    await expect(page.getByRole("heading", { name: "By room" })).toBeVisible({ timeout: 15_000 })
+    await page.getByRole("link", { name: /^Kitchen/ }).click()
     await page.waitForURL(/\/inventory\/rooms\/[^/]+\/notes$/, { timeout: 15_000 })
     await expect(page.getByRole("heading", { name: "Kitchen" })).toBeVisible({ timeout: 15_000 })
 
@@ -51,8 +57,8 @@ test.describe("emulator e2e — notes", () => {
     await expect(page.getByTestId("note-row").filter({ hasText: "Swiss Coffee" })).toBeVisible()
 
     await page.waitForTimeout(1000)
-    await page.goto("/inventory")
-    await expect(page.getByRole("link", { name: /\d+ notes? for Kitchen$/ }).filter(visible).first()).toBeVisible({ timeout: 15_000 })
+    await page.goto("/inventory/notes")
+    await expect(page.getByRole("link", { name: /^Kitchen/ })).toContainText(/\d+ notes?/, { timeout: 15_000 })
   })
 
   test("an item note: added, edited and deleted on the item page, each surviving a reload", async ({ page }) => {

@@ -19,7 +19,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react"
-import { MemoryRouter } from "react-router-dom"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { SWRConfig } from "swr"
 import type { ItemUnit, Room } from "@/integrations/types"
 
@@ -227,3 +227,42 @@ describe("Items — a home switch never shows the other home's items", () => {
     expect(screen.queryByText("Home A Fridge")).toBeNull()
   })
 })
+
+describe("Items — a home with no items", () => {
+  it("shows the add screen's lane chooser, headed for a first item, with House notes below — not the old empty state", async () => {
+    svc.getItemUnits.mockResolvedValue(ok([]))
+    svc.getRooms.mockResolvedValue(ok(ROOMS))
+    render(
+      <SWRConfig value={{ provider: () => new Map(), shouldRetryOnError: false }}>
+        <MemoryRouter initialEntries={["/inventory"]}>
+          <Routes>
+            <Route path="/inventory" element={<Inventory />} />
+            <Route path="/inventory/add" element={<Where />} />
+          </Routes>
+        </MemoryRouter>
+      </SWRConfig>,
+    )
+
+    const chooser = await screen.findByTestId("add-lane-chooser")
+    expect(screen.getByRole("heading", { level: 1, name: "Items" })).toBeInTheDocument()
+    expect(within(chooser).getByRole("heading", { name: "Add your first item" })).toBeInTheDocument()
+    expect(within(chooser).getByRole("button", { name: /Appliance or device/ })).toBeInTheDocument()
+    expect(within(chooser).getByRole("button", { name: /Everything else/ })).toBeInTheDocument()
+    // House notes stays, below the chooser.
+    const notes = screen.getByTestId("house-notes-card")
+    expect(chooser.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // The old empty state is not rendered, and nothing promises to find or read a manual.
+    expect(screen.queryByText("No items yet")).toBeNull()
+    expect(screen.queryByRole("heading", { name: "Inventory" })).toBeNull()
+    expect(screen.queryByText(/finds the manual|reads it/)).toBeNull()
+    expect(screen.queryByRole("link", { name: /Add your first item|Add Item/ })).toBeNull()
+
+    fireEvent.click(within(chooser).getByRole("button", { name: /Everything else/ }))
+    expect(await screen.findByTestId("where")).toHaveTextContent("/inventory/add?lane=simple")
+  })
+})
+
+function Where() {
+  const loc = useLocation()
+  return <span data-testid="where">{loc.pathname + loc.search}</span>
+}

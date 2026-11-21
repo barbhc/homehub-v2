@@ -290,7 +290,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
       {/* Header */}
       <div className="mb-[22px] flex items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-[1.875rem] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>This week</h1>
+          <h1 className="text-[1.875rem] font-extrabold leading-tight tracking-[-0.7px]" style={{ color: INK }}>Tasks</h1>
           <div className="mt-1.5 text-[0.875rem]" style={{ color: SUB }}>
             {/* A failed first read says nothing here — "Nothing due" about tasks
                 we never read would be a confident wrong answer. An empty list
@@ -299,9 +299,10 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
                 that empties a full list gets "0 of 5" instead. */}
             {loading ? "Loading…" : loadFailed ? null : totalAll === 0 ? nothingDueLine(hiddenCleaning)
               // Just the count — a whole-list minute total reads as a bill, not a
-              // plan; the per-group minutes are where a pass gets planned.
-              : tier === "all" ? `${total} thing${total === 1 ? "" : "s"} across your home`
-              : `${total} of ${totalAll} across your home`}
+              // plan; the per-group minutes are where a pass gets planned. The
+              // same words as the phone (owner, 2026-11-21: one thing, one name).
+              : tier === "all" ? `${total} to do`
+              : `${total} of ${totalAll}`}
           </div>
         </div>
         <button

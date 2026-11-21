@@ -82,7 +82,6 @@ const SWR_CONFIG = { fallback: readPersistedSwrFallback() }
 // reachable Privacy Policy URL and a reviewer opens it signed out.
 const Privacy = lazyWithRetry(() => import("@/pages/legal/Privacy"))
 const Terms = lazyWithRetry(() => import("@/pages/legal/Terms"))
-const OnboardingProfile = lazyWithRetry(() => import("@/pages/OnboardingProfile"))
 const FirstMinute = lazyWithRetry(() => import("@/pages/FirstMinute"))
 const Home = lazyWithRetry(() => import("@/pages/Home"))
 const Inventory = lazyWithRetry(() => import("@/pages/Inventory"))
@@ -105,7 +104,6 @@ const Settings = lazyWithRetry(() => import("@/pages/Settings"))
 const ResetPassword = lazyWithRetry(() => import("@/pages/ResetPassword"))
 const AuthPage = lazyWithRetry(() => import("@/pages/AuthPage"))
 const ChatPage = lazyWithRetry(() => import("@/pages/ChatPage"))
-const SampleHome = lazyWithRetry(() => import("@/pages/SampleHome"))
 const AcceptInvite = lazyWithRetry(() => import("@/pages/AcceptInvite"))
 
 /**
@@ -158,25 +156,12 @@ function App() {
                   list — runs BEFORE any account. No AuthGate: it writes nothing
                   until "Keep your list" signs them in (design/account-after-list.md). */}
               <Route path="/onboarding/first" element={<FirstMinute />} />
-              <Route
-                path="/onboarding/profile"
-                element={
-                  <AuthGate>
-                    <OnboardingProfile />
-                  </AuthGate>
-                }
-              />
-              {/* Sample home. AuthGate but NOT HomeGate: the entire point is
-                  that it works before you have a home — putting it inside
-                  HomeGate would redirect exactly the people it exists for. */}
-              <Route
-                path="/sample"
-                element={
-                  <AuthGate>
-                    <SampleHome />
-                  </AuthGate>
-                }
-              />
+              {/* Retired pages, kept as redirects so old links land somewhere
+                  (owner, 2026-11-21): the five-step profile (its questions live
+                  in Settings → Home profile) and the pre-round-18 sample home.
+                  A signed-out visitor is sent on by Home's own gate. */}
+              <Route path="/onboarding/profile" element={<Navigate to="/home" replace />} />
+              <Route path="/sample" element={<Navigate to="/home" replace />} />
               {/* HH-81: this used to render a SECOND add-item form — its own
                   component, asking Category → Room → Name with brand and model
                   labelled optional, and creating a bare item that never got

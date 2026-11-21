@@ -108,9 +108,9 @@ beforeEach(() => {
   svc.lookupProduct.mockResolvedValue(MISS)
 })
 
-function renderWizard() {
+function renderWizard(url = "/inventory/add") {
   return render(
-    <MemoryRouter initialEntries={["/inventory/add"]}>
+    <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/inventory/add" element={<SmartAddItem />} />
         <Route path="/items/:id" element={<p>item page</p>} />
@@ -316,5 +316,25 @@ describe("Replace on the 'not a manual' prompt", () => {
 
     await waitFor(() => expect(docs.deleteManualDocument).toHaveBeenCalledTimes(1))
     expect(docs.deleteManualDocument).toHaveBeenCalledWith("h1", "m1")
+  })
+})
+
+describe("arriving from the empty Items tab with ?lane=", () => {
+  it("?lane=simple opens the Everything else lane, and Back returns to the chooser", async () => {
+    renderWizard("/inventory/add?lane=simple")
+    expect(document.getElementById("identify-name")).not.toBeNull()
+    expect(screen.queryByRole("heading", { name: "What are you adding?" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: /^Back$/ }))
+    expect(await screen.findByRole("heading", { name: "What are you adding?" })).toBeInTheDocument()
+  })
+
+  it("?lane=appliance opens the appliance lane", () => {
+    renderWizard("/inventory/add?lane=appliance")
+    expect(document.getElementById("identify-brand")).not.toBeNull()
+  })
+
+  it("an unknown lane is just the chooser", () => {
+    renderWizard("/inventory/add?lane=bogus")
+    expect(screen.getByRole("heading", { name: "What are you adding?" })).toBeInTheDocument()
   })
 })

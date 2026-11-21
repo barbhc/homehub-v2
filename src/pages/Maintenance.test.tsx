@@ -78,9 +78,8 @@ describe("Tasks page — both trees, one fetch", () => {
   it("one visit reads the agenda once and the suggestions once, and both trees show it", async () => {
     renderPage()
 
-    // Both trees are mounted: the phone header and the desktop header.
-    expect(screen.getByRole("heading", { name: "Tasks" })).toBeInTheDocument()
-    expect(screen.getByRole("heading", { name: "This week" })).toBeInTheDocument()
+    // Both trees are mounted: the phone header and the desktop header — both "Tasks".
+    expect(screen.getAllByRole("heading", { level: 1, name: "Tasks" })).toHaveLength(2)
     expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
     await waitFor(() => expect(svc.getHomeProfile).toHaveBeenCalled())
 

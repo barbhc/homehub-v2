@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom"
-import { PageContainer, PageHeader, EmptyState, StaleDataNote } from "@/components/layout"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { PageContainer, StaleDataNote } from "@/components/layout"
+import { AddLaneChooser } from "@/components/smart-add/AddLaneChooser"
+import { HouseNotesCard } from "@/components/notes/ItemsNotes"
 import { useCurrentHome } from "@/modules/home"
 import { RefinedItems } from "@/components/home/RefinedItems"
 import { ItemsLoadError, ItemsSkeleton } from "@/components/home/ItemsSkeleton"
@@ -22,6 +22,7 @@ const NO_ITEMS: ItemUnit[] = []
 const NO_ROOMS: Room[] = []
 
 export default function Inventory() {
+  const navigate = useNavigate()
   const { home } = useCurrentHome()
   const homeId = home?.home_id ?? null
   // Items + rooms, cached like Home: a revisit paints at once, a relaunch paints
@@ -66,41 +67,17 @@ export default function Inventory() {
       )}
 
       {items.length === 0 ? (
-        <>
-          {/* The empty state keeps its pre-redesign header ("Inventory" + "Add
-              Item"). It no longer shows while loading — ItemsSkeleton is the
-              redesigned page — but retitling the empty state is the owner's
-              call, so it is left as it was. */}
-          <PageHeader
-            title="Inventory"
-            action={
-              <Button asChild className="gap-2" size="sm">
-                <Link to="/inventory/add">
-                  <Plus className="h-4 w-4" aria-hidden />
-                  Add Item
-                </Link>
-              </Button>
-            }
-          />
-          <EmptyState
-          title="No items yet"
-          description="Start with one appliance you'd hate to have break — the boiler, the washer, the fridge."
-          teach="Photograph the label with the model number on it. Homehub finds the manual, reads it, and shows you the care it specifies before anything becomes a reminder."
-          action={
-            /* "See a sample home" sat here until round 18. Removed at the
-               owner's request while the sample page is redesigned (BACKLOG §4b):
-               it still renders the pre-round-18 layout, so pointing a signed-in
-               user at it from the empty state means showing them a stale version
-               of the product they are already inside.
-
-               The route and the onboarding escape hatch both stay — this is one
-               door closed for the duration, not the page retired. */
-            <Button asChild size="sm">
-              <Link to="/inventory/add">Add your first item</Link>
-            </Button>
-          }
-        />
-        </>
+        // No items: the add screen's own lane chooser, headed for a first item
+        // (owner, 2026-11-21). It replaced "No items yet" — two add buttons and
+        // a promise that Homehub finds and reads the manual — and a pick opens
+        // the add screen in that lane. House notes stay below it.
+        <div className="mx-auto w-full max-w-lg pt-2.5 lg:mx-0">
+          <h1 className="text-[1.75rem] font-extrabold tracking-[-0.7px]" style={{ color: "var(--hh-ink)" }}>Items</h1>
+          <div className="mt-4">
+            <AddLaneChooser heading="Add your first item" onPick={(lane) => navigate(`/inventory/add?lane=${lane}`)} />
+          </div>
+          <div className="mt-6"><HouseNotesCard notes={homeNotes.notes} error={homeNotes.error} /></div>
+        </div>
       ) : (
         <>
         {/* Redesigned Items — list (mobile) · card grid (desktop) */}

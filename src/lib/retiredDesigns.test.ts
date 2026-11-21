@@ -72,6 +72,11 @@ const RETIRED_COMPONENTS = [
   "SidebarActions",         // desktop scroll-to sidebar -> DesktopItemDetail's own header
   "CompleteTaskPopover",    // -> the task page's check-off (RefinedTaskDetail)
   "TaskEditPopover",        // -> TaskEditSheet
+  // Before-sharing cleanup (owner, 2026-11-21): one place per thing.
+  "ServiceProvidersSection", // Settings' second providers list + form -> a link to /providers
+  "LevelUnlockBanner",       // "New features unlocked" on Home -> none
+  "RoomNotesLink",           // "+ Add a note" on every Items room heading -> House notes' "By room"
+  "HomeProfileOnboarding",   // OnboardingProfile's step form -> Settings → Home profile
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */
@@ -84,6 +89,9 @@ const RETIRED_PAGES = [
   "CarePage",      // /care -> Tasks (/maintenance)
   "SchedulePage",  // /schedule -> Tasks (/maintenance)
   "CleaningPage",  // /cleaning -> Clean (/clean)
+  // Before-sharing cleanup (owner, 2026-11-21): both routes now redirect to /home.
+  "OnboardingProfile", // /onboarding/profile, five skippable steps -> Settings → Home profile
+  "SampleHome",        // /sample, the pre-round-18 sample home -> none
 ]
 
 /** Their paths: nothing may route them again, whatever the component is called. */
@@ -153,6 +161,11 @@ describe("the add-item flow has one way in and no way into an old screen", () =>
     for (const page of RETIRED_PAGES) {
       expect(app.text, `App.tsx still routes ${page}`).not.toMatch(new RegExp(`<${page}\\b`))
     }
+  })
+
+  it("sends /sample and /onboarding/profile to Home (owner, 2026-11-21)", () => {
+    expect(app.text).toContain('<Route path="/sample" element={<Navigate to="/home" replace />} />')
+    expect(app.text).toContain('<Route path="/onboarding/profile" element={<Navigate to="/home" replace />} />')
   })
 
   it("has no /setup route — that was a second, retired wizard", () => {

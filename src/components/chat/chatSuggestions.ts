@@ -1,35 +1,4 @@
-const ROOM_SUGGESTIONS: Record<string, string[]> = {
-  kitchen: [
-    "How often should I clean the range hood filter?",
-    "How do I deep clean my oven?",
-    "Why is my refrigerator making a clicking noise?",
-    "How do I run a dishwasher self-clean cycle?",
-  ],
-  laundry: [
-    "How do I get rid of mold on the washer door gasket?",
-    "Why does my dryer take two cycles to dry clothes?",
-    "How often should I clean the dryer vent?",
-    "What does a flashing error code mean on my washer?",
-  ],
-  bathroom: [
-    "How often should I flush my water heater?",
-    "How do I check my water heater anode rod?",
-    "Why is my shower pressure dropping?",
-    "How do I fix a slow-draining sink?",
-  ],
-  garage: [
-    "How do I lubricate my garage door?",
-    "Why does my garage door reverse before closing?",
-    "How often should I test the garage door safety sensors?",
-    "How do I reset my garage door opener?",
-  ],
-  bedroom: [
-    "How do I clean my ceiling fan blades?",
-    "Why is my air vent making a rattling noise?",
-    "How often should I vacuum my mattress?",
-    "How do I clean window blinds effectively?",
-  ],
-}
+import type { AskStarter } from "../../../shared/care/dayOne"
 
 const ITEM_SUGGESTIONS: Record<string, string[]> = {
   dishwasher: [
@@ -82,38 +51,26 @@ const ITEM_SUGGESTIONS: Record<string, string[]> = {
   ],
 }
 
-const DEFAULT_SUGGESTIONS = [
-  "How do I clean my dishwasher filter?",
-  "My washer smells musty — why?",
-  "When should I replace my HVAC filter?",
-  "How do I defrost my refrigerator?",
-]
-
+/**
+ * The Ask tab's suggestion chips. Scoped to one of the home's own items, they
+ * are that item's questions; otherwise they are the home's starters
+ * (`askStartersForHome`, the same ones Home shows under Ask). The fixed
+ * dishwasher / washer / fridge list and the per-room lists are gone (owner,
+ * 2026-11-21): they asked about appliances a home might not have.
+ */
 export function getSuggestions(
-  selectedRoomIds: string[],
   selectedItemId: string | null,
-  rooms: Array<{ room_id: string; name: string }>,
-  items: Array<{ item_unit_id: string; display_name: string }>
-): string[] {
-  // Item takes priority
+  items: Array<{ item_unit_id: string; display_name: string }>,
+  homeStarters: AskStarter[],
+): AskStarter[] {
   if (selectedItemId) {
     const item = items.find((i) => i.item_unit_id === selectedItemId)
     if (item) {
       const key = Object.keys(ITEM_SUGGESTIONS).find((k) =>
         item.display_name.toLowerCase().includes(k)
       )
-      if (key) return ITEM_SUGGESTIONS[key]
+      if (key) return ITEM_SUGGESTIONS[key].map((q) => ({ label: q, question: q }))
     }
   }
-  // Single room selected
-  if (selectedRoomIds.length === 1) {
-    const room = rooms.find((r) => r.room_id === selectedRoomIds[0])
-    if (room) {
-      const key = Object.keys(ROOM_SUGGESTIONS).find((k) =>
-        room.name.toLowerCase().includes(k)
-      )
-      if (key) return ROOM_SUGGESTIONS[key]
-    }
-  }
-  return DEFAULT_SUGGESTIONS
+  return homeStarters
 }
