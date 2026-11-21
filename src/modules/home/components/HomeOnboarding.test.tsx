@@ -87,7 +87,7 @@ describe("must-be-true", () => {
     renderStep()
     expect(screen.getByLabelText("Zip code")).toHaveAttribute("maxLength", "5")
     expect(screen.queryByLabelText(/address|street/i)).toBeNull()
-    expect(screen.getByText("Only the zip, never your street. It stays in Homehub.")).toBeInTheDocument()
+    expect(screen.getByText("Just the zip. Never your street.")).toBeInTheDocument()
     expect(geo).not.toHaveBeenCalled()
   })
 

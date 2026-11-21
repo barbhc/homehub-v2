@@ -50,7 +50,7 @@ export default function FirstMinute() {
   if (error && !profile) {
     return (
       <Shell>
-        <h1 className="mb-2 text-2xl font-display font-normal">Couldn&apos;t load your home</h1>
+        <h1 className="mb-2 text-[1.75rem] leading-[2.125rem] font-display font-bold tracking-[-0.01em]">Couldn&apos;t load your home</h1>
         <p className="mb-6 text-muted-foreground">Check your connection and try again.</p>
         <Button onClick={() => void refresh()}>Try again</Button>
       </Shell>
@@ -161,7 +161,7 @@ function AreaStep({ homeId, profile, onSaved }: { homeId: string; profile: HomeP
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
             {profile?.zip}{area.county ? ` · ${area.county}` : ""}
           </p>
-          <h1 className="mb-4 text-2xl font-display font-normal">What your area means for upkeep</h1>
+          <h1 className="mb-4 text-[1.75rem] leading-[2.125rem] font-display font-bold tracking-[-0.01em]">What your area means for upkeep</h1>
           {(showFreeze || hazards.length > 0) && (
             <ul className="mb-8 divide-y divide-[var(--hh-line)] overflow-hidden rounded-2xl border bg-[var(--hh-surface)]" style={{ borderColor: "var(--hh-line)" }}>
               {showFreeze && (() => {
@@ -194,7 +194,7 @@ function AreaStep({ homeId, profile, onSaved }: { homeId: string; profile: HomeP
           )}
         </>
       )}
-      {!area && <h1 className="mb-6 text-2xl font-display font-normal">What kind of home?</h1>}
+      {!area && <h1 className="mb-6 text-[1.75rem] leading-[2.125rem] font-display font-bold tracking-[-0.01em]">What kind of home?</h1>}
       {area && <p className="mb-3 font-medium">A zip can&apos;t tell us this. What kind of home?</p>}
       <div className="mb-8 space-y-2" role="radiogroup" aria-label="Home type">
         {HOME_TYPE_OPTIONS.map((o) => (
@@ -249,8 +249,8 @@ function AddZip({ homeId, onSaved, onBack }: { homeId: string; onSaved: (p: Home
   }
   return (
     <Shell>
-      <h1 className="mb-2 text-2xl font-display font-normal">What&apos;s your zip code?</h1>
-      <p className="mb-6 text-muted-foreground">Only the zip, never your street. It stays in Homehub.</p>
+      <h1 className="mb-2 text-[1.75rem] leading-[2.125rem] font-display font-bold tracking-[-0.01em]">Where&apos;s home?</h1>
+      <p className="mb-6 text-muted-foreground">A house in Minneapolis needs different care than one in Miami. Your zip tells Homehub your winters, your storm season and what homes near you usually need. Just the zip. Never your street.</p>
       <form onSubmit={save} className="space-y-5">
         <Input aria-label="Zip code" inputMode="numeric" autoComplete="postal-code" maxLength={5} value={zip}
           onChange={(e) => { setZip(e.target.value.replace(/\D/g, "").slice(0, 5)); setError(null) }}
@@ -385,6 +385,14 @@ function ListStep({ homeId, profile, onAddZip, onDone }: { homeId: string; profi
   const footer = (
     <>
       {error && <p role="alert" className="mb-3 text-sm font-medium" style={{ color: "var(--hh-clay-ink)" }}>{error}</p>}
+      {/* Owner, 2026-11-20: after answering Yes it "wasn't clear if it had
+          saved". The count says what is picked and that nothing is saved yet
+          (Footnote, 13/18, secondary). */}
+      {rows.length > 0 && picked.length > 0 && !saving && (
+        <p role="status" className="mb-2 text-center text-[0.8125rem] leading-[1.125rem] text-muted-foreground" data-testid="picked-status">
+          {picked.length} picked, not added yet
+        </p>
+      )}
       {rows.length > 0 ? (
         <Button className="h-12 w-full text-base" disabled={saving || picked.length === 0} onClick={() => void add()}>
           {saving ? "Adding…" : error ? "Try again" : picked.length === 0 ? "Add" : `Add ${picked.length} task${picked.length === 1 ? "" : "s"}`}
@@ -404,7 +412,7 @@ function ListStep({ homeId, profile, onAddZip, onDone }: { homeId: string; profi
     <Shell footer={footer}>
       {profile?.area && <OnboardingSteps step={3} />}
       <p className="mb-2 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{eyebrow}</p>
-      <h1 className="mb-2 text-2xl font-display font-normal">Worth doing this month</h1>
+      <h1 className="mb-2 text-[1.75rem] leading-[2.125rem] font-display font-bold tracking-[-0.01em]">Worth doing this month</h1>
       <p className="mb-6 text-muted-foreground">
         {profile?.area ? "Nothing is added until you tap Add." : "What most homes need now. Nothing is added until you tap Add."}
       </p>
@@ -482,22 +490,32 @@ function ListRow({ row, checked, answer, onToggle, onAnswer, onRemove }: {
         style={checked ? { background: "var(--hh-teal-fill)", color: "var(--hh-on-fill)" } : undefined}>
         {checked && <CheckIcon className="size-4" aria-hidden />}
       </button>
-      <div className="min-w-0 flex-1">
+      {/* Owner, walk comments 2026-11-20: the gap above the priority must
+          match the gap below it, and the type must match the rest of the app.
+          Apple text styles — name Headline (17/22 semibold), priority Caption 1
+          (12/16), how often Subhead (15/20), the question Callout (16/21
+          semibold) — on one 6 pt step; the HIG gives no row spacing, so 6 pt
+          and the 12 pt before a question are ours. The × is held to the name's
+          22 pt line (its 44 pt target comes from hit-44), so it no longer makes
+          that line taller than the others. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-start gap-2">
-          <p className="min-w-0 flex-1 font-semibold" style={{ color: "var(--hh-ink)" }}>{e.title}</p>
-          <button type="button" onClick={onRemove} aria-label={`Not ${e.title}`} className="hit-44 -mr-1 shrink-0 p-1 text-muted-foreground">
+          <p className="min-w-0 flex-1 text-[1.0625rem] leading-[1.375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>{e.title}</p>
+          <button type="button" onClick={onRemove} aria-label={`Not ${e.title}`} className="hit-44 -my-0.5 -mr-1 shrink-0 p-0.5 text-muted-foreground">
             <XIcon className="size-5" aria-hidden />
           </button>
         </div>
-        <span className="mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-[0.04em]"
+        <span className="self-start rounded-full px-2.5 py-0.5 text-xs leading-4 font-bold uppercase tracking-[0.04em]"
           style={essential ? { background: "var(--hh-clay-soft)", color: "var(--hh-clay-ink)" } : { background: "var(--hh-teal-wash)", color: "var(--hh-teal)" }}>
           {essential ? "Essential" : "Recommended"}
         </span>
-        <p className="mt-1.5 text-sm text-muted-foreground">{CADENCE[e.scheduleType] ?? e.cadenceLabel} · {e.minutes} min</p>
-        {row.reason && <p className="mt-1 text-sm text-muted-foreground">{row.reason}</p>}
+        <p className="text-[0.9375rem] leading-5 text-muted-foreground">{CADENCE[e.scheduleType] ?? e.cadenceLabel} · {e.minutes} min</p>
+        {/* No "why this month" line: owner, 2026-11-20 — "only include if
+            they're absolutely critical to the task". firstList still computes
+            row.reason; nothing on this screen shows it. */}
         {row.question && (
-          <div className="mt-3">
-            <p className="mb-2 font-medium" style={{ color: "var(--hh-ink)" }}>{row.question.text}</p>
+          <div className="mt-1.5">
+            <p className="mb-2 text-base leading-[1.3125rem] font-semibold" style={{ color: "var(--hh-ink)" }}>{row.question.text}</p>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={row.question.text}>
               {(["yes", "no", "unsure"] as const).map((a) => (
                 <button key={a} type="button" role="radio" aria-checked={answer === a} onClick={() => onAnswer(a)}

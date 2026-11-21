@@ -167,8 +167,8 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
   return (
     <div className={cn("w-full max-w-md mx-auto", className)}>
       <OnboardingSteps step={1} />
-      <h1 className="text-2xl font-display font-normal mb-2">What&apos;s your zip code?</h1>
-      <p className="text-muted-foreground mb-6">So the tasks fit your weather and local risks.</p>
+      <h1 className="text-[1.75rem] leading-[2.125rem] font-display font-bold tracking-[-0.01em] mb-2">Where&apos;s home?</h1>
+      <p className="text-muted-foreground mb-6">A house in Minneapolis needs different care than one in Miami. Your zip tells Homehub your winters, your storm season and what homes near you usually need.</p>
       <form onSubmit={handleContinue} className="space-y-5">
         <div>
           <label className="text-sm font-medium block mb-1.5" htmlFor="onboarding-zip">
@@ -196,7 +196,7 @@ export function HomeOnboarding({ onComplete, className }: HomeOnboardingProps) {
             </p>
           ) : (
             <p id="onboarding-zip-note" className="mt-1.5 text-sm text-muted-foreground">
-              Only the zip, never your street. It stays in Homehub.
+              Just the zip. Never your street.
             </p>
           )}
         </div>

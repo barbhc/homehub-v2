@@ -125,11 +125,12 @@ describe("step 3 — worth doing this month (condo, 94110, November)", () => {
     renderFlow()
   })
 
-  it("the mock's rows, reasons and questions; 7: three rows, two questions", async () => {
+  it("the mock's rows and questions; 7: three rows, two questions; no explanation lines (owner, 2026-11-20)", async () => {
     await toList(/Condo/)
     expect(screen.getByText("November · Condo · 94110")).toBeInTheDocument()
     expect(rowTitles()).toEqual(["Test smoke and CO alarms", "Replace the air filter", "Check the water heater's quake straps"])
-    expect(screen.getByText("The clocks changed this month. Test them together.")).toBeInTheDocument()
+    // Not rendered at all — "only include if they're absolutely critical".
+    expect(screen.queryByText("The clocks changed this month. Test them together.")).not.toBeInTheDocument()
     expect(screen.getByText("Is there a water heater in your unit?")).toBeInTheDocument()
     expect(screen.getAllByRole("radiogroup").length).toBe(2)
   })
@@ -233,7 +234,7 @@ describe("the skip path (Version E)", () => {
     expect(screen.getByText("What most homes need now. Nothing is added until you tap Add.")).toBeInTheDocument()
     expect(screen.queryByText(/Step \d of 3/)).toBeNull()
     expect(rowTitles()).toEqual(["Test smoke and CO alarms", "Replace the air filter"])
-    expect(screen.getByText("Fall is a good time for the first one.")).toBeInTheDocument()
+    expect(screen.queryByText("Fall is a good time for the first one.")).not.toBeInTheDocument()
     // must-be-true 15: no clock-change copy without a zip
     expect(screen.queryByText(/clock/i)).toBeNull()
     expect(screen.getByRole("button", { name: "Add zip" })).toBeInTheDocument()
@@ -246,9 +247,28 @@ describe("the house in Minneapolis", () => {
     renderFlow()
     await toList(/House/)
     expect(rowTitles()).toEqual(["Test smoke and CO alarms", "Shut off and drain the outdoor taps", "Replace the air filter"])
-    expect(screen.getByText("If not done yet. Hard freezes start here in November.")).toBeInTheDocument()
+    expect(screen.queryByText("If not done yet. Hard freezes start here in November.")).not.toBeInTheDocument()
     expect(screen.getByText("Any outdoor taps or hose bibs?")).toBeInTheDocument()
     expect(screen.getByText("Does the furnace take a filter?")).toBeInTheDocument()
     expect(screen.queryByTestId("not-on-your-list")).toBeNull()
+  })
+})
+
+
+describe("step 3 — the count says what is picked and that nothing is saved yet (owner, 2026-11-20)", () => {
+  beforeEach(() => {
+    svc.profile = profile(SF)
+    renderFlow()
+  })
+
+  it("counts the picked tasks, follows Yes and No, and never claims anything was added", async () => {
+    await toList(/Condo/)
+    expect(screen.getByTestId("picked-status")).toHaveTextContent("1 picked, not added yet")
+    const [, filter] = rows()
+    fireEvent.click(within(filter).getByRole("radio", { name: "Yes" }))
+    expect(screen.getByTestId("picked-status")).toHaveTextContent("2 picked, not added yet")
+    fireEvent.click(within(filter).getByRole("radio", { name: "No" }))
+    expect(screen.getByTestId("picked-status")).toHaveTextContent("1 picked, not added yet")
+    expect(screen.queryByText(/added to your list/i)).not.toBeInTheDocument()
   })
 })

@@ -132,7 +132,7 @@ test.describe("journey walks", () => {
     // design/first-minute-onboarding.md): zip → area → this month's list.
     const zipField = page.getByLabel("Zip code")
     await expect(zipField.filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await snap(page, "J1", "zip", "Step 1 of 3: What's your zip code? — five digits only, 'never your street', Skip for now; no invite-code field (the seed turns the gate OFF)",
+    await snap(page, "J1", "zip", "Step 1 of 3: Where's home? — one line on why, five digits only, 'never your street', Skip for now; no invite-code field (the seed turns the gate OFF)",
       zipField)
     await zipField.fill("94110")
     await page.getByRole("button", { name: /^Continue$/ }).click()

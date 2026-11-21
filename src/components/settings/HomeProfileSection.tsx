@@ -544,7 +544,7 @@ export function HomeProfileSection({ homeId }: Props) {
               ) : !zipChanged && savedArea?.county ? (
                 <p id="hp-zip-note" className="text-xs text-muted-foreground">{savedArea.county}. It stays in Homehub.</p>
               ) : (
-                <p id="hp-zip-note" className="text-xs text-muted-foreground">Only the zip, never your street. It stays in Homehub.</p>
+                <p id="hp-zip-note" className="text-xs text-muted-foreground">Just the zip. Never your street.</p>
               )}
               {pending && <ZipFacts area={pending} freezeFix={freezeFix} hazardsOff={hazardsOff}
                 zipDecides={origin === "zip"}
