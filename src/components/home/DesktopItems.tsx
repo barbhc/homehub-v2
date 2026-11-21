@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react"
 import type { CareNote } from "@/integrations/types"
-import { HouseNotesCard, RoomNotesLink } from "@/components/notes/ItemsNotes"
-import { roomNoteCounts } from "@/lib/notes"
+import { HouseNotesCard } from "@/components/notes/ItemsNotes"
 import { Link } from "react-router-dom"
 import {
   WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, type LucideIcon,
@@ -68,8 +67,6 @@ export function DesktopItems({
   const [sort, setSort] = useState<SortMode>("room")
   const [roomFilter, setRoomFilter] = useState<string | "all">("all")
   const roomName = useMemo(() => new Map(rooms.map((r) => [r.room_id, r.name])), [rooms])
-  const roomIdByName = useMemo(() => new Map(rooms.map((r) => [r.name, r.room_id])), [rooms])
-  const noteCounts = useMemo(() => roomNoteCounts(notes), [notes])
 
   const roomsWithItems = useMemo(() => {
     const ids = [...new Set(items.map((i) => i.room_id).filter(Boolean) as string[])]
@@ -111,12 +108,7 @@ export function DesktopItems({
         {groups.map((g) => (
           <div key={g.key ?? "all"}>
             {g.key && (
-              <div className="mb-3 flex items-center gap-4">
-                <div className="text-[0.6875rem] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>
-                {sort === "room" && !notesError && notes !== null && roomIdByName.has(g.key) && (
-                  <RoomNotesLink roomId={roomIdByName.get(g.key)!} roomName={g.key} count={noteCounts.get(roomIdByName.get(g.key)!) ?? 0} />
-                )}
-              </div>
+              <div className="mb-3 text-[0.6875rem] font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.key}</div>
             )}
             <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
               {g.items.map((it) => {

@@ -53,6 +53,43 @@ beforeEach(() => {
   home.getRooms.mockResolvedValue({ data: [{ room_id: "kitchen", name: "Kitchen" }], error: null })
 })
 
+describe("House notes · By room", () => {
+  it("lists each room, linking to its notes, with the count when it has some", async () => {
+    home.getRooms.mockResolvedValue({ data: [{ room_id: "kitchen", name: "Kitchen" }, { room_id: "laundry", name: "Laundry room" }], error: null })
+    at("/inventory/notes")
+    expect(await screen.findByRole("heading", { name: "By room" })).toBeInTheDocument()
+    const kitchen = await screen.findByRole("link", { name: /Kitchen/ })
+    expect(kitchen).toHaveAttribute("href", "/inventory/rooms/kitchen/notes")
+    await waitFor(() => expect(kitchen).toHaveTextContent("1 note"))
+    const laundry = screen.getByRole("link", { name: /Laundry room/ })
+    expect(laundry).toHaveAttribute("href", "/inventory/rooms/laundry/notes")
+    expect(laundry).not.toHaveTextContent(/note/)
+  })
+
+  it("a home with no rooms shows no By room list", async () => {
+    home.getRooms.mockResolvedValue({ data: [], error: null })
+    at("/inventory/notes")
+    await screen.findByText("Water shutoff")
+    await waitFor(() => expect(home.getRooms).toHaveBeenCalled())
+    expect(screen.queryByRole("heading", { name: "By room" })).toBeNull()
+  })
+
+  it("rooms that could not be read say so, and Try again reads them", async () => {
+    home.getRooms.mockResolvedValueOnce({ data: null, error: { message: "unavailable" } })
+    at("/inventory/notes")
+    expect(await screen.findByText("Couldn't load your rooms: unavailable")).toBeInTheDocument()
+    const alert = screen.getByText("Couldn't load your rooms: unavailable").closest("[role=alert]") as HTMLElement
+    fireEvent.click(alert.querySelector("button")!)
+    expect(await screen.findByRole("link", { name: /Kitchen/ })).toHaveAttribute("href", "/inventory/rooms/kitchen/notes")
+  })
+
+  it("a room's own notes page has no By room list", async () => {
+    at("/inventory/rooms/kitchen/notes")
+    expect(await screen.findByRole("heading", { name: "Kitchen" })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "By room" })).toBeNull()
+  })
+})
+
 describe("House notes", () => {
   it("shows only the house's own notes, and says who can read them", async () => {
     at("/inventory/notes")

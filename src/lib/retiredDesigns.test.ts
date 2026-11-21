@@ -75,6 +75,7 @@ const RETIRED_COMPONENTS = [
   // Before-sharing cleanup (owner, 2026-11-21): one place per thing.
   "ServiceProvidersSection", // Settings' second providers list + form -> a link to /providers
   "LevelUnlockBanner",       // "New features unlocked" on Home -> none
+  "RoomNotesLink",           // "+ Add a note" on every Items room heading -> House notes' "By room"
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */
