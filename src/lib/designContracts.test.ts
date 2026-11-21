@@ -302,7 +302,7 @@ beforeEach(() => {
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe("The add-item flow (docs/add-item-flow.md)", () => {
-  it("HH-110 · Screen 2: the appliance lane is two fields and nothing else — no stepper, no details disclosure", () => {
+  it("HH-110 · Screen 2: the appliance lane has two fields — no stepper, no details disclosure (plus the optional kind chips, below)", () => {
     // PR #167 said this in its body while the disclosure, the stepper and Back
     // were all still on screen (CLAUDE.md, "Claiming something is done" #1).
     const { container } = render(withSwr(h(IdentifyStep, {
@@ -317,6 +317,31 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
     expect(screen.queryByText(/Add more details/)).toBeNull()
     expect(screen.queryByText(/Step \d+ of \d+/)).toBeNull()
     expect(container.querySelector('nav[aria-label="Progress"]')).toBeNull()
+  })
+
+  it("owner 2026-11-20 (supersedes HH-110's 'nothing else') · an optional 'What is it?' names the appliance by its type", () => {
+    const onDataChange = vi.fn()
+    const data = { ...DEFAULT_IDENTIFY_DATA, brand: "LG", model: "WM4000HWA" }
+    const view = render(withSwr(h(IdentifyStep, {
+      mode: "appliance", data, onModeChange: () => {}, onDataChange,
+      onConfirm: () => {}, isCreating: false, error: null,
+    })))
+    const group = screen.getByRole("radiogroup", { name: "What is it?" })
+    expect(within(group).getAllByRole("radio").map((r) => r.textContent)).toEqual(
+      ["Washer", "Dryer", "Dishwasher", "Fridge", "Water heater", "Furnace", "Oven or range", "Something else"])
+    fireEvent.click(within(group).getByRole("radio", { name: "Washer" }))
+    expect(onDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ itemCategory: "major_appliance", subType: "washing-machine" }))
+    // Picked, it shows as picked; tapping it again, or Something else, clears it.
+    view.rerender(withSwr(h(IdentifyStep, {
+      mode: "appliance", data: { ...data, itemCategory: "major_appliance", subType: "washing-machine" }, onModeChange: () => {}, onDataChange,
+      onConfirm: () => {}, isCreating: false, error: null,
+    })))
+    expect(screen.getByRole("radio", { name: "Washer" })).toHaveAttribute("aria-checked", "true")
+    fireEvent.click(screen.getByRole("radio", { name: "Something else" }))
+    expect(onDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ itemCategory: null, subType: null }))
+    // Still optional: the two fields are the only fields.
+    expect(Array.from(view.container.querySelectorAll("input")).filter((el) => el.type !== "file" && el.type !== "hidden").map((el) => el.id))
+      .toEqual(["identify-brand", "identify-model"])
   })
 
   it("HH-128 · Screen 3: a zero-byte file is refused before any upload — with the reason, not 'try again'", () => {

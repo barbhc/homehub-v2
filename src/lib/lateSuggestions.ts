@@ -44,6 +44,9 @@ export function lateRoomSuggestion(item: ItemUnit, rooms: Room[]): Room | null {
 export function lateNameSuggestion(item: ItemUnit): string | null {
   const label = categoryLabel(item)
   if (!label) return null
+  // "Other" is the absence of a type, not a name: offering to call an LG
+  // washer "Other" was the walk's bug (owner, 2026-11-20).
+  if (label.trim().toLowerCase() === "other") return null
   const current = item.display_name.trim()
   if (!current || current === label) return null
   const placeholder = `${(item.brand ?? "").trim()} ${(item.model ?? "").trim()}`.trim()

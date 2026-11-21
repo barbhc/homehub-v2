@@ -42,7 +42,8 @@ import {
 import { useCurrentHome, getRooms } from "@/modules/home"
 import { cn } from "@/lib/utils"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
-import { missingToAdd } from "./identifyData"
+import { missingToAdd, KIND_CHIPS, KIND_CATEGORY } from "./identifyData"
+
 
 export type IdentifyMode = "choice" | "appliance" | "simple"
 
@@ -803,6 +804,32 @@ export function IdentifyStep({
                   </p>
                 )}
               </div>
+              {/* Optional, one tap. Hidden once something else (a label scan)
+                  has filed the item under a different kind of thing. */}
+              {(!data.itemCategory || (data.itemCategory === KIND_CATEGORY && KIND_CHIPS.some((k) => k.subType === data.subType))) && (
+                <div role="radiogroup" aria-labelledby="identify-kind-label" data-testid="identify-kind">
+                  <p id="identify-kind-label" className="text-sm font-medium text-foreground">What is it?</p>
+                  <p className="mb-2 text-xs text-muted-foreground">Optional. Names it and finds its usual care.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[...KIND_CHIPS, { subType: "", label: "Something else" }].map((k) => {
+                      const on = k.subType ? data.itemCategory === KIND_CATEGORY && data.subType === k.subType : false
+                      return (
+                        <button key={k.label} type="button" role="radio" aria-checked={on}
+                          onClick={() => {
+                            const cur = dataRef.current
+                            onDataChange(k.subType && !on
+                              ? { ...cur, itemCategory: KIND_CATEGORY, subType: k.subType }
+                              : { ...cur, itemCategory: null, subType: null })
+                          }}
+                          className={cn("min-h-11 rounded-full border px-3.5 text-sm font-medium transition-colors",
+                            on ? "border-[var(--hh-teal)] bg-[var(--hh-teal-wash)] text-[var(--hh-teal)]" : "border-[var(--hh-line2)] bg-[var(--hh-surface)] text-foreground")}>
+                          {k.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* The lookup used to run here, on every keystroke, and report

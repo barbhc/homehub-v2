@@ -81,7 +81,19 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
 
 ## Screen 2 — Identify it (appliance lane)
 
-- **Two fields and nothing else.** No stepper anywhere in the flow. — HH-110
+- **Two fields, then one optional question.** No stepper anywhere in the flow.
+  — HH-110. SUPERSEDED IN PART 2026-11-20: under the model field an optional
+  **"What is it?"** offers one-tap kinds (Washer, Dryer, Dishwasher, Fridge,
+  Water heater, Furnace, Oven or range, Something else). The lookup runs only
+  after the item exists, and when it missed, an appliance was created as "LG
+  WM4000HWA", filed under Other, offered the name "Other" and missed its
+  typical care. A picked kind names the item for its type ("Washer") and files
+  it; the lookup still fills a blank. It is never required, it hides once a
+  label scan has filed the item under another kind, and the brand and model
+  stay the only fields. Owner's walk comment: "Make sure and use the item name.
+  I don't know if this is the Washer by just the model number." Mock:
+  https://claude.ai/artifact/Cz4hWKhTjR5YenPBdaJjeU. The item page never offers
+  "Other" as a name (`lateNameSuggestion`).
 - A disabled button **says why**: once something is typed and the button still
   cannot go, one line under it names what is missing ("Add the model to
   continue."). The untouched screen shows no such line — its empty fields
