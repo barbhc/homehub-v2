@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 import type { CareNote } from "@/integrations/types"
 import { HouseNotesCard } from "@/components/notes/ItemsNotes"
 import { Link } from "react-router-dom"
@@ -14,6 +14,7 @@ import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 import { categoryLabel } from "@/lib/categoryLabel"
 import { dens } from "@/lib/redesign/tokens"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
+import { segmentPanelId, segmentPanelProps } from "@/components/ui/segmentIds"
 import { ITEMS_VIEWS, useItemsView } from "@/hooks/usePageView"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
@@ -101,6 +102,7 @@ export function RefinedItems({
   notes = null,
   notesError = null,
   density = "cozy",
+  idBase,
 }: {
   items: ItemUnit[]
   rooms: Array<{ room_id: string; name: string }>
@@ -108,8 +110,12 @@ export function RefinedItems({
   notes?: CareNote[] | null
   notesError?: string | null
   density?: "spacious" | "cozy" | "compact"
+  /** Ties this tree's control to its panel (segmentIds); the Items page passes the one it labels the Warranties view with. */
+  idBase?: string
 }) {
   const d = dens(density)
+  const ownId = useId()
+  const base = idBase ?? ownId
   // Items | Warranties, from the URL (?view=). The Warranties content is
   // mounted once by the Items page below this header; in that view this tree
   // is only the header and the control — none of the list's own controls.
@@ -151,11 +157,11 @@ export function RefinedItems({
     <div className="flex min-h-full flex-col" style={{ background: BG }}>
       <ItemsPhoneHeader density={density} />
       <div className="px-5 pt-3.5" style={{ paddingInline: d.pad }}>
-        <SegmentedControl label="Items view" segments={ITEMS_VIEWS} value={view} onChange={setView} />
+        <SegmentedControl label="Items view" segments={ITEMS_VIEWS} value={view} onChange={setView} idBase={base} panelId={segmentPanelId(base)} />
       </div>
 
       {view === "items" && (
-      <div className="flex flex-1 flex-col px-5 pt-4" style={{ paddingInline: d.pad }}>
+      <div {...segmentPanelProps(base, "items")} className="flex flex-1 flex-col px-5 pt-4" style={{ paddingInline: d.pad }}>
         {/* House notes — shutoffs, breakers, paint: what belongs to no single item */}
         <div className="mb-3"><HouseNotesCard notes={notes} error={notesError} /></div>
 

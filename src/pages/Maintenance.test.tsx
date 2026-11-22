@@ -239,6 +239,60 @@ describe("Tasks page — Upkeep | Cleaning", () => {
     expect(svc.getCleaningTasks).not.toHaveBeenCalled()
   })
 
+  it("during a cleaning session the control is not rendered in either tree; back on the hub it is", async () => {
+    svc.getRooms.mockResolvedValue(ok([{ room_id: "r1", name: "Kitchen" }]))
+    renderPage("/maintenance?view=cleaning")
+    expect(await screen.findByText("Clean the Bosch dishwasher")).toBeInTheDocument()
+    // On the hub: both trees' controls.
+    expect(tablists()).toHaveLength(2)
+
+    fireEvent.click(screen.getByText("Start cleaning"))
+    expect(await screen.findByRole("button", { name: "Cancel" })).toBeInTheDocument()
+    // In the session (rooms and time): not rendered — no tap or arrow key can
+    // switch to Upkeep and unmount the session.
+    expect(screen.queryAllByRole("tablist")).toHaveLength(0)
+    expect(screen.queryAllByRole("tab")).toHaveLength(0)
+    // Still Tasks, still Cleaning.
+    expect(screen.getAllByRole("heading", { level: 1, name: "Tasks" })).toHaveLength(2)
+    expect(screen.getByTestId("where")).toHaveTextContent("/maintenance?view=cleaning")
+
+    // The session's own way out brings the control back.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    expect(await screen.findByText("Start cleaning")).toBeInTheDocument()
+    expect(tablists()).toHaveLength(2)
+  })
+
+  it("each tree's tabs control a panel of their own, labelled by the selected tab — Upkeep, then Cleaning", async () => {
+    renderPage()
+    expect(await screen.findAllByText("Replace the furnace filter")).toHaveLength(2)
+    const panelOf = (list: HTMLElement) => {
+      const tabs = within(list).getAllByRole("tab")
+      const id = tabs[0].getAttribute("aria-controls")!
+      for (const t of tabs) expect(t).toHaveAttribute("aria-controls", id)
+      return id
+    }
+    const [phone, desktop] = tablists()
+    const ids = [panelOf(phone), panelOf(desktop)]
+    // Unique per tree: the hidden tree never points at the visible tree's panel.
+    expect(new Set(ids).size).toBe(2)
+    for (const [i, list] of [phone, desktop].entries()) {
+      const panel = document.getElementById(ids[i])!
+      expect(panel).toHaveAttribute("role", "tabpanel")
+      const selected = within(list).getByRole("tab", { name: "Upkeep" })
+      expect(panel).toHaveAttribute("aria-labelledby", selected.id)
+      expect(within(panel).getByText("Replace the furnace filter")).toBeInTheDocument()
+    }
+
+    fireEvent.click(within(phone).getByRole("tab", { name: "Cleaning" }))
+    expect(await screen.findByText("Clean the Bosch dishwasher")).toBeInTheDocument()
+    // One Cleaning panel, labelled by the tree on screen (jsdom: the phone's).
+    const panels = screen.getAllByRole("tabpanel")
+    expect(panels).toHaveLength(1)
+    expect(panels[0].id).toBe(ids[0])
+    expect(panels[0]).toHaveAttribute("aria-labelledby", within(tablists()[0]).getByRole("tab", { name: "Cleaning" }).id)
+    expect(within(panels[0]).getByText("Start cleaning")).toBeInTheDocument()
+  })
+
   it("a failed guides read says so below and claims no count above", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {})
     svc.getDeepCleanGuides.mockRejectedValue(new Error("unavailable"))

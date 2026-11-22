@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, FlagIcon, XIcon,
@@ -22,6 +22,7 @@ import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 import { HiddenByLevelLink } from "./tasks/HiddenByLevelLink"
 import { UndoBar } from "@/components/ui/UndoBar"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
+import { segmentPanelId, segmentPanelProps } from "@/components/ui/segmentIds"
 import { TASKS_VIEWS, useTasksView } from "@/hooks/usePageView"
 import { useCleaningGuides } from "@/hooks/useCleaningGuides"
 
@@ -283,7 +284,14 @@ function GroupHeader({ label, tone, count, mins }: { label: string; tone: string
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
-export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spacious" | "cozy" | "compact" }) {
+export function RefinedWeek({ homeId, idBase, inCleaningSession = false }: {
+  homeId: string | null
+  density?: "spacious" | "cozy" | "compact"
+  /** Ties this tree's control to its panel (segmentIds); the Tasks page passes the one it labels the Cleaning view with. */
+  idBase?: string
+  /** A cleaning session is under way below: no control, so a tap can't throw its ticks away. */
+  inCleaningSession?: boolean
+}) {
   const navigate = useNavigate()
   // Upkeep | Cleaning, from the URL (?view=). Cleaning's content is mounted
   // once by the Tasks page below this header; here it is only the count line
@@ -291,6 +299,8 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
   const [pageView, setPageView] = useTasksView()
   const cleaning = pageView === "cleaning"
   const guides = useCleaningGuides(homeId, cleaning)
+  const ownId = useId()
+  const base = idBase ?? ownId
   const [view, setView] = useState<View>("list")
   const [lens, setLens] = useState<Lens>("urgency")
   const [tier, setTier] = useTierFilter()
@@ -389,16 +399,20 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
             : tier === "all" ? `${total} to do`
             : `${total} of ${totalAll}`}
         </div>
-        <SegmentedControl
-          className="mt-3.5"
-          label="Tasks view"
-          segments={TASKS_VIEWS}
-          value={pageView}
-          onChange={setPageView}
-        />
+        {!(cleaning && inCleaningSession) && (
+          <SegmentedControl
+            className="mt-3.5"
+            label="Tasks view"
+            segments={TASKS_VIEWS}
+            value={pageView}
+            onChange={setPageView}
+            idBase={base}
+            panelId={segmentPanelId(base)}
+          />
+        )}
       </div>
 
-      {!cleaning && (<>
+      {!cleaning && (<div {...segmentPanelProps(base, "upkeep")} className="flex flex-1 flex-col">
       {/* "Start here" insight banner — dismissible */}
       {!loading && !dismissed && insight && total > 0 && (
         <div style={{ padding: `${17}px ${PAD}px 0` }}>
@@ -619,7 +633,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
           </>
         )}
       </div>
-      </>)}
+      </div>)}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useId, useRef } from "react"
 import { cn } from "@/lib/utils"
+import { segmentTabId } from "./segmentIds"
 
 export interface Segment<T extends string> {
   value: T
@@ -18,6 +19,8 @@ export interface Segment<T extends string> {
  * Every segment is at least 44pt tall. It is a tab list for assistive tech — `role="tablist"`, each segment a `role="tab"` with `aria-selected` —
  * and works from the keyboard the way a tab list does: one Tab stop (the
  * selected segment), arrow keys move AND select, Home/End jump to the ends.
+ * With `panelId`, every tab `aria-controls` it; the page puts
+ * `segmentPanelProps(idBase, value)` on the selected view's container.
  */
 export function SegmentedControl<T extends string>({
   segments,
@@ -25,6 +28,8 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
   className,
+  idBase,
+  panelId,
 }: {
   segments: readonly Segment<T>[]
   value: T
@@ -32,8 +37,13 @@ export function SegmentedControl<T extends string>({
   /** The tab list's accessible name ("Tasks view"). */
   label: string
   className?: string
+  /** Base for the tabs' ids (segmentTabId), shared with the panel. Defaults to a useId of its own. */
+  idBase?: string
+  /** The id of the panel showing the selected view — every tab `aria-controls` it. */
+  panelId?: string
 }) {
-  const baseId = useId()
+  const ownId = useId()
+  const baseId = idBase ?? ownId
   const refs = useRef<(HTMLButtonElement | null)[]>([])
 
   const select = (index: number) => {
@@ -66,7 +76,8 @@ export function SegmentedControl<T extends string>({
           <button
             key={s.value}
             ref={(el) => { refs.current[i] = el }}
-            id={`${baseId}-${s.value}`}
+            id={segmentTabId(baseId, s.value)}
+            aria-controls={panelId}
             type="button"
             role="tab"
             aria-selected={on}

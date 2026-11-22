@@ -39,6 +39,12 @@ describe("SegmentedControl", () => {
     expect(tab("Cleaning")).toHaveAttribute("aria-selected", "false")
   })
 
+  it("with a panelId, every tab controls that panel; tab ids come from idBase", () => {
+    render(<SegmentedControl label="Tasks view" segments={SEGMENTS} value="a" onChange={() => {}} idBase="t1" panelId="t1-panel" />)
+    for (const t of screen.getAllByRole("tab")) expect(t).toHaveAttribute("aria-controls", "t1-panel")
+    expect(tab("Upkeep").id).toBe("t1-tab-a")
+  })
+
   it("every segment is at least 44pt tall and takes an equal share of the width", () => {
     render(<Harness />)
     for (const t of screen.getAllByRole("tab")) {

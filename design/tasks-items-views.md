@@ -21,6 +21,10 @@ of one screen (equal-width segments, noun labels, no more than five on iPhone).
 | Warranties page (`/warranties`) | **Items → Warranties** (`/inventory?view=warranties`) | redirects (replace) |
 | Desktop nav: Clean, Warranties | — (removed; Providers remains) | |
 
+- **Tabs and panels:** each tab `aria-controls` its tree's panel and the
+  selected view's container is the `role="tabpanel"`, labelled by the selected
+  tab (`segmentIds.ts`). Ids come from `useId` per tree; the one mounted
+  Cleaning/Warranties panel takes the id of the tree on screen (`useIsDesktop`).
 - **One control, shared:** `src/components/ui/SegmentedControl.tsx`. Each
   segment is ≥44pt and takes an equal share; the selected one is raised on the
   surface fill. It is a tab list for assistive tech (`role="tablist"`/`"tab"`,
@@ -61,9 +65,11 @@ list, so a visit costs one read and there is one cleaning session, not two.
    rebuilt in parallel): the redirect lands it on the view; Back skips the
    redirecting address. `retiredDesigns.test.ts` lists the Home files still
    linking `/clean` / `/warranties` — shrink it as they move to the constants.
-2. **A cleaning session under way, then Upkeep:** the session ends (it lived
-   only in the page's memory, as it did when leaving `/clean`); the hub offers
-   "Start cleaning" again.
+2. **A cleaning session under way:** from "Start cleaning" to the summary,
+   neither tree shows the control (CleaningView tells Maintenance through
+   `onSessionChange`) — switching would unmount the view and throw the ticks
+   away. The session's own Cancel/Done is the way out; the tab bar still
+   leaves the page, which ends the session as leaving `/clean` always did.
 3. **`?view=` with an unknown value:** the page's first view.
 
 ## Failure modes

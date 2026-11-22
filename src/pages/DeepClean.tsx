@@ -83,8 +83,13 @@ function formatStaleDays(days: number): string {
  * Rendered ONCE by the Tasks page, under both trees' headers (which carry the
  * title, the guide count and the Upkeep | Cleaning control), so a visit costs
  * one guides read and one rooms read — and there is one session, not two.
+ *
+ * `onSessionChange` tells the page when a session starts (rooms and time,
+ * the checklist, the summary) and when it returns to the hub, so the page
+ * can take the Upkeep | Cleaning control away meanwhile: switching views
+ * unmounts this, and a session's ticks with it.
  */
-export function CleaningView() {
+export function CleaningView({ onSessionChange }: { onSessionChange?: (inSession: boolean) => void } = {}) {
   const navigate = useNavigate()
   const { home } = useCurrentHome()
   const homeId = home?.home_id ?? null
@@ -431,9 +436,13 @@ export function CleaningView() {
   const enterSession = useCallback(() => {
     if (!sessionInProgress) setStep("setup")
     setView("session")
-  }, [sessionInProgress])
+    onSessionChange?.(true)
+  }, [sessionInProgress, onSessionChange])
 
-  const backToHub = useCallback(() => setView("hub"), [])
+  const backToHub = useCallback(() => {
+    setView("hub")
+    onSessionChange?.(false)
+  }, [onSessionChange])
 
   if (!homeId) {
     return <p className="text-[0.875rem]" style={{ color: SUB }}>Select a home to continue.</p>

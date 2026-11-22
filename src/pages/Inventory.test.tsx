@@ -318,6 +318,26 @@ describe("Items — Items | Warranties", () => {
     expect(screen.getAllByText("Carrier Infinity Furnace")).toHaveLength(2)
   })
 
+  it("each tree's tabs control a panel of their own, labelled by the selected tab", async () => {
+    renderAt("/inventory")
+    expect(await screen.findAllByText("Carrier Infinity Furnace")).toHaveLength(2)
+    const ids = tablists().map((list) => within(list).getByRole("tab", { name: "Items" }).getAttribute("aria-controls")!)
+    expect(new Set(ids).size).toBe(2)
+    for (const [i, list] of tablists().entries()) {
+      const panel = document.getElementById(ids[i])!
+      expect(panel).toHaveAttribute("role", "tabpanel")
+      expect(panel).toHaveAttribute("aria-labelledby", within(list).getByRole("tab", { name: "Items" }).id)
+      expect(within(list).getByRole("tab", { name: "Warranties" })).toHaveAttribute("aria-controls", ids[i])
+    }
+
+    fireEvent.click(within(tablists()[0]).getByRole("tab", { name: "Warranties" }))
+    const panels = screen.getAllByRole("tabpanel")
+    expect(panels).toHaveLength(1)
+    expect(panels[0].id).toBe(ids[0])
+    expect(panels[0]).toHaveAttribute("aria-labelledby", within(tablists()[0]).getByRole("tab", { name: "Warranties" }).id)
+    expect(within(panels[0]).getByText("Covered · Dec 5, 2099")).toBeInTheDocument()
+  })
+
   it("with no items, the control is not rendered — the lane chooser is the page, even at ?view=warranties", async () => {
     svc.getItemUnits.mockResolvedValue(ok([]))
     renderAt("/inventory?view=warranties")

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   CheckIcon, ChevronDownIcon, ChevronRightIcon, FlagIcon, SparklesIcon, XIcon,
@@ -23,6 +23,7 @@ import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 import { HiddenByLevelLink } from "./tasks/HiddenByLevelLink"
 import { UndoBar } from "@/components/ui/UndoBar"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
+import { segmentPanelId, segmentPanelProps } from "@/components/ui/segmentIds"
 import { TASKS_VIEWS, useTasksView } from "@/hooks/usePageView"
 import { useCleaningGuides } from "@/hooks/useCleaningGuides"
 
@@ -208,7 +209,13 @@ function TierPill({ active, color, onClick, children, dot, count }: {
   )
 }
 
-export function DesktopTasks({ homeId }: { homeId: string | null }) {
+export function DesktopTasks({ homeId, idBase, inCleaningSession = false }: {
+  homeId: string | null
+  /** Ties this tree's control to its panel (segmentIds); the Tasks page passes the one it labels the Cleaning view with. */
+  idBase?: string
+  /** A cleaning session is under way below: no control, so a click can't throw its ticks away. */
+  inCleaningSession?: boolean
+}) {
   const care = useCareSuggestions(homeId)
   const navigate = useNavigate()
   // Upkeep | Cleaning, from the URL (?view=) — as on the phone. In Cleaning
@@ -218,6 +225,8 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
   const [pageView, setPageView] = useTasksView()
   const cleaning = pageView === "cleaning"
   const guides = useCleaningGuides(homeId, cleaning)
+  const ownId = useId()
+  const base = idBase ?? ownId
   const [tier, setTier] = useTierFilter()
   // Item filtering is the "Item" lens now; kept as a constant so the shared
   // tier helpers keep their signature.
@@ -288,15 +297,19 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
         </button>
       </div>
 
-      <SegmentedControl
-        className={cleaning ? "max-w-[360px]" : "mb-[22px] max-w-[360px]"}
-        label="Tasks view"
-        segments={TASKS_VIEWS}
-        value={pageView}
-        onChange={setPageView}
-      />
+      {!(cleaning && inCleaningSession) && (
+        <SegmentedControl
+          className={cleaning ? "max-w-[360px]" : "mb-[22px] max-w-[360px]"}
+          label="Tasks view"
+          segments={TASKS_VIEWS}
+          value={pageView}
+          onChange={setPageView}
+          idBase={base}
+          panelId={segmentPanelId(base)}
+        />
+      )}
 
-      {!cleaning && (<>
+      {!cleaning && (<div {...segmentPanelProps(base, "upkeep")}>
       {/* "Start here" insight banner — dismissible */}
       {!loading && !dismissed && insight && total > 0 && (
         <div
@@ -482,7 +495,7 @@ export function DesktopTasks({ homeId }: { homeId: string | null }) {
           </div>
         </div>
       </div>
-      </>)}
+      </div>)}
     </div>
   )
 }
