@@ -77,6 +77,12 @@ const RETIRED_COMPONENTS = [
   "LevelUnlockBanner",       // "New features unlocked" on Home -> none
   "RoomNotesLink",           // "+ Add a note" on every Items room heading -> House notes' "By room"
   "HomeProfileOnboarding",   // OnboardingProfile's step form -> Settings → Home profile
+  // Home, next (owner, 2026-11-21; design/home-next.md): Home's five rows were
+  // Tasks' first five. Home now shows ONE task and what Tasks can't show.
+  "ThisWeekList",           // the week list on Home -> HomeSections' NextUp (one card) + the Tasks tab
+  "TimelyWarrantyLine",     // the warranty line under it -> HomeSections' Heads up
+  "RecallCard",             // the desktop recall rail -> HomeSections' Heads up
+  "AskModule",              // the Ask bar's three links to one page -> HomeSections' AskField
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */

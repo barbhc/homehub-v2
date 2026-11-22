@@ -193,6 +193,8 @@ export interface CareNote {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  /** Pinned to Home's "Pinned by you" (design/home-next.md); null = not pinned. */
+  pinned_at: string | null
 }
 
 export interface CareNoteInsert {

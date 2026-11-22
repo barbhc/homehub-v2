@@ -12,7 +12,10 @@ import { MemoryRouter } from "react-router-dom"
 
 const dash = vi.hoisted(() => ({ totalItems: 0, scheduledTaskCount: 2, upcoming: [] as unknown[] }))
 
+// Home's In a pinch reads providers (design/home-next.md); none saved here.
+vi.mock("@/hooks/useServiceProviders", () => ({ useServiceProviders: () => ({ providers: [], loading: false, loadFailed: false }) }))
 vi.mock("@/modules/care", () => ({
+  getHomeNotes: vi.fn(async () => ({ data: [], error: null })),
   markTaskInstanceDone: vi.fn(), snoozeTaskInstance: vi.fn(), unsnoozeTaskInstance: vi.fn(), previewNextDue: vi.fn(async () => null),
 }))
 vi.mock("@/lib/useDashboard", () => ({
@@ -63,11 +66,13 @@ beforeEach(() => {
 })
 
 describe("Home — tasks before any item", () => {
-  it("shows This week's tasks, not the set-up hero", () => {
+  it("shows the week's first task as Next up, not the set-up hero; the rest are one tap away in Tasks", () => {
     renderHome()
     expect(screen.queryByText("Let's set up your home")).toBeNull()
-    expect(screen.getAllByText("Test smoke and CO alarms").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Check the water heater's quake straps").length).toBeGreaterThan(0)
+    // Home, next (design/home-next.md): ONE task on Home; the week lives in Tasks.
+    expect(screen.getAllByTestId("next-up-title")[0]).toHaveTextContent("Test smoke and CO alarms")
+    expect(screen.queryByText("Check the water heater's quake straps")).toBeNull()
+    expect(screen.getAllByRole("link", { name: /1 more this week/ })[0]).toHaveAttribute("href", "/maintenance")
   })
 
   it("offers one next step under the list (design/day-one-home.md)", () => {

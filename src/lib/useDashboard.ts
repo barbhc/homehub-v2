@@ -31,6 +31,14 @@ interface DashboardCore {
   stats: DashboardStats
 }
 interface DashboardExtras {
+  /** Whose data this is. SWR keeps the previous key's data while a new home
+   *  loads (keepPreviousData), so Home checks this before showing another
+   *  home's recalls or tasks as this one's. Absent on snapshots saved before
+   *  2026-11-21, which then wait for a fresh read. */
+  homeId?: string
+  /** Sections whose read failed this round (their arrays are empty for that
+   *  reason, not because there is nothing). */
+  failed?: string[]
   upcoming: MaintenanceTaskFull[]
   insights: InsightCard[]
   expiringWarranties: ExpiringWarrantyItem[]
@@ -40,9 +48,10 @@ interface DashboardExtras {
 
 /** Non-essential query → never fail the whole dashboard on it. A flaky
  *  warranties/insights/notices fetch should degrade to empty, not blank Home. */
-function soft<T>(p: Promise<T>, fallback: T, label: string): Promise<T> {
+function soft<T>(p: Promise<T>, fallback: T, label: string, failed?: string[]): Promise<T> {
   return p.catch((e) => {
     console.warn(`[dashboard] ${label} soft-failed:`, e instanceof Error ? e.message : e)
+    failed?.push(label)
     return fallback
   })
 }
@@ -95,15 +104,17 @@ export async function fetchExtras(homeId: string): Promise<DashboardExtras> {
   // the templates (for the deep-clean guides) are the only read of extras' own.
   const reads = homeReadsForThisRound(homeId)
   const templates = readTaskTemplates(homeId)
+  // Which sections failed, so Home can say so instead of showing "nothing".
+  const failed: string[] = []
   const [upcoming, expiringWarranties, notices, cleaningGuides, insights] = await Promise.all([
-    soft(reads.then(deriveUpcomingTasks), [], "upcoming"),
-    soft(reads.then(deriveExpiringWarranties), [], "warranties"),
-    soft(reads.then(deriveHomeNotices), EMPTY_NOTICES, "notices"),
+    soft(reads.then(deriveUpcomingTasks), [], "upcoming", failed),
+    soft(reads.then(deriveExpiringWarranties), [], "warranties", failed),
+    soft(reads.then(deriveHomeNotices), EMPTY_NOTICES, "notices", failed),
     soft(templates.then((t) => deepCleanGuidesFrom(homeId, t, () => reads)), [], "cleaningGuides"),
     soft(reads.then(deriveInsights), [], "insights"),
   ])
   markBoot("dash:extras")
-  return { upcoming, insights, expiringWarranties, notices, cleaningGuides }
+  return { homeId, failed, upcoming, insights, expiringWarranties, notices, cleaningGuides }
 }
 
 const TIMED_OUT = "Loading your home timed out. Check your connection and try again."
@@ -150,14 +161,25 @@ export function useDashboard(homeId: string | null) {
     },
   )
 
+  // Only THIS home's supplementary data: never the previous home's (kept by
+  // keepPreviousData during a switch) and never an empty placeholder mistaken
+  // for "nothing there" while the read is still out.
+  const mine = extras.data && extras.data.homeId === homeId ? extras.data : null
   return {
     tasks: core.data?.tasks ?? null,
     stats: core.data?.stats ?? null,
-    upcoming: extras.data?.upcoming ?? [],
-    insights: extras.data?.insights ?? [],
-    expiringWarranties: extras.data?.expiringWarranties ?? [],
-    notices: extras.data?.notices ?? { recalls: [], missingDetails: [] },
-    cleaningGuides: extras.data?.cleaningGuides ?? [],
+    upcoming: mine?.upcoming ?? [],
+    insights: mine?.insights ?? [],
+    expiringWarranties: mine?.expiringWarranties ?? [],
+    notices: mine?.notices ?? { recalls: [], missingDetails: [] },
+    cleaningGuides: mine?.cleaningGuides ?? [],
+    /** Has this home's supplementary data arrived, and which parts failed?
+     *  Home's Heads up and Coming up wait for `ready` and say so on a failure
+     *  (design/home-next.md; Codex review F2). */
+    extras: {
+      ready: !!mine,
+      failed: mine ? (mine.failed ?? []) : extras.error ? ["upcoming", "warranties", "notices"] : [],
+    },
     // CORE only. Gating the skeleton on the supplementary round is exactly the
     // 1955ms this change exists to stop charging the user.
     isLoading: core.isLoading,

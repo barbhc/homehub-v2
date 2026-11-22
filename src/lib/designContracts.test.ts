@@ -155,7 +155,7 @@ import { ScanTrayProvider } from "@/components/manuals/ScanTray"
 import { scanCount } from "@/components/manuals/scanStatus"
 import { RefinedItems } from "@/components/home/RefinedItems"
 import { CareBlock } from "@/components/item-care/CareBlock"
-import { ThisWeekList } from "@/components/home/ThisWeekList"
+import { NextUp } from "@/components/home/HomeSections"
 import { whenLabel } from "@/components/home/tasks/shared"
 import { DesktopTasks } from "@/components/home/DesktopTasks"
 import { RefinedWeek } from "@/components/home/RefinedWeek"
@@ -701,20 +701,20 @@ describe("Home, Tasks and the item page speak one calm language", () => {
     lastCompletedAt: null, completionCount: 0, careType: "maintenance", duePhrase: null, safetyNote: null,
   })
   const week = (upcoming: MaintenanceTaskFull[], nextUp: { dueDate: string; windowStart: string } | null) =>
-    render(h(MemoryRouter, null, h(ThisWeekList, {
+    render(h(MemoryRouter, null, h(NextUp, {
       homeId: "home-1", tasks: [], upcoming, nextUp, completingId: null, onComplete: () => {}, onSnooze: () => {},
     })))
 
   it("HH-92 · Home never says 'nothing is scheduled' over scheduled work", () => {
     // Work three weeks out: nothing this week, and plenty scheduled.
     const ahead = week([upcomingTask("u1", "Replace furnace filter", iso(21))], null)
-    expect(screen.getByTestId("quiet-week").textContent).not.toMatch(/nothing is scheduled/i)
+    expect(screen.getByTestId("next-up-quiet").textContent).not.toMatch(/nothing is scheduled/i)
     expect(screen.getByText(/Next up: replace furnace filter/)).toBeInTheDocument()
     ahead.unmount()
 
     // The schedule known only from the stats (no forward feed yet).
     const statsOnly = week([], { dueDate: iso(40), windowStart: iso(33) })
-    expect(screen.getByTestId("quiet-week").textContent).not.toMatch(/nothing is scheduled/i)
+    expect(screen.getByTestId("next-up-quiet").textContent).not.toMatch(/nothing is scheduled/i)
     statsOnly.unmount()
 
     // Only when there is truly nothing does it say so.

@@ -19,6 +19,7 @@ const idea = (label: string, hint: string): NoteIdea => ({ label, seed: `${label
 
 export const HOUSE_IDEAS: NoteIdea[] = [
   idea("Water shutoff", "Where the main valve is, and which way closes it."),
+  idea("Gas shutoff", "Where the gas valve is, and which way closes it."),
   idea("Breaker panel", "Where it is, and which breakers matter."),
   idea("Paint colors", "Brand, color name or code, finish — and where the leftover is."),
   idea("Router & modem", "Where they are, and what fixes the Wi-Fi."),
@@ -159,7 +160,7 @@ export function legacyItemNote(
     task_template_id: null,
     created_at: item.created_at ?? "",
     updated_at: item.updated_at ?? item.created_at ?? "",
-    deleted_at: null,
+    deleted_at: null, pinned_at: null,
   }
 }
 

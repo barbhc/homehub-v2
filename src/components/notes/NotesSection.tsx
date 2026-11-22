@@ -7,6 +7,7 @@ import { useCurrentHome } from "@/modules/home"
 import { ideasFor, isLegacyNote, legacyItemNote, type NoteIdea } from "@/lib/notes"
 import { NoteComposer } from "./NoteComposer"
 import { IdeaChips, NoteRows, NotesHeading } from "./NoteParts"
+import { useNotePin } from "./useNotePin"
 import { useNotes } from "./useNotes"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
@@ -35,6 +36,8 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
     `item-notes:${homeId}:${item.item_unit_id}`,
     () => getCareNotesByItem(homeId, item.item_unit_id),
   )
+  // Pin to Home's "Pinned by you" (design/home-next.md).
+  const pin = useNotePin(homeId, reload)
   const [composer, setComposer] = useState<Composer | null>(null)
 
   const all = useMemo(() => {
@@ -112,7 +115,10 @@ export function NotesSection({ homeId, item, onItemUpdate }: {
           <IdeaChips ideas={ideas} onPick={openNew} label={null} />
         </div>
       ) : (
-        <NoteRows notes={all} onEdit={(note) => setComposer({ key: note.note_id, note, idea: null })} />
+        <>
+          {pin.error && <div role="alert" className="text-[0.8125rem] font-medium" style={{ color: CLAY }}>{pin.error}</div>}
+          <NoteRows notes={all} onEdit={(note) => setComposer({ key: note.note_id, note, idea: null })} onTogglePin={pin.toggle} pinBusyId={pin.busyId} />
+        </>
       )}
 
       {composer && (

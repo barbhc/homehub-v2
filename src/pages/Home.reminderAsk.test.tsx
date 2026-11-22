@@ -18,7 +18,10 @@ const refresh = vi.hoisted(() => vi.fn(async () => {}))
 const dash = vi.hoisted(() => ({ priority: "critical" }))
 const offer = vi.hoisted(() => vi.fn(async () => {}))
 
+// Home's In a pinch reads providers (design/home-next.md); none saved here.
+vi.mock("@/hooks/useServiceProviders", () => ({ useServiceProviders: () => ({ providers: [], loading: false, loadFailed: false }) }))
 vi.mock("@/modules/care", () => ({
+  getHomeNotes: vi.fn(async () => ({ data: [], error: null })),
   markTaskInstanceDone: (...a: unknown[]) => care.markTaskInstanceDone(...a),
   snoozeTaskInstance: (...a: unknown[]) => care.snoozeTaskInstance(...a),
   unsnoozeTaskInstance: (...a: unknown[]) => care.unsnoozeTaskInstance(...a),
@@ -87,7 +90,7 @@ function renderHome() {
 }
 
 /** Phone (RefinedHome) and desktop (DesktopHome) lists are both in the DOM; CSS shows one. */
-const firstRow = () => screen.getAllByTestId("week-row")[0]
+const firstRow = () => screen.getAllByTestId("next-up-card")[0]
 
 beforeEach(() => {
   dash.priority = "critical"
@@ -97,7 +100,7 @@ describe("Home — the reminder ask after a Done", () => {
   it("a saved Done on an Essential task offers it, with the next date", async () => {
     care.previewNextDue.mockResolvedValue("2027-02-17")
     renderHome()
-    fireEvent.click(within(firstRow()).getByRole("button", { name: `Mark ${TITLE} done` }))
+    fireEvent.click(within(firstRow()).getByRole("button", { name: "Mark done" }))
     expect(offer).not.toHaveBeenCalled() // the tap is not the moment: Undo is still possible
     await screen.findByText(/next due/)
     await acceptDone()
@@ -107,7 +110,7 @@ describe("Home — the reminder ask after a Done", () => {
   it("passes a non-Essential task as such (the hook decides not to ask)", async () => {
     dash.priority = "high"
     renderHome()
-    fireEvent.click(within(firstRow()).getByRole("button", { name: `Mark ${TITLE} done` }))
+    fireEvent.click(within(firstRow()).getByRole("button", { name: "Mark done" }))
     await acceptDone()
     await waitFor(() => expect(offer).toHaveBeenCalledWith(expect.objectContaining({ essential: false })))
   })
@@ -115,7 +118,7 @@ describe("Home — the reminder ask after a Done", () => {
   it("a Done that fails to save offers nothing", async () => {
     care.markTaskInstanceDone.mockResolvedValue({ success: false, error: "INTERNAL" })
     renderHome()
-    fireEvent.click(within(firstRow()).getByRole("button", { name: `Mark ${TITLE} done` }))
+    fireEvent.click(within(firstRow()).getByRole("button", { name: "Mark done" }))
     await acceptDone()
     await within(firstRow()).findByRole("alert")
     expect(offer).not.toHaveBeenCalled()

@@ -26,7 +26,7 @@ const item = (over: Partial<ItemUnit> = {}): ItemUnit =>
 const note = (id: string, content: string): CareNote => ({
   note_id: id, home_id: "h1", room_id: null, item_unit_id: "furnace", scope: "item_unit", category: null, chunk_type: "care",
   title: null, content, source: "user", source_url: null, task_template_id: null,
-  created_at: "2026-09-12T10:00:00Z", updated_at: "2026-09-12T10:00:00Z", deleted_at: null,
+  created_at: "2026-09-12T10:00:00Z", updated_at: "2026-09-12T10:00:00Z", deleted_at: null, pinned_at: null,
 })
 
 beforeEach(() => {

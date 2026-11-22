@@ -1,3 +1,5 @@
+> **Superseded 2026-11-21 by `design/home-next.md`:** Home shows ONE task (Next up) and what Tasks can't show; the week list moved off Home.
+
 > **2026-11-21:** the open row is now the task card (`design/task-card.md`): status line above the title, no pills, Mark done and Snooze the same size, an arrow instead of See details.
 
 # Home, focused — design doc (draft for the build branch)

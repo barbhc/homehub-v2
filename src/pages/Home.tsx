@@ -164,6 +164,7 @@ export default function Home() {
     expiringWarranties,
     notices,
     cleaningGuides,
+    extras = { ready: true, failed: [] },
     isLoading,
     error: dashError,
     refresh,
@@ -413,6 +414,10 @@ export default function Home() {
             comingUp={stats?.comingUp ?? null}
             askStarters={starters}
               warranties={expiringWarranties}
+              notices={notices}
+              extras={extras}
+              onRetryExtras={() => void refresh()}
+              nextStep={nextStep}
               cleaningGuides={cleaningGuides}
               level={level}
               homeId={homeId || null}
@@ -421,7 +426,6 @@ export default function Home() {
               onComplete={handleMarkComplete}
               onSnooze={handleSnooze}
             />
-            {nextStep && <div className="mx-5 mt-6">{nextStep}</div>}
           </div>
         </div>
         {/* Break out of the page's max-w-5xl wrapper: DesktopHome owns its own
@@ -431,6 +435,8 @@ export default function Home() {
             tasks={homeTasks}
             warranties={expiringWarranties}
             notices={notices}
+            extras={extras}
+            onRetryExtras={() => void refresh()}
             upcoming={visibleUpcoming}
             nextUp={stats?.nextUp ?? null}
             comingUp={stats?.comingUp ?? null}

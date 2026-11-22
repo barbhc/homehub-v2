@@ -1,19 +1,18 @@
 import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
-import {
-  SparklesIcon, ArrowRightIcon, MegaphoneIcon, } from "lucide-react"
+import { SparklesIcon } from "lucide-react"
 import type { DashboardTask, ExpiringWarrantyItem, HomeNotices, MaintenanceTaskFull } from "@/lib/dashboard"
 import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { greeting } from "@/lib/redesign/tokens"
-import { ThisWeekList, TimelyWarrantyLine } from "@/components/home/ThisWeekList"
-import type { ComingUp } from "@/lib/homeWeek"
+import { ComingUp, HeadsUp, HomeLoadNote, NextUp, PinchAndPinned, type HomeExtras } from "@/components/home/HomeSections"
+import { useScanTray } from "@/components/manuals/scanStatus"
+import type { ComingUp as ComingUpLine } from "@/lib/homeWeek"
 import type { AskStarter } from "../../../shared/care/dayOne"
 import { AskStarters } from "@/components/home/RefinedHome"
-import { timelyWarranty } from "@/lib/homeWeek"
 import { useDisplayName } from "@/hooks/useDisplayName"
 
-const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)"
+const INK = "var(--hh-ink)", TEAL = "var(--hh-teal)"
 
 /** Signed day offset for a task (negative = overdue) — WeekStrip's dot maths. */
 
@@ -23,58 +22,25 @@ function fullToday(): string {
   return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
 }
 
-function SectionLabel({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
-  return (
-    <div className="mb-3 flex items-baseline justify-between">
-      <span className="text-[0.75rem] font-bold uppercase tracking-[0.5px]" style={{ color: SUB }}>{children}</span>
-      {right}
-    </div>
-  )
-}
-
-// ── Upcoming agenda (timeline) ────────────────────────────────────────────────
-// Each row is expandable with the same "See how" panel as the focus card
-// (spec #3): tap the row → numbered steps + why + supplies inline.
-function RecallCard({ recall }: { recall: HomeNotices["recalls"][number] }) {
-  return (
-    <Link
-      to={`/inventory/${recall.item_unit_id}`}
-      className="flex items-start gap-3 rounded-[14px] border p-[15px]"
-      style={{ background: "var(--hh-slate-soft)", borderColor: "var(--hh-line)" }}
-    >
-      <div className="flex size-[38px] shrink-0 items-center justify-center rounded-[10px] border" style={{ background: "var(--hh-surface)", borderColor: "var(--hh-line)" }}>
-        <MegaphoneIcon className="size-[18px]" style={{ color: "var(--hh-slate)" }} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.5px]" style={{ color: "var(--hh-slate)" }}>Safety notice</div>
-        <div className="text-[0.875rem] font-bold tracking-[-0.2px]" style={{ color: INK }}>Safety update for {recall.display_name}</div>
-        {recall.recall_notes && <div className="mt-0.5 text-[0.78125rem] leading-snug text-pretty" style={{ color: SUB }}>{recall.recall_notes}</div>}
-        <span className="mt-2 inline-flex items-center gap-1 text-[0.78125rem] font-bold" style={{ color: "var(--hh-slate)" }}>Check my model <ArrowRightIcon className="size-[13px]" /></span>
-      </div>
-    </Link>
-  )
-}
-
-
-
-
-
 export function DesktopHome({
-  tasks, upcoming, nextUp = null, comingUp = null, askStarters = [], warranties, notices, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
+  tasks, upcoming, nextUp = null, comingUp = null, askStarters = [], warranties, notices, extras, onRetryExtras, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
 }: {
   tasks: DashboardTask[]
   /** Forward schedule for the Coming-up drawer. */
   upcoming: MaintenanceTaskFull[]
   nextUp?: { dueDate: string; windowStart: string } | null
-  comingUp?: ComingUp | null
+  comingUp?: ComingUpLine | null
   askStarters?: AskStarter[]
   warranties: ExpiringWarrantyItem[]
   notices: HomeNotices
+  /** Whether this home's recalls, warranties and schedule have loaded, and what failed. */
+  extras: HomeExtras
+  onRetryExtras: () => void
   cleaningGuides: DeepCleanGuide[]
   level: UserLevel
   homeId: string | null
   completingId: string | null
-  /** A refused check-off or snooze, shown on its row (ThisWeekList). */
+  /** A refused check-off or snooze, shown on its row (HomeSections NextUp). */
   actionError?: { id: string; message: string } | null
   onComplete: (id: string) => void
   onSnooze: (id: string) => void
@@ -83,7 +49,7 @@ export function DesktopHome({
 }) {
   const { firstName } = useDisplayName()
 
-  const railHasContent = notices.recalls.length > 0 || timelyWarranty(warranties) != null
+  const tray = useScanTray()
 
   return (
     // Break out of the page's narrower max-w-5xl wrapper and re-center the Home
@@ -102,41 +68,30 @@ export function DesktopHome({
         </div>
         {askStarters.length > 0 && <div className="-mt-1.5 mb-5 flex justify-end"><AskStarters starters={askStarters} /></div>}
 
-        <div className={railHasContent ? "grid items-start gap-[22px] lg:grid-cols-[minmax(0,1.85fr)_minmax(280px,1fr)]" : "grid items-start gap-[22px]"}>
-          {/* Main column — leads with Your Focus; the task counts moved to the
-              side-rail "Tasks" card so the focus card wins the eye (spec #1). */}
-          <div className="flex flex-col gap-[22px]">
-            {/* Home, focused (design/home-focus.md): one list, first task open. */}
-            <ThisWeekList
-              variant="desktop"
+        {/* Home, next (design/home-next.md): the same sections as the phone,
+            in two columns — the day's task and what's ahead on the left, what
+            to know and what to reach for on the right. */}
+        <div className="grid items-start gap-[22px] lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
+          <div className="flex flex-col gap-6">
+            <NextUp
               homeId={homeId}
               tasks={tasks}
               upcoming={upcoming}
               nextUp={nextUp}
-              comingUp={comingUp}
+              extras={extras}
               completingId={completingId}
               actionError={actionError}
               onComplete={onComplete}
               onSnooze={onSnooze}
             />
+            <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} extras={extras} />
             {nextStep && <div className="max-w-xl">{nextStep}</div>}
           </div>
-
-          {/* Side rail — only what is timely: a recall on something you own,
-              a warranty ending inside 60 days. Nothing standing. */}
-          {railHasContent && (
-            <div className="flex flex-col gap-[18px]">
-              {notices.recalls.length > 0 && (
-                <div>
-                  <SectionLabel>Recall</SectionLabel>
-                  <div className="flex flex-col gap-3">
-                    {notices.recalls.map((r) => <RecallCard key={r.item_unit_id} recall={r} />)}
-                  </div>
-                </div>
-              )}
-              <TimelyWarrantyLine warranties={warranties} />
-            </div>
-          )}
+          <div className="flex flex-col gap-6">
+            <HomeLoadNote extras={extras} onRetry={onRetryExtras} />
+            <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} extras={extras} />
+            {homeId && <PinchAndPinned homeId={homeId} tree="desktop" />}
+          </div>
         </div>
       </div>
     </div>
