@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest"
 import { render, screen, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import type { CareNote } from "@/integrations/types"
-import { ComingUp, HeadsUp, InAPinch, PinnedNotes } from "./HomeSections"
+import { ComingUp, HeadsUp, HomeLoadNote, InAPinch, NextUp, PinnedNotes } from "./HomeSections"
 
 const wrap = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>)
 const note = (over: Partial<CareNote>): CareNote => ({
@@ -75,5 +75,42 @@ describe("sections that hide when they have nothing to say", () => {
     const row = screen.getByTestId("pinned-row")
     expect(row).toHaveTextContent("Furnace filter size")
     expect(row).toHaveTextContent("16 × 25 × 1")
+  })
+})
+
+describe("while Home's supplementary data is loading, or failed (independent review, 2026-11-21)", () => {
+  const LOADING = { ready: false, failed: [] }
+  const FAILED = { ready: true, failed: ["upcoming", "warranties", "notices"] }
+  const recall = [{ item_unit_id: "i1", display_name: "GE Range", recall_notes: null }]
+  const noop = () => {}
+
+  it("Next up claims nothing about an empty week until the schedule has loaded: not rendered", () => {
+    wrap(<NextUp homeId="h" tasks={[]} upcoming={[]} extras={LOADING} completingId={null} onComplete={noop} onSnooze={noop} />)
+    expect(screen.queryByTestId("next-up")).toBeNull()
+    expect(screen.queryByText(/nothing is scheduled|Nothing due/i)).toBeNull()
+  })
+
+  it("Next up says the week is quiet only once the schedule has loaded", () => {
+    wrap(<NextUp homeId="h" tasks={[]} upcoming={[]} completingId={null} onComplete={noop} onSnooze={noop} />)
+    expect(screen.getByTestId("next-up-quiet")).toHaveTextContent("Nothing due this week")
+  })
+
+  it("Heads up holds recalls back until they are this home's, but shows a manual ready to review at once", () => {
+    wrap(<HeadsUp extras={LOADING} recalls={recall} ready={[{ manualId: "m", itemUnitId: "i", title: "Sharp manual" }]} warranties={[]} />)
+    expect(screen.getAllByTestId("heads-up-row")).toHaveLength(1)
+    expect(screen.getByTestId("heads-up")).not.toHaveTextContent("Safety notice")
+  })
+
+  it("a failed read is said once, with Try again — never an empty section passed off as nothing", () => {
+    let retried = 0
+    wrap(<HomeLoadNote extras={FAILED} onRetry={() => { retried += 1 }} />)
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load recalls, warranties and what's coming up.")
+    screen.getByRole("button", { name: "Try again" }).click()
+    expect(retried).toBe(1)
+  })
+
+  it("no failure, no note: not rendered", () => {
+    wrap(<HomeLoadNote extras={{ ready: true, failed: [] }} onRetry={noop} />)
+    expect(screen.queryByTestId("home-load-note")).toBeNull()
   })
 })

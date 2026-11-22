@@ -164,6 +164,7 @@ export default function Home() {
     expiringWarranties,
     notices,
     cleaningGuides,
+    extras = { ready: true, failed: [] },
     isLoading,
     error: dashError,
     refresh,
@@ -414,6 +415,8 @@ export default function Home() {
             askStarters={starters}
               warranties={expiringWarranties}
               notices={notices}
+              extras={extras}
+              onRetryExtras={() => void refresh()}
               nextStep={nextStep}
               cleaningGuides={cleaningGuides}
               level={level}
@@ -432,6 +435,8 @@ export default function Home() {
             tasks={homeTasks}
             warranties={expiringWarranties}
             notices={notices}
+            extras={extras}
+            onRetryExtras={() => void refresh()}
             upcoming={visibleUpcoming}
             nextUp={stats?.nextUp ?? null}
             comingUp={stats?.comingUp ?? null}

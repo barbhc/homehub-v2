@@ -2,12 +2,13 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react"
 import type { CareNote } from "@/integrations/types"
-import { createCareNote, deleteCareNote, getHomeNotes, setCareNotePinned, updateCareNote } from "@/modules/care"
+import { createCareNote, deleteCareNote, getHomeNotes, updateCareNote } from "@/modules/care"
 import { getRooms, useCurrentHome } from "@/modules/home"
 import { HOUSE_IDEAS, ideasFor, roomNoteCounts, type NoteIdea, type NoteScope } from "@/lib/notes"
 import { NoteComposer } from "@/components/notes/NoteComposer"
 import { IdeaChips, NoteRows, SharedLine } from "@/components/notes/NoteParts"
 import { useNotes } from "@/components/notes/useNotes"
+import { useNotePin } from "@/components/notes/useNotePin"
 
 const BG = "var(--hh-bg)", INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const SURFACE = "var(--hh-surface)"
@@ -67,21 +68,8 @@ export default function NotesPage() {
     if (params.has("idea")) setParams((p) => { const n = new URLSearchParams(p); n.delete("idea"); return n }, { replace: true })
   }
   // Pin a note to Home. A refusal is said above the notes; the note stays as it was.
-  const [pinBusyId, setPinBusyId] = useState<string | null>(null)
-  const [pinError, setPinError] = useState<string | null>(null)
-  const togglePin = async (note: CareNote) => {
-    if (!homeId || pinBusyId) return
-    setPinBusyId(note.note_id)
-    setPinError(null)
-    const res = await setCareNotePinned(homeId, note.note_id, !note.pinned_at)
-    setPinBusyId(null)
-    if (res.error) {
-      console.warn(`[notes] could not ${note.pinned_at ? "unpin" : "pin"} note ${note.note_id} (home ${homeId}):`, res.error.message)
-      setPinError(note.pinned_at ? "Couldn't unpin that note. Try again." : "Couldn't pin that note. Try again.")
-      return
-    }
-    reload()
-  }
+  const pin = useNotePin(homeId, reload)
+
   const openNew = (idea: NoteIdea | null) => setComposer({ key: `new:${idea?.label ?? ""}:${Date.now()}`, note: null, idea })
 
   const title = scope === "home" ? "House notes" : room?.name ?? (roomsError ? "Room notes" : "")
@@ -138,8 +126,8 @@ export default function NotesPage() {
                 </div>
               ) : (
                 <>
-                  {pinError && <div role="alert" className="text-[0.8125rem] font-medium" style={{ color: CLAY }}>{pinError}</div>}
-                  <NoteRows notes={mine} onEdit={(note) => setComposer({ key: note.note_id, note, idea: null })} onTogglePin={(n) => void togglePin(n)} pinBusyId={pinBusyId} />
+                  {pin.error && <div role="alert" className="text-[0.8125rem] font-medium" style={{ color: CLAY }}>{pin.error}</div>}
+                  <NoteRows notes={mine} onEdit={(note) => setComposer({ key: note.note_id, note, idea: null })} onTogglePin={pin.toggle} pinBusyId={pin.busyId} />
                 </>
               )}
 

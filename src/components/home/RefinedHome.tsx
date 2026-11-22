@@ -9,7 +9,7 @@ import type { ComingUp as ComingUpLine } from "@/lib/homeWeek"
 import type { AskStarter } from "../../../shared/care/dayOne"
 import { useDisplayName } from "@/hooks/useDisplayName"
 import { useScanTray } from "@/components/manuals/scanStatus"
-import { AskField, ComingUp, HeadsUp, NextUp, PinchAndPinned } from "@/components/home/HomeSections"
+import { AskField, ComingUp, HeadsUp, HomeLoadNote, NextUp, PinchAndPinned, type HomeExtras } from "@/components/home/HomeSections"
 
 // Calm palette (design/hh-home2.jsx)
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
@@ -42,6 +42,8 @@ export function RefinedHome({
   askStarters = [],
   warranties,
   notices,
+  extras,
+  onRetryExtras,
   nextStep,
   homeId,
   homeName,
@@ -63,6 +65,9 @@ export function RefinedHome({
   warranties: ExpiringWarrantyItem[]
   /** Recalls for Heads up. */
   notices: HomeNotices
+  /** Whether this home's recalls, warranties and schedule have loaded, and what failed. */
+  extras: HomeExtras
+  onRetryExtras: () => void
   /** The one next-step card (What's in your home? / This month at your home), placed after Coming up. */
   nextStep?: ReactNode
   cleaningGuides?: DeepCleanGuide[]
@@ -134,15 +139,17 @@ export function RefinedHome({
           tasks={tasks}
           upcoming={upcoming}
           nextUp={nextUp}
+          extras={extras}
           completingId={completingId}
           actionError={actionError}
           onComplete={onComplete}
           onSnooze={onSnooze}
         />
-        <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} />
-        <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} />
+        <HomeLoadNote extras={extras} onRetry={onRetryExtras} />
+        <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} extras={extras} />
+        <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} extras={extras} />
         {nextStep}
-        {homeId && <PinchAndPinned homeId={homeId} />}
+        {homeId && <PinchAndPinned homeId={homeId} tree="phone" />}
       </div>
     </div>
   )

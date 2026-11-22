@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { PencilIcon, PinIcon, PinOffIcon, PlusIcon, UsersIcon } from "lucide-react"
 import type { CareNote } from "@/integrations/types"
-import { displayBody, noteDate, splitNote, type NoteIdea } from "@/lib/notes"
+import { displayBody, isLegacyNote, noteDate, splitNote, type NoteIdea } from "@/lib/notes"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 const SURFACE = "var(--hh-surface)", LINE = "var(--hh-line)"
@@ -47,7 +47,8 @@ export function NoteRows({ notes, onEdit, onTogglePin, pinBusyId = null }: {
               )}
               {date && <span className="mt-1 text-[0.75rem]" style={{ color: FAINT }}>{date}</span>}
             </div>
-            {onTogglePin && (
+            {/* A legacy item note is not a note document yet, so it can't carry a pin. */}
+            {onTogglePin && !isLegacyNote(note.note_id) && (
               <button
                 type="button"
                 onClick={() => onTogglePin(note)}

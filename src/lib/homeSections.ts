@@ -16,9 +16,11 @@ import { addDays } from "../../shared/dates/calendar"
 export type PinchKey = "water" | "gas" | "power"
 
 export const PINCH_SPOTS: { key: PinchKey; label: string; idea: string; empty: string; match: RegExp }[] = [
-  { key: "water", label: "Water shutoff", idea: "Water shutoff", empty: "Where the main valve is", match: /^(main )?water( main)? shut-?off$/i },
-  { key: "gas", label: "Gas shutoff", idea: "Gas shutoff", empty: "Usually next to the gas meter", match: /^(main )?gas shut-?off$/i },
-  { key: "power", label: "Breaker panel", idea: "Breaker panel", empty: "Where tripped circuits reset", match: /^(breaker|electrical) panel$|^breakers$/i },
+  // Loose on purpose: "Main water valve" and "Water shut-off" are the same
+  // thing, and saying "Add" over a note that exists would be wrong.
+  { key: "water", label: "Water shutoff", idea: "Water shutoff", empty: "Where the main valve is", match: /\bwater\b.*\b(shut-?\s?off|valve|main)\b|\bmain\b.*\bwater\b/i },
+  { key: "gas", label: "Gas shutoff", idea: "Gas shutoff", empty: "Usually next to the gas meter", match: /\bgas\b.*\b(shut-?\s?off|valve|main|meter)\b|\bmain\b.*\bgas\b/i },
+  { key: "power", label: "Breaker panel", idea: "Breaker panel", empty: "Where tripped circuits reset", match: /\b(breakers?|electrical|electric|fuse)\b.*\b(panel|box)\b|^breakers?$/i },
 ]
 
 export type PinchRow = { key: PinchKey; label: string; idea: string; empty: string; value: string | null }
@@ -100,9 +102,10 @@ export function headsUpRows(input: {
 
 // ── Coming up ─────────────────────────────────────────────────────────────────
 
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 
-export type ComingRow = { id: string; title: string; item: string; month: string; day: string | null; href: string }
+export type ComingRow = { id: string; title: string; item: string; month: string; day: string | null; href: string; /** "In July" / "By July 20", read out before the title. */ when: string }
 
 /**
  * Up to three tasks after this week, soonest first. The tile shows the month;
@@ -127,6 +130,9 @@ export function comingUpRows(
       month: MONTHS[Number(t.next_due_date!.slice(5, 7)) - 1] ?? "",
       day: t.dueKind === "deadline" ? String(Number(t.next_due_date!.slice(8, 10))) : null,
       href: `/tasks/${t.id}`,
+      when: t.dueKind === "deadline"
+        ? `By ${MONTH_NAMES[Number(t.next_due_date!.slice(5, 7)) - 1]} ${Number(t.next_due_date!.slice(8, 10))}`
+        : `In ${MONTH_NAMES[Number(t.next_due_date!.slice(5, 7)) - 1]}`,
     }))
   if (rows.length > 0 || !forecast) return rows
   // A new home has nothing on the calendar after this week yet, only each
@@ -139,6 +145,7 @@ export function comingUpRows(
     month: MONTHS[Number(forecast.date.slice(5, 7)) - 1] ?? "",
     day: null,
     href: "/maintenance",
+    when: `In ${MONTH_NAMES[Number(forecast.date.slice(5, 7)) - 1]}`,
   }))
 }
 

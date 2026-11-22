@@ -5,7 +5,7 @@ import type { DashboardTask, ExpiringWarrantyItem, HomeNotices, MaintenanceTaskF
 import type { DeepCleanGuide } from "@/lib/cleanSession"
 import type { UserLevel } from "@/hooks/useUserLevel"
 import { greeting } from "@/lib/redesign/tokens"
-import { ComingUp, HeadsUp, NextUp, PinchAndPinned } from "@/components/home/HomeSections"
+import { ComingUp, HeadsUp, HomeLoadNote, NextUp, PinchAndPinned, type HomeExtras } from "@/components/home/HomeSections"
 import { useScanTray } from "@/components/manuals/scanStatus"
 import type { ComingUp as ComingUpLine } from "@/lib/homeWeek"
 import type { AskStarter } from "../../../shared/care/dayOne"
@@ -23,7 +23,7 @@ function fullToday(): string {
 }
 
 export function DesktopHome({
-  tasks, upcoming, nextUp = null, comingUp = null, askStarters = [], warranties, notices, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
+  tasks, upcoming, nextUp = null, comingUp = null, askStarters = [], warranties, notices, extras, onRetryExtras, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
 }: {
   tasks: DashboardTask[]
   /** Forward schedule for the Coming-up drawer. */
@@ -33,6 +33,9 @@ export function DesktopHome({
   askStarters?: AskStarter[]
   warranties: ExpiringWarrantyItem[]
   notices: HomeNotices
+  /** Whether this home's recalls, warranties and schedule have loaded, and what failed. */
+  extras: HomeExtras
+  onRetryExtras: () => void
   cleaningGuides: DeepCleanGuide[]
   level: UserLevel
   homeId: string | null
@@ -75,17 +78,19 @@ export function DesktopHome({
               tasks={tasks}
               upcoming={upcoming}
               nextUp={nextUp}
+              extras={extras}
               completingId={completingId}
               actionError={actionError}
               onComplete={onComplete}
               onSnooze={onSnooze}
             />
-            <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} />
+            <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} extras={extras} />
             {nextStep && <div className="max-w-xl">{nextStep}</div>}
           </div>
           <div className="flex flex-col gap-6">
-            <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} />
-            {homeId && <PinchAndPinned homeId={homeId} />}
+            <HomeLoadNote extras={extras} onRetry={onRetryExtras} />
+            <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} extras={extras} />
+            {homeId && <PinchAndPinned homeId={homeId} tree="desktop" />}
           </div>
         </div>
       </div>

@@ -84,7 +84,12 @@ describe("one Home load — a home with history, no user routines (the usual cas
   it("renders exactly what it always rendered", async () => {
     const { core, extras } = await loadHome()
     expect(rendered(core)).toMatchSnapshot("core")
-    expect(extras).toMatchSnapshot("extras")
+    // The sections are what is rendered; `homeId` and `failed` (2026-11-21) say
+    // whose data it is and that nothing failed.
+    const { homeId: whose, failed, ...sections } = extras
+    expect(sections).toMatchSnapshot("extras")
+    expect(typeof whose).toBe("string")
+    expect(failed).toEqual([])
   })
 
   it("still starts the instance a recurring cleaning template lost — and writes nothing else", async () => {
@@ -122,7 +127,12 @@ describe("one Home load — with user routines (guides come from the routines)",
   it("renders exactly what it always rendered", async () => {
     const { core, extras } = await loadHome()
     expect(rendered(core)).toMatchSnapshot("core")
-    expect(extras).toMatchSnapshot("extras")
+    // The sections are what is rendered; `homeId` and `failed` (2026-11-21) say
+    // whose data it is and that nothing failed.
+    const { homeId: whose, failed, ...sections } = extras
+    expect(sections).toMatchSnapshot("extras")
+    expect(typeof whose).toBe("string")
+    expect(failed).toEqual([])
   })
 
   it("reads", async () => {
@@ -187,6 +197,12 @@ describe("revalidation rounds", () => {
     const core = fetchCore(HOME_ID)
     const extras = fetchExtras(HOME_ID)
     await expect(core).rejects.toThrow("Couldn't reach the server to load your home.")
-    expect(await extras).toEqual({ upcoming: [], insights: [], expiringWarranties: [], notices: { recalls: [], missingDetails: [] }, cleaningGuides: [] })
+    const soft = await extras
+    expect({ ...soft, failed: [...(soft.failed ?? [])].sort() }).toEqual({
+      homeId: expect.any(String),
+      // Empty because the read failed, and it says so (Home shows "Couldn't load…").
+      failed: ["notices", "upcoming", "warranties"],
+      upcoming: [], insights: [], expiringWarranties: [], notices: { recalls: [], missingDetails: [] }, cleaningGuides: [],
+    })
   })
 })

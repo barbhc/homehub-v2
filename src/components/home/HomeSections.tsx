@@ -25,6 +25,7 @@ import { localToday } from "../../../shared/dates/calendar"
 import { useNotes } from "@/components/notes/useNotes"
 import { getHomeNotes } from "@/modules/care"
 import { useServiceProviders } from "@/hooks/useServiceProviders"
+import { useIsDesktop } from "@/hooks/useIsDesktop"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const SURFACE = "var(--hh-surface)", LINE = "var(--hh-line)"
@@ -124,8 +125,15 @@ export function AskField() {
 
 // ── Next up ───────────────────────────────────────────────────────────────────
 
-export function NextUp({ homeId, tasks, upcoming, nextUp = null, completingId, actionError, onComplete, onSnooze }: {
+/** What Home knows about its supplementary reads (useDashboard's `extras`). */
+export type HomeExtras = { ready: boolean; failed: string[] }
+const READY: HomeExtras = { ready: true, failed: [] }
+
+export function NextUp({ homeId, tasks, upcoming, nextUp = null, extras = READY, completingId, actionError, onComplete, onSnooze }: {
   homeId: string | null
+  /** While the forward schedule is still loading, or failed, an empty week is
+   *  not known to be empty: nothing is claimed (HomeLoadNote says a failure). */
+  extras?: HomeExtras
   tasks: DashboardTask[]
   upcoming: MaintenanceTaskFull[]
   /** The next due date from the stats, for when the forward feed hasn't come yet (HH-92). */
@@ -140,6 +148,7 @@ export function NextUp({ homeId, tasks, upcoming, nextUp = null, completingId, a
   const lead = rows[0] ?? null
   const more = rows.length - 1
   if (!lead) {
+    if (!extras.ready || extras.failed.includes("upcoming")) return null
     const ahead = nextUpRows(upcoming, today, 1)[0]
     return (
       <Section label="Next up" testId="next-up">
@@ -227,12 +236,15 @@ const HEADS_ICON: Record<HeadsUpRow["kind"], { icon: LucideIcon; tone: "clay" | 
   warranty: { icon: ShieldIcon, tone: "gold" },
 }
 
-export function HeadsUp({ recalls, ready, warranties }: {
+export function HeadsUp({ recalls, ready, warranties, extras = READY }: {
+  extras?: HomeExtras
   recalls: HomeNotices["recalls"]
   ready: { manualId: string; itemUnitId: string; title: string }[]
   warranties: ExpiringWarrantyItem[]
 }) {
-  const rows = headsUpRows({ recalls, ready, warranties })
+  // Recalls and warranties wait for this home's data; a manual ready to
+  // review comes from its own live listener and can show at once.
+  const rows = headsUpRows({ recalls: extras.ready ? recalls : [], ready, warranties: extras.ready ? warranties : [] })
   if (rows.length === 0) return null
   return (
     <Section label="Heads up" testId="heads-up">
@@ -258,7 +270,8 @@ export function HeadsUp({ recalls, ready, warranties }: {
 
 // ── Coming up ─────────────────────────────────────────────────────────────────
 
-export function ComingUp({ tasks, upcoming, forecast = null }: {
+export function ComingUp({ tasks, upcoming, forecast = null, extras = READY }: {
+  extras?: HomeExtras
   /** The urgent feed, so a task that is Next up (or in this week) is not repeated here. */
   tasks: DashboardTask[]
   upcoming: MaintenanceTaskFull[]
@@ -266,7 +279,7 @@ export function ComingUp({ tasks, upcoming, forecast = null }: {
   forecast?: ComingUpForecast | null
 }) {
   const today = localToday()
-  const rows = comingUpRows(upcoming, today, 3, forecast, weekRows(tasks, upcoming, today))
+  const rows = extras.ready && !extras.failed.includes("upcoming") ? comingUpRows(upcoming, today, 3, forecast, weekRows(tasks, upcoming, today)) : []
   if (rows.length === 0) return null
   return (
     <Section
@@ -278,11 +291,13 @@ export function ComingUp({ tasks, upcoming, forecast = null }: {
         {rows.map((r, i) => (
           <Link key={r.id} to={r.href} className="flex min-h-[60px] items-center gap-3 px-3.5 py-3" style={{ borderTop: i === 0 ? "none" : `1px solid ${LINE}` }} data-testid="coming-up-row">
             {/* Month always; the day only for a real deadline (design/due-windows.md). */}
-            <span className="flex min-h-11 min-w-11 shrink-0 flex-col items-center justify-center rounded-[10px] px-1.5 py-1 leading-none" style={{ background: "var(--hh-surface2)" }} aria-label={r.day ? `${r.month} ${r.day}` : r.month}>
+            <span className="flex min-h-11 min-w-11 shrink-0 flex-col items-center justify-center rounded-[10px] px-1.5 py-1 leading-none" style={{ background: "var(--hh-surface2)" }} aria-hidden>
               <span className="text-xs font-bold tracking-[0.5px]" style={{ color: CLAY }}>{r.month}</span>
               {r.day && <span className="mt-1 text-[1.0625rem] font-bold" style={{ color: INK }}>{r.day}</span>}
             </span>
             <span className="min-w-0 flex-1">
+              {/* The tile is a picture of the date; this says it (a label on a plain span is not read out). */}
+              <span className="sr-only">{r.when}: </span>
               <span className="block text-[1.0625rem] font-semibold leading-[1.3]" style={{ color: INK }}>{r.title}</span>
               <span className="mt-0.5 block text-[0.8125rem] leading-[1.38]" style={{ color: SUB }}>{r.item}</span>
             </span>
@@ -386,8 +401,12 @@ export function PinnedNotes({ notes }: { notes: CareNote[] | null }) {
 
 /** Reads the home's notes and providers once for both sections. Try again
  *  remounts the reader, so both reads run again. */
-export function PinchAndPinned({ homeId }: { homeId: string }) {
+export function PinchAndPinned({ homeId, tree }: { homeId: string; tree: "phone" | "desktop" }) {
   const [attempt, setAttempt] = useState(0)
+  // Home mounts a phone tree and a desktop tree and CSS shows one. Only the
+  // shown one reads, so notes and providers aren't fetched twice.
+  const isDesktop = useIsDesktop()
+  if (isDesktop !== (tree === "desktop")) return null
   return <PinchAndPinnedReads key={`${homeId}:${attempt}`} homeId={homeId} onRetry={() => setAttempt((n) => n + 1)} />
 }
 
@@ -399,5 +418,17 @@ function PinchAndPinnedReads({ homeId, onRetry }: { homeId: string; onRetry: () 
       <InAPinch notes={notes} notesError={error} providers={providersLoading ? null : providers} providersError={loadFailed} onRetry={onRetry} />
       <PinnedNotes notes={notes} />
     </>
+  )
+}
+
+/** One compact line when part of Home couldn't load, so an empty section is
+ *  never mistaken for "nothing there" (Codex review F2). */
+export function HomeLoadNote({ extras, onRetry }: { extras: HomeExtras; onRetry: () => void }) {
+  if (extras.failed.length === 0) return null
+  return (
+    <div role="alert" className={`${CARD} flex items-center gap-2 px-4 py-3 text-[0.9375rem]`} style={{ background: SURFACE, borderColor: LINE, color: CLAY }} data-testid="home-load-note">
+      <span className="min-w-0 flex-1">Couldn&apos;t load recalls, warranties and what&apos;s coming up.</span>
+      <button type="button" onClick={onRetry} className="hit-44 shrink-0 font-bold underline underline-offset-2">Try again</button>
+    </div>
   )
 }

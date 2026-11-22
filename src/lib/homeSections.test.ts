@@ -30,6 +30,16 @@ describe("In a pinch", () => {
     ])
   })
 
+  it("matches the ways people name them, so a noted shutoff never says Add", () => {
+    const rows = pinchSpots([
+      note({ note_id: "a", content: "Main water valve: Basement, by the meter" }),
+      note({ note_id: "b", content: "Gas shut-off: Left side of the house" }),
+      note({ note_id: "c", content: "Electrical panel: Garage" }),
+      note({ note_id: "d", content: "Water filter: change yearly" }),
+    ])
+    expect(rows.map((r) => r.value)).toEqual(["Basement, by the meter", "Left side of the house", "Garage"])
+  })
+
   it("reads house notes only — a room's 'Breaker panel' note is not the house's", () => {
     const rows = pinchSpots([note({ scope: "room", room_id: "r1", content: "Breaker panel: Kitchen wall" })])
     expect(rows.find((r) => r.key === "power")!.value).toBeNull()
@@ -89,12 +99,12 @@ describe("Coming up", () => {
 
   it("a new home with nothing on the calendar yet shows each task's next round, month only", () => {
     const rows = comingUpRows([], today, 3, { date: "2026-12-01", titles: ["Test smoke and CO alarms"], again: true })
-    expect(rows).toEqual([{ id: "forecast:Test smoke and CO alarms", title: "Test smoke and CO alarms", item: "Its next round", month: "DEC", day: null, href: "/maintenance" }])
+    expect(rows).toEqual([{ id: "forecast:Test smoke and CO alarms", title: "Test smoke and CO alarms", item: "Its next round", month: "DEC", day: null, href: "/maintenance", when: "In December" }])
   })
 
   it("a window shows its month only; a real deadline shows the day too", () => {
     const rows = comingUpRows([task("w", "2026-07-15"), task("d", "2026-07-20", { dueKind: "deadline" })], today)
-    expect(rows.map((r) => [r.month, r.day])).toEqual([["JUL", null], ["JUL", "20"]])
+    expect(rows.map((r) => [r.month, r.day, r.when])).toEqual([["JUL", null, "In July"], ["JUL", "20", "By July 20"]])
   })
 })
 

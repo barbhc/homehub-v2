@@ -54,6 +54,18 @@ the build shows "JUL" for windows.
 - **Pinning fails:** the pin control says so on the row and the note stays as it was.
 - **Mark done / Snooze fails on Next up:** the error shows on the card (as today).
 
+## After the independent review (2026-11-21)
+
+- Heads up and Coming up wait for THIS home's data (`useDashboard().extras.ready`;
+  the payload carries its `homeId` so a home switch never shows the last home's
+  recalls). A failed read shows one line, "Couldn't load recalls, warranties and
+  what's coming up. Try again", instead of empty sections.
+- Next up claims "Nothing due this week" only once the schedule has loaded.
+- The pin is on item notes too (not on a legacy item note, which isn't a note
+  document yet). In a pinch matches looser headings ("Main water valve").
+- Coming up's date is read out ("In July: …"); the tile is decorative.
+- In a pinch and Pinned read once, in the tree that is shown.
+
 ## Done means
 
 - Mobile and desktop Home show the sections in this order, each hiding as above.
