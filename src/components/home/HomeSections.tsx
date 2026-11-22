@@ -26,6 +26,7 @@ import { useNotes } from "@/components/notes/useNotes"
 import { getHomeNotes } from "@/modules/care"
 import { useServiceProviders } from "@/hooks/useServiceProviders"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
+import { WARRANTIES_PATH } from "@/hooks/usePageView"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const SURFACE = "var(--hh-surface)", LINE = "var(--hh-line)"
@@ -258,7 +259,7 @@ export function HeadsUp({ recalls, ready, warranties, extras = READY }: {
             title={r.title}
             sub={r.sub}
             action={r.kind === "review" ? "Review" : undefined}
-            to={r.kind === "warranty" ? "/warranties" : `/items/${r.itemId}`}
+            to={r.kind === "warranty" ? WARRANTIES_PATH : `/items/${r.itemId}`}
             onClick={r.kind === "review" ? () => requestReview(r.manualId) : undefined}
             testId="heads-up-row"
           />
