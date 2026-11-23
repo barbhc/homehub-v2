@@ -68,13 +68,16 @@ export function IconTile({ icon: Icon, tone = "teal" }: { icon: LucideIcon; tone
  * One row: optional icon, title, optional sub line, then a value, a teal
  * action word ("Add") or an arrow. A link when `to` is given, else a button.
  */
-export function ListRow({ icon, tone, title, sub, value, action, first, to, onClick, testId }: {
+export function ListRow({ icon, tone, title, sub, value, quietValue, action, first, to, onClick, testId }: {
   icon?: LucideIcon
   tone?: RowTone
   title: string
   sub?: string | null
   /** The current setting, in grey before the arrow ("On", "House"). */
   value?: string | null
+  /** The value a size down (Footnote, 13): a status beside a title that has a
+   *  second line of its own ("Not answered yet"), so that line keeps its room. */
+  quietValue?: boolean
   /** A word in teal ("Add", "Review"); replaces the arrow. */
   action?: string
   first: boolean
@@ -91,7 +94,14 @@ export function ListRow({ icon, tone, title, sub, value, action, first, to, onCl
         <span className="block text-[1.0625rem] font-semibold leading-[1.3] [overflow-wrap:anywhere]" style={{ color: INK }}>{title}</span>
         {sub && <span className="mt-0.5 block text-[0.8125rem] leading-[1.38] [overflow-wrap:anywhere]" style={{ color: SUB }}>{sub}</span>}
       </span>
-      {value && <span className="max-w-[45%] shrink-0 text-right text-[0.9375rem] leading-[1.33] [overflow-wrap:anywhere]" style={{ color: SUB }}>{value}</span>}
+      {value && (
+        <span
+          className={`max-w-[45%] shrink-0 text-right [overflow-wrap:anywhere] ${quietValue ? "text-[0.8125rem] leading-[1.38]" : "text-[0.9375rem] leading-[1.33]"}`}
+          style={{ color: SUB }}
+        >
+          {value}
+        </span>
+      )}
       {action
         ? <span className="shrink-0 text-[0.9375rem] font-semibold" style={{ color: TEAL }}>{action}</span>
         : <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: FAINT }} aria-hidden />}

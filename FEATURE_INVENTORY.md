@@ -62,16 +62,16 @@ Inventory `/inventory` (always) · Ask `/chat` (always) · Settings `/settings`.
 > Tasks? under Home? under a "More"?). Care, Schedule, Cleaning and FAQ needed no home: they
 > were deleted in #229 (see their sections below).
 
-## Cross-cutting #2 — Gating System (`useUserLevel` + `interfaceLevel`)
+## Cross-cutting #2 — Gating System (`useUserLevel`)
 
 **Levels** (auto-derived from signals): `itemCount`, `homeCount`, `profileCompleted`.
 - `homeCount > 1 || itemCount >= 15` → **power**
 - `itemCount >= 3 && profileCompleted` → **engaged**
 - else → **essentials**
 
-**Manual override** (Settings → Interface Level, stored in `localStorage`): Simple → force
-`essentials` · Standard → derived · Advanced → force `power`. Default while loading = `engaged`
-(so existing users never flash the reduced surface).
+**No manual override.** Settings' Interface Level picker (Simple / Standard / Advanced) was
+removed 2026-11-23 (`design/settings-your-home.md`); nothing reads the stored choice. While the
+signals load the level is the last derived one for this home and person, else `engaged`.
 
 **`preferred_mode`** (home profile): `ask_first` → Home shows AskFirstHero instead of the task
 dashboard · `inventory_first` / unset → default dashboard.

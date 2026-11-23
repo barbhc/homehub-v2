@@ -182,7 +182,7 @@ export default function YourHome() {
   const basics = basicsRows(profile)
 
   return (
-    <PageContainer>
+    <PageContainer className="px-5 sm:px-6">
       <div className="mx-auto w-full max-w-[640px] pb-10" data-testid="your-home">
         <div className="mb-2 flex items-center gap-2">
           {editing ? (
@@ -227,7 +227,7 @@ export default function YourHome() {
               <ListCard testId="setup-categories">
                 {CATEGORIES.map((c, i) => {
                   const status = categoryStatus(c, facts)
-                  return <ListRow key={c.key} first={i === 0} title={c.label} sub={c.blurb} value={status} onClick={() => setOpen(c.key)} />
+                  return <ListRow key={c.key} first={i === 0} title={c.label} sub={c.blurb} value={status} quietValue onClick={() => setOpen(c.key)} />
                 })}
               </ListCard>
             </ListSection>

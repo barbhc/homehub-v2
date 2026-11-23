@@ -342,14 +342,13 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       const toSettings = dialog.getByRole("link", { name: "Turn on in Settings" })
       await expect(toSettings).toBeVisible()
       await shot(page, label, "s5-review-row-opened")
-      // …and it goes to Settings' Notifications section. What that section
-      // says on a refused device — "Open iPhone Settings → Homehub →
-      // Notifications." — is pinned in NotificationsRefusedNote.test.tsx: this
-      // e2e build carries no web-push key, so its Settings has no
-      // Notifications section to render it in.
+      // …and it goes to Settings → Notifications. What that page says on a
+      // refused device — "Open iPhone Settings → Homehub → Notifications." —
+      // is pinned in NotificationsRefusedNote.test.tsx: this e2e build carries
+      // no web-push key, so the page only says this browser can't show them.
       await toSettings.click()
-      await expect(page).toHaveURL(/\/settings#notifications$/)
-      await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible()
+      await expect(page).toHaveURL(/\/settings\/notifications$/)
+      await expect(page.getByRole("heading", { name: "Notifications", level: 1 })).toBeVisible()
     })
 
     test("S3 → S3b → S3c: no maintenance — the same hand-off, one screen, nothing into Tasks, saved only on Save", async ({ page }) => {

@@ -19,7 +19,9 @@ The prototypes use inline-styled React function components transpiled in-browser
 ---
 
 ## Core Concept: The "Level" system (progressive disclosure)
-Homehub reveals features as a home "grows," to keep first-run calm. There are three levels, set in Settings:
+Homehub reveals features as a home "grows," to keep first-run calm. There are three levels.
+
+> **As built (2026-11-23):** the level is derived from the home and nobody sets it. The Simple / Standard / Advanced picker was removed from Settings (`design/settings-your-home.md`); the names below are the original handoff's.
 
 - **Simple** — Home, Items, Tasks, Ask, Settings. Just this week's tasks + items.
 - **Standard** — adds **Home upkeep** (recurring home-level tasks) on Home, plus Warranties and Cleaning surfaces.
@@ -188,6 +190,7 @@ A rounded-square teal tile (radius ≈ 30% of size) containing a white `house` g
 - Trusted pros grouped by trade; provider detail with call/email/website, notes, and items they've worked on.
 
 ### 11. Settings (`hh-settings*.jsx`; desktop `DesktopSettings`)
+> **As built (2026-11-23):** Settings is one short menu with a page per row; Rooms moved to Items, custom tasks to Tasks, the home's facts to Your home. See `design/settings-your-home.md`; the bullet below is the original handoff.
 - **Level** segmented control (Simple/Standard/Advanced) — the disclosure driver. Appearance (Light/Dark). Profile, Home profile, Rooms, **Home members** (with **Invite** modal: email + role + share link; recipient gets an accept-and-join screen), and managers: **Rooms** and **Custom tasks** (unified with Home upkeep; editor has a rolling-vs-seasonal cadence toggle).
 
 ### 12. Notifications (`hh-settings-sub.jsx` → `NotificationsScreen`)

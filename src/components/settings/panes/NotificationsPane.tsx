@@ -591,8 +591,8 @@ export function NotificationsPane() {
                 </button>
               </div>
               {notifPrefs.weekly_digest.enabled && (
-                <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: "1px solid var(--hh-line)" }}>
-                  <div className="min-w-0 flex-1 text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>When</div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3" style={{ borderTop: "1px solid var(--hh-line)" }}>
+                  <div className="min-w-0 basis-full text-[0.9375rem] font-semibold sm:flex-1 sm:basis-auto" style={{ color: "var(--hh-ink)" }}>When</div>
                   <Select value={String(notifPrefs.weekly_digest.day)} onValueChange={(v) => setWeeklyDigest({ day: Number(v) })}>
                     <SelectTrigger className="w-[130px] shrink-0" aria-label="Weekly summary day"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -610,13 +610,15 @@ export function NotificationsPane() {
             </div>
             {notifSaveErrorFor("digest")}
 
-            {/* Timing: lead time + quiet hours */}
+            {/* Timing: lead time + quiet hours. The rows wrap: at phone width the
+                control drops under its label rather than squeezing the label
+                to a word a line. */}
             <div
               className="mt-4 overflow-hidden rounded-2xl"
               style={{ background: "var(--hh-surface2)", border: "1px solid var(--hh-line)" }}
             >
-              <div className="flex items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+                <div className="min-w-[11rem] flex-1">
                   <div className="text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
                     Reminder lead time
                   </div>
@@ -642,10 +644,10 @@ export function NotificationsPane() {
               </div>
 
               <div
-                className="flex items-center gap-3 px-4 py-3"
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
                 style={{ borderTop: "1px solid var(--hh-line)" }}
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[11rem] flex-1">
                   <div className="text-[0.9375rem] font-semibold" style={{ color: "var(--hh-ink)" }}>
                     Quiet hours
                   </div>

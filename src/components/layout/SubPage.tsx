@@ -20,7 +20,8 @@ export function SubPage({ backTo, backLabel, title, testId, children }: {
   children: ReactNode
 }) {
   return (
-    <PageContainer>
+    // 20px gutters on a phone, like Home, Tasks and Items (and the mock).
+    <PageContainer className="px-5 sm:px-6">
       <div className="mx-auto w-full max-w-[640px] pb-10" data-testid={testId}>
         <div className="mb-2 flex items-center">
           <Link to={backTo} className="flex min-h-11 items-center gap-1 text-[0.9375rem] font-semibold leading-[1.33]" style={{ color: "var(--hh-teal)" }}>

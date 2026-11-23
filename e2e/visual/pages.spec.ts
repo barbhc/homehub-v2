@@ -30,7 +30,9 @@ const PAGES: PageCase[] = [
   { name: "warranties", path: "/inventory?view=warranties", ready: /Bosch|Carrier|coverage/i },
   { name: "clean", path: "/maintenance?view=cleaning", ready: /start cleaning|cleaning guides/i },
   { name: "providers", path: "/providers", ready: /Ace Heating & Air/i },
-  { name: "settings", path: "/settings", ready: /settings|appearance|account/i },
+  // Settings became a menu (design/settings-your-home.md): this baseline needs
+  // re-baking by the workflow for that change.
+  { name: "settings", path: "/settings", ready: /appearance/i },
 ]
 
 /**

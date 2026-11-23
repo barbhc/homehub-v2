@@ -3,8 +3,8 @@ import { test, expect, type Page } from "@playwright/test"
 /**
  * The part inside its task, end to end on the seeded emulator (the part card,
  * design/spares-and-notes.md): add a part, link it, turn buy-ahead on — it all
- * survives a reload (the transactional writers, not local state) and reaches
- * Buy first on /week. Then rename it on the task page, and record where the
+ * survives a reload (the transactional writers, not local state). Then rename
+ * it on the task page, and record where the
  * spare is kept: the place survives a reload and reaches Home's open row (5b).
  */
 const visible = { visible: true } as const
@@ -31,7 +31,7 @@ async function furnaceTaskWithPart(page: Page) {
 }
 
 test.describe("emulator e2e — the part card", () => {
-  test("add a part, link it, turn buy-ahead on; it persists and reaches Buy first", async ({ page }) => {
+  test("add a part, link it, turn buy-ahead on; it persists", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto("/items/furnace")
     await expect(page.getByText("Carrier Infinity Furnace").filter(visible).first()).toBeVisible({ timeout: 20_000 })
@@ -56,10 +56,9 @@ test.describe("emulator e2e — the part card", () => {
     await expect(page.getByRole("button", { name: /^Size 16x25x1/ }).filter(visible).first()).toBeVisible()
     await expect(page.getByRole("switch", { name: "Remind me to buy the next Furnace filter" })).toBeChecked()
 
-    // The seeded furnace task is due this week → the part is a Buy-first row.
-    await page.goto("/week")
-    await expect(page.getByText("Buy first").filter(visible).first()).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByText("Furnace filter · 16x25x1").filter(visible).first()).toBeVisible()
+    // "Buy first" was a list on Your week, which is parked
+    // (design/settings-your-home.md): /week lands on Tasks. What goes in that
+    // list stays pinned in src/lib/buyFirst.test.ts and YourWeek.test.tsx.
   })
 
   test("the task page's part card renames the part, and the item page agrees", async ({ page }) => {

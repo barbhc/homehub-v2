@@ -36,7 +36,7 @@ const SCALES = [
   { name: "AX (200%)", scale: 2, vp: { name: "iPad landscape", width: 1180, height: 820 } },
 ] as const
 
-const JUDGED = ["home", "tasks", "task page", "your week", "items", "item page", "ask", "settings", "sign-in"]
+const JUDGED = ["home", "tasks", "task page", "your home", "your own tasks", "rooms", "items", "item page", "ask", "settings", "sign-in"]
 
 /** Ask before a question: the launcher cards and the item filter (the answer
  *  state in PAGES hides them). */

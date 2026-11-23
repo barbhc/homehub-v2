@@ -181,7 +181,7 @@ calls below. Four phases, in order:
   error buzz when a save fails. Nothing else (Phase 3).
 - **Titles and Back:** large titles on Tasks, Items and Settings; Home keeps its
   compact greeting; chevron-only Back everywhere (Phase 4).
-- **Settings:** drill-in groups, developer sections behind Advanced (Phase 4).
+- **Settings:** drill-in groups, developer sections behind Advanced (Phase 4). **Built 2026-11-23** as a menu with a page per row; the developer sections are one Internal tools page for `dev_tools` (`design/settings-your-home.md`).
 - **Dialogs:** bottom sheets with Cancel / Done (Phases 2 and 4).
 - **Tasks swipe:** stays swipe-to-commit, with flick velocity and the leaving
   row (Phase 2).
@@ -223,7 +223,7 @@ under half an hour … 5 = a week. Ties break security > data > UX > polish.
 | 9 | **Language-aware page selection** (§3.1) | 1 | 3 | 4 | 1.0 | ~35% off parse cost; blocked on #1. |
 | 10 | **Streaming partial parse** (§3.2) | 1 | 3 | 4 | 1.0 | Blocked on #1 and a schema reorder. |
 | 11 | **Offline support** (§6) | 2 | 3 | 5 | 1.0 | Starts with deciding what an empty cache read means. |
-| 12 | **Split `Settings.tsx` (1,754 lines) and `IdentifyStep.tsx` (1,223)** | 1 | 2 | 3 | 1.0 | Maintenance only. |
+| 12 | **Split `Settings.tsx` (1,754 lines) and `IdentifyStep.tsx` (1,223)** | 1 | 2 | 3 | 1.0 | Maintenance only. `Settings.tsx` done 2026-11-23: it is a routing shell, each page a component (`design/settings-your-home.md`). `IdentifyStep.tsx` remains. |
 | 13 | **Section-aware parser** (§4) | 1 | 3 | 5 | 0.8 | Biggest parse-quality lever, biggest scope, blocked on #1. |
 
 **Do now:** #1, because it unblocks four others. Then #2 and #3 in the same

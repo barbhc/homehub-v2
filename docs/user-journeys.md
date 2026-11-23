@@ -143,7 +143,7 @@ Key mechanics (the agreement is `docs/add-item-flow.md`; fuller data trace in
   gap: an appliance-lane add still starts as "Brand Model" (Package E3).
 - **Vocabulary:** the app READS a manual — "Reading the manual", "1 reading",
   "Read again". Never "parse" (jargon). HH-161 retired the old "never read"
-  rule; the add dialog's "Scan the manual", Settings' manual list and a few
+  rule; the add dialog's "Scan the manual", the internal manuals list (Settings → Internal tools) and a few
   other lines still say "scan" for the read until they are converted
   (`docs/add-item-flow.md` lists them). A camera still scans a label.
 - **Doc-type honesty:** `detectDocType` gates spec sheets/warranties (*Use
@@ -210,7 +210,7 @@ Key mechanics:
   Settings" beside its switch (HH-161, as the owner's review of #228 refined
   it).
 - **Two doors, one screen (HH-119):** `ParsePickupCard` (after a read — the
-  add, "Read the manual", "Read again"; a ready row in the Items list and Settings' Review open it
+  add, "Read the manual", "Read again"; a ready row in the Items list and the internal manuals list's Review open it
   too) and **Review tasks** on the item's Upkeep heading
   (`ReviewItemTasksButton`, the phone layout). The manual section's own review
   is gone (HH-161). The `focus` prop defaults to the approved review, so a door

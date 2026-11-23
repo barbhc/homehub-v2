@@ -31,7 +31,10 @@ test.describe("emulator e2e — task level", () => {
     const coilsListed = (await page.getByText("Vacuum refrigerator coils").filter(visible).count()) > 0
 
     // A home from before the setting shows Everything selected.
+    // By the address the app used before Settings became a menu: it still lands.
     await page.goto("/settings#task-level")
+    await expect(page).toHaveURL(/\/settings\/task-level$/, { timeout: 20_000 })
+    await expect(page.getByRole("heading", { level: 1, name: "Task level" })).toBeVisible({ timeout: 20_000 })
     await expect(level(page, /^Everything/)).toHaveAttribute("aria-pressed", "true", { timeout: 20_000 })
     await expect(page.getByText("This changes what shows. Nothing is deleted.").filter(visible)).toBeVisible()
 
@@ -50,7 +53,7 @@ test.describe("emulator e2e — task level", () => {
     const note = page.getByRole("link", { name: /hidden by your task level/ }).filter(visible).first()
     await expect(note).toBeVisible()
     await note.click()
-    await expect(page).toHaveURL(/\/settings#task-level$/)
+    await expect(page).toHaveURL(/\/settings\/task-level$/)
 
     // And it survived the reload that navigation just did.
     await expect(level(page, /^Essential only/)).toHaveAttribute("aria-pressed", "true", { timeout: 20_000 })

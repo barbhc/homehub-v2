@@ -130,7 +130,8 @@ export function SettingsMenu() {
   }, [isSigningOut, signOut, navigate, userId])
 
   return (
-    <PageContainer>
+    // 20px gutters on a phone, like Home, Tasks and Items (and the mock).
+    <PageContainer className="px-5 sm:px-6">
       <div className="mx-auto w-full max-w-[640px] pb-10" data-testid="settings-menu">
         <h1 className="text-[1.75rem] font-extrabold leading-[1.2] tracking-[-0.7px]" style={{ color: "var(--hh-ink)" }}>Settings</h1>
 
