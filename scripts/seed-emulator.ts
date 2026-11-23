@@ -81,8 +81,8 @@ async function seedHome(uid: string): Promise<void> {
   })
   // Public profile + private prefs (self-only subtree).
   await db.doc(`users/${uid}`).set({ fullName: "E2E Tester", avatarUrl: null, createdAt: NOW, updatedAt: NOW })
-  // Keyed by the PREF_* constants userPreferences reads (interface_level shape = { level }).
-  await db.doc(`users/${uid}/private/preferences`).set({ interface_level: { level: "advanced" }, tour_completed: true, updatedAt: NOW })
+  // Keyed by the PREF_* constants userPreferences reads.
+  await db.doc(`users/${uid}/private/preferences`).set({ tour_completed: true, updatedAt: NOW })
 }
 
 // ── 3. Rooms ─────────────────────────────────────────────────────────────────

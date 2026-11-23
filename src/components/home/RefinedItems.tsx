@@ -16,6 +16,8 @@ import { dens } from "@/lib/redesign/tokens"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { segmentPanelId, segmentPanelProps } from "@/components/ui/segmentIds"
 import { ITEMS_VIEWS, useItemsView } from "@/hooks/usePageView"
+import { QuietLink } from "@/components/layout/QuietLink"
+import { ROOMS_PATH } from "@/lib/settingsPaths"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", BG = "var(--hh-bg)"
 
@@ -241,6 +243,8 @@ export function RefinedItems({
             </div>
           ))
         )}
+        {/* Rooms are managed from here (design/settings-your-home.md). */}
+        <QuietLink to={ROOMS_PATH} testId="edit-rooms" className="self-start pl-0.5">Edit rooms</QuietLink>
         <div className="h-2" />
       </div>
       )}

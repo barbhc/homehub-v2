@@ -14,6 +14,7 @@ import { useIsCurrent } from "@/hooks/useIsCurrent"
 import { isAgendaEligible } from "@/lib/agendaEligibility"
 import { getNotificationPrefs, setNotificationPrefs } from "@/lib/userPreferences"
 import type { NotificationPrefs } from "@/lib/notificationPreferences"
+import { SETTINGS_PATH } from "@/lib/settingsPaths"
 import { cadenceLabel, cadenceLabelInline } from "../../shared/tasks/cadenceLabel"
 import { isRecurring } from "../../shared/tasks/reviewBuckets"
 import type { ScheduleType, Season, TaskTemplate } from "@/integrations/types"
@@ -21,7 +22,12 @@ import type { ScheduleType, Season, TaskTemplate } from "@/integrations/types"
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 
 /**
- * /reminders — "Your reminders": describe → propose → edit → turn on.
+ * "Your reminders": describe → propose → edit → turn on.
+ *
+ * PARKED 2026-11-23 (design/settings-your-home.md, audit finding 12): no route
+ * renders this page; `/reminders` redirects to Settings → Notifications
+ * (lib/viewRedirects). Kept with its tests so it can be routed again as it
+ * stands. The per-task reminder bell and the Notifications page are untouched.
  *
  * Suggest, never assume, end to end: the proposal is drawn ONLY from tasks the
  * home already has (enforced server-side), every row starts ticked but is one
@@ -353,7 +359,7 @@ export default function YourReminders() {
     <PageContainer className="pb-28">
       <div className="mx-auto w-full max-w-[460px] lg:max-w-[560px]">
         <header className="flex flex-col gap-0.5 pt-2 pb-3">
-          <Link to="/settings#reminders" className="hit-44 inline-flex items-center gap-0.5 text-[0.8125rem] font-semibold" style={{ color: SUB }}>
+          <Link to={SETTINGS_PATH} className="hit-44 inline-flex items-center gap-0.5 text-[0.8125rem] font-semibold" style={{ color: SUB }}>
             <ChevronLeftIcon className="size-[15px]" /> Settings
           </Link>
           <h1 className="mt-1.5 text-[1.1875rem] font-extrabold tracking-[-0.4px]" style={{ color: INK }}>Your reminders</h1>

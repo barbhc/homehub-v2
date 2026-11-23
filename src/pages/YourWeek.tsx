@@ -6,6 +6,7 @@ import { useCurrentHome } from "@/modules/home"
 import { addShoppingItem, type WeekReminder } from "@/modules/care"
 import { useWeekReminders, weekChip } from "@/hooks/useWeekReminders"
 import { buyFirstRows, type BuyFirstRow } from "@/lib/buyFirst"
+import { NOTIFICATION_SETTINGS_PATH } from "@/lib/notifyGate"
 import { TIER, type Tier, shortDate } from "@/lib/redesign/tokens"
 import { addDays, localToday } from "../../shared/dates/calendar"
 
@@ -13,7 +14,11 @@ const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", T
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
 /**
- * /week — "Your week": the Sunday summary's in-app destination.
+ * "Your week": the Sunday summary's in-app destination.
+ *
+ * PARKED 2026-11-23 (design/settings-your-home.md, audit finding 12): no route
+ * renders this page; `/week` redirects to Tasks (lib/viewRedirects). Kept with
+ * its tests so it can be routed again as it stands.
  *
  * Reads the week through the notification lens (getWeekReminders + the
  * user's push mode) so the rows here are EXACTLY what the digest push names.
@@ -129,7 +134,7 @@ export default function YourWeek() {
                     <div className="text-[0.90625rem] font-semibold" style={{ color: INK }}>Nothing needs you this week.</div>
                     <div className="mt-1 text-[0.78125rem]" style={{ color: SUB }}>
                       Reminders you turn on show up here.{" "}
-                      <Link to="/settings#reminders" className="font-semibold" style={{ color: TEAL }}>Your reminders</Link>
+                      <Link to="/reminders" className="font-semibold" style={{ color: TEAL }}>Your reminders</Link>
                     </div>
                   </div>
                 ) : (
@@ -169,7 +174,7 @@ export default function YourWeek() {
                   <span>The weekly summary is off ·</span>
                 )}
                 {/* hit-44-down: the free space is below; above is the "more tasks" link. */}
-                <Link to="/settings#notifications" className="hit-44-down font-semibold" style={{ color: TEAL }}>{digest.enabled ? "Change" : "Turn on"}</Link>
+                <Link to={NOTIFICATION_SETTINGS_PATH} className="hit-44-down font-semibold" style={{ color: TEAL }}>{digest.enabled ? "Change" : "Turn on"}</Link>
               </div>
             </div>
           )}

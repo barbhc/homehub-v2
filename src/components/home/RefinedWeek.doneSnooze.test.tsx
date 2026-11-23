@@ -39,7 +39,12 @@ vi.mock("@/modules/care", () => ({
   getTaskDetail: (...a: unknown[]) => svc.getTaskDetail(...a),
 }))
 // useSearchParams: the Upkeep | Cleaning control reads ?view= (none here → Upkeep).
-vi.mock("react-router-dom", () => ({ useNavigate: () => vi.fn(), useSearchParams: () => [new URLSearchParams(), vi.fn()] }))
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => vi.fn(),
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  // The list ends in a link ("Add your own task"); these tests are about the rows above it.
+  Link: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a>,
+}))
 // Who is signed in — the queue stamps every Done with it.
 const session = vi.hoisted(() => ({ auth: { currentUser: { uid: "user-a" } as { uid: string } | null } }))
 vi.mock("@/integrations/firebase", () => ({ auth: session.auth, db: {}, callable: vi.fn(() => vi.fn()) }))

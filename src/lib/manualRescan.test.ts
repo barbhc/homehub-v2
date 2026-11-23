@@ -7,8 +7,9 @@
  * reviewed ("Read — not saved").
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
-// The page's source as text (Vite's ?raw), for the two structural checks at the end.
-import settings from "../pages/Settings.tsx?raw"
+// The manuals list's source as text (Vite's ?raw), for the two structural checks
+// at the end. The list is on Settings → Internal tools (design/settings-your-home.md).
+import settings from "../components/settings/panes/InternalPane.tsx?raw"
 
 const svc = vi.hoisted(() => ({ startParse: vi.fn(), parseManualAndWait: vi.fn() }))
 vi.mock("@/modules/knowledge/services/parseManualService", () => ({
@@ -102,7 +103,7 @@ describe("Read — not saved", () => {
   })
 })
 
-describe("the Settings page itself", () => {
+describe("the manuals list itself (Settings → Internal tools)", () => {
   it("never starts a read in commit mode", () => {
     expect(settings).not.toMatch(/mode:\s*"commit"/)
     expect(settings).not.toContain("parseManualAndWait(")
@@ -170,7 +171,7 @@ describe("rescanTargets — Rescan All keeps the promises the rows keep", () => 
   })
 })
 
-describe("the Settings page routes bulk rescans through the rule", () => {
+describe("the manuals list routes bulk rescans through the rule", () => {
   it("Rescan All and Retry failed both filter, rather than passing every manual", () => {
     expect(settings).toContain("runRescan(rescanTargets(manuals))")
     expect(settings).not.toMatch(/runRescan\(manuals\)/)

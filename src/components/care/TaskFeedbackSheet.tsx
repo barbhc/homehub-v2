@@ -248,7 +248,7 @@ export function TaskFeedbackSheet({
       // read as done. The tasks above did change; say plainly that this didn't.
       const prof = await upsertHomeProfile(homeId, { climate: "mild", freeze_risk: false })
       if (prof.error || prof.data.freeze_risk !== false) {
-        setClimateError("Your climate didn't save, so new manuals may still add winterizing. Set it in Settings › Home profile.")
+        setClimateError("Your climate didn't save, so new manuals may still add winterizing. Set it in Your home › The basics.")
       }
     }
     setSubmitting(false)
@@ -295,7 +295,7 @@ export function TaskFeedbackSheet({
             </div>
             <p className="mb-4 text-[0.84375rem]" style={{ color: SUB }}>
               Updated {result.affected} task{result.affected === 1 ? "" : "s"}.
-              {result.ruleId ? " Saved as a house rule you can review in Settings." : ""}
+              {result.ruleId ? " Saved as a house rule you can review in Your home." : ""}
             </p>
             {climateError && (
               <p className="-mt-2 mb-4 text-[0.8125rem] font-semibold" style={{ color: CLAY }}>{climateError}</p>

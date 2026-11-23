@@ -118,8 +118,8 @@ export const tourSteps: TourStep[] = [
     popover: {
       title: "Settings",
       description:
-        "Rooms, routines, when reminders arrive — and when they don't. " +
-        "Rescan a manual here any time.",
+        "Your home's details, who shares it, and when reminders arrive. " +
+        "Change how many tasks you see here any time.",
       side: "top",
       align: "center",
     },

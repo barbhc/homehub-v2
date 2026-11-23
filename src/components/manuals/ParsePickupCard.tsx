@@ -15,6 +15,7 @@ import { isAwaitingReview } from "@/lib/manualReviewState"
 import { onReviewRequest, pendingReviewFor, takeReviewRequest } from "@/lib/reviewRequest"
 import { useNotificationsBlocked } from "@/hooks/useNotificationsBlocked"
 import { useHomeProfile } from "@/modules/home"
+import { settingsPane } from "@/lib/settingsPaths"
 
 /**
  * Reads whose review we have already opened by ourselves, this session, keyed
@@ -220,7 +221,7 @@ export function ParsePickupCard({
       freezeRiskFalse={freezeRiskFalse}
       taskLevel={taskLevel}
       careItem={careItem}
-      onChangeTaskLevel={() => navigate("/settings#task-level")}
+      onChangeTaskLevel={() => navigate(settingsPane("task-level"))}
       notificationsBlocked={notificationsBlocked}
       open={open !== null}
       onOpenChange={(o) => { if (!o) setOpen(null) }}

@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react"
-import { useLocation } from "react-router-dom"
+import { useState } from "react"
 import { useSWRConfig } from "swr"
 import { InlineError, SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
@@ -8,16 +7,14 @@ import { useHomeProfile } from "@/modules/home"
 import { setTaskLevel } from "@/modules/care/services/taskLevelService"
 import { TASK_LEVELS, TASK_LEVEL_COPY, taskLevelOf, type TaskLevel } from "../../../shared/tasks/taskLevel"
 
-/** Where "Change" leads from the review after a scan and from the Tasks footer. */
-export const TASK_LEVEL_ANCHOR = "task-level"
-
 /**
  * Settings › Task level — D4, mock screen 2 (approved 2026-11-20):
  * https://claude.ai/artifact/Ao4AvquYrsTwZDs4oUUSuo#level
  *
- * One choice per HOME, least to most, one per row (the Interface card's
- * two-across layout wrapped "Recommended too" onto two lines). It sits above
- * House rules because both decide which tasks this home sees.
+ * One choice per HOME, least to most, one per row. It is a page of its own
+ * (/settings/task-level, design/settings-your-home.md); the page carries the
+ * heading, and "Change" in the review after a scan and in the Tasks footer
+ * links straight to it.
  *
  * A home that never chose shows Everything selected, because that is how it
  * behaves (taskLevelOf). The choice is saved before it is shown as made: a
@@ -31,13 +28,6 @@ export function TaskLevelSection({ homeId }: { homeId: string }) {
   const [saveError, setSaveError] = useState<string | null>(null)
   const current = taskLevelOf(profile?.task_level)
   const ready = !isLoading && !loadError
-
-  // "Change" arrives with #task-level; land on the card, not the top of a long page.
-  const card = useRef<HTMLDivElement>(null)
-  const { hash } = useLocation()
-  useEffect(() => {
-    if (hash === `#${TASK_LEVEL_ANCHOR}` && ready) card.current?.scrollIntoView({ block: "start" })
-  }, [hash, ready])
 
   const choose = async (value: TaskLevel) => {
     if (!ready || saving || value === current) return
@@ -57,10 +47,9 @@ export function TaskLevelSection({ homeId }: { homeId: string }) {
   }
 
   return (
-    <div ref={card} id={TASK_LEVEL_ANCHOR} className="scroll-mt-6">
-      <SectionCard className="mt-6">
+    <div>
+      <SectionCard>
         <CardContent className="p-4">
-          <h2 className="mb-2 text-sm font-semibold text-foreground">Task level</h2>
           <p className="text-sm text-muted-foreground mb-3">Which upkeep goes into Tasks. It applies to this whole home.</p>
           <div className="flex flex-col gap-2">
             {TASK_LEVELS.map((level) => {

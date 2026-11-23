@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
+import { settingsPane } from "@/lib/settingsPaths"
 import { TEAL } from "./shared"
 
 /**
@@ -12,7 +13,7 @@ import { TEAL } from "./shared"
 export function HiddenByLevelLink({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null
   return (
-    <Link to="/settings#task-level" className={cn("hit-44", className)} style={{ color: "var(--hh-sub)" }}>
+    <Link to={settingsPane("task-level")} className={cn("hit-44", className)} style={{ color: "var(--hh-sub)" }}>
       {count} task{count === 1 ? " is" : "s are"} hidden by your task level. <b style={{ color: TEAL }}>Change</b>
     </Link>
   )

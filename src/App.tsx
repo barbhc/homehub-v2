@@ -93,8 +93,8 @@ const InventoryDetail = lazyWithRetry(() => import("@/pages/InventoryDetail"))
 const NotesPage = lazyWithRetry(() => import("@/pages/NotesPage"))
 const TaskDetail = lazyWithRetry(() => import("@/pages/TaskDetail"))
 const Maintenance = lazyWithRetry(() => import("@/pages/Maintenance"))
-const YourWeek = lazyWithRetry(() => import("@/pages/YourWeek"))
-const YourReminders = lazyWithRetry(() => import("@/pages/YourReminders"))
+const OwnTasksPage = lazyWithRetry(() => import("@/pages/OwnTasksPage"))
+const RoomsPage = lazyWithRetry(() => import("@/pages/RoomsPage"))
 const YourHome = lazyWithRetry(() => import("@/pages/YourHome"))
 const CleanGuide = lazyWithRetry(() => import("@/pages/CleanGuide"))
 const ItemDetailPage = lazyWithRetry(() => import("@/pages/ItemDetailPage"))
@@ -157,7 +157,7 @@ function App() {
               <Route path="/onboarding/first" element={<FirstMinute />} />
               {/* Retired pages, kept as redirects so old links land somewhere
                   (owner, 2026-11-21): the five-step profile (its questions live
-                  in Settings → Home profile) and the pre-round-18 sample home.
+                  in Your home → The basics) and the pre-round-18 sample home.
                   A signed-out visitor is sent on by Home's own gate. */}
               <Route path="/onboarding/profile" element={<Navigate to="/home" replace />} />
               <Route path="/sample" element={<Navigate to="/home" replace />} />
@@ -183,8 +183,8 @@ function App() {
                 <Route path="/troubleshoot" element={<TroubleshootRedirect />} />
                 <Route path="/dashboard" element={<Navigate to="/home" replace />} />
                 <Route path="/maintenance" element={<Maintenance />} />
-                <Route path="/week" element={<YourWeek />} />
-                <Route path="/reminders" element={<YourReminders />} />
+                {/* Tasks → "Add your own task" (design/settings-your-home.md). */}
+                <Route path="/maintenance/custom" element={<OwnTasksPage />} />
                 <Route path="/your-home" element={<YourHome />} />
                 {/* The old address of the setup questions, now one section of Your home. */}
                 <Route path="/home-setup" element={<Navigate to="/your-home" replace />} />
@@ -192,6 +192,8 @@ function App() {
                   <Route index element={<Inventory />} />
                   <Route path="add" element={<AddItem />} />
                   <Route path="notes" element={<NotesPage />} />
+                  {/* Items → "Edit rooms". Named before :id so it is not read as an item. */}
+                  <Route path="rooms" element={<RoomsPage />} />
                   <Route path="rooms/:roomId/notes" element={<NotesPage />} />
                   <Route path=":id" element={<InventoryDetail />} />
                 </Route>
@@ -199,11 +201,15 @@ function App() {
                 <Route path="/chat" element={<ChatPage />} />
                 {/* /clean and /warranties: views of Tasks and Items now
                     (design/tasks-items-views.md), redirected there. An
-                    appliance's cleaning guide keeps its own page. */}
+                    appliance's cleaning guide keeps its own page. /week and
+                    /reminders are parked (design/settings-your-home.md) and
+                    redirect too. */}
                 {viewRedirectRoutes()}
                 <Route path="/clean/:itemUnitId" element={<CleanGuide />} />
                 <Route path="/providers" element={<ProvidersPage />} />
+                {/* The menu, and one page per row (design/settings-your-home.md). */}
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/settings/:pane" element={<Settings />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

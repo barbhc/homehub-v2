@@ -3,7 +3,7 @@ import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { useIsCurrent } from "@/hooks/useIsCurrent"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
-import { Check, Copy, Link2, Loader2, Trash2, UserPlus, Users } from "lucide-react"
+import { Check, Copy, Link2, Loader2, Trash2, UserPlus } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -218,14 +218,15 @@ export function HomeMembersSection({ homeId }: Props) {
 
   return (
     <>
-      <SectionCard className="mt-6">
+      <SectionCard>
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Users className="size-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Home members</h2>
-            </div>
+          {/* The page (Settings → Members) carries the heading. */}
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+              People who can view and manage this home.
+            </p>
             <Button
+              className="shrink-0"
               variant="outline"
               size="sm"
               onClick={handleCreateInvite}
@@ -239,9 +240,6 @@ export function HomeMembersSection({ homeId }: Props) {
               Invite
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            People who can view and manage this home.
-          </p>
 
           {actionError && (
             <p role="alert" className="text-sm text-destructive mb-3">

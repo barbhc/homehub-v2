@@ -83,6 +83,9 @@ const RETIRED_COMPONENTS = [
   "TimelyWarrantyLine",     // the warranty line under it -> HomeSections' Heads up
   "RecallCard",             // the desktop recall rail -> HomeSections' Heads up
   "AskModule",              // the Ask bar's three links to one page -> HomeSections' AskField
+  // The settings menu (owner, 2026-11-21; design/settings-your-home.md, audit
+  // finding 11): everyone gets the derived level, so there is nothing to pick.
+  "InterfaceLevelSection",  // Settings' Simple / Standard / Advanced picker -> none
 ]
 
 /** Pages that were whole retired flows. None may exist or be routed. */
@@ -338,3 +341,53 @@ describe("Clean and Warranties are views, not pages (design/tasks-items-views.md
     expect(offenders).toEqual([])
   })
 })
+
+describe("Settings is a menu, and what left it has one address (design/settings-your-home.md)", () => {
+  const app = sources.find((s) => s.path === "src/App.tsx")!.text
+
+  it("App routes the menu and its pages, Rooms under Items and own tasks under Tasks", () => {
+    expect(app).toContain('<Route path="/settings" element={<Settings />} />')
+    expect(app).toContain('<Route path="/settings/:pane" element={<Settings />} />')
+    expect(app).toContain('<Route path="/maintenance/custom" element={<OwnTasksPage />} />')
+    // `rooms` is named before `:id`, or /inventory/rooms would open as an item.
+    expect(app.indexOf('<Route path="rooms" element={<RoomsPage />} />')).toBeGreaterThan(-1)
+    expect(app.indexOf('<Route path="rooms" element={<RoomsPage />} />')).toBeLessThan(app.indexOf('<Route path=":id" element={<InventoryDetail />} />'))
+  })
+
+  it("Your week and Your reminders are parked: kept as files, routed by nothing", () => {
+    for (const page of ["YourWeek", "YourReminders"]) {
+      expect(existsSync(join(SRC, "pages", `${page}.tsx`)), `${page}.tsx is kept`).toBe(true)
+      expect(app, `App.tsx routes ${page}`).not.toMatch(new RegExp(`<${page}\\b`))
+      expect(app, `App.tsx loads ${page}`).not.toContain(`@/pages/${page}"`)
+      const importers = sources
+        .filter((s) => new RegExp(`import[^\\n]*["'\`]@/pages/${page}["'\`]|import\\(["'\`]@/pages/${page}["'\`]\\)`).test(s.text))
+        .map((s) => s.path)
+      expect(importers, `${page} is parked but imported by: ${importers.join(", ")}`).toEqual([])
+    }
+    expect(app).not.toMatch(/path="\/(week|reminders)" element/)
+  })
+
+  it("nothing links to an anchor of the old one-page Settings", () => {
+    // The anchors still land (settingsHashRedirect), but the app itself names
+    // each page by its address, through lib/settingsPaths.
+    const offenders = sources
+      .filter((s) => /["'`]\/settings#/.test(s.text))
+      .map((s) => s.path)
+    expect(offenders).toEqual([])
+  })
+
+  it("nothing reads or writes the stored interface choice (Simple / Standard / Advanced)", () => {
+    // Comments are stripped, so the note in useUserLevel saying nothing reads
+    // the old keys does not count as reading them.
+    const readers = sources
+      .filter((s) => /homehub:interface-level|interface_level|InterfaceOverride|interfaceLevel|useInterfaceLevelSync/.test(s.text))
+      .map((s) => s.path)
+    expect(readers).toEqual([])
+  })
+
+  it("Settings.tsx is the shell, not the page it used to be", () => {
+    const settings = readFileSync(join(SRC, "pages", "Settings.tsx"), "utf8")
+    expect(settings.split("\n").length).toBeLessThan(150)
+  })
+})
+

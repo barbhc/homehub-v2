@@ -7,8 +7,9 @@ import { HomeIcon, ListChecksIcon, PackageIcon, SparklesIcon, Settings2Icon, Plu
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/modules/auth"
 import { useUserLevel } from "@/hooks/useUserLevel"
-import { useInterfaceLevelSync } from "@/hooks/useInterfaceLevelSync"
 import { Button } from "@/components/ui/button"
+import { NOTIFICATION_SETTINGS_PATH } from "@/lib/notifyGate"
+import { SETTINGS_PATH, settingsPane } from "@/lib/settingsPaths"
 
 // Mobile bottom tabs are FIXED at five (Home · Tasks · Items · Ask · Settings)
 // at every level — per the redesign spec, the level changes in-screen content,
@@ -35,6 +36,12 @@ const LEVEL_RANK: Record<string, number> = { essentials: 0, engaged: 1, power: 2
  *  lives at /items/:id, so matching /inventory alone left no tab lit there. */
 const inItems = (pathname: string) =>
   pathname === "/inventory" || pathname.startsWith("/inventory/") || pathname.startsWith("/items/")
+/** Tasks owns the agenda and "Your own tasks" under it (/maintenance/custom). */
+const inTasks = (pathname: string) =>
+  pathname === "/maintenance" || pathname.startsWith("/maintenance/")
+/** Settings owns its menu and every page a row opens (/settings/<pane>). */
+const inSettings = (pathname: string) =>
+  pathname === SETTINGS_PATH || pathname.startsWith(`${SETTINGS_PATH}/`)
 
 export function AppLayout() {
   const { home } = useCurrentHome()
@@ -52,9 +59,6 @@ function AppShell() {
   const navigate = useNavigate()
   const { signOut, user } = useAuth()
   const { level } = useUserLevel()
-
-  // Hydrate the interface-level cache from the user's saved preference (Phase 5).
-  useInterfaceLevelSync(user?.id)
 
   // Mobile tabs are fixed; desktop grows with level.
   const visibleNav = nav
@@ -88,7 +92,9 @@ function AppShell() {
               const isActive =
                 to === "/inventory"
                   ? inItems(location.pathname)
-                  : location.pathname === to || (to === "/maintenance" && location.pathname.startsWith("/tasks"))
+                  : to === "/maintenance"
+                    ? inTasks(location.pathname) || location.pathname.startsWith("/tasks")
+                    : location.pathname === to
               return (
                 <Link
                   key={to}
@@ -159,9 +165,9 @@ function AppShell() {
             >
               <MessageSquareWarningIcon className="size-[18px]" />
             </button>
-            {/* Notifications — prefs live in Settings */}
+            {/* Notifications — prefs live in Settings → Notifications */}
             <Link
-              to="/settings"
+              to={NOTIFICATION_SETTINGS_PATH}
               className="hit-44 hidden size-9 items-center justify-center rounded-full text-[var(--hh-sub)] transition-colors hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)] lg:flex"
               aria-label="Notifications"
               title="Notifications"
@@ -173,7 +179,7 @@ function AppShell() {
               data-tour="nav-settings"
               className={cn(
                 "hit-44 flex size-9 items-center justify-center rounded-full transition-colors",
-                location.pathname === "/settings" ? "text-[var(--hh-teal)] bg-[var(--hh-teal-wash)]" : "text-[var(--hh-sub)] hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)]"
+                inSettings(location.pathname) ? "text-[var(--hh-teal)] bg-[var(--hh-teal-wash)]" : "text-[var(--hh-sub)] hover:bg-[var(--hh-teal-wash)] hover:text-[var(--hh-teal)]"
               )}
               aria-label="Settings"
               title="Settings"
@@ -182,7 +188,7 @@ function AppShell() {
             </Link>
             {/* Account avatar — signed-in user's initial */}
             <Link
-              to="/settings"
+              to={settingsPane("account")}
               className="hit-44 flex size-8 items-center justify-center rounded-full text-[length:min(0.8125rem,19.5px)] font-bold text-white transition-opacity hover:opacity-90 pointer-coarse:ml-0.5"
               style={{ background: "var(--hh-teal-fill)" }}
               aria-label="Account"
@@ -231,8 +237,10 @@ function AppShell() {
               to === "/inventory"
                 ? inItems(location.pathname)
                 : to === "/settings"
-                  ? location.pathname === "/settings"
-                  : location.pathname === to
+                  ? inSettings(location.pathname)
+                  : to === "/maintenance"
+                    ? inTasks(location.pathname)
+                    : location.pathname === to
             return (
               <Link
                 key={to}

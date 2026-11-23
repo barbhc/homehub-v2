@@ -5,10 +5,8 @@ import {
   normalizeNotificationPrefs,
   type NotificationPrefs,
 } from "./notificationPreferences"
-import { coerceInterfaceOverride, type InterfaceOverride } from "./interfaceLevel"
 
 export const PREF_TOUR_COMPLETED = "tour_completed"
-export const PREF_INTERFACE_LEVEL = "interface_level"
 /**
  * Shows the internal tools in Settings (startup diagnostics, admin tools) to
  * this person. Set by hand on the prefs doc; there is no switch in the app.
@@ -44,22 +42,6 @@ export async function getNotificationPrefs(userId: string): Promise<Notification
 /** Persists notification prefs (re-normalized so invariants always hold on write). */
 export async function setNotificationPrefs(userId: string, prefs: NotificationPrefs): Promise<void> {
   await setPreference(userId, PREF_NOTIFICATIONS, normalizeNotificationPrefs(prefs))
-}
-
-/**
- * Loads the user's persisted interface level (Phase 5), or null if never set
- * (so the caller can fall back to the localStorage cache / derived default).
- * Stored as `{ level }` under the `interface_level` key.
- */
-export async function getInterfaceLevelPref(userId: string): Promise<InterfaceOverride | null> {
-  const raw = await getPreference<{ level?: unknown }>(userId, PREF_INTERFACE_LEVEL)
-  if (!raw || raw.level == null) return null
-  return coerceInterfaceOverride(raw.level)
-}
-
-/** Persists the chosen interface level for cross-device sync. */
-export async function setInterfaceLevelPref(userId: string, level: InterfaceOverride): Promise<void> {
-  await setPreference(userId, PREF_INTERFACE_LEVEL, { level: coerceInterfaceOverride(level) })
 }
 
 /**

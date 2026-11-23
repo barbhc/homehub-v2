@@ -4,12 +4,12 @@
  * amended). It says where the switch is, because the OS never asks twice.
  *
  * Pinned here rather than in the emulator walk: the e2e build carries no
- * web-push key, so its Settings renders no Notifications section at all.
+ * web-push key, so its Settings has no Notifications row and the page says so.
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { act, render, screen } from "@testing-library/react"
-// The page's source as text (Vite's ?raw), for the wiring check at the end.
-import settings from "../../pages/Settings.tsx?raw"
+// The Notifications page's source as text (Vite's ?raw), for the wiring check at the end.
+import notifications from "./panes/NotificationsPane.tsx?raw"
 
 const device = vi.hoisted(() => ({ native: false, platform: "web", receive: "denied" }))
 vi.mock("@/lib/native", () => ({
@@ -68,10 +68,13 @@ describe("Settings names where the switch is, once a device has refused", () => 
     expect(screen.queryByTestId("notifications-refused")).toBeNull()
   })
 
-  it("sits in Settings' Notifications section — where 'Turn on in Settings' lands", () => {
-    const start = settings.indexOf('<SectionCard id="notifications"')
+  it("sits on Settings' Notifications page — where 'Turn on in Settings' lands", () => {
+    // The page a supported device sees: everything after the "can't show
+    // notifications" early return.
+    const unsupported = notifications.indexOf("if (!pushSupported)")
+    expect(unsupported).toBeGreaterThan(-1)
+    const start = notifications.indexOf("<SectionCard>", unsupported)
     expect(start).toBeGreaterThan(-1)
-    const section = settings.slice(start, settings.indexOf("</SectionCard>", start))
-    expect(section).toContain("<NotificationsRefusedNote />")
+    expect(notifications.slice(start, notifications.indexOf("</SectionCard>", start))).toContain("<NotificationsRefusedNote />")
   })
 })

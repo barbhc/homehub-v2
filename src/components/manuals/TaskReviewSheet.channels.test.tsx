@@ -273,7 +273,7 @@ describe("S5 — notifications refused on this phone", () => {
     expect(toggle.closest("div")!.contains(link)).toBe(true)
     expect(link.closest("div")!.textContent).toContain("Reminders off — Turn on in Settings")
     fireEvent.click(link)
-    expect(screen.getByTestId("where").textContent).toBe("/settings#notifications")
+    expect(screen.getByTestId("where").textContent).toBe("/settings/notifications")
   })
 
   it("S5.3 — the Tasks line is unchanged; the second line is 'None will notify you. Notifications are off on this phone.' with a bell-off icon", () => {
