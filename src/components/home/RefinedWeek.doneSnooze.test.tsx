@@ -38,7 +38,8 @@ vi.mock("@/modules/care", () => ({
   previewNextDue: (...a: unknown[]) => svc.previewNextDue(...a),
   getTaskDetail: (...a: unknown[]) => svc.getTaskDetail(...a),
 }))
-vi.mock("react-router-dom", () => ({ useNavigate: () => vi.fn() }))
+// useSearchParams: the Upkeep | Cleaning control reads ?view= (none here → Upkeep).
+vi.mock("react-router-dom", () => ({ useNavigate: () => vi.fn(), useSearchParams: () => [new URLSearchParams(), vi.fn()] }))
 // Who is signed in — the queue stamps every Done with it.
 const session = vi.hoisted(() => ({ auth: { currentUser: { uid: "user-a" } as { uid: string } | null } }))
 vi.mock("@/integrations/firebase", () => ({ auth: session.auth, db: {}, callable: vi.fn(() => vi.fn()) }))

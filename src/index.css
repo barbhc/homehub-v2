@@ -126,6 +126,12 @@
   --hh-violet-soft: #EFEAF8;
   --hh-line:       rgba(15,23,42,0.07);
   --hh-line2:      rgba(15,23,42,0.12);
+  /* Segmented control (SegmentedControl.tsx, design/tasks-items-views.md): a
+     filled track with the selected segment raised on it. Its own pair because
+     no existing one stays "raised" in dark: --hh-surface is DARKER than any
+     white-alpha track there, so the selected segment read as sunk in. */
+  --hh-seg-track:  rgba(15,23,42,0.08);
+  --hh-seg-thumb:  #FFFFFF;
 
   /* ── Theme-aware literals (2026-10-15 dark-mode pass) ──────────────────────
      Each of these replaced a hex/white literal in a component that looked
@@ -327,6 +333,9 @@
   --hh-violet-soft: rgba(168,139,224,0.16);
   --hh-line:       rgba(255,255,255,0.09);
   --hh-line2:      rgba(255,255,255,0.14);
+  /* Dark: the track is a faint wash, the thumb a step LIGHTER than it. */
+  --hh-seg-track:  rgba(255,255,255,0.06);
+  --hh-seg-thumb:  #2C3933;
 
   --hh-accent-on-ink: #15564A;
   /* dt-kit.jsx's dark tile: the raised surface with a pale-mint glyph. */

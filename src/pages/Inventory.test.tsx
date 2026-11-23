@@ -14,6 +14,10 @@
  *   · a home switch never paints the other home's items, even when that home's
  *     answer arrives late.
  *
+ * And the Items | Warranties control (design/tasks-items-views.md): it switches
+ * views and writes ?view=; Warranties is mounted once and drawn from the items
+ * already read; with no items there is no control at all.
+ *
  * RTL doesn't run StrictMode, so a per-render SWR cache provider is safe here
  * (App deliberately doesn't use one — see swrPersist.ts).
  */
@@ -266,3 +270,80 @@ function Where() {
   const loc = useLocation()
   return <span data-testid="where">{loc.pathname + loc.search}</span>
 }
+
+describe("Items — Items | Warranties", () => {
+  const COVERED = { ...item("i2", "Bosch Dishwasher"), warranty_expiry_date: "2099-12-05" } as ItemUnit
+  const renderAt = (at: string) =>
+    render(
+      <SWRConfig value={{ provider: () => new Map(), shouldRetryOnError: false }}>
+        <MemoryRouter initialEntries={[at]}>
+          <Inventory />
+          <Where />
+        </MemoryRouter>
+      </SWRConfig>,
+    )
+  const tablists = () => screen.getAllByRole("tablist", { name: "Items view" })
+
+  beforeEach(() => {
+    svc.getItemUnits.mockResolvedValue(ok([FURNACE, COVERED]))
+    svc.getRooms.mockResolvedValue(ok(ROOMS))
+  })
+
+  it("the control switches to Warranties and writes ?view=warranties; Items takes the param away again", async () => {
+    renderAt("/inventory")
+    expect(await screen.findAllByText("Carrier Infinity Furnace")).toHaveLength(2)
+    expect(tablists()).toHaveLength(2) // phone and desktop trees
+    expect(within(tablists()[0]).getByRole("tab", { name: "Items" })).toHaveAttribute("aria-selected", "true")
+    expect(screen.queryByText("Covered · Dec 5, 2099")).toBeNull()
+
+    fireEvent.click(within(tablists()[0]).getByRole("tab", { name: "Warranties" }))
+
+    expect(screen.getByTestId("where")).toHaveTextContent("/inventory?view=warranties")
+    for (const list of tablists()) {
+      expect(within(list).getByRole("tab", { name: "Warranties" })).toHaveAttribute("aria-selected", "true")
+    }
+    // Warranties, once — from the items already read, with no read of its own.
+    expect(screen.getAllByText("Covered · Dec 5, 2099")).toHaveLength(1)
+    expect(svc.getItemUnits).toHaveBeenCalledTimes(1)
+    // The list's own controls are not rendered in Warranties.
+    expect(screen.queryByPlaceholderText(/Search \d+ items/)).toBeNull()
+    expect(screen.queryAllByRole("button", { name: /^Room|^Type|^Recent/ })).toHaveLength(0)
+    expect(screen.queryByText("Carrier Infinity Furnace")).toBeNull()
+    // Still the Items page: its title, and its "+".
+    expect(screen.getAllByRole("heading", { level: 1, name: "Items" })).toHaveLength(2)
+
+    fireEvent.click(within(tablists()[1]).getByRole("tab", { name: "Items" }))
+    expect(screen.getByTestId("where")).toHaveTextContent(/^\/inventory$/)
+    expect(screen.queryByText("Covered · Dec 5, 2099")).toBeNull()
+    expect(screen.getAllByText("Carrier Infinity Furnace")).toHaveLength(2)
+  })
+
+  it("each tree's tabs control a panel of their own, labelled by the selected tab", async () => {
+    renderAt("/inventory")
+    expect(await screen.findAllByText("Carrier Infinity Furnace")).toHaveLength(2)
+    const ids = tablists().map((list) => within(list).getByRole("tab", { name: "Items" }).getAttribute("aria-controls")!)
+    expect(new Set(ids).size).toBe(2)
+    for (const [i, list] of tablists().entries()) {
+      const panel = document.getElementById(ids[i])!
+      expect(panel).toHaveAttribute("role", "tabpanel")
+      expect(panel).toHaveAttribute("aria-labelledby", within(list).getByRole("tab", { name: "Items" }).id)
+      expect(within(list).getByRole("tab", { name: "Warranties" })).toHaveAttribute("aria-controls", ids[i])
+    }
+
+    fireEvent.click(within(tablists()[0]).getByRole("tab", { name: "Warranties" }))
+    const panels = screen.getAllByRole("tabpanel")
+    expect(panels).toHaveLength(1)
+    expect(panels[0].id).toBe(ids[0])
+    expect(panels[0]).toHaveAttribute("aria-labelledby", within(tablists()[0]).getByRole("tab", { name: "Warranties" }).id)
+    expect(within(panels[0]).getByText("Covered · Dec 5, 2099")).toBeInTheDocument()
+  })
+
+  it("with no items, the control is not rendered — the lane chooser is the page, even at ?view=warranties", async () => {
+    svc.getItemUnits.mockResolvedValue(ok([]))
+    renderAt("/inventory?view=warranties")
+    expect(await screen.findByTestId("add-lane-chooser")).toBeInTheDocument()
+    expect(screen.queryAllByRole("tablist")).toHaveLength(0)
+    expect(screen.queryAllByRole("tab", { name: "Warranties" })).toHaveLength(0)
+    expect(screen.queryByText("No warranties on file yet")).toBeNull()
+  })
+})

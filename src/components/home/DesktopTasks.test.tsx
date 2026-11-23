@@ -76,7 +76,7 @@ const FILTER = task("ti-1", "Replace the furnace filter")
 /** getWeekAgenda's answer: the rows, and — with them — how much item cleaning it withheld. */
 const agenda = (rows: unknown[], itemCleaning = 0) =>
   svc.getWeekAgenda.mockResolvedValue({ data: rows, error: null, withheld: { beyondHorizon: 0, nextDueDate: null, itemCleaning } })
-const footer = () => screen.queryAllByRole("link", { name: /for your items lives? in Clean/ })
+const footer = () => screen.queryAllByRole("link", { name: /for your items lives? in Cleaning/ })
 /** The desktop row that holds `title`. */
 const rowOf = (title: string) => screen.getByText(title).closest<HTMLElement>('[data-testid="desktop-task-row"]')!
 
@@ -134,7 +134,7 @@ describe("'Nothing matches these filters' — only when a filter is on (both tre
 })
 
 describe("a list WITH tasks still names the cleaning it leaves out (HH-94's footer)", () => {
-  it("closes the list with a link to Clean — phone and desktop, the same words", async () => {
+  it("closes the list with a link to Tasks → Cleaning — phone and desktop, the same words", async () => {
     agenda([FILTER], 3)
     renderWith(<><RefinedWeek homeId="h1" /><DesktopTasks homeId="h1" /></>)
 
@@ -142,8 +142,9 @@ describe("a list WITH tasks still names the cleaning it leaves out (HH-94's foot
     const links = footer()
     expect(links).toHaveLength(2)
     for (const a of links) {
-      expect(a).toHaveTextContent("3 cleaning jobs for your items live in Clean →")
-      expect(a).toHaveAttribute("href", "/clean")
+      // Clean is a view of Tasks now (design/tasks-items-views.md), named by its segment.
+      expect(a).toHaveTextContent("3 cleaning jobs for your items live in Cleaning →")
+      expect(a).toHaveAttribute("href", "/maintenance?view=cleaning")
     }
     // The headlines count the list in the same words; neither claims it is empty.
     expect(screen.getAllByText("1 to do")).toHaveLength(2)
@@ -156,7 +157,7 @@ describe("a list WITH tasks still names the cleaning it leaves out (HH-94's foot
     renderWith(<DesktopTasks homeId="h1" />)
     await screen.findByText("Replace the furnace filter")
     expect(footer()).toHaveLength(1)
-    expect(footer()[0]).toHaveTextContent("1 cleaning job for your items lives in Clean →")
+    expect(footer()[0]).toHaveTextContent("1 cleaning job for your items lives in Cleaning →")
   })
 
   it("nothing withheld, no footer (not rendered)", async () => {

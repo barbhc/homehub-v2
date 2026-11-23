@@ -23,6 +23,7 @@ import { PageContainer, InlineError, StaleDataNote, LoadErrorState } from "@/com
 import { RefinedItemDetail } from "@/components/home/RefinedItemDetail"
 import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 import type { ItemUnit, Room } from "@/integrations/types"
+import { ItemsViewsPreview } from "./ItemsViewsPreview"
 
 const noop = () => {}
 
@@ -78,6 +79,12 @@ const itemPage = (item: ItemUnit) => (
     onBack={noop} onItemUpdate={noop} onEditDetails={noop}
   />
 )
+
+const viewItems = [
+  dishwasher({ warranty_expiry_date: "2099-12-05" }),
+  dishwasher({ item_unit_id: "i-fridge", display_name: "Refrigerator", category: "refrigerator", brand: "Bosch", warranty_expiry_date: "2020-04-14" }),
+  dishwasher({ item_unit_id: "i-furnace", display_name: "Furnace", category: "hvac", brand: "Carrier", room_id: null }),
+]
 
 export const SCENARIOS: { id: string; note: string; render: () => ReactNode }[] = [
   {
@@ -143,6 +150,11 @@ export const SCENARIOS: { id: string; note: string; render: () => ReactNode }[] 
     id: "home-skeleton",
     note: "Home before its first read lands — shaped like Home, focused: greeting, Ask, one list with the first task open. No stat band.",
     render: () => <HomeSkeleton />,
+  },
+  {
+    id: "items-views",
+    note: "Items with its Items | Warranties segmented control (design/tasks-items-views.md). Add &view=warranties, or tap the control, for the Warranties view.",
+    render: () => <ItemsViewsPreview items={viewItems} rooms={rooms} />,
   },
   {
     id: "home-skeleton-slow",

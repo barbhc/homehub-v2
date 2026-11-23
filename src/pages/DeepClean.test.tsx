@@ -1,5 +1,6 @@
 /**
- * Deep Clean: the hub's read, and the summary's message.
+ * Tasks → Cleaning (CleaningView, what was the Deep Clean page): the hub's
+ * read, what the hub no longer shows, and the summary's message.
  *
  * Two H5 (whole-app lint) restructures:
  *  - the hub's "Loading…" was set inside the effect that reads; it is now set
@@ -9,10 +10,15 @@
  *    so any re-render could swap it (react-hooks/purity); it is now picked once
  *    when the session finishes — pinned: one message per finish, kept across
  *    re-renders.
+ *
+ * And from the Tasks + Items views change (design/tasks-items-views.md): Clean's
+ * own "This week" list is gone — the week is one list, in Upkeep — so the hub
+ * neither renders it nor reads the cleaning tasks it was built from.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
+import { SWRConfig } from "swr"
 import type { CleanTask, DeepCleanGuide } from "@/lib/cleanSession"
 
 const svc = vi.hoisted(() => ({
@@ -32,7 +38,9 @@ vi.mock("@/lib/cleanSession", () => ({
   saveRoutineTask: vi.fn(),
 }))
 
-const { default: DeepClean } = await import("./DeepClean")
+const { CleaningView } = await import("./DeepClean")
+/** A fresh cache per render tree; the guides are read through SWR (useCleaningGuides). */
+const SWR = { provider: () => new Map(), shouldRetryOnError: false }
 
 const GUIDE: DeepCleanGuide = { id: "g1", title: "Clean the Bosch 800 Series Dishwasher", estimatedMinutes: 20, itemUnitId: "i1" }
 const TASK: CleanTask = {
@@ -41,9 +49,11 @@ const TASK: CleanTask = {
   scheduleType: "weekly", lastCompletedDate: null, staleDays: 3, priorityScore: 5, isOverdue: false,
 }
 const page = () => (
-  <MemoryRouter>
-    <DeepClean />
-  </MemoryRouter>
+  <SWRConfig value={SWR}>
+    <MemoryRouter>
+      <CleaningView />
+    </MemoryRouter>
+  </SWRConfig>
 )
 
 describe("DeepClean", () => {
@@ -61,9 +71,26 @@ describe("DeepClean", () => {
     render(page())
     await waitFor(() => expect(screen.getByText("Couldn't load your cleaning guides.")).toBeInTheDocument())
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Try again" })[0])
-    expect(screen.getAllByText("Loading…").length).toBeGreaterThan(0)
-    await waitFor(() => expect(screen.getByText(GUIDE.title)).toBeInTheDocument())
+    let finish!: (g: DeepCleanGuide[]) => void
+    svc.getDeepCleanGuides.mockReturnValueOnce(new Promise((r) => { finish = r }))
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    await waitFor(() => expect(screen.getByText("Loading…")).toBeInTheDocument())
+    expect(screen.queryByText("Couldn't load your cleaning guides.")).toBeNull()
+    await act(async () => { finish([GUIDE]) })
+    expect(screen.getByText(GUIDE.title)).toBeInTheDocument()
+  })
+
+  it("has no 'This week' list of its own (not rendered) and does not read the cleaning tasks one was built from", async () => {
+    render(page())
+    expect(await screen.findByText(GUIDE.title)).toBeInTheDocument()
+    expect(screen.getByText("Start cleaning")).toBeInTheDocument()
+    expect(screen.queryByText("This week")).toBeNull()
+    expect(screen.queryByText(TASK.title)).toBeNull()
+    expect(screen.queryByText(/Nothing due this week/)).toBeNull()
+    // The checklist reads them when a session starts — the hub does not.
+    expect(svc.getCleaningTasks).not.toHaveBeenCalled()
+    // Nor its own "Clean" title: the page's title is "Tasks", above the control.
+    expect(screen.queryByRole("heading", { name: "Clean" })).toBeNull()
   })
 
   it("the summary's message is picked once, when the session finishes", async () => {

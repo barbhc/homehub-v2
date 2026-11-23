@@ -40,7 +40,7 @@ test.describe("A · flatten-the-dataset", () => {
 
   test("Item Specs render concise key→value pairs (not manual prose)", async ({ page }) => {
     await gotoStable(page, "/inventory")
-    // Exact match → click the item card, not a "Clean the <item>" guide (→/clean).
+    // Exact match → click the item card, not a "Clean the <item>" guide (→/clean/:id).
     await vis(page.getByText("Bosch 800 Series Dishwasher", { exact: true })).click()
     await expect(page).toHaveURL(/\/(items|inventory)\/[0-9a-f-]+/i, { timeout: 15_000 })
     // category_fields → short labelled values
@@ -49,7 +49,7 @@ test.describe("A · flatten-the-dataset", () => {
   })
 
   test("Warranties subtitle is brand · room with a real coverage end date", async ({ page }) => {
-    await gotoStable(page, "/warranties")
+    await gotoStable(page, "/inventory?view=warranties")
     await expect(vis(page.getByText(/Bosch · Kitchen/i))).toBeVisible({ timeout: 20_000 })
     // Status hint + real coverage end date: "Covered · {date}" / "Lapsed · {date}".
     await expect(vis(page.getByText(/Covered ·|Lapsed ·/i))).toBeVisible()
@@ -59,8 +59,8 @@ test.describe("A · flatten-the-dataset", () => {
 })
 
 test.describe("B · landing / seeded data", () => {
-  test("Clean lands on the hub, not the session-setup form", async ({ page }) => {
-    await gotoStable(page, "/clean")
+  test("Tasks → Cleaning lands on the hub, not the session-setup form", async ({ page }) => {
+    await gotoStable(page, "/maintenance?view=cleaning")
     await expect(vis(page.getByText(/start cleaning|cleaning guides/i))).toBeVisible({ timeout: 20_000 })
     // The setup form's time-budget chips should NOT be on the landing view.
     await expect(page.getByText(/quick tidy|no limit/i)).toHaveCount(0)

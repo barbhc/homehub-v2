@@ -45,8 +45,10 @@ const PAGES = [
   { name: "tasks", path: "/maintenance", ready: /Replace HVAC furnace filter/i },
   { name: "items", path: "/inventory", ready: /Bosch 800 Series Dishwasher/i },
   { name: "ask", path: "/chat", ready: /ask|help|question/i },
-  { name: "warranties", path: "/warranties", ready: /Bosch|coverage/i },
-  { name: "clean", path: "/clean", ready: /start cleaning|cleaning guides/i },
+  // Views of Items and Tasks since design/tasks-items-views.md (their old
+  // addresses redirect here).
+  { name: "warranties", path: "/inventory?view=warranties", ready: /Bosch|coverage/i },
+  { name: "clean", path: "/maintenance?view=cleaning", ready: /start cleaning|cleaning guides/i },
   { name: "providers", path: "/providers", ready: /Ace Heating & Air/i },
   { name: "settings", path: "/settings", ready: /settings|appearance|account/i },
 ] as const
@@ -275,7 +277,7 @@ for (const vp of PHONES) {
     })
 
     test("deep clean: the session footer sits above the tab bar", async ({ page }) => {
-      await gotoStable(page, "/clean")
+      await gotoStable(page, "/maintenance?view=cleaning")
       await page.getByRole("button", { name: /Start cleaning/ }).filter({ visible: true }).first().click()
       await page.getByRole("button", { name: "Whole Home" }).filter({ visible: true }).first().click()
       await page.getByRole("button", { name: /Let's clean/ }).filter({ visible: true }).first().click()
@@ -298,7 +300,7 @@ test.describe("bottom bars @ iPad (820×1180) — no tab bar, so they sit at the
     const bar = (await page.getByTestId("task-action-bar").boundingBox())!
     expect(Math.round(bottomOf(bar)), "Mark done bar should end at the viewport bottom").toBe(1180)
 
-    await gotoStable(page, "/clean")
+    await gotoStable(page, "/maintenance?view=cleaning")
     await page.getByRole("button", { name: /Start cleaning/ }).filter({ visible: true }).first().click()
     await page.getByRole("button", { name: "Whole Home" }).filter({ visible: true }).first().click()
     await page.getByRole("button", { name: /Let's clean/ }).filter({ visible: true }).first().click()

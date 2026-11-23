@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   AlarmClockIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, FlagIcon, XIcon,
@@ -15,12 +15,16 @@ import { itemMinutesLine, whenTone } from "@/lib/taskCard"
 import { prepLine, prepPlace } from "@/lib/homeWeek"
 import {
   applyTierFilter, useTierFilter, computeInsight, dayLabel, groupTasks, monthCalendar,
-  nothingDueLine, phraseUnderGroup, TIER_FILTERS, tierFilterCounts,
+  nothingDueLine, cleaningGuidesLine, phraseUnderGroup, TIER_FILTERS, tierFilterCounts,
   tasksDueOnDay, useAgendaRowActions, useTaskDetail, type Lens, CLAY, TEAL, SELECTED_DAY_RING, withoutHidden, fillFor,
 } from "./tasks/shared"
 import { HiddenCleaningLink } from "./tasks/HiddenCleaningLink"
 import { HiddenByLevelLink } from "./tasks/HiddenByLevelLink"
 import { UndoBar } from "@/components/ui/UndoBar"
+import { SegmentedControl } from "@/components/ui/SegmentedControl"
+import { segmentPanelId, segmentPanelProps } from "@/components/ui/segmentIds"
+import { TASKS_VIEWS, useTasksView } from "@/hooks/usePageView"
+import { useCleaningGuides } from "@/hooks/useCleaningGuides"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
@@ -280,8 +284,23 @@ function GroupHeader({ label, tone, count, mins }: { label: string; tone: string
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
-export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spacious" | "cozy" | "compact" }) {
+export function RefinedWeek({ homeId, idBase, inCleaningSession = false }: {
+  homeId: string | null
+  density?: "spacious" | "cozy" | "compact"
+  /** Ties this tree's control to its panel (segmentIds); the Tasks page passes the one it labels the Cleaning view with. */
+  idBase?: string
+  /** A cleaning session is under way below: no control, so a tap can't throw its ticks away. */
+  inCleaningSession?: boolean
+}) {
   const navigate = useNavigate()
+  // Upkeep | Cleaning, from the URL (?view=). Cleaning's content is mounted
+  // once by the Tasks page below this header; here it is only the count line
+  // and the control, and none of Upkeep's own controls (lenses, priority).
+  const [pageView, setPageView] = useTasksView()
+  const cleaning = pageView === "cleaning"
+  const guides = useCleaningGuides(homeId, cleaning)
+  const ownId = useId()
+  const base = idBase ?? ownId
   const [view, setView] = useState<View>("list")
   const [lens, setLens] = useState<Lens>("urgency")
   const [tier, setTier] = useTierFilter()
@@ -355,7 +374,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
       {bar && <UndoBar {...bar} />}
       {/* A refresh failed behind an agenda we still hold: keep it, and say so
           quietly at the top of the screen — where Home and Items say it. */}
-      {agenda.error && agenda.data && (
+      {!cleaning && agenda.error && agenda.data && (
         <div className="pb-4" style={{ paddingInline: PAD }}>
           <StaleDataNote onRetry={() => void agenda.refresh()} />
         </div>
@@ -368,7 +387,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
               hiding nine more read as the whole truth and wasn't. A failed
               first read says nothing here: "Nothing due" about tasks we never
               read would be a confident wrong answer. */}
-          {loading ? "Loading…" : loadFailed ? null : totalAll === 0
+          {cleaning ? cleaningGuidesLine(guides) : loading ? "Loading…" : loadFailed ? null : totalAll === 0
             // Never leave the user staring at "nothing" while an item page
             // lists work — the line says where it went. Shared with desktop.
             // Only for an EMPTY agenda: a filter that empties a full list
@@ -380,8 +399,20 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
             : tier === "all" ? `${total} to do`
             : `${total} of ${totalAll}`}
         </div>
+        {!(cleaning && inCleaningSession) && (
+          <SegmentedControl
+            className="mt-3.5"
+            label="Tasks view"
+            segments={TASKS_VIEWS}
+            value={pageView}
+            onChange={setPageView}
+            idBase={base}
+            panelId={segmentPanelId(base)}
+          />
+        )}
       </div>
 
+      {!cleaning && (<div {...segmentPanelProps(base, "upkeep")} className="flex flex-1 flex-col">
       {/* "Start here" insight banner — dismissible */}
       {!loading && !dismissed && insight && total > 0 && (
         <div style={{ padding: `${17}px ${PAD}px 0` }}>
@@ -602,6 +633,7 @@ export function RefinedWeek({ homeId }: { homeId: string | null; density?: "spac
           </>
         )}
       </div>
+      </div>)}
     </div>
   )
 }

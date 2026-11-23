@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { Link } from "react-router-dom"
 import {
   ChevronRightIcon, ShieldCheckIcon, ShieldAlertIcon,
   WindIcon, RefrigeratorIcon, FlameIcon, WashingMachineIcon, UtensilsIcon, PackageIcon, type LucideIcon,
 } from "lucide-react"
-import { useCurrentHome, getRooms } from "@/modules/home"
-import { getItemUnits } from "@/modules/items"
 import type { ItemUnit } from "@/integrations/types"
 import { warrantyExpiry } from "@/lib/warrantyWindow"
 import { diffDays, localToday } from "../../shared/dates/calendar"
-import { useDepsChanged } from "@/hooks/useDepsChanged"
 
 // Per-item glyph (mirrors RefinedItemDetail) — warranties show the item's own
 // icon, not a uniform shield.
@@ -174,142 +171,95 @@ function Group({ title, rows }: { title: string; rows: WarrantyRow[] }) {
   )
 }
 
-export default function WarrantiesPage() {
-  const { home } = useCurrentHome()
-  const [items, setItems] = useState<ItemUnit[] | null>(null)
-  const [rooms, setRooms] = useState<{ room_id: string; name: string }[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  const homeId = home?.home_id ?? null
-  // A home switch clears the list to "loading" in the render that switches
-  // (it starts that way for the first read); the effect only reads.
-  if (useDepsChanged([homeId]) && homeId) {
-    setItems(null)
-    setError(null)
-  }
-  useEffect(() => {
-    if (!homeId) return
-    let cancelled = false
-    getItemUnits(homeId).then((res) => {
-      if (cancelled) return
-      if (res.error) setError(res.error.message)
-      else setItems(res.data)
-    })
-    getRooms(homeId).then((r) => { if (!cancelled) setRooms(r.data ?? []) })
-    return () => {
-      cancelled = true
-    }
-  }, [homeId])
-
+/**
+ * Items → Warranties (`/inventory?view=warranties`) — what was the Warranties
+ * page (`/warranties`, which now redirects here; design/tasks-items-views.md).
+ *
+ * It no longer reads anything or titles itself: the Items page has already
+ * read the home's items and rooms (useHomeItems — cached, timed out, and with
+ * its own loading and failure states), and its header carries the title and
+ * the Items | Warranties control. Rendered once, below both trees' headers.
+ */
+export function WarrantiesView({ items, rooms }: { items: ItemUnit[]; rooms: { room_id: string; name: string }[] }) {
   const roomMap = useMemo(() => new Map(rooms.map((r) => [r.room_id, r.name])), [rooms])
-  const rows = useMemo(() => (items ? toWarrantyRows(items, roomMap) : []), [items, roomMap])
+  const rows = useMemo(() => toWarrantyRows(items, roomMap), [items, roomMap])
   const soon = rows.filter((r) => r.status === "soon")
   const active = rows.filter((r) => r.status === "active")
   const lapsed = rows.filter((r) => r.status === "expired")
 
-  if (!home) return null
-
-  const loading = items === null && !error
-
   return (
-    <div className="min-h-full" style={{ background: "var(--hh-bg)" }}>
-      <div className="mx-auto max-w-3xl px-5 pb-12 pt-6 md:px-6 md:pt-10">
-        {/* Header */}
-        <header>
-          <h1 className="text-[2.0625rem] font-extrabold tracking-[-0.7px]" style={{ color: INK }}>Warranties</h1>
-          <p className="mt-1 text-[0.875rem]" style={{ color: SUB }}>Coverage across your home, at a glance.</p>
-        </header>
+  <div>
+    {rows.length === 0 && (
+      <div className="rounded-2xl bg-[var(--hh-surface)] px-6 py-10 text-center shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+        <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-[15px]" style={{ background: GOLD_SOFT }}>
+          <ShieldCheckIcon className="size-7" style={{ color: GOLD }} />
+        </div>
+        <div className="text-[0.9375rem] font-bold" style={{ color: INK }}>No warranties on file yet</div>
+        <p className="mx-auto mt-1.5 max-w-[280px] text-[0.875rem] leading-snug" style={{ color: SUB }}>
+          Add a warranty date or coverage note to an item and it'll show up here so you know what's still protected.
+        </p>
+        <Link
+          to="/inventory"
+          className="mt-4 inline-flex rounded-xl px-4 py-2.5 text-[0.875rem] font-bold text-white"
+          style={{ background: "var(--hh-teal-fill)" }}
+        >
+          Go to items
+        </Link>
+      </div>
+    )}
 
-        {loading && (
-          <div className="mt-6 space-y-3">
-            <div className="flex gap-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-[78px] flex-1 animate-pulse rounded-2xl bg-[var(--hh-surface)]/70" />
+    {rows.length > 0 && (
+      <div className="flex flex-col gap-6">
+        {/* Summary */}
+        <div className="flex gap-3">
+          <StatCard n={active.length} label="active" color={TEAL} />
+          <StatCard n={soon.length} label="expiring" color={GOLD} />
+          <StatCard n={lapsed.length} label="lapsed" color={NEUTRAL} />
+        </div>
+
+        {/* Expiring soon — gentle gold highlight */}
+        {soon.length > 0 && (
+          <div>
+            <div className="mb-2.5 pl-0.5 text-xs font-bold uppercase tracking-[0.6px]" style={{ color: GOLD }}>
+              Worth a look
+            </div>
+            <div className="flex flex-col gap-3">
+              {soon.map((row) => (
+                <Link
+                  key={row.id}
+                  to={`/inventory/${row.id}`}
+                  className="flex w-full items-center gap-3.5 rounded-2xl border p-4"
+                  style={{ background: GOLD_SOFT, borderColor: GOLD_BORDER }}
+                >
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-[var(--hh-surface)]" style={{ color: GOLD }}>
+                    <ShieldAlertIcon className="size-[22px]" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="inline-flex items-center gap-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: GOLD }}>
+                      Expires in {row.daysRemaining} day{row.daysRemaining === 1 ? "" : "s"}
+                    </div>
+                    <div className="my-0.5 text-[1.1875rem] font-extrabold tracking-[-0.3px] [overflow-wrap:anywhere]" style={{ color: INK }}>{row.name}</div>
+                    <div className="truncate text-[0.8125rem]" style={{ color: "var(--hh-gold-sub)" }}>
+                      Coverage ends {formatDate(row.expiry)}{[row.brand, row.room].filter(Boolean).length ? ` · ${[row.brand, row.room].filter(Boolean).join(" · ")}` : ""}
+                    </div>
+                  </div>
+                  <ChevronRightIcon className="size-5 shrink-0" style={{ color: GOLD }} />
+                </Link>
               ))}
             </div>
-            <div className="h-40 animate-pulse rounded-2xl bg-[var(--hh-surface)]/70" />
           </div>
         )}
 
-        {error && (
-          <div className="mt-6 rounded-2xl border p-5" style={{ background: "var(--hh-surface)", borderColor: GOLD_BORDER }}>
-            <p className="text-[0.875rem]" style={{ color: INK }}>We couldn't load your warranties just now.</p>
-            <p className="mt-1 text-[0.8125rem]" style={{ color: SUB }}>{error}</p>
-          </div>
-        )}
+        <Group title="Active" rows={active} />
+        <Group title="Lapsed" rows={lapsed} />
 
-        {!loading && !error && rows.length === 0 && (
-          <div className="mt-6 rounded-2xl bg-[var(--hh-surface)] px-6 py-10 text-center shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-[15px]" style={{ background: GOLD_SOFT }}>
-              <ShieldCheckIcon className="size-7" style={{ color: GOLD }} />
-            </div>
-            <div className="text-[0.9375rem] font-bold" style={{ color: INK }}>No warranties on file yet</div>
-            <p className="mx-auto mt-1.5 max-w-[280px] text-[0.875rem] leading-snug" style={{ color: SUB }}>
-              Add a warranty date or coverage note to an item and it'll show up here so you know what's still protected.
-            </p>
-            <Link
-              to="/inventory"
-              className="mt-4 inline-flex rounded-xl px-4 py-2.5 text-[0.875rem] font-bold text-white"
-              style={{ background: "var(--hh-teal-fill)" }}
-            >
-              Go to items
-            </Link>
-          </div>
-        )}
-
-        {!loading && !error && rows.length > 0 && (
-          <div className="mt-6 flex flex-col gap-6">
-            {/* Summary */}
-            <div className="flex gap-3">
-              <StatCard n={active.length} label="active" color={TEAL} />
-              <StatCard n={soon.length} label="expiring" color={GOLD} />
-              <StatCard n={lapsed.length} label="lapsed" color={NEUTRAL} />
-            </div>
-
-            {/* Expiring soon — gentle gold highlight */}
-            {soon.length > 0 && (
-              <div>
-                <div className="mb-2.5 pl-0.5 text-xs font-bold uppercase tracking-[0.6px]" style={{ color: GOLD }}>
-                  Worth a look
-                </div>
-                <div className="flex flex-col gap-3">
-                  {soon.map((row) => (
-                    <Link
-                      key={row.id}
-                      to={`/inventory/${row.id}`}
-                      className="flex w-full items-center gap-3.5 rounded-2xl border p-4"
-                      style={{ background: GOLD_SOFT, borderColor: GOLD_BORDER }}
-                    >
-                      <span className="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-[var(--hh-surface)]" style={{ color: GOLD }}>
-                        <ShieldAlertIcon className="size-[22px]" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="inline-flex items-center gap-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: GOLD }}>
-                          Expires in {row.daysRemaining} day{row.daysRemaining === 1 ? "" : "s"}
-                        </div>
-                        <div className="my-0.5 text-[1.1875rem] font-extrabold tracking-[-0.3px] [overflow-wrap:anywhere]" style={{ color: INK }}>{row.name}</div>
-                        <div className="truncate text-[0.8125rem]" style={{ color: "var(--hh-gold-sub)" }}>
-                          Coverage ends {formatDate(row.expiry)}{[row.brand, row.room].filter(Boolean).length ? ` · ${[row.brand, row.room].filter(Boolean).join(" · ")}` : ""}
-                        </div>
-                      </div>
-                      <ChevronRightIcon className="size-5 shrink-0" style={{ color: GOLD }} />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <Group title="Active" rows={active} />
-            <Group title="Lapsed" rows={lapsed} />
-
-            {lapsed.length > 0 && (
-              <p className="mx-2 text-center text-[0.8125rem] leading-relaxed" style={{ color: SUB }}>
-                Renewed or bought a protection plan? Open the item to update its coverage.
-              </p>
-            )}
-          </div>
+        {lapsed.length > 0 && (
+          <p className="mx-2 text-center text-[0.8125rem] leading-relaxed" style={{ color: SUB }}>
+            Renewed or bought a protection plan? Open the item to update its coverage.
+          </p>
         )}
       </div>
-    </div>
+    )}
+  </div>
   )
 }

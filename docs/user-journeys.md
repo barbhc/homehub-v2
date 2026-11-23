@@ -247,7 +247,8 @@ default, "this isn't right" always one tap away.
 
 ```mermaid
 flowchart LR
-    A[Home /home\n"This week", first task open] --> B[Tasks /maintenance\nlenses + calendar]
+    A[Home /home\n"This week", first task open] --> B[Tasks /maintenance\nUpkeep: lenses + calendar]
+    B --> H[Tasks ?view=cleaning\nStart cleaning + guides]
     B --> C[Row opens as the task card:\nMark done / Snooze · arrow to the task page]
     C --> D[Task detail /tasks/:id\nwindow phrase, steps]
     D --> E[Mark done → completeTask\nnext instance minted]
@@ -278,6 +279,17 @@ Key mechanics:
   Recommended → Optional, the date breaking ties; no row repeats its group's
   name — neither the when-phrase ("Good to do now") nor the item/room
   ("Furnace" under the Furnace group) (HH-165).
+- Tasks has two views under one segmented control, **Upkeep | Cleaning**
+  (`design/tasks-items-views.md`), held in the URL as `?view=` (absent =
+  Upkeep). Upkeep is the agenda above. Cleaning is what was the Clean page —
+  the "Start cleaning" session and the cleaning guides, with "N cleaning
+  guides" under the title and none of Upkeep's lenses, priority filter or
+  calendar; Clean's own "This week" list is gone (the week is one list, in
+  Upkeep). `/clean` redirects (replace) to `/maintenance?view=cleaning`;
+  `/clean/:itemUnitId` (an appliance's guide) stays, its "Back to Cleaning"
+  link going to the view. Items has the same control, **Items | Warranties**
+  (`/inventory?view=warranties`; `/warranties` redirects), shown only when the
+  home has items. Neither Clean nor Warranties is in the desktop nav.
 - **Complete** → `completeTask` callable: one transaction marks done, computes
   the next due, suppresses duplicates, mints the next instance. (Browser-level
   Mark done needs the functions emulator — covered server-side by
@@ -292,7 +304,8 @@ Key mechanics:
 
 **Spec coverage:** `journey.spec.ts` J4 (Home's open row → agenda → expanded
 row → detail → snooze + undo) · `emu/tasks`, `emu/home`, `emu/home-week`,
-`emu/item-detail` ·
+`emu/item-detail`, `emu/clean` (Upkeep | Cleaning, `/clean` redirect),
+`emu/warranties` (Items | Warranties, `/warranties` redirect) ·
 `completeTask.emu`, `rollForward.emu`, `discussTask.emu` (server).
 
 ---
@@ -340,7 +353,7 @@ Key mechanics:
 | J1 Onboarding | `journey.spec.ts` J1 | `emu/auth-home`, `emu/smart-add` | rules tests, `inviteActions.emu`, `membership.emu` |
 | J2 Add + manual | `journey.spec.ts` J2 | `emu/smart-add`, `emu/item-add-manual`, `emu/item-page-manual`, `emu/scan-fit`, `emu/storage`, `emu/knowledge*` | `worker.emu`, `quota.emu`, parser goldens |
 | J3 Review | `journey.spec.ts` J3 | `emu/task-review`, `emu/notice-fit` | `commitManualDraft.emu`, `lastDoneAnchor.emu` |
-| J4 Agenda | `journey.spec.ts` J4 | `emu/tasks`, `emu/home`, `emu/item-detail` | `completeTask.emu`, `rollForward.emu`, `discussTask.emu` |
+| J4 Agenda | `journey.spec.ts` J4 | `emu/tasks`, `emu/home`, `emu/item-detail`, `emu/clean`, `emu/warranties`, `emu/tasks-desktop-parity` | `completeTask.emu`, `rollForward.emu`, `discussTask.emu` |
 | J5 Records | `journey.spec.ts` J5 | `monthGrid`, `storeSuggestions`, `itemName` unit specs | — (client-only write via `updateItemUnit`) |
 
 Across J1–J3, `src/lib/designContracts.test.ts` pins the add-item flow's rules

@@ -142,6 +142,9 @@ const PAIRS: [string, string, ...string[]][] = [
   ["care step text (was literal #3C4A47)", "--hh-ink-soft", "--hh-surface"],
   // The wizard's required marks and "Not found in your photo" — calm clay on its card.
   ["wizard clay text on a card", "--hh-clay", "--t-card"],
+  // The segmented control (Tasks: Upkeep | Cleaning, Items: Items | Warranties).
+  ["segment label on the control's track", "--hh-ink", "--hh-seg-track", "--hh-bg"],
+  ["segment label on the selected segment", "--hh-ink", "--hh-seg-thumb", "--hh-bg"],
   // Warranties
   ["Lapsed label on its tile", "--hh-neutral", "--hh-neutral-soft", "--hh-surface"],
   ["Lapsed stat on the surface", "--hh-neutral", "--hh-surface"],

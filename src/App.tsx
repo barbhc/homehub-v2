@@ -18,6 +18,7 @@ import { AppLayout } from "@/components/AppLayout"
 import { ErrorBoundary } from "@/components/layout"
 import { lazyWithRetry } from "@/lib/lazyWithRetry"
 import { hideBootSplash } from "@/lib/bootSplash"
+import { viewRedirectRoutes } from "@/lib/viewRedirects"
 import Index from "@/pages/Index"
 import NotFound from "@/pages/NotFound"
 
@@ -95,10 +96,8 @@ const Maintenance = lazyWithRetry(() => import("@/pages/Maintenance"))
 const YourWeek = lazyWithRetry(() => import("@/pages/YourWeek"))
 const YourReminders = lazyWithRetry(() => import("@/pages/YourReminders"))
 const HomeSetup = lazyWithRetry(() => import("@/pages/HomeSetup"))
-const DeepClean = lazyWithRetry(() => import("@/pages/DeepClean"))
 const CleanGuide = lazyWithRetry(() => import("@/pages/CleanGuide"))
 const ItemDetailPage = lazyWithRetry(() => import("@/pages/ItemDetailPage"))
-const WarrantiesPage = lazyWithRetry(() => import("@/pages/WarrantiesPage"))
 const ProvidersPage = lazyWithRetry(() => import("@/pages/ProvidersPage"))
 const Settings = lazyWithRetry(() => import("@/pages/Settings"))
 const ResetPassword = lazyWithRetry(() => import("@/pages/ResetPassword"))
@@ -196,9 +195,11 @@ function App() {
                 </Route>
                 <Route path="/tasks/:taskInstanceId" element={<TaskDetail />} />
                 <Route path="/chat" element={<ChatPage />} />
-                <Route path="/clean" element={<DeepClean />} />
+                {/* /clean and /warranties: views of Tasks and Items now
+                    (design/tasks-items-views.md), redirected there. An
+                    appliance's cleaning guide keeps its own page. */}
+                {viewRedirectRoutes()}
                 <Route path="/clean/:itemUnitId" element={<CleanGuide />} />
-                <Route path="/warranties" element={<WarrantiesPage />} />
                 <Route path="/providers" element={<ProvidersPage />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>

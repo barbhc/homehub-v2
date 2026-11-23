@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
+import { CLEANING_PATH } from "@/hooks/usePageView"
 import { TEAL } from "./shared"
 
 /**
@@ -13,12 +14,15 @@ import { TEAL } from "./shared"
  * both trees render under their groups, fed by the count useWeekAgenda takes
  * on every read. ("1 cleaning job … lives", as nothingDueLine says it: the
  * phone's never-rendered draft read "1 cleaning job … live".)
+ *
+ * It names the Cleaning view by its segment's label — Clean is no longer a
+ * page of its own (design/tasks-items-views.md).
  */
 export function HiddenCleaningLink({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null
   return (
-    <Link to="/clean" className={cn("hit-44", className)} style={{ color: "var(--hh-sub)" }}>
-      {count} cleaning job{count === 1 ? " for your items lives" : "s for your items live"} in <b style={{ color: TEAL }}>Clean</b> →
+    <Link to={CLEANING_PATH} className={cn("hit-44", className)} style={{ color: "var(--hh-sub)" }}>
+      {count} cleaning job{count === 1 ? " for your items lives" : "s for your items live"} in <b style={{ color: TEAL }}>Cleaning</b> →
     </Link>
   )
 }

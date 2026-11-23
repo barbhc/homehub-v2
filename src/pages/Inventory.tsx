@@ -8,6 +8,11 @@ import { ItemsLoadError, ItemsSkeleton } from "@/components/home/ItemsSkeleton"
 import { useNotes } from "@/components/notes/useNotes"
 import { getHomeNotes } from "@/modules/care"
 import { DesktopItems } from "@/components/home/DesktopItems"
+import { WarrantiesView } from "@/pages/WarrantiesPage"
+import { useItemsView } from "@/hooks/usePageView"
+import { useId } from "react"
+import { useIsDesktop } from "@/hooks/useIsDesktop"
+import { segmentPanelProps } from "@/components/ui/segmentIds"
 import { useHomeItems } from "@/lib/useHomeItems"
 import { pageLoadState } from "@/lib/homeLoadingGate"
 import type { ItemUnit, Room } from "@/integrations/types"
@@ -34,6 +39,15 @@ export default function Inventory() {
   // Notes load on their own: a failed notes read must never cost the item list.
   const homeNotes = useNotes(homeId ? `home-notes:${homeId}` : null, () => getHomeNotes(homeId!))
   const retry = () => void refresh()
+  // Items | Warranties (?view=). Each tree draws its own header and control;
+  // the Warranties view is mounted HERE, once, below both, from the items
+  // already read. With no items there is no control and no view to switch to.
+  const [itemsView] = useItemsView()
+  // Each tree's control has ids of its own; the one Warranties panel is
+  // labelled by the tree on screen.
+  const phoneIds = useId()
+  const desktopIds = useId()
+  const isDesktop = useIsDesktop()
 
   // What to show is decided by what we HOLD, never by SWR's isLoading (true
   // while a warm snapshot revalidates) — see pageLoadState.
@@ -83,12 +97,20 @@ export default function Inventory() {
         {/* Redesigned Items — list (mobile) · card grid (desktop) */}
         <div className="lg:hidden -mx-6">
           <div className="mx-auto w-full max-w-[460px]">
-            <RefinedItems items={items} rooms={rooms} notes={homeNotes.notes} notesError={homeNotes.error} />
+            <RefinedItems items={items} rooms={rooms} notes={homeNotes.notes} notesError={homeNotes.error} idBase={phoneIds} />
           </div>
         </div>
         <div className="hidden lg:block">
-          <DesktopItems items={items} rooms={rooms} notes={homeNotes.notes} notesError={homeNotes.error} />
+          <DesktopItems items={items} rooms={rooms} notes={homeNotes.notes} notesError={homeNotes.error} idBase={desktopIds} />
         </div>
+        {itemsView === "warranties" && (
+          // The phone list's gutter on phones; Warranties' own readable width at lg+.
+          <div {...segmentPanelProps(isDesktop ? desktopIds : phoneIds, "warranties")} className="-mx-6 lg:mx-0">
+            <div className="mx-auto w-full max-w-[460px] px-5 lg:mx-0 lg:max-w-3xl lg:px-0">
+              <WarrantiesView items={items} rooms={rooms} />
+            </div>
+          </div>
+        )}
         </>
       )}
     </PageContainer>
