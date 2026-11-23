@@ -95,7 +95,7 @@ const TaskDetail = lazyWithRetry(() => import("@/pages/TaskDetail"))
 const Maintenance = lazyWithRetry(() => import("@/pages/Maintenance"))
 const YourWeek = lazyWithRetry(() => import("@/pages/YourWeek"))
 const YourReminders = lazyWithRetry(() => import("@/pages/YourReminders"))
-const HomeSetup = lazyWithRetry(() => import("@/pages/HomeSetup"))
+const YourHome = lazyWithRetry(() => import("@/pages/YourHome"))
 const CleanGuide = lazyWithRetry(() => import("@/pages/CleanGuide"))
 const ItemDetailPage = lazyWithRetry(() => import("@/pages/ItemDetailPage"))
 const ProvidersPage = lazyWithRetry(() => import("@/pages/ProvidersPage"))
@@ -185,7 +185,9 @@ function App() {
                 <Route path="/maintenance" element={<Maintenance />} />
                 <Route path="/week" element={<YourWeek />} />
                 <Route path="/reminders" element={<YourReminders />} />
-                <Route path="/home-setup" element={<HomeSetup />} />
+                <Route path="/your-home" element={<YourHome />} />
+                {/* The old address of the setup questions, now one section of Your home. */}
+                <Route path="/home-setup" element={<Navigate to="/your-home" replace />} />
                 <Route path="/inventory">
                   <Route index element={<Inventory />} />
                   <Route path="add" element={<AddItem />} />

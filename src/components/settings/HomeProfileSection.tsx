@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Loader2Icon, HomeIcon, CheckCircle2Icon } from "lucide-react"
+import { Loader2Icon, CheckCircle2Icon } from "lucide-react"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
@@ -428,18 +428,8 @@ export function HomeProfileSection({ homeId }: Props) {
   }
 
   return (
-    <SectionCard className="mt-6">
+    <SectionCard>
       <CardContent className="p-4 space-y-5">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <HomeIcon className="size-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Home profile</h2>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Answers to a few questions about your home — drives what the app suggests and how it's laid out.
-          </p>
-        </div>
-
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2Icon className="size-4 animate-spin" />
