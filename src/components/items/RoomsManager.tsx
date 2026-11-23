@@ -30,32 +30,34 @@ type RoomsRead =
   | { rooms: Room[]; counts: Record<string, number>; error: null }
   | { rooms: Room[] | null; counts: null; error: unknown }
 
-/** One read of the home's rooms and how many items each holds. A room list
- *  that arrived before the counts failed is still handed back. */
+/**
+ * One read of the home's rooms and how many items each holds. A room list
+ * that arrived before the counts failed is still handed back.
+ *
+ * The two queries go out together. They used to run one after the other, and
+ * the second, sent once the first had answered, was the read that stalled
+ * under WebKit against the emulator (a read issued after the page's first
+ * burst can wait there indefinitely). Same answers, one round trip.
+ */
 async function readRooms(homeId: string): Promise<RoomsRead> {
-  let rooms: Room[] | null = null
-  try {
-    const res = await getRooms(homeId)
-    if (res.error) throw new Error(res.error.message)
-    rooms = res.data ?? []
+  const [roomsRes, countsRes] = await Promise.allSettled([
+    getRooms(homeId),
+    getDocs(query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))),
+  ])
+  // Not swallowed: each failure is handed back to be logged and said (applyRooms).
+  if (roomsRes.status === "rejected") return { rooms: null, counts: null, error: roomsRes.reason }
+  if (roomsRes.value.error) return { rooms: null, counts: null, error: new Error(roomsRes.value.error.message) }
+  const rooms = roomsRes.value.data ?? []
+  if (countsRes.status === "rejected") return { rooms, counts: null, error: countsRes.reason }
 
-    // Fetch item counts per room
-    const countsSnap = await getDocs(
-      query(collection(db, `homes/${homeId}/items`), where("deletedAt", "==", null))
-    )
-
-    const countMap: Record<string, number> = {}
-    for (const d of countsSnap.docs) {
-      const roomId: unknown = d.data().roomId
-      if (typeof roomId === "string" && roomId) {
-        countMap[roomId] = (countMap[roomId] ?? 0) + 1
-      }
+  const countMap: Record<string, number> = {}
+  for (const d of countsRes.value.docs) {
+    const roomId: unknown = d.data().roomId
+    if (typeof roomId === "string" && roomId) {
+      countMap[roomId] = (countMap[roomId] ?? 0) + 1
     }
-    return { rooms, counts: countMap, error: null }
-  } catch (error) {
-    // Not swallowed: handed back to be logged and said (applyRooms).
-    return { rooms, counts: null, error }
   }
+  return { rooms, counts: countMap, error: null }
 }
 
 export function RoomsManager({ homeId }: { homeId: string }) {
