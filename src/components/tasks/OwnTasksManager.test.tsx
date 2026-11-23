@@ -167,8 +167,9 @@ describe("Your own tasks — failures are said", () => {
     expect(screen.queryByRole("status")).toBeNull()
     expect(screen.getByRole("button", { name: "Add task" })).toBeEnabled()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("could not add a task (upkeep, home home-1)"), "permission-denied")
-    // Nothing was added, so the list is not read again.
-    expect(m.getRoutineTemplates).toHaveBeenCalledTimes(1)
+    // An add is two writes; the first may have landed. The list is read again
+    // so a half-made task shows instead of a retry quietly doubling it.
+    await waitFor(() => expect(m.getRoutineTemplates).toHaveBeenCalledTimes(2))
   })
 
   it("a Cleaning add that fails keeps the typed task in the form and says so", async () => {

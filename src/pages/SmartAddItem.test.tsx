@@ -62,7 +62,10 @@ vi.mock("@/modules/knowledge/services/manualDocumentService", () => ({ deleteMan
 vi.mock("@/modules/knowledge", () => ({ createManualDocument: vi.fn(), detectDocType: vi.fn() }))
 vi.mock("@/modules/knowledge/services/parseManualService", () => ({ startParse: vi.fn() }))
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }))
-vi.mock("@/hooks/useAutoFindManuals", () => ({ useAutoFindManuals: () => [false, vi.fn()] }))
+vi.mock("@/hooks/useAutoFindManuals", () => ({
+  useAutoFindManuals: () => [false, vi.fn()],
+  useAutoFindManualsActive: () => false,
+}))
 vi.mock("@/components/smart-add/FindManualCard", () => ({ FindManualCard: () => null }))
 
 const { default: SmartAddItem } = await import("./SmartAddItem")

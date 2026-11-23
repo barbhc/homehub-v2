@@ -153,6 +153,10 @@ export function OwnTasksManager({ homeId }: { homeId: string }) {
       // The typed task stays in the form, ready to try again.
       console.warn(`[own tasks] could not add a task (${showsIn}, home ${forHome}):`, failure)
       setRoutinesError("Couldn't add that task. Check your connection and try again.")
+      // An add is two writes (the task, then how often). If only the second
+      // failed the task exists: re-read so it shows, and a retry is a choice
+      // rather than a hidden duplicate.
+      void refreshRoutines()
       return
     }
     setAdded(title)

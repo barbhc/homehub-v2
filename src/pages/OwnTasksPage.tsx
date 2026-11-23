@@ -13,7 +13,8 @@ export default function OwnTasksPage() {
   const homeId = home?.home_id ?? null
   return (
     <SubPage backTo="/maintenance" backLabel="Tasks" title="Your own tasks" testId="own-tasks-page">
-      {homeId && <OwnTasksManager homeId={homeId} />}
+      {/* Keyed by home: a switch starts the page over, list included. */}
+      {homeId && <OwnTasksManager key={homeId} homeId={homeId} />}
     </SubPage>
   )
 }

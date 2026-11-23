@@ -12,7 +12,9 @@ export default function RoomsPage() {
   const homeId = home?.home_id ?? null
   return (
     <SubPage backTo="/inventory" backLabel="Items" title="Rooms" testId="rooms-page">
-      {homeId && <RoomsManager homeId={homeId} />}
+      {/* Keyed by home: a switch starts the page over, so one home's list and
+          open editors never sit over another home (a failed read used to leave them). */}
+      {homeId && <RoomsManager key={homeId} homeId={homeId} />}
     </SubPage>
   )
 }

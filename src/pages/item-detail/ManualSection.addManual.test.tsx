@@ -51,6 +51,10 @@ vi.mock("@/integrations/firebase", () => ({ resolveStorageUrl: vi.fn(), callable
 vi.mock("@/modules/home", () => ({
   useHomeProfile: () => ({ profile: null, isLoading: false, error: undefined, refresh: vi.fn() }),
 }))
+vi.mock("@/hooks/useAutoFindManuals", () => ({
+  useAutoFindManuals: () => [false, vi.fn()],
+  useAutoFindManualsActive: () => false,
+}))
 vi.mock("swr", () => ({ default: () => ({ data: undefined, error: undefined, mutate: vi.fn() }) }))
 // Not under test here: the search card would call a function.
 vi.mock("@/components/smart-add/FindManualCard", () => ({
