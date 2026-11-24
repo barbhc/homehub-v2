@@ -231,7 +231,7 @@ export const PAGES: Setup[] = [
   // seeded emulator cannot reach on demand: the shared failure states — most
   // pages answer an offline read from cache, so InlineError's "Try again" is
   // never on screen — the add wizard's identify step, and lookup suggestions.
-  ...(["load-states", "identify-appliance-filled", "item-suggestions-two"] as const).map((id): Setup => ({
+  ...(["load-states", "codex-failure-lines", "identify-appliance-filled", "item-suggestions-two"] as const).map((id): Setup => ({
     name: `preview: ${id}`,
     open: async (page) => {
       await gotoStable(page, "/__preview")
