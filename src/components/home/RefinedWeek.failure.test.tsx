@@ -97,7 +97,8 @@ const renderAndSettle = async () => {
 
 /** The row toggles on a tap expressed as pointerdown+pointerup with no move. */
 const expandRow = async () => {
-  const row = screen.getByText(/replace the furnace filter/i).closest("div")!.parentElement!
+  // The title sits inside the row's button; pointer events bubble to the row.
+  const row = screen.getByText(/replace the furnace filter/i)
   fireEvent.pointerDown(row, { clientX: 10, pointerId: 1 })
   fireEvent.pointerUp(row, { clientX: 10, pointerId: 1 })
   await waitFor(() => expect(screen.getByRole("button", { name: /^snooze$/i })).toBeInTheDocument())

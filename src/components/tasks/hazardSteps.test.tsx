@@ -157,7 +157,8 @@ describe("Tasks row — phone (RefinedWeek)", () => {
     screen.getAllByTestId("phone-task-row").find((r) => within(r).queryByText(title))!
   /** The phone row toggles on a tap expressed as pointerdown+pointerup with no move. */
   const expand = async (title: string) => {
-    const target = screen.getByText(title).closest("div")!.parentElement!
+    // The title sits inside the row's button; pointer events bubble to the row.
+    const target = screen.getByText(title)
     fireEvent.pointerDown(target, { clientX: 10, pointerId: 1 })
     fireEvent.pointerUp(target, { clientX: 10, pointerId: 1 })
     await within(rowOf(title)).findByRole("button", { name: /^snooze$/i })

@@ -81,6 +81,8 @@ function TaskRow({
   const [dx, setDx] = useState(0)
   const [dragging, setDragging] = useState(false)
   const drag = useRef<{ x: number; dx: number; moved: boolean } | null>(null)
+  /** When the last finger gesture on this row ended (see `activate`). */
+  const gestureEndedAt = useRef(0)
   const TH = 72
 
   const down = (e: React.PointerEvent) => {
@@ -101,6 +103,7 @@ function TaskRow({
     drag.current = null
     setDragging(false)
     if (!g) return
+    gestureEndedAt.current = Date.now()
     // pointercancel is iOS saying "the scroll gesture took this pointer" — the
     // finger was never a tap. Treating it as one expanded a task on almost
     // every scroll, because a list this dense leaves nowhere neutral to put a
@@ -110,6 +113,18 @@ function TaskRow({
     if (g.dx > TH) { setDx(0); onDone() }
     else if (g.dx < -TH) { setDx(0); onSnooze() }
     else setDx(0)
+  }
+
+  /**
+   * The row button's click — for the keyboard, a switch, a screen reader
+   * (Codex review F5). A finger is already handled by the pointer handlers
+   * above (tap toggles, swipe is Done or Snooze), and the browser sends a
+   * click after either one; that click is the same gesture, so it is ignored
+   * rather than toggling the row a second time (or opening it after a swipe).
+   */
+  const activate = () => {
+    if (Date.now() - gestureEndedAt.current < 700) return
+    onToggle()
   }
 
   return (
@@ -157,15 +172,28 @@ function TaskRow({
           </span>
         </button>
 
-        <div className="min-w-0 flex-1">
-          <TaskStatusLine tier={tier} when={rowWhen(t, groupLabel)} tone={whenTone(t.safetyNote ?? t.duePhrase, { trulyOverdue: t.trulyOverdue, safetyNote: t.safetyNote })} />
-          <div className="mt-0.5 text-[1.0625rem] font-semibold leading-[1.375rem] tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</div>
-          {itemMeta(t, groupLabel) && <div className="mt-0.5 text-[0.8125rem] leading-[1.125rem]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</div>}
-        </div>
+        {/* The row's text IS its button (Codex review F5): focusable, says
+            whether the row is open, and sits BESIDE Mark done and the arrow,
+            never around them. Pointer events pass through to the row, so a
+            tap and a swipe behave exactly as before. */}
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={activate}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 text-left"
+        >
+          <span className="block min-w-0 flex-1">
+            <TaskStatusLine tier={tier} when={rowWhen(t, groupLabel)} tone={whenTone(t.safetyNote ?? t.duePhrase, { trulyOverdue: t.trulyOverdue, safetyNote: t.safetyNote })} />
+            <span className="mt-0.5 block text-[1.0625rem] font-semibold leading-[1.375rem] tracking-[-0.2px] text-pretty" style={{ color: INK }}>{t.title}</span>
+            {itemMeta(t, groupLabel) && <span className="mt-0.5 block text-[0.8125rem] leading-[1.125rem]" style={{ color: SUB }}>{itemMeta(t, groupLabel)}</span>}
+          </span>
+          {/* Closed: the caret says the row opens here. */}
+          {!expanded && <ChevronDownIcon className="size-5 shrink-0" style={{ color: FAINT }} aria-hidden />}
+        </button>
 
-        {/* Closed: the caret opens the row here. Open: the arrow opens the
-            task's page (owner, 2026-11-21: the arrow instead of a link). */}
-        {expanded ? (
+        {/* Open: the arrow opens the task's page (owner, 2026-11-21: the
+            arrow instead of a link). */}
+        {expanded && (
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
@@ -176,8 +204,6 @@ function TaskRow({
           >
             <ChevronRightIcon className="size-5" />
           </button>
-        ) : (
-          <ChevronDownIcon className="size-5 shrink-0" style={{ color: FAINT }} aria-hidden />
         )}
       </div>
 

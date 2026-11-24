@@ -90,7 +90,8 @@ const bar = () => screen.findByRole("status")
 
 /** The row toggles on pointer down/up with no movement; a drag past 72px is a swipe. */
 const drag = (dx: number) => {
-  const target = screen.getByText(TITLE).closest("div")!.parentElement!
+  // The title sits inside the row's button; pointer events bubble to the row.
+  const target = screen.getByText(TITLE)
   fireEvent.pointerDown(target, { clientX: 100, pointerId: 1 })
   fireEvent.pointerMove(target, { clientX: 100 + dx, pointerId: 1 })
   fireEvent.pointerUp(target, { clientX: 100 + dx, pointerId: 1 })
