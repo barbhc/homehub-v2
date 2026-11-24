@@ -26,6 +26,8 @@
  * state instead of putting the app in a reload loop.
  */
 
+import { withTimeout } from "./withTimeout"
+
 const RELOAD_FLAG = "homehub:chunk-reloaded"
 
 /**
@@ -47,6 +49,40 @@ const STALE_ASSET_MESSAGES = [
 export function isStaleChunkError(err: unknown): boolean {
   const text = (err instanceof Error ? `${err.name} ${err.message}` : String(err ?? "")).toLowerCase()
   return STALE_ASSET_MESSAGES.some((m) => text.includes(m))
+}
+
+/** How long the build probe waits for the server before calling it unreachable. */
+const PROBE_TIMEOUT_MS = 4000
+
+/**
+ * Was this build replaced, or can the server just not be reached?
+ *
+ * The error cannot say: offline, a chunk's import() rejects with the very same
+ * message a replaced build gives ("Failed to fetch dynamically imported
+ * module"). So ask the server for the current page and look for the entry
+ * script THIS page is running:
+ *  · "unreachable" — offline, or the request failed or timed out. Reloading
+ *    would swap a usable screen for nothing.
+ *  · "current" — the server still serves this build; the failure is not a
+ *    stale deploy.
+ *  · "stale" — the server answered with a page that no longer carries this
+ *    build's entry script (or this page's entry cannot be told): reloading
+ *    fetches the new one.
+ */
+export async function probeBuild(): Promise<"stale" | "current" | "unreachable"> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return "unreachable"
+  const entry = document.querySelector('script[type="module"][src]')?.getAttribute("src") ?? null
+  let html: string
+  try {
+    const res = await withTimeout(fetch("/", { cache: "no-store" }), PROBE_TIMEOUT_MS, "The build probe timed out.")
+    if (!res.ok) return "unreachable"
+    html = await res.text()
+  } catch (err) {
+    // The answer IS the result: no server, no reload. Logged for the record.
+    console.warn("[chunkRetry] could not reach the server to check for a new build:", err instanceof Error ? err.message : err)
+    return "unreachable"
+  }
+  return entry !== null && html.includes(entry) ? "current" : "stale"
 }
 
 function alreadyReloaded(): boolean {
