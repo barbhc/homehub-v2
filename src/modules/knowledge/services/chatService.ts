@@ -45,6 +45,27 @@ export type ChatMessage = {
  */
 export const INCOMPLETE_ANSWER = "The answer stopped before it finished."
 
+/**
+ * What an answer that went quiet says (Codex review F7).
+ *
+ * Every other ending is something ARRIVING — a done, an error, a close, a
+ * rejected read. A request that simply stops (a WebView resumed on a dead
+ * socket, a proxy holding the connection open) sends none of them, so nothing
+ * ever ended it: the cursor blinked and the composer stayed locked. With no
+ * data for STREAM_STALL_MS the request is abandoned and ends in this, which
+ * the thread shows with Try again like any other failed answer.
+ */
+export const ANSWER_STALLED = "The answer took too long."
+
+/**
+ * How long the stream may go without a single byte — before the first one, or
+ * between any two — before it is called stalled. The server streams text as
+ * the model writes it, but sends nothing while it searches the manuals (and
+ * the web) first, and its own limit for the whole request is 120 s; a minute
+ * of silence is well past a slow answer and into a dead connection.
+ */
+export const STREAM_STALL_MS = 60_000
+
 type StreamEvent = {
   delta?: string
   done?: boolean
@@ -96,17 +117,37 @@ export async function streamChatQuery(params: {
     if (data.error) fail(data.error)
   }
 
+  // The stall clock (F7). `stalled` rejects when the stream has been silent
+  // for STREAM_STALL_MS; every wait below races it, so a request that never
+  // answers ends here instead of holding this function — and the thread —
+  // open for good. `alive()` restarts the clock each time data arrives.
+  const controller = new AbortController()
+  let stallTimer: ReturnType<typeof setTimeout> | undefined
+  let giveUp: (reason: Error) => void = () => {}
+  // Always raced by the time it can reject: the first orStall() below runs in
+  // the same tick the clock starts, and the clock is stopped when this
+  // function ends — so it never rejects with nobody listening.
+  const stalled = new Promise<never>((_, reject) => { giveUp = reject })
+  const alive = () => {
+    clearTimeout(stallTimer)
+    stallTimer = setTimeout(() => giveUp(new Error(ANSWER_STALLED)), STREAM_STALL_MS)
+  }
+  const orStall = <T,>(p: Promise<T>): Promise<T> => Promise.race([p, stalled])
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
+
   try {
+  alive()
   // getIdToken() auto-refreshes if the token is expired. A failed refresh is
   // not swallowed: no token falls to the sign-in message just below.
-  const token = await auth.currentUser?.getIdToken().catch(() => undefined)
+  const token = await orStall(Promise.resolve(auth.currentUser?.getIdToken().catch(() => undefined)))
   if (!token) {
     fail("Authentication required. Please sign in again.")
     return
   }
 
-  const res = await fetch(functionUrl("chatQuery"), {
+  const res = await orStall(fetch(functionUrl("chatQuery"), {
     method: "POST",
+    signal: controller.signal,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -118,10 +159,11 @@ export async function streamChatQuery(params: {
       home_id: homeId,
       allow_web_search: allowWebSearch ?? false,
     }),
-  })
+  }))
+  alive()
 
   if (!res.ok) {
-    const text = await res.text()
+    const text = await orStall(res.text())
     let msg = `Request failed (${res.status})`
     try {
       const j = JSON.parse(text)
@@ -133,7 +175,7 @@ export async function streamChatQuery(params: {
     return
   }
 
-  const reader = res.body?.getReader()
+  reader = res.body?.getReader()
   if (!reader) {
     fail("No response body")
     return
@@ -143,8 +185,9 @@ export async function streamChatQuery(params: {
   let buffer = ""
 
   while (true) {
-    const { done, value } = await reader.read()
+    const { done, value } = await orStall(reader.read())
     if (done) break
+    alive()
     buffer += decoder.decode(value, { stream: true })
     const lines = buffer.split("\n")
     buffer = lines.pop() ?? ""
@@ -167,7 +210,19 @@ export async function streamChatQuery(params: {
     // A dropped connection rejects fetch() or reader.read(); before this catch
     // that rejection escaped the function — no onError, no onDone — and the UI
     // showed a typing indicator that never resolved, with the composer locked.
-    // A tester sat in front of exactly that.
+    // A tester sat in front of exactly that. A stall arrives here too, as
+    // ANSWER_STALLED.
     fail(err instanceof Error ? err.message : "Lost the connection — please try again.")
+  } finally {
+    clearTimeout(stallTimer)
+    // Let the connection go if the answer did not finish: after a stall (or
+    // any error) nothing is listening, and the server should stop working on
+    // it. Harmless after a clean end — the stream is already closed.
+    if (reader) {
+      reader.cancel().catch((e: unknown) => {
+        console.warn("[ask] could not close the answer stream:", e instanceof Error ? e.message : e)
+      })
+    }
+    controller.abort()
   }
 }

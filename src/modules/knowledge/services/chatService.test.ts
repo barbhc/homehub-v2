@@ -13,7 +13,7 @@ vi.mock("@/integrations/firebase", () => ({
   functionUrl: (name: string) => `https://functions.test/${name}`,
 }))
 
-const { streamChatQuery, INCOMPLETE_ANSWER } = await import("./chatService")
+const { streamChatQuery, INCOMPLETE_ANSWER, ANSWER_STALLED, STREAM_STALL_MS } = await import("./chatService")
 
 /** A fetch response whose body yields these SSE chunks, then closes (or throws). */
 function sse(chunks: string[], opts: { dropAfter?: boolean } = {}) {
@@ -25,6 +25,8 @@ function sse(chunks: string[], opts: { dropAfter?: boolean } = {}) {
       if (opts.dropAfter) throw new Error("network connection was lost")
       return { done: true, value: undefined }
     }),
+    // Every real reader has it; the service lets the stream go when it is done with it.
+    cancel: vi.fn(async () => {}),
   }
   return { ok: true, status: 200, body: { getReader: () => reader } }
 }
@@ -50,7 +52,10 @@ beforeEach(() => {
   fetchMock.mockReset()
   vi.stubGlobal("fetch", fetchMock)
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
 describe("streamChatQuery — one ending, always", () => {
   it("a stream that closes WITHOUT done or error is an error, so the thread unlocks", async () => {
@@ -107,5 +112,100 @@ describe("streamChatQuery — one ending, always", () => {
     expect(onError).toHaveBeenCalledTimes(1)
     expect(onError).toHaveBeenCalledWith("network connection was lost")
     expect(onDone).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Codex review F7 — an answer that hangs is an error too.
+ *
+ * Every ending above is something ARRIVING: a done, an error, a close, a
+ * rejection. A request that simply stops — a WebView resumed on a dead socket,
+ * a proxy holding the connection open — sends none of them, so the cursor
+ * blinked and the composer stayed locked for good. With no data for
+ * STREAM_STALL_MS the request is abandoned and ends in ANSWER_STALLED, which
+ * the thread shows with Try again like any other failed answer.
+ */
+describe("streamChatQuery — a stalled answer ends", () => {
+  /** A body that yields these chunks and then never answers again. */
+  function hangingAfter(chunks: string[]) {
+    const encoder = new TextEncoder()
+    let i = 0
+    const reader = {
+      read: vi.fn(() =>
+        i < chunks.length
+          ? Promise.resolve({ done: false, value: encoder.encode(chunks[i++]) })
+          : new Promise<never>(() => {})),
+      cancel: vi.fn(async () => {}),
+    }
+    return { reader, response: { ok: true, status: 200, body: { getReader: () => reader } } }
+  }
+
+  it("a request that never answers fails after the stall time, once, and is aborted", async () => {
+    vi.useFakeTimers()
+    fetchMock.mockReturnValue(new Promise<never>(() => {}))
+    const { run, onDone, onError } = ask()
+
+    await vi.advanceTimersByTimeAsync(STREAM_STALL_MS - 1)
+    expect(onError).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    await run
+
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledWith(ANSWER_STALLED)
+    expect(onDone).not.toHaveBeenCalled()
+    const signal = (fetchMock.mock.calls[0][1] as { signal: AbortSignal }).signal
+    expect(signal.aborted).toBe(true)
+  })
+
+  it("an answer that starts and then goes quiet fails after the stall time — the text so far stays", async () => {
+    vi.useFakeTimers()
+    const { reader, response } = hangingAfter(['data: {"delta":"Run the descale "}\n\n'])
+    fetchMock.mockResolvedValue(response)
+    const { run, onDelta, onDone, onError } = ask()
+
+    await vi.advanceTimersByTimeAsync(STREAM_STALL_MS)
+    await run
+
+    expect(onDelta).toHaveBeenCalledWith("Run the descale ")
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledWith(ANSWER_STALLED)
+    expect(onDone).not.toHaveBeenCalled()
+    // The connection is let go, not left open behind the error.
+    expect(reader.cancel).toHaveBeenCalled()
+  })
+
+  it("a slow answer that keeps arriving is NOT cut off: the clock restarts with every chunk", async () => {
+    vi.useFakeTimers()
+    const encoder = new TextEncoder()
+    const gap = STREAM_STALL_MS - 5_000
+    const chunks = ['data: {"delta":"One. "}\n\n', 'data: {"delta":"Two. "}\n\n', 'data: {"delta":"Three."}\n\n', 'data: {"done":true,"sources":[]}\n\n']
+    let i = 0
+    const reader = {
+      read: vi.fn(() => new Promise((resolve) => {
+        setTimeout(() => resolve(i < chunks.length ? { done: false, value: encoder.encode(chunks[i++]) } : { done: true, value: undefined }), gap)
+      })),
+      cancel: vi.fn(async () => {}),
+    }
+    fetchMock.mockResolvedValue({ ok: true, status: 200, body: { getReader: () => reader } })
+    const { run, onDelta, onDone, onError } = ask()
+
+    // Four chunks, each just inside the stall time: well past it in total.
+    await vi.advanceTimersByTimeAsync(gap * 5)
+    await run
+
+    expect(onDelta).toHaveBeenCalledTimes(3)
+    expect(onDone).toHaveBeenCalledTimes(1)
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  it("a finished answer leaves no timer behind", async () => {
+    vi.useFakeTimers()
+    fetchMock.mockResolvedValue(sse(['data: {"done":true,"sources":[]}\n\n']))
+    const { run, onDone, onError } = ask()
+    await run
+    await vi.advanceTimersByTimeAsync(STREAM_STALL_MS * 2)
+    expect(onDone).toHaveBeenCalledTimes(1)
+    expect(onError).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })
