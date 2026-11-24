@@ -160,3 +160,131 @@ describe("a phone turned off here stays off", () => {
     expect(await isNativePushRegistered()).toBe(true)
   })
 })
+
+
+/**
+ * Codex review F3 — "on" is said only once the token is stored.
+ *
+ * registerNativePush used to answer success as soon as register() returned:
+ * before APNs had named a token, and before that token was written. The
+ * registration listener stored it later and logged any failure to the console,
+ * so the sheet said "Reminders are on" (and Settings showed Disable) on a
+ * phone the server could not reach.
+ */
+describe("registerNativePush — says on only after the token is saved", () => {
+  const UNCONFIRMED_KEY = "homehub:native-push-unconfirmed"
+  const FAILED = "Couldn't turn on reminders on this phone. Try again."
+
+  it("waits for APNs to name the token AND for it to be stored", async () => {
+    apnsAnswers()
+    let stored!: () => void
+    fs.setDoc.mockReturnValue(new Promise<void>((r) => { stored = () => r() }))
+    const { registerNativePush } = await load()
+
+    let answer: unknown = "not yet"
+    void registerNativePush("uid-1").then((r) => { answer = r })
+    await vi.waitFor(() => expect(fs.setDoc).toHaveBeenCalledWith(expect.anything(), { tokens: { union: APNS } }, { merge: true }))
+    // The write is still out: nothing has been claimed.
+    expect(answer).toBe("not yet")
+
+    stored()
+    await vi.waitFor(() => expect(answer).toEqual({ success: true }))
+  })
+
+  it("APNs never answers → not on, and it says so", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    const { registerNativePush, isNativePushRegistered, TOKEN_WAIT_MS } = await load()
+
+    const on = registerNativePush("uid-1")
+    await vi.advanceTimersByTimeAsync(TOKEN_WAIT_MS)
+
+    expect(await on).toEqual({ success: false, error: FAILED })
+    expect(fs.setDoc).not.toHaveBeenCalled()
+    // Permission is granted, but this phone is not set up: nothing reads it as on.
+    expect(await isNativePushRegistered()).toBe(false)
+  })
+
+  it("APNs refuses the registration → not on, and it says so", async () => {
+    cap.PushNotifications.register.mockImplementation(async () => {
+      queueMicrotask(() => cap.emit("registrationError", { error: "no valid aps-environment entitlement" }))
+    })
+    const { registerNativePush, isNativePushRegistered } = await load()
+
+    expect(await registerNativePush("uid-1")).toEqual({ success: false, error: FAILED })
+    expect(await isNativePushRegistered()).toBe(false)
+  })
+
+  it("the token cannot be stored → not on, and it says so", async () => {
+    apnsAnswers()
+    fs.setDoc.mockRejectedValue(new Error("permission-denied"))
+    const { registerNativePush, isNativePushRegistered } = await load()
+
+    expect(await registerNativePush("uid-1")).toEqual({ success: false, error: FAILED })
+    expect(await isNativePushRegistered()).toBe(false)
+    expect(localStorage.getItem(UNCONFIRMED_KEY)).toBe("1")
+  })
+
+  it("the write never comes back (offline) → not on after the wait; if it lands later, the phone reads as on", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    apnsAnswers()
+    let stored!: () => void
+    fs.setDoc.mockReturnValue(new Promise<void>((r) => { stored = () => r() }))
+    const { registerNativePush, isNativePushRegistered, TOKEN_WAIT_MS } = await load()
+
+    const on = registerNativePush("uid-1")
+    await vi.advanceTimersByTimeAsync(TOKEN_WAIT_MS)
+    expect(await on).toEqual({ success: false, error: FAILED })
+    expect(await isNativePushRegistered()).toBe(false)
+
+    // Back online: the queued write lands.
+    stored()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(await isNativePushRegistered()).toBe(true)
+  })
+
+  it("a failed turn-on does not clear 'off on this phone'", async () => {
+    localStorage.setItem(OFF_KEY, "1")
+    apnsAnswers()
+    fs.setDoc.mockRejectedValue(new Error("unavailable"))
+    const { registerNativePush } = await load()
+
+    expect((await registerNativePush("uid-1")).success).toBe(false)
+    expect(localStorage.getItem(OFF_KEY)).toBe("1")
+  })
+
+  it("trying again after a failure turns it on, and it reads as on", async () => {
+    apnsAnswers()
+    fs.setDoc.mockRejectedValueOnce(new Error("unavailable"))
+    const { registerNativePush, isNativePushRegistered } = await load()
+    expect((await registerNativePush("uid-1")).success).toBe(false)
+    // Enable and the registration listener heard the same token: one write.
+    expect(fs.setDoc).toHaveBeenCalledTimes(1)
+
+    fs.setDoc.mockResolvedValue(undefined)
+    expect(await registerNativePush("uid-1")).toEqual({ success: true })
+    expect(await isNativePushRegistered()).toBe(true)
+    expect(localStorage.getItem(UNCONFIRMED_KEY)).toBeNull()
+  })
+
+  it("a refused permission is still its own answer", async () => {
+    cap.PushNotifications.requestPermissions.mockResolvedValueOnce({ receive: "denied" })
+    const { registerNativePush } = await load()
+    expect(await registerNativePush("uid-1")).toEqual({ success: false, error: "Permission denied" })
+  })
+})
+
+describe("the boot re-registration (ensureNativePushToken)", () => {
+  it("a token that cannot be stored leaves the phone reading as not on, until one is", async () => {
+    apnsAnswers()
+    fs.setDoc.mockRejectedValue(new Error("unavailable"))
+    const { ensureNativePushToken, isNativePushRegistered } = await load()
+
+    expect(await ensureNativePushToken("uid-1")).toBe(true)
+    await vi.waitFor(() => expect(fs.setDoc).toHaveBeenCalled())
+    await vi.waitFor(async () => expect(await isNativePushRegistered()).toBe(false))
+
+    fs.setDoc.mockResolvedValue(undefined)
+    cap.emit("registration", { value: APNS })
+    await vi.waitFor(async () => expect(await isNativePushRegistered()).toBe(true))
+  })
+})

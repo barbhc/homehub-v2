@@ -13,6 +13,7 @@ import {
   registerNativePush,
 } from "@/lib/nativePush"
 import { NOTIFICATION_SETTINGS_PATH, WHAT_NOTIFICATIONS_SEND } from "@/lib/notifyGate"
+import { InlineError } from "@/components/layout/LoadStates"
 
 /**
  * Home-page opt-in nudge for push notifications.
@@ -135,9 +136,10 @@ export function PushOptInNudge({ userId, homeId }: { userId: string; homeId: str
               <li key={line}>{line}</li>
             ))}
           </ul>
-          {errorMsg ? (
-            <p className="text-sm text-destructive mt-2">{errorMsg}</p>
-          ) : null}
+          {/* A turn-on that failed is said here, in the app's one error voice
+              (calm clay, announced), with the button still there to try again.
+              On the phone it now means the token was not stored (nativePush). */}
+          {errorMsg ? <InlineError className="mt-2">{errorMsg}</InlineError> : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
