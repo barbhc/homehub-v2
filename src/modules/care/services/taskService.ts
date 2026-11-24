@@ -2,6 +2,7 @@ import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverT
 import { db, callable } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
 import { computePriorityScore } from "./priorityScore"
+import { syncTemplateDenormToInstances } from "./denormSync"
 import { cadenceFactsInTransaction, planFor, runCadenceTransaction, writeCadencePlan, SEASON_NEEDED } from "./cadenceChangeService"
 import { computeNextDueDate } from "./nextDueDate"
 import { localDateString, localToday } from "../../../../shared/dates/calendar"
@@ -342,6 +343,12 @@ export async function getTaskTemplatesWithSchedulesByItem(
 
 /**
  * Updates the care_type of a task_template (e.g. reclassify maintenance ↔ cleaning).
+ *
+ * `careType` is denormalized onto every open occurrence, and the agenda
+ * filters on THAT copy — so the occurrences are re-filed in the same batch
+ * (denormSync's rule; Codex review D10). Without it a task moved to cleaning
+ * stayed on Home and Tasks as maintenance, and one moved to maintenance stayed
+ * hidden, until its next occurrence was minted.
  */
 export async function updateTaskCareType(
   homeId: string,
@@ -349,18 +356,19 @@ export async function updateTaskCareType(
   careType: "cleaning" | "maintenance"
 ): Promise<ServiceResult<true>> {
   try {
-    await writeBatch(db)
-      .set(
-        doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
-        {
-          careType,
-          careTypeOverriddenAt: serverTimestamp(),
-          ...stamp("updateTaskCareType", { careType }),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      )
-      .commit()
+    const batch = writeBatch(db)
+    batch.set(
+      doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
+      {
+        careType,
+        careTypeOverriddenAt: serverTimestamp(),
+        ...stamp("updateTaskCareType", { careType }),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
+    await syncTemplateDenormToInstances(batch, homeId, taskTemplateId, { careType })
+    await batch.commit()
     return { data: true, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update care type" } }
