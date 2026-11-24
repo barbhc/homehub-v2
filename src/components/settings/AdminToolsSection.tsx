@@ -277,7 +277,7 @@ export function AdminToolsSection({ homeId }: Props) {
   }
 
   return (
-    <SectionCard className="mt-6">
+    <SectionCard>
       <CardContent className="p-4">
         <div className="flex items-center gap-2 mb-1">
           <SparklesIcon className="size-4 text-primary" />

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { deriveUserLevel, applyOverride } from "./useUserLevel"
+import { deriveUserLevel } from "./useUserLevel"
 
 describe("deriveUserLevel", () => {
   it("is essentials for a brand-new / minimal user", () => {
@@ -22,18 +22,5 @@ describe("deriveUserLevel", () => {
 
   it("is power for multi-home regardless of item count", () => {
     expect(deriveUserLevel({ itemCount: 1, homeCount: 2, profileCompleted: false })).toBe("power")
-  })
-})
-
-describe("applyOverride", () => {
-  it("standard keeps the derived level", () => {
-    expect(applyOverride("engaged", "standard")).toBe("engaged")
-    expect(applyOverride("power", "standard")).toBe("power")
-  })
-  it("simple forces essentials even for a power user", () => {
-    expect(applyOverride("power", "simple")).toBe("essentials")
-  })
-  it("advanced forces power even for a brand-new user", () => {
-    expect(applyOverride("essentials", "advanced")).toBe("power")
   })
 })

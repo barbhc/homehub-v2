@@ -39,7 +39,12 @@ vi.mock("@/modules/care", () => ({
   getTaskDetail: (...a: unknown[]) => getTaskDetail(...a),
 }))
 // useSearchParams: the Upkeep | Cleaning control reads ?view= (none here → Upkeep).
-vi.mock("react-router-dom", () => ({ useNavigate: () => vi.fn(), useSearchParams: () => [new URLSearchParams(), vi.fn()] }))
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => vi.fn(),
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  // The list ends in a link ("Add your own task"); these tests are about the rows above it.
+  Link: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a>,
+}))
 // The standing Suggested group fetches items/templates/profile on its own; this
 // file tests the check-off contract, so the library is quiet here. (Without the
 // mock its fetch fails in jsdom and the group's own error alert trips the

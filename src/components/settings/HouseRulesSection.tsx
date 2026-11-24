@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Loader2Icon, SlidersHorizontalIcon, Trash2 } from "lucide-react"
+import { Loader2Icon, Trash2 } from "lucide-react"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 import { listHouseRules, deleteHouseRule, type HouseRule } from "@/modules/care"
 
 /**
- * Settings › House rules — the visible ledger of decisions the app learned from
- * task feedback. Every rule shows its plain-English provenance and is reversible;
+ * Your home › House rules — the visible ledger of decisions the app learned from
+ * task feedback. The page above it carries the heading and the one-line why. Every rule shows its plain-English provenance and is reversible;
  * deleting stops future application but never resurrects already-hidden tasks.
  */
 export function HouseRulesSection({ homeId }: { homeId: string }) {
@@ -45,15 +45,8 @@ export function HouseRulesSection({ homeId }: { homeId: string }) {
   }
 
   return (
-    <SectionCard id="house-rules" className="mt-6 scroll-mt-6">
+    <SectionCard>
       <CardContent className="p-4">
-        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
-          <SlidersHorizontalIcon className="size-4" /> House rules
-        </h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Adjustments learned from your task feedback. Deleting a rule stops it applying to future tasks — it won't restore tasks you already hid.
-        </p>
-
         {error && <p className="mb-3 text-sm" style={{ color: "var(--hh-clay)" }}>{error}</p>}
 
         {rules === null ? (

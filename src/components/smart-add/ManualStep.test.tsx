@@ -3,7 +3,10 @@ import { act, render, screen, fireEvent } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { ManualStep } from "./ManualStep"
 
-vi.mock("@/hooks/useAutoFindManuals", () => ({ useAutoFindManuals: () => [false, vi.fn()] }))
+vi.mock("@/hooks/useAutoFindManuals", () => ({
+  useAutoFindManuals: () => [false, vi.fn()],
+  useAutoFindManualsActive: () => false,
+}))
 vi.mock("./FindManualCard", () => ({ FindManualCard: () => <div>stub search</div> }))
 
 const props = {

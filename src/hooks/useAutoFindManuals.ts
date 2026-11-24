@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
+import { useDevTools } from "@/hooks/useDevTools"
+import { useAuth } from "@/modules/auth"
 
 /**
  * Whether to search for a manual automatically, or wait to be asked.
@@ -50,4 +52,22 @@ export function useAutoFindManuals(): [boolean, (next: boolean) => void] {
   }, [])
 
   return [enabled, set]
+}
+
+/**
+ * Whether the automatic search actually runs for this person.
+ *
+ * The switch lives on Settings' internal page, which only a `dev_tools` person
+ * can open. A stored "on" therefore counts only for them: a tester who turned
+ * it on while the switch was public would otherwise keep a beta search running
+ * with no way to turn it off. Everyone else gets the safe default, off.
+ *
+ * The prefs doc is read only when the stored value is on, so the default path
+ * costs no read.
+ */
+export function useAutoFindManualsActive(): boolean {
+  const { user } = useAuth()
+  const [stored] = useAutoFindManuals()
+  const devTools = useDevTools(stored ? user?.id : undefined)
+  return stored && devTools === "on"
 }

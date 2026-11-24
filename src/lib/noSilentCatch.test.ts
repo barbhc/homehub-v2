@@ -251,7 +251,7 @@ describe("the detector itself", () => {
 
   it("is scanning the real tree", () => {
     expect(files.length).toBeGreaterThan(200)
-    expect(files.some((f) => f.file === "src/pages/Settings.tsx")).toBe(true)
+    expect(files.some((f) => f.file === "src/components/settings/SettingsMenu.tsx")).toBe(true)
     expect(files.some((f) => f.file.startsWith("shared/"))).toBe(true)
   })
 })

@@ -51,8 +51,8 @@ describe("ProfileCompletionBanner — Not now", () => {
 })
 
 describe("ProfileCompletionBanner — Finish profile", () => {
-  it("opens Settings → Home profile, not the retired /onboarding/profile", () => {
+  it("opens Your home → The basics, not the retired /onboarding/profile", () => {
     renderBanner()
-    expect(screen.getByRole("link", { name: "Finish profile" })).toHaveAttribute("href", "/settings#home-profile")
+    expect(screen.getByRole("link", { name: "Finish profile" })).toHaveAttribute("href", "/your-home?part=basics")
   })
 })

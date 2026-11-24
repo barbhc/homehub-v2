@@ -39,9 +39,9 @@ test.describe("emulator e2e — invites under the role rules", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"])
     const before = new Set((await invitesInSeedHome()).map((d) => d.name))
 
-    await page.goto("/settings")
-    const section = page.locator("#members")
-    await expect(section.getByText("Home members")).toBeVisible({ timeout: 20_000 })
+    await page.goto("/settings/members")
+    const section = page.getByTestId("settings-pane-members")
+    await expect(section.getByRole("heading", { level: 1, name: "Members" })).toBeVisible({ timeout: 20_000 })
     await section.getByRole("button", { name: /^invite$/i }).click()
 
     // Landed: a pending invite row, and no error in the section.

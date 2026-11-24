@@ -366,3 +366,45 @@ describe("Tasks groups: Essentials first, and no row repeats its group's name (H
     expect(screen.getAllByText("Furnace").length).toBeGreaterThanOrEqual(2)
   })
 })
+
+// design/settings-your-home.md: custom tasks left Settings (and Your home) for
+// one page under Tasks. This link is the only door to it, so both trees carry it.
+describe("Add your own task — the one door to a task in her own words, in both trees", () => {
+  const door = () => screen.queryAllByRole("link", { name: "Add your own task" })
+
+  it("closes the Upkeep list on the phone and on desktop, and opens the page", async () => {
+    agenda([FILTER])
+    renderWith(<><RefinedWeek homeId="h1" /><DesktopTasks homeId="h1" /></>)
+    await screen.findAllByText("Replace the furnace filter")
+    expect(door().map((a) => a.getAttribute("href"))).toEqual(["/maintenance/custom", "/maintenance/custom"])
+    // One in each tree, each after its tree's last task row.
+    for (const tree of ["phone-task-row", "desktop-task-row"]) {
+      const lastRow = screen.getAllByTestId(tree).at(-1)!
+      const link = door().find((a) => lastRow.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING && a.closest("[role=tabpanel]") === lastRow.closest("[role=tabpanel]"))
+      expect(link, tree).toBeDefined()
+    }
+  })
+
+  it("is there with nothing due — an empty list is when she would add one", async () => {
+    agenda([])
+    renderWith(<><RefinedWeek homeId="h1" /><DesktopTasks homeId="h1" /></>)
+    await waitFor(() => expect(door()).toHaveLength(2))
+  })
+
+  it("is not rendered while the agenda is still being read, or in the Cleaning view", async () => {
+    svc.getWeekAgenda.mockReturnValue(new Promise(() => {}))
+    const { unmount } = renderWith(<><RefinedWeek homeId="h1" /><DesktopTasks homeId="h1" /></>)
+    expect(door()).toHaveLength(0)
+    unmount()
+
+    agenda([FILTER])
+    render(
+      <SWRConfig value={{ provider: () => new Map(), shouldRetryOnError: false }}>
+        <MemoryRouter initialEntries={["/maintenance?view=cleaning"]}><RefinedWeek homeId="h1" /><DesktopTasks homeId="h1" /></MemoryRouter>
+      </SWRConfig>,
+    )
+    await waitFor(() => expect(svc.getWeekAgenda).toHaveBeenCalled())
+    await act(async () => {})
+    expect(door()).toHaveLength(0)
+  })
+})

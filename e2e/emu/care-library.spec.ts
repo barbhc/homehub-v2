@@ -7,7 +7,7 @@ import { test, expect } from "../fixtures"
  * Three surfaces, one walk each, against the seeded emulator home:
  *  - the item page's Suggested band: Add turns a suggestion into a task that
  *    carries its provenance, and "Not this one" on that task takes it back;
- *  - Your home (/home-setup): answers save as facts and unlock whole-home
+ *  - Your home (/your-home): answers save as facts and unlock whole-home
  *    care, and a failed-nothing path is never shown as "nothing to set up";
  *  - the Tasks page's standing Suggested group sits LAST and never changes
  *    the groups above it.
@@ -68,10 +68,13 @@ test.describe("emulator e2e — care library", () => {
 
   test("Your home: answers save as facts and unlock whole-home care", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
+    // The questions' old address still lands on the page they moved to.
     await page.goto("/home-setup")
-    await expect(page.getByRole("heading", { name: "Your home" })).toBeVisible({ timeout: 20_000 })
-    // Nothing answered → nothing offered, and the page says why.
-    await expect(page.getByTestId("home-suggestions")).toContainText(/Answer a category/)
+    await expect(page).toHaveURL(/\/your-home$/, { timeout: 20_000 })
+    await expect(page.getByRole("heading", { level: 1, name: "Your home" })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByTestId("setup-categories")).toBeVisible({ timeout: 20_000 })
+    // Nothing answered → nothing offered, and no empty "Suggested" group (not rendered).
+    await expect(page.getByTestId("home-suggestions")).toHaveCount(0)
 
     await page.getByRole("button", { name: /^Safety/ }).click()
     await expect(page.getByRole("heading", { name: "Safety" })).toBeVisible()

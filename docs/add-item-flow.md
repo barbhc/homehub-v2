@@ -490,13 +490,14 @@ setup."*
     the review and its unsaved edits. Opened, "Turn on in Settings" sits
     beside the reminder switch. The summary says "None will notify you.
     Notifications are off on this phone."; on the item page the row simply
-    carries no bell. The link goes to the app's own Notifications section
-    (`/settings#notifications`), which, on a device that refused, says where
+    carries no bell. The link goes to the app's own Notifications page
+    (`/settings/notifications`; it was the `#notifications` section until
+    Settings became a menu, `design/settings-your-home.md`, 2026-11-23),
+    which, on a device that refused, says where
     the switch is: "Notifications are off for Homehub on this phone. Open
     iPhone Settings → Homehub → Notifications." (on the web, the browser's
     site settings). A native deep link into the phone's Settings is a
-    separate follow-up, and Settings does not yet scroll to the section on
-    arrival. — owner's review of #228, 2026-09-30 (S5.2 amended);
+    separate follow-up. — owner's review of #228, 2026-09-30 (S5.2 amended);
   - the owner's choice is kept, so the bell returns with permission, without
     another review. — HH-161, mock 2026-09-30 (S5)
 - It never claims rows are saved while the button underneath is what saves
@@ -521,7 +522,10 @@ setup."*
   task — the household saw each upkeep task twice. A claim expires after five
   minutes, because an attempt that dies mid-save must not wedge the manual:
   losing a paid read is worse than the duplicate. — Codex review 2026-10-29
-- **Every read ends here — a rescan too.** Settings → Manuals' Rescan starts a
+- **Every read ends here — a rescan too.** (The manuals list is on Settings →
+  Internal tools since 2026-11-23, shown only to a person with `dev_tools`;
+  `design/settings-your-home.md`. Its rules below are unchanged, and the item
+  page's own "Read again" is the door everyone has.) Settings → Manuals' Rescan starts a
   PREVIEW and hands off to the item page exactly as the wizard does
   (`markParsePending`); "Rescan all" reads one manual at a time and leaves each
   for its review; a manual already "Read — not saved" offers Review, not

@@ -1,5 +1,5 @@
 /**
- * Your home (/home-setup): every write goes to the home it was started for,
+ * Your home (/your-home): every write goes to the home it was started for,
  * and its answer lands only while that home is on screen (switch safety).
  *
  * Home A's answers, saved as the person switched to home B, landed in B's
@@ -26,25 +26,26 @@ const svc = vi.hoisted(() => ({
   upsertHomeProfile: vi.fn(),
   getTaskTemplates: vi.fn(),
   addLibraryTask: vi.fn(),
-  addCustomHomeTask: vi.fn(),
   dismissLibrarySuggestion: vi.fn(),
 }))
 vi.mock("@/modules/home", () => ({
   useCurrentHome: () => ({ home: { home_id: svc.homeId } }),
   getHomeProfile: (...a: unknown[]) => svc.getHomeProfile(...a),
   upsertHomeProfile: (...a: unknown[]) => svc.upsertHomeProfile(...a),
+  getRooms: async () => ({ data: [], error: null }),
 }))
 vi.mock("@/modules/care", () => ({
   getTaskTemplates: (...a: unknown[]) => svc.getTaskTemplates(...a),
   addLibraryTask: (...a: unknown[]) => svc.addLibraryTask(...a),
-  addCustomHomeTask: (...a: unknown[]) => svc.addCustomHomeTask(...a),
+  getHomeNotes: async () => ({ data: [], error: null }),
+  listHouseRules: async () => ({ data: [], error: null }),
   dismissLibrarySuggestion: (...a: unknown[]) => svc.dismissLibrarySuggestion(...a),
 }))
 vi.mock("@/components/layout", () => ({ PageContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }))
 
-const { default: HomeSetup } = await import("./HomeSetup")
+const { default: YourHome } = await import("./YourHome")
 
-const page = () => <MemoryRouter><HomeSetup /></MemoryRouter>
+const page = () => <MemoryRouter><YourHome /></MemoryRouter>
 const switchTo = (homeId: string, rerender: (ui: React.ReactElement) => void) => {
   svc.homeId = homeId
   rerender(page())
@@ -180,20 +181,5 @@ describe("Your home — a write lands on the home it was started for", () => {
     expect(screen.queryByText(/Loading your answers/)).toBeNull()
     expect(rereadsOf("home-b")).toBe(0)
     expect(screen.getByText("Test smoke and CO alarms")).toBeInTheDocument()
-  })
-
-  it("her own task added on A, answered after the switch, neither refreshes B nor says \"Added\" there", async () => {
-    const landA = holdNext(svc.addCustomHomeTask)
-    const { rerender } = render(page())
-    fireEvent.change(await screen.findByLabelText("Task name"), { target: { value: "Have the chimney swept" } })
-    fireEvent.click(screen.getByRole("button", { name: /^Add$/ }))
-
-    switchTo("home-b", rerender)
-    expect(await screen.findByLabelText("Task name")).toHaveValue("")
-    await act(async () => { landA({ data: { title: "Have the chimney swept" }, error: null }) })
-
-    expect(svc.addCustomHomeTask).toHaveBeenCalledWith("home-a", "Have the chimney swept", "annual", null)
-    expect(rereadsOf("home-b")).toBe(0)
-    expect(screen.queryByRole("status")).toBeNull()
   })
 })

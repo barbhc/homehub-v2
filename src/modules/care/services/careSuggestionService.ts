@@ -110,11 +110,18 @@ export async function applyLibraryBackstop(homeId: string, taskTemplateId: strin
 }
 
 /**
- * "Add something the library missed" — a plain home-level task in her own
- * words, on the cadence she picked. Source "user": nothing about it claims
- * a manual or the library, so no externalKey is written.
+ * Tasks → "Add your own task", showing in Upkeep — a plain home-level task in
+ * her own words, on the cadence she picked. Source "user": nothing about it
+ * claims a manual or the library, so no externalKey is written.
  */
-export async function addCustomHomeTask(homeId: string, title: string, scheduleType: ScheduleType, intervalDays?: number | null): Promise<ServiceResult<TaskTemplate>> {
+export async function addCustomHomeTask(
+  homeId: string,
+  title: string,
+  scheduleType: ScheduleType,
+  intervalDays?: number | null,
+  /** Roughly how long it takes, when she said (Tasks → Add your own task). */
+  estimatedMinutes?: number | null,
+): Promise<ServiceResult<TaskTemplate>> {
   const clean = title.trim()
   if (!clean) return { data: null, error: { message: "Give the task a name first" } }
   const created = await createTaskTemplate({
@@ -125,6 +132,7 @@ export async function addCustomHomeTask(homeId: string, title: string, scheduleT
     care_type: "maintenance",
     priority_tier: "recommended",
     risk_level: "performance",
+    estimated_minutes: estimatedMinutes ?? null,
     source: "user",
     fields_set_by: "user",
   })

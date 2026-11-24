@@ -3,7 +3,7 @@ import { getApps, initializeApp } from "firebase-admin/app"
 import { FieldValue, getFirestore } from "firebase-admin/firestore"
 
 /**
- * Settings › Home profile · the zip for a home from before the first minute
+ * Your home › The basics · the zip for a home from before the first minute
  * (D8 edge case; mock https://claude.ai/artifact/CvrAvWEQr7wGao9wbAAtUm,
  * approved 2026-11-19), against the seeded emulator: the zip is looked up from
  * the bundled table, written through the real homeProfileService, and read
@@ -28,13 +28,14 @@ async function setClimate(fields: Partial<Record<(typeof FIELDS)[number], unknow
 }
 
 async function openProfile(page: Page) {
-  await page.goto("/settings#home-profile")
-  const section = page.locator("#home-profile")
+  // The basics left Settings for Your home (design/settings-your-home.md).
+  await page.goto("/your-home?part=basics")
+  const section = page.getByTestId("your-home")
   await expect(section.getByLabel("Zip code")).toBeVisible({ timeout: 15_000 })
   return section
 }
 
-test.describe("Settings › the zip for an existing home", () => {
+test.describe("Your home › the zip for an existing home", () => {
   test.afterAll(async () => {
     await setClimate({})
   })

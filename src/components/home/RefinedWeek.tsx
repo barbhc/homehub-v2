@@ -25,6 +25,8 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { segmentPanelId, segmentPanelProps } from "@/components/ui/segmentIds"
 import { TASKS_VIEWS, useTasksView } from "@/hooks/usePageView"
 import { useCleaningGuides } from "@/hooks/useCleaningGuides"
+import { QuietLink } from "@/components/layout/QuietLink"
+import { OWN_TASKS_PATH } from "@/lib/settingsPaths"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 const LINE = "var(--hh-line)", SURFACE = "var(--hh-surface)"
@@ -631,6 +633,13 @@ export function RefinedWeek({ homeId, idBase, inCleaningSession = false }: {
               )}
             </div>
           </>
+        )}
+        {/* The one door to a task in her own words (design/settings-your-home.md).
+            After the list or the calendar, once the agenda has been read. */}
+        {!loading && !loadFailed && (
+          <div className="mt-3" style={{ paddingInline: PAD }}>
+            <QuietLink to={OWN_TASKS_PATH} testId="add-own-task">Add your own task</QuietLink>
+          </div>
         )}
       </div>
       </div>)}

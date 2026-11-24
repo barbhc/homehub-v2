@@ -4,10 +4,16 @@ import { collection, collectionGroup, doc, getDoc, getDocs, query, where } from 
 import { db } from "@/integrations/firebase"
 import { useCurrentHome } from "@/modules/home"
 import { useAuth } from "@/modules/auth"
-import { useInterfaceOverride, type InterfaceOverride } from "@/lib/interfaceLevel"
 
 /**
- * Progressive-complexity level (Phase A — derived only, no override yet).
+ * Progressive-complexity level — derived only.
+ *
+ * There was a Simple / Standard / Advanced picker in Settings that could force
+ * the level down or up; it was removed (audit finding 11,
+ * design/settings-your-home.md). Everyone gets what "Standard" gave: the
+ * derived level. Nothing reads the old stored choice (localStorage
+ * `homehub:interface-level`, prefs `interface_level`), so a person who had
+ * picked Simple or Advanced is on the derived level too.
  *
  * Drives staged feature reveal so a basic user isn't overwhelmed while the app
  * unlocks depth as their home grows. This is the "relevant/useful/timely"
@@ -31,13 +37,6 @@ export function deriveUserLevel(s: LevelSignals): UserLevel {
   if (s.homeCount > 1 || s.itemCount >= 15) return "power"
   if (s.itemCount >= 3 && s.profileCompleted) return "engaged"
   return "essentials"
-}
-
-/** Apply the user's interface override on top of the derived level. */
-export function applyOverride(derived: UserLevel, override: InterfaceOverride): UserLevel {
-  if (override === "simple") return "essentials"
-  if (override === "advanced") return "power"
-  return derived
 }
 
 async function fetchSignals(homeId: string, userId: string): Promise<LevelSignals> {
@@ -64,10 +63,9 @@ async function fetchSignals(homeId: string, userId: string): Promise<LevelSignal
  * before it collapses, which is harmless (they haven't navigated yet).
  */
 export function useUserLevel(): {
-  /** Effective level for gating (derived + override). */
+  /** The level for gating: derived, or the last derived level while signals load. */
   level: UserLevel
-  /** Auto-derived level, ignoring the override; null until signals load. Used
-   *  for the unlock banner so forcing "simple" doesn't suppress real progress. */
+  /** The derived level; null until signals load. */
   derivedLevel: UserLevel | null
   isLoading: boolean
 } {
@@ -75,7 +73,6 @@ export function useUserLevel(): {
   const { user } = useAuth()
   const homeId = home?.home_id
   const userId = user?.id
-  const override = useInterfaceOverride()
 
   const { data, isLoading } = useSWR(
     homeId && userId ? `user-level:${homeId}:${userId}` : null,
@@ -108,5 +105,5 @@ export function useUserLevel(): {
     } catch { /* private mode */ }
   }
 
-  return { level: applyOverride(derivedLevel ?? cached ?? "engaged", override), derivedLevel, isLoading }
+  return { level: derivedLevel ?? cached ?? "engaged", derivedLevel, isLoading }
 }

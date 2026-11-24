@@ -25,11 +25,6 @@ setup("authenticate", async ({ page }) => {
   // Redirect into the authenticated app (home if a home exists, else onboarding).
   await expect(page).toHaveURL(/\/(home|onboarding)/, { timeout: 15_000 })
 
-  // Force the "advanced" interface level so the full nav renders for coverage.
-  await page.evaluate(() => {
-    window.localStorage.setItem("homehub:interface-level", "advanced")
-  })
-
   // Snapshot cookies + localStorage + IndexedDB (Firebase auth lives in IDB).
   await page.context().storageState({ path: "e2e/.auth/user.json", indexedDB: true })
 })

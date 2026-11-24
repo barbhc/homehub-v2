@@ -18,14 +18,15 @@
  */
 import type { PreviewTask } from "@/modules/knowledge/types/previewTypes"
 import { notifiesPhone } from "../../shared/tasks/reviewBuckets"
+import { settingsPane } from "@/lib/settingsPaths"
 
 /**
- * Where "Turn on in Settings" goes: the app's own Notifications section.
+ * Where "Turn on in Settings" goes: the app's own Notifications page.
  * There is no native hook in the app that opens the phone's Settings page for
- * Homehub, so this is the one door the app has — and that section says where
+ * Homehub, so this is the one door the app has — and that page says where
  * the switch is (notificationsRefusedHelp).
  */
-export const NOTIFICATION_SETTINGS_PATH = "/settings#notifications"
+export const NOTIFICATION_SETTINGS_PATH = settingsPane("notifications")
 
 /**
  * What Settings' Notifications section says when this device has refused

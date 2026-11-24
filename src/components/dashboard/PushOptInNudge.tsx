@@ -12,7 +12,7 @@ import {
   isNativePushTurnedOff,
   registerNativePush,
 } from "@/lib/nativePush"
-import { WHAT_NOTIFICATIONS_SEND } from "@/lib/notifyGate"
+import { NOTIFICATION_SETTINGS_PATH, WHAT_NOTIFICATIONS_SEND } from "@/lib/notifyGate"
 
 /**
  * Home-page opt-in nudge for push notifications.
@@ -163,7 +163,7 @@ export function PushOptInNudge({ userId, homeId }: { userId: string; homeId: str
               Not now
             </button>
             <Link
-              to="/settings"
+              to={NOTIFICATION_SETTINGS_PATH}
               className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
               Manage in Settings

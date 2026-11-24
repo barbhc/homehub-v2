@@ -24,6 +24,8 @@ import { HiddenByLevelLink } from "./tasks/HiddenByLevelLink"
 import { UndoBar } from "@/components/ui/UndoBar"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { segmentPanelId, segmentPanelProps } from "@/components/ui/segmentIds"
+import { QuietLink } from "@/components/layout/QuietLink"
+import { OWN_TASKS_PATH } from "@/lib/settingsPaths"
 import { TASKS_VIEWS, useTasksView } from "@/hooks/usePageView"
 import { useCleaningGuides } from "@/hooks/useCleaningGuides"
 
@@ -461,6 +463,8 @@ export function DesktopTasks({ homeId, idBase, inCleaningSession = false }: {
                   </div>
                 </div>
               )}
+              {/* The one door to a task in her own words, as on the phone. */}
+              <div><QuietLink to={OWN_TASKS_PATH} testId="add-own-task">Add your own task</QuietLink></div>
             </>
           )}
         </div>

@@ -132,20 +132,27 @@ export const PAGES: Setup[] = [
   {
     name: "settings",
     open: async (page) => {
+      // The menu (design/settings-your-home.md). Its rows' values are read on
+      // their own; audit the page once the slow ones (the providers and
+      // members counts) are in, or the run judges whichever half arrived.
       await gotoStable(page, "/settings")
       await page.getByText(/appearance/i).filter(visible).first().waitFor({ timeout: 20_000 })
-      // The sections load independently; audit the page once the slow ones
-      // (rooms, manuals) are in, or the run judges whichever half happened to
-      // arrive. Providers moved to their own page (Settings links to it).
-      for (const ready of ["Living Room", "Service providers", "Carrier Infinity Furnace"]) {
+      for (const ready of [/\d+ saved/, "Just you", "E2E Test Home"]) {
         await page.getByText(ready).filter(visible).first().waitFor({ timeout: 20_000 })
       }
     },
   },
   ...(
     [
-      ["your week", "/week", /week/i],
-      ["reminders", "/reminders", /reminder/i],
+      // Your week and Your reminders are parked (their addresses redirect), so
+      // they are no longer judged. In their place: the pages Settings' rows
+      // open, and the two that left Settings for Items and Tasks.
+      ["your home", "/your-home", /In a pinch/i],
+      ["notifications", "/settings/notifications", /Notifications/],
+      ["task level", "/settings/task-level", /Recommended too/],
+      ["members", "/settings/members", /E2E Tester/],
+      ["rooms", "/inventory/rooms", /Living Room/],
+      ["your own tasks", "/maintenance/custom", /Shows in/],
       ["providers", "/providers", /Ace Heating & Air/],
 
       ["notes", "/inventory/notes", /note/i],

@@ -49,7 +49,7 @@ export type ManualDocClassification = {
 }
 
 import { FindManualCard } from "./FindManualCard"
-import { useAutoFindManuals } from "@/hooks/useAutoFindManuals"
+import { useAutoFindManualsActive } from "@/hooks/useAutoFindManuals"
 
 type ManualStepProps = {
   /** Already typed on the identify step — enough to search for the manual so the
@@ -137,7 +137,7 @@ export function ManualStep({
   brand,
   model,
 }: ManualStepProps) {
-  const [autoFindManuals] = useAutoFindManuals()
+  const autoFindManuals = useAutoFindManualsActive()
   const [open, setOpen] = useState<OpenPanel>(initialPanel ?? "none")
   const [pasteUrl, setPasteUrl] = useState("")
   /**

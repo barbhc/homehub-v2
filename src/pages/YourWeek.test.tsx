@@ -89,7 +89,7 @@ describe("YourWeek", () => {
     getWeekReminders.mockResolvedValue({ data: { items: [], hiddenCount: 0 }, error: null })
     render(<YourWeek />)
     await waitFor(() => expect(screen.getAllByText("Nothing needs you this week.").length).toBeGreaterThan(0))
-    expect(screen.getByRole("link", { name: "Your reminders" })).toHaveAttribute("href", "/settings#reminders")
+    expect(screen.getByRole("link", { name: "Your reminders" })).toHaveAttribute("href", "/reminders")
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
 

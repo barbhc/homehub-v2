@@ -46,3 +46,24 @@ describe("view redirects", () => {
   })
 })
 
+// Parked, not retired (design/settings-your-home.md, audit finding 12): the
+// pages are kept and unrouted, and their addresses still land somewhere right.
+describe("parked pages redirect", () => {
+  it("/week lands on Tasks, replacing the old address", () => {
+    renderAt("/week")
+    expect(screen.getByTestId("where").textContent).toBe("/maintenance")
+    expect(screen.getByTestId("where")).toHaveAttribute("data-nav", "REPLACE")
+  })
+
+  it("a push's /week?home=… lands on Tasks too (the home was switched before the link was followed)", () => {
+    renderAt("/week?home=h2")
+    expect(screen.getByTestId("where").textContent).toBe("/maintenance")
+  })
+
+  it("/reminders lands on Settings → Notifications, replacing the old address", () => {
+    renderAt("/reminders")
+    expect(screen.getByTestId("where").textContent).toBe("/settings/notifications")
+    expect(screen.getByTestId("where")).toHaveAttribute("data-nav", "REPLACE")
+  })
+})
+

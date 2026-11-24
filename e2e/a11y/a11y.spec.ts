@@ -32,7 +32,13 @@ const PAGES: PageCase[] = [
   { name: "warranties", path: "/inventory?view=warranties", ready: /Bosch|coverage/i },
   { name: "clean", path: "/maintenance?view=cleaning", ready: /start cleaning|cleaning guides/i },
   { name: "providers", path: "/providers", ready: /Ace Heating & Air/i },
-  { name: "settings", path: "/settings", ready: /settings|appearance|account/i },
+  { name: "settings", path: "/settings", ready: /appearance/i },
+  // Settings is a menu; these are the pages its rows open, and the two that
+  // left it for Items and Tasks (design/settings-your-home.md).
+  { name: "your home", path: "/your-home", ready: /In a pinch/i },
+  { name: "notifications", path: "/settings/notifications", ready: /Notifications/ },
+  { name: "rooms", path: "/inventory/rooms", ready: /Living Room/ },
+  { name: "your own tasks", path: "/maintenance/custom", ready: /Shows in/ },
 ]
 
 /**

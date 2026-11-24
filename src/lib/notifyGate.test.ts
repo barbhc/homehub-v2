@@ -99,8 +99,8 @@ describe("where the switch is, once a device has refused (owner, #228 review)", 
     expect(web).not.toMatch(/iPhone/)
   })
 
-  it("the review's 'Turn on in Settings' goes to the section that says it", () => {
-    expect(NOTIFICATION_SETTINGS_PATH).toBe("/settings#notifications")
+  it("the review's 'Turn on in Settings' goes to the page that says it", () => {
+    expect(NOTIFICATION_SETTINGS_PATH).toBe("/settings/notifications")
   })
 })
 

@@ -8,17 +8,19 @@
 import { useMemo, useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
-  ArrowUpIcon, BookOpenIcon, ChevronRightIcon, DropletIcon, FlameIcon, MegaphoneIcon, PhoneIcon, PinIcon, ShieldIcon,
-  SparklesIcon, ZapIcon, type LucideIcon,
+  ArrowUpIcon, BookOpenIcon, ChevronRightIcon, MegaphoneIcon, PhoneIcon, PinIcon, ShieldIcon,
+  SparklesIcon, type LucideIcon,
 } from "lucide-react"
 import type { CareNote, ServiceProvider } from "@/integrations/types"
 import type { DashboardTask, ExpiringWarrantyItem, HomeNotices, MaintenanceTaskFull } from "@/lib/dashboard"
 import { useTaskDetail } from "@/components/home/tasks/shared"
 import { InlineError } from "@/components/layout/LoadStates"
+import { ListRow as Row, ListSection as Section } from "@/components/layout/RowList"
 import { TaskCardActions, TaskStatusLine, TaskSupplyLine } from "@/components/tasks/TaskCard"
 import { itemMinutesLine, whenTone } from "@/lib/taskCard"
 import { weekRows, nextUpRows, prepLine, prepPlace, fmtShortDate, type HomeWeekRow, type ComingUp as ComingUpForecast } from "@/lib/homeWeek"
-import { comingUpRows, headsUpRows, pinchSpots, pinnedNotes, prosSummary, type HeadsUpRow, type PinchKey } from "@/lib/homeSections"
+import { comingUpRows, headsUpRows, pinchSpots, pinnedNotes, prosSummary, type HeadsUpRow } from "@/lib/homeSections"
+import { PINCH_ICON } from "@/lib/yourHome"
 import { splitNote } from "@/lib/notes"
 import { requestReview } from "@/lib/reviewRequest"
 import { localToday } from "../../../shared/dates/calendar"
@@ -31,67 +33,6 @@ import { WARRANTIES_PATH } from "@/hooks/usePageView"
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)", CLAY = "var(--hh-clay)"
 const SURFACE = "var(--hh-surface)", LINE = "var(--hh-line)"
 const CARD = "overflow-hidden rounded-2xl border shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-
-/** Section label (Caption 1, 12/16) with an optional link on the right. */
-function Section({ label, right, children, testId }: { label: string; right?: React.ReactNode; children: React.ReactNode; testId: string }) {
-  return (
-    <section className="flex flex-col gap-2" data-testid={testId} aria-label={label}>
-      <div className="flex items-baseline justify-between pl-0.5">
-        <span className="text-xs font-bold uppercase leading-[1.33] tracking-[0.6px]" style={{ color: SUB }}>{label}</span>
-        {right}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function IconTile({ icon: Icon, tone = "teal" }: { icon: LucideIcon; tone?: "teal" | "clay" | "gold" | "grey" }) {
-  const style = tone === "clay"
-    ? { background: "var(--hh-clay-soft)", color: CLAY }
-    : tone === "gold"
-      ? { background: "var(--hh-gold-soft)", color: "var(--hh-gold-ink)" }
-      : tone === "grey"
-        ? { background: "var(--hh-surface2)", color: SUB }
-        : { background: "var(--hh-teal-wash)", color: TEAL }
-  return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={style} aria-hidden>
-      <Icon className="size-[18px]" />
-    </span>
-  )
-}
-
-/** One row of a section card: icon, title (Headline 17/22), sub (Footnote 13/18), trailing action or arrow. */
-function Row({ icon, tone, title, sub, action, first, to, onClick, testId }: {
-  icon: LucideIcon
-  tone?: "teal" | "clay" | "gold" | "grey"
-  title: string
-  sub?: string | null
-  /** A word in teal ("Add", "Review", "Call"); otherwise an arrow. */
-  action?: string
-  first: boolean
-  to: string
-  onClick?: () => void
-  testId?: string
-}) {
-  return (
-    <Link
-      to={to}
-      onClick={onClick}
-      data-testid={testId}
-      className="flex min-h-[60px] items-center gap-3 px-3.5 py-3"
-      style={{ borderTop: first ? "none" : `1px solid ${LINE}` }}
-    >
-      <IconTile icon={icon} tone={tone} />
-      <span className="min-w-0 flex-1">
-        <span className="block text-[1.0625rem] font-semibold leading-[1.3] [overflow-wrap:anywhere]" style={{ color: INK }}>{title}</span>
-        {sub && <span className="mt-0.5 block text-[0.8125rem] leading-[1.38] [overflow-wrap:anywhere]" style={{ color: SUB }}>{sub}</span>}
-      </span>
-      {action
-        ? <span className="shrink-0 text-[0.9375rem] font-semibold" style={{ color: TEAL }}>{action}</span>
-        : <ChevronRightIcon className="size-[18px] shrink-0" style={{ color: FAINT }} aria-hidden />}
-    </Link>
-  )
-}
 
 // ── Ask ───────────────────────────────────────────────────────────────────────
 
@@ -311,7 +252,6 @@ export function ComingUp({ tasks, upcoming, forecast = null, extras = READY }: {
 
 // ── In a pinch ────────────────────────────────────────────────────────────────
 
-const PINCH_ICON: Record<PinchKey, LucideIcon> = { water: DropletIcon, gas: FlameIcon, power: ZapIcon }
 
 export function InAPinch({ notes, notesError, providers, providersError, onRetry }: {
   notes: CareNote[] | null

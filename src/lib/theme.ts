@@ -10,6 +10,9 @@ import { useCallback, useEffect, useState } from "react"
 
 export type Appearance = "light" | "dark" | "system"
 
+/** The choice in words, for Settings' row and its page. */
+export const APPEARANCE_LABEL: Record<Appearance, string> = { light: "Light", dark: "Dark", system: "System" }
+
 export const APPEARANCE_KEY = "hh-appearance"
 
 const MEDIA = "(prefers-color-scheme: dark)"

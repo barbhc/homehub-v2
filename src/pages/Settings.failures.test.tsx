@@ -1,5 +1,5 @@
 /**
- * Settings when a write or a read fails (audit H6).
+ * Settings' pages when a write or a read fails (audit H6).
  *
  * Every case here used to fail in silence, and most of them showed a SUCCESS:
  *  - a notification switch flipped "off" while the save had failed, so the
@@ -7,14 +7,19 @@
  *  - a failed read of the prefs showed the DEFAULTS as if they were the
  *    person's own — and the next tap saved those defaults over the real prefs;
  *  - "Disable" notifications swallowed its own failure and showed "Enable";
- *  - a room delete the server refused closed its dialog with the room still
- *    listed and nothing said.
+ *  - an export with a section it could not read downloaded as if complete.
  * Each test forces the failure and asserts the person SEES it, and that no
  * success state is left standing.
+ *
+ * Settings is a menu with a page per row now (design/settings-your-home.md),
+ * so each case opens the page its section moved to. Rooms and custom tasks
+ * left Settings: their cases are in components/items/RoomsManager.*.test.tsx
+ * and components/tasks/OwnTasksManager.*.test.tsx. The menu and the routing
+ * are in Settings.test.tsx.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { MemoryRouter } from "react-router-dom"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { normalizeNotificationPrefs } from "@/lib/notificationPreferences"
 
 const m = vi.hoisted(() => ({
@@ -22,28 +27,21 @@ const m = vi.hoisted(() => ({
   setNotificationPrefs: vi.fn(),
   getDevToolsEnabled: vi.fn(),
   unsubscribeFromPush: vi.fn(),
-  getRooms: vi.fn(),
-  deleteRoom: vi.fn(),
-  renameRoom: vi.fn(),
-  createRoom: vi.fn(),
-  getRoutineTemplates: vi.fn(),
-  saveRoutineTask: vi.fn(),
-  deleteRoutineTask: vi.fn(),
   getManualsByHome: vi.fn(),
+  getItemUnits: vi.fn(),
   unregisterNativePush: vi.fn(),
+  getDoc: vi.fn(),
+  setDoc: vi.fn(),
   /** Render as the iOS shell (native push) rather than a browser. */
   native: false,
 }))
 
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-1", email: "e2e@homehub.test" }, signOut: vi.fn() }) }))
 vi.mock("@/modules/home", () => ({
-  // D4: the Task level card reads the home profile; these tests are about other cards.
+  // D4: the Task level page reads the home profile; these tests are about other pages.
   useHomeProfile: () => ({ profile: null, isLoading: false, error: undefined, refresh: vi.fn() }),
   useCurrentHome: () => ({ home: { home_id: "home-1", name: "Test Home" }, homes: [{ home_id: "home-1", name: "Test Home" }], setCurrentHome: () => {}, refresh: async () => {} }),
-  getRooms: (...a: unknown[]) => m.getRooms(...a),
-  createRoom: (...a: unknown[]) => m.createRoom(...a),
-  renameRoom: (...a: unknown[]) => m.renameRoom(...a),
-  deleteRoom: (...a: unknown[]) => m.deleteRoom(...a),
+  getHomeMembers: vi.fn(async () => ({ data: [{ user_id: "uid-1" }], error: null })),
 }))
 vi.mock("@/lib/userPreferences", () => ({
   getNotificationPrefs: (...a: unknown[]) => m.getNotificationPrefs(...a),
@@ -68,11 +66,6 @@ vi.mock("@/lib/nativePush", () => ({
     }
   },
 }))
-vi.mock("@/lib/cleanSession", () => ({
-  getRoutineTemplates: (...a: unknown[]) => m.getRoutineTemplates(...a),
-  saveRoutineTask: (...a: unknown[]) => m.saveRoutineTask(...a),
-  deleteRoutineTask: (...a: unknown[]) => m.deleteRoutineTask(...a),
-}))
 vi.mock("@/modules/knowledge", () => ({
   getManualsByHome: (...a: unknown[]) => m.getManualsByHome(...a),
   getKnowledgeChunksByHome: vi.fn(async () => ({ data: [], error: null })),
@@ -80,7 +73,7 @@ vi.mock("@/modules/knowledge", () => ({
   deleteManualDocument: vi.fn(),
   ingestReference: vi.fn(async () => ({ data: { sections_count: 0 }, error: null })),
 }))
-vi.mock("@/modules/items", () => ({ getItemUnits: vi.fn(async () => ({ data: [], error: null })) }))
+vi.mock("@/modules/items", () => ({ getItemUnits: (...a: unknown[]) => m.getItemUnits(...a) }))
 vi.mock("@/modules/care", () => ({ getTaskTemplates: vi.fn(async () => ({ data: [], error: null })) }))
 // The network-touching half is stubbed; `rescanTargets` / `isReferenceDoc` are
 // the REAL rule, because a mock that let every manual through would hide what
@@ -91,22 +84,20 @@ vi.mock("@/lib/manualRescan", async (importOriginal) => ({
   rescanForReviewAndWait: vi.fn(),
   startRescanForReview: vi.fn(),
 }))
-vi.mock("@/hooks/useUserLevel", () => ({ useUserLevel: () => ({ level: "engaged", derivedLevel: "engaged" }) }))
-vi.mock("@/hooks/useFeatureTour", () => ({ useFeatureTour: () => ({ restartTour: vi.fn() }) }))
 vi.mock("@/hooks/useAutoFindManuals", () => ({ useAutoFindManuals: () => [false, vi.fn()] }))
+vi.mock("@/hooks/useDisplayName", () => ({ useDisplayName: () => ({ firstName: null, fullName: null }) }))
+vi.mock("@/hooks/useServiceProviders", () => ({ useServiceProviders: () => ({ providers: [], loading: false, loadFailed: false }) }))
 vi.mock("@/integrations/firebase", () => ({ db: {}, callable: () => vi.fn() }))
 vi.mock("firebase/firestore", () => ({
-  collection: vi.fn(), doc: vi.fn(), query: vi.fn(), where: vi.fn(), serverTimestamp: vi.fn(), setDoc: vi.fn(),
-  getDoc: vi.fn(async () => ({ exists: () => false, get: () => undefined })),
+  collection: vi.fn(), doc: vi.fn(), query: vi.fn(), where: vi.fn(), serverTimestamp: vi.fn(),
+  setDoc: (...a: unknown[]) => m.setDoc(...a),
+  getDoc: (...a: unknown[]) => m.getDoc(...a),
   getDocs: vi.fn(async () => ({ docs: [] })),
 }))
 // Sections with their own reads and their own tests.
 for (const path of [
   "@/components/settings/HomeMembersSection",
-  "@/components/settings/HomeProfileSection",
-  "@/components/settings/InterfaceLevelSection",
   "@/components/settings/AdminToolsSection",
-  "@/components/settings/HouseRulesSection",
   "@/components/settings/NotificationsRefusedNote",
   "@/components/settings/BootDiagnostics",
   "@/components/FeedbackButton",
@@ -114,7 +105,7 @@ for (const path of [
   const name = path.split("/").pop()!
   // The internal tools render a marker, so their absence can be asserted.
   const marker = name === "BootDiagnostics" || name === "AdminToolsSection" ? `[${name}]` : null
-  vi.doMock(path, () => ({ [name]: () => marker }))
+  vi.doMock(path, () => ({ [name]: () => (marker ? <span>{marker}</span> : null) }))
 }
 
 const { default: Settings } = await import("./Settings")
@@ -131,50 +122,86 @@ beforeEach(() => {
   m.setNotificationPrefs.mockResolvedValue(undefined)
   m.getDevToolsEnabled.mockResolvedValue(false)
   m.unsubscribeFromPush.mockResolvedValue(undefined)
-  m.getRooms.mockResolvedValue({ data: [{ room_id: "r1", name: "Kitchen" }], error: null })
-  m.deleteRoom.mockResolvedValue({ data: true, error: null })
-  m.getRoutineTemplates.mockResolvedValue([])
   m.getManualsByHome.mockResolvedValue({ data: [], error: null })
+  m.getItemUnits.mockResolvedValue({ data: [], error: null })
   m.unregisterNativePush.mockResolvedValue(undefined)
+  m.getDoc.mockResolvedValue({ exists: () => true, get: () => "Pat" })
+  m.setDoc.mockResolvedValue(undefined)
   m.native = false
 })
 
-const renderSettings = () => render(<MemoryRouter><Settings /></MemoryRouter>)
+function Where() {
+  const loc = useLocation()
+  return <span data-testid="where">{loc.pathname}</span>
+}
+/** One of Settings' pages, by its address. Anywhere else shows the address it went to. */
+const renderPane = (pane: string) =>
+  render(
+    <MemoryRouter initialEntries={[`/settings/${pane}`]}>
+      <Routes>
+        <Route path="/settings/:pane" element={<Settings />} />
+        <Route path="*" element={<Where />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+const renderSettings = () => renderPane("notifications")
 
 describe("Settings — internal tools", () => {
-  it("are not rendered for a person without dev_tools", async () => {
-    renderSettings()
+  it("are not rendered for a person without dev_tools: the page sends them back to the menu", async () => {
+    renderPane("internal")
     await waitFor(() => expect(m.getDevToolsEnabled).toHaveBeenCalledWith("uid-1"))
-    await screen.findByRole("heading", { name: "Rooms" })
+    expect(await screen.findByTestId("where")).toHaveTextContent("/settings")
     expect(screen.queryByText("[BootDiagnostics]")).toBeNull()
     expect(screen.queryByText("[AdminToolsSection]")).toBeNull()
   })
 
   it("render for a person whose prefs say dev_tools: true", async () => {
     m.getDevToolsEnabled.mockResolvedValue(true)
-    renderSettings()
+    renderPane("internal")
     expect(await screen.findByText("[BootDiagnostics]")).toBeInTheDocument()
     expect(screen.getByText("[AdminToolsSection]")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { level: 1, name: "Internal tools" })).toBeInTheDocument()
+    expect(screen.getByRole("switch", { name: "Find manuals automatically" })).toBeInTheDocument()
   })
 
   it("stay hidden when the prefs read fails", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     m.getDevToolsEnabled.mockRejectedValue(new Error("unavailable"))
-    renderSettings()
+    renderPane("internal")
     await waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining("dev_tools"), "unavailable"))
+    expect(await screen.findByTestId("where")).toHaveTextContent("/settings")
     expect(screen.queryByText("[BootDiagnostics]")).toBeNull()
     expect(screen.queryByText("[AdminToolsSection]")).toBeNull()
     warn.mockRestore()
   })
+
+  it("manuals that could not be read say so — not '0 manuals uploaded'", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    m.getDevToolsEnabled.mockResolvedValue(true)
+    m.getManualsByHome.mockResolvedValue({ data: null, error: { message: "unavailable" } })
+    renderPane("internal")
+    expect(await screen.findByText("Couldn't load your manuals.")).toBeInTheDocument()
+    expect(screen.queryByText(/0 manuals uploaded/)).toBeNull()
+  })
 })
 
-describe("Settings — service providers", () => {
-  it("is one link to the Providers page, with no list or add form of its own", async () => {
-    renderSettings()
-    // The section index's "#providers" anchor shares the name; the row is the other one.
-    const links = await screen.findAllByRole("link", { name: /Service providers/ })
-    expect(links.map((l) => l.getAttribute("href")).sort()).toEqual(["#providers", "/providers"])
-    expect(screen.queryByRole("button", { name: /Add provider/i })).toBeNull()
+describe("Settings — every page has a way back and its own heading", () => {
+  it.each([
+    ["account", "Account"],
+    ["members", "Members"],
+    ["task-level", "Task level"],
+    ["homes", "Homes"],
+    ["notifications", "Notifications"],
+    ["appearance", "Appearance"],
+    ["export", "Export your data"],
+    ["privacy", "Data & privacy"],
+    ["help", "Report a problem"],
+  ])("/settings/%s is headed “%s” once, with a link back to Settings", async (pane, title) => {
+    renderPane(pane)
+    expect(await screen.findByRole("heading", { level: 1, name: title })).toBeInTheDocument()
+    // The section's own heading would repeat the page's.
+    expect(screen.getAllByRole("heading", { name: title })).toHaveLength(1)
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings")
   })
 })
 
@@ -254,137 +281,6 @@ describe("Settings — notification preferences", () => {
   })
 })
 
-describe("Settings — rooms and custom tasks", () => {
-  it("a room delete the server refuses keeps the room and says so", async () => {
-    m.deleteRoom.mockResolvedValue({ data: null, error: { message: "permission-denied" } })
-    renderSettings()
-
-    fireEvent.click(await screen.findByRole("button", { name: "Delete Kitchen" }))
-    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Delete" }))
-
-    expect(await screen.findByText("Couldn't delete Kitchen. Check your connection and try again.")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Kitchen" })).toBeInTheDocument()
-  })
-
-  it("a rename the server refuses keeps the editor open with what was typed, and says so", async () => {
-    m.renameRoom.mockResolvedValue({ data: null, error: { message: "permission-denied" } })
-    renderSettings()
-
-    fireEvent.click(await screen.findByRole("button", { name: "Rename Kitchen" }))
-    const input = screen.getByDisplayValue("Kitchen")
-    fireEvent.change(input, { target: { value: "Pantry" } })
-    fireEvent.keyDown(input, { key: "Enter" })
-
-    expect(await screen.findByText("Couldn't rename that room. Check your connection and try again.")).toBeInTheDocument()
-    expect(m.renameRoom).toHaveBeenCalledTimes(1)
-    // Still editing, with the typed name — like Add room's form, ready for Enter again.
-    expect(screen.getByDisplayValue("Pantry")).toBeInTheDocument()
-  })
-
-  /** Past the tick a refocus would be scheduled on. */
-  const nextTick = () => act(() => new Promise<void>((r) => setTimeout(r, 20)))
-
-  it("a rename that fails because the person LEFT the field does not pull them back, or re-send it as they leave again", async () => {
-    // The trap: blur saves, the save fails, the field took focus back — so the
-    // next tap elsewhere saved, failed and refocused again, with Escape the
-    // only way out (and nothing saying so).
-    m.renameRoom.mockResolvedValue({ data: null, error: { message: "unavailable" } })
-    renderSettings()
-
-    fireEvent.click(await screen.findByRole("button", { name: "Rename Kitchen" }))
-    const input = screen.getByDisplayValue("Kitchen")
-    await waitFor(() => expect(document.activeElement).toBe(input))
-    fireEvent.change(input, { target: { value: "Pantry" } })
-    // They tap elsewhere: focus moves on, and leaving the field saves.
-    const elsewhere = screen.getByRole("button", { name: "Delete Kitchen" })
-    act(() => elsewhere.focus())
-
-    expect(await screen.findByText("Couldn't rename that room. Check your connection and try again.")).toBeInTheDocument()
-    expect(screen.getByDisplayValue("Pantry")).toBeInTheDocument()
-    await nextTick()
-    expect(document.activeElement).toBe(elsewhere)
-
-    // Back into the field and out again, same name: nothing is re-sent.
-    act(() => screen.getByDisplayValue("Pantry").focus())
-    act(() => elsewhere.focus())
-    await nextTick()
-    expect(m.renameRoom).toHaveBeenCalledTimes(1)
-    expect(document.activeElement).toBe(elsewhere)
-
-    // A changed name is a new rename, and leaving the field sends it.
-    act(() => screen.getByDisplayValue("Pantry").focus())
-    fireEvent.change(screen.getByDisplayValue("Pantry"), { target: { value: "Larder" } })
-    act(() => elsewhere.focus())
-    await waitFor(() => expect(m.renameRoom).toHaveBeenCalledTimes(2))
-    expect(m.renameRoom.mock.calls[1]).toEqual(["home-1", "r1", "Larder"])
-  })
-
-  it("a rename that fails on Enter puts the person back in the field, ready to try again", async () => {
-    let answer!: (v: unknown) => void
-    m.renameRoom.mockReturnValueOnce(new Promise((r) => { answer = r }))
-    renderSettings()
-
-    fireEvent.click(await screen.findByRole("button", { name: "Rename Kitchen" }))
-    const input = screen.getByDisplayValue("Kitchen")
-    await waitFor(() => expect(document.activeElement).toBe(input))
-    fireEvent.change(input, { target: { value: "Pantry" } })
-    fireEvent.keyDown(input, { key: "Enter" })
-    // In a browser the field can lose focus as it disables itself mid-save;
-    // here focus is moved off it while the save is in flight.
-    act(() => screen.getByRole("button", { name: "Delete Kitchen" }).focus())
-    await act(async () => answer({ data: null, error: { message: "unavailable" } }))
-
-    expect(await screen.findByText("Couldn't rename that room. Check your connection and try again.")).toBeInTheDocument()
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByDisplayValue("Pantry")))
-    // The blur mid-save did not start a second write.
-    expect(m.renameRoom).toHaveBeenCalledTimes(1)
-  })
-
-  it("rooms that could not be read say so instead of an empty list", async () => {
-    m.getRooms.mockResolvedValue({ data: null, error: { message: "unavailable" } })
-    renderSettings()
-    expect(await screen.findByText("Couldn't load your rooms.")).toBeInTheDocument()
-  })
-
-  it("custom tasks that could not be read say so instead of an empty list", async () => {
-    m.getRoutineTemplates.mockRejectedValue(new Error("Failed to load routine templates: unavailable"))
-    renderSettings()
-    expect(await screen.findByText("Couldn't load your custom tasks.")).toBeInTheDocument()
-  })
-
-  // H5 moved both reads into one reader + one apply each (readRooms/applyRooms,
-  // readRoutines/applyRoutines). Try again is the imperative path through them.
-  it("Try again on rooms reads them again and lists them", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {})
-    m.getRooms.mockResolvedValueOnce({ data: null, error: { message: "unavailable" } })
-    renderSettings()
-    const failed = (await screen.findByText("Couldn't load your rooms.")).closest("[role=alert]") as HTMLElement
-    fireEvent.click(within(failed).getByRole("button", { name: "Try again" }))
-    expect(await screen.findByText("Kitchen")).toBeInTheDocument()
-    expect(screen.queryByText("Couldn't load your rooms.")).toBeNull()
-    expect(m.getRooms).toHaveBeenCalledTimes(2)
-  })
-
-  it("Try again on custom tasks reads them again and lists them", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {})
-    m.getRoutineTemplates
-      .mockRejectedValueOnce(new Error("Failed to load routine templates: unavailable"))
-      .mockResolvedValueOnce([{ task_template_id: "rt1", title: "Water the ferns", schedule_type: "weekly", estimated_minutes: 5 }])
-    renderSettings()
-    const failed = (await screen.findByText("Couldn't load your custom tasks.")).closest("[role=alert]") as HTMLElement
-    fireEvent.click(within(failed).getByRole("button", { name: "Try again" }))
-    expect(await screen.findByText("Water the ferns")).toBeInTheDocument()
-    expect(screen.queryByText("Couldn't load your custom tasks.")).toBeNull()
-  })
-
-  it("manuals that could not be read say so — not '0 manuals uploaded'", async () => {
-    m.getManualsByHome.mockResolvedValue({ data: null, error: { message: "unavailable" } })
-    renderSettings()
-    expect(await screen.findByText("Couldn't load your manuals.")).toBeInTheDocument()
-    expect(screen.queryByText(/0 manuals uploaded/)).toBeNull()
-  })
-})
-
 // Audit 2026-10-28, Package 0: Settings promised what nothing delivers. No push
 // lane sends warranty or recall alerts (push/lanes.ts: task reminders and
 // buy-ahead only) and nothing schedules the recall check; the export is a JSON
@@ -406,10 +302,81 @@ describe("Settings — only promises what ships", () => {
   })
 
   it("the export says what the file holds and what it leaves out", async () => {
-    renderSettings()
+    renderPane("export")
     expect(await screen.findByRole("button", { name: "Export data (JSON)" })).toBeInTheDocument()
     expect(screen.getByText(/Not included yet: photos, receipts, manual files/)).toBeInTheDocument()
     expect(screen.queryByText("Export All Data")).toBeNull()
+  })
+})
+
+describe("Settings — export", () => {
+  it("a section that could not be read refuses the export and says so — nothing is downloaded", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    m.getItemUnits.mockResolvedValue({ data: null, error: { message: "unavailable" } })
+    renderPane("export")
+
+    fireEvent.click(await screen.findByRole("button", { name: "Export data (JSON)" }))
+
+    expect(await screen.findByText("Couldn't export your data. Part of it couldn't be read. Check your connection and try again.")).toBeInTheDocument()
+    expect(download).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("could not read items"))
+    // Ready to try again, not stuck on "Exporting…".
+    expect(screen.getByRole("button", { name: "Export data (JSON)" })).toBeEnabled()
+  })
+
+  it("the manual list is one of the sections: unread, it refuses the export too", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    m.getManualsByHome.mockResolvedValue({ data: null, error: { message: "unavailable" } })
+    renderPane("export")
+
+    fireEvent.click(await screen.findByRole("button", { name: "Export data (JSON)" }))
+
+    expect(await screen.findByText(/Couldn't export your data\. Part of it couldn't be read/)).toBeInTheDocument()
+    expect(download).not.toHaveBeenCalled()
+  })
+
+  it("with every section read, the file is downloaded and nothing is said (the control case)", async () => {
+    const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    URL.createObjectURL = vi.fn(() => "blob:export")
+    URL.revokeObjectURL = vi.fn()
+    renderPane("export")
+
+    fireEvent.click(await screen.findByRole("button", { name: "Export data (JSON)" }))
+
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
+})
+
+describe("Settings — Account", () => {
+  it("shows the stored name and who is signed in", async () => {
+    renderPane("account")
+    expect(await screen.findByDisplayValue("Pat")).toBeInTheDocument()
+    expect(screen.getByText("e2e@homehub.test")).toBeInTheDocument()
+  })
+
+  it("a name that fails to save says so and stays unsaved", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    m.setDoc.mockRejectedValue(new Error("permission-denied"))
+    renderPane("account")
+
+    fireEvent.change(await screen.findByDisplayValue("Pat"), { target: { value: "Patricia" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("permission-denied")
+    expect(screen.queryByText("Saved.")).toBeNull()
+    // What was typed is still there, and Save is offered again.
+    expect(screen.getByDisplayValue("Patricia")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled()
+  })
+
+  it("a name that could not be read says so", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    m.getDoc.mockRejectedValue(new Error("unavailable"))
+    renderPane("account")
+    expect(await screen.findByRole("alert")).toHaveTextContent("unavailable")
   })
 })
 
@@ -417,17 +384,15 @@ describe("Settings — Homes", () => {
   // The name under Home's greeting shows only with a choice to make (owner,
   // 2026-11-19), so Settings is where a one-home person adds a second.
   it("offers Add a home, and no switch while there is only one", async () => {
-    renderSettings()
-    const section = await screen.findByRole("heading", { name: "Homes" })
-    const card = section.closest("section")!
-    expect(within(card).getByRole("button", { name: /Add a home/ })).toBeInTheDocument()
-    expect(within(card).queryByRole("button", { name: "Switch home" })).toBeNull()
+    renderPane("homes")
+    const page = within(await screen.findByTestId("settings-pane-homes"))
+    expect(page.getByRole("button", { name: /Add a home/ })).toBeInTheDocument()
+    expect(page.queryByRole("button", { name: "Switch home" })).toBeNull()
   })
 
   it("Add a home opens straight on the form", async () => {
-    renderSettings()
-    const card = (await screen.findByRole("heading", { name: "Homes" })).closest("section")!
-    fireEvent.click(within(card).getByRole("button", { name: /Add a home/ }))
+    renderPane("homes")
+    fireEvent.click(await screen.findByRole("button", { name: /Add a home/ }))
     expect(await screen.findByLabelText("Home name")).toBeInTheDocument()
   })
 })

@@ -13,6 +13,8 @@ import { categoryLabel } from "@/lib/categoryLabel"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { segmentPanelId, segmentPanelProps } from "@/components/ui/segmentIds"
 import { ITEMS_VIEWS, useItemsView } from "@/hooks/usePageView"
+import { QuietLink } from "@/components/layout/QuietLink"
+import { ROOMS_PATH } from "@/lib/settingsPaths"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 
@@ -147,6 +149,8 @@ export function DesktopItems({
             </div>
           </div>
         ))}
+        {/* Rooms are managed from here, as on the phone. */}
+        <div><QuietLink to={ROOMS_PATH} testId="edit-rooms">Edit rooms</QuietLink></div>
       </div>
       </div>)}
     </div>
