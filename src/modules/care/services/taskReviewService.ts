@@ -1,7 +1,7 @@
-import { collection, doc, getDocs, query, runTransaction, serverTimestamp, where, type DocumentData } from "firebase/firestore"
+import { collection, doc, getDocs, query, serverTimestamp, where, type DocumentData } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { syncTemplateDenormToInstances } from "./denormSync"
-import { cadenceFactsFrom, planFor, writeCadencePlan, type CadenceFacts } from "./cadenceChangeService"
+import { cadenceFactsFrom, confirmOpenOccurrences, planFor, runCadenceTransaction, writeCadencePlan, type CadenceFacts } from "./cadenceChangeService"
 import type { ServiceResult } from "./careNoteService"
 import type { PreviewResult, PreviewTask, PreviewChunk, CareType, PriorityTier, RiskLevel, ScheduleType } from "@/modules/knowledge/types/previewTypes"
 import { USAGE_TIP_TAG } from "../../../../shared/tasks/taxonomy"
@@ -176,10 +176,13 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
     // read with tx.get, and if any of them changes before the commit, Firestore
     // re-runs this whole callback against the new state — so the check below
     // always judges the documents the writes land on. (Queries can't be
-    // transactional reads in the web SDK, so the open-occurrence lookups below
-    // are plain reads, re-run on every attempt. Detecting another member's
-    // EDITS to a reviewed task — not just its removal — is decision doc §C.)
-    const result = await runTransaction(db, async (tx) => {
+    // transactional reads in the web SDK, so the occurrences are queried and
+    // then each OPEN one is read again with tx.get — confirmOpenOccurrences,
+    // Codex review D5: a Done from another device mid-save used to be written
+    // back to "scheduled", or soft-deleted with a dropped task. Detecting
+    // another member's EDITS to a reviewed task — not just its removal — is
+    // decision doc §C.)
+    const result = await runCadenceTransaction(async (tx) => {
       const templates = collection(db, `homes/${homeId}/taskTemplates`)
 
       // The templates as they are NOW. A task removed since this review opened
@@ -207,12 +210,14 @@ export async function saveItemTaskReview(input: SaveItemReviewInput): Promise<Se
       const allInstSnap = await getDocs(
         query(collection(db, `homes/${homeId}/taskInstances`), where("itemUnitId", "==", itemUnitId), where("deletedAt", "==", null)),
       )
+      // Every open occurrence below is one this transaction has read, as it is now.
+      const instances = await confirmOpenOccurrences(tx, homeId, allInstSnap.docs.map((d) => ({ id: d.id, data: d.data() })))
       const openByTemplate = new Map<string, { id: string }[]>()
       const instancesByTemplate = new Map<string, { id: string; data: DocumentData }[]>()
-      for (const d of allInstSnap.docs) {
-        const tid = String(d.get("taskTemplateId"))
-        instancesByTemplate.set(tid, [...(instancesByTemplate.get(tid) ?? []), { id: d.id, data: d.data() }])
-        const status = d.get("status")
+      for (const d of instances) {
+        const tid = String(d.data.taskTemplateId)
+        instancesByTemplate.set(tid, [...(instancesByTemplate.get(tid) ?? []), d])
+        const status = d.data.status
         if (status !== "scheduled" && status !== "snoozed") continue
         const arr = openByTemplate.get(tid) ?? []
         arr.push({ id: d.id })

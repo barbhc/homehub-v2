@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, where, Timestamp, type DocumentData, type Transaction, type WriteBatch } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, where, Timestamp, type DocumentData, type Transaction, type WriteBatch } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { computePriorityScore } from "./priorityScore"
 import type { ServiceResult } from "./careNoteService"
@@ -115,7 +115,8 @@ export function planFor(facts: CadenceFacts, choice: CadenceChoice, today: strin
   })
 }
 
-/** A template and its facts, read fresh. Null when the task is gone. */
+/** A template and its facts, read fresh — for a PREVIEW. A save reads through
+ *  its transaction instead (cadenceFactsInTransaction). Null when the task is gone. */
 export async function readCadenceFacts(
   homeId: string,
   taskTemplateId: string,
@@ -127,6 +128,94 @@ export async function readCadenceFacts(
   )
   const tpl = snap.data()
   return { tpl, facts: cadenceFactsFrom(tpl, inst.docs.map((d) => ({ id: d.id, data: d.data() }))) }
+}
+
+// ── Saving a cadence change: one transaction (Codex review D5) ───────────────
+//
+// The plan rewrites every OPEN occurrence (`status`, date, snooze), so it must
+// be made from occurrences that are still open when the write lands. They used
+// to be read with a plain query and written in a batch: a Done from another
+// device in between was overwritten — the completed occurrence went back to
+// "scheduled" beside the successor that completion had just created.
+//
+// The web SDK cannot run a QUERY inside a transaction, only document reads.
+// So each editor: queries the task's occurrences, then reads every open one
+// again with tx.get (confirmOpenOccurrences). From there Firestore watches
+// them: a change before the commit re-runs the whole callback, query included.
+// The one gap left is a change BETWEEN the query and the tx.get — the two then
+// disagree, and the save starts over from a fresh query (runCadenceTransaction).
+
+/** An occurrence the query saw open was not open when the transaction read it. */
+class StaleOccurrencesError extends Error {
+  constructor() {
+    super("An occurrence changed between the query and the transaction read")
+    this.name = "StaleOccurrencesError"
+  }
+}
+
+/** What a save says when the task would not hold still for it. */
+export const CADENCE_CHANGED_ELSEWHERE = "This task just changed on another device. Try again."
+
+/** How many times a save starts over on a stale query before saying so. */
+const MAX_STALE_RESTARTS = 3
+
+const isOpen = (d: DocumentData | undefined): boolean =>
+  !!d && d.deletedAt == null && (d.status === "scheduled" || d.status === "snoozed")
+
+/**
+ * Inside a transaction, before its first write: read every OPEN occurrence in
+ * `rows` (a query's answer) through the transaction, and answer with the rows
+ * as they are now. Done and deleted rows are history — never written, so never
+ * re-read. Throws StaleOccurrencesError if one is no longer open.
+ */
+export async function confirmOpenOccurrences(
+  tx: Transaction,
+  homeId: string,
+  rows: { id: string; data: DocumentData }[],
+): Promise<{ id: string; data: DocumentData }[]> {
+  return Promise.all(
+    rows.map(async (row) => {
+      if (!isOpen(row.data)) return row
+      const now = (await tx.get(doc(db, `homes/${homeId}/taskInstances/${row.id}`))).data()
+      if (!now || !isOpen(now)) throw new StaleOccurrencesError()
+      return { id: row.id, data: now }
+    }),
+  )
+}
+
+/**
+ * A template's cadence facts for a save: `tpl` is the template as the caller's
+ * transaction read it; its open occurrences are read through the same
+ * transaction. Call before the transaction's first write.
+ */
+export async function cadenceFactsInTransaction(
+  tx: Transaction,
+  homeId: string,
+  taskTemplateId: string,
+  tpl: DocumentData,
+): Promise<CadenceFacts> {
+  const inst = await getDocs(
+    query(collection(db, `homes/${homeId}/taskInstances`), where("taskTemplateId", "==", taskTemplateId)),
+  )
+  const rows = await confirmOpenOccurrences(tx, homeId, inst.docs.map((d) => ({ id: d.id, data: d.data() })))
+  return cadenceFactsFrom(tpl, rows)
+}
+
+/**
+ * runTransaction for a cadence save: a stale occurrence query starts the save
+ * over (a new transaction, a new query) up to MAX_STALE_RESTARTS times, then
+ * fails with CADENCE_CHANGED_ELSEWHERE — nothing written. Any other error is
+ * the transaction's own and is rethrown as it is.
+ */
+export async function runCadenceTransaction<T>(fn: (tx: Transaction) => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await runTransaction(db, fn)
+    } catch (e) {
+      if (!(e instanceof StaleOccurrencesError)) throw e
+      if (attempt >= MAX_STALE_RESTARTS) throw new Error(CADENCE_CHANGED_ELSEWHERE)
+    }
+  }
 }
 
 /** What saving `choice` would do to this task — the date every editor shows

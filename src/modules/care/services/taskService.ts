@@ -2,7 +2,7 @@ import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverT
 import { db, callable } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
 import { computePriorityScore } from "./priorityScore"
-import { planFor, readCadenceFacts, writeCadencePlan, SEASON_NEEDED } from "./cadenceChangeService"
+import { cadenceFactsInTransaction, planFor, runCadenceTransaction, writeCadencePlan, SEASON_NEEDED } from "./cadenceChangeService"
 import { computeNextDueDate } from "./nextDueDate"
 import { localDateString, localToday } from "../../../../shared/dates/calendar"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
@@ -471,31 +471,40 @@ export async function applyCadence(
 ): Promise<ServiceResult<true>> {
   const { scheduleType, intervalDays, season } = choice
   try {
-    const read = await readCadenceFacts(homeId, taskTemplateId)
-    if (!read) return { data: null, error: { message: "Task not found" } }
-    let plan = planFor(read.facts, { scheduleType, intervalDays, season })
-    if (plan.kind === "needs-season") return { data: null, error: { message: SEASON_NEEDED } }
-    if (opts.firstDue && plan.kind === "scheduled" && plan.create) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.firstDue)) return { data: null, error: { message: "That date isn't valid." } }
-      plan = { ...plan, nextDue: opts.firstDue, overdue: false }
-    }
-    const now = serverTimestamp()
-    const batch = writeBatch(db)
-    // The cadence as stored after this merge: a season is written only when
-    // given, so otherwise the stored one stays.
-    const storedSeason = cadenceValue(read.tpl.schedule as Record<string, unknown> | null).season
-    batch.set(
-      doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
-      {
-        schedule: { scheduleType, intervalDays: intervalDays ?? null, ...(season ? { season } : {}) },
-        ...stamp(via, { schedule: { scheduleType, intervalDays: intervalDays ?? null, season: season || storedSeason } }, actor),
-        userModifiedAt: now,
-        updatedAt: now,
-      },
-      { merge: true }
-    )
-    await writeCadencePlan(batch, homeId, taskTemplateId, read.tpl, scheduleType, plan)
-    await batch.commit()
+    // ONE transaction: the template and every open occurrence the plan will
+    // rewrite are read through it, so a Done from another device mid-save
+    // re-runs this against the completed occurrence instead of writing it
+    // back to "scheduled" (Codex review D5 — see runCadenceTransaction).
+    const tplRef = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const refusal = await runCadenceTransaction(async (tx): Promise<string | null> => {
+      const snap = await tx.get(tplRef)
+      const tpl = snap.data()
+      if (!tpl || tpl.deletedAt != null) return "Task not found"
+      const facts = await cadenceFactsInTransaction(tx, homeId, taskTemplateId, tpl)
+      let plan = planFor(facts, { scheduleType, intervalDays, season })
+      if (plan.kind === "needs-season") return SEASON_NEEDED
+      if (opts.firstDue && plan.kind === "scheduled" && plan.create) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.firstDue)) return "That date isn't valid."
+        plan = { ...plan, nextDue: opts.firstDue, overdue: false }
+      }
+      const now = serverTimestamp()
+      // The cadence as stored after this merge: a season is written only when
+      // given, so otherwise the stored one stays.
+      const storedSeason = cadenceValue(tpl.schedule as Record<string, unknown> | null).season
+      tx.set(
+        tplRef,
+        {
+          schedule: { scheduleType, intervalDays: intervalDays ?? null, ...(season ? { season } : {}) },
+          ...stamp(via, { schedule: { scheduleType, intervalDays: intervalDays ?? null, season: season || storedSeason } }, actor),
+          userModifiedAt: now,
+          updatedAt: now,
+        },
+        { merge: true }
+      )
+      await writeCadencePlan(tx, homeId, taskTemplateId, tpl, scheduleType, plan)
+      return null
+    })
+    if (refusal) return { data: null, error: { message: refusal } }
     track("task_cadence_set", { homeId, taskTemplateId, scheduleType })
     return { data: true, error: null }
   } catch (e) {

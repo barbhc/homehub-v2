@@ -291,7 +291,9 @@ export const fakeFirestoreModule = {
       const id = `auto-${String(++autoId).padStart(4, "0")}`
       return { kind: "doc", path: `${(base as CollectionRef).path}/${id}`, id }
     }
-    const full = [path, ...segments].join("/")
+    // doc(collectionRef, id): the id is relative to the collection.
+    const under = base && typeof base === "object" && (base as CollectionRef).kind === "collection" ? [(base as CollectionRef).path] : []
+    const full = [...under, path, ...segments].join("/")
     return { kind: "doc", path: full, id: lastSegment(full) }
   },
   query: (ref: CollectionRef | Query, ...constraints: Constraint[]): Query => ({
