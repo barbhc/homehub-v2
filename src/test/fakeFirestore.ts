@@ -71,6 +71,8 @@ export interface ReadLog {
 }
 
 const store = new Map<string, Data>()
+/** Bumped on every write to a path — what a transaction's reads are checked against at commit. */
+const versions = new Map<string, number>()
 const reads: ReadLog = { queries: 0, gets: 0, docsRead: 0, log: [] }
 const writes: Array<{ path: string; data: Data }> = []
 let autoId = 0
@@ -87,13 +89,29 @@ export const fakeDb = {
   offline: false,
   /** When set, every read rejects with it — a network or rules failure. */
   failWith: null as Error | null,
+  /**
+   * Called after every read has been answered — getDoc, getDocs, and a
+   * transaction's get — with what was read ("get <path>" / "query <path>").
+   * A test uses it to land ANOTHER device's write in the gap between a
+   * service's read and its write. Write with `fakeDb.write` from inside it.
+   */
+  afterRead: null as ((what: string) => void) | null,
+  /** A write from "another device": lands at once, outside any batch or transaction. */
+  write(path: string, data: Data, opts?: { merge?: boolean }): void {
+    applySet({ kind: "doc", path, id: lastSegment(path) }, data, opts)
+  },
+  /** How many times runTransaction ran its callback, across the test. */
+  transactionAttempts: 0,
   /** Replace the whole database with `docs` (full document path → data) and zero the counters. */
   load(docs: Record<string, Data>): void {
     store.clear()
     for (const [path, data] of Object.entries(docs)) store.set(path, copyData(data))
     fakeDb.resetCounters()
+    versions.clear()
     fakeDb.offline = false
     fakeDb.failWith = null
+    fakeDb.afterRead = null
+    fakeDb.transactionAttempts = 0
     writes.length = 0
     autoId = 0
   },
@@ -245,8 +263,17 @@ function applySet(ref: DocRef, data: Data, opts?: { merge?: boolean }): void {
   const next = resolveWrite(data)
   const prev = store.get(ref.path)
   store.set(ref.path, opts?.merge && prev ? { ...prev, ...next } : next)
+  versions.set(ref.path, (versions.get(ref.path) ?? 0) + 1)
   writes.push({ path: ref.path, data: next })
 }
+
+function applyDelete(ref: DocRef): void {
+  store.delete(ref.path)
+  versions.set(ref.path, (versions.get(ref.path) ?? 0) + 1)
+}
+
+/** How many times the SDK runs a transaction's callback before giving up. */
+const MAX_TRANSACTION_ATTEMPTS = 5
 
 export const fakeFirestoreModule = {
   Timestamp,
@@ -264,7 +291,9 @@ export const fakeFirestoreModule = {
       const id = `auto-${String(++autoId).padStart(4, "0")}`
       return { kind: "doc", path: `${(base as CollectionRef).path}/${id}`, id }
     }
-    const full = [path, ...segments].join("/")
+    // doc(collectionRef, id): the id is relative to the collection.
+    const under = base && typeof base === "object" && (base as CollectionRef).kind === "collection" ? [(base as CollectionRef).path] : []
+    const full = [...under, path, ...segments].join("/")
     return { kind: "doc", path: full, id: lastSegment(full) }
   },
   query: (ref: CollectionRef | Query, ...constraints: Constraint[]): Query => ({
@@ -285,6 +314,7 @@ export const fakeFirestoreModule = {
     reads.docsRead += Math.max(1, rows.length)
     reads.log.push(`query ${describeQuery(q)} → ${rows.length}`)
     const docs = rows.map((r) => docSnapshot(r.id, r.path, r.data))
+    fakeDb.afterRead?.(`query ${q.path}`)
     return {
       docs,
       size: docs.length,
@@ -298,7 +328,9 @@ export const fakeFirestoreModule = {
     reads.gets++
     reads.docsRead += 1
     reads.log.push(`get ${ref.path}`)
-    return docSnapshot(ref.id, ref.path, store.get(ref.path))
+    const snap = docSnapshot(ref.id, ref.path, store.get(ref.path))
+    fakeDb.afterRead?.(`get ${ref.path}`)
+    return snap
   },
   writeBatch: () => {
     const ops: Array<() => void> = []
@@ -312,7 +344,7 @@ export const fakeFirestoreModule = {
         return batch
       },
       delete(ref: DocRef) {
-        ops.push(() => void store.delete(ref.path))
+        ops.push(() => applyDelete(ref))
         return batch
       },
       async commit() {
@@ -333,7 +365,56 @@ export const fakeFirestoreModule = {
     applySet(docRef, data)
     return docRef
   },
-  runTransaction: () => {
-    throw new Error("fakeFirestore: runTransaction is not modelled")
+  /**
+   * Optimistic concurrency, as the web SDK does it: the callback's reads are
+   * remembered with the version they saw, its writes are held back, and at
+   * commit a document that changed since it was read fails the attempt — the
+   * callback then runs again from the top against the new state, up to
+   * MAX_TRANSACTION_ATTEMPTS. An error THROWN by the callback is not retried:
+   * the transaction rejects with it and nothing is written. As in the SDK,
+   * every read must come before the first write, and queries are not
+   * transactional (a getDocs inside the callback is a plain read).
+   */
+  async runTransaction<T>(_db: unknown, fn: (tx: unknown) => Promise<T>): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+      fakeDb.transactionAttempts++
+      const seen = new Map<string, number>()
+      const ops: Array<() => void> = []
+      const tx = {
+        async get(ref: DocRef) {
+          if (ops.length > 0) throw new Error("Firestore transactions require all reads to be executed before all writes.")
+          if (fakeDb.failWith) throw fakeDb.failWith
+          reads.gets++
+          reads.docsRead += 1
+          reads.log.push(`tx get ${ref.path}`)
+          const version = versions.get(ref.path) ?? 0
+          const snap = docSnapshot(ref.id, ref.path, store.get(ref.path))
+          if (!seen.has(ref.path)) seen.set(ref.path, version)
+          fakeDb.afterRead?.(`get ${ref.path}`)
+          return snap
+        },
+        set(ref: DocRef, data: Data, opts?: { merge?: boolean }) {
+          ops.push(() => applySet(ref, data, opts))
+          return tx
+        },
+        update(ref: DocRef, data: Data) {
+          ops.push(() => applySet(ref, data, { merge: true }))
+          return tx
+        },
+        delete(ref: DocRef) {
+          ops.push(() => applyDelete(ref))
+          return tx
+        },
+      }
+      const result = await fn(tx)
+      const stale = [...seen].some(([path, version]) => (versions.get(path) ?? 0) !== version)
+      if (!stale) {
+        for (const op of ops) op()
+        return result
+      }
+      if (attempt >= MAX_TRANSACTION_ATTEMPTS) {
+        throw Object.assign(new Error("Transaction failed: a document it read kept changing."), { code: "aborted" })
+      }
+    }
   },
 }

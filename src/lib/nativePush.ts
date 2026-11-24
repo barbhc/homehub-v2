@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore
 import { db } from "@/integrations/firebase"
 import { isNativePlatform } from "./native"
 import { parkDeepLink } from "./pushDeepLink"
+import { withTimeout } from "./withTimeout"
 
 export { isNativePlatform }
 
@@ -56,15 +57,85 @@ export class PushOffError extends Error {
   }
 }
 
-/** How long Disable waits for APNs to name this phone's token. */
+/** How long Enable and Disable wait for APNs to name this phone's token, and
+ *  Enable for that token to be stored. */
 export const TOKEN_WAIT_MS = 10_000
 
+/**
+ * "Permission granted, but this phone's token is not stored" — device-local.
+ *
+ * iOS permission is not a token, and the server can only reach a phone whose
+ * token it holds. A registration that failed (APNs refused or never answered,
+ * or the write did not land) leaves permission granted with nothing behind it;
+ * without this mark every screen read that as "on" (Codex review F3). Set by
+ * a failed registration, cleared the moment a token IS stored — by Enable, or
+ * by the boot re-registration (ensureNativePushToken) on a later launch.
+ *
+ * Absent on every phone set up before this existed, which therefore reads
+ * exactly as it did.
+ */
+const UNCONFIRMED_KEY = "homehub:native-push-unconfirmed"
+
+function markUnconfirmed(unconfirmed: boolean): void {
+  try {
+    if (unconfirmed) localStorage.setItem(UNCONFIRMED_KEY, "1")
+    else localStorage.removeItem(UNCONFIRMED_KEY)
+  } catch (err) {
+    // Storage blocked: the mark cannot be kept, so this phone reads by its
+    // permission alone, as it did before the mark existed.
+    console.warn("[nativePush] could not record whether this phone's token is stored:", err instanceof Error ? err.message : err)
+  }
+}
+
+function isUnconfirmed(): boolean {
+  try {
+    return localStorage.getItem(UNCONFIRMED_KEY) === "1"
+  } catch {
+    // Storage unreadable: no mark to honour (see markUnconfirmed).
+    return false
+  }
+}
+
+/** What Enable says when the phone could not be set up. */
+export const PUSH_ON_FAILED = "Couldn't turn on reminders on this phone. Try again."
+
+/** Writes in flight, by user and token: Enable and the registration listener
+ *  both hear the same token, and it is stored once. */
+const storing = new Map<string, Promise<void>>()
+
+/**
+ * Store this phone's token for `userId`. Rejects when the write fails, and
+ * keeps the "not stored" mark in step either way — so a write that fails says
+ * so to whoever is waiting, and one that lands late (queued offline) still
+ * clears the mark when it does.
+ */
+function storeToken(userId: string, token: string): Promise<void> {
+  const key = `${userId}:${token}`
+  const running = storing.get(key)
+  if (running) return running
+  const write = (async () => {
+    try {
+      await setDoc(tokensDoc(userId), { tokens: arrayUnion(token) }, { merge: true })
+    } catch (err) {
+      markUnconfirmed(true)
+      throw err
+    }
+    markUnconfirmed(false)
+  })()
+  storing.set(key, write)
+  const forget = () => { storing.delete(key) }
+  write.then(forget, forget)
+  return write
+}
+
+/** The registration listener's store: nobody is waiting on it, so a failure is
+ *  logged here — and the phone reads as not set up until a token is stored. */
 async function persistToken(token: string): Promise<void> {
   if (!currentUserId) return
   try {
-    await setDoc(tokensDoc(currentUserId), { tokens: arrayUnion(token) }, { merge: true })
+    await storeToken(currentUserId, token)
   } catch (err) {
-    console.error("[nativePush] failed to store token:", err instanceof Error ? err.message : err)
+    console.error(`[nativePush] failed to store this phone's token for user ${currentUserId}:`, err instanceof Error ? err.message : err)
   }
 }
 
@@ -104,6 +175,8 @@ async function ensureListeners(): Promise<void> {
     }),
     await PushNotifications.addListener("registrationError", (err) => {
       console.error("[nativePush] registration error:", err)
+      // No token came of it: this phone is not set up, whatever permission says.
+      markUnconfirmed(true)
     }),
   ]
   // The tap listener is NOT registered here — it must exist before auth
@@ -165,29 +238,58 @@ function freshRegistrationToken(): Promise<string | null> {
 }
 
 /**
- * Request OS permission, register with APNs, and store the device token.
+ * Request OS permission, register with APNs, and store the device token —
+ * and answer success only once that token IS stored (Codex review F3).
  * Mirrors `subscribeToPush()`'s return shape so opt-in UI can call either path.
+ *
+ * It used to answer success as soon as register() returned: before APNs had
+ * named a token and before anything was written. The registration listener
+ * stored it later and logged a failure to the console, so every caller said
+ * "on" for a phone the server could not reach. Now:
+ *
+ *  1. permission — refused is its own answer ("Permission denied"), as before;
+ *  2. ask APNs for this phone's token and wait for it (TOKEN_WAIT_MS);
+ *  3. store it, and wait for the write (TOKEN_WAIT_MS — offline, a Firestore
+ *     write never settles on its own);
+ *  4. only then: clear "off on this phone" and answer success.
+ *
+ * Any failure after permission answers PUSH_ON_FAILED (the cause goes to the
+ * log) and leaves the phone marked "not stored", so nothing reads it as on.
  */
 export async function registerNativePush(
   userId: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!isNativePlatform()) return { success: false, error: "Not a native platform" }
   currentUserId = userId
+  let perm: { receive: string }
   try {
-    const perm = await PushNotifications.requestPermissions()
-    if (perm.receive !== "granted") return { success: false, error: "Permission denied" }
-    await ensureListeners()
-    await PushNotifications.register()
-    // Turned back on: the boot re-registration may look after this phone again.
-    try {
-      localStorage.removeItem(OFF_KEY)
-    } catch {
-      // Storage blocked: the mark can't be read either (isNativePushTurnedOff → false).
-    }
-    return { success: true }
+    perm = await PushNotifications.requestPermissions()
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Unknown error" }
+    console.warn("[nativePush] could not ask for notification permission:", err instanceof Error ? err.message : err)
+    return { success: false, error: PUSH_ON_FAILED }
   }
+  if (perm.receive !== "granted") return { success: false, error: "Permission denied" }
+  try {
+    // The long-lived listeners keep a refreshed token stored after today.
+    await ensureListeners()
+    const token = await freshRegistrationToken()
+    if (!token) throw new Error("APNs did not name a token for this phone")
+    lastToken = token
+    await withTimeout(storeToken(userId, token), TOKEN_WAIT_MS, `the token was not stored within ${TOKEN_WAIT_MS}ms`)
+  } catch (err) {
+    console.warn(`[nativePush] could not turn on reminders on this phone for user ${userId}:`, err instanceof Error ? err.message : err)
+    // Covers the paths storeToken never saw (no token; a write still waiting).
+    // If that write lands later, storeToken clears the mark itself.
+    markUnconfirmed(true)
+    return { success: false, error: PUSH_ON_FAILED }
+  }
+  // Turned back on: the boot re-registration may look after this phone again.
+  try {
+    localStorage.removeItem(OFF_KEY)
+  } catch {
+    // Storage blocked: the mark can't be read either (isNativePushTurnedOff → false).
+  }
+  return { success: true }
 }
 
 /**
@@ -241,10 +343,12 @@ export async function nativePushPermission(): Promise<"granted" | "denied" | "pr
   }
 }
 
-/** True if native push permission is granted on this device and its reminders
- *  were not turned off here (permission outlives a Disable). */
+/** True if native push permission is granted on this device, its reminders
+ *  were not turned off here (permission outlives a Disable), and no
+ *  registration since has failed to store this phone's token (permission is
+ *  not a token — see UNCONFIRMED_KEY). */
 export async function isNativePushRegistered(): Promise<boolean> {
-  if (!isNativePlatform() || isNativePushTurnedOff()) return false
+  if (!isNativePlatform() || isNativePushTurnedOff() || isUnconfirmed()) return false
   try {
     const perm = await PushNotifications.checkPermissions()
     return perm.receive === "granted"

@@ -2,7 +2,8 @@ import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverT
 import { db, callable } from "@/integrations/firebase"
 import { track } from "@/lib/analytics"
 import { computePriorityScore } from "./priorityScore"
-import { planFor, readCadenceFacts, writeCadencePlan, SEASON_NEEDED } from "./cadenceChangeService"
+import { syncTemplateDenormToInstances } from "./denormSync"
+import { cadenceFactsInTransaction, planFor, runCadenceTransaction, writeCadencePlan, SEASON_NEEDED } from "./cadenceChangeService"
 import { computeNextDueDate } from "./nextDueDate"
 import { localDateString, localToday } from "../../../../shared/dates/calendar"
 import { isRecurring } from "../../../../shared/tasks/reviewBuckets"
@@ -342,6 +343,12 @@ export async function getTaskTemplatesWithSchedulesByItem(
 
 /**
  * Updates the care_type of a task_template (e.g. reclassify maintenance ↔ cleaning).
+ *
+ * `careType` is denormalized onto every open occurrence, and the agenda
+ * filters on THAT copy — so the occurrences are re-filed in the same batch
+ * (denormSync's rule; Codex review D10). Without it a task moved to cleaning
+ * stayed on Home and Tasks as maintenance, and one moved to maintenance stayed
+ * hidden, until its next occurrence was minted.
  */
 export async function updateTaskCareType(
   homeId: string,
@@ -349,18 +356,19 @@ export async function updateTaskCareType(
   careType: "cleaning" | "maintenance"
 ): Promise<ServiceResult<true>> {
   try {
-    await writeBatch(db)
-      .set(
-        doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
-        {
-          careType,
-          careTypeOverriddenAt: serverTimestamp(),
-          ...stamp("updateTaskCareType", { careType }),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      )
-      .commit()
+    const batch = writeBatch(db)
+    batch.set(
+      doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
+      {
+        careType,
+        careTypeOverriddenAt: serverTimestamp(),
+        ...stamp("updateTaskCareType", { careType }),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
+    await syncTemplateDenormToInstances(batch, homeId, taskTemplateId, { careType })
+    await batch.commit()
     return { data: true, error: null }
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Failed to update care type" } }
@@ -471,31 +479,40 @@ export async function applyCadence(
 ): Promise<ServiceResult<true>> {
   const { scheduleType, intervalDays, season } = choice
   try {
-    const read = await readCadenceFacts(homeId, taskTemplateId)
-    if (!read) return { data: null, error: { message: "Task not found" } }
-    let plan = planFor(read.facts, { scheduleType, intervalDays, season })
-    if (plan.kind === "needs-season") return { data: null, error: { message: SEASON_NEEDED } }
-    if (opts.firstDue && plan.kind === "scheduled" && plan.create) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.firstDue)) return { data: null, error: { message: "That date isn't valid." } }
-      plan = { ...plan, nextDue: opts.firstDue, overdue: false }
-    }
-    const now = serverTimestamp()
-    const batch = writeBatch(db)
-    // The cadence as stored after this merge: a season is written only when
-    // given, so otherwise the stored one stays.
-    const storedSeason = cadenceValue(read.tpl.schedule as Record<string, unknown> | null).season
-    batch.set(
-      doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`),
-      {
-        schedule: { scheduleType, intervalDays: intervalDays ?? null, ...(season ? { season } : {}) },
-        ...stamp(via, { schedule: { scheduleType, intervalDays: intervalDays ?? null, season: season || storedSeason } }, actor),
-        userModifiedAt: now,
-        updatedAt: now,
-      },
-      { merge: true }
-    )
-    await writeCadencePlan(batch, homeId, taskTemplateId, read.tpl, scheduleType, plan)
-    await batch.commit()
+    // ONE transaction: the template and every open occurrence the plan will
+    // rewrite are read through it, so a Done from another device mid-save
+    // re-runs this against the completed occurrence instead of writing it
+    // back to "scheduled" (Codex review D5 — see runCadenceTransaction).
+    const tplRef = doc(db, `homes/${homeId}/taskTemplates/${taskTemplateId}`)
+    const refusal = await runCadenceTransaction(async (tx): Promise<string | null> => {
+      const snap = await tx.get(tplRef)
+      const tpl = snap.data()
+      if (!tpl || tpl.deletedAt != null) return "Task not found"
+      const facts = await cadenceFactsInTransaction(tx, homeId, taskTemplateId, tpl)
+      let plan = planFor(facts, { scheduleType, intervalDays, season })
+      if (plan.kind === "needs-season") return SEASON_NEEDED
+      if (opts.firstDue && plan.kind === "scheduled" && plan.create) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.firstDue)) return "That date isn't valid."
+        plan = { ...plan, nextDue: opts.firstDue, overdue: false }
+      }
+      const now = serverTimestamp()
+      // The cadence as stored after this merge: a season is written only when
+      // given, so otherwise the stored one stays.
+      const storedSeason = cadenceValue(tpl.schedule as Record<string, unknown> | null).season
+      tx.set(
+        tplRef,
+        {
+          schedule: { scheduleType, intervalDays: intervalDays ?? null, ...(season ? { season } : {}) },
+          ...stamp(via, { schedule: { scheduleType, intervalDays: intervalDays ?? null, season: season || storedSeason } }, actor),
+          userModifiedAt: now,
+          updatedAt: now,
+        },
+        { merge: true }
+      )
+      await writeCadencePlan(tx, homeId, taskTemplateId, tpl, scheduleType, plan)
+      return null
+    })
+    if (refusal) return { data: null, error: { message: refusal } }
     track("task_cadence_set", { homeId, taskTemplateId, scheduleType })
     return { data: true, error: null }
   } catch (e) {
@@ -1272,36 +1289,71 @@ export async function logTaskCompletion(
 /** What a snooze replaced — handed back to unsnoozeTaskInstance so Undo is exact. */
 export type SnoozePrior = { status: "scheduled" | "snoozed"; snoozedUntil: string | null }
 
+/**
+ * Why a snooze (or its Undo) wrote nothing although nothing failed:
+ * "already_done" — someone completed the task first; "gone" — it was removed.
+ * Absent on a real failure (the read or the write did not go through).
+ */
+export type SnoozeRefusal = "already_done" | "gone"
+
 export type SnoozeResult =
   | { success: true; data: TaskInstance; prior?: SnoozePrior }
-  | { success: false; error: string }
+  | { success: false; error: string; reason?: SnoozeRefusal }
+
+/** What a refused snooze says. The words are the screens' too (tasks/shared). */
+export const SNOOZE_REFUSALS: Record<SnoozeRefusal, string> = {
+  already_done: "That task was already done.",
+  gone: "That task no longer exists.",
+}
+const refused = (reason: SnoozeRefusal): SnoozeResult => ({ success: false, error: SNOOZE_REFUSALS[reason], reason })
+
+/** Open = still on the list: scheduled or snoozed, and not removed. */
+function refusalFor(snap: { exists(): boolean; get(field: string): unknown }): SnoozeRefusal | null {
+  if (!snap.exists() || snap.get("deletedAt") != null) return "gone"
+  const status = snap.get("status")
+  if (status === "done") return "already_done"
+  return status === "scheduled" || status === "snoozed" ? null : "gone"
+}
 
 /**
  * Snoozes a task_instance until a date. Answers with what it replaced
  * (`prior`): re-snoozing an already-snoozed task and then pressing Undo must
  * put the EARLIER snooze back, not drop it.
+ *
+ * ONE transaction (Codex review D4). It used to read the occurrence and then
+ * write "snoozed" blind, so a Done from another device that landed in between
+ * was overwritten — the completed task came back as snoozed. Inside
+ * runTransaction the occurrence is read with tx.get; if it changes before the
+ * commit, Firestore re-runs the callback against the new state. Only an
+ * occurrence that is still open is written; a done or removed one is refused
+ * with a `reason`, and nothing is written.
+ *
+ * A transaction needs the server, so this fails offline (it used to wait on
+ * the write's acknowledgement instead) — the row says the snooze didn't take.
  */
 export async function snoozeTaskInstance(
   homeId: string,
   taskInstanceId: string,
   snoozedUntil: string
 ): Promise<SnoozeResult> {
-  // Direct Firestore field update (matches v1: status snoozed + snoozed_until).
   try {
     const ref = doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`)
-    const before = await getDoc(ref)
-    if (!before.exists()) return { success: false, error: "Task instance not found" }
-    const wasUntil = before.get("snoozedUntil")
-    const prior: SnoozePrior =
-      before.get("status") === "snoozed" && typeof wasUntil === "string" && wasUntil
-        ? { status: "snoozed", snoozedUntil: wasUntil }
-        : { status: "scheduled", snoozedUntil: null }
-    await writeBatch(db)
-      .set(ref, { status: "snoozed", snoozedUntil, updatedAt: serverTimestamp() }, { merge: true })
-      .commit()
+    const outcome = await runTransaction(db, async (tx): Promise<{ refusal: SnoozeRefusal } | { prior: SnoozePrior }> => {
+      const before = await tx.get(ref)
+      const refusal = refusalFor(before)
+      if (refusal) return { refusal }
+      const wasUntil = before.get("snoozedUntil")
+      const prior: SnoozePrior =
+        before.get("status") === "snoozed" && typeof wasUntil === "string" && wasUntil
+          ? { status: "snoozed", snoozedUntil: wasUntil }
+          : { status: "scheduled", snoozedUntil: null }
+      tx.set(ref, { status: "snoozed", snoozedUntil, updatedAt: serverTimestamp() }, { merge: true })
+      return { prior }
+    })
+    if ("refusal" in outcome) return refused(outcome.refusal)
     const snap = await getDoc(ref)
-    if (!snap.exists()) return { success: false, error: "Task instance not found" }
-    return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), prior }
+    if (!snap.exists()) return refused("gone")
+    return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), prior: outcome.prior }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Failed to snooze task" }
   }
@@ -1320,6 +1372,13 @@ export async function snoozeTaskInstance(
  * `prior` is what the snooze replaced (snoozeTaskInstance answers with it):
  * undoing a RE-snooze restores the earlier snooze, not "scheduled". Without
  * it, the task goes back to scheduled, as before.
+ *
+ * ONE transaction, like the snooze (Codex review D4): Undo used to write
+ * "scheduled" blind, reopening a task someone had completed since. Now only a
+ * task that is STILL SNOOZED is put back. One that is done or removed is
+ * refused with a `reason`; one that is no longer snoozed (someone already
+ * brought it back, or gave it a new date) has nothing left to undo and is
+ * left exactly as it is.
  */
 export async function unsnoozeTaskInstance(
   homeId: string,
@@ -1331,11 +1390,16 @@ export async function unsnoozeTaskInstance(
     const restore = prior?.status === "snoozed" && prior.snoozedUntil
       ? { status: "snoozed", snoozedUntil: prior.snoozedUntil }
       : { status: "scheduled", snoozedUntil: null }
-    await writeBatch(db)
-      .set(ref, { ...restore, updatedAt: serverTimestamp() }, { merge: true })
-      .commit()
+    const refusal = await runTransaction(db, async (tx): Promise<SnoozeRefusal | null> => {
+      const now = await tx.get(ref)
+      const no = refusalFor(now)
+      if (no) return no
+      if (now.get("status") === "snoozed") tx.set(ref, { ...restore, updatedAt: serverTimestamp() }, { merge: true })
+      return null
+    })
+    if (refusal) return refused(refusal)
     const snap = await getDoc(ref)
-    if (!snap.exists()) return { success: false, error: "Task instance not found" }
+    if (!snap.exists()) return refused("gone")
     return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()) }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Failed to undo the snooze" }

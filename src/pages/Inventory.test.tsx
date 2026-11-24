@@ -338,6 +338,23 @@ describe("Items — Items | Warranties", () => {
     expect(within(panels[0]).getByText("Covered · Dec 5, 2099")).toBeInTheDocument()
   })
 
+  // Codex review F10: the old Warranties page showed a load error with no way
+  // to retry. The view no longer reads; the Items page's own failure state —
+  // with Try again — is what a failed read shows at ?view=warranties too.
+  it("a failed read at ?view=warranties shows the failure with Try again — never 'No warranties on file yet'", async () => {
+    svc.getItemUnits.mockResolvedValue({ data: null, error: { message: "Couldn't reach the server to load your items." } })
+    renderAt("/inventory?view=warranties")
+
+    const retry = await screen.findByRole("button", { name: "Try again" })
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load your items")
+    expect(screen.queryByText("No warranties on file yet")).toBeNull()
+
+    svc.getItemUnits.mockResolvedValue(ok([FURNACE, COVERED]))
+    fireEvent.click(retry)
+    expect(await screen.findByText("Covered · Dec 5, 2099")).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
+
   it("with no items, the control is not rendered — the lane chooser is the page, even at ?view=warranties", async () => {
     svc.getItemUnits.mockResolvedValue(ok([]))
     renderAt("/inventory?view=warranties")

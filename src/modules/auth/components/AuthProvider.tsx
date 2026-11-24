@@ -23,7 +23,7 @@ import { auth } from "@/integrations/firebase"
 import { clearDraft } from "@/modules/home/services/firstMinuteDraft"
 import { isNativePlatform } from "@/lib/native"
 import { clearPersistedSwrCache } from "@/lib/swrPersist"
-import { clearDoneQueue, writeAllDonesNow } from "@/components/home/tasks/doneQueue"
+import { parkDoneQueue, writeAllDonesNow } from "@/components/home/tasks/doneQueue"
 import { track, identifyUser, resetAnalyticsIdentity } from "@/lib/analytics"
 import type { AuthUser } from "@/modules/auth/types/auth"
 import { withChunkRetry } from "@/lib/chunkRetry"
@@ -148,11 +148,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // device must never inherit it (design/account-after-list.md).
     clearDraft()
     // A Done tapped just before signing out said "Done": write it while this
-    // account is still signed in (bounded — sign-out never hangs). Then clear
-    // the queue: the next account must never see "Couldn't mark X done" for
-    // this one's task, or write it as itself.
+    // account is still signed in (bounded — sign-out never hangs). One that
+    // could not be sent (offline) is NOT dropped: it stays on this device,
+    // keyed by this account, and is sent at this account's next sign-in. The
+    // next account never sees "Couldn't mark X done" for it, or writes it as
+    // itself (Codex review D6; doneQueue.ts).
     await writeAllDonesNow()
-    clearDoneQueue()
+    parkDoneQueue()
     await fbSignOut(auth)
   }, [])
 

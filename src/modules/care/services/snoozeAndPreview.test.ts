@@ -22,7 +22,11 @@ vi.mock("firebase/firestore", () => ({
   query: vi.fn(() => ({})),
   where: vi.fn(() => ({})),
   limit: vi.fn(() => ({})),
-  runTransaction: vi.fn(),
+  // Snooze and its Undo decide inside one transaction (Codex review D4): the
+  // callback reads with tx.get and writes with tx.set. The interleaving itself
+  // is tested in snoozeRace.test.ts.
+  runTransaction: vi.fn(async (_db: unknown, fn: (tx: unknown) => unknown) =>
+    fn({ get: (...a: unknown[]) => getDoc(...a), set: (...a: unknown[]) => batchSet(...a) })),
   serverTimestamp: vi.fn(() => "ts"),
   getDoc: (...a: unknown[]) => getDoc(...a),
   getDocs: (...a: unknown[]) => getDocs(...a),
@@ -99,6 +103,8 @@ describe("Snooze Undo puts back exactly what the snooze replaced", () => {
     const prior = res.success ? res.prior : undefined
     expect(prior).toEqual({ status: "scheduled", snoozedUntil: null })
     batchSet.mockReset()
+    // The snooze landed: Undo only puts back a task that is still snoozed.
+    getDoc.mockResolvedValue(snap("ti-1", { status: "snoozed", snoozedUntil: "2026-10-29", dueDate: "2026-10-10" }))
     await unsnoozeTaskInstance("h1", "ti-1", prior)
     expect(batchSet.mock.calls[0][1]).toMatchObject({ status: "scheduled", snoozedUntil: null })
   })

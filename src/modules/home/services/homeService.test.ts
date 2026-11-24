@@ -233,6 +233,45 @@ describe("a planted membership row cannot sink the lookup", () => {
     expect(res.error?.message).toMatch(/offline/i)
   })
 
+  // Codex review D9: a soft-deleted primary used to END the lookup — "no
+  // home" — although the person belongs to another, and "no home" routes to
+  // onboarding and offers to create one.
+  it("getPrimaryHome skips a soft-deleted PRIMARY and uses the next home", async () => {
+    getDocs.mockResolvedValue({
+      docs: [membership("old", true), membership("mine", false)],
+      metadata: { fromCache: false },
+    })
+    getDoc.mockImplementation(byPath({
+      old: homeSnap("old", "Old flat", "2025-01-01T00:00:00Z", "2026-10-01T00:00:00Z"),
+      mine: homeSnap("mine", "My House", "2026-01-01T00:00:00Z"),
+    }))
+
+    const res = await getPrimaryHome()
+    expect(res.error).toBeNull()
+    expect(res.data?.home_id).toBe("mine")
+  })
+
+  it("getPrimaryHome skips a home whose document is gone", async () => {
+    getDocs.mockResolvedValue({
+      docs: [membership("gone", true), membership("mine", false)],
+      metadata: { fromCache: false },
+    })
+    getDoc.mockImplementation(byPath({
+      gone: { id: "gone", exists: () => false, data: () => undefined, get: () => undefined },
+      mine: homeSnap("mine", "My House", "2026-01-01T00:00:00Z"),
+    }))
+
+    const res = await getPrimaryHome()
+    expect(res.data?.home_id).toBe("mine")
+  })
+
+  it("getPrimaryHome with ONLY deleted homes means no home", async () => {
+    getDocs.mockResolvedValue({ docs: [membership("old", true)], metadata: { fromCache: false } })
+    getDoc.mockImplementation(byPath({ old: homeSnap("old", "Old flat", "2025-01-01T00:00:00Z", "2026-10-01T00:00:00Z") }))
+
+    expect(await getPrimaryHome()).toEqual({ data: null, error: null })
+  })
+
   it("getPrimaryHome's pick is unchanged when every row is readable (primary wins)", async () => {
     getDocs.mockResolvedValue({
       docs: [membership("h1", false), membership("h2", true)],

@@ -147,6 +147,21 @@ export const SCENARIOS: { id: string; note: string; render: () => ReactNode }[] 
     ),
   },
   {
+    id: "codex-failure-lines",
+    note: "The failure lines added by the Codex review fixes, drawn with the shared components in the containers they ship in: the hand-off card's draft read (F1), an item's due dates (F8), and a route that couldn't load (F6). Check each fits on one line at 390 px and its Try again is a full tap target.",
+    render: () => (
+      <PageContainer>
+        <div className="flex flex-col gap-6 py-4">
+          <div className="rounded-xl border px-4 py-2" style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}>
+            <InlineError onRetry={noop}>Couldn&apos;t load what we found.</InlineError>
+          </div>
+          <InlineError onRetry={noop} className="px-1">Couldn&apos;t load this item&apos;s due dates.</InlineError>
+          <LoadErrorState title="Couldn’t load this page" message="Check your connection and try again." onRetry={noop} />
+        </div>
+      </PageContainer>
+    ),
+  },
+  {
     id: "home-skeleton",
     note: "Home before its first read lands — shaped like Home, focused: greeting, Ask, one list with the first task open. No stat band.",
     render: () => <HomeSkeleton />,

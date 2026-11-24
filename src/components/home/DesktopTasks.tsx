@@ -92,15 +92,28 @@ function DkRow({
             <CheckIcon className="size-3 opacity-0" strokeWidth={3} />
           </span>
         </button>
-        <div className="min-w-0 flex-1">
-          <TaskStatusLine tier={tier} when={phraseUnderGroup(t.safetyNote ?? whenLabel(t), groupLabel)} tone={whenTone(t.safetyNote ?? whenLabel(t), { trulyOverdue: t.trulyOverdue, safetyNote: t.safetyNote })} />
-          <div className="mt-0.5 text-[1.0625rem] font-semibold leading-[1.375rem] tracking-[-0.2px]" style={{ color: INK }}>{t.title}</div>
-          {where && <div className="mt-0.5 text-[0.8125rem]" style={{ color: SUB }}>{where}</div>}
-        </div>
-        <span className="w-14 text-right text-[0.8125rem] font-semibold" style={{ color: SUB }}>{t.estimatedMinutes != null ? `${t.estimatedMinutes} min` : ""}</span>
-        {/* Closed: the caret opens the row here. Open: the arrow opens the
-            task's page (owner, 2026-11-21: the arrow instead of a link). */}
-        {expanded ? (
+        {/* The row's text IS its button (Codex review F5): focusable, says
+            whether the row is open, and sits BESIDE Mark done and the arrow,
+            never around them. A click on the row's padding still toggles
+            (the handler on the row); a click here toggles once. */}
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={(e) => { e.stopPropagation(); onToggle() }}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-4 text-left"
+        >
+          <span className="block min-w-0 flex-1">
+            <TaskStatusLine tier={tier} when={phraseUnderGroup(t.safetyNote ?? whenLabel(t), groupLabel)} tone={whenTone(t.safetyNote ?? whenLabel(t), { trulyOverdue: t.trulyOverdue, safetyNote: t.safetyNote })} />
+            <span className="mt-0.5 block text-[1.0625rem] font-semibold leading-[1.375rem] tracking-[-0.2px]" style={{ color: INK }}>{t.title}</span>
+            {where && <span className="mt-0.5 block text-[0.8125rem]" style={{ color: SUB }}>{where}</span>}
+          </span>
+          <span className="w-14 shrink-0 text-right text-[0.8125rem] font-semibold" style={{ color: SUB }}>{t.estimatedMinutes != null ? `${t.estimatedMinutes} min` : ""}</span>
+          {/* Closed: the caret says the row opens here. */}
+          {!expanded && <ChevronDownIcon className="size-5 shrink-0" style={{ color: FAINT }} aria-hidden />}
+        </button>
+        {/* Open: the arrow opens the task's page (owner, 2026-11-21: the
+            arrow instead of a link). */}
+        {expanded && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOpenGuide() }}
@@ -110,8 +123,6 @@ function DkRow({
           >
             <ChevronRightIcon className="size-5" />
           </button>
-        ) : (
-          <ChevronDownIcon className="size-5 shrink-0" style={{ color: FAINT }} aria-hidden />
         )}
       </div>
       {/* A failed Done/Snooze is said HERE, beside the task it failed on. In

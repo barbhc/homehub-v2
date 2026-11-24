@@ -17,10 +17,14 @@
  *    mounted useTaskActions shows it — "Couldn't mark X done" with Try again —
  *    until it lands or the person dismisses it.
  *
- * Every entry is stamped with the signed-in user (and its home). Sign-out
- * clears the queue (clearDoneQueue, from AuthProvider); and, in case a key
- * survives anyway, an entry that is not the signed-in user's is dropped, never
- * shown or written under someone else's sign-in.
+ * Every entry is stamped with the signed-in user (and its home), and belongs
+ * to that account alone: only that user's session ever shows it or writes it.
+ * Sign-out does NOT erase it (Codex review D6). It used to — after trying for
+ * three seconds — so a Done tapped offline and followed by a sign-out was
+ * lost, receipt and all. An unsent Done now stays on this device, keyed by
+ * account, and is sent at THAT account's next sign-in (writeUnheldDones, from
+ * the first screen that mounts). Under any other sign-in, or none, it is
+ * invisible and inert.
  *
  * A refusal that will never succeed — the task is gone, the person is no
  * longer in the home — is terminal: logged with its ids and dropped, not
@@ -63,11 +67,13 @@ let failedSnapshot: QueuedDone[] = []
 /** Whose snapshot that is: one taken for another account is never handed out. */
 let snapshotUid = ""
 
-const keyOf = (homeId: string, id: string) => `${homeId}/${id}`
 /** The signed-in user; "" when nobody is (nothing is shown or written for them then). */
 const currentUid = (): string => auth.currentUser?.uid ?? ""
-/** Bumped by sign-out: a write still in flight from before it must not put its entry back. */
-let generation = 0
+/** Keyed by ACCOUNT as well as task: two people sharing a device (and a home)
+ *  can each leave a Done for the same task without one replacing the other. */
+const keyFor = (uid: string, homeId: string, id: string) => `${uid}/${homeId}/${id}`
+/** The signed-in user's key for a task — every caller acts for that user only. */
+const keyOf = (homeId: string, id: string) => keyFor(currentUid(), homeId, id)
 
 /**
  * Refusals that no retry can fix: the instance is gone, or the caller is not a
@@ -118,9 +124,9 @@ function load() {
   if (!Array.isArray(parsed)) return
   for (const v of parsed) {
     const entry = parseEntry(v)
-    if (entry) entries.set(keyOf(entry.homeId, entry.id), entry)
+    // Every account's entries are kept; each is only ever read by its own key.
+    if (entry) entries.set(keyFor(entry.uid, entry.homeId, entry.id), entry)
   }
-  if (dropOtherUsers()) persist()
   refreshSnapshot()
 }
 
@@ -133,24 +139,6 @@ function persist() {
     // session; only an app kill inside the window could lose it now.
     console.warn("[done queue] could not save pending Dones to this device:", message(e))
   }
-}
-
-/**
- * Drop every entry that is not the signed-in user's. With nobody signed in
- * (auth not resolved yet) nothing is dropped — and nothing is shown or written.
- */
-function dropOtherUsers(): boolean {
-  const uid = currentUid()
-  if (!uid) return false
-  let dropped = false
-  for (const [key, e] of entries) {
-    if (e.uid === uid) continue
-    entries.delete(key)
-    owned.delete(key)
-    dropped = true
-  }
-  if (dropped) console.warn("[done queue] dropped Dones saved by another account on this device")
-  return dropped
 }
 
 function refreshSnapshot() {
@@ -213,15 +201,10 @@ export function writeDone(homeId: string, id: string): Promise<DoneWrite> {
   owned.delete(key)
   const running = inFlight.get(key)
   if (running) return running
+  // The key carries the signed-in account, so another account's Done for the
+  // same task is simply not found here: never written under this sign-in.
   const e = entries.get(key)
   if (!e) return Promise.resolve({ success: true })
-  if (e.uid !== currentUid()) {
-    // Never written under another account's sign-in.
-    entries.delete(key)
-    changed()
-    return Promise.resolve({ success: false, error: "Saved by another account", terminal: true })
-  }
-  const gen = generation
   const p = (async (): Promise<DoneWrite> => {
     let res: DoneWrite
     try {
@@ -235,9 +218,15 @@ export function writeDone(homeId: string, id: string): Promise<DoneWrite> {
     } catch (err) {
       res = { success: false, error: message(err) }
     }
-    if (gen !== generation) return res // signed out meanwhile: the queue is someone else's now
     if (res.success) {
       entries.delete(key)
+    } else if (currentUid() !== e.uid) {
+      // The account signed out while this was on its way. Whatever it was
+      // refused with may be the sign-out's own doing ("permission-denied" for
+      // a session that just ended), so it is neither dropped nor called
+      // failed: it waits, unsent, for that account's next sign-in.
+      console.warn(`[done queue] task ${e.id} (home ${e.homeId}) was not marked done before its account signed out; keeping it for their next sign-in:`, res.error)
+      entries.set(key, { ...e, state: "pending", error: res.error ?? null })
     } else if (isTerminalDoneError(res.error)) {
       console.warn(`[done queue] dropping a Done that can never be written — task ${e.id} (home ${e.homeId}):`, res.error)
       entries.delete(key)
@@ -257,11 +246,11 @@ export function writeDone(homeId: string, id: string): Promise<DoneWrite> {
 export function writeUnheldDones() {
   load()
   const uid = currentUid()
-  dropOtherUsers()
-  // Also re-reads the snapshot for THIS user: it may have been taken before
+  // Re-reads the snapshot for THIS user: it may have been taken before
   // sign-in resolved, when no entry was anyone's.
   changed()
   for (const [key, e] of entries) {
+    // Only this account's: a Done another account left here waits for them.
     if (e.uid === uid && e.state === "pending" && !owned.has(key) && !inFlight.has(key)) {
       void writeDone(e.homeId, e.id).then((r) => {
         if (!r.success) console.warn(`[done queue] could not mark task done ${e.id} (home ${e.homeId}):`, r.error)
@@ -272,9 +261,10 @@ export function writeUnheldDones() {
 
 /**
  * Sign-out, first half: write every Done the leaving user has not yet written
- * — those in an Undo window included (they said "Done") — before the queue is
- * cleared. Bounded by `timeoutMs` so sign-out never hangs; a write that fails
- * or runs out of time is logged, since the person is leaving.
+ * — those in an Undo window included (they said "Done") — while they are still
+ * signed in. Bounded by `timeoutMs` so sign-out never hangs. A write that
+ * fails or runs out of time is logged and KEPT (parkDoneQueue): it is sent at
+ * that account's next sign-in.
  */
 export async function writeAllDonesNow(timeoutMs = 3000): Promise<void> {
   load()
@@ -298,26 +288,29 @@ export async function writeAllDonesNow(timeoutMs = 3000): Promise<void> {
 }
 
 /**
- * Sign-out: forget every Done on this device, in memory and on disk, so the
- * next account never sees — or writes — the last one's.
+ * Sign-out, second half: leave the departing account's unsent Dones on this
+ * device for its next sign-in, and take them out of play until then.
+ *
+ * Nothing is erased (Codex review D6). No screen holds an Undo window any
+ * more, and a Done that had been refused on screen goes back to waiting — the
+ * next sign-in sends it rather than leaving it for a tap on "Try again" that
+ * nobody may be shown. The next account sees none of it: every read and every
+ * write is by the signed-in account's own key (failedDones, writeDone).
+ *
+ * Call it while the leaving user is still signed in.
  */
-export function clearDoneQueue() {
-  generation++
-  entries.clear()
+export function parkDoneQueue() {
+  load()
+  const uid = currentUid()
   owned.clear()
-  loaded = true
-  try {
-    localStorage.removeItem(STORAGE_KEY)
-  } catch (e) {
-    console.warn("[done queue] could not clear pending Dones on sign-out:", message(e))
+  for (const [key, e] of entries) {
+    if (e.uid === uid && e.state === "failed") entries.set(key, { ...e, state: "pending" })
   }
-  refreshSnapshot()
-  for (const fn of listeners) fn()
+  changed()
 }
 
 /** Tests only: forget everything in memory (disk is the test's to set). */
 export function resetDoneQueueForTests() {
-  generation++
   entries.clear()
   owned.clear()
   inFlight.clear()
