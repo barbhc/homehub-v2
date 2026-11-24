@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { classifyTaskActor, classifyTaskFields, stepsAllowedFor } from "./taskActor"
+import { classifyActorFromText, classifyTaskActor, classifyTaskFields, stepsAllowedFor } from "./taskActor"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 
 /**
@@ -246,5 +246,21 @@ describe("classifyTaskFields — hazardous jobs by title alone", () => {
   })
   it.each(SAFE_TITLES)("%s → not hazardous", (title) => {
     expect(classifyTaskFields({ title })).not.toBe("hazardous")
+  })
+})
+
+// Typical care (shared/care/library.ts) is the no-manual path: a person who
+// adds a furnace gets these rows with no manual behind them. A library task a
+// homeowner can do must not read as a pro job; the furnace filter's "why" once
+// said "heat exchanger" and every friend's air filter showed "Best done by a
+// professional" (flow walk, 2026-11-24).
+describe("typical care library", () => {
+  it("every entry reads as a homeowner job", async () => {
+    const { LIBRARY } = await import("../../shared/care/library")
+    const notDiy = LIBRARY
+      .map((e) => ({ key: e.key, actor: classifyActorFromText([e.title, e.why, e.how].join("\n")) }))
+      .filter((r) => r.actor !== "diy")
+    // A pro or hazardous library entry must be a deliberate change to this test.
+    expect(notDiy).toEqual([])
   })
 })

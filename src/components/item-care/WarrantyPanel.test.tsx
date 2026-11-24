@@ -55,3 +55,26 @@ describe("WarrantyPanel — Active through the expiry date", () => {
     expect(screen.getByText("Expired Sep 30, 2026")).toBeInTheDocument()
   })
 })
+
+// A warranty entered as a length (24 months) with a purchase date and no end
+// date: the panel said "Lapsed" while the Warranties list, which adds the
+// months to the purchase date, said "Covered" (flow walk, 2026-11-24).
+describe("WarrantyPanel — end date from purchase date + length", () => {
+  const byLength = { ...item, purchase_date: "2025-10-20", warranty_expiry_date: null, warranty_duration_months: 24 } as unknown as ItemUnit
+
+  it("is Active and covered until purchase + 24 months", () => {
+    vi.setSystemTime(new Date("2026-11-24T10:00:00-08:00"))
+    render(<WarrantyPanel item={byLength} homeId="h1" />)
+    expect(screen.getByText("Active")).toBeInTheDocument()
+    expect(screen.getByText("Covered until Oct 20, 2027")).toBeInTheDocument()
+    expect(screen.queryByText("Lapsed")).not.toBeInTheDocument()
+  })
+
+  it("with no purchase date the end is unknown: no Active or Lapsed badge", () => {
+    vi.setSystemTime(new Date("2026-11-24T10:00:00-08:00"))
+    render(<WarrantyPanel item={{ ...byLength, purchase_date: null } as unknown as ItemUnit} homeId="h1" />)
+    expect(screen.queryByText("Lapsed")).not.toBeInTheDocument()
+    expect(screen.queryByText("Active")).not.toBeInTheDocument()
+    expect(screen.getByText("24 month coverage")).toBeInTheDocument()
+  })
+})

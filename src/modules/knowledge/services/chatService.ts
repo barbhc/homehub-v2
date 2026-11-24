@@ -57,6 +57,19 @@ export const INCOMPLETE_ANSWER = "The answer stopped before it finished."
  */
 export const ANSWER_STALLED = "The answer took too long."
 
+/** A request that never reached the server (offline, dropped Wi-Fi). The
+ *  browser's own words ("Failed to fetch" in Chrome, "Load failed" in Safari)
+ *  reached testers verbatim before this. */
+export const ANSWER_OFFLINE = "Couldn't reach Homehub. Check your connection, then try again."
+/** The server answered with an error that carried no message of its own. */
+export const ANSWER_SERVER_ERROR = "Something went wrong on our side. Try again in a minute."
+
+/** The browser's wording for a fetch that never connected, across engines. */
+function isConnectionFailure(err: unknown): boolean {
+  if (!(err instanceof TypeError)) return false
+  return /failed to fetch|load failed|networkerror|network request failed|network connection was lost/i.test(err.message)
+}
+
 /**
  * How long the stream may go without a single byte — before the first one, or
  * between any two — before it is called stalled. The server streams text as
@@ -164,7 +177,7 @@ export async function streamChatQuery(params: {
 
   if (!res.ok) {
     const text = await orStall(res.text())
-    let msg = `Request failed (${res.status})`
+    let msg = ANSWER_SERVER_ERROR
     try {
       const j = JSON.parse(text)
       if (typeof j?.error === "string") msg = j.error
@@ -212,7 +225,12 @@ export async function streamChatQuery(params: {
     // showed a typing indicator that never resolved, with the composer locked.
     // A tester sat in front of exactly that. A stall arrives here too, as
     // ANSWER_STALLED.
-    fail(err instanceof Error ? err.message : "Lost the connection — please try again.")
+    if (isConnectionFailure(err)) {
+      console.warn("[ask] request never reached the server:", err)
+      fail(ANSWER_OFFLINE)
+    } else {
+      fail(err instanceof Error ? err.message : ANSWER_OFFLINE)
+    }
   } finally {
     clearTimeout(stallTimer)
     // Let the connection go if the answer did not finish: after a stall (or

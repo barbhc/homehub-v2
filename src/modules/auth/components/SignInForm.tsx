@@ -12,6 +12,7 @@ import {
 import { useAuth } from "./AuthProvider"
 import { AppleButton } from "./AppleLogo"
 import { takeAppleRedirectError } from "../appleRedirectError"
+import { authErrorMessage } from "../authErrors"
 import { cn } from "@/lib/utils"
 
 type Mode = "signin" | "signup" | "reset"
@@ -147,18 +148,18 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
     try {
       if (mode === "reset") {
         const { error: err } = await resetPassword(email)
-        if (err) { setError(err.message); return }
+        if (err) { setError(authErrorMessage(err)); return }
         setMessage("Check your email for a password reset link.")
         return
       }
       if (mode === "signin") {
         const { error: err } = await signIn(email, password)
-        if (err) { setError(err.message); return }
+        if (err) { setError(authErrorMessage(err)); return }
         onSuccess?.()
         return
       }
       const { error: err } = await signUp(email, password, name)
-      if (err) { setError(err.message); return }
+      if (err) { setError(authErrorMessage(err)); return }
       setMessage("Check your email to confirm your account.")
     } catch {
       setError("Something went wrong. Please try again.")
@@ -173,7 +174,7 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
     setLoading(true)
     try {
       const { error: err } = await signInWithApple()
-      if (err) { setError(err.message); setLoading(false) }
+      if (err) { setError(authErrorMessage(err)); setLoading(false) }
       // On success the browser redirects to Apple; no further UI needed.
     } catch {
       setError("Couldn't start Apple sign-in. Please try again.")

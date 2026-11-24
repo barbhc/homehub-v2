@@ -17,6 +17,7 @@ import { ShieldCheckIcon, ShieldOffIcon, ChevronDownIcon, ChevronUpIcon, BadgeCh
 import type { ItemUnit } from "@/integrations/types"
 import { updateItemUnit } from "@/modules/items/services/itemService"
 import { localToday } from "../../../shared/dates/calendar"
+import { warrantyExpiry } from "@/lib/warrantyWindow"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", FAINT = "var(--hh-faint)", TEAL = "var(--hh-teal)"
 const TEAL_WASH = "var(--hh-teal-wash)", SLATE_SOFT = "var(--hh-slate-soft)", LINE = "var(--hh-line)"
@@ -67,9 +68,16 @@ export interface WarrantyPanelProps {
 
 export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = false, m }: WarrantyPanelProps) {
   const [registering, setRegistering] = useState(false)
+  // The end date: the one entered, else purchase date + length, the same rule
+  // the Warranties list uses. Reading only the entered date called every
+  // warranty with a length but no end date "Lapsed" here while Warranties
+  // said "Covered" (flow walk, 2026-11-24). With neither, the end is unknown,
+  // and the badge says nothing rather than guess.
+  const expiry = item.warranty_expiry_date
+    ?? (item.purchase_date ? warrantyExpiry(item.purchase_date, item.warranty_duration_months) : null)
   // Covered through its last day. `new Date("YYYY-MM-DD")` is UTC midnight —
   // ~5 pm the day BEFORE in Pacific — so a warranty read as lapsed a day early.
-  const active = !!item.warranty_expiry_date && item.warranty_expiry_date >= localToday()
+  const active = !!expiry && expiry >= localToday()
 
   const tracked = !!item.warranty_expiry_date || item.warranty_duration_months != null
   if (!tracked) {
@@ -92,7 +100,6 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
     )
   }
 
-  const expiry = item.warranty_expiry_date
   const statusText = expiry
     ? `${active ? "Covered until" : "Expired"} ${fmtDate(expiry)}`
     : `${item.warranty_duration_months} month coverage`
@@ -132,9 +139,11 @@ export function WarrantyPanel({ item, homeId, onEdit, onItemUpdate, renewable = 
         {/* Same name in both states. A section that renames itself depending on
             whether it has data is two sections wearing one box. */}
         <span className="text-[0.84375rem] font-bold" style={{ color: INK }}>Warranty and purchase information</span>
-        <span className="rounded-md px-2 py-0.5 text-[0.75rem] font-bold" style={{ color: active ? TEAL : FAINT, background: active ? TEAL_WASH : SLATE_SOFT }}>
-          {active ? "Active" : "Lapsed"}
-        </span>
+        {expiry && (
+          <span className="rounded-md px-2 py-0.5 text-[0.75rem] font-bold" style={{ color: active ? TEAL : FAINT, background: active ? TEAL_WASH : SLATE_SOFT }}>
+            {active ? "Active" : "Lapsed"}
+          </span>
+        )}
       </div>
 
       <div className="mb-2 flex items-center gap-2">

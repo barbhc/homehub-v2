@@ -13,7 +13,7 @@ vi.mock("@/integrations/firebase", () => ({
   functionUrl: (name: string) => `https://functions.test/${name}`,
 }))
 
-const { streamChatQuery, INCOMPLETE_ANSWER, ANSWER_STALLED, STREAM_STALL_MS } = await import("./chatService")
+const { streamChatQuery, INCOMPLETE_ANSWER, ANSWER_STALLED, ANSWER_OFFLINE, ANSWER_SERVER_ERROR, STREAM_STALL_MS } = await import("./chatService")
 
 /** A fetch response whose body yields these SSE chunks, then closes (or throws). */
 function sse(chunks: string[], opts: { dropAfter?: boolean } = {}) {
@@ -207,5 +207,29 @@ describe("streamChatQuery — a stalled answer ends", () => {
     expect(onDone).toHaveBeenCalledTimes(1)
     expect(onError).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+// The browser's own words for a request that never connected reached testers
+// verbatim: "Failed to fetch" (Chrome) or "Load failed" (Safari) under the
+// answer (flow walk, 2026-11-24).
+describe("streamChatQuery — failures in plain words", () => {
+  it.each([["Failed to fetch"], ["Load failed"], ["NetworkError when attempting to fetch resource."]])(
+    "a request that never connects (%s) says to check the connection",
+    async (raw) => {
+      fetchMock.mockRejectedValue(new TypeError(raw))
+      const { run, onError, onDone } = ask()
+      await run
+      expect(onDone).not.toHaveBeenCalled()
+      expect(onError).toHaveBeenCalledTimes(1)
+      expect(onError).toHaveBeenCalledWith(ANSWER_OFFLINE)
+    },
+  )
+
+  it("a server error with no message of its own does not show a status code", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 502, text: async () => "" })
+    const { run, onError } = ask()
+    await run
+    expect(onError).toHaveBeenCalledWith(ANSWER_SERVER_ERROR)
   })
 })
