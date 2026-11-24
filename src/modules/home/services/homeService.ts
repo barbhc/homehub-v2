@@ -284,10 +284,16 @@ export async function getPrimaryHome(): Promise<ServiceResult<Home | null>> {
         logSkippedHome(m.homeId)
         continue
       }
-      if (!snap.exists() || snap.get("deletedAt") != null) return { data: null, error: null }
+      // A deleted (or vanished) home is skipped like an unreadable one, and
+      // the next membership is tried. Returning "no home" here stranded anyone
+      // whose PRIMARY home had been deleted while they belong to another — and
+      // "no home" routes to onboarding, which offers to create one (Codex
+      // review D9). getMyHomes filters deleted homes the same way.
+      if (!snap.exists() || snap.get("deletedAt") != null) continue
       return { data: toHome(snap.id, snap.data()), error: null }
     }
-    // Every row pointed at a home this account can't read: it has no home.
+    // Every row pointed at a home that is deleted, gone, or unreadable to this
+    // account: it has no home.
     return { data: null, error: null }
   } catch (e) {
     return err(e)
