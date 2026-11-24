@@ -1,0 +1,258 @@
+<!doctype html>
+<!--
+  Friends beta landing page, served at /beta (firebase.json rewrite).
+  Static on purpose: no scripts, no external fonts or images, so it works under
+  the site-wide CSP and loads fast from a text message. Screenshots in /beta/
+  come from the app on emulator sample data with a real Simulator status bar
+  (9:41, full battery); retake them when the screens they show change.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Homehub Friends Beta</title>
+<meta name="description" content="Homehub keeps your appliances, manuals and upkeep in one place, and turns them into a short list for this month. Free, iPhone only, installs through TestFlight.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Homehub friends beta">
+<meta property="og:description" content="Know what your home needs this month. Free, iPhone only, installs through TestFlight in about 2 minutes.">
+<meta property="og:url" content="https://homehub-2068d.web.app/beta">
+<meta property="og:image" content="https://homehub-2068d.web.app/beta/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0F3D33">
+<link rel="icon" type="image/png" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/homehub-icon.png">
+<style>
+  :root {
+    --bg: #F6F8F7;
+    --surface: #FFFFFF;
+    --ink: #0F1A17;
+    --sub: #4A5A56;
+    --line: #DDE5E2;
+    --teal: #1B6B5A;        /* text and links on light surfaces */
+    --fill: #1B6B5A;        /* button fill, always under white text */
+    --wash: #E6F1EE;
+    --hero: #0F3D33;
+    --hero-ink: #FFFFFF;
+    --hero-sub: #CFE3DD;
+    --phone: #0A0C0B;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0D1412;
+      --surface: #151E1B;
+      --ink: #E9F0EE;
+      --sub: #A7B7B2;
+      --line: #26332F;
+      --teal: #6BCBB1;
+      --wash: #17302A;
+      --hero: #0A2721;
+      --hero-sub: #BFD6CF;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0D1412;
+    --surface: #151E1B;
+    --ink: #E9F0EE;
+    --sub: #A7B7B2;
+    --line: #26332F;
+    --teal: #6BCBB1;
+    --wash: #17302A;
+    --hero: #0A2721;
+    --hero-sub: #BFD6CF;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 1.0625rem/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overflow-x: hidden;
+  }
+  a { color: var(--teal); }
+  a:focus-visible, .btn:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
+  .wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 max(20px, env(safe-area-inset-left)) 0 max(20px, env(safe-area-inset-right)); }
+  h1, h2, h3 { text-wrap: balance; margin: 0; letter-spacing: -0.02em; }
+
+  /* Hero */
+  .hero { background: var(--hero); color: var(--hero-ink); padding: max(20px, env(safe-area-inset-top)) 0 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.125rem; letter-spacing: -0.01em; }
+  .brand img { width: 32px; height: 32px; border-radius: 8px; }
+  .hero-body { padding-top: 48px; max-width: 640px; }
+  .pill { display: inline-block; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.02em; color: var(--hero-sub); border: 1px solid rgba(255,255,255,0.28); border-radius: 999px; padding: 4px 12px; margin-bottom: 18px; }
+  .hero h1 { font-size: clamp(2.25rem, 6vw, 3.5rem); line-height: 1.08; font-weight: 800; }
+  .hero p.lede { font-size: 1.1875rem; color: var(--hero-sub); margin: 18px 0 28px; max-width: 34em; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 0 26px; border-radius: 14px; font-weight: 700; font-size: 1.0625rem; text-decoration: none; }
+  .btn-primary { background: #FFFFFF; color: #0F3D33; }
+  .btn-ghost { color: var(--hero-ink); border: 1px solid rgba(255,255,255,0.4); }
+  .fine { font-size: 0.9375rem; color: var(--hero-sub); margin: 16px 0 0; }
+
+  /* Steps with screenshots */
+  section { padding: 64px 0 8px; }
+  .section-head { max-width: 640px; margin-bottom: 32px; }
+  .section-head h2 { font-size: clamp(1.75rem, 4vw, 2.25rem); line-height: 1.15; font-weight: 800; }
+  .section-head p { color: var(--sub); margin: 10px 0 0; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 40px 28px; grid-template-columns: 1fr; }
+  .step { display: grid; grid-template-rows: auto auto 1fr; gap: 0; justify-items: start; }
+  .shot { width: 100%; max-width: 300px; justify-self: center; border-radius: 38px; background: var(--phone); padding: 9px; box-shadow: 0 24px 48px rgba(11, 26, 22, 0.18); margin-bottom: 22px; }
+  .shot img { display: block; width: 100%; height: auto; border-radius: 30px; }
+  .step-title { display: flex; gap: 12px; align-items: baseline; font-size: 1.25rem; font-weight: 750; line-height: 1.3; }
+  .num { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--fill); color: #FFFFFF; font-size: 0.9375rem; font-weight: 800; transform: translateY(-2px); }
+  .step p { color: var(--sub); margin: 8px 0 0 42px; }
+  @media (min-width: 640px) {
+    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .step { grid-row: span 3; grid-template-rows: subgrid; }
+  }
+  @media (min-width: 1040px) {
+    .steps { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 24px; }
+    .shot { border-radius: 34px; padding: 8px; }
+    .shot img { border-radius: 27px; }
+  }
+
+  /* Note */
+  .note { margin-top: 56px; background: var(--wash); border-radius: 20px; padding: 24px 26px; max-width: 760px; }
+  .note p { margin: 0; }
+  .note p + p { margin-top: 8px; color: var(--sub); }
+
+  /* FAQ */
+  .faq { display: grid; gap: 14px; grid-template-columns: 1fr; }
+  @media (min-width: 880px) { .faq { grid-template-columns: repeat(2, minmax(0, 1fr)); } .faq .wide { grid-column: 1 / -1; } }
+  .qa { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; scroll-margin-top: 16px; }
+  .qa h3 { font-size: 1.125rem; font-weight: 750; line-height: 1.35; margin-bottom: 8px; }
+  .qa p { margin: 0; color: var(--sub); }
+  .qa p + p { margin-top: 8px; }
+  .qa ol { margin: 4px 0 0; padding-left: 1.3em; color: var(--sub); }
+  .qa li + li { margin-top: 6px; }
+  .qa strong { color: var(--ink); font-weight: 650; }
+  .install-cta { margin-top: 16px; }
+  .install-cta .btn { background: var(--fill); color: #FFFFFF; }
+
+  footer { padding: 56px 0 max(40px, env(safe-area-inset-bottom)); color: var(--sub); font-size: 0.9375rem; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; border-top: 1px solid var(--line); padding-top: 24px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="brand"><img src="/homehub-icon.png" alt="" width="32" height="32">Homehub</div>
+    <div class="hero-body">
+      <span class="pill">Friends beta · iPhone</span>
+      <h1>Know what your home needs this month.</h1>
+      <p class="lede">Homehub keeps your appliances, manuals and upkeep in one place, then turns them into a short list of what to do next.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://testflight.apple.com/join/uBnVnA4z">Join the Beta</a>
+        <a class="btn btn-ghost" href="#install">How to Install</a>
+      </div>
+      <p class="fine">Free. iPhone only. Installs through TestFlight in about 2 minutes.</p>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section aria-labelledby="how">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="how">How it works</h2>
+        <p>Four screens you'll see in your first few minutes.</p>
+      </div>
+      <ol class="steps">
+        <li class="step">
+          <div class="shot"><img src="/beta/where.jpg" width="780" height="1696" alt="The first screen asks for your zip code, explaining that a house in Minneapolis needs different care than one in Miami. It asks for the zip only, never your street."></div>
+          <h3 class="step-title"><span class="num">1</span>Enter your zip</h3>
+          <p>Your climate decides a lot: winters, storm season, what homes near you usually need. Just the zip, never your street.</p>
+        </li>
+        <li class="step">
+          <div class="shot"><img src="/beta/home.jpg" width="780" height="1696" alt="The Home screen. Next up is Replace HVAC furnace filter, marked Essential, with Mark done and Snooze buttons. Below are a manual ready to review and tasks coming up in December." loading="lazy"></div>
+          <h3 class="step-title"><span class="num">2</span>Get a short list</h3>
+          <p>Home shows the next thing to do. Mark it done or snooze it in one tap, and see what's coming up.</p>
+        </li>
+        <li class="step">
+          <div class="shot"><img src="/beta/items.jpg" width="780" height="1696" alt="The Items screen lists appliances by room: a Bosch dishwasher, an LG refrigerator, a Sharp microwave drawer with a manual ready to review, and a GE gas range." loading="lazy"></div>
+          <h3 class="step-title"><span class="num">3</span>Add your appliances</h3>
+          <p>Snap a label or type a name, then scan the manual. Homehub suggests the care it needs, and you choose what goes on your list.</p>
+        </li>
+        <li class="step">
+          <div class="shot"><img src="/beta/ask.jpg" width="780" height="1696" alt="The Ask screen, with a question box, filters by room and item, shortcuts for Troubleshoot and Ask a manual, and recent questions such as HVAC filter size." loading="lazy"></div>
+          <h3 class="step-title"><span class="num">4</span>Ask when something's off</h3>
+          <p>Answers from your manuals when you have them, general guidance when you don't.</p>
+        </li>
+      </ol>
+
+      <div class="note">
+        <p><strong>This is version 1.</strong> Some things will be rough.</p>
+        <p>If anything is confusing, broken or missing, tell me. That's the whole point of the beta.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" aria-labelledby="faq-head">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="faq-head">Questions</h2>
+      </div>
+      <div class="faq">
+        <div class="qa wide" id="install">
+          <h3>How do I install it?</h3>
+          <ol>
+            <li>On your iPhone, open the <a href="https://testflight.apple.com/join/uBnVnA4z">invite link</a>.</li>
+            <li>If you don't have TestFlight yet, tap <strong>View in App Store</strong> and install it, then open the invite link again.</li>
+            <li>Tap <strong>Accept</strong>, then <strong>Install</strong>.</li>
+            <li>Open Homehub and enter your zip.</li>
+          </ol>
+          <div class="install-cta"><a class="btn" href="https://testflight.apple.com/join/uBnVnA4z">Join the Beta</a></div>
+        </div>
+        <div class="qa">
+          <h3>What is TestFlight?</h3>
+          <p>Apple's free app for trying apps before they're in the App Store. Homehub installs and updates through it, like any other app.</p>
+        </div>
+        <div class="qa">
+          <h3>Why does TestFlight say "Chief Home Officer"?</h3>
+          <p>That's Homehub's old working name, still on Apple's invite page. It's the same app, and it shows up as Homehub on your phone.</p>
+        </div>
+        <div class="qa">
+          <h3>How do I send feedback?</h3>
+          <p>Take a screenshot while you're in Homehub, then tap <strong>Share Beta Feedback</strong>. You can also open TestFlight, pick Homehub and tap <strong>Send Beta Feedback</strong>.</p>
+          <p>Or just email <a href="mailto:chiefhomeofficerapp@gmail.com">chiefhomeofficerapp@gmail.com</a>.</p>
+        </div>
+        <div class="qa">
+          <h3>What does it cost?</h3>
+          <p>Nothing. The beta is free, with no ads.</p>
+        </div>
+        <div class="qa">
+          <h3>What do I need?</h3>
+          <p>An iPhone on iOS 15 or later. There's no Android version yet.</p>
+        </div>
+        <div class="qa">
+          <h3>How many people can join?</h3>
+          <p>The link has room for 50 testers. If it says the beta is full, email me and I'll make room.</p>
+        </div>
+        <div class="qa">
+          <h3>Who sees my home's details?</h3>
+          <p>Only you and anyone you invite to your home. Read the <a href="/privacy">privacy policy</a>. To delete your account, email me and it's gone.</p>
+        </div>
+        <div class="qa">
+          <h3>How do updates work?</h3>
+          <p>New versions arrive in TestFlight. Each version works for 90 days, so if Homehub stops opening, check TestFlight for an update.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Homehub friends beta</span>
+    <a href="/privacy">Privacy</a>
+    <a href="mailto:chiefhomeofficerapp@gmail.com">chiefhomeofficerapp@gmail.com</a>
+  </div>
+</footer>
+
+</body>
+</html>
