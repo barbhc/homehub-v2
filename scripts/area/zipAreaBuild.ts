@@ -80,8 +80,44 @@ export function parseDbf(buf: Uint8Array): Record<string, string>[] {
 const RATING: Record<string, Rating> = {
   "Very Low": 1, "Relatively Low": 2, "Relatively Moderate": 3, "Relatively High": 4, "Very High": 5,
 }
-/** Anything else ("No Rating", "Insufficient Data", "Not Applicable", blank) is 0. */
+/** FEMA's rating label as a number. Anything else ("No Rating", "Insufficient
+ *  Data", "Not Applicable", blank) is 0. */
 export const ratingOf = (label: string | undefined): Rating => RATING[(label ?? "").trim()] ?? 0
+
+/** The per-building loss percentile a hazard must reach to keep a high rating. */
+export const LOSS_RATE_PERCENTILE_FLOOR = 70
+
+/**
+ * One hazard's rating: FEMA's overall RISK rating (`<HAZARD>_RISKR`), capped
+ * at Relatively Moderate (3, below SHOWN_FROM) unless the hazard's Expected
+ * Annual Loss RATE (`<HAZARD>_ALR_NPCTL`, the share of building value lost each
+ * year, as a national percentile) is in the top 30% too.
+ *
+ * Why both (2026-11-24). RISK multiplies in how much property a county has, so
+ * big counties rate high for everything: Cook County (Chicago) is "Relatively
+ * High" for earthquakes, and onboarding told a Chicago renter "Earthquake risk
+ * is high" and offered quake straps. The loss rate alone overcorrects the
+ * other way: the eastern US sits on a flat, tiny earthquake loss rate, so its
+ * top 30% would flag most of Indiana and Missouri. Requiring both only ever
+ * REMOVES a claim the overall rating made (Cook: 51st percentile, removed),
+ * never adds one, and keeps FEMA's own rating label on what is shown
+ * (San Francisco 77th, Los Angeles 94th, King County 89th: kept).
+ */
+export function hazardRating(riskLabel: string | undefined, lossRatePercentile: string | undefined): Rating {
+  const rating = ratingOf(riskLabel)
+  const p = Number((lossRatePercentile ?? "").trim() || NaN)
+  if (Number.isFinite(p) && p >= LOSS_RATE_PERCENTILE_FLOOR) return rating
+  return Math.min(rating, 3) as Rating
+}
+
+/** The three hazard ratings for one FEMA county row, in CountyRow order. */
+export function hazardRatings(h: Record<string, string> | undefined): [Rating, Rating, Rating] {
+  return [
+    hazardRating(h?.ERQK_RISKR, h?.ERQK_ALR_NPCTL),
+    hazardRating(h?.WFIR_RISKR, h?.WFIR_ALR_NPCTL),
+    hazardRating(h?.HRCN_RISKR, h?.HRCN_ALR_NPCTL),
+  ]
+}
 
 /** FIPS state code → USPS abbreviation, for counties FEMA does not list. */
 const STATE_BY_FIPS: Record<string, string> = {
@@ -149,9 +185,7 @@ export function buildZipArea(input: BuildInput): ZipAreaTable {
       state,
       Number.isInteger(iecc) && iecc >= 1 && iecc <= 8 ? iecc : 0,
       z?.Moisture21 ?? "",
-      ratingOf(h?.ERQK_RISKR),
-      ratingOf(h?.WFIR_RISKR),
-      ratingOf(h?.HRCN_RISKR),
+      ...hazardRatings(h),
     ]
   }
 

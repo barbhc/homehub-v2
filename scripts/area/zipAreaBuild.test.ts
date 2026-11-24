@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildZipArea, parseDbf, parseDelimited, ratingOf } from "./zipAreaBuild.js"
+import { buildZipArea, hazardRating, parseDbf, parseDelimited, ratingOf } from "./zipAreaBuild.js"
 
 const SOURCES = { hardiness: "h", zipToCounty: "z", hazards: "f", climateZones: "p" }
 
@@ -13,11 +13,15 @@ const ZIP_COUNTY = [
   "4|33333|09003|50",
 ].join("\n")
 
+// RISKR is FEMA's overall rating; ALR_NPCTL its per-building loss percentile.
+// A high rating stands only with a loss percentile of 70 or more (Cook's 51
+// drops its "Relatively High" earthquake to 3, below what is shown).
 const HAZARDS = [
-  "STATEABBRV,COUNTY,COUNTYTYPE,STCOFIPS,ERQK_RISKR,WFIR_RISKR,HRCN_RISKR",
-  "CA,San Francisco,County,06075,Very High,Very Low,Not Applicable",
-  'CA,"San Mateo, Odd",County,06081,Very High,Relatively High,Insufficient Data',
-  "CT,Capitol,Planning Region,09110,Relatively Moderate,Very Low,Relatively High",
+  "STATEABBRV,COUNTY,COUNTYTYPE,STCOFIPS,ERQK_RISKR,WFIR_RISKR,HRCN_RISKR,ERQK_ALR_NPCTL,WFIR_ALR_NPCTL,HRCN_ALR_NPCTL",
+  "CA,San Francisco,County,06075,Very High,Very Low,Not Applicable,76.5,1.49,",
+  'CA,"San Mateo, Odd",County,06081,Relatively High,Relatively Moderate,Insufficient Data,96.1,72.0,',
+  "CT,Capitol,Planning Region,09110,Relatively Moderate,Very Low,Relatively High,40,5,75",
+  "IL,Cook,County,17031,Relatively High,Very Low,Very Low,51.05,0.86,6.9",
 ].join("\r\n")
 
 const HARDINESS = ["zipcode,zone,trange,zonetitle", "11111,10b,35 to 40,10b: 35 to 40", "44444,7a,0 to 5,7a: 0 to 5", "55555,bad,,"].join("\n")
@@ -39,8 +43,8 @@ describe("buildZipArea", () => {
   it("a zip crossing counties takes the one with the most land, and says how many it touches", () => {
     expect(build().zips["22222"]).toEqual(["", "06081", 2])
   })
-  it("reads quoted names and treats Insufficient Data as no rating", () => {
-    expect(build().counties["06081"]).toEqual(["San Mateo, Odd County", "CA", 3, "C", 5, 4, 0])
+  it("reads quoted names and treats a blank loss rate as no rating", () => {
+    expect(build().counties["06081"]).toEqual(["San Mateo, Odd County", "CA", 3, "C", 4, 3, 0])
   })
   it("an old Connecticut county keeps its climate zone and carries no hazard rating", () => {
     expect(build().counties["09003"]).toEqual(["Hartford", "CT", 5, "A", 0, 0, 0])
@@ -64,6 +68,14 @@ describe("parsers", () => {
     expect(ratingOf("Relatively High")).toBe(4)
     expect(ratingOf("No Rating")).toBe(0)
     expect(ratingOf(undefined)).toBe(0)
+  })
+  it("a high rating stands only with a top-30% per-building loss rate", () => {
+    expect(hazardRating("Relatively High", "51.05")).toBe(3) // Cook County earthquake: not shown
+    expect(hazardRating("Very High", "76.5")).toBe(5) // San Francisco earthquake: shown
+    expect(hazardRating("Relatively High", "70")).toBe(4)
+    expect(hazardRating("Relatively High", "")).toBe(3) // no loss rate: not shown
+    expect(hazardRating("Relatively Low", "99")).toBe(2) // a high loss rate never raises a rating
+    expect(hazardRating("Not Applicable", "")).toBe(0)
   })
   it("parseDbf reads a minimal dBASE table and skips deleted rows", () => {
     const field = (name: string, len: number) => {
