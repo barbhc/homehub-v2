@@ -353,6 +353,14 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
           follow(opts.current.where, id, () => opts.current.onUnsnoozed?.(id))
           return
         }
+        if (r.reason) {
+          // Refused, not failed: someone finished (or removed) the task since
+          // the snooze. There is nothing to undo and trying again cannot help,
+          // so say why and let the list catch up (Codex review D4).
+          setBar({ message: r.error, ms: 7000 })
+          follow(opts.current.where, id, () => opts.current.onUnsnoozed?.(id))
+          return
+        }
         // A failed undo comes back to the bar with the same Undo — it used to
         // vanish and leave the task snoozed with nothing said.
         console.warn(`[${opts.current.where}] could not undo the snooze of task ${id} (home ${home}):`, r.error)
@@ -375,6 +383,16 @@ export function useTaskActions(homeId: string | null, options: TaskActionsOption
       res = { success: false, error: e instanceof Error ? e.message : String(e) }
     }
     setBusyId(null)
+    if (!res.success && res.reason) {
+      // Refused, not failed: someone finished (or removed) the task first, and
+      // their Done stands (Codex review D4). The row leaves with the reason in
+      // the bar — on the row it would vanish with it — and the list catches up
+      // the way it does after a Done.
+      hide(id)
+      follow(opts.current.where, id, () => opts.current.onDoneSaved?.(id))
+      setBar({ message: res.error, ms: 7000 })
+      return { error: null }
+    }
     if (!res.success) {
       // The task stays where it was; its row says the snooze didn't take.
       console.warn(`[${opts.current.where}] could not snooze task ${id} (home ${homeId}):`, res.error)

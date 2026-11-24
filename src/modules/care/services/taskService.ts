@@ -1272,36 +1272,71 @@ export async function logTaskCompletion(
 /** What a snooze replaced — handed back to unsnoozeTaskInstance so Undo is exact. */
 export type SnoozePrior = { status: "scheduled" | "snoozed"; snoozedUntil: string | null }
 
+/**
+ * Why a snooze (or its Undo) wrote nothing although nothing failed:
+ * "already_done" — someone completed the task first; "gone" — it was removed.
+ * Absent on a real failure (the read or the write did not go through).
+ */
+export type SnoozeRefusal = "already_done" | "gone"
+
 export type SnoozeResult =
   | { success: true; data: TaskInstance; prior?: SnoozePrior }
-  | { success: false; error: string }
+  | { success: false; error: string; reason?: SnoozeRefusal }
+
+/** What a refused snooze says. The words are the screens' too (tasks/shared). */
+export const SNOOZE_REFUSALS: Record<SnoozeRefusal, string> = {
+  already_done: "That task was already done.",
+  gone: "That task no longer exists.",
+}
+const refused = (reason: SnoozeRefusal): SnoozeResult => ({ success: false, error: SNOOZE_REFUSALS[reason], reason })
+
+/** Open = still on the list: scheduled or snoozed, and not removed. */
+function refusalFor(snap: { exists(): boolean; get(field: string): unknown }): SnoozeRefusal | null {
+  if (!snap.exists() || snap.get("deletedAt") != null) return "gone"
+  const status = snap.get("status")
+  if (status === "done") return "already_done"
+  return status === "scheduled" || status === "snoozed" ? null : "gone"
+}
 
 /**
  * Snoozes a task_instance until a date. Answers with what it replaced
  * (`prior`): re-snoozing an already-snoozed task and then pressing Undo must
  * put the EARLIER snooze back, not drop it.
+ *
+ * ONE transaction (Codex review D4). It used to read the occurrence and then
+ * write "snoozed" blind, so a Done from another device that landed in between
+ * was overwritten — the completed task came back as snoozed. Inside
+ * runTransaction the occurrence is read with tx.get; if it changes before the
+ * commit, Firestore re-runs the callback against the new state. Only an
+ * occurrence that is still open is written; a done or removed one is refused
+ * with a `reason`, and nothing is written.
+ *
+ * A transaction needs the server, so this fails offline (it used to wait on
+ * the write's acknowledgement instead) — the row says the snooze didn't take.
  */
 export async function snoozeTaskInstance(
   homeId: string,
   taskInstanceId: string,
   snoozedUntil: string
 ): Promise<SnoozeResult> {
-  // Direct Firestore field update (matches v1: status snoozed + snoozed_until).
   try {
     const ref = doc(db, `homes/${homeId}/taskInstances/${taskInstanceId}`)
-    const before = await getDoc(ref)
-    if (!before.exists()) return { success: false, error: "Task instance not found" }
-    const wasUntil = before.get("snoozedUntil")
-    const prior: SnoozePrior =
-      before.get("status") === "snoozed" && typeof wasUntil === "string" && wasUntil
-        ? { status: "snoozed", snoozedUntil: wasUntil }
-        : { status: "scheduled", snoozedUntil: null }
-    await writeBatch(db)
-      .set(ref, { status: "snoozed", snoozedUntil, updatedAt: serverTimestamp() }, { merge: true })
-      .commit()
+    const outcome = await runTransaction(db, async (tx): Promise<{ refusal: SnoozeRefusal } | { prior: SnoozePrior }> => {
+      const before = await tx.get(ref)
+      const refusal = refusalFor(before)
+      if (refusal) return { refusal }
+      const wasUntil = before.get("snoozedUntil")
+      const prior: SnoozePrior =
+        before.get("status") === "snoozed" && typeof wasUntil === "string" && wasUntil
+          ? { status: "snoozed", snoozedUntil: wasUntil }
+          : { status: "scheduled", snoozedUntil: null }
+      tx.set(ref, { status: "snoozed", snoozedUntil, updatedAt: serverTimestamp() }, { merge: true })
+      return { prior }
+    })
+    if ("refusal" in outcome) return refused(outcome.refusal)
     const snap = await getDoc(ref)
-    if (!snap.exists()) return { success: false, error: "Task instance not found" }
-    return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), prior }
+    if (!snap.exists()) return refused("gone")
+    return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()), prior: outcome.prior }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Failed to snooze task" }
   }
@@ -1320,6 +1355,13 @@ export async function snoozeTaskInstance(
  * `prior` is what the snooze replaced (snoozeTaskInstance answers with it):
  * undoing a RE-snooze restores the earlier snooze, not "scheduled". Without
  * it, the task goes back to scheduled, as before.
+ *
+ * ONE transaction, like the snooze (Codex review D4): Undo used to write
+ * "scheduled" blind, reopening a task someone had completed since. Now only a
+ * task that is STILL SNOOZED is put back. One that is done or removed is
+ * refused with a `reason`; one that is no longer snoozed (someone already
+ * brought it back, or gave it a new date) has nothing left to undo and is
+ * left exactly as it is.
  */
 export async function unsnoozeTaskInstance(
   homeId: string,
@@ -1331,11 +1373,16 @@ export async function unsnoozeTaskInstance(
     const restore = prior?.status === "snoozed" && prior.snoozedUntil
       ? { status: "snoozed", snoozedUntil: prior.snoozedUntil }
       : { status: "scheduled", snoozedUntil: null }
-    await writeBatch(db)
-      .set(ref, { ...restore, updatedAt: serverTimestamp() }, { merge: true })
-      .commit()
+    const refusal = await runTransaction(db, async (tx): Promise<SnoozeRefusal | null> => {
+      const now = await tx.get(ref)
+      const no = refusalFor(now)
+      if (no) return no
+      if (now.get("status") === "snoozed") tx.set(ref, { ...restore, updatedAt: serverTimestamp() }, { merge: true })
+      return null
+    })
+    if (refusal) return refused(refusal)
     const snap = await getDoc(ref)
-    if (!snap.exists()) return { success: false, error: "Task instance not found" }
+    if (!snap.exists()) return refused("gone")
     return { success: true, data: toTaskInstance(homeId, snap.id, snap.data()) }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Failed to undo the snooze" }

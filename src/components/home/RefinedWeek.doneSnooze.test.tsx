@@ -116,6 +116,35 @@ describe("Tasks — Snooze is the 14-day snooze with a receipt and Undo", () => 
   })
 })
 
+describe("Tasks — a snooze never undoes someone else's Done (Codex review D4)", () => {
+  const ALREADY_DONE = { success: false, error: "That task was already done.", reason: "already_done" }
+
+  it("snoozing a task someone just finished says so plainly — not 'Snoozed', not 'Couldn't snooze'", async () => {
+    svc.snoozeTaskInstance.mockResolvedValue(ALREADY_DONE)
+    await settle()
+    drag(-110)
+
+    const line = await bar()
+    expect(line).toHaveTextContent("That task was already done.")
+    expect(within(line).queryByRole("button", { name: "Undo" })).toBeNull()
+    expect(screen.queryByText(/Snoozed until/)).toBeNull()
+    expect(screen.queryByText(/Couldn't snooze/)).toBeNull()
+    // It is done, so it leaves the list.
+    expect(screen.queryByText(TITLE)).toBeNull()
+  })
+
+  it("Undo of a snooze on a task finished since says so, and does not offer Undo again", async () => {
+    svc.unsnoozeTaskInstance.mockResolvedValue(ALREADY_DONE)
+    await settle()
+    drag(-110)
+    fireEvent.click(within(await bar()).getByRole("button", { name: "Undo" }))
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("That task was already done."))
+    expect(within(screen.getByRole("status")).queryByRole("button", { name: "Undo" })).toBeNull()
+    expect(screen.queryByText(/Couldn't undo/)).toBeNull()
+  })
+})
+
 describe("Tasks — Undo of a RE-snooze puts the earlier snooze back", () => {
   it("hands the snooze's prior state to un-snooze", async () => {
     const prior = { status: "snoozed", snoozedUntil: addDays(localToday(), 3) }
