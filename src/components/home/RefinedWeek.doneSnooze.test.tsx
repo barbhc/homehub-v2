@@ -16,7 +16,7 @@ import { act, fireEvent, render as rtlRender, screen, waitFor, within } from "@t
 import { SWRConfig } from "swr"
 import { RefinedWeek } from "./RefinedWeek"
 import { DONE_UNDO_MS } from "./tasks/shared"
-import { clearDoneQueue, failedDones, resetDoneQueueForTests, writeAllDonesNow } from "./tasks/doneQueue"
+import { failedDones, parkDoneQueue, resetDoneQueueForTests, writeAllDonesNow } from "./tasks/doneQueue"
 import { addDays, localToday } from "../../../shared/dates/calendar"
 
 const render = (ui: React.ReactElement) =>
@@ -212,24 +212,35 @@ describe("Tasks — a Done never crosses accounts, and a hopeless one is not ret
     tasks.unmount() // written, refused: now a failed Done waiting to be said
     await waitFor(() => expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1))
 
-    clearDoneQueue() // what AuthProvider.signOut does
+    parkDoneQueue() // what AuthProvider.signOut does
     session.auth.currentUser = { uid: "user-b" }
-    await settle()
+    const other = await settle()
     await new Promise((r) => setTimeout(r, 50))
     expect(screen.queryByText(/Couldn't mark/)).toBeNull()
     expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1)
-    expect(localStorage.getItem(QUEUE_KEY)).toBeNull()
+    // Codex review D6: it is NOT erased — it waits on this device for user-a.
+    expect(JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]")).toEqual([expect.objectContaining({ uid: "user-a", id: "ti-1" })])
+
+    // user-a signs back in (online now): the first screen sends it, as user-a.
+    other.unmount()
+    svc.markTaskInstanceDone.mockResolvedValue({ success: true, data: {}, nextInstanceId: "ti-2" })
+    session.auth.currentUser = { uid: "user-a" }
+    await settle()
+    await waitFor(() => expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(2))
+    expect(svc.markTaskInstanceDone).toHaveBeenLastCalledWith("home-1", "ti-1", null, expect.objectContaining({ completedOn: localToday() }))
+    await waitFor(() => expect(localStorage.getItem(QUEUE_KEY)).toBeNull())
   })
 
-  it("even if another account's entries survive on disk, they are dropped — never shown, never written", async () => {
-    localStorage.setItem(QUEUE_KEY, JSON.stringify([...JSON.parse(failedFor("user-a")), ...JSON.parse(pendingFor("user-a"))]))
+  it("another account's entries on disk are kept for their owner — never shown, never written", async () => {
+    const saved = [...JSON.parse(failedFor("user-a")), ...JSON.parse(pendingFor("user-a"))]
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(saved))
     resetDoneQueueForTests()
     session.auth.currentUser = { uid: "user-b" }
     await settle()
     await new Promise((r) => setTimeout(r, 50))
     expect(screen.queryByText(/Couldn't mark/)).toBeNull()
     expect(svc.markTaskInstanceDone).not.toHaveBeenCalled()
-    expect(localStorage.getItem(QUEUE_KEY)).toBeNull()
+    expect(JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]")).toEqual(saved)
   })
 
   it("the failure snapshot is never handed to another account — not even for one paint", () => {
@@ -241,7 +252,7 @@ describe("Tasks — a Done never crosses accounts, and a hopeless one is not ret
     expect(failedDones()).toEqual([])
   })
 
-  it("signing out inside the Undo window writes the Done first (it said 'Done'), then clears", async () => {
+  it("signing out inside the Undo window writes the Done first (it said 'Done'), and nothing is left behind", async () => {
     const view = await settle()
     fireEvent.click(within(rowEl()).getByLabelText(/mark done/i))
     await bar()
@@ -251,7 +262,7 @@ describe("Tasks — a Done never crosses accounts, and a hopeless one is not ret
     await writeAllDonesNow()
     expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1)
     expect(svc.markTaskInstanceDone).toHaveBeenCalledWith("home-1", "ti-1", null, expect.objectContaining({ completedOn: localToday() }))
-    clearDoneQueue()
+    parkDoneQueue()
     view.unmount()
     expect(svc.markTaskInstanceDone).toHaveBeenCalledTimes(1)
     expect(localStorage.getItem(QUEUE_KEY)).toBeNull()

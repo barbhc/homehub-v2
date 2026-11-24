@@ -333,9 +333,13 @@ describe("a failed check-off reads the same on Home and on Tasks", () => {
 })
 
 describe("sign-out leaves no Done behind for the next account (#246 re-review)", () => {
-  it("AuthProvider.signOut writes the leaving user's Dones, THEN clears the queue, before the session ends", () => {
+  // Codex review D6: what could not be sent is parked for this account's next
+  // sign-in, not erased (doneQueue.test.ts pins that the next account never
+  // sees or sends it).
+  it("AuthProvider.signOut writes the leaving user's Dones, THEN parks the rest, before the session ends", () => {
     const src = read("../modules/auth/components/AuthProvider.tsx")
     const body = src.slice(src.indexOf("const signOut = useCallback"), src.indexOf("await fbSignOut(auth)"))
-    expect(body).toMatch(/await writeAllDonesNow\(\)\s*\n\s*clearDoneQueue\(\)/)
+    expect(body).toMatch(/await writeAllDonesNow\(\)\s*\n\s*parkDoneQueue\(\)/)
+    expect(src).not.toMatch(/clearDoneQueue/)
   })
 })
