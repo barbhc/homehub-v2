@@ -16,6 +16,8 @@ import { onReviewRequest, pendingReviewFor, takeReviewRequest } from "@/lib/revi
 import { useNotificationsBlocked } from "@/hooks/useNotificationsBlocked"
 import { useHomeProfile } from "@/modules/home"
 import { settingsPane } from "@/lib/settingsPaths"
+import { InlineError } from "@/components/layout/LoadStates"
+import { LOAD_TIMEOUT_MS, withTimeout } from "@/lib/withTimeout"
 
 /**
  * Reads whose review we have already opened by ourselves, this session, keyed
@@ -104,8 +106,16 @@ export function ParsePickupCard({
   /** Runs saved here. The save's answer can beat the listener's news of it by
    *  a moment; without this the card would flash back for that moment. */
   const [savedRuns, setSavedRuns] = useState<ReadonlySet<string>>(new Set())
-  /** Bumped when a door asks for a review, so the pickup below is re-chosen. */
-  const [, setAsked] = useState(0)
+  /**
+   * Bumped by Try again, and when a door asks for a review whose draft is not
+   * on hand: the pickup below is re-chosen AND its draft is read again. (It
+   * used to re-render only — the read did not depend on it, so a Review asked
+   * for after a failed read did nothing at all. Codex review F1.)
+   */
+  const [attempt, setAttempt] = useState(0)
+  /** The draft read that came back with nothing to show: it failed, or the
+   *  manual had no draft. Keyed like `loaded`, so a new read starts clean. */
+  const [unread, setUnread] = useState<{ key: string; why: "failed" | "no-draft" } | null>(null)
 
   // What the callbacks below read. They run outside render (a draft arriving,
   // a door asking), so they read the latest values through refs.
@@ -139,7 +149,7 @@ export function ParsePickupCard({
     // The draft is already on hand: open it now. Otherwise choose the pickup
     // again — the asked-for manual wins — and its draft's arrival opens it.
     if (here && here.manualId === manualId) openIfDue(manualId, here.runKey)
-    else setAsked((n) => n + 1)
+    else setAttempt((n) => n + 1)
   }), [openIfDue])
 
   const awaiting = manuals.filter((m) => isAwaitingReview(m) && !savedRuns.has(`${m.manual_id}:${m.parse_request_id ?? ""}`))
@@ -159,23 +169,39 @@ export function ParsePickupCard({
   useEffect(() => {
     if (!pickupId || !draftKey || !runKey) return
     let cancelled = false
-    readPreviewDraft(homeId, pickupId).then(
+    // Timed: a read that never answers is a failed read, with its Try again.
+    withTimeout(readPreviewDraft(homeId, pickupId), LOAD_TIMEOUT_MS, "Reading the draft timed out.").then(
       (d) => {
-        if (cancelled || !d) return
+        if (cancelled) return
+        if (!d) {
+          // The manual says a review is waiting and has no draft: usually it
+          // was saved a moment ago and the news has not reached this page yet.
+          setUnread({ key: draftKey, why: "no-draft" })
+          return
+        }
+        setUnread(null)
         setLoaded({ key: draftKey, draft: d })
         loadedRef.current = { manualId: pickupId, runKey }
         openIfDue(pickupId, runKey)
       },
       (e: unknown) => {
-        // The card simply does not appear; the pill still offers the review
-        // and the Upkeep card still says where the findings are.
-        if (!cancelled) console.warn("[pickup] could not read the draft:", e instanceof Error ? e.message : e)
+        if (cancelled) return
+        console.warn(`[pickup] could not read the draft of manual ${pickupId} (home ${homeId}):`, e instanceof Error ? e.message : e)
+        // Said where the card would be (Codex review F1): the card used to
+        // just not appear, under a pill still offering "Review".
+        setUnread({ key: draftKey, why: "failed" })
       },
     )
     return () => { cancelled = true }
-  }, [homeId, pickupId, draftKey, runKey, openIfDue])
+  }, [homeId, pickupId, draftKey, runKey, openIfDue, attempt])
 
   const draft = loaded && loaded.key === draftKey ? loaded.draft : null
+  // A failed read is always said. "No draft" is said only when someone asked
+  // for this review — otherwise it is the quiet moment after a save elsewhere,
+  // and the card is about to go anyway.
+  const readFailed =
+    !draft && pickup !== null && unread?.key === draftKey &&
+    (unread.why === "failed" || requested === pickup.manual_id)
 
   const dismiss = (manualId: string) => {
     clearParsePending(manualId)
@@ -187,6 +213,18 @@ export function ParsePickupCard({
   // the manual row can still start it again.)
   const failed = manuals.find((m) =>
     m.parse_stage === "error" && !dismissed[m.manual_id] && (watched.has(m.manual_id) || isParsePending(m.manual_id)))
+
+  if (readFailed) {
+    return (
+      <div
+        data-testid="handoff-load-error"
+        className="rounded-xl border px-4 py-2"
+        style={{ borderColor: "var(--hh-line)", background: "var(--hh-surface)" }}
+      >
+        <InlineError onRetry={() => { setUnread(null); setAttempt((n) => n + 1) }}>Couldn&apos;t load what we found.</InlineError>
+      </div>
+    )
+  }
 
   if (!pickup || !draft) {
     if (!failed) return null
