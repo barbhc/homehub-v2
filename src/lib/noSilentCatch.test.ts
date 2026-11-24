@@ -99,11 +99,6 @@ const JUSTIFIED: { file: string; site: string; why: string }[] = [
     site: "readRunningScan(opts.homeId, manualId).catch(() => null)",
     why: "Falls through to the server's own refusal, which the caller shows.",
   },
-  {
-    file: "src/components/item-care/CareBlock.tsx",
-    site: "No spinner rides on this one",
-    why: "Rows render without due dates; nothing claims a date it did not read.",
-  },
 ]
 
 /** Empty catch BLOCKS that are not code: the theme bootstrap is a string

@@ -765,13 +765,30 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
   // reads as calm "Start anytime", not "N days overdue" (app-wide calm model).
   const [completedTemplates, setCompletedTemplates] = useState<Set<string>>(new Set())
   const [instanceTick, setInstanceTick] = useState(0)
+  /**
+   * The occurrence reads failed (Codex review F8). A row's due phrase and its
+   * Mark done / Snooze come from these reads; a failure used to be read as
+   * "no occurrences", so the dates and the buttons were simply absent and the
+   * item's upkeep looked unscheduled. It is said above the rows, with Try
+   * again — and whatever an earlier read found stays on screen meanwhile.
+   */
+  const [instancesFailed, setInstancesFailed] = useState(false)
   useEffect(() => {
     let cancelled = false
+    const failed = (why: unknown) => {
+      if (cancelled) return
+      console.warn(`[item care] could not read the task occurrences of item ${item.item_unit_id} (home ${homeId}):`, why instanceof Error ? why.message : why)
+      setInstancesFailed(true)
+    }
     Promise.all([
       getTaskInstances(homeId, { item_unit_id: item.item_unit_id, status: ["scheduled", "snoozed"] }),
       getTaskInstances(homeId, { item_unit_id: item.item_unit_id, status: ["done"] }),
     ]).then(([openRes, doneRes]) => {
       if (cancelled) return
+      // The service answers a failed read with `error`, not a rejection.
+      const error = openRes.error ?? doneRes.error
+      if (error) { failed(error.message); return }
+      setInstancesFailed(false)
       const map = new Map<string, { due: string; instanceId: string }>()
       for (const inst of (openRes.data ?? []) as TaskInstanceWithDetails[]) {
         const tid = inst.task_template_id
@@ -788,11 +805,7 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
         if (inst.task_template_id) done.add(inst.task_template_id)
       }
       setCompletedTemplates(done)
-    }).catch(() => {
-      // No spinner rides on this one — the rows render without due dates. Caught
-      // so it fails as "no due date shown" rather than as an unhandled rejection
-      // that Sentry reports and nobody can act on.
-    })
+    }).catch(failed)
     return () => { cancelled = true }
   }, [homeId, item.item_unit_id, taskIdsKey, instanceTick])
 
@@ -1030,6 +1043,11 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
             <ScanningLine reading={reading} />
           </div>
         </Card>
+      )}
+
+      {/* Only where there are dated rows to be missing a date (F8). */}
+      {instancesFailed && (fMaintenance.length > 0 || fCleaning.length > 0) && (
+        <InlineError onRetry={refetchInstances} className="px-1">Couldn&apos;t load this item&apos;s due dates.</InlineError>
       )}
 
       {supportsVariant && (
