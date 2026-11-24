@@ -29,6 +29,10 @@
     ],
     "rewrites": [
       {
+        "source": "/beta",
+        "destination": "/beta.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

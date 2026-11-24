@@ -1,0 +1,373 @@
+<!doctype html>
+<!--
+  Homehub landing page for the friends beta, served at /beta (firebase.json
+  rewrite). Built from the app's own signed-out landing page
+  (src/pages/Landing.tsx, as of #296): same look, same four features and the
+  same words where they are still true, with real screenshots beside each
+  feature, one section on the zip-first setup, and the tester FAQ at the end.
+
+  Static on purpose: no scripts, fonts and images served from /beta/, so it
+  works under the site-wide CSP. Colors copy the --hh-* tokens in
+  src/index.css; if those change, change them here. Screenshots are the app on
+  emulator sample data with a real Simulator status bar (9:41, full battery).
+  Retake them, and re-check every claim, when a screen or feature changes.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Homehub</title>
+<meta name="description" content="Items, manuals, warranties, maintenance and a built-in assistant, organized to effortlessly care for your home. Free beta on iPhone.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Homehub: everything your home needs, in one place">
+<meta property="og:description" content="Free beta on iPhone. Installs through TestFlight in about 2 minutes.">
+<meta property="og:url" content="https://homehub-2068d.web.app/beta">
+<meta property="og:image" content="https://homehub-2068d.web.app/beta/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0E1B17">
+<link rel="icon" type="image/png" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/homehub-icon.png">
+<link rel="preload" href="/beta/fonts/plus-jakarta-sans-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  @font-face { font-family: "Inter"; font-weight: 400; font-display: swap; src: url("/beta/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Inter"; font-weight: 600; font-display: swap; src: url("/beta/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Inter"; font-weight: 700; font-display: swap; src: url("/beta/fonts/inter-latin-700-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Plus Jakarta Sans"; font-weight: 800; font-display: swap; src: url("/beta/fonts/plus-jakarta-sans-latin-800-normal.woff2") format("woff2"); }
+
+  /* The app's tokens (src/index.css). The hero and closing card are a dark
+     brand band in both themes, as on the app's own landing page. */
+  :root {
+    --bg: #F3F5F4;
+    --surface: #FFFFFF;
+    --surface2: #F4F7F6;
+    --ink: #0B1220;
+    --sub: #4B5563;
+    --teal: #1B6B5A;
+    --teal-fill: #1B6B5A;
+    --teal-wash: #EAF3EF;
+    --line: rgba(15, 23, 42, 0.10);
+    --hero: radial-gradient(120% 80% at 50% 0%, #1B6B5A 0%, #0E1B17 60%);
+    --hero-card: linear-gradient(150deg, #1B6B5A, #0E1B17);
+    --mark: linear-gradient(150deg, #1B6B5A, #2D9B82);
+    --shadow: 0 30px 60px rgba(11, 26, 22, 0.22);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0D1411; --surface: #161E1A; --surface2: #1E2A24; --ink: #F1F5F3; --sub: #A2AEA9;
+      --teal: #34B093; --teal-fill: #23856F; --teal-wash: rgba(52, 176, 147, 0.16);
+      --line: rgba(255, 255, 255, 0.12); --shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0D1411; --surface: #161E1A; --surface2: #1E2A24; --ink: #F1F5F3; --sub: #A2AEA9;
+    --teal: #34B093; --teal-fill: #23856F; --teal-wash: rgba(52, 176, 147, 0.16);
+    --line: rgba(255, 255, 255, 0.12); --shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--surface); color: var(--ink); font: 1.0625rem/1.55 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  h1, h2, h3 { margin: 0; text-wrap: balance; }
+  h1, h2 { font-family: "Plus Jakarta Sans", "Inter", -apple-system, sans-serif; font-weight: 800; }
+  p { margin: 0; }
+  a { color: var(--teal); }
+  a:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; border-radius: 6px; }
+  .hero a:focus-visible, .closing a:focus-visible { outline-color: #FFFFFF; }
+  .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 max(24px, env(safe-area-inset-right)) 0 max(24px, env(safe-area-inset-left)); }
+  .icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 0 28px; border-radius: 13px; background: var(--teal-fill); color: #FFFFFF; font-weight: 700; font-size: 0.9375rem; text-decoration: none; }
+  .btn-wide { width: 100%; max-width: 340px; }
+
+  /* Phone: the screenshot in a drawn black bezel, like the app's landing page. */
+  .phone { display: block; width: 100%; max-width: 285px; margin: 0 auto; padding: 8px; border-radius: 39px; background: #0A0C0B; box-shadow: var(--shadow); } /* the bezel is hardware: black in both themes */
+  .phone img { display: block; width: 100%; height: auto; border-radius: 32px; }
+
+  /* Hero */
+  .hero { background: var(--hero); color: #FFFFFF; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: max(20px, env(safe-area-inset-top)); min-height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.0625rem; letter-spacing: -0.3px; color: #FFFFFF; text-decoration: none; }
+  .brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; background: var(--mark); font-size: 17px; }
+  .topbar-link { color: rgba(255, 255, 255, 0.85); font-weight: 700; font-size: 0.875rem; text-decoration: none; padding: 12px 0; }
+  .hero-body { display: grid; gap: 38px; padding: 34px 0 48px; text-align: center; }
+  .pill { display: inline-block; font-size: 0.8125rem; font-weight: 600; color: rgba(255, 255, 255, 0.85); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 999px; padding: 4px 12px; margin-bottom: 18px; }
+  .hero h1 { font-size: clamp(2.375rem, 6vw, 3.25rem); line-height: 1.1; letter-spacing: -1px; }
+  .hero-sub { font-size: 1.03125rem; line-height: 1.5; color: rgba(255, 255, 255, 0.82); margin: 16px auto 24px; max-width: 340px; }
+  .fine { font-size: 0.875rem; color: rgba(255, 255, 255, 0.78); margin-top: 14px; }
+  @media (min-width: 960px) {
+    .hero-body { grid-template-columns: 1fr 1fr; align-items: center; gap: 48px; padding: 56px 0 80px; text-align: left; }
+    .hero h1 { line-height: 1.08; }
+    .hero-sub { font-size: 1.125rem; margin-left: 0; max-width: 420px; }
+  }
+
+  /* Features */
+  .features { background: var(--surface2); padding: 28px 0 24px; }
+  .section-title { font-size: clamp(1.625rem, 3.6vw, 2rem); letter-spacing: -0.6px; text-align: center; color: var(--ink); }
+  .features .section-title { padding: 8px 0 12px; }
+  .feature { display: grid; gap: 28px; align-items: center; padding: 28px 0; border-top: 1px solid var(--line); }
+  .feature:first-of-type { border-top: 0; }
+  .feature-head { display: flex; align-items: center; gap: 16px; }
+  .tile { display: inline-flex; align-items: center; justify-content: center; width: 76px; height: 76px; border-radius: 20px; background: var(--teal-wash); color: var(--teal); font-size: 34px; flex: none; }
+  .tile .icon { stroke-width: 1.6; }
+  .kicker { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--teal); margin-bottom: 4px; }
+  .feature h3 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.3px; line-height: 1.3; color: var(--ink); }
+  .feature-text { color: var(--sub); font-size: 0.9688rem; line-height: 1.6; margin-top: 14px; max-width: 32em; }
+  .points { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; max-width: 32em; }
+  .points li { display: grid; grid-template-columns: auto 1fr; gap: 10px; color: var(--sub); font-size: 0.9375rem; line-height: 1.55; }
+  .points li .icon { color: var(--teal); margin-top: 4px; }
+  .points strong { color: var(--ink); font-weight: 600; }
+  @media (min-width: 860px) {
+    .feature { grid-template-columns: minmax(0, 1fr) 300px; gap: 64px; padding: 52px 0; }
+    .feature.flip { grid-template-columns: 300px minmax(0, 1fr); }
+    .feature.flip .shot { order: -1; }
+    .features { padding: 56px 0 32px; }
+    .features .section-title { padding-bottom: 20px; }
+  }
+
+  /* Setup */
+  .setup { padding: 40px 0 8px; }
+  .setup .lede { color: var(--sub); text-align: center; max-width: 30em; margin: 10px auto 0; }
+  .setup-grid { display: grid; gap: 36px; margin-top: 32px; align-items: start; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li { display: flex; gap: 15px; }
+  .rail { display: flex; flex-direction: column; align-items: center; }
+  .num { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: var(--teal-fill); color: #FFFFFF; font-size: 0.9375rem; font-weight: 800; flex: none; }
+  .line { flex: 1; width: 2px; margin-top: 4px; background: var(--line); }
+  .step-body { padding: 4px 0 22px; }
+  .steps li:last-child .step-body { padding-bottom: 0; }
+  .step-body h3 { font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.3px; color: var(--ink); }
+  .step-body p { color: var(--sub); font-size: 0.9375rem; line-height: 1.5; margin-top: 2px; }
+  .after { margin-top: 22px; padding: 16px 18px; border-radius: 16px; background: var(--teal-wash); color: var(--ink); font-size: 0.9375rem; line-height: 1.55; }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .pair .phone { padding: 6px; border-radius: 30px; }
+  .pair .phone img { border-radius: 25px; }
+  @media (min-width: 860px) {
+    .setup { padding-top: 64px; }
+    .setup-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 56px; align-items: center; }
+    .pair { gap: 24px; }
+  }
+
+  /* Closing card */
+  .closing { padding: 40px 0 8px; }
+  .closing-card { max-width: 760px; margin: 0 auto; text-align: center; color: #FFFFFF; background: var(--hero-card); border-radius: 24px; padding: 32px 24px; }
+  .closing-card .kicker { color: #BFE5DA; }
+  .closing-card h2 { font-size: clamp(1.5625rem, 3.6vw, 1.875rem); letter-spacing: -0.5px; margin-bottom: 8px; }
+  .closing-card p { color: rgba(255, 255, 255, 0.82); font-size: 0.9375rem; line-height: 1.5; margin: 0 auto 20px; max-width: 30em; }
+  .closing-card .fine { margin: 14px auto 0; }
+
+  /* FAQ */
+  .faq-section { padding: 56px 0 8px; }
+  .faq-section .lede { color: var(--sub); text-align: center; max-width: 34em; margin: 10px auto 0; }
+  .faq { display: grid; gap: 14px; margin-top: 28px; grid-template-columns: 1fr; }
+  @media (min-width: 860px) { .faq { grid-template-columns: repeat(2, minmax(0, 1fr)); } .faq .wide { grid-column: 1 / -1; } }
+  .qa { background: var(--surface2); border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; scroll-margin-top: 16px; }
+  .qa h3 { font-size: 1.0625rem; font-weight: 700; line-height: 1.35; margin-bottom: 8px; color: var(--ink); }
+  .qa p, .qa ol { color: var(--sub); font-size: 0.9375rem; }
+  .qa p + p { margin-top: 8px; }
+  .qa ol { margin: 4px 0 0; padding-left: 1.3em; }
+  .qa li + li { margin-top: 6px; }
+  .qa strong { color: var(--ink); }
+  .qa .btn { margin-top: 18px; }
+
+  footer { padding: 32px 0 max(36px, env(safe-area-inset-bottom)); text-align: center; color: var(--sub); font-size: 0.8125rem; }
+  footer a { color: var(--sub); text-underline-offset: 2px; display: inline-block; padding: 12px 4px; }
+</style>
+</head>
+<body>
+
+<!-- Lucide icons (the app's icon set), inlined so the page needs no network for them. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"/><path d="m7.5 4.27 9 5.15"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+</svg>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="topbar">
+      <a class="brand" href="#top" id="top"><span class="brand-mark"><svg class="icon"><use href="#i-house"/></svg></span>Homehub</a>
+      <a class="topbar-link" href="#faq">Beta FAQ</a>
+    </div>
+    <div class="hero-body">
+      <div>
+        <span class="pill">Free beta on iPhone</span>
+        <h1>Everything your home needs, in one place.</h1>
+        <p class="hero-sub">Items, manuals, warranties, maintenance and a built-in assistant, organized to effortlessly care for your home.</p>
+        <a class="btn btn-wide" href="https://testflight.apple.com/join/uBnVnA4z">Join the Beta</a>
+        <p class="fine">iPhone only. Installs through TestFlight in about 2 minutes.</p>
+      </div>
+      <span class="phone"><img src="/beta/home.jpg" width="780" height="1696" alt="Homehub's Home screen. Next up is Replace HVAC furnace filter, marked Essential, 10 minutes, with Mark done and Snooze. Below it, a manual ready to review and three tasks coming up in December."></span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="features" aria-labelledby="built">
+    <div class="wrap">
+      <h2 class="section-title" id="built">Built around your home</h2>
+
+      <div class="feature">
+        <div>
+          <div class="feature-head">
+            <span class="tile"><svg class="icon"><use href="#i-package"/></svg></span>
+            <div><div class="kicker">Inventory</div><h3>Every appliance, organized</h3></div>
+          </div>
+          <p class="feature-text">Scan a label or type the brand and model. Homehub files each item by room, with its manual, warranty and notes in one place.</p>
+          <ul class="points">
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>By room,</strong> where you'd actually look for it.</span></li>
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>House notes</strong> for shutoffs, breakers, paint colors and more.</span></li>
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>Spare parts,</strong> and where the spare is kept.</span></li>
+          </ul>
+        </div>
+        <div class="shot"><span class="phone"><img src="/beta/items.jpg" width="780" height="1696" loading="lazy" alt="The Items screen, with House notes at the top and appliances grouped by room: in the Kitchen, a Bosch dishwasher, an LG refrigerator, a Sharp microwave drawer with a manual ready to review, and a GE gas range."></span></div>
+      </div>
+
+      <div class="feature flip">
+        <div>
+          <div class="feature-head">
+            <span class="tile"><svg class="icon"><use href="#i-list"/></svg></span>
+            <div><div class="kicker">Maintenance</div><h3>A schedule that builds itself</h3></div>
+          </div>
+          <p class="feature-text">Common upkeep for the things most homes have, from your first minute. Add a manual and Homehub reads it for the exact schedule, with calm reminders so nothing slips.</p>
+          <ul class="points">
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>No manual needed to start:</strong> smoke alarms, air filters, the water heater and other things most homes have.</span></li>
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>From your real manuals, not generic advice.</strong> Homehub sorts what it read into maintenance, cleaning, usage and setup, and saves nothing until you do.</span></li>
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>What matters first.</strong> Essential, Recommended and Optional, so safety comes before polish.</span></li>
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>Calm reminders,</strong> only for the tasks you choose.</span></li>
+          </ul>
+        </div>
+        <div class="shot"><span class="phone"><img src="/beta/review.jpg" width="780" height="1696" loading="lazy" alt="Reviewing what Homehub read in the Sharp Microwave Drawer manual: 5 things, grouped into Maintenance, Cleaning, Usage and Setup, with Go through them one by one, and Save all 5 at the bottom. Nothing is saved until you press Save."></span></div>
+      </div>
+
+      <div class="feature">
+        <div>
+          <div class="feature-head">
+            <span class="tile"><svg class="icon"><use href="#i-shield"/></svg></span>
+            <div><div class="kicker">Warranties</div><h3>Coverage you won't forget</h3></div>
+          </div>
+          <p class="feature-text">See what's protected and what's lapsing soon, all in one tidy list.</p>
+          <ul class="points">
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>Covered until when,</strong> item by item.</span></li>
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>Active, expiring and lapsed</strong> counted at the top.</span></li>
+          </ul>
+        </div>
+        <div class="shot"><span class="phone"><img src="/beta/warranties.jpg" width="780" height="1696" loading="lazy" alt="The Warranties view: 6 active, 0 expiring, 1 lapsed. Below, each item with its coverage date, such as a Whirlpool washer covered until May 8, 2027 and a Bosch dishwasher covered until October 20, 2027."></span></div>
+      </div>
+
+      <div class="feature flip">
+        <div>
+          <div class="feature-head">
+            <span class="tile"><svg class="icon"><use href="#i-sparkles"/></svg></span>
+            <div><div class="kicker">Ask</div><h3>Answers from your manuals</h3></div>
+          </div>
+          <p class="feature-text">Ask a question about any item and get a clear, sourced answer in seconds. No manual yet? You still get general guidance.</p>
+          <ul class="points">
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>Shows its source:</strong> the manual section and page the answer came from.</span></li>
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>Troubleshoot</strong> when something isn't working.</span></li>
+            <li><svg class="icon"><use href="#i-check"/></svg><span><strong>Narrow it down</strong> to one room or one item.</span></li>
+          </ul>
+        </div>
+        <div class="shot"><span class="phone"><img src="/beta/ask.jpg" width="780" height="1696" loading="lazy" alt="An Ask conversation. Question: The water from my LG fridge tastes off, what should I check? Answer: that's almost always the water filter, with the filter model, how often to replace it and how to flush it. Sources: LG French Door Refrigerator, Water filter, page 21."></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="setup" aria-labelledby="running">
+    <div class="wrap">
+      <h2 class="section-title" id="running">Up and running in minutes</h2>
+      <p class="lede">No inventory to build first. Three quick answers and you have a list.</p>
+      <div class="setup-grid">
+        <div>
+          <ol class="steps">
+            <li><span class="rail"><span class="num">1</span><span class="line"></span></span><div class="step-body"><h3>Enter your zip</h3><p>Homehub learns your winters, storm season and what homes near you need. Just the zip, never your street.</p></div></li>
+            <li><span class="rail"><span class="num">2</span><span class="line"></span></span><div class="step-body"><h3>Say what kind of home</h3><p>House, condo, townhouse or apartment.</p></div></li>
+            <li><span class="rail"><span class="num">3</span></span><div class="step-body"><h3>Pick this month's tasks</h3><p>A short list for the things most homes have. Nothing is added until you tap Add.</p></div></li>
+          </ol>
+          <p class="after">Add your appliances and their manuals whenever you like, for an exact schedule. Homehub is useful without them.</p>
+        </div>
+        <div class="pair">
+          <span class="phone"><img src="/beta/area.jpg" width="780" height="1696" loading="lazy" alt="Step 2 of 3 for zip 94110 in San Francisco County: What your area means for upkeep. Pipes rarely freeze here. Earthquake risk is high. Below, a choice of House, Condo, Townhouse or Apartment."></span>
+          <span class="phone"><img src="/beta/month.jpg" width="780" height="1696" loading="lazy" alt="Step 3 of 3: Worth doing this month, for a condo. Test smoke and CO alarms is picked. Replace the air filter asks whether you have a furnace or central air. A button reads Add 1 task."></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing" aria-labelledby="try">
+    <div class="wrap">
+      <div class="closing-card">
+        <div class="kicker">Try it out</div>
+        <h2 id="try">See what your home needs this month</h2>
+        <p>Your zip, your kind of home, then a short list. Free while it's in beta, and what you tell me shapes what comes next.</p>
+        <a class="btn btn-wide" href="https://testflight.apple.com/join/uBnVnA4z">Join the Beta</a>
+        <p class="fine">iPhone only. Installs through TestFlight in about 2 minutes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq-section" id="faq" aria-labelledby="faq-head">
+    <div class="wrap">
+      <h2 class="section-title" id="faq-head">Beta FAQ</h2>
+      <p class="lede">This is version 1, so some things will be rough. If anything is confusing, broken or missing, tell me. That's the whole point of the beta.</p>
+      <div class="faq">
+        <div class="qa wide" id="install">
+          <h3>How do I install it?</h3>
+          <ol>
+            <li>On your iPhone, open the <a href="https://testflight.apple.com/join/uBnVnA4z">invite link</a>.</li>
+            <li>If you don't have TestFlight yet, tap <strong>View in App Store</strong> and install it, then open the invite link again.</li>
+            <li>Tap <strong>Accept</strong>, then <strong>Install</strong>.</li>
+            <li>Open Homehub and enter your zip.</li>
+          </ol>
+          <a class="btn" href="https://testflight.apple.com/join/uBnVnA4z">Join the Beta</a>
+        </div>
+        <div class="qa">
+          <h3>What is TestFlight?</h3>
+          <p>Apple's free app for trying apps before they're in the App Store. Homehub installs and updates through it, like any other app.</p>
+        </div>
+        <div class="qa">
+          <h3>Why does TestFlight say "Chief Home Officer"?</h3>
+          <p>That's Homehub's old working name, still on Apple's invite page. It's the same app, and it shows up as Homehub on your phone.</p>
+        </div>
+        <div class="qa">
+          <h3>How do I send feedback?</h3>
+          <p>Take a screenshot while you're in Homehub, then tap <strong>Share Beta Feedback</strong>. You can also open TestFlight, pick Homehub and tap <strong>Send Beta Feedback</strong>.</p>
+          <p>Or just email <a href="mailto:chiefhomeofficerapp@gmail.com">chiefhomeofficerapp@gmail.com</a>.</p>
+        </div>
+        <div class="qa">
+          <h3>What does it cost?</h3>
+          <p>Nothing. The beta is free, with no ads.</p>
+        </div>
+        <div class="qa">
+          <h3>What do I need?</h3>
+          <p>An iPhone on iOS 15 or later. There's no Android version yet.</p>
+        </div>
+        <div class="qa">
+          <h3>How many people can join?</h3>
+          <p>The link has room for 50 testers. If it says the beta is full, email me and I'll make room.</p>
+        </div>
+        <div class="qa">
+          <h3>Who sees my home's details?</h3>
+          <p>Only you and anyone you invite to your home. Read the <a href="/privacy">privacy policy</a>. To delete your account, email me and it's gone.</p>
+        </div>
+        <div class="qa">
+          <h3>How do updates work?</h3>
+          <p>New versions arrive in TestFlight. Each version works for 90 days, so if Homehub stops opening, check TestFlight for an update.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  © Homehub · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="mailto:chiefhomeofficerapp@gmail.com">Contact</a>
+</footer>
+
+</body>
+</html>
