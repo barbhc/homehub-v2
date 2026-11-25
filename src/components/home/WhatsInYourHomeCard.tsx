@@ -82,6 +82,12 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
     writeLocal(collapsedKey(homeId), "1")
     setStage("collapsed")
   }
+  /** Not now. After See Suggested Care Home is pinned to this card, so let go:
+   *  a home she added to meanwhile is a working home again. */
+  const notNow = () => {
+    collapse()
+    if (engaged) onFinished()
+  }
 
   if (stage === "collapsed") {
     return (
@@ -112,16 +118,19 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
     let current: CareFacts = factsRef.current ?? data.facts
     if (facts.length) {
       // Ticked facts only, and only as true: not ticking a chip is not "no".
-      const next: CareFacts = { ...current }
-      for (const f of facts) next[f] = true
+      // Only those keys are sent: the profile write merges into the home's
+      // careFacts, so a stale read of the other answers can never overwrite
+      // one given elsewhere (Your Home) meanwhile.
+      const ticked: CareFacts = {}
+      for (const f of facts) ticked[f] = true
       setSavingFacts(true)
-      const res = await upsertHomeProfile(homeId, { care_facts: next })
+      const res = await upsertHomeProfile(homeId, { care_facts: ticked })
       setSavingFacts(false)
       if (res.error) {
         setPickError(`Couldn't save that. ${res.error.message}`)
         return
       }
-      current = next
+      current = { ...current, ...ticked }
       setSavedFacts(true)
     }
     factsRef.current = current
@@ -149,6 +158,8 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
     // The Saturday-then-Sunday spread the first minute's list uses: the first
     // essential added in this visit starts on the first day, every later one on the second.
     const opts = essential ? { firstDue: firstDueDates(localToday(), 2)[essentialsAdded > 0 ? 1 : 0] } : {}
+    /** An item this tap made whose task is not in yet: what a thrown error must take back. */
+    let orphan: { id: string; kind: CareKind } | null = null
     try {
       if (pick.type === "fact") {
         const res = await addLibraryTask(homeId, null, row.entry, opts)
@@ -163,9 +174,12 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
           if (made.error || !made.data) return fail(`Couldn't add that. ${made.error?.message ?? "Try again."}`)
           itemId = made.data.item_unit_id
           madeNow = true
+          orphan = { id: itemId, kind: appliance.kind }
         }
         const res = await addLibraryTask(homeId, itemId, row.entry, opts)
+        if (!res.error) orphan = null
         if (res.error) {
+          orphan = null // handled here, not by the catch
           if (!madeNow) return fail(`Couldn't add that. ${res.error.message}`)
           // No item may be left with zero tasks (Codex): take back the one this
           // tap made, so a retry makes exactly one.
@@ -187,7 +201,8 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
         const facts = factsRef.current ?? data?.facts ?? {}
         if (appliance.fact && facts[appliance.fact] !== true) {
           const next = { ...facts, [appliance.fact]: true }
-          const saved = await upsertHomeProfile(homeId, { care_facts: next })
+          // The one key: the write merges (see seeCare).
+          const saved = await upsertHomeProfile(homeId, { care_facts: { [appliance.fact]: true } })
           // The item and its task do not depend on this; a later question may
           // simply ask again. Logged, not shown.
           if (saved.error) console.warn(`[empty-home] could not record ${appliance.fact} for home ${homeId}:`, saved.error.message)
@@ -196,6 +211,20 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
       }
       setAddedKeys((ks) => [...ks, key])
       if (essential) setEssentialsAdded((n) => n + 1)
+    } catch (e) {
+      // The services return errors rather than throw; a throw is unexpected,
+      // and still must not leave an item with no task or a silent row.
+      const message = e instanceof Error ? e.message : String(e)
+      const left = orphan as { id: string; kind: CareKind } | null
+      console.error(`[empty-home] home ${homeId}: adding ${key} threw${left ? ` after making item ${left.id}` : ""}:`, message)
+      if (left) {
+        const back = await softDeleteItemUnit(homeId, left.id)
+        if (!back.success) {
+          console.error(`[empty-home] home ${homeId}: taking back item ${left.id} failed too:`, back.error)
+          setCreated((m) => new Map(m).set(left.kind, left.id))
+        }
+      }
+      fail(`Couldn't add that. ${message}`)
     } finally {
       setBusyKey(null)
     }
@@ -359,7 +388,7 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
         Brand and model, or the manual, gets you the maker's schedule.
       </p>
       <div className="mt-2 flex justify-center">
-        <button type="button" onClick={collapse} disabled={!ready} className="hit-44 min-h-11 px-2 text-[0.9375rem] font-semibold disabled:opacity-60" style={{ color: SUB }}>
+        <button type="button" onClick={notNow} disabled={!ready} className="hit-44 min-h-11 px-2 text-[0.9375rem] font-semibold disabled:opacity-60" style={{ color: SUB }}>
           Not now
         </button>
       </div>

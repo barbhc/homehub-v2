@@ -202,6 +202,9 @@ function AppliancesCard({ homeId, data, onAdded, onEngaged, onDismiss }: {
           rows={applianceCare(selected, data.ctx)}
           facts={data.facts}
           onCancel={() => setSelected(null)}
+          // Recorded the moment the item exists, so a task that then fails
+          // still leaves Add My Exact Models opening this item, not a second one.
+          onItemCreated={(id) => setCreatedIds((ids) => (ids.includes(id) ? ids : [...ids, id]))}
           onDone={async (taskCount, itemId) => {
             setAdded((xs) => [...xs, selected])
             setCreatedIds((ids) => (ids.includes(itemId) ? ids : [...ids, itemId]))
@@ -236,12 +239,13 @@ function AppliancesCard({ homeId, data, onAdded, onEngaged, onDismiss }: {
   )
 }
 
-function AppliancePanel({ homeId, appliance, rows, facts, onCancel, onDone }: {
+function AppliancePanel({ homeId, appliance, rows, facts, onCancel, onItemCreated, onDone }: {
   homeId: string
   appliance: Appliance
   rows: CareRow[]
   facts: CareFacts
   onCancel: () => void
+  onItemCreated: (itemId: string) => void
   /** Every checked task is in: how many, and the item they are on. */
   onDone: (taskCount: number, itemId: string) => Promise<void>
 }) {
@@ -271,6 +275,7 @@ function AppliancePanel({ homeId, appliance, rows, facts, onCancel, onDone }: {
       }
       id = created.data.item_unit_id
       setItemId(id)
+      onItemCreated(id)
       if (appliance.fact && facts[appliance.fact] !== true) {
         const saved = await upsertHomeProfile(homeId, { care_facts: { ...facts, [appliance.fact]: true } })
         // The item and its tasks do not depend on this; the question card will

@@ -171,6 +171,17 @@ describe("its footer: Add My Exact Models (before-friends B4, D5)", () => {
     expect(screen.getByTestId("landed")).toHaveTextContent("/inventory/add?lane=appliance&kind=dishwasher")
   })
 
+  it("after a half-failed add (item made, task refused): still that item", async () => {
+    svc.taskFailsOnce = true
+    renderRouted()
+    await screen.findByText("What's in your home?")
+    tap("Furnace")
+    tap("Add furnace and 1 task")
+    await screen.findByText(/Your furnace is added, but a task couldn't be/)
+    tap("Add My Exact Models")
+    expect(screen.getByTestId("landed")).toHaveTextContent("/items/item-new")
+  })
+
   it("after an add: the item she just made, never a second one (Codex)", async () => {
     renderRouted()
     await screen.findByText("What's in your home?")

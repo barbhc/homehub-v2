@@ -313,6 +313,18 @@ describe("Add", () => {
     err.mockRestore()
   })
 
+  it("a write that throws (not just errors) says so, and takes back the item it made", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {})
+    addLibraryTask.mockImplementationOnce(async () => { throw new Error("Network down.") })
+    await toCare("Dishwasher")
+    tap("Add Clean the dishwasher filter")
+    expect(await screen.findByText("Couldn't add that. Network down.")).toBeInTheDocument()
+    expect(softDeleteItemUnit).toHaveBeenCalledWith("home-1", "item-1")
+    expect(screen.queryByText("Added")).toBeNull()
+    expect(button("Add Clean the dishwasher filter")).toBeEnabled()
+    err.mockRestore()
+  })
+
   it("while one Add is in flight every other Add is disabled", async () => {
     let finish!: () => void
     addLibraryTask.mockImplementationOnce(() => new Promise((r) => { finish = () => r({ data: { task_template_id: "t" }, error: null }) }))
@@ -388,6 +400,26 @@ describe("Done", () => {
 })
 
 describe("Not now and the collapsed row", () => {
+  it("Not now after See Suggested Care lets go of Home's pin", async () => {
+    renderCard()
+    await loaded()
+    tap("Smoke alarms")
+    tap("See Suggested Care")
+    await screen.findByTestId("empty-home-care")
+    tap("Add Test the smoke alarms")
+    await screen.findByText("Added")
+    tap("Edit what you have")
+    tap("Not now")
+    expect(onFinished).toHaveBeenCalledTimes(1)
+  })
+
+  it("Not now before engaging does not touch Home", async () => {
+    renderCard()
+    await loaded()
+    tap("Not now")
+    expect(onFinished).not.toHaveBeenCalled()
+  })
+
   it("Not now: the collapsed row in the card's place (the full card is not rendered); tapping it brings the card back; the flag survives a remount", async () => {
     const { unmount } = renderCard()
     await loaded()
