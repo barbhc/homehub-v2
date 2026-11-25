@@ -53,19 +53,33 @@ describe("categoryStatus", () => {
   const pests = CATEGORIES.find((c) => c.key === "pests")!
   it("reads unanswered / partial / answered / handed to the building", () => {
     expect(categoryStatus(safety, {})).toBe("Not answered yet")
-    expect(categoryStatus(safety, { has_smoke_alarms: true })).toBe("1 of 2 answered")
-    expect(categoryStatus(safety, { has_smoke_alarms: true, has_extinguisher: false })).toBe("Answered")
+    expect(categoryStatus(safety, { has_smoke_alarms: true })).toBe("1 of 3 answered")
+    expect(categoryStatus(safety, { has_smoke_alarms: true, has_extinguisher: false })).toBe("2 of 3 answered")
+    expect(categoryStatus(safety, { has_smoke_alarms: true, has_co_alarms: false, has_extinguisher: false })).toBe("Answered")
     expect(categoryStatus(pests, { building_handles_pests: true, termite_risk: true })).toBe("The building handles it")
   })
 })
 
 describe("Your home — the questions", () => {
   it("answers already on the home show as answered and unlock their care", async () => {
-    getHomeProfile.mockResolvedValue({ data: { care_facts: { has_smoke_alarms: true, has_extinguisher: true }, dismissed_care: [] }, error: null })
+    getHomeProfile.mockResolvedValue({ data: { care_facts: { has_smoke_alarms: true, has_co_alarms: true, has_extinguisher: true }, dismissed_care: [] }, error: null })
     renderPage()
     expect(await screen.findByText("Answered")).toBeTruthy()
-    expect(screen.getByText("Test smoke and CO alarms")).toBeTruthy()
+    expect(screen.getByText("Test the smoke alarms")).toBeTruthy()
+    // Before-friends B1: the carbon monoxide (CO) answer unlocks its own check.
+    expect(screen.getByText("Check the carbon monoxide (CO) alarm's date")).toBeTruthy()
     expect(screen.getByRole("button", { name: /Add all/ })).toBeTruthy()
+  })
+
+  it("Safety asks about smoke alarms and carbon monoxide (CO) alarms as two questions", async () => {
+    renderPage()
+    fireEvent.click(await screen.findByText("Safety"))
+    expect(screen.getByText("Smoke alarms in the home?")).toBeTruthy()
+    expect(screen.getByText("Carbon monoxide (CO) alarms in the home?")).toBeTruthy()
+    expect(screen.queryByText(/Smoke or carbon/)).toBeNull()
+    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[1])
+    fireEvent.click(screen.getByRole("button", { name: /Save answers/ }))
+    await waitFor(() => expect(upsertHomeProfile).toHaveBeenCalledWith("h1", { care_facts: { has_co_alarms: true } }))
   })
 
   it("a save that fails stays on the questions and says so", async () => {
@@ -107,13 +121,13 @@ describe("Your home — reloads", () => {
     getHomeProfile.mockResolvedValue({ data: { care_facts: { has_smoke_alarms: true }, dismissed_care: [] }, error: null })
     addLibraryTask.mockResolvedValue({ data: {}, error: null })
     renderPage()
-    fireEvent.click(await screen.findByRole("button", { name: "Add Test smoke and CO alarms" }))
-    getTaskTemplates.mockResolvedValue({ data: [homeTask("Test smoke and CO alarms")], error: null })
+    fireEvent.click(await screen.findByRole("button", { name: "Add Test the smoke alarms" }))
+    getTaskTemplates.mockResolvedValue({ data: [homeTask("Test the smoke alarms")], error: null })
 
     // Back from the reload (its spinner hides every row while it runs), without the added one.
     await waitFor(() => {
       expect(screen.getByText("Replace alarm batteries")).toBeTruthy()
-      expect(screen.queryByText("Test smoke and CO alarms")).toBeNull()
+      expect(screen.queryByText("Test the smoke alarms")).toBeNull()
     })
     expect(addLibraryTask).toHaveBeenCalledTimes(1)
   })

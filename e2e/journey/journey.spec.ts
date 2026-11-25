@@ -147,7 +147,7 @@ test.describe("journey walks", () => {
     await expect(page.getByText("Worth doing this month")).toBeVisible({ timeout: 20_000 })
     const rows = page.getByTestId("first-list-row")
     await expect(rows).toHaveCount(3)
-    await expect(rows.nth(0)).toContainText("Test smoke and CO alarms")
+    await expect(rows.nth(0)).toContainText("Test the smoke alarms")
     await expect(rows.nth(1)).toContainText("Replace the air filter")
     await expect(rows.nth(2)).toContainText("Check the water heater's quake straps")
     await expect(page.getByTestId("not-on-your-list")).toContainText("Winterizing: it rarely freezes here.")
@@ -181,22 +181,29 @@ test.describe("journey walks", () => {
     // Home, next (design/home-next.md): the first task as Next up, the other one
     // tap away in Tasks ("1 more this week"), each task's next round under
     // Coming up, In a pinch asking for the basics.
-    await expect(page.getByTestId("next-up-title").filter(visible).first()).toHaveText("Test smoke and CO alarms", { timeout: 20_000 })
+    await expect(page.getByTestId("next-up-title").filter(visible).first()).toHaveText("Test the smoke alarms", { timeout: 20_000 })
     await expect(page.getByRole("link", { name: /1 more this week/ }).filter(visible)).toBeVisible()
     await expect(page.getByText("Let's set up your home")).toHaveCount(0)
+    // A home with tasks is not the empty-Home card's (before-friends mock 1).
+    await expect(page.getByTestId("empty-home-card")).toHaveCount(0)
     const nextCard = page.getByTestId("appliances-card").filter(visible).first()
     await expect(nextCard).toContainText("What's in your home?")
     await expect(page.getByTestId("coming-up").filter(visible).first()).toBeVisible()
     await expect(page.getByTestId("in-a-pinch").filter(visible).first()).toContainText("Water shutoff")
-    await snap(page, "J1", "home-first-tasks", "Home after the first minute: 'Test smoke and CO alarms' as Next up with Mark done + Snooze, '1 more this week'; Coming up with its next round; 'What's in your home?' chips; In a pinch rows saying Add — no set-up hero, no tour yet",
+    // B4 (D5): the card's footer is Add My Exact Models now, not "Snap a label instead".
+    await expect(nextCard.getByText(/Snap a label instead/)).toHaveCount(0)
+    await snap(page, "J1", "home-first-tasks", "Home after the first minute: 'Test the smoke alarms' as Next up with Mark done + Snooze, '1 more this week'; Coming up with its next round; 'What's in your home?' chips with Add My Exact Models under them; In a pinch rows saying Add — no set-up hero, no tour yet",
       nextCard)
-    await nextCard.getByRole("link", { name: /Snap a label instead/ }).click()
-    await page.waitForURL(/\/inventory\/add/, { timeout: 20_000 })
+    await nextCard.getByRole("button", { name: "Add My Exact Models" }).click()
+    // Nothing selected, nothing made: the add screen's appliance lane.
+    await page.waitForURL(/\/inventory\/add\?lane=appliance$/, { timeout: 20_000 })
+    await expect(page.locator("#identify-brand").filter(visible).first()).toBeVisible({ timeout: 20_000 })
+    await page.getByRole("button", { name: /^Back$/ }).filter(visible).first().click()
 
     // First item through the simple lane. REGRESSION GUARD (2026-08-21): the
     // Name field must be on the MAIN COLUMN — it was trapped inside the
     // collapsed "Add more details" accordion, dead-ending every simple add.
-    await snap(page, "J1", "lane-chooser", "Two-lane start: Appliance or device / Everything else",
+    await snap(page, "J1", "lane-chooser", "Two-lane start (Back from the appliance lane): Appliance or device / Everything else",
       page.getByRole("button", { name: /Everything else/ }).first())
     await page.getByRole("button", { name: /Everything else/ }).click()
     const name = page.locator("#identify-name")
@@ -244,7 +251,7 @@ test.describe("journey walks", () => {
     // With an item and the first minute's tasks, Home is a working home: its
     // week, no "No upkeep yet", no label card, and no profile nag (the zip and
     // home type answered what the old five questions were for).
-    const week = page.getByText("Test smoke and CO alarms").filter(visible).first()
+    const week = page.getByText("Test the smoke alarms").filter(visible).first()
     await expect(week).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText(/No upkeep yet/i)).toHaveCount(0)
     await expect(page.getByTestId("snap-label-card")).toHaveCount(0)
@@ -252,6 +259,100 @@ test.describe("journey walks", () => {
     await expect(page.getByText("Finish your home profile")).toHaveCount(0)
     await snap(page, "J1", "home-after-first-item", "Home after the first item: This week with the first minute's tasks; the appliance and label cards gone (one question about the home instead); no profile nag",
       week)
+  })
+
+  /**
+   * J1, the empty-Home path (before-friends mock 1, plan B6): Not now on the
+   * starter list leaves a home with nothing in it, and Home asks "What's in
+   * your home?" in the old set-up hero's place. Its own fresh account (its
+   * sentinel): specs in one run share seeded state.
+   */
+  test("J1 — empty Home: Not now on the starter list, then What's in your home?", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-18T10:00:00"))
+    await page.goto("/onboarding/first")
+    const zipField = page.getByLabel("Zip code")
+    await expect(zipField.filter(visible).first()).toBeVisible({ timeout: 20_000 })
+    await zipField.fill("94110")
+    await page.getByRole("button", { name: /^Continue$/ }).click()
+    await expect(page.getByText("94110 · San Francisco County")).toBeVisible({ timeout: 20_000 })
+    await page.getByRole("radio", { name: /Condo/ }).click()
+    await page.getByRole("button", { name: "See this month" }).click()
+    await expect(page.getByText("Worth doing this month")).toBeVisible({ timeout: 20_000 })
+    // Not now on the list: nothing is added, and the sheet asks to keep the area and home type.
+    await page.getByRole("button", { name: "Not now" }).click()
+    const sheet = page.getByTestId("keep-list-sheet")
+    await expect(sheet.getByRole("heading", { name: "Keep your area and home type" })).toBeVisible({ timeout: 10_000 })
+    await sheet.getByRole("button", { name: "Continue with email" }).click()
+    await sheet.getByLabel("Email").fill(`journey-empty-${Date.now()}@homehub.test`)
+    await sheet.getByLabel("Password", { exact: true }).fill("JourneyWalk!2026")
+    await sheet.getByRole("button", { name: "Create account" }).click()
+    await page.waitForURL(/\/home/, { timeout: 20_000 })
+
+    // must-be-true 1: the card in the welcome card's place; the old hero and
+    // the monthly card are not rendered at all.
+    const card = page.getByTestId("empty-home-card").filter(visible).first()
+    await expect(card).toContainText("What's in your home?", { timeout: 20_000 })
+    await expect(page.getByText("Let's set up your home")).toHaveCount(0)
+    await expect(page.getByText("Add your first item")).toHaveCount(0)
+    await expect(page.getByText("This month at your home")).toHaveCount(0)
+    await expect(card.getByText(/Snap a label/)).toHaveCount(0)
+    await expect(card.getByRole("button", { name: "Carbon monoxide (CO) alarms" })).toBeVisible()
+    await expect(card.getByRole("button", { name: "See Suggested Care" })).toBeDisabled()
+    await snap(page, "J1", "empty-home-pick", "Empty Home after Not now on the starter list: 'What's in your home?' — Safety (Smoke alarms, Carbon monoxide (CO) alarms, Fire extinguisher), Heating and water, Appliances with More…; See Suggested Care disabled; Add My Exact Models outlined; Not now — no 'Let's set up your home', no monthly card",
+      card)
+
+    // Not now: one line in the card's place, kept across a reload; a tap brings the card back.
+    await card.getByRole("button", { name: "Not now" }).click()
+    const collapsed = page.getByTestId("empty-home-collapsed").filter(visible).first()
+    await expect(collapsed).toContainText("Tell us what's in your home")
+    await expect(collapsed).toContainText("You can add a model or manual anytime in Items.")
+    await expect(page.getByTestId("empty-home-card")).toHaveCount(0)
+    await snap(page, "J1", "empty-home-collapsed", "Not now: only the one-line row 'Tell us what's in your home' with 'You can add a model or manual anytime in Items.' and a chevron; the full card is gone",
+      collapsed)
+    await page.reload()
+    await expect(page.getByTestId("empty-home-collapsed").filter(visible).first()).toBeVisible({ timeout: 20_000 })
+    await page.getByTestId("empty-home-collapsed").filter(visible).first().getByRole("button").click()
+    const again = page.getByTestId("empty-home-card").filter(visible).first()
+    await expect(again).toBeVisible()
+
+    // Pick: smoke, carbon monoxide (CO), water heater, dishwasher (the mock's four).
+    for (const chip of ["Smoke alarms", "Carbon monoxide (CO) alarms", "Water heater", "Dishwasher"]) {
+      await again.getByRole("button", { name: chip }).click()
+      await expect(again.getByRole("button", { name: chip })).toHaveAttribute("aria-pressed", "true")
+    }
+    await expect(again.getByRole("button", { name: "See Suggested Care" })).toBeEnabled()
+    await snap(page, "J1", "empty-home-ticked", "Four chips ticked (filled, with a check): Smoke alarms, Carbon monoxide (CO) alarms, Water heater, Dishwasher; See Suggested Care on",
+      again)
+    await again.getByRole("button", { name: "See Suggested Care" }).click()
+
+    // Care: one row each, nothing scheduled until its own Add.
+    const care = page.getByTestId("empty-home-care").filter(visible).first()
+    await expect(care.getByRole("heading", { name: "Suggested for your home" })).toBeVisible({ timeout: 20_000 })
+    const careRows = care.getByTestId("empty-home-row")
+    await expect(careRows).toHaveCount(5) // 94110 is earthquake country: the water heater's quake straps too
+    await expect(careRows.nth(0)).toContainText("Test the smoke alarms")
+    await expect(careRows.nth(1)).toContainText("Check the carbon monoxide (CO) alarm's date")
+    await expect(careRows.nth(2)).toContainText("Flush the water heater")
+    await expect(careRows.nth(4)).toContainText("Clean the dishwasher filter")
+    await care.getByRole("button", { name: "Add Test the smoke alarms" }).click()
+    await expect(careRows.nth(0)).toContainText("Added", { timeout: 20_000 })
+    await care.getByRole("button", { name: "Add Clean the dishwasher filter" }).click()
+    await expect(careRows.nth(4)).toContainText("Added", { timeout: 20_000 })
+    await expect(care).toContainText("Your answers are saved with your home. Change them anytime in Your Home.")
+    await snap(page, "J1", "empty-home-care", "Suggested for your home: smoke test and dishwasher filter read ✓ Added; the carbon monoxide (CO) check (with its why), the water heater flush and quake straps still offer Add; the saved-answers line; Done filled; Edit what you have",
+      care)
+
+    // Done: the normal Home, with the two tasks she added and no second "What's in your home?".
+    await care.getByRole("button", { name: "Done" }).click()
+    await expect(page.getByTestId("next-up-title").filter(visible).first()).toHaveText("Test the smoke alarms", { timeout: 20_000 })
+    await expect(page.getByTestId("empty-home-care")).toHaveCount(0)
+    await expect(page.getByTestId("empty-home-card")).toHaveCount(0)
+    await expect(page.getByTestId("appliances-card")).toHaveCount(0)
+    // D10: the tour waits for the next visit to Home; it does not start in this one.
+    await page.waitForTimeout(1_500)
+    await expect(page.locator(".homehub-tour-popover")).toHaveCount(0)
+    await snap(page, "J1", "empty-home-done", "After Done: the normal Home — 'Test the smoke alarms' as Next up; no set-up card, no appliances card; the tour has not started in this visit (D10)",
+      page.getByTestId("next-up-title").filter(visible).first())
   })
 
   /**

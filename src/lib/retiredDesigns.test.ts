@@ -192,12 +192,15 @@ describe("the add-item flow has one way in and no way into an old screen", () =>
     // The second one is deliberate (design/day-one-home.md, owner 2026-11-19):
     // a tap on "Furnace" adds an item with no label, its typical care, and the
     // label later. Any third creator is a new add flow and needs the same review.
+    // Since before-friends B2 both of Home's "What's in your home?" cards (the
+    // empty-Home card and the appliances card) make that item through one
+    // helper, createApplianceItem in dayOneData.ts.
     const creators = sources
       .filter((s) => /\bcreateItemUnit\s*\(/.test(s.text))
       .map((s) => s.path)
       .filter((p) => !p.includes("/services/") && !p.includes("/hooks/") && !p.includes("/modules/"))
       .sort()
-    expect(creators).toEqual(["src/components/home/NextStepCard.tsx", "src/pages/SmartAddItem.tsx"])
+    expect(creators).toEqual(["src/components/home/dayOneData.ts", "src/pages/SmartAddItem.tsx"])
   })
 })
 

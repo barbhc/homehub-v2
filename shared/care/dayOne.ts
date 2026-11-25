@@ -94,6 +94,116 @@ export function applianceCare(a: Appliance, ctx: HomeContext): CareRow[] {
   return rows
 }
 
+// ── "What's in your home?" on an empty Home (before-friends B2) ───────────────
+
+/**
+ * One chip on the empty-Home card. A fact chip is a thing the home has
+ * (smoke alarms); an appliance chip becomes an item when its first task is
+ * added (D1), as the appliances card already does.
+ */
+export type HomePick =
+  | { type: "fact"; id: string; label: string; fact: keyof CareFacts; entries: string[] }
+  | { type: "appliance"; id: string; label: string; appliance: Appliance; more?: boolean }
+
+const applianceOf = (kind: CareKind): Appliance => {
+  const a = APPLIANCES.find((x) => x.kind === kind)
+  if (!a) throw new Error(`No appliance for kind ${kind}`)
+  return a
+}
+/** Built from APPLIANCES by kind, so there is one list of appliances, not two.
+ *  `more` here is this card's own: Range hood sits behind More… on it, while
+ *  the old card keeps reading APPLIANCES' flags. */
+const appliancePick = (kind: CareKind, more = false): HomePick => {
+  const appliance = applianceOf(kind)
+  return { type: "appliance", id: kind, label: appliance.label, appliance, ...(more ? { more: true } : {}) }
+}
+
+/**
+ * The chips, in the mock's groups and order. D3: Smoke alarms offers the alarm
+ * test only; the yearly battery change stays where it is offered today (Tasks →
+ * Suggested, and the monthly card in March and November).
+ */
+export const HOME_PICK_GROUPS: { title: string; picks: HomePick[] }[] = [
+  {
+    title: "Safety",
+    picks: [
+      { type: "fact", id: "smoke", label: "Smoke alarms", fact: "has_smoke_alarms", entries: ["home.alarm_test"] },
+      { type: "fact", id: "co", label: "Carbon monoxide (CO) alarms", fact: "has_co_alarms", entries: ["home.co_alarm_check"] },
+      { type: "fact", id: "extinguisher", label: "Fire extinguisher", fact: "has_extinguisher", entries: ["home.extinguisher"] },
+    ],
+  },
+  { title: "Heating and water", picks: [appliancePick("furnace"), appliancePick("hvac"), appliancePick("water_heater")] },
+  {
+    title: "Appliances",
+    picks: [
+      appliancePick("dishwasher"), appliancePick("washer"), appliancePick("dryer"), appliancePick("refrigerator"),
+      appliancePick("range_hood", true), appliancePick("air_purifier", true), appliancePick("coffee_machine", true), appliancePick("food_recycler", true),
+    ],
+  },
+]
+
+const PICK_ORDER = HOME_PICK_GROUPS.flatMap((g) => g.picks.map((p) => p.id))
+
+export interface PickCareRow {
+  pickId: string
+  entry: CareEntry
+}
+
+/**
+ * One list for everything ticked, in group order, one row per archetype. ONE
+ * `covered` set runs through every pick, so Furnace plus Central air yields a
+ * single "Replace the air filter"; dismissed keys, area gates and the home's
+ * existing tasks are skipped exactly as `applianceCare` skips them.
+ */
+export function careForPicks(picks: HomePick[], ctx: HomeContext): PickCareRow[] {
+  const covered = coveredBy(ctx.existingTitles)
+  const gone = new Set(ctx.dismissed ?? [])
+  const here = new Set(ctx.area ?? [])
+  const ordered = [...picks].sort((a, b) => PICK_ORDER.indexOf(a.id) - PICK_ORDER.indexOf(b.id))
+  const rows: PickCareRow[] = []
+  for (const pick of ordered) {
+    const entries = pick.type === "fact"
+      ? pick.entries.map((k) => entryByKey(k)).filter((e): e is CareEntry => !!e)
+      : [
+          ...suggestionsForItem({ display_name: pick.appliance.label, category: pick.appliance.kind }, []).map((s) => s.entry),
+          ...(pick.appliance.extra ?? []).map((k) => entryByKey(k)).filter((e): e is CareEntry => !!e),
+        ]
+    for (const entry of entries) {
+      if (!offerable(entry, covered, gone, here)) continue
+      covered.add(entry.archetype)
+      rows.push({ pickId: pick.id, entry })
+    }
+  }
+  return rows
+}
+
+/**
+ * The add screen's "What is it?" chip for an appliance kind, when it has one
+ * (KIND_CHIPS' subTypes in src/components/smart-add/identifyData.ts). Central
+ * air, the range hood and the More… kinds have no chip.
+ */
+export const KIND_SUBTYPE: Partial<Record<CareKind, string>> = {
+  dishwasher: "dishwasher",
+  washer: "washing-machine",
+  dryer: "dryer",
+  refrigerator: "refrigerator",
+  water_heater: "water-heater",
+  furnace: "hvac-furnace",
+}
+
+/**
+ * Where "Add My Exact Models" goes (before-friends B2 and B4). An item made in
+ * this visit is where its brand, model and manual go: one → its page, several
+ * → Items. Otherwise the add screen's appliance lane, with the kind pre-picked
+ * when exactly one appliance is ticked and the add screen has a chip for it.
+ */
+export function exactModelsTarget(createdItemIds: string[], tickedKinds: CareKind[]): string {
+  if (createdItemIds.length === 1) return `/items/${createdItemIds[0]}`
+  if (createdItemIds.length > 1) return "/inventory"
+  const sub = tickedKinds.length === 1 ? KIND_SUBTYPE[tickedKinds[0]] : undefined
+  return `/inventory/add?lane=appliance${sub ? `&kind=${sub}` : ""}`
+}
+
 // ── one question at a time ────────────────────────────────────────────────────
 
 interface Question {
@@ -106,7 +216,9 @@ interface Question {
 const QUESTIONS: Question[] = [
   { fact: "has_air_filter", text: "Do you have a furnace or central air?", entries: ["home.air_filter"] },
   { fact: "has_water_heater", text: "Is there a water heater that's yours to look after?", entries: ["home.water_heater", "home.quake_straps"] },
-  { fact: "has_smoke_alarms", text: "Do you have smoke or CO alarms?", entries: ["home.alarm_test", "home.alarm_batteries"] },
+  // Before-friends B1: smoke and carbon monoxide (CO) are separate answers.
+  { fact: "has_smoke_alarms", text: "Do you have smoke alarms?", entries: ["home.alarm_test", "home.alarm_batteries"] },
+  { fact: "has_co_alarms", text: "Do you have carbon monoxide (CO) alarms?", entries: ["home.co_alarm_check"] },
   { fact: "has_extinguisher", text: "Do you have a fire extinguisher?", entries: ["home.extinguisher"] },
   { fact: "has_gutters", text: "Does your home have gutters?", entries: ["home.gutters"] },
 ]
@@ -118,6 +230,7 @@ const ADDS: Record<string, string> = {
   "home.quake_straps": "a yearly quake-strap check",
   "home.alarm_test": "an alarm test twice a year",
   "home.alarm_batteries": "a yearly battery change",
+  "home.co_alarm_check": "a yearly check of its replace-by date",
   "home.extinguisher": "a 3-minute yearly check",
   "home.gutters": "a gutter clean in spring and fall",
 }

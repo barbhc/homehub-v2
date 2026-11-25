@@ -23,15 +23,18 @@ function state(totalItems: number, scheduledTaskCount: number) {
   const isNewUser = noItems && scheduledTaskCount === 0
   const tasksBeforeItems = noItems && !isNewUser
   const hasItemsNoUpkeep = !isNewUser && scheduledTaskCount === 0
-  if (isNewUser) return "empty-hero"
+  if (isNewUser) return "whats-in-your-home"
   if (hasItemsNoUpkeep) return "no-upkeep-hero"
   if (tasksBeforeItems) return "agenda-and-label-card"
   return "agenda"
 }
 
 describe("which Home a user gets", () => {
-  it("a brand-new account is offered the setup hero", () => {
-    expect(state(0, 0)).toBe("empty-hero")
+  it("a brand-new account is offered What's in your home? (before-friends mock 1)", () => {
+    expect(state(0, 0)).toBe("whats-in-your-home")
+    expect(home).toContain("<WhatsInYourHomeCard")
+    expect(home).not.toContain("Let&apos;s set up your home")
+    expect(home).not.toContain("EmptyHomeHero")
   })
 
   it("items with no upkeep get the add-a-manual hero — the reported case", () => {
@@ -39,7 +42,7 @@ describe("which Home a user gets", () => {
   })
 
   it("tasks but no items (the first minute's list, D8) is a working home: its agenda, and the label as the next step", () => {
-    // Was "empty-hero": Home keyed "new" on items alone, so the first list's
+    // Was "whats-in-your-home": Home keyed "new" on items alone, so the first list's
     // tasks were invisible behind "Let's set up your home".
     expect(state(0, 2)).toBe("agenda-and-label-card")
     expect(home).toContain("const isNewUser = noItems && (stats?.scheduledTaskCount ?? 0) === 0")
@@ -72,7 +75,8 @@ describe("precedence", () => {
   it("the profile nag yields to the upkeep prompt", () => {
     // Both ask for the user's next action. Four profile questions produce no
     // tasks; a manual does.
-    expect(home).toContain("{!isNewUser && !hasItemsNoUpkeep && !tasksBeforeItems && profileIncomplete && homeId && (")
+    // showSetup = isNewUser, or the empty-Home card pinned mid-flow (before-friends B3).
+    expect(home).toContain("{!showSetup && !hasItemsNoUpkeep && !tasksBeforeItems && profileIncomplete && homeId && (")
   })
 
   it("does not tell them to add an item they have already added", () => {

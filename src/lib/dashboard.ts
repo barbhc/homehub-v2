@@ -174,7 +174,7 @@ const SEASONAL_SUGGESTIONS: SeasonalSuggestion[] = [
   { months: [9], match: /dryer/i, text: "Clean the dryer vent before heavier cool-weather use." },
   { months: [11], match: /water.?heater|furnace|hvac/i, text: "Insulate exposed pipes around your water heater and furnace." },
   // Universal — applies to any home regardless of inventory.
-  { months: [11], match: null, text: "Test smoke and CO detectors before heating season." },
+  { months: [11], match: null, text: "Test smoke and carbon monoxide (CO) detectors before heating season." },
   { months: [0], match: null, text: "Review appliance warranties and book any overdue service." },
 ]
 

@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { MemoryRouter } from "react-router-dom"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { SWRConfig } from "swr"
 
 const svc = vi.hoisted(() => ({
@@ -50,6 +50,22 @@ const renderCard = (totalItems = 0) =>
     </SWRConfig>,
   )
 const tap = (name: string | RegExp) => fireEvent.click(screen.getByRole("button", { name }))
+/** Where a navigation landed: the card on /home, anything else prints its address. */
+function Landed() {
+  const loc = useLocation()
+  return <p data-testid="landed">{loc.pathname + loc.search}</p>
+}
+const renderRouted = () =>
+  render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      <MemoryRouter initialEntries={["/home"]}>
+        <Routes>
+          <Route path="/home" element={<NextStepCard homeId="home-1" totalItems={0} onChanged={onChanged} />} />
+          <Route path="*" element={<Landed />} />
+        </Routes>
+      </MemoryRouter>
+    </SWRConfig>,
+  )
 
 beforeEach(() => {
   Object.assign(svc, { items: [], titles: ["Test smoke and CO alarms"], facts: {}, loadFails: false, taskFailsOnce: false, saveFails: false })
@@ -128,6 +144,45 @@ describe("What's in your home?", () => {
   })
 })
 
+describe("its footer: Add My Exact Models (before-friends B4, D5)", () => {
+  it("replaces Snap a label instead", async () => {
+    renderCard()
+    await screen.findByText("What's in your home?")
+    expect(screen.getByRole("button", { name: "Add My Exact Models" })).toBeInTheDocument()
+    expect(screen.getByText("Brand and model, or the manual, gets you the maker's schedule.")).toBeInTheDocument()
+    expect(screen.queryByText(/Snap a label instead/)).toBeNull()
+    // The first line stays.
+    expect(screen.getByText("Tap what you have to get its typical care. Snap its label later for the exact schedule.")).toBeInTheDocument()
+  })
+
+  it("nothing selected: the appliance lane", async () => {
+    renderRouted()
+    await screen.findByText("What's in your home?")
+    tap("Add My Exact Models")
+    expect(screen.getByTestId("landed")).toHaveTextContent("/inventory/add?lane=appliance")
+    expect(screen.getByTestId("landed").textContent).not.toContain("kind=")
+  })
+
+  it("a selected chip that the add screen knows: its kind pre-picked", async () => {
+    renderRouted()
+    await screen.findByText("What's in your home?")
+    tap("Dishwasher")
+    tap("Add My Exact Models")
+    expect(screen.getByTestId("landed")).toHaveTextContent("/inventory/add?lane=appliance&kind=dishwasher")
+  })
+
+  it("after an add: the item she just made, never a second one (Codex)", async () => {
+    renderRouted()
+    await screen.findByText("What's in your home?")
+    tap("Furnace")
+    tap("Add furnace and 1 task")
+    await screen.findByText("Added your furnace with 1 task.")
+    tap("Add My Exact Models")
+    expect(screen.getByTestId("landed")).toHaveTextContent("/items/item-new")
+    expect(createItemUnit).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe("one question", () => {
   it("Yes saves the answer, then offers the task; nothing is added until Add", async () => {
     renderCard(1)
@@ -169,7 +224,7 @@ describe("one question", () => {
 
 describe("when nothing is left", () => {
   it("no items: the label card; some items: nothing", async () => {
-    svc.facts = { has_air_filter: false, has_water_heater: false, has_smoke_alarms: false, has_extinguisher: false, has_gutters: false }
+    svc.facts = { has_air_filter: false, has_water_heater: false, has_smoke_alarms: false, has_co_alarms: false, has_extinguisher: false, has_gutters: false }
     window.localStorage.setItem("hh.dayOne.appliancesDismissed.home-1", "1")
     const { unmount } = renderCard(0)
     expect(await screen.findByTestId("snap-label-card")).toBeInTheDocument()

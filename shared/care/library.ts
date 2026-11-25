@@ -77,7 +77,7 @@ export type Archetype =
   | "filter.replace.hepa" | "filter.replace.carbon" | "filter.replace.water" | "filter.replace.air"
   | "filter.clean.pre" | "filter.clean.mesh" | "filter.clean.lint" | "filter.clean.drain" | "filter.clean.inlet"
   | "sensor.clean" | "descale" | "duct.clean" | "tub.clean" | "coils.clean"
-  | "safety.test.alarm" | "battery.replace.alarm" | "flush.tank" | "service.pro"
+  | "safety.test.alarm" | "battery.replace.alarm" | "alarm.co.check" | "flush.tank" | "service.pro"
   | "pest.termite" | "pest.bird" | "pest.rodent" | "gutters.clean" | "extinguisher.check"
   | "quake.strap" | "freeze.taps" | "wildfire.clear" | "hurricane.prep"
   // Seasonal entries for the monthly card (owner approved 2026-11-20)
@@ -98,6 +98,11 @@ const ARCHETYPE_RULES: [Archetype, RegExp][] = [
   ["duct.clean", /\b(duct\w*|vent)\b.*\b(clean|inspect|lint)\b|\b(clean|inspect)\b.*\b(duct\w*|vent)\b/i],
   ["tub.clean", /\b(tub|drum)\b.*\bclean\b|\bclean\b.*\b(tub|drum)\b/i],
   ["coils.clean", /\b(condenser|coil)/i],
+  // Before the alarm test and the battery change: a carbon monoxide (CO)
+  // alarm's replace-by date is its own task (before-friends B1). Needs the
+  // alarm AND a date word, so "Test the CO alarm" stays the test and "Check
+  // the condenser coil date" never reads as an alarm.
+  ["alarm.co.check", /\b(carbon monoxide|co)\b.*\b(alarm|detector)('s|s)?\b.*\b(date|expir\w*|end[\s-]of[\s-]life|replace[\s-]by)\b/i],
   ["safety.test.alarm", /\btest\b.*\b(smoke|co|carbon monoxide|alarm|detector)/i],
   ["battery.replace.alarm", /\b(replace|change)\b.*\bbatter/i],
   ["flush.tank", /\b(flush|drain)\b.*\b(tank|water heater)\b/i],
@@ -173,6 +178,8 @@ export interface CareEntry {
 /** Answers from the home-setup questionnaire that gate home-level entries. */
 export interface CareFacts {
   has_smoke_alarms?: boolean
+  /** Carbon monoxide (CO) alarms, asked apart from smoke since before-friends B1. */
+  has_co_alarms?: boolean
   has_extinguisher?: boolean
   has_water_heater?: boolean
   has_hvac_service?: boolean
@@ -199,6 +206,7 @@ export type AreaGate = "earthquake" | "wildfire" | "hurricane" | "freeze"
 
 const MFR = "Typical manufacturer guidance for this category"
 const NFPA = "NFPA and USFA guidance on alarm testing"
+const CO_EOL = "Alarm makers' end-of-life guidance (Kidde, First Alert)"
 const PEST = "Pest-industry guidance (annual inspections; quarterly bird control)"
 // D8 starter entries (design/first-minute-onboarding.md), each checked 2026-11-19.
 const ENERGY_STAR = "ENERGY STAR: check the filter monthly, change it at least every 3 months"
@@ -240,8 +248,13 @@ export const LIBRARY: CareEntry[] = [
   // ── descaling and the indicator-driven backstop ──
   { key: "coffee_machine.descale", kind: "coffee_machine", archetype: "descale", title: "Descale the machine", careType: "maintenance", priorityTier: "essential", riskLevel: "prevent_damage", scheduleType: "quarterly", minutes: 25, cadenceLabel: "About every 3 months", why: "Scale narrows the boiler and is the usual cause of a machine that runs cool or slow.", how: "Descaling solution per the manual, run the descale program, rinse twice.", source: MFR, indicator: true },
   // ── safety devices ──
-  { key: "home.alarm_test", kind: "home", archetype: "safety.test.alarm", title: "Test smoke and CO alarms", careType: "maintenance", priorityTier: "essential", riskLevel: "safety", scheduleType: "semiannual", minutes: 5, cadenceLabel: "Twice a year", why: "The one test that has to work on the night it matters.", how: "Press and hold the test button on each unit until it sounds.", source: NFPA, fact: "has_smoke_alarms" },
+  // Before-friends B1: smoke and carbon monoxide (CO) are two answers now.
+  // Existing tasks keep their stored title ("Test smoke and CO alarms").
+  { key: "home.alarm_test", kind: "home", archetype: "safety.test.alarm", title: "Test the smoke alarms", careType: "maintenance", priorityTier: "essential", riskLevel: "safety", scheduleType: "semiannual", minutes: 5, cadenceLabel: "Twice a year", why: "The one test that has to work on the night it matters.", how: "Press and hold the test button on each unit until it sounds.", source: NFPA, fact: "has_smoke_alarms" },
   { key: "home.alarm_batteries", kind: "home", archetype: "battery.replace.alarm", title: "Replace alarm batteries", careType: "maintenance", priorityTier: "essential", riskLevel: "safety", scheduleType: "annual", minutes: 15, cadenceLabel: "Yearly", why: "A chirping alarm gets pulled down; a dead one stays silent.", how: "Fresh batteries in every unit at once; note the date inside the cover.", source: NFPA, fact: "has_smoke_alarms" },
+  // D4: "Most last 5 to 10 years", not one maker's 7 to 10 (Kidde says 7 to 10,
+  // others 5 to 7). The date on the unit is what counts.
+  { key: "home.co_alarm_check", kind: "home", archetype: "alarm.co.check", title: "Check the carbon monoxide (CO) alarm's date", careType: "maintenance", priorityTier: "essential", riskLevel: "safety", scheduleType: "annual", minutes: 2, cadenceLabel: "Yearly", why: "Their sensors wear out. Most last 5 to 10 years, and the replace-by date is on the back.", how: "Read the date on the back of each alarm. Replace any that are past it, or that chirp after a new battery.", source: CO_EOL, fact: "has_co_alarms" },
   { key: "home.extinguisher", kind: "home", archetype: "extinguisher.check", title: "Check the fire extinguisher", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 3, cadenceLabel: "Yearly", why: "Gauge in the green, pin in place, nothing blocking it.", how: "Read the gauge, check the tag date, shake a dry-chemical unit.", source: NFPA, fact: "has_extinguisher" },
   { key: "home.water_heater", kind: "home", archetype: "flush.tank", title: "Flush the water heater", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 45, cadenceLabel: "Yearly", why: "Sediment shortens the tank's life and makes it noisy and slow.", how: "Power off, hose on the drain valve, drain a few gallons until clear.", source: MFR, fact: "has_water_heater" },
   { key: "home.air_filter", kind: "home", archetype: "filter.replace.air", title: "Replace the air filter", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "quarterly", minutes: 10, cadenceLabel: "Every 1–3 months", why: "A clogged filter makes the system work harder, raises the bill and shortens its life.", how: "Note the size on the old filter's frame, slide it out, fit the new one with the arrow toward the unit.", source: ENERGY_STAR, fact: "has_air_filter" },

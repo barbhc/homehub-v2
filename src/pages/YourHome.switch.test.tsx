@@ -82,7 +82,7 @@ function setDocs(a: Doc, b: Doc) {
 beforeEach(() => {
   vi.clearAllMocks()
   svc.homeId = "home-a"
-  // B already says "no alarms" — one of Safety's two questions answered.
+  // B already says "no smoke alarms" — one of Safety's three questions answered.
   setDocs({ care_facts: {}, dismissed_care: [] }, { care_facts: { has_smoke_alarms: false }, dismissed_care: [] })
   svc.getHomeProfile.mockImplementation(async (homeId: string) => ({ data: structuredClone(svc.docs[homeId]), error: null }))
   svc.getTaskTemplates.mockResolvedValue({ data: [], error: null })
@@ -99,8 +99,9 @@ describe("Your home — a write lands on the home it was started for", () => {
     const { rerender } = render(page())
     fireEvent.click(await screen.findByText("Safety"))
     const yes = screen.getAllByRole("radio", { name: "Yes" })
+    // Safety's questions: smoke [0], carbon monoxide (CO) [1] (before-friends B1), extinguisher [2].
     fireEvent.click(yes[0])
-    fireEvent.click(yes[1])
+    fireEvent.click(yes[2])
     fireEvent.click(screen.getByRole("button", { name: /Save answers/ }))
     switchTo("home-b", rerender)
     await homeBRead()
@@ -115,7 +116,7 @@ describe("Your home — a write lands on the home it was started for", () => {
     expect(svc.docs["home-a"].care_facts).toEqual({ has_smoke_alarms: true, has_extinguisher: true })
     expect(svc.docs["home-b"].care_facts).toEqual({ has_smoke_alarms: false })
     // B's screen is still B's: Safety half answered, and none of the care A's answers unlock.
-    expect(safetyRow()).toHaveTextContent("1 of 2 answered")
+    expect(safetyRow()).toHaveTextContent("1 of 3 answered")
     expect(screen.queryByText("Replace alarm batteries")).toBeNull()
   })
 
@@ -123,9 +124,9 @@ describe("Your home — a write lands on the home it was started for", () => {
     const landA = await saveAnswersOnASwitchingToB()
     await act(async () => { landA() })
 
-    // On B: Safety, the second question "Yes", Save.
+    // On B: Safety, the extinguisher question "Yes", Save.
     fireEvent.click(await screen.findByRole("button", { name: /^Safety/ }))
-    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[1])
+    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[2])
     fireEvent.click(screen.getByRole("button", { name: /Save answers/ }))
     await waitFor(() => expect(svc.upsertHomeProfile).toHaveBeenCalledTimes(2))
 
@@ -148,7 +149,7 @@ describe("Your home — a write lands on the home it was started for", () => {
     await act(async () => { landA(REFUSED) })
 
     expect(screen.queryByRole("alert")).toBeNull()
-    expect(safetyRow()).toHaveTextContent("1 of 2 answered")
+    expect(safetyRow()).toHaveTextContent("1 of 3 answered")
     expect(svc.docs["home-b"].care_facts).toEqual({ has_smoke_alarms: false })
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("home home-a"), "unavailable")
   })
@@ -157,29 +158,29 @@ describe("Your home — a write lands on the home it was started for", () => {
     setDocs({ care_facts: { has_smoke_alarms: true }, dismissed_care: [] }, { care_facts: { has_smoke_alarms: true }, dismissed_care: [] })
     const landA = holdNext(svc.dismissLibrarySuggestion)
     const { rerender } = render(page())
-    fireEvent.click(await screen.findByRole("button", { name: "Don't add Test smoke and CO alarms" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Don't add Test the smoke alarms" }))
 
     switchTo("home-b", rerender)
-    expect(await screen.findByRole("button", { name: "Don't add Test smoke and CO alarms" })).toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "Don't add Test the smoke alarms" })).toBeInTheDocument()
     await act(async () => { landA() })
 
     expect(svc.dismissLibrarySuggestion).toHaveBeenCalledWith("home-a", null, "home.alarm_test")
-    expect(screen.getByText("Test smoke and CO alarms")).toBeInTheDocument()
+    expect(screen.getByText("Test the smoke alarms")).toBeInTheDocument()
   })
 
   it("a library Add on A, answered after the switch, does not reload B", async () => {
     setDocs({ care_facts: { has_smoke_alarms: true }, dismissed_care: [] }, { care_facts: { has_smoke_alarms: true }, dismissed_care: [] })
     const landA = holdNext(svc.addLibraryTask)
     const { rerender } = render(page())
-    fireEvent.click(await screen.findByRole("button", { name: "Add Test smoke and CO alarms" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Add Test the smoke alarms" }))
 
     switchTo("home-b", rerender)
-    expect(await screen.findByRole("button", { name: "Add Test smoke and CO alarms" })).toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "Add Test the smoke alarms" })).toBeInTheDocument()
     await act(async () => { landA() })
 
     expect(svc.addLibraryTask).toHaveBeenCalledWith("home-a", null, expect.objectContaining({ key: "home.alarm_test" }))
     expect(screen.queryByText(/Loading your answers/)).toBeNull()
     expect(rereadsOf("home-b")).toBe(0)
-    expect(screen.getByText("Test smoke and CO alarms")).toBeInTheDocument()
+    expect(screen.getByText("Test the smoke alarms")).toBeInTheDocument()
   })
 })

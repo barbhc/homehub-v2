@@ -38,6 +38,16 @@ vi.mock("@/components/dashboard/WhatsNewBanner", () => ({ WhatsNewBanner: () => 
 vi.mock("@/components/dashboard/PushOptInNudge", () => ({ PushOptInNudge: () => <div data-testid="push-nudge" /> }))
 vi.mock("@/components/dashboard/ProfileCompletionBanner", () => ({ ProfileCompletionBanner: () => <div data-testid="profile-banner" /> }))
 vi.mock("@/components/home/HomeSwitcherSheet", () => ({ HomeSwitcherSheet: () => null }))
+// The card's own states are WhatsInYourHomeCard.test.tsx's; here, only whether Home places it and honours its pin.
+vi.mock("@/components/home/WhatsInYourHomeCard", () => ({
+  WhatsInYourHomeCard: ({ onEngaged, onFinished }: { onEngaged: () => void; onFinished: () => void }) => (
+    <div data-testid="empty-home-card">
+      <button type="button" onClick={onEngaged}>stub: engaged</button>
+      <button type="button" onClick={onFinished}>stub: finished</button>
+    </div>
+  ),
+}))
+
 vi.mock("@/components/home/tasks/shared", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   useTaskDetail: () => ({ detail: null, loading: false, error: null }),
@@ -90,7 +100,7 @@ describe("Home — the home's name under the greeting", () => {
     dash.upcoming = []
     homesState.homes = [mine("h1", "Dallas house")]
     renderHome()
-    expect(screen.getByText("Let's set up your home")).toBeInTheDocument()
+    expect(screen.getByTestId("empty-home-card")).toBeInTheDocument()
     expect(screen.queryByText("Dallas house")).toBeNull()
   })
 })

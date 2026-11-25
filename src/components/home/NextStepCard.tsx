@@ -14,41 +14,24 @@
  * under their thumb. The parent keys this by home id.
  */
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import useSWR from "swr"
 import { CameraIcon, CheckIcon, Loader2Icon } from "lucide-react"
-import { getItemUnits, createItemUnit } from "@/modules/items"
-import { getTaskTemplates, addLibraryTask, dismissLibrarySuggestion } from "@/modules/care"
-import { getHomeProfile, upsertHomeProfile, getRooms } from "@/modules/home"
+import { addLibraryTask, dismissLibrarySuggestion } from "@/modules/care"
+import { upsertHomeProfile } from "@/modules/home"
 import { InlineError } from "@/components/layout/LoadStates"
 import { track } from "@/lib/analytics"
 import { localToday } from "../../../shared/dates/calendar"
 import { firstDueDates } from "../../../shared/care/firstList"
-import type { AreaGate, CareEntry, CareFacts } from "../../../shared/care/library"
-import { appliancesToOffer, applianceCare, nextQuestion, type Appliance, type CareRow, type HomeContext } from "../../../shared/care/dayOne"
+import type { CareEntry, CareFacts } from "../../../shared/care/library"
+import { appliancesToOffer, applianceCare, exactModelsTarget, nextQuestion, type Appliance, type CareRow } from "../../../shared/care/dayOne"
+import { createApplianceItem, dayOneKey, dismissKey, fetchDayOne, readLocal, writeLocal, type DayOneData } from "./dayOneData"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", LINE = "var(--hh-line2)", SURFACE = "var(--hh-surface)"
 
 // ── per-device conveniences (design doc: never state that must persist) ──────
 
-const dismissKey = (homeId: string) => `hh.dayOne.appliancesDismissed.${homeId}`
 const skipKey = (homeId: string) => `hh.dayOne.skipped.${homeId}`
-function readLocal(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key)
-  } catch {
-    // Blocked storage (private mode, previews): behave as if nothing was stored.
-    return null
-  }
-}
-function writeLocal(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value)
-  } catch (e) {
-    // Only a convenience is lost: the card may show again on this device.
-    console.warn(`[day-one] could not remember ${key}:`, e instanceof Error ? e.message : e)
-  }
-}
 const readSkipped = (homeId: string): string[] => {
   const raw = readLocal(skipKey(homeId))
   if (!raw) return []
@@ -58,31 +41,6 @@ const readSkipped = (homeId: string): string[] => {
   } catch {
     // A corrupt value is the same as none.
     return []
-  }
-}
-
-// ── data ────────────────────────────────────────────────────────────────────
-
-interface DayOneData {
-  items: { display_name: string | null; category: string | null; brand: string | null; model: string | null }[]
-  facts: CareFacts
-  ctx: HomeContext
-}
-
-async function fetchDayOne(homeId: string): Promise<DayOneData> {
-  const [items, templates, profile] = await Promise.all([
-    getItemUnits(homeId, { statusFilter: ["active", "stored"] }),
-    getTaskTemplates(homeId),
-    getHomeProfile(homeId),
-  ])
-  const failed = items.error ?? templates.error ?? profile.error
-  if (failed || !items.data || !templates.data) throw new Error(failed?.message ?? "Could not load your home")
-  const p = profile.data
-  const area: AreaGate[] = [...(p?.area?.hazards ?? []), ...(p?.freeze_risk === false ? [] : (["freeze"] as const))]
-  return {
-    items: items.data,
-    facts: p?.care_facts ?? {},
-    ctx: { existingTitles: templates.data.map((t) => t.title), dismissed: p?.dismissed_care ?? [], area },
   }
 }
 
@@ -110,7 +68,7 @@ export function NextStepCard({ homeId, totalItems, onChanged }: {
   /** A write landed: Home re-reads its list. */
   onChanged: () => void
 }) {
-  const { data, error, mutate } = useSWR(`day-one:${homeId}`, () => fetchDayOne(homeId), { revalidateOnFocus: false })
+  const { data, error, mutate } = useSWR(dayOneKey(homeId), () => fetchDayOne(homeId), { revalidateOnFocus: false })
   const [dismissed, setDismissed] = useState(() => readLocal(dismissKey(homeId)) === "1")
   const [skipped, setSkipped] = useState(() => readSkipped(homeId))
   // Once the person has tapped a chip, the appliances card stays for this
@@ -184,10 +142,14 @@ function AppliancesCard({ homeId, data, onAdded, onEngaged, onDismiss }: {
   onEngaged: () => void
   onDismiss: () => void
 }) {
+  const navigate = useNavigate()
   const [showMore, setShowMore] = useState(false)
   const [selected, setSelected] = useState<Appliance | null>(null)
   /** Kinds added in this visit: their chips stay, checked. */
   const [added, setAdded] = useState<Appliance[]>([])
+  /** The items made in this visit, so Add My Exact Models opens the one she
+   *  just added instead of starting a second (before-friends B4, Codex). */
+  const [createdIds, setCreatedIds] = useState<string[]>([])
   const [confirm, setConfirm] = useState<string | null>(null)
 
   const offers = appliancesToOffer(data.items)
@@ -240,8 +202,9 @@ function AppliancesCard({ homeId, data, onAdded, onEngaged, onDismiss }: {
           rows={applianceCare(selected, data.ctx)}
           facts={data.facts}
           onCancel={() => setSelected(null)}
-          onDone={async (taskCount) => {
+          onDone={async (taskCount, itemId) => {
             setAdded((xs) => [...xs, selected])
+            setCreatedIds((ids) => (ids.includes(itemId) ? ids : [...ids, itemId]))
             setSelected(null)
             setConfirm(`Added your ${selected.label.toLowerCase()}${taskCount ? ` with ${taskCount} ${taskCount === 1 ? "task" : "tasks"}` : ""}.`)
             await onAdded()
@@ -251,11 +214,20 @@ function AppliancesCard({ homeId, data, onAdded, onEngaged, onDismiss }: {
 
       {confirm && <p role="status" className="mt-3 text-[0.875rem] font-medium" style={{ color: TEAL }}>{confirm}</p>}
 
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <Link to="/inventory/add" className="hit-44 inline-flex min-h-11 items-center gap-1.5 text-[0.875rem] font-semibold" style={{ color: TEAL }}>
-          <CameraIcon className="size-4" aria-hidden />
-          Snap a label instead
-        </Link>
+      {/* D5: this card keeps its design; only its footer matches the empty-Home
+          card's Option A. The target is computed on the tap. */}
+      <button
+        type="button"
+        onClick={() => navigate(exactModelsTarget(createdIds, selected ? [selected.kind] : []))}
+        className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full border px-5 text-[0.9375rem] font-bold"
+        style={{ background: SURFACE, borderColor: TEAL, color: TEAL }}
+      >
+        Add My Exact Models
+      </button>
+      <p className="mt-1.5 text-center text-[0.8125rem] leading-snug" style={{ color: SUB }}>
+        Brand and model, or the manual, gets you the maker's schedule.
+      </p>
+      <div className="mt-1 flex justify-center">
         <button type="button" onClick={onDismiss} className="hit-44 min-h-11 px-1 text-[0.875rem] font-semibold" style={{ color: SUB }}>
           {added.length > 0 ? "Done" : "Not now"}
         </button>
@@ -270,7 +242,8 @@ function AppliancePanel({ homeId, appliance, rows, facts, onCancel, onDone }: {
   rows: CareRow[]
   facts: CareFacts
   onCancel: () => void
-  onDone: (taskCount: number) => Promise<void>
+  /** Every checked task is in: how many, and the item they are on. */
+  onDone: (taskCount: number, itemId: string) => Promise<void>
 }) {
   const [checked, setChecked] = useState(() => new Set(rows.filter((r) => r.checked).map((r) => r.entry.key)))
   const [saving, setSaving] = useState(false)
@@ -290,9 +263,7 @@ function AppliancePanel({ homeId, appliance, rows, facts, onCancel, onDone }: {
     setError(null)
     let id = itemId
     if (!id) {
-      const rooms = appliance.room ? await getRooms(homeId) : null
-      const roomId = rooms?.data?.find((r) => r.name === appliance.room)?.room_id ?? null
-      const created = await createItemUnit({ home_id: homeId, display_name: appliance.label, category: appliance.kind, item_category: appliance.itemCategory, room_id: roomId })
+      const created = await createApplianceItem(homeId, appliance)
       if (created.error || !created.data) {
         setSaving(false)
         setError(created.error?.message ?? `Couldn't add your ${name}.`)
@@ -315,7 +286,7 @@ function AppliancePanel({ homeId, appliance, rows, facts, onCancel, onDone }: {
       return
     }
     track("home_kind_added", { kind: appliance.kind, tasks: done.size + res.added.length })
-    await onDone(done.size + res.added.length)
+    await onDone(done.size + res.added.length, id)
   }
 
   return (

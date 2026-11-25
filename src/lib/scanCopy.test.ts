@@ -171,8 +171,9 @@ describe("no user-facing parse/analyse vocabulary anywhere in src", () => {
     const seen = jsxText(`const A = () => <div className="x">Parse manuals<b>{n} left</b></div>`, "probe.tsx")
     expect(seen).toEqual(["Parse manuals", "left"])
     expect(seen.some((s) => BANNED.test(s))).toBe(true)
-    // And the real first-run hero is in the walk.
-    const home = jsxText(readFileSync(resolve(SRC, "pages/Home.tsx"), "utf8"), "Home.tsx")
-    expect(home).toContain("Add your first item")
+    // And the real first-run card is in the walk (before-friends mock 1 replaced
+    // "Let's set up your home" with it).
+    const card = jsxText(readFileSync(resolve(SRC, "components/home/WhatsInYourHomeCard.tsx"), "utf8"), "WhatsInYourHomeCard.tsx")
+    expect(card).toContain("What's in your home?")
   })
 })

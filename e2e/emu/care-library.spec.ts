@@ -79,9 +79,12 @@ test.describe("emulator e2e — care library", () => {
 
     await page.getByRole("button", { name: /^Safety/ }).click()
     await expect(page.getByRole("heading", { name: "Safety" })).toBeVisible()
+    // Safety's questions: smoke, carbon monoxide (CO) (before-friends B1), extinguisher.
+    await expect(page.getByText("Carbon monoxide (CO) alarms in the home?")).toBeVisible()
     const yes = page.getByRole("radio", { name: "Yes" })
     await yes.nth(0).click()
     await yes.nth(1).click()
+    await yes.nth(2).click()
     await page.getByRole("button", { name: "Save answers" }).click()
 
     await expect(page.getByText("Answered").first()).toBeVisible({ timeout: 20_000 })
@@ -90,6 +93,9 @@ test.describe("emulator e2e — care library", () => {
     const suggestions = page.getByTestId("home-suggestions")
     await expect(suggestions).toContainText("Check the fire extinguisher")
     await expect(suggestions).toContainText("Replace alarm batteries")
+    await expect(suggestions).toContainText("Check the carbon monoxide (CO) alarm's date")
+    // The library's alarm test, by the title it would show: covered by the seed's task.
+    await expect(suggestions).not.toContainText("Test the smoke alarms")
     await expect(suggestions).not.toContainText("Test smoke and CO alarms")
 
     // Facts persist: a reload reads them back from the home, not from memory.

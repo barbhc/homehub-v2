@@ -2,11 +2,6 @@ import { useState, useCallback, useMemo, useEffect } from "react"
 import { markBoot } from "@/lib/bootTiming"
 import { Link } from "react-router-dom"
 import {
-  PlusIcon,
-  PackageIcon,
-  FileTextIcon,
-  BellRingIcon,
-  MessageCircleIcon,
   CloudOffIcon,
   HomeIcon,
   ChevronDownIcon,
@@ -24,6 +19,7 @@ import { AskFirstHero } from "@/components/dashboard/AskFirstHero"
 import { RefinedHome } from "@/components/home/RefinedHome"
 import { HomeSwitcherSheet } from "@/components/home/HomeSwitcherSheet"
 import { NextStepCard } from "@/components/home/NextStepCard"
+import { WhatsInYourHomeCard } from "@/components/home/WhatsInYourHomeCard"
 import { MonthlyRefreshCard } from "@/components/home/MonthlyRefreshCard"
 import { useReminderAsk } from "@/hooks/useReminderAsk"
 import { askStartersForHome } from "../../shared/care/dayOne"
@@ -78,70 +74,6 @@ function NoUpkeepYetHero() {
   )
 }
 
-function EmptyHomeHero() {
-  return (
-    // data-tour-halt: this screen IS the onboarding — the feature tour defers
-    // to it rather than narrating a dashboard the user cannot see yet.
-    <div data-tour-halt="" className="rounded-2xl border border-[var(--hh-line)] bg-[var(--hh-surface)] shadow-sm px-6 py-8 sm:px-10 sm:py-10 text-center">
-      <div className="max-w-md mx-auto">
-        <div className="flex justify-center mb-4">
-          <span className="inline-flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary">
-            <PackageIcon className="size-7" />
-          </span>
-        </div>
-        <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2 leading-tight">
-          Let&apos;s set up your home
-        </h2>
-        <p className="text-[0.9375rem] sm:text-base text-muted-foreground mb-6 leading-relaxed">
-          {/* HH-77: "fixture" was the least motivating thing we could name to
-              someone who has added nothing, and the old line described what we
-              PARSE rather than what they get back. Owner picked this wording. */}
-          Add one appliance and its manual.
-          Homehub reads the manual and builds the upkeep schedule for you.
-        </p>
-        <Link
-          to="/inventory/add"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[var(--hh-teal-fill)] text-primary-foreground font-semibold text-base hover:bg-[var(--hh-teal-fill)]/90 transition-colors shadow-sm"
-        >
-          <PlusIcon className="size-5" />
-          Add your first item
-        </Link>
-
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
-          <div className="flex items-start gap-2.5">
-            <FileTextIcon className="size-5 shrink-0 text-primary mt-0.5" />
-            <div>
-              {/* Never "parse" (lib/scanCopy.ts). Still "Scan" here — the app READS a manual since HH-161; docs/add-item-flow.md lists the lines left to convert. */}
-              <div className="text-sm font-semibold text-foreground">Scan manuals</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                Upload a PDF and we extract the key info.
-              </div>
-            </div>
-          </div>
-          <div className="flex items-start gap-2.5">
-            <BellRingIcon className="size-5 shrink-0 text-primary mt-0.5" />
-            <div>
-              <div className="text-sm font-semibold text-foreground">Get reminders</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                Never miss a filter change or service.
-              </div>
-            </div>
-          </div>
-          <div className="flex items-start gap-2.5">
-            <MessageCircleIcon className="size-5 shrink-0 text-primary mt-0.5" />
-            <div>
-              <div className="text-sm font-semibold text-foreground">Ask anything</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                "How do I reset the HVAC?" — we'll find it.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -156,6 +88,12 @@ export default function Home() {
   const showHomeName = !!home && (homes.length > 1 || home.created_by !== user?.id)
   const { level } = useUserLevel()
   const homeId = home?.home_id ?? ""
+  // The empty-Home card's pin (before-friends B3): her first Add makes the home
+  // non-empty, and without this a background refresh would swap the whole card
+  // for the normal Home while she still has rows to add — the same reason
+  // NextStepCard has appliancesPinned. Reset when the home changes.
+  const [setupPinned, setSetupPinned] = useState(false)
+  if (useDepsChanged([homeId]) && setupPinned) setSetupPinned(false)
 
   const {
     tasks: dashTasks,
@@ -302,6 +240,10 @@ export default function Home() {
   // gives way to the one next step, a label (design/first-minute-onboarding.md,
   // "Two things the build must change outside onboarding", 2).
   const isNewUser = noItems && (stats?.scheduledTaskCount ?? 0) === 0
+  // The set-up card's branch: a new home, or one she is part-way through
+  // filling from that card. Every JSX gate below reads this; the derived
+  // values keep reading isNewUser.
+  const showSetup = isNewUser || setupPinned
   const tasksBeforeItems = noItems && !isNewUser
   // HH-80: the state between "no items" and "a working home". The owner added
   // an item, its manual search offered her two wrong documents (HH-73), so it
@@ -351,8 +293,8 @@ export default function Home() {
         {/* What's new banner */}
         {user?.id && <WhatsNewBanner userId={user.id} />}
 
-        {/* ── New-user empty state ── */}
-        {isNewUser && (
+        {/* ── New-user empty state: "What's in your home?" (before-friends mock 1) ── */}
+        {showSetup && (
           <div className="mt-2 mb-4">
             {/* The greeting header is replaced in this branch, so the pill
                 stands in for it — under the same rule (showHomeName). Adding a
@@ -376,31 +318,41 @@ export default function Home() {
                 <ChevronDownIcon className="size-3.5 shrink-0" aria-hidden />
               </button>
             )}
-            <EmptyHomeHero />
+            {homeId && (
+              <WhatsInYourHomeCard
+                key={homeId}
+                homeId={homeId}
+                onEngaged={() => setSetupPinned(true)}
+                onFinished={() => {
+                  setSetupPinned(false)
+                  void refresh()
+                }}
+              />
+            )}
           </div>
         )}
 
         {/* The profile banner yields to the upkeep prompt. Both are asking for
             the user's next action, and answering four profile questions does
             not get them a single task — adding a manual does. */}
-        {!isNewUser && !hasItemsNoUpkeep && !tasksBeforeItems && profileIncomplete && homeId && (
+        {!showSetup && !hasItemsNoUpkeep && !tasksBeforeItems && profileIncomplete && homeId && (
           <ProfileCompletionBanner homeId={homeId} />
         )}
 
-        {hasItemsNoUpkeep && <NoUpkeepYetHero />}
+        {!showSetup && hasItemsNoUpkeep && <NoUpkeepYetHero />}
 
         {/* Push opt-in nudge: self-gates on browser support + existing
             subscription + dismissal, so it's safe to always render when the
             user has a home. Only one opt-in banner shows at a time — if the
             profile banner is still visible, skip the push nudge to avoid
             stacking. */}
-        {!isNewUser && !hasItemsNoUpkeep && !tasksBeforeItems && !profileIncomplete && user?.id && homeId && (
+        {!showSetup && !hasItemsNoUpkeep && !tasksBeforeItems && !profileIncomplete && user?.id && homeId && (
           <PushOptInNudge userId={user.id} homeId={homeId} />
         )}
 
-        {!isNewUser && askFirst && <AskFirstHero />}
+        {!showSetup && askFirst && <AskFirstHero />}
 
-        {!isNewUser && (
+        {!showSetup && (
           <>
         {/* ── Redesigned Home — RefinedHome (mobile) · DesktopHome (lg+) ── */}
         <div className="lg:hidden -mx-4">
