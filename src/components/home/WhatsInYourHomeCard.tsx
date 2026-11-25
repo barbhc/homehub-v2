@@ -235,11 +235,14 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
                   <div className="flex items-center gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-[0.9375rem] font-semibold leading-snug" style={{ color: INK }}>{e.title}</p>
+                      {/* Each part stays whole: a narrow row wraps between "Twice a year" and "5 min", never inside one. */}
                       <p className="mt-0.5 text-[0.8125rem]" style={{ color: SUB }}>
                         {e.priorityTier === "essential" && (
-                          <><span className="font-semibold" style={{ color: "var(--hh-clay)" }}>Essential</span>{" · "}</>
+                          <><span className="whitespace-nowrap font-semibold" style={{ color: "var(--hh-clay)" }}>Essential</span>{" · "}</>
                         )}
-                        {meta.join(" · ")}
+                        {meta.map((m, j) => (
+                          <span key={m}>{j > 0 && " · "}<span className="whitespace-nowrap">{m}</span></span>
+                        ))}
                       </p>
                       {e.key === "home.co_alarm_check" && (
                         <p className="mt-1 text-[0.8125rem] leading-snug" style={{ color: SUB }}>{e.why}</p>
