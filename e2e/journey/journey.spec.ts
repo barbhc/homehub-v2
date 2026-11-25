@@ -235,7 +235,9 @@ test.describe("journey walks", () => {
     const tour = page.locator(".homehub-tour-popover")
     await expect(tour).toBeVisible({ timeout: 15_000 })
     await expect(tour.locator(".driver-popover-title")).toHaveText("Welcome")
-    await snap(page, "J1", "product-tour", "First-run tour popover, step 1 of 5, titled “Welcome” and pointing at Home in the nav — says the app shows upkeep here and that phone notifications are separate",
+    await expect(tour.locator(".driver-popover-description")).toHaveText(
+      "Home is what your house needs from you: what's due now, what's coming up, and a place to ask questions.")
+    await snap(page, "J1", "product-tour", "First-run tour popover, step 1 of 5, titled “Welcome” and pointing at Home in the nav — says Home is what's due now, what's coming up, and a place to ask questions (owner's words, 2026-11-24)",
       tour, { viewportOnly: true })
     await page.keyboard.press("Escape")
     await expect(tour).toHaveCount(0)
