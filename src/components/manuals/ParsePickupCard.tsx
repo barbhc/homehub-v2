@@ -103,7 +103,11 @@ export function ParsePickupCard({
   const navigate = useNavigate()
   const notificationsBlocked = useNotificationsBlocked()
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({})
-  const [loaded, setLoaded] = useState<{ key: string; draft: PreviewResult; typical: TypicalTask[] } | null>(null)
+  const [loaded, setLoaded] = useState<{ key: string; draft: PreviewResult } | null>(null)
+  /** PR D: the item's typical (care library) tasks, read beside the draft and
+   *  keyed like it. Never waited for: the review opens on the draft alone, and
+   *  its Replace questions appear when this arrives. */
+  const [typical, setTypical] = useState<{ key: string; tasks: TypicalTask[] } | null>(null)
   const [open, setOpen] = useState<"inline" | "sheet" | null>(null)
   const [saving, setSaving] = useState(false)
   /** Runs saved here. The save's answer can beat the listener's news of it by
@@ -172,11 +176,12 @@ export function ParsePickupCard({
   useEffect(() => {
     if (!pickupId || !draftKey || !runKey) return
     let cancelled = false
-    // PR D: the typical (care library) tasks already on this item, read beside
-    // the draft so the review opens with its Replace / Keep Both questions in
-    // place. Optional by nature: if this read fails the review still opens and
-    // still saves — it just asks nothing, and the server behaves as before.
-    const typicalRead: Promise<TypicalTask[]> = withTimeout(
+    // PR D: the typical (care library) tasks already on this item. Optional by
+    // nature and never waited for: if this read is slow or fails, the review
+    // still opens and saves — it just asks nothing, and the server behaves as
+    // before. (Blocking the draft on it held the review back for the whole
+    // timeout wherever Firestore did not answer — CI caught it.)
+    void withTimeout(
       getTaskTemplatesByItem(homeId, itemUnitId), LOAD_TIMEOUT_MS, "Reading the item's tasks timed out.",
     ).then(
       (res) => {
@@ -193,11 +198,10 @@ export function ParsePickupCard({
         console.warn(`[pickup] could not read the tasks of item ${itemUnitId} (home ${homeId}); the review will not offer Replace:`, e instanceof Error ? e.message : e)
         return []
       },
-    )
+    ).then((tasks) => { if (!cancelled) setTypical({ key: draftKey, tasks }) })
     // Timed: a read that never answers is a failed read, with its Try again.
     withTimeout(readPreviewDraft(homeId, pickupId), LOAD_TIMEOUT_MS, "Reading the draft timed out.").then(
-      async (d) => {
-        const typical = await typicalRead
+      (d) => {
         if (cancelled) return
         if (!d) {
           // The manual says a review is waiting and has no draft: usually it
@@ -206,7 +210,7 @@ export function ParsePickupCard({
           return
         }
         setUnread(null)
-        setLoaded({ key: draftKey, draft: d, typical })
+        setLoaded({ key: draftKey, draft: d })
         loadedRef.current = { manualId: pickupId, runKey }
         openIfDue(pickupId, runKey)
       },
@@ -222,7 +226,7 @@ export function ParsePickupCard({
   }, [homeId, itemUnitId, pickupId, draftKey, runKey, openIfDue, attempt])
 
   const draft = loaded && loaded.key === draftKey ? loaded.draft : null
-  const typicalTasks = loaded && loaded.key === draftKey ? loaded.typical : undefined
+  const typicalTasks = typical && typical.key === draftKey ? typical.tasks : undefined
   // A failed read is always said. "No draft" is said only when someone asked
   // for this review — otherwise it is the quiet moment after a save elsewhere,
   // and the card is about to go anyway.

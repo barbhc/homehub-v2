@@ -103,3 +103,16 @@ describe("the review is handed the item's typical tasks (PR D)", () => {
     expect(svc.commitReviewedDraft.mock.calls[0][5]).toEqual([])
   })
 })
+
+describe("the typical-task read never holds the review back (CI, PR D)", () => {
+  it("a read that never answers: the review opens at once, asks nothing, and saves", async () => {
+    svc.getTaskTemplatesByItem.mockReturnValue(new Promise(() => {}))
+    view("m-hang")
+    // findBy's 1s default: well inside LOAD_TIMEOUT_MS, so this fails if the
+    // review waits for the item's tasks.
+    fireEvent.click(await screen.findByRole("button", { name: "Save it" }))
+    expect(screen.queryAllByTestId("typical-replace")).toHaveLength(0)
+    await waitFor(() => expect(svc.commitReviewedDraft).toHaveBeenCalledTimes(1))
+    expect(svc.commitReviewedDraft.mock.calls[0][5]).toEqual([])
+  })
+})
